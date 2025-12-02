@@ -73,7 +73,7 @@ graph TD
 |----------|------------|
 | **Language** | Python 3.12 |
 | **Backend** | FastAPI, Pydantic V2 |
-| **AI / LLM** | LangChain, LangGraph, OpenAI (GPT-4o) |
+| **AI / LLM** | LangChain, LangGraph, OpenAI (GPT-5-mini) |
 | **Vector DB** | FAISS (Local), ChromaDB |
 | **Deployment** | AWS EC2, Docker Compose |
 | **Tools** | Git, Poetry |
