@@ -8,64 +8,97 @@
 
 > **"더 이상 감으로 견적 내지 마세요."**
 >
-> **Freelance-Ops-Agent**는 내 프리랜서 개발 경험을 데이터화하고, 새로운 의뢰가 들어왔을 때 **구현 가능성과 적정 견적**을 분석해주는 AI 에이전트입니다.
+> **Freelance-Ops-Agent**는 과거 프리랜서 경험과 Human-in-the-loop 피드백을 바탕으로 **구현 가능성, 적정 견적, 제작 기간**을 함께 산출하는 개인화된 견적 파트너입니다.
 
 ---
 
 ## 📖 Introduction
 
 프리랜서 개발자로 일하면서 가장 골치 아픈 순간은 코딩할 때가 아니었습니다.
-바로 **"이거 얼마에 해주실 수 있나요?"** 라는 질문을 받았을 때입니다.
+바로 **"이거 얼마에, 며칠 안에 가능하세요?"** 라는 질문을 받았을 때입니다. 
 
 *"너무 비싸게 부르면 도망갈 것 같고, 싸게 부르면 내 손해인데..."*
 
-이 고민을 끝내기 위해 **Freelance-Ops-Agent**를 만들었습니다. 이 프로젝트는 제가 지난 수백 건의 프로젝트를 진행하며 쌓은 데이터를 RAG(검색 증강 생성)로 학습시켰습니다. 클라이언트가 던져준 모호한 요구사항 텍스트를 넣으면, AI가 **"과거엔 이 정도 난이도를 얼마에 했는지"** 찾아내고, 기술적 제약 사항을 검토해 줍니다.
+이 고민을 끝내기 위해 **Freelance-Ops-Agent**를 만들었습니다. 이 프로젝트는 클라이언트가 던져준 모호한 요구사항 텍스트를 넣으면, AI가 과거 프로젝트 데이터를 RAG로 검색하고, LangGraph 기반 워크플로우와 가중치 프로필을 이용해 **가격·기간·리스크·질문사항**을 동시에 검토해 줍니다.
 
-단순한 유틸리티를 넘어, 프로젝트를 완수할 때마다 **XP(경험치)**를 쌓는 게임 요소를 넣어 개발자로서의 성장을 기록할 수 있게 설계했습니다.
+이 에이전트는 사용자의 피드백으로 **본인의 견적 스타일을 학습**합니다.  
+견적을 수정할 때마다 risk_buffer, hourly_rate 등의 파라미터가 자동 보정되어, 사용할수록 **내 감각에 맞는 개인화된 견적 에이전트**로 진화합니다.
 
 ## ✨ Key Features
 
 ### 1. 📄 Smart Spec Analysis (명세서 자동 분석)
-- 클라이언트가 준 정리되지 않은 파일(`md`, `txt`)을 던져주면, LLM이 핵심 기능만 뽑아내 **깔끔한 기술 명세(JSON)**로 바꿔줍니다.
-- 요구사항이 너무 모호하면, 역으로 클라이언트에게 물어봐야 할 질문 리스트를 뽑아줍니다.
+
+- `md`, `txt` 등 클라이언트가 준 정리되지 않은 요구사항을 LLM으로 파싱해 **기능 단위 JSON 스펙**으로 구조화합니다.
+- 요구사항이 모호하면 클라이언트에게 되물어야 할 **질문 리스트**를 생성해, 사전 커뮤니케이션 비용을 줄여 줍니다.
 
 ### 2. 💰 Data-Driven Pricing (데이터 기반 견적)
-- **RAG Engine:** "이 기능, 예전에 해봤나?" 제 과거 프로젝트 DB(100+건)를 뒤져서 가장 비슷한 사례를 찾아냅니다.
-- **Dual Pricing:** 현재 시장 평균 단가와 실제 작업 난이도를 고려한 '권장 견적'을 동시에 제안합니다.
-  - *Output 예시: "시장가는 50만원 선이지만, DB 이중화 작업이 포함되어 있어 80만원이 적정합니다."*
 
-### 3. 🛡️ Technical Feasibility Check (기술 검토)
-- `LangGraph` 에이전트가 `discord.py`, `playwright` 등 주요 라이브러리 문서를 참조해 기술적 제약을 체크합니다.
-- 디스코드 정책 위반이나 기술적으로 불가능한 요구사항(예: 어뷰징 봇)이 있다면 사전에 경고합니다.
+- **RAG Engine**: "이 기능, 예전에 해봤나?" 제 과거 프로젝트 DB(100+건)를 뒤져서 가장 비슷한 사례를 찾아냅니다.
+- **Dual Pricing**: 현재 시장 평균 단가와 실제 작업 난이도를 고려한 '권장 견적'을 동시에 제안합니다.
+- **Output 예시**: "시장가는 50만원 선이지만, DB 이중화 작업이 포함되어 있어 80만원이 적정합니다."
 
-### 4. 🎮 Gamified Growth System (성장 시스템)
-- 프로젝트가 끝나면 AI가 회고(Retrospective)를 진행합니다.
-- 수익과 난이도에 따라 **XP**와 **스탯**이 오르는 RPG 맛을 더했습니다.
-  - *Effect: `Python Lv.3 -> Lv.4`, `Negotiation +5`*
+### 3. ⏱️ Duration Estimation (제작 기간 산출)
 
----
+- 각 기능에 대해 **complexity_points(Story Point)** 를 계산하고, 이를 기반으로 한 **LLM 추론 기간**을 산출합니다.
+- 동시에 RAG로 과거 유사 프로젝트들의 **실제 소요 기간 평균**을 가져와, 두 값을 가중 평균하여 최종 기간을 계산합니다.
+
+| 요소 | 설명 |
+|------|------|
+| LLM 추론 기간 | 스펙 난이도 기반 이론상 작업 일수 추정 |
+| RAG 기간 | 유사 프로젝트들의 실제 평균 기간 |
+| 최종 기간 | 두 값을 비율로 혼합한 하이브리드 기간 추정 |
+
+***
+
+## 🧠 RLHF-Lite Personalization
+
+### 4. 🎛️ User Preference Profile (가중치 프로필)
+
+- 에이전트는 `user_profile.json`에 저장된 **선호 가중치**를 참조해 견적을 냅니다.  
+- 예시 필드:  
+  - `market_price_weight`: 시장가 반영 비율  
+  - `my_history_weight`: 내 과거 데이터(내 스타일) 비중  
+  - `risk_buffer`: 리스크 여유분(기본 청구 배수)  
+  - `hourly_rate`: 기준 시급  
+
+이 구조는 전통적인 RLHF처럼 거대한 파이프라인을 돌리지 않고, **프롬프트/파라미터 레벨의 Preference Tuning**으로 빠르게 정렬하는 실용적인 방식입니다.
+
+### 5. 🔁 Human-in-the-loop Feedback Loop
+
+- LangGraph의 **interrupt / Human-in-the-loop 패턴**을 이용해, 견적 결과를 사용자에게 먼저 보여주고 **수정·승인·거절**을 받습니다.
+- 사용자가 “이건 최소 1.4배는 더 받아야 한다”처럼 수정하면, 에이전트는 `risk_buffer`·`hourly_rate` 등을 조금씩 조정해 다음 견적에 반영합니다.
+- 최종 확정된 견적서는 다시 Vector DB에 저장되어, 이후 RAG 검색 시 **정답 데이터** 로 활용됩니다.
+
+***
 
 ## 🏗️ System Architecture
 
-사용자가 명세서를 업로드하면 **Router**가 의도를 파악하고, **Pricing Engine**(견적 산출)과 **Feasibility Agent**(기술 검토)가 병렬로 돌아가는 구조입니다.
+사용자가 명세서를 업로드하면, **Spec Parser → RAG Retriever → Estimator → Human Review** 순으로 흐르는 LangGraph 기반 파이프라인이 실행됩니다.
 
 ```mermaid
 graph TD
-    User[User / Client Input] -->|Upload Spec.md| Parser(LLM Parser)
-    Parser -->|Structured JSON| Router{Agent Router}
-    
-    Router -->|Check Policy| Guard[Safety Guardrail]
+    User[User / Client Input] -->|Upload Spec.md| SpecParser(LLM Spec Parser)
+    SpecParser -->|ProjectEstimate JSON| Router{Agent Router}
+
     Router -->|Search History| RAG[(Vector DB / FAISS)]
-    
-    RAG --> Analysis(Analysis Node)
-    Guard --> Analysis
-    
-    Analysis -->|Calc Cost| Pricing[Pricing Engine]
-    Analysis -->|Check Tech| Tech[Feasibility Check]
-    
-    Pricing & Tech --> Final[Final Report Generation]
-    Final -->|Feedback & XP| Dashboard[Admin Dashboard]
+    Router -->|Load Profile| Profile[user_profile.json]
+
+    RAG --> Estimator[Estimator<br/>(Price & Duration)]
+    Profile --> Estimator
+
+    Estimator --> HumanReview{Human Review<br/>(LangGraph HIL)}
+    HumanReview -->|Accept| Store[Store Final Estimate<br/>(Vector DB)]
+    HumanReview -->|Edit| UpdateProfile[Update user_profile.json]
+
+    Store --> Dashboard[Admin Dashboard / XP System]
+    UpdateProfile --> Store
 ```
+
+- **SpecParser**: 자연어 요구사항을 `price`, `duration_days`, `complexity_points`가 포함된 스키마로 변환합니다.
+- **Estimator**: RAG에서 가져온 과거 Cost/Duration과 `user_profile.json`의 가중치를 이용해 가격·기간을 계산합니다.
+- **HumanReview**: LangGraph interrupt를 사용해 사람이 결과를 수정하고, 수정 비율에 따라 프로필 파라미터를 업데이트합니다.
+
+***
 
 ## 🛠️ Tech Stack
 
@@ -73,64 +106,44 @@ graph TD
 |----------|------------|
 | **Language** | Python 3.12 |
 | **Backend** | FastAPI, Pydantic V2 |
-| **AI / LLM** | LangChain, LangGraph, OpenAI (GPT-5-mini) |
+| **AI / LLM** | LangChain, LangGraph, OpenAI (예: GPT 계열) |
 | **Vector DB** | FAISS (Local), ChromaDB |
 | **Deployment** | AWS EC2, Docker Compose |
 | **Tools** | Git, Poetry |
 
----
+***
 
 ## 🚀 Getting Started
 
-로컬 환경이나 Docker를 통해 바로 실행해 볼 수 있습니다.
+설치·실행 방법은 기존 README 구조를 유지하면서, 아래와 같이 보완하면 됩니다.
 
-### Prerequisites
-- Python 3.12+
-- Docker & Docker Compose
-- OpenAI API Key
+1. **Clone Repository**
+2. **환경 변수 설정**: OpenAI API Key 등
+3. **Docker 실행 또는 로컬 실행**
+4. `data/raw_specs`, `data/vector_store`, `user_profile.json` 초기화
 
-### Installation
+***
 
-1. **Repository Clone**
-   ```bash
-   git clone [https://github.com/your-username/Freelance-Ops-Agent.git](https://github.com/your-username/Freelance-Ops-Agent.git)
-   cd Freelance-Ops-Agent
-   ```
+## 📂 Project Structure
 
-2. Environment Setup .env 파일을 생성하고 API Key를 입력하세요.
-  ```bash
-  OPENAI_API_KEY=sk-proj-...
-  TAVILY_API_KEY=tvly-...
-  ```
+```bash
+Freelance-Ops-Agent/
+├── data/
+│   ├── raw_specs/        # 요구사항 명세서 원본 (.md, .txt)
+│   └── vector_store/     # FAISS / Chroma Vector Index
+├── src/
+│   ├── agent/            # LangGraph Nodes & Edges (SpecParser, Estimator, HumanReview 등)
+│   ├── backend/          # FastAPI Server
+│   ├── core/             # RAG & LLM Logic, Pricing/Duration Formula
+│   └── utils/            # Parsers & Helpers
+├── user_profile.json     # User Preference Profile (RLHF-Lite 가중치)
+├── tests/                # Unit Tests
+├── docker-compose.yml
+└── README.md
+```
 
-3. Run with Docker (Recommended)
-   ```bash
-   docker-compose up --build
-   ```
-
-4. Run Locally
-   ```bash
-   poetry install
-   poetry run uvicorn src.backend.main:app --reload
-   ```
-
-# 📂 Project Structure
-  ```bash
-  Freelance-Ops-Agent/
-  ├── data/
-  │   ├── raw_specs/       # 요구사항 명세서 원본 (.md)
-  │   └── vector_store/    # FAISS Vector Index
-  ├── src/
-  │   ├── agent/           # LangGraph Nodes & Edges
-  │   ├── backend/         # FastAPI Server
-  │   ├── core/            # RAG & LLM Logic
-  │   └── utils/           # Parsers & Helpers
-  ├── tests/               # Unit Tests
-  ├── docker-compose.yml
-  └── README.md
-  ```
+***
 
 ## 📜 License
 
 This project is licensed under the [MIT License](LICENSE).
-

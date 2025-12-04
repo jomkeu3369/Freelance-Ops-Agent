@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "freelance-ops-agent"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.123.5"
+uvicorn = {extras = ["standard"], version = "^0.38.0"}
+langchain = "^1.1.0"
+langgraph = "^1.0.4"
+langchain-openai = "^1.1.0"
+pydantic = "^2.12.5"
+rich = "^14.2.0"
+ipython = "^9.7.0"
+sse-starlette = "^3.0.3"
+langchain-teddynote = "^0.5.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
