@@ -133,6 +133,25 @@ graph TD
 * **Issue:** "어렵다"는 기준이 주관적임.
 * **Solution:** 기능 명세(Spec) 단계에서 `Story Point(1~5)`를 산출하도록 프롬프트를 조정하고, `(Total Points / Daily Velocity)` 공식을 도입해 제작 기간을 객관화했습니다.
 
+***
+
+## 🔒 Security & Privacy Strategy
+
+본 프로젝트는 실제 클라이언트의 민감 정보와 영업 기밀을 다루므로, **Enterprise급 보안 가이드라인**을 준수하여 설계되었습니다.
+
+### 1. Data Isolation (데이터 격리)
+- **Zero-Trust Repository:** 클라이언트의 요구사항 원본(`raw_specs`)과 영업 노하우가 담긴 Vector DB(`vector_store`)는 `.gitignore`를 통해 엄격히 관리되며, 리포지토리에는 포함되지 않습니다.
+- **Environment Management:** API Key 등 모든 자격 증명(Credential)은 `.env` 파일로 분리하여 관리하며, 컨테이너 실행 시 환경 변수로 주입됩니다.
+
+### 2. PII (Personally Identifiable Information) Masking
+- RAG 파이프라인 투입 전, `SpecParser` 단계에서 클라이언트의 **실명, 전화번호, 이메일** 등 개인식별정보를 자동으로 탐지하여 마스킹(`***`) 처리합니다.
+- 이를 통해 Vector DB 내에 민감 정보가 영구 저장되는 것을 원천 차단했습니다.
+
+### 3. LLM Data Privacy
+- **No-Training Policy:** OpenAI API의 [Enterprise Privacy Policy](https://openai.com/enterprise-privacy)를 준수합니다. API를 통해 전송된 데이터는 모델 학습에 사용되지 않음을 확인하고 적용했습니다.
+
+***
+
 ## 🛠️ Tech Stack
 
 | Category | Technology |

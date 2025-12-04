@@ -1,7 +1,17 @@
+# env File
+
 .env
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
+
+# Data Security
+data/raw_specs/*
+data/vector_store/*
+user_profile.json
+*.pdf
+
+
+# Other Files
 tests/
-r.md
