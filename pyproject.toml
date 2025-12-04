@@ -19,6 +19,9 @@ sse-starlette = "^3.0.3"
 langchain-teddynote = "^0.5.4"
 
 
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^7.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

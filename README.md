@@ -24,6 +24,13 @@
 이 에이전트는 사용자의 피드백으로 **본인의 견적 스타일을 학습**합니다.  
 견적을 수정할 때마다 risk_buffer, hourly_rate 등의 파라미터가 자동 보정되어, 사용할수록 **내 감각에 맞는 개인화된 견적 에이전트**로 진화합니다.
 
+### ⚡ Before & After Example
+클라이언트가 "대충 메이플 쌀먹 봇 만들어주세요, 3일 안에요"라고 했을 때:
+
+| Input (Raw Requirement) | Output (Agent Report) |
+|-------------------------|-----------------------|
+| "메이플 메소 파밍 팀 관리하고 싶음. <br> 랭킹도 나오고 24시간 돌아가게... <br> 예산 5만원 생각 중." | **[분석 결과]** <br> • **난이도:** High (DB, 24h 호스팅) <br> • **시장가:** 50,000원 <br> • **권장 견적:** **150,000원** (Risk Factor 3.0 적용) <br> • **기간:** 최소 5일 (Testing 포함) <br> • **Risk:** 24시간 가동 시 서버 비용 추가 청구 필요 |
+
 ## ✨ Key Features
 
 ### 1. 📄 Smart Spec Analysis (명세서 자동 분석)
@@ -69,6 +76,20 @@
 - 사용자가 “이건 최소 1.4배는 더 받아야 한다”처럼 수정하면, 에이전트는 `risk_buffer`·`hourly_rate` 등을 조금씩 조정해 다음 견적에 반영합니다.
 - 최종 확정된 견적서는 다시 Vector DB에 저장되어, 이후 RAG 검색 시 **정답 데이터** 로 활용됩니다.
 
+#### 🧮 How Weights Update (Logic)
+사용자가 AI의 견적(50만원)을 거절하고 `70만원`으로 수정하면, 에이전트는 다음과 같이 오차(Gap)를 역전파하여 프로필을 업데이트합니다.
+
+$$NewWeight = OldWeight \times (1 + \alpha \times \frac{ActualPrice - AIPrice}{AIPrice})$$
+
+```python
+def update_profile(ai_price, user_price, profile):
+    gap_ratio = (user_price - ai_price) / ai_price  # e.g., +0.4 (40% Gap)
+    learning_rate = 0.1
+    
+    profile['risk_buffer'] *= (1 + gap_ratio * learning_rate)
+    return profile
+```
+
 ***
 
 ## 🏗️ System Architecture
@@ -77,20 +98,20 @@
 
 ```mermaid
 graph TD
-    User[User / Client Input] -->|Upload Spec.md| Parser(LLM Parser)
-    Parser -->|Structured JSON| Router{Agent Router}
+    Start((Start)) --> Parser[LLM Spec Parser]
+    Parser --> RAG[RAG Retriever]
+    RAG --> Estimator[Pricing Engine]
     
-    Router -->|Check Policy| Guard[Safety Guardrail]
-    Router -->|Search History| RAG[(Vector DB / FAISS)]
+    Estimator --> HumanReview{Human Review}
     
-    RAG --> Analysis(Analysis Node)
-    Guard --> Analysis
+    HumanReview -- "Approve" --> SaveDB[(Save to VectorDB)]
+    SaveDB --> End((End))
     
-    Analysis -->|Calc Cost| Pricing[Pricing Engine]
-    Analysis -->|Check Tech| Tech[Feasibility Check]
+    HumanReview -- "Reject/Edit" --> Tuner[Weight Tuner]
+    Tuner -->|Update Profile| Estimator
     
-    Pricing & Tech --> Final[Final Report Generation]
-    Final -->|Feedback & XP| Dashboard[Admin Dashboard]
+    style HumanReview fill:#f9f,stroke:#333,stroke-width:2px
+    style Tuner fill:#bbf,stroke:#333,stroke-width:2px
 ```
 
 - **SpecParser**: 자연어 요구사항을 `price`, `duration_days`, `complexity_points`가 포함된 스키마로 변환합니다.
@@ -98,6 +119,15 @@ graph TD
 - **HumanReview**: LangGraph interrupt를 사용해 사람이 결과를 수정하고, 수정 비율에 따라 프로필 파라미터를 업데이트합니다.
 
 ***
+## 🔧 Troubleshooting & Lessons Learned
+
+**1. RAG의 할루시네이션 문제**
+* **Issue:** 과거 데이터가 부족할 때, 에이전트가 터무니없이 낮은 가격을 부르는 현상 발생.
+* **Solution:** 유사도(Similarity Score)가 0.7 미만인 경우 RAG 결과를 버리고, 시장가(Market Price) 가중치를 100%로 강제 조정하는 **Fallback Logic**을 추가하여 방어했습니다.
+
+**2. 모호한 난이도의 정량화**
+* **Issue:** "어렵다"는 기준이 주관적임.
+* **Solution:** 기능 명세(Spec) 단계에서 `Story Point(1~5)`를 산출하도록 프롬프트를 조정하고, `(Total Points / Daily Velocity)` 공식을 도입해 제작 기간을 객관화했습니다.
 
 ## 🛠️ Tech Stack
 
@@ -142,6 +172,16 @@ Freelance-Ops-Agent/
 ```
 
 ***
+#### 📂 Profile Example (`user_profile.json`)
+에이전트가 학습해나가는 개발자의 데이터입니다.
+```json
+{
+  "developer_id": "adb123",
+  "base_hourly_rate": 25000,
+  "risk_buffer": 1.35,       // 초기 1.2에서 피드백 후 1.35로 학습됨
+  "preferred_tech_stack": ["FastAPI", "langGraph", "MySQL"],
+  "history_weight": 0.6      // 과거 경험을 60% 비중으로 반영
+}
 
 ## 📜 License
 
