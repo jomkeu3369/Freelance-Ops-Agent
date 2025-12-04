@@ -25,11 +25,11 @@
 견적을 수정할 때마다 risk_buffer, hourly_rate 등의 파라미터가 자동 보정되어, 사용할수록 **내 감각에 맞는 개인화된 견적 에이전트**로 진화합니다.
 
 ### ⚡ Before & After Example
-클라이언트가 "대충 메이플 쌀먹 봇 만들어주세요, 3일 안에요"라고 했을 때:
 
-| Input (Raw Requirement) | Output (Agent Report) |
-|-------------------------|-----------------------|
-| "메이플 메소 파밍 팀 관리하고 싶음. <br> 랭킹도 나오고 24시간 돌아가게... <br> 예산 5만원 생각 중." | **[분석 결과]** <br> • **난이도:** High (DB, 24h 호스팅) <br> • **시장가:** 50,000원 <br> • **권장 견적:** **150,000원** (Risk Factor 3.0 적용) <br> • **기간:** 최소 5일 (Testing 포함) <br> • **Risk:** 24시간 가동 시 서버 비용 추가 청구 필요 |
+| | Input (Raw Requirement) | Output (Agent Report) |
+|---|---|---|
+| **상황** | "메이플 쌀먹 봇, 3일 안에, 예산 5만원." | **[분석 리포트]** |
+| **결과** | **거절/재협상 필요** <br> (정보 부족, 터무니없는 가격) |  **최종 제안: 150,000원** <br> • **기간:** 5일 (Testing 포함) <br> • **리스크:** 24h 서버 비용 별도 <br> • **난이도:** High (DB, 호스팅) |
 
 ## ✨ Key Features
 
@@ -82,7 +82,7 @@
 $$NewWeight = OldWeight \times (1 + \alpha \times \frac{ActualPrice - AIPrice}{AIPrice})$$
 
 ```python
-def update_profile(ai_price, user_price, profile):
+def update_profile(ai_price: int, user_price: int, profile: dict):
     gap_ratio = (user_price - ai_price) / ai_price  # e.g., +0.4 (40% Gap)
     learning_rate = 0.1
     
@@ -91,7 +91,11 @@ def update_profile(ai_price, user_price, profile):
 ```
 
 ***
+### 6. 📈 Developer Growth Tracking (성장 시스템)
+- 프로젝트 완료 후 회고(Retrospective) 데이터를 기반으로 **XP(경험치)**를 부여합니다.
+- 단순 수익뿐만 아니라, **기술 스택별 숙련도(Stats)**가 시각화되어 개발자의 성장을 RPG 게임처럼 관리할 수 있습니다.
 
+***
 ## 🏗️ System Architecture
 
 사용자가 명세서를 업로드하면, **Spec Parser → RAG Retriever → Estimator → Human Review** 순으로 흐르는 LangGraph 기반 파이프라인이 실행됩니다.
