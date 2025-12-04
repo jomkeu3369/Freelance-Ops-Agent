@@ -77,21 +77,20 @@
 
 ```mermaid
 graph TD
-    User[User / Client Input] -->|Upload Spec.md| SpecParser(LLM Spec Parser)
-    SpecParser -->|ProjectEstimate JSON| Router{Agent Router}
-
+    User[User / Client Input] -->|Upload Spec.md| Parser(LLM Parser)
+    Parser -->|Structured JSON| Router{Agent Router}
+    
+    Router -->|Check Policy| Guard[Safety Guardrail]
     Router -->|Search History| RAG[(Vector DB / FAISS)]
-    Router -->|Load Profile| Profile[user_profile.json]
-
-    RAG --> Estimator[Estimator<br/>(Price & Duration)]
-    Profile --> Estimator
-
-    Estimator --> HumanReview{Human Review<br/>(LangGraph HIL)}
-    HumanReview -->|Accept| Store[Store Final Estimate<br/>(Vector DB)]
-    HumanReview -->|Edit| UpdateProfile[Update user_profile.json]
-
-    Store --> Dashboard[Admin Dashboard / XP System]
-    UpdateProfile --> Store
+    
+    RAG --> Analysis(Analysis Node)
+    Guard --> Analysis
+    
+    Analysis -->|Calc Cost| Pricing[Pricing Engine]
+    Analysis -->|Check Tech| Tech[Feasibility Check]
+    
+    Pricing & Tech --> Final[Final Report Generation]
+    Final -->|Feedback & XP| Dashboard[Admin Dashboard]
 ```
 
 - **SpecParser**: 자연어 요구사항을 `price`, `duration_days`, `complexity_points`가 포함된 스키마로 변환합니다.
