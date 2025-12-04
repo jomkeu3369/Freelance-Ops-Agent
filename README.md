@@ -55,8 +55,6 @@
 | RAG 기간 | 유사 프로젝트들의 실제 평균 기간 |
 | 최종 기간 | 두 값을 비율로 혼합한 하이브리드 기간 추정 |
 
-***
-
 ## 🧠 RLHF-Lite Personalization
 
 ### 4. 🎛️ User Preference Profile (가중치 프로필)
@@ -90,7 +88,6 @@ def update_profile(ai_price: int, user_price: int, profile: dict):
     return profile
 ```
 
-***
 ### 6. 📈 Developer Growth Tracking (성장 시스템)
 - 프로젝트 완료 후 회고(Retrospective) 데이터를 기반으로 **XP(경험치)**를 부여합니다.
 - 단순 수익뿐만 아니라, **기술 스택별 숙련도(Stats)**가 시각화되어 개발자의 성장을 RPG 게임처럼 관리할 수 있습니다.
@@ -205,6 +202,7 @@ Freelance-Ops-Agent/
   "preferred_tech_stack": ["FastAPI", "langGraph", "MySQL"],
   "history_weight": 0.6      // 과거 경험을 60% 비중으로 반영
 }
+```
 
 ## 📜 License
 
