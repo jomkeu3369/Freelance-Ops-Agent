@@ -1,32 +1,42 @@
 FROM python:3.12-slim AS builder
-ENV PYTHONUNBUFFERED=1
-WORKDIR /src
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=off \
+    POETRY_VERSION=1.8.3 \
+    POETRY_HOME="/opt/poetry" \
+    PATH="/opt/poetry/bin:$PATH"
+
+WORKDIR /app
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential cmake pkg-config \
+        build-essential curl \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install "poetry==1.6.1"
-RUN poetry config virtualenvs.in-project true
-COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root --no-dev
 
+RUN curl -sSL https://install.python-poetry.org | python3 -
+COPY pyproject.toml poetry.lock ./
+
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-root --only main
 
 FROM python:3.12-slim AS runner
 
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app:$PYTHONPATH" \
+    TZ=Asia/Seoul
 
-WORKDIR /src
+WORKDIR /app
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libgl1 \
-        libglib2.0-0 \
+        curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY app ./app
-COPY pyproject.toml ./pyproject.toml 
-COPY --from=builder /src/.venv /src/.venv
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-ENV PATH="/src/.venv/bin:$PATH"
+COPY src ./src
+COPY pyproject.toml ./
 ENV TZ=Asia/Seoul
-ENTRYPOINT ["/src/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["poetry", "run", "uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
