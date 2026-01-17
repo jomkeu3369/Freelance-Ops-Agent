@@ -1,42 +1,22 @@
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=off \
-    POETRY_VERSION=1.8.3 \
-    POETRY_HOME="/opt/poetry" \
-    PATH="/opt/poetry/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
+WORKDIR /src
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential curl \
+        build-essential cmake pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -sSL https://install.python-poetry.org | python3 -
-COPY pyproject.toml poetry.lock ./
+RUN pip install "poetry==1.6.1"
+RUN poetry config virtualenvs.in-project true
 
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-root --only main
+COPY pyproject.toml poetry.lock* ./
 
-FROM python:3.12-slim AS runner
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH="/app:$PYTHONPATH" \
-    TZ=Asia/Seoul
-
-WORKDIR /app
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+RUN poetry install --no-root --no-dev
 
 COPY src ./src
-COPY pyproject.toml ./
+
 ENV TZ=Asia/Seoul
-ENTRYPOINT ["poetry", "run", "uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["poetry", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
