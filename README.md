@@ -177,31 +177,18 @@ graph TD
 
 ```bash
 Freelance-Ops-Agent/
-├── data/
-│   ├── raw_specs/        # 요구사항 명세서 원본 (.md, .txt)
-│   └── vector_store/     # FAISS / Chroma Vector Index
 ├── src/
-│   ├── agent/            # LangGraph Nodes & Edges (SpecParser, Estimator, HumanReview 등)
-│   ├── backend/          # FastAPI Server
-│   ├── core/             # RAG & LLM Logic, Pricing/Duration Formula
-│   └── utils/            # Parsers & Helpers
-├── user_profile.json     # User Preference Profile (RLHF-Lite 가중치)
+│   ├── models/           # 데이터베이스 모델
+│   ├── api/              # FastAPI 비즈니스 로직 레이어
+│   ├── core/             # 핵심 설정 및 보안
+│   ├── logs/             # 로깅 관련 폴더
+│   └── main.py           # FastAPI 서버 엔트리 포인트 및 lifespan 관리
 ├── tests/                # Unit Tests
 ├── docker-compose.yml
+├── dockerfile
+├── poetry.lock
+├── pyproject.toml
 └── README.md
-```
-
-***
-#### 📂 Profile Example (`user_profile.json`)
-에이전트가 학습해나가는 개발자의 데이터입니다.
-```json
-{
-  "developer_id": "adb123",
-  "base_hourly_rate": 25000,
-  "risk_buffer": 1.35,       // 초기 1.2에서 피드백 후 1.35로 학습됨
-  "preferred_tech_stack": ["FastAPI", "langGraph", "MySQL"],
-  "history_weight": 0.6      // 과거 경험을 60% 비중으로 반영
-}
 ```
 
 ## 📜 License

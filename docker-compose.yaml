@@ -1,24 +1,36 @@
 version: '3.8'
 
 services:
-  agent-backend:
-    container_name: freelance-ops-agent
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+  app:
+    build: .
     volumes:
-      - ./src:/app/src
-      - ./data:/app/data
-    env_file:
-      - .env
+      - .:/src
+      - /src/.venv 
+    ports:
+      - 8000:8000
     environment:
-      - PYTHONUNBUFFERED=1
-    restart: unless-stopped
+      - WATCHFILES_FORCE_POLLING=true
+      - MONGO_URL=mongodb://mongodb:27017/agent_db
+    depends_on:
+      - mongodb
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    
+  mongodb:
+    image: mongo:latest
+    container_name: agent-mongodb
+    ports:
+      - 27017:27017
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=agent_db
+    deploy:
+      resources:
+        limits:
+          memory: 200M
 
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
+volumes:
+  mongo_data:
