@@ -11,6 +11,7 @@ services:
     environment:
       - WATCHFILES_FORCE_POLLING=true
       - MONGO_URL=mongodb://mongodb:27017/agent_db
+      - PYTHONDONTWRITEBYTECODE=1
     depends_on:
       - mongodb
     deploy:

@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.14"
 fastapi = "^0.123.5"
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
 langchain = "^1.1.0"
@@ -18,6 +18,9 @@ ipython = "^9.7.0"
 sse-starlette = "^3.0.3"
 langchain-teddynote = "^0.5.4"
 pydantic-settings = "^2.12.0"
+motor = "^3.7.1"
+beanie = "^2.0.1"
+structlog = "^25.5.0"
 
 
 [tool.poetry.group.dev.dependencies]
