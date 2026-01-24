@@ -2,28 +2,30 @@ version: '3.8'
 
 services:
   app:
-    build: .
-    volumes:
-      - .:/src
-      - /src/.venv 
+    image: ${DOCKER_USERNAME}/freelance-ops-agent:latest
+    container_name: agent-${COLOR}
     ports:
-      - 8000:8000
+      - "${APP_PORT}:8000"
     environment:
-      - WATCHFILES_FORCE_POLLING=true
       - MONGO_URL=mongodb://mongodb:27017/agent_db
-      - PYTHONDONTWRITEBYTECODE=1
+      - FAISS_INDEX_PATH=/data/faiss_index
+    volumes:
+      - app_logs:/src/src/logs
+      - faiss_data:/data/faiss_index
     depends_on:
       - mongodb
     deploy:
       resources:
         limits:
-          memory: 300M
-    
+          memory: 500M
+    networks:
+      - agent-network
+
   mongodb:
     image: mongo:latest
     container_name: agent-mongodb
     ports:
-      - 27017:27017
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
     environment:
@@ -31,7 +33,15 @@ services:
     deploy:
       resources:
         limits:
-          memory: 200M
+          memory: 500M
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    driver: bridge
 
 volumes:
   mongo_data:
+  app_logs:
+  faiss_data:
