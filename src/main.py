@@ -29,6 +29,9 @@ async def lifespan(app: FastAPI):
     # MongoDB 및 Beanie 초기화
     mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/agent_db")
     client = AsyncIOMotorClient(mongo_url)
+    app.state.client = client
+
+
     await init_beanie(database=client.get_default_database(), document_models=[])
     logger.info("MongoDB & Beanie 초기화 완료")
     
@@ -84,6 +87,15 @@ class FreelanceOpsAgentServer:
         @self.app.get("/version", tags=["root"])
         async def get_version():
             return {"version": os.getenv("version", "0.1.0")}
+        
+        @self.app.get("/health")
+        async def health_check(request: Request):
+            try:
+                client = request.app.state.client
+                await client.admin.command('ping')
+                return {"status": "healthy", "database": "connected"}
+            except Exception as e:
+                return {"status": "unhealthy", "error": str(e)}, 500
 
         # self.app.include_router(router.router)
 
