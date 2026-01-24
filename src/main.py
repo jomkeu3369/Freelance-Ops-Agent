@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
+    # 시스템 종료
     client.close()
     logger.info("Freelance-Ops-Agent 서버 종료")
 
