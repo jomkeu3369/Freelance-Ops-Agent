@@ -1,6 +1,0 @@
-[2026-01-20 19:16:51,747] INFO [main.py:lifespan:29] >> Freelance-Ops-Agent 서버 시작
-[2026-01-20 19:16:51,754] INFO [main.py:lifespan:35] >> MongoDB & Beanie 초기화 완료
-[2026-01-20 19:17:06,333] INFO [main.py:logging_middleware:74] >> START: GET /docs [c98e1fea-6dfa-469c-ae5f-ce90cf680c23]
-[2026-01-20 19:17:06,335] INFO [main.py:logging_middleware:78] >> END: 200 [c98e1fea-6dfa-469c-ae5f-ce90cf680c23]
-[2026-01-20 19:17:06,502] INFO [main.py:logging_middleware:74] >> START: GET /openapi.json [8e400cf9-c0a3-41b1-9e81-e9d20bb22ccb]
-[2026-01-20 19:17:06,505] INFO [main.py:logging_middleware:78] >> END: 200 [8e400cf9-c0a3-41b1-9e81-e9d20bb22ccb]

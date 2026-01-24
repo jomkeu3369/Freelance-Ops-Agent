@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # from src.api import router
-from src.logs.log import init_logging, init_structlog, handle_exception, get_base_logger
+from src.logs.log import get_logger
 # from src.models.requirement import Requirement
 
 sys.dont_write_bytecode = True
@@ -23,9 +23,7 @@ sys.dont_write_bytecode = True
 async def lifespan(app: FastAPI):
 
     # 로깅 시스템 초기화
-    logger = init_logging()
-    init_structlog()
-
+    logger = get_logger()
     logger.info("Freelance-Ops-Agent 서버 시작")
 
     # MongoDB 및 Beanie 초기화
@@ -42,8 +40,6 @@ async def lifespan(app: FastAPI):
 
 class FreelanceOpsAgentServer:
     def __init__(self):
-        sys.excepthook = handle_exception
-
         self.app = FastAPI(
             title="FreelanceOpsAgent Server",
             version=os.getenv("version", "0.1.0"),
@@ -51,10 +47,10 @@ class FreelanceOpsAgentServer:
             lifespan=lifespan
         )
 
-        self._configure_cors()
+        self._configure_middleware()
         self._register_routes()
-
-    def _configure_cors(self):
+    
+    def _configure_middleware(self):
         origins = ["*"] 
 
         self.app.add_middleware(
@@ -70,7 +66,7 @@ class FreelanceOpsAgentServer:
             request_id = str(uuid4())
             request.state.request_id = request_id
             
-            logger = get_base_logger()
+            logger = get_logger()
             logger.info(f"START: {request.method} {request.url.path} [{request_id}]")
             
             try:
@@ -84,7 +80,6 @@ class FreelanceOpsAgentServer:
                 raise
 
     def _register_routes(self):
-
         @self.app.get("/version", tags=["root"])
         async def get_version():
             return {"version": os.getenv("version", "0.1.0")}
