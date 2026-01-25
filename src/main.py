@@ -56,9 +56,7 @@ class FreelanceOpsAgentServer:
     
     def _configure_middleware(self):
         origins = [
-            "https://www.freelance-ops.site",
-            "https://freelance-ops.site",
-            "http://localhost:3000",
+            "*"
         ]
 
         self.app.add_middleware(
