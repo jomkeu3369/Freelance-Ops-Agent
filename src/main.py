@@ -55,7 +55,11 @@ class FreelanceOpsAgentServer:
         self._register_routes()
     
     def _configure_middleware(self):
-        origins = ["*"] 
+        origins = [
+            "https://www.freelance-ops.site",
+            "https://freelance-ops.site",
+            "http://localhost:3000",
+        ]
 
         self.app.add_middleware(
             CORSMiddleware,
