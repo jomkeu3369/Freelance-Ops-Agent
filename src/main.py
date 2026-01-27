@@ -88,7 +88,7 @@ class FreelanceOpsAgentServer:
     def _register_routes(self):
         @self.app.get("/version", tags=["root"])
         async def get_version():
-            return {"version": os.getenv("version", "0.1.0")}
+            return {"version": os.getenv("version", "0.1.1")}
         
         @self.app.get("/health")
         async def health_check(request: Request):
@@ -98,7 +98,7 @@ class FreelanceOpsAgentServer:
                 return {"status": "healthy", "database": "connected"}
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}, 500
-
+                
         # self.app.include_router(router.router)
 
     def get_app(self) -> FastAPI:

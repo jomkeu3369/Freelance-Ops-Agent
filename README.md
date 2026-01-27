@@ -88,14 +88,10 @@ def update_profile(ai_price: int, user_price: int, profile: dict):
     return profile
 ```
 
-### 6. 📈 Developer Growth Tracking (성장 시스템)
-- 프로젝트 완료 후 회고(Retrospective) 데이터를 기반으로 **XP(경험치)**를 부여합니다.
-- 단순 수익뿐만 아니라, **기술 스택별 숙련도(Stats)**가 시각화되어 개발자의 성장을 RPG 게임처럼 관리할 수 있습니다.
-
 ***
 ## 🏗️ System Architecture
 
-사용자가 명세서를 업로드하면, **Spec Parser → RAG Retriever → Estimator → Human Review** 순으로 흐르는 LangGraph 기반 파이프라인이 실행됩니다.
+사용자의 요청은 **FastAPI**를 통해 **LangGraph Orchestrator**로 전달되며, 아래의 상태 머신(State Machine)을 따라 처리됩니다.
 
 ```mermaid
 graph TD
@@ -162,10 +158,6 @@ graph TD
     MDB ~~~ VDB
 ```
 
-- **SpecParser**: 자연어 요구사항을 `price`, `duration_days`, `complexity_points`가 포함된 스키마로 변환합니다.
-- **Estimator**: RAG에서 가져온 과거 Cost/Duration과 `user_profile.json`의 가중치를 이용해 가격·기간을 계산합니다.
-- **HumanReview**: LangGraph interrupt를 사용해 사람이 결과를 수정하고, 수정 비율에 따라 프로필 파라미터를 업데이트합니다.
-
 ***
 ## 🔧 Troubleshooting & Lessons Learned
 
@@ -201,11 +193,12 @@ graph TD
 | Category | Technology |
 |----------|------------|
 | **Language** | Python 3.12 |
-| **Backend** | FastAPI, Pydantic V2 |
-| **AI / LLM** | LangChain, LangGraph, OpenAI (예: GPT 계열) |
-| **Vector DB** | FAISS (Local), ChromaDB |
-| **Deployment** | AWS EC2, Docker Compose |
-| **Tools** | Git, Poetry |
+| **Frontend** | HTML5, Tailwind CSS, jQuery |
+| **Backend** | FastAPI, Pydantic V2, Uvicorn |
+| **AI / Agent** | LangChain, LangGraph |
+| **Database** | MongoDB, Beanie (ODM) |
+| **Vector DB** | FAISS |
+| **Infra & CI/CD** | Docker, GitHub Actions, Nginx, Cloudflare |
 
 ***
 
@@ -216,8 +209,6 @@ graph TD
 1. **Clone Repository**
 2. **환경 변수 설정**: OpenAI API Key 등
 3. **Docker 실행 또는 로컬 실행**
-4. `data/raw_specs`, `data/vector_store`, `user_profile.json` 초기화
-
 ***
 
 ## 📂 Project Structure
@@ -225,17 +216,23 @@ graph TD
 ```bash
 Freelance-Ops-Agent/
 ├── src/
-│   ├── models/           # 데이터베이스 모델
-│   ├── api/              # FastAPI 비즈니스 로직 레이어
-│   ├── core/             # 핵심 설정 및 보안
-│   ├── logs/             # 로깅 관련 폴더
-│   └── main.py           # FastAPI 서버 엔트리 포인트 및 lifespan 관리
-├── tests/                # Unit Tests
-├── docker-compose.yml
-├── dockerfile
-├── poetry.lock
-├── pyproject.toml
+│   ├── agent/             # [Core] LangGraph 에이전트 로직
+│   │   ├── graph.py       # 워크플로우 정의
+│   │   ├── spec_parser.py # 요구사항 분석 노드
+│   │   └── researcher.py  # 웹 검색 노드
+│   ├── backend/           # FastAPI 서버 로직
+│   │   ├── api/           # 엔드포인트 라우터
+│   │   └── services/      # 비즈니스 서비스 계층
+│   ├── core/              # 설정 및 공통 모듈
+│   ├── logs/              # 구조화된 로깅 시스템
+│   ├── models/            # Beanie(MongoDB) 데이터 모델
+│   └── main.py            # 앱 진입점 (Lifespan & WebSocket)
+├── frontend/              # 대시보드 HTML 소스
+├── tests/                 # 단위 테스트 및 프로토타입
+├── docker-compose.yaml    # 컨테이너 오케스트레이션
+├── deploy.sh              # 무중단 배포 스크립트
 └── README.md
+
 ```
 
 ## 📜 License
