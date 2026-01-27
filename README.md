@@ -99,20 +99,67 @@ def update_profile(ai_price: int, user_price: int, profile: dict):
 
 ```mermaid
 graph TD
-    Start((Start)) --> Parser[LLM Spec Parser]
-    Parser --> RAG[RAG Retriever]
-    RAG --> Estimator[Pricing Engine]
+    %% --- 스타일 정의 (Style Definitions) ---
+    classDef user fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef api fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#e65100;
+    classDef agent fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef decision fill:#fffde7,stroke:#fbc02d,stroke-width:2px,stroke-dasharray: 5 5,color:#f57f17;
+    classDef db fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,stroke-dasharray: 0,color:#1b5e20;
+
+    %% --- 노드 정의 (Nodes) ---
+    User(["👤 사용자 (Client)"]):::user
+    API["🚀 FastAPI Server"]:::api
+
+    %% 데이터베이스
+    VDB[("📚 Vector DB (FAISS)")]:::db
+    MDB[("💾 MongoDB (Profile)")]:::db
+
+    subgraph "Backend Application (Agentic Core)"
+        direction TB
+        LG["🧠 LangGraph Orchestrator"]:::agent
+
+        %% 추론 루프 (Reasoning Loop)
+        subgraph "Reasoning Loop (State Machine)"
+            direction TB
+            Node1["1️⃣ Query Decomposer"]:::agent
+            Node2["2️⃣ Multi-Query Retriever"]:::agent
+            Node3{"⚖️ Adaptive Check"}:::decision
+            Node4["4️⃣ Risk Assessment"]:::agent
+            Node5["5️⃣ Estimation Logic"]:::agent
+            Node6["6️⃣ Human-in-the-Loop Review"]:::agent
+        end
+        
+        Node7["🔄 Feedback Integration Agent"]:::agent
+    end
+
+    %% --- 연결 (Connections) ---
     
-    Estimator --> HumanReview{Human Review}
+    %% 1. 메인 워크플로우 (Main Flow)
+    User -->|"1. 요구사항 제출"| API
+    API -->|"2. 워크플로우 시작"| LG
+    LG --> Node1
     
-    HumanReview -- "Approve" --> SaveDB[(Save to VectorDB)]
-    SaveDB --> End((End))
+    Node1 -->|"하위 쿼리 분해"| Node2
+    Node2 <-->|"벡터 검색 & 결과 반환"| VDB
     
-    HumanReview -- "Reject/Edit" --> Tuner[Weight Tuner]
-    Tuner -->|Update Profile| Estimator
+    Node2 --> Node3
+    Node3 -->|"❌ 신뢰도 낮음 (재검색)"| Node2
+    Node3 -->|"✅ 신뢰도 높음"| Node4
     
-    style HumanReview fill:#f9f,stroke:#333,stroke-width:2px
-    style Tuner fill:#bbf,stroke:#333,stroke-width:2px
+    Node4 -->|"위험도/버퍼 계산"| Node5
+    Node5 -->|"최종 견적 산출"| Node6
+    Node6 -->|"3. 승인 요청 (WebSocket)"| API
+    API -->|"4. 견적서 전달"| User
+
+    %% 2. 피드백 루프 (Feedback Loop)
+    User -.->|"5. 피드백 (가격 수정 등)"| API
+    API -.->|"6. 학습 요청"| Node7
+    
+    Node7 -.->|"가중치 업데이트"| MDB
+    Node7 -.->|"피드백 벡터화 저장"| VDB
+
+    %% --- 레이아웃 링크 (보이지 않는 링크로 위치 조정) ---
+    MDB ~~~ VDB
 ```
 
 - **SpecParser**: 자연어 요구사항을 `price`, `duration_days`, `complexity_points`가 포함된 스키마로 변환합니다.
