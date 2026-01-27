@@ -100,6 +100,8 @@ class FreelanceOpsAgentServer:
                 return {"status": "unhealthy", "error": str(e)}, 500
                 
         # self.app.include_router(router.router)
+        #
+        # 추가 라우터 등록 가능
 
     def get_app(self) -> FastAPI:
         return self.app
