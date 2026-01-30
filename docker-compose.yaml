@@ -18,6 +18,8 @@ services:
       resources:
         limits:
           memory: 500M
+    env_file:
+      - .env
     networks:
       - agent-network
 

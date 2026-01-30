@@ -16,3 +16,5 @@ user_profile.json
 # Other Files
 tests/
 frontend/
+
+docker-compose-local.yaml

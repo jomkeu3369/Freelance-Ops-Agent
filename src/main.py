@@ -13,9 +13,10 @@ from beanie import init_beanie
 from dotenv import load_dotenv
 load_dotenv()
 
-# from src.api import router
+from src.models.user import User
+from src.api.auth import auth_router
+from src.api.auth.auth_crud import create_user, get_user_by_username, delete_user
 from src.logs.log import get_logger
-# from src.models.requirement import Requirement
 
 sys.dont_write_bytecode = True
 
@@ -30,10 +31,18 @@ async def lifespan(app: FastAPI):
     mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/agent_db")
     client = AsyncIOMotorClient(mongo_url)
     app.state.client = client
-
-
-    await init_beanie(database=client.get_default_database(), document_models=[])
+    await init_beanie(database=client.get_default_database(), document_models=[User])
     logger.info("MongoDB & Beanie 초기화 완료")
+    
+    # 어드민 유저 초기화
+    if await get_user_by_username(os.getenv("admin_username")) is None:
+        await create_user(
+            username=os.getenv("admin_username"),
+            email=os.getenv("admin_email"),
+            password=os.getenv("admin_password"),
+            full_name="Administrator"
+        )
+        logger.info("어드민 유저 생성 완료")
     
     yield
     
@@ -88,7 +97,7 @@ class FreelanceOpsAgentServer:
     def _register_routes(self):
         @self.app.get("/version", tags=["root"])
         async def get_version():
-            return {"version": os.getenv("version", "0.1.1")}
+            return {"version": os.getenv("version", "0.1.0")}
         
         @self.app.get("/health")
         async def health_check(request: Request):
@@ -99,9 +108,7 @@ class FreelanceOpsAgentServer:
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}, 500
                 
-        # self.app.include_router(router.router)
-        #
-        # 추가 라우터 등록 가능
+        self.app.include_router(auth_router.router, prefix="/api/v1")
 
     def get_app(self) -> FastAPI:
         return self.app
