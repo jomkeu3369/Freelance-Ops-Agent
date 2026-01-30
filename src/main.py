@@ -34,15 +34,15 @@ async def lifespan(app: FastAPI):
     await init_beanie(database=client.get_default_database(), document_models=[User])
     logger.info("MongoDB & Beanie 초기화 완료")
     
-    # # 어드민 유저 초기화
-    # if await get_user_by_username(os.getenv("admin_username")) is None:
-    #     await create_user(
-    #         username=os.getenv("admin_username"),
-    #         email=os.getenv("admin_email"),
-    #         password=os.getenv("admin_password"),
-    #         full_name="Administrator"
-    #     )
-    #     logger.info("어드민 유저 생성 완료")
+    # 어드민 유저 초기화
+    if await get_user_by_username(os.getenv("admin_username")) is None:
+        await create_user(
+            username=os.getenv("admin_username"),
+            email=os.getenv("admin_email"),
+            password=os.getenv("admin_password"),
+            full_name="Administrator"
+        )
+        logger.info("어드민 유저 생성 완료")
     
     yield
     
