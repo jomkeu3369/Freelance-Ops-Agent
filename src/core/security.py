@@ -42,7 +42,7 @@ def verify_refresh_token(token: str) -> Optional[Dict]:
     """
     Refresh Token 검증
     
-    Returns:
+    Returns: 
         Dict: 유효한 경우 payload 반환 (sub, exp, type 등)
         None: 유효하지 않은 경우
     """

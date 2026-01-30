@@ -57,7 +57,9 @@ class FreelanceOpsAgentServer:
             title="FreelanceOpsAgent Server",
             version=os.getenv("version", "0.1.0"),
             description="FreelanceOpsAgent Server",
-            lifespan=lifespan
+            lifespan=lifespan,
+            docs_url=None,
+            redoc_url=None
         )
 
         self._configure_middleware()
@@ -65,15 +67,17 @@ class FreelanceOpsAgentServer:
     
     def _configure_middleware(self):
         origins = [
-            "*"
+            "https://www.freelance-ops.site",
+            "https://freelance-ops.site"
         ]
 
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
             allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "Authorization", "Accept"],
+            max_age=3600
         )
 
         @self.app.middleware("http")
