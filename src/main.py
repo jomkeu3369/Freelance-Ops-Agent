@@ -58,8 +58,8 @@ class FreelanceOpsAgentServer:
             version=os.getenv("version", "0.1.0"),
             description="FreelanceOpsAgent Server",
             lifespan=lifespan,
-            docs_url=None,
-            redoc_url=None
+            # docs_url=None,
+            # redoc_url=None
         )
 
         self._configure_middleware()
