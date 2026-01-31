@@ -11,7 +11,7 @@ load_dotenv()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
 SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+ALGORITHM = os.getenv("ALGORITHM", "HS256") 
 REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -75,7 +75,7 @@ def verify_access_token(token: str) -> Optional[Dict]:
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print("[logging] Decoded payload:", payload)
+        print("Decoded payload:", payload)
         
         token_type: str = payload.get("type")
         if token_type != "access":

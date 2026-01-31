@@ -16,8 +16,10 @@ from src.core.security import (
 )
 from src.models.user import User
 from src.api.auth.auth_schema import Token, TokenResponse, ApiResponse
+from src.logs.log import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = get_logger()
 
 # 환경 변수
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
@@ -25,6 +27,8 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Access token에서 현재 사용자 정보 추출"""
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="access token의 정보가 잘못되었습니다.",
@@ -32,22 +36,36 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     
     try:
+        # Access token 검증
         payload = verify_access_token(token)
-
+        
         if payload is None:
+            logger.warning("Invalid access token payload")
             raise credentials_exception
         
-        username = payload.get("sub")
+        # Username 추출
+        username: str = payload.get("sub")
+        if username is None:
+            logger.warning("Username not found in token payload")
+            raise credentials_exception
+        
+        # DB에서 사용자 조회
         user = await User.find_one(User.username == username)
         
         if user is None:
-            print("User is None in database")
+            logger.warning(f"User not found in database: {username}")
             raise credentials_exception
         
+        logger.info(f"User authenticated: {username}")
         return user
     
-    except JWTError:
-        print("JWTError")
+    except JWTError as e:
+        logger.error(f"JWTError in get_current_user: {e}")
+        raise credentials_exception
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error in get_current_user: {e}")
         raise credentials_exception
     
 # 로그인
