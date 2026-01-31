@@ -15,7 +15,7 @@ from src.core.security import (
     verify_access_token
 )
 from src.models.user import User
-from src.api.auth.auth_schema import Token, TokenResponse, ApiResponse
+from src.api.auth.auth_schema import Token, TokenResponse
 from src.logs.log import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,7 +24,7 @@ logger = get_logger()
 # 환경 변수
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     """Access token에서 현재 사용자 정보 추출"""
@@ -36,6 +36,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     
     try:
+
+        logger.info(f"Token type: {type(token)}")
+        logger.info(f"Token value: {token}")
+        logger.info(f"Token length: {len(token) if token else 0}")
+
+        if not token or token.strip() == "":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="토큰이 제공되지 않았습니다",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         # Access token 검증
         payload = verify_access_token(token)
         
@@ -62,14 +74,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError as e:
         logger.error(f"JWTError in get_current_user: {e}")
         raise credentials_exception
+    
     except HTTPException:
-        raise
+        raise credentials_exception
+    
     except Exception as e:
         logger.exception(f"Unexpected error in get_current_user: {e}")
         raise credentials_exception
     
 # 로그인
-@router.post("/login", response_model=ApiResponse[Token])
+@router.post("/login", response_model=Token)
 async def auth_login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     """OAuth2 호환 로그인 엔드포인트"""
     
@@ -96,19 +110,15 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
     
-    return ApiResponse(
-        success=True,
-        data=Token(
-            access_token=access_token,
-            token_type="bearer",
-            user_id=str(user.id)
-        ),
-        message="로그인 성공"
+    return Token(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=str(user.id)
     )
 
 
 # 리프레시 토큰 갱신
-@router.post("/refresh", response_model=ApiResponse[TokenResponse])
+@router.post("/refresh", response_model=TokenResponse)
 async def auth_refresh_access_token(request: Request):
     """쿠키에서 refresh token을 읽어 새로운 access token 발급"""
     
@@ -132,34 +142,21 @@ async def auth_refresh_access_token(request: Request):
     username = payload.get("sub")
     new_access_token = create_access_token(data={"sub": username})
     
-    return ApiResponse(
-        success=True,
-        data=TokenResponse(
+    return TokenResponse(
             access_token=new_access_token,
             token_type="bearer"
-        ),
-        message="토큰 갱신 성공"
-    )
+        )
 
 
 # 로그아웃
-@router.post("/logout", response_model=ApiResponse[None])
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def auth_logout(response: Response):
     """Refresh token 쿠키 삭제"""
     
     response.delete_cookie("refresh_token")
-    
-    return ApiResponse(
-        success=True,
-        message="로그아웃 성공"
-    )
 
 
 # 내 정보 조회
-@router.get("/me", response_model=ApiResponse[User])
+@router.get("/me", response_model=User)
 async def auth_me(current_user: User = Depends(get_current_user)):
-    return ApiResponse(
-        success=True,
-        data=current_user,
-        message="내 정보 조회 성공"
-    )
+    return current_user

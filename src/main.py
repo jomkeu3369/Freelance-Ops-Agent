@@ -20,6 +20,8 @@ from src.logs.log import get_logger
 
 sys.dont_write_bytecode = True
 
+environment = os.getenv("environment", "development")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
@@ -66,10 +68,17 @@ class FreelanceOpsAgentServer:
         self._register_routes()
     
     def _configure_middleware(self):
-        origins = [
-            "https://www.freelance-ops.site",
-            "https://freelance-ops.site"
-        ]
+
+        if environment == "development":
+            origins = [
+                "*"
+            ]
+        
+        else:
+            origins = [
+                "https://www.freelance-ops.site",
+                "https://freelance-ops.site"
+            ]
 
         self.app.add_middleware(
             CORSMiddleware,

@@ -7,6 +7,9 @@ from typing import Optional, Dict
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 
+from src.logs.log import get_logger
+
+logger = get_logger()
 load_dotenv()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)
@@ -16,11 +19,13 @@ REFRESH_TOKEN_EXPIRE_DAYS = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -30,12 +35,43 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def verify_access_token(token: str) -> Optional[Dict]:
+    """
+    Access Token 검증 (선택적 구현)
+    
+    Returns:
+        Dict: 유효한 경우 payload 반환
+        None: 유효하지 않은 경우
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        token_type: str = payload.get("type")
+        if token_type != "access":
+            return None
+
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+
+        return payload
+        
+    except JWTError:
+        logger.error("JWTError in verify_access_token")
+        return None
+    
+    except Exception:
+        logger.exception("Unexpected error in verify_access_token")
+        return None
+    
+
 def create_refresh_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=int(REFRESH_TOKEN_EXPIRE_DAYS))
         
     to_encode.update({"exp": expire, "type": "refresh"})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    
     return encoded_jwt
 
 def verify_refresh_token(token: str) -> Optional[Dict]:
@@ -60,38 +96,10 @@ def verify_refresh_token(token: str) -> Optional[Dict]:
         return payload
         
     except JWTError:
+        logger.error("JWTError in verify_refresh_token")
         return None
     
     except Exception:
+        logger.exception("Unexpected error in verify_refresh_token")
         return None
     
-def verify_access_token(token: str) -> Optional[Dict]:
-    """
-    Access Token 검증 (선택적 구현)
-    
-    Returns:
-        Dict: 유효한 경우 payload 반환
-        None: 유효하지 않은 경우
-    """
-    # try:
-    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    print("Decoded payload:", payload)
-    
-    token_type: str = payload.get("type")
-    if token_type != "access":
-        return None
-    
-    username: str = payload.get("sub")
-    if username is None:
-        print("Username is None in token payload")
-        return None
-    
-    return payload
-        
-    # except JWTError:
-    #     print("JWTError during access token verification")
-    #     return None
-    
-    # except Exception:
-    #     print("Exception during access token verification")
-    #     return None
