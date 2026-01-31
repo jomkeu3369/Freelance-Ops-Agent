@@ -26,61 +26,35 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Access token에서 현재 사용자 정보 추출"""
+async def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    token = None
     
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="access token의 정보가 잘못되었습니다.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    else:
+        token = request.cookies.get("access_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="인증 토큰이 없습니다.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     try:
-
-        logger.info(f"Token type: {type(token)}")
-        logger.info(f"Token value: {token}")
-        logger.info(f"Token length: {len(token) if token else 0}")
-
-        if not token or token.strip() == "":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="토큰이 제공되지 않았습니다",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        # Access token 검증
         payload = verify_access_token(token)
-        
         if payload is None:
-            logger.warning("Invalid access token payload")
-            raise credentials_exception
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="토큰이 만료되었거나 유효하지 않습니다.")
         
-        # Username 추출
         username: str = payload.get("sub")
-        if username is None:
-            logger.warning("Username not found in token payload")
-            raise credentials_exception
-        
-        # DB에서 사용자 조회
-        user = await User.find_one(User.username == username)
-        
+        user = await User.find_one(User.username == username) #
         if user is None:
-            logger.warning(f"User not found in database: {username}")
-            raise credentials_exception
-        
-        logger.info(f"User authenticated: {username}")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자를 찾을 수 없습니다.")
         return user
     
-    except JWTError as e:
-        logger.error(f"JWTError in get_current_user: {e}")
-        raise credentials_exception
-    
-    except HTTPException:
-        raise credentials_exception
-    
-    except Exception as e:
-        logger.exception(f"Unexpected error in get_current_user: {e}")
-        raise credentials_exception
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="인증에 실패했습니다.")
     
 # 로그인
 @router.post("/login", response_model=Token)
@@ -100,6 +74,16 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
     access_token = create_access_token(data={"sub": user.username})
     refresh_token = create_refresh_token(data={"sub": user.username})
     
+    # Access token을 HttpOnly 쿠키에 저장
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
+
     # Refresh token을 HttpOnly 쿠키에 저장
     response.set_cookie(
         key="refresh_token",
