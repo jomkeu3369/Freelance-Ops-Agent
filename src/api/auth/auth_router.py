@@ -11,7 +11,8 @@ from src.core.security import (
     create_access_token, 
     create_refresh_token, 
     verify_password, 
-    verify_refresh_token
+    verify_refresh_token,
+    verify_access_token
 )
 from src.models.user import User
 from src.api.auth.auth_schema import Token, TokenResponse, ApiResponse
@@ -21,9 +22,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # 환경 변수
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -34,7 +32,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = verify_access_token(token)
+        print("Payload:", payload)
         username: str = payload.get("sub")
         
         if username is None:
@@ -50,6 +49,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         return user
     
     except JWTError:
+        print("JWTError")
         raise credentials_exception
     
 # 로그인
