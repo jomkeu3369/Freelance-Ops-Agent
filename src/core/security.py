@@ -78,16 +78,20 @@ def verify_access_token(token: str) -> Optional[Dict]:
         
         token_type: str = payload.get("type")
         if token_type != "access":
+            print("Invalid token type:", token_type)
             return None
         
         username: str = payload.get("sub")
         if username is None:
+            print("Username is None in token payload")
             return None
         
         return payload
         
     except JWTError:
+        print("JWTError during access token verification")
         return None
     
     except Exception:
+        print("Exception during access token verification")
         return None
