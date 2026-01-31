@@ -75,6 +75,7 @@ def verify_access_token(token: str) -> Optional[Dict]:
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        print("[logging] Decoded payload:", payload)
         
         token_type: str = payload.get("type")
         if token_type != "access":
