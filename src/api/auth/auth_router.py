@@ -26,7 +26,30 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/stack/api/v1/auth/login")
 
-
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="access token의 정보가 잘못되었습니다.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        
+        if username is None:
+            raise credentials_exception
+        
+        user = await User.find_one(User.username == username)
+        
+        if user is None:
+            raise credentials_exception
+        
+        return user
+    
+    except JWTError:
+        raise credentials_exception
+    
 # 로그인
 @router.post("/login", response_model=ApiResponse[Token])
 async def auth_login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
@@ -114,26 +137,11 @@ async def auth_logout(response: Response):
     )
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="access token의 정보가 잘못되었습니다.",
-        headers={"WWW-Authenticate": "Bearer"},
+# 내 정보 조회
+@router.get("/me", response_model=ApiResponse[User])
+async def auth_me(current_user: User = Depends(get_current_user)):
+    return ApiResponse(
+        success=True,
+        data=current_user,
+        message="내 정보 조회 성공"
     )
-    
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        
-        if username is None:
-            raise credentials_exception
-        
-        user = await User.find_one(User.username == username)
-        
-        if user is None:
-            raise credentials_exception
-        
-        return user
-    
-    except JWTError:
-        raise credentials_exception
