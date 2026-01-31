@@ -38,11 +38,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str = payload.get("sub")
         
         if username is None:
+            print("Username is None in token payload")
             raise credentials_exception
         
         user = await User.find_one(User.username == username)
         
         if user is None:
+            print("User is None in database")
             raise credentials_exception
         
         return user
