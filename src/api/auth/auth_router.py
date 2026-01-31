@@ -137,6 +137,7 @@ async def auth_refresh_access_token(request: Request):
 async def auth_logout(response: Response):
     """Refresh token 쿠키 삭제"""
     
+    response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
 
 
