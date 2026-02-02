@@ -103,7 +103,7 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
 
 # 리프레시 토큰 갱신
 @router.post("/refresh", response_model=TokenResponse)
-async def auth_refresh_access_token(request: Request):
+async def auth_refresh_access_token(response: Response, request: Request):
     """쿠키에서 refresh token을 읽어 새로운 access token 발급"""
     
     refresh_token = request.cookies.get("refresh_token")
@@ -125,6 +125,15 @@ async def auth_refresh_access_token(request: Request):
     
     username = payload.get("sub")
     new_access_token = create_access_token(data={"sub": username})
+
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=True,
+        samesite="Lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    )
     
     return TokenResponse(
             access_token=new_access_token,
