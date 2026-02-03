@@ -42,6 +42,7 @@ def verify_access_token(token: str) -> Optional[Dict]:
     Returns:
         Dict: 유효한 경우 payload 반환
         None: 유효하지 않은 경우
+        
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
