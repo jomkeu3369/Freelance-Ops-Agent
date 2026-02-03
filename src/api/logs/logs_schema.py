@@ -14,7 +14,7 @@ class LogResponse(BaseModel):
     file_info: Optional[str] = None
     time: datetime
 
-    class Confing:
+    class Config:
         from_attributes = True
 
 

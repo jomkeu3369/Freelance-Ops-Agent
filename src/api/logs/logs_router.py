@@ -12,7 +12,7 @@ from src.api.auth.auth_router import get_current_user
 from src.logs.log import get_logger
 
 
-router = APIRouter(prefix="/auth", tags=["logs"])
+router = APIRouter(prefix="", tags=["logs"])
 logger = get_logger()
 
 @router.get("/logs", response_model=LogListResponse)

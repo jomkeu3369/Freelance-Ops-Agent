@@ -16,7 +16,7 @@ class SystemLog(Document):
     class Settings:
         name = "system_logs"
         indexes = [
-            IndexModel([("timestamp", ASCENDING)], expireAfterSeconds=604800),
+            IndexModel([("time", ASCENDING)], expireAfterSeconds=604800),
             IndexModel([("level", ASCENDING)]),
             IndexModel([("service", ASCENDING)])
         ]
