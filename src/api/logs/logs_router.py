@@ -4,17 +4,18 @@ from zoneinfo import ZoneInfo
 
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query, Path
+from fastapi import APIRouter, HTTPException, Query, Path, Depends
 
 from src.api.logs.logs_schema import LogResponse, LogListResponse
 from src.api.logs.logs_crud import get_filtered_logs, delete_log_by_id
+from src.api.auth.auth_router import get_current_user
 from src.logs.log import get_logger
 
 
 router = APIRouter(prefix="/auth", tags=["logs"])
 logger = get_logger()
 
-@router.get("/logs", response_model=LogListResponse)
+@router.get("/logs", response_model=LogListResponse, current_user=Depends(get_current_user))
 async def get_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -38,7 +39,7 @@ async def get_logs(
     }
 
 @router.delete("/logs/{log_id}")
-async def delete_log(log_id: str = Path(...)):
+async def delete_log(log_id: str = Path(...), current_user=Depends(get_current_user)):
     is_deleted = await delete_log_by_id(log_id)
     
     if not is_deleted:
