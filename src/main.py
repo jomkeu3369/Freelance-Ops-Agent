@@ -114,6 +114,14 @@ class FreelanceOpsAgentServer:
 
         @self.app.middleware("http")
         async def logging_middleware(request: Request, call_next):
+            should_skip_logging = (
+                request.url.path in ["/health", "/version", "/favicon.ico"] or
+                (request.url.path.startswith("/api/v1/logs") and request.method == "GET")
+            )
+
+            if should_skip_logging:
+                return await call_next(request)
+
             request_id = str(uuid4())
             request.state.request_id = request_id
             
