@@ -25,16 +25,15 @@ logger = get_logger()
 # 환경 변수
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)):
-    auth_header = request.headers.get("Authorization")
-    token = None
-    
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-    else:
-        token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+        else:
+            token = request.cookies.get("access_token")
 
     if not token:
         raise HTTPException(
@@ -135,6 +134,11 @@ async def auth_refresh_access_token(response: Response, request: Request):
         )
     
     username = payload.get("sub")
+
+    user = await User.find_one(User.username == username)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="존재하지 않는 사용자입니다.")
+
     new_access_token = create_access_token(data={"sub": username})
 
     response.set_cookie(
