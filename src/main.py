@@ -24,6 +24,7 @@ from src.logs.kafka_handler import KafkaLoggingHandler
 
 from src.api.auth import auth_router
 from src.api.logs import logs_router
+from src.api.dashboard import dashboard_router
 from src.api.auth.auth_crud import create_user, get_user_by_username
 
 
@@ -158,6 +159,7 @@ class FreelanceOpsAgentServer:
                 
         self.app.include_router(auth_router.router, prefix="/api/v1")
         self.app.include_router(logs_router.router, prefix="/api/v1")
+        self.app.include_router(dashboard_router.router, prefix="/api/v1")
         
     def get_app(self) -> FastAPI:
         return self.app
