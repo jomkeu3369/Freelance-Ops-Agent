@@ -2,8 +2,11 @@ import os
 import httpx
 from typing import Dict, Any
 
+from dotenv import load_dotenv
+
 from src.logs.log import get_logger
 
+load_dotenv()
 logger = get_logger()
 
 VULTR_API_KEY = os.getenv("VULTR_API_KEY")
