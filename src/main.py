@@ -36,11 +36,10 @@ async def lifespan(app: FastAPI):
 
     # 로깅 시스템 초기화
     root_logger = logging.getLogger()
-    await kafka_client.start()
     kafka_handler = KafkaLoggingHandler(kafka_client, topic="system_logs")
-    
     root_logger.addHandler(kafka_handler)
 
+    # 3. Local Logger 초기화
     local_logger = get_logger()
     local_logger.info("Freelance-Ops-Agent 서버 시작 중...")
 
@@ -51,12 +50,8 @@ async def lifespan(app: FastAPI):
     await init_beanie(database=client.get_default_database(), document_models=[User, SystemLog])
 
     local_logger.info("MongoDB & Beanie 초기화 완료")
+    local_logger.info("Kafka 클라이언트 초기화 및 로깅 설정 완료")
     
-    # kafka 초기화
-    await kafka_client.start()
-    kafka_handler = KafkaLoggingHandler(kafka_client, topic="system_logs")
-    local_logger.addHandler(kafka_handler)
-    local_logger.info("Kafka 클라이언트 초기화 완료")
 
     # 어드민 유저 초기화
     if await get_user_by_username(os.getenv("admin_username")) is None:
