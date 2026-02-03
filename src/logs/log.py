@@ -10,7 +10,7 @@ sys.dont_write_bytecode = True
 RICH_FORMAT = "[%(filename)s:%(lineno)s] >> %(message)s"
 FILE_HANDLER_FORMAT = "[%(asctime)s] %(levelname)s [%(filename)s:%(funcName)s:%(lineno)s] >> %(message)s"
 
-LOG_PATH = Path(__file__).parent.parent / "logs"
+LOG_PATH = Path(__file__).parent.parent / "logs_data"
 LOG_PATH.mkdir(exist_ok=True)
 
 LOGGER_NAME = "freelance_ops"

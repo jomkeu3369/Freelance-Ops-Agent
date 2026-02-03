@@ -3,6 +3,8 @@ import os
 
 from contextlib import asynccontextmanager
 from uuid import uuid4
+import logging
+import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +15,17 @@ from beanie import init_beanie
 from dotenv import load_dotenv
 load_dotenv()
 
+from src.models.log import SystemLog
 from src.models.user import User
-from src.api.auth import auth_router
-from src.api.auth.auth_crud import create_user, get_user_by_username, delete_user
+
 from src.logs.log import get_logger
+from src.core.kafka_core import kafka_client
+from src.logs.kafka_handler import KafkaLoggingHandler
+
+from src.api.auth import auth_router
+from src.api.logs import logs_router
+from src.api.auth.auth_crud import create_user, get_user_by_username
+
 
 sys.dont_write_bytecode = True
 
@@ -26,16 +35,29 @@ environment = os.getenv("environment", "development")
 async def lifespan(app: FastAPI):
 
     # 로깅 시스템 초기화
-    logger = get_logger()
-    logger.info("Freelance-Ops-Agent 서버 시작")
+    root_logger = logging.getLogger()
+    await kafka_client.start()
+    kafka_handler = KafkaLoggingHandler(kafka_client, topic="system_logs")
+    
+    root_logger.addHandler(kafka_handler)
+
+    local_logger = get_logger()
+    local_logger.info("Freelance-Ops-Agent 서버 시작 중...")
 
     # MongoDB 및 Beanie 초기화
     mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/agent_db")
     client = AsyncIOMotorClient(mongo_url)
     app.state.client = client
-    await init_beanie(database=client.get_default_database(), document_models=[User])
-    logger.info("MongoDB & Beanie 초기화 완료")
+    await init_beanie(database=client.get_default_database(), document_models=[User, SystemLog])
+
+    local_logger.info("MongoDB & Beanie 초기화 완료")
     
+    # kafka 초기화
+    await kafka_client.start()
+    kafka_handler = KafkaLoggingHandler(kafka_client, topic="system_logs")
+    local_logger.addHandler(kafka_handler)
+    local_logger.info("Kafka 클라이언트 초기화 완료")
+
     # 어드민 유저 초기화
     if await get_user_by_username(os.getenv("admin_username")) is None:
         await create_user(
@@ -44,13 +66,14 @@ async def lifespan(app: FastAPI):
             password=os.getenv("admin_password"),
             full_name="Administrator"
         )
-        logger.info("어드민 유저 생성 완료")
+        local_logger.info("어드민 유저 생성 완료")
     
     yield
     
     # 시스템 종료
     client.close()
-    logger.info("Freelance-Ops-Agent 서버 종료")
+    await kafka_client.stop()
+    local_logger.info("Freelance-Ops-Agent 서버 종료")
 
 
 class FreelanceOpsAgentServer:
@@ -94,17 +117,25 @@ class FreelanceOpsAgentServer:
             request_id = str(uuid4())
             request.state.request_id = request_id
             
-            logger = get_logger()
-            logger.info(f"START: {request.method} {request.url.path} [{request_id}]")
+            local_logger = get_logger()
+            
+            start_time = time.time() 
+            local_logger.info(f"START: {request.method} {request.url.path} [{request_id}]")
             
             try:
                 response = await call_next(request)
-                logger.info(f"END: {response.status_code} [{request_id}]")
+
+                process_time = (time.time() - start_time) * 1000
+                local_logger.info(
+                    f"END: {response.status_code} {request.method} {request.url.path} "
+                    f"({process_time:.2f}ms) [{request_id}]"
+                )
 
                 response.headers["X-Request-ID"] = request_id
                 return response
+            
             except Exception as e:
-                logger.exception(f"FAIL: [{request_id}]")
+                local_logger.exception(f"FAIL: {request.method} {request.url.path} [{request_id}]")
                 raise
 
     def _register_routes(self):
@@ -118,11 +149,13 @@ class FreelanceOpsAgentServer:
                 client = request.app.state.client
                 await client.admin.command('ping')
                 return {"status": "healthy", "database": "connected"}
+            
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}, 500
                 
         self.app.include_router(auth_router.router, prefix="/api/v1")
-
+        self.app.include_router(logs_router.router, prefix="/api/v1")
+        
     def get_app(self) -> FastAPI:
         return self.app
     

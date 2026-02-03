@@ -1,11 +1,11 @@
 import os
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
 from starlette import status
-from jose import JWTError, jwt
 
 from src.core.security import (
     create_access_token, 
@@ -16,6 +16,7 @@ from src.core.security import (
 )
 from src.models.user import User
 from src.api.auth.auth_schema import Token, TokenResponse
+from src.core.kafka_core import kafka_client
 from src.logs.log import get_logger
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -70,6 +71,16 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    await kafka_client.send_event(
+        topic="user_login_events",
+        message={
+            "event": "login_success",
+            "username": user.username,
+            "user_id": str(user.id),
+            "event_time": str(datetime.now(ZoneInfo("Asia/Seoul")))
+        }
+    )
+
     # 토큰 생성
     access_token = create_access_token(data={"sub": user.username})
     refresh_token = create_refresh_token(data={"sub": user.username})
