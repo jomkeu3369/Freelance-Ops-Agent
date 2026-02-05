@@ -9,12 +9,14 @@ router = APIRouter(prefix="/crm", tags=["crm"])
 @router.get("/clients", response_model=List[ClientResponse])
 async def get_clients():
     clients = await crud.get_all_clients()
-    return [ClientResponse(id=str(c.id), **c.dict()) for c in clients]
+    
+    return [ClientResponse(id=str(c.id), **c.dict(exclude={'id'})) for c in clients]
 
 @router.post("/clients", response_model=ClientResponse)
 async def create_client(client_data: ClientCreate):
     client = await crud.create_client(client_data)
-    return ClientResponse(id=str(client.id), **client.dict())
+
+    return ClientResponse(id=str(client.id), **client.dict(exclude={'id'}))
 
 @router.delete("/clients/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_client(client_id: str):
