@@ -14,10 +14,12 @@ from src.core.security import (
     verify_refresh_token,
     verify_access_token
 )
-from src.models.user import User
+from src.api.schemas.user import User
 from src.api.auth.auth_schema import Token, TokenResponse
 from src.core.kafka_core import kafka_client
 from src.logs.log import get_logger
+
+environment = os.getenv("environment", "development")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = get_logger()
@@ -63,13 +65,40 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
     
     user = await User.find_one(User.username == form_data.username)
     
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="아이디 또는 비밀번호가 일치하지 않습니다.",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer"}
         )
     
+    if user.locked_until and user.locked_until > datetime.now(ZoneInfo("Asia/Seoul")):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="로그인 5회 실패로 계정이 잠겼습니다. 15분 후 다시 시도해주세요.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    if not verify_password(form_data.password, user.hashed_password):
+        user.failed_login_attempts += 1
+
+        # 브로드포스 공격 방지
+        if user.failed_login_attempts >= 5:
+            user.locked_until = datetime.now(ZoneInfo("Asia/Seoul")) + timedelta(minutes=15)
+
+        await user.save()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="아이디 또는 비밀번호가 일치하지 않습니다.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+
+    # 로그인 완료 시 실패 횟수 초기화
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    await user.save()
+        
     await kafka_client.send_event(
         topic="user_login_events",
         message={
@@ -89,7 +118,7 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=True,
+        secure=False if environment == "development" else True,
         samesite="Lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
@@ -99,7 +128,7 @@ async def auth_login_for_access_token(response: Response, form_data: OAuth2Passw
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=True,
+        secure=False if environment == "development" else True,
         samesite="Lax",
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
     )
@@ -145,7 +174,7 @@ async def auth_refresh_access_token(response: Response, request: Request):
         key="access_token",
         value=new_access_token,
         httponly=True,
-        secure=True,
+        secure=False if environment == "development" else True,
         samesite="Lax",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )

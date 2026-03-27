@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: agent-mongodb
+    restart: always
+    environment:
+      - MONGO_INITDB_DATABASE=agent_db
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - agent-network
+
+  kafka:
+    image: bitnamilegacy/kafka:latest
+    container_name: agent-kafka
+    restart: always
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_CFG_NUM_PARTITIONS=3
+    volumes:
+      - kafka_data:/bitnami/kafka
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    name: agent-network
+    driver: bridge
+
+volumes:
+  mongo_data:
+  kafka_data:

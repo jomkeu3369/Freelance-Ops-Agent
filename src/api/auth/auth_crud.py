@@ -3,16 +3,27 @@ from typing import Optional
 
 from beanie import Document
 from pydantic import Field
+import uuid
 
-from src.models.user import User
+from src.api.schemas.user import User
 from src.core.security import get_password_hash
 
-async def create_user(username: str, email: Optional[str], password: str, full_name: Optional[str] = None) -> Document:
+def generate_user_number() -> str:
+    return str(uuid.uuid4()).split('-')[0].upper()
+
+
+async def create_user(
+        username: str, 
+        password: str, 
+        email: Optional[str] = None,
+    ) -> Document:
+        
+    user_number = generate_user_number()
     user = User(
+        user_number=user_number,
         username=username,
         email=email,
-        hashed_password=get_password_hash(password),
-        full_name=full_name,
+        hashed_password=get_password_hash(password)
     )
     await user.insert()
     return user

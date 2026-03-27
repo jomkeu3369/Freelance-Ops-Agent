@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from src.models.client import Client
+from src.api.schemas.client import Client
 from src.api.crm.crm_schema import ClientCreate
 
 async def get_all_clients() -> List[Client]:

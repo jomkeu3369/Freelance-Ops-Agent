@@ -1,5 +1,6 @@
 from typing import Optional, List, Tuple
-from src.models.log import SystemLog
+
+from src.api.schemas.log import SystemLog
 
 async def get_filtered_logs(
     page: int,

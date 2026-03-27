@@ -4,73 +4,37 @@ services:
   app:
     image: ${DOCKER_USERNAME}/freelance-ops-agent:latest
     container_name: agent-${COLOR}
+    restart: always
     ports:
       - "${APP_PORT}:8000"
     environment:
-      - MONGO_URL=mongodb://mongodb:27017/agent_db
+      - MONGO_URL=mongodb://agent-mongodb:27017/agent_db
+      - KAFKA_BOOTSTRAP_SERVERS=agent-kafka:9092
       - FAISS_INDEX_PATH=/data/faiss_index
     volumes:
-      - app_logs:/src/src/logs_data 
-      - faiss_data:/data/faiss_index
-    depends_on:
-      - mongodb
-      - kafka
-    deploy:
-      resources:
-        limits:
-          memory: 500M
+      - ./logs_data:/src/src/logs_data
+      - ./faiss_data:/data/faiss_index
     env_file:
       - .env
     networks:
       - agent-network
 
-  mongodb:
-    image: mongo:latest
-    container_name: agent-mongodb
-    volumes:
-      - mongo_data:/data/db
-    environment:
-      - MONGO_INITDB_DATABASE=agent_db
-    deploy:
-      resources:
-        limits:
-          memory: 500M
-    networks:
-      - agent-network
-  
   worker:
-    build: .
-    container_name: agent-worker
-    command: python src/worker.py
-    environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - MONGO_URL=mongodb://mongodb:27017/agent_db
-    depends_on:
-      - kafka
-    networks:
-      - agent-network
-
-  kafka:
-    image: bitnami/kafka:latest
-    container_name: agent-kafka
+    image: ${DOCKER_USERNAME}/freelance-ops-agent:latest
+    container_name: agent-worker-${COLOR}
     restart: always
+    entrypoint: ["poetry", "run", "python", "-m", "src.worker"]
     environment:
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
-      - ALLOW_PLAINTEXT_LISTENER=yes
+      - MONGO_URL=mongodb://agent-mongodb:27017/agent_db
+      - KAFKA_BOOTSTRAP_SERVERS=agent-kafka:9092
+      - FAISS_INDEX_PATH=/data/faiss_index
+    volumes:
+      - ./faiss_data:/data/faiss_index
+    env_file:
+      - .env
     networks:
       - agent-network
 
 networks:
   agent-network:
-    driver: bridge
-
-volumes:
-  mongo_data:
-  app_logs:
-  faiss_data:
+    external: true

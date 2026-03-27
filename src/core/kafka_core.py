@@ -51,7 +51,7 @@ class KafkaManager:
         try:
             await self.producer.send_and_wait(topic, message)
         except Exception as e:
-            logger.error(f"Kafka Send Error: {e}")
+            print(f"Critical Kafka Send Error: {e}")
 
 # 전역 인스턴스
 kafka_client = KafkaManager()

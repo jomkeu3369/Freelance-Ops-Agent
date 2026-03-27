@@ -15,18 +15,21 @@ from beanie import init_beanie
 from dotenv import load_dotenv
 load_dotenv()
 
-from src.models.log import SystemLog
-from src.models.user import User
-from src.models.client import Client
+from src.core.kafka_core import kafka_client
 
 from src.logs.log import get_logger
-from src.core.kafka_core import kafka_client
 from src.logs.kafka_handler import KafkaLoggingHandler
+
+from src.api.schemas.user import User
+from src.api.schemas.log import SystemLog
+from src.api.schemas.client import Client
 
 from src.api.auth import auth_router
 from src.api.logs import logs_router
 from src.api.crm import crm_router
 from src.api.dashboard import dashboard_router
+from src.api.agent import agent_router
+
 from src.api.auth.auth_crud import create_user, get_user_by_username
 
 
@@ -60,9 +63,8 @@ async def lifespan(app: FastAPI):
     if await get_user_by_username(os.getenv("admin_username")) is None:
         await create_user(
             username=os.getenv("admin_username"),
-            email=os.getenv("admin_email"),
             password=os.getenv("admin_password"),
-            full_name="Administrator"
+            email=os.getenv("admin_email")
         )
         local_logger.info("어드민 유저 생성 완료")
     
@@ -92,9 +94,10 @@ class FreelanceOpsAgentServer:
 
         if environment == "development":
             origins = [
-                "*"
+                "http://127.0.0.1:5500",
+                "http://localhost:5500"
             ]
-        
+            
         else:
             origins = [
                 "https://www.freelance-ops.site",
@@ -163,6 +166,7 @@ class FreelanceOpsAgentServer:
         self.app.include_router(logs_router.router, prefix="/api/v1")
         self.app.include_router(dashboard_router.router, prefix="/api/v1")
         self.app.include_router(crm_router.router, prefix="/api/v1")
+        self.app.include_router(agent_router.router, prefix="/api/v1")
         
     def get_app(self) -> FastAPI:
         return self.app

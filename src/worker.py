@@ -12,7 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
 from src.logs.log import get_logger
-from src.models.log import SystemLog
+from src.api.schemas.log import SystemLog
 
 
 logger = get_logger()

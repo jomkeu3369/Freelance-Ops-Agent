@@ -2,7 +2,6 @@ import logging
 import asyncio
 
 from datetime import datetime
-
 from src.core.kafka_core import KafkaManager
 
 class KafkaLoggingHandler(logging.Handler):
@@ -10,26 +9,32 @@ class KafkaLoggingHandler(logging.Handler):
         super().__init__()
         self.kafka_client = kafka_client
         self.topic = topic
+        
+        try:
+            self.main_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self.main_loop = asyncio.get_event_loop()
 
     def emit(self, record):
-
-        # 로그 루프백 방지
-        if "aiokafka" in record.name or "kafka" in record.name:
-            return
-
         try:
-            log_entry = {
+            msg_dict = {
+                "timestamp": datetime.now().isoformat(),
                 "level": record.levelname,
-                "logger": record.name,
-                "message": record.getMessage(),
-                "time": datetime.fromtimestamp(record.created).isoformat(),
-                "file": f"{record.filename}:{record.lineno}"
+                "message": self.format(record),
+                "logger": record.name
             }
 
-            # 비동기적으로 카프카에 로그 전송
-            loop = asyncio.get_running_loop()
-            if loop.is_running():
-                loop.create_task(self.kafka_client.send_event(self.topic, log_entry))
+            try:
+                current_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                current_loop = None
 
+            if current_loop and current_loop.is_running():
+                current_loop.create_task(self.kafka_client.send_event(self.topic, msg_dict))
+            else:
+                asyncio.run_coroutine_threadsafe(
+                    self.kafka_client.send_event(self.topic, msg_dict), 
+                    self.main_loop
+                )
         except Exception:
             self.handleError(record)
