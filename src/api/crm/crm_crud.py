@@ -9,6 +9,13 @@ async def get_all_clients() -> List[Client]:
 async def get_client_by_id(client_id: str) -> Optional[Client]:
     return await Client.get(client_id)
 
+async def update_client(client: Client, client_data: ClientCreate) -> Client:
+    client.name = client_data.name
+    client.status = client_data.status
+    await client.save()
+    return client
+
+
 async def create_client(client_data: ClientCreate) -> Client:
     client = Client(**client_data.dict())
     await client.insert()

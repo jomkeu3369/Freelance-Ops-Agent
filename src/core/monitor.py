@@ -5,6 +5,7 @@ def get_server_resources() -> ServerResources:
     """
     현재 서버(컨테이너)의 CPU, RAM, Disk 사용량을 측정합니다.
     """
+    
     cpu_percent = psutil.cpu_percent(interval=None)
 
     mem = psutil.virtual_memory()
