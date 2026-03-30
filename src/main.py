@@ -22,13 +22,14 @@ from src.logs.kafka_handler import KafkaLoggingHandler
 
 from src.api.schemas.user import User
 from src.api.schemas.log import SystemLog
-from src.api.schemas.client import Client
+from src.api.crm.crm_schema import CrmProject
 
 from src.api.auth import auth_router
 from src.api.logs import logs_router
 from src.api.crm import crm_router
 from src.api.dashboard import dashboard_router
 from src.api.agent import agent_router
+from src.api.archive import archive_router
 
 from src.api.auth.auth_crud import create_user, get_user_by_username
 
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
     mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017/agent_db")
     client = AsyncIOMotorClient(mongo_url)
     app.state.client = client
-    await init_beanie(database=client.get_default_database(), document_models=[User, SystemLog, Client])
+    await init_beanie(database=client.get_default_database(), document_models=[User, SystemLog, CrmProject])
 
     local_logger.info("MongoDB & Beanie 초기화 완료")
     local_logger.info("Kafka 클라이언트 초기화 및 로깅 설정 완료")
@@ -167,9 +168,18 @@ class FreelanceOpsAgentServer:
         self.app.include_router(dashboard_router.router, prefix="/api/v1")
         self.app.include_router(crm_router.router, prefix="/api/v1")
         self.app.include_router(agent_router.router, prefix="/api/v1")
+        self.app.include_router(archive_router.router, prefix="/api/v1")
         
     def get_app(self) -> FastAPI:
         return self.app
     
 server_instance = FreelanceOpsAgentServer()
 app = server_instance.get_app()
+
+
+'''
+    2. 에이전트 테스트
+
+    3. 로그 및 대시보드 제작 -> 제작 완료
+
+'''

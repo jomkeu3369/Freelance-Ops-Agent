@@ -33,6 +33,7 @@
 
 ## ✨ Key Features
 
+
 ### 1. 📄 Smart Spec Analysis (명세서 자동 분석)
 
 - `md`, `txt` 등 클라이언트가 준 정리되지 않은 요구사항을 LLM으로 파싱해 **기능 단위 JSON 스펙**으로 구조화합니다.

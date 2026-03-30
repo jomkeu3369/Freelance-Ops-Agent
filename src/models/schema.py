@@ -57,6 +57,9 @@ class ClarificateState(TypedDict):
 class MainState(ClarificateState):
     output_message: Optional[str]
 
+    project_id: Optional[str]
+    is_additional_order: Optional[bool]
+
     # 대한민국 법률 / 디스코드 TOS 리스크 정의
     korean_law_risk: Optional[float]
     korean_law_risk_reason: Optional[str]

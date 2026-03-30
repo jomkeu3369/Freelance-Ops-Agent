@@ -1,25 +1,42 @@
 from typing import List, Optional
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from beanie import PydanticObjectId
 
-from src.api.schemas.client import Client
-from src.api.crm.crm_schema import ClientCreate
+from src.api.crm.crm_schema import CrmProject, CrmProjectCreate, CrmProjectUpdate
 
-async def get_all_clients() -> List[Client]:
-    return await Client.find_all().sort("-created_at").to_list()
+async def create_project(data: CrmProjectCreate) -> CrmProject:
+    new_project = CrmProject(**data.model_dump())
+    await new_project.insert()
+    return new_project
 
-async def get_client_by_id(client_id: str) -> Optional[Client]:
-    return await Client.get(client_id)
+async def get_all_projects(skip: int = 0, limit: int = 50, status: Optional[str] = None) -> List[CrmProject]:
+    query = CrmProject.find()
+    if status:
+        query = CrmProject.find(CrmProject.status == status)
+    
+    return await query.sort(-CrmProject.created_at).skip(skip).limit(limit).to_list()
 
-async def update_client(client: Client, client_data: ClientCreate) -> Client:
-    client.name = client_data.name
-    client.status = client_data.status
-    await client.save()
-    return client
+async def get_project_by_id(project_id: PydanticObjectId) -> Optional[CrmProject]:
+    return await CrmProject.get(project_id)
 
+async def update_project(project_id: PydanticObjectId, data: CrmProjectUpdate) -> Optional[CrmProject]:
+    project = await CrmProject.get(project_id)
+    if not project:
+        return None
 
-async def create_client(client_data: ClientCreate) -> Client:
-    client = Client(**client_data.dict())
-    await client.insert()
-    return client
+    update_data = data.model_dump(exclude_unset=True)
+    if update_data:
+        for key, value in update_data.items():
+            setattr(project, key, value)
+        project.updated_at = datetime.now(tz=ZoneInfo("Asia/Seoul"))
+        await project.save()
+        
+    return project
 
-async def delete_client(client: Client) -> None:
-    await client.delete()
+async def delete_project(project_id: PydanticObjectId) -> bool:
+    project = await CrmProject.get(project_id)
+    if not project:
+        return False
+    await project.delete()
+    return True

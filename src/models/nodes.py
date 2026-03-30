@@ -8,6 +8,7 @@ from langchain.chat_models import init_chat_model
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.documents import Document
 
 from dotenv import load_dotenv
 
@@ -68,10 +69,12 @@ async def clariffication_node(state: MainState) -> ClarificateState:
 
 async def clariffication_feedback_node(state: ClarificateState) -> ClarificateState:
     """ 사용자가 입력한 피드백을 기존 요구사항에 추가하는 노드 """
-
     feedback = state.get("human_feedback")
+    print(f"\n========== [DEBUG] 사용자 피드백 도착: {feedback} ==========\n") 
+    logger.info(f"clariffication 사용자 피드백: {feedback}")
 
     if not feedback:
+        print("========== [DEBUG] 피드백이 None이거나 비어있습니다! ==========")
         return {}
     
     updated_input = f"{state['input_message']}\n\n[사용자 추가 답변]: {feedback}"
@@ -326,7 +329,9 @@ async def estimation_node(state: MainState) -> dict:
     prompt = ChatPromptTemplate.from_messages([
         SystemMessagePromptTemplate.from_template(
             "당신은 디스코드 봇 개발 에이전시의 유능하고 유연한 '수석 견적 산출가 겸 비즈니스 파트너'입니다.\n"
-            "고객의 [요구사항]과 [과거 유사 프로젝트 데이터]를 분석하여 합리적인 제작 비용(원화)과 소요 기간을 산출하세요.\n\n"
+            "고객의 [요구사항]과 [과거 유사 프로젝트 데이터]를 분석하여 합리적인 제작 비용(원화)과 소요 기간을 산출하세요.\n"
+            "한국 프리랜서 시장은 단가가 매우 낮은 편이며, 고객은 항상 비용 삭감을 시도할 것입니다. 단가는 우선적으로 검색된 과거 데이터를 참조하고, 검색된 과거 데이터가 없다면 한국 최저 시급으로 판단해 주십시오.\n"
+            "당신의 목표는 최대한 협조적이고 유연한 자세로, 어떻게든 거래를 성사시키는 것입니다.\n\n"
             "[지시사항]\n"
             "1. 과거 데이터가 있다면 이를 최우선 기준으로 삼아 비교 분석하여 견적을 내세요.\n"
             "2. 과거 데이터가 없다면, 요구사항의 난이도(DB 유무, 외부 API 등)를 스스로 평가하여 일반적인 프리랜서 단가로 산출하세요.\n"
@@ -344,16 +349,24 @@ async def estimation_node(state: MainState) -> dict:
     ])
     
     chain = prompt.partial(format_instructions=parser.get_format_instructions()) | high_gpt_model | parser
-    result: EstimationResult = await chain.ainvoke({
-        "input_message": state["input_message"],
-        "past_projects": past_projects_text
-    })
 
     current_retry = state.get("estimation_retry_count", 0)
+    try:
+        result: EstimationResult = await chain.ainvoke({
+            "input_message": state["input_message"],
+            "past_projects": past_projects_text
+        })
+        estimation_draft = result.estimation_draft
+        
+    except Exception as e:
+        logger.error(f"견적 산출 JSON 파싱 에러: {e}")
+        estimation_draft = "견적 산출 중 데이터 형식 오류가 발생했습니다. 재시도가 필요합니다."
+
     return {
-        "estimation_draft": result.estimation_draft,
+        "estimation_draft": estimation_draft,
         "estimation_retry_count": current_retry + 1
     }
+
 
 async def hallucination_check_node(state: MainState) -> dict:
     """견적 내용이 논리적인지, 과거 데이터를 무시하거나 없는 사실을 지어내지 않았는지 검사"""
@@ -411,32 +424,73 @@ async def estimation_hitl_node(state: MainState) -> dict:
 
 
 async def finalize_and_store_node(state: MainState) -> dict:
-    """최종 요구사항 명세서를 작성하고 FAISS 벡터 DB에 적재하는 노드"""
+    """
+    협상이 완료된 후, FAISSManager를 활용해 기존 명세서를 불러오고 새 대화와 합병한 뒤 기존 문서를 덮어쓰기하는 노드
+    """
+    logger.info("명세서 최종 확정 및 FAISS 저장(합병) 시작")
 
-    prompt = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(
-            "당신은 개발 프로젝트 매니저입니다.\n"
-            "고객의 최초 요구사항부터 각종 피드백, 그리고 최종 합의된 견적 및 기간을 모두 종합하여, "
-            "개발자가 바로 보고 개발에 착수할 수 있는 완벽한 [최종 요구사항 명세서]를 마크다운 포맷으로 작성하세요.\n"
-            "비용과 소요 기간도 명세서 하단에 반드시 명시하세요."
-        ),
-        HumanMessagePromptTemplate.from_template("[모든 대화 히스토리 및 합의 내용]\n{history}")
+    project_id = state.get("project_id")
+    
+    chat_history = state.get("input_message", "")
+    estimation_draft = state.get("estimation_draft", "")
+    is_additional_order = state.get("is_additional_order", False)
+
+    if not project_id:
+        logger.error("오류: project_id가 존재하지 않아 FAISS 저장을 취소합니다.")
+        return {"final_requirement_specs": "오류: 프로젝트 ID가 누락되어 명세서가 저장되지 않았습니다."}
+    
+    existing_spec_text = ""
+    if is_additional_order:
+        existing_spec_text = faiss_manager.get_full_project_document(project_id)
+        if existing_spec_text:
+            logger.info(f"기존 명세서 발견 완료 (Project ID: {project_id}). 합병 모드로 진행합니다.")
+        
+    system_prompt = (
+        "당신은 IT 프로젝트의 요구사항 명세서를 작성하는 수석 아키텍트입니다.\n"
+        "고객과의 최종 협상이 완료되었습니다. 아래의 지시사항에 따라 완벽한 마크다운 명세서를 작성하세요.\n\n"
+        "[지시사항]\n"
+        "1. 만약 '[기존 시스템 명세서]'가 주어졌다면, 해당 내용을 베이스로 삼고 '[이번 대화 기록]'에서 추가/수정된 요구사항을 병합하여 완벽하게 업데이트된 v2 명세서를 작성하세요.\n"
+        "2. 기존 명세서가 없다면 이번 대화 기록만을 바탕으로 신규 명세서를 작성하세요.\n"
+        "3. 기술 스택, 일정, 견적 금액, 주요 기능이 반드시 포함되어야 합니다."
+    )
+
+    user_prompt = f"[이번 대화 기록 및 요구사항]\n{chat_history}\n\n[최종 합의된 견적 내용]\n{estimation_draft}\n\n"
+    if existing_spec_text:
+        user_prompt += f"[기존 시스템 명세서 (여기에 위의 요구사항을 반영할 것)]\n{existing_spec_text}"
+
+    final_spec_content = await high_gpt_model.ainvoke([
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
     ])
     
-    chain = prompt | high_gpt_model | StrOutputParser()
-    final_spec = await chain.ainvoke({"history": state["input_message"] + "\n\n[합의된 견적]: " + state["estimation_draft"]})
-    
-    new_project_id = f"PROJ_{uuid.uuid4().hex[:8].upper()}"
-    
-    with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as temp_file:
-        temp_file.write(final_spec)
-        temp_file_path = temp_file.name
-        
-    try:
-        faiss_manager.add_project_document(file_path=temp_file_path, project_id=new_project_id)
-        logger.info(f"[DB 저장 완료] 새로운 프로젝트가 FAISS에 적재되었습니다: {new_project_id}")
-    finally:
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+    final_text = final_spec_content.content
 
-    return {"final_requirement_specs": final_spec}
+    try:
+        if existing_spec_text:
+            faiss_manager.delete_documents_by_metadata({"project_id": project_id})
+            logger.info("기존 명세서 청크 삭제 완료.")
+
+        split_texts = faiss_manager.text_splitter.split_text(final_text)
+        
+        docs = []
+        doc_ids = [str(uuid.uuid4()) for _ in split_texts]
+        
+        for i, text_chunk in enumerate(split_texts):
+            doc = Document(
+                page_content=text_chunk,
+                metadata={
+                    "doc_type": "project",
+                    "project_id": project_id,
+                    "chunk_index": i,
+                    "total_chunks": len(split_texts)
+                }
+            )
+            docs.append(doc)
+            
+        faiss_manager.add_documents(docs, ids=doc_ids)
+        logger.info(f"성공적으로 통합된 명세서를 FAISS에 저장했습니다. (Project: {project_id}, Chunks: {len(docs)})")
+        
+    except Exception as e:
+        logger.error(f"FAISS 명세서 저장 중 오류 발생: {e}")
+
+    return {"final_requirement_specs": final_text}
