@@ -36,6 +36,7 @@ class HallucinationEvaluation(BaseModel):
     score: float = Field(description="견적의 논리성 및 과거 데이터 반영 신뢰도 (0.0 ~ 1.0)")
     reason: str = Field(description="해당 점수를 부여한 이유")
 
+
 # ---------------------------------------
 #   데이터 타입 설정
 # ---------------------------------------
