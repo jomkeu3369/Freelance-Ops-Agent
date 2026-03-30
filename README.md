@@ -53,7 +53,7 @@
 
 ## 🧠 AI Core Logic: RAG 기반의 지속적 학습 (Continual Learning)
 
-복잡하고 무거운 파라미터 Fine-Tuning 대신, 프리랜서의 실무 환경에 맞춘 **'메모리 기반의 암묵적 피드백 루프(Implicit Feedback Loop)'**를 구현했습니다.
+복잡하고 무거운 파라미터 Fine-Tuning 대신, 프리랜서의 실무 환경에 맞춘 **'메모리 기반의 암묵적 피드백 루프(Implicit Feedback Loop)'** 를 구현했습니다.
 
 ### 1. 상황 인식 및 즉각적 반영:
 에이전트가 제시한 초안 견적에 대해 사용자가 금액이나 조건을 수정하면, LangGraph의 상태(State)에 해당 피드백이 즉시 반영되어 컨텍스트 기반으로 새로운 견적을 재산출합니다.
