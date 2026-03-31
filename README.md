@@ -232,11 +232,41 @@ graph TD
 
 ## 🚀 Getting Started
 
-설치·실행 방법은 기존 README 구조를 유지하면서, 아래와 같이 보완하면 됩니다.
-
 1. **리포지토리를 복사합니다.**
-2. **Environment Setup:** .env 파일 구성 (OpenAI API Key, JWT Secret Key, MongoDB URI 등)
-3. **Run with Docker Compose:** (Zookeeper, Kafka, MongoDB, Agent API 일괄 실행)
+```bash
+git clone https://github.com/jomkeu3369/Freelance-Ops-Agent
+```
+
+2. **.env 파일을 생성하고 아래 구조에 맞게 작성합니다.**
+```
+version = 0.1.2
+
+environment = development 또는 production
+OPENAI_API_KEY= 
+
+ACCESS_TOKEN_EXPIRE_MINUTES = 
+REFRESH_TOKEN_EXPIRE_DAYS = 
+SECRET_KEY = 
+ALGORITHM = 
+
+admin_username = 
+admin_email = 
+admin_password = 
+
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+LANGCHAIN_API_KEY=
+LANGCHAIN_PROJECT=
+
+VULTR_API_KEY=
+```
+
+3. **아래 명령어를 사용하여 docker를 구동합니다.**
+```bash
+docker-compose -f docker-compose.infra.yaml up -d
+docker-compose -f docker-compose.yaml up -d
+```
+
 ***
 
 ## 📂 Project Structure
