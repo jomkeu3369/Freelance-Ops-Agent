@@ -1,11 +1,12 @@
 # Freelance Ops Agent V2 제품·기술 명세서
 
-> 문서 상태: Draft v1.1  
-> 작성일: 2026-07-20  
-> 대상 버전: Freelance Ops Agent V2  
+> 문서 상태: Draft v1.2
+> 작성일: 2026-07-20
+> 마지막 갱신: 2026-07-24
+> 대상 버전: Freelance Ops Agent V2
 > 구현 기준: 본 문서는 V2의 제품 범위와 아키텍처를 결정하는 기준 문서다. 구현 중 중요한 변경이 생기면 ADR(Architecture Decision Record)을 먼저 작성하고 본 문서를 갱신한다.
 
-관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005를 따른다.
+관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007을 따른다.
 
 ---
 
@@ -58,6 +59,8 @@ V2의 우선순위는 다음 순서를 따른다.
 - 종료된 프로젝트의 실제 공수와 금액을 기록하여 향후 검색 근거로 사용한다.
 - 고정 평가셋으로 검색, grounding, 견적, 위험 탐지 품질을 반복 측정한다.
 - Docker Compose만으로 로컬 전체 환경을 재현할 수 있다.
+- 직군과 국가를 Agent 복제로 표현하지 않고 versioned domain/jurisdiction pack으로 확장한다.
+- 단일 Agent baseline보다 효과가 검증된 영역에만 제한된 계층형 Supervisor를 적용한다.
 
 ### 3.2 비목표
 
@@ -67,11 +70,24 @@ V2 첫 릴리스에서는 다음을 구현하지 않는다.
 - 결제 대행과 세금계산서 발행
 - 회계·노무·법률 판단의 자동 대체
 - 자율적으로 계약을 체결하거나 외부 시스템을 변경하는 Agent
-- 다수 Agent가 자유롭게 handoff하는 swarm 구조
+- 다수 Agent가 제약 없이 서로 호출하고 handoff하는 자유로운 swarm 구조
 - 모델 fine-tuning
 - Kafka, Kubernetes, 분산 microservice
 - 실시간 공동 문서 편집
 - 자체 embedding 또는 LLM 모델 서빙
+
+### 3.3 출시 범위와 수익화 가설
+
+장기 비전은 다양한 직군과 관할권을 포용하는 것이지만 첫 유료 검증 범위는 한국 소프트웨어 개발 프리랜서로 제한한다. 디자인·콘텐츠, 번역·컨설팅과 해외 거래는 domain/jurisdiction pack의 품질과 유료 수요를 확인하며 단계적으로 확장한다.
+
+제품은 Agent 호출 횟수가 아니라 실제 고객에게 전달할 수 있는 산출물의 가치로 판매한다.
+
+- 무료: 제한된 프로젝트 수의 요구사항 명확화와 기본 체크리스트
+- 건별 결제 가설: 요구사항 명세서 2,900~4,900원, 견적·작업범위 4,900~9,900원, 해외 거래·근거 조사 9,900~19,900원
+- Pro 구독 가설: 월 12,900~19,900원, 월간 사용량과 Deep Analysis credit이 제한된 CRM·견적·revision·PDF 기능
+- Team/Agency 가설: 월 49,000~99,000원, workspace RBAC, 조직 단가표, 승인, 감사 기록과 템플릿 공유
+
+첫 공개 릴리스에서 무제한 AI·검색·크롤링 요금제를 제공하지 않는다. 가격은 예상 API 원가가 아니라 사용자 인터뷰와 실제 유료 거래에서 검증된 지불 의사를 기준으로 결정한다. 서버 증설과 Agent 조직 확장은 최소 10~20건의 실제 유료 사용과 결과물 재사용 지표를 확인한 뒤 진행한다.
 
 ---
 
@@ -214,6 +230,7 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 | Frontend | React/Next.js + TypeScript | 제품형 UI와 타입 안전한 API 연동 |
 | Primary DB | PostgreSQL | 관계형 데이터, 트랜잭션, 상태, 감사 기록 통합 |
 | Vector Search | pgvector | 비즈니스 데이터와 embedding을 동일 DB에서 관리 |
+| Web Research | Provider interface + Tavily + Crawl4AI | 탐색과 통제된 수집을 분리하고 provider 종속 방지 |
 | Migration | Flyway | 재현 가능한 schema 변경 |
 | File Storage | 개발: Docker volume, 운영: S3-compatible storage | 원본 문서를 DB와 분리 |
 | Observability | Micrometer + OpenTelemetry-compatible tracing | API·LLM·Tool 실행 추적 |
@@ -261,8 +278,11 @@ flowchart LR
 
     subgraph AIR["Python Agent Runtime"]
         FAST["FastAPI Internal API"]
-        GRAPH["LangGraph + ReAct + HITL"]
+        GRAPH["LangGraph Global Orchestrator"]
+        DEPT["Bounded Department Supervisors"]
+        SPEC["Specialist Agent / ReAct / HITL"]
         MODEL["OpenAI / Gemini Adapter"]
+        WEB["WebResearchProvider"]
     end
 
     API --> ID
@@ -271,8 +291,11 @@ flowchart LR
     QUOTE --> GATE
     GATE --> FAST
     FAST --> GRAPH
-    GRAPH --> MODEL
-    GRAPH -->|"delegated Tool call"| TOOLS
+    GRAPH --> DEPT
+    DEPT --> SPEC
+    SPEC --> MODEL
+    SPEC --> WEB
+    SPEC -->|"delegated Tool call"| TOOLS
     TOOLS --> KNOW
     TOOLS --> QUOTE
     GRAPH --> GATE
@@ -285,7 +308,9 @@ flowchart LR
     KNOW --> PG
     EVID --> PG
     EXPORT --> FS[("File/Object Storage")]
-    GRAPH -. optional .-> MCP["External MCP Servers"]
+    WEB --> TAVILY["Tavily"]
+    WEB --> CRAWL["Crawl4AI / Direct Fetch / PDF"]
+    SPEC -. optional .-> MCP["External MCP Servers"]
 ```
 
 ### 6.1 배포 원칙
@@ -297,6 +322,7 @@ flowchart LR
 - Python은 business table을 직접 읽거나 변경하지 않고 Spring Tool API를 호출한다.
 - 그 외 Spring 모듈은 독립 확장·배포 필요성이 측정되기 전에는 microservice로 분리하지 않는다.
 - PostgreSQL은 단일 system of record다.
+- Crawl4AI는 초기에는 Agent runtime의 제한된 비동기 worker로 실행하며 독립 확장 필요성이 입증되기 전에는 별도 서비스로 분리하지 않는다.
 
 ---
 
@@ -463,7 +489,8 @@ V2 Agent는 모든 로직을 LLM에 위임하지 않는다.
 | Agent graph, 기능 분해, Tool 선택, interrupt | Python LangGraph |
 | OpenAI/Gemini 호출과 structured output | Python model provider adapter |
 | 금액, 기간, 세금, 합계 계산 | Spring의 결정적 Java Tool |
-| 검색 | Spring의 PostgreSQL full-text + pgvector Tool |
+| 내부 지식 검색 | Spring의 PostgreSQL full-text + pgvector Tool |
+| 외부 자료 탐색·수집 | Python WebResearchProvider와 검증된 수집 정책 |
 | 상세 checkpoint와 resume | LangGraph `AsyncPostgresSaver` |
 | 결과 근거 검증 | Spring validator + 제한된 LLM evaluator |
 | 최종 수정·승인 | 사용자 HITL, Spring public API 경유 |
@@ -535,6 +562,72 @@ Spring은 사용자에게 공개되는 `agent_run` 상태와 승인 기록을 `a
 
 MCP Tool은 최소 권한 scope, workspace별 credential, 사용자 승인, audit log를 적용한다. MCP 연결 설정은 `integration.manage`, 읽기 실행은 `integration.read`를 요구한다. MCP server의 OAuth scope와 애플리케이션 RBAC를 혼동하지 않고 둘 다 통과해야 호출한다. MCP 장애가 핵심 견적 flow를 중단시키지 않도록 first release의 필수 조건으로 두지 않는다.
 
+### 9.6 제한된 계층형 Supervisor
+
+목표 조직은 실제 기업의 책임 분리를 참고하되 LLM이 자유롭게 조직을 만들거나 위임하지 못하게 제한한다.
+
+```mermaid
+flowchart TD
+    U["사용자 요청"] --> G["Global Orchestrator"]
+    G --> RQ["Requirements Supervisor"]
+    G --> RS["Research Supervisor"]
+    G --> DS["Deal Design Supervisor"]
+    G --> VS["Verification Supervisor"]
+
+    RQ --> RA["Requirement Analyst"]
+    RQ --> CQ["Clarification Generator"]
+    RS --> DA["Domain Research"]
+    RS --> LA["Law/Policy Research"]
+    RS --> WA["Web Collection"]
+    DS --> WA2["Scope Designer"]
+    DS --> EA["Estimate Designer"]
+    VS --> EV["Evidence Validator"]
+    VS --> RV["Risk Validator"]
+    VS --> DT["Deterministic Spring Tools"]
+```
+
+- 최대 계층은 `Global Orchestrator → Department Supervisor → Specialist/Tool`의 2단계다.
+- Global Orchestrator는 요청 등급 분류, 부문 선택, 결과 조정과 HITL 진입만 담당한다. 검증된 법률 근거와 Java Tool 계산 결과를 재작성하지 않는다.
+- 부문 Supervisor는 자기 부문에 허용된 최소 Tool만 사용하며 다른 부문을 직접 호출하지 않는다.
+- 단순 요청은 조직 전체를 실행하지 않고 `DIRECT_TOOL`, `SINGLE_AGENT`, `DEPARTMENT`, `MULTI_DEPARTMENT`, `HUMAN_REQUIRED` 중 하나로 routing한다.
+- 직군·국가마다 새 Agent를 만들지 않는다. 공통 Specialist가 versioned domain pack과 jurisdiction pack을 선택해 사용한다.
+- 병렬 실행은 입력 요구사항이 확정되고 서로 독립적인 조사에만 허용한다.
+- 사용자 대화의 단계 전환은 상태에 의해 허용된 제한적 handoff만 사용한다.
+- Agent가 동적으로 새로운 Agent를 생성하거나 허용되지 않은 부문으로 handoff할 수 없다.
+- 각 부문은 versioned structured result를 반환하며 `findings`, `risks`, `sources`, `assumptions`, `unresolved_questions`, `validation_status`를 포함한다.
+
+첫 구현은 단일 Orchestrator와 Specialist Tool 호출로 시작한다. 평가에서 품질 이득이 확인된 부문만 Supervisor로 승격하며 조사 부문을 첫 후보로 한다.
+
+### 9.7 Agent 공통 상태와 실행 제한
+
+Supervisor와 Specialist는 자유로운 대화 전문 대신 공통 상태의 필요한 field만 읽고 쓴다.
+
+```text
+run_id, workspace_id, initiated_by, delegated_permissions
+objective, request_tier, industry, jurisdiction
+requirements, assumptions, evidence, risks
+department_results, validation_results, pending_questions
+quote_draft, approval_required, status
+```
+
+모든 부문 실행은 담당 node, 입력 schema version, model/provider, prompt version, Tool 요약, source, token, 비용, latency, retry와 결과 상태를 기록한다. 비공개 chain-of-thought는 기록하지 않는다.
+
+run에는 다음 hard limit를 적용한다.
+
+```text
+max_hierarchy_depth
+max_model_calls
+max_tool_calls
+max_search_credits
+max_input_tokens
+max_output_tokens
+max_execution_seconds
+max_retries
+max_handoffs
+```
+
+예상 비용이나 권한이 한도를 초과하면 자동으로 우회하지 않고 실행 전 사용자 승인 또는 안전한 중단 상태로 전환한다.
+
 ---
 
 ## 10. Retrieval 및 근거 설계
@@ -602,6 +695,72 @@ created_by_run_id
 - 어떤 계산식이 적용됐는가
 - 확인되지 않은 assumption은 무엇인가
 - 신뢰 범위가 넓어진 이유는 무엇인가
+
+### 10.4 웹 자료 탐색·수집
+
+Agent node는 Tavily나 Crawl4AI SDK를 직접 contract로 노출하지 않고 다음 provider-neutral capability를 사용한다.
+
+```text
+WebResearchProvider
+├─ search(query, filters)
+├─ map(domain, constraints)
+├─ fetch(url)
+├─ crawl(seed_url, policy)
+└─ extract(document, schema)
+```
+
+기본 routing 정책은 다음과 같다.
+
+| 상황 | 기본 route |
+|---|---|
+| 새로운 출처와 최신 정보 탐색 | Tavily Search |
+| 공식 사이트 URL 구조 파악 | Tavily Map |
+| 알려진 정적 URL 조회 | Direct HTTP 또는 Tavily Extract |
+| 허용된 사이트의 다중 페이지 수집 | Tavily Crawl 또는 Crawl4AI benchmark winner |
+| JavaScript 동적 페이지·구조화 추출 | Crawl4AI |
+| 법령·가이드 PDF | 전용 PDF extractor |
+
+수집 pipeline은 다음과 같다.
+
+```text
+source registry
+→ discovery
+→ allowlist·robots·이용약관·rate limit 확인
+→ fetch/crawl
+→ 악성 지시·PII·content type 검사
+→ normalize/extract
+→ deduplicate/content hash
+→ raw snapshot과 metadata version 저장
+→ 품질 검증
+→ chunk/embed
+→ publish
+```
+
+법률·정책 자료에는 최소한 다음 metadata를 저장한다.
+
+```text
+source_url, source_title, publisher, jurisdiction
+industry, document_type, authority_level
+published_at, effective_from, effective_until, retrieved_at
+content_hash, raw_snapshot_id, parser_version
+```
+
+- 사용자의 언어나 위치만으로 관할권을 추정하지 않는다. 불명확하면 먼저 확인한다.
+- 공식기관과 원문 source를 우선하고, 모델의 일반 지식을 법률 근거로 사용하지 않는다.
+- 외부 문서 content는 untrusted input이며 내부 prompt나 Tool 실행 지시로 취급하지 않는다.
+- 동일 source는 사용자 요청마다 재수집하지 않고 snapshot을 재사용하며 freshness policy에 따라 갱신한다.
+- 인용은 가능한 한 변경 가능한 live page뿐 아니라 수집 시점의 불변 snapshot과 연결한다.
+- 법률 판단을 자동 확정하지 않고 거래 위험 정보와 검토 자료를 제공한다. 고위험 결과는 사람의 검토로 보낸다.
+
+### 10.5 Domain 및 Jurisdiction Pack
+
+지원 범위는 Agent 수가 아니라 versioned pack으로 확장한다.
+
+- domain pack: 업종별 요구사항 schema, 질문, WBS template, 산정 규칙과 거래 관행
+- jurisdiction pack: 국가·관할권별 공식 source registry, 용어, 기준일, 검증 규칙과 고위험 조건
+- transaction pack: 국내·해외, B2B·B2C, 고정가·시간제, 유지보수 등 거래 유형별 조건
+
+각 pack은 version, 적용 범위, source 목록, 검수자, 유효기간과 evaluation case를 가져야 한다. V2 초기 pack은 한국 소프트웨어 개발 프리랜서로 제한하고 평가 없이 “모든 직군·국가 지원”을 표시하지 않는다.
 
 ---
 
@@ -796,6 +955,7 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 - 최소 계약 금액
 - 기본 buffer와 세금 표시
 - 주당 가용 시간
+- 기본 국가·관할권, 통화와 거래 유형
 - 기존 프로젝트 import
 
 #### Home / Pipeline
@@ -846,6 +1006,7 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 - 문서 및 연결 서비스
 - 데이터 export와 삭제
 - LLM 전송 및 trace privacy 설정
+- 요금제, 남은 Agent·검색 credit와 사용 내역
 
 ### 13.3 상태 관리
 
@@ -884,12 +1045,16 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 
 ### 14.3 baseline
 
-다음 네 구성을 비교한다.
+다음 구성을 단계적으로 비교한다.
 
 1. 규칙 기반 calculator
 2. 단순 LLM without RAG
 3. V1 FAISS workflow
-4. V2 Agent + Tools + pgvector
+4. V2 단일 Agent + Tools + pgvector
+5. V2 Global Orchestrator + 선택된 Department Supervisor
+6. 제한된 state-driven handoff
+
+다중 Agent 구성은 단일 Agent baseline보다 task success 또는 주요 품질 지표를 개선하면서 정해진 latency·비용 한도를 만족할 때만 기본 route로 승격한다.
 
 ### 14.4 지표
 
@@ -904,6 +1069,10 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 | 계산 | 합계·세금·할인 산술 정확도 | 100% |
 | Risk | 고위험 사례 recall | 0.95 이상 |
 | Agent | 정상 case completion rate | 0.90 이상 |
+| Agent | department routing accuracy | baseline 측정 후 결정 |
+| Agent | loop·budget 초과율 | 0% |
+| Web | source 수집 성공률·freshness | corpus별 baseline 대비 개선 |
+| Cost | 성공한 산출물당 variable cost | 판매가의 20% 이하를 초기 guardrail로 사용 |
 | Security | cross-tenant 차단 | 100% |
 
 초기 목표는 dataset 품질과 baseline 결과에 따라 ADR로 조정할 수 있다. 숫자를 README에 공개할 때 dataset 규모와 confidence interval을 함께 표기한다.
@@ -963,6 +1132,13 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 - Agent checkpoint는 성공했지만 Spring public 상태 갱신이 실패한 경우의 reconciliation
 - 삭제된 source를 citation이 참조
 - SSE 연결 중단과 재연결
+- Global Orchestrator와 Department Supervisor 사이의 순환 위임
+- 허용된 최대 hierarchy·handoff·model·Tool 호출 수 초과
+- 무료 사용자의 token·검색 credit·크롤링 한도 초과
+- 외부 웹 문서가 Tool 호출이나 내부 prompt 변경을 지시하는 prompt injection
+- 관할권과 기준일이 다른 법률 source의 혼합
+- Crawl4AI timeout·browser crash·사이트 구조 변경
+- 수집 snapshot은 성공했지만 chunk·embedding publish가 실패한 경우의 rollback/reconciliation
 
 ---
 
@@ -1052,6 +1228,44 @@ status
 - 사용자는 `실패`, `재시도 가능`, `응답 대기`를 구분해 볼 수 있어야 한다.
 - Agent run 실패 시 마지막 완료 단계와 안전한 재개 방법을 저장한다.
 
+### 17.4 비용 및 사용량 통제
+
+비용은 API 호출 단위가 아니라 성공한 사용자 산출물 단위로 집계한다.
+
+```text
+agent_run_id
+request_tier
+model_input_tokens
+model_output_tokens
+cached_tokens
+search_credits
+crawled_pages
+retry_count
+estimated_cost
+actual_cost
+billable_outcome
+```
+
+- 분류·추출·요약은 평가를 통과한 저비용 모델을 기본으로 하고 복합 거래 조건과 고위험 최종 검토에만 상위 모델을 사용한다.
+- 금액 계산, 권한 판단과 단순 CRUD는 LLM을 호출하지 않는다.
+- 공식 법률·정책 자료는 정기 수집하고 snapshot을 재사용하여 사용자별 반복 크롤링을 방지한다.
+- 무료·유료 plan마다 model call, token, search credit, deep analysis와 동시 run quota를 둔다.
+- 무료 plan과 구독 plan 모두 무제한 Agent 실행을 제공하지 않는다.
+- 사용자에게 실행 전 예상 credit을 표시하고 한도 초과는 명시적 승인 없이 자동 결제하거나 silent fallback하지 않는다.
+- provider별 일·월 hard budget과 이상 사용량 alert를 둔다.
+- 모델 가격과 환율은 코드에 고정하지 않고 versioned pricing configuration으로 관리한다.
+- 수익성 판단에는 결제 수수료, 세금, storage, observability, backup과 고객지원 비용도 포함한다.
+
+월 손익분기는 다음 식으로 관리한다.
+
+```text
+사용자당 공헌이익 = 순매출 - 사용자당 model/search/crawl/storage/결제 변동비
+손익분기 유료 사용자 수 = 월 고정비 / 사용자당 공헌이익
+산출물 공헌이익 = 산출물 순매출 - 해당 run들의 실제 변동비
+```
+
+초기 운영 guardrail은 성공한 산출물의 변동비를 순매출의 20% 이하로 두는 것이며, 이는 확정 수치가 아니라 유료 검증 데이터로 조정할 가설이다.
+
 ---
 
 ## 18. Docker 및 배포
@@ -1067,7 +1281,7 @@ agent-python
 postgres-pgvector
 ```
 
-`agent-python`은 Docker 내부 network에만 expose한다. 선택적으로 observability profile을 제공할 수 있다. 로컬 개발 기본 경로에 Kafka, MongoDB, Qdrant, Redis를 포함하지 않는다.
+`agent-python`은 Docker 내부 network에만 expose한다. 선택적으로 observability profile을 제공할 수 있다. Crawl4AI는 초기에는 `agent-python` 내부의 동시성 1인 비동기 worker로 시작하며 필요할 때만 `crawler-worker` profile로 분리한다. 로컬 개발 기본 경로에 Kafka, MongoDB, Qdrant, Redis를 포함하지 않는다.
 
 ### 18.2 PostgreSQL
 
@@ -1085,6 +1299,7 @@ postgres-pgvector
 - image에 secret, `.env`, test dataset 원문을 포함하지 않는다.
 - CI에서 test 통과 후에만 image를 publish한다.
 - 배포는 immutable image tag를 사용하고 rollback 가능한 이전 tag를 보존한다.
+- Chromium을 포함하는 crawler image는 별도 resource limit, timeout, non-root 실행과 browser sandbox 정책을 검증한다.
 
 ### 18.4 백업
 
@@ -1181,6 +1396,8 @@ postgres-pgvector
 - Evidence Ledger
 - source viewer
 - retrieval evaluation
+- source registry와 법률·정책 metadata
+- domain/jurisdiction pack schema
 
 완료 조건:
 
@@ -1192,6 +1409,8 @@ postgres-pgvector
 - FastAPI internal API와 Pydantic/OpenAPI contract
 - OpenAI/Gemini provider adapter와 run별 model 기록
 - LangGraph structured output와 ReAct Tool loop
+- 요청 등급 routing과 Global Orchestrator
+- 부문 structured result contract와 계층·호출 budget
 - Spring internal Tool API와 Python Tool client
 - delegation token과 service-to-service authorization
 - `AsyncPostgresSaver` 기반 persisted checkpoint
@@ -1207,21 +1426,44 @@ postgres-pgvector
 - OpenAPI contract test와 delegation security test가 통과한다.
 - 계산 Tool test가 100% 통과한다.
 - 모든 생성 견적 항목에 evidence 또는 assumption이 존재한다.
+- 단순 조회·계산이 불필요한 Supervisor를 호출하지 않는다.
+- hierarchy, model·Tool·token·시간 hard limit가 자동 테스트로 검증된다.
 
 ### Phase 5. 평가와 Outcome loop
 
 - golden dataset
-- baseline 4종
+- baseline 6종
 - CI regression eval
 - 실제 공수 회고
 - calibration dashboard
+- 단일 Agent, 계층형 Supervisor와 제한된 handoff 비교
+- routing accuracy, loop rate, latency, token·검색 비용과 사용자 수정량 측정
 
 완료 조건:
 
 - 14장의 핵심 지표가 자동 보고된다.
 - V1과 V2의 장단점이 정량·정성적으로 비교된다.
+- 품질과 비용 개선이 입증된 부문만 Department Supervisor로 승격된다.
 
-### Phase 6. 제안서와 선택적 MCP
+### Phase 6. 웹 조사와 제한된 공개 검증
+
+- `WebResearchProvider`와 Tavily adapter
+- Direct HTTP와 PDF extractor
+- Crawl4AI adapter와 제한된 crawler worker
+- source allowlist, snapshot, freshness와 parser version
+- 한국 소프트웨어 개발 프리랜서용 첫 domain/jurisdiction pack
+- plan별 quota, run별 원가 ledger와 hard budget
+- 무료 요구사항 정리와 건별 유료 거래 패키지 실험
+
+완료 조건:
+
+- Tavily·Crawl4AI·직접 수집 route가 동일 corpus benchmark로 비교된다.
+- 같은 공식 문서를 사용자마다 재수집하지 않는다.
+- 모든 법률·정책 주장이 관할권, 기준일과 source snapshot을 가진다.
+- 무료 사용자의 호출·검색·크롤링 비용이 hard limit 안에 있다.
+- 최소 10~20건의 실제 유료 사용 또는 중단 사유가 기록된다.
+
+### Phase 7. 제안서와 선택적 MCP
 
 - proposal share page와 PDF
 - share token 보안
@@ -1313,10 +1555,16 @@ V2의 첫 공개 릴리스는 다음 조건을 모두 만족해야 한다.
 - [ ] dummy가 아닌 실제 Next.js frontend가 API와 연결된다.
 - [ ] AI 없이도 수동 견적 flow가 완결된다.
 - [ ] Agent가 최소 5개의 구조화된 Tool을 사용할 수 있다.
+- [ ] 요청 등급에 따라 Direct Tool, 단일 Agent와 부문 실행을 구분한다.
+- [ ] Supervisor 계층, 호출 횟수, token, 검색 credit와 실행 시간 제한이 적용된다.
+- [ ] 계층형 Supervisor는 단일 Agent baseline과 비교한 평가 결과를 가진다.
 - [ ] 금액 계산은 결정적 Tool에서 수행된다.
 - [ ] Agent run과 HITL이 재시작 후 복구된다.
 - [ ] 모든 견적 항목에 evidence 또는 assumption이 연결된다.
 - [ ] source chunk를 UI에서 확인할 수 있다.
+- [ ] 웹 수집 source에 관할권, 기준일, 원문 snapshot과 parser version이 기록된다.
+- [ ] Tavily, Crawl4AI, Direct HTTP/PDF가 provider-neutral contract 뒤에 격리된다.
+- [ ] 외부 문서의 prompt injection과 허용되지 않은 도메인 수집을 차단하는 테스트가 통과한다.
 - [ ] 발행된 견적은 version 불변성을 가진다.
 - [ ] 실제 결과를 기록하고 다음 검색에 활용할 수 있다.
 - [ ] golden dataset과 baseline 비교 결과가 존재한다.
@@ -1324,6 +1572,7 @@ V2의 첫 공개 릴리스는 다음 조건을 모두 만족해야 한다.
 - [ ] Docker Compose로 전체 환경이 재현된다.
 - [ ] CI 품질 게이트를 통과해야만 image가 배포된다.
 - [ ] README에 측정 결과와 알려진 한계가 공개된다.
+- [ ] plan별 quota와 run별 실제 원가를 조회하고 hard budget을 강제할 수 있다.
 
 ---
 
@@ -1337,10 +1586,12 @@ Frontend    jQuery/static HTML → Next.js/TypeScript
 Database    MongoDB + FAISS → PostgreSQL + pgvector
 Authorization 단일 관리자 가정 → workspace-scoped RBAC + permission matrix
 Messaging   Kafka 제거 → structured log + audit/outbox
-Agent       고정 LLM workflow → LangGraph durable workflow + bounded ReAct Tool loop
+Agent       고정 LLM workflow → durable workflow + 제한된 계층형 Supervisor + bounded ReAct
 Reasoning   자유 텍스트 설명 → Evidence Ledger + 계산식 + assumption
 Learning    FAISS 누적 → versioned outcome-informed retrieval
 Evaluation  notebook 실험 → golden dataset + CI regression evaluation
+Web         단일 검색 호출 → Tavily·Crawl4AI·Direct/PDF provider routing + snapshot
+Business    개인 프로젝트 → 무료 제한 + 건별 산출물 + quota 기반 구독 가설
 MCP         기술 시연용 전면 적용 → 안정된 internal Tool·외부 connector 경계에 선택 적용
 Deployment  근거 없는 infra → frontend/Spring/Agent/PostgreSQL 중심 Compose
 ```

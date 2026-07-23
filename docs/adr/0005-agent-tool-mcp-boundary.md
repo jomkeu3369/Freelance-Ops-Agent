@@ -22,4 +22,4 @@ V1은 고정된 LLM node가 검색과 견적을 순차 수행한다. V2는 ReAct
 
 - Agent 자율성과 business 안전 경계를 동시에 유지한다.
 - REST와 MCP schema의 중복을 피하기 위해 공통 Tool DTO와 contract test가 필요하다.
-- MCP는 V2 핵심 flow의 선행 조건이 아니며 Phase 6까지 장애 격리를 유지한다.
+- MCP는 V2 핵심 flow의 선행 조건이 아니며 Phase 7까지 장애 격리를 유지한다.

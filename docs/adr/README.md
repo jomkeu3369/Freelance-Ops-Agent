@@ -20,3 +20,5 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0003: MongoDB, Kafka, 운영 FAISS 제거](0003-remove-mongodb-kafka-faiss.md)
 - [ADR-0004: Workspace-scoped RBAC](0004-workspace-scoped-rbac.md)
 - [ADR-0005: Agent, Tool, MCP 경계](0005-agent-tool-mcp-boundary.md)
+- [ADR-0006: 제한된 계층형 Supervisor](0006-bounded-hierarchical-supervisor.md)
+- [ADR-0007: 웹 자료 탐색·수집 Provider 경계](0007-web-research-provider-boundary.md)
