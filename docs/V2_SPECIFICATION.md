@@ -8,6 +8,9 @@
 
 관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007을 따른다.
 
+Agent Tool의 역할, 실험 단계별 최소 Tool set과 Supervisor 배치는
+[`docs/agent-tools/TOOL_CATALOG.md`](agent-tools/TOOL_CATALOG.md)를 따른다.
+
 ---
 
 ## 1. 문서 목적
@@ -549,6 +552,11 @@ Spring은 사용자에게 공개되는 `agent_run` 상태와 승인 기록을 `a
 | `create_quote_draft` | validated result | draft ID | `quotation.write`, workflow-controlled |
 
 표의 Tool은 Python 내부에서 Spring internal REST API를 호출하는 wrapper다. Spring은 token의 workspace를 사용하므로 Agent가 임의의 `workspace_id`를 Tool 인자로 선택하게 하지 않는다. `calculate_quote` 결과를 LLM이 임의로 덮어쓸 수 없으며, 변경하려면 입력 work item 또는 policy를 수정해 Tool을 다시 호출한다.
+
+Agent 구조 비교 단계에서는 같은 계약의 Python in-memory/fixture Tool을 사용할
+수 있다. 이는 prototype adapter이며 운영 업무 규칙의 소유권을 Python으로
+이전하는 결정이 아니다. 목적별 Tool 분리와 전문 Agent별 상세 allowlist는
+[`Agent Tool Catalog`](agent-tools/TOOL_CATALOG.md)를 따른다.
 
 ### 9.5 MCP 범위
 

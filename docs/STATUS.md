@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-07-24
+> 마지막 갱신: 2026-07-27
 > 현재 branch: `main`
 > 현재 단계: Phase 0 — 기준선과 아키텍처 확정
 
@@ -38,6 +38,9 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - Global Agent 출력이 None일 때 Chat Output을 점검하는 최소 flow와 Department Tool Mode 전환 순서를 prompt catalog에 기록
 - 총괄 Agent의 독단 응답을 막기 위한 강제 위임 prompt, 고유 Tool action slug와 검색·분석 순서 검증 기준을 prompt catalog에 기록
 - Agent 표시 이름과 실제 Tool action slug의 차이, 중복 action 충돌과 mandatory delegation의 flow-level 강제 원칙을 prompt catalog에 기록
+- Agent Tool의 역할, ReAct·Supervisor 배치와 단계별 최소 Tool set을 [`docs/agent-tools/TOOL_CATALOG.md`](agent-tools/TOOL_CATALOG.md)에 기록
+- `search_similar_projects`를 요구사항·실제 outcome·근거 검색으로 분리하는 책임 경계 결정
+- Agent 비교 단계의 Python fixture Tool과 운영 단계의 Spring Tool 구현 경계 기록
 
 ## 진행 중
 
@@ -67,6 +70,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - `test/.env`는 `.gitignore`에 의해 추적되지 않지만 실제 형식의 자격 증명이 있어 폐기와 재발급이 필요하다.
 - 알려진 OpenAI·LangSmith 장기 token pattern과 `test/.env` 경로는 현재 Git history에서 발견되지 않았지만 전용 secret scanner 검증은 아직 필요하다.
 - Langflow prompt는 문서 초안만 작성했으며 실제 flow 실행, structured output schema 호환성과 regression evaluation은 아직 수행하지 않았다.
+- Tool Catalog의 Markdown 구조와 V2 명세 내부 링크를 검증했다.
 
 ## 열린 결정
 
