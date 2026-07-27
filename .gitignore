@@ -20,3 +20,4 @@ frontend/
 docker-compose-local.yaml
 api명세서.md
 faiss_index/
+test/evaluation/reports/

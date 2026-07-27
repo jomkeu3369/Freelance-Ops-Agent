@@ -10,6 +10,16 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 
 ## 완료
 
+- 현재 요구사항 평가 파이프라인의 dataset 준비, ReAct·Supervisor 내부 실행, 3개 LLM Judge, LangSmith trace와 결과 집계 흐름을 Mermaid graph로 평가 문서에 기록했다.
+- Hugging Face `nguyenminh871/software_requirements`를 검토해 61행·3개 text 열의 183개 고유 요청을 확인했고, 정답 label이 없어 원본 상태로는 정확도 benchmark가 될 수 없으며 수작업 label을 추가한 보조 stress dataset으로만 사용하는 판단을 평가 문서에 기록했다.
+- LangSmith `ExperimentResults`를 구조별 전체 평균, case 통과율, Judge별 평균과 실패 case로 집계해 터미널 표와 timestamp JSON 보고서로 출력하는 기능을 추가했다.
+- `validate_requirement_draft(draft: dict[str, Any])`가 OpenAI strict function schema에서 속성 없는 object로 변환되던 문제를 해결하기 위해 요구사항 초안의 다섯 field를 명시적 Tool 인자로 변경했다.
+- Supervisor Agent Tool의 `dict[str, Any]` 입력도 같은 schema 오류를 내지 않도록 `run_context_summary_json`, `requirement_analysis_json` 문자열 계약과 명시적 Pydantic args schema로 변경했다.
+- 빈 Judge별 모델 환경변수가 OpenAI에 `model=""`으로 전달되던 문제를 수정하고 prototype, Judge, timeout, retry와 LangSmith project 설정에서 빈 값을 기본값으로 처리하도록 통합했다.
+- ReAct 요구사항 분석 prototype, Requirements Supervisor prototype, 완전성·근거성·확인 질문 품질을 평가하는 3개 LLM-as-Judge와 LangSmith dataset/experiment 로깅 모듈을 `test/prototypes/`, `test/evaluation/`에 추가했다.
+- prototype 실행 방법, 환경변수, LangSmith 확인 항목과 평가 주의사항을 `docs/testing/requirements-prototype-evaluation.md`에 기록했다.
+- 요구사항 분석 테스트에서 Agent 역할, Supervisor용 Agent Tool과 ReAct 업무 Tool을 구분하고 Langflow 연결 및 JSON 계약 예시를 `docs/testing/langflow-requirements-tool-contracts.md`에 기록했다.
+
 - V1 README와 실제 코드 구조 진단
 - V2 제품·기술 명세 초안 작성
 - PostgreSQL + pgvector 단일 운영 database 결정
@@ -38,6 +48,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - Global Agent 출력이 None일 때 Chat Output을 점검하는 최소 flow와 Department Tool Mode 전환 순서를 prompt catalog에 기록
 - 총괄 Agent의 독단 응답을 막기 위한 강제 위임 prompt, 고유 Tool action slug와 검색·분석 순서 검증 기준을 prompt catalog에 기록
 - Agent 표시 이름과 실제 Tool action slug의 차이, 중복 action 충돌과 mandatory delegation의 flow-level 강제 원칙을 prompt catalog에 기록
+- Supervisor·ReAct 요구사항 분석 검증을 위한 P0/P1/P2 Tool, fixture와 단계별 합격 기준을 [`docs/testing/requirements-analysis-tool-plan.md`](testing/requirements-analysis-tool-plan.md)에 기록
 - Agent Tool의 역할, ReAct·Supervisor 배치와 단계별 최소 Tool set을 [`docs/agent-tools/TOOL_CATALOG.md`](agent-tools/TOOL_CATALOG.md)에 기록
 - `search_similar_projects`를 요구사항·실제 outcome·근거 검색으로 분리하는 책임 경계 결정
 - Agent 비교 단계의 Python fixture Tool과 운영 단계의 Spring Tool 구현 경계 기록
@@ -63,6 +74,11 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 10. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
 
 ## 현재 검증 상태
+
+- 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 가짜 LangSmith `ExperimentResultRow`로 Judge 평균, case 통과율, 실패 case, 우수 구조 선택, 터미널 표 출력과 JSON 직렬화 회귀 검사를 통과했다.
+- 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 `validate_requirement_draft`, `call_requirement_analyst`, `call_clarification_generator`의 OpenAI strict Tool schema를 검사했다. 모든 schema가 전체 properties를 required에 포함하고 `additionalProperties=false`를 만족했으며 ReAct·Supervisor graph 생성과 검증 Tool 직접 호출을 통과했다.
+- 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 Judge별 model, 공통 model, reasoning effort, timeout, retry와 LangSmith project를 빈 문자열로 설정한 회귀 검사를 통과했다. Judge는 `gpt-5.6-luna`, prototype은 `gpt-5.6-terra`, LangSmith project는 평가 기본값으로 정상 fallback했다.
+- 2026-07-27: Python source compile과 JSONL 3건 parsing을 통과했고, `poetry.lock`의 LangChain 1.1.0, LangGraph 1.0.4, LangChain OpenAI 1.1.0, LangSmith 0.4.52 조합으로 두 graph, 세 Judge와 세 업무 Tool의 import 및 생성 검증을 통과했다. 실제 OpenAI/LangSmith 호출은 비용과 credential 사용이 필요해 실행하지 않았다.
 
 - V2 코드는 아직 scaffold되지 않았다.
 - 2026-07-24 Supervisor 구조 검토에서는 live model 실험을 실행하지 않았다. 현재 `test/` 파일은 실제 API를 호출하고 assertion이 없는 실험 script이므로 자동 테스트 결과로 간주하지 않는다.
