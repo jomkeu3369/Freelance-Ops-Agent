@@ -19,12 +19,10 @@ def get_env_value(name: str, default: str) -> str:
     value = os.getenv(name)
     return value.strip() if value and value.strip() else default
 
-
 class RequirementGap(BaseModel):
     field: str
     reason: str
     blocking: bool
-
 
 class RequirementDraft(BaseModel):
     goal: str
@@ -33,7 +31,6 @@ class RequirementDraft(BaseModel):
     constraints: list[str] = Field(default_factory=list)
     acceptance_criteria: list[str] = Field(default_factory=list)
 
-
 class RequirementAnalysis(BaseModel):
     status: Literal["READY", "NEEDS_INPUT", "BLOCKED"]
     requirement_draft: RequirementDraft
@@ -41,7 +38,6 @@ class RequirementAnalysis(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)
     next_action: Literal["COMPLETE", "ASK_CLARIFICATION", "HUMAN_REQUIRED"]
-
 
 PROJECT_CONTEXT_FIXTURES: dict[str, dict[str, Any]] = {
     "project-fixture-001": {
