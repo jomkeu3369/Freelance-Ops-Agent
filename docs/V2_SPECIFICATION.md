@@ -1239,6 +1239,10 @@ status
 ### 17.4 비용 및 사용량 통제
 
 비용은 API 호출 단위가 아니라 성공한 사용자 산출물 단위로 집계한다.
+Supervisor의 Agent별 모델 호출, Tool, 재시도, route별 사용 횟수와 성공
+산출물당 원가 계산식은
+[`Supervisor 사용량 기반 비용 계산 모델`](operations/supervisor-usage-cost-model.md)을
+따른다.
 
 ```text
 agent_run_id

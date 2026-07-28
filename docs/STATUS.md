@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-07-27
+> 마지막 갱신: 2026-07-28
 > 현재 branch: `main`
 > 현재 단계: Phase 0 — 기준선과 아키텍처 확정
 
@@ -10,6 +10,8 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 
 ## 완료
 
+- 완성된 Supervisor를 가정한 Agent·Tool·재시도별 run 실제 원가, route별 사용 횟수 기반 월 비용, 성공 산출물당 원가와 Budget Guard 계산식을 [`docs/operations/supervisor-usage-cost-model.md`](operations/supervisor-usage-cost-model.md)에 기록했다.
+- 요구사항 분석 단일 ReAct Stage 1에 `get_project_context`, `get_domain_pack`, `validate_requirement_draft` fixture Tool을 적용하고, 각 Tool의 run당 1회 호출 제한과 최종 구조화 결과의 상태 일관성 검증을 추가했다. 구현 경계와 검증 결과는 [`docs/testing/requirements-analysis-tool-plan.md`](testing/requirements-analysis-tool-plan.md)에 기록했다.
 - 현재 요구사항 평가 파이프라인의 dataset 준비, ReAct·Supervisor 내부 실행, 3개 LLM Judge, LangSmith trace와 결과 집계 흐름을 Mermaid graph로 평가 문서에 기록했다.
 - Hugging Face `nguyenminh871/software_requirements`를 검토해 61행·3개 text 열의 183개 고유 요청을 확인했고, 정답 label이 없어 원본 상태로는 정확도 benchmark가 될 수 없으며 수작업 label을 추가한 보조 stress dataset으로만 사용하는 판단을 평가 문서에 기록했다.
 - LangSmith `ExperimentResults`를 구조별 전체 평균, case 통과율, Judge별 평균과 실패 case로 집계해 터미널 표와 timestamp JSON 보고서로 출력하는 기능을 추가했다.
@@ -64,17 +66,21 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 
 1. `test/.env`에 노출된 OpenAI·LangSmith 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다.
 2. Supervisor 리뷰의 P0 항목인 신뢰 context, 부문 contract, 병렬 병합과 중앙 budget 규칙을 명세에 반영한다.
-3. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
-4. V2 repository layout과 package naming을 확정하고 별도 feature branch에서 작업한다.
-5. `compose.v2.yaml`에 Spring, Agent, PostgreSQL의 최소 healthcheck 구성을 작성한다.
-6. Spring Boot skeleton과 Flyway baseline을 생성한다.
-7. FastAPI/LangGraph skeleton, internal OpenAPI contract와 분리된 `TrustedRunContext`·`WorkflowState`를 생성한다.
-8. 요청 등급, run budget과 부문 structured result schema를 먼저 정의한다.
-9. workspace, membership, role, permission의 첫 migration과 Testcontainers test를 작성한다.
-10. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
+3. provider·model·Tool·환율의 첫 `pricing_snapshot` schema와 route별 `estimated_cost`·`actual_cost` 집계 contract를 정의한다.
+4. `react_v1.py` Stage 1을 10~20개 고정 fixture와 LangSmith 평가로 실행해 Tool 호출 순서, 요구사항 누락률, 질문 품질과 불필요 호출률을 측정한다.
+5. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
+6. V2 repository layout과 package naming을 확정하고 별도 feature branch에서 작업한다.
+7. `compose.v2.yaml`에 Spring, Agent, PostgreSQL의 최소 healthcheck 구성을 작성한다.
+8. Spring Boot skeleton과 Flyway baseline을 생성한다.
+9. FastAPI/LangGraph skeleton, internal OpenAPI contract와 분리된 `TrustedRunContext`·`WorkflowState`를 생성한다.
+10. 요청 등급, run budget과 부문 structured result schema를 먼저 정의한다.
+11. workspace, membership, role, permission의 첫 migration과 Testcontainers test를 작성한다.
+12. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
 
 ## 현재 검증 상태
 
+- 2026-07-28: Supervisor 비용 모델의 route별 월 변동비, 성공 산출물당 변동비·완전 원가와 20% guardrail 예시 산술을 재계산했고 V2 명세와 STATUS의 내부 문서 경로를 확인했다. 실제 Provider 단가는 입력하지 않았으며 향후 `pricing_snapshot`에서 versioning한다.
+- 2026-07-28: 사용자의 Poetry Python 3.12 환경에서 `react_v1.py` source compile, 세 업무 Tool과 최종 `RequirementsAnalysis`의 OpenAI strict schema, fixture 결정성, `SUCCESS`·`EMPTY`, validator의 `VALID`·`INVALID`·`INVALID_JSON` 분기와 Agent graph 생성을 통과했다. 실제 OpenAI/LangSmith 호출은 실행하지 않았다.
 - 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 가짜 LangSmith `ExperimentResultRow`로 Judge 평균, case 통과율, 실패 case, 우수 구조 선택, 터미널 표 출력과 JSON 직렬화 회귀 검사를 통과했다.
 - 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 `validate_requirement_draft`, `call_requirement_analyst`, `call_clarification_generator`의 OpenAI strict Tool schema를 검사했다. 모든 schema가 전체 properties를 required에 포함하고 `additionalProperties=false`를 만족했으며 ReAct·Supervisor graph 생성과 검증 Tool 직접 호출을 통과했다.
 - 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 Judge별 model, 공통 model, reasoning effort, timeout, retry와 LangSmith project를 빈 문자열로 설정한 회귀 검사를 통과했다. Judge는 `gpt-5.6-luna`, prototype은 `gpt-5.6-terra`, LangSmith project는 평가 기본값으로 정상 fallback했다.

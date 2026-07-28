@@ -192,3 +192,54 @@ external_write
 - timeout·permission 오류의 안전한 종료율
 - 동일 입력의 route 안정성
 
+## 11. `react_v1.py` Stage 1 적용 기록
+
+> 적용일: 2026-07-28
+> 대상: `test/prototypes/요구사항테스트/react_v1.py`
+
+첫 ReAct 비교에서는 Agent 자체의 요구사항 분해 능력을 검색·견적·위험 판단과
+분리하기 위해 다음 세 Tool만 적용했다.
+
+| Tool | Prototype 구현 | 운영 전환 |
+|---|---|---|
+| `get_project_context` | 확인된 사실, 기존 제약, 이전 답변과 source reference를 고정 fixture로 반환 | delegation token으로 인증된 Spring internal REST adapter |
+| `get_domain_pack` | 한국 소프트웨어 챗봇의 필수 확인 주제와 사용 정책을 versioned fixture로 반환 | Spring이 관리하는 versioned domain pack 조회 adapter |
+| `validate_requirement_draft` | `RequirementsAnalysis` JSON의 schema, 중복 ID와 status·next action 일관성을 Pydantic으로 검사 | 같은 DTO 계약의 결정적 validator |
+
+`domain pack`은 현재 프로젝트의 확정 요구사항이 아니다. 고객 입력이나
+project context에서 확인되지 않은 항목은 gap, assumption 또는 clarification
+question으로만 사용할 수 있다.
+
+각 업무 Tool은 `ToolCallLimitMiddleware`에서 run당 한 번으로 제한했다.
+권한, workspace 격리, 전체 run budget, timeout·retry, trace, checkpoint와
+최종 API boundary 검증은 Agent가 선택하는 Tool로 만들지 않는다. 운영
+단계에서 Python Agent가 Spring business table을 직접 조회하지 않으며 세
+Tool의 fixture 구현은 Spring Tool API adapter로 교체한다.
+
+이번 단계에서 제외한 항목은 다음과 같다.
+
+```text
+lookup_requirement_term
+search_similar_project_requirements
+web_search
+risk research
+calculate_effort
+calculate_quote
+write Tool
+```
+
+`lookup_requirement_term`과 결정적 conflict 보조 Tool은 Stage 1 결과가
+안정된 뒤 추가한다. 유사 사례·웹 검색은 도구 유무가 요구사항 분석 정확도에
+주는 효과를 별도 실험으로 측정한다.
+
+오프라인 검증 결과:
+
+- 사용자의 Poetry Python 3.12 환경에서 source compile 통과
+- 세 업무 Tool과 최종 `RequirementsAnalysis`의 OpenAI strict schema 통과
+- 모든 object의 전체 property가 `required`이며 `additionalProperties=false`
+- project context와 domain pack의 동일 입력 결정성 및 `SUCCESS`·`EMPTY` 분기 통과
+- validator의 `VALID`·`INVALID`·`INVALID_JSON` 분기 통과
+- 실제 OpenAI API를 호출하지 않은 상태에서 Agent graph 생성 통과
+
+실제 모델 호출과 LangSmith trace 비교는 API 비용과 credential을 사용하는
+별도 평가 실행으로 남긴다.
