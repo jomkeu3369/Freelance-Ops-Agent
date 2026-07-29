@@ -6,7 +6,7 @@
 > 대상 버전: Freelance Ops Agent V2
 > 구현 기준: 본 문서는 V2의 제품 범위와 아키텍처를 결정하는 기준 문서다. 구현 중 중요한 변경이 생기면 ADR(Architecture Decision Record)을 먼저 작성하고 본 문서를 갱신한다.
 
-관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007을 따른다.
+관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007, Python Agent의 project 관리는 ADR-0008을 따른다.
 
 Agent Tool의 역할, 실험 단계별 최소 Tool set과 Supervisor 배치는
 [`docs/agent-tools/TOOL_CATALOG.md`](agent-tools/TOOL_CATALOG.md)를 따른다.
@@ -227,7 +227,7 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 | 영역 | 선택 | 이유 |
 |---|---|---|
 | Product Backend | Java 21+, Spring Boot | 기업형 도메인 모델, 보안, RBAC, 트랜잭션, Tool 구현 |
-| AI Runtime | Python 3.12+, FastAPI, LangGraph | Agent graph, ReAct, HITL checkpoint, AI 평가 |
+| AI Runtime | Python 3.12+, uv, FastAPI, LangGraph | 독립적인 Agent dependency 관리, Agent graph, ReAct, HITL checkpoint, AI 평가 |
 | Model Provider | OpenAI API, Gemini API | run별 provider/model을 고정하고 동일 평가셋으로 비교 |
 | Internal Contract | REST/OpenAPI 우선, MCP 후속 | 초기 복잡도를 제한하고 Tool 경계를 명시적으로 versioning |
 | Frontend | React/Next.js + TypeScript | 제품형 UI와 타입 안전한 API 연동 |
@@ -238,7 +238,8 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 | File Storage | 개발: Docker volume, 운영: S3-compatible storage | 원본 문서를 DB와 분리 |
 | Observability | Micrometer + OpenTelemetry-compatible tracing | API·LLM·Tool 실행 추적 |
 | Test | JUnit 5, Testcontainers, pytest | business와 Agent runtime을 각각 검증 |
-| Packaging | Gradle Kotlin DSL | 명시적인 의존성과 build 관리 |
+| Backend Packaging | Gradle Kotlin DSL | 명시적인 Java 의존성과 build 관리 |
+| Agent Packaging | uv + `pyproject.toml` + `uv.lock` | V1 Poetry 환경과 분리된 재현 가능한 Python dependency 관리 |
 | Local Infra | Docker Compose | 한 명의 개발자도 재현 가능한 환경 |
 
 구현 시점의 안정 버전을 build 파일과 Docker image tag에 고정한다. `latest` tag를 사용하지 않는다.
@@ -362,7 +363,7 @@ JPA entity를 API response로 직접 반환하지 않는다. 특히 password has
 Python Agent service는 다음 구조를 기본으로 한다.
 
 ```text
-agent/
+src/agent/
 ├── app/
 │   ├── api/              # Spring 전용 internal API
 │   ├── graphs/           # LangGraph 정의와 상태
@@ -372,9 +373,12 @@ agent/
 │   ├── evaluation/       # dataset runner와 metric
 │   └── observability/    # trace/cost/latency
 ├── tests/
-└── pyproject.toml
+├── pyproject.toml
+└── uv.lock
 ```
 
+- `src/agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
+- V2 Agent dependency를 저장소 루트의 V1 Poetry project와 혼합하지 않는다.
 - LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
 - FastAPI request/response는 versioned Pydantic schema를 사용한다.
 - Agent service는 Spring이 발급한 delegation token과 `aud=agent-service`를 검증한다.
@@ -1306,6 +1310,7 @@ postgres-pgvector
 ### 18.3 이미지
 
 - Spring backend, Python Agent와 frontend는 multi-stage build를 사용한다.
+- Python Agent image는 `src/agent/pyproject.toml`과 `src/agent/uv.lock`을 기준으로 dependency를 재현한다.
 - non-root user로 실행한다.
 - health/readiness endpoint를 제공한다.
 - image에 secret, `.env`, test dataset 원문을 포함하지 않는다.
@@ -1418,6 +1423,7 @@ postgres-pgvector
 
 ### Phase 4. FastAPI/LangGraph Agent + Tool + HITL
 
+- `src/agent`의 uv project, `pyproject.toml`과 `uv.lock`
 - FastAPI internal API와 Pydantic/OpenAPI contract
 - OpenAI/Gemini provider adapter와 run별 model 기록
 - LangGraph structured output와 ReAct Tool loop

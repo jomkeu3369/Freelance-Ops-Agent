@@ -22,3 +22,5 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0005: Agent, Tool, MCP 경계](0005-agent-tool-mcp-boundary.md)
 - [ADR-0006: 제한된 계층형 Supervisor](0006-bounded-hierarchical-supervisor.md)
 - [ADR-0007: 웹 자료 탐색·수집 Provider 경계](0007-web-research-provider-boundary.md)
+- [ADR-0008: Python Agent의 uv 프로젝트 관리](0008-python-agent-uv-project.md)
+- [ADR-0009: 생성 Artifact의 검색 자격과 재귀 오염 방지](0009-generated-artifact-retrieval-safety.md) — Proposed

@@ -60,9 +60,13 @@ V2 scaffold가 만들어진 뒤 다음 명령을 기준으로 한다. 실제 bui
 
 ```text
 backend:  ./gradlew test
-agent:    uv run pytest
+agent:    src/agent에서 uv run --locked pytest
 frontend: npm run typecheck && npm test
 e2e:      docker compose -f compose.v2.yaml config
 ```
+
+V2 Python Agent의 dependency와 lock 기준은 `src/agent/pyproject.toml`과
+`src/agent/uv.lock`이다. 저장소 루트의 Poetry project는 V1·prototype
+기준선이므로 명시적인 migration 전에는 V2 dependency를 추가하지 않는다.
 
 Windows에서는 repository에 포함된 Gradle wrapper와 명시된 Python/Node runtime을 사용한다.
