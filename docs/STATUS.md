@@ -23,6 +23,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - ReAct 요구사항 분석 prototype, Requirements Supervisor prototype, 완전성·근거성·확인 질문 품질을 평가하는 3개 LLM-as-Judge와 LangSmith dataset/experiment 로깅 모듈을 `test/prototypes/`, `test/evaluation/`에 추가했다.
 - prototype 실행 방법, 환경변수, LangSmith 확인 항목과 평가 주의사항을 `docs/testing/requirements-prototype-evaluation.md`에 기록했다.
 - 요구사항 분석 테스트에서 Agent 역할, Supervisor용 Agent Tool과 ReAct 업무 Tool을 구분하고 Langflow 연결 및 JSON 계약 예시를 `docs/testing/langflow-requirements-tool-contracts.md`에 기록했다.
+- Langflow Desktop 검증에서 별도 Department flow를 `Run Flow` Tool로 Global Orchestrator에 연결하는 절차, action slug·Tool Mode·입력 배선·Tool trace 합격 기준과 `langchain-openai` 실행 환경 점검을 [`docs/testing/langflow-global-orchestrator-runbook.md`](testing/langflow-global-orchestrator-runbook.md)에 기록했다.
 
 - V1 README와 실제 코드 구조 진단
 - V2 제품·기술 명세 초안 작성
@@ -100,6 +101,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - `test/.env`는 `.gitignore`에 의해 추적되지 않지만 실제 형식의 자격 증명이 있어 폐기와 재발급이 필요하다.
 - 알려진 OpenAI·LangSmith 장기 token pattern과 `test/.env` 경로는 현재 Git history에서 발견되지 않았지만 전용 secret scanner 검증은 아직 필요하다.
 - Langflow prompt는 문서 초안만 작성했으며 실제 flow 실행, structured output schema 호환성과 regression evaluation은 아직 수행하지 않았다.
+- 2026-08-03: 실행 중인 Langflow Desktop backend가 `1.10.0`이고 전용 Python 환경에서 `langchain-openai 1.4.1` import 및 health/version endpoint가 정상임을 확인했다. 화면의 `No module named langchain_openai` 오류는 현재 저장소 Poetry 환경이 아니라 Desktop build/cache 또는 별도 LFX 실행 환경을 우선 점검해야 하는 상태이며, 실제 Global Orchestrator의 Department Tool 호출 trace는 아직 확인하지 않았다.
 - Tool Catalog의 Markdown 구조와 V2 명세 내부 링크를 검증했다.
 
 ## 열린 결정
