@@ -1,10 +1,10 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-05
+> 마지막 갱신: 2026-08-06
 > 현재 branch: `codex/frontend-design-workflow`
 > 현재 단계: Phase 0 — 기준선과 아키텍처 확정
 
-> 2026-08-05 메인 페이지 디자인 브리프(디자이너는 1920×1080 메인 페이지만 제작, 반응형·세부 화면은 Codex 담당): [`docs/frontend/MAIN_PAGE_DESIGN_BRIEF.md`](frontend/MAIN_PAGE_DESIGN_BRIEF.md)
+> 2026-08-06 메인 페이지 디자인 브리프(디자이너는 1920×1080 메인 페이지만 제작, 반응형·세부 화면은 Codex 담당): [`docs/frontend/MAIN_PAGE_DESIGN_BRIEF.md`](frontend/MAIN_PAGE_DESIGN_BRIEF.md)
 
 ## 현재 목표
 
@@ -12,6 +12,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 
 ## 완료
 
+- 2026-08-06: 메인 페이지 디자인 브리프를 V2 명세와 README에 맞춰 전면 보강했다. Header부터 Footer까지 각 섹션의 목적, 실제 문구, 화면 내용, 시각 방향과 근거 문서를 같은 형식으로 정리하고, 첫 출시 범위를 한국 소프트웨어 개발 프리랜서로 수정했다. 가짜 후기·고객사·성능 수치, 미확정 가격과 “모든 직군 지원” 표현은 사용 금지 콘텐츠로 명시했다.
 - `frontend/`에 React 19 + TypeScript + vinext 기반 V2 프런트엔드 콘셉트를 구성했다. Project Intake를 중심으로 고객 원문과 AI 초안의 구분, 12-column gapless bento, 요구사항 accordion, workflow card stacking, 사용자 후기와 CTA를 구현했다.
 - 라이트 `Paper Studio`와 다크 `Night Workshop` 테마를 `next-themes`로 제공하고, GSAP ScrollTrigger reveal·scrub·pin motion 및 reduced-motion 대체 동작을 적용했다.
 - 소셜 공유 이미지와 Open Graph/Twitter metadata를 추가했다. 배포 시 `NEXT_PUBLIC_SITE_URL`로 공개 origin을 지정한다.
