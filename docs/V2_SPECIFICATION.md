@@ -951,6 +951,9 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 
 ### 13.1 디자인 원칙
 
+- 최종 visual design은 현업 웹디자이너가 제작한 1920×1080 결과물을 기준으로 한다.
+- Codex는 제품 문서와 레퍼런스를 디자이너용 자료로 정리하고, 승인된 HTML·CSS·JavaScript handoff를 React로 변환한다.
+- 현재 repository의 frontend prototype은 기술 검증 자료이며 최종 visual source of truth가 아니다.
 - “AI 관리자 콘솔”이 아니라 프리랜서가 매일 사용하는 업무 도구처럼 보여야 한다.
 - 과도한 dark neon, terminal 문구, AI gradient를 기본 visual identity로 사용하지 않는다.
 - dense dashboard보다 한 작업을 끝내는 guided workflow를 우선한다.
@@ -1027,6 +1030,15 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 - SSE는 Agent 진행 상태에만 사용하고 일반 CRUD를 SSE로 만들지 않는다.
 - 입력 문자열을 raw HTML로 삽입하지 않는다.
 - Markdown은 sanitize 후 rendering한다.
+
+### 13.4 디자인 handoff와 구현
+
+- 사용자가 참고할 실제 사이트 2~3개를 선정한다.
+- Codex는 V2 명세를 바탕으로 문구, page 목적, component, state, interaction과 접근성 요구사항을 웹디자이너에게 전달할 문서로 만든다.
+- 웹디자이너는 1920×1080 기준 결과물과 가능한 경우 HTML·CSS·JavaScript, asset, font, license와 interaction 설명을 제공한다.
+- Codex는 Next.js·React·TypeScript component로 변환하고 1440, 1024, 768과 약 390px 화면을 기준으로 반응형을 추가한다.
+- 1920×1080 원본의 layout, typography, color와 spacing을 보존하며, 디자인 해석이 필요한 변경은 사용자 승인 없이 확정하지 않는다.
+- 자세한 절차는 [`docs/frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md`](frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md)와 [ADR-0010](adr/0010-designer-first-frontend-vercel.md)을 따른다.
 
 ---
 
@@ -1309,7 +1321,7 @@ postgres-pgvector
 
 ### 18.3 이미지
 
-- Spring backend, Python Agent와 frontend는 multi-stage build를 사용한다.
+- Spring backend와 Python Agent는 multi-stage container build를 사용한다. frontend Production build와 배포는 Vercel이 소유한다.
 - Python Agent image는 `src/agent/pyproject.toml`과 `src/agent/uv.lock`을 기준으로 dependency를 재현한다.
 - non-root user로 실행한다.
 - health/readiness endpoint를 제공한다.
@@ -1318,7 +1330,15 @@ postgres-pgvector
 - 배포는 immutable image tag를 사용하고 rollback 가능한 이전 tag를 보존한다.
 - Chromium을 포함하는 crawler image는 별도 resource limit, timeout, non-root 실행과 browser sandbox 정책을 검증한다.
 
-### 18.4 백업
+### 18.4 Frontend Vercel 배포
+
+- frontend는 Vercel Preview에서 1920×1080 원본, responsive, theme와 상태를 검수한 뒤 Production에 배포한다.
+- Preview에서 승인한 commit과 Production revision이 같아야 한다.
+- Vercel 환경변수에는 공개 가능한 Spring API origin만 제공하고 secret을 client bundle에 포함하지 않는다.
+- Spring의 CORS, cookie와 인증 설정은 Vercel Preview domain과 Production domain을 구분해 관리한다.
+- frontend가 Python Agent service를 직접 호출하지 않는 경계는 배포 환경에서도 유지한다.
+
+### 18.5 백업
 
 - PostgreSQL backup과 원본 파일 backup을 함께 관리한다.
 - backup 생성만이 아니라 restore drill을 자동 또는 정기적으로 수행한다.
@@ -1399,6 +1419,10 @@ postgres-pgvector
 - requirement version
 - quotation, WBS, scenario, revision
 - Next.js onboarding, pipeline, Quote Builder
+- 레퍼런스 2~3개 선정과 디자이너 전달자료 확정
+- 1920×1080 HTML·CSS·JavaScript handoff의 React·TypeScript 변환
+- 1440, 1024, 768과 mobile responsive 구현
+- Vercel Preview 검수와 승인된 Production 배포
 - dummy data 제거
 
 완료 조건:

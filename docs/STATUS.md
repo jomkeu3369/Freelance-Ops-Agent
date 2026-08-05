@@ -1,7 +1,7 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-07-29
-> 현재 branch: `main`
+> 마지막 갱신: 2026-08-05
+> 현재 branch: `codex/frontend-design-workflow`
 > 현재 단계: Phase 0 — 기준선과 아키텍처 확정
 
 ## 현재 목표
@@ -9,6 +9,14 @@
 V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일한 결정을 따를 수 있도록 명세, ADR, 작업 규칙과 인수인계 흐름을 확정한다.
 
 ## 완료
+
+- `frontend/`에 React 19 + TypeScript + vinext 기반 V2 프런트엔드 콘셉트를 구성했다. Project Intake를 중심으로 고객 원문과 AI 초안의 구분, 12-column gapless bento, 요구사항 accordion, workflow card stacking, 사용자 후기와 CTA를 구현했다.
+- 라이트 `Paper Studio`와 다크 `Night Workshop` 테마를 `next-themes`로 제공하고, GSAP ScrollTrigger reveal·scrub·pin motion 및 reduced-motion 대체 동작을 적용했다.
+- 소셜 공유 이미지와 Open Graph/Twitter metadata를 추가했다. 배포 시 `NEXT_PUBLIC_SITE_URL`로 공개 origin을 지정한다.
+- 프런트엔드 검증 기준으로 `npm run typecheck`, `npm run lint`, `npm test`를 구성했다.
+- 한글 UI 글꼴을 프로젝트에 자체 포함된 `Pretendard Variable`로 교체하고 영문 라벨·숫자는 Geist 계열을 유지했다. 한글 헤드라인의 자간과 행간도 가변 글꼴 기준으로 조정했다.
+- frontend 작업 방식을 designer-first workflow로 변경했다. 사용자가 레퍼런스 2~3개를 선정하고, Codex가 V2 문서를 디자이너용 자료로 정리하며, 웹디자이너의 1920×1080 HTML·CSS·JavaScript handoff를 Codex가 Next.js·React·TypeScript와 반응형으로 변환한다.
+- frontend 배포 기준을 Vercel Preview 검수 후 승인된 revision의 Production 배포로 확정하고 [ADR-0010](adr/0010-designer-first-frontend-vercel.md)과 [`docs/frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md`](frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md)에 기록했다.
 
 - 생성 데이터 재학습의 model collapse와 V2의 RAG corpus 오염을 구분해 검토하고, 초안 격리, retrieval eligibility gate, root provenance, source pool, lineage dedup, index snapshot·rollback과 fine-tuning 차단 방안을 [`docs/reviews/2026-07-29-generated-artifact-recursion-risk-review.md`](reviews/2026-07-29-generated-artifact-recursion-risk-review.md)에 기록했다. 구현 결정은 [ADR-0009](adr/0009-generated-artifact-retrieval-safety.md) Proposed 상태로 사용자 검토를 기다린다.
 - V2 Python Agent를 `src/agent`의 독립적인 uv project로 관리하고 `pyproject.toml`과 `uv.lock`을 dependency 기준으로 사용하는 결정을 [ADR-0008](adr/0008-python-agent-uv-project.md)에 기록했다. 루트 Poetry project는 V1·prototype 기준선으로 보존한다.
@@ -76,16 +84,21 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 5. provider·model·Tool·환율의 첫 `pricing_snapshot` schema와 route별 `estimated_cost`·`actual_cost` 집계 contract를 정의한다.
 6. `react_v1.py` Stage 1을 10~20개 고정 fixture와 LangSmith 평가로 실행해 Tool 호출 순서, 요구사항 누락률, 질문 품질과 불필요 호출률을 측정한다.
 7. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
-8. V2 repository layout과 package naming을 확정하고 별도 feature branch에서 작업한다.
-9. `compose.v2.yaml`에 Spring, Agent, PostgreSQL의 최소 healthcheck 구성을 작성한다.
-10. Spring Boot skeleton과 Flyway baseline을 생성한다.
-11. FastAPI/LangGraph skeleton, internal OpenAPI contract와 분리된 `TrustedRunContext`·`WorkflowState`를 생성한다.
-12. 요청 등급, run budget과 부문 structured result schema를 먼저 정의한다.
-13. workspace, membership, role, permission의 첫 migration과 Testcontainers test를 작성한다.
-14. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
+8. 사용자가 frontend 레퍼런스 사이트 2~3개와 참고·제외 요소를 전달한다.
+9. Codex가 `DESIGN_BRIEF.md`, `CONTENT_MATRIX.md`, `SCREEN_SPECIFICATION.md`, `COMPONENT_INVENTORY.md`, `INTERACTION_GUIDE.md`, `DESIGN_HANDOFF_CHECKLIST.md`를 작성한다.
+10. 웹디자이너의 1920×1080 handoff가 준비되면 React·TypeScript 변환과 반응형 구현 범위를 확정한다.
+11. V2 repository layout과 package naming을 확정하고 별도 feature branch에서 작업한다.
+12. `compose.v2.yaml`에 Spring, Agent, PostgreSQL의 최소 healthcheck 구성을 작성한다.
+13. Spring Boot skeleton과 Flyway baseline을 생성한다.
+14. FastAPI/LangGraph skeleton, internal OpenAPI contract와 분리된 `TrustedRunContext`·`WorkflowState`를 생성한다.
+15. 요청 등급, run budget과 부문 structured result schema를 먼저 정의한다.
+16. workspace, membership, role, permission의 첫 migration과 Testcontainers test를 작성한다.
+17. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
 
 ## 현재 검증 상태
 
+- 2026-08-05: frontend designer-first workflow, 1920×1080 handoff, React·TypeScript 변환, responsive 기준과 Vercel Preview/Production gate를 V2 명세, Accepted ADR-0010과 frontend 작업 문서에 반영했다.
+- 2026-08-05: 현재 `frontend/` prototype에서 `npm run typecheck`, `npm run lint`, `npm test`를 통과했다. 이 prototype은 최종 visual source of truth가 아니며 웹디자이너 handoff 이후 교체될 수 있다.
 - 2026-07-29: 생성 자료 재사용 위험 검토에서 고전적 model collapse의 학습 조건과 V2 inference-time RAG를 구분하고, Proposed ADR-0009와 상세 검토 문서의 상대 링크, lifecycle, P0 방어 항목과 V2 불변조건의 일관성을 확인했다. 실제 corpus contamination benchmark는 아직 실행하지 않았다.
 - 2026-07-29: `src/agent`의 directory skeleton은 존재하지만 `pyproject.toml`과 `uv.lock`은 아직 없으므로 uv sync·pytest를 실행 가능한 scaffold로 간주하지 않았다. ADR-0008, V2 명세, STATUS와 AGENTS의 경로·도구 결정 일관성만 검증했다.
 - 2026-07-28: Supervisor 비용 모델의 route별 월 변동비, 성공 산출물당 변동비·완전 원가와 20% guardrail 예시 산술을 재계산했고 V2 명세와 STATUS의 내부 문서 경로를 확인했다. 실제 Provider 단가는 입력하지 않았으며 향후 `pricing_snapshot`에서 versioning한다.
@@ -95,7 +108,7 @@ V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일�
 - 2026-07-27: 사용자의 Poetry Python 3.12 환경에서 Judge별 model, 공통 model, reasoning effort, timeout, retry와 LangSmith project를 빈 문자열로 설정한 회귀 검사를 통과했다. Judge는 `gpt-5.6-luna`, prototype은 `gpt-5.6-terra`, LangSmith project는 평가 기본값으로 정상 fallback했다.
 - 2026-07-27: Python source compile과 JSONL 3건 parsing을 통과했고, `poetry.lock`의 LangChain 1.1.0, LangGraph 1.0.4, LangChain OpenAI 1.1.0, LangSmith 0.4.52 조합으로 두 graph, 세 Judge와 세 업무 Tool의 import 및 생성 검증을 통과했다. 실제 OpenAI/LangSmith 호출은 비용과 credential 사용이 필요해 실행하지 않았다.
 
-- V2 directory skeleton은 현재 uncommitted worktree에 있으나 Python과 Spring build file이 없는 초기 단계다.
+- V2 frontend prototype은 repository에 포함할 준비가 되었지만 최종 visual source of truth는 아니다. Python Agent와 Spring backend는 아직 실행 가능한 build file이 없는 초기 skeleton 단계다.
 - 2026-07-24 Supervisor 구조 검토에서는 live model 실험을 실행하지 않았다. 현재 `test/` 파일은 실제 API를 호출하고 assertion이 없는 실험 script이므로 자동 테스트 결과로 간주하지 않는다.
 - 2026-07-24 갱신 문서의 Markdown 공백, ADR 내부 링크, 단계 번호, 미해결 marker와 핵심 결정 일관성을 확인했다.
 - `test/.env`는 `.gitignore`에 의해 추적되지 않지만 실제 형식의 자격 증명이 있어 폐기와 재발급이 필요하다.
