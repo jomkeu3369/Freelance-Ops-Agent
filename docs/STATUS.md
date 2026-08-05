@@ -4,6 +4,8 @@
 > 현재 branch: `codex/frontend-design-workflow`
 > 현재 단계: Phase 0 — 기준선과 아키텍처 확정
 
+> 2026-08-05 메인 페이지 디자인 브리프(디자이너는 1920×1080 메인 페이지만 제작, 반응형·세부 화면은 Codex 담당): [`docs/frontend/MAIN_PAGE_DESIGN_BRIEF.md`](frontend/MAIN_PAGE_DESIGN_BRIEF.md)
+
 ## 현재 목표
 
 V2 구현에 들어가기 전에 기기와 Codex 세션이 바뀌어도 동일한 결정을 따를 수 있도록 명세, ADR, 작업 규칙과 인수인계 흐름을 확정한다.
