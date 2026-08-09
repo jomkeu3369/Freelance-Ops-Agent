@@ -364,21 +364,18 @@ Python Agent service는 다음 구조를 기본으로 한다.
 
 ```text
 agent/
-├── app/
-│   ├── api/              # Spring 전용 internal API
-│   ├── graphs/           # LangGraph 정의와 상태
-│   ├── model_providers/  # OpenAI/Gemini adapter
-│   ├── tools/            # Spring Tool API client wrapper
-│   ├── checkpoints/      # Postgres checkpointer 설정
-│   ├── evaluation/       # dataset runner와 metric
-│   └── observability/    # trace/cost/latency
+├── src/freelance_ops_agent/
+│   ├── graph/            # LangGraph 정의와 상태
+│   ├── main.py           # Spring 전용 internal FastAPI
+│   ├── contracts.py      # versioned request/response model
+│   └── providers.py      # OpenAI/Gemini adapter boundary
 ├── tests/
 ├── pyproject.toml
 └── uv.lock
 ```
 
 - `agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
-- V2 Agent dependency를 저장소 루트의 V1 Poetry project와 혼합하지 않는다.
+- V2 Agent dependency를 `legacy/v1`의 V1 Poetry project와 혼합하지 않는다.
 - LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
 - FastAPI request/response는 versioned Pydantic schema를 사용한다.
 - Agent service는 Spring이 발급한 delegation token과 `aud=agent-service`를 검증한다.

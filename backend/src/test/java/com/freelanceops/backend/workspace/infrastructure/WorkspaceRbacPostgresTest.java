@@ -1,56 +1,54 @@
 package com.freelanceops.backend.workspace.infrastructure;
 
+import com.freelanceops.backend.workspace.application.AuthorizationAuditSink;
 import com.freelanceops.backend.workspace.application.WorkspaceProvisioningResult;
 import com.freelanceops.backend.workspace.application.WorkspaceProvisioningService;
 import com.freelanceops.backend.workspace.application.WorkspaceAuthorizationService;
+import com.freelanceops.backend.workspace.application.WorkspacePermissionReader;
 import com.freelanceops.backend.workspace.domain.AuthorizationDecision;
 import com.freelanceops.backend.workspace.domain.PermissionCode;
 import com.freelanceops.backend.workspace.domain.SystemRole;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers(disabledWithoutDocker = true)
+@SpringBootTest
 class WorkspaceRbacPostgresTest {
 
     @Container
     private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:17-alpine");
 
-    private static JdbcClient jdbcClient;
-    private static WorkspaceProvisioningService provisioningService;
+    @Autowired
+    private JdbcClient jdbcClient;
 
-    @BeforeAll
-    static void migrateDatabase() throws SQLException {
-        DataSource dataSource = new DriverManagerDataSource(
-            POSTGRES.getJdbcUrl(),
-            POSTGRES.getUsername(),
-            POSTGRES.getPassword()
-        );
-        try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
-            statement.execute("CREATE SCHEMA app");
-        }
-        Flyway.configure()
-            .dataSource(dataSource)
-            .schemas("app")
-            .defaultSchema("app")
-            .locations("classpath:db/migration")
-            .load()
-            .migrate();
-        jdbcClient = JdbcClient.create(dataSource);
-        provisioningService = new WorkspaceProvisioningService(jdbcClient);
+    @Autowired
+    private WorkspaceProvisioningService provisioningService;
+
+    @Autowired
+    private WorkspacePermissionReader permissionReader;
+
+    @Autowired
+    private AuthorizationAuditSink auditSink;
+
+    @DynamicPropertySource
+    static void databaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("spring.flyway.create-schemas", () -> true);
     }
 
     @Test
@@ -76,10 +74,8 @@ class WorkspaceRbacPostgresTest {
             .param("workspaceId", result.workspaceId())
             .query(Integer.class)
             .single();
-        JdbcWorkspacePermissionReader reader = new JdbcWorkspacePermissionReader(jdbcClient);
-
         assertThat(roleCount).isEqualTo(SystemRole.values().length);
-        assertThat(reader.findActiveMembership(creatorId, result.workspaceId()))
+        assertThat(permissionReader.findActiveMembership(creatorId, result.workspaceId()))
             .get()
             .extracting(membership -> membership.permissions().size())
             .isEqualTo(PermissionCode.values().length);
@@ -120,8 +116,8 @@ class WorkspaceRbacPostgresTest {
             "audited-workspace"
         );
         WorkspaceAuthorizationService authorizationService = new WorkspaceAuthorizationService(
-            new JdbcWorkspacePermissionReader(jdbcClient),
-            new JdbcAuthorizationAuditSink(jdbcClient)
+            permissionReader,
+            auditSink
         );
 
         AuthorizationDecision decision = authorizationService.authorize(

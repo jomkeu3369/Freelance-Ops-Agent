@@ -195,7 +195,7 @@ external_write
 ## 11. `react_v1.py` Stage 1 적용 기록
 
 > 적용일: 2026-07-28
-> 대상: `test/prototypes/요구사항테스트/react_v1.py`
+> 대상: `experiments/requirements/react_v1.py`
 
 첫 ReAct 비교에서는 Agent 자체의 요구사항 분해 능력을 검색·견적·위험 판단과
 분리하기 위해 다음 세 Tool만 적용했다.

@@ -1,7 +1,7 @@
 # Freelance Ops Agent V2 작업 인수인계
 
 > 마지막 갱신: 2026-08-09
-> 현재 branch: `codex/v2-foundation`
+> 현재 branch: `main`
 > 현재 단계: Phase 1 — Spring Boot 기반과 멀티테넌시
 
 > 2026-08-06 메인 페이지 디자인 브리프(디자이너는 1920×1080 메인 페이지만 제작, 반응형·세부 화면은 Codex 담당): [`docs/frontend/MAIN_PAGE_DESIGN_BRIEF.md`](frontend/MAIN_PAGE_DESIGN_BRIEF.md)
@@ -20,8 +20,12 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - 2026-08-09: backend·agent·contract·compose·image build를 검사하는 V2 CI workflow를 추가했다. 실제 배포 대상과 secret이 정해지지 않아 CD 배포 단계는 아직 연결하지 않았다.
 - 2026-08-09: `user_account`, `workspace`, `workspace_member`, `permission`, `workspace_role`, `role_permission`, `member_role`, `rbac_audit_event`의 Flyway migration을 추가했다. membership과 role에 `workspace_id` 복합 외래키를 적용해 DB 수준에서도 cross-workspace role 할당을 거부한다.
 - 2026-08-09: 31개 안정 permission code와 5개 기본 system role matrix를 구현했다. workspace 생성자는 같은 transaction에서 OWNER membership과 전체 기본 role을 생성받는다.
-- 2026-08-09: 활성 membership의 여러 role permission을 합산하는 JDBC adapter와 중앙 authorization service를 구현했다. membership 부재·cross-workspace resource는 `NOT_FOUND`, 같은 workspace의 권한 부족은 `FORBIDDEN`으로 판정하고 거부 결과를 audit에 기록한다.
+- 2026-08-09: 활성 membership의 여러 role permission을 합산하는 JPA adapter와 중앙 authorization service를 구현했다. membership 부재·cross-workspace resource는 `NOT_FOUND`, 같은 workspace의 권한 부족은 `FORBIDDEN`으로 판정하고 거부 결과를 audit에 기록한다.
+- 2026-08-09: Spring 애플리케이션 코드의 직접 SQL을 Spring Data JPA Repository로 전환했다. Flyway가 schema를 소유하고 Hibernate는 `ddl-auto=validate`만 수행하며, workspace 조회 조건과 DB 복합 외래키를 함께 유지한다. 결정 근거는 ADR-0011에 기록했다.
 - 2026-08-09: 마지막 OWNER 보호, ADMIN의 OWNER 변경 차단, 자기 권한 상승 차단 policy와 Spring method security를 추가했다.
+- 2026-08-09: 루트의 V1 `src_temp`, Poetry, MongoDB·Kafka Compose와 과거 배포 workflow를 `legacy/v1/`로 이동했다. 과거 workflow는 `.github/workflows` 밖에 보존해 자동 실행되지 않는다.
+- 2026-08-09: 혼재하던 `test/`와 `tests/`를 제거하고 추적 가능한 prototype은 `experiments/`, 로컬 notebook·FAISS 산출물은 Git에서 제외되는 `experiments/local_archive/`로 이동했다. 서비스 자동 테스트는 `backend/src/test`, `agent/tests`, `frontend/tests`만 사용한다.
+- 2026-08-09: `.gitignore`의 광범위한 `tests/` 규칙이 `agent/tests`까지 제외하던 문제를 수정하고 V2 CI의 중복 push·PR 실행을 `main` push와 pull request로 정리했다.
 
 - 2026-08-06: 메인 페이지 디자인 브리프를 V2 명세와 README에 맞춰 전면 보강했다. Header부터 Footer까지 각 섹션의 목적, 실제 문구, 화면 내용, 시각 방향과 근거 문서를 같은 형식으로 정리하고, 첫 출시 범위를 한국 소프트웨어 개발 프리랜서로 수정했다. 가짜 후기·고객사·성능 수치, 미확정 가격과 “모든 직군 지원” 표현은 사용 금지 콘텐츠로 명시했다.
 - `frontend/`에 React 19 + TypeScript + vinext 기반 V2 프런트엔드 콘셉트를 구성했다. Project Intake를 중심으로 고객 원문과 AI 초안의 구분, 12-column gapless bento, 요구사항 accordion, workflow card stacking, 사용자 후기와 CTA를 구현했다.
@@ -33,7 +37,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - frontend 배포 기준을 Vercel Preview 검수 후 승인된 revision의 Production 배포로 확정하고 [ADR-0010](adr/0010-designer-first-frontend-vercel.md)과 [`docs/frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md`](frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md)에 기록했다.
 
 - 생성 데이터 재학습의 model collapse와 V2의 RAG corpus 오염을 구분해 검토하고, 초안 격리, retrieval eligibility gate, root provenance, source pool, lineage dedup, index snapshot·rollback과 fine-tuning 차단 방안을 [`docs/reviews/2026-07-29-generated-artifact-recursion-risk-review.md`](reviews/2026-07-29-generated-artifact-recursion-risk-review.md)에 기록했다. 구현 결정은 [ADR-0009](adr/0009-generated-artifact-retrieval-safety.md) Proposed 상태로 사용자 검토를 기다린다.
-- V2 Python Agent를 `agent`의 독립적인 uv project로 관리하고 `pyproject.toml`과 `uv.lock`을 dependency 기준으로 사용하는 결정을 [ADR-0008](adr/0008-python-agent-uv-project.md)에 기록했다. 루트 Poetry project는 V1·prototype 기준선으로 보존한다.
+- V2 Python Agent를 `agent`의 독립적인 uv project로 관리하고 `pyproject.toml`과 `uv.lock`을 dependency 기준으로 사용하는 결정을 [ADR-0008](adr/0008-python-agent-uv-project.md)에 기록했다. `legacy/v1` Poetry project는 V1·prototype 기준선으로 보존한다.
 - 완성된 Supervisor를 가정한 Agent·Tool·재시도별 run 실제 원가, route별 사용 횟수 기반 월 비용, 성공 산출물당 원가와 Budget Guard 계산식을 [`docs/operations/supervisor-usage-cost-model.md`](operations/supervisor-usage-cost-model.md)에 기록했다.
 - 요구사항 분석 단일 ReAct Stage 1에 `get_project_context`, `get_domain_pack`, `validate_requirement_draft` fixture Tool을 적용하고, 각 Tool의 run당 1회 호출 제한과 최종 구조화 결과의 상태 일관성 검증을 추가했다. 구현 경계와 검증 결과는 [`docs/testing/requirements-analysis-tool-plan.md`](testing/requirements-analysis-tool-plan.md)에 기록했다.
 - 현재 요구사항 평가 파이프라인의 dataset 준비, ReAct·Supervisor 내부 실행, 3개 LLM Judge, LangSmith trace와 결과 집계 흐름을 Mermaid graph로 평가 문서에 기록했다.
@@ -42,7 +46,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - `validate_requirement_draft(draft: dict[str, Any])`가 OpenAI strict function schema에서 속성 없는 object로 변환되던 문제를 해결하기 위해 요구사항 초안의 다섯 field를 명시적 Tool 인자로 변경했다.
 - Supervisor Agent Tool의 `dict[str, Any]` 입력도 같은 schema 오류를 내지 않도록 `run_context_summary_json`, `requirement_analysis_json` 문자열 계약과 명시적 Pydantic args schema로 변경했다.
 - 빈 Judge별 모델 환경변수가 OpenAI에 `model=""`으로 전달되던 문제를 수정하고 prototype, Judge, timeout, retry와 LangSmith project 설정에서 빈 값을 기본값으로 처리하도록 통합했다.
-- ReAct 요구사항 분석 prototype, Requirements Supervisor prototype, 완전성·근거성·확인 질문 품질을 평가하는 3개 LLM-as-Judge와 LangSmith dataset/experiment 로깅 모듈을 `test/prototypes/`, `test/evaluation/`에 추가했다.
+- ReAct 요구사항 분석 prototype과 Requirements Supervisor prompt 초안을 `experiments/requirements/`에 보존했다. 과거 문서에서 설명한 LLM-as-Judge와 LangSmith evaluator 파일은 현재 tree에 없어 복구 또는 재구현이 필요하다.
 - prototype 실행 방법, 환경변수, LangSmith 확인 항목과 평가 주의사항을 `docs/testing/requirements-prototype-evaluation.md`에 기록했다.
 - 요구사항 분석 테스트에서 Agent 역할, Supervisor용 Agent Tool과 ReAct 업무 Tool을 구분하고 Langflow 연결 및 JSON 계약 예시를 `docs/testing/langflow-requirements-tool-contracts.md`에 기록했다.
 - Langflow Desktop 검증에서 별도 Department flow를 `Run Flow` Tool로 Global Orchestrator에 연결하는 절차, action slug·Tool Mode·입력 배선·Tool trace 합격 기준과 `langchain-openai` 실행 환경 점검을 [`docs/testing/langflow-global-orchestrator-runbook.md`](testing/langflow-global-orchestrator-runbook.md)에 기록했다.
@@ -90,7 +94,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 다음 작업
 
-1. `test/.env`에 노출된 OpenAI·LangSmith 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다.
+1. `experiments/local_archive/**/.env`에 남아 있는 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다. 해당 파일은 Git에서 제외한다.
 2. ADR-0009를 검토·승인한 뒤 artifact status, provenance, lineage, retrieval eligibility와 index snapshot contract를 V2 명세에 반영한다.
 3. Spring이 audience-bound delegation token을 발급하고 Agent가 이를 검증하는 internal authentication을 구현한다.
 4. Client·Project CRUD에 중앙 authorization service와 workspace-scoped repository query를 적용한다.
@@ -125,13 +129,18 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - 2026-07-27: Python source compile과 JSONL 3건 parsing을 통과했고, `poetry.lock`의 LangChain 1.1.0, LangGraph 1.0.4, LangChain OpenAI 1.1.0, LangSmith 0.4.52 조합으로 두 graph, 세 Judge와 세 업무 Tool의 import 및 생성 검증을 통과했다. 실제 OpenAI/LangSmith 호출은 비용과 credential 사용이 필요해 실행하지 않았다.
 
 - V2 frontend prototype은 repository에 포함할 준비가 되었지만 최종 visual source of truth는 아니다. Python Agent와 Spring backend는 실행 가능한 foundation 단계이며 workspace RBAC는 구현됐지만 실제 인증·Client·Project CRUD·LLM provider·Tool 구현은 아직 없다.
-- 2026-07-24 Supervisor 구조 검토에서는 live model 실험을 실행하지 않았다. 현재 `test/` 파일은 실제 API를 호출하고 assertion이 없는 실험 script이므로 자동 테스트 결과로 간주하지 않는다.
+- 2026-07-24 Supervisor 구조 검토에서는 live model 실험을 실행하지 않았다. 현재 `experiments/` 파일은 실제 API를 호출하거나 assertion이 없는 실험 script이므로 자동 테스트 결과로 간주하지 않는다.
 - 2026-07-24 갱신 문서의 Markdown 공백, ADR 내부 링크, 단계 번호, 미해결 marker와 핵심 결정 일관성을 확인했다.
-- `test/.env`는 `.gitignore`에 의해 추적되지 않지만 실제 형식의 자격 증명이 있어 폐기와 재발급이 필요하다.
-- 알려진 OpenAI·LangSmith 장기 token pattern과 `test/.env` 경로는 현재 Git history에서 발견되지 않았지만 전용 secret scanner 검증은 아직 필요하다.
+- `experiments/local_archive/**/.env`는 `.gitignore`에 의해 추적되지 않지만 실제 형식의 자격 증명이 있어 폐기와 재발급이 필요하다.
+- 알려진 OpenAI·LangSmith 장기 token pattern과 local archive 경로는 현재 Git history에서 발견되지 않았지만 전용 secret scanner 검증은 아직 필요하다.
 - Langflow prompt는 문서 초안만 작성했으며 실제 flow 실행, structured output schema 호환성과 regression evaluation은 아직 수행하지 않았다.
 - 2026-08-03: 실행 중인 Langflow Desktop backend가 `1.10.0`이고 전용 Python 환경에서 `langchain-openai 1.4.1` import 및 health/version endpoint가 정상임을 확인했다. 화면의 `No module named langchain_openai` 오류는 현재 저장소 Poetry 환경이 아니라 Desktop build/cache 또는 별도 LFX 실행 환경을 우선 점검해야 하는 상태이며, 실제 Global Orchestrator의 Department Tool 호출 trace는 아직 확인하지 않았다.
 - Tool Catalog의 Markdown 구조와 V2 명세 내부 링크를 검증했다.
+
+- 2026-08-09: 구조 정리 후 `agent/tests`의 pytest 3건, Ruff, MyPy와 `frontend/tests`의 Node 테스트 2건, TypeScript typecheck, ESLint를 통과했다. Compose V2 설정도 유효하다.
+- 2026-08-09: frontend 의존성 설치 결과 npm audit 기준 취약점 20건(낮음 1, 보통 4, 높음 15)이 남아 있다. 자동 강제 수정은 breaking change 위험 때문에 수행하지 않았으며 CI 정비 단계에서 직접 검토한다.
+
+- 2026-08-09: JPA 전환 후 backend 단위 테스트 15건은 통과했다. Docker Desktop이 중지된 상태여서 PostgreSQL Testcontainers 통합 테스트 4건은 skip되었으며 Docker 기동 후 재검증이 필요하다.
 
 ## 열린 결정
 

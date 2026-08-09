@@ -14,12 +14,15 @@ user_profile.json
 
 
 # Other Files
-tests/
 
 docker-compose-local.yaml
-api명세서.md
 faiss_index/
-test/evaluation/reports/
+
+# Local-only experiment inputs and generated artifacts
+experiments/local_archive/
+experiments/**/reports/
+experiments/**/*.faiss
+experiments/**/*.pkl
 
 # V2 build outputs
 backend/.gradle/
@@ -36,6 +39,11 @@ agent/.uv-python/
 .gradle-local/
 __pycache__/
 *.py[cod]
+
+# Legacy local environments and generated runtime data
+legacy/v1/.venv/
+legacy/v1/logs_data/
+legacy/v1/faiss_data/
 
 # Local infrastructure state and secrets
 infra/**/*.local

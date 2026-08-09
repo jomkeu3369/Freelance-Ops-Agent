@@ -11,7 +11,7 @@ on:
       - ".github/workflows/v2-ci.yml"
   push:
     branches:
-      - "codex/**"
+      - "main"
     paths:
       - "agent/**"
       - "backend/**"

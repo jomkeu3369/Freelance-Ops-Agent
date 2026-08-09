@@ -2,15 +2,15 @@
 
 > 작성일: 2026-07-27
 > 대상: ReAct 단일 Agent와 Requirements Supervisor 구조 비교
+> 현재 상태: historical evaluation design. 저장소 구조 정리 시 실행 가능한 ReAct prototype과 Supervisor prompt 초안만 보존됐으며, 아래에서 설명한 LangSmith evaluator와 fixture runner는 현재 tree에 없다.
 
 ## 1. 구현 파일
 
 | 파일 | 역할 |
 |---|---|
-| `test/prototypes/react_prototype_v1.py` | Requirement Analyst와 세 개의 원자적 Tool을 포함한 ReAct baseline |
-| `test/prototypes/supervisor_prototype_v1.py` | Requirement Analyst와 Clarification Generator를 Agent Tool로 호출하는 Supervisor |
-| `test/evaluation/requirements_accuracy_eval_v1.py` | LangSmith dataset 생성, 두 구조 실행과 3개 LLM-as-Judge 평가 |
-| `test/evaluation/requirements_cases_v1.jsonl` | 실제 고객 정보를 포함하지 않는 3개 초기 fixture |
+| `experiments/requirements/react_v1.py` | Requirement Analyst와 세 개의 원자적 Tool을 포함한 ReAct baseline |
+| `experiments/requirements/supervisor_v1.py` | Requirements Supervisor system prompt 초안. 실행 graph는 아직 없음 |
+| 미복구 | LangSmith dataset runner, fixture와 3개 LLM-as-Judge 평가 코드 |
 | `.env.example` | 필요한 환경변수 이름과 기본 모델 설정 |
 
 ## 2. 평가 구조
@@ -122,31 +122,19 @@ Judge별 모델을 따로 지정하지 않을 때는 `JUDGE_COMPLETENESS_MODEL`,
 
 ## 4. 실행
 
-Poetry 환경 설치:
+Legacy prototype용 Poetry 환경 설치:
 
 ```powershell
-poetry install
+poetry -C legacy/v1 install
 ```
 
 ReAct 단독 확인:
 
 ```powershell
-poetry run python -m test.prototypes.react_prototype_v1 --request "쇼핑몰 관리자 페이지를 만들어 주세요." --project-ref project-fixture-001 --domain ecommerce-admin
+poetry -C legacy/v1 run python ../../experiments/requirements/react_v1.py
 ```
 
-Supervisor 단독 확인:
-
-```powershell
-poetry run python -m test.prototypes.supervisor_prototype_v1 --request "쇼핑몰 관리자 페이지를 만들어 주세요." --project-ref project-fixture-001 --domain ecommerce-admin
-```
-
-두 구조 전체 평가:
-
-```powershell
-poetry run python -m test.evaluation.requirements_accuracy_eval_v1 --architecture both --max-concurrency 1
-```
-
-평가가 끝나면 터미널에 다음 항목이 비교표로 출력된다.
+Supervisor graph와 전체 evaluator는 현재 tree에 없으므로 다음 항목은 재구현 후 검증해야 한다.
 
 - 구조별 전체 평균
 - case 통과율
@@ -154,22 +142,7 @@ poetry run python -m test.evaluation.requirements_accuracy_eval_v1 --architectur
 - 실패 case 수와 실패한 Judge
 - 두 구조를 함께 평가했을 때 우수 구조
 
-동일한 결과는 `test/evaluation/reports/requirements-eval-summary-<UTC timestamp>.json`에도 저장된다. 이 폴더는 Git에서 제외된다.
-
-통과 기준은 기본 0.8이며 변경할 수 있다.
-
-```powershell
-poetry run python -m test.evaluation.requirements_accuracy_eval_v1 --architecture both --pass-threshold 0.85
-```
-
-하나의 구조만 평가:
-
-```powershell
-poetry run python -m test.evaluation.requirements_accuracy_eval_v1 --architecture react
-poetry run python -m test.evaluation.requirements_accuracy_eval_v1 --architecture supervisor
-```
-
-최초 실행은 `freelance-ops-requirements-v1` dataset을 LangSmith에 생성한다. 같은 이름의 dataset이 있으면 기존 dataset을 재사용하고 자동으로 덮어쓰지 않는다.
+결과 report는 향후 `experiments/evaluation/reports/`에 생성하고 Git에서 제외한다. 통과 기준과 LangSmith dataset 재사용 정책은 evaluator를 복구할 때 다시 확정한다.
 
 ## 5. LangSmith에서 확인할 항목
 
