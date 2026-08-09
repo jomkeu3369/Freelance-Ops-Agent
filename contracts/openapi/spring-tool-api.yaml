@@ -1,0 +1,283 @@
+openapi: 3.1.0
+info:
+  title: Freelance Ops Spring Internal Tool API
+  version: 0.1.0
+  description: Python Agent Tool이 Spring Boot 업무 기능을 호출하는 내부 전용 계약
+servers:
+  - url: http://backend:8080
+    description: Docker internal network
+security:
+  - delegationToken: []
+paths:
+  /internal/v1/projects/{projectId}/context:
+    get:
+      operationId: getProjectContext
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+        - $ref: "#/components/parameters/RunIdHeader"
+      responses:
+        "200":
+          description: Workspace-scoped project context
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectContext"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/domain-packs/{domainCode}:
+    get:
+      operationId: getDomainPack
+      parameters:
+        - name: domainCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 64
+        - $ref: "#/components/parameters/RunIdHeader"
+      responses:
+        "200":
+          description: Versioned domain pack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainPack"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/requirements/validate:
+    post:
+      operationId: validateRequirementDraft
+      parameters:
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequirementDraft"
+      responses:
+        "200":
+          description: Deterministic requirement validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequirementValidationResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/quotes/calculate:
+    post:
+      operationId: calculateQuote
+      parameters:
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteCalculationRequest"
+      responses:
+        "200":
+          description: Deterministically calculated quotation totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteCalculationResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+components:
+  securitySchemes:
+    delegationToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RunIdHeader:
+      name: X-Run-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ProblemResponse:
+      description: RFC 9457 compatible problem response
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+  schemas:
+    ProjectContext:
+      type: object
+      additionalProperties: false
+      required: [projectId, workspaceId, title, requirementText, currency]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        requirementText:
+          type: string
+          maxLength: 50000
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        deadline:
+          type: string
+          format: date
+        budgetMin:
+          type: number
+          minimum: 0
+        budgetMax:
+          type: number
+          minimum: 0
+    DomainPack:
+      type: object
+      additionalProperties: false
+      required: [code, version, scope, requiredFields, questionTemplates]
+      properties:
+        code:
+          type: string
+        version:
+          type: string
+        scope:
+          type: string
+        requiredFields:
+          type: array
+          items:
+            type: string
+        questionTemplates:
+          type: array
+          items:
+            type: string
+    RequirementDraft:
+      type: object
+      additionalProperties: false
+      required: [projectId, summary, features, constraints, assumptions, openQuestions]
+      properties:
+        projectId:
+          type: string
+          format: uuid
+        summary:
+          type: string
+          maxLength: 10000
+        features:
+          type: array
+          items:
+            type: string
+            maxLength: 1000
+        constraints:
+          type: array
+          items:
+            type: string
+            maxLength: 1000
+        assumptions:
+          type: array
+          items:
+            type: string
+            maxLength: 1000
+        openQuestions:
+          type: array
+          items:
+            type: string
+            maxLength: 1000
+    RequirementValidationResult:
+      type: object
+      additionalProperties: false
+      required: [valid, errors, warnings]
+      properties:
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    QuoteCalculationRequest:
+      type: object
+      additionalProperties: false
+      required: [currency, taxRate, discountRate, items]
+      properties:
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        taxRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        discountRate:
+          type: number
+          minimum: 0
+          maximum: 1
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/QuoteCalculationItem"
+    QuoteCalculationItem:
+      type: object
+      additionalProperties: false
+      required: [itemId, quantity, unitPrice]
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+        unitPrice:
+          type: number
+          minimum: 0
+    QuoteCalculationResult:
+      type: object
+      additionalProperties: false
+      required: [currency, subtotal, discountAmount, taxAmount, total, formulaVersion]
+      properties:
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        subtotal:
+          type: number
+        discountAmount:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        formulaVersion:
+          type: string
+    ProblemDetails:
+      type: object
+      additionalProperties: true
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string

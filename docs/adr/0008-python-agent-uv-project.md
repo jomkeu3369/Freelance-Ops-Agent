@@ -6,7 +6,7 @@
 ## Context
 
 V2는 Spring Boot 제품 backend와 Python Agent runtime을 분리하며 Python
-서비스는 `src/agent`에 위치한다. 저장소 루트에는 V1과 기존 prototype
+서비스는 `agent`에 위치한다. 저장소 루트에는 V1과 기존 prototype
 평가에 사용한 Poetry 기반 `pyproject.toml`과 lock file이 존재한다.
 
 V2 Agent는 Docker, CI와 여러 개발 PC에서 같은 Python dependency graph를
@@ -15,12 +15,12 @@ virtual environment 경계를 명확히 분리해야 한다.
 
 ## Decision
 
-- V2 Python Agent는 `src/agent`를 root로 하는 독립적인 uv 프로젝트로 관리한다.
+- V2 Python Agent는 `agent`를 root로 하는 독립적인 uv 프로젝트로 관리한다.
 - V2 Agent의 직접 dependency와 project metadata는
-  `src/agent/pyproject.toml`에 기록한다.
-- 재현 가능한 dependency resolution은 `src/agent/uv.lock`에 기록하고
+  `agent/pyproject.toml`에 기록한다.
+- 재현 가능한 dependency resolution은 `agent/uv.lock`에 기록하고
   repository에 함께 commit한다.
-- 개발, test, CI와 Docker 명령은 `src/agent`에서 `uv run`과 검증된 lock
+- 개발, test, CI와 Docker 명령은 `agent`에서 `uv run`과 검증된 lock
   file을 기준으로 실행한다.
 - CI와 image build는 lock file과 metadata가 불일치하면 dependency를
   묵시적으로 다시 해석하지 않고 실패해야 한다.
@@ -36,7 +36,7 @@ virtual environment 경계를 명확히 분리해야 한다.
 기본 검증 위치와 명령은 다음과 같다.
 
 ```text
-working directory: src/agent
+working directory: agent
 dependency sync:   uv sync --locked
 test:              uv run --locked pytest
 ```
@@ -57,7 +57,7 @@ test:              uv run --locked pytest
 
 - 저장소에 Poetry와 uv 기반 project가 migration 기간 동안 함께 존재한다.
 - 개발자는 명령을 실행할 Python project root를 구분해야 한다.
-- CI, Dockerfile과 IDE 설정을 `src/agent`의 uv project에 맞춰야 한다.
+- CI, Dockerfile과 IDE 설정을 `agent`의 uv project에 맞춰야 한다.
 - root prototype을 V2 Agent로 옮길 때 dependency와 test 경계를 명시적으로
   재정리해야 한다.
 

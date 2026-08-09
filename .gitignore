@@ -20,3 +20,23 @@ docker-compose-local.yaml
 api명세서.md
 faiss_index/
 test/evaluation/reports/
+
+# V2 build outputs
+backend/.gradle/
+backend/build/
+agent/.venv/
+agent/.uv-cache/
+agent/.uv-python/
+.uv-cache/
+.uv-*-cache/
+.uv-python/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.gradle-local/
+__pycache__/
+*.py[cod]
+
+# Local infrastructure state and secrets
+infra/**/*.local
+infra/**/*.secret
