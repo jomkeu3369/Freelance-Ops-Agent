@@ -363,7 +363,7 @@ JPA entity를 API response로 직접 반환하지 않는다. 특히 password has
 Python Agent service는 다음 구조를 기본으로 한다.
 
 ```text
-src/agent/
+agent/
 ├── app/
 │   ├── api/              # Spring 전용 internal API
 │   ├── graphs/           # LangGraph 정의와 상태
@@ -377,7 +377,7 @@ src/agent/
 └── uv.lock
 ```
 
-- `src/agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
+- `agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
 - V2 Agent dependency를 저장소 루트의 V1 Poetry project와 혼합하지 않는다.
 - LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
 - FastAPI request/response는 versioned Pydantic schema를 사용한다.
@@ -1322,7 +1322,7 @@ postgres-pgvector
 ### 18.3 이미지
 
 - Spring backend와 Python Agent는 multi-stage container build를 사용한다. frontend Production build와 배포는 Vercel이 소유한다.
-- Python Agent image는 `src/agent/pyproject.toml`과 `src/agent/uv.lock`을 기준으로 dependency를 재현한다.
+- Python Agent image는 `agent/pyproject.toml`과 `agent/uv.lock`을 기준으로 dependency를 재현한다.
 - non-root user로 실행한다.
 - health/readiness endpoint를 제공한다.
 - image에 secret, `.env`, test dataset 원문을 포함하지 않는다.
@@ -1447,7 +1447,7 @@ postgres-pgvector
 
 ### Phase 4. FastAPI/LangGraph Agent + Tool + HITL
 
-- `src/agent`의 uv project, `pyproject.toml`과 `uv.lock`
+- `agent`의 uv project, `pyproject.toml`과 `uv.lock`
 - FastAPI internal API와 Pydantic/OpenAPI contract
 - OpenAI/Gemini provider adapter와 run별 model 기록
 - LangGraph structured output와 ReAct Tool loop
