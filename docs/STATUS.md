@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-09
+> 마지막 갱신: 2026-08-10
 > 현재 branch: `main`
 > 현재 단계: Phase 1 — Spring Boot 기반과 멀티테넌시
 
@@ -11,6 +11,8 @@
 Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·Project CRUD의 모든 query가 `workspace_id`로 격리되는 기반을 만든다. Agent는 실행 사용자의 유효 permission만 delegation 받을 수 있어야 한다.
 
 ## 완료
+
+- 2026-08-10: 다른 PC에서 작업을 이어가기 위한 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)를 작성했다. 전체 Compose 기동 명령, 현재 검증 상태, Swagger 미구현 상태, 보안 원칙과 다음 작업 순서를 기록했다.
 
 - 2026-08-09: `backend/`, `agent/`, `frontend/`, `contracts/`, `infra/` V2 최상위 구조를 확정하고 관련 명세와 ADR-0008의 Python Agent 경로를 `agent/`로 정정했다.
 - 2026-08-09: Spring Boot 4.1.0·Java 21·Gradle 9.6.1 기반 backend와 Gradle Wrapper, Spring Security deny-by-default 골격, Actuator health, Flyway `app` schema baseline과 Agent health indicator를 구성했다.
@@ -93,6 +95,14 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - 한국 소프트웨어 개발 프리랜서용 첫 domain/jurisdiction pack 범위 결정
 
 ## 다음 작업
+
+### 다음 PC에서 우선 수행
+
+- `main`을 pull한 뒤 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 V2 image build와 전체 Compose 기동을 검증한다.
+- Docker 환경에서 JPA 기반 PostgreSQL Testcontainers 통합 테스트 4건을 skip 없이 재실행한다.
+- Springdoc OpenAPI와 개발 환경 Swagger UI를 추가하되, Spring 공개 API와 Agent 내부 계약을 분리한다.
+
+### 이후 backlog
 
 1. `experiments/local_archive/**/.env`에 남아 있는 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다. 해당 파일은 Git에서 제외한다.
 2. ADR-0009를 검토·승인한 뒤 artifact status, provenance, lineage, retrieval eligibility와 index snapshot contract를 V2 명세에 반영한다.
