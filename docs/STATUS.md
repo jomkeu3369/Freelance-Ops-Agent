@@ -12,13 +12,15 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 완료
 
-- 2026-08-10: 다른 PC에서 작업을 이어가기 위한 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)를 작성했다. 전체 Compose 기동 명령, 현재 검증 상태, Swagger 미구현 상태, 보안 원칙과 다음 작업 순서를 기록했다.
+- 2026-08-10: PostgreSQL 인프라를 `docker-compose-infra.yaml`, Agent·Backend를 `docker-compose.yaml`로 분리했다. 두 Compose project는 명시적인 `freelance-ops-v2-internal` external network를 공유하며 infra를 먼저 기동한다. CI와 로컬 실행 문서도 두 단계 검증으로 변경했다.
+- 2026-08-10: Spring Boot 공개 API에 Springdoc OpenAPI 3과 Swagger UI를 추가했다. 기본 환경에서는 비활성화하고 Compose의 `development` profile에서만 활성화하며, `/api/**`만 문서화해 `contracts/openapi/`의 Agent 내부 계약과 분리했다. HTTP Basic 보안 scheme과 `/api/v1/meta` 문서를 추가했다.
+- 2026-08-10: 다른 PC에서 작업을 이어가기 위한 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)를 작성했다. 전체 Compose 기동 명령, 당시 Swagger 구현 전 상태, 보안 원칙과 다음 작업 순서를 기록했으며 이후 Springdoc 구현 상태로 갱신했다.
 
 - 2026-08-09: `backend/`, `agent/`, `frontend/`, `contracts/`, `infra/` V2 최상위 구조를 확정하고 관련 명세와 ADR-0008의 Python Agent 경로를 `agent/`로 정정했다.
 - 2026-08-09: Spring Boot 4.1.0·Java 21·Gradle 9.6.1 기반 backend와 Gradle Wrapper, Spring Security deny-by-default 골격, Actuator health, Flyway `app` schema baseline과 Agent health indicator를 구성했다.
 - 2026-08-09: Python 3.12·FastAPI 0.139.2·LangGraph 1.2.9 기반 독립 uv project와 lock file을 구성했다. 요청 등급과 `max_departments`에 따라 최대 4개 부서를 순차 호출하는 제한형 Supervisor graph baseline을 추가했다.
 - 2026-08-09: Spring→Agent run API와 Agent→Spring Tool API를 versioned OpenAPI 3.1 계약으로 분리했다. 계약에는 trusted context, provider/model 선택, run budget, 부서 structured result와 resume 흐름이 포함된다.
-- 2026-08-09: `compose.v2.yaml`에 PostgreSQL + pgvector, 내부 전용 Agent, 외부 진입점 Spring을 구성했다. `app_user`와 `agent_user`, `app`과 `agent_runtime` schema를 분리하고 브라우저에 Agent port를 공개하지 않았다.
+- 2026-08-09: PostgreSQL + pgvector, 내부 전용 Agent, 외부 진입점 Spring의 초기 단일 Compose를 구성했다. 2026-08-10 infra와 application Compose로 분리했으며 `app_user`와 `agent_user`, `app`과 `agent_runtime` schema 분리 및 Agent port 비공개 원칙은 유지한다.
 - 2026-08-09: backend·agent·contract·compose·image build를 검사하는 V2 CI workflow를 추가했다. 실제 배포 대상과 secret이 정해지지 않아 CD 배포 단계는 아직 연결하지 않았다.
 - 2026-08-09: `user_account`, `workspace`, `workspace_member`, `permission`, `workspace_role`, `role_permission`, `member_role`, `rbac_audit_event`의 Flyway migration을 추가했다. membership과 role에 `workspace_id` 복합 외래키를 적용해 DB 수준에서도 cross-workspace role 할당을 거부한다.
 - 2026-08-09: 31개 안정 permission code와 5개 기본 system role matrix를 구현했다. workspace 생성자는 같은 transaction에서 OWNER membership과 전체 기본 role을 생성받는다.
@@ -100,7 +102,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 - `main`을 pull한 뒤 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 V2 image build와 전체 Compose 기동을 검증한다.
 - Docker 환경에서 JPA 기반 PostgreSQL Testcontainers 통합 테스트 4건을 skip 없이 재실행한다.
-- Springdoc OpenAPI와 개발 환경 Swagger UI를 추가하되, Spring 공개 API와 Agent 내부 계약을 분리한다.
+- 개발 profile에서 `/swagger-ui.html`과 `/v3/api-docs`를 열고, HTTP Basic 인증 후 `/api/v1/meta` 호출을 검증한다.
 
 ### 이후 backlog
 
@@ -122,9 +124,10 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 현재 검증 상태
 
+- 2026-08-10: Springdoc OpenAPI 3.0.3 추가 후 backend 테스트 20건 중 16건이 통과했고 실패는 없었다. Docker를 사용할 수 없어 PostgreSQL Testcontainers 4건은 skip됐다. OpenAPI metadata와 HTTP Basic security scheme 단위 테스트는 통과했지만 실제 Swagger endpoint 기동은 아직 검증하지 않았다.
 - 2026-08-09: Agent에서 `uv sync --locked`, pytest 3건, Ruff와 strict mypy를 통과했다. FastAPI TestClient의 `httpx2` 전환 예고 경고 1건은 upstream 호환성 추적 대상으로 남겼다.
 - 2026-08-09: Spring source compile과 JUnit test를 통과했다. 현재 PC의 한글 사용자·프로젝트 경로에서는 Gradle test worker classpath 오류가 재현됐으며, ASCII drive와 전용 cache를 사용하면 `BUILD SUCCESSFUL`을 확인했다. Linux CI에는 해당 우회가 필요하지 않다.
-- 2026-08-09: 두 OpenAPI 3.1 문서를 `openapi-spec-validator`로 검증했고 `docker compose -f compose.v2.yaml config --quiet`를 통과했다. 로컬 V2 image build와 전체 Compose 통합 실행은 아직 수행하지 않았다.
+- 2026-08-09: 두 OpenAPI 3.1 문서를 `openapi-spec-validator`로 검증했고 당시 단일 Compose config 검증을 통과했다. 2026-08-10 image build는 성공했지만 PostgreSQL·Agent health 실패로 전체 기동은 완료되지 않았으며, 원인 분리를 위해 Compose를 infra와 application으로 나눴다.
 - 2026-08-09: Docker Desktop을 기동하고 Testcontainers 2.0.5의 PostgreSQL 17에서 Flyway migration, permission seed, 기본 role provisioning, cross-workspace 복합 FK와 접근 거부 audit 기록을 검증했다. RBAC matrix·인가·불변조건을 포함한 backend 테스트 17건이 실패·skip 없이 통과했다.
 
 - 2026-08-05: frontend designer-first workflow, 1920×1080 handoff, React·TypeScript 변환, responsive 기준과 Vercel Preview/Production gate를 V2 명세, Accepted ADR-0010과 frontend 작업 문서에 반영했다.

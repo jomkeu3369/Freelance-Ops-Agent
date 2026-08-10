@@ -30,7 +30,8 @@ docs/          V2 명세, ADR, 작업 상태와 검증 문서
 backend:   cd backend && ./gradlew test
 agent:     cd agent && uv sync --locked && uv run --locked pytest
 frontend:  cd frontend && npm run typecheck && npm test
-compose:   docker compose -f compose.v2.yaml config
+compose:   docker compose -f docker-compose-infra.yaml config
+           docker compose -f docker-compose.yaml config
 ```
 
 Windows에서는 `backend/gradlew.bat`을 사용합니다.

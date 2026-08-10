@@ -22,6 +22,20 @@ subst R: /D
 
 애플리케이션 실행에는 PostgreSQL의 `app` schema와 app 전용 credential이 필요하다. Python Agent는 이 schema를 직접 읽거나 수정하지 않는다.
 
+## Swagger UI
+
+Swagger는 Spring 공개 API만 문서화하며 기본 설정에서는 비활성화된다. 로컬 개발에서는 `development` profile로 실행한다.
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE = 'development'
+.\gradlew.bat bootRun
+```
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+Compose는 기본적으로 `development` profile을 사용한다. Swagger UI 자체는 인증 없이 열리지만 `/api/**` 실행에는 HTTP Basic 인증이 필요하다. 실제 인증 구현 전에는 Spring 시작 로그에 출력되는 개발용 사용자 정보를 사용한다. Agent 내부 API 계약은 `contracts/openapi/`에서 별도로 관리하며 이 Swagger에 포함하지 않는다.
+
 ## Workspace RBAC
 
 - 모든 업무 resource는 `workspace_id`로 먼저 격리한다.

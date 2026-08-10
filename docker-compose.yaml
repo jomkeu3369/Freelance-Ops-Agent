@@ -1,27 +1,6 @@
 name: freelance-ops-v2
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg17
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: freelance_ops
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_postgres_password}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-local_app_password}
-      AGENT_DB_PASSWORD: ${AGENT_DB_PASSWORD:-local_agent_password}
-    volumes:
-      - postgres_v2_data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d freelance_ops"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-    networks:
-      - internal
-
   agent:
     build:
       context: ./agent
@@ -31,9 +10,6 @@ services:
       AGENT_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       AGENT_BACKEND_INTERNAL_URL: http://backend:8080
       AGENT_DATABASE_URL: postgresql://agent_user:${AGENT_DB_PASSWORD:-local_agent_password}@postgres:5432/freelance_ops
-    depends_on:
-      postgres:
-        condition: service_healthy
     expose:
       - "8000"
     healthcheck:
@@ -59,13 +35,12 @@ services:
     restart: unless-stopped
     environment:
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-development}
       DB_URL: jdbc:postgresql://postgres:5432/freelance_ops
       DB_USERNAME: app_user
       DB_PASSWORD: ${APP_DB_PASSWORD:-local_app_password}
       AGENT_BASE_URL: http://agent:8000
     depends_on:
-      postgres:
-        condition: service_healthy
       agent:
         condition: service_healthy
     ports:
@@ -81,7 +56,5 @@ services:
 
 networks:
   internal:
-    driver: bridge
-
-volumes:
-  postgres_v2_data:
+    external: true
+    name: freelance-ops-v2-internal

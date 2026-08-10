@@ -7,7 +7,8 @@ on:
       - "backend/**"
       - "contracts/**"
       - "infra/**"
-      - "compose.v2.yaml"
+      - "docker-compose-infra.yaml"
+      - "docker-compose.yaml"
       - ".github/workflows/v2-ci.yml"
   push:
     branches:
@@ -17,7 +18,8 @@ on:
       - "backend/**"
       - "contracts/**"
       - "infra/**"
-      - "compose.v2.yaml"
+      - "docker-compose-infra.yaml"
+      - "docker-compose.yaml"
       - ".github/workflows/v2-ci.yml"
   workflow_dispatch:
 
@@ -63,7 +65,8 @@ jobs:
         with:
           version: "0.11.26"
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
-      - run: docker compose -f compose.v2.yaml config
+      - run: docker compose -f docker-compose-infra.yaml config
+      - run: docker compose -f docker-compose.yaml config
 
   images:
     runs-on: ubuntu-latest

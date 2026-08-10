@@ -62,7 +62,7 @@ V2 scaffold가 만들어진 뒤 다음 명령을 기준으로 한다. 실제 bui
 backend:  ./gradlew test
 agent:    agent에서 uv run --locked pytest
 frontend: npm run typecheck && npm test
-e2e:      docker compose -f compose.v2.yaml config
+e2e:      docker compose -f docker-compose-infra.yaml config && docker compose -f docker-compose.yaml config
 ```
 
 V2 Python Agent의 dependency와 lock 기준은 `agent/pyproject.toml`과

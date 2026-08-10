@@ -39,4 +39,11 @@ server:
   shutdown: graceful
 agent:
   base-url: ${AGENT_BASE_URL:http://localhost:8000}
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  packages-to-scan: com.freelanceops.backend
+  paths-to-match: /api/**
 
