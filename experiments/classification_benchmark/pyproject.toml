@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "freelance-ops-classification-benchmark"
+version = "0.1.0"
+description = "Reproducible Hugging Face classifier A/B benchmark with multi-model LLM judges"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "datasets>=4.0,<5",
+  "huggingface-hub>=1.0,<2",
+  "langsmith>=0.4,<1",
+  "matplotlib>=3.10,<4",
+  "numpy>=2.0,<3",
+  "openai>=2.0,<3",
+  "pydantic>=2.10,<3",
+  "python-dotenv>=1.1,<2",
+  "scikit-learn>=1.6,<2",
+  "torch>=2.6,<3",
+  "transformers>=5.0,<6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<10",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+requirement-benchmark = "requirement_benchmark.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/requirement_benchmark"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

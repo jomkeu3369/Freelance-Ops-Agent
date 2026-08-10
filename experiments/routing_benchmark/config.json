@@ -1,0 +1,29 @@
+{
+  "seed": 42,
+  "samples_per_route": 10,
+  "judge_sample_count": 20,
+  "langsmith_project": "freelance-ops-routing-benchmark",
+  "routes": {
+    "DIRECT_TOOL": "Use one deterministic software function only for exact arithmetic, tax, currency, date, or lookup from already supplied structured data. No language reasoning, iteration, or external research.",
+    "SIMPLE_LLM": "Answer with one language-model call for explanation, rewriting, summarization, extraction, or basic advice. No tools, iteration, specialist delegation, or external research.",
+    "REACT_AGENT": "Use one bounded ReAct agent that may iteratively call one or more tools for coding, search, validation, or multi-step reasoning within one specialist domain.",
+    "SUPERVISOR": "Coordinate two or more specialized agents or departments because the request spans multiple domains, dependent stages, or results that must be merged and verified.",
+    "HUMAN_REQUIRED": "Stop automation and request explicit human review or approval because of legal, privacy, safety, financial authority, ambiguous authorization, or irreversible external impact."
+  },
+  "router_a": {
+    "name": "A_liquid_encoder",
+    "model_id": "LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
+    "revision": "35ca4a0469f180f1cf05a630df8842fa17ac18e3",
+    "device": "cuda"
+  },
+  "router_b": {
+    "name": "B_prompt_llm",
+    "model_id": "gpt-5.4-nano-2026-03-17",
+    "reasoning_effort": "none"
+  },
+  "judges": {
+    "models": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
+    "minimum_pass_score": 3
+  },
+  "pricing_file": "pricing/openai-pricing-2026-08-10.json"
+}

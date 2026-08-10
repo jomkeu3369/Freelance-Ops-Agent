@@ -1,0 +1,39 @@
+{
+  "dataset": {
+    "id": "limsc/fr-nfr-classification",
+    "text_column": "reqs",
+    "label_column": "is_functional",
+    "label_names": {
+      "0": "NON_FUNCTIONAL",
+      "1": "FUNCTIONAL"
+    }
+  },
+  "classifiers": [
+    {
+      "name": "A_distilbert",
+      "model_id": "distilbert/distilbert-base-uncased"
+    },
+    {
+      "name": "B_minilm",
+      "model_id": "microsoft/MiniLM-L12-H384-uncased"
+    }
+  ],
+  "training": {
+    "seed": 42,
+    "epochs": 3,
+    "learning_rate": 0.00002,
+    "batch_size": 16,
+    "max_length": 256,
+    "warmup_samples": 8,
+    "device": "cuda",
+    "mixed_precision": "bf16"
+  },
+  "judges": {
+    "models": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"],
+    "max_samples_per_classifier": 30,
+    "minimum_pass_score": 3,
+    "estimated_input_tokens_per_call": 500,
+    "estimated_output_tokens_per_call": 200,
+    "pricing_file": "pricing/openai-pricing-2026-08-10.json"
+  }
+}

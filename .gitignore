@@ -21,6 +21,8 @@ faiss_index/
 # Local-only experiment inputs and generated artifacts
 experiments/local_archive/
 experiments/**/reports/
+experiments/**/.venv/
+experiments/**/artifacts/
 experiments/**/*.faiss
 experiments/**/*.pkl
 

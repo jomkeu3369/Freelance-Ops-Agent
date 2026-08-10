@@ -154,6 +154,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 - 2026-08-09: frontend 의존성 설치 결과 npm audit 기준 취약점 20건(낮음 1, 보통 4, 높음 15)이 남아 있다. 자동 강제 수정은 breaking change 위험 때문에 수행하지 않았으며 CI 정비 단계에서 직접 검토한다.
 
 - 2026-08-09: JPA 전환 후 backend 단위 테스트 15건은 통과했다. Docker Desktop이 중지된 상태여서 PostgreSQL Testcontainers 통합 테스트 4건은 skip되었으며 Docker 기동 후 재검증이 필요하다.
+- 2026-08-10: `experiments/classification_benchmark`에 Hugging Face FR/NFR 데이터셋 기반 DistilBERT/MiniLM A/B, paired McNemar와 bootstrap CI, 세 OpenAI Judge 집계, groundedness·hallucination 평가, 실제 token 비용 계산, LangSmith tracing과 Matplotlib PNG 리포트를 추가했다. 단위 테스트 8건과 Ruff를 통과했고 RTX 5060 Ti/CUDA 13.2/BF16에서 full 3-epoch A/B를 완료했다. 두 모델 accuracy는 0.8264로 같고 McNemar p=1.0, macro-F1 delta CI가 0을 포함해 유의한 성능 우열은 없었다. 동일 ID 30건의 세 Judge paired 평가와 LangSmith trace 업로드도 완료했으며 paired verdict 비용은 USD 0.440216이었다.
 
 ## 열린 결정
 
