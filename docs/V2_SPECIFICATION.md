@@ -637,6 +637,18 @@ max_handoffs
 
 예상 비용이나 권한이 한도를 초과하면 자동으로 우회하지 않고 실행 전 사용자 승인 또는 안전한 중단 상태로 전환한다.
 
+### 9.8 앞단 hybrid routing gateway
+
+앞단 라우팅은 단일 LLM 또는 범용 zero-shot classifier에 전적으로 맡기지 않는다. Spring의
+결정적 권한·고위험 Gate를 먼저 통과한 뒤 프로젝트 데이터로 학습한 multilingual encoder가
+1차 분류하고, calibrated confidence가 threshold보다 낮을 때만 GPT-5.6 Terra로 fallback한다.
+Terra도 확정할 수 없거나 승인이 필요한 요청은 `HUMAN_REQUIRED`로 전환한다.
+
+기존 LiquidAI zero-shot prompt router는 50건을 한 route로만 분류해 운영 후보에서 제외한다.
+후속 비교는 rule baseline, fine-tuned encoder, Terra 단독과 hybrid cascade를 대상으로 한다.
+세부 결정과 CPU·CUDA 작업 분리는 [ADR-0012](adr/0012-hybrid-agent-routing-gateway.md)를
+따른다.
+
 ---
 
 ## 10. Retrieval 및 근거 설계
@@ -1075,6 +1087,13 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 5. V2 Global Orchestrator + 선택된 Department Supervisor
 6. 제한된 state-driven handoff
 
+Agent 실행 route 자체는 별도로 다음 구성을 비교한다.
+
+1. deterministic policy/rule baseline
+2. 프로젝트 label로 fine-tuning한 multilingual encoder
+3. GPT-5.6 Terra prompt router
+4. policy Gate + encoder + Terra fallback hybrid
+
 다중 Agent 구성은 단일 Agent baseline보다 task success 또는 주요 품질 지표를 개선하면서 정해진 latency·비용 한도를 만족할 때만 기본 route로 승격한다.
 
 ### 14.4 지표
@@ -1091,6 +1110,9 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 | Risk | 고위험 사례 recall | 0.95 이상 |
 | Agent | 정상 case completion rate | 0.90 이상 |
 | Agent | department routing accuracy | baseline 측정 후 결정 |
+| Routing | macro-F1·route별 recall | baseline 측정 후 threshold 결정 |
+| Routing | `HUMAN_REQUIRED` 누락률 | 0% 목표 |
+| Routing | abstain·Terra fallback 비율 | 품질·비용 Pareto curve로 선택 |
 | Agent | loop·budget 초과율 | 0% |
 | Web | source 수집 성공률·freshness | corpus별 baseline 대비 개선 |
 | Cost | 성공한 산출물당 variable cost | 판매가의 20% 이하를 초기 guardrail로 사용 |

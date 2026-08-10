@@ -31,34 +31,45 @@ class LiquidEncoderRouter:
     def __init__(self, model_config: dict[str, Any], routes: dict[str, str]) -> None:
         from transformers import AutoModel, AutoTokenizer
 
-        if model_config["device"] == "cuda" and not torch.cuda.is_available():
+        requested_device = str(model_config["device"])
+        if requested_device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA is required for the LiquidAI benchmark")
-        self.device = torch.device(model_config["device"])
+        if requested_device not in {"auto", "cpu", "cuda"}:
+            raise ValueError("LiquidAI device must be one of: auto, cpu, cuda")
+        selected_device = (
+            "cuda"
+            if requested_device == "cuda" or (requested_device == "auto" and torch.cuda.is_available())
+            else "cpu"
+        )
+        self.device = torch.device(selected_device)
         started = time.perf_counter()
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_config["model_id"],
             revision=model_config["revision"],
-            trust_remote_code=True,
+            trust_remote_code=True
         )
         self.model = (
             AutoModel.from_pretrained(
                 model_config["model_id"],
                 revision=model_config["revision"],
-                trust_remote_code=True,
+                trust_remote_code=True
             )
             .eval()
             .to(self.device)
         )
-        torch.cuda.synchronize()
+        self._synchronize()
         self.load_seconds = time.perf_counter() - started
+        self.parameter_memory_mb = sum(
+            parameter.numel() * parameter.element_size() for parameter in self.model.parameters()
+        ) / 1024**2
         self.route_lanes = [f"{label}: {description}" for label, description in routes.items()]
 
     def predict(self, prompt: str) -> dict[str, Any]:
-        torch.cuda.synchronize()
+        self._synchronize()
         started = time.perf_counter()
         with torch.inference_mode():
             scores = self.model.route(prompt, self.route_lanes, tokenizer=self.tokenizer)
-        torch.cuda.synchronize()
+        self._synchronize()
         latency_ms = (time.perf_counter() - started) * 1_000
         best = scores[0]
         route = str(best["route"]).split(":", 1)[0]
@@ -73,8 +84,12 @@ class LiquidEncoderRouter:
             "latency_ms": latency_ms,
             "input_tokens": 0,
             "output_tokens": 0,
-            "cost_usd": 0.0,
+            "cost_usd": 0.0
         }
+
+    def _synchronize(self) -> None:
+        if self.device.type == "cuda":
+            torch.cuda.synchronize()
 
 
 def build_openai_client() -> Any:

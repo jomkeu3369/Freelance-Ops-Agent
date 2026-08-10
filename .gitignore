@@ -21,8 +21,13 @@ faiss_index/
 # Local-only experiment inputs and generated artifacts
 experiments/local_archive/
 experiments/**/reports/
+!experiments/routing_benchmark/reports/
+!experiments/routing_benchmark/reports/**
 experiments/**/.venv/
 experiments/**/artifacts/
+!experiments/routing_benchmark/artifacts/
+!experiments/routing_benchmark/artifacts/2026-08-10/
+!experiments/routing_benchmark/artifacts/2026-08-10/*
 experiments/**/*.faiss
 experiments/**/*.pkl
 

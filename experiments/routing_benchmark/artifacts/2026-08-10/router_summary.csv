@@ -1,0 +1,3 @@
+﻿router,model_id,samples,accuracy,macro_f1,mean_latency_ms,p50_latency_ms,p95_latency_ms,throughput_per_second,total_cost_usd,cost_per_1000_requests_usd,model_load_seconds,parameter_memory_mb,peak_cuda_memory_mb,device
+A_liquid_encoder,LiquidAI/LFM2.5-Encoder-350M-Prompt-Router,50,0.2,0.06666666666666667,1128.2084399973974,1132.431199948769,1261.7437750159297,0.8863610344931535,0.0,0.0,2.2121019000187516,1354.2509841918945,0.0,cpu
+B_prompt_llm,gpt-5.4-nano-2026-03-17,50,0.72,0.6609977483816494,2692.9931919951923,2181.274399976246,5570.8505150279925,0.37133402452425707,0.0106339,0.212678,0.0,0.0,0.0,remote_api

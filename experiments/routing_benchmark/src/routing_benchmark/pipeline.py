@@ -46,6 +46,7 @@ def run_router_ab(config: RoutingConfig, output_dir: Path) -> Path:
     pricing = _load_pricing(config)
     router_a = LiquidEncoderRouter(config.router_a, config.routes)
     client = build_openai_client()
+    router_a.predict(cases[0]["prompt"])
     predictions: dict[str, list[dict[str, Any]]] = {
         config.router_a["name"]: [],
         config.router_b["name"]: [],
@@ -86,11 +87,13 @@ def run_router_ab(config: RoutingConfig, output_dir: Path) -> Path:
         )
     router_a_metrics = routers[0]["metrics"]
     router_a_metrics["model_load_seconds"] = router_a.load_seconds
+    router_a_metrics["parameter_memory_mb"] = router_a.parameter_memory_mb
+    router_a_metrics["device"] = str(router_a.device)
     router_a_metrics["peak_cuda_memory_mb"] = torch_peak_memory_mb()
     report = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
-        "dataset_path": str(dataset_path),
+        "dataset_path": dataset_path.name,
         "routes": config.routes,
         "cases": cases,
         "routers": routers,
@@ -164,7 +167,6 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
             / len(rows),
             "hallucination_rate": sum(row["aggregate"]["hallucination_detected"] for row in rows)
             / len(rows),
-            "unanimous_rate": sum(row["aggregate"]["unanimous"] for row in rows) / len(rows),
             "judge_cost_usd": sum(verdict["cost_usd"] for verdict in verdicts),
         }
     judge_summaries = {}

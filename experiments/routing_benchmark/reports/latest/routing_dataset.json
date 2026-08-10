@@ -1,0 +1,463 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-10T14:22:06.904193+00:00",
+  "routes": {
+    "DIRECT_TOOL": "Use one deterministic software function only for exact arithmetic, tax, currency, date, or lookup from already supplied structured data. No language reasoning, iteration, or external research.",
+    "SIMPLE_LLM": "Answer with one language-model call for explanation, rewriting, summarization, extraction, or basic advice. No tools, iteration, specialist delegation, or external research.",
+    "REACT_AGENT": "Use one bounded ReAct agent that may iteratively call one or more tools for coding, search, validation, or multi-step reasoning within one specialist domain.",
+    "SUPERVISOR": "Coordinate two or more specialized agents or departments because the request spans multiple domains, dependent stages, or results that must be merged and verified.",
+    "HUMAN_REQUIRED": "Stop automation and request explicit human review or approval because of legal, privacy, safety, financial authority, ambiguous authorization, or irreversible external impact."
+  },
+  "cases": [
+    {
+      "id": "react-orchestration-13",
+      "prompt": "I am extremely disappointed with the service. I want to cancel my subscription immediately.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 13,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-9",
+      "prompt": "Change my billing address to 404 Silicon Way, Apt 2B.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 9,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-50",
+      "prompt": "Write the beginning to a story. It should have 3 sentences and include the following words: book, coffee, alarms. The protagonist should be female.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 50,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-5",
+      "prompt": "Create a 3 turn conversation between a customer and a grocery store clerk - that is, 3 per person. Then tell me what they talked about.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 5,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-4",
+      "prompt": "Look up project P-104 in the supplied project table and return its stored status only.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 4,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-19",
+      "prompt": "I want to take a half-day off this Friday afternoon.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 19,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "react-orchestration-17",
+      "prompt": "I keep getting error 505 when I try to login. It is very annoying.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 17,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "direct_tool-project-9",
+      "prompt": "Sum the confirmed development hours: planning 8, implementation 32, testing 12.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 9,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-orchestration-74",
+      "prompt": "I accidentally clicked 'buy' twice on the plugin.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 74,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-36",
+      "prompt": "What is the largest heading tag in HTML?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 36,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "supervisor-project-1",
+      "prompt": "Review the client's uploaded brief, identify missing requirements, estimate the work with the pricing specialist, and have compliance verify the contract constraints.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 1,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "react-orchestration-3",
+      "prompt": "Please update the phone number on my profile to +1-555-0199. It is urgent.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 3,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-7",
+      "prompt": "Write a poem about the sun and moon.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 7,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-3",
+      "prompt": "Apply the supplied 5% discount to 2,000,000 KRW and return the exact final amount.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 3,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "supervisor-project-9",
+      "prompt": "Compare the client's requested launch date with engineering capacity, validate the budget with finance, and coordinate a feasible phased delivery proposal.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 9,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "supervisor-project-8",
+      "prompt": "문의 내용을 요구사항, 기술 위험, 예상 공수로 나누어 해당 에이전트에게 검토시키고, 서로 의존하는 결과를 반영한 최종 견적 보고서를 만들어 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 8,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "simple-supra-3",
+      "prompt": "Write a plot summary for a comedic novel involving Elon Musk and sea travel.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 3,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "react-orchestration-10",
+      "prompt": "I sent a request to update my email earlier, but I think I sent it twice by mistake.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 10,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "supervisor-project-5",
+      "prompt": "Check the CRM history and previous quote, then coordinate requirements and finance to prepare a revised scope, schedule, and price with evidence for every change.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 5,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-0",
+      "prompt": "Calculate the subtotal, 10% VAT, and total for 12 hours at 80,000 KRW per hour.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 0,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-12",
+      "prompt": "My identity verification documents are attached. Please review my driver's license.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 12,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "simple-supra-46",
+      "prompt": "I have these ingredients in my fridge: flour, eggs, milk, ham, and spinach. Generate a recipe for a meal I can make.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 46,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "supervisor-project-3",
+      "prompt": "Analyze the discovery call, ask the requirements team to define scope, ask delivery to build a milestone plan, and merge both outputs into a client-ready proposal.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 3,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "human-orchestration-76",
+      "prompt": "Here is the screenshot proving I own the domain.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 76,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-4",
+      "prompt": "Submit a vacation request for July 1st through July 15th.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 4,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "supervisor-project-0",
+      "prompt": "신규 고객의 상담 기록에서 요구사항을 정리하고, CRM 고객 정보를 확인한 뒤 프로젝트 초안과 근거가 포함된 견적 초안을 함께 만들어 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 0,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "react-orchestration-22",
+      "prompt": "I am so angry! You updated my shipping address incorrectly!",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 22,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-0",
+      "prompt": "I'm incredibly frustrated! I've been charged twice for the Premium Subscription on my account #88291.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 0,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-5",
+      "prompt": "I see two identical transactions for $49.99 on my statement from yesterday.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 5,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "human-orchestration-11",
+      "prompt": "Check if I have enough days for a week off in December, and if so, book it.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 11,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-21",
+      "prompt": "Please verify my new passport upload for account #1212.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 21,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "supervisor-project-6",
+      "prompt": "프로젝트 지연 원인을 개발 기록과 고객 커뮤니케이션에서 각각 조사하고, 일정 복구안과 고객 안내문을 부서별로 작성한 뒤 통합해 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 6,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "supervisor-project-2",
+      "prompt": "기존 고객의 변경 요청이 계약 범위에 포함되는지 검토하고, 개발 일정 영향과 추가 비용을 각각 산정하여 하나의 변경 제안서로 합쳐 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 2,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "human-orchestration-15",
+      "prompt": "Booking paternity leave from Sept 1 to Sept 30.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 15,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "simple-supra-19",
+      "prompt": "Write a four-sentence horror story about sleeping.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 19,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "human-orchestration-90",
+      "prompt": "I'm uploading my driver's license for age verification.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 90,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-23",
+      "prompt": "Submit a request for Jury Duty leave for next Monday.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 23,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "direct_tool-project-2",
+      "prompt": "Add these approved line items without changing them: 120000, 45000, and 33500 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 2,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-orchestration-18",
+      "prompt": "I saw two pending charges for order #999111. Please fix this.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 18,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "supervisor-project-7",
+      "prompt": "Have legal review the NDA, delivery assess technical feasibility, and finance calculate the commercial impact before producing one go/no-go recommendation.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 7,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-5",
+      "prompt": "Calculate the difference in days between 2026-09-01 and 2026-09-15.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 5,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "supervisor-project-4",
+      "prompt": "고객이 보낸 기능 목록을 보안, 개발, 디자인 담당자가 각각 검토하고, 충돌하는 조건을 조정하여 최종 실행 계획을 작성해 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 4,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-6",
+      "prompt": "Multiply the fixed unit price 37,500 KRW by the confirmed quantity 24.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 6,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct_tool-project-8",
+      "prompt": "Calculate a 30% deposit on the already approved total of 4,500,000 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 8,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "simple-supra-30",
+      "prompt": "Change the given sentence to something with a little more flair that could be added to a fictional story:\n\nThe aliens came down from space and terrorized the city.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 30,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-32",
+      "prompt": "Pitch me a premise for a comedy movie.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 32,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-40",
+      "prompt": "Generate a short story about a young girl named Annie who goes on a summer adventure. It should be between 2- 4 paragraphs long.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 40,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-1",
+      "prompt": "Convert 3.5 working days to hours using exactly 8 hours per day.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 1,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct_tool-project-7",
+      "prompt": "Return the current workspace's stored currency code from the provided structured context.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 7,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-1",
+      "prompt": "I need to request three days off for bereavement starting next Tuesday.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 1,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    }
+  ]
+}

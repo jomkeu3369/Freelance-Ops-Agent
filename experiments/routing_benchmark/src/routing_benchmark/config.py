@@ -30,6 +30,6 @@ def load_config(path: str | Path) -> RoutingConfig:
     }
     if set(raw["routes"]) != expected_routes:
         raise ValueError(f"Routes must be exactly {sorted(expected_routes)}")
-    if len(raw["judges"]["models"]) != 3:
-        raise ValueError("Exactly three independent judge models are required")
+    if raw["judges"]["models"] != ["gpt-5.6-luna"]:
+        raise ValueError("The routing benchmark evaluator must be exactly gpt-5.6-luna")
     return RoutingConfig(raw=raw, root=config_path.parent)

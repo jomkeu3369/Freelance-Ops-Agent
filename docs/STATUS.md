@@ -12,6 +12,8 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 완료
 
+- 2026-08-10: 앞단 라우터를 `Spring 정책 Gate → 프로젝트 전용 경량 분류기 → GPT-5.6 Terra fallback → HUMAN_REQUIRED` 단계로 구성하기로 결정했다. LiquidAI zero-shot 구성은 실패 기준선으로 보존하고 추가 Judge 평가 대상에서 제외한다. CPU 노트북과 CUDA 작업 PC의 역할, 재현 metadata와 후속 benchmark 기준은 [ADR-0012](adr/0012-hybrid-agent-routing-gateway.md)와 [`CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)에 기록했다.
+- 2026-08-10: `experiments/routing_benchmark`의 LLM 평가자를 GPT-5.6 Luna 단일 모델로 고정하고, Pandas CSV·JSON 집계와 Matplotlib A/B·Luna 대시보드를 추가했다. UTF-8 데이터 무결성을 확인한 뒤 50건 라우팅과 동일 표본 40건 Luna 평가를 실제 실행했다. 공개 가능한 최종 `reports/`는 Git 추적 대상으로 전환하고 로컬 절대 경로를 제거했다. 상세 수치와 제한사항은 [`routing benchmark 결과`](../experiments/routing_benchmark/RESULTS.md)에 기록했다.
 - 2026-08-10: PostgreSQL 인프라를 `docker-compose-infra.yaml`, Agent·Backend를 `docker-compose.yaml`로 분리했다. 두 Compose project는 명시적인 `freelance-ops-v2-internal` external network를 공유하며 infra를 먼저 기동한다. CI와 로컬 실행 문서도 두 단계 검증으로 변경했다.
 - 2026-08-10: Spring Boot 공개 API에 Springdoc OpenAPI 3과 Swagger UI를 추가했다. 기본 환경에서는 비활성화하고 Compose의 `development` profile에서만 활성화하며, `/api/**`만 문서화해 `contracts/openapi/`의 Agent 내부 계약과 분리했다. HTTP Basic 보안 scheme과 `/api/v1/meta` 문서를 추가했다.
 - 2026-08-10: 다른 PC에서 작업을 이어가기 위한 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)를 작성했다. 전체 Compose 기동 명령, 당시 Swagger 구현 전 상태, 보안 원칙과 다음 작업 순서를 기록했으며 이후 Springdoc 구현 상태로 갱신했다.
@@ -100,30 +102,33 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ### 다음 PC에서 우선 수행
 
+- CUDA 작업 PC에서 [`hybrid routing CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)를 읽고 GPU·driver·CUDA·Torch 환경을 기록한다. 아직 학습을 시작하지 말고 train·validation dataset과 encoder 후보 revision을 먼저 확정한다.
 - `main`을 pull한 뒤 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 V2 image build와 전체 Compose 기동을 검증한다.
 - Docker 환경에서 JPA 기반 PostgreSQL Testcontainers 통합 테스트 4건을 skip 없이 재실행한다.
 - 개발 profile에서 `/swagger-ui.html`과 `/v3/api-docs`를 열고, HTTP Basic 인증 후 `/api/v1/meta` 호출을 검증한다.
 
 ### 이후 backlog
 
-1. `experiments/local_archive/**/.env`에 남아 있는 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다. 해당 파일은 Git에서 제외한다.
-2. ADR-0009를 검토·승인한 뒤 artifact status, provenance, lineage, retrieval eligibility와 index snapshot contract를 V2 명세에 반영한다.
-3. Spring이 audience-bound delegation token을 발급하고 Agent가 이를 검증하는 internal authentication을 구현한다.
-4. Client·Project CRUD에 중앙 authorization service와 workspace-scoped repository query를 적용한다.
-5. provider·model·Tool·환율의 첫 `pricing_snapshot` schema와 route별 `estimated_cost`·`actual_cost` 집계 contract를 정의한다.
-6. `react_v1.py` Stage 1을 10~20개 고정 fixture와 LangSmith 평가로 실행해 Tool 호출 순서, 요구사항 누락률, 질문 품질과 불필요 호출률을 측정한다.
-7. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
-8. 사용자가 frontend 레퍼런스 사이트 2~3개와 참고·제외 요소를 전달한다.
-9. Codex가 `DESIGN_BRIEF.md`, `CONTENT_MATRIX.md`, `SCREEN_SPECIFICATION.md`, `COMPONENT_INVENTORY.md`, `INTERACTION_GUIDE.md`, `DESIGN_HANDOFF_CHECKLIST.md`를 작성한다.
-10. 웹디자이너의 1920×1080 handoff가 준비되면 React·TypeScript 변환과 반응형 구현 범위를 확정한다.
-11. 첫 Agent run endpoint를 구현하고 Spring→Agent contract test를 연결한다.
-12. Requirements Department에 read-only Spring Tool client와 구조화 출력 validation을 구현한다.
-13. PostgreSQL `agent_runtime` schema에 LangGraph checkpoint persistence를 연결한다.
-14. 실제 staging 대상, image registry와 secret manager를 확정한 뒤 CD workflow를 추가한다.
-15. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
+1. routing benchmark에 device override와 실행 환경 metadata schema를 추가하고, 학습용 route dataset·group-aware split·confidence calibration 기준을 확정한다.
+2. `experiments/local_archive/**/.env`에 남아 있는 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다. 해당 파일은 Git에서 제외한다.
+3. ADR-0009를 검토·승인한 뒤 artifact status, provenance, lineage, retrieval eligibility와 index snapshot contract를 V2 명세에 반영한다.
+4. Spring이 audience-bound delegation token을 발급하고 Agent가 이를 검증하는 internal authentication을 구현한다.
+5. Client·Project CRUD에 중앙 authorization service와 workspace-scoped repository query를 적용한다.
+6. provider·model·Tool·환율의 첫 `pricing_snapshot` schema와 route별 `estimated_cost`·`actual_cost` 집계 contract를 정의한다.
+7. `react_v1.py` Stage 1을 10~20개 고정 fixture와 LangSmith 평가로 실행해 Tool 호출 순서, 요구사항 누락률, 질문 품질과 불필요 호출률을 측정한다.
+8. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
+9. 사용자가 frontend 레퍼런스 사이트 2~3개와 참고·제외 요소를 전달한다.
+10. Codex가 `DESIGN_BRIEF.md`, `CONTENT_MATRIX.md`, `SCREEN_SPECIFICATION.md`, `COMPONENT_INVENTORY.md`, `INTERACTION_GUIDE.md`, `DESIGN_HANDOFF_CHECKLIST.md`를 작성한다.
+11. 웹디자이너의 1920×1080 handoff가 준비되면 React·TypeScript 변환과 반응형 구현 범위를 확정한다.
+12. 첫 Agent run endpoint를 구현하고 Spring→Agent contract test를 연결한다.
+13. Requirements Department에 read-only Spring Tool client와 구조화 출력 validation을 구현한다.
+14. PostgreSQL `agent_runtime` schema에 LangGraph checkpoint persistence를 연결한다.
+15. 실제 staging 대상, image registry와 secret manager를 확정한 뒤 CD workflow를 추가한다.
+16. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
 
 ## 현재 검증 상태
 
+- 2026-08-10: routing benchmark 단위 테스트 8건과 Ruff를 통과했다. CPU에서 LiquidAI encoder와 GPT-5.4 nano를 50건 비교한 결과 accuracy는 각각 0.20과 0.72, macro-F1은 0.067과 0.661이었고 exact McNemar `p=0.0001564`였다. GPT-5.6 Luna의 paired route pass rate는 각각 0.20과 0.70이었다. 두 라우터 모두 `REACT_AGENT` 운용 기준에는 미달해 운영 승격하지 않는다.
 - 2026-08-10: Springdoc OpenAPI 3.0.3 추가 후 backend 테스트 20건 중 16건이 통과했고 실패는 없었다. Docker를 사용할 수 없어 PostgreSQL Testcontainers 4건은 skip됐다. OpenAPI metadata와 HTTP Basic security scheme 단위 테스트는 통과했지만 실제 Swagger endpoint 기동은 아직 검증하지 않았다.
 - 2026-08-09: Agent에서 `uv sync --locked`, pytest 3건, Ruff와 strict mypy를 통과했다. FastAPI TestClient의 `httpx2` 전환 예고 경고 1건은 upstream 호환성 추적 대상으로 남겼다.
 - 2026-08-09: Spring source compile과 JUnit test를 통과했다. 현재 PC의 한글 사용자·프로젝트 경로에서는 Gradle test worker classpath 오류가 재현됐으며, ASCII drive와 전용 cache를 사용하면 `BUILD SUCCESSFUL`을 확인했다. Linux CI에는 해당 우회가 필요하지 않다.

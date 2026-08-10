@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from .config import load_config
 from .pipeline import build_dataset_report, run_judges, run_router_ab
 from .plots import create_plots
+from .tables import export_tables
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -50,12 +51,18 @@ def main() -> None:
             Path(args.ab_report).resolve(), judge_report, Path(args.plot_dir).resolve()
         ):
             print(output)
+        for output in export_tables(
+            Path(args.ab_report).resolve(), judge_report, Path(args.plot_dir).resolve().parent
+        ):
+            print(output)
         return
     if not args.confirm_paid_api:
         raise SystemExit("Paid API calls require --confirm-paid-api")
     if args.command == "route-ab":
         ab_report = run_router_ab(config, output_dir)
         for output in create_plots(ab_report, None, output_dir / "plots"):
+            print(output)
+        for output in export_tables(ab_report, None, output_dir / "tables"):
             print(output)
         print(ab_report)
         return
@@ -65,11 +72,17 @@ def main() -> None:
             Path(args.ab_report).resolve(), judge_report, output_dir / "plots"
         ):
             print(output)
+        for output in export_tables(
+            Path(args.ab_report).resolve(), judge_report, output_dir / "tables"
+        ):
+            print(output)
         print(judge_report)
         return
     ab_report = run_router_ab(config, output_dir)
     judge_report = run_judges(config, ab_report, output_dir)
     for output in create_plots(ab_report, judge_report, output_dir / "plots"):
+        print(output)
+    for output in export_tables(ab_report, judge_report, output_dir / "tables"):
         print(output)
     print(ab_report)
     print(judge_report)

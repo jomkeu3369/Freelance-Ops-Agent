@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import statistics
 import time
 from typing import Any
 
@@ -79,16 +78,15 @@ def judge_prediction(
 
 
 def aggregate_verdicts(verdicts: list[dict[str, Any]], minimum_pass_score: int) -> dict[str, Any]:
-    if len(verdicts) != 3:
-        raise ValueError("Exactly three judge verdicts are required")
-    route_scores = [int(verdict["route_score"]) for verdict in verdicts]
-    groundedness = [int(verdict["groundedness_score"]) for verdict in verdicts]
-    hallucinations = [bool(verdict["hallucination_detected"]) for verdict in verdicts]
+    if len(verdicts) != 1 or verdicts[0]["judge_model"] != "gpt-5.6-luna":
+        raise ValueError("Exactly one gpt-5.6-luna verdict is required")
+    verdict = verdicts[0]
+    route_score = int(verdict["route_score"])
+    groundedness = int(verdict["groundedness_score"])
     return {
-        "route_pass": sum(score >= minimum_pass_score for score in route_scores) >= 2,
-        "route_score_median": float(statistics.median(route_scores)),
-        "groundedness_median": float(statistics.median(groundedness)),
-        "groundless_rate": 1 - float(statistics.median(groundedness)) / 4,
-        "hallucination_detected": sum(hallucinations) >= 2,
-        "unanimous": len(set(route_scores)) == 1 and len(set(hallucinations)) == 1,
+        "route_pass": route_score >= minimum_pass_score,
+        "route_score": route_score,
+        "groundedness_score": groundedness,
+        "groundless_rate": 1 - groundedness / 4,
+        "hallucination_detected": bool(verdict["hallucination_detected"])
     }
