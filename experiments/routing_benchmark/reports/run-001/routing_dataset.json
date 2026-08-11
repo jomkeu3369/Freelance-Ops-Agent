@@ -1,0 +1,463 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-10T08:20:51.571609+00:00",
+  "routes": {
+    "DIRECT_TOOL": "Use one deterministic software function only for exact arithmetic, tax, currency, date, or lookup from already supplied structured data. No language reasoning, iteration, or external research.",
+    "SIMPLE_LLM": "Answer with one language-model call for explanation, rewriting, summarization, extraction, or basic advice. No tools, iteration, specialist delegation, or external research.",
+    "REACT_AGENT": "Use one bounded ReAct agent that may iteratively call one or more tools for coding, search, validation, or multi-step reasoning within one specialist domain.",
+    "SUPERVISOR": "Coordinate two or more specialized agents or departments because the request spans multiple domains, dependent stages, or results that must be merged and verified.",
+    "HUMAN_REQUIRED": "Stop automation and request explicit human review or approval because of legal, privacy, safety, financial authority, ambiguous authorization, or irreversible external impact."
+  },
+  "cases": [
+    {
+      "id": "simple-supra-437",
+      "prompt": "Using a table, compare the career overviews of the given players in Major League Baseball. Use \"|\" for separating the columns in the table.\n Input: Derek Jeter, Albert Pujols",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 437,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "direct-project-7",
+      "prompt": "Return the current workspace's stored currency code from the provided structured context.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 7,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct-project-0",
+      "prompt": "Calculate the subtotal, 10% VAT, and total for 12 hours at 80,000 KRW per hour.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 0,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-10",
+      "prompt": "If I have enough time left, put me down for a half-day this Friday afternoon. I have a dentist appointment.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 10,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "supervisor-orchestration-25",
+      "prompt": "I updated my username yesterday but it's still showing the old one. Can you force the update to 'TechNinja'?",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 25,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "simple-supra-354",
+      "prompt": "List the personality traits that are required to be successful in the given job.\n Input: Social Media Marketer",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 354,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "supervisor-orchestration-18",
+      "prompt": "I uploaded the signed NDA yesterday. Has it been processed yet? If not, please escalate this.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 18,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "simple-supra-141",
+      "prompt": "Write just one sentence that summarizes the main point of the following news article:\n\nLike the rest of the West, Utah has a water problem. But megadrought and overconsumption aren’t just threats to wildlife, agriculture and industry here. A disappearing Great Salt Lake could poison the lungs of more than 2.5 million people.\n\nWhen lake levels hit historic lows in recent months, 800 square miles of lakebed were exposed – soil that holds centuries of natural and manmade toxins like mercury, arsenic and selenium. As that mud turns to dust and swirls to join some of the worst winter air pollution in the nation, scientists warn that the massive body of water could evaporate into a system of lifeless finger lakes within five years, on its way to becoming the Great Toxic Dustbowl.\n\n“This is an ecological disaster that will become a human health disaster,” warned Bonnie Baxter, director of the Great Salt Lake Institute at Westminster College in Salt Lake City, Utah. “We know about dust storms, we know about particulate pollution, we know about heavy metals and how they’re bad for humans,” she told CNN. “We see a crisis that is imminent.”",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 141,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "direct-project-1",
+      "prompt": "Convert 3.5 working days to hours using exactly 8 hours per day.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 1,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-supra-10",
+      "prompt": "Write a bash script named \"my_script.sh\" that takes two integer inputs from the command line and outputs the sum of those integers. Make sure to add proper error handling for invalid inputs.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 10,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "direct-project-9",
+      "prompt": "Sum the confirmed development hours: planning 8, implementation 32, testing 12.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 9,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-supra-286",
+      "prompt": "I want to write a Java program that lets me add two super-large integer numbers together. The built-in \"BigInteger\" class isn't available, so I have to figure this out on my own. To make it more interesting, I want the numbers to be represented as strings. Can you show me how to do it?",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 286,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "supervisor-orchestration-51",
+      "prompt": "I am so mad! You guys charged me even after I cancelled!",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 51,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "supervisor-orchestration-38",
+      "prompt": "Update my legal name to Sarah Jones. I've attached the marriage certificate.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 38,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "human-orchestration-94",
+      "prompt": "I need to request a day off for moving.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 94,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "human-orchestration-58",
+      "prompt": "I need to take Friday off for a funeral.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 58,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "supervisor-orchestration-64",
+      "prompt": "Do I have enough sick days left?",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 64,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "react-supra-508",
+      "prompt": "You will need to compose the ABC notation for a given song.\n Input: The South Wind",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 508,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "direct-project-2",
+      "prompt": "Add these approved line items without changing them: 120000, 45000, and 33500 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 2,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "supervisor-orchestration-15",
+      "prompt": "This service is absolutely terrible. I've been trying to get verified for days. Here is my ID again. Verify it or cancel my account.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 15,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "human-orchestration-49",
+      "prompt": "I'd like to book next Monday and Tuesday off for a move.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 49,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "human-orchestration-70",
+      "prompt": "Submit a leave request for next week.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 70,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "simple-supra-131",
+      "prompt": "Why should you cover your mouth when you cough?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 131,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "human-orchestration-4",
+      "prompt": "I woke up feeling awful today, fever and everything. I won't be logging in. Please mark me down for today.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 4,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "react-supra-889",
+      "prompt": "Let's say you have a 2-d grid of nodes, where each node has 16 bits of value stored with it. Starting with a randomly selected node in the grid, you are allowed to move to adjacent (top, bottom, left, right) nodes. Given two different paths that visit each node once and return to the start, what is the probability that the two paths have the same \"hash\" value, defined as the binary xor of the node values for all the nodes visited in order?",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 889,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "react-supra-740",
+      "prompt": "Convert the inflation rate and exchange rate to maintain the same purchasing power when selling and buying dollars against the euro, assuming the base year is 2000. For Spain, the inflation rate was 2.6% in 2010 and the exchange rate was 0.74 USD per EUR. For the USA, the inflation rate was 0.8% in 2010. Find the new exchange rate.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 740,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "react-supra-390",
+      "prompt": "Write a Java method to calculate the average of three integers and return the result as a double.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 390,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "direct-project-3",
+      "prompt": "Apply the supplied 5% discount to 2,000,000 KRW and return the exact final amount.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 3,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-supra-735",
+      "prompt": "Given a graph and weights on the edges, the Traveling Salesman Problem (TSP) asks for the shortest way (sum of edges traveled) to visit every node in the graph exactly once before returning to the starting node. Prove that the TSP is NP-hard by providing a polynomial-time reduction from the Hamiltonian Circuit Problem to the TSP.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 735,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "supervisor-orchestration-16",
+      "prompt": "I see a charge for 'Premium Plus' but I thought I was on the 'Basic' plan. Can you check my account settings and downgrade me if I'm on the wrong one?",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 16,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "simple-supra-21",
+      "prompt": "Does the United States use Celsius or Fahrenheit?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 21,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "supervisor-orchestration-62",
+      "prompt": "Duplicate charges found for Invoice #9911.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 62,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "simple-supra-24",
+      "prompt": "How far is the moon from the Earth?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 24,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "human-orchestration-13",
+      "prompt": "I'm planning a surprise trip for my partner. Do I have 5 days available to use in August? If yes, let's book Aug 14-18.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 13,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "react-supra-624",
+      "prompt": "Create a web scraper using Python and the Beautiful Soup library to extract all headlines from a web page and store them in a database.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 624,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "simple-supra-19",
+      "prompt": "Write a four-sentence horror story about sleeping.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 19,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "react-supra-945",
+      "prompt": "I have a bag that contains 8 balls: 6 green and 2 red ones. If I randomly select 2 balls, one after the other _without returning the first ball_ , what is the probability of drawing a red ball first and then a green ball? Please provide a rationalized answer in fraction format.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 945,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "direct-project-8",
+      "prompt": "Calculate a 30% deposit on the already approved total of 4,500,000 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 8,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-103",
+      "prompt": "Submit a vacation request for the last week of December.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 103,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "direct-project-5",
+      "prompt": "Calculate the difference in days between 2026-09-01 and 2026-09-15.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 5,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-107",
+      "prompt": "I need to request off for election day next month.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 107,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "simple-supra-153",
+      "prompt": "Rewrite the given text and correct grammar, spelling, and punctuation errors.\n Input: If you'd told me year ago that today I would finish a marathon, I would of laughed. Your support had a huge affect on me!",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 153,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "direct-project-4",
+      "prompt": "Look up project P-104 in the supplied project table and return its stored status only.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 4,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct-project-6",
+      "prompt": "Multiply the fixed unit price 37,500 KRW by the confirmed quantity 24.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 deterministic-tool policy",
+      "source_split": "fixture",
+      "source_index": 6,
+      "mapping_rule": "exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "simple-supra-54",
+      "prompt": "List the ways that a batter can reach first base in major league baseball.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 54,
+      "mapping_rule": "routing_choice=small model"
+    },
+    {
+      "id": "supervisor-orchestration-68",
+      "prompt": "Verify my identity with the attached document.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 68,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "react-supra-772",
+      "prompt": "critically analyze the advantages and disadvantages of free online learning. your points should include not limited to points like equality of access , standardized Learning , gamifacation ,massive open online courses ,compose your answer in the form of a debate",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 772,
+      "mapping_rule": "routing_choice=big model and complexity<=3; bounded single-domain agent"
+    },
+    {
+      "id": "supervisor-orchestration-63",
+      "prompt": "I am so worried about the security of my data.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 63,
+      "mapping_rule": "two or more ground_truth_agents without approval"
+    },
+    {
+      "id": "human-orchestration-67",
+      "prompt": "I need to take tomorrow off for a personal matter.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "test",
+      "source_index": 67,
+      "mapping_rule": "ground_truth includes leave_approval_agent"
+    },
+    {
+      "id": "simple-supra-399",
+      "prompt": "This is a test for the reading ability of French. Read the given story carefully, and then answer the question in the end.\n Input: Lucie est à la maison avec sa petite-fille, Lin.\nLucie: Oh, non! Nous n'avons pas de pain!\nLin: Ah! Tu vas au supermarché?\nLucie: Oui, je veux une baguette pour mon sandwich.\nDo Lin and Lucie have a lot of bread?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 399,
+      "mapping_rule": "routing_choice=small model"
+    }
+  ]
+}
