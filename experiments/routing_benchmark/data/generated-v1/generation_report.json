@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-11T02:36:24.091334+00:00",
+  "generator_model": "gpt-5.6-terra",
+  "routes": [
+    "DIRECT_TOOL",
+    "SIMPLE_LLM",
+    "REACT_AGENT",
+    "SUPERVISOR",
+    "HUMAN_REQUIRED"
+  ],
+  "train_rows": 2752,
+  "validation_rows": 500,
+  "input_tokens": 63453,
+  "output_tokens": 186669,
+  "cost_usd_this_run": 2.9586675,
+  "elapsed_seconds": 533.187931500026,
+  "frozen_test_excluded": true
+}

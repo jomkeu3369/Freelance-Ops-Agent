@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -37,46 +38,100 @@ def build_dataset_report(config: RoutingConfig, output_dir: Path) -> Path:
     )
 
 
-def run_router_ab(config: RoutingConfig, output_dir: Path) -> Path:
-    if not os.getenv("OPENAI_API_KEY"):
+def run_router_ab(
+    config: RoutingConfig, output_dir: Path, cached_router_b_report: Path | None = None
+) -> Path:
+    if cached_router_b_report is None and not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required for prompt-LLM router B")
-    dataset_path = build_dataset_report(config, output_dir)
+
+    cached: dict[str, Any] | None = None
+    if cached_router_b_report is not None:
+        cached = json.loads(cached_router_b_report.read_text(encoding="utf-8"))
+        if cached["routes"] != config.routes:
+            raise ValueError("Cached router B report uses a different route policy")
+        dataset_path = _write_json(
+            output_dir / "routing_dataset.json",
+            {
+                "schema_version": "1.0",
+                "created_at": datetime.now(UTC).isoformat(),
+                "routes": config.routes,
+                "cases": cached["cases"],
+            },
+        )
+    else:
+        dataset_path = build_dataset_report(config, output_dir)
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+
     cases = dataset["cases"]
     pricing = _load_pricing(config)
+
     router_a = LiquidEncoderRouter(config.router_a, config.routes)
-    client = build_openai_client()
     router_a.predict(cases[0]["prompt"])
+
     predictions: dict[str, list[dict[str, Any]]] = {
         config.router_a["name"]: [],
         config.router_b["name"]: [],
     }
-    for index, case in enumerate(cases, start=1):
+
+    for case in cases:
         predictions[config.router_a["name"]].append(
             {"case_id": case["id"], **router_a.predict(case["prompt"])}
         )
-        predictions[config.router_b["name"]].append(
-            {
-                "case_id": case["id"],
-                **predict_with_llm(client, config.router_b, config.routes, case["prompt"], pricing),
-            }
+
+    if cached_router_b_report is not None:
+        assert cached is not None
+        cached_cases = [(case["id"], case["prompt"]) for case in cached["cases"]]
+        current_cases = [(case["id"], case["prompt"]) for case in cases]
+        if cached_cases != current_cases:
+            raise ValueError("Cached router B report does not use the identical paired dataset")
+        cached_router = next(
+            router for router in cached["routers"] if router["name"] == config.router_b["name"]
         )
-        if index % 10 == 0:
-            print(f"routed {index}/{len(cases)} cases")
+        if cached_router["model_id"] != config.router_b["model_id"]:
+            raise ValueError("Cached router B report uses a different model")
+        predictions[config.router_b["name"]] = cached_router["predictions"]
+        print(f"reused router B predictions from {cached_router_b_report}", flush=True)
+    else:
+        client = build_openai_client()
+
+        def predict_router_b(case: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "case_id": case["id"],
+                **predict_with_llm(
+                    client, config.router_b, config.routes, case["prompt"], pricing
+                ),
+            }
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {
+                executor.submit(predict_router_b, case): index for index, case in enumerate(cases)
+            }
+            indexed_rows: dict[int, dict[str, Any]] = {}
+            for completed, future in enumerate(as_completed(futures), start=1):
+                indexed_rows[futures[future]] = future.result()
+                if completed % 10 == 0:
+                    print(f"routed {completed}/{len(cases)} cases", flush=True)
+
+        predictions[config.router_b["name"]] = [
+            indexed_rows[index] for index in range(len(cases))
+        ]
 
     labels = list(config.routes)
     truth = [case["expected_route"] for case in cases]
     routers = []
+
     for name, model_config in (
         (config.router_a["name"], config.router_a),
         (config.router_b["name"], config.router_b),
     ):
         rows = predictions[name]
+
         metrics = routing_metrics(truth, [row["route"] for row in rows], labels)
         metrics.update(latency_metrics([row["latency_ms"] for row in rows]))
         metrics["total_cost_usd"] = sum(row["cost_usd"] for row in rows)
         metrics["total_input_tokens"] = sum(row["input_tokens"] for row in rows)
         metrics["total_output_tokens"] = sum(row["output_tokens"] for row in rows)
+
         routers.append(
             {
                 "name": name,
@@ -85,6 +140,7 @@ def run_router_ab(config: RoutingConfig, output_dir: Path) -> Path:
                 "predictions": rows,
             }
         )
+
     router_a_metrics = routers[0]["metrics"]
     router_a_metrics["model_load_seconds"] = router_a.load_seconds
     router_a_metrics["parameter_memory_mb"] = router_a.parameter_memory_mb
@@ -116,34 +172,84 @@ def torch_peak_memory_mb() -> float:
 def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) -> Path:
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required for judge calls")
+
     report = json.loads(ab_report_path.read_text(encoding="utf-8"))
     pricing = _load_pricing(config)
     client = build_openai_client()
+
     rng = random.Random(int(config.seed))
     route_labels = list(config.routes)
     judge_sample_count = int(config.judge_sample_count)
+
     if judge_sample_count % len(route_labels) != 0:
         raise ValueError("judge_sample_count must be divisible by the number of routes")
+
     per_route = judge_sample_count // len(route_labels)
     selected_ids: list[str] = []
+
     for route in route_labels:
         route_ids = [case["id"] for case in report["cases"] if case["expected_route"] == route]
         selected_ids.extend(rng.sample(route_ids, per_route))
+
     rng.shuffle(selected_ids)
     cases = {case["id"]: case for case in report["cases"]}
-    judged: list[dict[str, Any]] = []
+    partial_path = output_dir / "judge_items.partial.jsonl"
+    partial_path.parent.mkdir(parents=True, exist_ok=True)
+    verdict_map: dict[tuple[str, str, str], dict[str, Any]] = {}
+    if partial_path.exists():
+        for line in partial_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            verdict_map[(item["router"], item["case_id"], item["judge_model"])] = item["verdict"]
+
+    tasks: list[tuple[str, str, str, dict[str, Any]]] = []
     for router in report["routers"]:
         predictions = {row["case_id"]: row for row in router["predictions"]}
         for case_id in selected_ids:
-            verdicts = [
-                judge_prediction(
-                    client,
-                    judge_model,
-                    cases[case_id],
-                    predictions[case_id],
-                    config.routes,
-                    pricing,
+            for judge_model in config.judges["models"]:
+                key = (router["name"], case_id, judge_model)
+                if key not in verdict_map:
+                    tasks.append((*key, predictions[case_id]))
+
+    def evaluate(
+        task: tuple[str, str, str, dict[str, Any]],
+    ) -> tuple[tuple[str, str, str], dict[str, Any]]:
+        router_name, case_id, judge_model, prediction = task
+        verdict = judge_prediction(
+            client, judge_model, cases[case_id], prediction, config.routes, pricing
+        )
+        return (router_name, case_id, judge_model), verdict
+
+    with (
+        partial_path.open("a", encoding="utf-8") as checkpoint,
+        ThreadPoolExecutor(max_workers=6) as executor,
+    ):
+        futures = [executor.submit(evaluate, task) for task in tasks]
+        for completed, future in enumerate(as_completed(futures), start=1):
+            key, verdict = future.result()
+            verdict_map[key] = verdict
+            checkpoint.write(
+                json.dumps(
+                    {
+                        "router": key[0],
+                        "case_id": key[1],
+                        "judge_model": key[2],
+                        "verdict": verdict,
+                    },
+                    ensure_ascii=False,
                 )
+                + "\n"
+            )
+            checkpoint.flush()
+            if completed % 10 == 0 or completed == len(tasks):
+                print(f"judged {completed}/{len(tasks)} pending calls", flush=True)
+
+    judged: list[dict[str, Any]] = []
+    for router in report["routers"]:
+        for case_id in selected_ids:
+            verdicts = [
+                verdict_map[(router["name"], case_id, judge_model)]
                 for judge_model in config.judges["models"]
             ]
             judged.append(
@@ -157,9 +263,11 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
                 }
             )
     router_summaries: dict[str, Any] = {}
+
     for router in report["routers"]:
         rows = [row for row in judged if row["router"] == router["name"]]
         verdicts = [verdict for row in rows for verdict in row["verdicts"]]
+
         router_summaries[router["name"]] = {
             "samples": len(rows),
             "route_pass_rate": sum(row["aggregate"]["route_pass"] for row in rows) / len(rows),
@@ -169,6 +277,7 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
             / len(rows),
             "judge_cost_usd": sum(verdict["cost_usd"] for verdict in verdicts),
         }
+
     judge_summaries = {}
     for model in config.judges["models"]:
         rows = [v for item in judged for v in item["verdicts"] if v["judge_model"] == model]
@@ -177,6 +286,7 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
             "cost_usd": sum(row["cost_usd"] for row in rows),
             "mean_latency_ms": sum(row["latency_ms"] for row in rows) / len(rows),
         }
+
     return _write_json(
         output_dir / "judge_ab.json",
         {

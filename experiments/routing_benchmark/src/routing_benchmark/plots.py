@@ -106,7 +106,7 @@ def plot_judge_dashboard(report_path: Path, output_path: Path) -> None:
     x = np.arange(len(names))
     width = 0.24
     figure, axes = plt.subplots(1, 2, figsize=(15, 6), constrained_layout=True)
-    figure.suptitle("Routing Evaluation — GPT-5.6 Luna", fontsize=17, fontweight="bold")
+    figure.suptitle("Routing Evaluation — 3-model Judge Panel", fontsize=17, fontweight="bold")
 
     quality = axes[0]
     quality.bar(x - width, [s["route_pass_rate"] for s in summaries], width, label="Route pass")

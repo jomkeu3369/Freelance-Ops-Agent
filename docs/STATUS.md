@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-10
+> 마지막 갱신: 2026-08-11
 > 현재 branch: `main`
 > 현재 단계: Phase 1 — Spring Boot 기반과 멀티테넌시
 
@@ -12,6 +12,9 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 완료
 
+- 2026-08-11: GPT-5.6 Terra 합성 route 데이터 3,000건(학습 2,500·검증 500)을 생성·중복 제거하고 frozen test exact overlap 0건을 확인했다. RTX 5060 Ti에서 LiquidAI routing head를 학습했으며 250→2,500건 validation macro-F1이 `0.330→0.518`로 상승했다. A1 frozen-test accuracy/macro-F1은 `0.540/0.522`, p50은 `21.7ms`였다. Luna는 `0.760/0.688`, p50 `2,040.5ms`였고 McNemar `p=0.01273`이었다. 3-model Judge route pass는 A1/Luna `0.45/1.00`이다. A1 단독 승격은 보류하고 hard-negative·calibration·Luna fallback을 다음 단계로 둔다. 상세 결과는 [`routing benchmark 결과`](../experiments/routing_benchmark/RESULTS.md)에 기록했다.
+- 2026-08-11: RTX 5060 Ti에서 재학습 전 LiquidAI A0와 GPT-5.6 Luna B의 50건 A/B 및 독립 3-model Judge 120회 평가를 완료하고 Matplotlib 그래프와 CSV·JSON을 생성했다. A0/B accuracy는 `0.20/0.76`, macro-F1은 `0.067/0.688`, p50은 `50/2,041ms`였다. Luna도 `REACT_AGENT` recall이 `0`이므로 즉시 운영 승격하지 않는다. 이번 OpenAI 비용은 약 `$0.377572`이며 상세 결과는 [`routing benchmark 결과`](../experiments/routing_benchmark/RESULTS.md)에 기록했다.
+- 2026-08-11: routing benchmark의 후보 B를 GPT-5.4 nano에서 GPT-5.6 Luna로 변경했다. B의 자기평가를 피하기 위해 Judge panel은 GPT-5.6 Sol·Terra·GPT-5.4 nano 3종으로 분리하고 다수결 집계를 복구했다. 공식 단가 snapshot을 수정하고 Vultr RAM 4GB 배포 제약, LiquidAI A 재학습·승격·기각 절차와 후속 소형 multilingual encoder 후보를 [`재학습 계획`](../experiments/routing_benchmark/FINE_TUNING_PLAN.md) 및 [ADR-0012](adr/0012-hybrid-agent-routing-gateway.md)에 기록했다.
 - 2026-08-10: 앞단 라우터를 `Spring 정책 Gate → 프로젝트 전용 경량 분류기 → GPT-5.6 Terra fallback → HUMAN_REQUIRED` 단계로 구성하기로 결정했다. LiquidAI zero-shot 구성은 실패 기준선으로 보존하고 추가 Judge 평가 대상에서 제외한다. CPU 노트북과 CUDA 작업 PC의 역할, 재현 metadata와 후속 benchmark 기준은 [ADR-0012](adr/0012-hybrid-agent-routing-gateway.md)와 [`CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)에 기록했다.
 - 2026-08-10: `experiments/routing_benchmark`의 LLM 평가자를 GPT-5.6 Luna 단일 모델로 고정하고, Pandas CSV·JSON 집계와 Matplotlib A/B·Luna 대시보드를 추가했다. UTF-8 데이터 무결성을 확인한 뒤 50건 라우팅과 동일 표본 40건 Luna 평가를 실제 실행했다. 공개 가능한 최종 `reports/`는 Git 추적 대상으로 전환하고 로컬 절대 경로를 제거했다. 상세 수치와 제한사항은 [`routing benchmark 결과`](../experiments/routing_benchmark/RESULTS.md)에 기록했다.
 - 2026-08-10: PostgreSQL 인프라를 `docker-compose-infra.yaml`, Agent·Backend를 `docker-compose.yaml`로 분리했다. 두 Compose project는 명시적인 `freelance-ops-v2-internal` external network를 공유하며 infra를 먼저 기동한다. CI와 로컬 실행 문서도 두 단계 검증으로 변경했다.
@@ -102,7 +105,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ### 다음 PC에서 우선 수행
 
-- CUDA 작업 PC에서 [`hybrid routing CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)를 읽고 GPU·driver·CUDA·Torch 환경을 기록한다. 아직 학습을 시작하지 말고 train·validation dataset과 encoder 후보 revision을 먼저 확정한다.
+- [`hybrid routing CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)의 A1 결과를 검토하고, 사람 검수 hard-negative·confidence calibration·Luna fallback 실험 범위를 확정한다.
 - `main`을 pull한 뒤 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 V2 image build와 전체 Compose 기동을 검증한다.
 - Docker 환경에서 JPA 기반 PostgreSQL Testcontainers 통합 테스트 4건을 skip 없이 재실행한다.
 - 개발 profile에서 `/swagger-ui.html`과 `/v3/api-docs`를 열고, HTTP Basic 인증 후 `/api/v1/meta` 호출을 검증한다.
@@ -128,6 +131,7 @@ Spring Boot의 workspace-scoped RBAC와 인증 경계를 완성하고, Client·P
 
 ## 현재 검증 상태
 
+- 2026-08-11: routing benchmark 재학습·평가 파이프라인 단위 테스트 9건과 Ruff를 통과했다. 생성 데이터 3,000건 schema·중복·frozen-test overlap 검사를 통과했고, CUDA learning curve와 A1/Luna 50건 paired 평가, Sol·Terra·nano 120회 Judge, Pandas 표와 Matplotlib 그래프 생성을 완료했다. Judge 호출은 6-way 병렬 및 JSONL 체크포인트 재개 방식으로 검증했다.
 - 2026-08-10: routing benchmark 단위 테스트 8건과 Ruff를 통과했다. CPU에서 LiquidAI encoder와 GPT-5.4 nano를 50건 비교한 결과 accuracy는 각각 0.20과 0.72, macro-F1은 0.067과 0.661이었고 exact McNemar `p=0.0001564`였다. GPT-5.6 Luna의 paired route pass rate는 각각 0.20과 0.70이었다. 두 라우터 모두 `REACT_AGENT` 운용 기준에는 미달해 운영 승격하지 않는다.
 - 2026-08-10: Springdoc OpenAPI 3.0.3 추가 후 backend 테스트 20건 중 16건이 통과했고 실패는 없었다. Docker를 사용할 수 없어 PostgreSQL Testcontainers 4건은 skip됐다. OpenAPI metadata와 HTTP Basic security scheme 단위 테스트는 통과했지만 실제 Swagger endpoint 기동은 아직 검증하지 않았다.
 - 2026-08-09: Agent에서 `uv sync --locked`, pytest 3건, Ruff와 strict mypy를 통과했다. FastAPI TestClient의 `httpx2` 전환 예고 경고 1건은 upstream 호환성 추적 대상으로 남겼다.

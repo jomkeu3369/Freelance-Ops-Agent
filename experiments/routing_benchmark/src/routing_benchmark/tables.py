@@ -34,7 +34,7 @@ def _router_summary(report: dict[str, Any]) -> pd.DataFrame:
                 "model_load_seconds": metrics.get("model_load_seconds", 0.0),
                 "parameter_memory_mb": metrics.get("parameter_memory_mb", 0.0),
                 "peak_cuda_memory_mb": metrics.get("peak_cuda_memory_mb", 0.0),
-                "device": metrics.get("device", "remote_api")
+                "device": metrics.get("device", "remote_api"),
             }
         )
     return pd.DataFrame(rows)
@@ -51,7 +51,7 @@ def _per_route_summary(report: dict[str, Any]) -> pd.DataFrame:
                     "precision": metrics["precision"],
                     "recall": metrics["recall"],
                     "f1": metrics["f1-score"],
-                    "support": int(metrics["support"])
+                    "support": int(metrics["support"]),
                 }
             )
     return pd.DataFrame(rows)
@@ -59,10 +59,7 @@ def _per_route_summary(report: dict[str, Any]) -> pd.DataFrame:
 
 def _judge_summary(report: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(
-        [
-            {"router": router, **metrics}
-            for router, metrics in report["router_summaries"].items()
-        ]
+        [{"router": router, **metrics} for router, metrics in report["router_summaries"].items()]
     )
 
 
@@ -78,19 +75,22 @@ def export_tables(ab_report: Path, judge_report: Path | None, output_dir: Path) 
     summary: dict[str, Any] = {
         "router_summary": router_frame.to_dict(orient="records"),
         "per_route_metrics": route_frame.to_dict(orient="records"),
-        "mcnemar_exact": ab_payload["ab_test"]
+        "mcnemar_exact": ab_payload["ab_test"],
     }
     if judge_report:
         judge_frame = _judge_summary(_load(judge_report))
-        judge_path = output_dir / "luna_judge_summary.csv"
+        judge_path = output_dir / "judge_panel_summary.csv"
         judge_frame.to_csv(judge_path, index=False, encoding="utf-8-sig")
         outputs.append(judge_path)
-        summary["luna_judge_summary"] = judge_frame.to_dict(orient="records")
+        summary["judge_panel_summary"] = judge_frame.to_dict(orient="records")
 
     summary_path = output_dir / "pandas_summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     outputs.append(summary_path)
+
     print(router_frame.to_string(index=False))
+
     if judge_report:
         print(_judge_summary(_load(judge_report)).to_string(index=False))
+
     return outputs

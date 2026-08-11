@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "splits": {
+    "train": {
+      "DIRECT_TOOL": {
+        "rows": 500,
+        "korean": 245,
+        "english": 255,
+        "hard_boundaries": 477,
+        "frozen_test_exact_overlap": 0
+      },
+      "SIMPLE_LLM": {
+        "rows": 500,
+        "korean": 239,
+        "english": 261,
+        "hard_boundaries": 409,
+        "frozen_test_exact_overlap": 0
+      },
+      "REACT_AGENT": {
+        "rows": 500,
+        "korean": 245,
+        "english": 255,
+        "hard_boundaries": 500,
+        "frozen_test_exact_overlap": 0
+      },
+      "SUPERVISOR": {
+        "rows": 500,
+        "korean": 244,
+        "english": 256,
+        "hard_boundaries": 500,
+        "frozen_test_exact_overlap": 0
+      },
+      "HUMAN_REQUIRED": {
+        "rows": 500,
+        "korean": 244,
+        "english": 256,
+        "hard_boundaries": 500,
+        "frozen_test_exact_overlap": 0
+      }
+    },
+    "validation": {
+      "DIRECT_TOOL": {
+        "rows": 100,
+        "korean": 48,
+        "english": 52,
+        "hard_boundaries": 92,
+        "frozen_test_exact_overlap": 0
+      },
+      "SIMPLE_LLM": {
+        "rows": 100,
+        "korean": 48,
+        "english": 52,
+        "hard_boundaries": 84,
+        "frozen_test_exact_overlap": 0
+      },
+      "REACT_AGENT": {
+        "rows": 100,
+        "korean": 49,
+        "english": 51,
+        "hard_boundaries": 99,
+        "frozen_test_exact_overlap": 0
+      },
+      "SUPERVISOR": {
+        "rows": 100,
+        "korean": 48,
+        "english": 52,
+        "hard_boundaries": 100,
+        "frozen_test_exact_overlap": 0
+      },
+      "HUMAN_REQUIRED": {
+        "rows": 100,
+        "korean": 49,
+        "english": 51,
+        "hard_boundaries": 100,
+        "frozen_test_exact_overlap": 0
+      }
+    }
+  }
+}

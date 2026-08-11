@@ -12,13 +12,16 @@ from routing_benchmark.dataset import (
 from routing_benchmark.judges import aggregate_verdicts
 from routing_benchmark.metrics import exact_mcnemar, routing_metrics
 from routing_benchmark.routers import LLMRouteDecision, calculate_cost
+from routing_benchmark.synthetic_data import SyntheticBatch, _near_duplicate, _normalize
 from routing_benchmark.tables import export_tables
 
 
 def test_config_has_five_routes() -> None:
     config = load_config(Path(__file__).parents[1] / "config.json")
     assert len(config.routes) == 5
-    assert config.judges["models"] == ["gpt-5.6-luna"]
+    assert config.router_b["model_id"] == "gpt-5.6-luna"
+    assert len(config.judges["models"]) == 3
+    assert config.router_b["model_id"] not in config.judges["models"]
 
 
 def test_direct_tool_fixtures_are_unique() -> None:
@@ -26,8 +29,17 @@ def test_direct_tool_fixtures_are_unique() -> None:
     assert len(set(DIRECT_TOOL_FIXTURES)) == 10
 
 
+def test_synthetic_data_normalization_and_deduplication() -> None:
+    assert _normalize(" 견적을 계산해 주세요! ") == "견적을 계산해 주세요"
+    assert _near_duplicate("견적을 계산해 주세요", ["견적을 계산해 주세요!"])
+    schema = SyntheticBatch.model_json_schema()
+    assert schema["additionalProperties"] is False
+
+
 def test_korean_supervisor_fixtures_are_not_mojibake() -> None:
-    korean_prompts = [prompt for prompt in SUPERVISOR_FIXTURES if any("가" <= char <= "힣" for char in prompt)]
+    korean_prompts = [
+        prompt for prompt in SUPERVISOR_FIXTURES if any("가" <= char <= "힣" for char in prompt)
+    ]
     assert len(korean_prompts) == 5
     assert all("?좉" not in prompt and "怨" not in prompt for prompt in korean_prompts)
 
@@ -65,11 +77,23 @@ def test_cost_and_judge_aggregation() -> None:
     assert calculate_cost("m", 1_000_000, 500_000, pricing) == 2.0
     verdicts = [
         {
-            "judge_model": "gpt-5.6-luna",
+            "judge_model": "judge-a",
             "route_score": 4,
             "groundedness_score": 4,
-            "hallucination_detected": False
-        }
+            "hallucination_detected": False,
+        },
+        {
+            "judge_model": "judge-b",
+            "route_score": 3,
+            "groundedness_score": 3,
+            "hallucination_detected": False,
+        },
+        {
+            "judge_model": "judge-c",
+            "route_score": 1,
+            "groundedness_score": 1,
+            "hallucination_detected": True,
+        },
     ]
     assert aggregate_verdicts(verdicts, 3)["route_pass"] is True
 
@@ -94,14 +118,14 @@ def test_pandas_tables_export_numeric_summaries(tmp_path: Path) -> None:
                             "precision": 1.0,
                             "recall": 1.0,
                             "f1-score": 1.0,
-                            "support": 1
+                            "support": 1,
                         }
-                    }
+                    },
                 },
-                "predictions": [{"route": "SIMPLE_LLM"}]
+                "predictions": [{"route": "SIMPLE_LLM"}],
             }
         ],
-        "ab_test": {"p_value": 1.0}
+        "ab_test": {"p_value": 1.0},
     }
     report_path = tmp_path / "router_ab.json"
     report_path.write_text(json.dumps(report), encoding="utf-8")
@@ -111,5 +135,5 @@ def test_pandas_tables_export_numeric_summaries(tmp_path: Path) -> None:
     assert {path.name for path in outputs} == {
         "router_summary.csv",
         "per_route_metrics.csv",
-        "pandas_summary.json"
+        "pandas_summary.json",
     }

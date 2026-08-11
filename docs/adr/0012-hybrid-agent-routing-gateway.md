@@ -28,7 +28,7 @@ CPU smoke test는 현재 PC에서도 가능하지만, encoder fine-tuning과 ful
 → Spring 권한·고위험 정책 Gate
 → 프로젝트 전용 경량 분류기
 → confidence가 충분하면 실행 route 확정
-→ confidence가 낮으면 GPT-5.6 Terra fallback
+→ confidence가 낮으면 GPT-5.6 Luna fallback
 → 여전히 불확실하거나 승인이 필요하면 HUMAN_REQUIRED
 ```
 
@@ -38,14 +38,15 @@ CPU smoke test는 현재 PC에서도 가능하지만, encoder fine-tuning과 ful
   않는다.
 - 새로운 경량 후보 A는 다른 범용 prompt router를 즉시 채택하지 않고, V2 route label이
   부여된 프로젝트 데이터로 학습한 multilingual encoder로 만든다.
-- 후보 B는 GPT-5.6 Terra prompt router로 둔다.
+- 후보 B는 GPT-5.6 Luna prompt router로 둔다. 기존 GPT-5.4 nano보다 높은 품질을 목표로
+  하되 API latency와 비용을 별도로 측정한다.
 - 운영 후보는 A와 B 중 하나만 고르는 구조가 아니라, A의 calibrated confidence가 낮을 때만
   B를 호출하는 hybrid cascade다.
 - 분류기는 abstain을 지원해야 하며, confidence threshold는 validation set에서 정한다.
 - gold label 기반 accuracy, macro-F1과 route별 recall을 주 평가로 사용한다. LLM Judge는
   label 경계와 rationale groundedness를 분석하는 보조 평가이며 정답을 대체하지 않는다.
-- Terra가 router이면서 Judge인 자기평가 결과는 ensemble의 독립 표로 취급하지 않고 참고용
-  진단으로 분리한다.
+- Luna는 router B이므로 Judge에서 제외한다. Judge panel은 GPT-5.6 Sol, GPT-5.6 Terra,
+  GPT-5.4 nano의 독립 3종으로 구성하고 다수결로 집계한다.
 
 ## 평가 설계
 
@@ -53,8 +54,8 @@ CPU smoke test는 현재 PC에서도 가능하지만, encoder fine-tuning과 ful
 
 1. deterministic policy/rule baseline
 2. 프로젝트 데이터로 fine-tuning한 encoder A
-3. GPT-5.6 Terra router B
-4. policy Gate + encoder A + Terra fallback hybrid
+3. GPT-5.6 Luna router B
+4. policy Gate + encoder A + Luna fallback hybrid
 
 필수 지표는 accuracy, macro-F1, route별 precision·recall·F1, `HUMAN_REQUIRED` 누락률,
 `SUPERVISOR` 과소 라우팅률, abstain·fallback 비율, p50·p95 latency, throughput, VRAM,
@@ -66,6 +67,8 @@ API 비용과 요청 1,000건당 예상 비용이다. test set은 학습과 prom
 - 현재 CPU PC: dataset 검토, label 검증, unit test, 정적 검사, 소형 smoke test, 결과 문서화
 - CUDA 작업 PC: encoder fine-tuning, threshold calibration, full inference benchmark,
   batch·VRAM·throughput 측정
+- 운영 배포 후보 환경: CPU 기반 Vultr RAM 4GB. 모델만 적재되는지 확인하는 것으로 끝내지
+  않고 OS와 API process를 포함한 RSS, cold start, 동시성 1의 p95 latency를 측정한다.
 - 두 PC는 같은 Git revision, dataset version, seed, Python·Torch lock과 model revision을
   사용한다.
 - 결과에는 OS, CPU, GPU 이름, CUDA·driver·Torch version, precision, batch size와 warm-up

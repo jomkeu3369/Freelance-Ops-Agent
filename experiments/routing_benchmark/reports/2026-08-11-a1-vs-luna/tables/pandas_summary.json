@@ -1,0 +1,143 @@
+{
+  "router_summary": [
+    {
+      "router": "A_liquid_encoder",
+      "model_id": "LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
+      "samples": 50,
+      "accuracy": 0.54,
+      "macro_f1": 0.5218388278388278,
+      "mean_latency_ms": 22.241473995381966,
+      "p50_latency_ms": 21.694749972084537,
+      "p95_latency_ms": 26.159124972764403,
+      "throughput_per_second": 44.96104890384655,
+      "total_cost_usd": 0.0,
+      "cost_per_1000_requests_usd": 0.0,
+      "model_load_seconds": 1.5054678000160493,
+      "parameter_memory_mb": 1354.2509841918945,
+      "peak_cuda_memory_mb": 1404.07275390625,
+      "device": "cuda"
+    },
+    {
+      "router": "B_prompt_llm",
+      "model_id": "gpt-5.6-luna",
+      "samples": 50,
+      "accuracy": 0.76,
+      "macro_f1": 0.688,
+      "mean_latency_ms": 2339.3123060057405,
+      "p50_latency_ms": 2040.54705001181,
+      "p95_latency_ms": 4044.9663600185886,
+      "throughput_per_second": 0.42747605671662126,
+      "total_cost_usd": 0.044768,
+      "cost_per_1000_requests_usd": 0.89536,
+      "model_load_seconds": 0.0,
+      "parameter_memory_mb": 0.0,
+      "peak_cuda_memory_mb": 0.0,
+      "device": "remote_api"
+    }
+  ],
+  "per_route_metrics": [
+    {
+      "router": "A_liquid_encoder",
+      "route": "DIRECT_TOOL",
+      "precision": 0.6,
+      "recall": 0.9,
+      "f1": 0.72,
+      "support": 10
+    },
+    {
+      "router": "A_liquid_encoder",
+      "route": "SIMPLE_LLM",
+      "precision": 1.0,
+      "recall": 0.6,
+      "f1": 0.75,
+      "support": 10
+    },
+    {
+      "router": "A_liquid_encoder",
+      "route": "REACT_AGENT",
+      "precision": 0.18181818181818182,
+      "recall": 0.2,
+      "f1": 0.19047619047619047,
+      "support": 10
+    },
+    {
+      "router": "A_liquid_encoder",
+      "route": "SUPERVISOR",
+      "precision": 1.0,
+      "recall": 0.2,
+      "f1": 0.3333333333333333,
+      "support": 10
+    },
+    {
+      "router": "A_liquid_encoder",
+      "route": "HUMAN_REQUIRED",
+      "precision": 0.5,
+      "recall": 0.8,
+      "f1": 0.6153846153846154,
+      "support": 10
+    },
+    {
+      "router": "B_prompt_llm",
+      "route": "DIRECT_TOOL",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 10
+    },
+    {
+      "router": "B_prompt_llm",
+      "route": "SIMPLE_LLM",
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1": 0.8,
+      "support": 10
+    },
+    {
+      "router": "B_prompt_llm",
+      "route": "REACT_AGENT",
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 10
+    },
+    {
+      "router": "B_prompt_llm",
+      "route": "SUPERVISOR",
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 10
+    },
+    {
+      "router": "B_prompt_llm",
+      "route": "HUMAN_REQUIRED",
+      "precision": 0.5333333333333333,
+      "recall": 0.8,
+      "f1": 0.64,
+      "support": 10
+    }
+  ],
+  "mcnemar_exact": {
+    "a_only_correct": 3,
+    "b_only_correct": 14,
+    "p_value": 0.012725830078125
+  },
+  "judge_panel_summary": [
+    {
+      "router": "A_liquid_encoder",
+      "samples": 20,
+      "route_pass_rate": 0.45,
+      "mean_groundless_rate": 0.17083333333333334,
+      "hallucination_rate": 0.0,
+      "judge_cost_usd": 0.1711763
+    },
+    {
+      "router": "B_prompt_llm",
+      "samples": 20,
+      "route_pass_rate": 1.0,
+      "mean_groundless_rate": 0.012500000000000006,
+      "hallucination_rate": 0.0,
+      "judge_cost_usd": 0.16296485
+    }
+  ]
+}

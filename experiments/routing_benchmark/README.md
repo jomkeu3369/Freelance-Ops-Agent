@@ -2,10 +2,10 @@
 
 사용자 요청을 실제 실행 전에 어떤 형태로 처리할지 결정하는 router 비교 실험이다.
 
-- A: `LiquidAI/LFM2.5-Encoder-350M-Prompt-Router` zero-shot encoder router
-- B: route policy prompt + `gpt-5.4-nano-2026-03-17` structured output
+- A: `LiquidAI/LFM2.5-Encoder-350M-Prompt-Router` + project routing head
+- B: route policy prompt + `gpt-5.6-luna` structured output
 - Routes: `DIRECT_TOOL`, `SIMPLE_LLM`, `REACT_AGENT`, `SUPERVISOR`, `HUMAN_REQUIRED`
-- Evaluator: `gpt-5.6-luna` 단일 모델
+- Evaluators: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-nano-2026-03-17`
 - Trace: LangSmith project `freelance-ops-routing-benchmark`
 
 ## Dataset
@@ -27,24 +27,33 @@ index와 mapping rule을 결과에 보존한다.
 - 기준 label 기반 accuracy, macro-F1, route별 precision/recall/F1
 - confusion matrix와 paired exact McNemar 검정
 - p50·p95 latency, throughput, 모델 load 시간과 parameter memory
-- OpenAI router·Luna 평가자의 실제 token 사용량과 비용
-- Luna의 route pass, groundedness, groundlessness, hallucination 판정
+- OpenAI router·3개 평가자의 실제 token 사용량과 비용
+- 3개 평가자의 다수결 route pass, groundedness, groundlessness, hallucination 판정
 
-Luna 평가는 기준 label 기반 정량 평가를 대체하지 않는 보조 신호다. 이번 범위에서는 다른
-LLM 평가자를 추가하거나 다수결을 사용하지 않는다.
+LLM-as-a-Judge 평가는 기준 label 기반 정량 평가를 대체하지 않는 보조 신호다. B와 동일한
+Luna를 평가자에서 제외해 자기평가를 방지한다.
 
 ## 실행
 
-CPU 또는 CUDA Torch 환경에서 실행할 수 있다. 현재 `config.json`은 재현 가능한 CPU
-측정으로 고정되어 있다.
+CPU 또는 CUDA Torch 환경에서 실행할 수 있다. 현재 `config.json`은 RTX 5060 Ti CUDA와
+2,500건 A1 routing-head checkpoint로 고정되어 있다.
 
 ```powershell
 uv sync --extra dev
 uv run routing-benchmark validate-config
 
-# 데이터 생성 → A/B → Luna 평가 → Pandas CSV/JSON → Matplotlib 그래프
+# 유료 합성 데이터 생성과 CUDA routing-head 학습
+uv run routing-benchmark generate-training-data --confirm-paid-api
+uv run routing-benchmark train-router-a
+
+# 데이터 생성 → A/B → 3-model Judge → Pandas CSV/JSON → Matplotlib 그래프
 uv run routing-benchmark --output-dir reports/latest all --confirm-paid-api
 ```
+
+동일 데이터셋·동일 모델의 기존 B 결과를 재사용할 때는
+`--cached-router-b-report <router_ab.json>`을 지정한다. 코드는 case ID·prompt·route policy·
+model ID가 모두 같을 때만 재사용한다. Judge는 6개 병렬 호출과
+`judge_items.partial.jsonl` 체크포인트로 중단 후 재개할 수 있다.
 
 `all`이 끝나면 다음 파일이 자동으로 생성된다.
 
@@ -54,7 +63,7 @@ uv run routing-benchmark --output-dir reports/latest all --confirm-paid-api
 - `reports/latest/plots/router-judge-dashboard.png`
 - `reports/latest/tables/router_summary.csv`
 - `reports/latest/tables/per_route_metrics.csv`
-- `reports/latest/tables/luna_judge_summary.csv`
+- `reports/latest/tables/judge_panel_summary.csv`
 - `reports/latest/tables/pandas_summary.json`
 
 `routing_benchmark/reports/`는 최종 실행의 재현 근거로 Git에 포함한다. 보고서에는 공개
@@ -65,4 +74,6 @@ API key와 LangSmith 설정은 `experiments/.env`에서 자동으로 읽는다. 
 LangSmith로 보내지 않고 공개 benchmark와 프로젝트 fixture만 사용한다.
 
 2026-08-10 실행 결과와 제한사항은 [`RESULTS.md`](RESULTS.md)에 기록했다.
+현재 `reports/latest`와 `artifacts/2026-08-10`은 GPT-5.4 nano historical baseline이다.
+GPT-5.6 Luna 결과로 해석하지 않으며, 새 유료 실행이 완료된 뒤 별도 날짜 artifact로 보존한다.
 

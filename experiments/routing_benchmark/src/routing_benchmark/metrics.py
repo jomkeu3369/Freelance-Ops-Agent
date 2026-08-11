@@ -38,13 +38,17 @@ def exact_mcnemar(
     a_only = sum(
         a == expected and b != expected for expected, a, b in zip(truth, prediction_a, prediction_b)
     )
+
     b_only = sum(
         b == expected and a != expected for expected, a, b in zip(truth, prediction_a, prediction_b)
     )
+
     discordant = a_only + b_only
     if discordant == 0:
         p_value = 1.0
+
     else:
         tail = sum(math.comb(discordant, k) for k in range(min(a_only, b_only) + 1))
         p_value = min(1.0, 2.0 * tail / (2**discordant))
+
     return {"a_only_correct": a_only, "b_only_correct": b_only, "p_value": p_value}

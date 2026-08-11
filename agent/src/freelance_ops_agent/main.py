@@ -1,25 +1,35 @@
-from fastapi import FastAPI
+import os
+import sys
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from freelance_ops_agent import __version__
 from freelance_ops_agent.config import get_settings
 from freelance_ops_agent.contracts import HealthResponse
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
-    app = FastAPI(
-        title="Freelance Ops Agent Internal API",
-        version=__version__,
-        docs_url="/internal/docs",
-        openapi_url="/internal/openapi.json"
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic here
+    yield
+    # Shutdown logic here
+    
+class FreelanceOpsAgentAiServer(FastAPI):
+    def __init__(self):
+        super().__init__(
+            title="Freelance Ops Agent AI Server",
+            description="Freelance Ops Agent Server",
+            version=get_settings().service_version,
+            lifespan=lifespan
+        )
+        
+    def _register_routes(self):
+        @self.app.get("/version", tags=["root"])
+        async def get_version():
+            return {"version": get_settings().service_version}
 
-    @app.get("/health", response_model=HealthResponse, tags=["Health"])
-    async def health() -> HealthResponse:
-        return HealthResponse(status="UP", service=settings.service_name, version=settings.service_version)
-
-    return app
-
-
-app = create_app()
-
+        
+app = FreelanceOpsAgentAiServer()

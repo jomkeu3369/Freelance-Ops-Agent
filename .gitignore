@@ -23,6 +23,8 @@ experiments/local_archive/
 experiments/**/reports/
 !experiments/routing_benchmark/reports/
 !experiments/routing_benchmark/reports/**
+experiments/routing_benchmark/reports/pytest-*/
+experiments/routing_benchmark/reports/**/judge_items.partial.jsonl
 experiments/**/.venv/
 experiments/**/artifacts/
 !experiments/routing_benchmark/artifacts/

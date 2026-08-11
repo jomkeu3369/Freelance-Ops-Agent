@@ -65,8 +65,10 @@ def judge_prediction(
     )
     latency_ms = (time.perf_counter() - started) * 1_000
     verdict = RoutingJudgeVerdict.model_validate_json(response.output_text)
+
     input_tokens = int(response.usage.input_tokens or 0)
     output_tokens = int(response.usage.output_tokens or 0)
+
     return {
         "judge_model": judge_model,
         **verdict.model_dump(),
@@ -78,15 +80,18 @@ def judge_prediction(
 
 
 def aggregate_verdicts(verdicts: list[dict[str, Any]], minimum_pass_score: int) -> dict[str, Any]:
-    if len(verdicts) != 1 or verdicts[0]["judge_model"] != "gpt-5.6-luna":
-        raise ValueError("Exactly one gpt-5.6-luna verdict is required")
-    verdict = verdicts[0]
-    route_score = int(verdict["route_score"])
-    groundedness = int(verdict["groundedness_score"])
+    if len(verdicts) != 3 or len({item["judge_model"] for item in verdicts}) != 3:
+        raise ValueError("Exactly three verdicts from distinct judge models are required")
+    route_scores = [int(item["route_score"]) for item in verdicts]
+    groundedness_scores = [int(item["groundedness_score"]) for item in verdicts]
+    pass_votes = sum(score >= minimum_pass_score for score in route_scores)
+
     return {
-        "route_pass": route_score >= minimum_pass_score,
-        "route_score": route_score,
-        "groundedness_score": groundedness,
-        "groundless_rate": 1 - groundedness / 4,
-        "hallucination_detected": bool(verdict["hallucination_detected"])
+        "route_pass": pass_votes >= 2,
+        "route_score": sum(route_scores) / len(route_scores),
+        "groundedness_score": sum(groundedness_scores) / len(groundedness_scores),
+        "groundless_rate": 1 - sum(groundedness_scores) / (4 * len(groundedness_scores)),
+        "hallucination_detected": sum(bool(item["hallucination_detected"]) for item in verdicts)
+        >= 2,
+        "unanimous": len(set(route_scores)) == 1,
     }

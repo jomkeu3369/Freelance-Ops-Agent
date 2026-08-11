@@ -1,0 +1,11 @@
+﻿router,route,precision,recall,f1,support
+A_liquid_encoder,DIRECT_TOOL,0.0,0.0,0.0,10
+A_liquid_encoder,SIMPLE_LLM,0.0,0.0,0.0,10
+A_liquid_encoder,REACT_AGENT,0.2,1.0,0.3333333333333333,10
+A_liquid_encoder,SUPERVISOR,0.0,0.0,0.0,10
+A_liquid_encoder,HUMAN_REQUIRED,0.0,0.0,0.0,10
+B_prompt_llm,DIRECT_TOOL,1.0,1.0,1.0,10
+B_prompt_llm,SIMPLE_LLM,0.6666666666666666,1.0,0.8,10
+B_prompt_llm,REACT_AGENT,0.0,0.0,0.0,10
+B_prompt_llm,SUPERVISOR,1.0,1.0,1.0,10
+B_prompt_llm,HUMAN_REQUIRED,0.5333333333333333,0.8,0.64,10

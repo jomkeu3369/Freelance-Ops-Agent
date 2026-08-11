@@ -14,16 +14,39 @@
     "name": "A_liquid_encoder",
     "model_id": "LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
     "revision": "35ca4a0469f180f1cf05a630df8842fa17ac18e3",
-    "device": "cpu"
+    "device": "cuda",
+    "head_path": "checkpoints/a1/curve-2500/head.safetensors"
   },
   "router_b": {
     "name": "B_prompt_llm",
-    "model_id": "gpt-5.4-nano-2026-03-17",
+    "model_id": "gpt-5.6-luna",
     "reasoning_effort": "none"
   },
   "judges": {
-    "models": ["gpt-5.6-luna"],
+    "models": ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.4-nano-2026-03-17"],
     "minimum_pass_score": 3
   },
-  "pricing_file": "pricing/openai-pricing-2026-08-10.json"
+  "deployment_target": {
+    "provider": "Vultr",
+    "memory_mb": 4096,
+    "accelerator": "cpu"
+  },
+  "synthetic_data": {
+    "generator_model": "gpt-5.6-terra",
+    "train_per_route": 500,
+    "validation_per_route": 100,
+    "batch_size": 25,
+    "output_dir": "data/generated-v1"
+  },
+  "training": {
+    "batch_size": 16,
+    "epochs": 8,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.01,
+    "max_length": 512,
+    "patience": 2,
+    "learning_curve_sizes": [250, 500, 1000, 2500],
+    "output_dir": "checkpoints/a1"
+  },
+  "pricing_file": "pricing/openai-pricing-2026-08-11.json"
 }

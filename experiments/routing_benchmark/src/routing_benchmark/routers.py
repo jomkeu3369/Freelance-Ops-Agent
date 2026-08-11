@@ -34,45 +34,64 @@ class LiquidEncoderRouter:
         requested_device = str(model_config["device"])
         if requested_device == "cuda" and not torch.cuda.is_available():
             raise RuntimeError("CUDA is required for the LiquidAI benchmark")
+
         if requested_device not in {"auto", "cpu", "cuda"}:
             raise ValueError("LiquidAI device must be one of: auto, cpu, cuda")
+
         selected_device = (
             "cuda"
-            if requested_device == "cuda" or (requested_device == "auto" and torch.cuda.is_available())
+            if requested_device == "cuda"
+            or (requested_device == "auto" and torch.cuda.is_available())
             else "cpu"
         )
+
         self.device = torch.device(selected_device)
         started = time.perf_counter()
+
         self.tokenizer = AutoTokenizer.from_pretrained(
-            model_config["model_id"],
-            revision=model_config["revision"],
-            trust_remote_code=True
+            model_config["model_id"], revision=model_config["revision"], trust_remote_code=True
         )
-        self.model = (
-            AutoModel.from_pretrained(
-                model_config["model_id"],
-                revision=model_config["revision"],
-                trust_remote_code=True
-            )
-            .eval()
-            .to(self.device)
+
+        self.model = AutoModel.from_pretrained(
+            model_config["model_id"], revision=model_config["revision"], trust_remote_code=True
         )
+        head_path = model_config.get("head_path")
+        if head_path:
+            from safetensors.torch import load_file
+
+            missing, unexpected = self.model.load_state_dict(load_file(head_path), strict=False)
+            allowed_missing = [name for name in missing if not name.startswith("lfm2.")]
+            if allowed_missing or unexpected:
+                raise RuntimeError(
+                    f"Invalid routing head: missing={allowed_missing}, unexpected={unexpected}"
+                )
+        self.model = self.model.eval().to(self.device)
+        self.head_path = head_path
+
         self._synchronize()
         self.load_seconds = time.perf_counter() - started
-        self.parameter_memory_mb = sum(
-            parameter.numel() * parameter.element_size() for parameter in self.model.parameters()
-        ) / 1024**2
+        self.parameter_memory_mb = (
+            sum(
+                parameter.numel() * parameter.element_size()
+                for parameter in self.model.parameters()
+            )
+            / 1024**2
+        )
         self.route_lanes = [f"{label}: {description}" for label, description in routes.items()]
 
     def predict(self, prompt: str) -> dict[str, Any]:
         self._synchronize()
+
         started = time.perf_counter()
         with torch.inference_mode():
             scores = self.model.route(prompt, self.route_lanes, tokenizer=self.tokenizer)
+
         self._synchronize()
+
         latency_ms = (time.perf_counter() - started) * 1_000
         best = scores[0]
         route = str(best["route"]).split(":", 1)[0]
+
         return {
             "route": route,
             "confidence": float(best["score"]),
@@ -80,11 +99,15 @@ class LiquidEncoderRouter:
                 f"{str(item['route']).split(':', 1)[0]}={float(item['score']):.4f}"
                 for item in scores[:3]
             ],
-            "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+            "rationale": (
+                "Fine-tuned encoder lane scores; no generated reasoning."
+                if self.head_path
+                else "Zero-shot encoder lane scores; no generated reasoning."
+            ),
             "latency_ms": latency_ms,
             "input_tokens": 0,
             "output_tokens": 0,
-            "cost_usd": 0.0
+            "cost_usd": 0.0,
         }
 
     def _synchronize(self) -> None:

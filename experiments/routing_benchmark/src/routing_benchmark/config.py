@@ -30,6 +30,13 @@ def load_config(path: str | Path) -> RoutingConfig:
     }
     if set(raw["routes"]) != expected_routes:
         raise ValueError(f"Routes must be exactly {sorted(expected_routes)}")
-    if raw["judges"]["models"] != ["gpt-5.6-luna"]:
-        raise ValueError("The routing benchmark evaluator must be exactly gpt-5.6-luna")
+
+    if raw["router_b"]["model_id"] != "gpt-5.6-luna":
+        raise ValueError("Router B must be gpt-5.6-luna")
+    judges = raw["judges"]["models"]
+    if len(judges) != 3 or len(set(judges)) != 3:
+        raise ValueError("Exactly three distinct judge models are required")
+    if raw["router_b"]["model_id"] in judges:
+        raise ValueError("Router B cannot also evaluate its own predictions")
+
     return RoutingConfig(raw=raw, root=config_path.parent)

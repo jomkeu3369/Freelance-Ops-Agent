@@ -92,6 +92,7 @@ def _user_prompt(messages: list[dict[str, str]]) -> str:
     for message in messages:
         if message["role"] == "user":
             return message["content"].strip()
+
     raise ValueError("Orchestration row does not contain a user message")
 
 

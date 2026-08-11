@@ -1,0 +1,2204 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-11T01:17:37.329932+00:00",
+  "dataset_path": "routing_dataset.json",
+  "routes": {
+    "DIRECT_TOOL": "Use one deterministic software function only for exact arithmetic, tax, currency, date, or lookup from already supplied structured data. No language reasoning, iteration, or external research.",
+    "SIMPLE_LLM": "Answer with one language-model call for explanation, rewriting, summarization, extraction, or basic advice. No tools, iteration, specialist delegation, or external research.",
+    "REACT_AGENT": "Use one bounded ReAct agent that may iteratively call one or more tools for coding, search, validation, or multi-step reasoning within one specialist domain.",
+    "SUPERVISOR": "Coordinate two or more specialized agents or departments because the request spans multiple domains, dependent stages, or results that must be merged and verified.",
+    "HUMAN_REQUIRED": "Stop automation and request explicit human review or approval because of legal, privacy, safety, financial authority, ambiguous authorization, or irreversible external impact."
+  },
+  "cases": [
+    {
+      "id": "react-orchestration-13",
+      "prompt": "I am extremely disappointed with the service. I want to cancel my subscription immediately.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 13,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-9",
+      "prompt": "Change my billing address to 404 Silicon Way, Apt 2B.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 9,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-50",
+      "prompt": "Write the beginning to a story. It should have 3 sentences and include the following words: book, coffee, alarms. The protagonist should be female.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 50,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-5",
+      "prompt": "Create a 3 turn conversation between a customer and a grocery store clerk - that is, 3 per person. Then tell me what they talked about.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 5,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-4",
+      "prompt": "Look up project P-104 in the supplied project table and return its stored status only.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 4,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-19",
+      "prompt": "I want to take a half-day off this Friday afternoon.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 19,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "react-orchestration-17",
+      "prompt": "I keep getting error 505 when I try to login. It is very annoying.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 17,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "direct_tool-project-9",
+      "prompt": "Sum the confirmed development hours: planning 8, implementation 32, testing 12.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 9,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-orchestration-74",
+      "prompt": "I accidentally clicked 'buy' twice on the plugin.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 74,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-36",
+      "prompt": "What is the largest heading tag in HTML?",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 36,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "supervisor-project-1",
+      "prompt": "Review the client's uploaded brief, identify missing requirements, estimate the work with the pricing specialist, and have compliance verify the contract constraints.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 1,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "react-orchestration-3",
+      "prompt": "Please update the phone number on my profile to +1-555-0199. It is urgent.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 3,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "simple-supra-7",
+      "prompt": "Write a poem about the sun and moon.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 7,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-3",
+      "prompt": "Apply the supplied 5% discount to 2,000,000 KRW and return the exact final amount.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 3,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "supervisor-project-9",
+      "prompt": "Compare the client's requested launch date with engineering capacity, validate the budget with finance, and coordinate a feasible phased delivery proposal.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 9,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "supervisor-project-8",
+      "prompt": "문의 내용을 요구사항, 기술 위험, 예상 공수로 나누어 담당 에이전트에게 검토시키고, 서로 의존하는 결과를 반영한 최종 견적 보고서를 만들어 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 8,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "simple-supra-3",
+      "prompt": "Write a plot summary for a comedic novel involving Elon Musk and sea travel.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 3,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "react-orchestration-10",
+      "prompt": "I sent a request to update my email earlier, but I think I sent it twice by mistake.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 10,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "supervisor-project-5",
+      "prompt": "Check the CRM history and previous quote, then coordinate requirements and finance to prepare a revised scope, schedule, and price with evidence for every change.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 5,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-0",
+      "prompt": "Calculate the subtotal, 10% VAT, and total for 12 hours at 80,000 KRW per hour.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 0,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-12",
+      "prompt": "My identity verification documents are attached. Please review my driver's license.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 12,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "simple-supra-46",
+      "prompt": "I have these ingredients in my fridge: flour, eggs, milk, ham, and spinach. Generate a recipe for a meal I can make.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 46,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "supervisor-project-3",
+      "prompt": "Analyze the discovery call, ask the requirements team to define scope, ask delivery to build a milestone plan, and merge both outputs into a client-ready proposal.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 3,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "human-orchestration-76",
+      "prompt": "Here is the screenshot proving I own the domain.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 76,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-4",
+      "prompt": "Submit a vacation request for July 1st through July 15th.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 4,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "supervisor-project-0",
+      "prompt": "신규 고객의 상담 기록에서 요구사항을 정리하고, CRM 고객 정보를 확인한 뒤, 프로젝트 초안과 근거가 포함된 견적 초안을 함께 만들어 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 0,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "react-orchestration-22",
+      "prompt": "I am so angry! You updated my shipping address incorrectly!",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 22,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-0",
+      "prompt": "I'm incredibly frustrated! I've been charged twice for the Premium Subscription on my account #88291.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 0,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "react-orchestration-5",
+      "prompt": "I see two identical transactions for $49.99 on my statement from yesterday.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 5,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "human-orchestration-11",
+      "prompt": "Check if I have enough days for a week off in December, and if so, book it.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 11,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-21",
+      "prompt": "Please verify my new passport upload for account #1212.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 21,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "supervisor-project-6",
+      "prompt": "프로젝트 지연 원인을 개발 기록과 고객 커뮤니케이션에서 각각 조사하고, 일정 복구안과 고객 안내문을 부서별로 작성한 뒤 통합해 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 6,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "supervisor-project-2",
+      "prompt": "기존 고객의 변경 요청이 계약 범위에 포함되는지 검토하고, 개발 일정 영향과 추가 비용을 각각 산정하여 하나의 변경 제안서로 합쳐 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 2,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "human-orchestration-15",
+      "prompt": "Booking paternity leave from Sept 1 to Sept 30.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 15,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "simple-supra-19",
+      "prompt": "Write a four-sentence horror story about sleeping.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 19,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "human-orchestration-90",
+      "prompt": "I'm uploading my driver's license for age verification.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 90,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "human-orchestration-23",
+      "prompt": "Submit a request for Jury Duty leave for next Monday.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 23,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    },
+    {
+      "id": "direct_tool-project-2",
+      "prompt": "Add these approved line items without changing them: 120000, 45000, and 33500 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 2,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "react-orchestration-18",
+      "prompt": "I saw two pending charges for order #999111. Please fix this.",
+      "expected_route": "REACT_AGENT",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 18,
+      "mapping_rule": "human-reviewed: bounded transactional or incident workflow using tools"
+    },
+    {
+      "id": "supervisor-project-7",
+      "prompt": "Have legal review the NDA, delivery assess technical feasibility, and finance calculate the commercial impact before producing one go/no-go recommendation.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 7,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-5",
+      "prompt": "Calculate the difference in days between 2026-09-01 and 2026-09-15.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 5,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "supervisor-project-4",
+      "prompt": "고객이 보낸 기능 목록을 보안·개발·디자인 관점에서 각각 검토하고, 충돌하는 의견을 조정하여 최종 실행 계획을 작성해 주세요.",
+      "expected_route": "SUPERVISOR",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 4,
+      "mapping_rule": "V2 policy fixture: explicit multi-department coordination and synthesis"
+    },
+    {
+      "id": "direct_tool-project-6",
+      "prompt": "Multiply the fixed unit price 37,500 KRW by the confirmed quantity 24.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 6,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct_tool-project-8",
+      "prompt": "Calculate a 30% deposit on the already approved total of 4,500,000 KRW.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 8,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "simple-supra-30",
+      "prompt": "Change the given sentence to something with a little more flair that could be added to a fictional story:\n\nThe aliens came down from space and terrorized the city.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 30,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-32",
+      "prompt": "Pitch me a premise for a comedy movie.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 32,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "simple-supra-40",
+      "prompt": "Generate a short story about a young girl named Annie who goes on a summer adventure. It should be between 2- 4 paragraphs long.",
+      "expected_route": "SIMPLE_LLM",
+      "source_dataset": "SupraLabs/Prompt-Routing-Dataset",
+      "source_split": "train",
+      "source_index": 40,
+      "mapping_rule": "human-reviewed: single language generation call; no tool or delegation"
+    },
+    {
+      "id": "direct_tool-project-1",
+      "prompt": "Convert 3.5 working days to hours using exactly 8 hours per day.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 1,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "direct_tool-project-7",
+      "prompt": "Return the current workspace's stored currency code from the provided structured context.",
+      "expected_route": "DIRECT_TOOL",
+      "source_dataset": "Freelance-Ops-Agent V2 routing policy",
+      "source_split": "fixture",
+      "source_index": 7,
+      "mapping_rule": "V2 policy fixture: one exact deterministic calculation or structured lookup"
+    },
+    {
+      "id": "human-orchestration-1",
+      "prompt": "I need to request three days off for bereavement starting next Tuesday.",
+      "expected_route": "HUMAN_REQUIRED",
+      "source_dataset": "rescommons/agent-orchestration-dataset",
+      "source_split": "train",
+      "source_index": 1,
+      "mapping_rule": "human-reviewed: leave approval or identity-document verification"
+    }
+  ],
+  "routers": [
+    {
+      "name": "A_liquid_encoder",
+      "model_id": "LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
+      "metrics": {
+        "accuracy": 0.2,
+        "macro_f1": 0.06666666666666667,
+        "per_route": {
+          "DIRECT_TOOL": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 10.0
+          },
+          "SIMPLE_LLM": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 10.0
+          },
+          "REACT_AGENT": {
+            "precision": 0.2,
+            "recall": 1.0,
+            "f1-score": 0.3333333333333333,
+            "support": 10.0
+          },
+          "SUPERVISOR": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 10.0
+          },
+          "HUMAN_REQUIRED": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 10.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            0,
+            0,
+            10,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            10,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            10,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            10,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            10,
+            0,
+            0
+          ]
+        ],
+        "mean_ms": 68.49981599720195,
+        "p50_ms": 50.22064998047426,
+        "p95_ms": 143.14071998524014,
+        "throughput_per_second": 14.598579360283939,
+        "total_cost_usd": 0.0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "model_load_seconds": 3.862721399986185,
+        "parameter_memory_mb": 1354.2509841918945,
+        "device": "cuda",
+        "peak_cuda_memory_mb": 1404.07275390625
+      },
+      "predictions": [
+        {
+          "case_id": "react-orchestration-13",
+          "route": "REACT_AGENT",
+          "confidence": 0.3192332684993744,
+          "evidence_signals": [
+            "REACT_AGENT=0.3192",
+            "SUPERVISOR=0.3050",
+            "HUMAN_REQUIRED=0.2841"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 30.57459997944534,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-9",
+          "route": "REACT_AGENT",
+          "confidence": 0.36762645840644836,
+          "evidence_signals": [
+            "REACT_AGENT=0.3676",
+            "SUPERVISOR=0.3565",
+            "DIRECT_TOOL=0.1232"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 111.707900010515,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-50",
+          "route": "REACT_AGENT",
+          "confidence": 0.3573759198188782,
+          "evidence_signals": [
+            "REACT_AGENT=0.3574",
+            "SUPERVISOR=0.3317",
+            "HUMAN_REQUIRED=0.2308"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 54.2342999833636,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-5",
+          "route": "REACT_AGENT",
+          "confidence": 0.3497140109539032,
+          "evidence_signals": [
+            "REACT_AGENT=0.3497",
+            "SUPERVISOR=0.3475",
+            "HUMAN_REQUIRED=0.2280"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 24.92340002208948,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-4",
+          "route": "REACT_AGENT",
+          "confidence": 0.3507693111896515,
+          "evidence_signals": [
+            "REACT_AGENT=0.3508",
+            "SUPERVISOR=0.3078",
+            "HUMAN_REQUIRED=0.2287"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 126.29230000311509,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-19",
+          "route": "REACT_AGENT",
+          "confidence": 0.3187311589717865,
+          "evidence_signals": [
+            "REACT_AGENT=0.3187",
+            "SUPERVISOR=0.3063",
+            "HUMAN_REQUIRED=0.3004"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 50.57300004409626,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-17",
+          "route": "REACT_AGENT",
+          "confidence": 0.4013935327529907,
+          "evidence_signals": [
+            "REACT_AGENT=0.4014",
+            "SUPERVISOR=0.3668",
+            "HUMAN_REQUIRED=0.1434"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 40.867800009436905,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-9",
+          "route": "REACT_AGENT",
+          "confidence": 0.2724398374557495,
+          "evidence_signals": [
+            "REACT_AGENT=0.2724",
+            "SUPERVISOR=0.2616",
+            "HUMAN_REQUIRED=0.2242"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 127.98990000737831,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-74",
+          "route": "REACT_AGENT",
+          "confidence": 0.386057585477829,
+          "evidence_signals": [
+            "REACT_AGENT=0.3861",
+            "SUPERVISOR=0.3426",
+            "HUMAN_REQUIRED=0.1864"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 47.04099998343736,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-36",
+          "route": "REACT_AGENT",
+          "confidence": 0.35229140520095825,
+          "evidence_signals": [
+            "REACT_AGENT=0.3523",
+            "SUPERVISOR=0.3225",
+            "HUMAN_REQUIRED=0.2274"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 36.848199961241335,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-1",
+          "route": "REACT_AGENT",
+          "confidence": 0.40181252360343933,
+          "evidence_signals": [
+            "REACT_AGENT=0.4018",
+            "SUPERVISOR=0.4005",
+            "HUMAN_REQUIRED=0.1289"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 31.47659997921437,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-3",
+          "route": "REACT_AGENT",
+          "confidence": 0.3688799738883972,
+          "evidence_signals": [
+            "REACT_AGENT=0.3689",
+            "SUPERVISOR=0.3528",
+            "HUMAN_REQUIRED=0.2067"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 25.50720004364848,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-7",
+          "route": "REACT_AGENT",
+          "confidence": 0.3395966589450836,
+          "evidence_signals": [
+            "REACT_AGENT=0.3396",
+            "SUPERVISOR=0.3211",
+            "HUMAN_REQUIRED=0.2676"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 145.06509999046102,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-3",
+          "route": "REACT_AGENT",
+          "confidence": 0.32910189032554626,
+          "evidence_signals": [
+            "REACT_AGENT=0.3291",
+            "SUPERVISOR=0.2934",
+            "DIRECT_TOOL=0.2645"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 46.62779998034239,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-9",
+          "route": "REACT_AGENT",
+          "confidence": 0.4267284870147705,
+          "evidence_signals": [
+            "REACT_AGENT=0.4267",
+            "SUPERVISOR=0.4240",
+            "HUMAN_REQUIRED=0.0859"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 50.47509999712929,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-8",
+          "route": "REACT_AGENT",
+          "confidence": 0.3399887681007385,
+          "evidence_signals": [
+            "REACT_AGENT=0.3400",
+            "SUPERVISOR=0.3286",
+            "HUMAN_REQUIRED=0.2481"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 60.35469996277243,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-3",
+          "route": "REACT_AGENT",
+          "confidence": 0.34033119678497314,
+          "evidence_signals": [
+            "REACT_AGENT=0.3403",
+            "SUPERVISOR=0.3339",
+            "HUMAN_REQUIRED=0.2276"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 49.966199963819236,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-10",
+          "route": "REACT_AGENT",
+          "confidence": 0.36490491032600403,
+          "evidence_signals": [
+            "REACT_AGENT=0.3649",
+            "SUPERVISOR=0.3520",
+            "HUMAN_REQUIRED=0.2176"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 118.33389999810606,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-5",
+          "route": "REACT_AGENT",
+          "confidence": 0.435932993888855,
+          "evidence_signals": [
+            "REACT_AGENT=0.4359",
+            "SUPERVISOR=0.4354",
+            "HUMAN_REQUIRED=0.0646"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 112.15509998146445,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-0",
+          "route": "REACT_AGENT",
+          "confidence": 0.2884496748447418,
+          "evidence_signals": [
+            "REACT_AGENT=0.2884",
+            "SUPERVISOR=0.2750",
+            "DIRECT_TOOL=0.2236"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 48.96710003959015,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-12",
+          "route": "REACT_AGENT",
+          "confidence": 0.31537163257598877,
+          "evidence_signals": [
+            "REACT_AGENT=0.3154",
+            "SUPERVISOR=0.3145",
+            "HUMAN_REQUIRED=0.2994"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 30.36410000640899,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-46",
+          "route": "REACT_AGENT",
+          "confidence": 0.3767101764678955,
+          "evidence_signals": [
+            "REACT_AGENT=0.3767",
+            "SUPERVISOR=0.3374",
+            "HUMAN_REQUIRED=0.2077"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 36.21019999263808,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-3",
+          "route": "REACT_AGENT",
+          "confidence": 0.4032926559448242,
+          "evidence_signals": [
+            "REACT_AGENT=0.4033",
+            "SUPERVISOR=0.3999",
+            "HUMAN_REQUIRED=0.1252"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 98.57710002688691,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-76",
+          "route": "REACT_AGENT",
+          "confidence": 0.37056922912597656,
+          "evidence_signals": [
+            "REACT_AGENT=0.3706",
+            "SUPERVISOR=0.3679",
+            "HUMAN_REQUIRED=0.1902"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 43.585000035818666,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-4",
+          "route": "REACT_AGENT",
+          "confidence": 0.3163160979747772,
+          "evidence_signals": [
+            "REACT_AGENT=0.3163",
+            "SUPERVISOR=0.3106",
+            "HUMAN_REQUIRED=0.2817"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 37.14129998115823,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-0",
+          "route": "REACT_AGENT",
+          "confidence": 0.3322302997112274,
+          "evidence_signals": [
+            "REACT_AGENT=0.3322",
+            "SUPERVISOR=0.3229",
+            "HUMAN_REQUIRED=0.2611"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 143.88879999751225,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-22",
+          "route": "REACT_AGENT",
+          "confidence": 0.36954551935195923,
+          "evidence_signals": [
+            "REACT_AGENT=0.3695",
+            "SUPERVISOR=0.3434",
+            "HUMAN_REQUIRED=0.2129"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 59.782099968288094,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-0",
+          "route": "REACT_AGENT",
+          "confidence": 0.378002792596817,
+          "evidence_signals": [
+            "REACT_AGENT=0.3780",
+            "SUPERVISOR=0.3659",
+            "HUMAN_REQUIRED=0.1711"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 32.87339996313676,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-5",
+          "route": "REACT_AGENT",
+          "confidence": 0.3448582589626312,
+          "evidence_signals": [
+            "REACT_AGENT=0.3449",
+            "SUPERVISOR=0.3259",
+            "HUMAN_REQUIRED=0.2356"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 116.50180001743138,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-11",
+          "route": "REACT_AGENT",
+          "confidence": 0.34494146704673767,
+          "evidence_signals": [
+            "REACT_AGENT=0.3449",
+            "SUPERVISOR=0.3309",
+            "HUMAN_REQUIRED=0.2458"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 119.0055999904871,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-21",
+          "route": "REACT_AGENT",
+          "confidence": 0.33744874596595764,
+          "evidence_signals": [
+            "REACT_AGENT=0.3374",
+            "SUPERVISOR=0.3366",
+            "HUMAN_REQUIRED=0.2427"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 68.96259996574372,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-6",
+          "route": "REACT_AGENT",
+          "confidence": 0.33508434891700745,
+          "evidence_signals": [
+            "REACT_AGENT=0.3351",
+            "SUPERVISOR=0.3240",
+            "HUMAN_REQUIRED=0.2673"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 125.17340003978461,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-2",
+          "route": "REACT_AGENT",
+          "confidence": 0.32344648241996765,
+          "evidence_signals": [
+            "REACT_AGENT=0.3234",
+            "SUPERVISOR=0.3135",
+            "HUMAN_REQUIRED=0.2926"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 30.86350002558902,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-15",
+          "route": "REACT_AGENT",
+          "confidence": 0.3265288472175598,
+          "evidence_signals": [
+            "REACT_AGENT=0.3265",
+            "SUPERVISOR=0.3187",
+            "HUMAN_REQUIRED=0.2806"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 33.36989996023476,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-19",
+          "route": "REACT_AGENT",
+          "confidence": 0.34327155351638794,
+          "evidence_signals": [
+            "REACT_AGENT=0.3433",
+            "SUPERVISOR=0.3129",
+            "HUMAN_REQUIRED=0.2631"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 42.463599995244294,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-90",
+          "route": "REACT_AGENT",
+          "confidence": 0.3258703649044037,
+          "evidence_signals": [
+            "REACT_AGENT=0.3259",
+            "SUPERVISOR=0.3172",
+            "HUMAN_REQUIRED=0.2780"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 112.7377999946475,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-23",
+          "route": "REACT_AGENT",
+          "confidence": 0.3216848373413086,
+          "evidence_signals": [
+            "REACT_AGENT=0.3217",
+            "SUPERVISOR=0.3152",
+            "HUMAN_REQUIRED=0.2870"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 48.671500000637025,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-2",
+          "route": "REACT_AGENT",
+          "confidence": 0.2898317873477936,
+          "evidence_signals": [
+            "REACT_AGENT=0.2898",
+            "SUPERVISOR=0.2819",
+            "HUMAN_REQUIRED=0.2807"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 50.96469999989495,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "react-orchestration-18",
+          "route": "REACT_AGENT",
+          "confidence": 0.33751416206359863,
+          "evidence_signals": [
+            "REACT_AGENT=0.3375",
+            "SUPERVISOR=0.3261",
+            "HUMAN_REQUIRED=0.2609"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 85.21439996547997,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-7",
+          "route": "REACT_AGENT",
+          "confidence": 0.32963699102401733,
+          "evidence_signals": [
+            "REACT_AGENT=0.3296",
+            "SUPERVISOR=0.3073",
+            "HUMAN_REQUIRED=0.2997"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 86.07459999620914,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-5",
+          "route": "REACT_AGENT",
+          "confidence": 0.3081251382827759,
+          "evidence_signals": [
+            "REACT_AGENT=0.3081",
+            "SUPERVISOR=0.2897",
+            "DIRECT_TOOL=0.2373"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 27.89590001339093,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "supervisor-project-4",
+          "route": "REACT_AGENT",
+          "confidence": 0.3279842436313629,
+          "evidence_signals": [
+            "REACT_AGENT=0.3280",
+            "SUPERVISOR=0.3188",
+            "HUMAN_REQUIRED=0.2754"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 174.3088000221178,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-6",
+          "route": "REACT_AGENT",
+          "confidence": 0.29412832856178284,
+          "evidence_signals": [
+            "REACT_AGENT=0.2941",
+            "DIRECT_TOOL=0.2706",
+            "SUPERVISOR=0.2608"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 26.318099990021437,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-8",
+          "route": "REACT_AGENT",
+          "confidence": 0.2769472002983093,
+          "evidence_signals": [
+            "REACT_AGENT=0.2769",
+            "SUPERVISOR=0.2679",
+            "HUMAN_REQUIRED=0.2561"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 36.143100005574524,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-30",
+          "route": "REACT_AGENT",
+          "confidence": 0.3814561367034912,
+          "evidence_signals": [
+            "REACT_AGENT=0.3815",
+            "SUPERVISOR=0.3411",
+            "HUMAN_REQUIRED=0.1906"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 142.2263999702409,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-32",
+          "route": "REACT_AGENT",
+          "confidence": 0.35716181993484497,
+          "evidence_signals": [
+            "REACT_AGENT=0.3572",
+            "SUPERVISOR=0.3442",
+            "HUMAN_REQUIRED=0.2187"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 21.154700021725148,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "simple-supra-40",
+          "route": "REACT_AGENT",
+          "confidence": 0.34976863861083984,
+          "evidence_signals": [
+            "REACT_AGENT=0.3498",
+            "SUPERVISOR=0.3211",
+            "HUMAN_REQUIRED=0.2223"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 31.94770001573488,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-1",
+          "route": "REACT_AGENT",
+          "confidence": 0.29893407225608826,
+          "evidence_signals": [
+            "REACT_AGENT=0.2989",
+            "DIRECT_TOOL=0.2715",
+            "SUPERVISOR=0.2457"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 127.04789999406785,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "direct_tool-project-7",
+          "route": "REACT_AGENT",
+          "confidence": 0.31942200660705566,
+          "evidence_signals": [
+            "REACT_AGENT=0.3194",
+            "SUPERVISOR=0.2546",
+            "DIRECT_TOOL=0.2431"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 38.91849995125085,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        },
+        {
+          "case_id": "human-orchestration-1",
+          "route": "REACT_AGENT",
+          "confidence": 0.3373284935951233,
+          "evidence_signals": [
+            "REACT_AGENT=0.3373",
+            "SUPERVISOR=0.3277",
+            "HUMAN_REQUIRED=0.2581"
+          ],
+          "rationale": "Zero-shot encoder lane scores; no generated reasoning.",
+          "latency_ms": 56.623100012075156,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cost_usd": 0.0
+        }
+      ]
+    },
+    {
+      "name": "B_prompt_llm",
+      "model_id": "gpt-5.6-luna",
+      "metrics": {
+        "accuracy": 0.76,
+        "macro_f1": 0.688,
+        "per_route": {
+          "DIRECT_TOOL": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 10.0
+          },
+          "SIMPLE_LLM": {
+            "precision": 0.6666666666666666,
+            "recall": 1.0,
+            "f1-score": 0.8,
+            "support": 10.0
+          },
+          "REACT_AGENT": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 10.0
+          },
+          "SUPERVISOR": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1-score": 1.0,
+            "support": 10.0
+          },
+          "HUMAN_REQUIRED": {
+            "precision": 0.5333333333333333,
+            "recall": 0.8,
+            "f1-score": 0.64,
+            "support": 10.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            10,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            10,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            3,
+            0,
+            0,
+            7
+          ],
+          [
+            0,
+            0,
+            0,
+            10,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            8
+          ]
+        ],
+        "mean_ms": 2339.3123060057405,
+        "p50_ms": 2040.54705001181,
+        "p95_ms": 4044.9663600185886,
+        "throughput_per_second": 0.42747605671662126,
+        "total_cost_usd": 0.044768,
+        "total_input_tokens": 17636,
+        "total_output_tokens": 4522
+      },
+      "predictions": [
+        {
+          "case_id": "react-orchestration-13",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.87,
+          "evidence_signals": [
+            "User requests immediate subscription cancellation",
+            "Cancellation is an account-affecting and potentially irreversible external action",
+            "No authenticated account context or explicit authorization mechanism is available"
+          ],
+          "rationale": "The request involves an irreversible account change and requires verified authorization before execution. Route for human review or authenticated cancellation handling.",
+          "latency_ms": 4021.255200030282,
+          "input_tokens": 348,
+          "output_tokens": 87,
+          "cost_usd": 0.00087
+        },
+        {
+          "case_id": "react-orchestration-9",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Request changes billing/account information",
+            "Irreversible or externally impactful account update",
+            "Requires explicit authorization and likely identity verification"
+          ],
+          "rationale": "Changing a billing address is an externally impactful account action involving sensitive personal and financial information, so it requires human review or approval rather than automated execution.",
+          "latency_ms": 2445.0826999964193,
+          "input_tokens": 347,
+          "output_tokens": 86,
+          "cost_usd": 0.000863
+        },
+        {
+          "case_id": "simple-supra-50",
+          "route": "SIMPLE_LLM",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Creative writing request",
+            "Specifies a short output of exactly three sentences",
+            "Requires inclusion of given words and a female protagonist",
+            "No tools, research, or external actions needed"
+          ],
+          "rationale": "A single language-model response can safely fulfill this constrained creative-writing task.",
+          "latency_ms": 1741.5779000148177,
+          "input_tokens": 363,
+          "output_tokens": 82,
+          "cost_usd": 0.000855
+        },
+        {
+          "case_id": "simple-supra-5",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Creative dialogue generation",
+            "Requests a brief summary of the generated conversation",
+            "No tools, external research, or specialist coordination needed"
+          ],
+          "rationale": "A single language-model response can create six alternating turns (three per speaker) and summarize the topic.",
+          "latency_ms": 1958.3486000192352,
+          "input_tokens": 363,
+          "output_tokens": 78,
+          "cost_usd": 0.000831
+        },
+        {
+          "case_id": "direct_tool-project-4",
+          "route": "DIRECT_TOOL",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Exact lookup requested",
+            "Structured project identifier supplied",
+            "Return only one stored field: status",
+            "No reasoning, iteration, or external research needed"
+          ],
+          "rationale": "A deterministic lookup from the supplied project table is sufficient.",
+          "latency_ms": 2103.56130002765,
+          "input_tokens": 350,
+          "output_tokens": 70,
+          "cost_usd": 0.00077
+        },
+        {
+          "case_id": "human-orchestration-19",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.96,
+          "evidence_signals": [
+            "Requests time off, which affects workplace scheduling and attendance records",
+            "Requires authorization or approval from a manager/HR system",
+            "Friday is relative and may need confirmation of the applicable date and timezone"
+          ],
+          "rationale": "Taking leave is an external workplace action requiring explicit authorization and potentially calendar/HR updates. Automation should stop for human approval rather than execute or submit the request.",
+          "latency_ms": 2404.954000026919,
+          "input_tokens": 344,
+          "output_tokens": 102,
+          "cost_usd": 0.000956
+        },
+        {
+          "case_id": "react-orchestration-17",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "User reports a login error and frustration",
+            "Likely needs basic troubleshooting guidance",
+            "No request for external research, tools, or account action",
+            "No safety, authorization, or irreversible impact issue"
+          ],
+          "rationale": "Provide a concise explanation of possible HTTP 505 causes and basic login troubleshooting in a single language-model response.",
+          "latency_ms": 3750.3851000219584,
+          "input_tokens": 349,
+          "output_tokens": 92,
+          "cost_usd": 0.000901
+        },
+        {
+          "case_id": "direct_tool-project-9",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic request",
+            "All numeric inputs are explicitly supplied",
+            "No language reasoning or external research required"
+          ],
+          "rationale": "A single deterministic arithmetic operation can sum the confirmed development hours: 8 + 32 + 12.",
+          "latency_ms": 2530.538599996362,
+          "input_tokens": 350,
+          "output_tokens": 72,
+          "cost_usd": 0.000782
+        },
+        {
+          "case_id": "react-orchestration-74",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Accidental duplicate purchase",
+            "Potential financial transaction",
+            "Possible need for cancellation/refund",
+            "Authorization and irreversible external impact are unclear"
+          ],
+          "rationale": "The request concerns a potentially duplicated financial purchase. It requires human review or explicit authorization before attempting cancellation, refund, or other irreversible account action.",
+          "latency_ms": 1889.7697000065818,
+          "input_tokens": 343,
+          "output_tokens": 86,
+          "cost_usd": 0.000859
+        },
+        {
+          "case_id": "simple-supra-36",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Straightforward factual HTML question",
+            "Requires only a concise language response",
+            "No tools, external research, or specialist delegation needed"
+          ],
+          "rationale": "The request can be answered directly with a simple explanation: <h1> is the largest HTML heading tag.",
+          "latency_ms": 1833.1030000117607,
+          "input_tokens": 341,
+          "output_tokens": 80,
+          "cost_usd": 0.000821
+        },
+        {
+          "case_id": "supervisor-project-1",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Requires reviewing an uploaded brief",
+            "Must identify missing requirements",
+            "Requires collaboration with a pricing specialist",
+            "Requires compliance verification of contract constraints",
+            "Spans multiple specialized domains and dependent stages"
+          ],
+          "rationale": "This request needs coordinated work across requirements analysis, pricing estimation, and compliance review, with results merged and verified.",
+          "latency_ms": 2013.0725000053644,
+          "input_tokens": 358,
+          "output_tokens": 90,
+          "cost_usd": 0.000898
+        },
+        {
+          "case_id": "react-orchestration-3",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.97,
+          "evidence_signals": [
+            "Profile/account change requested",
+            "Phone number is sensitive personal information",
+            "Requires authenticated authorization and potentially irreversible external impact",
+            "Urgency does not establish authorization"
+          ],
+          "rationale": "Updating a profile phone number changes sensitive account data and requires explicit authenticated user approval or human review; do not execute automatically.",
+          "latency_ms": 1991.592700011097,
+          "input_tokens": 353,
+          "output_tokens": 86,
+          "cost_usd": 0.000869
+        },
+        {
+          "case_id": "simple-supra-7",
+          "route": "SIMPLE_LLM",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Creative writing request",
+            "No tools, research, or external action required",
+            "Single-domain language generation"
+          ],
+          "rationale": "A poem can be generated directly with one language-model call.",
+          "latency_ms": 1787.067599943839,
+          "input_tokens": 341,
+          "output_tokens": 65,
+          "cost_usd": 0.000731
+        },
+        {
+          "case_id": "direct_tool-project-3",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic requested",
+            "All numeric inputs are supplied",
+            "Single deterministic calculation",
+            "No language reasoning or external research needed"
+          ],
+          "rationale": "Compute 2,000,000 × 0.95 using one deterministic arithmetic function.",
+          "latency_ms": 1725.3746000351384,
+          "input_tokens": 355,
+          "output_tokens": 72,
+          "cost_usd": 0.000787
+        },
+        {
+          "case_id": "supervisor-project-9",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Requires comparing launch date against engineering capacity",
+            "Requires finance budget validation",
+            "Requires coordination of a phased delivery proposal",
+            "Spans multiple specialized domains with dependent results that must be merged"
+          ],
+          "rationale": "This request requires coordination across engineering and finance, followed by synthesis into a feasible phased delivery plan, so multiple specialized agents/departments are needed.",
+          "latency_ms": 1868.288700003177,
+          "input_tokens": 356,
+          "output_tokens": 97,
+          "cost_usd": 0.000938
+        },
+        {
+          "case_id": "supervisor-project-8",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "요구사항·기술 위험·예상 공수의 세 가지 전문 검토가 필요함",
+            "담당 에이전트 간 결과 의존성을 반영해야 함",
+            "검토 결과를 통합해 최종 견적 보고서를 작성해야 함"
+          ],
+          "rationale": "여러 전문 에이전트의 병렬·의존적 검토와 결과 통합이 필요한 다단계 요청이므로 Supervisor 경로가 적합합니다.",
+          "latency_ms": 9582.788800005801,
+          "input_tokens": 376,
+          "output_tokens": 125,
+          "cost_usd": 0.001126
+        },
+        {
+          "case_id": "simple-supra-3",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Creative writing request",
+            "Requests a plot summary",
+            "No tools, research, or external action needed",
+            "Involves a public figure in fictional comedy, not a factual claim"
+          ],
+          "rationale": "A single language-model response can safely produce the requested fictional plot summary.",
+          "latency_ms": 2192.5574999768287,
+          "input_tokens": 347,
+          "output_tokens": 82,
+          "cost_usd": 0.000839
+        },
+        {
+          "case_id": "react-orchestration-10",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.97,
+          "evidence_signals": [
+            "User is reporting a possible duplicate email-update request",
+            "They likely need a simple explanation or guidance on what to do next",
+            "No explicit authorization to make changes or need for tool access is provided"
+          ],
+          "rationale": "This is a routine support inquiry that can be addressed with a concise language-model response, such as acknowledging the duplicate and advising the user to check confirmation messages or contact support if needed.",
+          "latency_ms": 4064.366400009021,
+          "input_tokens": 352,
+          "output_tokens": 108,
+          "cost_usd": 0.001
+        },
+        {
+          "case_id": "supervisor-project-5",
+          "route": "SUPERVISOR",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Requires checking CRM history and a previous quote",
+            "Must coordinate requirements and finance",
+            "Needs a revised scope, schedule, and price",
+            "Requires evidence for every change",
+            "Spans multiple dependent business functions and data sources"
+          ],
+          "rationale": "This request requires coordinated retrieval, requirements analysis, financial/pricing work, and evidence-backed synthesis across multiple specialized functions.",
+          "latency_ms": 1904.5423999777995,
+          "input_tokens": 361,
+          "output_tokens": 98,
+          "cost_usd": 0.000949
+        },
+        {
+          "case_id": "direct_tool-project-0",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic requested",
+            "All numeric inputs are supplied",
+            "VAT rate is explicitly provided",
+            "No language reasoning or external research needed"
+          ],
+          "rationale": "This is a deterministic calculation of subtotal, VAT, and total using supplied values.",
+          "latency_ms": 2436.087099951692,
+          "input_tokens": 357,
+          "output_tokens": 72,
+          "cost_usd": 0.000789
+        },
+        {
+          "case_id": "human-orchestration-12",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Identity verification document is attached",
+            "Driver's license review involves highly sensitive personal data",
+            "Request may affect identity/KYC or access decisions",
+            "Explicit human review is required for authorization-sensitive identity verification"
+          ],
+          "rationale": "Reviewing an identity document is a high-stakes verification task involving sensitive personal information and potentially consequential access or compliance decisions. Route to human review rather than automated processing.",
+          "latency_ms": 1872.3608999862336,
+          "input_tokens": 345,
+          "output_tokens": 104,
+          "cost_usd": 0.000969
+        },
+        {
+          "case_id": "simple-supra-46",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Recipe generation from a supplied ingredient list",
+            "Requires language generation and basic culinary reasoning only",
+            "No tools, external research, or specialist delegation needed"
+          ],
+          "rationale": "A single language-model response can safely generate a suitable recipe using the listed ingredients.",
+          "latency_ms": 2392.3677000566386,
+          "input_tokens": 361,
+          "output_tokens": 78,
+          "cost_usd": 0.000829
+        },
+        {
+          "case_id": "supervisor-project-3",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Requires analyzing a discovery call",
+            "Explicitly asks a requirements team to define scope",
+            "Explicitly asks delivery to build a milestone plan",
+            "Requires merging outputs into a client-ready proposal",
+            "Spans multiple specialized roles and dependent stages"
+          ],
+          "rationale": "Coordinate specialized requirements and delivery work, then synthesize and verify both outputs into a polished proposal.",
+          "latency_ms": 1761.7546999827027,
+          "input_tokens": 363,
+          "output_tokens": 97,
+          "cost_usd": 0.000945
+        },
+        {
+          "case_id": "human-orchestration-76",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.86,
+          "evidence_signals": [
+            "The user provided a statement about a screenshot but did not request an action",
+            "No tool use or external verification is requested",
+            "Responding requires only basic conversational clarification"
+          ],
+          "rationale": "A simple language-model response should acknowledge the statement and, if needed, ask the user to upload or specify what they want done with the screenshot. No execution or verification is authorized.",
+          "latency_ms": 2088.6440000031143,
+          "input_tokens": 342,
+          "output_tokens": 102,
+          "cost_usd": 0.000954
+        },
+        {
+          "case_id": "human-orchestration-4",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.97,
+          "evidence_signals": [
+            "Submitting a vacation request is an external HR action",
+            "The request is potentially consequential and may affect payroll, attendance, or staffing",
+            "No explicit authorization, employee identity, leave balance, or approval context is provided",
+            "The action may be difficult to reverse after submission"
+          ],
+          "rationale": "Submitting leave on the user's behalf requires explicit authorization and confirmation of relevant employment details before an irreversible external action.",
+          "latency_ms": 2087.8100999980234,
+          "input_tokens": 347,
+          "output_tokens": 106,
+          "cost_usd": 0.000983
+        },
+        {
+          "case_id": "supervisor-project-0",
+          "route": "SUPERVISOR",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "상담 기록에서 요구사항 추출 필요",
+            "CRM 고객 정보 확인 필요",
+            "프로젝트 초안 작성 필요",
+            "근거를 포함한 견적 초안 작성 필요",
+            "여러 단계의 정보 확인·작성·통합 작업"
+          ],
+          "rationale": "상담 내용 분석, CRM 조회, 프로젝트 기획, 견적 산정 및 근거 통합이 서로 다른 전문 작업으로 구성되어 있어 여러 전문 에이전트의 조정과 결과 검증이 필요합니다.",
+          "latency_ms": 2300.277100002859,
+          "input_tokens": 370,
+          "output_tokens": 129,
+          "cost_usd": 0.001144
+        },
+        {
+          "case_id": "react-orchestration-22",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "User reports an incorrect shipping-address update",
+            "Shipping address changes affect delivery and personal information",
+            "Correction may require identity verification and authorization",
+            "Potential irreversible external impact if shipment is already processed"
+          ],
+          "rationale": "Address corrections involve sensitive personal data and may affect an active shipment. Human review is required to verify authorization and safely determine whether the address can be corrected.",
+          "latency_ms": 2195.65850001527,
+          "input_tokens": 344,
+          "output_tokens": 99,
+          "cost_usd": 0.000938
+        },
+        {
+          "case_id": "react-orchestration-0",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.93,
+          "evidence_signals": [
+            "Potential duplicate financial charge",
+            "Account-specific billing issue",
+            "Requires transaction verification and possible refund",
+            "Authorization to alter billing/refund is not established"
+          ],
+          "rationale": "This involves a disputed charge and potentially irreversible financial action (refund or billing adjustment). Human review or explicit approval is required before proceeding.",
+          "latency_ms": 2074.0817000041716,
+          "input_tokens": 351,
+          "output_tokens": 87,
+          "cost_usd": 0.000873
+        },
+        {
+          "case_id": "react-orchestration-5",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.93,
+          "evidence_signals": [
+            "User reports a possible duplicate transaction",
+            "No explicit request for account action, refund, dispute, or external contact",
+            "Can provide general troubleshooting and next steps without tools"
+          ],
+          "rationale": "This is a basic support/advice request that can be handled with a single language-model response. It does not require transaction lookup or irreversible action unless the user later requests investigation or dispute initiation.",
+          "latency_ms": 4090.4968000249937,
+          "input_tokens": 348,
+          "output_tokens": 104,
+          "cost_usd": 0.000972
+        },
+        {
+          "case_id": "human-orchestration-11",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.97,
+          "evidence_signals": [
+            "Leave balance and December availability are not supplied",
+            "Booking time off creates an external, potentially irreversible employment action",
+            "The request involves ambiguous authorization and missing date details"
+          ],
+          "rationale": "Do not book leave automatically. Explicit human confirmation is required for the exact dates, applicable leave policy, and authorization to submit the booking.",
+          "latency_ms": 1959.4881000230089,
+          "input_tokens": 352,
+          "output_tokens": 92,
+          "cost_usd": 0.000904
+        },
+        {
+          "case_id": "human-orchestration-21",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Passport is a highly sensitive government identity document",
+            "Request concerns account-specific identity verification",
+            "Verification may affect access or account status",
+            "Explicit authorization and privacy-sensitive review are required"
+          ],
+          "rationale": "Automated verification of a passport upload for a specific account involves sensitive identity data and potentially consequential account access decisions. Route to explicit human review.",
+          "latency_ms": 2068.0216000182554,
+          "input_tokens": 344,
+          "output_tokens": 95,
+          "cost_usd": 0.000914
+        },
+        {
+          "case_id": "supervisor-project-6",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "개발 기록과 고객 커뮤니케이션이라는 서로 다른 자료/업무 영역 조사",
+            "일정 복구안과 고객 안내문을 부서별로 작성",
+            "복수 결과를 통합해야 함"
+          ],
+          "rationale": "개발 부서와 고객 커뮤니케이션/대응 부서의 전문 작업을 병렬 또는 순차적으로 수행한 뒤, 조사 결과와 산출물을 통합·검토해야 하므로 여러 전문 에이전트의 조정이 필요합니다.",
+          "latency_ms": 2305.5549999698997,
+          "input_tokens": 372,
+          "output_tokens": 134,
+          "cost_usd": 0.001176
+        },
+        {
+          "case_id": "supervisor-project-2",
+          "route": "SUPERVISOR",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "기존 계약 범위 검토 필요",
+            "개발 일정 영향 산정 필요",
+            "추가 비용 산정 필요",
+            "복수 분석 결과를 하나의 변경 제안서로 통합해야 함"
+          ],
+          "rationale": "계약 범위 검토, 일정 영향 분석, 비용 산정은 서로 다른 전문 영역의 작업이며, 결과를 통합해 변경 제안서로 작성해야 하므로 여러 전문 에이전트의 조정이 필요합니다.",
+          "latency_ms": 1973.28400000697,
+          "input_tokens": 372,
+          "output_tokens": 125,
+          "cost_usd": 0.001122
+        },
+        {
+          "case_id": "human-orchestration-15",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.97,
+          "evidence_signals": [
+            "Paternity leave is an employment/HR action",
+            "The request specifies dates but does not establish authorization or policy eligibility",
+            "Booking leave may create an official employment record and affect payroll/benefits"
+          ],
+          "rationale": "This requires HR-system action with employment-policy and authorization implications, so explicit human review or approval is required before booking.",
+          "latency_ms": 2568.7738000415266,
+          "input_tokens": 345,
+          "output_tokens": 95,
+          "cost_usd": 0.000915
+        },
+        {
+          "case_id": "simple-supra-19",
+          "route": "SIMPLE_LLM",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Creative writing request",
+            "Explicit four-sentence constraint",
+            "No tools or external research needed",
+            "No safety-sensitive or irreversible action"
+          ],
+          "rationale": "A single language-model response can directly produce the requested four-sentence horror story.",
+          "latency_ms": 1782.03649999341,
+          "input_tokens": 342,
+          "output_tokens": 72,
+          "cost_usd": 0.000774
+        },
+        {
+          "case_id": "human-orchestration-90",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Driver's license is a sensitive government-issued identity document",
+            "Age verification involves personal data and identity-related processing",
+            "No explicit authorization or verification workflow details are provided"
+          ],
+          "rationale": "Stop automation because processing a driver's license requires handling highly sensitive personal information and may create identity, privacy, or compliance implications. Explicit human-approved handling or a verified secure workflow is required.",
+          "latency_ms": 2072.1667000325397,
+          "input_tokens": 341,
+          "output_tokens": 101,
+          "cost_usd": 0.000947
+        },
+        {
+          "case_id": "human-orchestration-23",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Submitting leave is an external HR action",
+            "Jury duty leave may require legal/documentary eligibility verification",
+            "The request is ambiguous about the date because 'next Monday' is relative",
+            "Submission may create an official employment record"
+          ],
+          "rationale": "This requires an irreversible or consequential workplace submission and potentially sensitive legal documentation. Explicit human review or approval is required before submitting.",
+          "latency_ms": 2287.5802000053227,
+          "input_tokens": 343,
+          "output_tokens": 101,
+          "cost_usd": 0.000949
+        },
+        {
+          "case_id": "direct_tool-project-2",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic requested",
+            "All line items are explicitly supplied",
+            "Currency is stated as KRW",
+            "No language reasoning or external research needed"
+          ],
+          "rationale": "A single deterministic addition function can safely sum the approved amounts without modifying them.",
+          "latency_ms": 2197.651599999517,
+          "input_tokens": 356,
+          "output_tokens": 73,
+          "cost_usd": 0.000794
+        },
+        {
+          "case_id": "react-orchestration-18",
+          "route": "HUMAN_REQUIRED",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "Duplicate pending financial charges",
+            "Specific order identifier requires account/order lookup",
+            "Potential refund, cancellation, or payment adjustment has financial impact",
+            "Authorization and transaction status are ambiguous"
+          ],
+          "rationale": "Resolving suspected duplicate charges may require accessing payment and order systems and could trigger an irreversible financial action. Explicit human review or approval is required before proceeding.",
+          "latency_ms": 2120.328699995298,
+          "input_tokens": 347,
+          "output_tokens": 96,
+          "cost_usd": 0.000923
+        },
+        {
+          "case_id": "supervisor-project-7",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Requests legal review of an NDA",
+            "Requests delivery/technical feasibility assessment",
+            "Requests finance commercial-impact calculation",
+            "Requires merging results into one go/no-go recommendation"
+          ],
+          "rationale": "The request spans three specialized domains with dependent assessments that must be coordinated and synthesized, so a supervisor should delegate to legal, delivery, and finance specialists and merge their findings.",
+          "latency_ms": 1985.8400000375696,
+          "input_tokens": 357,
+          "output_tokens": 98,
+          "cost_usd": 0.000945
+        },
+        {
+          "case_id": "direct_tool-project-5",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact date arithmetic",
+            "Both dates are supplied in structured ISO format",
+            "No language reasoning or external research required"
+          ],
+          "rationale": "A single deterministic date-difference function can calculate the number of days between the two provided dates.",
+          "latency_ms": 1603.8692999863997,
+          "input_tokens": 354,
+          "output_tokens": 72,
+          "cost_usd": 0.000786
+        },
+        {
+          "case_id": "supervisor-project-4",
+          "route": "SUPERVISOR",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "보안·개발·디자인이라는 세 전문 관점의 병렬 검토가 필요함",
+            "각 관점의 의견을 조정하고 충돌을 해결해야 함",
+            "통합된 최종 실행 계획 작성이 요구됨"
+          ],
+          "rationale": "여러 전문 영역의 분석 결과를 취합하고 상충하는 의견을 조정해야 하므로, 전문 에이전트들을 조정하는 SUPERVISOR 경로가 적합합니다.",
+          "latency_ms": 2895.877000002656,
+          "input_tokens": 373,
+          "output_tokens": 126,
+          "cost_usd": 0.001129
+        },
+        {
+          "case_id": "direct_tool-project-6",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic requested",
+            "Unit price and quantity are explicitly supplied and confirmed",
+            "No language reasoning, external research, or authorization is needed"
+          ],
+          "rationale": "A single deterministic multiplication is sufficient: 37,500 KRW × 24.",
+          "latency_ms": 1628.2820999622345,
+          "input_tokens": 350,
+          "output_tokens": 75,
+          "cost_usd": 0.0008
+        },
+        {
+          "case_id": "direct_tool-project-8",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact percentage calculation",
+            "Amount and percentage are explicitly supplied",
+            "No language reasoning or external research required"
+          ],
+          "rationale": "A single deterministic arithmetic operation calculates 30% of 4,500,000 KRW.",
+          "latency_ms": 1786.404800019227,
+          "input_tokens": 353,
+          "output_tokens": 68,
+          "cost_usd": 0.000761
+        },
+        {
+          "case_id": "simple-supra-30",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Creative rewriting request",
+            "No tools or external research needed",
+            "Low-risk fictional content"
+          ],
+          "rationale": "A single language-model call can rewrite the sentence with more stylistic flair.",
+          "latency_ms": 1567.5611000042409,
+          "input_tokens": 366,
+          "output_tokens": 65,
+          "cost_usd": 0.000756
+        },
+        {
+          "case_id": "simple-supra-32",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "Creative writing request",
+            "No tools or external research needed",
+            "No safety, authorization, or irreversible-impact concerns"
+          ],
+          "rationale": "A comedy movie premise can be generated directly with a single language-model response.",
+          "latency_ms": 1798.2141000102274,
+          "input_tokens": 341,
+          "output_tokens": 70,
+          "cost_usd": 0.000761
+        },
+        {
+          "case_id": "simple-supra-40",
+          "route": "SIMPLE_LLM",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Creative writing request",
+            "Requires a single language-model response",
+            "No tools, external research, or specialist coordination needed",
+            "Length constraint is straightforward"
+          ],
+          "rationale": "A short fictional story can be generated directly by one language-model call.",
+          "latency_ms": 1912.7333000069484,
+          "input_tokens": 361,
+          "output_tokens": 75,
+          "cost_usd": 0.000811
+        },
+        {
+          "case_id": "direct_tool-project-1",
+          "route": "DIRECT_TOOL",
+          "confidence": 1.0,
+          "evidence_signals": [
+            "Exact arithmetic",
+            "Inputs and conversion factor are fully supplied",
+            "No language reasoning or external research required"
+          ],
+          "rationale": "A single deterministic calculation, 3.5 × 8 = 28 hours.",
+          "latency_ms": 1727.6397999958135,
+          "input_tokens": 349,
+          "output_tokens": 68,
+          "cost_usd": 0.000757
+        },
+        {
+          "case_id": "direct_tool-project-7",
+          "route": "DIRECT_TOOL",
+          "confidence": 0.99,
+          "evidence_signals": [
+            "The request asks for a single stored currency code",
+            "The value is to be retrieved from provided structured context",
+            "No reasoning, external research, or iteration is required"
+          ],
+          "rationale": "A deterministic lookup from supplied structured data is sufficient.",
+          "latency_ms": 1709.8075000103563,
+          "input_tokens": 346,
+          "output_tokens": 74,
+          "cost_usd": 0.00079
+        },
+        {
+          "case_id": "human-orchestration-1",
+          "route": "SIMPLE_LLM",
+          "confidence": 0.98,
+          "evidence_signals": [
+            "The user needs help formulating a time-off request",
+            "This is a writing task with no need for tools or external research",
+            "No irreversible action or authorization to submit the request was provided"
+          ],
+          "rationale": "Drafting a bereavement leave request can be completed with a single language-model response. The assistant should provide a respectful template and may note that the user should confirm the exact date and workplace policy.",
+          "latency_ms": 1906.734200019855,
+          "input_tokens": 347,
+          "output_tokens": 111,
+          "cost_usd": 0.001013
+        }
+      ]
+    }
+  ],
+  "ab_test": {
+    "a_only_correct": 10,
+    "b_only_correct": 38,
+    "p_value": 6.169640777642371e-05
+  },
+  "pricing_snapshot": {
+    "currency": "USD",
+    "unit": "per_1m_tokens",
+    "retrieved_at": "2026-08-11",
+    "sources": [
+      "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "https://developers.openai.com/api/docs/models/compare"
+    ],
+    "models": {
+      "gpt-5.4-nano-2026-03-17": {
+        "input": 0.2,
+        "output": 1.25
+      },
+      "gpt-5.6-luna": {
+        "input": 1.0,
+        "output": 6.0
+      },
+      "gpt-5.6-terra": {
+        "input": 2.5,
+        "output": 15.0
+      },
+      "gpt-5.6-sol": {
+        "input": 5.0,
+        "output": 30.0
+      }
+    }
+  }
+}

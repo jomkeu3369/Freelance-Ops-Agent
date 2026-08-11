@@ -1,0 +1,2103 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-11T03:46:59.670995+00:00",
+  "paired_case_ids": [
+    "react-orchestration-9",
+    "direct_tool-project-7",
+    "react-orchestration-22",
+    "supervisor-project-7",
+    "human-orchestration-23",
+    "human-orchestration-21",
+    "direct_tool-project-4",
+    "react-orchestration-13",
+    "simple-supra-7",
+    "simple-supra-36",
+    "simple-supra-5",
+    "direct_tool-project-2",
+    "direct_tool-project-9",
+    "human-orchestration-4",
+    "supervisor-project-1",
+    "react-orchestration-5",
+    "supervisor-project-5",
+    "simple-supra-46",
+    "supervisor-project-9",
+    "human-orchestration-19"
+  ],
+  "router_summaries": {
+    "A_liquid_encoder": {
+      "samples": 20,
+      "route_pass_rate": 0.45,
+      "mean_groundless_rate": 0.17083333333333334,
+      "hallucination_rate": 0.0,
+      "judge_cost_usd": 0.1711763
+    },
+    "B_prompt_llm": {
+      "samples": 20,
+      "route_pass_rate": 1.0,
+      "mean_groundless_rate": 0.012500000000000006,
+      "hallucination_rate": 0.0,
+      "judge_cost_usd": 0.16296485
+    }
+  },
+  "judge_summaries": {
+    "gpt-5.6-sol": {
+      "calls": 40,
+      "cost_usd": 0.22219,
+      "mean_latency_ms": 2875.354457498179
+    },
+    "gpt-5.6-terra": {
+      "calls": 40,
+      "cost_usd": 0.10229,
+      "mean_latency_ms": 2042.5519499956863
+    },
+    "gpt-5.4-nano-2026-03-17": {
+      "calls": 40,
+      "cost_usd": 0.00966115,
+      "mean_latency_ms": 1504.2829024983803
+    }
+  },
+  "items": [
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "react-orchestration-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL is likely wrong because the request requires executing an account change, not one of the policy’s permitted deterministic arithmetic, tax, currency, date, or structured-data lookup functions. REACT_AGENT better matches the reference and a bounded tool-based workflow. The rationale merely reports model scoring and does not substantively justify policy compliance.",
+          "latency_ms": 4078.500500007067,
+          "input_tokens": 504,
+          "output_tokens": 106,
+          "cost_usd": 0.0057
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL does not fit: changing a billing address is an external account modification, not deterministic computation or lookup from supplied structured data. The reference REACT_AGENT is more appropriate for handling the account-update workflow, though the request may also require authorization safeguards.",
+          "latency_ms": 3722.6539999828674,
+          "input_tokens": 504,
+          "output_tokens": 91,
+          "cost_usd": 0.002625
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user’s request is a straightforward billing-address update and can be handled by a direct deterministic tool action (no multi-domain coordination or explicit human approval indicated). The candidate chose DIRECT_TOOL and provides no conflicting invented details; the rationale is minimal but consistent and does not add unsupported facts.",
+          "latency_ms": 2328.9529999601655,
+          "input_tokens": 504,
+          "output_tokens": 97,
+          "cost_usd": 0.00022205
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 2.0,
+        "groundedness_score": 2.6666666666666665,
+        "groundless_rate": 0.33333333333333337,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "direct_tool-project-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the request: retrieving a stored currency code from already supplied structured context is a deterministic lookup requiring no language reasoning, iteration, or external research. The candidate rationale and evidence signals introduce no unsupported factual claims.",
+          "latency_ms": 3477.237500017509,
+          "input_tokens": 502,
+          "output_tokens": 85,
+          "cost_usd": 0.00506
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a deterministic lookup of a currency code from supplied structured context, which matches the DIRECT_TOOL policy. The candidate route exactly matches the reference route, and its rationale introduces no unsupported task-specific facts.",
+          "latency_ms": 2699.664399959147,
+          "input_tokens": 502,
+          "output_tokens": 82,
+          "cost_usd": 0.002485
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route matches the reference (DIRECT_TOOL) for a simple extraction from already-supplied structured context. No external research, iteration, or reasoning steps are introduced. Candidate confidence/evidence signals are consistent with choosing DIRECT_TOOL, and the rationale does not add any unsupported facts.",
+          "latency_ms": 2299.294199969154,
+          "input_tokens": 502,
+          "output_tokens": 96,
+          "cost_usd": 0.00022040000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "react-orchestration-22",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route is likely wrong. The complaint concerns correcting a shipping address, which is a bounded customer-service task that may require tool use and matches the reference REACT_AGENT route. No legal, privacy, safety, financial-authority, ambiguous-authorization, or irreversible-impact condition is stated that would require human review. The rationale provides only model scores and no policy-grounded justification, though it does not introduce unsupported facts.",
+          "latency_ms": 2567.8707999759354,
+          "input_tokens": 503,
+          "output_tokens": 125,
+          "cost_usd": 0.006265
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 1,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route is likely wrong. The complaint concerns an incorrectly updated shipping address and calls for investigating or resolving an account/order issue, which fits the reference REACT_AGENT route. Nothing in the request establishes a need to stop for explicit human approval under the listed HUMAN_REQUIRED triggers.",
+          "latency_ms": 3793.67009998532,
+          "input_tokens": 503,
+          "output_tokens": 96,
+          "cost_usd": 0.0026975
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user is disputing an incorrect shipping address, which is an irreversible external/logistics change with potential privacy/financial impact. Per the route policy, this requires explicit human review/approval, so HUMAN_REQUIRED is the correct routing. The candidate confidence supports a human-needed decision, and the rationale is not introducing any new facts beyond the routing context (no hallucinated specifics).",
+          "latency_ms": 1822.1537999925204,
+          "input_tokens": 503,
+          "output_tokens": 115,
+          "cost_usd": 0.00024435
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 2.0,
+        "groundedness_score": 2.3333333333333335,
+        "groundless_rate": 0.41666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "supervisor-project-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires coordinating legal, technical delivery, and finance inputs, then merging them into one recommendation, which directly matches SUPERVISOR. HUMAN_REQUIRED is likely wrong as the overall route: legal review may involve humans, but the request does not call for stopping automation to obtain explicit approval, and the financial task is analysis rather than exercising financial authority. The rationale adds no unsupported factual claims, but provides no substantive, rer",
+          "latency_ms": 3426.919599995017,
+          "input_tokens": 519,
+          "output_tokens": 126,
+          "cost_usd": 0.006375
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 1,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires coordination across legal, technical delivery, and finance, followed by a merged go/no-go recommendation, which matches SUPERVISOR. Human review may be involved as a specialist input, but the request does not require stopping automation for explicit approval or an irreversible action; HUMAN_REQUIRED is therefore likely wrong.",
+          "latency_ms": 1849.1796999587677,
+          "input_tokens": 519,
+          "output_tokens": 104,
+          "cost_usd": 0.0028575
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires multiple domain checks (legal review NDA, technical feasibility assessment, finance commercial impact) and then a single go/no-go recommendation. That spans legal/technical/finance departments, so SUPERVISOR is appropriate. Candidate routing to HUMAN_REQUIRED is not clearly justified by the provided signals or rationale; the candidate rationale (“Fine-tuned encoder lane scores; no generated reasoning.”) doesn’t explain why human review is legally/financially/irre-",
+          "latency_ms": 1494.359100004658,
+          "input_tokens": 519,
+          "output_tokens": 134,
+          "cost_usd": 0.00027130000000000004
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 1.6666666666666667,
+        "groundedness_score": 2.3333333333333335,
+        "groundless_rate": 0.41666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "human-orchestration-23",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route. Submitting a leave request creates an external employment-related action and may involve authorization and privacy considerations, so requiring human review or approval is consistent with the stated policy. The rationale and score signals introduce no unsupported factual claims.",
+          "latency_ms": 2091.796200023964,
+          "input_tokens": 505,
+          "output_tokens": 93,
+          "cost_usd": 0.005315
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate matches the reference route. Submitting a leave request creates an external HR/employment action and may require explicit user authorization or human approval, fitting HUMAN_REQUIRED under the policy.",
+          "latency_ms": 1658.8148000300862,
+          "input_tokens": 505,
+          "output_tokens": 77,
+          "cost_usd": 0.0024175
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "User request is to submit a leave request for Jury Duty (legal/authority-related, irreversible HR/process impact), which matches the HUMAN_REQUIRED policy. Candidate route is HUMAN_REQUIRED, consistent with the request and evidence signals; rationale adds no extraneous facts beyond mentioning scoring.",
+          "latency_ms": 1363.6423999560066,
+          "input_tokens": 505,
+          "output_tokens": 94,
+          "cost_usd": 0.0002185
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "human-orchestration-21",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 0,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [
+            "The selected DIRECT_TOOL route is unsupported because passport verification involves sensitive identity documentation and requires human review under the privacy/authorization criteria."
+          ],
+          "rationale": "The candidate route is clearly wrong. Verifying a passport upload entails reviewing sensitive identity documentation and potentially approving an account-related identity check, so HUMAN_REQUIRED is appropriate. DIRECT_TOOL is restricted to deterministic arithmetic, date, currency, tax, or structured-data lookups and cannot perform document verification. The score signals and encoder rationale do not substantively justify the route, though they do not introduce fabricated facts.",
+          "latency_ms": 3672.9297999991104,
+          "input_tokens": 502,
+          "output_tokens": 145,
+          "cost_usd": 0.00686
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Passport upload verification involves highly sensitive identity documentation and likely requires explicit human review under the privacy and authorization policy. DIRECT_TOOL is limited to deterministic operations on already supplied structured data and is not appropriate.",
+          "latency_ms": 1771.9061000389047,
+          "input_tokens": 502,
+          "output_tokens": 79,
+          "cost_usd": 0.00244
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks to verify a newly uploaded passport for a specific account, which is a legal/privacy-sensitive identity verification step requiring explicit human review per the policy. The candidate routed to DIRECT_TOOL, which is disallowed for this kind of verification since it typically involves external/irreversible or sensitive authorization rather than deterministic exact arithmetic or lookup from already structured data. The candidate rationale (“Fine-tuned encoder lane scores; no gener[at",
+          "latency_ms": 1492.6426999736577,
+          "input_tokens": 502,
+          "output_tokens": 127,
+          "cost_usd": 0.00025915
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 0.3333333333333333,
+        "groundedness_score": 3.0,
+        "groundless_rate": 0.25,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "direct_tool-project-4",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the request: it is a deterministic lookup of a single field from already supplied structured data. The candidate rationale and evidence signals do not introduce unsupported factual claims.",
+          "latency_ms": 2235.2701000054367,
+          "input_tokens": 506,
+          "output_tokens": 76,
+          "cost_usd": 0.00481
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a single exact lookup from supplied structured data and asks only for the stored status, matching DIRECT_TOOL policy exactly. The candidate route matches the reference route.",
+          "latency_ms": 1618.3172999881208,
+          "input_tokens": 506,
+          "output_tokens": 74,
+          "cost_usd": 0.002375
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward lookup of a specific project’s stored status from already supplied structured data. Both the reference and candidate routes use DIRECT_TOOL, which matches the policy for exact lookup without language reasoning, iteration, or external research. The candidate confidence/evidence signals include other route types, but the candidate selected DIRECT_TOOL, and no unsupported facts beyond the routing decision are introduced.",
+          "latency_ms": 1284.1478000045754,
+          "input_tokens": 506,
+          "output_tokens": 116,
+          "cost_usd": 0.00024619999999999997
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "react-orchestration-13",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is defensible because immediate subscription cancellation has external account impact and may require authorization or human approval. However, the reference REACT_AGENT is also reasonable if cancellation can be completed through bounded account-management tools, so the candidate is acceptable under policy ambiguity rather than exactly correct. The rationale and score signals introduce no unsupported factual claims.",
+          "latency_ms": 2705.058299994562,
+          "input_tokens": 508,
+          "output_tokens": 109,
+          "cost_usd": 0.00581
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 2,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Cancellation is an irreversible external account action, so HUMAN_REQUIRED is defensible under the policy absent explicit confirmation of authorization or account context. However, the reference route is REACT_AGENT, making the candidate route mismatched to the expected handling.",
+          "latency_ms": 1918.0588999879546,
+          "input_tokens": 508,
+          "output_tokens": 88,
+          "cost_usd": 0.00259
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user requests immediate cancellation, which is an irreversible account/change action requiring explicit human or authorized handling. The candidate route HUMAN_REQUIRED aligns with the route policy rationale for actions involving financial authority/irreversible impact. The provided rationale (“Fine-tuned encoder lane scores; no generated reasoning.”) does not add unsupported facts, and the evidence signals show low confidence for HUMAN_REQUIRED but the route choice itself remains policy-rob",
+          "latency_ms": 1394.1173999919556,
+          "input_tokens": 508,
+          "output_tokens": 124,
+          "cost_usd": 0.0002566
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 3.0,
+        "groundedness_score": 3.3333333333333335,
+        "groundless_rate": 0.16666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "simple-supra-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 0,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [
+            "The HUMAN_REQUIRED route is unsupported because the request is a harmless creative-writing task with no legal, privacy, safety, financial, authorization, or irreversible-impact concerns."
+          ],
+          "rationale": "The request is a straightforward poem-writing task and clearly belongs in SIMPLE_LLM. Routing to HUMAN_REQUIRED is clearly wrong and needlessly stops automation. The rationale only reports model scores and provides no policy-based justification; however, it does not invent external facts.",
+          "latency_ms": 3417.2187999938615,
+          "input_tokens": 503,
+          "output_tokens": 124,
+          "cost_usd": 0.006235
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 0,
+          "hallucination_detected": true,
+          "unsupported_claims": [
+            "The rationale references a fine-tuned encoder lane scoring process, which is not supported by the user request or route policy.",
+            "The HUMAN_REQUIRED route has no policy trigger: the request involves no legal, privacy, safety, financial-authority, authorization, or irreversible-impact concern."
+          ],
+          "rationale": "A poem request is straightforward language generation and should use SIMPLE_LLM. Routing to HUMAN_REQUIRED is clearly incorrect. The candidate rationale adds unsupported model-process details rather than grounding the route in the request or policy.",
+          "latency_ms": 2029.8183999839239,
+          "input_tokens": 503,
+          "output_tokens": 136,
+          "cost_usd": 0.0032975
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks only: “Write a poem about the sun and moon.” This is a straightforward language task with no legal/privacy/irreversible impact, so routing to HUMAN_REQUIRED is likely wrong. SIMPLE_LLM would be the appropriate route. Candidate rationale (“Fine-tuned encoder lane scores; no generated reasoning.”) is generic and does not introduce unsupported facts, but it doesn’t justify HUMAN_REQUIRED for this benign request.",
+          "latency_ms": 1258.0639999941923,
+          "input_tokens": 503,
+          "output_tokens": 125,
+          "cost_usd": 0.00025685000000000004
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 0.3333333333333333,
+        "groundedness_score": 1.6666666666666667,
+        "groundless_rate": 0.5833333333333333,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "simple-supra-36",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is exactly appropriate for this basic factual HTML question. It requires no tools, external research, iteration, specialist delegation, or human review. The rationale and evidence signals do not add unsupported facts.",
+          "latency_ms": 3278.509599971585,
+          "input_tokens": 501,
+          "output_tokens": 83,
+          "cost_usd": 0.004995
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a simple factual HTML question answerable in one language-model response, with no tools, research, iteration, or delegation needed. SIMPLE_LLM exactly matches the reference route and policy.",
+          "latency_ms": 1612.5287000322714,
+          "input_tokens": 501,
+          "output_tokens": 80,
+          "cost_usd": 0.0024525
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate selected SIMPLE_LLM, which matches the request for a straightforward HTML fact with no need for tools, iteration, or specialist multi-step reasoning. The evidence signals and the route rationale do not introduce any new facts beyond what the routing decision requires, so groundedness is fully supported.",
+          "latency_ms": 1174.2529000039212,
+          "input_tokens": 501,
+          "output_tokens": 98,
+          "cost_usd": 0.0002227
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "simple-supra-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [
+            "The HUMAN_REQUIRED route is not supported by any legal, privacy, safety, financial-authority, authorization, or irreversible-impact concern in the request."
+          ],
+          "rationale": "This is a straightforward creative-writing and summarization task that fits SIMPLE_LLM exactly. Human review is unnecessary. The candidate rationale supplies no reasoning that supports its route, though it does not introduce fabricated facts.",
+          "latency_ms": 4219.167999981437,
+          "input_tokens": 525,
+          "output_tokens": 111,
+          "cost_usd": 0.005955
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is clearly incorrect: the request is a harmless creative writing and summary task with no legal, privacy, safety, financial, authorization, or irreversible-impact concern. It should be handled by a single SIMPLE_LLM call, matching the reference route.",
+          "latency_ms": 2962.996399961412,
+          "input_tokens": 525,
+          "output_tokens": 93,
+          "cost_usd": 0.0027075
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks to generate a simple 3-turn dialogue and then summarize what was discussed—this is straightforward language generation with no legal/privacy/financial/irreversible impact, no need for tools, and no multi-domain coordination. The candidate route HUMAN_REQUIRED is therefore likely wrong. The groundedness is high because the candidate rationale (“Fine-tuned encoder lane scores; no generated reasoning.”) is not introducing any new factual claims beyond the routing signals.",
+          "latency_ms": 1916.403800016269,
+          "input_tokens": 525,
+          "output_tokens": 130,
+          "cost_usd": 0.0002675
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 0.6666666666666666,
+        "groundedness_score": 3.0,
+        "groundless_rate": 0.25,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "direct_tool-project-2",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the request: it is deterministic addition using already supplied structured numeric data, with no need for language reasoning, external research, or human review. The candidate rationale merely describes the routing signal source and adds no unsupported factual claims.",
+          "latency_ms": 2838.319099973887,
+          "input_tokens": 512,
+          "output_tokens": 89,
+          "cost_usd": 0.00523
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the request: it is a deterministic addition of supplied KRW amounts with no need for language reasoning, iteration, external data, or human review.",
+          "latency_ms": 1523.7657999969088,
+          "input_tokens": 512,
+          "output_tokens": 74,
+          "cost_usd": 0.00239
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Both reference and candidate routes are DIRECT_TOOL, which matches the policy for exact arithmetic/lookup without language reasoning or iteration. The user request is a simple approval to add specific KRW line items with no need for multi-step agents or human review, and the candidate rationale contains no extra factual claims beyond the routing signals.",
+          "latency_ms": 1565.892199985683,
+          "input_tokens": 512,
+          "output_tokens": 104,
+          "cost_usd": 0.0002324
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "direct_tool-project-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 0,
+          "groundedness_score": 1,
+          "hallucination_detected": false,
+          "unsupported_claims": [
+            "The HUMAN_REQUIRED route is unsupported because the request involves only exact arithmetic on supplied structured data, with no legal, privacy, safety, authority, authorization, or irreversible-impact concern."
+          ],
+          "rationale": "The request is a deterministic sum of provided values (8 + 32 + 12), so DIRECT_TOOL is exactly prescribed by the route policy. HUMAN_REQUIRED is clearly wrong and unnecessarily stops automation. The candidate rationale provides no request-specific justification, though it does not introduce fabricated facts.",
+          "latency_ms": 3236.270900000818,
+          "input_tokens": 508,
+          "output_tokens": 132,
+          "cost_usd": 0.0065
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is exact arithmetic over supplied structured values, so DIRECT_TOOL is required. HUMAN_REQUIRED has no policy trigger: there is no legal, privacy, safety, authorization, or irreversible-impact concern. The candidate rationale adds no unsupported factual claims.",
+          "latency_ms": 1671.6623000102118,
+          "input_tokens": 508,
+          "output_tokens": 89,
+          "cost_usd": 0.002605
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward arithmetic sum (8 + 32 + 12) using already provided numbers, which matches DIRECT_TOOL’s requirement for exact arithmetic. Choosing HUMAN_REQUIRED is unnecessary and incorrect because no legal/privacy/irreversible impact or ambiguous authorization is involved. The groundedness is high since the rationale correctly notes there’s no extra reasoning, but the routing decision is likely wrong.",
+          "latency_ms": 2303.887100017164,
+          "input_tokens": 508,
+          "output_tokens": 117,
+          "cost_usd": 0.00024785000000000003
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 0.3333333333333333,
+        "groundedness_score": 3.0,
+        "groundless_rate": 0.25,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "human-orchestration-4",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route. Submitting a vacation request creates an external action with authorization/approval implications, so HUMAN_REQUIRED is consistent with the stated policy. The evidence signals and rationale do not introduce unsupported factual claims.",
+          "latency_ms": 2349.2679999908432,
+          "input_tokens": 507,
+          "output_tokens": 87,
+          "cost_usd": 0.005145
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Submitting a vacation request creates an external workplace action and may require authorization or approval. HUMAN_REQUIRED matches the reference route and the policy’s ambiguous authorization/external-impact criteria.",
+          "latency_ms": 1595.8345999824814,
+          "input_tokens": 507,
+          "output_tokens": 74,
+          "cost_usd": 0.0023775
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate selected HUMAN_REQUIRED, which matches the route policy requirement to stop automation and get explicit human approval for authorization/irreversible external impact. The user request is a vacation submission (an approval/HR action), with no qualifying structured-data tool path specified; thus HUMAN_REQUIRED is fully appropriate. Candidate rationale contains no extraneous facts beyond the routing setup.",
+          "latency_ms": 1199.55179997487,
+          "input_tokens": 507,
+          "output_tokens": 110,
+          "cost_usd": 0.0002389
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "supervisor-project-1",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires coordination across requirements analysis, pricing estimation, and compliance review, with dependent outputs that must be combined. Under the policy, SUPERVISOR is the correct route; a single REACT_AGENT is likely wrong because this is not confined to one specialist domain. The candidate rationale merely reports model scoring and offers no request-grounded justification, though it does not introduce unsupported factual claims.",
+          "latency_ms": 3146.851899975445,
+          "input_tokens": 518,
+          "output_tokens": 120,
+          "cost_usd": 0.00619
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request requires coordinating brief review, pricing estimation with a specialist, and compliance verification of contract constraints—multiple specialized domains with merged results. SUPERVISOR is the appropriate route; a single-domain REACT_AGENT is clearly insufficient.",
+          "latency_ms": 2098.674700013362,
+          "input_tokens": 518,
+          "output_tokens": 87,
+          "cost_usd": 0.0026
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user request explicitly spans multiple dependent tasks (review uploaded brief → identify missing requirements → estimate work with a pricing specialist → have compliance verify constraints/contract), which aligns with coordinating multiple specialized functions/agents. Thus routing to SUPERVISOR is the correct interpretation. The candidate route (REACT_AGENT) is likely too single-domain/not coordinated for pricing + compliance + brief review orchestration. The candidate rationale provides no",
+          "latency_ms": 1272.853699978441,
+          "input_tokens": 518,
+          "output_tokens": 125,
+          "cost_usd": 0.00025985
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 1.6666666666666667,
+        "groundedness_score": 3.3333333333333335,
+        "groundless_rate": 0.16666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "react-orchestration-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL is likely wrong: identifying or resolving duplicate card transactions is not a single deterministic calculation or lookup over supplied structured data. The reference REACT_AGENT is more appropriate for bounded investigation and validation, though HUMAN_REQUIRED could become necessary before any dispute or irreversible financial action. The candidate rationale provides no request-specific justification, but it does not introduce unsupported facts.",
+          "latency_ms": 3920.377800008282,
+          "input_tokens": 505,
+          "output_tokens": 111,
+          "cost_usd": 0.005855
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 1,
+          "groundedness_score": 3,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL is not appropriate because the request is a transaction-dispute concern, not a deterministic operation on already supplied structured data. The reference REACT_AGENT better fits investigating duplicate charges through bounded, potentially multi-step validation. The candidate rationale adds no unsupported factual claims.",
+          "latency_ms": 1867.5451999879442,
+          "input_tokens": 505,
+          "output_tokens": 93,
+          "cost_usd": 0.0026575
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user’s statement (“two identical transactions… $49.99… yesterday”) implies a financial/possibly dispute/verification context and the route policy indicates HUMAN_REQUIRED when financial authority/irreversible impact is involved. The candidate chose DIRECT_TOOL, which is only appropriate for exact arithmetic or lookups from already supplied structured data, but the user request provides no such structured transaction data or need for deterministic calculation. Candidate rationale is also non-",
+          "latency_ms": 1485.5892000487074,
+          "input_tokens": 505,
+          "output_tokens": 128,
+          "cost_usd": 0.000261
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 1.0,
+        "groundedness_score": 3.0,
+        "groundless_rate": 0.25,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "supervisor-project-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The SUPERVISOR route exactly matches the reference and policy. The request requires CRM/quote review, coordination across requirements and finance, and merging verified outputs into a revised scope, schedule, and price with evidence. The rationale and score signals add no unsupported factual claims.",
+          "latency_ms": 2477.035899995826,
+          "input_tokens": 522,
+          "output_tokens": 95,
+          "cost_usd": 0.00546
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SUPERVISOR exactly fits: the request requires CRM/quote review, requirements coordination, finance involvement, and consolidation of a revised scope, schedule, price, and change evidence across dependent stages and domains. The candidate rationale adds no unsupported factual claims.",
+          "latency_ms": 1746.9729000004008,
+          "input_tokens": 522,
+          "output_tokens": 91,
+          "cost_usd": 0.00267
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly involves multiple domains—checking CRM history and prior quote (commercial/sales data), coordinating requirements and finance, and producing a revised scope/schedule/price “with evidence for every change.” This requires cross-department coordination and merging/verification, which matches the SUPERVISOR route. The candidate route matches the reference route. The provided candidate rationale contains no extra factual claims beyond the routing/context. Groundedness is high: ",
+          "latency_ms": 1691.3522999966517,
+          "input_tokens": 522,
+          "output_tokens": 130,
+          "cost_usd": 0.0002669
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "simple-supra-46",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward recipe-generation task that can be completed in one language-model call without tools, iteration, or specialist reasoning, so SIMPLE_LLM is the correct route. REACT_AGENT is unnecessarily complex and likely wrong. The candidate rationale merely reports model scoring and provides no request-specific justification, though it does not introduce unsupported factual claims.",
+          "latency_ms": 2900.962699961383,
+          "input_tokens": 522,
+          "output_tokens": 109,
+          "cost_usd": 0.00588
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward recipe-generation task using supplied ingredients, requiring only one language-model response and no tools, iterative reasoning, or specialist workflow. SIMPLE_LLM is appropriate; REACT_AGENT is clearly over-routed under the policy.",
+          "latency_ms": 1751.637400011532,
+          "input_tokens": 522,
+          "output_tokens": 88,
+          "cost_usd": 0.002625
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 1,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is straightforward: with listed ingredients, generate a recipe. This fits the SIMPLE_LLM route (one language-model call; no tools, iteration, or multi-agent coordination needed). REACT_AGENT is likely wrong because the task does not require bounded multi-step tool use or specialist delegation. Groundedness is high because the evaluation is based solely on the provided routing policy and the user’s simple recipe-generation request.",
+          "latency_ms": 1397.4353999947198,
+          "input_tokens": 522,
+          "output_tokens": 124,
+          "cost_usd": 0.00025939999999999996
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 0.6666666666666666,
+        "groundedness_score": 3.3333333333333335,
+        "groundless_rate": 0.16666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "supervisor-project-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 1,
+          "groundedness_score": 2,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly spans client scheduling, engineering capacity, finance budget validation, and phased-delivery coordination, so SUPERVISOR is the correct route. REACT_AGENT is intended for bounded work within one specialist domain and is therefore likely wrong. The candidate provides only model scores and no request-grounded reasoning; however, it introduces no fabricated facts.",
+          "latency_ms": 2788.994400005322,
+          "input_tokens": 517,
+          "output_tokens": 110,
+          "cost_usd": 0.005885
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 0,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request requires coordinating engineering capacity, finance budget validation, and a merged delivery proposal across multiple departments and dependent stages. This matches SUPERVISOR, not a single-domain REACT_AGENT.",
+          "latency_ms": 1355.650199984666,
+          "input_tokens": 517,
+          "output_tokens": 79,
+          "cost_usd": 0.0024775
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user request spans multiple domains and dependent stages: (1) compare launch date vs engineering capacity, (2) validate budget with finance, and (3) coordinate a feasible phased delivery proposal. This requires coordination/merging of outputs across teams/departments, which aligns directly with the SUPERVISOR route. The candidate route REACT_AGENT is less appropriate because the task is not confined to one specialist domain nor solely a bounded ReAct workflow; it specifically requires cross-",
+          "latency_ms": 1673.867000034079,
+          "input_tokens": 517,
+          "output_tokens": 137,
+          "cost_usd": 0.00027465
+        }
+      ],
+      "aggregate": {
+        "route_pass": false,
+        "route_score": 1.6666666666666667,
+        "groundedness_score": 3.3333333333333335,
+        "groundless_rate": 0.16666666666666663,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "A_liquid_encoder",
+      "case_id": "human-orchestration-19",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate exactly matches the reference route. A leave request entails authorization and an external employment action, so HUMAN_REQUIRED is consistent with the policy. The stated rationale and score signals introduce no unsupported factual claims.",
+          "latency_ms": 2154.871299979277,
+          "input_tokens": 505,
+          "output_tokens": 81,
+          "cost_usd": 0.004955
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route. A half-day leave request entails authorization for an external workplace action, so human review or approval is appropriate under the policy.",
+          "latency_ms": 1584.7961999825202,
+          "input_tokens": 505,
+          "output_tokens": 74,
+          "cost_usd": 0.0023725
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward off-time authorization (“take a half-day off this Friday afternoon”), which is an authorization/HR-type action requiring explicit human approval rather than automated execution. The candidate route matches the reference route (HUMAN_REQUIRED). The candidate rationale is not specific, but it does not introduce any new unsupported facts, and the routing decision is fully aligned with the provided route policy.",
+          "latency_ms": 1400.6881999666803,
+          "input_tokens": 505,
+          "output_tokens": 119,
+          "cost_usd": 0.00024975
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "react-orchestration-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 3,
+          "groundedness_score": 3,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is defensible because changing a billing address modifies sensitive account data and may require identity or authorization checks. However, the reference route indicates a bounded agent could perform the update through account tools, so the candidate is conservative rather than exactly correct. The rationale is grounded in the policy, though the need for human approval is not certain from the request alone.",
+          "latency_ms": 2752.9651999939233,
+          "input_tokens": 515,
+          "output_tokens": 114,
+          "cost_usd": 0.005995
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request changes billing/account information and creates an external account update, which reasonably triggers HUMAN_REQUIRED under the policy's financial authority and irreversible-impact criteria. REACT_AGENT is also plausible if a verified user session and authorization are assumed, so the route differs from the reference but is acceptable under policy ambiguity.",
+          "latency_ms": 2031.1288999509998,
+          "input_tokens": 515,
+          "output_tokens": 100,
+          "cost_usd": 0.0027875
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route HUMAN_REQUIRED aligns with the request to change billing/account information, which is an externally impactful and sensitive action likely requiring explicit authorization/human approval. The candidate rationale stays within the provided route policy and does not introduce any facts beyond the request.",
+          "latency_ms": 1108.3189999917522,
+          "input_tokens": 515,
+          "output_tokens": 92,
+          "cost_usd": 0.000218
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 3.3333333333333335,
+        "groundedness_score": 3.6666666666666665,
+        "groundless_rate": 0.08333333333333337,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "direct_tool-project-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route and policy. Retrieving a stored currency code from supplied structured context is a deterministic lookup requiring no external research, iteration, or specialist reasoning.",
+          "latency_ms": 2923.3716999879107,
+          "input_tokens": 501,
+          "output_tokens": 77,
+          "cost_usd": 0.004815
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the policy: this is a deterministic lookup of a stored currency code from already supplied structured context, requiring no external research or iteration.",
+          "latency_ms": 1684.8458999884315,
+          "input_tokens": 501,
+          "output_tokens": 71,
+          "cost_usd": 0.0023175
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route DIRECT_TOOL matches the policy requirement for a deterministic lookup from already supplied structured data. The rationale is consistent with the user request and does not introduce any external facts or unsupported assumptions.",
+          "latency_ms": 1582.620200002566,
+          "input_tokens": 501,
+          "output_tokens": 78,
+          "cost_usd": 0.00019769999999999998
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "react-orchestration-22",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 3,
+          "groundedness_score": 3,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is defensible because correcting a shipping address can involve privacy, authorization, and an active delivery with external consequences. However, the request does not establish that the shipment is already processed or that the correction is irreversible, so REACT_AGENT could appropriately investigate status and available correction options before escalating. The candidate route is acceptable under policy ambiguity but more conservative than the reference route.",
+          "latency_ms": 3754.7523000393994,
+          "input_tokens": 526,
+          "output_tokens": 118,
+          "cost_usd": 0.00617
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is acceptable because correcting a shipping address can require authorization checks and could have irreversible delivery consequences. However, REACT_AGENT is also a plausible default for investigating and resolving the update through bounded tools, so the deviation is conservative rather than clearly required by the request alone.",
+          "latency_ms": 2167.2687000245787,
+          "input_tokens": 526,
+          "output_tokens": 97,
+          "cost_usd": 0.00277
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate selects HUMAN_REQUIRED, which directly matches the user’s complaint about an incorrect shipping-address update. The evidence cites sensitive personal data and potentially irreversible external impact on an active shipment, both explicitly covered by the HUMAN_REQUIRED policy (privacy/authorization/irreversible external impact). The rationale stays within these provided signals and does not introduce new facts.",
+          "latency_ms": 1332.1677999920212,
+          "input_tokens": 526,
+          "output_tokens": 109,
+          "cost_usd": 0.00024145
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 3.3333333333333335,
+        "groundedness_score": 3.6666666666666665,
+        "groundless_rate": 0.08333333333333337,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "supervisor-project-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The SUPERVISOR route exactly matches the request and reference route: it requires coordination across legal, delivery/technical, and finance domains, followed by synthesis into one go/no-go recommendation. The evidence signals and rationale are fully supported by the request and route policy.",
+          "latency_ms": 2456.233000033535,
+          "input_tokens": 539,
+          "output_tokens": 94,
+          "cost_usd": 0.005515
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires coordinated legal, technical delivery, and finance assessments, followed by synthesis into one recommendation. This matches the SUPERVISOR policy for multiple specialized domains whose results must be merged.",
+          "latency_ms": 1539.4751999992877,
+          "input_tokens": 539,
+          "output_tokens": 80,
+          "cost_usd": 0.0025475
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route matches the request, which spans legal (NDA review), delivery/technical feasibility assessment, and finance (commercial impact) that must be combined into a single go/no-go recommendation. This aligns directly with the SUPERVISOR policy for coordinating multiple specialized domains and merged results. No extra facts beyond the provided request/policy are introduced.",
+          "latency_ms": 1410.076999978628,
+          "input_tokens": 539,
+          "output_tokens": 110,
+          "cost_usd": 0.0002453
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "human-orchestration-23",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route. Submitting an official leave request is an external workplace action with consequential employment-record impact, and jury-duty leave may involve legal or sensitive documentation. The relative date also warrants confirmation. These signals support explicit human review under the stated policy.",
+          "latency_ms": 2103.652100020554,
+          "input_tokens": 528,
+          "output_tokens": 96,
+          "cost_usd": 0.00552
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate exactly matches the reference route. Submitting leave is an external, consequential workplace action that creates an official record, and the relative date may require clarification or approval. Human review is appropriate under the policy.",
+          "latency_ms": 1697.166499972809,
+          "input_tokens": 528,
+          "output_tokens": 83,
+          "cost_usd": 0.002565
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route HUMAN_REQUIRED matches the policy: requesting submission for jury duty leave is an external, potentially legally consequential employment record action with ambiguous timing (“next Monday” relative) and possible sensitive verification/approval requirements. The rationale stays within the user’s request and route-policy considerations without adding unsupported facts.",
+          "latency_ms": 1236.0278000123799,
+          "input_tokens": 528,
+          "output_tokens": 99,
+          "cost_usd": 0.00022935000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "human-orchestration-21",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference route. Passport verification for a specific account involves highly sensitive identity data, privacy concerns, authorization requirements, and potentially consequential account-access effects, fitting the HUMAN_REQUIRED policy. The evidence and rationale are directly grounded in the request and policy.",
+          "latency_ms": 2255.418299988378,
+          "input_tokens": 523,
+          "output_tokens": 94,
+          "cost_usd": 0.005435
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Passport verification for a specific account involves highly sensitive identity data and can affect account access or status. The policy supports HUMAN_REQUIRED for privacy-sensitive and potentially consequential decisions, matching the reference route.",
+          "latency_ms": 2084.3024000059813,
+          "input_tokens": 523,
+          "output_tokens": 78,
+          "cost_usd": 0.0024775
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route HUMAN_REQUIRED matches the policy trigger: verifying a sensitive identity document upload with account-specific access implications requires explicit human review. The rationale is directly supported by the user request and the provided evidence signals; no external or fabricated facts are introduced.",
+          "latency_ms": 1400.966499990318,
+          "input_tokens": 523,
+          "output_tokens": 89,
+          "cost_usd": 0.00021585000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "direct_tool-project-4",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the request: it is a deterministic lookup of one stored field from already supplied structured data. The evidence signals and rationale are fully supported and introduce no extraneous facts.",
+          "latency_ms": 2191.908299981151,
+          "input_tokens": 502,
+          "output_tokens": 78,
+          "cost_usd": 0.00485
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is an exact lookup of one stored field using a structured project identifier from supplied data, which matches DIRECT_TOOL exactly.",
+          "latency_ms": 1829.8233000095934,
+          "input_tokens": 502,
+          "output_tokens": 66,
+          "cost_usd": 0.002245
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks for an exact lookup of project P-104 from a supplied project table and to return only the stored status. The candidate route (DIRECT_TOOL) matches the policy for deterministic lookup from already supplied structured data with no external research or multi-step reasoning. The candidate rationale contains no extra facts beyond this requirement.",
+          "latency_ms": 1923.1485000345856,
+          "input_tokens": 502,
+          "output_tokens": 104,
+          "cost_usd": 0.00023040000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "react-orchestration-13",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "HUMAN_REQUIRED is the correct route under the supplied policy. Immediate subscription cancellation is an account-affecting external action with potentially irreversible impact, and the request provides no authenticated context or authorization mechanism. The candidate’s evidence and rationale are directly supported by the request and policy.",
+          "latency_ms": 2442.0765000395477,
+          "input_tokens": 517,
+          "output_tokens": 96,
+          "cost_usd": 0.005465
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Cancellation is an account-affecting, potentially irreversible external action, and the request provides no authenticated account context. HUMAN_REQUIRED is supported by the policy’s ambiguous-authorization and irreversible-impact criteria, though REACT_AGENT could also be acceptable if it handles authenticated cancellation workflows with appropriate confirmation.",
+          "latency_ms": 2087.9510999657214,
+          "input_tokens": 517,
+          "output_tokens": 97,
+          "cost_usd": 0.0027475
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks for immediate subscription cancellation, an account-affecting and potentially irreversible external action that requires explicit authorization/human confirmation. The candidate correctly selects HUMAN_REQUIRED based on missing authenticated account context and the need for verified authority before executing such a change. The rationale matches the provided request and route policy, with no extra invented facts.",
+          "latency_ms": 1412.6432000193745,
+          "input_tokens": 517,
+          "output_tokens": 107,
+          "cost_usd": 0.00023715000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 3.6666666666666665,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "simple-supra-7",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is exactly appropriate for a self-contained creative writing request. The evidence and rationale are fully supported: writing the poem requires no tools, research, specialist delegation, or external action.",
+          "latency_ms": 4354.739500035066,
+          "input_tokens": 489,
+          "output_tokens": 80,
+          "cost_usd": 0.004845
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward creative-writing task requiring only a single language-model response, matching SIMPLE_LLM. The cited signals and rationale are supported by the request and policy.",
+          "latency_ms": 3698.694099963177,
+          "input_tokens": 489,
+          "output_tokens": 75,
+          "cost_usd": 0.0023475
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user request is to write a poem (creative language generation) with no need for tools, research, iteration, or multi-agent coordination. Selecting SIMPLE_LLM matches the route policy for a single language-model call. The candidate rationale (“A poem can be generated directly with one language-model call.”) is directly supported by the request and policy, with no extra unverifiable facts.",
+          "latency_ms": 1330.9507999802008,
+          "input_tokens": 489,
+          "output_tokens": 117,
+          "cost_usd": 0.00024405000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "simple-supra-36",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is exactly appropriate for this straightforward HTML fact. The rationale correctly identifies <h1> as the largest heading tag, and no tools, research, specialist delegation, or human review are needed.",
+          "latency_ms": 2492.4739999696612,
+          "input_tokens": 504,
+          "output_tokens": 83,
+          "cost_usd": 0.00501
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is a straightforward factual question that can be answered in a single language-model response without tools, research, iteration, or delegation. The selected SIMPLE_LLM route matches the reference route and policy.",
+          "latency_ms": 3452.0081999944523,
+          "input_tokens": 504,
+          "output_tokens": 81,
+          "cost_usd": 0.002475
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks a straightforward factual HTML question. Choosing SIMPLE_LLM is correct because it requires only a single language explanation with no tools, iteration, or external research. The candidate rationale (“<h1> is the largest heading tag”) directly addresses the question and introduces no extra unsupported facts.",
+          "latency_ms": 1227.1589000010863,
+          "input_tokens": 504,
+          "output_tokens": 99,
+          "cost_usd": 0.00022455
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "simple-supra-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is exactly appropriate: the request requires only creative dialogue generation and a short summary, with no tools, external research, iteration, or specialist coordination. The rationale correctly interprets “3 per person” as six alternating turns.",
+          "latency_ms": 4393.957899999805,
+          "input_tokens": 524,
+          "output_tokens": 89,
+          "cost_usd": 0.00529
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is straightforward creative dialogue generation plus a brief summary, which can be completed in a single language-model response without tools, research, iteration, or delegation. The candidate route matches the reference route.",
+          "latency_ms": 1503.552500042133,
+          "input_tokens": 524,
+          "output_tokens": 81,
+          "cost_usd": 0.002525
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Both the reference and candidate routes are SIMPLE_LLM. The task is straightforward language generation (a short 3-turn-per-person dialogue) followed by a simple extraction/summary, requiring no tools, iteration beyond a single response, or external coordination. The candidate rationale matches the route policy and the user request, with no added facts or hallucinated constraints.",
+          "latency_ms": 1701.8520000274293,
+          "input_tokens": 524,
+          "output_tokens": 111,
+          "cost_usd": 0.00024355
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "direct_tool-project-2",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the policy: the request is a deterministic addition using explicitly supplied KRW amounts, with no need for language reasoning, iteration, external research, or human approval.",
+          "latency_ms": 2995.4642000375316,
+          "input_tokens": 511,
+          "output_tokens": 77,
+          "cost_usd": 0.004865
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is exact arithmetic over explicitly supplied KRW line items, with no need for external data or language reasoning. DIRECT_TOOL matches the policy.",
+          "latency_ms": 1374.3891000049189,
+          "input_tokens": 511,
+          "output_tokens": 70,
+          "cost_usd": 0.0023275
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Both reference and candidate routes select DIRECT_TOOL. The request is a straightforward arithmetic/tally of explicitly provided KRW line items with no need for language reasoning, iteration, external research, or human approval. The candidate rationale aligns with the DIRECT_TOOL policy (use deterministic addition, no modifications), and introduces no facts beyond the user prompt.",
+          "latency_ms": 1175.4318999592215,
+          "input_tokens": 511,
+          "output_tokens": 107,
+          "cost_usd": 0.00023595
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "direct_tool-project-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the policy: this is a single deterministic arithmetic operation using only explicitly supplied numeric inputs. The evidence and rationale are fully grounded in the request.",
+          "latency_ms": 1972.9398000054061,
+          "input_tokens": 503,
+          "output_tokens": 73,
+          "cost_usd": 0.004705
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "DIRECT_TOOL exactly matches the policy: the request is a single deterministic arithmetic calculation using explicitly supplied values, with no need for language reasoning, iteration, or external research.",
+          "latency_ms": 1672.941200027708,
+          "input_tokens": 503,
+          "output_tokens": 74,
+          "cost_usd": 0.0023675
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate route matches reference (DIRECT_TOOL) and aligns with policy: the task is a deterministic exact arithmetic sum of explicitly provided numbers (8, 32, 12) with no need for LLM reasoning or iteration. The candidate rationale restates only the arithmetic implied by the user request, with no extra facts.",
+          "latency_ms": 1328.3125000307336,
+          "input_tokens": 503,
+          "output_tokens": 104,
+          "cost_usd": 0.00023060000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "human-orchestration-4",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 3,
+          "hallucination_detected": true,
+          "unsupported_claims": [
+            "The request may affect payroll.",
+            "The action may be difficult to reverse or irreversible after submission."
+          ],
+          "rationale": "HUMAN_REQUIRED exactly matches the reference and is justified because submitting an HR request is an external action with ambiguous authorization and missing identity/context. However, the payroll impact and irreversibility claims are not established by the user request and may vary by HR system.",
+          "latency_ms": 3251.0478000040166,
+          "input_tokens": 537,
+          "output_tokens": 111,
+          "cost_usd": 0.006015
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The requested submission is an external, potentially irreversible HR action. The policy explicitly requires human review for ambiguous authorization or irreversible external impact, so HUMAN_REQUIRED exactly matches the reference route.",
+          "latency_ms": 1749.7301999828778,
+          "input_tokens": 537,
+          "output_tokens": 76,
+          "cost_usd": 0.0024825
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "User asks to submit a vacation request (an external, potentially irreversible HR action) without providing explicit authorization/identity/approval context. Given the route policy, HUMAN_REQUIRED is appropriate to stop automation and require human review.",
+          "latency_ms": 1195.356999989599,
+          "input_tokens": 537,
+          "output_tokens": 84,
+          "cost_usd": 0.0002124
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 3.6666666666666665,
+        "groundless_rate": 0.08333333333333337,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "supervisor-project-1",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate exactly matches the reference route. The request explicitly requires coordinated requirements analysis, pricing-specialist estimation, and compliance verification across dependent stages, which fits the SUPERVISOR policy. The evidence signals and rationale are fully grounded in the request.",
+          "latency_ms": 2500.7096999906935,
+          "input_tokens": 533,
+          "output_tokens": 90,
+          "cost_usd": 0.005365
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires coordinated requirements review, pricing estimation, and compliance verification—multiple specialized domains whose outputs need to be combined. SUPERVISOR matches the policy and the reference route.",
+          "latency_ms": 3161.6820000344887,
+          "input_tokens": 533,
+          "output_tokens": 78,
+          "cost_usd": 0.0025025
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Candidate and reference both route to SUPERVISOR. The user request explicitly requires three dependent, multi-domain activities—reviewing an uploaded brief, coordinating an estimate with a pricing specialist, and having compliance verify contract constraints—necessitating coordination/merging/verification across specialized departments, which matches the SUPERVISOR policy. No extraneous facts or invented details appear in the candidate rationale.",
+          "latency_ms": 1318.2202000170946,
+          "input_tokens": 533,
+          "output_tokens": 119,
+          "cost_usd": 0.00025535
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "react-orchestration-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is acceptable because the user only reports duplicate-looking charges and does not explicitly request account lookup, dispute initiation, or another external action. Basic advice and clarification can be provided without tools. REACT_AGENT could also be justified if the intended response is to investigate transaction records, so the candidate differs from the reference under reasonable policy ambiguity.",
+          "latency_ms": 2806.483099993784,
+          "input_tokens": 534,
+          "output_tokens": 110,
+          "cost_usd": 0.00597
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 3,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM is acceptable because the user only reports a possible duplicate charge and does not explicitly request a transaction investigation, dispute, refund, or account action. A single response can explain common causes and suggest next steps. REACT_AGENT is also a reasonable reference if transaction-specific investigation tools are available, but no such action is explicitly required.",
+          "latency_ms": 2289.2382999998517,
+          "input_tokens": 534,
+          "output_tokens": 109,
+          "cost_usd": 0.00297
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user is asking for guidance about two identical $49.99 transactions they noticed (a straightforward informational/support question) with no explicit need for tools, account lookup, multi-step verification, or coordination. The candidate route SIMPLE_LLM matches the allowed behavior: one language-model response providing general troubleshooting/next steps without tool use. The rationale is consistent with the request and route policy and introduces no external facts.",
+          "latency_ms": 1400.0945000443608,
+          "input_tokens": 534,
+          "output_tokens": 122,
+          "cost_usd": 0.0002593
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 3.3333333333333335,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": false
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "supervisor-project-5",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference and policy. The request spans CRM/quote retrieval, requirements coordination, finance/pricing, scheduling, and evidence-backed synthesis, requiring multiple dependent functions whose outputs must be merged and verified. The rationale and evidence signals are directly supported by the request.",
+          "latency_ms": 2094.10809999099,
+          "input_tokens": 544,
+          "output_tokens": 97,
+          "cost_usd": 0.00563
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SUPERVISOR is correct: the request explicitly spans CRM/quote review, requirements coordination, finance/pricing, and an evidence-backed merged deliverable across dependent business functions.",
+          "latency_ms": 1553.629899979569,
+          "input_tokens": 544,
+          "output_tokens": 76,
+          "cost_usd": 0.0025
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user request explicitly requires checking prior CRM history/quote and coordinating requirements plus finance to produce a revised scope, schedule, and price with evidence. This spans multiple domains and dependent stages that must be merged and verified, matching the SUPERVISOR route. The candidate rationale aligns directly with the stated requirements and does not add any external facts.",
+          "latency_ms": 1681.9424999994226,
+          "input_tokens": 544,
+          "output_tokens": 109,
+          "cost_usd": 0.00024505
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "simple-supra-46",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "SIMPLE_LLM exactly matches the request: generating a recipe from supplied ingredients requires only basic language generation and culinary reasoning, with no need for tools, research, specialist delegation, or human review. The evidence signals and rationale are fully supported by the request and routing policy.",
+          "latency_ms": 2181.1186999548227,
+          "input_tokens": 522,
+          "output_tokens": 95,
+          "cost_usd": 0.00546
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request is basic recipe generation from supplied ingredients, requiring only a single language-model response. SIMPLE_LLM matches the policy, and the evidence and rationale are supported by the request.",
+          "latency_ms": 1607.785200001672,
+          "input_tokens": 522,
+          "output_tokens": 77,
+          "cost_usd": 0.00246
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "Both the reference and candidate selected SIMPLE_LLM, which matches the task: generating a recipe from a user-provided ingredient list using basic language reasoning, with no need for tools, iteration, external research, or specialist delegation. The candidate rationale correctly cites that a single LLM call is sufficient.",
+          "latency_ms": 1796.0038000019267,
+          "input_tokens": 522,
+          "output_tokens": 100,
+          "cost_usd": 0.0002294
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "supervisor-project-9",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The SUPERVISOR route exactly matches the policy because the request spans engineering capacity assessment and finance budget validation, then requires those dependent results to be synthesized into a phased delivery proposal. The evidence and rationale are directly supported by the request.",
+          "latency_ms": 1851.321000023745,
+          "input_tokens": 537,
+          "output_tokens": 88,
+          "cost_usd": 0.005325
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request explicitly requires engineering capacity assessment, finance budget validation, and coordination of a merged phased delivery proposal. This spans multiple specialized domains with dependent outputs, matching the SUPERVISOR policy.",
+          "latency_ms": 1627.6309000095353,
+          "input_tokens": 537,
+          "output_tokens": 79,
+          "cost_usd": 0.0025275
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user request explicitly combines three dependent cross-domain tasks: (1) compare client launch date vs engineering capacity, (2) validate budget with finance, and (3) coordinate a feasible phased delivery proposal. That necessarily requires coordinating multiple specialized departments/results that must be merged/verified, which matches the SUPERVISOR route. The candidate rationale aligns directly with the request and does not introduce external facts or unsupported assertions.",
+          "latency_ms": 1504.5002999831922,
+          "input_tokens": 537,
+          "output_tokens": 124,
+          "cost_usd": 0.0002624
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    },
+    {
+      "router": "B_prompt_llm",
+      "case_id": "human-orchestration-19",
+      "verdicts": [
+        {
+          "judge_model": "gpt-5.6-sol",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The candidate route exactly matches the reference. A time-off request affects workplace attendance/scheduling and ordinarily requires authorized approval before any external submission or HR/calendar update, fitting HUMAN_REQUIRED. The relative date note is also grounded in the wording and does not alter the correct routing.",
+          "latency_ms": 2256.0058999806643,
+          "input_tokens": 529,
+          "output_tokens": 94,
+          "cost_usd": 0.005465
+        },
+        {
+          "judge_model": "gpt-5.6-terra",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The request seeks time off, an external workplace action that normally requires authorization and affects attendance/scheduling. HUMAN_REQUIRED correctly follows the policy for ambiguous authorization and external impact. The relative Friday/date signal is also a reasonable ambiguity to resolve.",
+          "latency_ms": 2054.6862999908626,
+          "input_tokens": 529,
+          "output_tokens": 87,
+          "cost_usd": 0.0026275
+        },
+        {
+          "judge_model": "gpt-5.4-nano-2026-03-17",
+          "route_score": 4,
+          "groundedness_score": 4,
+          "hallucination_detected": false,
+          "unsupported_claims": [],
+          "rationale": "The user asks for time off (an authorization/irreversible workplace action affecting HR/scheduling). The correct routing is HUMAN_REQUIRED to stop automation and request explicit approval. The candidate route matches the reference and its rationale aligns with the HUMAN_REQUIRED policy without introducing external facts beyond the request.",
+          "latency_ms": 1286.3737000152469,
+          "input_tokens": 529,
+          "output_tokens": 97,
+          "cost_usd": 0.00022705000000000002
+        }
+      ],
+      "aggregate": {
+        "route_pass": true,
+        "route_score": 4.0,
+        "groundedness_score": 4.0,
+        "groundless_rate": 0.0,
+        "hallucination_detected": false,
+        "unanimous": true
+      }
+    }
+  ],
+  "pricing_snapshot": {
+    "currency": "USD",
+    "unit": "per_1m_tokens",
+    "retrieved_at": "2026-08-11",
+    "sources": [
+      "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "https://developers.openai.com/api/docs/models/compare"
+    ],
+    "models": {
+      "gpt-5.4-nano-2026-03-17": {
+        "input": 0.2,
+        "output": 1.25
+      },
+      "gpt-5.6-luna": {
+        "input": 1.0,
+        "output": 6.0
+      },
+      "gpt-5.6-terra": {
+        "input": 2.5,
+        "output": 15.0
+      },
+      "gpt-5.6-sol": {
+        "input": 5.0,
+        "output": 30.0
+      }
+    }
+  }
+}
