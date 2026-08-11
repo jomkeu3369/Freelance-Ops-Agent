@@ -5,6 +5,20 @@ from langgraph.graph import END, START, StateGraph
 
 from freelance_ops_agent.contracts import DepartmentName, DepartmentResult, RequestTier
 
+
+'''
+    슈퍼바이저를 실행하기 전에는 한번 더 검증 과정을 거쳐야 함 (슈퍼바이저가 반드시 필요한지)
+        - 슈퍼 바이저가 필요한 경우
+            1. 사용자가 처음 주문한 경우
+            2. 단순 LLM과 React 에이전트로 답변할 수 없는 경우 (그렇게 판단한 경우)
+                - 이 경우에는 Q&A 시스템에 가까우므로 MAX_HOP을 2로 제한하고, REDIS에 캐싱된 답변을 인용하도록 함
+                    - (근거: Q&A 시스템은 답변의 정확도도 중요하지만, 답변 속도가 더 중요한 경우가 많기 때문 )
+        
+'''
+
+
+
+
 DEPARTMENT_ORDER = [
     DepartmentName.REQUIREMENTS,
     DepartmentName.RESEARCH,

@@ -33,6 +33,11 @@ from freelance_ops_agent.contracts import HealthResponse
                 - 현 프로젝트와 연관성이 매우 떨어지는 경우에는 출력 거절 메시지를 띄우고 종료.
     
     
+    [ 비용 계산 ]
+    
+        1. 
+    
+    
 '''
 
 @asynccontextmanager
