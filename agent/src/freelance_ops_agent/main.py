@@ -10,6 +10,9 @@ from freelance_ops_agent import __version__
 from freelance_ops_agent.config import get_settings
 from freelance_ops_agent.contracts import HealthResponse
 
+from .api.workspace.router import router as workspace_router
+from .api.experiment.router import router as experiment_router
+
 '''
     [ AI 모델 서빙 서버 ]
     
@@ -35,8 +38,18 @@ from freelance_ops_agent.contracts import HealthResponse
     
     [ 비용 계산 ]
     
-        1. 
-    
+        1. 단순 LLM
+            - 1.14 달러
+            
+        2. React 에이전트
+            - 11.3 달러
+        
+        3. Supervisor 구조
+            - 27 달러
+            - (최소) 6 달러
+               
+        4. 최악의 경우
+            - 27.1 달러
     
 '''
 
@@ -46,13 +59,15 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown logic here
     
-class FreelanceOpsAgentAiServer(FastAPI):
+class FreelanceOpsAgentAiServer:
     def __init__(self):
-        super().__init__(
+        self.app = FastAPI(
             title="Freelance Ops Agent AI Server",
             description="Freelance Ops Agent Server",
             version=get_settings().service_version,
-            lifespan=lifespan
+            lifespan=lifespan,
+            # docs_url=None,
+            # redoc_url=None
         )
         
     def _register_routes(self):
@@ -60,4 +75,19 @@ class FreelanceOpsAgentAiServer(FastAPI):
         async def get_version():
             return {"version": get_settings().service_version}
 
-app = FreelanceOpsAgentAiServer()
+        @self.app.get("/health")
+        async def health_check(request: Request):
+            try:
+                return {"status": "healthy", "database": "connected"}
+            
+            except Exception as e:
+                return {"status": "unhealthy", "error": str(e)}, 500
+
+        self.app.include_router(workspace_router, prefix="/api/v2")
+        self.app.include_router(experiment_router, prefix="/api/v2")
+        
+    def get_app(self) -> FastAPI:
+        return self.app
+        
+server_instance = FreelanceOpsAgentAiServer()
+app = server_instance.get_app()
