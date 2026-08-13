@@ -9,6 +9,7 @@ servers:
 tags:
   - name: Health
   - name: AgentRuns
+  - name: Raptor
 paths:
   /health:
     get:
@@ -91,6 +92,85 @@ paths:
         "401":
           $ref: "#/components/responses/ProblemResponse"
         "409":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/agent-runs/{runId}/events:
+    get:
+      tags: [AgentRuns]
+      operationId: streamAgentRunEvents
+      description: Streams ordered run events as server-sent events and supports reconnect cursors.
+      security:
+        - delegationToken: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "200":
+          description: Ordered Agent run event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/agent-runs/{runId}/cancel:
+    post:
+      tags: [AgentRuns]
+      operationId: cancelAgentRun
+      security:
+        - delegationToken: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Cancelled run state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRunView"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/raptor/build:
+    post:
+      tags: [Raptor]
+      operationId: buildRaptorIndex
+      description: Builds storage-neutral RAPTOR nodes; Spring owns persistence and publication.
+      security:
+        - delegationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaptorBuildRequest"
+      responses:
+        "200":
+          description: RAPTOR nodes ready for Spring persistence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RaptorBuildResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "502":
+          $ref: "#/components/responses/ProblemResponse"
+        "504":
           $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
@@ -177,6 +257,9 @@ components:
         - maxOutputTokens
         - maxDepartments
         - maxHierarchyDepth
+        - maxSearchCredits
+        - maxRetries
+        - maxHandoffs
       properties:
         maxDurationSeconds:
           type: integer
@@ -204,6 +287,21 @@ components:
           type: integer
           minimum: 1
           maximum: 2
+        maxSearchCredits:
+          type: integer
+          minimum: 0
+          maximum: 100
+          default: 0
+        maxRetries:
+          type: integer
+          minimum: 0
+          maximum: 5
+          default: 1
+        maxHandoffs:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 3
     ModelSelection:
       type: object
       additionalProperties: false
@@ -223,7 +321,7 @@ components:
     AgentRunRequest:
       type: object
       additionalProperties: false
-      required: [context, budget, modelSelection, requestTier, input]
+      required: [context, budget, modelSelection, safetyContext, input]
       properties:
         context:
           $ref: "#/components/schemas/TrustedRunContext"
@@ -231,9 +329,8 @@ components:
           $ref: "#/components/schemas/RunBudget"
         modelSelection:
           $ref: "#/components/schemas/ModelSelection"
-        requestTier:
-          type: string
-          enum: [DIRECT_TOOL, SINGLE_AGENT, DEPARTMENT, MULTI_DEPARTMENT]
+        safetyContext:
+          $ref: "#/components/schemas/SafetyContext"
         input:
           type: object
           additionalProperties: false
@@ -250,6 +347,34 @@ components:
               type: string
               minLength: 2
               maxLength: 32
+            directToolOperation:
+              type: string
+              enum: [GET_PROJECT_CONTEXT]
+    SafetyContext:
+      type: object
+      additionalProperties: false
+      properties:
+        externalSideEffect:
+          type: boolean
+          default: false
+        sensitiveData:
+          type: boolean
+          default: false
+        financialAuthorityRequired:
+          type: boolean
+          default: false
+        legalAuthorityRequired:
+          type: boolean
+          default: false
+        irreversibleAction:
+          type: boolean
+          default: false
+        approvalRequired:
+          type: boolean
+          default: false
+        authorityVerified:
+          type: boolean
+          default: false
     AgentRunAccepted:
       type: object
       additionalProperties: false
@@ -273,6 +398,27 @@ components:
         - COMPLETED
         - FAILED
         - CANCELLED
+    AgentRunEvent:
+      type: object
+      additionalProperties: false
+      required: [eventId, runId, type, occurredAt, data]
+      properties:
+        eventId:
+          type: integer
+          minimum: 1
+        runId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          pattern: "^[a-z]+(?:\\.[a-z]+)+$"
+          maxLength: 100
+        occurredAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
     DepartmentName:
       type: string
       enum: [REQUIREMENTS, RESEARCH, DEAL_DESIGN, VERIFICATION]
@@ -323,7 +469,7 @@ components:
     AgentRunView:
       type: object
       additionalProperties: false
-      required: [runId, status, updatedAt]
+      required: [runId, status, metadata, updatedAt]
       properties:
         runId:
           type: string
@@ -336,9 +482,38 @@ components:
           $ref: "#/components/schemas/AgentInterruption"
         result:
           $ref: "#/components/schemas/AgentRunResult"
+        errorCode:
+          type: string
+          maxLength: 100
+        metadata:
+          $ref: "#/components/schemas/AgentRunMetadata"
         updatedAt:
           type: string
           format: date-time
+    AgentRunMetadata:
+      type: object
+      additionalProperties: false
+      required: [provider, model, promptVersion, toolSchemaVersion, traceId]
+      properties:
+        provider:
+          type: string
+          enum: [OPENAI, GEMINI]
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+        promptVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+        toolSchemaVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+        traceId:
+          type: string
+          minLength: 1
+          maxLength: 128
     AgentInterruption:
       type: object
       additionalProperties: false
@@ -383,6 +558,98 @@ components:
                 type: string
                 minLength: 1
                 maxLength: 5000
+    RaptorBuildRequest:
+      type: object
+      additionalProperties: false
+      required: [context, provider, embeddingModel, summaryModel, chunks]
+      properties:
+        context:
+          type: object
+          additionalProperties: false
+          required: [runId, workspaceId, projectId, snapshotId]
+          properties:
+            runId: {type: string, format: uuid}
+            workspaceId: {type: string, format: uuid}
+            projectId: {type: string, format: uuid}
+            snapshotId: {type: string, format: uuid}
+        provider:
+          type: string
+          enum: [OPENAI]
+        embeddingModel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        summaryModel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        chunks:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: "#/components/schemas/RaptorSourceChunk"
+        options:
+          $ref: "#/components/schemas/RaptorBuildOptions"
+    RaptorSourceChunk:
+      type: object
+      additionalProperties: false
+      required: [chunkId, documentId, text]
+      properties:
+        chunkId: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+    RaptorBuildOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        targetClusterSize: {type: integer, minimum: 2, maximum: 50, default: 4}
+        maxSummaryLevels: {type: integer, minimum: 1, maximum: 8, default: 4}
+        kmeansIterations: {type: integer, minimum: 1, maximum: 100, default: 20}
+    RaptorBuildResponse:
+      type: object
+      additionalProperties: false
+      required: [workspaceId, snapshotId, embeddingModel, summaryModel, nodes, rootIds]
+      properties:
+        workspaceId: {type: string, format: uuid}
+        snapshotId: {type: string, format: uuid}
+        embeddingModel: {type: string}
+        summaryModel: {type: string}
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RaptorNode"
+        rootIds:
+          type: array
+          items: {type: string, format: uuid}
+    RaptorNode:
+      type: object
+      additionalProperties: false
+      required: [nodeId, kind, level, text, embedding, childIds, metadata]
+      properties:
+        nodeId: {type: string, format: uuid}
+        kind: {type: string, enum: [LEAF, SUMMARY]}
+        level: {type: integer, minimum: 0}
+        text: {type: string}
+        embedding:
+          type: array
+          minItems: 1
+          items: {type: number}
+        childIds:
+          type: array
+          items: {type: string, format: uuid}
+        sourceChunkId: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        metadata:
+          type: object
+          additionalProperties: {type: string}
     ProblemDetails:
       type: object
       additionalProperties: true

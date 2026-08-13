@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+
+from contracts import (
+    Provider,
+    RaptorBuildContext,
+    RaptorBuildOptions,
+    RaptorBuildRequest,
+    RaptorSourceChunkInput,
+)
+from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+
+
+def _request(provider: Provider) -> RaptorBuildRequest:
+    return RaptorBuildRequest(
+        context=RaptorBuildContext(
+            run_id=uuid4(),
+            workspace_id=uuid4(),
+            project_id=uuid4(),
+            snapshot_id=uuid4(),
+        ),
+        provider=provider,
+        embedding_model="embedding-test",
+        summary_model="summary-test",
+        chunks=[
+            RaptorSourceChunkInput(chunk_id=uuid4(), document_id=uuid4(), text="첫 번째 근거"),
+            RaptorSourceChunkInput(chunk_id=uuid4(), document_id=uuid4(), text="두 번째 근거"),
+        ],
+        options=RaptorBuildOptions(target_cluster_size=2, max_summary_levels=1),
+    )
+
+
+class FakeGeminiModels:
+    def __init__(self) -> None:
+        self.embed_calls = 0
+        self.summary_calls = 0
+
+    async def embed_content(self, **kwargs: object) -> object:
+        contents = kwargs["contents"]
+        assert isinstance(contents, list)
+        self.embed_calls += 1
+        values = [[1.0, 0.0], [0.0, 1.0]] if len(contents) == 2 else [[0.7, 0.7]]
+        return SimpleNamespace(embeddings=[SimpleNamespace(values=value) for value in values])
+
+    async def generate_content(self, **kwargs: object) -> object:
+        del kwargs
+        self.summary_calls += 1
+        return SimpleNamespace(text="두 근거의 제한된 요약")
+
+
+@pytest.mark.asyncio
+async def test_gemini_raptor_build_preserves_leaf_provenance() -> None:
+    models = FakeGeminiModels()
+    request = _request(Provider.GEMINI)
+    service = CompositeRaptorBuildService(
+        OpenAIRaptorBuildService(SimpleNamespace()),
+        GeminiRaptorBuildService(SimpleNamespace(models=models)),
+    )
+
+    response = await service.build(request)
+
+    leaves = [node for node in response.nodes if node.kind == "LEAF"]
+    summaries = [node for node in response.nodes if node.kind == "SUMMARY"]
+    assert len(leaves) == 2
+    assert len(summaries) == 1
+    assert {node.source_chunk_id for node in leaves} == {chunk.chunk_id for chunk in request.chunks}
+    assert models.embed_calls == 2
+    assert models.summary_calls == 1

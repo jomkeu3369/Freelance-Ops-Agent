@@ -2,11 +2,11 @@
 
 > 문서 상태: Draft v1.2
 > 작성일: 2026-07-20
-> 마지막 갱신: 2026-07-24
+> 마지막 갱신: 2026-08-13
 > 대상 버전: Freelance Ops Agent V2
 > 구현 기준: 본 문서는 V2의 제품 범위와 아키텍처를 결정하는 기준 문서다. 구현 중 중요한 변경이 생기면 ADR(Architecture Decision Record)을 먼저 작성하고 본 문서를 갱신한다.
 
-관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007, Python Agent의 project 관리는 ADR-0008을 따른다.
+관련 결정 기록은 [`docs/adr/`](adr/README.md)에서 관리한다. 특히 서비스 경계는 ADR-0001, 저장소는 ADR-0002, 제거 기술은 ADR-0003, RBAC는 ADR-0004, Agent·Tool·MCP 경계는 ADR-0005, 계층형 Supervisor는 ADR-0006, 웹 자료 수집 경계는 ADR-0007, Python Agent의 project 관리는 ADR-0008, 부서 Agent의 Deep Agents runtime은 ADR-0013을 따른다.
 
 Agent Tool의 역할, 실험 단계별 최소 Tool set과 Supervisor 배치는
 [`docs/agent-tools/TOOL_CATALOG.md`](agent-tools/TOOL_CATALOG.md)를 따른다.
@@ -283,7 +283,7 @@ flowchart LR
     subgraph AIR["Python Agent Runtime"]
         FAST["FastAPI Internal API"]
         GRAPH["LangGraph Global Orchestrator"]
-        DEPT["Bounded Department Supervisors"]
+        DEPT["Bounded Department Deep Agents"]
         SPEC["Specialist Agent / ReAct / HITL"]
         MODEL["OpenAI / Gemini Adapter"]
         WEB["WebResearchProvider"]
@@ -364,9 +364,12 @@ Python Agent service는 다음 구조를 기본으로 한다.
 
 ```text
 agent/
-├── src/freelance_ops_agent/
+├── src/
+│   ├── api/              # Spring 전용 internal FastAPI route
 │   ├── graph/            # LangGraph 정의와 상태
-│   ├── main.py           # Spring 전용 internal FastAPI
+│   ├── infrastructure/   # Agent runtime adapter
+│   ├── retrieval/        # RAPTOR tree build와 retrieval core
+│   ├── main.py           # FastAPI entrypoint
 │   ├── contracts.py      # versioned request/response model
 │   └── providers.py      # OpenAI/Gemini adapter boundary
 ├── tests/
@@ -375,6 +378,8 @@ agent/
 ```
 
 - `agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
+- 배포 wheel을 만들지 않는 application project이며 `[tool.uv] package = false`와
+  flat `src/` import root를 사용한다.
 - V2 Agent dependency를 `legacy/v1`의 V1 Poetry project와 혼합하지 않는다.
 - LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
 - FastAPI request/response는 versioned Pydantic schema를 사용한다.
@@ -578,10 +583,10 @@ MCP Tool은 최소 권한 scope, workspace별 credential, 사용자 승인, audi
 ```mermaid
 flowchart TD
     U["사용자 요청"] --> G["Global Orchestrator"]
-    G --> RQ["Requirements Supervisor"]
-    G --> RS["Research Supervisor"]
-    G --> DS["Deal Design Supervisor"]
-    G --> VS["Verification Supervisor"]
+    G --> RQ["Requirements Deep Agent"]
+    G --> RS["Research Deep Agent"]
+    G --> DS["Deal Design Deep Agent"]
+    G --> VS["Verification workflow"]
 
     RQ --> RA["Requirement Analyst"]
     RQ --> CQ["Clarification Generator"]
@@ -604,8 +609,10 @@ flowchart TD
 - 사용자 대화의 단계 전환은 상태에 의해 허용된 제한적 handoff만 사용한다.
 - Agent가 동적으로 새로운 Agent를 생성하거나 허용되지 않은 부문으로 handoff할 수 없다.
 - 각 부문은 versioned structured result를 반환하며 `findings`, `risks`, `sources`, `assumptions`, `unresolved_questions`, `validation_status`를 포함한다.
+- Requirements, Research와 Deal Design 부문의 내부 실행 하네스는 `deepagents`를 사용한다. 기본 범용 subagent와 host shell은 비활성화하고, 사전 등록한 specialist·Tool allowlist·skill·run 전용 가상 파일공간만 허용한다.
+- Verification은 Deep Agent가 아니라 별도 LangGraph workflow와 결정적 Spring Tool로 유지하여 생성 부문과 승인 부문을 분리한다.
 
-첫 구현은 단일 Orchestrator와 Specialist Tool 호출로 시작한다. 평가에서 품질 이득이 확인된 부문만 Supervisor로 승격하며 조사 부문을 첫 후보로 한다.
+첫 구현은 단일 Orchestrator와 Specialist Tool 호출로 시작한다. 평가에서 품질 이득이 확인된 부문만 Deep Agent로 승격하며 조사 부문을 첫 후보로 한다. 세부 runtime·보안·승격 기준은 [ADR-0013](adr/0013-deep-agents-department-runtime.md)과 [목표 구조](architecture/deep-agents-target-architecture.md)를 따른다.
 
 ### 9.7 Agent 공통 상태와 실행 제한
 
@@ -637,17 +644,21 @@ max_handoffs
 
 예상 비용이나 권한이 한도를 초과하면 자동으로 우회하지 않고 실행 전 사용자 승인 또는 안전한 중단 상태로 전환한다.
 
-### 9.8 앞단 hybrid routing gateway
+### 9.8 앞단 운영 routing gateway
 
-앞단 라우팅은 단일 LLM 또는 범용 zero-shot classifier에 전적으로 맡기지 않는다. Spring의
-결정적 권한·고위험 Gate를 먼저 통과한 뒤 프로젝트 데이터로 학습한 multilingual encoder가
-1차 분류하고, calibrated confidence가 threshold보다 낮을 때만 GPT-5.6 Terra로 fallback한다.
-Terra도 확정할 수 없거나 승인이 필요한 요청은 `HUMAN_REQUIRED`로 전환한다.
+Spring이 제공한 인증된 실행 문맥에 결정적 Safety/Authority Gate를 먼저 적용한다. 승인 필요,
+비가역 작업, 민감정보 외부 전송 또는 필요한 권한이 검증되지 않은 요청은 LLM에 맡기지 않고
+`HUMAN_REQUIRED`로 종료한다. Gate를 통과한 모든 요청은 private-prompt LLM evaluator가 strict
+structured output으로 분류한다. evaluator 실패·abstain·prompt manipulation 탐지는 모두
+`HUMAN_REQUIRED`로 fail-closed한다.
 
-기존 LiquidAI zero-shot prompt router는 50건을 한 route로만 분류해 운영 후보에서 제외한다.
-후속 비교는 rule baseline, fine-tuned encoder, Terra 단독과 hybrid cascade를 대상으로 한다.
-세부 결정과 CPU·CUDA 작업 분리는 [ADR-0012](adr/0012-hybrid-agent-routing-gateway.md)를
-따른다.
+BM25·encoder·RRF는 운영 route를 결정하지 않는다. 선택적으로 shadow mode에서만 결과를 기록하며
+LLM evaluator 입력에도 포함하지 않는다. 브라우저가 보낸 safety flag는 신뢰하지 않고 Spring이
+workspace 권한과 resource 상태를 검증해 내부 Agent 요청에 제공한다. write Tool은 실행 직전에
+Spring에서 현재 권한을 다시 검증한다.
+
+local-first hybrid cascade를 대체한 근거와 향후 승격 조건은
+[ADR-0015](adr/0015-llm-first-operational-routing.md)를 따른다.
 
 ---
 

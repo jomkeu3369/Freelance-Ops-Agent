@@ -7,7 +7,8 @@ requires-python = "==3.12.*"
 dependencies = [
     "faiss-cpu>=1.15.0",
     "fastapi==0.139.2",
-    "langchain>=1.3.14",
+    "httpx>=0.28,<1",
+    "langchain[all]>=1.3.14",
     "langchain-community>=0.4.2",
     "langchain-openai>=1.4.3",
     "langgraph==1.2.9",
@@ -16,34 +17,52 @@ dependencies = [
     "openai>=2.26,<3",
     "pypdf>=6,<7",
     "pydantic-settings>=2.10,<3",
+    "pyjwt[crypto]>=2.10,<3",
+    "pgvector>=0.4,<1",
+    "psycopg[binary,pool]>=3.2,<4",
+    "sqlalchemy[asyncio]>=2.0,<2.1",
     "uvicorn[standard]>=0.35,<1",
+    "rank-bm25>=0.2.2",
+    "deepagents>=0.7.5",
+    "google-genai>=1.64,<2",
+    "langgraph-checkpoint-postgres>=3.0,<4",
+    "tavily>=1.1.0",
+]
+
+[project.optional-dependencies]
+local-router = [
+    "safetensors>=0.6,<1",
+    "torch>=2.6,<3",
+    "transformers>=5,<6",
 ]
 
 [dependency-groups]
 dev = [
-    "httpx>=0.28,<1",
+    "langgraph-cli[inmem]>=0.4.31",
     "mypy>=1.17,<2",
     "pytest>=8.4,<9",
     "pytest-asyncio>=1.1,<2",
-    "ruff>=0.12,<1"
+    "ruff>=0.12,<1",
 ]
 
-[build-system]
-requires = ["uv_build>=0.8,<0.12"]
-build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = "freelance_ops_agent"
+[tool.uv]
+package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
 asyncio_mode = "auto"
+pythonpath = ["src"]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 120
 src = ["src", "tests"]
+extend-exclude = [
+    "tests/model_test",
+    "tests/딥에이전트_테스트",
+    "tests/유사도측정/*.ipynb",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
@@ -51,4 +70,10 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["freelance_ops_agent"]
+files = ["src"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["torch", "safetensors.*", "transformers"]
+follow_imports = "skip"
+ignore_missing_imports = true

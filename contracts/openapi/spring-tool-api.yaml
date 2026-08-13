@@ -49,6 +49,10 @@ paths:
                 $ref: "#/components/schemas/DomainPack"
         "404":
           $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/requirements/validate:
     post:
       operationId: validateRequirementDraft
@@ -69,6 +73,12 @@ paths:
                 $ref: "#/components/schemas/RequirementValidationResult"
         "400":
           $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/quotes/calculate:
     post:
       operationId: calculateQuote
@@ -88,6 +98,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/QuoteCalculationResult"
         "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
           $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:

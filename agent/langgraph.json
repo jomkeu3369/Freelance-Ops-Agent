@@ -1,0 +1,9 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "route": "./langgraph_app.py:operational_router_graph",
+    "router_diagnostic": "./langgraph_app.py:router_diagnostic_graph",
+    "supervisor": "./langgraph_app.py:supervisor_graph"
+  },
+  "env": "../.env"
+}

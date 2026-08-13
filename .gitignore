@@ -37,6 +37,7 @@ experiments/**/*.pkl
 backend/.gradle/
 backend/build/
 agent/.venv/
+agent/.langgraph_api/
 agent/.uv-cache/
 agent/.uv-python/
 .uv-cache/

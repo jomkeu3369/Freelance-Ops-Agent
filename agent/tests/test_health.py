@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from freelance_ops_agent.main import create_app
+from main import create_app
 
 
 def test_health() -> None:
@@ -10,4 +10,3 @@ def test_health() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "UP", "service": "agent", "version": "0.1.0"}
-

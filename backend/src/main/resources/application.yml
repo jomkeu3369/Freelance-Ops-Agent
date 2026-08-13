@@ -19,6 +19,9 @@ spring:
     properties:
       hibernate:
         default_schema: app
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
 management:
   endpoint:
     health:
@@ -39,6 +42,10 @@ server:
   shutdown: graceful
 agent:
   base-url: ${AGENT_BASE_URL:http://localhost:8000}
+  delegation:
+    issuer: ${AGENT_DELEGATION_TOKEN_ISSUER:freelance-ops-backend}
+    audience: ${AGENT_DELEGATION_TOKEN_AUDIENCE:freelance-ops-agent}
+    public-key: ${AGENT_DELEGATION_TOKEN_PUBLIC_KEY:}
 springdoc:
   api-docs:
     enabled: false

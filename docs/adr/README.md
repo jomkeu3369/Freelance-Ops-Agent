@@ -26,4 +26,7 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0009: 생성 Artifact의 검색 자격과 재귀 오염 방지](0009-generated-artifact-retrieval-safety.md) — Proposed
 - [ADR-0010: Designer-first frontend 구현과 Vercel 배포](0010-designer-first-frontend-vercel.md)
 - [ADR-0011: Spring Data JPA 기반 업무 데이터 영속화](0011-spring-data-jpa-persistence.md)
-- [ADR-0012: 정책 Gate와 경량 분류기·LLM fallback을 결합한 Agent 라우팅](0012-hybrid-agent-routing-gateway.md)
+- [ADR-0012: 정책 Gate와 경량 분류기·LLM fallback을 결합한 Agent 라우팅](0012-hybrid-agent-routing-gateway.md) — Superseded
+- [ADR-0013: Deep Agents를 부서 Agent 실행 하네스로 채택](0013-deep-agents-department-runtime.md)
+- [ADR-0014: 단일 RAG의 RAPTOR 계층 검색](0014-raptor-single-rag.md)
+- [ADR-0015: 운영 라우팅은 정책 Gate와 전 요청 LLM 평가를 사용](0015-llm-first-operational-routing.md)
