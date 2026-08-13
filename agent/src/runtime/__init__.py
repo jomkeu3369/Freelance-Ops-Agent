@@ -5,6 +5,7 @@ from .executor import (
     OperationalAgentExecutor,
     OperationalGateway,
     ProjectContextTool,
+    ResearchTool,
 )
 from .postgres_store import PostgresAgentRunStore
 from .runs import (
@@ -36,6 +37,7 @@ __all__ = [
     "OperationalGateway",
     "PostgresAgentRunStore",
     "ProjectContextTool",
+    "ResearchTool",
     "RunCoordinator",
     "RunCheckpointJournal",
 ]

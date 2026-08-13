@@ -2,6 +2,7 @@
 
 - 상태: Accepted
 - 결정일: 2026-08-09
+- 관계: JPA와 Flyway 결정은 유지한다. Entity의 패키지 위치는 ADR-0017이 대체한다.
 
 ## Context
 

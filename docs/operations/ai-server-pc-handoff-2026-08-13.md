@@ -2,15 +2,15 @@
 
 > 기준일: 2026-08-13  
 > 기준 branch: `main`  
-> 상태: 작업 중단 시점의 dirty worktree, 아직 commit·push하지 않음
+> 상태: 당시 작업 중단 시점 기록. 해당 변경은 이후 `1187723`으로 commit·push됨
 
 ## 가장 중요한 전달 사항
 
-현재 변경은 `main` working tree에만 있으며 commit되지 않았다. 다른 PC에서 `git pull`만
-하면 이 변경을 받을 수 없다. 다음 중 하나가 먼저 필요하다.
+이 문서 작성 당시 변경은 `main` working tree에만 있었으나 이후 `1187723`으로
+commit·push되었다. 다른 PC에서는 `main`을 pull해 해당 기준선을 받을 수 있다.
 
-1. 현재 PC에서 사용자 승인 후 변경을 검토해 commit·push한다.
-2. `.git`, `.env`, virtual environment와 build cache를 제외한 working tree를 안전하게 옮긴다.
+이 문서 이후 새로 발생한 dirty working tree는 별도로 검토해야 하며, `.env`, virtual
+environment와 build cache는 PC 간 전달하거나 Git에 포함하지 않는다.
 
 API key, delegation private key, `.env`, 실제 고객 데이터는 Git이나 일반 압축 파일에
 포함하지 않는다.
@@ -39,6 +39,7 @@ API key, delegation private key, `.env`, 실제 고객 데이터는 Git이나 �
 | RAPTOR | provider-neutral leaf/summary tree build | OpenAI/Gemini adapter 테스트 |
 | Spring Tool client | project context, domain pack, requirement validation, quote calculation | HTTP 오류·retry·DTO 테스트 |
 | Spring Tool server | 위 4개 endpoint의 Controller·Service 구현 | backend 전체 테스트 통과 |
+| Spring Agent gateway | 공개 run 생성, 권한 검사, RS256 token 발급과 Agent HTTP client | backend 단위·HTTP client 테스트 통과 |
 | Project 조회 | `findByIdAndWorkspaceId` Spring Data JPA ORM query | service 단위 테스트 |
 | Tool 인증 | RS256, issuer, audience, expiry, subject, run binding, token scope 검사 | verifier/filter 테스트 |
 | 권한 회수 | Tool 실행 직전 현재 Spring RBAC 재검사 | revoked permission 테스트 |
@@ -72,7 +73,7 @@ Spring Data JPA Repository를 사용한다. Python Agent의 런타임 DB 접근�
 
 | 우선순위 | 미완료 항목 | 다음 검증 |
 |---|---|---|
-| P0 | Spring의 공개 Agent gateway와 delegation token 발급 | Spring→Agent 실제 HTTP contract test |
+| P0 | 구현된 Spring 공개 Agent gateway와 실제 사용자 JWT 인증 연결 | 인증 principal·workspace contract test |
 | P0 | 동일 RSA key pair를 사용한 Spring→Agent→Spring 왕복 | Testcontainers 또는 Compose E2E |
 | P0 | internal Tool Controller의 실제 JWT HTTP 통합 테스트 | MockMvc + 실제 서명 token 또는 Compose |
 | P0 | PostgreSQL checkpoint를 사용한 process restart 후 HITL resume | Agent 재시작 통합 테스트 |

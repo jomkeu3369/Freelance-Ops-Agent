@@ -319,6 +319,7 @@ flowchart LR
 
 ### 6.1 배포 원칙
 
+- 첫 공개 검증의 Spring Boot, Python Agent와 PostgreSQL runtime compute는 Vultr에 배포한다. 초기에는 단일 VM Compose를 허용하되 측정된 resource 경합이나 장애 격리 필요가 생기면 Vultr 내부에서 VM을 분리한다.
 - Spring 제품 backend는 modular monolith로 시작한다.
 - Python Agent runtime만 생태계와 실행 수명 차이를 근거로 별도 서비스로 분리한다.
 - frontend는 Spring 공개 API만 호출하고 Agent service port는 host에 공개하지 않는다.
@@ -326,6 +327,7 @@ flowchart LR
 - Python은 business table을 직접 읽거나 변경하지 않고 Spring Tool API를 호출한다.
 - 그 외 Spring 모듈은 독립 확장·배포 필요성이 측정되기 전에는 microservice로 분리하지 않는다.
 - PostgreSQL은 단일 system of record다.
+- Vultr public ingress는 TLS reverse proxy와 Spring 공개 API로 제한하고 Agent와 PostgreSQL은 public port를 갖지 않는다.
 - Crawl4AI는 초기에는 Agent runtime의 제한된 비동기 worker로 실행하며 독립 확장 필요성이 입증되기 전에는 별도 서비스로 분리하지 않는다.
 
 ---
@@ -1360,7 +1362,16 @@ postgres-pgvector
 - 배포는 immutable image tag를 사용하고 rollback 가능한 이전 tag를 보존한다.
 - Chromium을 포함하는 crawler image는 별도 resource limit, timeout, non-root 실행과 browser sandbox 정책을 검증한다.
 
-### 18.4 Frontend Vercel 배포
+### 18.4 Vultr runtime 배포
+
+- Spring Boot, Python Agent와 PostgreSQL + pgvector는 초기 Vultr VM의 Docker Compose에서 실행한다.
+- host firewall은 SSH 관리 경로와 TLS reverse proxy만 허용하고 Backend를 제외한 application port를 외부에 공개하지 않는다.
+- 서비스별 CPU·memory limit와 disk 사용량 경보를 설정해 Agent 부하가 Spring과 PostgreSQL을 고갈시키지 않게 한다.
+- database volume snapshot만으로 backup을 대체하지 않는다. 암호화한 PostgreSQL logical backup과 원본 파일을 별도 장애 영역에 보관하고 restore를 검증한다.
+- image registry, Vultr 배포 사용자, secret 주입 방식과 rollback 명령을 staging runbook에 고정한 뒤 자동 CD를 활성화한다.
+- 세부 결정과 분리 기준은 [ADR-0016](adr/0016-vultr-first-runtime-deployment.md)을 따른다.
+
+### 18.5 Frontend Vercel 배포
 
 - frontend는 Vercel Preview에서 1920×1080 원본, responsive, theme와 상태를 검수한 뒤 Production에 배포한다.
 - Preview에서 승인한 commit과 Production revision이 같아야 한다.
@@ -1368,7 +1379,7 @@ postgres-pgvector
 - Spring의 CORS, cookie와 인증 설정은 Vercel Preview domain과 Production domain을 구분해 관리한다.
 - frontend가 Python Agent service를 직접 호출하지 않는 경계는 배포 환경에서도 유지한다.
 
-### 18.5 백업
+### 18.6 백업
 
 - PostgreSQL backup과 원본 파일 backup을 함께 관리한다.
 - backup 생성만이 아니라 restore drill을 자동 또는 정기적으로 수행한다.

@@ -175,7 +175,7 @@ def test_start_and_read_completed_agent_run() -> None:
         "provider": "OPENAI",
         "model": "gpt-5.4-mini",
         "promptVersion": "department-work-product-v1",
-        "toolSchemaVersion": "spring-tool-api-v0.1.0",
+        "toolSchemaVersion": "spring-tool-api-v0.2.0",
         "traceId": "trace-1",
     }
 

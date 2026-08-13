@@ -36,7 +36,7 @@ class WorkflowState(TypedDict, total=False):
 
 
 def select_departments(request_tier: RequestTier, max_departments: int) -> list[DepartmentName]:
-    if request_tier == RequestTier.DIRECT_TOOL:
+    if request_tier in {RequestTier.DIRECT_TOOL, RequestTier.HUMAN_REQUIRED}:
         return []
 
     if request_tier in {RequestTier.SINGLE_AGENT, RequestTier.DEPARTMENT}:

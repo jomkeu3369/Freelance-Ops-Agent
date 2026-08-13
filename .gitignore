@@ -44,6 +44,9 @@ agent/.uv-python/
 .uv-*-cache/
 .uv-python/
 .pytest_cache/
+.tmp/
+.gradle-local/
+.gradle-ascii/
 .mypy_cache/
 .ruff_cache/
 .gradle-local/

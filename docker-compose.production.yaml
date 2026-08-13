@@ -1,0 +1,76 @@
+name: freelance-ops-v2-production
+
+services:
+  agent:
+    image: ${AGENT_IMAGE:?AGENT_IMAGE is required}:${DEPLOY_IMAGE_TAG:?DEPLOY_IMAGE_TAG is required}
+    pull_policy: always
+    cpus: 2.0
+    mem_limit: 3g
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AGENT_ENVIRONMENT: production
+      AGENT_DATABASE_URL: postgresql://agent_user:${AGENT_DB_PASSWORD:?AGENT_DB_PASSWORD is required}@postgres:5432/freelance_ops
+      AGENT_DELEGATION_TOKEN_PUBLIC_KEY: ${AGENT_DELEGATION_TOKEN_PUBLIC_KEY:?AGENT_DELEGATION_TOKEN_PUBLIC_KEY is required}
+      AGENT_ROUTE_EVALUATOR_SYSTEM_PROMPT: ${AGENT_ROUTE_EVALUATOR_SYSTEM_PROMPT:?AGENT_ROUTE_EVALUATOR_SYSTEM_PROMPT is required}
+      AGENT_ROUTE_EVALUATOR_PROMPT_VERSION: ${AGENT_ROUTE_EVALUATOR_PROMPT_VERSION:?AGENT_ROUTE_EVALUATOR_PROMPT_VERSION is required}
+      AGENT_ROUTE_EVALUATOR_PROMPT_SHA256: ${AGENT_ROUTE_EVALUATOR_PROMPT_SHA256:?AGENT_ROUTE_EVALUATOR_PROMPT_SHA256 is required}
+      UV_NO_SYNC: "1"
+      UV_CACHE_DIR: /tmp/uv-cache
+      PYTHONDONTWRITEBYTECODE: "1"
+
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${DEPLOY_IMAGE_TAG:?DEPLOY_IMAGE_TAG is required}
+    pull_policy: always
+    cpus: 1.5
+    mem_limit: 1536m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      APP_ENVIRONMENT: production
+      SPRING_PROFILES_ACTIVE: production
+      DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      APP_AUTH_JWT_SECRET: ${APP_AUTH_JWT_SECRET:?APP_AUTH_JWT_SECRET is required}
+      AGENT_DELEGATION_TOKEN_PRIVATE_KEY: ${AGENT_DELEGATION_TOKEN_PRIVATE_KEY:?AGENT_DELEGATION_TOKEN_PRIVATE_KEY is required}
+      AGENT_DELEGATION_TOKEN_PUBLIC_KEY: ${AGENT_DELEGATION_TOKEN_PUBLIC_KEY:?AGENT_DELEGATION_TOKEN_PUBLIC_KEY is required}
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  caddy_data:
+    name: freelance-ops-v2-caddy-data
+  caddy_config:
+    name: freelance-ops-v2-caddy-config

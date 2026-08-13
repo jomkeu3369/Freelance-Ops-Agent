@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,8 +33,20 @@ class Settings(BaseSettings):
     delegation_token_issuer: str = "freelance-ops-backend"
     delegation_token_audience: str = "freelance-ops-agent"
     delegation_token_public_key: SecretStr | None = None
+    delegation_token_key_id: str = Field(default="freelance-ops-v1", min_length=1, max_length=100)
+    delegation_token_previous_key_id: str | None = Field(default=None, min_length=1, max_length=100)
+    delegation_token_previous_public_key: SecretStr | None = None
     delegation_token_algorithms: str = "RS256"
     delegation_token_leeway_seconds: int = Field(default=5, ge=0, le=60)
+    web_research_enabled: bool = False
+    web_research_allowed_domains: str = ""
+    web_research_max_results: int = Field(default=5, ge=1, le=20)
+    web_research_max_fetches: int = Field(default=3, ge=1, le=10)
+    web_research_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    tavily_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TAVILY_API_KEY", "AGENT_TAVILY_API_KEY", "tavily_api_key")
+    )
 
     @model_validator(mode="after")
     def validate_database_pool_sizes(self) -> "Settings":
@@ -53,9 +65,34 @@ class Settings(BaseSettings):
             raise ValueError("production requires the PostgreSQL LangGraph checkpointer")
         if self.environment == "production" and self.delegation_token_public_key is None:
             raise ValueError("production requires the Spring delegation token public key")
+        previous_key_values = (
+            self.delegation_token_previous_key_id,
+            self.delegation_token_previous_public_key
+        )
+        if any(value is not None for value in previous_key_values) and not all(
+            value is not None for value in previous_key_values
+        ):
+            raise ValueError("previous delegation key id and public key must be configured together")
+        if self.delegation_token_previous_key_id == self.delegation_token_key_id:
+            raise ValueError("active and previous delegation key ids must differ")
         if self.environment == "production" and not all(value is not None for value in prompt_values):
             raise ValueError("production requires the pinned private route evaluator prompt")
+        if self.web_research_max_fetches > self.web_research_max_results:
+            raise ValueError("web_research_max_fetches must not exceed web_research_max_results")
+        if self.web_research_enabled and not self.allowed_web_research_domains():
+            raise ValueError("enabled web research requires an explicit domain allowlist")
+        if self.web_research_enabled and self.tavily_api_key is None:
+            raise ValueError("enabled web research requires a Tavily API key")
         return self
+
+    def allowed_web_research_domains(self) -> list[str]:
+        return sorted(
+            {
+                domain.strip().lower().rstrip(".")
+                for domain in self.web_research_allowed_domains.split(",")
+                if domain.strip()
+            }
+        )
 
     model_config = SettingsConfigDict(env_prefix="AGENT_", env_file=None, extra="ignore")
 

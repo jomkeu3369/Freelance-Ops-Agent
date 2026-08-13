@@ -33,6 +33,7 @@ class RequestTier(StrEnum):
     SINGLE_AGENT = "SINGLE_AGENT"
     DEPARTMENT = "DEPARTMENT"
     MULTI_DEPARTMENT = "MULTI_DEPARTMENT"
+    HUMAN_REQUIRED = "HUMAN_REQUIRED"
 
 
 class DepartmentName(StrEnum):
@@ -95,12 +96,22 @@ class ProjectContext(StrictModel):
     budget_max: float | None = Field(default=None, ge=0)
 
 
+class DomainPackSourceReference(StrictModel):
+    title: str = Field(min_length=1, max_length=500)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class DomainPack(StrictModel):
     code: str = Field(min_length=2, max_length=64)
     version: str = Field(min_length=1, max_length=100)
+    jurisdiction_code: str = Field(min_length=2, max_length=32)
+    profession_code: str = Field(min_length=2, max_length=64)
     scope: str = Field(max_length=10000)
     required_fields: list[str] = Field(default_factory=list, max_length=100)
     question_templates: list[str] = Field(default_factory=list, max_length=100)
+    source_references: list[DomainPackSourceReference] = Field(default_factory=list, max_length=100)
+    effective_from: str
+    effective_until: str | None = None
 
 
 class RequirementDraft(StrictModel):
@@ -140,6 +151,28 @@ class QuoteCalculationResult(StrictModel):
     formula_version: str = Field(min_length=1, max_length=100)
 
 
+class KnowledgeSearchRequest(StrictModel):
+    query: str = Field(min_length=1, max_length=2000)
+    embedding: list[float] | None = Field(default=None, min_length=1536, max_length=1536)
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class KnowledgeSearchResult(StrictModel):
+    chunk_id: UUID
+    document_id: UUID
+    document_title: str = Field(max_length=300)
+    source_type: str
+    source_uri: str | None = None
+    source_version: str | None = None
+    jurisdiction: str | None = None
+    effective_from: str | None = None
+    effective_until: str | None = None
+    content: str = Field(max_length=20000)
+    rrf_score: float
+    keyword_rank: int = Field(ge=0)
+    vector_rank: int | None = Field(default=None, ge=1)
+
+
 class AgentRunRequest(StrictModel):
     context: TrustedRunContext
     budget: RunBudget
@@ -154,12 +187,24 @@ class HealthResponse(StrictModel):
     version: str
 
 
+class SourceReference(StrictModel):
+    title: str = Field(max_length=500)
+    url: str = Field(min_length=1, max_length=2048)
+    provider: str = Field(min_length=1, max_length=50)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    fetched_at: datetime
+    authority_level: str = Field(min_length=1, max_length=50)
+    jurisdiction: str | None = Field(default=None, max_length=32)
+    excerpt: str = Field(min_length=1, max_length=4000)
+
+
 class DepartmentResult(StrictModel):
     department: DepartmentName
     status: str
     summary: str
     evidence_ids: list[UUID] = Field(default_factory=list)
     assumption_ids: list[UUID] = Field(default_factory=list)
+    sources: list[SourceReference] = Field(default_factory=list, max_length=10)
     error_code: str | None = None
 
 
@@ -214,6 +259,19 @@ class AgentRunMetadata(StrictModel):
     trace_id: str = Field(min_length=1, max_length=128)
 
 
+class AgentRunUsage(StrictModel):
+    request_tier: RequestTier
+    model_calls: int = Field(ge=0)
+    tool_calls: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cached_tokens: int = Field(default=0, ge=0)
+    search_credits: int = Field(default=0, ge=0)
+    crawled_pages: int = Field(default=0, ge=0)
+    retry_count: int = Field(default=0, ge=0)
+    duration_ms: int = Field(ge=0)
+
+
 class AgentRunView(StrictModel):
     run_id: UUID
     status: AgentRunStatus
@@ -222,6 +280,7 @@ class AgentRunView(StrictModel):
     result: AgentRunResult | None = None
     error_code: str | None = None
     metadata: AgentRunMetadata
+    usage: AgentRunUsage | None = None
     updated_at: datetime
 
 

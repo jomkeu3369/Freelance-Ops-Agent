@@ -87,6 +87,7 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
     authorization_error = _authorize(principal, run_id=body.context.run_id, permission="agent.run")
     if authorization_error is not None:
         return authorization_error
+
     assert isinstance(principal, DelegationPrincipal)
     if (
         principal.workspace_id != body.context.workspace_id
@@ -99,6 +100,7 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         accepted = await coordinator.accept(body)
     except AgentRunStateError:
         return _problem(409, "Agent run already exists", "AGENT_RUN_CONFLICT")
+
     assert credentials is not None
     background_tasks.add_task(
         coordinator.execute,
@@ -168,10 +170,13 @@ async def resume_agent_run(run_id: UUID, body: ResumeAgentRunRequest, background
         return authorization_error
     try:
         accepted, request = await coordinator.accept_resume(run_id, body)
+
     except AgentRunNotFoundError:
         return _problem(404, "Agent run was not found", "AGENT_RUN_NOT_FOUND")
+
     except AgentRunStateError:
         return _problem(409, "Agent run cannot be resumed", "AGENT_RUN_RESUME_CONFLICT")
+
     assert credentials is not None
     background_tasks.add_task(
         coordinator.resume,
@@ -190,7 +195,9 @@ async def cancel_agent_run(run_id: UUID, principal: PrincipalDependency, coordin
     try:
         await coordinator.cancel(run_id)
         return await coordinator.view(run_id)
+
     except AgentRunNotFoundError:
         return _problem(404, "Agent run was not found", "AGENT_RUN_NOT_FOUND")
+
     except AgentRunStateError:
         return _problem(409, "Agent run cannot be cancelled", "AGENT_RUN_CANCEL_CONFLICT")

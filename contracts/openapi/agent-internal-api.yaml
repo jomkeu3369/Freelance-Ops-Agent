@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.1.0
+  version: 0.3.0
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -422,10 +422,41 @@ components:
     DepartmentName:
       type: string
       enum: [REQUIREMENTS, RESEARCH, DEAL_DESIGN, VERIFICATION]
+    SourceReference:
+      type: object
+      additionalProperties: false
+      required: [title, url, provider, contentSha256, fetchedAt, authorityLevel, excerpt]
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        provider:
+          type: string
+          maxLength: 50
+        contentSha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        fetchedAt:
+          type: string
+          format: date-time
+        authorityLevel:
+          type: string
+          maxLength: 50
+        jurisdiction:
+          type: string
+          maxLength: 32
+        excerpt:
+          type: string
+          minLength: 1
+          maxLength: 4000
     DepartmentResult:
       type: object
       additionalProperties: false
-      required: [department, status, summary, evidenceIds, assumptionIds]
+      required: [department, status, summary, evidenceIds, assumptionIds, sources]
       properties:
         department:
           $ref: "#/components/schemas/DepartmentName"
@@ -445,6 +476,11 @@ components:
           items:
             type: string
             format: uuid
+        sources:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/SourceReference"
         errorCode:
           type: string
           maxLength: 100
@@ -487,6 +523,8 @@ components:
           maxLength: 100
         metadata:
           $ref: "#/components/schemas/AgentRunMetadata"
+        usage:
+          $ref: "#/components/schemas/AgentRunUsage"
         updatedAt:
           type: string
           format: date-time
@@ -514,6 +552,33 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+    AgentRunUsage:
+      type: object
+      additionalProperties: false
+      required:
+        - requestTier
+        - modelCalls
+        - toolCalls
+        - inputTokens
+        - outputTokens
+        - cachedTokens
+        - searchCredits
+        - crawledPages
+        - retryCount
+        - durationMs
+      properties:
+        requestTier:
+          type: string
+          enum: [DIRECT_TOOL, SINGLE_AGENT, DEPARTMENT, MULTI_DEPARTMENT, HUMAN_REQUIRED]
+        modelCalls: {type: integer, minimum: 0}
+        toolCalls: {type: integer, minimum: 0}
+        inputTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        cachedTokens: {type: integer, minimum: 0}
+        searchCredits: {type: integer, minimum: 0}
+        crawledPages: {type: integer, minimum: 0}
+        retryCount: {type: integer, minimum: 0}
+        durationMs: {type: integer, minimum: 0}
     AgentInterruption:
       type: object
       additionalProperties: false

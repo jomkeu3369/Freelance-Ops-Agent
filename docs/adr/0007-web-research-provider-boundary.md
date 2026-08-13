@@ -42,3 +42,7 @@
 - Crawl4AI로 모든 웹 탐색 수행: 검색 discovery 품질과 browser 운영 부담 때문에 거부한다.
 - 매 사용자 요청마다 실시간 재크롤링: 비용, latency와 재현성이 나빠지므로 거부한다.
 - 임의 도메인 무제한 크롤링: 보안과 준수 위험 때문에 거부한다.
+
+## Implementation status — 2026-08-14
+
+Provider-neutral contract, Tavily discovery, allowlisted direct HTML·text·PDF fetch와 제한형 Crawl4AI adapter를 구현했다. 운영 Research 부서는 명시된 domain allowlist, `document.read`, Tool·search-credit budget이 모두 있을 때만 검색한다. 수집 문서는 URL·content hash·parser·관할권을 보존하고 prompt-injection signal이 발견된 내용은 model context에 전달하지 않는다. Crawl4AI runtime 승격과 실제 공식 source corpus benchmark는 아직 남아 있다.

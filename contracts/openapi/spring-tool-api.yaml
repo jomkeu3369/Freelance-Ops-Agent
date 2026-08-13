@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Spring Internal Tool API
-  version: 0.1.0
+  version: 0.2.0
   description: Python Agent Tool이 Spring Boot 업무 기능을 호출하는 내부 전용 계약
 servers:
   - url: http://backend:8080
@@ -103,6 +103,32 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         "403":
           $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/knowledge/search:
+    post:
+      operationId: searchKnowledge
+      parameters:
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeSearchRequest"
+      responses:
+        "200":
+          description: Workspace-scoped hybrid retrieval results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KnowledgeSearchResult"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
     delegationToken:
@@ -164,11 +190,15 @@ components:
     DomainPack:
       type: object
       additionalProperties: false
-      required: [code, version, scope, requiredFields, questionTemplates]
+      required: [code, version, jurisdictionCode, professionCode, scope, requiredFields, questionTemplates, sourceReferences, effectiveFrom, effectiveUntil]
       properties:
         code:
           type: string
         version:
+          type: string
+        jurisdictionCode:
+          type: string
+        professionCode:
           type: string
         scope:
           type: string
@@ -180,6 +210,26 @@ components:
           type: array
           items:
             type: string
+        sourceReferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/DomainPackSourceReference'
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveUntil:
+          type: [string, 'null']
+          format: date
+    DomainPackSourceReference:
+      type: object
+      additionalProperties: false
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+          format: uri
     RequirementDraft:
       type: object
       additionalProperties: false
@@ -279,6 +329,69 @@ components:
           type: number
         formulaVersion:
           type: string
+    KnowledgeSearchRequest:
+      type: object
+      additionalProperties: false
+      required: [query, limit]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        embedding:
+          type: array
+          minItems: 1536
+          maxItems: 1536
+          items:
+            type: number
+            format: float
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+    KnowledgeSearchResult:
+      type: object
+      additionalProperties: false
+      required: [chunkId, documentId, documentTitle, sourceType, content, rrfScore, keywordRank]
+      properties:
+        chunkId:
+          type: string
+          format: uuid
+        documentId:
+          type: string
+          format: uuid
+        documentTitle:
+          type: string
+          maxLength: 300
+        sourceType:
+          type: string
+          enum: [PAST_PROJECT, POLICY, PLATFORM_TERMS, USER_TEMPLATE, EXTERNAL_SOURCE]
+        sourceUri:
+          type: string
+          maxLength: 2000
+        sourceVersion:
+          type: string
+          maxLength: 120
+        jurisdiction:
+          type: string
+          maxLength: 120
+        effectiveFrom:
+          type: string
+          format: date
+        effectiveUntil:
+          type: string
+          format: date
+        content:
+          type: string
+          maxLength: 20000
+        rrfScore:
+          type: number
+        keywordRank:
+          type: integer
+          minimum: 0
+        vectorRank:
+          type: integer
+          minimum: 1
     ProblemDetails:
       type: object
       additionalProperties: true

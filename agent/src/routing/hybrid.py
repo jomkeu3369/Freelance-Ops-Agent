@@ -33,6 +33,7 @@ class RouteExample:
     def __post_init__(self) -> None:
         if not self.example_id.strip():
             raise ValueError("route example id must not be empty")
+
         if not self.text.strip():
             raise ValueError("route example text must not be empty")
 
@@ -81,14 +82,19 @@ class HybridRouteConfig:
 
     def __post_init__(self) -> None:
         if self.bm25_top_k < 1:
+
             raise ValueError("bm25_top_k must be positive")
         if self.rrf_k < 1:
+
             raise ValueError("rrf_k must be positive")
         if self.bm25_weight <= 0 or self.encoder_weight <= 0:
+
             raise ValueError("RRF lane weights must be positive")
         if not 0 <= self.min_fused_share <= 1:
+
             raise ValueError("min_fused_share must be between 0 and 1")
         if not 0 <= self.min_margin <= 1:
+
             raise ValueError("min_margin must be between 0 and 1")
 
 
@@ -132,10 +138,11 @@ class _Bm25RouteIndex:
             route = self._examples[index].route
             route_scores[route] += 1.0 / rank
         ranking = _rank_scores(route_scores)
+
         return _Bm25Result(
             ranking=ranking,
             matched_example_ids=tuple(self._examples[index].example_id for index in positive),
-            has_signal=True,
+            has_signal=True
         )
 
     def _score_document(self, query_tokens: Sequence[str], document: Sequence[str]) -> float:

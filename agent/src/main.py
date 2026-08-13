@@ -2,11 +2,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from tavily import AsyncTavilyClient  # type: ignore[import-untyped]
 
 from api.agent_runs.router import router as agent_runs_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
-from config import get_settings
+from config import Settings, get_settings
 from contracts import HealthResponse
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
@@ -25,6 +26,12 @@ from runtime import (
     RunCoordinator,
 )
 from security import DelegationTokenVerifier
+from web_research import (
+    BoundedWebResearchService,
+    DirectHttpProvider,
+    TavilyWebResearchProvider,
+    WebResearchRouter,
+)
 
 RuntimeComponents = tuple[
     RunCoordinator,
@@ -130,7 +137,8 @@ def _build_run_runtime() -> RuntimeComponents:
         SpringToolClient(
             settings.backend_internal_url,
             timeout_seconds=settings.backend_tool_timeout_seconds,
-        )
+        ),
+        _build_web_research_service(settings)
     )
     if settings.run_store_backend == "memory":
         return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None
@@ -160,6 +168,22 @@ def _build_run_runtime() -> RuntimeComponents:
     return RunCoordinator(store, executor, checkpoint), database, store, checkpoint
 
 
+def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
+    if not settings.web_research_enabled:
+        return None
+    api_key = settings.tavily_api_key
+    key_value = api_key.get_secret_value() if api_key is not None else ""
+    tavily = TavilyWebResearchProvider(AsyncTavilyClient(api_key=key_value))
+    router = WebResearchRouter(tavily, DirectHttpProvider())
+    return BoundedWebResearchService(
+        router,
+        settings.allowed_web_research_domains(),
+        max_results=settings.web_research_max_results,
+        max_fetches=settings.web_research_max_fetches,
+        timeout_seconds=settings.web_research_timeout_seconds
+    )
+
+
 def _build_delegation_token_verifier() -> DelegationTokenVerifier:
     settings = get_settings()
     public_key = settings.delegation_token_public_key
@@ -168,8 +192,21 @@ def _build_delegation_token_verifier() -> DelegationTokenVerifier:
         if public_key is not None
         else ""
     )
+    previous_key = settings.delegation_token_previous_public_key
+    previous_key_value = (
+        previous_key.get_secret_value().replace("\\n", "\n").strip()
+        if previous_key is not None
+        else ""
+    )
+    previous_keys = (
+        {settings.delegation_token_previous_key_id: previous_key_value}
+        if settings.delegation_token_previous_key_id is not None and previous_key_value
+        else {}
+    )
     return DelegationTokenVerifier(
         public_key=public_key_value or "UNCONFIGURED",
+        key_id=settings.delegation_token_key_id,
+        previous_public_keys=previous_keys,
         issuer=settings.delegation_token_issuer,
         audience=settings.delegation_token_audience,
         algorithms=tuple(

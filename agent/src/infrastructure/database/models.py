@@ -28,6 +28,7 @@ class AgentRunStateModel(AgentRuntimeBase):
     active_department: Mapped[str | None] = mapped_column(String(32))
     interruption_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    usage_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     error_code: Mapped[str | None] = mapped_column(String(100))
     idempotency_keys: Mapped[list[str]] = mapped_column(JSONB, default=list)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -3,7 +3,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from contracts import QuoteCalculationItem, QuoteCalculationRequest, RequirementDraft
+from contracts import KnowledgeSearchRequest, QuoteCalculationItem, QuoteCalculationRequest, RequirementDraft
 from integrations import SpringToolClient, SpringToolError
 from runtime import ExecutionAuthorization
 
@@ -71,8 +71,13 @@ async def test_all_structured_spring_tool_contracts() -> None:
                 json={
                     "code": "software",
                     "version": "2026-08",
+                    "jurisdictionCode": "KR",
+                    "professionCode": "SOFTWARE_DEVELOPER",
                     "scope": "software development",
                     "requiredFields": ["features"],
+                    "sourceReferences": [{"title": "source", "url": "https://example.com"}],
+                    "effectiveFrom": "2026-08-14",
+                    "effectiveUntil": None,
                     "questionTemplates": ["사용자 유형은?"],
                 },
             )
@@ -141,9 +146,14 @@ async def test_read_tool_retries_transient_gateway_failure() -> None:
             json={
                 "code": "software",
                 "version": "v1",
+                "jurisdictionCode": "KR",
+                "professionCode": "SOFTWARE_DEVELOPER",
                 "scope": "scope",
                 "requiredFields": [],
                 "questionTemplates": [],
+                "sourceReferences": [],
+                "effectiveFrom": "2026-08-14",
+                "effectiveUntil": None,
             },
         )
 
@@ -152,6 +162,44 @@ async def test_read_tool_retries_transient_gateway_failure() -> None:
         await client.get_domain_pack("token", run_id=uuid4(), domain_code="software")
 
     assert calls == 2
+
+
+async def test_knowledge_search_validates_grounded_result_contract() -> None:
+    run_id = uuid4()
+    chunk_id = uuid4()
+    document_id = uuid4()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/internal/v1/knowledge/search"
+        return httpx.Response(
+            200,
+            json=[{
+                "chunkId": str(chunk_id),
+                "documentId": str(document_id),
+                "documentTitle": "계약 정책",
+                "sourceType": "POLICY",
+                "sourceUri": "https://example.com/policy",
+                "sourceVersion": "2026-08",
+                "jurisdiction": "KR",
+                "effectiveFrom": "2026-08-01",
+                "effectiveUntil": None,
+                "content": "계약금은 착수 전에 지급한다.",
+                "rrfScore": 0.03,
+                "keywordRank": 1,
+                "vectorRank": 2,
+            }],
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://backend:8080") as http_client:
+        client = SpringToolClient("http://backend:8080", client=http_client)
+        results = await client.search_knowledge(
+            "token",
+            run_id=run_id,
+            request=KnowledgeSearchRequest(query="계약금", limit=5),
+        )
+
+    assert results[0].chunk_id == chunk_id
+    assert results[0].jurisdiction == "KR"
 
 
 async def test_read_tool_honors_run_attempt_limit() -> None:

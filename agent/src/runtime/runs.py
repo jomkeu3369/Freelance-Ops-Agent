@@ -16,8 +16,10 @@ from contracts import (
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
+    AgentRunUsage,
     AgentRunView,
     DepartmentName,
+    RequestTier,
     ResumeAgentRunRequest,
 )
 
@@ -51,6 +53,7 @@ class ExecutionOutcome:
     result: AgentRunResult | None = None
     interruption: AgentInterruption | None = None
     active_department: DepartmentName | None = None
+    usage: AgentRunUsage | None = None
 
     def __post_init__(self) -> None:
         if (self.result is None) == (self.interruption is None):
@@ -84,6 +87,7 @@ class _RunRecord:
     interruption: AgentInterruption | None = None
     result: AgentRunResult | None = None
     error_code: str | None = None
+    usage: AgentRunUsage | None = None
     idempotency_keys: set[str] = field(default_factory=set)
     events: list[AgentRunEvent] = field(default_factory=list)
 
@@ -96,6 +100,7 @@ class _RunRecord:
             result=self.result,
             error_code=self.error_code,
             metadata=_metadata(self.request),
+            usage=self.usage,
             updated_at=self.updated_at,
         )
 
@@ -164,6 +169,7 @@ class InMemoryAgentRunStore:
             record.active_department = outcome.active_department
             record.result = outcome.result
             record.interruption = outcome.interruption
+            record.usage = merge_usage(record.usage, outcome.usage)
             record.status = (
                 AgentRunStatus.WAITING_FOR_USER
                 if outcome.interruption is not None
@@ -248,8 +254,35 @@ def _metadata(request: AgentRunRequest) -> AgentRunMetadata:
         provider=request.model_selection.provider,
         model=request.model_selection.model,
         prompt_version="department-work-product-v1",
-        tool_schema_version="spring-tool-api-v0.1.0",
+        tool_schema_version="spring-tool-api-v0.2.0",
         trace_id=request.context.trace_id,
+    )
+
+
+def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -> AgentRunUsage | None:
+    if incoming is None:
+        return current
+    if current is None:
+        return incoming
+    tier_order = {
+        RequestTier.DIRECT_TOOL: 0,
+        RequestTier.SINGLE_AGENT: 1,
+        RequestTier.DEPARTMENT: 2,
+        RequestTier.MULTI_DEPARTMENT: 3,
+        RequestTier.HUMAN_REQUIRED: 4
+    }
+    request_tier = max((current.request_tier, incoming.request_tier), key=tier_order.__getitem__)
+    return AgentRunUsage(
+        request_tier=request_tier,
+        model_calls=current.model_calls + incoming.model_calls,
+        tool_calls=current.tool_calls + incoming.tool_calls,
+        input_tokens=current.input_tokens + incoming.input_tokens,
+        output_tokens=current.output_tokens + incoming.output_tokens,
+        cached_tokens=current.cached_tokens + incoming.cached_tokens,
+        search_credits=current.search_credits + incoming.search_credits,
+        crawled_pages=current.crawled_pages + incoming.crawled_pages,
+        retry_count=current.retry_count + incoming.retry_count,
+        duration_ms=current.duration_ms + incoming.duration_ms
     )
 
 

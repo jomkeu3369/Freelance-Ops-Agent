@@ -31,7 +31,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   health:
     livenessstate:
       enabled: true
@@ -40,11 +40,36 @@ management:
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
+app:
+  environment: ${APP_ENVIRONMENT:development}
+  auth:
+    issuer: ${APP_AUTH_ISSUER:freelance-ops-backend}
+    audience: ${APP_AUTH_AUDIENCE:freelance-ops-web}
+    jwt-secret: ${APP_AUTH_JWT_SECRET:development-only-auth-secret-change-me}
+    access-token-ttl-seconds: ${APP_AUTH_ACCESS_TOKEN_TTL_SECONDS:900}
+    refresh-token-ttl-seconds: ${APP_AUTH_REFRESH_TOKEN_TTL_SECONDS:2592000}
 agent:
+  quota:
+    max-duration-seconds: ${AGENT_QUOTA_MAX_DURATION_SECONDS:180}
+    max-model-calls: ${AGENT_QUOTA_MAX_MODEL_CALLS:8}
+    max-tool-calls: ${AGENT_QUOTA_MAX_TOOL_CALLS:12}
+    max-input-tokens: ${AGENT_QUOTA_MAX_INPUT_TOKENS:50000}
+    max-output-tokens: ${AGENT_QUOTA_MAX_OUTPUT_TOKENS:12000}
+    max-departments: ${AGENT_QUOTA_MAX_DEPARTMENTS:4}
+    max-hierarchy-depth: ${AGENT_QUOTA_MAX_HIERARCHY_DEPTH:2}
+    max-search-credits: ${AGENT_QUOTA_MAX_SEARCH_CREDITS:2}
+    max-retries: ${AGENT_QUOTA_MAX_RETRIES:2}
+    max-handoffs: ${AGENT_QUOTA_MAX_HANDOFFS:3}
   base-url: ${AGENT_BASE_URL:http://localhost:8000}
   delegation:
     issuer: ${AGENT_DELEGATION_TOKEN_ISSUER:freelance-ops-backend}
-    audience: ${AGENT_DELEGATION_TOKEN_AUDIENCE:freelance-ops-agent}
+    agent-audience: ${AGENT_DELEGATION_TOKEN_AGENT_AUDIENCE:freelance-ops-agent}
+    tool-audience: ${AGENT_DELEGATION_TOKEN_TOOL_AUDIENCE:freelance-ops-spring-tools}
+    key-id: ${AGENT_DELEGATION_TOKEN_KEY_ID:freelance-ops-v1}
+    previous-key-id: ${AGENT_DELEGATION_TOKEN_PREVIOUS_KEY_ID:}
+    previous-public-key: ${AGENT_DELEGATION_TOKEN_PREVIOUS_PUBLIC_KEY:}
+    ttl-seconds: ${AGENT_DELEGATION_TOKEN_TTL_SECONDS:60}
+    private-key: ${AGENT_DELEGATION_TOKEN_PRIVATE_KEY:}
     public-key: ${AGENT_DELEGATION_TOKEN_PUBLIC_KEY:}
 springdoc:
   api-docs:

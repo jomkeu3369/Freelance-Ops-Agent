@@ -16,6 +16,7 @@ from contracts import (
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
+    AgentRunUsage,
     AgentRunView,
     DepartmentName,
     ResumeAgentRunRequest,
@@ -23,7 +24,7 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
-from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome
+from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, merge_usage
 
 
 class PostgresAgentRunStore:
@@ -89,6 +90,8 @@ class PostgresAgentRunStore:
             model.active_department = outcome.active_department.value if outcome.active_department is not None else None
             model.interruption_json = self._json(outcome.interruption)
             model.result_json = self._json(outcome.result)
+            current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current_usage, outcome.usage))
             model.updated_at = datetime.now(UTC)
             if outcome.interruption is not None:
                 await self._append_event(
@@ -201,9 +204,10 @@ class PostgresAgentRunStore:
                 provider=request.model_selection.provider,
                 model=request.model_selection.model,
                 prompt_version="department-work-product-v1",
-                tool_schema_version="spring-tool-api-v0.1.0",
+                tool_schema_version="spring-tool-api-v0.2.0",
                 trace_id=request.context.trace_id,
             ),
+            usage=AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None,
             updated_at=model.updated_at,
         )
 
@@ -218,7 +222,7 @@ class PostgresAgentRunStore:
         )
 
     @staticmethod
-    def _json(value: AgentInterruption | AgentRunResult | None) -> dict[str, object] | None:
+    def _json(value: AgentInterruption | AgentRunResult | AgentRunUsage | None) -> dict[str, object] | None:
         return value.model_dump(mode="json") if value is not None else None
 
     @staticmethod

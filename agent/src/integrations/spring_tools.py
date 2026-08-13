@@ -12,6 +12,8 @@ from pydantic import BaseModel
 
 from contracts import (
     DomainPack,
+    KnowledgeSearchRequest,
+    KnowledgeSearchResult,
     ProjectContext,
     QuoteCalculationRequest,
     QuoteCalculationResult,
@@ -83,6 +85,22 @@ class SpringToolClient:
         )
         return self._validated(response, QuoteCalculationResult)
 
+    async def search_knowledge(self, delegation_token: str, *, run_id: UUID, request: KnowledgeSearchRequest, max_attempts: int | None = None, traceparent: str | None = None) -> list[KnowledgeSearchResult]:  # noqa: E501
+        response = await self._request(
+            "POST",
+            "/internal/v1/knowledge/search",
+            delegation_token,
+            run_id,
+            json_body=request.model_dump(mode="json", by_alias=True),
+            retry_read=True,
+            max_attempts=max_attempts,
+            traceparent=traceparent,
+        )
+        try:
+            return [KnowledgeSearchResult.model_validate(item) for item in response.json()]
+        except (TypeError, ValueError) as error:
+            raise SpringToolError("SPRING_TOOL_RESPONSE_INVALID") from error
+
     async def _request(self, method: str, path: str, delegation_token: str, run_id: UUID, *, json_body: Mapping[str, object] | None = None, retry_read: bool = False, max_attempts: int | None = None, traceparent: str | None = None) -> Any:  # noqa: E501
         if not delegation_token.strip():
             raise SpringToolError("SPRING_TOOL_AUTHORIZATION_REQUIRED")
@@ -130,14 +148,19 @@ class SpringToolClient:
     def _accepted_response(response: Any) -> Any:
         if response.status_code in {401, 403}:
             raise SpringToolError("SPRING_TOOL_FORBIDDEN")
+
         if response.status_code == 404:
             raise SpringToolError("SPRING_TOOL_NOT_FOUND")
+
         if response.status_code == 409:
             raise SpringToolError("SPRING_TOOL_CONFLICT")
+
         if response.status_code == 422 or response.status_code == 400:
             raise SpringToolError("SPRING_TOOL_INPUT_INVALID")
+
         if response.status_code < 200 or response.status_code >= 300:
             raise SpringToolError("SPRING_TOOL_UNAVAILABLE")
+
         return response
 
     @staticmethod

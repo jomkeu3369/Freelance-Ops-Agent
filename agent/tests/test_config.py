@@ -32,3 +32,29 @@ def test_production_accepts_only_complete_security_configuration() -> None:
 
     assert settings.run_store_backend == "postgres"
     assert settings.checkpoint_backend == "postgres"
+
+
+def test_enabled_web_research_requires_allowlist_and_api_key() -> None:
+    with pytest.raises(ValidationError, match="domain allowlist"):
+        Settings(web_research_enabled=True, tavily_api_key="secret")
+    with pytest.raises(ValidationError, match="Tavily API key"):
+        Settings(web_research_enabled=True, web_research_allowed_domains="example.go.kr")
+
+    settings = Settings(
+        web_research_enabled=True,
+        web_research_allowed_domains=" example.go.kr,WWW.EXAMPLE.GO.KR,example.go.kr ",
+        tavily_api_key="secret"
+    )
+
+    assert settings.allowed_web_research_domains() == ["example.go.kr", "www.example.go.kr"]
+
+
+def test_delegation_rotation_requires_complete_distinct_previous_key() -> None:
+    with pytest.raises(ValidationError, match="configured together"):
+        Settings(delegation_token_previous_key_id="previous-v1")
+    with pytest.raises(ValidationError, match="must differ"):
+        Settings(
+            delegation_token_key_id="active-v2",
+            delegation_token_previous_key_id="active-v2",
+            delegation_token_previous_public_key="public-key"
+        )

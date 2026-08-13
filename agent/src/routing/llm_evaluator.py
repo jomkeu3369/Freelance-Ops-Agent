@@ -54,8 +54,10 @@ class SecretSystemPrompt:
     def __post_init__(self) -> None:
         if not self.content.strip():
             raise ValueError("route evaluator system prompt secret is required")
+
         if not self.version.strip():
             raise ValueError("route evaluator prompt version is required")
+
         if len(self.expected_sha256) != 64:
             raise ValueError("expected prompt SHA-256 must contain 64 hexadecimal characters")
         try:
