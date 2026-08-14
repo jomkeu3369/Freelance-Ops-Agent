@@ -11,6 +11,7 @@
 | 가짜 후기·고객 로고·통계·가격 제거 | 메인 페이지 source test | 완료 |
 | 1920 기준 editorial layout, 1440·1280·1024·768·390 대응 | 로컬 Pretendard dynamic subset, 한글 어절 보존, 1440·1180·820·520 breakpoint와 실제 browser의 Hero 2줄·주요 제목 2–3줄·overflow 0px 측정 | 완료 |
 | 업무 단계 아코디언 타이포그래피 | 접힌 한글 제목은 `vertical-rl`·`upright`로 정방향 표시하고 활성 제목은 가로쓰기, 180도 중복 회전 방지 회귀 검사 | 완료 |
+| 업무 단계 작동 방식 시각화 | 5개 활성 단계마다 입력→처리→결과가 달라지는 코드 기반 미니 그래프, 이동 packet·처리 궤도, 820px 이하 compact layout | 완료 |
 | dark/light theme와 reduced motion | theme provider, `prefers-reduced-motion` | 완료 |
 | Home / Pipeline | 실제 Project status 조회·변경 API 기반 6단계 pipeline | 완료 |
 | CRM / 고객 연결 | 고객 검색·등록·수정·보관과 새 프로젝트의 기존 고객 연결 | 완료 |
@@ -27,6 +28,7 @@
 | Permission-aware UI | effective permission 선조회, 허용된 resource만 요청, 읽기 전용·write·publish·delete action 분리 | 완료 |
 | server-state cache | 요청 중복 제거, TTL cache, mutation invalidation | 완료 |
 | 인증 수명주기 | sessionStorage, refresh token rotation, browser timer 범위 내 bounded refresh scheduling, server logout | 완료 |
+| 인증 진입 UX | 회원가입 비밀번호 확인·일치 검증, 접근 가능한 비밀번호 표시/숨기기, 모드 전환 오류 초기화, pending 중 fieldset·인증 탭 잠금 | 완료 |
 | 근거 프리뷰 상호작용 | 견적 항목 선택 시 계산·가정·연결 source Drawer 동기화 | 완료 |
 | 운영 복구와 접근성 | App Router 오류·404 복구, skip link, focus-visible, 제안서 재시도, Clipboard 권한 거부 fallback | 완료 |
 | 키보드 작업 수명주기 | 인증 tab 화살표 이동, 현재 위치 전달, modal focus trap·배경 scroll lock·trigger focus 복귀 | 완료 |
@@ -54,6 +56,8 @@
 - `npm.cmd run build` (`next build`)
 - 실제 browser의 1920·1440·1280·1024·768·390 viewport에서 Pretendard load 완료, Hero 2줄, 주요 제목 2–3줄, horizontal overflow와 console warning·error 0건
 - 실제 browser computed style에서 접힌 업무 단계 제목 4개의 `transform: none`·`writing-mode: vertical-rl`·`text-orientation: upright`와 활성 제목의 가로쓰기 확인
+- 실제 browser에서 업무 단계 미니 그래프 397×190px·노드 4개·moving packet 2개, 4단계 전환 후 중심 노드 `결정적 계산`, horizontal overflow와 console warning·error 0건 확인
+- 회원가입 비밀번호 불일치 시 API 요청 0건·확인 필드 focus, 모드 전환 시 오류/노출 상태 초기화, pending 중 fieldset·인증 탭 잠금, 로그인 성공 후 Pipeline 진입을 실제 browser에서 확인
 - Vercel Preview fixture에서 모든 mutation form의 중복 제출 guard·pending field lock source-contract test 24건, TypeScript, ESLint, Next production build
 - 견적 draft의 사용자·Workspace·프로젝트 scope, schema·만료 검증과 Quote Builder 연결을 포함한 Node 테스트 27건, 실제 browser의 입력→저장→화면 이동→복원→확인 후 폐기, 1280px horizontal overflow 0px
 - Vercel public environment fail-fast test, legacy platform runtime 잔재 검사와 GitHub Node 22 Preview build job

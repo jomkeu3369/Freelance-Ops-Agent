@@ -2,6 +2,8 @@
 
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,6 +18,8 @@ import {
   Graph,
   GearSix,
   House,
+  Eye,
+  EyeSlash,
   MagnifyingGlass,
   PencilSimple,
   Plus,
@@ -104,6 +108,8 @@ type AuthMode = "login" | "register";
 type WorkspaceView = "pipeline" | "clients" | "knowledge" | "project" | "settings";
 type WorkbenchStep = "intake" | "agent" | "quote" | "outcome";
 type StreamState = "idle" | "connecting" | "connected" | "reconnecting" | "settled";
+
+gsap.registerPlugin(useGSAP);
 
 const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
 
@@ -356,11 +362,12 @@ export default function WorkspacePage() {
     };
   }, [executionRevision, runId, session]);
 
-  const onAuthenticated = async (nextSession: AuthSession) => {
+  const onAuthenticated = async (nextSession: AuthSession, isNewWorkspace = false) => {
     saveSession(nextSession);
     setSession(nextSession);
     setError(null);
     await refreshProjects(nextSession);
+    if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
   };
 
   const logout = async () => {
@@ -521,7 +528,14 @@ export default function WorkspacePage() {
         ) : activeView === "knowledge" ? (
           <KnowledgePanel session={session} permissions={activePermissions} />
         ) : activeView === "settings" ? (
-          <SettingsPanel session={session} permissions={activePermissions} />
+          <SettingsPanel
+            session={session}
+            permissions={activePermissions}
+            projectCount={projects.length}
+            canCreateProject={canWriteProject}
+            onCreateProject={() => setShowNewProject(true)}
+            onOpenPipeline={() => navigateWorkspace("pipeline")}
+          />
         ) : !selectedProject ? (
           <EmptyWorkspace canCreate={canWriteProject} onCreate={() => setShowNewProject(true)} />
         ) : (
@@ -596,37 +610,51 @@ function AuthGate({
   error,
   setError,
 }: {
-  onAuthenticated: (session: AuthSession) => Promise<void>;
+  onAuthenticated: (session: AuthSession, isNewWorkspace?: boolean) => Promise<void>;
   error: string | null;
   setError: (message: string | null) => void;
 }) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const selectMode = (nextMode: AuthMode) => {
+    if (busy) return;
+    setMode(nextMode);
+    setShowPassword(false);
+    setError(null);
+  };
 
   const handleTabKey = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
     event.preventDefault();
     const nextMode: AuthMode = event.key === "ArrowLeft" || event.key === "Home" ? "login" : "register";
-    setMode(nextMode);
+    selectMode(nextMode);
     document.getElementById(`auth-tab-${nextMode}`)?.focus();
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
+    const data = new FormData(event.currentTarget);
+    const password = String(data.get("password"));
+    if (mode === "register" && password !== String(data.get("passwordConfirm"))) {
+      setError("비밀번호 확인이 일치하지 않습니다.");
+      (event.currentTarget.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.focus();
+      return;
+    }
     setBusy(true);
     setError(null);
-    const data = new FormData(event.currentTarget);
     try {
       const session = mode === "login"
-        ? await login(String(data.get("email")), String(data.get("password")))
+        ? await login(String(data.get("email")), password)
         : await register({
           email: String(data.get("email")),
-          password: String(data.get("password")),
+          password,
           displayName: String(data.get("displayName")),
           workspaceName: String(data.get("workspaceName")),
         });
-      await onAuthenticated(session);
+      await onAuthenticated(session, mode === "register");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "인증 요청을 완료하지 못했습니다.");
     } finally {
@@ -645,21 +673,31 @@ function AuthGate({
       </section>
       <section className="auth-panel">
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">
-          <button id="auth-tab-login" type="button" role="tab" aria-controls="auth-panel-login" aria-selected={mode === "login"} tabIndex={mode === "login" ? 0 : -1} onKeyDown={handleTabKey} onClick={() => setMode("login")}>로그인</button>
-          <button id="auth-tab-register" type="button" role="tab" aria-controls="auth-panel-register" aria-selected={mode === "register"} tabIndex={mode === "register" ? 0 : -1} onKeyDown={handleTabKey} onClick={() => setMode("register")}>처음 시작하기</button>
+          <button id="auth-tab-login" type="button" role="tab" aria-controls="auth-panel-login" aria-selected={mode === "login"} tabIndex={mode === "login" ? 0 : -1} disabled={busy} onKeyDown={handleTabKey} onClick={() => selectMode("login")}>로그인</button>
+          <button id="auth-tab-register" type="button" role="tab" aria-controls="auth-panel-register" aria-selected={mode === "register"} tabIndex={mode === "register" ? 0 : -1} disabled={busy} onKeyDown={handleTabKey} onClick={() => selectMode("register")}>처음 시작하기</button>
         </div>
         <form id={`auth-panel-${mode}`} role="tabpanel" aria-labelledby={`auth-tab-${mode}`} aria-busy={busy} onSubmit={submit}>
-          {mode === "register" && <>
-            <label>표시 이름<input name="displayName" required maxLength={100} autoComplete="name" /></label>
-            <label>Workspace 이름<input name="workspaceName" required maxLength={120} /></label>
-          </>}
-          <label>이메일<input name="email" type="email" required autoComplete="email" /></label>
-          <label>비밀번호<input name="password" type="password" required minLength={12} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} /></label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button className="primary-button auth-submit" type="submit" disabled={busy}>
-            {busy ? <CircleNotch size={19} className="spin" /> : <ArrowRight size={19} />}
-            {mode === "login" ? "업무 공간 열기" : "Workspace 만들기"}
-          </button>
+          <fieldset className="auth-fields" disabled={busy}>
+            {mode === "register" && <>
+              <label>표시 이름<input name="displayName" required maxLength={100} autoComplete="name" /></label>
+              <label>Workspace 이름<input name="workspaceName" required maxLength={120} /></label>
+            </>}
+            <label>이메일<input name="email" type="email" required autoComplete="email" /></label>
+            <div className="auth-field">
+              <label htmlFor="auth-password">비밀번호</label>
+              <div className="password-field">
+                <input id="auth-password" name="password" type={showPassword ? "text" : "password"} required minLength={12} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} aria-describedby={mode === "register" ? "auth-password-hint" : undefined} />
+                <button type="button" aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"} aria-pressed={showPassword} onClick={() => setShowPassword((visible) => !visible)}>{showPassword ? <EyeSlash size={18} /> : <Eye size={18} />}</button>
+              </div>
+              {mode === "register" && <small id="auth-password-hint">12~72자로 입력하세요.</small>}
+            </div>
+            {mode === "register" && <div className="auth-field"><label htmlFor="auth-password-confirm">비밀번호 확인</label><input id="auth-password-confirm" name="passwordConfirm" type={showPassword ? "text" : "password"} required minLength={12} maxLength={72} autoComplete="new-password" /></div>}
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="primary-button auth-submit" type="submit">
+              {busy ? <CircleNotch size={19} className="spin" /> : <ArrowRight size={19} />}
+              {mode === "login" ? "업무 공간 열기" : "Workspace 만들기"}
+            </button>
+          </fieldset>
         </form>
         <small>AI 결과는 사용자가 검토하기 전까지 확정되지 않습니다.</small>
       </section>
@@ -997,7 +1035,21 @@ function KnowledgePanel({ session, permissions }: { session: AuthSession; permis
   );
 }
 
-function SettingsPanel({ session, permissions }: { session: AuthSession; permissions: Set<string> }) {
+function SettingsPanel({
+  session,
+  permissions,
+  projectCount,
+  canCreateProject,
+  onCreateProject,
+  onOpenPipeline,
+}: {
+  session: AuthSession;
+  permissions: Set<string>;
+  projectCount: number;
+  canCreateProject: boolean;
+  onCreateProject: () => void;
+  onOpenPipeline: () => void;
+}) {
   const canReadQuotation = permissions.has("quotation.read");
   const canWriteQuotation = permissions.has("quotation.write");
   const canReadPricing = permissions.has("audit.read");
@@ -1010,6 +1062,7 @@ function SettingsPanel({ session, permissions }: { session: AuthSession; permiss
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const onboardingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1027,16 +1080,40 @@ function SettingsPanel({ session, permissions }: { session: AuthSession; permiss
     return () => { cancelled = true; };
   }, [canReadPricing, canReadQuotation, session]);
 
-  if (loading) return <div className="section-loading"><CircleNotch className="spin" /> Workspace 설정을 확인하고 있습니다.</div>;
-
   const workspace = profile?.workspaces.find((item) => item.workspaceId === session.workspaceId);
-  const onboardingComplete = rateCards.some((card) => card.active) && Boolean(policy);
+  const hasActiveRateCard = rateCards.some((card) => card.active);
+  const setupStates = [Boolean(workspace), hasActiveRateCard, Boolean(policy), projectCount > 0];
+  const completedSetupCount = setupStates.filter(Boolean).length;
+  const onboardingComplete = completedSetupCount === setupStates.length;
+  const setupProgress = Math.round((completedSetupCount / setupStates.length) * 100);
+
+  useGSAP(() => {
+    if (loading || !onboardingRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    gsap.fromTo(".onboarding-step", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: .55, stagger: .08, ease: "power3.out" });
+    gsap.fromTo(".onboarding-progress-value", { scaleX: 0 }, { scaleX: 1, duration: .8, ease: "power3.out", transformOrigin: "left center" });
+  }, { scope: onboardingRef, dependencies: [loading, setupProgress], revertOnUpdate: true });
+
+  if (loading) return <div className="section-loading"><CircleNotch className="spin" /> Workspace 설정을 확인하고 있습니다.</div>;
 
   return (
     <section className="settings-page">
       <div className="settings-heading"><span>WORKSPACE SETTINGS</span><h1>{onboardingComplete ? "견적 기준을 관리합니다." : "첫 견적 기준을 설정하세요."}</h1><p>금액 계산에 쓰이는 단가와 정책은 Spring이 소유하며 모든 견적에 결정적으로 적용됩니다.</p></div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {saved && <div className="settings-saved" role="status"><CheckCircle size={18} />{saved}</div>}
+      <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
+        <header>
+          <div><span>빠른 시작</span><h2 id="workspace-onboarding-title">첫 견적을 만들 준비</h2><p>{onboardingComplete ? "기본 준비가 끝났습니다. 새 문의를 견적으로 연결할 수 있습니다." : "실제 Workspace 데이터로 준비 상태를 확인합니다. 완료한 항목은 자동 반영됩니다."}</p></div>
+          <strong aria-label={`온보딩 ${completedSetupCount}/${setupStates.length} 완료`}>{completedSetupCount}<small> / {setupStates.length}</small></strong>
+        </header>
+        <div className="onboarding-progress" role="progressbar" aria-labelledby="workspace-onboarding-title" aria-valuemin={0} aria-valuemax={100} aria-valuenow={setupProgress}><span className="onboarding-progress-value" style={{ width: `${setupProgress}%` }} /></div>
+        <div className="onboarding-steps">
+          <article className={`onboarding-step${setupStates[0] ? " done" : " current"}`} aria-current={!setupStates[0] ? "step" : undefined}><span>{setupStates[0] ? <CheckCircle weight="fill" /> : "01"}</span><div><strong>Workspace 생성</strong><p>{setupStates[0] ? workspace?.name : "Workspace 정보를 확인하고 있습니다."}</p></div></article>
+          <article className={`onboarding-step${setupStates[1] ? " done" : !setupStates[0] ? "" : " current"}`} aria-current={!setupStates[1] && setupStates[0] ? "step" : undefined}><span>{setupStates[1] ? <CheckCircle weight="fill" /> : "02"}</span><div><strong>서비스 단가 등록</strong><p>{setupStates[1] ? `${rateCards.filter((card) => card.active).length}개 단가 사용 중` : "견적 계산에 사용할 시간·일·고정 단가를 등록하세요."}</p>{!setupStates[1] && canWriteQuotation && <a href="#rate-cards">단가 등록하기 <ArrowRight /></a>}</div></article>
+          <article className={`onboarding-step${setupStates[2] ? " done" : setupStates[1] ? " current" : ""}`} aria-current={!setupStates[2] && setupStates[1] ? "step" : undefined}><span>{setupStates[2] ? <CheckCircle weight="fill" /> : "03"}</span><div><strong>견적 정책 확인</strong><p>{setupStates[2] ? `세율 ${Math.round(policy!.defaultTaxRate * 100)}% · buffer ${Math.round(policy!.defaultRiskBufferRate * 100)}%` : "세금과 위험 buffer 기준을 확인하세요."}</p>{!setupStates[2] && canWriteQuotation && <a href="#estimation-policy">정책 확인하기 <ArrowRight /></a>}</div></article>
+          <article className={`onboarding-step${setupStates[3] ? " done" : setupStates[2] ? " current" : ""}`} aria-current={!setupStates[3] && setupStates[2] ? "step" : undefined}><span>{setupStates[3] ? <CheckCircle weight="fill" /> : "04"}</span><div><strong>첫 문의 등록</strong><p>{setupStates[3] ? `${projectCount}개 프로젝트 연결됨` : "고객 원문을 등록해 실제 업무 흐름을 시작하세요."}</p>{!setupStates[3] && canCreateProject && <button type="button" onClick={onCreateProject}>문의 등록하기 <ArrowRight /></button>}</div></article>
+        </div>
+        {onboardingComplete && <button type="button" className="secondary-button onboarding-finish" onClick={onOpenPipeline}>Pipeline으로 이동 <ArrowRight size={17} /></button>}
+      </div>
       <div className="settings-grid">
         <aside className="settings-index"><a href="#workspace-profile">Workspace</a><a href="#rate-cards">단가표</a><a href="#estimation-policy">견적 정책</a>{canReadPricing && <a href="#model-pricing">AI 원가표</a>}<a href="#permissions">권한·데이터</a></aside>
         <div className="settings-content">

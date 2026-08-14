@@ -118,6 +118,10 @@ test("landing page follows the approved product brief without fabricated social 
   assert.match(source, /한국 소프트웨어 개발/);
   assert.match(source, /견적이 어려운 이유는/);
   assert.match(source, /한 번의 문의가/);
+  assert.match(source, /function WorkflowStepVisual/);
+  assert.match(source, /고객 메시지/);
+  assert.match(source, /결정적 계산/);
+  assert.match(source, /activeStep === index && <WorkflowStepVisual index=\{index\} \/>/);
   assert.match(source, /설명 가능한 결과/);
   assert.match(source, /끝난 프로젝트가/);
   assert.match(source, /aria-selected=\{index === evidenceIndex\}/);
@@ -141,6 +145,8 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.final-cta h2 \{ font-size: clamp\(2rem, 8\.5vw, 3\.5rem\)/);
   assert.match(css, /\.accordion-content strong \{[^}]*writing-mode: vertical-rl; text-orientation: upright/);
   assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
+  assert.match(css, /\.step-visual \{[^}]*grid-template-columns: minmax\(86px, 1fr\) 132px minmax\(90px, 1fr\)/);
+  assert.match(css, /@keyframes stepPacketFlow/);
 });
 
 test("every CSS custom property resolves except runtime font variables", async () => {
@@ -446,6 +452,11 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.equal([...workspace.matchAll(/<fieldset className="settings-fields" disabled=\{busy\}>/g)].length, 2);
   assert.match(workspace, /<fieldset className="client-fields" disabled=\{busy\}>/);
   assert.match(workspace, /<fieldset className="outcome-fields" disabled=\{busy\}>/);
+  assert.match(workspace, /password !== String\(data\.get\("passwordConfirm"\)\)/);
+  assert.match(workspace, /비밀번호 확인이 일치하지 않습니다/);
+  assert.match(workspace, /aria-label=\{showPassword \? "비밀번호 숨기기" : "비밀번호 표시"\}/);
+  assert.match(workspace, /<fieldset className="auth-fields" disabled=\{busy\}>/);
+  assert.match(workspace, /const selectMode = \(nextMode: AuthMode\)/);
   assert.match(workspace, /<form className="outcome-form" aria-busy=\{busy\}/);
   assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy\}>/);
   assert.match(proposal, /응답을 기록하고 있습니다/);
@@ -454,6 +465,7 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(css, /\.proposal-response-fields:disabled/);
   assert.match(css, /\.settings-fields/);
   assert.match(css, /\.client-fields, \.outcome-fields/);
+  assert.match(css, /\.password-field button:hover, \.password-field button:focus-visible/);
 });
 
 test("agent results expose reviewable questions and safe source provenance", async () => {
@@ -527,4 +539,22 @@ test("rate cards support the complete server-owned edit and activation lifecycle
   assert.match(api, /rate-cards\/\$\{rateCardId\}/);
   assert.match(css, /\.rate-card-list > button\.active/);
   assert.match(css, /\.rate-card-list > button\.inactive/);
+});
+
+test("new workspaces enter a server-backed guided setup before the first inquiry", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /onAuthenticated\(session, mode === "register"\)/);
+  assert.match(workspace, /if \(isNewWorkspace\) navigateWorkspace\("settings"/);
+  assert.match(workspace, /const setupStates = \[Boolean\(workspace\), hasActiveRateCard, Boolean\(policy\), projectCount > 0\]/);
+  assert.match(workspace, /role="progressbar"/);
+  assert.match(workspace, /서비스 단가 등록/);
+  assert.match(workspace, /견적 정책 확인/);
+  assert.match(workspace, /첫 문의 등록/);
+  assert.match(workspace, /onClick=\{onCreateProject\}/);
+  assert.match(workspace, /useGSAP/);
+  assert.match(css, /\.onboarding-steps \{[^}]*grid-template-columns: repeat\(4/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.onboarding-steps \{ grid-template-columns: 1fr/);
 });

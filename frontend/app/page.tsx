@@ -5,11 +5,15 @@ import Link from "next/link";
 import {
   ArrowDown,
   ArrowRight,
+  Calculator,
   Check,
+  ChatCenteredText,
   FileText,
   Moon,
+  Question,
   ShieldCheck,
   Sun,
+  TreeStructure,
 } from "@phosphor-icons/react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -27,6 +31,27 @@ const workflowSteps = [
   ["WBS·견적 작성", "작업별 공수와 금액을 계산하고 세 가지 범위를 비교합니다."],
   ["검토·제안", "프리랜서가 초안을 확정한 뒤 고객에게 전달합니다."],
 ] as const;
+
+const workflowVisuals = [
+  { inputs: ["고객 메시지", "참고 문서"], process: "프로젝트", outputs: ["원문 보존", "자료 연결"], icon: ChatCenteredText },
+  { inputs: ["목표·기능", "일정·제약"], process: "구조화", outputs: ["확정 정보", "빠진 정보"], icon: TreeStructure },
+  { inputs: ["누락 정보", "조건 충돌"], process: "사용자 확인", outputs: ["답변 반영", "범위 확정"], icon: Question },
+  { inputs: ["작업 항목", "단가·가정"], process: "결정적 계산", outputs: ["핵심안", "권장안", "확장안"], icon: Calculator },
+  { inputs: ["범위·금액", "근거·가정"], process: "최종 검토", outputs: ["승인", "수정 요청", "거절"], icon: Check },
+] as const;
+
+function WorkflowStepVisual({ index }: { index: number }) {
+  const visual = workflowVisuals[index];
+  const Icon = visual.icon;
+  return (
+    <span className={`step-visual step-visual-${index + 1}`} aria-hidden="true">
+      <span className="step-visual-nodes inputs">{visual.inputs.map((label) => <span key={label}>{label}</span>)}</span>
+      <span className="step-visual-core"><i /><Icon size={28} weight="duotone" /><b>{visual.process}</b></span>
+      <span className="step-visual-nodes outputs">{visual.outputs.map((label) => <span key={label}>{label}</span>)}</span>
+      <i className="step-visual-packet packet-one" /><i className="step-visual-packet packet-two" />
+    </span>
+  );
+}
 
 const previewEvents: WorkflowEvent[] = [
   { eventId: 1, runId: "preview", type: "run.started", occurredAt: "", data: {} },
@@ -246,6 +271,7 @@ export default function Home() {
               aria-expanded={activeStep === index}
             >
               <span className="accordion-index">{index + 1}</span>
+              {activeStep === index && <WorkflowStepVisual index={index} />}
               <span className="accordion-content">
                 <strong>{title}</strong>
                 <p>{body}</p>
