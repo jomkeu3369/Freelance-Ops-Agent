@@ -184,7 +184,10 @@ test("authentication layout keeps the form visible and Korean words intact", asy
 });
 
 test("workspace settings and requirement controls remain readable at desktop widths", async () => {
-  const css = await read("../app/globals.css");
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
   assert.match(css, /\.pipeline-heading > div \{[^}]*max-width: 1050px/);
   assert.match(css, /\.pipeline-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
   assert.match(css, /\.pipeline-heading h1 \{[^}]*word-break: keep-all/);
@@ -192,6 +195,13 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.settings-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
   assert.match(css, /\.settings-heading h1 \{[^}]*word-break: keep-all/);
   assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);
+  assert.match(workspace, /aria-label="Workspace 설정 목차"/);
+  assert.match(workspace, /<span>02<\/span><strong>서비스 단가<\/strong><small>시간·일·고정 금액<\/small>/);
+  assert.match(css, /\.settings-grid \{[^}]*grid-template-columns: 240px minmax\(0, 1fr\)/);
+  assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*min-height: 50px/);
+  assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*background: var\(--surface-solid\)/);
+  assert.match(css, /\.settings-form input:focus, \.settings-form select:focus \{[^}]*border-color: var\(--accent\)/);
+  assert.match(css, /\.rate-card-form \.form-row:first-of-type \{[^}]*minmax\(220px, 1\.5fr\)/);
   assert.match(css, /\.requirement-editor \.form-row \{[^}]*grid-template-columns: minmax\(0, 1\.5fr\) minmax\(180px, \.5fr\)/);
   assert.match(css, /\.requirement-editor input, \.requirement-editor select, \.requirement-editor textarea \{[^}]*width: 100%/);
   assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);

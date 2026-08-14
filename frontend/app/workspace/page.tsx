@@ -1128,18 +1128,24 @@ function SettingsPanel({
         {onboardingComplete && <button type="button" className="secondary-button onboarding-finish" onClick={onOpenPipeline}>Pipeline으로 이동 <ArrowRight size={17} /></button>}
       </div>
       <div className="settings-grid">
-        <aside className="settings-index"><a href="#workspace-profile">Workspace</a><a href="#rate-cards">단가표</a><a href="#estimation-policy">견적 정책</a>{canReadPricing && <a href="#model-pricing">AI 원가표</a>}<a href="#permissions">권한·데이터</a></aside>
+        <aside className="settings-index" aria-label="Workspace 설정 목차">
+          <a href="#workspace-profile"><span>01</span><strong>Workspace</strong><small>계정과 작업 공간</small></a>
+          <a href="#rate-cards"><span>02</span><strong>서비스 단가</strong><small>시간·일·고정 금액</small></a>
+          <a href="#estimation-policy"><span>03</span><strong>견적 정책</strong><small>세금·위험·할인 기준</small></a>
+          {canReadPricing && <a href="#model-pricing"><span>04</span><strong>AI 원가표</strong><small>모델별 비용 기준</small></a>}
+          <a href="#permissions"><span>{canReadPricing ? "05" : "04"}</span><strong>권한·데이터</strong><small>접근 가능한 범위</small></a>
+        </aside>
         <div className="settings-content">
-          <section id="workspace-profile"><header><div><h2>Workspace profile</h2><p>현재 인증된 사용자와 Workspace 정보입니다.</p></div></header><dl><div><dt>Workspace</dt><dd>{workspace?.name ?? session.workspaceId}</dd></div><div><dt>사용자</dt><dd>{profile?.displayName ?? profile?.email ?? "-"}</dd></div><div><dt>상태</dt><dd>{profile?.status ?? "-"}</dd></div></dl></section>
-          <section id="rate-cards"><header><div><h2>서비스 단가</h2><p>시간·일·고정 금액 기준을 등록합니다.</p></div></header>
+          <section id="workspace-profile"><header><span>01</span><div><h2>Workspace</h2><p>현재 로그인한 계정과 작업 공간을 확인합니다.</p></div></header><dl><div><dt>Workspace</dt><dd>{workspace?.name ?? session.workspaceId}</dd></div><div><dt>사용자</dt><dd>{profile?.displayName ?? profile?.email ?? "-"}</dd></div><div><dt>상태</dt><dd>{profile?.status ?? "-"}</dd></div></dl></section>
+          <section id="rate-cards"><header><span>02</span><div><h2>서비스 단가</h2><p>견적 계산에 사용할 시간·일·고정 금액 기준을 등록합니다.</p></div></header>
             <RateCardManager session={session} rateCards={rateCards} canWrite={canWriteQuotation} onChange={setRateCards} />
           </section>
-          <section id="estimation-policy"><header><div><h2>견적 정책</h2><p>세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <EstimationPolicyForm session={session} policy={policy} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onSaved={setPolicy} /> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
-          {canReadPricing && <section id="model-pricing"><header><div><h2>AI 모델 원가표</h2><p>Agent 실행 비용 계산에 쓰이는 불변 가격 스냅샷입니다.</p></div></header>
+          <section id="estimation-policy"><header><span>03</span><div><h2>견적 정책</h2><p>모든 견적에 공통으로 적용할 세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <EstimationPolicyForm session={session} policy={policy} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onSaved={setPolicy} /> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
+          {canReadPricing && <section id="model-pricing"><header><span>04</span><div><h2>AI 모델 원가표</h2><p>Agent 실행 비용을 계산할 때 사용하는 모델별 가격 스냅샷입니다.</p></div></header>
             <div className="model-pricing-list">{modelPricing.length === 0 ? <p>등록된 가격 스냅샷이 없습니다.</p> : modelPricing.map((pricing) => <article key={pricing.id}><div><span>{pricing.provider}</span><strong>{pricing.model}</strong><small>{pricing.versionLabel}</small></div><dl><div><dt>입력 / 1M</dt><dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd></div><div><dt>캐시 / 1M</dt><dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd></div><div><dt>출력 / 1M</dt><dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd></div></dl><p>{new Date(pricing.validFrom).toLocaleString("ko-KR")}부터{pricing.validUntil ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지` : " · 종료일 없음"}</p></article>)}</div>
             {canManagePricing ? <ModelPricingForm session={session} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])} /> : <p className="permission-note">가격 스냅샷을 등록하려면 workspace.update 권한이 필요합니다.</p>}
           </section>}
-          <section id="permissions"><header><div><h2>권한과 데이터 경계</h2><p>화면 숨김이 아니라 Spring permission 검사가 최종 보안 경계입니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <code key={permission}>{permission}</code>) ?? <p>표시할 effective permission이 없습니다.</p>}</div><p className="data-note">인증 정보는 현재 브라우저 탭의 sessionStorage에만 유지됩니다. Agent는 이 사용자의 위임된 권한을 넘을 수 없습니다.</p></section>
+          <section id="permissions"><header><span>{canReadPricing ? "05" : "04"}</span><div><h2>권한과 데이터 경계</h2><p>현재 계정으로 조회하고 변경할 수 있는 범위를 확인합니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <code key={permission}>{permission}</code>) ?? <p>표시할 effective permission이 없습니다.</p>}</div><p className="data-note">인증 정보는 현재 브라우저 탭의 sessionStorage에만 유지됩니다. Agent는 이 사용자의 위임된 권한을 넘을 수 없습니다.</p></section>
         </div>
       </div>
     </section>
