@@ -6,6 +6,7 @@ on:
       - "agent/**"
       - "backend/**"
       - "contracts/**"
+      - "frontend/**"
       - "infra/**"
       - "docker-compose-infra.yaml"
       - "docker-compose.yaml"
@@ -18,6 +19,7 @@ on:
       - "agent/**"
       - "backend/**"
       - "contracts/**"
+      - "frontend/**"
       - "infra/**"
       - "docker-compose-infra.yaml"
       - "docker-compose.yaml"
@@ -29,6 +31,26 @@ permissions:
   contents: read
 
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL: "1"
+      VERCEL_ENV: preview
+      VERCEL_URL: freelance-ops-ci-preview.example.invalid
+      NEXT_PUBLIC_API_BASE_URL: https://spring-api.example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run preview:check
+
   backend:
     runs-on: ubuntu-latest
     defaults:

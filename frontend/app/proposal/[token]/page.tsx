@@ -16,6 +16,7 @@ export default function ProposalPage() {
   const [submitted, setSubmitted] = useState<Decision | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadRevision, setLoadRevision] = useState(0);
 
   useEffect(() => {
     if (!token) return;
@@ -24,15 +25,15 @@ export default function ProposalPage() {
       .then((result) => { if (!cancelled) setProposal(result); })
       .catch((cause: unknown) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "제안서를 불러오지 못했습니다."); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [loadRevision, token]);
 
-  if (error && !proposal) return <main className="proposal-state"><Warning size={34} /><h1>제안서를 열 수 없습니다.</h1><p>{error}</p></main>;
-  if (!proposal) return <main className="proposal-state"><CircleNotch size={30} className="spin" /><p>제안서를 확인하고 있습니다.</p></main>;
+  if (error && !proposal) return <main id="main-content" className="proposal-state"><Warning size={34} /><h1>제안서를 열 수 없습니다.</h1><p>{error}</p><div className="state-actions"><button type="button" className="primary-button" onClick={() => { setError(null); setLoadRevision((current) => current + 1); }}>다시 시도</button><Link className="quiet-button" href="/">홈으로 이동</Link></div></main>;
+  if (!proposal) return <main id="main-content" className="proposal-state" aria-busy="true"><CircleNotch size={30} className="spin" /><p>제안서를 확인하고 있습니다.</p></main>;
 
   const money = (value: number) => new Intl.NumberFormat("ko-KR", { style: "currency", currency: proposal.currency, maximumFractionDigits: 0 }).format(value);
 
   return (
-    <main className="proposal-page">
+    <main id="main-content" className="proposal-page">
       <header className="proposal-header"><Link href="/">Freelance Ops</Link><div><span>견적 제안서 · v{proposal.versionNumber}</span><button type="button" onClick={() => window.print()}><Printer size={17} /> PDF로 저장</button></div></header>
       <section className="proposal-hero">
         <div><span>{proposal.scenario} PROPOSAL</span><h1>{proposal.projectTitle}</h1><p>범위, 금액과 산정 근거를 확인한 뒤 아래에서 의사를 남겨주세요.</p></div>
@@ -53,8 +54,9 @@ export default function ProposalPage() {
       <section className="proposal-decision">
         {submitted ? <div className="decision-complete"><CheckCircle size={38} /><span>응답이 기록되었습니다.</span><h2>{submitted === "APPROVED" ? "제안을 승인했습니다." : submitted === "CHANGES_REQUESTED" ? "수정 요청을 전달했습니다." : "제안을 거절했습니다."}</h2><p>Freelance Ops가 응답 시각과 선택 내용을 안전하게 기록했습니다.</p></div> : <>
           <div><span>YOUR DECISION</span><h2>이 제안에 대한 의견을 남겨주세요.</h2><p>선택 내용은 프리랜서의 Workspace에 전달됩니다.</p></div>
-          <form onSubmit={async (event: FormEvent<HTMLFormElement>) => {
+          <form aria-busy={busy} onSubmit={async (event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
+            if (busy) return;
             setBusy(true);
             setError(null);
             const data = new FormData(event.currentTarget);
@@ -67,11 +69,13 @@ export default function ProposalPage() {
               setBusy(false);
             }
           }}>
-            <div className="decision-options" role="group" aria-label="제안 응답"><button type="button" className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>승인</button><button type="button" className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>수정 요청</button><button type="button" className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>거절</button></div>
-            <div className="form-row"><label>이름<input name="clientName" required maxLength={120} /></label><label>이메일<input name="clientEmail" type="email" maxLength={320} /></label></div>
-            <label>의견<textarea name="comment" rows={5} maxLength={3000} placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요." /></label>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} 응답 제출</button>
+            <fieldset className="proposal-response-fields" disabled={busy}>
+              <div className="decision-options" role="group" aria-label="제안 응답"><button type="button" aria-pressed={decision === "APPROVED"} className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>승인</button><button type="button" aria-pressed={decision === "CHANGES_REQUESTED"} className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>수정 요청</button><button type="button" aria-pressed={decision === "REJECTED"} className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>거절</button></div>
+              <div className="form-row"><label>이름<input name="clientName" required maxLength={120} /></label><label>이메일<input name="clientEmail" type="email" maxLength={320} /></label></div>
+              <label>의견<textarea name="comment" rows={5} maxLength={3000} placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요." /></label>
+              {error && <p className="form-error" role="alert">{error}</p>}
+              <button type="submit" className="primary-button">{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} {busy ? "응답을 기록하고 있습니다." : "응답 제출"}</button>
+            </fieldset>
           </form>
         </>}
       </section>

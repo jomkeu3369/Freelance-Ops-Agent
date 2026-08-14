@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/validate-vercel-env.mjs && next build",
     "start": "next start",
     "test": "node --test tests/page-source.test.mjs",
     "typecheck": "tsc --noEmit --incremental false",

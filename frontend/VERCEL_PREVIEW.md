@@ -21,6 +21,14 @@
 
 `NEXT_PUBLIC_*` 값은 client bundle에 포함되므로 secret을 넣지 않는다. Preview 변수를 바꾸면 기존 배포에는 반영되지 않으므로 새 Preview Deployment를 생성한다.
 
+Vercel build에서는 `scripts/validate-vercel-env.mjs`가 다음 조건을 fail-fast로 검사한다.
+
+- `NEXT_PUBLIC_API_BASE_URL` 필수
+- HTTPS origin만 허용
+- path, query, hash, trailing slash와 URL credential 금지
+- localhost와 loopback origin 금지
+- `NEXT_PUBLIC_SITE_URL`이 없으면 Vercel system variable `VERCEL_URL` 필수
+
 ## Spring CORS
 
 Spring은 wildcard를 허용하지 않고 exact origin만 받는다. PR마다 달라지는 commit URL 대신 Vercel의 안정적인 branch-specific Preview URL을 확인해 Backend의 `APP_CORS_ALLOWED_ORIGINS`에 추가한다. Production origin과 localhost origin도 필요한 환경에서 각각 명시한다.
@@ -45,5 +53,7 @@ npm run preview:check
 3. Preview의 `NEXT_PUBLIC_API_BASE_URL`이 HTTPS Spring API를 가리킨다.
 4. Spring CORS에 branch-specific Preview exact origin이 등록되어 있다.
 5. Preview에서 로그인, refresh, Workspace API, Agent SSE와 공개 proposal을 smoke test한다.
+
+GitHub `V2 CI`의 frontend job도 Node 22와 Vercel Preview fixture 환경에서 같은 `npm ci`와 `npm run preview:check`를 실행한다.
 
 실제 Preview 생성은 non-production branch push 또는 `vercel` CLI 실행으로 수행한다. Production 승격은 Preview 검수 후 별도로 진행한다.

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
+import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
+import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -16,7 +19,7 @@ test("Vercel Preview uses the standard Next.js build without Cloudflare adapters
   const vercel = JSON.parse(vercelSource);
   assert.equal(packageJson.engines.node, "22.x");
   assert.equal(packageJson.scripts.dev, "next dev");
-  assert.equal(packageJson.scripts.build, "next build");
+  assert.equal(packageJson.scripts.build, "node scripts/validate-vercel-env.mjs && next build");
   assert.equal(packageJson.scripts.start, "next start");
   assert.equal(packageJson.dependencies.next, "16.3.1");
   assert.equal(vercel.framework, "nextjs");
@@ -28,6 +31,81 @@ test("Vercel Preview uses the standard Next.js build without Cloudflare adapters
   assert.doesNotMatch(lockfile, /node_modules\/vinext|node_modules\/wrangler|node_modules\/@cloudflare\/vite-plugin/);
   assert.match(runbook, /Root Directory: `frontend`/);
   assert.match(runbook, /APP_CORS_ALLOWED_ORIGINS/);
+});
+
+test("frontend source has no legacy platform runtime shims", async () => {
+  const appFiles = [
+    "../app/layout.tsx",
+    "../app/page.tsx",
+    "../app/providers.tsx",
+    "../app/workspace/page.tsx",
+    "../app/proposal/[token]/page.tsx",
+    "../app/lib/api.ts",
+  ];
+  const source = (await Promise.all(appFiles.map(read))).join("\n");
+  assert.doesNotMatch(source, /oai-authenticated-user|signin-with-chatgpt|signout-with-chatgpt/);
+  assert.doesNotMatch(source, /cloudflare|wrangler|D1Database|vinext/i);
+});
+
+test("Vercel public environment validation fails closed without leaking values", () => {
+  assert.deepEqual(validateVercelEnvironment({}), { apiOrigin: null, siteOrigin: null });
+  assert.throws(
+    () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid" }),
+    /NEXT_PUBLIC_API_BASE_URL must be configured/,
+  );
+  assert.throws(
+    () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "http://api.example.invalid" }),
+    /must use HTTPS/,
+  );
+  assert.throws(
+    () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://api.example.invalid/v2" }),
+    /must be an origin/,
+  );
+  assert.throws(
+    () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://user:password@api.example.invalid" }),
+    /must not contain credentials/,
+  );
+  assert.throws(
+    () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://localhost" }),
+    /must be publicly reachable/,
+  );
+  assert.deepEqual(
+    validateVercelEnvironment({
+      VERCEL: "1",
+      VERCEL_URL: "preview.example.invalid",
+      NEXT_PUBLIC_API_BASE_URL: "https://api.example.invalid",
+    }),
+    { apiOrigin: "https://api.example.invalid", siteOrigin: null },
+  );
+});
+
+test("App Router recovery states and keyboard navigation remain product-safe", async () => {
+  const [layout, errorBoundary, notFound, proposal, workspace, css] = await Promise.all([
+    read("../app/layout.tsx"),
+    read("../app/error.tsx"),
+    read("../app/not-found.tsx"),
+    read("../app/proposal/[token]/page.tsx"),
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(layout, /href="#main-content"/);
+  assert.match(errorBoundary, /reset/);
+  assert.match(errorBoundary, /오류 참조/);
+  assert.match(notFound, /Workspace 열기/);
+  assert.match(proposal, /다시 시도/);
+  assert.match(proposal, /aria-pressed=/);
+  assert.match(workspace, /copyToClipboard/);
+  assert.match(workspace, /자동 복사가 차단되었습니다/);
+  assert.match(workspace, /링크 복사/);
+  assert.match(workspace, /role="tabpanel"/);
+  assert.match(workspace, /aria-controls="auth-panel-login"/);
+  assert.match(workspace, /event\.key === "ArrowLeft"/);
+  assert.match(workspace, /useDialogFocusTrap/);
+  assert.match(workspace, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(workspace, /previouslyFocused\?\.focus\(\)/);
+  assert.match(workspace, /aria-current=/);
+  assert.match(css, /:focus-visible/);
+  assert.match(css, /\.skip-link:focus/);
 });
 
 test("landing page follows the approved product brief without fabricated social proof", async () => {
@@ -68,13 +146,69 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /run\.completed/);
 });
 
+test("Agent SSE reconnects from the last durable event with bounded backoff", async () => {
+  const [workspace, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(api, /headers\.set\("Last-Event-ID", String\(lastEventId\)\)/);
+  assert.match(api, /contentType\.includes\("text\/event-stream"\)/);
+  assert.match(api, /onConnected\?\.\(\)/);
+  assert.match(workspace, /lastEventIdRef\.current = nextStreamCursor/);
+  assert.match(workspace, /streamReconnectDelay/);
+  assert.deepEqual([1, 2, 3, 4, 5, 8].map(streamReconnectDelay), [1_000, 2_000, 4_000, 8_000, 10_000, 10_000]);
+  assert.equal(nextStreamCursor(8, 9), 9);
+  assert.equal(nextStreamCursor(9, 9), 9);
+  assert.equal(nextStreamCursor(9, 7), 9);
+  assert.equal(isActiveStreamStatus(undefined), true);
+  assert.equal(isActiveStreamStatus("RUNNING"), true);
+  assert.equal(isActiveStreamStatus("WAITING_FOR_USER"), false);
+  assert.match(workspace, /!isActiveStreamStatus\(runStatus\)/);
+  assert.match(workspace, /window\.clearTimeout\(retryTimer\)/);
+  assert.match(workspace, /aria-live="polite"/);
+  assert.match(workspace, /재연결 중/);
+  assert.match(css, /workspace-live-status span\.reconnecting/);
+});
+
+test("workspace navigation survives refresh and rejects malformed deep links", async () => {
+  const workspace = await read("../app/workspace/page.tsx");
+  assert.deepEqual(parseWorkspaceLocation(""), { view: "pipeline" });
+  assert.deepEqual(parseWorkspaceLocation("?view=clients"), { view: "clients" });
+  assert.deepEqual(parseWorkspaceLocation("?view=project&project=project-17&step=quote"), {
+    view: "project",
+    projectId: "project-17",
+    step: "quote",
+  });
+  assert.deepEqual(parseWorkspaceLocation("?view=project&project=&step=unsafe"), {
+    view: "project",
+    projectId: null,
+    step: "intake",
+  });
+  assert.deepEqual(parseWorkspaceLocation("?view=javascript%3Aalert%281%29"), { view: "pipeline" });
+  assert.equal(buildWorkspaceSearch({ view: "pipeline" }), "");
+  assert.equal(
+    buildWorkspaceSearch({ view: "project", projectId: "project-17", step: "quote" }),
+    "?view=project&project=project-17&step=quote",
+  );
+  assert.match(workspace, /window\.addEventListener\("popstate", restoreLocation\)/);
+  assert.match(workspace, /window\.history\.replaceState/);
+  assert.match(workspace, /permissions\.has\("client\.read"\)/);
+  assert.match(workspace, /permissions\.has\("document\.read"\)/);
+  assert.match(workspace, /projectResult\.find\(\(item\) => item\.id === location\.projectId\)/);
+  assert.match(workspace, /selectedProjectIdRef\.current !== project\.id/);
+});
+
 test("responsive and reduced-motion gates cover the documented breakpoints", async () => {
   const css = await read("../app/globals.css");
+  assert.match(css, /@media \(min-width: 1181px\) and \(max-width: 1440px\)/);
+  assert.match(css, /\.hero-title \{ font-size: clamp\(3\.4rem, 5\.2vw, 5\.2rem\); \}/);
   assert.match(css, /@media \(max-width: 1180px\)/);
   assert.match(css, /@media \(max-width: 820px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /grid-auto-flow: dense/);
+  assert.match(css, /\.hero-title \{ font-size: clamp\(2\.8rem, 12vw, 4\.2rem\); \}/);
 });
 
 test("manual quotation, evidence, outcome, and public proposal flows use real Spring contracts", async () => {
@@ -210,6 +344,27 @@ test("project details remain editable after intake without mutating quotation re
   assert.match(api, /status: project\.status/);
 });
 
+test("transactional forms prevent duplicate submission and keep validation errors in context", async () => {
+  const [workspace, proposal, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/proposal/[token]/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /function ProjectDialog/);
+  assert.match(workspace, /await onCreate\(/);
+  assert.match(workspace, /프로젝트를 만들고 있습니다/);
+  assert.match(workspace, /최소 예산은 최대 예산보다 클 수 없습니다/);
+  assert.match(workspace, /<fieldset className="dialog-fields" disabled=\{busy\}>/);
+  assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
+  assert.match(workspace, /if \(busy\) return; void onSubmit\(answers\)/);
+  assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy\}>/);
+  assert.match(proposal, /응답을 기록하고 있습니다/);
+  assert.match(api, /서버에 연결할 수 없습니다\. 네트워크 상태를 확인한 뒤 다시 시도해 주세요/);
+  assert.match(css, /\.dialog-fields:disabled/);
+  assert.match(css, /\.proposal-response-fields:disabled/);
+});
+
 test("agent results expose reviewable questions and safe source provenance", async () => {
   const workspace = await read("../app/workspace/page.tsx");
   assert.match(workspace, /run\.result\.openQuestions/);
@@ -260,4 +415,25 @@ test("workspace administrators can version the server-owned model price catalog"
   assert.match(workspace, /createModelPricing/);
   assert.match(api, /interface ModelPricing/);
   assert.match(api, /\/model-pricing/);
+});
+
+test("rate cards support the complete server-owned edit and activation lifecycle", async () => {
+  const [workspace, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /function RateCardManager/);
+  assert.match(workspace, /aria-pressed=\{editorId === card\.id\}/);
+  assert.match(workspace, /saveRateCard\(session, selected\.id/);
+  assert.match(workspace, /active: !selected\.active/);
+  assert.match(workspace, /새 견적에서 이 단가를 숨길까요/);
+  assert.match(workspace, /기존 견적에는 유지/);
+  assert.match(workspace, /다시 사용/);
+  assert.match(workspace, /<fieldset disabled=\{busy\}>/);
+  assert.match(workspace, /Number\.isFinite\(rate\)/);
+  assert.match(api, /method: "PUT"/);
+  assert.match(api, /rate-cards\/\$\{rateCardId\}/);
+  assert.match(css, /\.rate-card-list > button\.active/);
+  assert.match(css, /\.rate-card-list > button\.inactive/);
 });

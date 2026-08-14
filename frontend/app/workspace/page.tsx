@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -9,6 +9,7 @@ import {
   Archive,
   CheckCircle,
   CircleNotch,
+  Copy,
   Clock,
   FileText,
   FolderOpen,
@@ -25,6 +26,8 @@ import {
   Waveform,
 } from "@phosphor-icons/react";
 import { LiveWorkflow, snapshotFromEvents } from "../components/live-workflow";
+import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../lib/stream-retry.mjs";
+import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
 import {
   AgentRunView,
   AgentRunUsage,
@@ -97,6 +100,8 @@ import {
 
 type AuthMode = "login" | "register";
 type WorkspaceView = "pipeline" | "clients" | "knowledge" | "project" | "settings";
+type WorkbenchStep = "intake" | "agent" | "quote" | "outcome";
+type StreamState = "idle" | "connecting" | "connected" | "reconnecting" | "settled";
 
 const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
 
@@ -107,15 +112,79 @@ export default function WorkspacePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const selectedProjectIdRef = useRef<string | null>(null);
   const [run, setRun] = useState<AgentRunView | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
-  const [streamConnected, setStreamConnected] = useState(false);
+  const [streamState, setStreamState] = useState<StreamState>("idle");
+  const [streamRetryCount, setStreamRetryCount] = useState(0);
+  const lastEventIdRef = useRef(0);
+  const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [executionRevision, setExecutionRevision] = useState(0);
   const [activeView, setActiveView] = useState<WorkspaceView>("pipeline");
+  const [projectStep, setProjectStep] = useState<WorkbenchStep>("intake");
+  const runStatus = run?.status;
+  const activePermissions = useMemo(
+    () => new Set(profile?.workspaces.find((workspace) => workspace.workspaceId === session?.workspaceId)?.effectivePermissions ?? []),
+    [profile, session?.workspaceId],
+  );
+  const canWriteProject = activePermissions.has("project.write");
+
+  const applyWorkspaceLocation = useCallback((projectResult: Project[], permissions: Set<string>, replaceInvalid = false) => {
+    const location = parseWorkspaceLocation(window.location.search);
+    const viewAllowed = location.view !== "clients" || permissions.has("client.read");
+    const knowledgeAllowed = location.view !== "knowledge" || permissions.has("document.read");
+    const project = location.view === "project" ? projectResult.find((item) => item.id === location.projectId) ?? null : null;
+
+    if (!viewAllowed || !knowledgeAllowed || (location.view === "project" && !project)) {
+      setActiveView("pipeline");
+      setProjectStep("intake");
+      setSelectedProject((current) => current ?? projectResult[0] ?? null);
+      if (replaceInvalid) window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
+
+    setActiveView(location.view as WorkspaceView);
+    if (project) {
+      if (selectedProjectIdRef.current !== project.id) {
+        setRun(null);
+        setRunId(null);
+        setEvents([]);
+        setStreamState("idle");
+        setStreamRetryCount(0);
+      }
+      selectedProjectIdRef.current = project.id;
+      setSelectedProject(project);
+      setProjectStep(location.step as WorkbenchStep);
+    } else {
+      setSelectedProject((current) => current ?? projectResult[0] ?? null);
+      setProjectStep("intake");
+    }
+  }, []);
+
+  const navigateWorkspace = useCallback((view: WorkspaceView, project?: Project | null, step: WorkbenchStep = "intake", replace = false) => {
+    const nextProject = view === "project" ? project ?? selectedProject : null;
+    const nextView = view === "project" && !nextProject ? "pipeline" : view;
+    const projectChanged = nextView === "project" && nextProject?.id !== selectedProject?.id;
+    const search = buildWorkspaceSearch({ view: nextView, projectId: nextProject?.id, step });
+    window.history[replace ? "replaceState" : "pushState"](null, "", `${window.location.pathname}${search}`);
+    setActiveView(nextView);
+    setProjectStep(nextView === "project" ? step : "intake");
+    if (nextProject) {
+      selectedProjectIdRef.current = nextProject.id;
+      setSelectedProject(nextProject);
+    }
+    if (projectChanged) {
+      setRun(null);
+      setRunId(null);
+      setEvents([]);
+      setStreamState("idle");
+      setStreamRetryCount(0);
+    }
+  }, [selectedProject]);
 
   const refreshProjects = useCallback(async (activeSession: AuthSession) => {
     const profileResult = await getMe(activeSession);
@@ -128,8 +197,8 @@ export default function WorkspacePage() {
     setProjects(projectResult);
     setClients(clientResult.filter((client) => client.status === "ACTIVE"));
     setProfile(profileResult);
-    setSelectedProject((current) => current ?? projectResult[0] ?? null);
-  }, []);
+    applyWorkspaceLocation(projectResult, permissions, true);
+  }, [applyWorkspaceLocation]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -171,9 +240,17 @@ export default function WorkspacePage() {
     setRun(null);
     setRunId(null);
     setEvents([]);
-    setStreamConnected(false);
+    setStreamState("idle");
+    setStreamRetryCount(0);
     setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.");
   }), []);
+
+  useEffect(() => {
+    if (!session) return;
+    const restoreLocation = () => applyWorkspaceLocation(projects, activePermissions, true);
+    window.addEventListener("popstate", restoreLocation);
+    return () => window.removeEventListener("popstate", restoreLocation);
+  }, [activePermissions, applyWorkspaceLocation, projects, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -191,17 +268,69 @@ export default function WorkspacePage() {
   }, [session]);
 
   useEffect(() => {
+    if (previousRunIdRef.current !== runId) {
+      previousRunIdRef.current = runId;
+      lastEventIdRef.current = 0;
+    }
+  }, [runId]);
+
+  useEffect(() => {
     if (!session || !runId) return;
+    if (!isActiveStreamStatus(runStatus)) {
+      Promise.resolve().then(() => {
+        setStreamState("settled");
+        setStreamRetryCount(0);
+      });
+      return;
+    }
+
     const controller = new AbortController();
-    Promise.resolve().then(() => setStreamConnected(true));
-    streamRunEvents(
-      session,
-      runId,
-      (event) => setEvents((current) => current.some((item) => item.eventId === event.eventId) ? current : [...current, event]),
-      controller.signal,
-    ).catch(() => setStreamConnected(false));
-    return () => controller.abort();
-  }, [executionRevision, runId, session]);
+    let retryTimer: number | undefined;
+    let attempt = 0;
+    let cancelled = false;
+
+    const scheduleReconnect = () => {
+      if (cancelled || controller.signal.aborted) return;
+      attempt += 1;
+      setStreamState("reconnecting");
+      setStreamRetryCount(attempt);
+      retryTimer = window.setTimeout(() => void connect(), streamReconnectDelay(attempt));
+    };
+
+    const connect = async () => {
+      if (cancelled || controller.signal.aborted) return;
+      setStreamState(attempt === 0 ? "connecting" : "reconnecting");
+      try {
+        await streamRunEvents(
+          session,
+          runId,
+          (event) => {
+            if (cancelled || controller.signal.aborted) return;
+            lastEventIdRef.current = nextStreamCursor(lastEventIdRef.current, event.eventId);
+            setEvents((current) => current.some((item) => item.eventId === event.eventId) ? current : [...current, event]);
+          },
+          controller.signal,
+          lastEventIdRef.current || undefined,
+          () => {
+            if (cancelled || controller.signal.aborted) return;
+            attempt = 0;
+            setStreamState("connected");
+            setStreamRetryCount(0);
+          },
+        );
+        scheduleReconnect();
+      } catch {
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+    };
+  }, [executionRevision, runId, runStatus, session]);
 
   useEffect(() => {
     if (!session || !runId) return;
@@ -274,25 +403,19 @@ export default function WorkspacePage() {
     () => snapshotFromEvents(events, run?.status ?? (runId ? "RUNNING" : "IDLE")),
     [events, run?.status, runId],
   );
-  const activePermissions = useMemo(
-    () => new Set(profile?.workspaces.find((workspace) => workspace.workspaceId === session?.workspaceId)?.effectivePermissions ?? []),
-    [profile, session?.workspaceId],
-  );
-  const canWriteProject = activePermissions.has("project.write");
-
   if (!hydrated) {
-    return <main className="workspace-loading"><CircleNotch size={30} className="spin" /><span>업무 공간을 준비하고 있습니다.</span></main>;
+    return <main id="main-content" className="workspace-loading" aria-busy="true"><CircleNotch size={30} className="spin" /><span>업무 공간을 준비하고 있습니다.</span></main>;
   }
 
   if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={error} setError={setError} />;
 
   return (
-    <main className="workspace-shell">
+    <main id="main-content" className="workspace-shell">
       <header className="workspace-topbar">
-        <button type="button" className="workspace-brand" onClick={() => setActiveView("pipeline")}><House size={18} /> Freelance Ops</button>
-        <div className="workspace-live-status">
-          <span className={streamConnected ? "connected" : ""} />
-          {runId ? (streamConnected ? "실시간 연결됨" : "상태 동기화 중") : "실행 대기"}
+        <button type="button" className="workspace-brand" onClick={() => navigateWorkspace("pipeline")}><House size={18} /> Freelance Ops</button>
+        <div className="workspace-live-status" role="status" aria-live="polite">
+          <span className={streamState === "connected" ? "connected" : streamState === "reconnecting" ? "reconnecting" : ""} />
+          {!runId ? "실행 대기" : streamState === "connected" ? "실시간 연결됨" : streamState === "connecting" ? "실시간 연결 중" : streamState === "reconnecting" ? `재연결 중${streamRetryCount > 1 ? ` · ${streamRetryCount}차` : ""}` : run?.status === "WAITING_FOR_USER" ? "사용자 확인 대기" : "실행 상태 동기화됨"}
         </div>
         <div className="workspace-account-actions">
           {profile && profile.workspaces.length > 1 && <label><span className="sr-only">Workspace 전환</span><select value={session.workspaceId} onChange={async (event) => {
@@ -304,7 +427,7 @@ export default function WorkspacePage() {
             setRunId(null);
             setEvents([]);
             setError(null);
-            setActiveView("pipeline");
+            navigateWorkspace("pipeline", null, "intake", true);
             try { await refreshProjects(nextSession); } catch (cause) { setError(cause instanceof Error ? cause.message : "Workspace를 전환하지 못했습니다."); }
           }}>{profile.workspaces.map((workspace) => <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.name}</option>)}</select></label>}
           <button type="button" className="quiet-button" onClick={() => void logout()}><SignOut size={18} /> 로그아웃</button>
@@ -313,10 +436,10 @@ export default function WorkspacePage() {
 
       <aside className="workspace-sidebar">
         <div className="workspace-nav">
-          <button type="button" className={activeView === "pipeline" ? "active" : ""} onClick={() => setActiveView("pipeline")}><House size={18} /><span>Pipeline</span></button>
-          {activePermissions.has("client.read") && <button type="button" className={activeView === "clients" ? "active" : ""} onClick={() => setActiveView("clients")}><AddressBook size={18} /><span>고객</span></button>}
-          {activePermissions.has("document.read") && <button type="button" className={activeView === "knowledge" ? "active" : ""} onClick={() => setActiveView("knowledge")}><FileText size={18} /><span>근거 자료</span></button>}
-          <button type="button" className={activeView === "settings" ? "active" : ""} onClick={() => setActiveView("settings")}><GearSix size={18} /><span>설정</span></button>
+          <button type="button" aria-current={activeView === "pipeline" ? "page" : undefined} className={activeView === "pipeline" ? "active" : ""} onClick={() => navigateWorkspace("pipeline")}><House size={18} /><span>Pipeline</span></button>
+          {activePermissions.has("client.read") && <button type="button" aria-current={activeView === "clients" ? "page" : undefined} className={activeView === "clients" ? "active" : ""} onClick={() => navigateWorkspace("clients")}><AddressBook size={18} /><span>고객</span></button>}
+          {activePermissions.has("document.read") && <button type="button" aria-current={activeView === "knowledge" ? "page" : undefined} className={activeView === "knowledge" ? "active" : ""} onClick={() => navigateWorkspace("knowledge")}><FileText size={18} /><span>근거 자료</span></button>}
+          <button type="button" aria-current={activeView === "settings" ? "page" : undefined} className={activeView === "settings" ? "active" : ""} onClick={() => navigateWorkspace("settings")}><GearSix size={18} /><span>설정</span></button>
         </div>
         <div className="sidebar-heading">
           <span>프로젝트</span>
@@ -331,10 +454,11 @@ export default function WorkspacePage() {
             <button
               type="button"
               key={project.id}
+              aria-current={selectedProject?.id === project.id && activeView === "project" ? "page" : undefined}
               className={selectedProject?.id === project.id ? "active" : ""}
               onClick={() => {
                 setSelectedProject(project);
-                setActiveView("project");
+                navigateWorkspace("project", project);
                 setRun(null);
                 setRunId(null);
                 setEvents([]);
@@ -359,7 +483,7 @@ export default function WorkspacePage() {
             projects={projects}
             canWrite={canWriteProject}
             onCreate={() => setShowNewProject(true)}
-            onSelect={(project) => { setSelectedProject(project); setActiveView("project"); }}
+            onSelect={(project) => navigateWorkspace("project", project)}
             onProjectUpdated={(project) => {
               setProjects((current) => current.map((item) => item.id === project.id ? project : item));
               setSelectedProject((current) => current?.id === project.id ? project : current);
@@ -392,16 +516,19 @@ export default function WorkspacePage() {
             busy={busy}
             snapshot={snapshot}
             permissions={activePermissions}
+            initialStep={projectStep}
+            onStepChange={(step) => navigateWorkspace("project", selectedProject, step)}
             onProjectUpdated={(project) => {
               setProjects((current) => current.map((item) => item.id === project.id ? project : item));
               setSelectedProject(project);
               setRun(null);
               setRunId(null);
               setEvents([]);
-              setStreamConnected(false);
+              setStreamState("idle");
+              setStreamRetryCount(0);
             }}
             onRun={beginRun}
-            onResetRun={() => { setRun(null); setRunId(null); setEvents([]); setStreamConnected(false); }}
+            onResetRun={() => { setRun(null); setRunId(null); setEvents([]); setStreamState("idle"); setStreamRetryCount(0); }}
             onCancel={async () => {
               if (!runId) return;
               setBusy(true);
@@ -432,19 +559,12 @@ export default function WorkspacePage() {
           clients={clients}
           onClose={() => setShowNewProject(false)}
           onCreate={async (input) => {
-            setBusy(true);
             setError(null);
-            try {
-              const project = await createProject(session, input);
-              setProjects((current) => [project, ...current]);
-              setSelectedProject(project);
-              setActiveView("project");
-              setShowNewProject(false);
-            } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "프로젝트를 만들지 못했습니다.");
-            } finally {
-              setBusy(false);
-            }
+            const project = await createProject(session, input);
+            setProjects((current) => [project, ...current]);
+            setSelectedProject(project);
+            navigateWorkspace("project", project);
+            setShowNewProject(false);
           }}
         />
       )}
@@ -464,8 +584,17 @@ function AuthGate({
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
 
+  const handleTabKey = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (!(["ArrowLeft", "ArrowRight", "Home", "End"] as string[]).includes(event.key)) return;
+    event.preventDefault();
+    const nextMode: AuthMode = event.key === "ArrowLeft" || event.key === "Home" ? "login" : "register";
+    setMode(nextMode);
+    document.getElementById(`auth-tab-${nextMode}`)?.focus();
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     const data = new FormData(event.currentTarget);
@@ -487,7 +616,7 @@ function AuthGate({
   };
 
   return (
-    <main className="auth-page">
+    <main id="main-content" className="auth-page">
       <Link href="/" className="auth-back"><ArrowLeft size={18} /> 제품 소개로 돌아가기</Link>
       <section className="auth-message">
         <span>Freelance Ops</span>
@@ -496,11 +625,11 @@ function AuthGate({
         <div className="auth-flow" aria-hidden="true"><i /><i /><i /><i /></div>
       </section>
       <section className="auth-panel">
-        <div className="auth-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => setMode("login")}>로그인</button>
-          <button type="button" role="tab" aria-selected={mode === "register"} onClick={() => setMode("register")}>처음 시작하기</button>
+        <div className="auth-tabs" role="tablist" aria-label="인증 방식">
+          <button id="auth-tab-login" type="button" role="tab" aria-controls="auth-panel-login" aria-selected={mode === "login"} tabIndex={mode === "login" ? 0 : -1} onKeyDown={handleTabKey} onClick={() => setMode("login")}>로그인</button>
+          <button id="auth-tab-register" type="button" role="tab" aria-controls="auth-panel-register" aria-selected={mode === "register"} tabIndex={mode === "register" ? 0 : -1} onKeyDown={handleTabKey} onClick={() => setMode("register")}>처음 시작하기</button>
         </div>
-        <form onSubmit={submit}>
+        <form id={`auth-panel-${mode}`} role="tabpanel" aria-labelledby={`auth-tab-${mode}`} aria-busy={busy} onSubmit={submit}>
           {mode === "register" && <>
             <label>표시 이름<input name="displayName" required maxLength={100} autoComplete="name" /></label>
             <label>Workspace 이름<input name="workspaceName" required maxLength={120} /></label>
@@ -620,7 +749,7 @@ function ClientsPanel({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canWrite) return;
+    if (!canWrite || busy) return;
     const form = event.currentTarget;
     const data = new FormData(form);
     const nullable = (name: string) => String(data.get(name) ?? "").trim() || null;
@@ -892,8 +1021,7 @@ function SettingsPanel({ session, permissions }: { session: AuthSession; permiss
         <div className="settings-content">
           <section id="workspace-profile"><header><div><h2>Workspace profile</h2><p>현재 인증된 사용자와 Workspace 정보입니다.</p></div></header><dl><div><dt>Workspace</dt><dd>{workspace?.name ?? session.workspaceId}</dd></div><div><dt>사용자</dt><dd>{profile?.displayName ?? profile?.email ?? "-"}</dd></div><div><dt>상태</dt><dd>{profile?.status ?? "-"}</dd></div></dl></section>
           <section id="rate-cards"><header><div><h2>서비스 단가</h2><p>시간·일·고정 금액 기준을 등록합니다.</p></div></header>
-            <div className="rate-card-list">{rateCards.length === 0 ? <p>등록된 단가가 없습니다. 아래에서 첫 단가를 추가하세요.</p> : rateCards.map((card) => <article key={card.id}><div><strong>{card.name}</strong><small>{card.active ? "사용 중" : "비활성"}</small></div><span>{formatMoney(card.rate, card.currency)} / {card.unit === "HOUR" ? "시간" : card.unit === "DAY" ? "일" : "건"}</span></article>)}</div>
-            {canWriteQuotation ? <form className="settings-form" onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; setBusy(true); setError(null); setSaved(null); const data = new FormData(form); try { const card = await saveRateCard(session, crypto.randomUUID(), { name: String(data.get("name")), unit: String(data.get("unit")) as RateCard["unit"], rate: Number(data.get("rate")), minimumAmount: Number(data.get("minimumAmount")), currency: String(data.get("currency")), active: true }); setRateCards((current) => [...current, card]); setSaved("새 단가가 저장되었습니다."); form.reset(); } catch (cause) { setError(cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다."); } finally { setBusy(false); } }}><div className="form-row"><label>서비스 이름<input name="name" required maxLength={120} placeholder="예: 개발 작업" /></label><label>단위<select name="unit" defaultValue="HOUR"><option value="HOUR">시간</option><option value="DAY">일</option><option value="FIXED">고정</option></select></label><label>통화<select name="currency" defaultValue="KRW"><option value="KRW">KRW</option><option value="USD">USD</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>기본 단가<input name="rate" type="number" min="0" required step="1000" /></label><label>최소 금액<input name="minimumAmount" type="number" min="0" required step="1000" defaultValue="0" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} 단가 추가</button></form> : <p className="permission-note">단가를 변경할 권한이 없습니다.</p>}
+            <RateCardManager session={session} rateCards={rateCards} canWrite={canWriteQuotation} onChange={setRateCards} />
           </section>
           <section id="estimation-policy"><header><div><h2>견적 정책</h2><p>세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <form className="settings-form" key={policy.version} onSubmit={async (event) => { event.preventDefault(); setBusy(true); setError(null); setSaved(null); const data = new FormData(event.currentTarget); try { const nextPolicy = await saveEstimationPolicy(session, { defaultTaxRate: Number(data.get("taxRate")) / 100, defaultRiskBufferRate: Number(data.get("bufferRate")) / 100, maximumDiscountRate: Number(data.get("discountRate")) / 100 }); setPolicy(nextPolicy); setSaved("견적 정책이 저장되었습니다."); } catch (cause) { setError(cause instanceof Error ? cause.message : "정책을 저장하지 못했습니다."); } finally { setBusy(false); } }}><div className="form-row"><label>기본 세율 (%)<input name="taxRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultTaxRate * 100} /></label><label>위험 buffer (%)<input name="bufferRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultRiskBufferRate * 100} /></label><label>최대 할인율 (%)<input name="discountRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.maximumDiscountRate * 100} /></label></div><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 정책 저장</button></form> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
           {canReadPricing && <section id="model-pricing"><header><div><h2>AI 모델 원가표</h2><p>Agent 실행 비용 계산에 쓰이는 불변 가격 스냅샷입니다.</p></div></header>
@@ -904,6 +1032,98 @@ function SettingsPanel({ session, permissions }: { session: AuthSession; permiss
         </div>
       </div>
     </section>
+  );
+}
+
+function RateCardManager({ session, rateCards, canWrite, onChange }: { session: AuthSession; rateCards: RateCard[]; canWrite: boolean; onChange: (cards: RateCard[]) => void }) {
+  const [editorId, setEditorId] = useState<string>("new");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const selected = rateCards.find((card) => card.id === editorId) ?? null;
+
+  const replaceCard = (card: RateCard) => {
+    const exists = rateCards.some((item) => item.id === card.id);
+    const next = exists ? rateCards.map((item) => item.id === card.id ? card : item) : [...rateCards, card];
+    onChange(next.sort((left, right) => left.name.localeCompare(right.name, "ko")));
+  };
+
+  const toggleActive = async () => {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const card = await saveRateCard(session, selected.id, {
+        name: selected.name,
+        unit: selected.unit,
+        rate: selected.rate,
+        minimumAmount: selected.minimumAmount,
+        currency: selected.currency,
+        active: !selected.active,
+      });
+      replaceCard(card);
+      setConfirmDeactivate(false);
+      setNotice(card.active ? "이 단가를 새 견적에서 다시 사용할 수 있습니다." : "이 단가를 새 견적의 선택 항목에서 제외했습니다.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "단가 상태를 변경하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rate-card-manager">
+      <div className="rate-card-toolbar">
+        <p>{rateCards.length === 0 ? "등록된 단가가 없습니다. 첫 단가를 추가하세요." : `${rateCards.filter((card) => card.active).length}개 사용 중 · ${rateCards.length}개 전체`}</p>
+        {canWrite && <button type="button" className="secondary-button" onClick={() => { setEditorId("new"); setError(null); setNotice(null); setConfirmDeactivate(false); }}><Plus size={17} /> 새 단가</button>}
+      </div>
+      {rateCards.length > 0 && <div className="rate-card-list" aria-label="등록된 서비스 단가">{rateCards.map((card) => <button type="button" key={card.id} aria-pressed={editorId === card.id} className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`} onClick={() => { setEditorId(card.id); setError(null); setNotice(null); setConfirmDeactivate(false); }}>
+        <div><strong>{card.name}</strong><small>{card.active ? "사용 중" : "비활성 · 기존 견적에는 유지"}</small></div>
+        <span>{formatMoney(card.rate, card.currency)} / {card.unit === "HOUR" ? "시간" : card.unit === "DAY" ? "일" : "건"}<small>최소 {formatMoney(card.minimumAmount, card.currency)}</small></span>
+      </button>)}</div>}
+
+      {canWrite ? <form className="settings-form rate-card-form" key={selected ? `${selected.id}-${selected.version}` : "new"} aria-busy={busy} onSubmit={async (event) => {
+        event.preventDefault();
+        if (busy) return;
+        const data = new FormData(event.currentTarget);
+        const name = String(data.get("name")).trim();
+        const rate = Number(data.get("rate"));
+        const minimumAmount = Number(data.get("minimumAmount"));
+        setError(null);
+        setNotice(null);
+        if (!name) { setError("서비스 이름을 입력해 주세요."); return; }
+        if (!Number.isFinite(rate) || rate < 0 || !Number.isFinite(minimumAmount) || minimumAmount < 0) { setError("기본 단가와 최소 금액은 0 이상의 숫자여야 합니다."); return; }
+        setBusy(true);
+        try {
+          const card = await saveRateCard(session, selected?.id ?? crypto.randomUUID(), {
+            name,
+            unit: String(data.get("unit")) as RateCard["unit"],
+            rate,
+            minimumAmount,
+            currency: String(data.get("currency")),
+            active: selected?.active ?? true,
+          });
+          replaceCard(card);
+          setEditorId(card.id);
+          setNotice(selected ? "단가 변경을 저장했습니다." : "새 단가를 등록했습니다.");
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
+        } finally {
+          setBusy(false);
+        }
+      }}>
+        <div className="rate-card-form-heading"><div><strong>{selected ? "단가 편집" : "새 단가 등록"}</strong><span>{selected ? `서버 버전 ${selected.version}` : "견적 계산에 사용할 기준을 입력하세요."}</span></div>{selected && <span className={selected.active ? "active" : "inactive"}>{selected.active ? "사용 중" : "비활성"}</span>}</div>
+        {error && <div className="inline-error" role="alert"><Warning size={17} />{error}</div>}
+        {notice && <div className="settings-saved" role="status"><CheckCircle size={17} />{notice}</div>}
+        <fieldset disabled={busy}>
+          <div className="form-row"><label>서비스 이름<input name="name" required maxLength={120} placeholder="예: 개발 작업" defaultValue={selected?.name ?? ""} /></label><label>단위<select name="unit" defaultValue={selected?.unit ?? "HOUR"}><option value="HOUR">시간</option><option value="DAY">일</option><option value="FIXED">고정</option></select></label><label>통화<select name="currency" defaultValue={selected?.currency ?? "KRW"}><option value="KRW">KRW</option><option value="USD">USD</option><option value="JPY">JPY</option></select></label></div>
+          <div className="form-row"><label>기본 단가<input name="rate" type="number" min="0" required step="0.01" defaultValue={selected?.rate ?? ""} /></label><label>최소 금액<input name="minimumAmount" type="number" min="0" required step="0.01" defaultValue={selected?.minimumAmount ?? 0} /></label></div>
+          <div className="rate-card-form-actions"><button type="submit" className="primary-button">{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {selected ? "변경 저장" : "단가 등록"}</button>{selected && (selected.active ? confirmDeactivate ? <div className="archive-confirm"><span>새 견적에서 이 단가를 숨길까요?</span><button type="button" onClick={() => void toggleActive()}>비활성화</button><button type="button" onClick={() => setConfirmDeactivate(false)}>취소</button></div> : <button type="button" className="quiet-button danger" onClick={() => setConfirmDeactivate(true)}><Archive size={17} /> 비활성화</button> : <button type="button" className="quiet-button" onClick={() => void toggleActive()}><ArrowRight size={17} /> 다시 사용</button>)}</div>
+        </fieldset>
+      </form> : <p className="permission-note">단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.</p>}
+    </div>
   );
 }
 
@@ -928,6 +1148,8 @@ function ProjectWorkbench({
   busy,
   snapshot,
   permissions,
+  initialStep,
+  onStepChange,
   onProjectUpdated,
   onRun,
   onResetRun,
@@ -943,6 +1165,8 @@ function ProjectWorkbench({
   busy: boolean;
   snapshot: ReturnType<typeof snapshotFromEvents>;
   permissions: Set<string>;
+  initialStep: WorkbenchStep;
+  onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onRun: (provider: Provider, model: string) => Promise<void>;
   onResetRun: () => void;
@@ -951,7 +1175,7 @@ function ProjectWorkbench({
 }) {
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [model, setModel] = useState(process.env.NEXT_PUBLIC_DEFAULT_MODEL ?? "");
-  const [activeStep, setActiveStep] = useState<"intake" | "agent" | "quote" | "outcome">("intake");
+  const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const canRun = permissions.has("agent.run");
@@ -959,8 +1183,13 @@ function ProjectWorkbench({
   const canCancel = permissions.has("agent.cancel");
 
   useEffect(() => {
-    Promise.resolve().then(() => setActiveStep("intake"));
-  }, [project.id]);
+    Promise.resolve().then(() => setActiveStep(initialStep));
+  }, [initialStep, project.id]);
+
+  const selectStep = (step: WorkbenchStep) => {
+    setActiveStep(step);
+    onStepChange(step);
+  };
 
   useEffect(() => {
     if (!runId || !run || !terminalStatuses.has(run.status) || !permissions.has("audit.read")) {
@@ -1001,13 +1230,13 @@ function ProjectWorkbench({
           ["quote", "03", "견적"],
           ["outcome", "04", "결과"],
         ] as const).map(([id, number, label]) => (
-          <button type="button" key={id} className={activeStep === id ? "active" : ""} onClick={() => setActiveStep(id)}>
+          <button type="button" key={id} aria-current={activeStep === id ? "step" : undefined} className={activeStep === id ? "active" : ""} onClick={() => selectStep(id)}>
             <span>{number}</span>{label}
           </button>
         ))}
       </nav>
 
-      {activeStep === "intake" && <IntakeReview session={session} project={project} permissions={permissions} onContinue={() => setActiveStep("agent")} />}
+      {activeStep === "intake" && <IntakeReview session={session} project={project} permissions={permissions} onContinue={() => selectStep("agent")} />}
 
       {activeStep === "agent" && <div className="workbench-grid">
         <div className="graph-panel">
@@ -1141,6 +1370,7 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
           <div className="requirement-notes"><section><h4>확인된 가정</h4>{latest.assumptions.length ? <ul>{latest.assumptions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>기록된 가정이 없습니다.</p>}</section><section><h4>열린 질문</h4>{latest.questions.length ? <ul>{latest.questions.map((item) => <li key={item.content}>{item.content}<small>{item.status}</small></li>)}</ul> : <p>열린 질문이 없습니다.</p>}</section></div>
         </> : editing ? <form className="requirement-editor" onSubmit={async (event) => {
           event.preventDefault();
+          if (busy) return;
           setBusy(true);
           setError(null);
           const data = new FormData(event.currentTarget);
@@ -1202,6 +1432,16 @@ function quotationItemsAsInput(quotation: Quotation): QuotationItemInput[] {
   }));
 }
 
+async function copyToClipboard(value: string): Promise<boolean> {
+  if (!navigator.clipboard?.writeText) return false;
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function QuoteBuilder({ session, project, permissions }: { session: AuthSession; project: Project; permissions: Set<string> }) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
@@ -1215,6 +1455,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [saved, setSaved] = useState<Quotation | null>(null);
   const [proposalShare, setProposalShare] = useState<(ProposalShare & { url: string }) | null>(null);
+  const [shareCopyState, setShareCopyState] = useState<"copied" | "manual" | null>(null);
   const [conflictLatest, setConflictLatest] = useState<Quotation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1266,6 +1507,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     setTaxRate(quotation.taxRate);
     setValidUntil(quotation.validUntil ?? "");
     setProposalShare(null);
+    setShareCopyState(null);
     setConflictLatest(null);
     setError(null);
   };
@@ -1373,10 +1615,10 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
         <div><span>서버 계산 완료 · {saved.status}</span><h3>{saved.scenario} v{saved.versionNumber}</h3><p>총액 {formatMoney(saved.total, saved.currency)} · 위험 buffer {Math.round(saved.riskBufferRate * 100)}% · 세금 {formatMoney(saved.taxAmount, saved.currency)}</p></div>
         <div className="saved-quote-actions">
           {saved.status === "DRAFT" && canPublish && <button type="button" className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { const published = await publishQuotation(session, saved.id); setSaved(published); setQuotations((current) => current.map((quotation) => quotation.id === published.id ? published : quotation)); } catch (cause) { setError(cause instanceof Error ? cause.message : "견적을 발행하지 못했습니다."); } finally { setBusy(false); } }}>발행하기 <ArrowRight size={17} /></button>}
-          {saved.status === "PUBLISHED" && canPublish && !proposalShare && <button type="button" className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { const share = await createProposalShare(session, saved.id); const url = new URL(`/proposal/${share.token}`, window.location.origin).toString(); setProposalShare({ ...share, url }); await navigator.clipboard?.writeText(url); } catch (cause) { setError(cause instanceof Error ? cause.message : "공유 링크를 만들지 못했습니다."); } finally { setBusy(false); } }}>고객 링크 만들기 <ArrowRight size={17} /></button>}
+          {saved.status === "PUBLISHED" && canPublish && !proposalShare && <button type="button" className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { const share = await createProposalShare(session, saved.id); const url = new URL(`/proposal/${share.token}`, window.location.origin).toString(); setProposalShare({ ...share, url }); setShareCopyState(await copyToClipboard(url) ? "copied" : "manual"); } catch (cause) { setError(cause instanceof Error ? cause.message : "공유 링크를 만들지 못했습니다."); } finally { setBusy(false); } }}>고객 링크 만들기 <ArrowRight size={17} /></button>}
         </div>
       </article>}
-      {proposalShare && <div className="share-link" role="status"><div><span>고객 제안서 링크를 만들고 복사했습니다.</span><small>{new Date(proposalShare.expiresAt).toLocaleDateString("ko-KR")}까지 유효</small></div><a href={proposalShare.url} target="_blank" rel="noreferrer">{proposalShare.url}</a><button type="button" className="quiet-button danger" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { await revokeProposalShare(session, proposalShare.shareId); setProposalShare(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "공유 링크를 비활성화하지 못했습니다."); } finally { setBusy(false); } }}><Archive size={17} /> 링크 비활성화</button></div>}
+      {proposalShare && <div className="share-link" role="status"><div><span>{shareCopyState === "copied" ? "고객 제안서 링크를 만들고 복사했습니다." : "고객 제안서 링크를 만들었습니다."}</span><small>{shareCopyState === "manual" ? "자동 복사가 차단되었습니다. 아래 링크를 직접 복사하세요." : `${new Date(proposalShare.expiresAt).toLocaleDateString("ko-KR")}까지 유효`}</small></div><a href={proposalShare.url} target="_blank" rel="noopener noreferrer">{proposalShare.url}</a><div className="share-link-actions"><button type="button" className="quiet-button" disabled={busy} onClick={async () => setShareCopyState(await copyToClipboard(proposalShare.url) ? "copied" : "manual")}><Copy size={17} /> 링크 복사</button><button type="button" className="quiet-button danger" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { await revokeProposalShare(session, proposalShare.shareId); setProposalShare(null); setShareCopyState(null); } catch (cause) { setError(cause instanceof Error ? cause.message : "공유 링크를 비활성화하지 못했습니다."); } finally { setBusy(false); } }}><Archive size={17} /> 링크 비활성화</button></div></div>}
 
       {quotations.length > 0 && <div className="quote-history"><span>견적 이력</span>{quotations.map((quotation) => <button type="button" key={quotation.id} onClick={() => loadQuotation(quotation)}><strong>{quotation.scenario} v{quotation.versionNumber}</strong><small>{quotation.status}</small><span>{formatMoney(quotation.total, quotation.currency)}</span></button>)}</div>}
     </section>
@@ -1421,7 +1663,7 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
       {outcome && approvedQuotation && <section className="outcome-variance"><header><span>예상 대비 오차</span><strong>{approvedQuotation.scenario} v{approvedQuotation.versionNumber}</strong></header><dl><div><dt>견적 대비 계약 금액</dt><dd className={revenueVariance != null && revenueVariance >= 0 ? "positive" : "negative"}>{revenueVariance == null ? "-" : `${revenueVariance >= 0 ? "+" : ""}${formatMoney(revenueVariance, project.currency)}`}</dd><small>견적 {formatMoney(approvedQuotation.total, approvedQuotation.currency)} → 실제 {formatMoney(outcome.totalRevenue, project.currency)}</small></div><div><dt>시간 공수 오차</dt><dd className={hoursVariance != null && hoursVariance <= 0 ? "positive" : "negative"}>{hoursVariance == null ? "비교 불가" : `${hoursVariance >= 0 ? "+" : ""}${hoursVariance.toLocaleString()}시간`}</dd><small>{quotedHours > 0 ? `시간 단위 견적 ${quotedHours.toLocaleString()}시간 → 실제 ${outcome.actualHours.toLocaleString()}시간` : "시간 단위 견적 항목이 없습니다."}</small></div></dl></section>}
       <form className="outcome-form" onSubmit={async (event) => {
         event.preventDefault();
-        if (!canWrite) return;
+        if (!canWrite || busy) return;
         setBusy(true);
         setError(null);
         const data = new FormData(event.currentTarget);
@@ -1478,13 +1720,53 @@ function externalHttpUrl(value: string): string | null {
 function InterruptionForm({ interruption, busy, canRespond, onSubmit }: { interruption: NonNullable<AgentRunView["interruption"]>; busy: boolean; canRespond: boolean; onSubmit: (answers: string[]) => Promise<void> }) {
   const [answers, setAnswers] = useState(() => interruption.questions.map(() => ""));
   return (
-    <form className="interruption-form" onSubmit={(event) => { event.preventDefault(); void onSubmit(answers); }}>
+    <form className="interruption-form" aria-busy={busy} onSubmit={(event) => { event.preventDefault(); if (busy) return; void onSubmit(answers); }}>
       <span>사용자 확인 필요</span>
       <h3>다음 내용을 확인해 주세요.</h3>
       {interruption.questions.map((question, index) => <label key={question}>{question}<textarea required readOnly={!canRespond} value={answers[index]} onChange={(event) => setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? event.target.value : answer))} /></label>)}
       {canRespond ? <button type="submit" className="primary-button" disabled={busy || answers.some((answer) => !answer.trim())}>{busy ? <CircleNotch className="spin" /> : <ArrowRight />} 답변하고 계속</button> : <p className="permission-note">이 실행에 답변할 권한이 없습니다.</p>}
     </form>
   );
+}
+
+function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: () => void, closeDisabled = false) {
+  const closeRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+    closeDisabledRef.current = closeDisabled;
+  }, [closeDisabled, onClose]);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.querySelector<HTMLElement>("[data-autofocus], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])")?.focus();
+
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !closeDisabledRef.current) {
+        event.preventDefault();
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>("button, input, textarea, select, [href], [tabindex]:not([tabindex='-1'])")]
+        .filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [dialogRef]);
 }
 
 function ProjectEditDialog({
@@ -1503,25 +1785,11 @@ function ProjectEditDialog({
   const dialogRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("input")?.focus();
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onClose();
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>("button, input, textarea, select, [href], [tabindex]:not([tabindex='-1'])")].filter((element) => !element.hasAttribute("disabled"));
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [busy, onClose]);
+  useDialogFocusTrap(dialogRef, onClose, busy);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (busy) return;
     const data = new FormData(event.currentTarget);
     const budgetMin = data.get("budgetMin") ? Number(data.get("budgetMin")) : null;
     const budgetMax = data.get("budgetMax") ? Number(data.get("budgetMax")) : null;
@@ -1556,12 +1824,14 @@ function ProjectEditDialog({
         <h2 id="project-edit-title">문의 조건을 최신 상태로 맞추세요.</h2>
         <p>변경한 원문과 조건은 다음 Agent 실행과 견적 작성에 사용됩니다. 이미 발행한 견적 revision은 변경되지 않습니다.</p>
         {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
-        <form onSubmit={submit}>
-          <div className="form-row"><label>고객 연결<select name="clientId" defaultValue={project.clientId ?? ""}><option value="">연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select></label><label>통화<select name="currency" defaultValue={project.currency}><option value="KRW">KRW</option><option value="USD">USD</option><option value="JPY">JPY</option></select></label></div>
-          <label>프로젝트 이름<input name="title" required maxLength={200} defaultValue={project.title} /></label>
-          <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} defaultValue={project.requirementText} /></label>
-          <div className="form-row"><label>희망 완료일<input name="deadline" type="date" defaultValue={project.deadline ?? ""} /></label><label>최소 예산<input name="budgetMin" type="number" min="0" step="10000" defaultValue={project.budgetMin ?? ""} /></label><label>최대 예산<input name="budgetMax" type="number" min="0" step="10000" defaultValue={project.budgetMax ?? ""} /></label></div>
-          <div className="dialog-actions"><button type="button" className="quiet-button" disabled={busy} onClick={onClose}>취소</button><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 변경 저장</button></div>
+        <form aria-busy={busy} onSubmit={submit}>
+          <fieldset className="dialog-fields" disabled={busy}>
+            <div className="form-row"><label>고객 연결<select name="clientId" defaultValue={project.clientId ?? ""}><option value="">연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select></label><label>통화<select name="currency" defaultValue={project.currency}><option value="KRW">KRW</option><option value="USD">USD</option><option value="JPY">JPY</option></select></label></div>
+            <label>프로젝트 이름<input data-autofocus name="title" required maxLength={200} defaultValue={project.title} /></label>
+            <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} defaultValue={project.requirementText} /></label>
+            <div className="form-row"><label>희망 완료일<input name="deadline" type="date" defaultValue={project.deadline ?? ""} /></label><label>최소 예산<input name="budgetMin" type="number" min="0" step="10000" defaultValue={project.budgetMin ?? ""} /></label><label>최대 예산<input name="budgetMax" type="number" min="0" step="10000" defaultValue={project.budgetMax ?? ""} /></label></div>
+            <div className="dialog-actions"><button type="button" className="quiet-button" onClick={onClose}>취소</button><button type="submit" className="primary-button">{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 변경 저장</button></div>
+          </fieldset>
         </form>
       </section>
     </div>
@@ -1570,46 +1840,52 @@ function ProjectEditDialog({
 
 function ProjectDialog({ clients, onClose, onCreate }: { clients: Client[]; onClose: () => void; onCreate: (input: { clientId: string | null; title: string; requirementText: string; currency: string; deadline: string | null; budgetMin: number | null; budgetMax: number | null }) => Promise<void> }) {
   const dialogRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("input")?.focus();
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>("button, input, textarea, select, [href], [tabindex]:not([tabindex='-1'])")].filter((element) => !element.hasAttribute("disabled"));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useDialogFocusTrap(dialogRef, onClose, busy);
 
   return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <section ref={dialogRef} className="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title">
-        <div><span>새 고객 문의</span><button type="button" onClick={onClose} aria-label="닫기">×</button></div>
+        <div><span>새 고객 문의</span><button type="button" disabled={busy} onClick={onClose} aria-label="닫기">×</button></div>
         <h2 id="project-dialog-title">먼저 알고 있는 내용을 적어주세요.</h2>
         <p>모호해도 괜찮습니다. 확인되지 않은 내용은 다음 단계에서 질문으로 분리합니다.</p>
-        <form onSubmit={(event) => {
+        {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
+        <form aria-busy={busy} onSubmit={async (event) => {
           event.preventDefault();
+          if (busy) return;
           const data = new FormData(event.currentTarget);
-          void onCreate({
+          const budgetMin = data.get("budgetMin") ? Number(data.get("budgetMin")) : null;
+          const budgetMax = data.get("budgetMax") ? Number(data.get("budgetMax")) : null;
+          if (budgetMin != null && budgetMax != null && budgetMin > budgetMax) {
+            setError("최소 예산은 최대 예산보다 클 수 없습니다.");
+            return;
+          }
+          setBusy(true);
+          setError(null);
+          try {
+            await onCreate({
             clientId: String(data.get("clientId")) || null,
-            title: String(data.get("title")),
-            requirementText: String(data.get("requirementText")),
+            title: String(data.get("title")).trim(),
+            requirementText: String(data.get("requirementText")).trim(),
             currency: "KRW",
             deadline: String(data.get("deadline")) || null,
-            budgetMin: data.get("budgetMin") ? Number(data.get("budgetMin")) : null,
-            budgetMax: data.get("budgetMax") ? Number(data.get("budgetMax")) : null,
-          });
+            budgetMin,
+            budgetMax,
+            });
+          } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "프로젝트를 만들지 못했습니다.");
+          } finally {
+            setBusy(false);
+          }
         }}>
-          <label>고객 연결<select name="clientId" defaultValue=""><option value="">아직 고객을 연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select><small>{clients.length === 0 ? "고객 메뉴에서 연락처를 먼저 등록할 수 있습니다." : "선택한 고객은 프로젝트와 함께 저장됩니다."}</small></label>
-          <label>프로젝트 이름<input name="title" required maxLength={200} placeholder="예: 브랜드 사이트 리뉴얼" /></label>
-          <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요." /></label>
-          <div className="form-row"><label>희망 완료일<input name="deadline" type="date" /></label><label>최소 예산<input name="budgetMin" type="number" min="0" step="10000" /></label><label>최대 예산<input name="budgetMax" type="number" min="0" step="10000" /></label></div>
-          <button className="primary-button" type="submit">프로젝트 만들기 <ArrowRight size={18} /></button>
+          <fieldset className="dialog-fields" disabled={busy}>
+            <label>고객 연결<select name="clientId" defaultValue=""><option value="">아직 고객을 연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select><small>{clients.length === 0 ? "고객 메뉴에서 연락처를 먼저 등록할 수 있습니다." : "선택한 고객은 프로젝트와 함께 저장됩니다."}</small></label>
+            <label>프로젝트 이름<input data-autofocus name="title" required maxLength={200} placeholder="예: 브랜드 사이트 리뉴얼" /></label>
+            <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요." /></label>
+            <div className="form-row"><label>희망 완료일<input name="deadline" type="date" /></label><label>최소 예산<input name="budgetMin" type="number" min="0" step="10000" /></label><label>최대 예산<input name="budgetMax" type="number" min="0" step="10000" /></label></div>
+            <button className="primary-button" type="submit">{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} {busy ? "프로젝트를 만들고 있습니다." : "프로젝트 만들기"}</button>
+          </fieldset>
         </form>
       </section>
     </div>

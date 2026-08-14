@@ -19,7 +19,7 @@ npm run dev
 npm run preview:check
 ```
 
-이 명령은 typecheck, Node source test, ESLint와 표준 `next build`를 순서대로 실행합니다. 개별 명령은 `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`입니다.
+이 명령은 typecheck, Node test, ESLint와 표준 `next build`를 순서대로 실행합니다. Vercel에서는 build 전에 공개 API·site origin validator가 실행되어 필수 환경 변수 누락과 비HTTPS·path·credential·loopback URL을 차단합니다. 개별 명령은 `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`입니다.
 
 ## Vercel Preview
 

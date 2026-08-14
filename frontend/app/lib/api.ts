@@ -439,7 +439,12 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string, 
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError("서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.", 0);
+  }
   if (response.status === 401 && token && allowSessionRecovery) {
     const recovered = await recoverSession(token);
     if (recovered) return request<T>(path, init, recovered.accessToken, false);
@@ -886,18 +891,26 @@ export async function streamRunEvents(
   runId: string,
   onEvent: (event: WorkflowEvent) => void,
   signal: AbortSignal,
+  lastEventId?: number,
+  onConnected?: () => void,
 ): Promise<void> {
+  const headers = new Headers({
+    Accept: "text/event-stream",
+    Authorization: `Bearer ${session.accessToken}`,
+  });
+  if (lastEventId != null && lastEventId > 0) headers.set("Last-Event-ID", String(lastEventId));
   const response = await fetch(
     `${apiBaseUrl()}/api/v2/workspaces/${session.workspaceId}/agent-runs/${runId}/events`,
     {
-      headers: {
-        Accept: "text/event-stream",
-        Authorization: `Bearer ${session.accessToken}`,
-      },
+      headers,
       signal,
     },
   );
-  if (!response.ok || !response.body) throw new Error("실시간 실행 스트림에 연결하지 못했습니다.");
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!response.ok || !response.body || !contentType.includes("text/event-stream")) {
+    throw new Error("실시간 실행 스트림에 연결하지 못했습니다.");
+  }
+  onConnected?.();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

@@ -147,7 +147,7 @@ export default function Home() {
   const previewSnapshot = snapshotFromEvents(previewEvents.slice(0, previewIndex + 1), "PREVIEW");
 
   return (
-    <main ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
+    <main id="main-content" ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
 
