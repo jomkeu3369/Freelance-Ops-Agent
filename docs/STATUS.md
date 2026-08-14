@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: 첫 Vultr staging 배포에서 실제 서버가 1 vCPU·2GB RAM인데 Production Compose의 Agent `cpus: 2.0` 제한을 적용해 container 생성이 거부되는 문제를 확인했다. 2GB staging 검증을 위해 Agent와 Backend를 각각 `1.0 CPU·640MB`, Caddy를 `0.25 CPU·128MB`로 제한했다. PostgreSQL은 기존 infra container가 healthy였고 Agent image build·GHCR push·서버 pull까지 성공했으며, 수정된 release의 실제 Agent·Backend 기동과 memory·swap·p95 관찰은 재배포 후 검증한다. 메모리 압박, 지속적인 swap, OOM 또는 지연 기준 초과 시 최소 2 vCPU·4GB로 증설한다.
+
 - 2026-08-14: Frontend Pipeline이 `ACCEPTED` 프로젝트를 협상 열에 묶으면서 상태 선택값은 `NEGOTIATING`으로 표시하던 진실성 오류를 수정했다. 카드의 select는 실제 Spring `project.status`를 값으로 사용하고 승인 상태는 `고객 승인됨`으로 명확히 표시한다. Agent HITL 답변은 사용자·Workspace·run·interruption 단위의 versioned `sessionStorage` draft로 24시간 보존하며 질문 집합이 바뀌거나 scope가 다르면 복원하지 않는다. 단계 이동 후 복원되고, 제출 API 성공 시에만 삭제하며 실패 시 서버 오류와 작성 답변을 함께 유지한다. 질문은 GSAP stagger와 reduced-motion 분기로 진입하고 답변 폐기 action·저장 상태를 제공한다. 임시 Spring 계약 서버와 실제 브라우저에서 승인 상태 선택값, 문의→AI 분석 단계 전환 복원, 503 응답 후 답변 보존, 1280px horizontal overflow 없음까지 확인했다. Frontend Node 테스트 32건, TypeScript, ESLint와 Vercel Preview 환경의 Next production build가 통과했다.
 
 - 2026-08-14: Project Intake에 명세상 필요했던 원문↔구조화 결과 diff를 추가했다. 최신 사용자 확정 requirement revision의 `sourceText`와 현재 프로젝트 원문을 직접 비교해 동기화 여부를 표시하고, 기능·가정·열린 질문 수, 현재 원문의 일정·예산, 확정 기능 목록을 하나의 gapless 비교 영역에서 검토할 수 있다. 원문이 변경된 경우 공통 앞뒤 문맥을 제외한 실제 삭제·추가 구간을 `<del>`·`<ins>`로 구분하며 긴 변경은 bounded excerpt로 제한한다. 자동 의미 추정을 검토 완료로 표시하지 않고 서버에 저장된 원문과 확정 revision만 비교한다. 실제 브라우저에서 `재검토 필요`, 기능 2·가정 1·질문 1, 삭제 없음과 추가 문장, 열린 변경 상세, 815px 비교 영역, horizontal overflow 없음과 console warning·error 0건을 확인했다. Frontend Node 테스트 30건, TypeScript, ESLint와 Vercel Preview 환경의 Next production build가 통과했다.

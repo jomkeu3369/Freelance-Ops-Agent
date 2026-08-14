@@ -4,8 +4,8 @@ services:
   agent:
     image: ${AGENT_IMAGE:?AGENT_IMAGE is required}:${AGENT_IMAGE_TAG:?AGENT_IMAGE_TAG is required}
     pull_policy: always
-    cpus: 2.0
-    mem_limit: 3g
+    cpus: 1.0
+    mem_limit: 640m
     pids_limit: 256
     read_only: true
     tmpfs:
@@ -26,8 +26,8 @@ services:
   backend:
     image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
     pull_policy: always
-    cpus: 1.5
-    mem_limit: 1536m
+    cpus: 1.0
+    mem_limit: 640m
     pids_limit: 256
     read_only: true
     tmpfs:
@@ -65,8 +65,8 @@ services:
         condition: service_healthy
     networks:
       - internal
-    cpus: 0.5
-    mem_limit: 256m
+    cpus: 0.25
+    mem_limit: 128m
     pids_limit: 128
     read_only: true
     tmpfs:
