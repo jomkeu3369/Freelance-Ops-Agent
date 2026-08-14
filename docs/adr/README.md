@@ -37,3 +37,5 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0020: Hibernate Vector 기반 PostgreSQL Hybrid Retrieval](0020-hibernate-vector-hybrid-retrieval.md)
 - [ADR-0021: Spring 소유 Agent 감사·비용 원장](0021-agent-audit-and-cost-ledger.md)
 - [ADR-0022: 발행 견적의 만료 가능한 Proposal 공유 링크](0022-expiring-proposal-share-links.md)
+- [ADR-0023: Redis는 측정된 V3 필요 전까지 도입 유예](0023-defer-redis-until-measured-v3-need.md)
+- [ADR-0024: Backend와 Agent의 독립 CI/CD](0024-independent-backend-agent-delivery.md)

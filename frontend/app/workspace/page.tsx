@@ -34,6 +34,7 @@ import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "..
 import { sessionRefreshDelay } from "../lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
 import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../lib/quotation-draft.mjs";
+import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../lib/interruption-draft.mjs";
 import {
   AgentRunView,
   AgentRunUsage,
@@ -579,6 +580,7 @@ export default function WorkspacePage() {
                 setExecutionRevision((current) => current + 1);
               } catch (cause) {
                 setError(cause instanceof Error ? cause.message : "답변을 전달하지 못했습니다.");
+                throw cause;
               } finally {
                 setBusy(false);
               }
@@ -714,6 +716,17 @@ const pipelineColumns: Array<{ key: string; title: string; caption: string; stat
   { key: "review", title: "결과 회고", caption: "실제 공수 기록 필요", statuses: ["COMPLETED"], moveTo: "COMPLETED" },
 ];
 
+const pipelineStatusLabels: Record<ProjectStatus, string> = {
+  LEAD: "신규 문의",
+  QUALIFYING: "정보 확인 중",
+  QUOTING: "견적 작성 중",
+  NEGOTIATING: "협상 중",
+  ACCEPTED: "고객 승인됨",
+  IN_PROGRESS: "진행 중",
+  COMPLETED: "결과 회고",
+  CANCELLED: "취소됨",
+};
+
 function PipelineBoard({
   session,
   projects,
@@ -763,7 +776,7 @@ function PipelineBoard({
               <div className="pipeline-cards">
                 {columnProjects.length === 0 ? <p className="column-empty">이 단계의 프로젝트가 없습니다.</p> : columnProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
                   <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}><span>{project.currency}</span><h3>{project.title}</h3><p>{project.requirementText}</p><small>{project.deadline ? `${project.deadline}까지` : "일정 미정"}</small></button>
-                  {canWrite && <label>단계 이동<select value={column.moveTo} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
+                  {canWrite && <label>단계 이동<select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
                 </article>)}
               </div>
             </section>;
@@ -1097,7 +1110,7 @@ function SettingsPanel({
 
   return (
     <section className="settings-page">
-      <div className="settings-heading"><span>WORKSPACE SETTINGS</span><h1>{onboardingComplete ? "견적 기준을 관리합니다." : "첫 견적 기준을 설정하세요."}</h1><p>금액 계산에 쓰이는 단가와 정책은 Spring이 소유하며 모든 견적에 결정적으로 적용됩니다.</p></div>
+      <div className="settings-heading"><span>WORKSPACE SETTINGS</span><h1>{onboardingComplete ? "견적 기준을 관리합니다." : hasActiveRateCard && policy ? "첫 고객 문의를 등록하세요." : "첫 견적 기준을 설정하세요."}</h1><p>금액 계산에 쓰이는 단가와 정책은 Spring이 소유하며 모든 견적에 결정적으로 적용됩니다.</p></div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {saved && <div className="settings-saved" role="status"><CheckCircle size={18} />{saved}</div>}
       <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
@@ -1415,7 +1428,16 @@ function ProjectWorkbench({
           {!run ? (
             <div className="inspector-empty"><Clock size={26} /><p>실행 결과와 확인 질문이 여기에 나타납니다.</p></div>
           ) : run.status === "WAITING_FOR_USER" && run.interruption ? (
-            <InterruptionForm interruption={run.interruption} busy={busy} canRespond={canRespond} onSubmit={onResume} />
+            <InterruptionForm
+              key={run.interruption.interruptionId}
+              interruption={run.interruption}
+              draftKey={interruptionDraftKey(session.userId, session.workspaceId, runId ?? run.runId, run.interruption.interruptionId)}
+              draftWorkspaceId={session.workspaceId}
+              draftRunId={runId ?? run.runId}
+              busy={busy}
+              canRespond={canRespond}
+              onSubmit={onResume}
+            />
           ) : ["FAILED", "CANCELLED"].includes(run.status) ? (
             <div className="run-failed"><Warning size={30} /><h3>{run.status === "CANCELLED" ? "사용자가 실행을 중단했습니다." : "실행이 중단되었습니다."}</h3><p>{run.status === "CANCELLED" ? "저장된 프로젝트와 이전 결과는 변경되지 않습니다." : run.errorCode ?? "공개 오류 코드가 없습니다."}</p></div>
           ) : run.result ? (
@@ -1450,6 +1472,33 @@ function ProjectWorkbench({
   );
 }
 
+function compactDiffExcerpt(value: string, limit = 520): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= limit) return normalized;
+  const half = Math.floor((limit - 3) / 2);
+  return `${normalized.slice(0, half)} … ${normalized.slice(-half)}`;
+}
+
+function requirementTextDelta(previous: string, current: string) {
+  if (previous === current) return { changed: false, removed: "", added: "" };
+  let prefix = 0;
+  const maxPrefix = Math.min(previous.length, current.length);
+  while (prefix < maxPrefix && previous[prefix] === current[prefix]) prefix += 1;
+
+  let suffix = 0;
+  const maxSuffix = Math.min(previous.length - prefix, current.length - prefix);
+  while (suffix < maxSuffix && previous[previous.length - 1 - suffix] === current[current.length - 1 - suffix]) suffix += 1;
+
+  const previousEnd = suffix ? previous.length - suffix : previous.length;
+  const currentEnd = suffix ? current.length - suffix : current.length;
+  return {
+    changed: true,
+    removed: compactDiffExcerpt(previous.slice(prefix, previousEnd)),
+    added: compactDiffExcerpt(current.slice(prefix, currentEnd)),
+  };
+}
+
 function IntakeReview({ session, project, permissions, onContinue }: { session: AuthSession; project: Project; permissions: Set<string>; onContinue: () => void }) {
   const canWriteProject = permissions.has("project.write");
   const canReadDocuments = permissions.has("document.read");
@@ -1462,6 +1511,7 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const diffRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1474,6 +1524,16 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
 
   const latest = versions[0] ?? null;
   const structuredOutdated = Boolean(latest && latest.sourceText.trim() !== project.requirementText.trim());
+  const textDelta = useMemo(
+    () => latest ? requirementTextDelta(latest.sourceText.trim(), project.requirementText.trim()) : null,
+    [latest, project.requirementText],
+  );
+
+  useGSAP(() => {
+    if (!latest || editing || !diffRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    gsap.fromTo(".requirement-diff-summary > article", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: .48, stagger: .07, ease: "power3.out" });
+    gsap.fromTo(".requirement-diff-map > article", { y: 24, scale: .985, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: .58, stagger: .1, ease: "power3.out" });
+  }, { scope: diffRef, dependencies: [editing, latest?.id, structuredOutdated], revertOnUpdate: true });
 
   return (
     <section className="intake-review requirement-review">
@@ -1524,6 +1584,20 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
         {structuredOutdated && <div className="inline-error requirement-stale" role="status"><Warning size={18} />문의 원문이 마지막 구조화 버전 이후 변경되었습니다. 새 revision을 확정한 뒤 견적을 검토하세요.</div>}
         {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
         {latest && !editing ? <>
+          <section className={`requirement-diff${structuredOutdated ? " stale" : " synced"}`} ref={diffRef} aria-labelledby="requirement-diff-title">
+            <header><div><span>원문과 구조화 결과 비교</span><h4 id="requirement-diff-title">확정된 정보와 다시 볼 차이</h4></div><strong>{structuredOutdated ? "재검토 필요" : "원문 동기화됨"}</strong></header>
+            <div className="requirement-diff-summary" aria-label="구조화 결과 요약">
+              <article><span>작업 범위</span><strong>{latest.features.length}</strong><small>기능으로 구조화</small></article>
+              <article><span>확인된 가정</span><strong>{latest.assumptions.length}</strong><small>견적 전제에 반영</small></article>
+              <article><span>열린 질문</span><strong>{latest.questions.length}</strong><small>추가 확인 필요</small></article>
+            </div>
+            <div className="requirement-diff-map">
+              <article><header><span>현재 고객 원문</span><strong>{project.requirementText.length.toLocaleString()}자</strong></header><p>{compactDiffExcerpt(project.requirementText, 700)}</p><dl><div><dt>희망 완료일</dt><dd>{project.deadline ?? "미정"}</dd></div><div><dt>예산 범위</dt><dd>{project.budgetMin == null && project.budgetMax == null ? "미정" : `${formatMoney(project.budgetMin ?? 0, project.currency)}–${formatMoney(project.budgetMax ?? 0, project.currency)}`}</dd></div></dl></article>
+              <article><header><span>사용자 확정 구조</span><strong>v{latest.versionNumber}</strong></header>{latest.features.length ? <ol>{latest.features.slice(0, 4).map((feature, index) => <li key={`${feature.title}-${index}`}><span>{feature.priority}</span><strong>{feature.title}</strong></li>)}</ol> : <p>확정된 기능이 없습니다.</p>}{latest.features.length > 4 && <small>그 외 {latest.features.length - 4}개 기능</small>}</article>
+            </div>
+            {structuredOutdated && textDelta?.changed ? <details className="requirement-source-delta" open><summary>마지막 확정 원문과 현재 원문의 변경 부분</summary><div><section><span>이전 원문에서 빠진 부분</span><del>{textDelta.removed || "삭제된 내용 없음"}</del></section><section><span>현재 원문에 추가된 부분</span><ins>{textDelta.added || "추가된 내용 없음"}</ins></section></div></details> : <p className="requirement-diff-synced"><CheckCircle size={17} weight="fill" /> 현재 원문이 이 구조화 revision의 기준 원문과 일치합니다.</p>}
+            <p className="requirement-diff-note">이 비교는 저장된 원문과 사용자 확정 revision만 보여 줍니다. 자동 의미 추정은 검토 완료로 표시하지 않습니다.</p>
+          </section>
           <div className="feature-list">{latest.features.length === 0 ? <p className="empty-copy">등록된 기능이 없습니다.</p> : latest.features.map((feature, index) => <article key={`${feature.title}-${index}`}><span>{feature.priority}</span><div><h4>{feature.title}</h4><p>{feature.description}</p>{feature.acceptanceCriteria && <small>완료 기준 · {feature.acceptanceCriteria}</small>}</div></article>)}</div>
           <div className="requirement-notes"><section><h4>확인된 가정</h4>{latest.assumptions.length ? <ul>{latest.assumptions.map((item) => <li key={item}>{item}</li>)}</ul> : <p>기록된 가정이 없습니다.</p>}</section><section><h4>열린 질문</h4>{latest.questions.length ? <ul>{latest.questions.map((item) => <li key={item.content}>{item.content}<small>{item.status}</small></li>)}</ul> : <p>열린 질문이 없습니다.</p>}</section></div>
         </> : editing ? <form className="requirement-editor" onSubmit={async (event) => {
@@ -2028,14 +2102,78 @@ function externalHttpUrl(value: string): string | null {
   }
 }
 
-function InterruptionForm({ interruption, busy, canRespond, onSubmit }: { interruption: NonNullable<AgentRunView["interruption"]>; busy: boolean; canRespond: boolean; onSubmit: (answers: string[]) => Promise<void> }) {
-  const [answers, setAnswers] = useState(() => interruption.questions.map(() => ""));
+function InterruptionForm({ interruption, draftKey, draftWorkspaceId, draftRunId, busy, canRespond, onSubmit }: {
+  interruption: NonNullable<AgentRunView["interruption"]>;
+  draftKey: string;
+  draftWorkspaceId: string;
+  draftRunId: string;
+  busy: boolean;
+  canRespond: boolean;
+  onSubmit: (answers: string[]) => Promise<void>;
+}) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [answers, setAnswers] = useState<string[]>(() => {
+    if (typeof window === "undefined") return interruption.questions.map(() => "");
+    try {
+      const raw = window.sessionStorage.getItem(draftKey);
+      const draft = raw ? parseInterruptionDraft(raw, { workspaceId: draftWorkspaceId, runId: draftRunId, interruptionId: interruption.interruptionId, questions: interruption.questions }) : null;
+      return (draft?.answers as string[] | undefined) ?? interruption.questions.map(() => "");
+    } catch {
+      return interruption.questions.map(() => "");
+    }
+  });
+  const hasDraft = answers.some((answer) => answer.length > 0);
+  const pending = busy || submitting;
+
+  useGSAP(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    gsap.from(formRef.current?.querySelectorAll("label") ?? [], { opacity: 0, y: 10, duration: .38, stagger: .06, ease: "power2.out", clearProps: "all" });
+  }, { scope: formRef, dependencies: [interruption.interruptionId] });
+
+  useEffect(() => {
+    try {
+      if (!hasDraft) {
+        window.sessionStorage.removeItem(draftKey);
+        return;
+      }
+      window.sessionStorage.setItem(draftKey, JSON.stringify(createInterruptionDraft({
+        workspaceId: draftWorkspaceId,
+        runId: draftRunId,
+        interruptionId: interruption.interruptionId,
+        questions: interruption.questions,
+        answers,
+      })));
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+  }, [answers, draftKey, draftRunId, draftWorkspaceId, hasDraft, interruption.interruptionId, interruption.questions]);
+
+  const submitAnswers = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(answers.map((answer) => answer.trim()));
+      try { window.sessionStorage.removeItem(draftKey); } catch { /* no-op */ }
+    } catch {
+      // The parent exposes the API error; retaining the draft is the recovery path.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const clearDraft = () => {
+    setAnswers(interruption.questions.map(() => ""));
+    try { window.sessionStorage.removeItem(draftKey); } catch { /* no-op */ }
+  };
+
   return (
-    <form className="interruption-form" aria-busy={busy} onSubmit={(event) => { event.preventDefault(); if (busy) return; void onSubmit(answers); }}>
+    <form ref={formRef} className="interruption-form" aria-busy={pending} onSubmit={(event) => void submitAnswers(event)}>
       <span>사용자 확인 필요</span>
       <h3>다음 내용을 확인해 주세요.</h3>
       {interruption.questions.map((question, index) => <label key={question}>{question}<textarea required readOnly={!canRespond} value={answers[index]} onChange={(event) => setAnswers((current) => current.map((answer, answerIndex) => answerIndex === index ? event.target.value : answer))} /></label>)}
-      {canRespond ? <button type="submit" className="primary-button" disabled={busy || answers.some((answer) => !answer.trim())}>{busy ? <CircleNotch className="spin" /> : <ArrowRight />} 답변하고 계속</button> : <p className="permission-note">이 실행에 답변할 권한이 없습니다.</p>}
+      {canRespond ? <div className="interruption-actions"><div aria-live="polite">{hasDraft ? "작성 중인 답변은 이 탭에 임시 저장됩니다." : "답변을 입력하면 이 탭에 임시 저장됩니다."}</div><span><button type="button" className="quiet-button" disabled={pending || !hasDraft} onClick={clearDraft}><Trash size={16} /> 답변 지우기</button><button type="submit" className="primary-button" disabled={pending || answers.some((answer) => !answer.trim())}>{pending ? <CircleNotch className="spin" /> : <ArrowRight />} 답변하고 계속</button></span></div> : <p className="permission-note">이 실행에 답변할 권한이 없습니다.</p>}
     </form>
   );
 }

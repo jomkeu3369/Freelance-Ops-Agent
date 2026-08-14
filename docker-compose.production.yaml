@@ -2,7 +2,7 @@ name: freelance-ops-v2-production
 
 services:
   agent:
-    image: ${AGENT_IMAGE:?AGENT_IMAGE is required}:${DEPLOY_IMAGE_TAG:?DEPLOY_IMAGE_TAG is required}
+    image: ${AGENT_IMAGE:?AGENT_IMAGE is required}:${AGENT_IMAGE_TAG:?AGENT_IMAGE_TAG is required}
     pull_policy: always
     cpus: 2.0
     mem_limit: 3g
@@ -24,7 +24,7 @@ services:
       PYTHONDONTWRITEBYTECODE: "1"
 
   backend:
-    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${DEPLOY_IMAGE_TAG:?DEPLOY_IMAGE_TAG is required}
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
     pull_policy: always
     cpus: 1.5
     mem_limit: 1536m

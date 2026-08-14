@@ -6,6 +6,28 @@ import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "..
 import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
 import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
+import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../app/lib/interruption-draft.mjs";
+
+test("HITL drafts remain isolated to an exact run and expire after 24 hours", () => {
+  const now = Date.parse("2026-08-14T00:00:00.000Z");
+  const expected = { workspaceId: "workspace / alpha", runId: "run-17", interruptionId: "interrupt-3", questions: ["납기를 확인해 주세요."] };
+  const draft = createInterruptionDraft({ ...expected, answers: ["9월 30일"] }, now);
+  assert.equal(interruptionDraftKey("user-1", expected.workspaceId, expected.runId, expected.interruptionId), "freelance-ops-interruption-draft-v1:user-1:workspace%20%2F%20alpha:run-17:interrupt-3");
+  assert.deepEqual(parseInterruptionDraft(JSON.stringify(draft), expected, now), draft);
+  assert.equal(parseInterruptionDraft(JSON.stringify(draft), { ...expected, runId: "run-18" }, now), null);
+  assert.equal(parseInterruptionDraft(JSON.stringify(draft), { ...expected, questions: ["예산을 확인해 주세요."] }, now), null);
+  assert.equal(parseInterruptionDraft(JSON.stringify(draft), expected, now + 25 * 60 * 60 * 1_000), null);
+});
+
+test("pipeline and HITL controls preserve the server truth and unfinished answers", async () => {
+  const [workspace, css] = await Promise.all([read("../app/workspace/page.tsx"), read("../app/globals.css")]);
+  assert.match(workspace, /<select value=\{project\.status\}/);
+  assert.match(workspace, /ACCEPTED: "고객 승인됨"/);
+  assert.match(workspace, /interruptionDraftKey\(session\.userId, session\.workspaceId/);
+  assert.match(workspace, /await onSubmit\(answers\.map/);
+  assert.match(workspace, /작성 중인 답변은 이 탭에 임시 저장됩니다/);
+  assert.match(css, /\.interruption-actions/);
+});
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -147,6 +169,18 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-columns: minmax\(86px, 1fr\) 132px minmax\(90px, 1fr\)/);
   assert.match(css, /@keyframes stepPacketFlow/);
+});
+
+test("authentication layout keeps the form visible and Korean words intact", async () => {
+  const css = await read("../app/globals.css");
+  assert.match(css, /\.auth-page \{[^}]*grid-template-columns: minmax\(0, 1\.05fr\) minmax\(360px, \.95fr\)/);
+  assert.match(css, /\.auth-page \{[^}]*overflow-x: clip/);
+  assert.match(css, /\.auth-message \{[^}]*min-width: 0/);
+  assert.match(css, /\.auth-message h1 \{[^}]*word-break: keep-all/);
+  assert.match(css, /\.auth-message h1 \{[^}]*text-wrap: balance/);
+  assert.match(css, /\.auth-panel \{[^}]*width: min\(calc\(100% - 80px\), 520px\)/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.auth-message h1 \{[^}]*clamp\(3rem, 10vw, 4\.8rem\)/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.auth-message h1 \{[^}]*clamp\(2\.65rem, 11vw, 3\.8rem\)/);
 });
 
 test("every CSS custom property resolves except runtime font variables", async () => {
@@ -446,7 +480,8 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /최소 예산은 최대 예산보다 클 수 없습니다/);
   assert.match(workspace, /<fieldset className="dialog-fields" disabled=\{busy\}>/);
   assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
-  assert.match(workspace, /if \(busy\) return; void onSubmit\(answers\)/);
+  assert.match(workspace, /const pending = busy \|\| submitting/);
+  assert.match(workspace, /if \(pending\) return/);
   assert.match(workspace, /function EstimationPolicyForm[\s\S]*?if \(busy\) return;/);
   assert.match(workspace, /function ModelPricingForm[\s\S]*?if \(busy\) return;/);
   assert.equal([...workspace.matchAll(/<fieldset className="settings-fields" disabled=\{busy\}>/g)].length, 2);
@@ -557,4 +592,25 @@ test("new workspaces enter a server-backed guided setup before the first inquiry
   assert.match(workspace, /useGSAP/);
   assert.match(css, /\.onboarding-steps \{[^}]*grid-template-columns: repeat\(4/);
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.onboarding-steps \{ grid-template-columns: 1fr/);
+});
+
+test("project intake compares the current source with the last confirmed revision", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /function requirementTextDelta/);
+  assert.match(workspace, /latest\.sourceText\.trim\(\), project\.requirementText\.trim\(\)/);
+  assert.match(workspace, /원문과 구조화 결과 비교/);
+  assert.match(workspace, /원문 동기화됨/);
+  assert.match(workspace, /재검토 필요/);
+  assert.match(workspace, /이전 원문에서 빠진 부분/);
+  assert.match(workspace, /현재 원문에 추가된 부분/);
+  assert.match(workspace, /자동 의미 추정은 검토 완료로 표시하지 않습니다/);
+  assert.match(workspace, /<del>\{textDelta\.removed/);
+  assert.match(workspace, /<ins>\{textDelta\.added/);
+  assert.match(css, /\.requirement-diff-summary \{[^}]*grid-template-columns: repeat\(3/);
+  assert.match(css, /\.requirement-source-delta del/);
+  assert.match(css, /\.requirement-source-delta ins/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.requirement-diff-summary, \.requirement-diff-map/);
 });

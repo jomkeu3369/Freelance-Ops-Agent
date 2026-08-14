@@ -1,10 +1,10 @@
-name: V2 Production CD
+name: Backend Production CD
 
 on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Immutable release tag such as v2.0.0-rc1
+        description: Immutable Backend release tag such as backend-v2.0.0-rc1
         required: true
         type: string
 
@@ -12,20 +12,10 @@ permissions:
   contents: read
   packages: write
 
-concurrency:
-  group: v2-production
-  cancel-in-progress: false
-
 jobs:
   build-and-push:
+    name: Build and push Backend
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - service: backend
-            image: freelance-ops-backend
-          - service: agent
-            image: freelance-ops-agent
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -36,16 +26,20 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          context: ./backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ inputs.image_tag }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          tags: ghcr.io/${{ github.repository_owner }}/freelance-ops-backend:${{ inputs.image_tag }}
+          cache-from: type=gha,scope=backend-cd
+          cache-to: type=gha,mode=max,scope=backend-cd
 
   deploy:
+    name: Deploy Backend
     needs: build-and-push
     runs-on: ubuntu-latest
     environment: production
+    concurrency:
+      group: v2-production-deploy
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
       - name: Validate immutable tag
@@ -69,11 +63,12 @@ jobs:
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
           IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
+          RELEASE_DIR="/opt/freelance-ops/releases/backend/$IMAGE_TAG"
           tar -czf deployment.tgz docker-compose.yaml docker-compose.production.yaml infra/caddy infra/scripts
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p /opt/freelance-ops/releases/$IMAGE_TAG"
-          scp deployment.tgz "$DEPLOY_USER@$DEPLOY_HOST:/opt/freelance-ops/releases/$IMAGE_TAG/"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd /opt/freelance-ops/releases/$IMAGE_TAG && tar -xzf deployment.tgz"
-      - name: Authenticate registry and deploy
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$RELEASE_DIR'"
+          scp deployment.tgz "$DEPLOY_USER@$DEPLOY_HOST:$RELEASE_DIR/"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$RELEASE_DIR' && tar -xzf deployment.tgz"
+      - name: Authenticate registry and deploy Backend
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
@@ -81,8 +76,9 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
+          RELEASE_DIR="/opt/freelance-ops/releases/backend/$IMAGE_TAG"
           printf '%s' "$GHCR_TOKEN" | ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
-          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd /opt/freelance-ops/releases/$IMAGE_TAG && chmod +x infra/scripts/*.sh && DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy.sh '$IMAGE_TAG'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$RELEASE_DIR' && chmod +x infra/scripts/*.sh && DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh backend '$IMAGE_TAG'"
       - name: Verify public readiness
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}

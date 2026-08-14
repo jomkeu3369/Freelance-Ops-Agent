@@ -1,0 +1,57 @@
+name: Contracts & Compose CI
+
+on:
+  pull_request:
+    paths:
+      - "contracts/**"
+      - "infra/**"
+      - "docker-compose-infra.yaml"
+      - "docker-compose.yaml"
+      - "docker-compose.production.yaml"
+      - ".github/workflows/contracts-compose-ci.yml"
+  push:
+    branches:
+      - "main"
+    paths:
+      - "contracts/**"
+      - "infra/**"
+      - "docker-compose-infra.yaml"
+      - "docker-compose.yaml"
+      - "docker-compose.production.yaml"
+      - ".github/workflows/contracts-compose-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contracts-compose-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: OpenAPI contracts and Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.26"
+      - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
+      - run: docker compose -f docker-compose-infra.yaml config
+      - run: docker compose -f docker-compose.yaml config
+      - run: docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
+        env:
+          APP_DOMAIN: example.com
+          BACKEND_IMAGE: example/backend
+          AGENT_IMAGE: example/agent
+          BACKEND_IMAGE_TAG: backend-ci
+          AGENT_IMAGE_TAG: agent-ci
+          APP_DB_PASSWORD: ci-app-password
+          AGENT_DB_PASSWORD: ci-agent-password
+          APP_AUTH_JWT_SECRET: ci-only-auth-secret-with-at-least-32-bytes
+          AGENT_DELEGATION_TOKEN_PRIVATE_KEY: ci-private-key-placeholder
+          AGENT_DELEGATION_TOKEN_PUBLIC_KEY: ci-public-key-placeholder
+          AGENT_ROUTE_EVALUATOR_SYSTEM_PROMPT: ci-private-prompt-placeholder
+          AGENT_ROUTE_EVALUATOR_PROMPT_VERSION: ci-v1
+          AGENT_ROUTE_EVALUATOR_PROMPT_SHA256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

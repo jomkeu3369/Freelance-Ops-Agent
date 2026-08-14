@@ -12,7 +12,8 @@
     "test": "node --test tests/page-source.test.mjs",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint .",
-    "preview:check": "npm run typecheck && npm test && npm run lint && npm run build"
+    "ci:check": "npm run typecheck && npm test && npm run lint",
+    "preview:check": "npm run ci:check && npm run build"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

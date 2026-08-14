@@ -21,7 +21,8 @@ Production은 기본 Compose에 `docker-compose.production.yaml`을 겹쳐 사�
 export APP_DOMAIN=api.example.com
 export BACKEND_IMAGE=ghcr.io/account/freelance-ops-backend
 export AGENT_IMAGE=ghcr.io/account/freelance-ops-agent
-export DEPLOY_IMAGE_TAG=v2.0.0-rc1
+export BACKEND_IMAGE_TAG=backend-v2.0.0-rc1
+export AGENT_IMAGE_TAG=agent-v2.0.0-rc1
 docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
 ```
 
@@ -31,13 +32,22 @@ docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
 - image tag로 `latest`, `main`, `dev`를 허용하지 않는다.
 - `/opt/freelance-ops/.env`는 서버에서만 관리하며 Git 또는 배포 bundle에 포함하지 않는다.
 
-수동 배포와 rollback은 다음 script를 사용한다.
+Backend와 Agent의 독립 수동 배포 및 rollback은 다음 script를 사용한다.
+
+```sh
+DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh agent agent-v2.0.0-rc1
+DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh backend backend-v2.0.0-rc1
+```
+
+최초 구성에서는 내부 Agent를 먼저 배포한 뒤 Backend를 배포한다. Agent CD는 Agent container만 교체하고 `/health`를 내부에서 확인한다. Backend CD는 Backend와 Caddy ingress를 반영하고 Spring readiness를 확인한다. 각 서비스는 `.agent-deployed-tag`와 `.backend-deployed-tag`에 성공한 immutable tag를 별도로 기록하며 실패 시 해당 서비스만 이전 tag로 rollback한다. 두 배포의 서버 반영 단계는 공통 GitHub concurrency group으로 직렬화된다.
+
+두 서비스를 같은 tag로 함께 올리는 초기 bootstrap 또는 비상 복구에는 기존 호환 script를 사용할 수 있다.
 
 ```sh
 DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy.sh v2.0.0-rc1
 ```
 
-배포 script는 config 검증, image pull, health 대기와 loopback readiness 확인 후 tag를 기록한다. 실패하면 이전 `.deployed-tag`로 자동 rollback한다. GitHub Actions의 `V2 Production CD`는 같은 절차를 사용하며 production environment approval과 다음 secret이 필요하다.
+GitHub Actions의 `Agent Production CD`와 `Backend Production CD`는 같은 서비스별 절차를 사용하며 `production` environment approval과 다음 secret이 필요하다.
 
 - `VULTR_HOST`, `VULTR_USER`, `VULTR_SSH_PRIVATE_KEY`, `VULTR_SSH_HOST_KEY`
 - `GHCR_USERNAME`, `GHCR_TOKEN`

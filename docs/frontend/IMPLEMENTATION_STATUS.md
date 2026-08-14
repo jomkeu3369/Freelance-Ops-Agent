@@ -14,11 +14,14 @@
 | 업무 단계 작동 방식 시각화 | 5개 활성 단계마다 입력→처리→결과가 달라지는 코드 기반 미니 그래프, 이동 packet·처리 궤도, 820px 이하 compact layout | 완료 |
 | dark/light theme와 reduced motion | theme provider, `prefers-reduced-motion` | 완료 |
 | Home / Pipeline | 실제 Project status 조회·변경 API 기반 6단계 pipeline | 완료 |
+| Pipeline 상태 정확성 | 협상 열에 함께 표시되는 `ACCEPTED`도 select가 실제 server status를 유지하고 `고객 승인됨`으로 구분 | 완료 |
 | CRM / 고객 연결 | 고객 검색·등록·수정·보관과 새 프로젝트의 기존 고객 연결 | 완료 |
 | Workspace 전환 | `/me` membership 기반 기존 Workspace 전환과 workspace-scoped 데이터 재조회 | 완료 |
-| Project Intake | 생성 후 고객·원문·통화·일정·예산 수정, stale revision 경고, 텍스트 문서 업로드, 이전 확정본을 이어 편집하는 구조화 기능·가정·질문 immutable revision | 완료 |
+| 신규 Workspace 온보딩 | 회원가입 후 설정 자동 진입, 실제 `/me`·단가·견적 정책·프로젝트 데이터 기반 4단계 진행률, 단계별 설정/첫 문의 CTA와 완료 후 Pipeline 연결 | 완료 |
+| Project Intake | 생성 후 고객·원문·통화·일정·예산 수정, 텍스트 문서 업로드, 이전 확정본을 이어 편집하는 구조화 기능·가정·질문 immutable revision, 현재 원문↔확정 sourceText 동기화 상태와 실제 추가·삭제 diff | 완료 |
 | Evidence Library | Workspace 자료 조회·검색·유형 필터, 청크 preview, 업로드·보관 | 완료 |
 | 실시간 Agent 진행 | Spring SSE만 구독하는 event-driven graph, 실제 활성 연결선만 이동하는 packet·접근 가능한 진행률·대기/응답대기/완료/실패/취소 상태, Last-Event-ID cursor와 bounded backoff 자동 재연결, HITL 재개·실행 중단·재실행, 열린 질문·안전한 출처 provenance·실행 메타데이터, audit 권한 기반 실제 원가·token·credit 표시 | 완료 |
+| HITL 답변 복구 | 사용자·Workspace·run·interruption별 versioned 현재 탭 임시저장, 24시간·질문 일치 검증, 단계 전환 복원, 제출 성공 시 삭제·실패 시 보존 | 완료 |
 | Quote Builder | Lean·Recommended·Expanded 최신안 비교, Workspace 단가표 또는 직접 단가, 항목별 공수·할인, evidence provenance와 Inspector, assumption, Java 계산 결과, immutable revision | 완료 |
 | 견적 편집 복구 | 사용자·Workspace·프로젝트별 versioned 현재 탭 임시저장, 450ms debounce, 7일 유효성 검증, 복원·폐기 상태 안내, 서버 revision 전환과 이탈 보호 | 완료 |
 | Proposal Preview | 공개 token 조회, 공유 링크 생성·만료 표시·비활성화, 범위·근거·금액, 승인·수정 요청·거절, browser PDF 출력 | 완료 |
@@ -28,7 +31,7 @@
 | Permission-aware UI | effective permission 선조회, 허용된 resource만 요청, 읽기 전용·write·publish·delete action 분리 | 완료 |
 | server-state cache | 요청 중복 제거, TTL cache, mutation invalidation | 완료 |
 | 인증 수명주기 | sessionStorage, refresh token rotation, browser timer 범위 내 bounded refresh scheduling, server logout | 완료 |
-| 인증 진입 UX | 회원가입 비밀번호 확인·일치 검증, 접근 가능한 비밀번호 표시/숨기기, 모드 전환 오류 초기화, pending 중 fieldset·인증 탭 잠금 | 완료 |
+| 인증 진입 UX | 회원가입 비밀번호 확인·일치 검증, 접근 가능한 비밀번호 표시/숨기기, 모드 전환 오류 초기화, pending 중 fieldset·인증 탭 잠금, 수축 가능한 2열 grid와 한글 어절 보존·반응형 제목 | 완료 |
 | 근거 프리뷰 상호작용 | 견적 항목 선택 시 계산·가정·연결 source Drawer 동기화 | 완료 |
 | 운영 복구와 접근성 | App Router 오류·404 복구, skip link, focus-visible, 제안서 재시도, Clipboard 권한 거부 fallback | 완료 |
 | 키보드 작업 수명주기 | 인증 tab 화살표 이동, 현재 위치 전달, modal focus trap·배경 scroll lock·trigger focus 복귀 | 완료 |
@@ -58,6 +61,10 @@
 - 실제 browser computed style에서 접힌 업무 단계 제목 4개의 `transform: none`·`writing-mode: vertical-rl`·`text-orientation: upright`와 활성 제목의 가로쓰기 확인
 - 실제 browser에서 업무 단계 미니 그래프 397×190px·노드 4개·moving packet 2개, 4단계 전환 후 중심 노드 `결정적 계산`, horizontal overflow와 console warning·error 0건 확인
 - 회원가입 비밀번호 불일치 시 API 요청 0건·확인 필드 focus, 모드 전환 시 오류/노출 상태 초기화, pending 중 fieldset·인증 탭 잠금, 로그인 성공 후 Pipeline 진입을 실제 browser에서 확인
+- 1280×720 실제 browser에서 인증 제목 3줄·`작업으로.` 어절 유지, 672px/608px grid, 520px 로그인 panel 전체 노출, horizontal overflow와 console warning·error 0건 확인
+- 실제 browser의 Project Intake에서 stale 원문의 `재검토 필요`, 기능 2·가정 1·질문 1 요약, 확정 원문 대비 삭제 없음·추가 문장 diff, 열린 상세와 815px 비교 영역, horizontal overflow와 console warning·error 0건 확인
+- 임시 Spring 계약 서버와 1280px 실제 browser에서 `ACCEPTED` 선택값 `고객 승인됨`, HITL 답변 작성→문의→AI 분석 복원, 503 제출 실패 후 답변·오류 동시 보존, horizontal overflow 0px 확인
+- 임시 Spring 계약 서버와 실제 browser에서 신규 회원가입→`?view=settings` 자동 진입, 실제 서버 상태 기반 3/4·75% 온보딩, 완료/현재 단계 구분, 첫 문의 대화상자 진입, horizontal overflow와 console warning·error 0건 확인
 - Vercel Preview fixture에서 모든 mutation form의 중복 제출 guard·pending field lock source-contract test 24건, TypeScript, ESLint, Next production build
 - 견적 draft의 사용자·Workspace·프로젝트 scope, schema·만료 검증과 Quote Builder 연결을 포함한 Node 테스트 27건, 실제 browser의 입력→저장→화면 이동→복원→확인 후 폐기, 1280px horizontal overflow 0px
 - Vercel public environment fail-fast test, legacy platform runtime 잔재 검사와 GitHub Node 22 Preview build job
