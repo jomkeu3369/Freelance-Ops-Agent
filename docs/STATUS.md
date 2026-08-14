@@ -12,6 +12,10 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: 운영 환경에서 `분석 시작` 요청이 Backend 500으로 실패한 원인을 Backend의 JDK HTTP client가 내부 Uvicorn Agent에 시도한 cleartext HTTP/2(`h2c`) upgrade로 확정했다. Uvicorn은 upgrade를 거부한 뒤 본문 없는 POST를 받아 `422 body Field required`를 반환했다. Backend의 Agent REST·SSE transport를 HTTP/1.1로 고정하고 내부 요청 JSON 본문과 protocol 선택 회귀 테스트를 추가했으며 Backend 전체 테스트 96건이 통과했다.
+
+- 2026-08-14: Pipeline의 `다음에 할 일을 한눈에.` 제목도 Settings 제목과 같은 한글 음절 단위 분리 문제가 있어 제목 영역을 1050px까지 확장하고 반응형 크기, `word-break: keep-all`, 균형 줄바꿈을 적용했다. 넓은 화면에서는 가급적 한 줄로, 폭이 부족한 화면에서는 단어를 온전히 유지한 채 줄바꿈된다.
+
 - 2026-08-14: Workspace 요구사항 편집기의 입력·선택·설명·완료 기준 필드가 공통 폼 스타일에서 누락되어 브라우저 기본 크기로 축소되던 문제를 수정했다. 전용 2열 레이아웃과 최소 높이, 여백, 포커스 상태를 적용하고 520px 이하에서는 기존 단일 열 전환을 유지했다. Settings 제목은 가용 폭과 반응형 글자 크기를 조정하고 한글 단어 단위 줄바꿈을 적용해 마지막 음절만 다음 줄로 떨어지는 현상을 방지했다. 회귀 테스트를 추가했으며 Frontend Node 테스트 33건, TypeScript, ESLint, 예시 공개 URL 환경의 Next production build가 통과했다.
 
 - 2026-08-14: GitHub 첫 화면이 일반 제품 소개보다 AI 직무 포트폴리오의 핵심 역량을 먼저 보여주도록 root README를 전면 재작성했다. private-prompt routing, deterministic safety gate, bounded ReAct·Supervisor·HITL, Tool contract, retrieval answerability와 frozen evaluation을 중심 서사로 배치하고 LiquidAI A1 대 GPT-5.6 Luna의 실제 A/B dashboard와 기각 기준을 포함했다. Spring·CRM·견적·배포는 AI를 실제 권한·트랜잭션·비용 경계에서 검증하는 환경으로 설명했으며, 운영 승격 전인 Deep Agents·RAPTOR·domain frozen evaluation은 미완료 상태를 명시했다.

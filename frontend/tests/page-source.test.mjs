@@ -185,6 +185,10 @@ test("authentication layout keeps the form visible and Korean words intact", asy
 
 test("workspace settings and requirement controls remain readable at desktop widths", async () => {
   const css = await read("../app/globals.css");
+  assert.match(css, /\.pipeline-heading > div \{[^}]*max-width: 1050px/);
+  assert.match(css, /\.pipeline-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
+  assert.match(css, /\.pipeline-heading h1 \{[^}]*word-break: keep-all/);
+  assert.match(css, /\.pipeline-heading h1 \{[^}]*text-wrap: balance/);
   assert.match(css, /\.settings-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
   assert.match(css, /\.settings-heading h1 \{[^}]*word-break: keep-all/);
   assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);

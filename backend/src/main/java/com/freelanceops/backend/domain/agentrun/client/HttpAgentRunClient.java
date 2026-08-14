@@ -6,6 +6,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunReques
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -25,9 +26,19 @@ public class HttpAgentRunClient implements AgentRunClient {
     private final HttpClient eventClient;
 
     public HttpAgentRunClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
+        HttpClient httpClient = http11Client();
+        this.restClient = builder
+            .requestFactory(new JdkClientHttpRequestFactory(httpClient))
+            .baseUrl(baseUrl)
+            .build();
+        this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
+        this.eventClient = httpClient;
+    }
+
+    HttpAgentRunClient(RestClient.Builder builder, String baseUrl, HttpClient eventClient) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
-        this.eventClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+        this.eventClient = eventClient;
     }
 
     @Override
@@ -99,6 +110,13 @@ public class HttpAgentRunClient implements AgentRunClient {
     private static void setHeaders(org.springframework.http.HttpHeaders headers, String delegationToken, String traceparent) {
         headers.setBearerAuth(delegationToken);
         headers.set("traceparent", traceparent);
+    }
+
+    static HttpClient http11Client() {
+        return HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
     }
 }
 

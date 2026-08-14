@@ -21,8 +21,10 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.http.HttpClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -35,7 +37,7 @@ class HttpAgentRunClientTest {
     void sendsVersionedAgentContractWithBearerTokenAndTraceContext() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        HttpAgentRunClient client = new HttpAgentRunClient(builder, "http://agent:8000");
+        HttpAgentRunClient client = testClient(builder);
         UUID runId = UUID.randomUUID();
         String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
         server.expect(requestTo("http://agent:8000/internal/v1/agent-runs"))
@@ -43,6 +45,8 @@ class HttpAgentRunClientTest {
             .andExpect(header("Authorization", "Bearer signed-token"))
             .andExpect(header("traceparent", traceparent))
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(content().string(containsString("\"runId\":\"" + runId + "\"")))
+            .andExpect(content().string(containsString("\"requirementText\":\"요구사항\"")))
             .andRespond(withSuccess(
                 "{\"runId\":\"" + runId + "\",\"status\":\"QUEUED\",\"acceptedAt\":\"2026-08-13T10:00:00Z\"}",
                 MediaType.APPLICATION_JSON
@@ -59,7 +63,7 @@ class HttpAgentRunClientTest {
     void forwardsLifecycleCommandsUsingTheSameRunScopedContract() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        HttpAgentRunClient client = new HttpAgentRunClient(builder, "http://agent:8000");
+        HttpAgentRunClient client = testClient(builder);
         UUID runId = UUID.randomUUID();
         UUID interruptionId = UUID.randomUUID();
         String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
@@ -101,6 +105,15 @@ class HttpAgentRunClientTest {
         assertThat(resumed.status()).isEqualTo(AgentRunStatus.QUEUED);
         assertThat(cancelled.status()).isEqualTo(AgentRunStatus.CANCELLED);
         server.verify();
+    }
+
+    @Test
+    void productionTransportUsesHttp11ForUvicornCompatibility() {
+        assertThat(HttpAgentRunClient.http11Client().version()).isEqualTo(HttpClient.Version.HTTP_1_1);
+    }
+
+    private static HttpAgentRunClient testClient(RestClient.Builder builder) {
+        return new HttpAgentRunClient(builder, "http://agent:8000", HttpAgentRunClient.http11Client());
     }
 
     private static InternalAgentRunRequest request(UUID runId, String traceparent) {
