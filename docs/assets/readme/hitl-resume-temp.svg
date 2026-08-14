@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">HITL 재개 GIF 임시 이미지</title>
+  <desc id="desc">AI가 질문하고 사용자 답변 뒤 실행을 재개하는 GIF로 교체할 임시 이미지</desc>
+  <rect width="1200" height="675" rx="28" fill="#160f09"/>
+  <rect x="36" y="36" width="1128" height="603" rx="20" fill="#24180f" stroke="#92400e" stroke-width="2"/>
+  <text x="600" y="246" text-anchor="middle" fill="#fbbf24" font-family="Arial, sans-serif" font-size="24" letter-spacing="4">TEMP GIF 02</text>
+  <text x="600" y="318" text-anchor="middle" fill="#fffbeb" font-family="Arial, sans-serif" font-size="40" font-weight="700">필요할 때 멈추고, 답변 뒤 이어서 실행</text>
+  <text x="600" y="370" text-anchor="middle" fill="#fde68a" font-family="Arial, sans-serif" font-size="22">Agent 실행 → HUMAN_REQUIRED → 사용자 답변 → Resume</text>
+  <rect x="488" y="426" width="224" height="62" rx="16" fill="#d97706"/>
+  <text x="600" y="466" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="21" font-weight="700">사람의 확인 필요</text>
+</svg>

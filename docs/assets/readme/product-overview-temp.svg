@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">제품 전체 흐름 GIF 임시 이미지</title>
+  <desc id="desc">고객 문의에서 근거 기반 제안서까지의 실제 제품 GIF로 교체할 임시 이미지</desc>
+  <rect width="1200" height="675" rx="28" fill="#0b1020"/>
+  <rect x="36" y="36" width="1128" height="603" rx="20" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="600" y="250" text-anchor="middle" fill="#94a3b8" font-family="Arial, sans-serif" font-size="24" letter-spacing="4">TEMP PRODUCT GIF</text>
+  <text x="600" y="318" text-anchor="middle" fill="#f8fafc" font-family="Arial, sans-serif" font-size="40" font-weight="700">문의 → 요구사항 → AI 실행 → 견적 → 제안서</text>
+  <text x="600" y="370" text-anchor="middle" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="22">실제 제품의 전체 흐름을 보여주는 GIF로 교체 예정</text>
+  <rect x="480" y="430" width="240" height="58" rx="29" fill="#2563eb"/>
+  <text x="600" y="467" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="20" font-weight="700">PRODUCT OVERVIEW</text>
+</svg>

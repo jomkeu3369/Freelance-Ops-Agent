@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">문의 구조화 GIF 임시 이미지</title>
+  <desc id="desc">고객 원문이 요구사항과 열린 질문으로 정리되는 GIF로 교체할 임시 이미지</desc>
+  <rect width="1200" height="675" rx="28" fill="#08131a"/>
+  <rect x="36" y="36" width="1128" height="603" rx="20" fill="#0f202a" stroke="#164e63" stroke-width="2"/>
+  <text x="600" y="246" text-anchor="middle" fill="#67e8f9" font-family="Arial, sans-serif" font-size="24" letter-spacing="4">TEMP GIF 01</text>
+  <text x="600" y="318" text-anchor="middle" fill="#ecfeff" font-family="Arial, sans-serif" font-size="40" font-weight="700">고객 문의를 요구사항으로 정리</text>
+  <text x="600" y="370" text-anchor="middle" fill="#a5f3fc" font-family="Arial, sans-serif" font-size="22">원문 입력 → 기능·가정·열린 질문 → 변경점 확인</text>
+  <path d="M425 450h350" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/>
+  <path d="m755 430 24 20-24 20" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

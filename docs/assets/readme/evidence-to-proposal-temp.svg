@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">근거 기반 제안서 GIF 임시 이미지</title>
+  <desc id="desc">근거를 확인하고 견적을 계산해 제안서를 만드는 GIF로 교체할 임시 이미지</desc>
+  <rect width="1200" height="675" rx="28" fill="#0c1510"/>
+  <rect x="36" y="36" width="1128" height="603" rx="20" fill="#132219" stroke="#166534" stroke-width="2"/>
+  <text x="600" y="246" text-anchor="middle" fill="#86efac" font-family="Arial, sans-serif" font-size="24" letter-spacing="4">TEMP GIF 03</text>
+  <text x="600" y="318" text-anchor="middle" fill="#f0fdf4" font-family="Arial, sans-serif" font-size="40" font-weight="700">근거가 연결된 견적과 제안서</text>
+  <text x="600" y="370" text-anchor="middle" fill="#bbf7d0" font-family="Arial, sans-serif" font-size="22">자료 조사 → 출처·가정 확인 → 결정적 계산 → 발행</text>
+  <circle cx="520" cy="456" r="30" fill="#16a34a"/>
+  <path d="m506 456 10 10 20-24" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="570" y="426" width="170" height="60" rx="12" fill="#14532d" stroke="#4ade80" stroke-width="2"/>
+  <text x="655" y="464" text-anchor="middle" fill="#dcfce7" font-family="Arial, sans-serif" font-size="20" font-weight="700">PROPOSAL</text>
+</svg>

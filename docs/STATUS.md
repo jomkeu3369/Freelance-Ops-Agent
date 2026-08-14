@@ -12,6 +12,10 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: 첫 방문자가 기술 세부사항보다 제품의 문제와 사용자 흐름을 먼저 이해하도록 root README를 제품 중심으로 재구성했다. 고객 문의 구조화, HITL 질문·재개, 근거 기반 견적·제안서의 세 단계로 설명하고, 실제 GIF로 교체할 위치와 촬영 범위를 보여주는 TEMP SVG 4개를 추가했다. 상세 benchmark 그래프와 실험 과정은 기존 AI 신뢰성 사례 연구로 분리하고 README에는 대표 검증 결과와 운영 승격 판단만 남겼다. 주관적인 `AI runtime 구현 약 90%` 표현은 `핵심 Agent 실행 경로 구현 완료 — 실제 사용자 E2E와 운영 평가 진행 중`으로 교체했다.
+
+- 2026-08-14: Backend CI의 `WorkspaceRbacPostgresTest` 5건이 Spring Context 초기화 단계에서 실패하던 원인을 수정했다. `HttpAgentRunClient`에 운영용·테스트용 생성자가 함께 존재해 Spring이 주입 생성자를 선택하지 못하고 기본 생성자를 찾던 문제였으며, 운영 생성자를 명시적인 주입 대상으로 지정했다. PostgreSQL Testcontainers 통합 테스트 5건과 Backend 전체 테스트 96건이 실패·skip 없이 통과했다.
+
 - 2026-08-14: 프론트엔드 전반의 사용자 노출 문구를 다시 검토해 Spring, 권한 코드, revision, 결정적 계산처럼 구현을 설명하던 표현을 제거했다. 설정·근거 자료·AI 분석·견적·결과 화면은 사용자가 해야 할 일과 얻는 결과가 먼저 보이도록 다듬고, 권한 코드는 `견적 · 조회`처럼 읽을 수 있는 이름으로 바꿨다. 관련 문구 회귀 검사를 추가했으며 Frontend TypeScript, Node 테스트 33건, ESLint와 Next.js production build가 통과했다.
 
 - 2026-08-14: Workspace 설정 화면을 처음 사용하는 사람도 순서대로 탐색할 수 있도록 설정 목차를 `Workspace → 서비스 단가 → 견적 정책 → AI 원가표 → 권한·데이터`의 번호·설명 구조로 재구성하고 각 본문 섹션에도 동일한 번호를 연결했다. 설정 `input`·`select`에 50px 최소 높이, 명확한 배경·테두리·placeholder·hover·focus·disabled 상태를 적용해 다크 테마에서 값과 입력 영역이 섞이던 문제를 해결했다. 단가 편집 폼은 이름·단위·통화와 금액 입력의 중요도에 맞춰 열 너비를 분리하고 520px 이하에서는 단일 열로 전환한다. Frontend TypeScript, Node 테스트 33건, ESLint와 Next production build가 통과했다. 로컬 브라우저에서는 인증 진입 화면과 console warning·error 0건을 확인했으며, 실제 설정 데이터가 표시되는 인증 후 시각 E2E는 운영 계정 정보를 사용하지 않고 배포 후 확인 대상으로 남겼다.

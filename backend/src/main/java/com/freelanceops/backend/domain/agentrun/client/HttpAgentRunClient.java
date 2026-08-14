@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -25,6 +26,7 @@ public class HttpAgentRunClient implements AgentRunClient {
     private final URI baseUri;
     private final HttpClient eventClient;
 
+    @Autowired
     public HttpAgentRunClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
         HttpClient httpClient = http11Client();
         this.restClient = builder
