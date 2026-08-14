@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
+import com.freelanceops.backend.global.security.ApiRateLimitFilter;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,13 +31,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, DelegationTokenFilter delegationTokenFilter, JwtDecoder authJwtDecoder) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, DelegationTokenFilter delegationTokenFilter, ApiRateLimitFilter rateLimitFilter, JwtDecoder authJwtDecoder) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/actuator/health/**").permitAll()
-                .requestMatchers("/actuator/metrics/**").permitAll()
+                .requestMatchers("/actuator/metrics/**").denyAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v2/auth/**").permitAll()
                 .requestMatchers("/api/v2/proposals/**").permitAll()
@@ -44,6 +45,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(delegationTokenFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(rateLimitFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(authJwtDecoder)))
             .build();
     }

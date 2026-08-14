@@ -9,7 +9,7 @@
 |---|---|---|
 | 메인 페이지 11개 섹션과 지정 문구 | `frontend/app/page.tsx` | 완료 |
 | 가짜 후기·고객 로고·통계·가격 제거 | 메인 페이지 source test | 완료 |
-| 1920 기준 editorial layout, 1440·1280·1024·768·390 대응 | `frontend/app/globals.css`의 1440·1180·820·520 breakpoint와 실제 browser overflow·Hero line 측정 | 완료 |
+| 1920 기준 editorial layout, 1440·1280·1024·768·390 대응 | 로컬 Pretendard dynamic subset, 한글 어절 보존, 1440·1180·820·520 breakpoint와 실제 browser의 Hero 2줄·주요 제목 2–3줄·overflow 0px 측정 | 완료 |
 | dark/light theme와 reduced motion | theme provider, `prefers-reduced-motion` | 완료 |
 | Home / Pipeline | 실제 Project status 조회·변경 API 기반 6단계 pipeline | 완료 |
 | CRM / 고객 연결 | 고객 검색·등록·수정·보관과 새 프로젝트의 기존 고객 연결 | 완료 |
@@ -49,6 +49,7 @@
 - `npm.cmd run typecheck`
 - `npm.cmd run lint`
 - `npm.cmd run build` (`next build`)
+- 실제 browser의 1920·1440·1280·1024·768·390 viewport에서 Pretendard load 완료, Hero 2줄, 주요 제목 2–3줄, horizontal overflow와 console warning·error 0건
 - Vercel Preview fixture에서 모든 mutation form의 중복 제출 guard·pending field lock source-contract test 24건, TypeScript, ESLint, Next production build
 - Vercel public environment fail-fast test, legacy platform runtime 잔재 검사와 GitHub Node 22 Preview build job
 - App Router 복구·접근성·Clipboard fallback source-contract test

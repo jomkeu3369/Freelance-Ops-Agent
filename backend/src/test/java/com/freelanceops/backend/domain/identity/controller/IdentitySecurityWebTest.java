@@ -105,6 +105,16 @@ class IdentitySecurityWebTest {
         verify(authService).me(userId);
     }
 
+    @Test
+    void actuatorMetricsAreNotPublicOrUserAccessible() throws Exception {
+        mockMvc.perform(get("/actuator/metrics"))
+            .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/actuator/metrics")
+                .header("Authorization", "Bearer " + accessToken(UUID.randomUUID())))
+            .andExpect(status().isForbidden());
+    }
+
     private String accessToken(UUID userId) {
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()

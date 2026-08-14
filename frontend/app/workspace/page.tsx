@@ -29,6 +29,7 @@ import { LiveWorkflow, snapshotFromEvents } from "../components/live-workflow";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../lib/stream-retry.mjs";
 import { sessionRefreshDelay } from "../lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
+import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../lib/quotation-draft.mjs";
 import {
   AgentRunView,
   AgentRunUsage,
@@ -1504,6 +1505,11 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
+type QuoteDraftStatus = {
+  kind: "restored" | "saved" | "unavailable";
+  updatedAt: string | null;
+};
+
 function QuoteBuilder({ session, project, permissions }: { session: AuthSession; project: Project; permissions: Set<string> }) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
@@ -1521,30 +1527,111 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   const [conflictLatest, setConflictLatest] = useState<Quotation | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftStatus, setDraftStatus] = useState<QuoteDraftStatus | null>(null);
+  const draftReadyRef = useRef(false);
+  const draftBaselineRef = useRef("");
+  const lastPersistedDraftRef = useRef("");
+  const draftStorageKey = quotationDraftKey(session.userId, project.workspaceId, project.id);
+
+  const fingerprint = useCallback((nextScenario: QuotationScenario, baseQuotationId: string | null, nextTaxRate: number, nextValidUntil: string, nextItems: QuotationItemInput[]) => quotationDraftFingerprint({
+    scenario: nextScenario,
+    baseQuotationId,
+    taxRate: nextTaxRate,
+    validUntil: nextValidUntil,
+    items: nextItems,
+  }), []);
 
   useEffect(() => {
     if (!canRead) return;
     let cancelled = false;
+    draftReadyRef.current = false;
+    setDraftStatus(null);
     Promise.all([listQuotations(session, project.id), listRateCards(session)])
       .then(([result, nextRateCards]) => {
         if (!cancelled) {
           setQuotations(result);
           setRateCards(nextRateCards.filter((card) => card.active));
           const latest = result[0] ?? null;
-          setSaved(latest);
-          if (latest) {
-            setScenario(latest.scenario);
-            setItems(quotationItemsAsInput(latest));
-            setTaxRate(latest.taxRate);
-            setValidUntil(latest.validUntil ?? "");
+          const defaultScenario = latest?.scenario ?? "RECOMMENDED";
+          const defaultItems = latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()];
+          const defaultTaxRate = latest?.taxRate ?? .1;
+          const defaultValidUntil = latest?.validUntil ?? "";
+          let restored = null;
+          if (canWrite) {
+            try {
+              const rawDraft = window.sessionStorage.getItem(draftStorageKey);
+              if (rawDraft) {
+                restored = parseQuotationDraft(rawDraft, { workspaceId: project.workspaceId, projectId: project.id });
+                if (!restored) window.sessionStorage.removeItem(draftStorageKey);
+              }
+            } catch {
+              setDraftStatus({ kind: "unavailable", updatedAt: null });
+            }
           }
+          if (restored) {
+            const baseQuotation = restored.baseQuotationId
+              ? result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null
+              : null;
+            setSaved(baseQuotation);
+            setScenario(restored.scenario);
+            setItems(restored.items);
+            setTaxRate(restored.taxRate);
+            setValidUntil(restored.validUntil);
+            const restoredFingerprint = fingerprint(restored.scenario, restored.baseQuotationId, restored.taxRate, restored.validUntil, restored.items);
+            const baselineItems = baseQuotation ? quotationItemsAsInput(baseQuotation) : [emptyQuoteItem()];
+            draftBaselineRef.current = fingerprint(
+              baseQuotation?.scenario ?? "RECOMMENDED",
+              baseQuotation?.id ?? null,
+              baseQuotation?.taxRate ?? .1,
+              baseQuotation?.validUntil ?? "",
+              baselineItems,
+            );
+            lastPersistedDraftRef.current = restoredFingerprint;
+            setDraftStatus({ kind: "restored", updatedAt: restored.updatedAt });
+          } else {
+            setSaved(latest);
+            setScenario(defaultScenario);
+            setItems(defaultItems);
+            setTaxRate(defaultTaxRate);
+            setValidUntil(defaultValidUntil);
+            const baseline = fingerprint(defaultScenario, latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
+            draftBaselineRef.current = baseline;
+            lastPersistedDraftRef.current = baseline;
+          }
+          draftReadyRef.current = true;
         }
       })
       .catch((cause: unknown) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [canRead, project.id, session]);
+  }, [canRead, canWrite, draftStorageKey, fingerprint, project.id, project.workspaceId, session]);
+
+  const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
+  const hasUnsavedDraft = draftReadyRef.current && currentDraftFingerprint !== draftBaselineRef.current;
+
+  useEffect(() => {
+    if (!canWrite || !draftReadyRef.current || !hasUnsavedDraft || currentDraftFingerprint === lastPersistedDraftRef.current) return;
+    const timer = window.setTimeout(() => {
+      const draft = createQuotationDraft({
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        scenario,
+        baseQuotationId: saved?.id ?? null,
+        taxRate,
+        validUntil,
+        items,
+      });
+      try {
+        window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
+        lastPersistedDraftRef.current = currentDraftFingerprint;
+        setDraftStatus({ kind: "saved", updatedAt: draft.updatedAt });
+      } catch {
+        setDraftStatus({ kind: "unavailable", updatedAt: null });
+      }
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [canWrite, currentDraftFingerprint, draftStorageKey, hasUnsavedDraft, items, project.id, project.workspaceId, saved?.id, scenario, taxRate, validUntil]);
 
   const estimatedSubtotal = items.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0);
   const canSave = canWrite && items.length > 0 && items.every((item) => item.title.trim()
@@ -1561,10 +1648,20 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
   };
 
-  const loadQuotation = (quotation: Quotation) => {
+  const clearStoredDraft = () => {
+    try {
+      window.sessionStorage.removeItem(draftStorageKey);
+    } catch {
+      // The editor remains usable when browser storage is unavailable.
+    }
+    setDraftStatus(null);
+  };
+
+  const applyQuotation = (quotation: Quotation) => {
+    const nextItems = quotationItemsAsInput(quotation);
     setSaved(quotation);
     setScenario(quotation.scenario);
-    setItems(quotationItemsAsInput(quotation));
+    setItems(nextItems);
     setSelectedBasisIndex(0);
     setTaxRate(quotation.taxRate);
     setValidUntil(quotation.validUntil ?? "");
@@ -1572,6 +1669,39 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     setShareCopyState(null);
     setConflictLatest(null);
     setError(null);
+    const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", nextItems);
+    draftBaselineRef.current = baseline;
+    lastPersistedDraftRef.current = baseline;
+    clearStoredDraft();
+  };
+
+  const loadQuotation = (quotation: Quotation) => {
+    if (hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 선택한 서버 revision을 불러올까요?")) return;
+    applyQuotation(quotation);
+  };
+
+  const resetQuotation = () => {
+    if (hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 새 견적 시리즈를 시작할까요?")) return;
+    const nextItems = [emptyQuoteItem()];
+    setSaved(null);
+    setScenario("RECOMMENDED");
+    setItems(nextItems);
+    setSelectedBasisIndex(0);
+    setTaxRate(.1);
+    setValidUntil("");
+    setProposalShare(null);
+    setShareCopyState(null);
+    setConflictLatest(null);
+    setError(null);
+    const baseline = fingerprint("RECOMMENDED", null, .1, "", nextItems);
+    draftBaselineRef.current = baseline;
+    lastPersistedDraftRef.current = baseline;
+    clearStoredDraft();
+  };
+
+  const discardDraft = () => {
+    if (saved) applyQuotation(saved);
+    else resetQuotation();
   };
 
   const save = async () => {
@@ -1589,9 +1719,15 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
       const quotation = saved
         ? await reviseQuotation(session, saved.id, input)
         : await createQuotation(session, project.id, input);
+      const savedItems = quotationItemsAsInput(quotation);
       setSaved(quotation);
+      setItems(savedItems);
       setQuotations((current) => [quotation, ...current]);
       setConflictLatest(null);
+      const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", savedItems);
+      draftBaselineRef.current = baseline;
+      lastPersistedDraftRef.current = baseline;
+      clearStoredDraft();
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409 && saved) {
         try {
@@ -1622,8 +1758,14 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => setScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
         </div>
-        {canWrite && <button type="button" className="quiet-button" onClick={() => { setSaved(null); setScenario("RECOMMENDED"); setItems([emptyQuoteItem()]); setSelectedBasisIndex(0); setTaxRate(.1); setValidUntil(""); setProposalShare(null); setConflictLatest(null); setError(null); }}>새 견적 시리즈</button>}
+        {canWrite && <button type="button" className="quiet-button" onClick={resetQuotation}>새 견적 시리즈</button>}
       </div>
+
+      {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
+        <Clock size={19} />
+        <div><strong>{draftStatus.kind === "restored" ? "이 탭의 미저장 견적을 복원했습니다." : draftStatus.kind === "saved" ? "입력 중인 견적을 이 탭에 임시 저장했습니다." : "브라우저 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "unavailable" ? "서버에 revision으로 저장하기 전에는 화면을 닫거나 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 서버와 다른 브라우저에는 반영되지 않습니다.`}</small></div>
+        {draftStatus.kind !== "unavailable" && <button type="button" className="quiet-button" onClick={discardDraft}>임시저장 버리기</button>}
+      </div>}
 
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {conflictLatest && <section className="quote-conflict" role="alert"><div><Warning size={21} /><div><strong>다른 사용자가 먼저 새 revision을 저장했습니다.</strong><p>현재 입력은 그대로 보존했습니다. 최신 v{conflictLatest.versionNumber}을 불러오거나, 입력한 내용을 별도 견적 시리즈로 저장할 수 있습니다.</p></div></div><div><button type="button" className="secondary-button" onClick={() => loadQuotation(conflictLatest)}>최신 revision 불러오기</button><button type="button" className="quiet-button" onClick={() => { setSaved(null); setConflictLatest(null); }}>현재 입력을 새 시리즈로 계속</button></div></section>}

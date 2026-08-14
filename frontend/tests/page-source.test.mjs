@@ -123,6 +123,23 @@ test("landing page follows the approved product brief without fabricated social 
   assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한 AI|모든 직군|모든 국가|자동 학습합니다/);
 });
 
+test("landing typography keeps Korean display copy within the measured line budget", async () => {
+  const [layout, source, css] = await Promise.all([
+    read("../app/layout.tsx"),
+    read("../app/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(layout, /pretendardvariable-dynamic-subset\.css/);
+  assert.doesNotMatch(layout, /next\/font\/google/);
+  assert.match(source, /모호한 고객 문의를,<br \/><span>근거 있는 견적으로\.<\/span>/);
+  assert.match(css, /font-synthesis: none/);
+  assert.match(css, /word-break: keep-all/);
+  assert.match(css, /\.hero-title \{[^}]*clamp\(4\.25rem, 4\.7vw, 5\.65rem\)/);
+  assert.match(css, /\.evidence-copy h2, \.outcome-copy h2 \{ font-size: clamp\(3\.1rem, 3\.6vw, 4\.3rem\)/);
+  assert.match(css, /\.audience-section \.section-heading h2 \{ font-size: clamp\(1\.9rem, 7\.6vw, 2\.2rem\)/);
+  assert.match(css, /\.final-cta h2 \{ font-size: clamp\(2rem, 8\.5vw, 3\.5rem\)/);
+});
+
 test("every CSS custom property resolves except runtime font variables", async () => {
   const css = await read("../app/globals.css");
   const definitions = new Set([...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((match) => match[1]));
@@ -203,7 +220,7 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
 test("responsive and reduced-motion gates cover the documented breakpoints", async () => {
   const css = await read("../app/globals.css");
   assert.match(css, /@media \(min-width: 1181px\) and \(max-width: 1440px\)/);
-  assert.match(css, /\.hero-title \{ font-size: clamp\(3\.4rem, 5\.2vw, 5\.2rem\); \}/);
+  assert.match(css, /\.hero-title \{ font-size: clamp\(3\.4rem, 5\.1vw, 5rem\); \}/);
   assert.match(css, /@media \(max-width: 1180px\)/);
   assert.match(css, /@media \(max-width: 820px\)/);
   assert.match(css, /@media \(max-width: 520px\)/);

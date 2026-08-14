@@ -36,6 +36,7 @@ class TavilyWebResearchProvider:
         for row in rows[: request.max_results]:
             url = self._required_string(row, "url")
             await self._security.validate(url, request.allowed_domains, resolve_dns=False)
+            
             results.append(
                 SearchResult(
                     title=self._string(row.get("title"))[:500],
@@ -46,6 +47,7 @@ class TavilyWebResearchProvider:
                     provider=WebProvider.TAVILY
                 )
             )
+        
         return results
 
     async def fetch(self, request: FetchRequest) -> WebDocument:
@@ -55,9 +57,11 @@ class TavilyWebResearchProvider:
             extract_depth="basic",
             include_images=False
         )
+        
         rows = self._rows(response)
         if not rows:
             raise TavilyProviderError("Tavily did not return extracted content")
+        
         return await self._document(rows[0], request)
 
     async def crawl(self, seed: FetchRequest, policy: CrawlPolicy) -> list[WebDocument]:
@@ -70,11 +74,13 @@ class TavilyWebResearchProvider:
             allow_external=False
         )
         documents: list[WebDocument] = []
+        
         for row in self._rows(response)[: policy.max_pages]:
             row_url = self._required_string(row, "url")
             await self._security.validate(row_url, policy.allowed_domains, resolve_dns=False)
             row_request = seed.model_copy(update={"url": row_url, "allowed_domains": policy.allowed_domains})
             documents.append(await self._document(row, row_request))
+       
         return documents
 
     async def map(self, url: str, allowed_domains: list[str], max_pages: int = 20, max_depth: int = 2) -> list[str]:
@@ -87,20 +93,25 @@ class TavilyWebResearchProvider:
             allow_external=False
         )
         raw_results = response.get("results", []) if isinstance(response, dict) else []
+        
         urls: list[str] = []
         for value in raw_results[:max_pages] if isinstance(raw_results, list) else []:
             safe_result = await self._security.validate(str(value), allowed_domains, resolve_dns=False)
             urls.append(safe_result)
+        
         return urls
 
     async def _document(self, row: dict[str, Any], request: FetchRequest) -> WebDocument:
         url = self._required_string(row, "url")
         await self._security.validate(url, request.allowed_domains, resolve_dns=False)
-        content = self._string(row.get("raw_content") or row.get("content")).strip()
+        
+        content = self._string(row.get("raw_content") or row.get("content")).strip() 
         if not content:
             raise TavilyProviderError("Tavily returned an empty document")
+        
         content = content[:200000]
         title = self._string(row.get("title")) or content.splitlines()[0].lstrip("# ").strip()[:500]
+        
         return WebDocument(
             source_url=request.url,
             final_url=web_url(url),
@@ -121,6 +132,7 @@ class TavilyWebResearchProvider:
     def _rows(response: object) -> list[dict[str, Any]]:
         if not isinstance(response, dict) or not isinstance(response.get("results"), list):
             raise TavilyProviderError("Tavily response does not satisfy the expected schema")
+        
         return [row for row in response["results"] if isinstance(row, dict)]
 
     @staticmethod
@@ -128,6 +140,7 @@ class TavilyWebResearchProvider:
         value = row.get(key)
         if not isinstance(value, str) or not value.strip():
             raise TavilyProviderError(f"Tavily result is missing {key}")
+       
         return value.strip()
 
     @staticmethod

@@ -50,6 +50,12 @@ app:
     jwt-secret: ${APP_AUTH_JWT_SECRET:development-only-auth-secret-change-me}
     access-token-ttl-seconds: ${APP_AUTH_ACCESS_TOKEN_TTL_SECONDS:900}
     refresh-token-ttl-seconds: ${APP_AUTH_REFRESH_TOKEN_TTL_SECONDS:2592000}
+  rate-limit:
+    enabled: ${APP_RATE_LIMIT_ENABLED:true}
+    auth-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:20}
+    public-proposal-per-minute: ${APP_RATE_LIMIT_PUBLIC_PROPOSAL_PER_MINUTE:30}
+    agent-per-minute: ${APP_RATE_LIMIT_AGENT_PER_MINUTE:20}
+    max-entries: ${APP_RATE_LIMIT_MAX_ENTRIES:10000}
 agent:
   quota:
     max-duration-seconds: ${AGENT_QUOTA_MAX_DURATION_SECONDS:180}
