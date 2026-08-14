@@ -58,4 +58,4 @@ compute는 Spring Boot, Python Agent와 PostgreSQL을 의미한다.
 
 ## Implementation status — 2026-08-14
 
-Production Compose overlay, Caddy TLS ingress, loopback-only Backend bind, 서비스별 resource·PID·read-only filesystem 제한과 immutable GHCR tag 기반 수동 승인 CD를 구현했다. 배포 script는 readiness 실패 시 직전 tag로 rollback한다. PostgreSQL custom dump·SHA-256·암호화된 off-host rclone remote 업로드와 `_restore_drill` 전용 복구 script도 추가했다. 실제 Vultr firewall, domain, secret, backup remote에서의 배포·복구 실행은 외부 환경 확정 후 검증해야 한다.
+Production Compose overlay, Caddy TLS ingress, loopback-only Backend bind, 서비스별 resource·PID·read-only filesystem 제한과 immutable GHCR tag 기반 CD를 구현했다. 초기 수동 승인 방식은 ADR-0025에서 `main` CI Green 이후 SHA tag 자동 배포로 확장했으며 수동 workflow는 복구용으로 유지한다. 배포 script는 readiness 실패 시 직전 tag로 rollback한다. PostgreSQL custom dump·SHA-256·암호화된 off-host rclone remote 업로드와 `_restore_drill` 전용 복구 script도 추가했다. 실제 Vultr firewall, domain, secret, backup remote에서의 배포·복구 실행은 외부 환경 확정 후 검증해야 한다.

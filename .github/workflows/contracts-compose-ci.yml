@@ -1,17 +1,8 @@
 name: Contracts & Compose CI
 
 on:
+  workflow_call:
   pull_request:
-    paths:
-      - "contracts/**"
-      - "infra/**"
-      - "docker-compose-infra.yaml"
-      - "docker-compose.yaml"
-      - "docker-compose.production.yaml"
-      - ".github/workflows/contracts-compose-ci.yml"
-  push:
-    branches:
-      - "main"
     paths:
       - "contracts/**"
       - "infra/**"

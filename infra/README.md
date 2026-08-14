@@ -32,7 +32,11 @@ docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
 - image tag로 `latest`, `main`, `dev`를 허용하지 않는다.
 - `/opt/freelance-ops/.env`는 서버에서만 관리하며 Git 또는 배포 bundle에 포함하지 않는다.
 
-Backend와 Agent의 독립 수동 배포 및 rollback은 다음 script를 사용한다.
+`main`의 배포 관련 변경은 `Production Auto CD`가 경로를 분류하고 관련 CI Green 이후 자동 배포한다.
+서비스 단독 변경은 해당 서비스만 배포하며 공통 계약·Compose·배포 script 변경은 Agent 다음 Backend
+순서로 배포한다. 자동 tag는 `agent-<git-sha>`와 `backend-<git-sha>` 형식이다.
+
+장애 복구를 위한 Backend와 Agent의 독립 수동 배포 및 rollback은 다음 script를 사용한다.
 
 ```sh
 DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh agent agent-v2.0.0-rc1
@@ -47,7 +51,9 @@ DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh backend backend
 DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy.sh v2.0.0-rc1
 ```
 
-GitHub Actions의 `Agent Production CD`와 `Backend Production CD`는 같은 서비스별 절차를 사용하며 `production` environment approval과 다음 secret이 필요하다.
+GitHub Actions의 자동·수동 CD는 같은 서비스별 절차와 다음 secret을 사용한다. 완전 자동 배포에서는
+`production` environment에 required reviewer를 설정하지 않는다. required reviewer를 유지하면 배포가
+승인 대기 상태에서 멈춘다.
 
 - `VULTR_HOST`, `VULTR_USER`, `VULTR_SSH_PRIVATE_KEY`, `VULTR_SSH_HOST_KEY`
 - `GHCR_USERNAME`, `GHCR_TOKEN`

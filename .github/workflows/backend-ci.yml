@@ -1,14 +1,8 @@
 name: Backend CI
 
 on:
+  workflow_call:
   pull_request:
-    paths:
-      - "backend/**"
-      - "contracts/**"
-      - ".github/workflows/backend-ci.yml"
-  push:
-    branches:
-      - "main"
     paths:
       - "backend/**"
       - "contracts/**"

@@ -1,6 +1,12 @@
 name: Backend Production CD
 
 on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: Immutable Backend release tag
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       image_tag:

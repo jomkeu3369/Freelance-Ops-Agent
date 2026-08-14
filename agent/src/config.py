@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     web_research_max_fetches: int = Field(default=3, ge=1, le=10)
     web_research_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     tavily_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("TAVILY_API_KEY", "AGENT_TAVILY_API_KEY", "tavily_api_key"))  # noqa: E501
+
+    @field_validator(
+        "delegation_token_previous_key_id",
+        "delegation_token_previous_public_key",
+        mode="before"
+    )
+    @classmethod
+    def normalize_empty_previous_delegation_key(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+
+        return value
 
     @model_validator(mode="after")
     def validate_database_pool_sizes(self) -> "Settings":

@@ -58,3 +58,13 @@ def test_delegation_rotation_requires_complete_distinct_previous_key() -> None:
             delegation_token_previous_key_id="active-v2",
             delegation_token_previous_public_key="public-key"
         )
+
+
+def test_blank_previous_delegation_key_values_are_treated_as_unset() -> None:
+    settings = Settings(
+        delegation_token_previous_key_id="",
+        delegation_token_previous_public_key=""
+    )
+
+    assert settings.delegation_token_previous_key_id is None
+    assert settings.delegation_token_previous_public_key is None

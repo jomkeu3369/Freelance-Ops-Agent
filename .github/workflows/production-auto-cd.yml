@@ -1,0 +1,132 @@
+name: Production Auto CD
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "agent/**"
+      - "backend/**"
+      - "contracts/**"
+      - "infra/**"
+      - "docker-compose-infra.yaml"
+      - "docker-compose.yaml"
+      - "docker-compose.production.yaml"
+      - ".github/workflows/agent-ci.yml"
+      - ".github/workflows/backend-ci.yml"
+      - ".github/workflows/contracts-compose-ci.yml"
+      - ".github/workflows/agent-cd.yml"
+      - ".github/workflows/backend-cd.yml"
+      - ".github/workflows/production-auto-cd.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-auto-cd
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Detect deployment scope
+    runs-on: ubuntu-latest
+    outputs:
+      agent: ${{ steps.filter.outputs.agent }}
+      backend: ${{ steps.filter.outputs.backend }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Classify changed paths
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          if printf '%s' "$BASE_SHA" | grep -Eq '^0+$'; then
+            BASE_SHA="$(git rev-list --max-parents=0 "$GITHUB_SHA")"
+          fi
+
+          agent=false
+          backend=false
+          contracts=false
+
+          while IFS= read -r path; do
+            case "$path" in
+              agent/*|.github/workflows/agent-ci.yml|.github/workflows/agent-cd.yml)
+                agent=true
+                ;;
+              backend/*|.github/workflows/backend-ci.yml|.github/workflows/backend-cd.yml)
+                backend=true
+                ;;
+              contracts/*|docker-compose.yaml|docker-compose.production.yaml|infra/scripts/*)
+                agent=true
+                backend=true
+                contracts=true
+                ;;
+              infra/caddy/*)
+                backend=true
+                contracts=true
+                ;;
+              docker-compose-infra.yaml|infra/postgres/*|.github/workflows/contracts-compose-ci.yml)
+                contracts=true
+                ;;
+              .github/workflows/production-auto-cd.yml)
+                agent=true
+                backend=true
+                contracts=true
+                ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$GITHUB_SHA")
+
+          echo "agent=$agent" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "contracts=$contracts" >> "$GITHUB_OUTPUT"
+
+  agent-ci:
+    needs: changes
+    if: needs.changes.outputs.agent == 'true'
+    uses: ./.github/workflows/agent-ci.yml
+
+  backend-ci:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/backend-ci.yml
+
+  contracts-ci:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    uses: ./.github/workflows/contracts-compose-ci.yml
+
+  deploy-agent:
+    needs:
+      - changes
+      - agent-ci
+      - contracts-ci
+    if: >-
+      always() &&
+      needs.changes.outputs.agent == 'true' &&
+      needs.agent-ci.result == 'success' &&
+      (needs.contracts-ci.result == 'success' || needs.contracts-ci.result == 'skipped')
+    uses: ./.github/workflows/agent-cd.yml
+    with:
+      image_tag: agent-${{ github.sha }}
+    secrets: inherit
+
+  deploy-backend:
+    needs:
+      - changes
+      - backend-ci
+      - contracts-ci
+      - deploy-agent
+    if: >-
+      always() &&
+      needs.changes.outputs.backend == 'true' &&
+      needs.backend-ci.result == 'success' &&
+      (needs.contracts-ci.result == 'success' || needs.contracts-ci.result == 'skipped') &&
+      (needs.changes.outputs.agent != 'true' || needs.deploy-agent.result == 'success')
+    uses: ./.github/workflows/backend-cd.yml
+    with:
+      image_tag: backend-${{ github.sha }}
+    secrets: inherit

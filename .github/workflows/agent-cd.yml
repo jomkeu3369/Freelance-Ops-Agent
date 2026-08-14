@@ -1,6 +1,12 @@
 name: Agent Production CD
 
 on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: Immutable Agent release tag
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       image_tag:

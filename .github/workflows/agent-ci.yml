@@ -1,14 +1,8 @@
 name: Agent CI
 
 on:
+  workflow_call:
   pull_request:
-    paths:
-      - "agent/**"
-      - "contracts/**"
-      - ".github/workflows/agent-ci.yml"
-  push:
-    branches:
-      - "main"
     paths:
       - "agent/**"
       - "contracts/**"

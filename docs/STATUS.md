@@ -12,6 +12,10 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: 첫 Agent Production CD에서 Compose가 선택형 이전 delegation key 환경 변수를 빈 문자열로 주입해 Pydantic `min_length=1` 검증이 실패하고 컨테이너가 재시작되는 문제를 확인했다. Agent 설정이 빈 `AGENT_DELEGATION_TOKEN_PREVIOUS_KEY_ID`와 `AGENT_DELEGATION_TOKEN_PREVIOUS_PUBLIC_KEY`를 미설정 값으로 정규화하도록 수정하고 회귀 테스트를 추가했다. Agent 전체 테스트는 152 passed, 1 skipped로 통과했다.
+
+- 2026-08-14: `main` push에서 변경 경로를 분류하고 관련 Agent·Backend·Contracts & Compose CI가 통과한 뒤 Production까지 자동 배포하는 `Production Auto CD`를 추가했다. 자동 image tag는 commit SHA 기반이며 서비스 단독 변경은 해당 서비스만 배포한다. 계약·공통 Compose·배포 script 변경은 Agent→Backend 순서로 직렬화하고 Caddy 변경은 Backend만 반영한다. PostgreSQL infra 변경은 데이터 보호를 위해 CI 검증만 자동화하고 운영 적용은 제외했다. 기존 수동 서비스별 CD는 복구용으로 유지하며 결정은 ADR-0025에 기록했다. 전체 workflow 7개의 YAML·재사용 input 계약, 자동 CD 의존성, 경로 분류 shell 문법, 세 Compose `config --quiet`와 `git diff --check`가 통과했다.
+
 - 2026-08-14: 첫 Vultr staging 배포에서 실제 서버가 1 vCPU·2GB RAM인데 Production Compose의 Agent `cpus: 2.0` 제한을 적용해 container 생성이 거부되는 문제를 확인했다. 2GB staging 검증을 위해 Agent와 Backend를 각각 `1.0 CPU·640MB`, Caddy를 `0.25 CPU·128MB`로 제한했다. PostgreSQL은 기존 infra container가 healthy였고 Agent image build·GHCR push·서버 pull까지 성공했으며, 수정된 release의 실제 Agent·Backend 기동과 memory·swap·p95 관찰은 재배포 후 검증한다. 메모리 압박, 지속적인 swap, OOM 또는 지연 기준 초과 시 최소 2 vCPU·4GB로 증설한다.
 
 - 2026-08-14: Frontend Pipeline이 `ACCEPTED` 프로젝트를 협상 열에 묶으면서 상태 선택값은 `NEGOTIATING`으로 표시하던 진실성 오류를 수정했다. 카드의 select는 실제 Spring `project.status`를 값으로 사용하고 승인 상태는 `고객 승인됨`으로 명확히 표시한다. Agent HITL 답변은 사용자·Workspace·run·interruption 단위의 versioned `sessionStorage` draft로 24시간 보존하며 질문 집합이 바뀌거나 scope가 다르면 복원하지 않는다. 단계 이동 후 복원되고, 제출 API 성공 시에만 삭제하며 실패 시 서버 오류와 작성 답변을 함께 유지한다. 질문은 GSAP stagger와 reduced-motion 분기로 진입하고 답변 폐기 action·저장 상태를 제공한다. 임시 Spring 계약 서버와 실제 브라우저에서 승인 상태 선택값, 문의→AI 분석 단계 전환 복원, 503 응답 후 답변 보존, 1280px horizontal overflow 없음까지 확인했다. Frontend Node 테스트 32건, TypeScript, ESLint와 Vercel Preview 환경의 Next production build가 통과했다.
