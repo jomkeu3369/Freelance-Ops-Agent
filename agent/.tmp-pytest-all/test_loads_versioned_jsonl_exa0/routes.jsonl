@@ -1,0 +1,5 @@
+{"id": "case-0", "prompt": "prompt 0", "expected_route": "DIRECT_TOOL"}
+{"id": "case-1", "prompt": "prompt 1", "expected_route": "SIMPLE_LLM"}
+{"id": "case-2", "prompt": "prompt 2", "expected_route": "REACT_AGENT"}
+{"id": "case-3", "prompt": "prompt 3", "expected_route": "SUPERVISOR"}
+{"id": "case-4", "prompt": "prompt 4", "expected_route": "HUMAN_REQUIRED"}

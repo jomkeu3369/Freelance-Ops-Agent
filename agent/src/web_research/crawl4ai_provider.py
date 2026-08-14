@@ -31,12 +31,7 @@ class Crawl4AIWebResearchProvider:
     @classmethod
     def default(cls, security: UrlSecurityPolicy | None = None) -> Crawl4AIWebResearchProvider:
         try:
-            from crawl4ai import (  # type: ignore[import-not-found]
-                AsyncWebCrawler,
-                BrowserConfig,
-                CacheMode,
-                CrawlerRunConfig,
-            )
+            from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig  # type: ignore[import-not-found]  # noqa: E501, I001
         except ImportError as error:
             raise Crawl4AIProviderError("Crawl4AI optional runtime is not installed") from error
 
@@ -75,21 +70,28 @@ class Crawl4AIWebResearchProvider:
         visited: set[str] = set()
         documents: list[WebDocument] = []
         config = self._run_config_factory(policy)
+
         async with self._crawler_factory() as crawler:
             while queue and len(documents) < policy.max_pages:
                 candidate, depth = queue.popleft()
+
                 safe_url = await self._security.validate(candidate, policy.allowed_domains)
                 if safe_url in visited:
                     continue
+
                 visited.add(safe_url)
                 result = await crawler.arun(url=safe_url, config=config)
+
                 if not bool(getattr(result, "success", False)):
                     raise Crawl4AIProviderError("Crawl4AI collection failed")
+
                 final_url = str(getattr(result, "url", safe_url))
                 await self._security.validate(final_url, policy.allowed_domains, resolve_dns=False)
                 content = self._markdown(result).strip()[:200000]
+
                 if content:
                     documents.append(self._document(seed, safe_url, final_url, content))
+
                 if depth < policy.max_depth:
                     for link in self._internal_links(result):
                         try:
@@ -101,8 +103,10 @@ class Crawl4AIWebResearchProvider:
                             )
                         except ValueError:
                             continue
+
                         if safe_link not in visited:
                             queue.append((safe_link, depth + 1))
+
         return documents
 
     @staticmethod
@@ -111,6 +115,7 @@ class Crawl4AIWebResearchProvider:
         raw_markdown = getattr(markdown, "raw_markdown", None)
         if isinstance(raw_markdown, str):
             return raw_markdown
+
         return markdown if isinstance(markdown, str) else str(markdown or "")
 
     @staticmethod
@@ -118,11 +123,15 @@ class Crawl4AIWebResearchProvider:
         links = getattr(result, "links", {})
         internal = links.get("internal", []) if isinstance(links, dict) else []
         urls: list[str] = []
+
         for item in internal if isinstance(internal, list) else []:
+
             if isinstance(item, str):
                 urls.append(item)
+
             elif isinstance(item, dict) and isinstance(item.get("href"), str):
                 urls.append(item["href"])
+
         return urls
 
     @staticmethod

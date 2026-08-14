@@ -42,6 +42,8 @@ server:
   shutdown: graceful
 app:
   environment: ${APP_ENVIRONMENT:development}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   auth:
     issuer: ${APP_AUTH_ISSUER:freelance-ops-backend}
     audience: ${APP_AUTH_AUDIENCE:freelance-ops-web}

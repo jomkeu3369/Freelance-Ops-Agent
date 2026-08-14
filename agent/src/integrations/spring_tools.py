@@ -29,7 +29,6 @@ class SpringToolError(RuntimeError):
         super().__init__(code)
         self.code = code
 
-
 class SpringToolClient:
     def __init__(self, base_url: str, *, timeout_seconds: float = 10.0, read_max_attempts: int = 2, client: Any | None = None) -> None:  # noqa: E501
         if not base_url.strip() or timeout_seconds <= 0 or not 1 <= read_max_attempts <= 3:

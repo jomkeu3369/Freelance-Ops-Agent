@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.time.Instant;
@@ -11,12 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentEventRelayTest {
-    private final AgentEventRelay relay = new AgentEventRelay(new ObjectMapper().findAndRegisterModules());
+    private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
+    private final AgentEventRelay relay = new AgentEventRelay(objectMapper);
 
     @Test
     void validatesPublicEventEnvelopeAgainstPayload() throws Exception {
         UUID runId = UUID.randomUUID();
-        String data = new ObjectMapper().findAndRegisterModules().writeValueAsString(Map.of(
+        String data = objectMapper.writeValueAsString(Map.of(
             "eventId", 2,
             "runId", runId,
             "type", "run.completed",

@@ -49,22 +49,21 @@ def build_local_route_model() -> HybridRouteModel:
     repository_root = Path(__file__).resolve().parents[3]
     benchmark_root = repository_root / "experiments" / "routing_benchmark"
     examples = load_route_examples(benchmark_root / "data" / "generated-v1" / "train.jsonl")
+
     encoder = LiquidEncoderRouteScorer(
         model_id="LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
         revision="35ca4a0469f180f1cf05a630df8842fa17ac18e3",
         head_path=benchmark_root / "checkpoints" / "a1" / "curve-2500" / "head.safetensors",
         route_descriptions=ROUTE_DESCRIPTIONS,
-        device="auto",
+        device="auto"
     )
     return HybridRouteModel(examples, encoder)
-
 
 def _ranking(items: tuple[Any, ...]) -> list[dict[str, object]]:
     return [
         {"route": item.route.value, "rank": item.rank, "score": item.score}
         for item in items
     ]
-
 
 def _decision_output(decision: RouteDecision, model: HybridRouteModel) -> dict[str, object]:
     return {
@@ -79,37 +78,32 @@ def _decision_output(decision: RouteDecision, model: HybridRouteModel) -> dict[s
         "matched_example_ids": list(decision.matched_example_ids),
         "bm25_ranking": _ranking(decision.bm25_ranking),
         "encoder_ranking": _ranking(decision.encoder_ranking),
-        "fused_ranking": _ranking(decision.fused_ranking),
+        "fused_ranking": _ranking(decision.fused_ranking)
     }
 
-
-def build_router_diagnostic_graph(
-    model_provider: Callable[[], HybridRouteModel] = build_local_route_model,
-) -> Any:
+def build_router_diagnostic_graph(model_provider: Callable[[], HybridRouteModel] = build_local_route_model) -> Any:
     async def classify(state: RouterDiagnosticState) -> dict[str, object]:
         question = state.get("question", "").strip()
         if not question:
             return {"status": "INPUT_REQUIRED", "error_code": "QUESTION_REQUIRED"}
+
         try:
             model = await asyncio.to_thread(model_provider)
             decision = await model.route(question)
+
         except (OSError, RuntimeError, ValueError):
             return {
                 "status": "CONFIGURATION_ERROR",
                 "error_code": "LOCAL_ROUTER_UNAVAILABLE",
             }
+
         return _decision_output(decision, model)
 
-    builder: StateGraph[
-        RouterDiagnosticState,
-        None,
-        RouterDiagnosticInput,
-        RouterDiagnosticState,
-    ] = StateGraph(RouterDiagnosticState, input_schema=RouterDiagnosticInput)
+    builder: StateGraph[RouterDiagnosticState, None, RouterDiagnosticInput, RouterDiagnosticState] = StateGraph(RouterDiagnosticState, input_schema=RouterDiagnosticInput)  # noqa: E501
     builder.add_node("classify_route", classify)
     builder.add_edge(START, "classify_route")
     builder.add_edge("classify_route", END)
-    return builder.compile()
 
+    return builder.compile()
 
 graph = build_router_diagnostic_graph()

@@ -45,8 +45,10 @@ class SearchRequest(WebModel):
         normalized = [domain.strip().lower().rstrip(".") for domain in domains]
         if any(not domain or ":" in domain or "/" in domain for domain in normalized):
             raise ValueError("domains must be DNS names without scheme, port, or path")
+
         if len(normalized) != len(set(normalized)):
             raise ValueError("domains must not contain duplicates")
+
         return normalized
 
 

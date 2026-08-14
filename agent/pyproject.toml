@@ -60,7 +60,6 @@ line-length = 120
 src = ["src", "tests"]
 extend-exclude = [
     "tests/model_test",
-    "tests/딥에이전트_테스트",
     "tests/유사도측정/*.ipynb",
 ]
 

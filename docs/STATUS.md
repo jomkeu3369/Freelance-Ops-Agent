@@ -8,9 +8,16 @@
 
 ## 현재 목표
 
-프론트엔드를 제외한 V2 명세 구현도를 90%까지 높인다. 현재는 실제 Agent 조사, 고객 전달용 Proposal, 서비스 간 key rotation과 Vultr 운영 경계를 연결하고 전체 E2E 검증을 준비한다.
+V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 frontend를 연결하고 운영 검증 증거를 높인다. 2026-08-14 frontend 구현으로 공개 메인 페이지, 인증·프로젝트 intake, 실시간 Agent graph, 수동 견적·발행·공유, 고객 결정과 Outcome 입력 흐름을 추가했지만, 실제 OpenAI/Gemini credential을 사용하는 전체 E2E와 승인된 Production 배포 전이므로 운영 출시 완료로 간주하지 않는다.
 
 ## 완료
+
+- 2026-08-14: Agent import·LangGraph Studio graph·테스트 참조를 교차 검증해 사용하지 않는 설계 메모 `src/graph/chat.py`, 대체된 ReAct 스파이크 `src/graph/react/model.py`, 빈 model test stub 3개와 수동 실행용 `tests/딥에이전트_테스트/deep_agent_v1.py`를 제거했다. 낡은 Ruff exclude도 함께 정리했으며 Agent Ruff, strict mypy 50개 source file, pytest 151건이 통과했고 PostgreSQL process-restart 통합 테스트 1건은 전용 DB URL이 없어 skip됐다.
+- 2026-08-14: `docs/frontend` 브리프를 기준으로 React 19·TypeScript frontend를 실제 제품 흐름으로 교체했다. 공개 메인 페이지는 가짜 후기·통계 없이 한국 소프트웨어 프리랜서의 inquiry→proposal 흐름을 설명한다. Workspace는 Spring 공개 API만 사용해 인증·refresh/logout, 6단계 Project pipeline, 원문·텍스트 문서·구조화 요구사항 revision, 인증 헤더를 포함한 SSE 실시간 Agent graph와 HITL 재개를 제공한다. AI 없이도 항목별 공수·단가·할인과 필수 evidence/assumption을 입력해 Java 계산 견적과 immutable revision을 만들고 발행·고객 링크·결정·항목별 Outcome 회고까지 진행할 수 있다. `/me`, rate card, estimation policy 설정과 TTL query cache·mutation invalidation도 연결했다. 1180/820/520px 반응형, reduced-motion, loading/error/empty 상태와 AI 초안·사용자 확정 구분을 반영했다. 상세 대조는 [`Frontend 구현 상태`](frontend/IMPLEMENTATION_STATUS.md)에 기록했다.
+- 2026-08-14: [`프론트엔드 제외 V2 완성도 감사`](reviews/2026-08-14-frontend-excluded-completion-audit.md)를 작성했다. V2 명세 phase 완료 조건과 Accepted ADR, source, test를 대조한 가중 점수는 90%다. RAPTOR Spring publish, frozen baseline 전체 평가, Web provider 동일 corpus 비교, Vultr restore drill, 유료 검증, PDF·MCP는 남은 10%로 명시했다.
+- 2026-08-14: 운영 `REACT_AGENT`·`SUPERVISOR`에 provider-neutral bounded ReAct loop를 연결했다. OpenAI와 Gemini는 별도 strict `ReActStep` schema를 사용하고, model이 선택할 수 있는 Tool allowlist·입력 schema·동일 호출 반복 금지·model/Tool/token/retry hard budget을 코드에서 강제한다. Web research의 내부 search·fetch 수를 실제 Tool 비용으로 차감한다. 관련 provider·loop·executor 테스트 24건과 신규 평가 리포터 테스트 4건이 통과했다.
+- 2026-08-14: 실제 RS256 token을 거치는 Internal Tool MockMvc 통합 테스트와 동일 token의 Spring client→loopback Agent HTTP→Spring Tool HTTP 왕복 계약 테스트를 추가했다. PostgreSQL manager·checkpointer·coordinator를 모두 닫고 새 인스턴스로 HITL을 재개하는 통합 테스트를 추가하고 GitHub Agent CI에 `pgvector/pgvector:pg17`을 연결했다. Backend PostgreSQL Testcontainers 5건은 현재 PC에서 실제 통과했으며, Agent process-restart 통합 테스트 1건은 별도 DB URL이 없어 skip되어 CI green 전까지 실제 통과로 보고하지 않는다.
+- 2026-08-14: V2 명세 14.4의 retrieval, grounding, 견적, risk, Agent, routing, Web, cost, security 지표 19개와 route별 recall을 자동 집계하는 versioned 평가 리포터를 추가했다. 비율 지표는 분모와 Wilson 95% 구간을 반환하고 미측정 값은 `null`로 보존한다.
 
 - 2026-08-14: 프론트엔드를 제외한 V2 구현도를 재감사했다. Spring 전체 테스트는 85건 중 80건 통과, 실패·오류 0건이며 Docker가 필요한 PostgreSQL Testcontainers 5건은 skip되었다. Agent는 Ruff와 strict mypy 48개 source file을 통과했지만, 현재 Codex Windows sandbox가 `.venv`의 NumPy·cryptography·psycopg native DLL 접근을 거부하여 직전 138건 전체 pytest 통과 이후 변경분의 pytest 재실행은 완료하지 못했다. 로컬 infra, application, production Compose는 모두 `config --quiet`를 통과했다.
 - 2026-08-14: 한국 소프트웨어 개발 프리랜서용 첫 domain/jurisdiction pack을 PostgreSQL의 versioned `app.domain_pack`으로 이전했다. Spring Tool은 활성 기간과 jurisdiction을 기준으로 DB에서 pack을 조회하고, Python 계약과 OpenAPI에 jurisdiction, profession, 공식 source reference, 유효 기간을 함께 전달한다. 운영 배포 스크립트와 CD에는 image tag 허용문자·길이 검증을 추가해 SSH 경로·명령 주입 가능성을 줄였다.
@@ -73,9 +80,9 @@
 - 2026-08-09: `.gitignore`의 광범위한 `tests/` 규칙이 `agent/tests`까지 제외하던 문제를 수정하고 V2 CI의 중복 push·PR 실행을 `main` push와 pull request로 정리했다.
 
 - 2026-08-06: 메인 페이지 디자인 브리프를 V2 명세와 README에 맞춰 전면 보강했다. Header부터 Footer까지 각 섹션의 목적, 실제 문구, 화면 내용, 시각 방향과 근거 문서를 같은 형식으로 정리하고, 첫 출시 범위를 한국 소프트웨어 개발 프리랜서로 수정했다. 가짜 후기·고객사·성능 수치, 미확정 가격과 “모든 직군 지원” 표현은 사용 금지 콘텐츠로 명시했다.
-- `frontend/`에 React 19 + TypeScript + vinext 기반 V2 프런트엔드 콘셉트를 구성했다. Project Intake를 중심으로 고객 원문과 AI 초안의 구분, 12-column gapless bento, 요구사항 accordion, workflow card stacking, 사용자 후기와 CTA를 구현했다.
+- `frontend/`에 Next.js 16 App Router + React 19 + TypeScript 기반 V2 프런트엔드를 구성했다. Project Intake를 중심으로 고객 원문과 AI 초안의 구분, 12-column gapless bento, 요구사항 accordion과 workflow motion을 구현했다.
 - 라이트 `Paper Studio`와 다크 `Night Workshop` 테마를 `next-themes`로 제공하고, GSAP ScrollTrigger reveal·scrub·pin motion 및 reduced-motion 대체 동작을 적용했다.
-- 소셜 공유 이미지와 Open Graph/Twitter metadata를 추가했다. 배포 시 `NEXT_PUBLIC_SITE_URL`로 공개 origin을 지정한다.
+- 소셜 공유 이미지와 Open Graph/Twitter metadata를 추가했다. `NEXT_PUBLIC_SITE_URL`이 없으면 Vercel Preview의 `VERCEL_URL`을 공개 origin으로 사용한다.
 - 프런트엔드 검증 기준으로 `npm run typecheck`, `npm run lint`, `npm test`를 구성했다.
 - 한글 UI 글꼴을 프로젝트에 자체 포함된 `Pretendard Variable`로 교체하고 영문 라벨·숫자는 Geist 계열을 유지했다. 한글 헤드라인의 자간과 행간도 가변 글꼴 기준으로 조정했다.
 - frontend 작업 방식을 designer-first workflow로 변경했다. 사용자가 레퍼런스 2~3개를 선정하고, Codex가 V2 문서를 디자이너용 자료로 정리하며, 웹디자이너의 1920×1080 HTML·CSS·JavaScript handoff를 Codex가 Next.js·React·TypeScript와 반응형으로 변환한다.
@@ -131,45 +138,50 @@
 
 ## 진행 중
 
+- Vercel Preview Project 연결과 실제 배포 검수. `frontend` Root Directory, Preview용 공개 Spring URL과 branch-specific exact CORS origin 설정이 필요하다.
+- 실제 Spring·Agent·PostgreSQL·OpenAI/Gemini를 함께 기동한 가입→문의→Agent→견적→발행→고객 결정 E2E 검증
+- workspace profile·멤버/role·privacy·data export/delete·credit 집계와 견적 제외 범위/지급 조건은 현재 Spring 공개 계약이 없어 fake local state로 구현하지 않고 backend 계약을 기다린다.
+- PostgreSQL service가 포함된 GitHub CI에서 process restart 후 HITL resume 통합 테스트 검증
+- Spring-owned RAPTOR immutable snapshot publish와 collapsed-tree retrieval 설계·구현
+- V2 section 14.4 frozen evaluation case 작성과 19개 지표 첫 실측
 - ADR-0013 Research Deep Agent와 단일 ReAct baseline의 frozen 품질·비용 benchmark
 - ADR-0009의 생성 artifact lifecycle, 검색 자격과 재귀 오염 방지 정책에 대한 사용자 검토
-- Spring Tool API의 실제 endpoint와 Agent run 발급부를 연결하고, 부서별 Tool catalog를 확장
-- Research Deep Agent와 단일 ReAct baseline의 frozen 승격 benchmark
-- Langflow system prompt `v0.1.0`과 Agent별 output schema 사용자 검토
-- 한국 소프트웨어 개발 프리랜서용 첫 domain/jurisdiction pack 범위 결정
 
 ## 다음 작업
 
 ### 다음 PC에서 우선 수행
 
-- [`hybrid routing CUDA benchmark 인수인계`](testing/hybrid-routing-cuda-benchmark.md)의 A1 결과를 검토하고, 사람 검수 hard-negative·confidence calibration·Luna fallback 실험 범위를 확정한다.
-- `main`을 pull한 뒤 [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 V2 image build와 전체 Compose 기동을 검증한다.
-- Docker 환경에서 JPA 기반 PostgreSQL Testcontainers 통합 테스트 4건을 skip 없이 재실행한다.
-- 개발 profile에서 `/swagger-ui.html`과 `/v3/api-docs`를 열고, HTTP Basic 인증 후 `/api/v1/meta` 호출을 검증한다.
+- 현재 working tree의 변경을 검토하고 Agent `main:app` entrypoint를 실제 기동 환경에서 확인한다.
+- 변경을 commit·push한 뒤 PostgreSQL 재시작 HITL test를 포함한 GitHub CI가 green인지 확인한다.
+- Backend PostgreSQL Testcontainers 5건은 현재 PC에서 통과했으므로 CI에서도 동일 결과인지 확인한다.
+- [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 전체 Compose 기동과 Swagger를 검증한다.
 
 ### 이후 backlog
 
-1. `uv.lock`의 `deepagents 0.7.5`로 Research spike를 만들고 default general-purpose subagent·host shell 비활성화, run-scoped backend와 hard budget 거부 테스트를 추가한다.
-2. Research Deep Agent와 단일 ReAct baseline을 동일 frozen dataset에서 근거 정확성, task success, 비용, p95 latency와 Tool 위반률로 비교한다.
-3. routing benchmark에 device override와 실행 환경 metadata schema를 추가하고, 학습용 route dataset·group-aware split·confidence calibration 기준을 확정한다.
-4. `experiments/local_archive/**/.env`에 남아 있는 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다. 해당 파일은 Git에서 제외한다.
-5. ADR-0009를 검토·승인한 뒤 artifact status, provenance, lineage, retrieval eligibility와 index snapshot contract를 V2 명세에 반영한다.
-6. 구현된 Spring audience-bound delegation token 발급과 Agent Gateway를 실제 Agent 내부 API·Tool API HTTP contract test로 검증한다.
-7. Client·Project CRUD에 중앙 authorization service와 workspace-scoped repository query를 적용한다.
-8. provider·model·Tool·환율의 첫 `pricing_snapshot` schema와 route별 `estimated_cost`·`actual_cost` 집계 contract를 정의한다.
-9. `react_v1.py` Stage 1을 10~20개 고정 fixture와 LangSmith 평가로 실행해 Tool 호출 순서, 요구사항 누락률, 질문 품질과 불필요 호출률을 측정한다.
-10. Langflow에 단일 Agent baseline과 Global Orchestrator flow를 구성하고 fake Tool로 prompt 회귀 사례를 검증한다.
-11. 사용자가 frontend 레퍼런스 사이트 2~3개와 참고·제외 요소를 전달한다.
-12. Codex가 `DESIGN_BRIEF.md`, `CONTENT_MATRIX.md`, `SCREEN_SPECIFICATION.md`, `COMPONENT_INVENTORY.md`, `INTERACTION_GUIDE.md`, `DESIGN_HANDOFF_CHECKLIST.md`를 작성한다.
-13. 웹디자이너의 1920×1080 handoff가 준비되면 React·TypeScript 변환과 반응형 구현 범위를 확정한다.
-14. Spring→Agent 실제 HTTP contract test와 delegation key rotation 시나리오를 연결한다. Agent endpoint 자체는 완료됐다.
-15. 구현된 read-only project-context client에 Spring endpoint를 연결하고 Requirements 전용 draft validator Tool을 추가한다.
-16. PostgreSQL `agent_runtime` schema에 LangGraph checkpoint persistence를 연결한다.
-17. Vultr staging의 image registry, TLS domain, secret 주입과 off-host backup target을 확정한 뒤 CD workflow를 추가한다.
-18. 첫 web research benchmark에 사용할 공식 source corpus와 성공 기준을 정의한다.
+1. Vercel Project의 Root Directory를 `frontend`로 연결하고 Preview 환경 변수와 Spring exact CORS origin을 설정한 뒤 non-production branch Preview를 검수한다.
+2. Spring-owned RAPTOR snapshot publish·summary 검색·descendant leaf 복원을 구현한다.
+3. 평가 리포터용 frozen V2 case를 작성하고 V1~V2 baseline 6종을 같은 split으로 실행한다.
+4. Research Deep Agent와 bounded ReAct baseline을 동일 frozen dataset에서 근거 정확성, task success, 비용, p95 latency와 Tool 위반률로 비교한다.
+5. Tavily·Crawl4AI·direct fetch를 동일 공식 corpus로 비교한다.
+6. `experiments/local_archive/**/.env` 자격 증명을 폐기하고 원격 Git history secret scan을 실행한다.
+7. ADR-0009를 승인한 뒤 artifact lifecycle·retrieval eligibility를 RAPTOR publish gate에 적용한다.
+8. Vultr staging TLS·secret·backup target을 확정하고 restore drill·rollback을 실행한다.
+9. Proposal PDF와 우선순위 MCP connector를 구현한다.
 
 ## 현재 검증 상태
 
+- 2026-08-14: Frontend runtime을 vinext + Cloudflare Vite plugin에서 표준 Next.js 16.3.1 App Router로 전환했다. scripts는 `next dev/build/start`, Vercel Node는 `22.x`, install은 `npm ci`로 고정했다. Vite·vinext·Wrangler·Cloudflare Worker/D1/R2·Drizzle source와 dependency를 제거하고 `vercel.json`, Preview 환경 변수·exact CORS runbook을 추가했다. 외부 Google font build fetch 없이 Pretendard와 system font를 사용하고 OG origin은 `VERCEL_URL`을 자동 인식한다. Next 16.2.6의 production audit 취약점을 확인해 npm 권고 수정판인 16.3.1로 올리고 호환 범위의 transitive dependency를 갱신해 전체 `npm audit` 0건을 확인했다. `npm run preview:check`에서 TypeScript, ESLint, Frontend Node 테스트 16건과 실제 `next build`가 통과했으며 `/`, `/workspace`, `/proposal/[token]` route가 생성됐다. 빌드 산출물을 `next start`로 기동해 `/`와 `/workspace` HTTP 200도 확인했다.
+- 2026-08-14: Frontend 요구사항 새 revision이 빈 기능부터 시작하던 문제를 수정해 마지막 사용자 확정 기능·우선순위·완료 기준을 복사해 편집하도록 했다. Agent 결과에는 열린 질문, provider/model·prompt/tool-schema 메타데이터와 부서별 출처 제목·발췌·관할권을 표시하며 `http`·`https` 출처만 외부 링크로 연다. Quote Builder에는 Lean·Recommended·Expanded 최신 revision의 금액·상태 비교 보드를 추가했다. Frontend Node 테스트 13건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend Outcome Review에 승인 견적 대비 실제 성과 오차를 추가했다. 계약 금액과 실제 매출의 차이, 견적의 `HOUR` 항목 합계와 실제 투입 시간의 차이를 서버 데이터에서 계산해 회고 화면에 함께 표시한다. Frontend Node 테스트 12건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend Settings의 rate card가 Quote Builder에서 사용되지 않던 연결 누락을 수정했다. 견적 항목별로 활성 Workspace 단가표를 선택하면 `rateCardId`와 서버 기준 unit·rate가 함께 적용되고 직접 단가 편집은 잠긴다. 직접 단가로 전환하면 다시 사용자 입력을 허용한다. 검증 중 이전 preview server가 Windows native module을 잠가 의존성 복구가 한 번 실패했으며, localhost:3000 Node process를 종료하고 lockfile 기반 `npm ci`로 복구한 뒤 임시 npm cache를 삭제했다. Frontend Node 테스트 12건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend Quote Builder에서 `EVIDENCE`를 선택해도 서버 필수값인 `sourceType`과 `sourceReference`를 입력할 수 없어 저장이 실패하던 계약 누락을 수정했다. source title·retrievedAt도 함께 편집하고 선택 항목의 근거·가정을 Evidence Inspector에서 즉시 검토한다. `ASSUMPTION` 전환 시 evidence provenance를 제거하며 저장 가능 조건도 Spring validation과 일치시켰다. Frontend Node 테스트 12건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend Settings에 Spring-owned AI model pricing snapshot 관리를 추가했다. `audit.read` 권한은 provider·model·version과 입력·cached input·출력 1M token 단가 및 유효 기간을 조회하고, `workspace.update` 권한은 종료 시점이 시작 시점보다 늦은 새 immutable 가격 snapshot을 등록한다. Frontend Node 테스트 12건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: `audit.read` 권한이 있는 Frontend 사용자에게 terminal Agent run의 Spring-owned usage를 표시한다. 실제 원가와 통화, 입력·출력 token, 검색 credit, billable outcome과 cost status를 `/agent-runs/{runId}/usage`에서 조회하며 HITL 재개 후 stale partial usage가 남지 않도록 응답을 cache하지 않는다. Frontend Node 테스트 11건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend Project 상세 편집을 실제 Spring PATCH API에 연결했다. 생성 후 고객 연결·제목·문의 원문·통화·일정·예산을 수정하며 최소 예산이 최대 예산을 넘는 입력은 요청 전에 차단한다. 원문 변경 시 이전 Agent 실행 표시를 초기화하고 마지막 structured requirement의 `sourceText`와 비교해 새 immutable revision이 필요함을 경고한다. Frontend Node 테스트 10건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend에 Workspace Evidence Library를 추가했다. 실제 Spring Document API로 자료 목록·상세 청크를 조회하고 제목·관할권·버전을 검색하며 source type을 필터링한다. TXT·Markdown·CSV·JSON 업로드와 soft archive도 연결했고, 보관이 Agent 검색 범위에서 제외됨을 UI에 명시했다. Intake와 자료실은 동일한 파일 검증·청크 분할 함수를 사용한다. 고객 제안서 공유 링크의 만료일 표시와 즉시 비활성화도 Spring API에 연결했다. `/me` effective permission을 먼저 확인해 허용된 resource만 요청하고, Project·Client·Document·Agent·Quotation·Outcome action을 read/write/publish/delete permission에 맞게 분리했다. Frontend Node 테스트 9건, TypeScript typecheck, ESLint와 vinext production build가 통과했다.
+- 2026-08-14: Frontend CRM을 실제 Spring Client API에 연결했다. 고객 검색·등록·수정·보관과 프로젝트별 연결 수 표시, 새 문의 생성 시 기존 고객 선택을 추가했다. soft archive 이후에도 기존 프로젝트의 `client_id` 연결은 유지한다. `/me` membership 기반 기존 Workspace 전환과 Agent 실행 중단·새 분석 재시작 제어도 추가했다. Frontend Node 테스트 8건, TypeScript typecheck, ESLint와 vinext production build가 통과했으며 빌드 route는 `/`, `/workspace`, `/proposal/:token`이다.
+- 2026-08-14: Frontend Node 테스트 6건, TypeScript typecheck, ESLint와 vinext production build가 통과했다. 테스트는 메인 브리프 필수·금지 문구, CSS custom property 해석, Spring-only SSE, 반응형·reduced-motion, 견적·제안·Outcome, Pipeline·Settings·Intake 계약을 검사한다. 빌드는 `/`, `/workspace`, 동적 `/proposal/:token`을 생성했으며 로컬 production server의 `/`와 `/workspace`에서 HTTP 200을 확인했다. Spring CORS 변경을 포함한 Backend 전체 테스트 91건도 실패·오류·skip 없이 통과했다. 실제 provider 호출 E2E는 API credential과 전체 Compose 기동을 사용하지 않아 아직 검증하지 않았다.
+- 2026-08-14: Backend 전체 91건은 실패·오류·skip 없이 통과했으며 PostgreSQL Testcontainers 5건과 pgvector migration도 실제 검증했다. 이 과정에서 `vector` 확장 활성화, `CHAR` ORM 매핑, Spring 7 다중 생성자 주입, Spring Boot 4 Jackson 3 연결 누락을 수정했다. Agent 전체 pytest는 총 152건 중 151건 통과, PostgreSQL restart test 1건 skip이며, 전체 `src`·`tests` Ruff와 strict mypy 52개 source도 통과했다. 신규 ReAct·provider·executor 24건, 평가 리포터 4건, Internal Tool JWT HTTP 3건과 delegation 왕복 1건이 통과했고 OpenAPI 두 계약도 공식 validator를 통과했다.
 - 2026-08-13: Vultr 배포 결정과 Spring Agent Gateway 추가 후 Backend 전체 테스트 36건 중 32건이 통과했고 실패·오류는 없었다. PostgreSQL Testcontainers 4건은 현재 Docker test 환경 제약으로 skip됐다. 신규 검증은 RS256 issuer가 발급한 token을 Agent audience와 Spring Tool audience가 각각 수락하는지, production에서 signing key 누락 시 시작을 거부하는지, 권한 부족 시 Agent 호출 전 fail-closed하는지, HTTP client가 bearer token과 `traceparent`를 전달하고 run ID를 보존하는지를 포함한다. 두 Compose config도 통과했으며 Docker 사용자 config 접근 경고만 발생했다.
 - 2026-08-13: SQLAlchemy 2 async ORM 전환과 run event/cancel API 추가 후 `uv sync --locked`, 활성 `src` Ruff, strict mypy 38개 source module, 전체 pytest 89건과 OpenAPI YAML UTF-8 parsing을 통과했다. 운영 Python source에서 직접 SQL keyword 문자열과 connection/cursor 기반 query 호출이 없음을 검색으로 재확인했다. 실제 PostgreSQL transaction·row lock 및 pgvector extension 통합 검증은 Docker PostgreSQL을 사용할 수 없는 현재 PC 환경 때문에 아직 수행하지 못했다.
 - 2026-08-13: AI 서버 변경 후 `uv sync --locked`, 활성 `src` 전체 Ruff, strict mypy 37개 source module, 전체 pytest 85건이 통과했다. JWT 서명·scope 거부, run/HITL resume, model·token budget, Spring Tool token 비저장·권한 오류 mapping, RAPTOR provenance, routing, pgvector connection manager와 Research Deep Agent security profile을 포함한다. 실제 PostgreSQL 통합 검증은 이 PC에 Docker executable이 없어 수행하지 못했으며, 실제 OpenAI routing/embedding/summary 호출도 private prompt와 배포 secret을 사용하지 않아 수행하지 않았다. OpenAPI YAML은 UTF-8로 parse했다.

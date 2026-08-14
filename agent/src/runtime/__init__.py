@@ -8,6 +8,7 @@ from .executor import (
     ResearchTool,
 )
 from .postgres_store import PostgresAgentRunStore
+from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
 from .runs import (
     AgentExecutionError,
     AgentRunExecutor,
@@ -28,6 +29,7 @@ __all__ = [
     "AgentRunNotFoundError",
     "AgentRunStateError",
     "AgentRunStore",
+    "BoundedReActLoop",
     "ExecutionOutcome",
     "ExecutionAuthorization",
     "FailClosedOperationalGateway",
@@ -37,7 +39,11 @@ __all__ = [
     "OperationalGateway",
     "PostgresAgentRunStore",
     "ProjectContextTool",
+    "ReActLoopBudget",
+    "ReActLoopError",
+    "ReActLoopResult",
     "ResearchTool",
     "RunCoordinator",
     "RunCheckpointJournal",
+    "StructuredTool",
 ]

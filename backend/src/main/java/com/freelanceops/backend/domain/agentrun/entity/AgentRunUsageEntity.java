@@ -10,6 +10,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -32,7 +34,7 @@ public class AgentRunUsageEntity {
     @Column(name = "retry_count", nullable = false) private long retryCount;
     @Column(name = "duration_ms", nullable = false) private long durationMs;
     @Column(name = "actual_cost", precision = 19, scale = 8) private BigDecimal actualCost;
-    @Column(name = "cost_currency", length = 3) private String costCurrency;
+    @JdbcTypeCode(SqlTypes.CHAR) @Column(name = "cost_currency", length = 3) private String costCurrency;
     @Enumerated(EnumType.STRING) @Column(name = "cost_status", nullable = false, length = 20) private CostStatus costStatus;
     @Column(name = "billable_outcome", nullable = false) private boolean billableOutcome;
     @Column(name = "recorded_at", nullable = false) private Instant recordedAt;

@@ -38,16 +38,10 @@ def research_filesystem_permissions(run_id: UUID) -> list[FilesystemPermission]:
             operations=["read", "write"],
             paths=["/**"],
             mode="deny",
-        ),
+        )
     ]
 
-
-def build_research_deep_agent(
-    *,
-    model: str | Any,
-    run_id: UUID,
-    tools: Sequence[Callable[..., Any] | dict[str, Any]] = (),
-) -> Any:
+def build_research_deep_agent(*, model: str | Any, run_id: UUID, tools: Sequence[Callable[..., Any] | dict[str, Any]] = ()) -> Any:  # noqa: E501
     """Build an uninvoked Research graph; the caller supplies explicit tools and model."""
 
     if isinstance(model, str):
@@ -71,18 +65,18 @@ def build_research_deep_agent(
         permissions=research_filesystem_permissions(run_id),
         backend=StateBackend(),
         response_format=ResearchOutput,
-        name="research-department",
+        name="research-department"
     )
-
 
 @lru_cache(maxsize=8)
 def _register_secure_profile(provider: str) -> None:
     if provider not in {"openai", "google_genai"}:
         raise ValueError(f"unsupported Deep Agent provider: {provider}")
+
     register_harness_profile(
         provider,
         HarnessProfile(
             excluded_tools=frozenset({"execute"}),
-            general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
-        ),
+            general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False)
+        )
     )

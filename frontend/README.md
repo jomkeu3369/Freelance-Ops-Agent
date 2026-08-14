@@ -1,27 +1,28 @@
 # Freelance Ops Frontend
 
-Next.js 호환 `vinext`, React 19, TypeScript로 만든 V2 프런트엔드 콘셉트입니다.
+Next.js 16 App Router, React 19와 TypeScript로 만든 V2 frontend입니다. Vercel의 표준 Next.js runtime을 사용하며 vinext·Vite·Cloudflare Worker adapter에 의존하지 않습니다.
 
-- 라이트 모드: 친근한 프리랜서용 Paper Studio
-- 다크 모드: 집중도 높은 개발자용 Night Workshop
-- 첫 화면: 고객 문의와 AI 초안을 분리해 검토하는 Project Intake
-- 모션: GSAP ScrollTrigger 기반 reveal, scrub, card stacking
+## 로컬 실행
 
-## 실행
-
-Node.js 22.13 이상이 필요합니다.
+Vercel Preview와 동일한 Node.js 22.x를 사용합니다.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-검증 명령은 다음과 같습니다.
+`.env.example`을 참고해 `.env.local`을 만들고 `NEXT_PUBLIC_API_BASE_URL`에 브라우저가 접근할 수 있는 Spring 공개 API origin을 지정합니다.
+
+## 검증
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
+npm run preview:check
 ```
 
-배포 환경에서는 `NEXT_PUBLIC_SITE_URL`을 실제 공개 주소로 설정하면 Open Graph 이미지 URL도 해당 주소를 사용합니다.
+이 명령은 typecheck, Node source test, ESLint와 표준 `next build`를 순서대로 실행합니다. 개별 명령은 `npm run typecheck`, `npm test`, `npm run lint`, `npm run build`입니다.
+
+## Vercel Preview
+
+Vercel Project의 Root Directory를 `frontend`로 지정합니다. `vercel.json`은 framework를 Next.js로 고정하고 `npm ci`와 `npm run build`를 사용합니다. Preview 환경에는 `NEXT_PUBLIC_API_BASE_URL`을 반드시 설정해야 합니다.
+
+상세 설정과 검수 절차는 [`VERCEL_PREVIEW.md`](VERCEL_PREVIEW.md)를 따릅니다.

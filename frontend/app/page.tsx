@@ -1,143 +1,150 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowRight,
   Check,
-  Clock,
   FileText,
   Moon,
-  Plus,
   ShieldCheck,
-  Sparkle,
   Sun,
 } from "@phosphor-icons/react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useTheme } from "next-themes";
+import { LiveWorkflow, snapshotFromEvents } from "./components/live-workflow";
+import type { WorkflowEvent } from "./lib/api";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-const confirmedItems = [
-  "직원 로그인과 계정 관리",
-  "공지사항 작성·수정·검색",
-  "파일 첨부와 PostgreSQL 연동",
-  "관리자·일반 직원 권한 분리",
-];
+const workflowSteps = [
+  ["문의 등록", "고객의 메시지와 문서를 하나의 프로젝트에 모읍니다."],
+  ["요구사항 정리", "목표, 기능, 일정, 예산, 제약과 빠진 정보를 구분합니다."],
+  ["확인 질문", "견적 전에 반드시 확인해야 할 질문을 우선순위로 제안합니다."],
+  ["WBS·견적 작성", "작업별 공수와 금액을 계산하고 세 가지 범위를 비교합니다."],
+  ["검토·제안", "프리랜서가 초안을 확정한 뒤 고객에게 전달합니다."],
+] as const;
 
-const requirementGroups = [
-  {
-    title: "접근과 권한",
-    caption: "RBAC와 감사 기록",
-    image: "https://picsum.photos/seed/access-workflow/1200/900",
-    detail: "관리자와 일반 직원의 행동 범위를 구분하고 민감한 변경에는 감사 기록을 남깁니다.",
-  },
-  {
-    title: "콘텐츠 운영",
-    caption: "공지·검색·첨부",
-    image: "https://picsum.photos/seed/editorial-system/1200/900",
-    detail: "공지사항 CRUD, 검색, 첨부 파일 정책을 하나의 운영 흐름으로 정리합니다.",
-  },
-  {
-    title: "기존 시스템",
-    caption: "PostgreSQL 데이터 연동",
-    image: "https://picsum.photos/seed/data-architecture/1200/900",
-    detail: "기존 데이터 구조를 보존하면서 신규 서비스가 필요한 범위만 계약으로 분리합니다.",
-  },
-];
+const previewEvents: WorkflowEvent[] = [
+  { eventId: 1, runId: "preview", type: "run.started", occurredAt: "", data: {} },
+  { eventId: 2, runId: "preview", type: "tool.started", occurredAt: "", data: {} },
+  { eventId: 3, runId: "preview", type: "requirement.updated", occurredAt: "", data: {} },
+  { eventId: 4, runId: "preview", type: "evidence.added", occurredAt: "", data: {} },
+  { eventId: 5, runId: "preview", type: "quotation.draft.created", occurredAt: "", data: {} },
+  { eventId: 6, runId: "preview", type: "approval.requested", occurredAt: "", data: {} },
+] as const;
 
-const reviews = [
+const outcomes = [
   {
-    quote: "고객의 한 문장을 바로 금액으로 바꾸지 않고, 먼저 빠진 조건을 보여줘서 협상이 훨씬 쉬워졌습니다.",
-    name: "김도윤",
-    role: "제품 개발 프리랜서",
-    image: "https://picsum.photos/seed/freelancer-portrait-one/240/240",
+    title: "견적 확정",
+    metric: "예상 18일",
+    body: "사용자가 승인한 작업 범위와 공수만 기준선으로 보존합니다.",
   },
   {
-    quote: "왜 이 공수가 필요한지 근거가 함께 보여서 견적서를 설명하는 시간이 크게 줄었습니다.",
-    name: "박서연",
-    role: "웹 서비스 컨설턴트",
-    image: "https://picsum.photos/seed/freelancer-portrait-two/240/240",
+    title: "실제 결과 기록",
+    metric: "실제 21일",
+    body: "범위 변경, 실제 공수와 원가를 프로젝트 종료 후 기록합니다.",
   },
   {
-    quote: "확정된 요구와 AI의 가정을 분리해 보여주는 방식이 실제 계약 전 검토에 특히 유용했습니다.",
-    name: "이준호",
-    role: "독립 소프트웨어 엔지니어",
-    image: "https://picsum.photos/seed/freelancer-portrait-three/240/240",
+    title: "다음 견적 참고",
+    metric: "+3일 차이",
+    body: "승인된 과거 사례를 검색 근거로 사용하되 자동 학습으로 과장하지 않습니다.",
   },
-];
+] as const;
+
+const evidenceExamples = [
+  {
+    title: "포트폴리오 관리 기능",
+    effort: "5–7일",
+    rate: "Backend 단가표",
+    calculation: "6일 × 일 단가 + 위험 buffer",
+    assumption: "이미지 최적화는 기본 수준",
+    sources: [["유사 완료 프로젝트", "승인된 프로젝트 2건의 실제 공수 범위"], ["사용자 단가표", "Backend 작업 · 현재 적용 중"], ["명시된 가정", "고객 확인 전에는 사실로 확정하지 않습니다."]],
+  },
+  {
+    title: "관리자 콘텐츠 편집",
+    effort: "3–4일",
+    rate: "Full-stack 단가표",
+    calculation: "3.5일 × 일 단가",
+    assumption: "역할은 관리자 1종으로 제한",
+    sources: [["요구사항 원문", "관리자가 프로젝트를 직접 수정해야 함"], ["사용자 단가표", "Full-stack 작업 · 현재 적용 중"], ["확인 질문", "세부 권한 분리가 필요한지 고객 확인 필요"]],
+  },
+  {
+    title: "반응형 화면 검수",
+    effort: "1–2일",
+    rate: "Frontend 단가표",
+    calculation: "1.5일 × 일 단가",
+    assumption: "지원 범위는 390px 이상",
+    sources: [["완료 기준", "모바일·태블릿·데스크톱 주요 화면 검수"], ["사용자 단가표", "Frontend 작업 · 현재 적용 중"], ["명시된 가정", "별도 네이티브 앱 검수는 제외"]],
+  },
+] as const;
 
 const subscribeToHydration = () => () => undefined;
 
 export default function Home() {
   const pageRef = useRef<HTMLElement>(null);
-  const [activeRequirement, setActiveRequirement] = useState(0);
-  const [reviewIndex, setReviewIndex] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [outcomeIndex, setOutcomeIndex] = useState(0);
+  const [evidenceIndex, setEvidenceIndex] = useState(0);
   const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = themeMounted && resolvedTheme === "dark";
 
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setPreviewIndex((current) => (current + 1) % previewEvents.length),
+      1500,
+    );
+    return () => window.clearInterval(timer);
+  }, []);
+
   useGSAP(
     () => {
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-      gsap.from(".nav-shell", { y: -30, opacity: 0, duration: 0.8, ease: "power3.out" });
+      gsap.from(".nav-shell", { y: -24, opacity: 0, duration: 0.75, ease: "power3.out" });
       gsap.from(".hero-reveal", {
-        y: 54,
+        y: 50,
         opacity: 0,
-        duration: 1.05,
-        stagger: 0.12,
+        duration: 1,
+        stagger: 0.11,
         ease: "power3.out",
       });
-
       gsap.to(".scrub-word", {
         opacity: 1,
-        stagger: 0.12,
+        stagger: 0.1,
         scrollTrigger: {
           trigger: ".manifesto-copy",
-          start: "top 78%",
+          start: "top 82%",
           end: "bottom 48%",
           scrub: 1,
         },
       });
-
-      gsap.utils.toArray<HTMLElement>(".stack-card").forEach((card, index) => {
+      gsap.utils.toArray<HTMLElement>(".scale-fade").forEach((element) => {
         gsap.fromTo(
-          card,
-          { scale: 0.9, opacity: 0.35, y: 70 },
+          element,
+          { scale: 0.88, opacity: 0.25 },
           {
             scale: 1,
             opacity: 1,
-            y: 0,
             ease: "none",
             scrollTrigger: {
-              trigger: card,
-              start: "top 88%",
-              end: "top 42%",
+              trigger: element,
+              start: "top 92%",
+              end: "top 46%",
               scrub: true,
             },
           },
         );
-        card.style.zIndex = String(index + 1);
-      });
-
-      ScrollTrigger.create({
-        trigger: ".workflow-section",
-        start: "top 110px",
-        end: "bottom bottom-=80",
-        pin: ".workflow-copy",
-        pinSpacing: false,
       });
     },
     { scope: pageRef },
   );
 
-  const nextReview = () => setReviewIndex((current) => (current + 1) % reviews.length);
-  const previousReview = () =>
-    setReviewIndex((current) => (current - 1 + reviews.length) % reviews.length);
+  const previewSnapshot = snapshotFromEvents(previewEvents.slice(0, previewIndex + 1), "PREVIEW");
 
   return (
     <main ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
@@ -145,119 +152,72 @@ export default function Home() {
       <div className="ambient ambient-two" />
 
       <header className="nav-shell" aria-label="주요 탐색">
-        <a className="brand" href="#top" aria-label="Freelance Ops 홈">
-          <span className="brand-mark">FO</span>
-          <span>Freelance Ops</span>
-        </a>
+        <Link className="brand" href="#top" aria-label="Freelance Ops 홈">
+          <span className="brand-wordmark">Freelance Ops</span>
+        </Link>
         <nav className="nav-links" aria-label="페이지 이동">
-          <a href="#intake">문의 정리</a>
-          <a href="#workflow">진행 방식</a>
-          <a href="#stories">사용 경험</a>
+          <a href="#product">제품 소개</a>
+          <a href="#workflow">작동 방식</a>
+          <a href="#evidence">검증 원칙</a>
+          <a href="#audience">대상 사용자</a>
         </nav>
         <div className="nav-actions">
           <button
             className="icon-button"
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={isDark ? "화이트 모드로 전환" : "다크 모드로 전환"}
+            aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
           >
             {isDark ? <Sun size={19} weight="bold" /> : <Moon size={19} weight="bold" />}
           </button>
-          <button className="primary-button compact" type="button">
-            <Plus size={17} weight="bold" /> 새 문의
-          </button>
+          <Link className="text-link" href="/workspace">로그인</Link>
+          <Link className="primary-button compact" href="/workspace">요구사항 정리 시작하기</Link>
         </div>
       </header>
 
       <section id="top" className="hero-section">
         <div className="hero-copy">
-          <p className="eyebrow hero-reveal">Freelance operations, clarified</p>
-          <h1 className="hero-title hero-reveal max-w-6xl">
-            흩어진 문의를,
-            <span className="hero-title-line">
-              <span className="hero-inline-image" aria-hidden="true" /> 근거 있는 견적으로.
-            </span>
+          <p className="hero-context hero-reveal">한국 소프트웨어 개발 프리랜서를 위한 운영 도구</p>
+          <h1 className="hero-title hero-reveal">
+            모호한 고객 문의를,<br /><span>근거 있는 견적으로.</span>
           </h1>
           <p className="hero-description hero-reveal">
-            고객의 모호한 요청을 검증 가능한 요구사항, 현실적인 공수와 설명할 수 있는 견적으로 바꿉니다.
+            고객 문의에서 요구사항과 불확실성을 정리하고, 확인 질문·WBS·견적·제안서로 연결합니다.
           </p>
           <div className="hero-actions hero-reveal">
-            <a className="primary-button" href="#intake">
-              문의 정리 시작하기 <ArrowDown size={18} weight="bold" />
-            </a>
+            <Link className="primary-button" href="/workspace">
+              요구사항 정리 시작하기 <ArrowRight size={18} weight="bold" />
+            </Link>
             <a className="secondary-button" href="#workflow">
-              작업 방식 살펴보기
+              작동 방식 보기 <ArrowDown size={17} />
             </a>
           </div>
+          <p className="hero-note hero-reveal">AI 초안은 사용자가 검토하고 확정합니다.</p>
         </div>
-        <aside className="hero-visual hero-reveal" aria-label="견적 검토 미리보기">
-          <div className="hero-visual-image" />
-          <div className="floating-sheet">
-            <div>
-              <span>Recommended</span>
-              <strong>8–10주</strong>
-            </div>
-            <p>근거 12개와 확인 질문 5개를 기반으로 구성된 권장 시나리오</p>
-          </div>
-        </aside>
+        <div className="hero-stage hero-reveal">
+          <div className="orbit" aria-hidden="true"><i /><i /></div>
+          <LiveWorkflow snapshot={previewSnapshot} preview />
+        </div>
       </section>
 
-      <section id="intake" className="intake-section chapter">
-        <div className="section-heading">
-          <p className="eyebrow">Project Intake</p>
-          <h2>고객의 말과 확정된 범위를 한 화면에서 구분합니다.</h2>
-          <p>AI가 만든 초안은 그대로 확정되지 않습니다. 근거, 가정과 미해결 질문을 확인한 뒤 다음 단계로 이동합니다.</p>
+      <section id="product" className="chapter problem-section">
+        <div className="section-heading wide-heading">
+          <p className="section-context">견적 전 판단해야 할 것</p>
+          <h2>견적이 어려운 이유는<br />가격표가 없어서가 아닙니다.</h2>
+          <p>고객의 말 속에서 범위, 일정, 위험과 빠진 정보를 동시에 판단해야 하기 때문입니다.</p>
         </div>
-
-        <div className="intake-grid grid-flow-dense">
-          <article className="panel brief-panel card-lift">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">고객 문의 원문</span>
-                <h3>사내 직원용 웹 시스템</h3>
-              </div>
-              <span className="source-label"><FileText size={15} /> brief_0821.pdf</span>
-            </div>
-            <blockquote>
-              “직원 로그인, 관리자 계정 관리와 공지사항이 필요합니다. 기존 PostgreSQL 데이터와 연결하고 파일 첨부와 검색도 가능해야 합니다. 목표 오픈은 10주 후입니다.”
-            </blockquote>
-            <div className="brief-footer">
-              <span><Clock size={16} /> 오늘 10:24에 등록</span>
-              <button type="button">원문과 비교</button>
-            </div>
-          </article>
-
-          <article className="panel analysis-panel card-lift">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker ai-label"><Sparkle size={14} weight="fill" /> AI 초안</span>
-                <h3>분석 준비 완료</h3>
-              </div>
-              <span className="confidence">높은 신뢰도</span>
-            </div>
-            <ul className="confirmed-list">
-              {confirmedItems.map((item) => (
-                <li key={item}><Check size={16} weight="bold" /> {item}</li>
-              ))}
-            </ul>
-            <button className="full-button" type="button">요구사항 검토하기 <ArrowRight size={17} /></button>
-          </article>
-
-          <article className="panel mini-panel card-lift">
-            <span className="panel-kicker">확정됨</span>
-            <strong className="large-value">4</strong>
-            <p>사용자 입력으로 확인된 핵심 기능</p>
-          </article>
-          <article className="panel mini-panel warning-panel card-lift">
-            <span className="panel-kicker">확인 필요</span>
-            <strong className="large-value">5</strong>
-            <p>권한, 첨부 정책과 기존 DB 범위</p>
-          </article>
-          <article className="panel mini-panel evidence-panel card-lift">
-            <span className="panel-kicker"><ShieldCheck size={15} /> 근거</span>
-            <strong className="large-value">12</strong>
-            <p>원문, 업무 규칙과 유사 프로젝트</p>
-          </article>
+        <div className="bento-grid problem-grid">
+          {[
+            ["요구사항이 불완전합니다", "‘반응형으로 만들어 주세요’라는 한 문장만으로는 화면 수, 관리자 기능과 운영 범위를 알 수 없습니다."],
+            ["견적의 근거가 흩어져 있습니다", "과거 프로젝트, 단가표, 작업 경험과 외부 자료를 매번 따로 찾아야 합니다."],
+            ["AI 답변도 그대로 믿을 수 없습니다", "출처, 계산식과 가정이 보이지 않으면 빠른 답변도 실제 거래에는 사용하기 어렵습니다."],
+          ].map(([title, body]) => (
+            <article className="problem-card card-lift" key={title}>
+              <span className="problem-trace" aria-hidden="true" />
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -265,98 +225,142 @@ export default function Home() {
         <p className="manifesto-copy" aria-label="감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다.">
           {"감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다."
             .split(" ")
-            .map((word) => <span className="scrub-word" key={word}>{word} </span>)}
+            .map((word, index) => <span className="scrub-word" key={`${word}-${index}`}>{word} </span>)}
         </p>
       </section>
 
-      <section className="requirements chapter" aria-labelledby="requirements-title">
-        <div className="section-heading compact-heading">
-          <p className="eyebrow">Requirement map</p>
-          <h2 id="requirements-title">요구사항을 업무 언어로 다시 묶습니다.</h2>
+      <section id="workflow" className="chapter workflow-chapter">
+        <div className="section-heading">
+          <p className="section-context">문의에서 제안까지</p>
+          <h2>한 번의 문의가,<br />검토 가능한 제안서가 됩니다.</h2>
         </div>
-        <div className="horizontal-accordion">
-          {requirementGroups.map((group, index) => (
+        <div className="horizontal-accordion" role="list">
+          {workflowSteps.map(([title, body], index) => (
             <button
               type="button"
-              key={group.title}
-              className={`accordion-slice ${activeRequirement === index ? "active" : ""}`}
-              onMouseEnter={() => setActiveRequirement(index)}
-              onFocus={() => setActiveRequirement(index)}
-              onClick={() => setActiveRequirement(index)}
-              style={{ backgroundImage: `linear-gradient(180deg, transparent, rgba(5, 9, 14, .88)), url(${group.image})` }}
-              aria-expanded={activeRequirement === index}
+              key={title}
+              className={`accordion-slice ${activeStep === index ? "active" : ""}`}
+              onMouseEnter={() => setActiveStep(index)}
+              onFocus={() => setActiveStep(index)}
+              onClick={() => setActiveStep(index)}
+              aria-expanded={activeStep === index}
             >
-              <span className="accordion-index">0{index + 1}</span>
+              <span className="accordion-index">{index + 1}</span>
               <span className="accordion-content">
-                <strong>{group.title}</strong>
-                <small>{group.caption}</small>
-                <p>{group.detail}</p>
+                <strong>{title}</strong>
+                <p>{body}</p>
               </span>
             </button>
           ))}
         </div>
+        <p className="workflow-note"><ShieldCheck size={19} /> 중요한 단계마다 사용자의 확인을 기다립니다.</p>
       </section>
 
-      <section id="workflow" className="workflow-section chapter">
-        <div className="workflow-copy">
-          <p className="eyebrow">Guided workflow</p>
-          <h2>질문에서 제안서까지, 상태를 잃지 않고 이어집니다.</h2>
-          <p>각 단계의 결과는 근거와 함께 저장됩니다. 사용자가 확정하지 않은 AI의 판단은 다음 단계의 사실로 취급되지 않습니다.</p>
+      <section className="chapter deliverables-section">
+        <div className="section-heading wide-heading">
+          <p className="section-context">대화가 아닌 실제 산출물</p>
+          <h2>실제 업무에 사용할<br />결과를 만듭니다.</h2>
         </div>
-        <div className="workflow-cards">
-          {[
-            ["요구사항 정리", "문의 원문에서 기능, 제약, 일정과 예산 신호를 분리합니다.", "확인 질문 5개"],
-            ["근거 수집", "내부 프로젝트와 허용된 공식 자료를 찾아 주장별 출처를 연결합니다.", "Evidence 12개"],
-            ["견적 설계", "Lean, Recommended, Expanded 세 가지 범위와 공수 시나리오를 만듭니다.", "3개 시나리오"],
-            ["검증과 승인", "계산, 가정, 충돌과 누락을 확인한 후 사용자 승인 단계로 이동합니다.", "검증 통과"],
-          ].map(([title, body, result], index) => (
-            <article className="stack-card" key={title}>
-              <span className="stack-number">{String(index + 1).padStart(2, "0")}</span>
-              <div>
-                <h3>{title}</h3>
-                <p>{body}</p>
-              </div>
-              <strong>{result}</strong>
-            </article>
-          ))}
+        <div className="bento-grid deliverable-grid">
+          <article className="deliverable-card card-lift">
+            <FileText size={27} />
+            <h3>요구사항 명세</h3>
+            <p>기능, 제약, 일정, 예산, 누락 정보와 확인 질문을 구조화합니다.</p>
+            <ul><li>확정된 요구사항</li><li>확인 필요</li><li>제외 범위</li></ul>
+          </article>
+          <article className="deliverable-card featured card-lift">
+            <span className="scenario recommended">Recommended</span>
+            <h3>범위별 견적안</h3>
+            <p>필수, 권장, 확장 범위의 공수·금액·가정을 한 화면에서 비교합니다.</p>
+            <div className="scenario-row"><span>Lean</span><span>Recommended</span><span>Expanded</span></div>
+          </article>
+          <article className="deliverable-card card-lift">
+            <Check size={27} />
+            <h3>고객 전달용 제안서</h3>
+            <p>범위, 금액, 일정, 지급 조건, 가정과 제외 사항을 한 문서로 정리합니다.</p>
+            <ul><li>미리보기</li><li>승인 요청</li><li>결정 기록</li></ul>
+          </article>
         </div>
       </section>
 
-      <section id="stories" className="stories chapter">
-        <div className="story-card">
-          <div
-            className="story-portrait"
-            style={{ backgroundImage: `url(${reviews[reviewIndex].image})` }}
-            aria-hidden="true"
-          />
-          <div className="story-copy">
-            <blockquote>“{reviews[reviewIndex].quote}”</blockquote>
-            <div>
-              <strong>{reviews[reviewIndex].name}</strong>
-              <span>{reviews[reviewIndex].role}</span>
+      <section id="evidence" className="chapter evidence-section">
+        <div className="evidence-copy">
+          <p className="section-context">근거가 먼저 보이는 화면</p>
+          <h2>빠른 답변보다,<br />설명 가능한 결과를 우선합니다.</h2>
+          <p>견적에 사용한 자료, 반영한 수치, 계산식과 확인되지 않은 가정을 함께 보여줍니다.</p>
+        </div>
+        <div className="bento-grid evidence-grid scale-fade">
+          <article className="quote-item-preview">
+            <div className="preview-toolbar"><span>견적 항목 · 제품 예시</span><strong>사용자 확인 필요</strong></div>
+            <div className="evidence-item-list" role="listbox" aria-label="견적 항목 선택">
+              {evidenceExamples.map((item, index) => <button type="button" role="option" aria-selected={index === evidenceIndex} key={item.title} onClick={() => setEvidenceIndex(index)}><span>{String(index + 1).padStart(2, "0")}</span><strong>{item.title}</strong><small>{item.effort}</small></button>)}
             </div>
+            <dl>
+              <div><dt>예상 공수</dt><dd>{evidenceExamples[evidenceIndex].effort}</dd></div>
+              <div><dt>적용 단가</dt><dd>{evidenceExamples[evidenceIndex].rate}</dd></div>
+              <div><dt>계산</dt><dd>{evidenceExamples[evidenceIndex].calculation}</dd></div>
+              <div><dt>가정</dt><dd>{evidenceExamples[evidenceIndex].assumption}</dd></div>
+            </dl>
+          </article>
+          <aside className="evidence-drawer" aria-live="polite">
+            <span className="drawer-handle" />
+            <h3>{evidenceExamples[evidenceIndex].title}<br />연결 근거</h3>
+            {evidenceExamples[evidenceIndex].sources.map(([title, body]) => <div key={title}><strong>{title}</strong><p>{body}</p></div>)}
+          </aside>
+        </div>
+      </section>
+
+      <section className="chapter outcome-section">
+        <div className="outcome-orbit scale-fade" aria-hidden="true" />
+        <div className="outcome-copy">
+          <p className="section-context">완료 결과를 다음 판단으로</p>
+          <h2>끝난 프로젝트가,<br />다음 견적의 근거가 됩니다.</h2>
+          <p>AI가 스스로 학습한다는 의미가 아니라, 사용자가 승인한 실제 결과를 검색 근거로 재사용합니다.</p>
+        </div>
+        <div className="outcome-carousel" aria-live="polite">
+          <div className="outcome-card">
+            <span>예시 기록</span>
+            <h3>{outcomes[outcomeIndex].title}</h3>
+            <strong>{outcomes[outcomeIndex].metric}</strong>
+            <p>{outcomes[outcomeIndex].body}</p>
           </div>
-          <div className="story-controls">
-            <button type="button" onClick={previousReview} aria-label="이전 사용 경험"><ArrowLeft size={20} /></button>
-            <span>{reviewIndex + 1} / {reviews.length}</span>
-            <button type="button" onClick={nextReview} aria-label="다음 사용 경험"><ArrowRight size={20} /></button>
+          <div className="outcome-controls">
+            {outcomes.map((outcome, index) => (
+              <button
+                key={outcome.title}
+                type="button"
+                className={index === outcomeIndex ? "active" : ""}
+                onClick={() => setOutcomeIndex(index)}
+                aria-label={`${outcome.title} 보기`}
+              />
+            ))}
           </div>
+        </div>
+      </section>
+
+      <section id="audience" className="audience-section chapter">
+        <div className="section-heading wide-heading">
+          <p className="section-context">첫 번째 실제 업무 범위</p>
+          <h2>먼저, 한국 소프트웨어 개발<br />프리랜서의 견적 업무부터.</h2>
+          <p>웹·앱·자동화 프로젝트의 요구사항 정리, 작업 범위 산정과 고객 제안 흐름을 우선 검증합니다.</p>
+        </div>
+        <div className="role-marquee" aria-label="우선 지원 직무">
+          <div>{["Frontend", "Backend", "Full-stack", "Mobile", "Automation", "Frontend", "Backend", "Full-stack", "Mobile", "Automation"].map((role, index) => <span key={`${role}-${index}`}>{role}</span>)}</div>
         </div>
       </section>
 
       <section className="final-cta chapter">
-        <p className="eyebrow">A clearer next project</p>
-        <h2>다음 견적은 감이 아니라,<br />확인된 근거에서 시작하세요.</h2>
-        <div className="hero-actions">
-          <button className="primary-button inverted" type="button">첫 문의 정리하기 <ArrowRight size={18} /></button>
-          <button className="secondary-button inverted-secondary" type="button">데모 다시 보기</button>
-        </div>
+        <div className="cta-light" aria-hidden="true" />
+        <h2>다음 고객 문의부터,<br />더 명확하게 시작하세요.</h2>
+        <p>요구사항을 정리하고, 확인할 질문을 찾고, 근거 있는 견적의 첫 초안을 만들어 보세요.</p>
+        <Link className="primary-button inverted" href="/workspace">요구사항 정리 시작하기 <ArrowRight size={18} /></Link>
+        <small>초안은 언제든 수정할 수 있으며, 사용자의 확인 없이 확정되지 않습니다.</small>
       </section>
 
       <footer>
-        <div className="brand"><span className="brand-mark">FO</span><span>Freelance Ops</span></div>
-        <p>근거 있는 프리랜서 견적 운영 시스템</p>
-        <div><a href="#intake">문의 정리</a><a href="#workflow">진행 방식</a><a href="#top">맨 위로</a></div>
+        <div><strong>Freelance Ops</strong><p>고객 문의를 검토 가능한 요구사항과 근거 있는 견적으로 연결하는 프리랜서 운영 도구</p></div>
+        <nav><a href="#product">제품 소개</a><a href="#workflow">작동 방식</a><a href="#evidence">검증 원칙</a><Link href="/workspace">로그인</Link></nav>
+        <span>© 2026 Freelance Ops Agent</span>
       </footer>
     </main>
   );

@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
 CREATE TABLE app.document (
     id UUID PRIMARY KEY,
     workspace_id UUID NOT NULL REFERENCES app.workspace(id) ON DELETE CASCADE,

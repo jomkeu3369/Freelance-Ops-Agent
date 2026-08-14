@@ -1,10 +1,11 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.freelanceops.backend.domain.agentrun.entity.ToolExecutionEntity;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.repository.ToolExecutionRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,7 @@ public class ToolExecutionAuditService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
+    @Autowired
     public ToolExecutionAuditService(ToolExecutionRepository executionRepository, AgentRunRepository runRepository, ObjectMapper objectMapper) {
         this(executionRepository, runRepository, objectMapper, Clock.systemUTC());
     }
@@ -66,7 +68,7 @@ public class ToolExecutionAuditService {
         try {
             byte[] canonical = objectMapper.writeValueAsString(input).getBytes(StandardCharsets.UTF_8);
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(canonical));
-        } catch (JsonProcessingException | NoSuchAlgorithmException error) {
+        } catch (JacksonException | NoSuchAlgorithmException error) {
             throw new IllegalStateException("tool input could not be hashed", error);
         }
     }

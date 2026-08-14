@@ -72,9 +72,7 @@ def _safety_context(raw: SafetyContextInput | None) -> SafetyContext:
     )
 
 
-def build_operational_router_graph(
-    gateway_provider: Callable[[], OperationalRouteGateway] = build_operational_gateway,
-) -> Any:
+def build_operational_router_graph(gateway_provider: Callable[[], OperationalRouteGateway] = build_operational_gateway,) -> Any:  # noqa: E501
     async def classify(state: OperationalRouterState) -> dict[str, object]:
         question = state.get("question", "").strip()
         if not question:
@@ -94,6 +92,7 @@ def build_operational_router_graph(
 
         evaluation = decision.llm_evaluation
         shadow = decision.local_decision
+
         return {
             "status": "HUMAN_REQUIRED" if decision.route.value == "HUMAN_REQUIRED" else "ROUTED",
             "route": decision.route.value,
@@ -110,12 +109,7 @@ def build_operational_router_graph(
             "shadow_fallback_reason": shadow.fallback_reason if shadow is not None else None,
         }
 
-    builder: StateGraph[
-        OperationalRouterState,
-        None,
-        OperationalRouterInput,
-        OperationalRouterState,
-    ] = StateGraph(OperationalRouterState, input_schema=OperationalRouterInput)
+    builder: StateGraph[OperationalRouterState, None, OperationalRouterInput, OperationalRouterState] = StateGraph(OperationalRouterState, input_schema=OperationalRouterInput)  # noqa: E501
     builder.add_node("policy_and_llm_route", classify)
     builder.add_edge(START, "policy_and_llm_route")
     builder.add_edge("policy_and_llm_route", END)

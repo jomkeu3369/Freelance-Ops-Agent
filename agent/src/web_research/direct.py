@@ -25,6 +25,7 @@ class DirectHttpProvider:
     def __init__(self, client: httpx.AsyncClient | None = None, security: UrlSecurityPolicy | None = None, max_bytes: int = 5_000_000, max_pdf_pages: int = 200) -> None:  # noqa: E501
         if max_bytes < 1 or max_pdf_pages < 1:
             raise ValueError("fetch limits must be positive")
+
         self._client = client
         self._security = security or UrlSecurityPolicy()
         self._max_bytes = max_bytes
@@ -36,6 +37,7 @@ class DirectHttpProvider:
             follow_redirects=False,
             headers={"User-Agent": "FreelanceOpsResearchBot/2.0"}
         )
+
         owns_client = self._client is None
         try:
             source_url = str(request.url)
@@ -44,6 +46,7 @@ class DirectHttpProvider:
             normalized = content.strip()
             if not normalized:
                 raise DirectFetchError("collected document is empty")
+
             return WebDocument(
                 source_url=web_url(source_url),
                 final_url=web_url(final_url),
@@ -73,37 +76,48 @@ class DirectHttpProvider:
                     location = response.headers.get("location")
                     if not location:
                         raise DirectFetchError("redirect response did not contain a location")
+
                     current_url = urljoin(current_url, location)
                     continue
+
                 if response.status_code < 200 or response.status_code >= 300:
                     raise DirectFetchError(f"web source returned status {response.status_code}")
+
                 content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
                 if content_type not in self._ALLOWED_CONTENT_TYPES:
                     raise DirectFetchError("web source content type is forbidden")
+
                 declared_length = response.headers.get("content-length")
                 if declared_length is not None:
                     try:
                         declared_bytes = int(declared_length)
                     except ValueError as error:
                         raise DirectFetchError("web source returned an invalid content length") from error
+
                     if declared_bytes < 0 or declared_bytes > self._max_bytes:
                         raise DirectFetchError("web source exceeds the byte limit")
+
                 chunks: list[bytes] = []
                 size = 0
                 async for chunk in response.aiter_bytes():
                     size += len(chunk)
                     if size > self._max_bytes:
                         raise DirectFetchError("web source exceeds the byte limit")
+
                     chunks.append(chunk)
+
                 return str(response.url), content_type, b"".join(chunks)
+
         raise DirectFetchError("web source exceeded the redirect limit")
 
     def _parse(self, payload: bytes, content_type: str) -> tuple[str, str, str]:
         if content_type == "application/pdf":
             return self._parse_pdf(payload)
+
         text = payload.decode("utf-8", errors="replace")
         if content_type == "text/plain":
             return "", text, "plain-text-v1"
+
         parser = _VisibleTextParser()
         parser.feed(text)
         return parser.title, parser.content, "stdlib-html-v1"
@@ -113,11 +127,14 @@ class DirectHttpProvider:
             reader = PdfReader(BytesIO(payload), strict=True)
             if len(reader.pages) > self._max_pdf_pages:
                 raise DirectFetchError("PDF exceeds the page limit")
+
             content = "\n\n".join(page.extract_text() or "" for page in reader.pages)
             title = str(reader.metadata.title or "") if reader.metadata is not None else ""
             return title, content, "pypdf-v1"
+
         except DirectFetchError:
             raise
+
         except Exception as error:
             raise DirectFetchError("PDF could not be parsed safely") from error
 
@@ -132,14 +149,17 @@ class _VisibleTextParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         del attrs
+
         if tag in {"script", "style", "noscript", "svg"}:
             self._ignored_depth += 1
+
         if tag == "title":
             self._in_title = True
 
     def handle_endtag(self, tag: str) -> None:
         if tag in {"script", "style", "noscript", "svg"} and self._ignored_depth > 0:
             self._ignored_depth -= 1
+
         if tag == "title":
             self._in_title = False
 
@@ -147,8 +167,10 @@ class _VisibleTextParser(HTMLParser):
         value = " ".join(data.split())
         if not value or self._ignored_depth:
             return
+
         if self._in_title:
             self._title_parts.append(value)
+
         else:
             self._parts.append(value)
 

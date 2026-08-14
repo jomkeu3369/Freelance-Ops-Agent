@@ -12,14 +12,14 @@ from contracts import DepartmentName, DepartmentResult, RequestTier
             2. 단순 LLM과 React 에이전트로 답변할 수 없는 경우 (그렇게 판단한 경우)
                 - 이 경우에는 Q&A 시스템에 가까우므로 MAX_HOP을 2로 제한하고, REDIS에 캐싱된 답변을 인용하도록 함
                     - (근거: Q&A 시스템은 답변의 정확도도 중요하지만, 답변 속도가 더 중요한 경우가 많기 때문 )
-        
+
 """
 
 DEPARTMENT_ORDER = [
     DepartmentName.REQUIREMENTS,
     DepartmentName.RESEARCH,
     DepartmentName.DEAL_DESIGN,
-    DepartmentName.VERIFICATION,
+    DepartmentName.VERIFICATION
 ]
 
 
@@ -43,7 +43,6 @@ def select_departments(request_tier: RequestTier, max_departments: int) -> list[
         return [DepartmentName.REQUIREMENTS]
 
     return DEPARTMENT_ORDER[:max_departments]
-
 
 def global_orchestrator(state: WorkflowState) -> dict[str, object]:
     missing_fields = [field for field in ("request_tier", "max_departments") if field not in state]
@@ -91,7 +90,6 @@ def global_orchestrator(state: WorkflowState) -> dict[str, object]:
         "status": "RUNNING" if selected else "COMPLETED",
     }
 
-
 def department_node(department: DepartmentName) -> Callable[[WorkflowState], dict[str, object]]:
     def run_department(state: WorkflowState) -> dict[str, object]:
         selected = state.get("selected_departments", [])
@@ -114,16 +112,13 @@ def department_node(department: DepartmentName) -> Callable[[WorkflowState], dic
 
     return run_department
 
-
 def route_after_orchestrator(state: WorkflowState) -> str:
     selected = state.get("selected_departments", [])
     return selected[0].lower() if selected else "end"
 
-
 def route_after_department(state: WorkflowState) -> str:
     active_department = state.get("active_department")
     return active_department.lower() if active_department else "end"
-
 
 def build_supervisor_graph() -> Any:
     builder: StateGraph[WorkflowState, None, WorkflowState, WorkflowState] = StateGraph(WorkflowState)

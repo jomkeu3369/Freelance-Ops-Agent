@@ -7,6 +7,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -28,6 +30,7 @@ public class ToolExecutionEntity {
     @Column(name = "tool_name", nullable = false, length = 100)
     private String toolName;
 
+    @JdbcTypeCode(SqlTypes.CHAR)
     @Column(name = "input_hash", nullable = false, length = 64)
     private String inputHash;
 

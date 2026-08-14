@@ -31,13 +31,17 @@ class DelegationTokenVerifier:
     def __init__(self, *, public_key: str, issuer: str, audience: str, algorithms: tuple[str, ...] = ("RS256",), leeway_seconds: int = 5, key_id: str | None = None, previous_public_keys: Mapping[str, str] | None = None) -> None:  # noqa: E501
         if not public_key.strip() or not issuer.strip() or not audience.strip():
             raise ValueError("delegation token verification settings must not be empty")
+
         if not algorithms or any(algorithm not in self._ALLOWED_ALGORITHMS for algorithm in algorithms):
             raise ValueError("delegation tokens require an asymmetric signing algorithm")
+
         previous_keys = dict(previous_public_keys or {})
         if any(not kid.strip() or not key.strip() for kid, key in previous_keys.items()):
             raise ValueError("delegation token rotation keys must not be empty")
+
         if key_id is not None and (not key_id.strip() or key_id in previous_keys):
             raise ValueError("active delegation key id must be non-empty and unique")
+
         self._public_key = public_key
         self._public_keys = ({key_id: public_key, **previous_keys} if key_id is not None else {})
         self._issuer = issuer
@@ -63,6 +67,7 @@ class DelegationTokenVerifier:
             permissions = claims["permissions"]
             if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
                 raise ValueError("invalid permissions")
+
             principal = DelegationPrincipal(
                 subject=str(claims["sub"]),
                 token_id=str(claims["jti"]),
@@ -72,19 +77,24 @@ class DelegationTokenVerifier:
                 initiated_by=UUID(str(claims["initiated_by"])),
                 permissions=frozenset(permissions),
             )
+
             if principal.subject != str(principal.initiated_by):
                 raise ValueError("delegated subject does not match initiated_by")
             return principal
+
         except (KeyError, TypeError, ValueError, jwt.PyJWTError) as error:
             raise TokenVerificationError("delegation token is invalid") from error
 
     def _verification_key(self, token: str) -> str:
         if not self._public_keys:
             return self._public_key
+
         header = jwt.get_unverified_header(token)
         key_id = header.get("kid")
+
         if not isinstance(key_id, str) or key_id not in self._public_keys:
             raise TokenVerificationError("delegation token is invalid")
+
         return self._public_keys[key_id]
 
     @staticmethod

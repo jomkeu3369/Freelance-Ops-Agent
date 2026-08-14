@@ -57,6 +57,7 @@ services:
     restart: unless-stopped
     environment:
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-development}
       DB_URL: jdbc:postgresql://postgres:5432/freelance_ops
       DB_USERNAME: app_user

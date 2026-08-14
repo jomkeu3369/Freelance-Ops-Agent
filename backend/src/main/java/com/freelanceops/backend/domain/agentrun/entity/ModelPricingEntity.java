@@ -7,6 +7,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -20,7 +22,7 @@ public class ModelPricingEntity {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private Provider provider;
     @Column(nullable = false, length = 100) private String model;
     @Column(name = "version_label", nullable = false, length = 100) private String versionLabel;
-    @Column(nullable = false, length = 3) private String currency;
+    @JdbcTypeCode(SqlTypes.CHAR) @Column(nullable = false, length = 3) private String currency;
     @Column(name = "input_per_million", nullable = false, precision = 19, scale = 8) private BigDecimal inputPerMillion;
     @Column(name = "cached_input_per_million", nullable = false, precision = 19, scale = 8) private BigDecimal cachedInputPerMillion;
     @Column(name = "output_per_million", nullable = false, precision = 19, scale = 8) private BigDecimal outputPerMillion;

@@ -25,24 +25,32 @@ class UrlSecurityPolicy:
         parsed = urlsplit(url)
         if parsed.username is not None or parsed.password is not None:
             raise WebResearchSecurityError("URL credentials are forbidden")
+
         allowed_schemes = {"https"} if self._require_https else {"http", "https"}
         if parsed.scheme.lower() not in allowed_schemes:
             raise WebResearchSecurityError("URL scheme is forbidden")
+
         if parsed.fragment:
             parsed = parsed._replace(fragment="")
+
         host = (parsed.hostname or "").lower().rstrip(".")
         if not host or not any(host == domain or host.endswith("." + domain) for domain in allowed_domains):
             raise WebResearchSecurityError("URL host is outside the allowlist")
+
         if host in {"localhost", "localhost.localdomain"}:
             raise WebResearchSecurityError("local hostnames are forbidden")
+
         if resolve_dns:
             port = parsed.port or (443 if parsed.scheme == "https" else 80)
             addresses = await self._resolver(host, port)
+
             if not addresses:
                 raise WebResearchSecurityError("URL host did not resolve")
+
             for address in addresses:
                 if not is_public_address(address):
                     raise WebResearchSecurityError("URL resolves to a non-public address")
+
         return parsed.geturl()
 
 

@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.identity.service;
 
 import com.freelanceops.backend.domain.identity.entity.UserAccountEntity;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -31,6 +32,7 @@ public class AuthTokenService {
     private final Clock clock;
     private final SecureRandom secureRandom;
 
+    @Autowired
     public AuthTokenService(
         JwtEncoder encoder,
         @Value("${app.auth.issuer:freelance-ops-backend}") String issuer,

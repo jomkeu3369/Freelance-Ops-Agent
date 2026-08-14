@@ -68,6 +68,24 @@ class FixedProvider:
         )
 
 
+class SequenceReActProvider:
+    def __init__(self, payloads: list[dict[str, object]]) -> None:
+        self.payloads = list(payloads)
+        self.prompts: list[str] = []
+
+    async def generate_react_step(
+        self,
+        selection: ModelSelection,
+        prompt: str,
+        *,
+        max_output_tokens: int,
+        max_attempts: int | None = None,
+    ) -> ModelGeneration:
+        del selection, max_output_tokens, max_attempts
+        self.prompts.append(prompt)
+        return ModelGeneration(payload=self.payloads.pop(0), input_tokens=5, output_tokens=5)
+
+
 class FixedProjectContextTool:
     def __init__(self, request: AgentRunRequest) -> None:
         self._request = request
@@ -195,6 +213,42 @@ async def test_research_department_receives_grounded_sources_and_charges_budget(
     assert outcome.usage.tool_calls == 3
     assert outcome.usage.search_credits == 1
     assert outcome.usage.crawled_pages == 1
+
+
+async def test_operational_react_route_uses_model_selected_allowlisted_tools() -> None:
+    request = _request(model_calls=5, tool_calls=3, input_tokens=100, output_tokens=100)
+    request.context.effective_permissions.append("document.read")
+    request.budget.max_search_credits = 1
+    provider = SequenceReActProvider(
+        [
+            {"action": "TOOL", "tool_name": "get_project_context", "arguments": {}},
+            {"action": "FINAL", "summary": "요구사항을 구조화했습니다.", "arguments": {}},
+            {"action": "TOOL", "tool_name": "web_research", "arguments": {"query": "공식 정책"}},
+            {"action": "FINAL", "summary": "공식 근거를 확인했습니다.", "arguments": {}},
+        ]
+    )
+    project_tool = FixedProjectContextTool(request)
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.REACT_AGENT),
+        provider,  # type: ignore[arg-type]
+        project_tool,
+        FixedResearchTool(),
+    )
+
+    outcome = await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
+
+    assert outcome.result is not None
+    assert [result.summary for result in outcome.result.department_results] == [
+        "요구사항을 구조화했습니다.",
+        "공식 근거를 확인했습니다.",
+    ]
+    assert outcome.result.department_results[1].sources[0].content_sha256 == "a" * 64
+    assert outcome.usage is not None
+    assert outcome.usage.model_calls == 5
+    assert outcome.usage.tool_calls == 3
+    assert outcome.usage.search_credits == 1
+    assert project_tool.token == "delegation-token"
+    assert "allowed_tools" in provider.prompts[0]
 
 
 async def test_required_question_creates_clarification_interruption() -> None:

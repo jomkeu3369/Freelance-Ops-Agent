@@ -1,7 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunEvent;
 import org.springframework.stereotype.Component;
@@ -69,7 +69,7 @@ public class AgentEventRelay {
                 throw new IOException("agent event payload does not match its envelope");
             }
             return event;
-        } catch (JsonProcessingException error) {
+        } catch (JacksonException error) {
             throw new IOException("agent event payload is invalid", error);
         }
     }

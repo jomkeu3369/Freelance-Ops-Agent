@@ -45,6 +45,20 @@ jobs:
 
   agent:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: freelance_ops
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d freelance_ops"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     defaults:
       run:
         working-directory: agent
@@ -55,7 +69,13 @@ jobs:
           version: "0.11.26"
           enable-cache: true
       - run: uv sync --locked
+      - name: Initialize Agent integration database
+        run: |
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -d freelance_ops -v ON_ERROR_STOP=1 -c \
+            "CREATE EXTENSION IF NOT EXISTS vector; CREATE SCHEMA IF NOT EXISTS agent_runtime AUTHORIZATION postgres;"
       - run: uv run --locked pytest
+        env:
+          AGENT_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/freelance_ops
       - run: uv run --locked ruff check src tests
       - run: uv run --locked mypy
 

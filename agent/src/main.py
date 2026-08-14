@@ -26,12 +26,7 @@ from runtime import (
     RunCoordinator,
 )
 from security import DelegationTokenVerifier
-from web_research import (
-    BoundedWebResearchService,
-    DirectHttpProvider,
-    TavilyWebResearchProvider,
-    WebResearchRouter,
-)
+from web_research import BoundedWebResearchService, DirectHttpProvider, TavilyWebResearchProvider, WebResearchRouter
 
 RuntimeComponents = tuple[
     RunCoordinator,
@@ -46,20 +41,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database: PgVectorConnectionManager | None = app.state.database_manager
     store: PostgresAgentRunStore | None = app.state.postgres_run_store
     checkpoint: PostgresCheckpointJournal | None = app.state.checkpoint_journal
-    
+
     try:
         if database is not None and store is not None:
             await database.open()
             await store.initialize()
-        
+
         if checkpoint is not None:
             await checkpoint.open()
         yield
-    
+
     finally:
         if checkpoint is not None:
             await checkpoint.close()
-        
+
         if database is not None:
             await database.close()
 
@@ -75,26 +70,21 @@ class FreelanceOpsAgentAiServer:
             # docs_url=None,
             # redoc_url=None
         )
-        
+
         self.app.middleware("http")(trace_context_middleware)
         database_manager: PgVectorConnectionManager | None = None
         postgres_run_store: PostgresAgentRunStore | None = None
         checkpoint_journal: PostgresCheckpointJournal | None = None
-        
+
         if run_coordinator is None:
             run_coordinator, database_manager, postgres_run_store, checkpoint_journal = _build_run_runtime()
-        
+
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
-        self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(
-            OpenAIRaptorBuildService(),
-            GeminiRaptorBuildService(),
-        )
-        self.app.state.delegation_token_verifier = (
-            delegation_token_verifier or _build_delegation_token_verifier()
-        )
+        self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(OpenAIRaptorBuildService(), GeminiRaptorBuildService())  # noqa: E501
+        self.app.state.delegation_token_verifier = (delegation_token_verifier or _build_delegation_token_verifier())
         self._register_routes()
 
     def _register_routes(self) -> None:
@@ -113,15 +103,14 @@ class FreelanceOpsAgentAiServer:
     def get_app(self) -> FastAPI:
         return self.app
 
-
 def _build_run_runtime() -> RuntimeComponents:
     settings = get_settings()
     try:
         gateway: OperationalGateway = OperationalRouteGateway(build_openai_route_evaluator(settings))
-    
+
     except RuntimeError:
         gateway = FailClosedOperationalGateway()
-    
+
     executor = OperationalAgentExecutor(
         gateway,
         CompositeModelProvider(
@@ -142,7 +131,7 @@ def _build_run_runtime() -> RuntimeComponents:
     )
     if settings.run_store_backend == "memory":
         return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None
-    
+
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
             database_url=settings.database_url,
@@ -154,7 +143,7 @@ def _build_run_runtime() -> RuntimeComponents:
             max_idle_seconds=settings.database_pool_max_idle_seconds,
         )
     )
-    
+
     store = PostgresAgentRunStore(database)
     checkpoint = (
         PostgresCheckpointJournal(
@@ -164,17 +153,18 @@ def _build_run_runtime() -> RuntimeComponents:
         if settings.checkpoint_backend == "postgres"
         else None
     )
-    
-    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint
 
+    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:
         return None
+
     api_key = settings.tavily_api_key
     key_value = api_key.get_secret_value() if api_key is not None else ""
     tavily = TavilyWebResearchProvider(AsyncTavilyClient(api_key=key_value))
     router = WebResearchRouter(tavily, DirectHttpProvider())
+
     return BoundedWebResearchService(
         router,
         settings.allowed_web_research_domains(),
@@ -182,7 +172,6 @@ def _build_web_research_service(settings: Settings) -> BoundedWebResearchService
         max_fetches=settings.web_research_max_fetches,
         timeout_seconds=settings.web_research_timeout_seconds
     )
-
 
 def _build_delegation_token_verifier() -> DelegationTokenVerifier:
     settings = get_settings()
@@ -192,17 +181,20 @@ def _build_delegation_token_verifier() -> DelegationTokenVerifier:
         if public_key is not None
         else ""
     )
+
     previous_key = settings.delegation_token_previous_public_key
     previous_key_value = (
         previous_key.get_secret_value().replace("\\n", "\n").strip()
         if previous_key is not None
         else ""
     )
+
     previous_keys = (
         {settings.delegation_token_previous_key_id: previous_key_value}
         if settings.delegation_token_previous_key_id is not None and previous_key_value
         else {}
     )
+
     return DelegationTokenVerifier(
         public_key=public_key_value or "UNCONFIGURED",
         key_id=settings.delegation_token_key_id,
@@ -214,16 +206,16 @@ def _build_delegation_token_verifier() -> DelegationTokenVerifier:
             for algorithm in settings.delegation_token_algorithms.split(",")
             if algorithm.strip()
         ),
-        leeway_seconds=settings.delegation_token_leeway_seconds,
+        leeway_seconds=settings.delegation_token_leeway_seconds
     )
-
 
 def create_app(*, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None) -> FastAPI:  # noqa: E501
     server = FreelanceOpsAgentAiServer(
         run_coordinator=run_coordinator,
         delegation_token_verifier=delegation_token_verifier,
-        raptor_build_service=raptor_build_service,
+        raptor_build_service=raptor_build_service
     )
     return server.get_app()
+
 
 app = create_app()
