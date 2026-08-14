@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: Linux GitHub Actions에서 `backend/gradlew`가 Git mode `100644`로 checkout되어 Backend CI가 exit 126으로 실패하는 문제를 확인했다. Windows checkout에서도 일관되게 실행되도록 Backend CI 테스트와 Docker image build가 Gradle wrapper를 `bash ./gradlew`로 호출하게 수정했으며 workflow YAML과 `git diff --check`를 검증했다.
+
 - 2026-08-14: 첫 Agent Production CD에서 Compose가 선택형 이전 delegation key 환경 변수를 빈 문자열로 주입해 Pydantic `min_length=1` 검증이 실패하고 컨테이너가 재시작되는 문제를 확인했다. Agent 설정이 빈 `AGENT_DELEGATION_TOKEN_PREVIOUS_KEY_ID`와 `AGENT_DELEGATION_TOKEN_PREVIOUS_PUBLIC_KEY`를 미설정 값으로 정규화하도록 수정하고 회귀 테스트를 추가했다. Agent 전체 테스트는 152 passed, 1 skipped로 통과했다.
 
 - 2026-08-14: `main` push에서 변경 경로를 분류하고 관련 Agent·Backend·Contracts & Compose CI가 통과한 뒤 Production까지 자동 배포하는 `Production Auto CD`를 추가했다. 자동 image tag는 commit SHA 기반이며 서비스 단독 변경은 해당 서비스만 배포한다. 계약·공통 Compose·배포 script 변경은 Agent→Backend 순서로 직렬화하고 Caddy 변경은 Backend만 반영한다. PostgreSQL infra 변경은 데이터 보호를 위해 CI 검증만 자동화하고 운영 적용은 제외했다. 기존 수동 서비스별 CD는 복구용으로 유지하며 결정은 ADR-0025에 기록했다. 전체 workflow 7개의 YAML·재사용 input 계약, 자동 CD 의존성, 경로 분류 shell 문법, 세 Compose `config --quiet`와 `git diff --check`가 통과했다.

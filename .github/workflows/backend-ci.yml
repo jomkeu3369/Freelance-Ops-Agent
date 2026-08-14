@@ -30,7 +30,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - run: ./gradlew test --no-daemon
+      - run: bash ./gradlew test --no-daemon
 
   image:
     name: Backend image

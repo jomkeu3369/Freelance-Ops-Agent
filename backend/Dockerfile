@@ -6,7 +6,7 @@ COPY gradlew gradlew
 COPY gradlew.bat gradlew.bat
 COPY settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY src src
-RUN ./gradlew bootJar --no-daemon
+RUN bash ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:21-jre
 
