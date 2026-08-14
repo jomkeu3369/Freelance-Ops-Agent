@@ -88,4 +88,13 @@ jobs:
       - name: Verify public readiness
         env:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-        run: curl --fail --silent --show-error "$PRODUCTION_BASE_URL/actuator/health/readiness"
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --retry 18 \
+            --retry-all-errors \
+            --retry-delay 5 \
+            --retry-max-time 120 \
+            "$PRODUCTION_BASE_URL/actuator/health/readiness"

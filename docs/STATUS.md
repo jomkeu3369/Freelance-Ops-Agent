@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: Backend와 Caddy가 정상 기동한 직후 GitHub Actions의 공개 readiness 검사가 최초 TLS 인증서 준비보다 먼저 실행되어 OpenSSL `tlsv1 alert internal error`로 실패 표시되는 경쟁 조건을 확인했다. 실제 공개 endpoint는 이후 HTTP 200과 `status=UP`을 반환했다. Backend CD의 공개 readiness curl에 모든 전송 오류를 대상으로 최대 120초의 bounded retry를 적용했다.
+
 - 2026-08-14: Linux GitHub Actions에서 `backend/gradlew`가 Git mode `100644`로 checkout되어 Backend CI가 exit 126으로 실패하는 문제를 확인했다. Windows checkout에서도 일관되게 실행되도록 Backend CI 테스트와 Docker image build가 Gradle wrapper를 `bash ./gradlew`로 호출하게 수정했으며 workflow YAML과 `git diff --check`를 검증했다.
 
 - 2026-08-14: 첫 Agent Production CD에서 Compose가 선택형 이전 delegation key 환경 변수를 빈 문자열로 주입해 Pydantic `min_length=1` 검증이 실패하고 컨테이너가 재시작되는 문제를 확인했다. Agent 설정이 빈 `AGENT_DELEGATION_TOKEN_PREVIOUS_KEY_ID`와 `AGENT_DELEGATION_TOKEN_PREVIOUS_PUBLIC_KEY`를 미설정 값으로 정규화하도록 수정하고 회귀 테스트를 추가했다. Agent 전체 테스트는 152 passed, 1 skipped로 통과했다.
