@@ -183,6 +183,17 @@ test("authentication layout keeps the form visible and Korean words intact", asy
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.auth-message h1 \{[^}]*clamp\(2\.65rem, 11vw, 3\.8rem\)/);
 });
 
+test("workspace settings and requirement controls remain readable at desktop widths", async () => {
+  const css = await read("../app/globals.css");
+  assert.match(css, /\.settings-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
+  assert.match(css, /\.settings-heading h1 \{[^}]*word-break: keep-all/);
+  assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);
+  assert.match(css, /\.requirement-editor \.form-row \{[^}]*grid-template-columns: minmax\(0, 1\.5fr\) minmax\(180px, \.5fr\)/);
+  assert.match(css, /\.requirement-editor input, \.requirement-editor select, \.requirement-editor textarea \{[^}]*width: 100%/);
+  assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);
+  assert.match(css, /\.requirement-editor textarea \{[^}]*min-height: 92px/);
+});
+
 test("every CSS custom property resolves except runtime font variables", async () => {
   const css = await read("../app/globals.css");
   const definitions = new Set([...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((match) => match[1]));
