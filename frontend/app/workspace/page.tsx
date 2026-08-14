@@ -114,6 +114,38 @@ gsap.registerPlugin(useGSAP);
 
 const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
 
+const permissionAreaLabels: Record<string, string> = {
+  workspace: "작업 공간",
+  member: "팀원",
+  role: "역할",
+  client: "고객",
+  project: "프로젝트",
+  document: "근거 자료",
+  quotation: "견적",
+  outcome: "프로젝트 결과",
+  agent: "AI 분석",
+  audit: "활동 기록",
+  integration: "외부 연동",
+};
+
+const permissionActionLabels: Record<string, string> = {
+  read: "조회",
+  write: "등록·수정",
+  delete: "삭제",
+  manage: "관리",
+  transfer: "소유권 이전",
+  run: "실행",
+  respond: "확인 요청 응답",
+  cancel: "중단",
+  approve: "승인",
+  publish: "발행",
+};
+
+function formatPermissionLabel(permission: string) {
+  const [area, action] = permission.split(".");
+  return `${permissionAreaLabels[area] ?? area} · ${permissionActionLabels[action] ?? action}`;
+}
+
 export default function WorkspacePage() {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -670,7 +702,7 @@ function AuthGate({
       <section className="auth-message">
         <span>Freelance Ops</span>
         <h1>모호한 문의를<br />검토 가능한 작업으로.</h1>
-        <p>로그인하면 프로젝트 생성부터 실시간 Agent 실행, 확인 질문과 결과 검토까지 한 화면에서 이어집니다.</p>
+        <p>로그인하면 문의 등록부터 AI 분석, 견적 작성과 결과 확인까지 한곳에서 이어갈 수 있습니다.</p>
         <div className="auth-flow" aria-hidden="true"><i /><i /><i /><i /></div>
       </section>
       <section className="auth-panel">
@@ -767,7 +799,7 @@ function PipelineBoard({
       </div>
       <div className="pipeline-summary"><div><span>활성 프로젝트</span><strong>{activeProjects.length}</strong></div><div><span>견적 진행</span><strong>{projects.filter((project) => ["QUOTING", "NEGOTIATING"].includes(project.status)).length}</strong></div><div><span>회고 필요</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}</strong></div></div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
-      {activeProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>아직 등록된 문의가 없습니다.</h2><p>{canWrite ? "첫 고객 문의를 등록하면 이곳에서 단계별 진행 상태를 관리할 수 있습니다." : "이 Workspace에서는 프로젝트를 읽기 전용으로 확인할 수 있습니다."}</p>{canWrite && <button type="button" className="primary-button" onClick={onCreate}>첫 문의 등록</button>}</div> : (
+      {activeProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>아직 등록된 문의가 없습니다.</h2><p>{canWrite ? "첫 고객 문의를 등록하면 이곳에서 단계별 진행 상태를 관리할 수 있습니다." : "현재 작업 공간의 프로젝트를 조회할 수 있습니다."}</p>{canWrite && <button type="button" className="primary-button" onClick={onCreate}>첫 문의 등록</button>}</div> : (
         <div className="pipeline-board">
           {pipelineColumns.map((column) => {
             const columnProjects = activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus));
@@ -991,7 +1023,7 @@ function KnowledgePanel({ session, permissions }: { session: AuthSession; permis
       setDocuments((current) => [document, ...current]);
       setSelectedId(document.id);
       setDetail(document);
-      setNotice("자료가 저장되었습니다. Agent 검색 범위에서 사용할 수 있습니다.");
+      setNotice("자료를 저장했습니다. 다음 AI 분석부터 참고 자료로 활용됩니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "자료를 업로드하지 못했습니다.");
     } finally {
@@ -1009,7 +1041,7 @@ function KnowledgePanel({ session, permissions }: { session: AuthSession; permis
       setSelectedId(remaining[0]?.id ?? null);
       setDetail(null);
       setArchiveTarget(null);
-      setNotice("자료를 보관했습니다. 이후 Agent 검색에서는 제외됩니다.");
+      setNotice("자료를 보관했습니다. 다음 AI 분석부터 참고 대상에서 제외됩니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "자료를 보관하지 못했습니다.");
     } finally {
@@ -1020,7 +1052,7 @@ function KnowledgePanel({ session, permissions }: { session: AuthSession; permis
   return (
     <section className="knowledge-page">
       <div className="knowledge-heading">
-        <div><span>EVIDENCE LIBRARY</span><h1>Agent가 참고할 자료를 직접 관리합니다.</h1><p>과거 프로젝트, 정책, 약관과 사용자 자료를 Workspace 경계 안에서 검토하고 검색 범위를 통제하세요.</p></div>
+        <div><span>REFERENCE LIBRARY</span><h1>AI가 참고할 자료를 한곳에서 관리하세요.</h1><p>과거 프로젝트와 정책, 약관을 모아두고 분석에 활용할 자료를 직접 선택할 수 있습니다.</p></div>
         {canWrite && <label className="primary-button">{uploading ? <CircleNotch className="spin" /> : <Plus size={18} />} 자료 업로드<input type="file" accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/json" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void upload(file); }} /></label>}
       </div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
@@ -1032,7 +1064,7 @@ function KnowledgePanel({ session, permissions }: { session: AuthSession; permis
       </div>
       <div className="knowledge-layout">
         <section className="knowledge-list" aria-label="근거 자료 목록">
-          {loading ? <div className="section-loading"><CircleNotch className="spin" /> 자료를 확인하고 있습니다.</div> : filtered.length === 0 ? <div className="client-empty"><FileText size={30} /><strong>{documents.length === 0 ? "저장된 자료가 없습니다." : "조건에 맞는 자료가 없습니다."}</strong><span>텍스트 자료를 추가하면 Agent가 허용된 검색 도구로 참조할 수 있습니다.</span></div> : filtered.map((document) => <button type="button" key={document.id} className={selectedId === document.id ? "active" : ""} onClick={() => { setSelectedId(document.id); setArchiveTarget(null); setNotice(null); }}><span className="document-type">{sourceTypeLabel[document.sourceType]}</span><strong>{document.title}</strong><small>{document.jurisdiction ?? "관할권 미지정"} · {new Date(document.createdAt).toLocaleDateString("ko-KR")}</small></button>)}
+          {loading ? <div className="section-loading"><CircleNotch className="spin" /> 자료를 확인하고 있습니다.</div> : filtered.length === 0 ? <div className="client-empty"><FileText size={30} /><strong>{documents.length === 0 ? "저장된 자료가 없습니다." : "조건에 맞는 자료가 없습니다."}</strong><span>텍스트 자료를 추가하면 AI 분석에서 필요한 내용을 찾아 활용할 수 있습니다.</span></div> : filtered.map((document) => <button type="button" key={document.id} className={selectedId === document.id ? "active" : ""} onClick={() => { setSelectedId(document.id); setArchiveTarget(null); setNotice(null); }}><span className="document-type">{sourceTypeLabel[document.sourceType]}</span><strong>{document.title}</strong><small>{document.jurisdiction ?? "관할권 미지정"} · {new Date(document.createdAt).toLocaleDateString("ko-KR")}</small></button>)}
         </section>
         <article className="knowledge-detail">
           {!selectedId ? <div className="knowledge-empty"><FileText size={34} /><h2>검토할 자료를 선택하세요.</h2><p>문서의 provenance와 실제 저장 청크를 확인할 수 있습니다.</p></div> : !detail ? <div className="section-loading"><CircleNotch className="spin" /> 문서 내용을 불러오고 있습니다.</div> : <>
@@ -1110,19 +1142,19 @@ function SettingsPanel({
 
   return (
     <section className="settings-page">
-      <div className="settings-heading"><span>WORKSPACE SETTINGS</span><h1>{onboardingComplete ? "견적 기준을 관리합니다." : hasActiveRateCard && policy ? "첫 고객 문의를 등록하세요." : "첫 견적 기준을 설정하세요."}</h1><p>금액 계산에 쓰이는 단가와 정책은 Spring이 소유하며 모든 견적에 결정적으로 적용됩니다.</p></div>
+      <div className="settings-heading"><span>WORKSPACE SETTINGS</span><h1>{onboardingComplete ? "견적 기준을 관리합니다." : hasActiveRateCard && policy ? "첫 고객 문의를 등록하세요." : "첫 견적 기준을 설정하세요."}</h1><p>자주 쓰는 단가와 계산 기준을 미리 정해두면 견적을 더 빠르고 일관되게 작성할 수 있습니다.</p></div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {saved && <div className="settings-saved" role="status"><CheckCircle size={18} />{saved}</div>}
       <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
         <header>
-          <div><span>빠른 시작</span><h2 id="workspace-onboarding-title">첫 견적을 만들 준비</h2><p>{onboardingComplete ? "기본 준비가 끝났습니다. 새 문의를 견적으로 연결할 수 있습니다." : "실제 Workspace 데이터로 준비 상태를 확인합니다. 완료한 항목은 자동 반영됩니다."}</p></div>
+          <div><span>빠른 시작</span><h2 id="workspace-onboarding-title">첫 견적을 만들 준비</h2><p>{onboardingComplete ? "준비가 끝났습니다. 이제 고객 문의를 등록하고 견적을 시작해 보세요." : "필요한 항목을 순서대로 안내해 드립니다. 저장한 내용은 진행 상황에 바로 반영됩니다."}</p></div>
           <strong aria-label={`온보딩 ${completedSetupCount}/${setupStates.length} 완료`}>{completedSetupCount}<small> / {setupStates.length}</small></strong>
         </header>
         <div className="onboarding-progress" role="progressbar" aria-labelledby="workspace-onboarding-title" aria-valuemin={0} aria-valuemax={100} aria-valuenow={setupProgress}><span className="onboarding-progress-value" style={{ width: `${setupProgress}%` }} /></div>
         <div className="onboarding-steps">
-          <article className={`onboarding-step${setupStates[0] ? " done" : " current"}`} aria-current={!setupStates[0] ? "step" : undefined}><span>{setupStates[0] ? <CheckCircle weight="fill" /> : "01"}</span><div><strong>Workspace 생성</strong><p>{setupStates[0] ? workspace?.name : "Workspace 정보를 확인하고 있습니다."}</p></div></article>
+          <article className={`onboarding-step${setupStates[0] ? " done" : " current"}`} aria-current={!setupStates[0] ? "step" : undefined}><span>{setupStates[0] ? <CheckCircle weight="fill" /> : "01"}</span><div><strong>작업 공간 확인</strong><p>{setupStates[0] ? workspace?.name : "작업 공간 정보를 확인하고 있습니다."}</p></div></article>
           <article className={`onboarding-step${setupStates[1] ? " done" : !setupStates[0] ? "" : " current"}`} aria-current={!setupStates[1] && setupStates[0] ? "step" : undefined}><span>{setupStates[1] ? <CheckCircle weight="fill" /> : "02"}</span><div><strong>서비스 단가 등록</strong><p>{setupStates[1] ? `${rateCards.filter((card) => card.active).length}개 단가 사용 중` : "견적 계산에 사용할 시간·일·고정 단가를 등록하세요."}</p>{!setupStates[1] && canWriteQuotation && <a href="#rate-cards">단가 등록하기 <ArrowRight /></a>}</div></article>
-          <article className={`onboarding-step${setupStates[2] ? " done" : setupStates[1] ? " current" : ""}`} aria-current={!setupStates[2] && setupStates[1] ? "step" : undefined}><span>{setupStates[2] ? <CheckCircle weight="fill" /> : "03"}</span><div><strong>견적 정책 확인</strong><p>{setupStates[2] ? `세율 ${Math.round(policy!.defaultTaxRate * 100)}% · buffer ${Math.round(policy!.defaultRiskBufferRate * 100)}%` : "세금과 위험 buffer 기준을 확인하세요."}</p>{!setupStates[2] && canWriteQuotation && <a href="#estimation-policy">정책 확인하기 <ArrowRight /></a>}</div></article>
+          <article className={`onboarding-step${setupStates[2] ? " done" : setupStates[1] ? " current" : ""}`} aria-current={!setupStates[2] && setupStates[1] ? "step" : undefined}><span>{setupStates[2] ? <CheckCircle weight="fill" /> : "03"}</span><div><strong>계산 기준 확인</strong><p>{setupStates[2] ? `세율 ${Math.round(policy!.defaultTaxRate * 100)}% · 위험 대비율 ${Math.round(policy!.defaultRiskBufferRate * 100)}%` : "세금과 위험 대비 기준을 확인하세요."}</p>{!setupStates[2] && canWriteQuotation && <a href="#estimation-policy">계산 기준 확인하기 <ArrowRight /></a>}</div></article>
           <article className={`onboarding-step${setupStates[3] ? " done" : setupStates[2] ? " current" : ""}`} aria-current={!setupStates[3] && setupStates[2] ? "step" : undefined}><span>{setupStates[3] ? <CheckCircle weight="fill" /> : "04"}</span><div><strong>첫 문의 등록</strong><p>{setupStates[3] ? `${projectCount}개 프로젝트 연결됨` : "고객 원문을 등록해 실제 업무 흐름을 시작하세요."}</p>{!setupStates[3] && canCreateProject && <button type="button" onClick={onCreateProject}>문의 등록하기 <ArrowRight /></button>}</div></article>
         </div>
         {onboardingComplete && <button type="button" className="secondary-button onboarding-finish" onClick={onOpenPipeline}>Pipeline으로 이동 <ArrowRight size={17} /></button>}
@@ -1131,21 +1163,21 @@ function SettingsPanel({
         <aside className="settings-index" aria-label="Workspace 설정 목차">
           <a href="#workspace-profile"><span>01</span><strong>Workspace</strong><small>계정과 작업 공간</small></a>
           <a href="#rate-cards"><span>02</span><strong>서비스 단가</strong><small>시간·일·고정 금액</small></a>
-          <a href="#estimation-policy"><span>03</span><strong>견적 정책</strong><small>세금·위험·할인 기준</small></a>
-          {canReadPricing && <a href="#model-pricing"><span>04</span><strong>AI 원가표</strong><small>모델별 비용 기준</small></a>}
-          <a href="#permissions"><span>{canReadPricing ? "05" : "04"}</span><strong>권한·데이터</strong><small>접근 가능한 범위</small></a>
+          <a href="#estimation-policy"><span>03</span><strong>계산 기준</strong><small>세금·위험·할인 기준</small></a>
+          {canReadPricing && <a href="#model-pricing"><span>04</span><strong>AI 사용 비용</strong><small>모델별 요금 기준</small></a>}
+          <a href="#permissions"><span>{canReadPricing ? "05" : "04"}</span><strong>내 접근 범위</strong><small>사용 가능한 기능</small></a>
         </aside>
         <div className="settings-content">
           <section id="workspace-profile"><header><span>01</span><div><h2>Workspace</h2><p>현재 로그인한 계정과 작업 공간을 확인합니다.</p></div></header><dl><div><dt>Workspace</dt><dd>{workspace?.name ?? session.workspaceId}</dd></div><div><dt>사용자</dt><dd>{profile?.displayName ?? profile?.email ?? "-"}</dd></div><div><dt>상태</dt><dd>{profile?.status ?? "-"}</dd></div></dl></section>
           <section id="rate-cards"><header><span>02</span><div><h2>서비스 단가</h2><p>견적 계산에 사용할 시간·일·고정 금액 기준을 등록합니다.</p></div></header>
             <RateCardManager session={session} rateCards={rateCards} canWrite={canWriteQuotation} onChange={setRateCards} />
           </section>
-          <section id="estimation-policy"><header><span>03</span><div><h2>견적 정책</h2><p>모든 견적에 공통으로 적용할 세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <EstimationPolicyForm session={session} policy={policy} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onSaved={setPolicy} /> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
-          {canReadPricing && <section id="model-pricing"><header><span>04</span><div><h2>AI 모델 원가표</h2><p>Agent 실행 비용을 계산할 때 사용하는 모델별 가격 스냅샷입니다.</p></div></header>
-            <div className="model-pricing-list">{modelPricing.length === 0 ? <p>등록된 가격 스냅샷이 없습니다.</p> : modelPricing.map((pricing) => <article key={pricing.id}><div><span>{pricing.provider}</span><strong>{pricing.model}</strong><small>{pricing.versionLabel}</small></div><dl><div><dt>입력 / 1M</dt><dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd></div><div><dt>캐시 / 1M</dt><dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd></div><div><dt>출력 / 1M</dt><dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd></div></dl><p>{new Date(pricing.validFrom).toLocaleString("ko-KR")}부터{pricing.validUntil ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지` : " · 종료일 없음"}</p></article>)}</div>
-            {canManagePricing ? <ModelPricingForm session={session} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])} /> : <p className="permission-note">가격 스냅샷을 등록하려면 workspace.update 권한이 필요합니다.</p>}
+          <section id="estimation-policy"><header><span>03</span><div><h2>견적 계산 기준</h2><p>견적에 기본으로 반영할 세금, 위험 대비율과 할인 한도를 정합니다.</p></div></header>{policy ? canWriteQuotation ? <EstimationPolicyForm session={session} policy={policy} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onSaved={setPolicy} /> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 대비율</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>계산 기준을 확인할 수 없는 계정입니다.</p>}</section>
+          {canReadPricing && <section id="model-pricing"><header><span>04</span><div><h2>AI 사용 비용</h2><p>AI 분석에 사용되는 모델별 요금을 등록하고 기간별로 관리합니다.</p></div></header>
+            <div className="model-pricing-list">{modelPricing.length === 0 ? <p>등록된 AI 요금이 없습니다.</p> : modelPricing.map((pricing) => <article key={pricing.id}><div><span>{pricing.provider}</span><strong>{pricing.model}</strong><small>{pricing.versionLabel}</small></div><dl><div><dt>입력 / 1M</dt><dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd></div><div><dt>캐시 / 1M</dt><dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd></div><div><dt>출력 / 1M</dt><dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd></div></dl><p>{new Date(pricing.validFrom).toLocaleString("ko-KR")}부터{pricing.validUntil ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지` : " · 종료일 없음"}</p></article>)}</div>
+            {canManagePricing ? <ModelPricingForm session={session} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])} /> : <p className="permission-note">AI 요금은 관리자만 등록할 수 있습니다.</p>}
           </section>}
-          <section id="permissions"><header><span>{canReadPricing ? "05" : "04"}</span><div><h2>권한과 데이터 경계</h2><p>현재 계정으로 조회하고 변경할 수 있는 범위를 확인합니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <code key={permission}>{permission}</code>) ?? <p>표시할 effective permission이 없습니다.</p>}</div><p className="data-note">인증 정보는 현재 브라우저 탭의 sessionStorage에만 유지됩니다. Agent는 이 사용자의 위임된 권한을 넘을 수 없습니다.</p></section>
+          <section id="permissions"><header><span>{canReadPricing ? "05" : "04"}</span><div><h2>내 접근 범위</h2><p>현재 계정에서 사용할 수 있는 기능을 확인합니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <span key={permission}>{formatPermissionLabel(permission)}</span>) ?? <p>현재 사용할 수 있는 기능이 없습니다.</p>}</div><p className="data-note">로그인 정보는 현재 브라우저 탭에서만 유지됩니다. 아래에 표시된 범위 안에서만 자료를 조회하거나 변경할 수 있습니다.</p></section>
         </div>
       </div>
     </section>
@@ -1173,7 +1205,7 @@ function EstimationPolicyForm({ session, policy, busy, setBusy, setError, setSav
     } finally {
       setBusy(false);
     }
-  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>기본 세율 (%)<input name="taxRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultTaxRate * 100} /></label><label>위험 buffer (%)<input name="bufferRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultRiskBufferRate * 100} /></label><label>최대 할인율 (%)<input name="discountRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.maximumDiscountRate * 100} /></label></div><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 정책 저장</button></fieldset></form>;
+  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>기본 세율 (%)<input name="taxRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultTaxRate * 100} /></label><label>위험 대비율 (%)<input name="bufferRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultRiskBufferRate * 100} /></label><label>최대 할인율 (%)<input name="discountRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.maximumDiscountRate * 100} /></label></div><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 계산 기준 저장</button></fieldset></form>;
 }
 
 function ModelPricingForm({ session, busy, setBusy, setError, setSaved, onCreated }: { session: AuthSession; busy: boolean; setBusy: (busy: boolean) => void; setError: (message: string | null) => void; setSaved: (message: string | null) => void; onCreated: (pricing: ModelPricing) => void }) {
@@ -1202,14 +1234,14 @@ function ModelPricingForm({ session, busy, setBusy, setError, setSaved, onCreate
         validUntil: validUntil?.toISOString() ?? null,
       });
       onCreated(pricing);
-      setSaved("AI 모델 가격 스냅샷이 등록되었습니다.");
+      setSaved("AI 모델 요금을 등록했습니다.");
       form.reset();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "모델 가격을 등록하지 못했습니다.");
     } finally {
       setBusy(false);
     }
-  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>Provider<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" required maxLength={100} placeholder="예: gpt-5.4-mini" /></label><label>버전 라벨<input name="versionLabel" required maxLength={100} placeholder="예: 2026-08 공식 가격" /></label><label>통화<select name="currency" defaultValue="USD"><option value="USD">USD</option><option value="KRW">KRW</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>입력 / 1M<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 / 1M<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 / 1M<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>유효 시작<input name="validFrom" type="datetime-local" required /></label><label>유효 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} 가격 스냅샷 등록</button></fieldset></form>;
+  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>AI 제공사<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" required maxLength={100} placeholder="예: gpt-5.4-mini" /></label><label>요금 기준 이름<input name="versionLabel" required maxLength={100} placeholder="예: 2026년 8월 공식 요금" /></label><label>통화<select name="currency" defaultValue="USD"><option value="USD">USD</option><option value="KRW">KRW</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>입력 100만 토큰<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 100만 토큰<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 100만 토큰<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>적용 시작<input name="validFrom" type="datetime-local" required /></label><label>적용 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} AI 요금 등록</button></fieldset></form>;
 }
 
 function RateCardManager({ session, rateCards, canWrite, onChange }: { session: AuthSession; rateCards: RateCard[]; canWrite: boolean; onChange: (cards: RateCard[]) => void }) {
@@ -1291,7 +1323,7 @@ function RateCardManager({ session, rateCards, canWrite, onChange }: { session: 
           setBusy(false);
         }
       }}>
-        <div className="rate-card-form-heading"><div><strong>{selected ? "단가 편집" : "새 단가 등록"}</strong><span>{selected ? `서버 버전 ${selected.version}` : "견적 계산에 사용할 기준을 입력하세요."}</span></div>{selected && <span className={selected.active ? "active" : "inactive"}>{selected.active ? "사용 중" : "비활성"}</span>}</div>
+        <div className="rate-card-form-heading"><div><strong>{selected ? "단가 편집" : "새 단가 등록"}</strong><span>{selected ? `수정 이력 ${selected.version}` : "견적에 사용할 서비스와 금액을 입력하세요."}</span></div>{selected && <span className={selected.active ? "active" : "inactive"}>{selected.active ? "사용 중" : "비활성"}</span>}</div>
         {error && <div className="inline-error" role="alert"><Warning size={17} />{error}</div>}
         {notice && <div className="settings-saved" role="status"><CheckCircle size={17} />{notice}</div>}
         <fieldset disabled={busy}>
@@ -1309,7 +1341,7 @@ function EmptyWorkspace({ canCreate, onCreate }: { canCreate: boolean; onCreate:
     <div className="workspace-empty">
       <FolderOpen size={42} weight="duotone" />
       <h1>{canCreate ? "첫 고객 문의를 등록하세요." : "표시할 프로젝트가 없습니다."}</h1>
-      <p>{canCreate ? "프로젝트를 만들면 요구사항 정리와 Agent 실행 흐름을 시작할 수 있습니다." : "현재 역할에는 프로젝트 생성 권한이 없습니다."}</p>
+      <p>{canCreate ? "프로젝트를 만들면 요구사항 정리와 AI 분석을 바로 시작할 수 있습니다." : "현재 계정에서는 새 프로젝트를 만들 수 없습니다."}</p>
       {canCreate && <button type="button" className="primary-button" onClick={onCreate}><Plus size={18} /> 새 프로젝트</button>}
     </div>
   );
@@ -1391,7 +1423,7 @@ function ProjectWorkbench({
         {permissions.has("project.write") && activeStep !== "agent" && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
-            <label>Provider<select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label>
+            <label>AI 제공사<select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label>
             <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} placeholder="사용 가능한 모델명" /></label>
             <button type="button" className="primary-button" disabled={busy || !model.trim()} onClick={() => onRun(provider, model.trim())}>
               {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
@@ -1422,7 +1454,7 @@ function ProjectWorkbench({
           <div className="event-timeline">
             <div className="panel-title"><span>최근 실행 신호</span><small>{events.length ? `${events.length}개 수신` : "아직 신호 없음"}</small></div>
             {events.length === 0 ? (
-              <p className="empty-copy">분석을 시작하면 실제 서버 이벤트가 이곳에 표시됩니다.</p>
+              <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
             ) : (
               <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{event.type}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
             )}
@@ -1451,7 +1483,7 @@ function ProjectWorkbench({
               <span className="result-state"><CheckCircle size={17} /> 분석 결과</span>
               <h3>프로젝트 요약</h3>
               <p>{run.result.projectSummary}</p>
-              {run.metadata && <div className="run-provenance"><span>{run.metadata.provider} · {run.metadata.model}</span><small>Prompt {run.metadata.promptVersion} · Tool schema {run.metadata.toolSchemaVersion}</small></div>}
+              {run.metadata && <div className="run-provenance"><span>{run.metadata.provider} · {run.metadata.model}</span><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></div>}
               {run.result.openQuestions.length > 0 && <section className="run-open-questions"><span>아직 확인할 질문</span><ul>{run.result.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>}
               {run.result.departmentResults.map((result) => <article key={result.department}>
                 <strong>{result.department}</strong>
@@ -1462,8 +1494,8 @@ function ProjectWorkbench({
                   return <li key={`${source.url}-${index}`}><div><span>{source.title}</span><small>{source.provider}{source.jurisdiction ? ` · ${source.jurisdiction}` : ""}</small></div>{source.excerpt && <p>{source.excerpt}</p>}{safeUrl ? <a href={safeUrl} target="_blank" rel="noopener noreferrer">원문 열기 <ArrowRight size={13} /></a> : <code>{source.url}</code>}</li>;
                 })}</ul></details>}
               </article>)}
-              {run.usage && <dl className="usage-list"><div><dt>Model 호출</dt><dd>{run.usage.modelCalls}</dd></div><div><dt>Tool 호출</dt><dd>{run.usage.toolCalls}</dd></div><div><dt>소요 시간</dt><dd>{Math.round(run.usage.durationMs / 1000)}초</dd></div></dl>}
-              {costUsage && <div className="cost-usage"><div><span>서버 원가 기록</span><strong>{costUsage.actualCost != null && costUsage.costCurrency ? formatMoney(costUsage.actualCost, costUsage.costCurrency) : "계산 대기"}</strong></div><dl><div><dt>입력 Token</dt><dd>{costUsage.inputTokens.toLocaleString()}</dd></div><div><dt>출력 Token</dt><dd>{costUsage.outputTokens.toLocaleString()}</dd></div><div><dt>검색 Credit</dt><dd>{costUsage.searchCredits}</dd></div><div><dt>과금 가능 결과</dt><dd>{costUsage.billableOutcome ? "예" : "아니오"}</dd></div></dl><small>{costUsage.costStatus} · {costUsage.requestTier}</small></div>}
+              {run.usage && <dl className="usage-list"><div><dt>모델 사용</dt><dd>{run.usage.modelCalls}</dd></div><div><dt>도구 사용</dt><dd>{run.usage.toolCalls}</dd></div><div><dt>소요 시간</dt><dd>{Math.round(run.usage.durationMs / 1000)}초</dd></div></dl>}
+              {costUsage && <div className="cost-usage"><div><span>AI 사용 비용</span><strong>{costUsage.actualCost != null && costUsage.costCurrency ? formatMoney(costUsage.actualCost, costUsage.costCurrency) : "계산 대기"}</strong></div><dl><div><dt>입력 토큰</dt><dd>{costUsage.inputTokens.toLocaleString()}</dd></div><div><dt>출력 토큰</dt><dd>{costUsage.outputTokens.toLocaleString()}</dd></div><div><dt>검색 사용량</dt><dd>{costUsage.searchCredits}</dd></div><div><dt>비용 반영</dt><dd>{costUsage.billableOutcome ? "예" : "아니오"}</dd></div></dl><small>{costUsage.costStatus} · {costUsage.requestTier}</small></div>}
             </div>
           ) : (
             <div className="inspector-empty running"><CircleNotch size={29} className="spin" /><p>결과를 만들고 있습니다. 그래프에서 현재 단계를 확인하세요.</p></div>
@@ -1547,7 +1579,7 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
         <span>사용자 입력 · 원문</span>
         <h2>문의 내용을 먼저 확인합니다.</h2>
         <p>왼쪽 원문과 오른쪽 구조화 결과를 나란히 검토합니다. 저장된 버전은 사용자 확정 결과이며 AI 초안과 구분됩니다.</p>
-        <div className="requirement-version-state"><span>{loading ? "불러오는 중" : structuredOutdated ? "원문 변경됨 · 새 revision 필요" : latest ? `사용자 확정 v${latest.versionNumber}` : "구조화 전"}</span><small>{latest ? new Date(latest.createdAt).toLocaleString("ko-KR") : "첫 버전을 작성해 주세요."}</small></div>
+        <div className="requirement-version-state"><span>{loading ? "불러오는 중" : structuredOutdated ? "문의 변경됨 · 다시 확인 필요" : latest ? `검토 완료 v${latest.versionNumber}` : "정리 전"}</span><small>{latest ? new Date(latest.createdAt).toLocaleString("ko-KR") : "첫 요구사항을 정리해 주세요."}</small></div>
       </div>
       <div className="intake-document">
         <div><FileText size={20} /><strong>고객 문의 원문</strong><small>{project.requirementText.length.toLocaleString()}자</small></div>
@@ -1575,7 +1607,7 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
             }
           }} /></label>}
           {documents.length > 0 && <ul>{documents.slice(0, 3).map((document) => <li key={document.id}><FileText size={15} /><span>{document.title}</span><small>{document.status}</small></li>)}</ul>}
-          <p>업로드한 파일은 이 Workspace의 근거 자료로 저장되며, Agent 검색 권한 안에서만 사용됩니다.</p>
+          <p>업로드한 파일은 이 프로젝트의 참고 자료로 보관되며, AI 분석이 필요한 내용을 찾을 때 활용됩니다.</p>
         </div>
       </div>
       <div className="structured-requirements">
@@ -1586,8 +1618,8 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
           }
           setFeatures(latest?.features.map((feature) => ({ ...feature })) ?? [{ title: "", description: "", priority: "MUST", acceptanceCriteria: "" }]);
           setEditing(true);
-        }}>{editing ? "편집 닫기" : latest ? "새 revision" : "직접 구조화"}</button>}</header>
-        {structuredOutdated && <div className="inline-error requirement-stale" role="status"><Warning size={18} />문의 원문이 마지막 구조화 버전 이후 변경되었습니다. 새 revision을 확정한 뒤 견적을 검토하세요.</div>}
+        }}>{editing ? "편집 닫기" : latest ? "새 버전 만들기" : "직접 정리하기"}</button>}</header>
+        {structuredOutdated && <div className="inline-error requirement-stale" role="status"><Warning size={18} />고객 문의가 마지막 검토 이후 변경되었습니다. 요구사항을 다시 확인한 뒤 견적을 작성해 주세요.</div>}
         {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
         {latest && !editing ? <>
           <section className={`requirement-diff${structuredOutdated ? " stale" : " synced"}`} ref={diffRef} aria-labelledby="requirement-diff-title">
@@ -1860,12 +1892,12 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   };
 
   const loadQuotation = (quotation: Quotation) => {
-    if (hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 선택한 서버 revision을 불러올까요?")) return;
+    if (hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 선택한 견적안을 불러올까요?")) return;
     applyQuotation(quotation);
   };
 
   const resetQuotation = (force = false) => {
-    if (!force && hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 새 견적 시리즈를 시작할까요?")) return;
+    if (!force && hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 새 견적안을 시작할까요?")) return;
     const nextItems = [emptyQuoteItem()];
     setSaved(null);
     setScenario("RECOMMENDED");
@@ -1884,7 +1916,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   };
 
   const discardDraft = () => {
-    if (!window.confirm("이 탭의 임시 저장 내용을 버리고 마지막 서버 상태로 되돌릴까요?")) return;
+    if (!window.confirm("임시 저장한 내용을 버리고 마지막으로 저장한 견적으로 돌아갈까요?")) return;
     if (saved) applyQuotation(saved);
     else resetQuotation(true);
   };
@@ -1921,7 +1953,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
           setConflictLatest(refreshed.find((quotation) => quotation.seriesId === saved.seriesId) ?? refreshed[0] ?? null);
           setError(null);
         } catch {
-          setError("다른 사용자가 먼저 새 revision을 저장했습니다. 최신 견적 목록도 불러오지 못했으므로 잠시 후 다시 확인해 주세요.");
+          setError("다른 사용자가 새 견적안을 먼저 저장했습니다. 최신 목록을 불러오지 못했으니 잠시 후 다시 확인해 주세요.");
         }
       } else {
         setError(cause instanceof Error ? cause.message : "견적을 저장하지 못했습니다.");
@@ -1931,32 +1963,32 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     }
   };
 
-  if (!canRead) return <div className="workspace-empty"><Receipt size={38} /><h2>견적을 열람할 권한이 없습니다.</h2><p>Workspace 관리자에게 quotation.read 권한을 요청하세요.</p></div>;
+  if (!canRead) return <div className="workspace-empty"><Receipt size={38} /><h2>이 견적을 볼 수 없습니다.</h2><p>견적 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.</p></div>;
 
   return (
     <section className="quote-builder">
       <div className="quote-toolbar">
         <div>
-          <span>수동 견적 작성</span>
+          <span>견적 직접 작성</span>
           <h2>항목별 공수와 근거를 함께 기록하세요.</h2>
         </div>
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => setScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
         </div>
-        {canWrite && <button type="button" className="quiet-button" onClick={() => resetQuotation()}>새 견적 시리즈</button>}
+        {canWrite && <button type="button" className="quiet-button" onClick={() => resetQuotation()}>새 견적안</button>}
       </div>
 
       {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
         <Clock size={19} />
-        <div><strong>{draftStatus.kind === "restored" ? "이 탭의 미저장 견적을 복원했습니다." : draftStatus.kind === "saved" ? "입력 중인 견적을 이 탭에 임시 저장했습니다." : "브라우저 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "unavailable" ? "서버에 revision으로 저장하기 전에는 화면을 닫거나 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 서버와 다른 브라우저에는 반영되지 않습니다.`}</small></div>
+        <div><strong>{draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
         {draftStatus.kind !== "unavailable" && <button type="button" className="quiet-button" onClick={discardDraft}>임시저장 버리기</button>}
       </div>}
 
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
-      {conflictLatest && <section className="quote-conflict" role="alert"><div><Warning size={21} /><div><strong>다른 사용자가 먼저 새 revision을 저장했습니다.</strong><p>현재 입력은 그대로 보존했습니다. 최신 v{conflictLatest.versionNumber}을 불러오거나, 입력한 내용을 별도 견적 시리즈로 저장할 수 있습니다.</p></div></div><div><button type="button" className="secondary-button" onClick={() => loadQuotation(conflictLatest)}>최신 revision 불러오기</button><button type="button" className="quiet-button" onClick={() => { setSaved(null); setConflictLatest(null); }}>현재 입력을 새 시리즈로 계속</button></div></section>}
+      {conflictLatest && <section className="quote-conflict" role="alert"><div><Warning size={21} /><div><strong>다른 사용자가 새 견적안을 먼저 저장했습니다.</strong><p>작성 중인 내용은 그대로 남아 있습니다. 최신 v{conflictLatest.versionNumber}을 불러오거나 현재 내용을 새 견적안으로 저장할 수 있습니다.</p></div></div><div><button type="button" className="secondary-button" onClick={() => loadQuotation(conflictLatest)}>최신 견적안 불러오기</button><button type="button" className="quiet-button" onClick={() => { setSaved(null); setConflictLatest(null); }}>현재 내용으로 계속</button></div></section>}
 
       <section className="scenario-comparison" aria-label="견적 시나리오 비교">
-        <header><div><span>시나리오 비교</span><strong>핵심안·권장안·확장안의 최신 revision</strong></div><small>카드를 선택하면 해당 견적을 편집 기준으로 불러옵니다.</small></header>
+        <header><div><span>견적안 비교</span><strong>핵심안·권장안·확장안을 한눈에 비교하세요.</strong></div><small>카드를 선택하면 해당 견적안을 이어서 편집할 수 있습니다.</small></header>
         <div>{(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => {
           const quotation = latestByScenario[value];
           return <button type="button" key={value} className={saved?.id === quotation?.id ? "active" : ""} disabled={!quotation} onClick={() => quotation && loadQuotation(quotation)}><span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>{quotation ? <><strong>{formatMoney(quotation.total, quotation.currency)}</strong><small>v{quotation.versionNumber} · {quotation.status}</small></> : <><strong>작성 전</strong><small>저장된 견적 없음</small></>}</button>;
@@ -1993,7 +2025,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
           <dl><div><dt>항목 합계</dt><dd>{formatMoney(estimatedSubtotal, project.currency)}</dd></div><div><dt>부가세</dt><dd>{formatMoney(estimatedSubtotal * taxRate, project.currency)}</dd></div><div className="quote-total"><dt>예상 합계</dt><dd>{formatMoney(estimatedSubtotal * (1 + taxRate), project.currency)}</dd></div></dl>
           <label>세율<input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(taxRate * 100)} onChange={(event) => setTaxRate(Number(event.target.value) / 100)} /><small>%</small></label>
           <label>유효 기간<input type="date" readOnly={!canWrite} value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></label>
-          <p>최종 위험 buffer·세금·합계는 저장할 때 Java 계산 도구가 다시 결정합니다.</p>
+          <p>저장할 때 위험 대비 금액과 세금까지 반영한 최종 합계를 다시 확인합니다.</p>
           {selectedBasis && <section className="evidence-inspector"><span>선택 항목 근거</span><strong>{selectedBasis.type === "EVIDENCE" ? selectedBasis.sourceTitle || "제목 없는 근거" : "확인할 가정"}</strong><p>{selectedBasis.content || "근거 또는 가정 내용을 입력하세요."}</p>{selectedBasis.type === "EVIDENCE" && <dl><div><dt>유형</dt><dd>{selectedBasis.sourceType ?? "미선택"}</dd></div><div><dt>참조</dt><dd>{selectedBasis.sourceReference || "미입력"}</dd></div><div><dt>조회</dt><dd>{selectedBasis.retrievedAt ? new Date(selectedBasis.retrievedAt).toLocaleString("ko-KR") : "미지정"}</dd></div></dl>}</section>}
           {canWrite ? <button type="button" className="primary-button" disabled={busy || !canSave} onClick={() => void save()}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 검토용 초안 저장</button> : <small className="validation-hint">읽기 전용 견적입니다.</small>}
           {canWrite && !canSave && <small className="validation-hint">모든 항목에 이름, 수량, 단가와 근거 또는 가정을 입력하세요. 근거는 출처 유형과 참조가 필수입니다.</small>}
@@ -2001,7 +2033,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
       </div>
 
       {saved && <article className="saved-quote" aria-live="polite">
-        <div><span>서버 계산 완료 · {saved.status}</span><h3>{saved.scenario} v{saved.versionNumber}</h3><p>총액 {formatMoney(saved.total, saved.currency)} · 위험 buffer {Math.round(saved.riskBufferRate * 100)}% · 세금 {formatMoney(saved.taxAmount, saved.currency)}</p></div>
+        <div><span>견적 저장 완료 · {saved.status}</span><h3>{saved.scenario} v{saved.versionNumber}</h3><p>총액 {formatMoney(saved.total, saved.currency)} · 위험 대비율 {Math.round(saved.riskBufferRate * 100)}% · 세금 {formatMoney(saved.taxAmount, saved.currency)}</p></div>
         <div className="saved-quote-actions">
           {saved.status === "DRAFT" && canPublish && <button type="button" className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { const published = await publishQuotation(session, saved.id); setSaved(published); setQuotations((current) => current.map((quotation) => quotation.id === published.id ? published : quotation)); } catch (cause) { setError(cause instanceof Error ? cause.message : "견적을 발행하지 못했습니다."); } finally { setBusy(false); } }}>발행하기 <ArrowRight size={17} /></button>}
           {saved.status === "PUBLISHED" && canPublish && !proposalShare && <button type="button" className="secondary-button" disabled={busy} onClick={async () => { setBusy(true); setError(null); try { const share = await createProposalShare(session, saved.id); const url = new URL(`/proposal/${share.token}`, window.location.origin).toString(); setProposalShare({ ...share, url }); setShareCopyState(await copyToClipboard(url) ? "copied" : "manual"); } catch (cause) { setError(cause instanceof Error ? cause.message : "공유 링크를 만들지 못했습니다."); } finally { setBusy(false); } }}>고객 링크 만들기 <ArrowRight size={17} /></button>}
@@ -2037,7 +2069,7 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
     return () => { cancelled = true; };
   }, [canRead, canReadQuotations, project.id, session]);
 
-  if (!canRead) return <div className="workspace-empty"><Graph size={38} /><h2>결과를 열람할 권한이 없습니다.</h2><p>Workspace 관리자에게 outcome.read 권한을 요청하세요.</p></div>;
+  if (!canRead) return <div className="workspace-empty"><Graph size={38} /><h2>프로젝트 결과를 볼 수 없습니다.</h2><p>결과 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.</p></div>;
   if (loading) return <div className="section-loading"><CircleNotch className="spin" /> 결과 기록을 확인하고 있습니다.</div>;
   const approvedQuotation = outcome?.approvedQuotationId ? quotations.find((quotation) => quotation.id === outcome.approvedQuotationId) ?? null : null;
   const quotedHours = approvedQuotation?.items.filter((item) => item.unit === "HOUR").reduce((sum, item) => sum + item.quantity, 0) ?? 0;
@@ -2277,7 +2309,7 @@ function ProjectEditDialog({
       <section ref={dialogRef} className="project-dialog project-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="project-edit-title">
         <div><span>프로젝트 정보</span><button type="button" disabled={busy} onClick={onClose} aria-label="닫기">×</button></div>
         <h2 id="project-edit-title">문의 조건을 최신 상태로 맞추세요.</h2>
-        <p>변경한 원문과 조건은 다음 Agent 실행과 견적 작성에 사용됩니다. 이미 발행한 견적 revision은 변경되지 않습니다.</p>
+        <p>변경한 내용은 다음 AI 분석과 새 견적부터 반영됩니다. 이미 고객에게 보낸 견적은 그대로 유지됩니다.</p>
         {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
         <form aria-busy={busy} onSubmit={submit}>
           <fieldset className="dialog-fields" disabled={busy}>

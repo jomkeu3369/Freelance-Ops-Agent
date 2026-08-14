@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: 프론트엔드 전반의 사용자 노출 문구를 다시 검토해 Spring, 권한 코드, revision, 결정적 계산처럼 구현을 설명하던 표현을 제거했다. 설정·근거 자료·AI 분석·견적·결과 화면은 사용자가 해야 할 일과 얻는 결과가 먼저 보이도록 다듬고, 권한 코드는 `견적 · 조회`처럼 읽을 수 있는 이름으로 바꿨다. 관련 문구 회귀 검사를 추가했으며 Frontend TypeScript, Node 테스트 33건, ESLint와 Next.js production build가 통과했다.
+
 - 2026-08-14: Workspace 설정 화면을 처음 사용하는 사람도 순서대로 탐색할 수 있도록 설정 목차를 `Workspace → 서비스 단가 → 견적 정책 → AI 원가표 → 권한·데이터`의 번호·설명 구조로 재구성하고 각 본문 섹션에도 동일한 번호를 연결했다. 설정 `input`·`select`에 50px 최소 높이, 명확한 배경·테두리·placeholder·hover·focus·disabled 상태를 적용해 다크 테마에서 값과 입력 영역이 섞이던 문제를 해결했다. 단가 편집 폼은 이름·단위·통화와 금액 입력의 중요도에 맞춰 열 너비를 분리하고 520px 이하에서는 단일 열로 전환한다. Frontend TypeScript, Node 테스트 33건, ESLint와 Next production build가 통과했다. 로컬 브라우저에서는 인증 진입 화면과 console warning·error 0건을 확인했으며, 실제 설정 데이터가 표시되는 인증 후 시각 E2E는 운영 계정 정보를 사용하지 않고 배포 후 확인 대상으로 남겼다.
 
 - 2026-08-14: 운영 환경에서 `분석 시작` 요청이 Backend 500으로 실패한 원인을 Backend의 JDK HTTP client가 내부 Uvicorn Agent에 시도한 cleartext HTTP/2(`h2c`) upgrade로 확정했다. Uvicorn은 upgrade를 거부한 뒤 본문 없는 POST를 받아 `422 body Field required`를 반환했다. Backend의 Agent REST·SSE transport를 HTTP/1.1로 고정하고 내부 요청 JSON 본문과 protocol 선택 회귀 테스트를 추가했으며 Backend 전체 테스트 96건이 통과했다.

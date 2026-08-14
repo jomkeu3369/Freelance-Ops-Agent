@@ -49,11 +49,11 @@ export default function ProposalPage() {
         </article>)}
       </section>
 
-      <section className="proposal-calculation"><h2>금액 요약</h2><dl><div><dt>항목 합계</dt><dd>{money(proposal.subtotal)}</dd></div><div><dt>할인</dt><dd>− {money(proposal.discountTotal)}</dd></div><div><dt>위험 buffer</dt><dd>{money(proposal.riskBufferAmount)}</dd></div><div><dt>세금</dt><dd>{money(proposal.taxAmount)}</dd></div><div><dt>최종 합계</dt><dd>{money(proposal.total)}</dd></div></dl></section>
+      <section className="proposal-calculation"><h2>금액 요약</h2><dl><div><dt>항목 합계</dt><dd>{money(proposal.subtotal)}</dd></div><div><dt>할인</dt><dd>− {money(proposal.discountTotal)}</dd></div><div><dt>위험 대비 금액</dt><dd>{money(proposal.riskBufferAmount)}</dd></div><div><dt>세금</dt><dd>{money(proposal.taxAmount)}</dd></div><div><dt>최종 합계</dt><dd>{money(proposal.total)}</dd></div></dl></section>
 
       <section className="proposal-decision">
         {submitted ? <div className="decision-complete"><CheckCircle size={38} /><span>응답이 기록되었습니다.</span><h2>{submitted === "APPROVED" ? "제안을 승인했습니다." : submitted === "CHANGES_REQUESTED" ? "수정 요청을 전달했습니다." : "제안을 거절했습니다."}</h2><p>Freelance Ops가 응답 시각과 선택 내용을 안전하게 기록했습니다.</p></div> : <>
-          <div><span>YOUR DECISION</span><h2>이 제안에 대한 의견을 남겨주세요.</h2><p>선택 내용은 프리랜서의 Workspace에 전달됩니다.</p></div>
+          <div><span>YOUR DECISION</span><h2>이 제안에 대한 의견을 남겨주세요.</h2><p>남겨주신 선택과 의견은 담당자에게 바로 전달됩니다.</p></div>
           <form aria-busy={busy} onSubmit={async (event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             if (busy) return;

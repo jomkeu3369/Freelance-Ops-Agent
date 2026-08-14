@@ -36,7 +36,7 @@ const workflowVisuals = [
   { inputs: ["고객 메시지", "참고 문서"], process: "프로젝트", outputs: ["원문 보존", "자료 연결"], icon: ChatCenteredText },
   { inputs: ["목표·기능", "일정·제약"], process: "구조화", outputs: ["확정 정보", "빠진 정보"], icon: TreeStructure },
   { inputs: ["누락 정보", "조건 충돌"], process: "사용자 확인", outputs: ["답변 반영", "범위 확정"], icon: Question },
-  { inputs: ["작업 항목", "단가·가정"], process: "결정적 계산", outputs: ["핵심안", "권장안", "확장안"], icon: Calculator },
+  { inputs: ["작업 항목", "단가·가정"], process: "금액 자동 계산", outputs: ["핵심안", "권장안", "확장안"], icon: Calculator },
   { inputs: ["범위·금액", "근거·가정"], process: "최종 검토", outputs: ["승인", "수정 요청", "거절"], icon: Check },
 ] as const;
 
@@ -85,7 +85,7 @@ const evidenceExamples = [
     title: "포트폴리오 관리 기능",
     effort: "5–7일",
     rate: "Backend 단가표",
-    calculation: "6일 × 일 단가 + 위험 buffer",
+    calculation: "6일 × 일 단가 + 위험 대비 금액",
     assumption: "이미지 최적화는 기본 수준",
     sources: [["유사 완료 프로젝트", "승인된 프로젝트 2건의 실제 공수 범위"], ["사용자 단가표", "Backend 작업 · 현재 적용 중"], ["명시된 가정", "고객 확인 전에는 사실로 확정하지 않습니다."]],
   },

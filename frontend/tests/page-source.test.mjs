@@ -142,7 +142,7 @@ test("landing page follows the approved product brief without fabricated social 
   assert.match(source, /한 번의 문의가/);
   assert.match(source, /function WorkflowStepVisual/);
   assert.match(source, /고객 메시지/);
-  assert.match(source, /결정적 계산/);
+  assert.match(source, /금액 자동 계산/);
   assert.match(source, /activeStep === index && <WorkflowStepVisual index=\{index\} \/>/);
   assert.match(source, /설명 가능한 결과/);
   assert.match(source, /끝난 프로젝트가/);
@@ -197,6 +197,8 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);
   assert.match(workspace, /aria-label="Workspace 설정 목차"/);
   assert.match(workspace, /<span>02<\/span><strong>서비스 단가<\/strong><small>시간·일·고정 금액<\/small>/);
+  assert.match(workspace, /자주 쓰는 단가와 계산 기준을 미리 정해두면 견적을 더 빠르고 일관되게 작성할 수 있습니다/);
+  assert.doesNotMatch(workspace, /Spring이 소유|결정적으로 적용|workspace\.update 권한이|quotation\.read 권한|outcome\.read 권한|Java 계산 도구|서버 계산 완료|새 revision/);
   assert.match(css, /\.settings-grid \{[^}]*grid-template-columns: 240px minmax\(0, 1fr\)/);
   assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*min-height: 50px/);
   assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*background: var\(--surface-solid\)/);
@@ -453,9 +455,9 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
   assert.match(workspace, /window\.sessionStorage\.setItem\(draftStorageKey, JSON\.stringify\(draft\)\)/);
   assert.match(workspace, /window\.sessionStorage\.removeItem\(draftStorageKey\)/);
   assert.match(workspace, /window\.addEventListener\("beforeunload", warnBeforeUnload\)/);
-  assert.match(workspace, /현재 임시 저장된 입력을 버리고 선택한 서버 revision을 불러올까요/);
-  assert.match(workspace, /이 탭의 미저장 견적을 복원했습니다/);
-  assert.match(workspace, /서버와 다른 브라우저에는 반영되지 않습니다/);
+  assert.match(workspace, /작성 중인 내용을 버리고 선택한 견적안을 불러올까요/);
+  assert.match(workspace, /작성 중이던 견적을 불러왔습니다/);
+  assert.match(workspace, /다른 브라우저에서는 이어서 볼 수 없습니다/);
   assert.match(css, /\.quote-draft-state/);
   assert.match(css, /\.quote-draft-state\.unavailable/);
 });
@@ -468,7 +470,7 @@ test("workspace evidence library exposes the complete document lifecycle", async
   assert.match(workspace, /KnowledgePanel/);
   assert.match(workspace, /prepareDocumentUpload/);
   assert.match(workspace, /sourceTypeLabel/);
-  assert.match(workspace, /Agent 검색에서는 제외됩니다/);
+  assert.match(workspace, /다음 AI 분석부터 참고 대상에서 제외됩니다/);
   assert.match(workspace, /detail\.chunks\.slice\(0, 4\)/);
   assert.match(api, /function getDocument/);
   assert.match(api, /function archiveDocument/);
@@ -483,9 +485,9 @@ test("project details remain editable after intake without mutating quotation re
   assert.match(workspace, /ProjectEditDialog/);
   assert.match(workspace, /프로젝트 정보 수정/);
   assert.match(workspace, /최소 예산은 최대 예산보다 클 수 없습니다/);
-  assert.match(workspace, /이미 발행한 견적 revision은 변경되지 않습니다/);
+  assert.match(workspace, /이미 고객에게 보낸 견적은 그대로 유지됩니다/);
   assert.match(workspace, /structuredOutdated/);
-  assert.match(workspace, /새 revision을 확정한 뒤 견적을 검토하세요/);
+  assert.match(workspace, /요구사항을 다시 확인한 뒤 견적을 작성해 주세요/);
   assert.match(workspace, /setFeatures\(latest\?\.features\.map/);
   assert.match(workspace, /updateProjectDetails/);
   assert.match(api, /interface ProjectInput/);
@@ -547,9 +549,9 @@ test("quotation revision conflicts preserve the draft and expose explicit recove
   ]);
   assert.match(workspace, /cause instanceof ApiError && cause\.status === 409/);
   assert.match(workspace, /reloadQuotations\(session, project\.id\)/);
-  assert.match(workspace, /현재 입력은 그대로 보존했습니다/);
-  assert.match(workspace, /최신 revision 불러오기/);
-  assert.match(workspace, /현재 입력을 새 시리즈로 계속/);
+  assert.match(workspace, /작성 중인 내용은 그대로 남아 있습니다/);
+  assert.match(workspace, /최신 견적안 불러오기/);
+  assert.match(workspace, /현재 내용으로 계속/);
   assert.match(api, /function reloadQuotations/);
 });
 
@@ -560,7 +562,7 @@ test("terminal agent runs expose server-accounted cost only to audit readers", a
   ]);
   assert.match(workspace, /permissions\.has\("audit\.read"\)/);
   assert.match(workspace, /getAgentRunUsage/);
-  assert.match(workspace, /서버 원가 기록/);
+  assert.match(workspace, /AI 사용 비용/);
   assert.match(workspace, /billableOutcome/);
   assert.match(api, /interface AgentRunUsage/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/usage/);
@@ -571,7 +573,7 @@ test("workspace administrators can version the server-owned model price catalog"
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
   ]);
-  assert.match(workspace, /AI 모델 원가표/);
+  assert.match(workspace, /AI 사용 비용/);
   assert.match(workspace, /canReadPricing = permissions\.has\("audit\.read"\)/);
   assert.match(workspace, /canManagePricing = permissions\.has\("workspace\.update"\)/);
   assert.match(workspace, /가격 유효 종료 시점은 시작 시점보다 늦어야 합니다/);
@@ -611,7 +613,7 @@ test("new workspaces enter a server-backed guided setup before the first inquiry
   assert.match(workspace, /const setupStates = \[Boolean\(workspace\), hasActiveRateCard, Boolean\(policy\), projectCount > 0\]/);
   assert.match(workspace, /role="progressbar"/);
   assert.match(workspace, /서비스 단가 등록/);
-  assert.match(workspace, /견적 정책 확인/);
+  assert.match(workspace, /계산 기준 확인/);
   assert.match(workspace, /첫 문의 등록/);
   assert.match(workspace, /onClick=\{onCreateProject\}/);
   assert.match(workspace, /useGSAP/);
