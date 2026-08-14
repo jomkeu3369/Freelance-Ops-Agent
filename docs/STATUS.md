@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-14: GitHub 첫 화면이 일반 제품 소개보다 AI 직무 포트폴리오의 핵심 역량을 먼저 보여주도록 root README를 전면 재작성했다. private-prompt routing, deterministic safety gate, bounded ReAct·Supervisor·HITL, Tool contract, retrieval answerability와 frozen evaluation을 중심 서사로 배치하고 LiquidAI A1 대 GPT-5.6 Luna의 실제 A/B dashboard와 기각 기준을 포함했다. Spring·CRM·견적·배포는 AI를 실제 권한·트랜잭션·비용 경계에서 검증하는 환경으로 설명했으며, 운영 승격 전인 Deep Agents·RAPTOR·domain frozen evaluation은 미완료 상태를 명시했다.
+
 - 2026-08-14: Backend와 Caddy가 정상 기동한 직후 GitHub Actions의 공개 readiness 검사가 최초 TLS 인증서 준비보다 먼저 실행되어 OpenSSL `tlsv1 alert internal error`로 실패 표시되는 경쟁 조건을 확인했다. 실제 공개 endpoint는 이후 HTTP 200과 `status=UP`을 반환했다. Backend CD의 공개 readiness curl에 모든 전송 오류를 대상으로 최대 120초의 bounded retry를 적용했다.
 
 - 2026-08-14: Linux GitHub Actions에서 `backend/gradlew`가 Git mode `100644`로 checkout되어 Backend CI가 exit 126으로 실패하는 문제를 확인했다. Windows checkout에서도 일관되게 실행되도록 Backend CI 테스트와 Docker image build가 Gradle wrapper를 `bash ./gradlew`로 호출하게 수정했으며 workflow YAML과 `git diff --check`를 검증했다.
