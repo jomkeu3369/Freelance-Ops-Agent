@@ -40,6 +40,7 @@ management:
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
+  forward-headers-strategy: framework
 app:
   environment: ${APP_ENVIRONMENT:development}
   cors:

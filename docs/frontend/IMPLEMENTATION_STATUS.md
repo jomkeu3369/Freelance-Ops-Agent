@@ -10,14 +10,16 @@
 | 메인 페이지 11개 섹션과 지정 문구 | `frontend/app/page.tsx` | 완료 |
 | 가짜 후기·고객 로고·통계·가격 제거 | 메인 페이지 source test | 완료 |
 | 1920 기준 editorial layout, 1440·1280·1024·768·390 대응 | 로컬 Pretendard dynamic subset, 한글 어절 보존, 1440·1180·820·520 breakpoint와 실제 browser의 Hero 2줄·주요 제목 2–3줄·overflow 0px 측정 | 완료 |
+| 업무 단계 아코디언 타이포그래피 | 접힌 한글 제목은 `vertical-rl`·`upright`로 정방향 표시하고 활성 제목은 가로쓰기, 180도 중복 회전 방지 회귀 검사 | 완료 |
 | dark/light theme와 reduced motion | theme provider, `prefers-reduced-motion` | 완료 |
 | Home / Pipeline | 실제 Project status 조회·변경 API 기반 6단계 pipeline | 완료 |
 | CRM / 고객 연결 | 고객 검색·등록·수정·보관과 새 프로젝트의 기존 고객 연결 | 완료 |
 | Workspace 전환 | `/me` membership 기반 기존 Workspace 전환과 workspace-scoped 데이터 재조회 | 완료 |
 | Project Intake | 생성 후 고객·원문·통화·일정·예산 수정, stale revision 경고, 텍스트 문서 업로드, 이전 확정본을 이어 편집하는 구조화 기능·가정·질문 immutable revision | 완료 |
 | Evidence Library | Workspace 자료 조회·검색·유형 필터, 청크 preview, 업로드·보관 | 완료 |
-| 실시간 Agent 진행 | Spring SSE만 구독하는 event-driven graph, Last-Event-ID cursor와 bounded backoff 자동 재연결, 실제 연결 상태·HITL 재개, 실행 중단·재실행, 열린 질문·안전한 출처 provenance·실행 메타데이터, audit 권한 기반 실제 원가·token·credit 표시 | 완료 |
+| 실시간 Agent 진행 | Spring SSE만 구독하는 event-driven graph, 실제 활성 연결선만 이동하는 packet·접근 가능한 진행률·대기/응답대기/완료/실패/취소 상태, Last-Event-ID cursor와 bounded backoff 자동 재연결, HITL 재개·실행 중단·재실행, 열린 질문·안전한 출처 provenance·실행 메타데이터, audit 권한 기반 실제 원가·token·credit 표시 | 완료 |
 | Quote Builder | Lean·Recommended·Expanded 최신안 비교, Workspace 단가표 또는 직접 단가, 항목별 공수·할인, evidence provenance와 Inspector, assumption, Java 계산 결과, immutable revision | 완료 |
+| 견적 편집 복구 | 사용자·Workspace·프로젝트별 versioned 현재 탭 임시저장, 450ms debounce, 7일 유효성 검증, 복원·폐기 상태 안내, 서버 revision 전환과 이탈 보호 | 완료 |
 | Proposal Preview | 공개 token 조회, 공유 링크 생성·만료 표시·비활성화, 범위·근거·금액, 승인·수정 요청·거절, browser PDF 출력 | 완료 |
 | Outcome Review | 실제 매출·비용·공수·변경 사유와 항목별 실제 결과, 승인 견적 대비 매출·시간 오차 | 완료 |
 | Settings의 현재 backend 지원 범위 | `/me`, effective permission, 단가 등록·수정·비활성화·재활성화, estimation policy | 완료 |
@@ -30,6 +32,7 @@
 | 키보드 작업 수명주기 | 인증 tab 화살표 이동, 현재 위치 전달, modal focus trap·배경 scroll lock·trigger focus 복귀 | 완료 |
 | Transactional form UX | 모든 mutation form의 중복 제출 차단, Client·Settings·Outcome pending field lock, modal-local validation·API error, network failure 한국어 복구 | 완료 |
 | 작업 맥락 복원 | Workspace 화면·프로젝트·진행 단계를 URL에 기록하고 새로고침·뒤로/앞으로 복원, 잘못된 대상과 권한 없는 화면은 Pipeline으로 정규화 | 완료 |
+| 모바일 Workspace 탐색 | 820px 이하 sticky 4열 핵심 메뉴, 네이티브 프로젝트 선택기와 새 프로젝트 진입, 데스크톱 프로젝트 목록 가로 스크롤 제거 | 완료 |
 
 ## Backend 계약이 없어 보류된 항목
 
@@ -50,12 +53,16 @@
 - `npm.cmd run lint`
 - `npm.cmd run build` (`next build`)
 - 실제 browser의 1920·1440·1280·1024·768·390 viewport에서 Pretendard load 완료, Hero 2줄, 주요 제목 2–3줄, horizontal overflow와 console warning·error 0건
+- 실제 browser computed style에서 접힌 업무 단계 제목 4개의 `transform: none`·`writing-mode: vertical-rl`·`text-orientation: upright`와 활성 제목의 가로쓰기 확인
 - Vercel Preview fixture에서 모든 mutation form의 중복 제출 guard·pending field lock source-contract test 24건, TypeScript, ESLint, Next production build
+- 견적 draft의 사용자·Workspace·프로젝트 scope, schema·만료 검증과 Quote Builder 연결을 포함한 Node 테스트 27건, 실제 browser의 입력→저장→화면 이동→복원→확인 후 폐기, 1280px horizontal overflow 0px
 - Vercel public environment fail-fast test, legacy platform runtime 잔재 검사와 GitHub Node 22 Preview build job
 - App Router 복구·접근성·Clipboard fallback source-contract test
 - 실제 browser의 1280·1024·390 viewport, Hero line count, horizontal overflow, 인증 tab keyboard와 console log 검사
 - API 미기동 인증 요청의 pending lock·unlock, 한국어 network failure와 browser console 검사
 - SSE Last-Event-ID source contract와 실행 가능한 cursor monotonicity·1–10초 bounded backoff test
+- 실제 browser의 Agent 흐름 미리보기에서 활성 연결선 1개·moving packet 1개·대기 연결선 packet 0개, 진행률과 활성 노드 일치, horizontal overflow 0px
+- 390×844 browser와 6개 프로젝트 fixture에서 sticky 모바일 탐색, 4개 메뉴 각 86px 균등 배치, 프로젝트 선택 후 URL·제목 동기화, horizontal overflow 0px
 - URL parser·builder 실행 테스트, 허용 목록·프로젝트 존재·permission 기반 deep-link 복원 source contract test
 - 단가표의 동일 ID 수정·활성 상태 전환·확인 단계·pending field lock과 Spring PUT 계약 source-contract test
 - 1초~2,147,000,000ms session refresh timer 경계값 실행 테스트와 장기 TTL 회원가입 browser 회귀 검증

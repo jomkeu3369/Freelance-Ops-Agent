@@ -52,6 +52,17 @@ const eventNode: Record<string, WorkflowNodeId> = {
   "run.failed": "review",
 };
 
+const statusCopy: Record<WorkflowSnapshot["status"], string> = {
+  IDLE: "실행 대기",
+  PREVIEW: "흐름 미리보기",
+  QUEUED: "실행 준비",
+  RUNNING: "실시간 처리 중",
+  WAITING_FOR_USER: "사용자 응답 대기",
+  COMPLETED: "실행 완료",
+  FAILED: "실행 중단",
+  CANCELLED: "사용자 중단",
+};
+
 export function snapshotFromEvents(
   events: WorkflowEvent[],
   status: AgentRunStatus | "PREVIEW" | "IDLE",
@@ -96,19 +107,29 @@ function publicEventLabel(type: string): string {
 }
 
 export function LiveWorkflow({ snapshot, preview = false }: { snapshot: WorkflowSnapshot; preview?: boolean }) {
+  const activeIndex = nodes.findIndex((node) => node.id === snapshot.activeNode);
+  const isMoving = snapshot.status === "PREVIEW" || snapshot.status === "QUEUED" || snapshot.status === "RUNNING";
+  const isComplete = snapshot.status === "COMPLETED";
+  const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / nodes.length) * 100);
+
   return (
-    <section className="live-graph" aria-label={preview ? "제품 흐름 미리보기" : "실시간 Agent 워크플로우"}>
+    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={preview ? "제품 흐름 미리보기" : "실시간 Agent 워크플로우"}>
       <div className="live-graph-head">
         <div>
-          <span className={`live-dot ${snapshot.status === "FAILED" ? "failed" : ""}`} />
+          <span className={`live-dot ${isMoving ? "moving" : ""}`} aria-hidden="true" />
           <strong>{preview ? "제품 흐름 미리보기" : "실시간 실행 그래프"}</strong>
         </div>
-        <span>{preview ? "DEMO" : `${snapshot.eventCount} EVENTS`}</span>
+        <span>{statusCopy[snapshot.status]}</span>
+      </div>
+      <div className="workflow-progress" role="progressbar" aria-label="워크플로우 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+        <span style={{ width: `${progress}%` }} />
       </div>
       <div className="workflow-rail">
         {nodes.map((node, index) => {
           const Icon = node.icon;
-          const state = snapshot.failedNode === node.id
+          const state = isComplete
+            ? "completed"
+            : snapshot.failedNode === node.id
             ? "failed"
             : snapshot.activeNode === node.id
               ? "active"
@@ -123,8 +144,8 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
                 <span>{node.label}</span>
               </div>
               {index < nodes.length - 1 && (
-                <div className={`workflow-link ${snapshot.completedNodes.includes(node.id) ? "completed" : ""}`}>
-                  <span aria-hidden="true" />
+                <div className={`workflow-link ${isComplete || index < activeIndex - 1 ? "completed" : isMoving && index === activeIndex - 1 ? "active" : "pending"}`}>
+                  {isMoving && index === activeIndex - 1 && <span aria-hidden="true" />}
                 </div>
               )}
             </div>
@@ -132,8 +153,8 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         })}
       </div>
       <div className="live-event" aria-live="polite">
-        <span className="signal-bars" aria-hidden="true"><i /><i /><i /><i /></span>
-        <p>{snapshot.eventLabel}</p>
+        <span className={`signal-bars ${isMoving ? "moving" : ""}`} aria-hidden="true"><i /><i /><i /><i /></span>
+        <div><p>{snapshot.eventLabel}</p><small>{nodes[Math.max(activeIndex, 0)].label} · {snapshot.eventCount.toLocaleString("ko-KR")}개 이벤트</small></div>
       </div>
     </section>
   );

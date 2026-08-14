@@ -5,6 +5,7 @@ import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
 import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
+import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
@@ -138,6 +139,8 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.evidence-copy h2, \.outcome-copy h2 \{ font-size: clamp\(3\.1rem, 3\.6vw, 4\.3rem\)/);
   assert.match(css, /\.audience-section \.section-heading h2 \{ font-size: clamp\(1\.9rem, 7\.6vw, 2\.2rem\)/);
   assert.match(css, /\.final-cta h2 \{ font-size: clamp\(2rem, 8\.5vw, 3\.5rem\)/);
+  assert.match(css, /\.accordion-content strong \{[^}]*writing-mode: vertical-rl; text-orientation: upright/);
+  assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
 });
 
 test("every CSS custom property resolves except runtime font variables", async () => {
@@ -149,13 +152,19 @@ test("every CSS custom property resolves except runtime font variables", async (
 });
 
 test("workspace calls Spring only and renders a live event-driven graph", async () => {
-  const [workspace, api, graph] = await Promise.all([
+  const [workspace, api, graph, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
     read("../app/components/live-workflow.tsx"),
+    read("../app/globals.css"),
   ]);
   assert.match(workspace, /streamRunEvents/);
   assert.match(workspace, /LiveWorkflow/);
+  assert.match(graph, /role="progressbar"/);
+  assert.match(graph, /statusCopy\[snapshot\.status\]/);
+  assert.match(graph, /isMoving && index === activeIndex - 1/);
+  assert.match(css, /\.workflow-link\.active/);
+  assert.match(css, /\.signal-bars\.moving i/);
   assert.match(api, /NEXT_PUBLIC_API_BASE_URL/);
   assert.match(api, /\/api\/v2\/workspaces/);
   assert.doesNotMatch(api, /localhost:8000|\/internal\/v1/);
@@ -190,7 +199,10 @@ test("Agent SSE reconnects from the last durable event with bounded backoff", as
 });
 
 test("workspace navigation survives refresh and rejects malformed deep links", async () => {
-  const workspace = await read("../app/workspace/page.tsx");
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
   assert.deepEqual(parseWorkspaceLocation(""), { view: "pipeline" });
   assert.deepEqual(parseWorkspaceLocation("?view=clients"), { view: "clients" });
   assert.deepEqual(parseWorkspaceLocation("?view=project&project=project-17&step=quote"), {
@@ -215,6 +227,11 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
   assert.match(workspace, /permissions\.has\("document\.read"\)/);
   assert.match(workspace, /projectResult\.find\(\(item\) => item\.id === location\.projectId\)/);
   assert.match(workspace, /selectedProjectIdRef\.current !== project\.id/);
+  assert.match(workspace, /aria-label="프로젝트 바로가기"/);
+  assert.match(workspace, /projects\.find\(\(item\) => item\.id === event\.target\.value\)/);
+  assert.match(css, /\.mobile-project-switcher \{ display: none; \}/);
+  assert.match(css, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.workspace-sidebar nav \{ display: none; \}/);
 });
 
 test("responsive and reduced-motion gates cover the documented breakpoints", async () => {
@@ -339,6 +356,43 @@ test("session refresh scheduling stays inside the browser timer range", async ()
   assert.equal(sessionRefreshDelay("not-a-date", now), 1_000);
   assert.match(workspace, /sessionRefreshDelay\(session\.accessTokenExpiresAt\)/);
   assert.doesNotMatch(workspace, /Math\.max\(1_000, refreshAt\)/);
+});
+
+test("quotation drafts are scoped, validated, expiring, and recoverable", async () => {
+  const now = Date.parse("2026-08-14T06:00:00Z");
+  const input = {
+    workspaceId: "workspace / alpha",
+    projectId: "project-17",
+    scenario: "RECOMMENDED",
+    baseQuotationId: "quotation-3",
+    taxRate: 0.1,
+    validUntil: "2026-09-01",
+    items: [{ rateCardId: null, title: "검수", description: "", quantity: 2, unit: "DAY", unitRate: 500000, discountRate: 0, basis: { type: "ASSUMPTION", content: "화면 3종", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }],
+  };
+  const draft = createQuotationDraft(input, now);
+  assert.equal(quotationDraftKey("user-1", input.workspaceId, input.projectId), "freelance-ops-quotation-draft-v1:user-1:workspace%20%2F%20alpha:project-17");
+  assert.deepEqual(parseQuotationDraft(JSON.stringify(draft), { workspaceId: input.workspaceId, projectId: input.projectId }, now), draft);
+  assert.equal(parseQuotationDraft(JSON.stringify(draft), { workspaceId: "workspace-2", projectId: input.projectId }, now), null);
+  assert.equal(parseQuotationDraft("not-json", { workspaceId: input.workspaceId, projectId: input.projectId }, now), null);
+  assert.equal(parseQuotationDraft(JSON.stringify(draft), { workspaceId: input.workspaceId, projectId: input.projectId }, now + 8 * 24 * 60 * 60 * 1000), null);
+  assert.equal(quotationDraftFingerprint(draft), quotationDraftFingerprint({ ...draft, updatedAt: new Date(now + 1000).toISOString() }));
+});
+
+test("Quote Builder preserves unsaved work in the current browser tab", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /quotationDraftKey\(session\.userId, project\.workspaceId, project\.id\)/);
+  assert.match(workspace, /parseQuotationDraft\(rawDraft/);
+  assert.match(workspace, /window\.sessionStorage\.setItem\(draftStorageKey, JSON\.stringify\(draft\)\)/);
+  assert.match(workspace, /window\.sessionStorage\.removeItem\(draftStorageKey\)/);
+  assert.match(workspace, /window\.addEventListener\("beforeunload", warnBeforeUnload\)/);
+  assert.match(workspace, /현재 임시 저장된 입력을 버리고 선택한 서버 revision을 불러올까요/);
+  assert.match(workspace, /이 탭의 미저장 견적을 복원했습니다/);
+  assert.match(workspace, /서버와 다른 브라우저에는 반영되지 않습니다/);
+  assert.match(css, /\.quote-draft-state/);
+  assert.match(css, /\.quote-draft-state\.unavailable/);
 });
 
 test("workspace evidence library exposes the complete document lifecycle", async () => {

@@ -446,6 +446,24 @@ export default function WorkspacePage() {
           <span>프로젝트</span>
           {canWriteProject && <button type="button" onClick={() => setShowNewProject(true)} aria-label="새 프로젝트 만들기"><Plus size={18} /></button>}
         </div>
+        <div className="mobile-project-switcher">
+          <label>
+            <span className="sr-only">프로젝트 바로가기</span>
+            <select
+              aria-label="프로젝트 바로가기"
+              value={activeView === "project" ? selectedProject?.id ?? "" : ""}
+              disabled={projects.length === 0}
+              onChange={(event) => {
+                const project = projects.find((item) => item.id === event.target.value);
+                if (project) navigateWorkspace("project", project);
+              }}
+            >
+              <option value="">{projects.length ? "프로젝트 선택" : "프로젝트 없음"}</option>
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.title} · {project.status}</option>)}
+            </select>
+          </label>
+          {canWriteProject && <button type="button" onClick={() => setShowNewProject(true)} aria-label="새 프로젝트 만들기"><Plus size={18} /><span>새 프로젝트</span></button>}
+        </div>
         <nav aria-label="프로젝트 목록">
           {projects.length === 0 ? (
             <button className="empty-project" type="button" disabled={!canWriteProject} onClick={() => setShowNewProject(true)}>
@@ -1528,8 +1546,8 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<QuoteDraftStatus | null>(null);
-  const draftReadyRef = useRef(false);
-  const draftBaselineRef = useRef("");
+  const [draftBaseline, setDraftBaseline] = useState<string | null>(null);
+  const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const lastPersistedDraftRef = useRef("");
   const draftStorageKey = quotationDraftKey(session.userId, project.workspaceId, project.id);
 
@@ -1544,11 +1562,10 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   useEffect(() => {
     if (!canRead) return;
     let cancelled = false;
-    draftReadyRef.current = false;
-    setDraftStatus(null);
     Promise.all([listQuotations(session, project.id), listRateCards(session)])
       .then(([result, nextRateCards]) => {
         if (!cancelled) {
+          setDraftStatus(null);
           setQuotations(result);
           setRateCards(nextRateCards.filter((card) => card.active));
           const latest = result[0] ?? null;
@@ -1579,13 +1596,13 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
             setValidUntil(restored.validUntil);
             const restoredFingerprint = fingerprint(restored.scenario, restored.baseQuotationId, restored.taxRate, restored.validUntil, restored.items);
             const baselineItems = baseQuotation ? quotationItemsAsInput(baseQuotation) : [emptyQuoteItem()];
-            draftBaselineRef.current = fingerprint(
+            setDraftBaseline(fingerprint(
               baseQuotation?.scenario ?? "RECOMMENDED",
               baseQuotation?.id ?? null,
               baseQuotation?.taxRate ?? .1,
               baseQuotation?.validUntil ?? "",
               baselineItems,
-            );
+            ));
             lastPersistedDraftRef.current = restoredFingerprint;
             setDraftStatus({ kind: "restored", updatedAt: restored.updatedAt });
           } else {
@@ -1595,10 +1612,10 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
             setTaxRate(defaultTaxRate);
             setValidUntil(defaultValidUntil);
             const baseline = fingerprint(defaultScenario, latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
-            draftBaselineRef.current = baseline;
+            setDraftBaseline(baseline);
             lastPersistedDraftRef.current = baseline;
           }
-          draftReadyRef.current = true;
+          setDraftProjectId(project.id);
         }
       })
       .catch((cause: unknown) => {
@@ -1608,10 +1625,10 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   }, [canRead, canWrite, draftStorageKey, fingerprint, project.id, project.workspaceId, session]);
 
   const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
-  const hasUnsavedDraft = draftReadyRef.current && currentDraftFingerprint !== draftBaselineRef.current;
+  const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
 
   useEffect(() => {
-    if (!canWrite || !draftReadyRef.current || !hasUnsavedDraft || currentDraftFingerprint === lastPersistedDraftRef.current) return;
+    if (!canWrite || !hasUnsavedDraft || currentDraftFingerprint === lastPersistedDraftRef.current) return;
     const timer = window.setTimeout(() => {
       const draft = createQuotationDraft({
         workspaceId: project.workspaceId,
@@ -1632,6 +1649,16 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     }, 450);
     return () => window.clearTimeout(timer);
   }, [canWrite, currentDraftFingerprint, draftStorageKey, hasUnsavedDraft, items, project.id, project.workspaceId, saved?.id, scenario, taxRate, validUntil]);
+
+  useEffect(() => {
+    if (!hasUnsavedDraft) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [hasUnsavedDraft]);
 
   const estimatedSubtotal = items.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0);
   const canSave = canWrite && items.length > 0 && items.every((item) => item.title.trim()
@@ -1670,7 +1697,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     setConflictLatest(null);
     setError(null);
     const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", nextItems);
-    draftBaselineRef.current = baseline;
+    setDraftBaseline(baseline);
     lastPersistedDraftRef.current = baseline;
     clearStoredDraft();
   };
@@ -1680,8 +1707,8 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     applyQuotation(quotation);
   };
 
-  const resetQuotation = () => {
-    if (hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 새 견적 시리즈를 시작할까요?")) return;
+  const resetQuotation = (force = false) => {
+    if (!force && hasUnsavedDraft && !window.confirm("현재 임시 저장된 입력을 버리고 새 견적 시리즈를 시작할까요?")) return;
     const nextItems = [emptyQuoteItem()];
     setSaved(null);
     setScenario("RECOMMENDED");
@@ -1694,14 +1721,15 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     setConflictLatest(null);
     setError(null);
     const baseline = fingerprint("RECOMMENDED", null, .1, "", nextItems);
-    draftBaselineRef.current = baseline;
+    setDraftBaseline(baseline);
     lastPersistedDraftRef.current = baseline;
     clearStoredDraft();
   };
 
   const discardDraft = () => {
+    if (!window.confirm("이 탭의 임시 저장 내용을 버리고 마지막 서버 상태로 되돌릴까요?")) return;
     if (saved) applyQuotation(saved);
-    else resetQuotation();
+    else resetQuotation(true);
   };
 
   const save = async () => {
@@ -1725,7 +1753,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
       setQuotations((current) => [quotation, ...current]);
       setConflictLatest(null);
       const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", savedItems);
-      draftBaselineRef.current = baseline;
+      setDraftBaseline(baseline);
       lastPersistedDraftRef.current = baseline;
       clearStoredDraft();
     } catch (cause) {
@@ -1758,7 +1786,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => setScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
         </div>
-        {canWrite && <button type="button" className="quiet-button" onClick={resetQuotation}>새 견적 시리즈</button>}
+        {canWrite && <button type="button" className="quiet-button" onClick={() => resetQuotation()}>새 견적 시리즈</button>}
       </div>
 
       {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
