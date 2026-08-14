@@ -18,6 +18,10 @@ user_profile.json
 docker-compose-local.yaml
 faiss_index/
 
+# Local IDE settings
+.idea/
+*.iml
+
 # Local-only experiment inputs and generated artifacts
 experiments/local_archive/
 experiments/**/reports/
