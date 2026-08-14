@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
+import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
@@ -312,6 +313,17 @@ test("expired access tokens use one coordinated refresh and retry the original S
   assert.match(workspace, /로그인 시간이 만료되었습니다\. 다시 로그인해 주세요/);
 });
 
+test("session refresh scheduling stays inside the browser timer range", async () => {
+  const workspace = await read("../app/workspace/page.tsx");
+  const now = Date.parse("2026-08-14T00:00:00Z");
+  assert.equal(sessionRefreshDelay("2026-08-14T00:10:00Z", now), 540_000);
+  assert.equal(sessionRefreshDelay("2026-08-14T00:00:10Z", now), 1_000);
+  assert.equal(sessionRefreshDelay("2099-01-01T00:00:00Z", now), 2_147_000_000);
+  assert.equal(sessionRefreshDelay("not-a-date", now), 1_000);
+  assert.match(workspace, /sessionRefreshDelay\(session\.accessTokenExpiresAt\)/);
+  assert.doesNotMatch(workspace, /Math\.max\(1_000, refreshAt\)/);
+});
+
 test("workspace evidence library exposes the complete document lifecycle", async () => {
   const [workspace, api] = await Promise.all([
     read("../app/workspace/page.tsx"),
@@ -358,11 +370,19 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /<fieldset className="dialog-fields" disabled=\{busy\}>/);
   assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
   assert.match(workspace, /if \(busy\) return; void onSubmit\(answers\)/);
+  assert.match(workspace, /function EstimationPolicyForm[\s\S]*?if \(busy\) return;/);
+  assert.match(workspace, /function ModelPricingForm[\s\S]*?if \(busy\) return;/);
+  assert.equal([...workspace.matchAll(/<fieldset className="settings-fields" disabled=\{busy\}>/g)].length, 2);
+  assert.match(workspace, /<fieldset className="client-fields" disabled=\{busy\}>/);
+  assert.match(workspace, /<fieldset className="outcome-fields" disabled=\{busy\}>/);
+  assert.match(workspace, /<form className="outcome-form" aria-busy=\{busy\}/);
   assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy\}>/);
   assert.match(proposal, /응답을 기록하고 있습니다/);
   assert.match(api, /서버에 연결할 수 없습니다\. 네트워크 상태를 확인한 뒤 다시 시도해 주세요/);
   assert.match(css, /\.dialog-fields:disabled/);
   assert.match(css, /\.proposal-response-fields:disabled/);
+  assert.match(css, /\.settings-fields/);
+  assert.match(css, /\.client-fields, \.outcome-fields/);
 });
 
 test("agent results expose reviewable questions and safe source provenance", async () => {

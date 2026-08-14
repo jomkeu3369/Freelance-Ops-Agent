@@ -27,6 +27,7 @@ import {
 } from "@phosphor-icons/react";
 import { LiveWorkflow, snapshotFromEvents } from "../components/live-workflow";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../lib/stream-retry.mjs";
+import { sessionRefreshDelay } from "../lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
 import {
   AgentRunView,
@@ -254,7 +255,6 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (!session) return;
-    const refreshAt = new Date(session.accessTokenExpiresAt).getTime() - Date.now() - 60_000;
     const timer = window.setTimeout(() => {
       refreshAuthSession(session)
         .then((nextSession) => {
@@ -263,7 +263,7 @@ export default function WorkspacePage() {
           setSession(preservedSession);
         })
         .catch(() => { clearSession(); setSession(null); setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요."); });
-    }, Math.max(1_000, refreshAt));
+    }, sessionRefreshDelay(session.accessTokenExpiresAt));
     return () => window.clearTimeout(timer);
   }, [session]);
 
@@ -821,7 +821,8 @@ function ClientsPanel({
         </section>
         <section className="client-editor" aria-labelledby="client-editor-title">
           <header><div><span>{selected ? "고객 정보" : "새 고객"}</span><h2 id="client-editor-title">{selected ? selected.name : "관계를 먼저 기록하세요."}</h2></div>{selected && <PencilSimple size={24} />}</header>
-          <form key={selected?.id ?? "new"} onSubmit={submit}>
+          <form key={selected?.id ?? "new"} aria-busy={busy} onSubmit={submit}>
+            <fieldset className="client-fields" disabled={busy}>
             <div className="form-row"><label>담당자 이름<input name="name" required maxLength={120} readOnly={!canWrite} defaultValue={selected?.name ?? ""} /></label><label>회사명<input name="companyName" maxLength={160} readOnly={!canWrite} defaultValue={selected?.companyName ?? ""} /></label></div>
             <div className="form-row"><label>이메일<input name="email" type="email" maxLength={320} readOnly={!canWrite} defaultValue={selected?.email ?? ""} /></label><label>전화번호<input name="phone" type="tel" maxLength={40} readOnly={!canWrite} defaultValue={selected?.phone ?? ""} /></label></div>
             <label>관계 메모<textarea name="notes" rows={7} maxLength={5000} readOnly={!canWrite} defaultValue={selected?.notes ?? ""} placeholder="선호하는 소통 방식, 의사결정자, 예산 맥락 등을 기록하세요." /></label>
@@ -829,6 +830,7 @@ function ClientsPanel({
               {canWrite && <button className="primary-button" type="submit" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />}{selected ? "변경 저장" : "고객 등록"}</button>}
               {selected && canDelete && (archiveTarget === selected.id ? <div className="archive-confirm"><span>이 고객을 보관할까요?</span><button type="button" disabled={busy} onClick={() => void archive(selected)}>보관</button><button type="button" onClick={() => setArchiveTarget(null)}>취소</button></div> : <button className="quiet-button danger" type="button" onClick={() => setArchiveTarget(selected.id)}><Archive size={18} /> 고객 보관</button>)}
             </div>
+            </fieldset>
           </form>
         </section>
       </div>
@@ -1023,16 +1025,76 @@ function SettingsPanel({ session, permissions }: { session: AuthSession; permiss
           <section id="rate-cards"><header><div><h2>서비스 단가</h2><p>시간·일·고정 금액 기준을 등록합니다.</p></div></header>
             <RateCardManager session={session} rateCards={rateCards} canWrite={canWriteQuotation} onChange={setRateCards} />
           </section>
-          <section id="estimation-policy"><header><div><h2>견적 정책</h2><p>세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <form className="settings-form" key={policy.version} onSubmit={async (event) => { event.preventDefault(); setBusy(true); setError(null); setSaved(null); const data = new FormData(event.currentTarget); try { const nextPolicy = await saveEstimationPolicy(session, { defaultTaxRate: Number(data.get("taxRate")) / 100, defaultRiskBufferRate: Number(data.get("bufferRate")) / 100, maximumDiscountRate: Number(data.get("discountRate")) / 100 }); setPolicy(nextPolicy); setSaved("견적 정책이 저장되었습니다."); } catch (cause) { setError(cause instanceof Error ? cause.message : "정책을 저장하지 못했습니다."); } finally { setBusy(false); } }}><div className="form-row"><label>기본 세율 (%)<input name="taxRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultTaxRate * 100} /></label><label>위험 buffer (%)<input name="bufferRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultRiskBufferRate * 100} /></label><label>최대 할인율 (%)<input name="discountRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.maximumDiscountRate * 100} /></label></div><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 정책 저장</button></form> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
+          <section id="estimation-policy"><header><div><h2>견적 정책</h2><p>세금, 위험 buffer와 최대 할인율을 설정합니다.</p></div></header>{policy ? canWriteQuotation ? <EstimationPolicyForm session={session} policy={policy} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onSaved={setPolicy} /> : <dl><div><dt>기본 세율</dt><dd>{Math.round(policy.defaultTaxRate * 100)}%</dd></div><div><dt>위험 buffer</dt><dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd></div><div><dt>최대 할인율</dt><dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd></div></dl> : <p>현재 계정에는 견적 정책을 조회할 권한이 없습니다.</p>}</section>
           {canReadPricing && <section id="model-pricing"><header><div><h2>AI 모델 원가표</h2><p>Agent 실행 비용 계산에 쓰이는 불변 가격 스냅샷입니다.</p></div></header>
             <div className="model-pricing-list">{modelPricing.length === 0 ? <p>등록된 가격 스냅샷이 없습니다.</p> : modelPricing.map((pricing) => <article key={pricing.id}><div><span>{pricing.provider}</span><strong>{pricing.model}</strong><small>{pricing.versionLabel}</small></div><dl><div><dt>입력 / 1M</dt><dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd></div><div><dt>캐시 / 1M</dt><dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd></div><div><dt>출력 / 1M</dt><dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd></div></dl><p>{new Date(pricing.validFrom).toLocaleString("ko-KR")}부터{pricing.validUntil ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지` : " · 종료일 없음"}</p></article>)}</div>
-            {canManagePricing ? <form className="settings-form model-pricing-form" onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const validFrom = new Date(String(data.get("validFrom"))); const validUntilRaw = String(data.get("validUntil")); const validUntil = validUntilRaw ? new Date(validUntilRaw) : null; setError(null); setSaved(null); if (validUntil && validUntil <= validFrom) { setError("가격 유효 종료 시점은 시작 시점보다 늦어야 합니다."); return; } setBusy(true); try { const pricing = await createModelPricing(session, { provider: String(data.get("provider")) as Provider, model: String(data.get("model")).trim(), versionLabel: String(data.get("versionLabel")).trim(), currency: String(data.get("currency")), inputPerMillion: Number(data.get("inputPerMillion")), cachedInputPerMillion: Number(data.get("cachedInputPerMillion")), outputPerMillion: Number(data.get("outputPerMillion")), validFrom: validFrom.toISOString(), validUntil: validUntil?.toISOString() ?? null }); setModelPricing((current) => [pricing, ...current]); setSaved("AI 모델 가격 스냅샷이 등록되었습니다."); form.reset(); } catch (cause) { setError(cause instanceof Error ? cause.message : "모델 가격을 등록하지 못했습니다."); } finally { setBusy(false); } }}><div className="form-row"><label>Provider<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" required maxLength={100} placeholder="예: gpt-5.4-mini" /></label><label>버전 라벨<input name="versionLabel" required maxLength={100} placeholder="예: 2026-08 공식 가격" /></label><label>통화<select name="currency" defaultValue="USD"><option value="USD">USD</option><option value="KRW">KRW</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>입력 / 1M<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 / 1M<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 / 1M<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>유효 시작<input name="validFrom" type="datetime-local" required /></label><label>유효 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} 가격 스냅샷 등록</button></form> : <p className="permission-note">가격 스냅샷을 등록하려면 workspace.update 권한이 필요합니다.</p>}
+            {canManagePricing ? <ModelPricingForm session={session} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])} /> : <p className="permission-note">가격 스냅샷을 등록하려면 workspace.update 권한이 필요합니다.</p>}
           </section>}
           <section id="permissions"><header><div><h2>권한과 데이터 경계</h2><p>화면 숨김이 아니라 Spring permission 검사가 최종 보안 경계입니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <code key={permission}>{permission}</code>) ?? <p>표시할 effective permission이 없습니다.</p>}</div><p className="data-note">인증 정보는 현재 브라우저 탭의 sessionStorage에만 유지됩니다. Agent는 이 사용자의 위임된 권한을 넘을 수 없습니다.</p></section>
         </div>
       </div>
     </section>
   );
+}
+
+function EstimationPolicyForm({ session, policy, busy, setBusy, setError, setSaved, onSaved }: { session: AuthSession; policy: EstimationPolicy; busy: boolean; setBusy: (busy: boolean) => void; setError: (message: string | null) => void; setSaved: (message: string | null) => void; onSaved: (policy: EstimationPolicy) => void }) {
+  return <form className="settings-form" key={policy.version} aria-busy={busy} onSubmit={async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setSaved(null);
+    const data = new FormData(event.currentTarget);
+    try {
+      const nextPolicy = await saveEstimationPolicy(session, {
+        defaultTaxRate: Number(data.get("taxRate")) / 100,
+        defaultRiskBufferRate: Number(data.get("bufferRate")) / 100,
+        maximumDiscountRate: Number(data.get("discountRate")) / 100,
+      });
+      onSaved(nextPolicy);
+      setSaved("견적 정책이 저장되었습니다.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "정책을 저장하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>기본 세율 (%)<input name="taxRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultTaxRate * 100} /></label><label>위험 buffer (%)<input name="bufferRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.defaultRiskBufferRate * 100} /></label><label>최대 할인율 (%)<input name="discountRate" type="number" min="0" max="100" step="0.1" defaultValue={policy.maximumDiscountRate * 100} /></label></div><button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 정책 저장</button></fieldset></form>;
+}
+
+function ModelPricingForm({ session, busy, setBusy, setError, setSaved, onCreated }: { session: AuthSession; busy: boolean; setBusy: (busy: boolean) => void; setError: (message: string | null) => void; setSaved: (message: string | null) => void; onCreated: (pricing: ModelPricing) => void }) {
+  return <form className="settings-form model-pricing-form" aria-busy={busy} onSubmit={async (event) => {
+    event.preventDefault();
+    if (busy) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const validFrom = new Date(String(data.get("validFrom")));
+    const validUntilRaw = String(data.get("validUntil"));
+    const validUntil = validUntilRaw ? new Date(validUntilRaw) : null;
+    setError(null);
+    setSaved(null);
+    if (validUntil && validUntil <= validFrom) { setError("가격 유효 종료 시점은 시작 시점보다 늦어야 합니다."); return; }
+    setBusy(true);
+    try {
+      const pricing = await createModelPricing(session, {
+        provider: String(data.get("provider")) as Provider,
+        model: String(data.get("model")).trim(),
+        versionLabel: String(data.get("versionLabel")).trim(),
+        currency: String(data.get("currency")),
+        inputPerMillion: Number(data.get("inputPerMillion")),
+        cachedInputPerMillion: Number(data.get("cachedInputPerMillion")),
+        outputPerMillion: Number(data.get("outputPerMillion")),
+        validFrom: validFrom.toISOString(),
+        validUntil: validUntil?.toISOString() ?? null,
+      });
+      onCreated(pricing);
+      setSaved("AI 모델 가격 스냅샷이 등록되었습니다.");
+      form.reset();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "모델 가격을 등록하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>Provider<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" required maxLength={100} placeholder="예: gpt-5.4-mini" /></label><label>버전 라벨<input name="versionLabel" required maxLength={100} placeholder="예: 2026-08 공식 가격" /></label><label>통화<select name="currency" defaultValue="USD"><option value="USD">USD</option><option value="KRW">KRW</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>입력 / 1M<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 / 1M<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 / 1M<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>유효 시작<input name="validFrom" type="datetime-local" required /></label><label>유효 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} 가격 스냅샷 등록</button></fieldset></form>;
 }
 
 function RateCardManager({ session, rateCards, canWrite, onChange }: { session: AuthSession; rateCards: RateCard[]; canWrite: boolean; onChange: (cards: RateCard[]) => void }) {
@@ -1661,7 +1723,7 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {outcome && <div className="outcome-snapshot"><Graph size={25} /><div><span>확정된 결과</span><strong>이익률 {Math.round(outcome.profitMargin * 100)}%</strong></div><dl><div><dt>매출</dt><dd>{formatMoney(outcome.totalRevenue, project.currency)}</dd></div><div><dt>실제 비용</dt><dd>{formatMoney(outcome.actualCost, project.currency)}</dd></div><div><dt>실제 공수</dt><dd>{outcome.actualHours}시간</dd></div></dl></div>}
       {outcome && approvedQuotation && <section className="outcome-variance"><header><span>예상 대비 오차</span><strong>{approvedQuotation.scenario} v{approvedQuotation.versionNumber}</strong></header><dl><div><dt>견적 대비 계약 금액</dt><dd className={revenueVariance != null && revenueVariance >= 0 ? "positive" : "negative"}>{revenueVariance == null ? "-" : `${revenueVariance >= 0 ? "+" : ""}${formatMoney(revenueVariance, project.currency)}`}</dd><small>견적 {formatMoney(approvedQuotation.total, approvedQuotation.currency)} → 실제 {formatMoney(outcome.totalRevenue, project.currency)}</small></div><div><dt>시간 공수 오차</dt><dd className={hoursVariance != null && hoursVariance <= 0 ? "positive" : "negative"}>{hoursVariance == null ? "비교 불가" : `${hoursVariance >= 0 ? "+" : ""}${hoursVariance.toLocaleString()}시간`}</dd><small>{quotedHours > 0 ? `시간 단위 견적 ${quotedHours.toLocaleString()}시간 → 실제 ${outcome.actualHours.toLocaleString()}시간` : "시간 단위 견적 항목이 없습니다."}</small></div></dl></section>}
-      <form className="outcome-form" onSubmit={async (event) => {
+      <form className="outcome-form" aria-busy={busy} onSubmit={async (event) => {
         event.preventDefault();
         if (!canWrite || busy) return;
         setBusy(true);
@@ -1684,10 +1746,12 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
           setBusy(false);
         }
       }}>
+        <fieldset className="outcome-fields" disabled={busy}>
         <div className="form-row"><label>기준 견적<select name="approvedQuotationId" disabled={!canWrite} defaultValue={outcome?.approvedQuotationId ?? ""}><option value="">연결하지 않음</option>{quotations.filter((quotation) => quotation.status === "PUBLISHED").map((quotation) => <option key={quotation.id} value={quotation.id}>{quotation.scenario} v{quotation.versionNumber} · {formatMoney(quotation.total, quotation.currency)}</option>)}</select></label><label>최종 계약 금액<input name="totalRevenue" type="number" min="0" required readOnly={!canWrite} defaultValue={outcome?.totalRevenue ?? ""} /></label><label>실제 비용<input name="actualCost" type="number" min="0" required readOnly={!canWrite} defaultValue={outcome?.actualCost ?? ""} /></label><label>실제 공수(시간)<input name="actualHours" type="number" min="0" step="0.5" required readOnly={!canWrite} defaultValue={outcome?.actualHours ?? ""} /></label><label>완료일<input name="completedOn" type="date" readOnly={!canWrite} defaultValue={outcome?.completedOn ?? ""} /></label></div>
         <div className="actual-work-items"><div><span>항목별 실제 결과</span>{canWrite && <button type="button" className="secondary-button" onClick={() => setWorkItems((current) => [...current, { title: "", actualHours: 0, actualCost: 0, notes: "" }])}><Plus size={16} /> 항목 추가</button>}</div>{workItems.length === 0 ? <p>필요하면 작업 항목별 실제 공수와 비용을 추가하세요.</p> : workItems.map((item, index) => <fieldset key={index} disabled={!canWrite}><legend>실제 작업 {index + 1}</legend><div className="form-row"><label>작업명<input required maxLength={200} value={item.title} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, title: event.target.value } : currentItem))} /></label><label>공수(시간)<input type="number" min="0" step="0.5" value={item.actualHours} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualHours: Number(event.target.value) } : currentItem))} /></label><label>비용<input type="number" min="0" step="1000" value={item.actualCost} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualCost: Number(event.target.value) } : currentItem))} /></label></div><label>메모<textarea rows={2} maxLength={3000} value={item.notes} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, notes: event.target.value } : currentItem))} /></label>{canWrite && <button type="button" className="remove-feature" onClick={() => setWorkItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash size={16} /> 항목 제거</button>}</fieldset>)}</div>
         <label>범위 변경과 예상 차이<textarea name="changeReason" rows={6} maxLength={5000} readOnly={!canWrite} defaultValue={outcome?.changeReason ?? ""} placeholder="추가된 범위, 줄어든 작업, 예상보다 오래 걸린 이유를 기록하세요." /></label>
         {canWrite ? <button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 사용자 확정 결과 저장</button> : <p className="permission-note">읽기 전용 결과입니다.</p>}
+        </fieldset>
       </form>
     </section>
   );
