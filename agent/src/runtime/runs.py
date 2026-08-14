@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import traceback
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
@@ -22,6 +25,8 @@ from contracts import (
     RequestTier,
     ResumeAgentRunRequest,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRunNotFoundError(LookupError):
@@ -384,7 +389,17 @@ class RunCoordinator:
                 "execution_failed",
                 error_code=error.code,
             )
-        except Exception:
+        except Exception as error:
+            frames = [
+                {"file": Path(frame.filename).name, "line": frame.lineno, "function": frame.name}
+                for frame in traceback.extract_tb(error.__traceback__)
+            ]
+            logger.error(
+                "Unhandled Agent execution error: run_id=%s error_type=%s frames=%s",
+                run_id,
+                error.__class__.__name__,
+                frames,
+            )
             await self._store.fail(run_id, "AGENT_EXECUTION_FAILED")
             await self._checkpoint_journal.record(
                 request,

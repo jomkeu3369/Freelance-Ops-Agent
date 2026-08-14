@@ -208,6 +208,15 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.requirement-editor input, \.requirement-editor select, \.requirement-editor textarea \{[^}]*width: 100%/);
   assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);
   assert.match(css, /\.requirement-editor textarea \{[^}]*min-height: 92px/);
+  assert.match(workspace, /const configuredModelOptions: Record<Provider, string\[]>/);
+  assert.match(workspace, /<label>AI 모델<select value=\{model\}/);
+  assert.doesNotMatch(workspace, /<label>Model<input/);
+  assert.match(workspace, /name="currency" defaultValue="KRW"/);
+  assert.match(workspace, /list="suggested-models"/);
+  assert.match(css, /--workspace-radius-lg: 22px/);
+  assert.match(css, /\.settings-content > section \{[^}]*border: 0;[^}]*background: color-mix/);
+  assert.match(css, /\.run-controls \{[^}]*border-radius: var\(--workspace-radius-md\)/);
+  assert.match(css, /\.budget-range \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
 });
 
 test("every CSS custom property resolves except runtime font variables", async () => {

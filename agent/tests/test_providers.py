@@ -50,6 +50,10 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
     assert generation.input_tokens == 11
     assert responses.calls[0]["store"] is False
     assert responses.calls[0]["tools"] == []
+    output_format = responses.calls[0]["text"]["format"]
+    schema = output_format["schema"]
+    assert schema["required"] == ["summary", "open_questions"]
+    assert schema["additionalProperties"] is False
 
 
 @pytest.mark.asyncio
@@ -101,6 +105,12 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
     assert isinstance(output_format, dict)
     assert output_format["name"] == "bounded_react_step"
     assert output_format["strict"] is True
+    schema = output_format["schema"]
+    assert schema["required"] == ["action", "tool_name", "arguments", "summary", "open_questions"]
+    arguments_schema = schema["$defs"]["ReActArguments"]
+    assert arguments_schema["required"] == ["query"]
+    assert arguments_schema["additionalProperties"] is False
+    assert "default" not in arguments_schema["properties"]["query"]
 
 
 @pytest.mark.asyncio

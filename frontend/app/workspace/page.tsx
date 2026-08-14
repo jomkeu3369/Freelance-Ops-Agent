@@ -114,6 +114,26 @@ gsap.registerPlugin(useGSAP);
 
 const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
 
+const currencyOptions = [
+  { value: "KRW", label: "대한민국 원 (KRW)" },
+  { value: "USD", label: "미국 달러 (USD)" },
+  { value: "JPY", label: "일본 엔 (JPY)" },
+] as const;
+
+function parseModelOptions(value: string | undefined) {
+  return [...new Set((value ?? "").split(",").map((model) => model.trim()).filter(Boolean))];
+}
+
+const defaultOpenAIModel = process.env.NEXT_PUBLIC_DEFAULT_MODEL?.trim();
+const configuredModelOptions: Record<Provider, string[]> = {
+  OPENAI: parseModelOptions(process.env.NEXT_PUBLIC_OPENAI_MODELS).length > 0
+    ? parseModelOptions(process.env.NEXT_PUBLIC_OPENAI_MODELS)
+    : [defaultOpenAIModel || "gpt-5.6-luna", "gpt-5.6-terra"].filter((model, index, models) => models.indexOf(model) === index),
+  GEMINI: parseModelOptions(process.env.NEXT_PUBLIC_GEMINI_MODELS),
+};
+
+const suggestedModelOptions = [...new Set([...configuredModelOptions.OPENAI, ...configuredModelOptions.GEMINI])];
+
 const permissionAreaLabels: Record<string, string> = {
   workspace: "작업 공간",
   member: "팀원",
@@ -1241,7 +1261,7 @@ function ModelPricingForm({ session, busy, setBusy, setError, setSaved, onCreate
     } finally {
       setBusy(false);
     }
-  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>AI 제공사<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" required maxLength={100} placeholder="예: gpt-5.4-mini" /></label><label>요금 기준 이름<input name="versionLabel" required maxLength={100} placeholder="예: 2026년 8월 공식 요금" /></label><label>통화<select name="currency" defaultValue="USD"><option value="USD">USD</option><option value="KRW">KRW</option><option value="JPY">JPY</option></select></label></div><div className="form-row"><label>입력 100만 토큰<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 100만 토큰<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 100만 토큰<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>적용 시작<input name="validFrom" type="datetime-local" required /></label><label>적용 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} AI 요금 등록</button></fieldset></form>;
+  }}><fieldset className="settings-fields" disabled={busy}><div className="form-row"><label>AI 제공사<select name="provider" defaultValue="OPENAI"><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label><label>모델<input name="model" list="suggested-models" required maxLength={100} placeholder="목록에서 선택하거나 모델명 입력" /><datalist id="suggested-models">{suggestedModelOptions.map((model) => <option key={model} value={model} />)}</datalist></label><label>요금 기준 이름<input name="versionLabel" required maxLength={100} placeholder="예: 2026년 8월 공식 요금" /></label><label>통화<select name="currency" defaultValue="USD">{currencyOptions.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}</select></label></div><div className="form-row"><label>입력 100만 토큰<input name="inputPerMillion" type="number" min="0" step="0.000001" required /></label><label>캐시 입력 100만 토큰<input name="cachedInputPerMillion" type="number" min="0" step="0.000001" required /></label><label>출력 100만 토큰<input name="outputPerMillion" type="number" min="0" step="0.000001" required /></label></div><div className="form-row"><label>적용 시작<input name="validFrom" type="datetime-local" required /></label><label>적용 종료<input name="validUntil" type="datetime-local" /></label></div><button type="submit" className="secondary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <Plus size={18} />} AI 요금 등록</button></fieldset></form>;
 }
 
 function RateCardManager({ session, rateCards, canWrite, onChange }: { session: AuthSession; rateCards: RateCard[]; canWrite: boolean; onChange: (cards: RateCard[]) => void }) {
@@ -1383,7 +1403,7 @@ function ProjectWorkbench({
   onResume: (answers: string[]) => Promise<void>;
 }) {
   const [provider, setProvider] = useState<Provider>("OPENAI");
-  const [model, setModel] = useState(process.env.NEXT_PUBLIC_DEFAULT_MODEL ?? "");
+  const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
@@ -1423,8 +1443,8 @@ function ProjectWorkbench({
         {permissions.has("project.write") && activeStep !== "agent" && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
-            <label>AI 제공사<select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}><option value="OPENAI">OpenAI</option><option value="GEMINI">Gemini</option></select></label>
-            <label>Model<input value={model} onChange={(event) => setModel(event.target.value)} placeholder="사용 가능한 모델명" /></label>
+            <label>AI 제공사<select value={provider} onChange={(event) => { const nextProvider = event.target.value as Provider; setProvider(nextProvider); setModel(configuredModelOptions[nextProvider][0] ?? ""); }}><option value="OPENAI">OpenAI</option><option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>Gemini{configuredModelOptions.GEMINI.length === 0 ? " · 설정 필요" : ""}</option></select></label>
+            <label>AI 모델<select value={model} disabled={configuredModelOptions[provider].length === 0} onChange={(event) => setModel(event.target.value)}>{configuredModelOptions[provider].length === 0 ? <option value="">등록된 모델 없음</option> : configuredModelOptions[provider].map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
             <button type="button" className="primary-button" disabled={busy || !model.trim()} onClick={() => onRun(provider, model.trim())}>
               {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
             </button>
@@ -2355,7 +2375,7 @@ function ProjectDialog({ clients, onClose, onCreate }: { clients: Client[]; onCl
             clientId: String(data.get("clientId")) || null,
             title: String(data.get("title")).trim(),
             requirementText: String(data.get("requirementText")).trim(),
-            currency: "KRW",
+            currency: String(data.get("currency")),
             deadline: String(data.get("deadline")) || null,
             budgetMin,
             budgetMax,
@@ -2370,7 +2390,7 @@ function ProjectDialog({ clients, onClose, onCreate }: { clients: Client[]; onCl
             <label>고객 연결<select name="clientId" defaultValue=""><option value="">아직 고객을 연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select><small>{clients.length === 0 ? "고객 메뉴에서 연락처를 먼저 등록할 수 있습니다." : "선택한 고객은 프로젝트와 함께 저장됩니다."}</small></label>
             <label>프로젝트 이름<input data-autofocus name="title" required maxLength={200} placeholder="예: 브랜드 사이트 리뉴얼" /></label>
             <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요." /></label>
-            <div className="form-row"><label>희망 완료일<input name="deadline" type="date" /></label><label>최소 예산<input name="budgetMin" type="number" min="0" step="10000" /></label><label>최대 예산<input name="budgetMax" type="number" min="0" step="10000" /></label></div>
+            <div className="form-row"><label>통화<select name="currency" defaultValue="KRW">{currencyOptions.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}</select></label><label>희망 완료일<input name="deadline" type="date" /></label><label>예산 범위<div className="budget-range"><input name="budgetMin" type="number" min="0" step="10000" aria-label="최소 예산" placeholder="최소" /><span>–</span><input name="budgetMax" type="number" min="0" step="10000" aria-label="최대 예산" placeholder="최대" /></div></label></div>
             <button className="primary-button" type="submit">{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} {busy ? "프로젝트를 만들고 있습니다." : "프로젝트 만들기"}</button>
           </fieldset>
         </form>

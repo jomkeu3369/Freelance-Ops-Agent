@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
@@ -10,6 +11,8 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts import ModelSelection, Provider
+
+logger = logging.getLogger(__name__)
 
 
 class DepartmentWorkProduct(BaseModel):
@@ -19,6 +22,14 @@ class DepartmentWorkProduct(BaseModel):
     open_questions: list[str] = Field(default_factory=list, max_length=10)
 
 
+class ReActArguments(BaseModel):
+    """Closed argument envelope for the currently allowlisted runtime Tools."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
 class ReActStep(BaseModel):
     """Strict decision contract for one bounded ReAct iteration."""
 
@@ -26,7 +37,7 @@ class ReActStep(BaseModel):
 
     action: Literal["TOOL", "FINAL"]
     tool_name: str | None = Field(default=None, min_length=1, max_length=100)
-    arguments: dict[str, object] = Field(default_factory=dict)
+    arguments: ReActArguments = Field(default_factory=lambda: ReActArguments())
     summary: str | None = Field(default=None, max_length=10000)
     open_questions: list[str] = Field(default_factory=list, max_length=10)
 
@@ -53,6 +64,27 @@ class ProviderCallError(RuntimeError):
     """Sanitized provider failure that never exposes request or credential data."""
 
 
+def _strict_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Pydantic output to the closed, fully-required provider subset."""
+
+    def normalize(value: object) -> None:
+        if isinstance(value, dict):
+            value.pop("default", None)
+            properties = value.get("properties")
+            if value.get("type") == "object" and isinstance(properties, dict):
+                value["additionalProperties"] = False
+                value["required"] = list(properties)
+            for nested in value.values():
+                normalize(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                normalize(nested)
+
+    normalized = schema.copy()
+    normalize(normalized)
+    return normalized
+
+
 class ResilientProvider:
     def __init__(self, *, timeout_seconds: float = 60.0, max_attempts: int = 2) -> None:
         if timeout_seconds <= 0 or not 1 <= max_attempts <= 3:
@@ -70,6 +102,11 @@ class ResilientProvider:
                 return await asyncio.wait_for(operation(), timeout=self._timeout_seconds), attempt
             except Exception as error:
                 if attempt >= attempt_limit or not self._retryable(error):
+                    logger.warning(
+                        "Model provider call failed: error_type=%s status_code=%s",
+                        error.__class__.__name__,
+                        getattr(error, "status_code", None),
+                    )
                     raise ProviderCallError("model provider call failed") from error
                 await asyncio.sleep(0.1 * attempt)
 
@@ -140,7 +177,7 @@ class OpenAIModelProvider(ResilientProvider):
                         "type": "json_schema",
                         "name": schema_name,
                         "strict": True,
-                        "schema": schema.model_json_schema(),
+                        "schema": _strict_json_schema(schema.model_json_schema()),
                     }
                 }
             )
@@ -195,7 +232,7 @@ class GeminiModelProvider(ResilientProvider):
         config = {
             "system_instruction": system_instruction,
             "response_mime_type": "application/json",
-            "response_json_schema": schema.model_json_schema(),
+            "response_json_schema": _strict_json_schema(schema.model_json_schema()),
             "max_output_tokens": max_output_tokens,
         }
 

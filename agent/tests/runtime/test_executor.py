@@ -16,7 +16,7 @@ from contracts import (
     SourceReference,
     TrustedRunContext,
 )
-from providers import ModelGeneration
+from providers import ModelGeneration, ProviderCallError
 from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel
 from runtime import (
     AgentExecutionError,
@@ -66,6 +66,19 @@ class FixedProvider:
             output_tokens=self.tokens,
             model_calls=self.model_calls,
         )
+
+
+class FailingProvider:
+    async def generate_structured(
+        self,
+        selection: ModelSelection,
+        prompt: str,
+        *,
+        max_output_tokens: int,
+        max_attempts: int | None = None,
+    ) -> ModelGeneration:
+        del selection, prompt, max_output_tokens, max_attempts
+        raise ProviderCallError("model provider call failed")
 
 
 class SequenceReActProvider:
@@ -357,3 +370,17 @@ async def test_token_budget_failure_is_preserved_in_run_status() -> None:
 
     assert view.status is AgentRunStatus.FAILED
     assert view.error_code == "INPUT_TOKEN_BUDGET_EXCEEDED"
+
+
+async def test_model_provider_failure_uses_stable_public_error_code() -> None:
+    request = _request()
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), FailingProvider())
+    store = InMemoryAgentRunStore()
+    coordinator = RunCoordinator(store, executor)
+
+    await coordinator.accept(request)
+    await coordinator.execute(request)
+    view = await coordinator.view(request.context.run_id)
+
+    assert view.status is AgentRunStatus.FAILED
+    assert view.error_code == "MODEL_PROVIDER_FAILED"

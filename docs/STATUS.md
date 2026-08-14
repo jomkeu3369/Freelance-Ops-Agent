@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-14
+> 마지막 갱신: 2026-08-15
 > 현재 branch: `main`
 > 현재 단계: Phase 6 — 제품 연결과 운영 준비
 
@@ -12,7 +12,11 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
-- 2026-08-14: 첫 방문자가 기술 세부사항보다 제품의 문제와 사용자 흐름을 먼저 이해하도록 root README를 제품 중심으로 재구성했다. 고객 문의 구조화, HITL 질문·재개, 근거 기반 견적·제안서의 세 단계로 설명하고, 실제 GIF로 교체할 위치와 촬영 범위를 보여주는 TEMP SVG 4개를 추가했다. 상세 benchmark 그래프와 실험 과정은 기존 AI 신뢰성 사례 연구로 분리하고 README에는 대표 검증 결과와 운영 승격 판단만 남겼다. 주관적인 `AI runtime 구현 약 90%` 표현은 `핵심 Agent 실행 경로 구현 완료 — 실제 사용자 E2E와 운영 평가 진행 중`으로 교체했다.
+- 2026-08-15: 운영 Agent 실행이 접수된 뒤 `AGENT_EXECUTION_FAILED`로만 종료되던 문제를 수정했다. OpenAI Structured Outputs에 전달하는 JSON Schema를 모든 속성이 required인 폐쇄형 schema로 정규화하고, ReAct Tool 인자를 현재 허용된 `query` 계약으로 제한했다. Provider 호출 실패는 `MODEL_PROVIDER_FAILED`로 구분해 저장하며, 예기치 않은 오류는 prompt·응답·secret 없이 run ID와 예외 유형, 정제된 stack frame만 운영 로그에 남긴다. Agent 전체 pytest(기존 skip 1건 제외), Ruff, mypy 50개 source 검증이 통과했다.
+
+- 2026-08-15: Workspace에서 값의 범위가 정해진 입력을 선택형으로 정리했다. AI 실행 모델은 `NEXT_PUBLIC_OPENAI_MODELS`·`NEXT_PUBLIC_GEMINI_MODELS`에 등록된 목록에서만 고르며, 목록이 없는 제공사는 선택할 수 없다. 신규 모델 요금 등록은 추천 목록을 제공하되 새 모델 추가를 위해 직접 입력도 허용하고, 프로젝트 생성 통화는 KRW·USD·JPY 선택값으로 노출한다. Workspace 카드·설정·온보딩·대화상자는 과한 직선 테두리와 큰 제목을 줄이고 둥근 계층형 surface, 절제된 그림자와 넓은 입력 영역으로 재정비했다. Frontend TypeScript, Node 테스트 33건, ESLint와 Next.js production build가 통과했다. 인증 후 실제 데이터 화면의 시각 E2E는 배포 후 확인 대상으로 남겼다.
+
+- 2026-08-14: 첫 방문자가 기술 세부사항보다 제품의 문제와 사용자 흐름을 먼저 이해하도록 root README를 제품 중심으로 재구성했다. 고객 문의 구조화, HITL 질문·재개, 근거 기반 견적·제안서의 세 단계로 설명하고, 실제 GIF로 교체할 위치와 촬영 범위를 보여주는 TEMP SVG 4개를 추가했다. 딱딱한 설명 문구는 직접 문제를 겪고 제품을 만든 사람이 이야기하는 자연스러운 말투로 다듬고, 긴 문장은 의미 단위로 줄을 나눴다. 상단 badge도 Next.js·React·Spring Boot·FastAPI·LangGraph·OpenAI·Gemini·PostgreSQL·Docker·GitHub Actions의 실제 중심 stack을 보여주도록 확장했다. 상세 benchmark 그래프와 실험 과정은 기존 AI 신뢰성 사례 연구로 분리하고 README에는 대표 검증 결과와 운영 승격 판단만 남겼다. 상단 상태 link와 내용이 겹치던 `지금 어디까지 됐나요?` 구현 목록은 제거했다.
 
 - 2026-08-14: Backend CI의 `WorkspaceRbacPostgresTest` 5건이 Spring Context 초기화 단계에서 실패하던 원인을 수정했다. `HttpAgentRunClient`에 운영용·테스트용 생성자가 함께 존재해 Spring이 주입 생성자를 선택하지 못하고 기본 생성자를 찾던 문제였으며, 운영 생성자를 명시적인 주입 대상으로 지정했다. PostgreSQL Testcontainers 통합 테스트 5건과 Backend 전체 테스트 96건이 실패·skip 없이 통과했다.
 

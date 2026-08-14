@@ -24,7 +24,7 @@ from contracts import (
     ResumeAgentRunRequest,
 )
 from integrations import SpringToolError
-from providers import ModelProvider
+from providers import ModelProvider, ProviderCallError
 from routing import FinalRouteDecision, RouteLabel, SafetyContext
 from routing.llm_evaluator import RouteDecisionSource
 from web_research import ResearchCollection, WebResearchBudgetError
@@ -192,12 +192,15 @@ class OperationalAgentExecutor:
         questions: list[str] = []
         used_model_calls = route_model_calls
         for department in departments:
-            generation = await self._provider.generate_structured(
-                request.model_selection,
-                self._department_prompt(department, decision.route, text, project_context, research),
-                max_output_tokens=max(1, request.budget.max_output_tokens - output_tokens),
-                max_attempts=request.budget.max_retries + 1,
-            )
+            try:
+                generation = await self._provider.generate_structured(
+                    request.model_selection,
+                    self._department_prompt(department, decision.route, text, project_context, research),
+                    max_output_tokens=max(1, request.budget.max_output_tokens - output_tokens),
+                    max_attempts=request.budget.max_retries + 1,
+                )
+            except ProviderCallError as error:
+                raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
             input_tokens += generation.input_tokens
             output_tokens += generation.output_tokens
             used_model_calls += generation.model_calls
@@ -297,6 +300,8 @@ class OperationalAgentExecutor:
                         max_retries=request.budget.max_retries,
                     ),
                 )
+            except ProviderCallError as error:
+                raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
             except (ReActLoopError, ValueError) as error:
                 code = str(error) if isinstance(error, ReActLoopError) else "REACT_BUDGET_EXCEEDED"
                 raise AgentExecutionError(code) from error

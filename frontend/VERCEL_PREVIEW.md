@@ -16,7 +16,9 @@
 | 이름 | 필수 | 설명 |
 |---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | 필수 | 브라우저에서 접근 가능한 HTTPS Spring 공개 API origin. 경로와 마지막 `/` 없이 설정한다. |
-| `NEXT_PUBLIC_DEFAULT_MODEL` | 선택 | AI 실행 화면의 기본 model 이름. provider 자동 fallback에는 사용하지 않는다. |
+| `NEXT_PUBLIC_DEFAULT_MODEL` | 선택 | OpenAI 모델 목록을 따로 설정하지 않았을 때 첫 선택값으로 사용한다. |
+| `NEXT_PUBLIC_OPENAI_MODELS` | 권장 | AI 실행 화면에 표시할 OpenAI 모델을 쉼표로 구분한다. |
+| `NEXT_PUBLIC_GEMINI_MODELS` | 선택 | AI 실행 화면에 표시할 Gemini 모델을 쉼표로 구분한다. 비어 있으면 Gemini 선택을 잠근다. |
 | `NEXT_PUBLIC_SITE_URL` | 선택 | canonical/OG origin을 강제로 지정할 때 사용한다. 미설정 시 Preview의 `VERCEL_URL`을 사용한다. |
 
 `NEXT_PUBLIC_*` 값은 client bundle에 포함되므로 secret을 넣지 않는다. Preview 변수를 바꾸면 기존 배포에는 반영되지 않으므로 새 Preview Deployment를 생성한다.

@@ -468,6 +468,62 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .settings-form fieldset:disabled input, .settings-form fieldset:disabled select { cursor: not-allowed; }
 .settings-form .primary-button, .settings-form .secondary-button { min-height: 48px; justify-self: start; }
 .rate-card-form .form-row:first-of-type { grid-template-columns: minmax(220px, 1.5fr) minmax(140px, .75fr) minmax(140px, .75fr); }
+
+/* Workspace UI: calm surfaces, clearer grouping, and less decorative chrome. */
+.workspace-shell {
+  --workspace-radius-sm: 10px;
+  --workspace-radius-md: 16px;
+  --workspace-radius-lg: 22px;
+  background:
+    radial-gradient(circle at 82% 4%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 28rem),
+    var(--bg-deep);
+}
+.workspace-topbar { border-bottom-color: color-mix(in srgb, var(--line) 72%, transparent); box-shadow: 0 8px 30px rgba(0, 0, 0, .08); }
+.workspace-sidebar { border-right-color: color-mix(in srgb, var(--line) 72%, transparent); }
+.workspace-nav button, .workspace-sidebar nav > button, .sidebar-heading button, .workspace-account-actions select { border-radius: var(--workspace-radius-sm); }
+.workspace-nav button:hover, .workspace-nav button.active, .workspace-sidebar nav > button:hover, .workspace-sidebar nav > button.active { border-color: transparent; background: color-mix(in srgb, var(--surface-solid) 84%, transparent); }
+.workspace-sidebar nav > button.active { border-left-color: transparent; box-shadow: inset 3px 0 var(--accent), 0 8px 24px rgba(0, 0, 0, .08); }
+.workspace-main { max-width: 1920px; width: 100%; margin-inline: auto; }
+.workspace-shell :where(.primary-button, .secondary-button, .quiet-button, .icon-button) { border-radius: var(--workspace-radius-sm); }
+.workspace-shell .primary-button { box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 18%, transparent); }
+.workspace-shell .secondary-button { background: color-mix(in srgb, var(--surface-solid) 86%, transparent); }
+.pipeline-heading h1, .settings-heading h1 { max-width: 920px; font-size: clamp(2.55rem, 4vw, 5rem); line-height: 1.02; letter-spacing: -.055em; }
+.project-heading h1 { font-size: clamp(2.35rem, 4vw, 4.8rem); line-height: 1.02; letter-spacing: -.055em; }
+.pipeline-heading, .settings-heading, .project-heading { margin-bottom: clamp(28px, 3vw, 44px); }
+.pipeline-summary, .pipeline-board, .workspace-onboarding, .settings-index, .settings-content > section, .structured-requirements, .project-dialog { border-color: color-mix(in srgb, var(--line) 78%, transparent); border-radius: var(--workspace-radius-lg); box-shadow: 0 18px 50px rgba(0, 0, 0, .08); }
+.pipeline-summary, .pipeline-board, .workspace-onboarding, .settings-content > section, .structured-requirements { overflow: hidden; }
+.pipeline-summary { gap: 1px; border: 0; background: var(--line); }
+.pipeline-summary div { border: 0; background: var(--surface-solid); }
+.pipeline-summary div:first-child { border-radius: var(--workspace-radius-md) 0 0 var(--workspace-radius-md); }
+.pipeline-summary div:last-child { border-radius: 0 var(--workspace-radius-md) var(--workspace-radius-md) 0; }
+.pipeline-board { background: color-mix(in srgb, var(--surface-solid) 74%, transparent); }
+.pipeline-cards article, .rate-card-list > button, .rate-card-list article, .model-pricing-list > article { border-radius: var(--workspace-radius-md); }
+.settings-grid { gap: 24px; }
+.settings-index { padding: 8px; border: 0; background: color-mix(in srgb, var(--surface-solid) 88%, transparent); box-shadow: 0 14px 40px rgba(0, 0, 0, .08); }
+.settings-index::before { margin: -8px -8px 4px; border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.settings-index a { min-height: 68px; border: 0; border-radius: 12px; }
+.settings-index a:hover, .settings-index a:focus-visible { box-shadow: none; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.settings-content { gap: 24px; }
+.settings-content > section { border: 0; background: color-mix(in srgb, var(--surface-solid) 94%, transparent); }
+.settings-content > section:target { border-color: transparent; box-shadow: 0 18px 50px rgba(0, 0, 0, .08), inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.settings-content > section > header > span { border: 0; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.settings-form { border: 0; border-radius: var(--workspace-radius-md); background: color-mix(in srgb, var(--surface-2) 56%, var(--surface)); }
+.settings-form input, .settings-form select, .project-dialog input, .project-dialog textarea, .project-dialog select, .run-controls input, .run-controls select, .requirement-editor input, .requirement-editor select, .requirement-editor textarea { border-color: color-mix(in srgb, var(--line) 82%, transparent); border-radius: var(--workspace-radius-sm); background: color-mix(in srgb, var(--surface-solid) 96%, transparent); }
+.settings-form input:hover, .settings-form select:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.run-controls { width: min(100%, 560px); padding: 14px; grid-template-columns: 140px minmax(180px, 1fr) auto; border: 1px solid color-mix(in srgb, var(--line) 78%, transparent); border-radius: var(--workspace-radius-md); background: color-mix(in srgb, var(--surface-solid) 92%, transparent); box-shadow: 0 14px 40px rgba(0, 0, 0, .08); }
+.run-controls label { color: var(--muted); font-weight: 650; }
+.run-controls select:disabled { opacity: .55; cursor: not-allowed; }
+.project-dialog { border: 0; }
+.project-dialog h2 { max-width: 650px; font-size: clamp(2.1rem, 4.4vw, 3.8rem); line-height: 1.04; }
+.project-dialog > div:first-child button { border-radius: 50%; }
+.budget-range { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.budget-range span { color: var(--muted); }
+.budget-range input { min-width: 0; }
+.workspace-onboarding > header { align-items: center; }
+.onboarding-steps { gap: 1px; border-top: 0; background: var(--line); }
+.onboarding-step { border: 0; background: var(--surface-solid); }
+.onboarding-step.current { box-shadow: inset 0 3px var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid)); }
+.onboarding-step > span { border: 0; border-radius: 9px; background: var(--surface-2); }
 .rate-card-form .form-row:nth-of-type(2) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .rate-card-form-heading { padding-bottom: 17px; border-bottom: 1px solid var(--line); }
 .permission-list > span { padding: 7px 9px; color: var(--ink); border: 1px solid var(--line); background: var(--surface); font-size: .66rem; }

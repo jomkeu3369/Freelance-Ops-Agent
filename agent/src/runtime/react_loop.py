@@ -98,9 +98,10 @@ class BoundedReActLoop:
                 step = ReActStep.model_validate(generation.payload)
             except ValidationError as error:
                 raise ReActLoopError("REACT_STEP_INVALID") from error
+            arguments = step.arguments.model_dump(mode="json", exclude_none=True)
 
             if step.action == "FINAL":
-                if step.summary is None or step.tool_name is not None or step.arguments:
+                if step.summary is None or step.tool_name is not None or arguments:
                     raise ReActLoopError("REACT_FINAL_INVALID")
                 return ReActLoopResult(
                     summary=step.summary,
@@ -119,7 +120,7 @@ class BoundedReActLoop:
             if tool_calls >= budget.max_tool_calls:
                 raise ReActLoopError("TOOL_CALL_BUDGET_EXCEEDED")
             try:
-                validated_input = tool.input_model.model_validate(step.arguments)
+                validated_input = tool.input_model.model_validate(arguments)
             except ValidationError as error:
                 raise ReActLoopError("TOOL_INPUT_INVALID") from error
 
