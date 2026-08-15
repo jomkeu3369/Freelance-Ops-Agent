@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: Workspace 설정에 노출되던 `내 접근 범위`는 RBAC 진단 정보라 일반 사용자의 설정 작업과 직접 관련이 없어 화면에서 제거했다. 실제 권한에 따른 API 요청·버튼 노출·서버 인가는 그대로 유지한다. 1920px 화면에서 작게 보이던 상단 상태, 사이드바 메뉴·프로젝트 보조 정보, 빠른 시작 단계, 설정 목차·설명·데이터 레이블과 입력값은 최소 13px 수준을 기준으로 확대하고 카드 높이도 함께 조정했다. Frontend TypeScript, Node 테스트 40건과 ESLint가 통과했다.
+
 - 2026-08-15: 프로젝트 삭제 안전장치가 `project` 도메인에서 `agentrun` 저장소를 직접 참조해 CI의 domain cycle 검사를 실패시키던 문제를 수정했다. `project`에는 활성 실행 여부를 묻는 `ActiveProjectRunReader` 계약만 두고, 실제 조회 구현과 실행 상태 기준은 `agentrun`으로 이동해 기존 `agentrun -> project` 의존 방향을 유지했다. Backend main·test source 컴파일과 Linux 전체 Spring 테스트 101건이 통과했다. Production Auto CD에서 Backend 이미지 검증·GHCR 푸시·서버 배포·공개 readiness까지 모두 성공했다.
 
 - 2026-08-15: Workspace 상단에 다크·라이트 모드 전환 버튼을 추가하고 기존 `next-themes` 저장 방식에 연결해 새로고침 뒤에도 선택한 화면 모드가 유지되도록 했다. 프로젝트 상세에는 `project.delete` 권한이 있는 사용자만 볼 수 있는 삭제 흐름을 추가했다. 오삭제를 막기 위해 프로젝트명을 정확히 다시 입력해야 영구 삭제 버튼이 활성화되며, 실행 중인 AI 분석이 있으면 먼저 중단하도록 UI와 서버 양쪽에서 차단한다. 삭제 시 요구사항·AI 실행 기록·견적·결과처럼 프로젝트에 종속된 데이터도 DB 연쇄 삭제 규칙에 따라 함께 정리된다. Frontend TypeScript와 Node 테스트 39건은 통과했고 Backend main·test source도 컴파일됐다. Backend 단위 테스트 실행은 코드 컴파일 이후 로컬 Gradle worker의 기존 `GradleWorkerMain` classpath 환경 오류로 시작되지 못했다.

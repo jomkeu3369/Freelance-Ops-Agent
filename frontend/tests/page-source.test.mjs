@@ -695,6 +695,20 @@ test("new workspaces enter a server-backed guided setup before the first inquiry
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.onboarding-steps \{ grid-template-columns: 1fr/);
 });
 
+test("settings hides raw RBAC diagnostics and keeps supporting text readable", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.doesNotMatch(workspace, /내 접근 범위/);
+  assert.doesNotMatch(workspace, /formatPermissionLabel/);
+  assert.match(css, /\.workspace-sidebar nav small,[\s\S]*?font-size: \.82rem/);
+  assert.match(css, /\.onboarding-step p \{ font-size: \.84rem/);
+  assert.match(css, /\.settings-index a > small \{ font-size: \.82rem/);
+  assert.match(css, /\.settings-content dt \{ font-size: \.82rem/);
+  assert.match(css, /\.settings-form input,[\s\S]*?font-size: 1rem/);
+});
+
 test("project intake compares the current source with the last confirmed revision", async () => {
   const [workspace, css] = await Promise.all([
     read("../app/workspace/page.tsx"),

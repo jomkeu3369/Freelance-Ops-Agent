@@ -141,38 +141,6 @@ const configuredModelOptions: Record<Provider, string[]> = {
 
 const suggestedModelOptions = [...new Set([...configuredModelOptions.OPENAI, ...configuredModelOptions.GEMINI])];
 
-const permissionAreaLabels: Record<string, string> = {
-  workspace: "작업 공간",
-  member: "팀원",
-  role: "역할",
-  client: "고객",
-  project: "프로젝트",
-  document: "근거 자료",
-  quotation: "견적",
-  outcome: "프로젝트 결과",
-  agent: "AI 분석",
-  audit: "활동 기록",
-  integration: "외부 연동",
-};
-
-const permissionActionLabels: Record<string, string> = {
-  read: "조회",
-  write: "등록·수정",
-  delete: "삭제",
-  manage: "관리",
-  transfer: "소유권 이전",
-  run: "실행",
-  respond: "확인 요청 응답",
-  cancel: "중단",
-  approve: "승인",
-  publish: "발행",
-};
-
-function formatPermissionLabel(permission: string) {
-  const [area, action] = permission.split(".");
-  return `${permissionAreaLabels[area] ?? area} · ${permissionActionLabels[action] ?? action}`;
-}
-
 const subscribeToThemeHydration = () => () => undefined;
 
 export default function WorkspacePage() {
@@ -1364,7 +1332,6 @@ function SettingsPanel({
           <a href="#rate-cards"><span>02</span><strong>서비스 단가</strong><small>시간·일·고정 금액</small></a>
           <a href="#estimation-policy"><span>03</span><strong>계산 기준</strong><small>세금·위험·할인 기준</small></a>
           {canReadPricing && <a href="#model-pricing"><span>04</span><strong>AI 사용 비용</strong><small>모델별 요금 기준</small></a>}
-          <a href="#permissions"><span>{canReadPricing ? "05" : "04"}</span><strong>내 접근 범위</strong><small>사용 가능한 기능</small></a>
         </aside>
         <div className="settings-content">
           <section id="workspace-profile"><header><span>01</span><div><h2>작업 공간</h2><p>현재 로그인한 계정과 작업 공간을 확인합니다.</p></div></header><dl><div><dt>작업 공간</dt><dd>{workspace?.name ?? session.workspaceId}</dd></div><div><dt>사용자</dt><dd>{profile?.displayName ?? profile?.email ?? "-"}</dd></div><div><dt>상태</dt><dd>{profile ? accountStatusLabels[profile.status] ?? "상태 확인 필요" : "-"}</dd></div></dl></section>
@@ -1376,7 +1343,6 @@ function SettingsPanel({
             <div className="model-pricing-list">{modelPricing.length === 0 ? <p>등록된 AI 요금이 없습니다.</p> : modelPricing.map((pricing) => <article key={pricing.id}><div><span>{pricing.provider}</span><strong>{pricing.model}</strong><small>{pricing.versionLabel}</small></div><dl><div><dt>입력 / 1M</dt><dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd></div><div><dt>캐시 / 1M</dt><dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd></div><div><dt>출력 / 1M</dt><dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd></div></dl><p>{new Date(pricing.validFrom).toLocaleString("ko-KR")}부터{pricing.validUntil ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지` : " · 종료일 없음"}</p></article>)}</div>
             {canManagePricing ? <ModelPricingForm session={session} busy={busy} setBusy={setBusy} setError={setError} setSaved={setSaved} onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])} /> : <p className="permission-note">AI 요금은 관리자만 등록할 수 있습니다.</p>}
           </section>}
-          <section id="permissions"><header><span>{canReadPricing ? "05" : "04"}</span><div><h2>내 접근 범위</h2><p>현재 계정에서 사용할 수 있는 기능을 확인합니다.</p></div></header><div className="permission-list">{workspace?.effectivePermissions.map((permission) => <span key={permission}>{formatPermissionLabel(permission)}</span>) ?? <p>현재 사용할 수 있는 기능이 없습니다.</p>}</div><p className="data-note">로그인 정보는 현재 브라우저 탭에서만 유지됩니다. 아래에 표시된 범위 안에서만 자료를 조회하거나 변경할 수 있습니다.</p></section>
         </div>
       </div>
     </section>

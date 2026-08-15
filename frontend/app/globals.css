@@ -1090,6 +1090,50 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .model-pricing-list > article,
 .rate-card-list > button { border-radius: 10px; }
 .permission-list > span { border-radius: 999px; font-size: .72rem; }
+
+/* Workspace readability contract: supporting copy stays legible on wide screens. */
+.workspace-brand { font-size: .94rem; }
+.workspace-live-status { font-size: .84rem; }
+.workspace-topbar .quiet-button { font-size: .86rem; }
+.workspace-nav button { font-size: 1rem; }
+.sidebar-heading { font-size: .82rem; }
+.workspace-sidebar nav span { font-size: .95rem; }
+.workspace-sidebar nav small,
+.sidebar-foot { font-size: .82rem; line-height: 1.45; }
+.settings-heading > span { font-size: .84rem; }
+.settings-heading p { font-size: 1rem; }
+.workspace-onboarding > header span { font-size: .8rem; }
+.workspace-onboarding > header p { font-size: .96rem; }
+.onboarding-step { min-height: 188px; }
+.onboarding-step strong { font-size: .95rem; }
+.onboarding-step p { font-size: .84rem; line-height: 1.6; }
+.onboarding-step a,
+.onboarding-step button { font-size: .84rem; }
+.settings-index::before { font-size: .8rem; }
+.settings-index a > span { font-size: .76rem; }
+.settings-index a > strong { font-size: .95rem; }
+.settings-index a > small { font-size: .82rem; line-height: 1.5; }
+.settings-content > section > header > span { font-size: .76rem; }
+.settings-content h2 { font-size: 1.6rem; }
+.settings-content header p,
+.settings-content > section > p,
+.rate-card-list > p,
+.model-pricing-list > p { font-size: .94rem; }
+.settings-content dt { font-size: .82rem; }
+.settings-content dd { font-size: .98rem; }
+.settings-form label,
+.rate-card-form label,
+.model-pricing-form label { font-size: .9rem; }
+.settings-form input,
+.settings-form select,
+.rate-card-form input,
+.rate-card-form select,
+.model-pricing-form input,
+.model-pricing-form select { font-size: 1rem; }
+.rate-card-list small,
+.model-pricing-list small,
+.permission-note,
+.data-note { font-size: .82rem; line-height: 1.55; }
 .clients-layout,
 .knowledge-layout { overflow: hidden; }
 .client-editor h2,
