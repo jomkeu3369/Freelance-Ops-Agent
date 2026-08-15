@@ -168,7 +168,9 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.accordion-content strong \{[^}]*writing-mode: vertical-rl; text-orientation: upright/);
   assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-columns: minmax\(86px, 1fr\) 132px minmax\(90px, 1fr\)/);
-  assert.match(css, /@keyframes stepPacketFlow/);
+  assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
+  assert.doesNotMatch(css, /stepPacketFlow|orbitPulse|graphSheen|nodeSpin|signalFlow|signalBar/);
+  assert.match(source, /\["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"\]/);
 });
 
 test("authentication layout keeps the form visible and Korean words intact", async () => {
@@ -189,17 +191,17 @@ test("workspace settings and requirement controls remain readable at desktop wid
     read("../app/globals.css"),
   ]);
   assert.match(css, /\.pipeline-heading > div \{[^}]*max-width: 1050px/);
-  assert.match(css, /\.pipeline-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
+  assert.match(css, /\.pipeline-heading h1,[\s\S]*?font-size: clamp\(2\.15rem, 3\.1vw, 3\.55rem\)/);
   assert.match(css, /\.pipeline-heading h1 \{[^}]*word-break: keep-all/);
   assert.match(css, /\.pipeline-heading h1 \{[^}]*text-wrap: balance/);
-  assert.match(css, /\.settings-heading h1 \{[^}]*font-size: clamp\(3rem, 4\.5vw, 5\.8rem\)/);
+  assert.match(css, /\.settings-heading h1,[\s\S]*?font-size: clamp\(2\.15rem, 3\.1vw, 3\.55rem\)/);
   assert.match(css, /\.settings-heading h1 \{[^}]*word-break: keep-all/);
   assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);
-  assert.match(workspace, /aria-label="Workspace 설정 목차"/);
+  assert.match(workspace, /aria-label="작업 공간 설정 목차"/);
   assert.match(workspace, /<span>02<\/span><strong>서비스 단가<\/strong><small>시간·일·고정 금액<\/small>/);
-  assert.match(workspace, /자주 쓰는 단가와 계산 기준을 미리 정해두면 견적을 더 빠르고 일관되게 작성할 수 있습니다/);
+  assert.match(workspace, /자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다/);
   assert.doesNotMatch(workspace, /Spring이 소유|결정적으로 적용|workspace\.update 권한이|quotation\.read 권한|outcome\.read 권한|Java 계산 도구|서버 계산 완료|새 revision/);
-  assert.match(css, /\.settings-grid \{[^}]*grid-template-columns: 240px minmax\(0, 1fr\)/);
+  assert.match(css, /\.settings-grid \{[^}]*grid-template-columns: 230px minmax\(0, 1fr\)/);
   assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*min-height: 50px/);
   assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*background: var\(--surface-solid\)/);
   assert.match(css, /\.settings-form input:focus, \.settings-form select:focus \{[^}]*border-color: var\(--accent\)/);
@@ -240,7 +242,7 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
   assert.match(graph, /isMoving && index === activeIndex - 1/);
   assert.match(css, /\.workflow-link\.active/);
-  assert.match(css, /\.signal-bars\.moving i/);
+  assert.doesNotMatch(graph, /node-orbit|signal-bars/);
   assert.match(api, /NEXT_PUBLIC_API_BASE_URL/);
   assert.match(api, /\/api\/v2\/workspaces/);
   assert.doesNotMatch(api, /localhost:8000|\/internal\/v1/);
@@ -471,6 +473,17 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
   assert.match(css, /\.quote-draft-state\.unavailable/);
 });
 
+test("workspace presents operational AI metadata in human-readable labels", async () => {
+  const workspace = await read("../app/workspace/page.tsx");
+  assert.match(workspace, /const eventActivityLabels/);
+  assert.match(workspace, /"run\.completed": "분석 완료"/);
+  assert.match(workspace, /eventActivityLabels\[event\.type\] \?\? "분석 진행"/);
+  assert.match(workspace, /departmentLabels\[result\.department\] \?\? "분석 단계"/);
+  assert.match(workspace, /<summary>실행 정보<\/summary>/);
+  assert.match(workspace, /costStatusLabels\[costUsage\.costStatus\]/);
+  assert.doesNotMatch(workspace, /<span>\{event\.type\}<\/span>/);
+});
+
 test("completed AI analysis prepares an editable quotation draft without inventing prices", async () => {
   const [workspace, api, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
@@ -690,7 +703,7 @@ test("waiting agent runs prioritize a readable collapsible review panel", async 
   assert.match(workspace, /aria-controls="run-execution-graph"/);
   assert.match(workspace, /aria-expanded=\{!reviewFocused\}/);
   assert.match(workspace, /className="graph-panel" hidden=\{reviewFocused\}/);
-  assert.match(workspace, /실행 과정 보기/);
+  assert.match(workspace, /진행 상황 보기/);
   assert.match(css, /\.workbench-grid\.review-focused \{ grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(css, /\.workbench-grid\.review-focused \.graph-panel \{ display: none/);
   assert.doesNotMatch(css, /\.graph-restore/);

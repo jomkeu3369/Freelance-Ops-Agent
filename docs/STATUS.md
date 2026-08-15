@@ -5,12 +5,15 @@
 > 현재 단계: Phase 6 — 제품 연결과 운영 준비
 
 > 2026-08-06 메인 페이지 디자인 브리프(디자이너는 1920×1080 메인 페이지만 제작, 반응형·세부 화면은 Codex 담당): [`docs/frontend/MAIN_PAGE_DESIGN_BRIEF.md`](frontend/MAIN_PAGE_DESIGN_BRIEF.md)
+> 2026-08-15 제품 시각 기준(Linear·Attio·Notion Projects 참고, AI 데모형 표현 제거): [`docs/frontend/VISUAL_DIRECTION.md`](frontend/VISUAL_DIRECTION.md)
 
 ## 현재 목표
 
 V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 frontend를 연결하고 운영 검증 증거를 높인다. 2026-08-14 frontend 구현으로 공개 메인 페이지, 인증·프로젝트 intake, 실시간 Agent graph, 수동 견적·발행·공유, 고객 결정과 Outcome 입력 흐름을 추가했지만, 실제 OpenAI/Gemini credential을 사용하는 전체 E2E와 승인된 Production 배포 전이므로 운영 출시 완료로 간주하지 않는다.
 
 ## 완료
+
+- 2026-08-15: 랜딩·인증·Workspace 전반에서 생성형 AI 데모처럼 보이던 시각 표현을 줄였다. Linear·Attio·Notion Projects의 업무 중심 정보 위계를 참고해 중성 배경과 절제된 파란색 강조색, 8~14px 카드 반경, 읽기 쉬운 본문 크기, 약한 그림자로 토큰을 다시 정리했다. 궤도·입자·빛 번짐·반복 점멸·장식용 데이터 패킷과 과도하게 큰 제목을 제거하고, 실행 그래프는 `분석 진행 상황` 카드로 단순화했다. `WORKSPACE PIPELINE`, `REFERENCE LIBRARY`, 원시 실행·견적·계정 상태와 영문 회고·부서·이벤트 라벨은 사용자가 이해할 수 있는 한국어 업무 문구로 바꿨으며 prompt·tool schema는 기본 결과 화면에서 접었다. 1280px 파이프라인은 6개 열을 압축하지 않고 3열×2행으로 배치해 카드 본문을 약 14px로 키웠고, 390px에서는 단일 열과 짧은 모바일 메뉴를 사용한다. 모바일 설정은 데스크톱 2열이 남아 본문이 65px로 줄어들던 문제를 수정해 전체 폭 본문과 가로 목차를 제공한다. 기준과 금지 패턴은 `docs/frontend/VISUAL_DIRECTION.md`에 기록했다. Frontend TypeScript, Node 테스트 37건, ESLint와 Webpack 기반 Next.js production build가 통과했다. 기본 Turbopack build는 현재 Windows sandbox가 저장소 밖의 `C:\Users\정승원` 경로를 `lstat`하지 못하는 `EPERM`으로 중단되어 소스 검증과 분리했다. 실제 브라우저에서 1920×1080 랜딩·로그인, 1280×720 계약 fixture 기반 프로젝트 현황·완료 분석·AI 견적 초안·설정, 390×844 로그인·프로젝트 현황·설정을 확인했으며 모든 화면의 가로 넘침과 console warning·error가 0건이었다.
 
 - 2026-08-15: 모델 실험을 운영 통제로 연결하는 AI Platform slice를 구현했다. 기존 OpenAI·Gemini adapter 앞에 model allowlist, bounded concurrency·admission timeout, provider/model별 circuit breaker와 명시적 no-fallback 정책을 적용하는 `AIGateway`를 추가했다. prompt·응답·credential 없이 호출 결과·token·최근 p50/p95만 집계하며, 기본 비활성화된 bearer 인증 metrics endpoint와 Grafana dashboard artifact를 제공한다. versioned model registry와 기존 Luna frozen report를 pin한 평가 release gate를 Agent CI에 연결해 승인 용도·accuracy·macro-F1·`HUMAN_REQUIRED` recall·p95·비용 회귀 시 배포를 차단하고, Python consumer SDK, 무료 readiness k6 부하 시나리오, 유료 호출 opt-in smoke, SLO와 장애 Runbook을 추가했다. 결정은 ADR-0026과 AI Platform case study에 기록했다. Agent 전체 `170 passed, 1 skipped`, Ruff, strict mypy 55개 source, SDK 2건, 평가 gate, OpenAPI 두 계약과 Compose config가 통과했다. 실제 production SLO와 Grafana panel은 운영 scraper 연결 후 측정 대상으로 남겼다.
 

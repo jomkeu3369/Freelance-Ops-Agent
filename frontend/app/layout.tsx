@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     description: "흩어진 문의를, 근거 있는 견적으로.",
     type: "website",
     locale: "ko_KR",
-    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Freelance Ops의 살아 움직이는 견적 워크플로우" }],
+    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Freelance Ops 견적 업무 화면" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
         <Providers>{children}</Providers>

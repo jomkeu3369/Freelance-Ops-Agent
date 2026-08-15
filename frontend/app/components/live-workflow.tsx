@@ -100,9 +100,9 @@ function publicEventLabel(type: string): string {
       "evidence.added": "검토 가능한 근거를 연결했습니다",
       "quotation.draft.created": "견적 초안을 계산했습니다",
       "approval.requested": "최종 검토를 기다리고 있습니다",
-      "run.completed": "워크플로우를 완료했습니다",
+      "run.completed": "분석을 완료했습니다",
       "run.failed": "실행을 안전하게 중단했습니다",
-    }[type] ?? "워크플로우가 진행 중입니다"
+    }[type] ?? "분석을 진행하고 있습니다"
   );
 }
 
@@ -113,15 +113,15 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
   const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / nodes.length) * 100);
 
   return (
-    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={preview ? "제품 흐름 미리보기" : "실시간 Agent 워크플로우"}>
+    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={preview ? "제품 흐름 미리보기" : "분석 진행 상황"}>
       <div className="live-graph-head">
         <div>
           <span className={`live-dot ${isMoving ? "moving" : ""}`} aria-hidden="true" />
-          <strong>{preview ? "제품 흐름 미리보기" : "실시간 실행 그래프"}</strong>
+          <strong>{preview ? "제품 흐름 미리보기" : "분석 진행 상황"}</strong>
         </div>
         <span>{statusCopy[snapshot.status]}</span>
       </div>
-      <div className="workflow-progress" role="progressbar" aria-label="워크플로우 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+      <div className="workflow-progress" role="progressbar" aria-label="분석 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="workflow-rail">
@@ -139,13 +139,11 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
           return (
             <div className="workflow-node-wrap" key={node.id}>
               <div className={`workflow-node ${state}`} aria-current={state === "active" ? "step" : undefined}>
-                <span className="node-orbit" aria-hidden="true" />
                 <Icon size={21} weight={state === "active" ? "duotone" : "regular"} />
                 <span>{node.label}</span>
               </div>
               {index < nodes.length - 1 && (
                 <div className={`workflow-link ${isComplete || index < activeIndex - 1 ? "completed" : isMoving && index === activeIndex - 1 ? "active" : "pending"}`}>
-                  {isMoving && index === activeIndex - 1 && <span aria-hidden="true" />}
                 </div>
               )}
             </div>
@@ -153,7 +151,6 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         })}
       </div>
       <div className="live-event" aria-live="polite">
-        <span className={`signal-bars ${isMoving ? "moving" : ""}`} aria-hidden="true"><i /><i /><i /><i /></span>
         <div><p>{snapshot.eventLabel}</p><small>{nodes[Math.max(activeIndex, 0)].label} · {snapshot.eventCount.toLocaleString("ko-KR")}개 이벤트</small></div>
       </div>
     </section>

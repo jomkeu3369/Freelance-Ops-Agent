@@ -46,9 +46,8 @@ function WorkflowStepVisual({ index }: { index: number }) {
   return (
     <span className={`step-visual step-visual-${index + 1}`} aria-hidden="true">
       <span className="step-visual-nodes inputs">{visual.inputs.map((label) => <span key={label}>{label}</span>)}</span>
-      <span className="step-visual-core"><i /><Icon size={28} weight="duotone" /><b>{visual.process}</b></span>
+      <span className="step-visual-core"><Icon size={28} weight="duotone" /><b>{visual.process}</b></span>
       <span className="step-visual-nodes outputs">{visual.outputs.map((label) => <span key={label}>{label}</span>)}</span>
-      <i className="step-visual-packet packet-one" /><i className="step-visual-packet packet-two" />
     </span>
   );
 }
@@ -173,8 +172,6 @@ export default function Home() {
 
   return (
     <main id="main-content" ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
-      <div className="ambient ambient-one" />
-      <div className="ambient ambient-two" />
 
       <header className="nav-shell" aria-label="주요 탐색">
         <Link className="brand" href="#top" aria-label="Freelance Ops 홈">
@@ -220,7 +217,6 @@ export default function Home() {
           <p className="hero-note hero-reveal">AI 초안은 사용자가 검토하고 확정합니다.</p>
         </div>
         <div className="hero-stage hero-reveal">
-          <div className="orbit" aria-hidden="true"><i /><i /></div>
           <LiveWorkflow snapshot={previewSnapshot} preview />
         </div>
       </section>
@@ -238,7 +234,6 @@ export default function Home() {
             ["AI 답변도 그대로 믿을 수 없습니다", "출처, 계산식과 가정이 보이지 않으면 빠른 답변도 실제 거래에는 사용하기 어렵습니다."],
           ].map(([title, body]) => (
             <article className="problem-card card-lift" key={title}>
-              <span className="problem-trace" aria-hidden="true" />
               <h3>{title}</h3>
               <p>{body}</p>
             </article>
@@ -295,10 +290,10 @@ export default function Home() {
             <ul><li>확정된 요구사항</li><li>확인 필요</li><li>제외 범위</li></ul>
           </article>
           <article className="deliverable-card featured card-lift">
-            <span className="scenario recommended">Recommended</span>
+            <span className="scenario recommended">추천안</span>
             <h3>범위별 견적안</h3>
             <p>필수, 권장, 확장 범위의 공수·금액·가정을 한 화면에서 비교합니다.</p>
-            <div className="scenario-row"><span>Lean</span><span>Recommended</span><span>Expanded</span></div>
+            <div className="scenario-row"><span>필수</span><span>권장</span><span>확장</span></div>
           </article>
           <article className="deliverable-card card-lift">
             <Check size={27} />
@@ -337,7 +332,6 @@ export default function Home() {
       </section>
 
       <section className="chapter outcome-section">
-        <div className="outcome-orbit scale-fade" aria-hidden="true" />
         <div className="outcome-copy">
           <p className="section-context">완료 결과를 다음 판단으로</p>
           <h2>끝난 프로젝트가,<br />다음 견적의 근거가 됩니다.</h2>
@@ -371,12 +365,11 @@ export default function Home() {
           <p>웹·앱·자동화 프로젝트의 요구사항 정리, 작업 범위 산정과 고객 제안 흐름을 우선 검증합니다.</p>
         </div>
         <div className="role-marquee" aria-label="우선 지원 직무">
-          <div>{["Frontend", "Backend", "Full-stack", "Mobile", "Automation", "Frontend", "Backend", "Full-stack", "Mobile", "Automation"].map((role, index) => <span key={`${role}-${index}`}>{role}</span>)}</div>
+          <div>{["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"].map((role) => <span key={role}>{role}</span>)}</div>
         </div>
       </section>
 
       <section className="final-cta chapter">
-        <div className="cta-light" aria-hidden="true" />
         <h2>다음 고객 문의부터,<br />더 명확하게 시작하세요.</h2>
         <p>요구사항을 정리하고, 확인할 질문을 찾고, 근거 있는 견적의 첫 초안을 만들어 보세요.</p>
         <Link className="primary-button inverted" href="/workspace">요구사항 정리 시작하기 <ArrowRight size={18} /></Link>
