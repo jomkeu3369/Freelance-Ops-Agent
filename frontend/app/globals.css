@@ -246,6 +246,9 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .workspace-live-status span.reconnecting { background: var(--accent); }
 .workspace-topbar .quiet-button { margin-right: 14px; border: 0; color: var(--muted); }
 .workspace-account-actions { display: flex; align-items: center; gap: 4px; }.workspace-account-actions label { display: flex; }.workspace-account-actions select { max-width: 190px; min-height: 38px; padding: 0 30px 0 10px; color: var(--ink); border: 1px solid var(--line); outline: 0; background: var(--surface-solid); }.workspace-account-actions select:focus { border-color: var(--accent); }
+.workspace-theme-toggle { color: var(--muted); border-color: transparent; }
+.workspace-theme-toggle:hover { color: var(--ink); border-color: var(--line); background: var(--surface); }
+.project-heading-actions .quiet-button:disabled { opacity: .42; cursor: not-allowed; }
 .workspace-sidebar { grid-column: 1; padding: 20px 12px; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--bg); }
 .workspace-nav { margin-bottom: 20px; padding-bottom: 16px; display: grid; gap: 4px; border-bottom: 1px solid var(--line); }
 .workspace-nav button { min-height: 42px; padding: 0 11px; display: flex; align-items: center; gap: 10px; color: var(--muted); border: 1px solid transparent; background: transparent; cursor: pointer; text-align: left; }
@@ -276,6 +279,19 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .project-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
 .project-heading h1 { margin: 16px 0 14px; font-size: clamp(2.5rem, 4.7vw, 5.8rem); line-height: .98; letter-spacing: -.065em; }
 .project-heading > div:first-child > p { margin: 0; max-height: 5.1em; overflow: hidden; color: var(--muted); line-height: 1.7; }
+.project-heading-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.project-delete-confirmation { margin: -14px 0 28px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 360px); gap: 18px 28px; align-items: end; border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--line)); border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 5%, var(--surface-solid)); }
+.project-delete-confirmation > div:first-child > span { color: var(--danger); font-size: .72rem; font-weight: 750; }
+.project-delete-confirmation h2 { margin: 7px 0 8px; font-size: 1.25rem; }
+.project-delete-confirmation p { margin: 0; color: var(--muted); line-height: 1.6; }
+.project-delete-confirmation strong { color: var(--ink); }
+.project-delete-confirmation label { display: grid; gap: 7px; color: var(--muted); font-size: .75rem; }
+.project-delete-confirmation input { min-height: 44px; padding: 0 12px; color: var(--ink); border: 1px solid var(--line); background: var(--bg); outline: 0; }
+.project-delete-confirmation input:focus { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent); }
+.project-delete-confirmation .form-error { grid-column: 1 / -1; }
+.project-delete-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.danger-button { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: white; border: 1px solid var(--danger); border-radius: var(--workspace-radius-sm); background: var(--danger); cursor: pointer; font: inherit; font-weight: 700; }
+.danger-button:disabled { opacity: .42; cursor: not-allowed; }
 .run-controls { width: min(100%, 500px); display: grid; grid-template-columns: 120px 1fr auto; gap: 10px; align-items: end; }
 .run-controls label { gap: 5px; }
 .run-controls input, .run-controls select { min-height: 46px; padding: 10px; }
@@ -538,6 +554,8 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
   .evidence-section { grid-template-columns: 1fr; }
   .outcome-section { gap: 50px; }
   .project-heading { align-items: stretch; flex-direction: column; }
+  .project-heading-actions { align-self: flex-start; flex-wrap: wrap; }
+  .project-delete-confirmation { grid-template-columns: 1fr; }
   .run-controls { width: 100%; }
   .workbench-grid { grid-template-columns: 1fr; }
   .pipeline-board { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }

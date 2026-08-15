@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import {
@@ -22,10 +23,12 @@ import {
   Eye,
   EyeSlash,
   MagnifyingGlass,
+  Moon,
   PencilSimple,
   Plus,
   Receipt,
   SignOut,
+  Sun,
   Trash,
   Warning,
   Waveform,
@@ -73,6 +76,7 @@ import {
   createQuotation,
   createRequirementVersion,
   createProject,
+  deleteProject,
   getAgentRun,
   getAgentRunUsage,
   getDocument,
@@ -169,7 +173,12 @@ function formatPermissionLabel(permission: string) {
   return `${permissionAreaLabels[area] ?? area} · ${permissionActionLabels[action] ?? action}`;
 }
 
+const subscribeToThemeHydration = () => () => undefined;
+
 export default function WorkspacePage() {
+  const themeMounted = useSyncExternalStore(subscribeToThemeHydration, () => true, () => false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDarkTheme = themeMounted && resolvedTheme === "dark";
   const [session, setSession] = useState<AuthSession | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -494,6 +503,9 @@ export default function WorkspacePage() {
             navigateWorkspace("pipeline", null, "intake", true);
             try { await refreshProjects(nextSession); } catch (cause) { setError(cause instanceof Error ? cause.message : "작업 공간을 전환하지 못했습니다."); }
           }}>{profile.workspaces.map((workspace) => <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.name}</option>)}</select></label>}
+          <button type="button" className="icon-button workspace-theme-toggle" aria-label={isDarkTheme ? "라이트 모드로 전환" : "다크 모드로 전환"} title={isDarkTheme ? "라이트 모드" : "다크 모드"} onClick={() => setTheme(isDarkTheme ? "light" : "dark")}>
+            {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button type="button" className="quiet-button" onClick={() => void logout()}><SignOut size={18} /> 로그아웃</button>
         </div>
       </header>
@@ -615,6 +627,19 @@ export default function WorkspacePage() {
               setEvents([]);
               setStreamState("idle");
               setStreamRetryCount(0);
+            }}
+            onDelete={async () => {
+              const deletedProjectId = selectedProject.id;
+              await deleteProject(session, deletedProjectId);
+              setProjects((current) => current.filter((project) => project.id !== deletedProjectId));
+              selectedProjectIdRef.current = null;
+              setSelectedProject(null);
+              setRun(null);
+              setRunId(null);
+              setEvents([]);
+              setStreamState("idle");
+              setStreamRetryCount(0);
+              navigateWorkspace("pipeline", null, "intake", true);
             }}
             onRun={beginRun}
             onResetRun={() => { setRun(null); setRunId(null); setEvents([]); setStreamState("idle"); setStreamRetryCount(0); }}
@@ -1534,6 +1559,7 @@ function ProjectWorkbench({
   initialStep,
   onStepChange,
   onProjectUpdated,
+  onDelete,
   onRun,
   onResetRun,
   onCancel,
@@ -1551,6 +1577,7 @@ function ProjectWorkbench({
   initialStep: WorkbenchStep;
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
+  onDelete: () => Promise<void>;
   onRun: (provider: Provider, model: string) => Promise<void>;
   onResetRun: () => void;
   onCancel: () => Promise<void>;
@@ -1560,6 +1587,10 @@ function ProjectWorkbench({
   const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingProject, setDeletingProject] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const [reviewFocused, setReviewFocused] = useState(run?.status === "WAITING_FOR_USER");
   const canRun = permissions.has("agent.run");
@@ -1567,7 +1598,12 @@ function ProjectWorkbench({
   const canCancel = permissions.has("agent.cancel");
 
   useEffect(() => {
-    Promise.resolve().then(() => setActiveStep(initialStep));
+    Promise.resolve().then(() => {
+      setActiveStep(initialStep);
+      setShowDeleteConfirmation(false);
+      setDeleteConfirmation("");
+      setDeleteError(null);
+    });
   }, [initialStep, project.id]);
 
   useEffect(() => {
@@ -1599,7 +1635,10 @@ function ProjectWorkbench({
           <h1>{project.title}</h1>
           <p>{project.requirementText}</p>
         </div>
-        {permissions.has("project.write") && activeStep !== "agent" && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
+        {activeStep !== "agent" && (permissions.has("project.write") || permissions.has("project.delete")) && <div className="project-heading-actions">
+          {permissions.has("project.write") && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
+          {permissions.has("project.delete") && <button type="button" className="quiet-button danger" disabled={Boolean(run && !terminalStatuses.has(run.status))} title={run && !terminalStatuses.has(run.status) ? "AI 분석을 중단한 뒤 삭제할 수 있습니다." : undefined} onClick={() => setShowDeleteConfirmation(true)}><Trash size={18} /> 프로젝트 삭제</button>}
+        </div>}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
             <label>AI 제공사<select value={provider} onChange={(event) => { const nextProvider = event.target.value as Provider; setProvider(nextProvider); setModel(configuredModelOptions[nextProvider][0] ?? ""); }}><option value="OPENAI">OpenAI</option><option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>Gemini{configuredModelOptions.GEMINI.length === 0 ? " · 설정 필요" : ""}</option></select></label>
@@ -1610,6 +1649,25 @@ function ProjectWorkbench({
           </div>
         ) : activeStep === "agent" && run && terminalStatuses.has(run.status) && canRun ? <button type="button" className="secondary-button" onClick={onResetRun}><ArrowRight size={18} /> 새 분석 준비</button> : null}
       </div>
+
+      {showDeleteConfirmation && <section className="project-delete-confirmation" role="alertdialog" aria-labelledby="project-delete-title">
+        <div>
+          <span>되돌릴 수 없는 작업</span>
+          <h2 id="project-delete-title">이 프로젝트를 삭제할까요?</h2>
+          <p>요구사항, AI 분석 기록, 견적과 결과 기록이 함께 삭제됩니다. 계속하려면 프로젝트명 <strong>{project.title}</strong>을 입력하세요.</p>
+        </div>
+        <label>프로젝트명 확인<input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={project.title} /></label>
+        {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
+        <div className="project-delete-actions">
+          <button type="button" className="quiet-button" disabled={deletingProject} onClick={() => { setShowDeleteConfirmation(false); setDeleteConfirmation(""); setDeleteError(null); }}>취소</button>
+          <button type="button" className="danger-button" disabled={deletingProject || deleteConfirmation !== project.title} onClick={async () => {
+            setDeletingProject(true);
+            setDeleteError(null);
+            try { await onDelete(); }
+            catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "프로젝트를 삭제하지 못했습니다."); setDeletingProject(false); }
+          }}>{deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} 영구 삭제</button>
+        </div>
+      </section>}
 
       <nav className="workbench-steps" aria-label="프로젝트 진행 단계">
         {([

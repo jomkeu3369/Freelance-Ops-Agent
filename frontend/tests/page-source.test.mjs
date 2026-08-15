@@ -737,3 +737,23 @@ test("waiting agent runs prioritize a readable collapsible review panel", async 
   assert.match(css, /\.interruption-form label \{[^}]*font-size: 1rem/);
   assert.match(css, /\.interruption-form textarea \{[^}]*min-height: 132px/);
 });
+
+test("workspace supports persistent theme switching and guarded project deletion", async () => {
+  const [workspace, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /useTheme/);
+  assert.match(workspace, /setTheme\(isDarkTheme \? "light" : "dark"\)/);
+  assert.match(workspace, /라이트 모드로 전환/);
+  assert.match(workspace, /다크 모드로 전환/);
+  assert.match(workspace, /permissions\.has\("project\.delete"\)/);
+  assert.match(workspace, /deleteConfirmation !== project\.title/);
+  assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
+  assert.match(workspace, /요구사항, AI 분석 기록, 견적과 결과 기록이 함께 삭제됩니다/);
+  assert.match(api, /export function deleteProject/);
+  assert.match(api, /method: "DELETE"/);
+  assert.match(css, /\.project-delete-confirmation/);
+  assert.match(css, /\.workspace-theme-toggle/);
+});

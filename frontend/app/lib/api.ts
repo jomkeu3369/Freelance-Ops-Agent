@@ -585,6 +585,14 @@ export function updateProjectDetails(session: AuthSession, project: Project, inp
   ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); return updated; });
 }
 
+export function deleteProject(session: AuthSession, projectId: string): Promise<void> {
+  return request<void>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}`,
+    { method: "DELETE" },
+    session.accessToken,
+  ).then(() => { invalidateQueries(`projects:${session.workspaceId}`); });
+}
+
 export function listRequirements(session: AuthSession, projectId: string): Promise<RequirementVersion[]> {
   return queryCached(`requirements:${session.workspaceId}:${projectId}`, () => request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/requirements`,

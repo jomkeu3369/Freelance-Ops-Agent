@@ -7,6 +7,7 @@ import com.freelanceops.backend.domain.project.service.ProjectService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +50,12 @@ public class ProjectController {
     @PatchMapping("/{projectId}")
     public ProjectResponse update(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @Valid @RequestBody UpdateProjectRequest request, Authentication authentication) {
         return projectService.update(userId(authentication), workspaceId, projectId, request);
+    }
+
+    @DeleteMapping("/{projectId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID workspaceId, @PathVariable UUID projectId, Authentication authentication) {
+        projectService.delete(userId(authentication), workspaceId, projectId);
     }
 
     private static UUID userId(Authentication authentication) {

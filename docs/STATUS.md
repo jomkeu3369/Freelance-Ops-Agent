@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: Workspace 상단에 다크·라이트 모드 전환 버튼을 추가하고 기존 `next-themes` 저장 방식에 연결해 새로고침 뒤에도 선택한 화면 모드가 유지되도록 했다. 프로젝트 상세에는 `project.delete` 권한이 있는 사용자만 볼 수 있는 삭제 흐름을 추가했다. 오삭제를 막기 위해 프로젝트명을 정확히 다시 입력해야 영구 삭제 버튼이 활성화되며, 실행 중인 AI 분석이 있으면 먼저 중단하도록 UI와 서버 양쪽에서 차단한다. 삭제 시 요구사항·AI 실행 기록·견적·결과처럼 프로젝트에 종속된 데이터도 DB 연쇄 삭제 규칙에 따라 함께 정리된다. Frontend TypeScript와 Node 테스트 39건은 통과했고 Backend main·test source도 컴파일됐다. Backend 단위 테스트 실행은 코드 컴파일 이후 로컬 Gradle worker의 기존 `GradleWorkerMain` classpath 환경 오류로 시작되지 못했다.
+
 - 2026-08-15: AI 견적 초안의 작업·공수만 채워지고 단가가 0원으로 남던 문제를 수정했다. LLM이 가격을 생성하지 않는 원칙은 유지하면서, Frontend가 Workspace의 활성 rate card 중 프로젝트 통화와 작업 단위가 같은 항목을 `rateCardHint`·제목·설명 유사도로 결정적으로 연결하고 일치어가 없으면 서버 정렬 순서의 첫 호환 단가를 검토용 기본값으로 적용한다. 이전에 현재 탭에 저장된 0원 초안도 제목·순서가 일치하는 AI 초안의 서버 단가로 보정한다. 견적 행의 단가·근거 선택기는 레이블, 설명, 명확한 경계와 focus 상태를 가진 control로 다시 설계했고, 한 줄에서 잘리던 가정은 최소 3줄의 크기 조절 가능한 textarea로 변경했다. Frontend TypeScript, Node 테스트 38건, ESLint가 통과했다.
 
 - 2026-08-15: Workspace AI 분석 화면에 실행 상태를 설명하는 motion을 복원했다. `QUEUED`·`RUNNING` 동안에만 그래프 sheen, 상태 pulse, 진행선과 현재 node·connector 신호가 움직이며 `prefers-reduced-motion`에서는 비활성화된다. Agent는 `route.selected`와 `tool.completed` 공개 이벤트에 실제 route, provider/model, 고정 reason code, Tool 이름·담당 부서·공개 가능한 사용 목적을 기록하고, Spring은 허용된 이벤트만 검증해 SSE로 중계한다. 최근 활동은 이를 사람이 읽을 수 있는 설명과 태그로 표시하며 private reasoning은 노출하지 않는다. Agent 전체 pytest `170 passed, 1 skipped`, Ruff, strict mypy 55개 source, Frontend TypeScript·Node 테스트 37건·ESLint, Backend main/test source compile이 통과했다. Backend JUnit 실행은 코드 컴파일 이후 로컬 Gradle worker의 기존 `GradleWorkerMain` classpath 환경 오류로 시작되지 못했다.
