@@ -26,7 +26,7 @@ Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프�
 
 </div>
 
-![문의에서 검토 가능한 견적까지 이어지는 Freelance Ops Agent 제품 흐름](docs/assets/readme/product-overview.gif)
+![AI가 고객 문의를 분석해 근거 있는 견적으로 전환하는 Freelance Ops Agent](docs/assets/readme/freelance-ops-hero.png)
 
 ## 왜 만들었나요?
 
