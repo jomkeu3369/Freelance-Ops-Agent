@@ -26,8 +26,7 @@ Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프�
 
 </div>
 
-<!-- TEMP: 실제 제품 전체 흐름 GIF로 교체 예정 -->
-![TEMP — 문의에서 제안서까지 이어지는 제품 데모 GIF 자리](docs/assets/readme/product-overview-temp.svg)
+![문의에서 검토 가능한 견적까지 이어지는 Freelance Ops Agent 제품 흐름](docs/assets/readme/product-overview.gif)
 
 ## 왜 만들었나요?
 
@@ -56,8 +55,7 @@ AI가 문의 내용을 기능, 조건, 일정, 예산, 가정과 추가 질문�
 원문과 정리된 내용을 나란히 볼 수 있어서<br/>
 AI가 어디까지 이해했고 무엇을 새로 해석했는지도 바로 확인할 수 있습니다.
 
-<!-- TEMP: 고객 문의 입력 → 요구사항 구조화 화면 GIF로 교체 예정 -->
-![TEMP — 고객 문의가 요구사항과 열린 질문으로 정리되는 GIF 자리](docs/assets/readme/intake-to-requirements-temp.svg)
+![고객 문의를 요구사항과 확인 질문으로 나누는 과정](docs/assets/readme/intake-to-requirements.gif)
 
 ### 2. 모르는 내용은 그냥 물어봅니다
 
@@ -67,8 +65,7 @@ AI가 어디까지 이해했고 무엇을 새로 해석했는지도 바로 확�
 필요한 질문을 남기고 잠시 멈췄다가,<br/>
 사용자가 답하면 멈춘 자리에서 다시 이어갑니다.
 
-<!-- TEMP: Agent 실행 → HITL 질문 → 답변 후 재개 GIF로 교체 예정 -->
-![TEMP — AI가 질문하고 사용자 답변 뒤 실행을 재개하는 GIF 자리](docs/assets/readme/hitl-resume-temp.svg)
+![AI 실행 상태와 사용자 검토 지점을 확인하는 과정](docs/assets/readme/hitl-resume.gif)
 
 ### 3. 근거를 확인하면서 견적을 완성합니다
 
@@ -78,8 +75,7 @@ AI가 어디까지 이해했고 무엇을 새로 해석했는지도 바로 확�
 금액은 AI에게 암산시키지 않고 정해진 계산 로직으로 처리합니다.<br/>
 왜 이런 항목과 금액이 나왔는지 알 수 있도록 출처나 가정도 함께 남깁니다.
 
-<!-- TEMP: 근거 확인 → 견적 계산 → 제안서 발행 GIF로 교체 예정 -->
-![TEMP — 근거가 연결된 견적과 제안서를 만드는 GIF 자리](docs/assets/readme/evidence-to-proposal-temp.svg)
+![근거와 가정을 확인하며 견적 초안을 검토하는 과정](docs/assets/readme/evidence-to-proposal.gif)
 
 ## 채팅창 하나를 더 만든 건 아닙니다
 
