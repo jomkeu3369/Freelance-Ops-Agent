@@ -806,7 +806,7 @@ export function startAgentRun(
         modelSelection: input,
         budget: {
           maxDurationSeconds: 180,
-          maxModelCalls: 8,
+          maxModelCalls: 12,
           maxToolCalls: 12,
           maxInputTokens: 50000,
           maxOutputTokens: 12000,

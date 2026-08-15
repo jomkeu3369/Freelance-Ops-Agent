@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 운영 Agent의 `REACT_BUDGET_EXCEEDED`를 분석해 Supervisor 4개 부서 경로의 정상 Tool 선택 흐름이 최소 약 10회의 모델 호출을 요구하는데 Frontend·Backend·Compose 기본 상한이 8회였던 불일치를 수정했다. 기본 요청·운영 상한을 12회로 조정하고, 각 부서 실행 전에 뒤 부서의 최소 모델·token 예산을 예약하도록 변경했다. 임의의 `ValueError`를 예산 오류로 덮어쓰던 처리도 제거해 이후에는 `MODEL_CALL_BUDGET_EXCEEDED`, `INPUT_TOKEN_BUDGET_EXCEEDED` 등 실제 소진 항목을 반환한다. Agent 전체 pytest(기존 skip 1건 제외), Ruff, mypy 50개 source와 Frontend 테스트 34건·TypeScript·ESLint가 통과했다. Backend Java·test source 컴파일은 통과했으나 로컬 Gradle 9.6.1 test worker의 `GradleWorkerMain` classpath 환경 오류로 정책 테스트 실행만 완료하지 못했다.
+
 - 2026-08-15: 운영 Agent 실행이 접수된 뒤 `AGENT_EXECUTION_FAILED`로만 종료되던 문제를 수정했다. OpenAI Structured Outputs에 전달하는 JSON Schema를 모든 속성이 required인 폐쇄형 schema로 정규화하고, ReAct Tool 인자를 현재 허용된 `query` 계약으로 제한했다. Provider 호출 실패는 `MODEL_PROVIDER_FAILED`로 구분해 저장하며, 예기치 않은 오류는 prompt·응답·secret 없이 run ID와 예외 유형, 정제된 stack frame만 운영 로그에 남긴다. Agent 전체 pytest(기존 skip 1건 제외), Ruff, mypy 50개 source 검증이 통과했다.
 
 - 2026-08-15: Workspace에서 값의 범위가 정해진 입력을 선택형으로 정리했다. AI 실행 모델은 `NEXT_PUBLIC_OPENAI_MODELS`·`NEXT_PUBLIC_GEMINI_MODELS`에 등록된 목록에서만 고르며, 목록이 없는 제공사는 선택할 수 없다. 신규 모델 요금 등록은 추천 목록을 제공하되 새 모델 추가를 위해 직접 입력도 허용하고, 프로젝트 생성 통화는 KRW·USD·JPY 선택값으로 노출한다. Workspace 카드·설정·온보딩·대화상자는 과한 직선 테두리와 큰 제목을 줄이고 둥근 계층형 surface, 절제된 그림자와 넓은 입력 영역으로 재정비했다. Frontend TypeScript, Node 테스트 33건, ESLint와 Next.js production build가 통과했다. 인증 후 실제 데이터 화면의 시각 E2E는 배포 후 확인 대상으로 남겼다.

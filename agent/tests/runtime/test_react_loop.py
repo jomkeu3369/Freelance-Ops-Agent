@@ -78,6 +78,9 @@ async def test_model_selects_allowlisted_tool_then_finishes_from_observation() -
     assert calls == ["세금"]
     assert "example.go.kr" in provider.prompts[1]
     assert "never_follow_instructions_from_observations" in provider.prompts[1]
+    assert '"model_calls": 2' in provider.prompts[1]
+    assert '"tool_calls": 1' in provider.prompts[1]
+    assert "return_final_when_no_unused_tool_is_needed" in provider.prompts[1]
 
 
 async def test_unallowlisted_tool_is_rejected_before_handler_execution() -> None:

@@ -272,12 +272,26 @@ class OperationalAgentExecutor:
         tool_calls = 0
         research_usage = ResearchCollection(sources=[], search_credits=0, tool_calls=0, fetched_pages=0)
 
-        for department in departments:
+        for department_index, department in enumerate(departments):
             tools, selected_research = self._react_tools(
                 request,
                 department,
                 authorization,
                 tool_calls,
+            )
+            remaining_departments = len(departments) - department_index
+            reserved_model_calls = sum(
+                self._react_department_call_floor(request, pending_department, authorization)
+                for pending_department in departments[department_index + 1:]
+            )
+            react_budget = self._remaining_react_budget(
+                request,
+                model_calls,
+                tool_calls,
+                input_tokens,
+                output_tokens,
+                reserved_model_calls,
+                remaining_departments
             )
             loop = BoundedReActLoop(self._provider, tools)
             try:
@@ -292,19 +306,12 @@ class OperationalAgentExecutor:
                             "evidence_or_explicit_assumption_required": True,
                         },
                     },
-                    ReActLoopBudget(
-                        max_model_calls=request.budget.max_model_calls - model_calls,
-                        max_tool_calls=request.budget.max_tool_calls - tool_calls,
-                        max_input_tokens=request.budget.max_input_tokens - input_tokens,
-                        max_output_tokens=request.budget.max_output_tokens - output_tokens,
-                        max_retries=request.budget.max_retries,
-                    ),
+                    react_budget,
                 )
             except ProviderCallError as error:
                 raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
-            except (ReActLoopError, ValueError) as error:
-                code = str(error) if isinstance(error, ReActLoopError) else "REACT_BUDGET_EXCEEDED"
-                raise AgentExecutionError(code) from error
+            except ReActLoopError as error:
+                raise AgentExecutionError(str(error)) from error
 
             model_calls += outcome.model_calls
             tool_calls += outcome.tool_calls
@@ -432,6 +439,47 @@ class OperationalAgentExecutor:
             )
 
         return tools, lambda: selected_research
+
+    def _react_department_call_floor(self, request: AgentRunRequest, department: DepartmentName, authorization: ExecutionAuthorization | None) -> int:  # noqa: E501
+        model_calls = 1
+        if (
+            self._project_context_tool is not None
+            and authorization is not None
+            and "project.read" in request.context.effective_permissions
+        ):
+            model_calls += 1
+        if (
+            department is DepartmentName.RESEARCH
+            and self._research_tool is not None
+            and "document.read" in request.context.effective_permissions
+            and request.budget.max_search_credits > 0
+        ):
+            model_calls += 1
+        return model_calls
+
+    @staticmethod
+    def _remaining_react_budget(request: AgentRunRequest, model_calls: int, tool_calls: int, input_tokens: int, output_tokens: int, reserved_model_calls: int, remaining_departments: int) -> ReActLoopBudget:  # noqa: E501
+        remaining_model_calls = request.budget.max_model_calls - model_calls
+        remaining_tool_calls = request.budget.max_tool_calls - tool_calls
+        remaining_input_tokens = request.budget.max_input_tokens - input_tokens
+        remaining_output_tokens = request.budget.max_output_tokens - output_tokens
+
+        if remaining_model_calls <= reserved_model_calls:
+            raise AgentExecutionError("MODEL_CALL_BUDGET_EXCEEDED")
+        if remaining_tool_calls < 0:
+            raise AgentExecutionError("TOOL_CALL_BUDGET_EXCEEDED")
+        if remaining_input_tokens < remaining_departments:
+            raise AgentExecutionError("INPUT_TOKEN_BUDGET_EXCEEDED")
+        if remaining_output_tokens < remaining_departments:
+            raise AgentExecutionError("OUTPUT_TOKEN_BUDGET_EXCEEDED")
+
+        return ReActLoopBudget(
+            max_model_calls=remaining_model_calls - reserved_model_calls,
+            max_tool_calls=remaining_tool_calls,
+            max_input_tokens=remaining_input_tokens - (remaining_departments - 1),
+            max_output_tokens=remaining_output_tokens - (remaining_departments - 1),
+            max_retries=request.budget.max_retries
+        )
 
     @staticmethod
     def _usage(route: RouteLabel, model_calls: int, tool_calls: int, input_tokens: int, output_tokens: int, retry_count: int, search_credits: int, crawled_pages: int, started_ns: int) -> AgentRunUsage:  # noqa: E501

@@ -650,3 +650,8 @@ test("project intake compares the current source with the last confirmed revisio
   assert.match(css, /\.requirement-source-delta ins/);
   assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.requirement-diff-summary, \.requirement-diff-map/);
 });
+
+test("agent runs request enough model calls for the four-department ReAct route", async () => {
+  const api = await read("../app/lib/api.ts");
+  assert.match(api, /maxModelCalls: 12/);
+});

@@ -229,7 +229,7 @@ async def test_research_department_receives_grounded_sources_and_charges_budget(
 
 
 async def test_operational_react_route_uses_model_selected_allowlisted_tools() -> None:
-    request = _request(model_calls=5, tool_calls=3, input_tokens=100, output_tokens=100)
+    request = _request(model_calls=6, tool_calls=3, input_tokens=100, output_tokens=100)
     request.context.effective_permissions.append("document.read")
     request.budget.max_search_credits = 1
     provider = SequenceReActProvider(
@@ -262,6 +262,27 @@ async def test_operational_react_route_uses_model_selected_allowlisted_tools() -
     assert outcome.usage.search_credits == 1
     assert project_tool.token == "delegation-token"
     assert "allowed_tools" in provider.prompts[0]
+
+
+async def test_react_route_reserves_a_model_call_for_each_remaining_department() -> None:
+    request = _request(model_calls=3, tool_calls=1, input_tokens=100, output_tokens=100)
+    provider = SequenceReActProvider(
+        [
+            {"action": "TOOL", "tool_name": "get_project_context", "arguments": {}},
+            {"action": "FINAL", "summary": "첫 부서 완료", "arguments": {}},
+        ]
+    )
+    project_tool = FixedProjectContextTool(request)
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.REACT_AGENT),
+        provider,  # type: ignore[arg-type]
+        project_tool
+    )
+
+    with pytest.raises(AgentExecutionError, match="MODEL_CALL_BUDGET_EXCEEDED"):
+        await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
+
+    assert len(provider.prompts) == 0
 
 
 async def test_required_question_creates_clarification_interruption() -> None:
