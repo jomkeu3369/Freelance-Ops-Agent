@@ -765,9 +765,16 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /permissions\.has\("project\.delete"\)/);
   assert.match(workspace, /deleteConfirmation !== project\.title/);
   assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
-  assert.match(workspace, /요구사항, AI 분석 기록, 견적과 결과 기록이 함께 삭제됩니다/);
+  assert.match(workspace, /className="project-delete-backdrop"/);
+  assert.match(workspace, /aria-modal="true"/);
+  assert.match(workspace, /정리된 요구사항/);
+  assert.match(workspace, /AI 분석 기록/);
+  assert.match(workspace, /견적과 결과 기록/);
   assert.match(api, /export function deleteProject/);
   assert.match(api, /method: "DELETE"/);
   assert.match(css, /\.project-delete-confirmation/);
+  assert.match(css, /@keyframes deleteDialogIn/);
+  assert.match(css, /@keyframes workspacePanelIn/);
+  assert.match(css, /\.workbench-steps button\.active \{[^}]*color: var\(--accent\)/);
   assert.match(css, /\.workspace-theme-toggle/);
 });

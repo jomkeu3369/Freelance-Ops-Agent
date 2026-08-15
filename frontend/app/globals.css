@@ -280,18 +280,31 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .project-heading h1 { margin: 16px 0 14px; font-size: clamp(2.5rem, 4.7vw, 5.8rem); line-height: .98; letter-spacing: -.065em; }
 .project-heading > div:first-child > p { margin: 0; max-height: 5.1em; overflow: hidden; color: var(--muted); line-height: 1.7; }
 .project-heading-actions { display: flex; align-items: center; gap: 8px; flex: none; }
-.project-delete-confirmation { margin: -14px 0 28px; padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 360px); gap: 18px 28px; align-items: end; border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--line)); border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 5%, var(--surface-solid)); }
-.project-delete-confirmation > div:first-child > span { color: var(--danger); font-size: .72rem; font-weight: 750; }
-.project-delete-confirmation h2 { margin: 7px 0 8px; font-size: 1.25rem; }
-.project-delete-confirmation p { margin: 0; color: var(--muted); line-height: 1.6; }
-.project-delete-confirmation strong { color: var(--ink); }
-.project-delete-confirmation label { display: grid; gap: 7px; color: var(--muted); font-size: .75rem; }
-.project-delete-confirmation input { min-height: 44px; padding: 0 12px; color: var(--ink); border: 1px solid var(--line); background: var(--bg); outline: 0; }
+.project-delete-backdrop { position: fixed; z-index: 120; inset: 0; padding: 24px; display: grid; place-items: center; background: rgba(15, 18, 25, .54); backdrop-filter: blur(7px); animation: deleteBackdropIn .2s ease-out both; }
+.project-delete-confirmation { position: relative; width: min(100%, 620px); max-height: min(760px, calc(100svh - 48px)); display: grid; gap: 0; overflow-y: auto; color: var(--ink); border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line)); border-radius: 18px; background: var(--surface-solid); box-shadow: 0 28px 90px rgba(8, 12, 20, .32); animation: deleteDialogIn .28s cubic-bezier(.2, .8, .2, 1) both; }
+.project-delete-confirmation > header { padding: 28px 28px 22px; display: grid; grid-template-columns: 46px minmax(0, 1fr) 36px; align-items: start; gap: 14px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 10%, var(--surface-solid)), var(--surface-solid) 70%); }
+.project-delete-icon { width: 46px; height: 46px; display: grid; place-items: center; color: var(--danger); border-radius: 13px; background: color-mix(in srgb, var(--danger) 12%, var(--surface)); }
+.project-delete-confirmation > header > div > span { color: var(--danger); font-size: .82rem; font-weight: 760; }
+.project-delete-confirmation h2 { margin: 6px 0 0; font-size: 1.6rem; letter-spacing: -.035em; }
+.project-delete-close { width: 36px; height: 36px; display: grid; place-items: center; color: var(--muted); border: 0; border-radius: 9px; background: transparent; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.project-delete-close:hover { color: var(--ink); background: var(--surface-2); }
+.project-delete-copy { padding: 24px 28px 0; }
+.project-delete-copy p { margin: 0; color: var(--muted); font-size: .95rem; line-height: 1.65; }
+.project-delete-copy ul { margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; list-style: none; }
+.project-delete-copy li { padding: 11px 12px; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 18%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--danger) 5%, var(--surface)); font-size: .82rem; font-weight: 650; text-align: center; }
+.project-delete-confirmation label { margin: 24px 28px 28px; display: grid; gap: 9px; color: var(--ink); font-size: .9rem; }
+.project-delete-confirmation label > strong { width: fit-content; padding: 5px 8px; color: var(--danger); border-radius: 6px; background: color-mix(in srgb, var(--danger) 8%, transparent); font-size: .86rem; }
+.project-delete-confirmation input { width: 100%; min-height: 52px; padding: 0 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); outline: 0; font-size: 1rem; }
 .project-delete-confirmation input:focus { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 12%, transparent); }
-.project-delete-confirmation .form-error { grid-column: 1 / -1; }
-.project-delete-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
-.danger-button { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: white; border: 1px solid var(--danger); border-radius: var(--workspace-radius-sm); background: var(--danger); cursor: pointer; font: inherit; font-weight: 700; }
+.project-delete-confirmation .form-error { margin: -10px 28px 22px; }
+.project-delete-actions { padding: 18px 28px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.project-delete-actions .quiet-button,
+.project-delete-actions .danger-button { min-width: 112px; min-height: 48px; }
+.danger-button { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: white; border: 1px solid var(--danger); border-radius: var(--workspace-radius-sm); background: var(--danger); cursor: pointer; font: inherit; font-weight: 700; transition: transform .18s ease, filter .18s ease, opacity .18s ease; }
+.danger-button:not(:disabled):hover { filter: brightness(.92); transform: translateY(-1px); }
 .danger-button:disabled { opacity: .42; cursor: not-allowed; }
+@keyframes deleteBackdropIn { from { opacity: 0; } }
+@keyframes deleteDialogIn { from { opacity: 0; transform: translateY(16px) scale(.975); } }
 .run-controls { width: min(100%, 500px); display: grid; grid-template-columns: 120px 1fr auto; gap: 10px; align-items: end; }
 .run-controls label { gap: 5px; }
 .run-controls input, .run-controls select { min-height: 46px; padding: 10px; }
@@ -555,7 +568,7 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
   .outcome-section { gap: 50px; }
   .project-heading { align-items: stretch; flex-direction: column; }
   .project-heading-actions { align-self: flex-start; flex-wrap: wrap; }
-  .project-delete-confirmation { grid-template-columns: 1fr; }
+  .project-delete-confirmation { width: min(100%, 620px); }
   .run-controls { width: 100%; }
   .workbench-grid { grid-template-columns: 1fr; }
   .pipeline-board { grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
@@ -1134,6 +1147,29 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .model-pricing-list small,
 .permission-note,
 .data-note { font-size: .82rem; line-height: 1.55; }
+
+/* Status color and restrained motion make the project workflow easier to scan. */
+.project-status { width: fit-content; padding: 6px 10px; color: color-mix(in srgb, var(--success) 82%, var(--ink)); border-radius: 999px; background: color-mix(in srgb, var(--success) 10%, var(--surface)); font-size: .82rem; font-weight: 700; }
+.project-status i { box-shadow: 0 0 0 5px color-mix(in srgb, var(--success) 11%, transparent); animation: statusBreathe 2.8s ease-in-out infinite; }
+.project-heading-actions .secondary-button { border-color: color-mix(in srgb, var(--accent) 25%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid)); }
+.project-heading-actions .secondary-button:hover { border-color: color-mix(in srgb, var(--accent) 48%, var(--line)); background: color-mix(in srgb, var(--accent) 11%, var(--surface-solid)); }
+.workbench-steps button { transition: color .2s ease, background .2s ease, transform .2s ease; }
+.workbench-steps button:hover { color: var(--ink); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.workbench-steps button.active { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface-solid)); box-shadow: inset 0 -2px var(--accent); }
+.workbench-steps button.active span { color: var(--accent); }
+.intake-review,
+.workbench-grid,
+.quote-builder,
+.outcome-review { animation: workspacePanelIn .36s cubic-bezier(.2, .75, .2, 1) both; }
+.guided-copy { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 7%, var(--surface-solid)), var(--surface-solid) 58%); }
+.intake-document,
+.graph-panel,
+.run-inspector,
+.quote-builder,
+.outcome-form,
+.outcome-snapshot { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
+@keyframes statusBreathe { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--success) 3%, transparent); } }
+@keyframes workspacePanelIn { from { opacity: 0; transform: translateY(10px); } }
 .clients-layout,
 .knowledge-layout { overflow: hidden; }
 .client-editor h2,

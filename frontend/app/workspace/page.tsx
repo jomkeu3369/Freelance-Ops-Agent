@@ -1581,6 +1581,22 @@ function ProjectWorkbench({
     onStepChange(step);
   };
 
+  const closeDeleteConfirmation = useCallback(() => {
+    if (deletingProject) return;
+    setShowDeleteConfirmation(false);
+    setDeleteConfirmation("");
+    setDeleteError(null);
+  }, [deletingProject]);
+
+  useEffect(() => {
+    if (!showDeleteConfirmation) return;
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") closeDeleteConfirmation();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [closeDeleteConfirmation, showDeleteConfirmation]);
+
   useEffect(() => {
     if (!runId || !run || !terminalStatuses.has(run.status) || !permissions.has("audit.read")) {
       Promise.resolve().then(() => setCostUsage(null));
@@ -1616,24 +1632,30 @@ function ProjectWorkbench({
         ) : activeStep === "agent" && run && terminalStatuses.has(run.status) && canRun ? <button type="button" className="secondary-button" onClick={onResetRun}><ArrowRight size={18} /> 새 분석 준비</button> : null}
       </div>
 
-      {showDeleteConfirmation && <section className="project-delete-confirmation" role="alertdialog" aria-labelledby="project-delete-title">
-        <div>
-          <span>되돌릴 수 없는 작업</span>
-          <h2 id="project-delete-title">이 프로젝트를 삭제할까요?</h2>
-          <p>요구사항, AI 분석 기록, 견적과 결과 기록이 함께 삭제됩니다. 계속하려면 프로젝트명 <strong>{project.title}</strong>을 입력하세요.</p>
-        </div>
-        <label>프로젝트명 확인<input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={project.title} /></label>
-        {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
-        <div className="project-delete-actions">
-          <button type="button" className="quiet-button" disabled={deletingProject} onClick={() => { setShowDeleteConfirmation(false); setDeleteConfirmation(""); setDeleteError(null); }}>취소</button>
+      {showDeleteConfirmation && <div className="project-delete-backdrop">
+        <section className="project-delete-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="project-delete-title" aria-describedby="project-delete-description">
+          <header>
+            <span className="project-delete-icon" aria-hidden="true"><Trash size={22} /></span>
+            <div><span>프로젝트 삭제</span><h2 id="project-delete-title">정말 삭제하시겠어요?</h2></div>
+            <button type="button" className="project-delete-close" aria-label="삭제 창 닫기" disabled={deletingProject} onClick={closeDeleteConfirmation}>×</button>
+          </header>
+          <div className="project-delete-copy" id="project-delete-description">
+            <p>삭제하면 다음 자료를 다시 복구할 수 없습니다.</p>
+            <ul><li>정리된 요구사항</li><li>AI 분석 기록</li><li>견적과 결과 기록</li></ul>
+          </div>
+          <label><span>확인을 위해 프로젝트명을 입력해 주세요.</span><strong>{project.title}</strong><input autoComplete="off" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder="프로젝트명 입력" /></label>
+          {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
+          <div className="project-delete-actions">
+            <button type="button" className="quiet-button" disabled={deletingProject} onClick={closeDeleteConfirmation}>취소</button>
           <button type="button" className="danger-button" disabled={deletingProject || deleteConfirmation !== project.title} onClick={async () => {
             setDeletingProject(true);
             setDeleteError(null);
             try { await onDelete(); }
             catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "프로젝트를 삭제하지 못했습니다."); setDeletingProject(false); }
           }}>{deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} 영구 삭제</button>
-        </div>
-      </section>}
+          </div>
+        </section>
+      </div>}
 
       <nav className="workbench-steps" aria-label="프로젝트 진행 단계">
         {([

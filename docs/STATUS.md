@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 프로젝트 삭제 확인 UI를 본문에 풀린 인라인 영역에서 중앙 경고 모달로 교체했다. 삭제되는 요구사항·AI 분석·견적·결과 기록을 항목별로 보여주고, 프로젝트명 확인 입력과 취소·영구 삭제 버튼을 분리했으며 닫기 버튼과 Esc 키를 지원한다. 프로젝트 화면에는 현재 단계의 파란 강조색, 정상 상태의 초록색, 삭제 작업의 빨간색을 역할별로 적용하고 단계 전환 패널 진입·상태 표시·모달에 짧은 motion을 추가했다. `prefers-reduced-motion`에서는 기존 전역 정책에 따라 motion이 비활성화된다. Frontend TypeScript, Node 테스트 40건과 ESLint가 통과했다.
+
 - 2026-08-15: Workspace 설정에 노출되던 `내 접근 범위`는 RBAC 진단 정보라 일반 사용자의 설정 작업과 직접 관련이 없어 화면에서 제거했다. 실제 권한에 따른 API 요청·버튼 노출·서버 인가는 그대로 유지한다. 1920px 화면에서 작게 보이던 상단 상태, 사이드바 메뉴·프로젝트 보조 정보, 빠른 시작 단계, 설정 목차·설명·데이터 레이블과 입력값은 최소 13px 수준을 기준으로 확대하고 카드 높이도 함께 조정했다. Frontend TypeScript, Node 테스트 40건과 ESLint가 통과했다.
 
 - 2026-08-15: 프로젝트 삭제 안전장치가 `project` 도메인에서 `agentrun` 저장소를 직접 참조해 CI의 domain cycle 검사를 실패시키던 문제를 수정했다. `project`에는 활성 실행 여부를 묻는 `ActiveProjectRunReader` 계약만 두고, 실제 조회 구현과 실행 상태 기준은 `agentrun`으로 이동해 기존 `agentrun -> project` 의존 방향을 유지했다. Backend main·test source 컴파일과 Linux 전체 Spring 테스트 101건이 통과했다. Production Auto CD에서 Backend 이미지 검증·GHCR 푸시·서버 배포·공개 readiness까지 모두 성공했다.
