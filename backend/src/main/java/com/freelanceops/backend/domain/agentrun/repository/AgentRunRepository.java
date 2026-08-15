@@ -5,6 +5,7 @@ import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,6 +14,8 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
     Optional<AgentRunEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(UUID workspaceId, UUID projectId);
+
+    List<AgentRunEntity> findAllByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
 
     boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
 

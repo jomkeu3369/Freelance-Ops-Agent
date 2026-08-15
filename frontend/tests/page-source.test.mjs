@@ -357,10 +357,11 @@ test("landing color tokens and section grids keep light and dark hierarchy consi
 });
 
 test("manual quotation, evidence, outcome, and public proposal flows use real Spring contracts", async () => {
-  const [workspace, api, proposal] = await Promise.all([
+  const [workspace, api, proposal, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
     read("../app/proposal/[token]/page.tsx"),
+    read("../app/globals.css"),
   ]);
   assert.match(workspace, /createQuotation/);
   assert.match(workspace, /basis\.content/);
@@ -370,6 +371,10 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(workspace, /aria-label="서비스 단가표"/);
   assert.match(workspace, /rateCardId: card\.id/);
   assert.match(workspace, /aria-label="견적 시나리오 비교"/);
+  assert.match(workspace, /className="quote-field-label">수량/);
+  assert.match(workspace, /className="quote-field-label">단위/);
+  assert.match(workspace, /className="quote-field-label">단가/);
+  assert.match(workspace, /className="quote-amount"/);
   assert.match(workspace, /latestByScenario/);
   assert.match(workspace, /loadQuotation\(quotation\)/);
   assert.match(workspace, /saveOutcome/);
@@ -383,6 +388,9 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(proposal, /CHANGES_REQUESTED/);
   assert.match(proposal, /window\.print/);
   assert.match(workspace, /링크 비활성화/);
+  assert.match(css, /\.quote-item-block \{[^}]*border-radius: 12px/);
+  assert.match(css, /\.quote-row input,[\s\S]*?background: var\(--surface-2\)/);
+  assert.match(css, /\.quote-row \{[^}]*grid-template-columns: minmax\(220px, 1\.8fr\)/);
 });
 
 test("pipeline, onboarding settings, and structured intake are API-backed", async () => {
@@ -791,6 +799,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
   assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
+  assert.match(workspace, /cancelActiveProjectAgentRuns\(session, deletedProjectId\)/);
   assert.match(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
   assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
@@ -800,7 +809,9 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /견적과 결과 기록/);
   assert.match(api, /export function deleteProject/);
   assert.match(api, /export function getLatestProjectAgentRun/);
+  assert.match(api, /export function cancelActiveProjectAgentRuns/);
   assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/latest/);
+  assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/cancel-active/);
   assert.match(api, /method: "DELETE"/);
   assert.match(css, /\.project-delete-confirmation/);
   assert.match(css, /@keyframes deleteDialogIn/);

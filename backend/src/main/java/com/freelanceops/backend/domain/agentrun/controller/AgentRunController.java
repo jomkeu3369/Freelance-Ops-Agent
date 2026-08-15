@@ -84,6 +84,22 @@ public class AgentRunController {
         ).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
+    @PostMapping("/projects/{projectId}/agent-runs/cancel-active")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelActiveForProject(
+        @PathVariable UUID workspaceId,
+        @PathVariable UUID projectId,
+        @RequestHeader(value = "traceparent", required = false) String traceparent,
+        Authentication authentication
+    ) {
+        gatewayService.cancelActiveForProject(
+            authenticatedUserId(authentication),
+            workspaceId,
+            projectId,
+            trustedTraceparent(traceparent)
+        );
+    }
+
     @GetMapping(value = "/agent-runs/{runId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(
         @PathVariable UUID workspaceId,

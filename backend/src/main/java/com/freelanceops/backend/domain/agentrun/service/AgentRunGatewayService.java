@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +32,12 @@ import java.time.Instant;
 
 @Service
 public class AgentRunGatewayService {
+
+    private static final EnumSet<AgentRunStatus> ACTIVE_STATUSES = EnumSet.of(
+        AgentRunStatus.QUEUED,
+        AgentRunStatus.RUNNING,
+        AgentRunStatus.WAITING_FOR_USER
+    );
 
     private final WorkspacePermissionReader permissionReader;
     private final ProjectRepository projectRepository;
@@ -139,6 +146,28 @@ public class AgentRunGatewayService {
         }
         return agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId)
             .map(run -> get(userId, workspaceId, run.id(), traceparent));
+    }
+
+    public void cancelActiveForProject(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
+        MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requirePermission(membership, PermissionCode.PROJECT_READ);
+        requirePermission(membership, PermissionCode.AGENT_RUN);
+        requirePermission(membership, PermissionCode.AGENT_CANCEL);
+        if (projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        List<AgentRunEntity> activeRuns = agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+            workspaceId,
+            projectId,
+            ACTIVE_STATUSES
+        );
+        for (AgentRunEntity activeRun : activeRuns) {
+            AgentRunView current = get(userId, workspaceId, activeRun.id(), traceparent);
+            if (ACTIVE_STATUSES.contains(current.status())) {
+                cancel(userId, workspaceId, activeRun.id(), traceparent);
+            }
+        }
     }
 
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {

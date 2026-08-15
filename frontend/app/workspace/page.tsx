@@ -67,6 +67,7 @@ import {
   WorkflowEvent,
   clearSession,
   cancelAgentRun,
+  cancelActiveProjectAgentRuns,
   archiveDocument,
   archiveClient,
   createClient,
@@ -178,16 +179,17 @@ export default function WorkspacePage() {
   const canWriteProject = activePermissions.has("project.write");
 
   useEffect(() => {
-    if (!session || !selectedProject || activeView !== "project" || !activePermissions.has("agent.run")) {
-      setRunLookupPending(false);
-      return;
-    }
+    if (!session || !selectedProject || activeView !== "project" || !activePermissions.has("agent.run")) return;
     let cancelled = false;
     const projectId = selectedProject.id;
-    setRunLookupPending(true);
-    getLatestProjectAgentRun(session, projectId)
+    Promise.resolve()
+      .then(() => {
+        if (cancelled) return undefined;
+        setRunLookupPending(true);
+        return getLatestProjectAgentRun(session, projectId);
+      })
       .then((latestRun) => {
-        if (cancelled || selectedProjectIdRef.current !== projectId) return;
+        if (cancelled || latestRun === undefined || selectedProjectIdRef.current !== projectId) return;
         setRun(latestRun);
         setRunId(latestRun?.runId ?? null);
         setEvents([]);
@@ -628,6 +630,9 @@ export default function WorkspacePage() {
             }}
             onDelete={async () => {
               const deletedProjectId = selectedProject.id;
+              if (activePermissions.has("agent.cancel")) {
+                await cancelActiveProjectAgentRuns(session, deletedProjectId);
+              }
               await deleteProject(session, deletedProjectId);
               setProjects((current) => current.filter((project) => project.id !== deletedProjectId));
               selectedProjectIdRef.current = null;
@@ -1594,7 +1599,7 @@ function ProjectWorkbench({
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
-  const deleteBlockedByRun = Boolean(run && projectDeletionBlockingStatuses.has(run.status));
+  const deleteBlockedByRun = Boolean(run && projectDeletionBlockingStatuses.has(run.status) && !canCancel);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -1675,6 +1680,7 @@ function ProjectWorkbench({
           <div className="project-delete-copy" id="project-delete-description">
             <p>삭제하면 다음 자료를 다시 복구할 수 없습니다.</p>
             <ul><li>정리된 요구사항</li><li>AI 분석 기록</li><li>견적과 결과 기록</li></ul>
+            {run && projectDeletionBlockingStatuses.has(run.status) && <p>진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다.</p>}
           </div>
           <label><span>확인을 위해 프로젝트명을 입력해 주세요.</span><strong>{project.title}</strong><input autoComplete="off" value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder="프로젝트명 입력" /></label>
           {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
@@ -2302,17 +2308,17 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
       </section>
 
       <div className="quote-layout">
-        <div className="quote-sheet" role="table" aria-label="견적 항목">
-          <div className="quote-row quote-head" role="row"><span>작업 항목</span><span>수량</span><span>단위</span><span>단가</span><span>할인</span><span>예상 금액</span><span /></div>
+        <div className="quote-sheet" aria-label="견적 항목">
           {items.map((item, index) => (
-            <div className={`quote-item-block${selectedBasisIndex === index ? " selected" : ""}`} key={index} onFocusCapture={() => setSelectedBasisIndex(index)}>
-              <div className="quote-row" role="row">
-                <label><span className="sr-only">작업 항목</span><input value={item.title} readOnly={!canWrite} maxLength={200} placeholder="예: 결제 플로우 구현" onChange={(event) => updateItem(index, (current) => ({ ...current, title: event.target.value }))} /></label>
-                <label><span className="sr-only">수량</span><input type="number" min="0.1" step="0.5" readOnly={!canWrite} value={item.quantity} onChange={(event) => updateItem(index, (current) => ({ ...current, quantity: Number(event.target.value) }))} /></label>
-                <label><span className="sr-only">단위</span><select value={item.unit} disabled={!canWrite || Boolean(item.rateCardId)} onChange={(event) => updateItem(index, (current) => ({ ...current, unit: event.target.value as QuotationItemInput["unit"] }))}><option value="HOUR">시간</option><option value="DAY">일</option><option value="FIXED">고정</option></select></label>
-                <label><span className="sr-only">단가</span><input type="number" min="0" step="1000" readOnly={!canWrite || Boolean(item.rateCardId)} value={item.unitRate} onChange={(event) => updateItem(index, (current) => ({ ...current, unitRate: Number(event.target.value) }))} /></label>
-                <label><span className="sr-only">할인율</span><input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(item.discountRate * 100)} onChange={(event) => updateItem(index, (current) => ({ ...current, discountRate: Number(event.target.value) / 100 }))} /></label>
-                <strong>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}</strong>
+            <div className={`quote-item-block${selectedBasisIndex === index ? " selected" : ""}`} key={index} onFocusCapture={() => setSelectedBasisIndex(index)} role="group" aria-label={`${index + 1}번 견적 항목`}>
+              <div className="quote-item-heading"><span>작업 항목 {String(index + 1).padStart(2, "0")}</span></div>
+              <div className="quote-row">
+                <label className="quote-title-field"><span className="quote-field-label">작업 항목</span><input value={item.title} readOnly={!canWrite} maxLength={200} placeholder="예: 결제 플로우 구현" onChange={(event) => updateItem(index, (current) => ({ ...current, title: event.target.value }))} /></label>
+                <label><span className="quote-field-label">수량</span><input type="number" min="0.1" step="0.5" readOnly={!canWrite} value={item.quantity} onChange={(event) => updateItem(index, (current) => ({ ...current, quantity: Number(event.target.value) }))} /></label>
+                <label><span className="quote-field-label">단위</span><select value={item.unit} disabled={!canWrite || Boolean(item.rateCardId)} onChange={(event) => updateItem(index, (current) => ({ ...current, unit: event.target.value as QuotationItemInput["unit"] }))}><option value="HOUR">시간</option><option value="DAY">일</option><option value="FIXED">고정</option></select></label>
+                <label><span className="quote-field-label">단가</span><input type="number" min="0" step="1000" readOnly={!canWrite || Boolean(item.rateCardId)} value={item.unitRate} onChange={(event) => updateItem(index, (current) => ({ ...current, unitRate: Number(event.target.value) }))} /></label>
+                <label><span className="quote-field-label">할인율 (%)</span><input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(item.discountRate * 100)} onChange={(event) => updateItem(index, (current) => ({ ...current, discountRate: Number(event.target.value) / 100 }))} /></label>
+                <div className="quote-amount"><span className="quote-field-label">예상 금액</span><strong>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}</strong></div>
                 <button type="button" className="remove-item" aria-label={`${index + 1}번 항목 삭제`} disabled={!canWrite || items.length === 1} onClick={() => { setItems((current) => current.filter((_, itemIndex) => itemIndex !== index)); setSelectedBasisIndex((current) => Math.max(0, Math.min(current, items.length - 2))); }}><Trash size={17} /></button>
               </div>
               <div className="basis-row">

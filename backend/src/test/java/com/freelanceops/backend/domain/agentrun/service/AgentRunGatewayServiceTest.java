@@ -175,6 +175,38 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
+    void cancelsEveryActiveProjectRunBeforePermanentDeletion() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID completedRunId = UUID.randomUUID();
+        UUID waitingRunId = UUID.randomUUID();
+        AgentRunEntity completedRun = run(completedRunId, workspaceId, projectId, userId);
+        AgentRunEntity waitingRun = run(waitingRunId, workspaceId, projectId, userId);
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(),
+            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
+        )));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
+            .thenReturn(List.of(completedRun, waitingRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(completedRunId, workspaceId)).thenReturn(Optional.of(completedRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(waitingRunId, workspaceId)).thenReturn(Optional.of(waitingRun));
+        when(tokenIssuer.issue(eq(completedRunId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("completed-token");
+        when(tokenIssuer.issue(eq(waitingRunId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("waiting-token");
+        when(agentRunClient.get(completedRunId, "completed-token", "traceparent")).thenReturn(view(completedRunId, AgentRunStatus.COMPLETED));
+        when(agentRunClient.get(waitingRunId, "waiting-token", "traceparent")).thenReturn(view(waitingRunId, AgentRunStatus.WAITING_FOR_USER));
+        when(agentRunClient.cancel(waitingRunId, "waiting-token", "traceparent")).thenReturn(view(waitingRunId, AgentRunStatus.CANCELLED));
+
+        service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
+
+        verify(agentRunClient, never()).cancel(eq(completedRunId), any(), any());
+        verify(agentRunClient).cancel(waitingRunId, "waiting-token", "traceparent");
+        assertThat(completedRun.status()).isEqualTo(AgentRunStatus.COMPLETED);
+        assertThat(waitingRun.status()).isEqualTo(AgentRunStatus.CANCELLED);
+    }
+
+    @Test
     void synchronizesAndValidatesInterruptionBeforeResuming() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();

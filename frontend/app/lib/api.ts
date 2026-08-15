@@ -873,6 +873,14 @@ export function getLatestProjectAgentRun(session: AuthSession, projectId: string
   ).then((run) => run ?? null);
 }
 
+export function cancelActiveProjectAgentRuns(session: AuthSession, projectId: string): Promise<void> {
+  return request<void>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/cancel-active`,
+    { method: "POST" },
+    session.accessToken,
+  );
+}
+
 export function getAgentRunUsage(session: AuthSession, runId: string): Promise<AgentRunUsage> {
   return request(`/api/v2/workspaces/${session.workspaceId}/agent-runs/${runId}/usage`, {}, session.accessToken);
 }
