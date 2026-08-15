@@ -29,8 +29,16 @@ public record AgentRunView(
         String projectSummary,
         List<String> openQuestions,
         List<DepartmentResult> departmentResults,
-        QuotationDraft quotationDraft
+        QuotationDraft quotationDraft,
+        List<QuotationDraft> quotationDrafts
     ) {
+        public AgentRunResult {
+            openQuestions = openQuestions == null ? List.of() : List.copyOf(openQuestions);
+            departmentResults = departmentResults == null ? List.of() : List.copyOf(departmentResults);
+            quotationDrafts = quotationDrafts == null
+                ? (quotationDraft == null ? List.of() : List.of(quotationDraft))
+                : List.copyOf(quotationDrafts);
+        }
     }
 
     public record QuotationDraft(String scenario, List<QuotationDraftItem> items) {

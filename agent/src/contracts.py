@@ -317,6 +317,7 @@ class AgentRunResult(StrictModel):
     open_questions: list[str] = Field(default_factory=list)
     department_results: list[DepartmentResult] = Field(default_factory=list, max_length=4)
     quotation_draft: QuotationDraft | None = None
+    quotation_drafts: list[QuotationDraft] = Field(default_factory=list, max_length=3)
 
 
 class AgentRunMetadata(StrictModel):

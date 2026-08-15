@@ -113,17 +113,20 @@ class HttpAgentRunClientTest {
     }
 
     @Test
-    void deserializesStructuredQuotationDraftWithoutPrices() {
+    void deserializesThreeStructuredQuotationDraftsWithoutPrices() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         HttpAgentRunClient client = testClient(builder);
         UUID runId = UUID.randomUUID();
         String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        String item = "{\"title\":\"API 구현\",\"description\":\"인증 API\",\"quantity\":16,"
+            + "\"unit\":\"HOUR\",\"rateCardHint\":\"백엔드 개발\",\"basis\":{\"type\":\"ASSUMPTION\","
+            + "\"content\":\"사양 확정 가정\",\"sourceReference\":null,\"sourceTitle\":null}}";
+        String recommended = "{\"scenario\":\"RECOMMENDED\",\"items\":[" + item + "]}";
         String result = "{\"projectSummary\":\"분석 완료\",\"openQuestions\":[],\"departmentResults\":[],"
-            + "\"quotationDraft\":{\"scenario\":\"RECOMMENDED\",\"items\":[{\"title\":\"API 구현\","
-            + "\"description\":\"인증 API\",\"quantity\":16,\"unit\":\"HOUR\","
-            + "\"rateCardHint\":\"백엔드 개발\",\"basis\":{\"type\":\"ASSUMPTION\","
-            + "\"content\":\"사양 확정 가정\",\"sourceReference\":null,\"sourceTitle\":null}}]}}";
+            + "\"quotationDraft\":" + recommended + ",\"quotationDrafts\":["
+            + "{\"scenario\":\"LEAN\",\"items\":[" + item + "]}," + recommended + ","
+            + "{\"scenario\":\"EXPANDED\",\"items\":[" + item + "]}]}";
         String view = "{\"runId\":\"" + runId + "\",\"status\":\"COMPLETED\",\"result\":" + result
             + ",\"metadata\":{\"provider\":\"OPENAI\",\"model\":\"gpt-test\",\"promptVersion\":\"v1\","
             + "\"toolSchemaVersion\":\"v1\",\"traceId\":\"trace\"},\"updatedAt\":\"2026-08-13T10:00:00Z\"}";
@@ -134,6 +137,8 @@ class HttpAgentRunClientTest {
 
         assertThat(response.result().quotationDraft().items()).hasSize(1);
         assertThat(response.result().quotationDraft().items().getFirst().title()).isEqualTo("API 구현");
+        assertThat(response.result().quotationDrafts()).extracting(AgentRunView.QuotationDraft::scenario)
+            .containsExactly("LEAN", "RECOMMENDED", "EXPANDED");
         server.verify();
     }
 

@@ -631,7 +631,7 @@ components:
     AgentRunResult:
       type: object
       additionalProperties: false
-      required: [projectSummary, openQuestions, departmentResults, quotationDraft]
+      required: [projectSummary, openQuestions, departmentResults, quotationDraft, quotationDrafts]
       properties:
         projectSummary:
           type: string
@@ -650,6 +650,13 @@ components:
           oneOf:
             - $ref: "#/components/schemas/QuotationDraft"
             - type: "null"
+          description: Deprecated compatibility view of the RECOMMENDED draft.
+        quotationDrafts:
+          type: array
+          maxItems: 3
+          description: AI-generated LEAN, RECOMMENDED, and EXPANDED drafts with distinct scope and effort.
+          items:
+            $ref: "#/components/schemas/QuotationDraft"
     QuotationDraft:
       type: object
       additionalProperties: false

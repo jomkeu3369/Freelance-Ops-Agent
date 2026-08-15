@@ -187,6 +187,7 @@ export interface AgentRunView {
       errorCode: string | null;
     }>;
     quotationDraft: AgentQuotationDraft | null;
+    quotationDrafts: AgentQuotationDraft[];
   } | null;
   errorCode: string | null;
   metadata: {

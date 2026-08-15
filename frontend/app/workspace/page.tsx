@@ -1778,7 +1778,7 @@ function ProjectWorkbench({
               <p>{run.result.projectSummary}</p>
               {run.metadata && <details className="run-provenance run-technical-details"><summary>실행 정보</summary><dl className="run-model-routing"><div><dt>경로 판정</dt><dd>{routingModel ? `${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}` : "정책 Gate"}</dd></div><div><dt>선택 경로</dt><dd>{selectedRoute ? routeActivityLabels[selectedRoute] ?? selectedRoute : "기록 확인 중"}</dd></div><div><dt>분석 실행</dt><dd>{providerLabels[run.metadata.provider] ?? run.metadata.provider} · {run.metadata.model}</dd></div><div><dt>자동 전환</dt><dd>사용 안 함</dd></div></dl><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></details>}
               {run.result.openQuestions.length > 0 && <section className="run-open-questions"><span>아직 확인할 질문</span><ul>{run.result.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>}
-              {run.result.quotationDraft && <section className="ai-quote-ready"><div><Receipt size={20} /><span>AI 견적 초안</span><strong>{run.result.quotationDraft.items.length}개 작업 항목을 준비했습니다.</strong><small>단가와 최종 금액은 등록된 기준으로 계산되며 저장 전 직접 확인할 수 있습니다.</small></div><button type="button" className="secondary-button" onClick={() => selectStep("quote")}>견적 검토하기 <ArrowRight size={16} /></button></section>}
+              {(run.result.quotationDrafts?.length || run.result.quotationDraft) && <section className="ai-quote-ready"><div><Receipt size={20} /><span>AI 견적 초안</span><strong>{run.result.quotationDrafts?.length === 3 ? "핵심·권장·확장 3개 견적안을 준비했습니다." : `${run.result.quotationDraft?.items.length ?? 0}개 작업 항목을 준비했습니다.`}</strong><small>각 안의 범위와 공수는 AI가 나누고, 단가와 최종 금액은 등록된 기준으로 계산합니다.</small></div><button type="button" className="secondary-button" onClick={() => selectStep("quote")}>견적 비교하기 <ArrowRight size={16} /></button></section>}
               {run.result.departmentResults.length > 0 && <details className="department-results">
                 <summary><span>분석 단계별 상세</span><small>{run.result.departmentResults.length}개 결과</small></summary>
                 <div>{run.result.departmentResults.map((result) => <article key={result.department}>
@@ -1800,7 +1800,7 @@ function ProjectWorkbench({
         </aside>
       </div>}
 
-      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} modelSelection={run?.metadata ? { provider: run.metadata.provider, model: run.metadata.model } : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }} />}
+      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} quotationDrafts={run?.result?.quotationDrafts ?? []} modelSelection={run?.metadata ? { provider: run.metadata.provider, model: run.metadata.model } : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }} />}
       {activeStep === "outcome" && <OutcomeReview session={session} project={project} permissions={permissions} />}
       {editingProject && <ProjectEditDialog session={session} project={project} clients={clients} onClose={() => setEditingProject(false)} onUpdated={(updated) => { onProjectUpdated(updated); setEditingProject(false); }} />}
     </>
@@ -2038,7 +2038,7 @@ type QuoteDraftStatus = {
   updatedAt: string | null;
 };
 
-function QuoteBuilder({ session, project, permissions, quotationDraft, modelSelection }: { session: AuthSession; project: Project; permissions: Set<string>; quotationDraft: AgentQuotationDraft | null; modelSelection: { provider: Provider; model: string } }) {
+function QuoteBuilder({ session, project, permissions, quotationDraft, quotationDrafts, modelSelection }: { session: AuthSession; project: Project; permissions: Set<string>; quotationDraft: AgentQuotationDraft | null; quotationDrafts: AgentQuotationDraft[]; modelSelection: { provider: Provider; model: string } }) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
   const canPublish = permissions.has("quotation.publish");
@@ -2061,6 +2061,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
   const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const lastPersistedDraftRef = useRef("");
   const draftStorageKey = quotationDraftKey(session.userId, project.workspaceId, project.id);
+  const availableAIDrafts = useMemo(() => quotationDrafts.length > 0
+    ? quotationDrafts
+    : quotationDraft ? [quotationDraft] : [], [quotationDraft, quotationDrafts]);
 
   const fingerprint = useCallback((nextScenario: QuotationScenario, baseQuotationId: string | null, nextTaxRate: number, nextValidUntil: string, nextItems: QuotationItemInput[]) => quotationDraftFingerprint({
     scenario: nextScenario,
@@ -2081,8 +2084,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
           const activeRateCards = nextRateCards.filter((card) => card.active);
           setRateCards(activeRateCards);
           const latest = result[0] ?? null;
-          const generatedItems = quotationDraft ? quotationDraftItems(quotationDraft, activeRateCards, project.currency) : null;
-          const defaultScenario = quotationDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
+          const defaultAIDraft = availableAIDrafts.find((draft) => draft.scenario === "RECOMMENDED") ?? availableAIDrafts[0] ?? null;
+          const generatedItems = defaultAIDraft ? quotationDraftItems(defaultAIDraft, activeRateCards, project.currency) : null;
+          const defaultScenario = defaultAIDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
           const defaultItems = generatedItems ?? (latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()]);
           const defaultTaxRate = latest?.taxRate ?? .1;
           const defaultValidUntil = latest?.validUntil ?? "";
@@ -2099,7 +2103,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
             }
           }
           if (restored) {
-            const restoredItems = generatedItems ? hydrateMissingDraftRates(restored.items, generatedItems) as QuotationItemInput[] : restored.items;
+            const restoredAIDraft = availableAIDrafts.find((draft) => draft.scenario === restored.scenario) ?? defaultAIDraft;
+            const restoredGeneratedItems = restoredAIDraft ? quotationDraftItems(restoredAIDraft, activeRateCards, project.currency) : null;
+            const restoredItems = restoredGeneratedItems ? hydrateMissingDraftRates(restored.items, restoredGeneratedItems) as QuotationItemInput[] : restored.items;
             const baseQuotation = restored.baseQuotationId
               ? result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null
               : null;
@@ -2120,12 +2126,12 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
             lastPersistedDraftRef.current = restoredFingerprint;
             setDraftStatus({ kind: "restored", updatedAt: restored.updatedAt });
           } else {
-            setSaved(latest);
+            setSaved(generatedItems ? null : latest);
             setScenario(defaultScenario);
             setItems(defaultItems);
             setTaxRate(defaultTaxRate);
             setValidUntil(defaultValidUntil);
-            const baseline = fingerprint(defaultScenario, latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
+            const baseline = fingerprint(defaultScenario, generatedItems ? null : latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
             setDraftBaseline(baseline);
             lastPersistedDraftRef.current = baseline;
             if (generatedItems) setDraftStatus({ kind: "generated", updatedAt: null });
@@ -2137,7 +2143,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [canRead, canWrite, draftStorageKey, fingerprint, project.currency, project.id, project.workspaceId, quotationDraft, session]);
+  }, [availableAIDrafts, canRead, canWrite, draftStorageKey, fingerprint, project.currency, project.id, project.workspaceId, session]);
 
   const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
   const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
@@ -2185,6 +2191,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
   const latestByScenario = useMemo(() => Object.fromEntries(
     (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, quotations.find((quotation) => quotation.scenario === value) ?? null]),
   ) as Record<QuotationScenario, Quotation | null>, [quotations]);
+  const aiDraftByScenario = useMemo(() => Object.fromEntries(
+    (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, availableAIDrafts.find((draft) => draft.scenario === value) ?? null]),
+  ) as Record<QuotationScenario, AgentQuotationDraft | null>, [availableAIDrafts]);
 
   const updateItem = (index: number, update: (item: QuotationItemInput) => QuotationItemInput) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
@@ -2274,6 +2283,36 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
     clearStoredDraft();
   };
 
+  const activateScenario = (value: QuotationScenario) => {
+    if (value === scenario) return;
+    const existing = latestByScenario[value];
+    if (existing) {
+      loadQuotation(existing);
+      return;
+    }
+    const generated = aiDraftByScenario[value];
+    if (!generated) {
+      if (hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 다른 견적안을 시작할까요?")) return;
+      setScenario(value);
+      return;
+    }
+    if (hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 AI가 만든 다른 견적안을 불러올까요?")) return;
+    const nextItems = quotationDraftItems(generated, rateCards, project.currency);
+    setSaved(null);
+    setScenario(value);
+    setItems(nextItems);
+    setSelectedBasisIndex(0);
+    setProposalShare(null);
+    setShareCopyState(null);
+    setConflictLatest(null);
+    setError(null);
+    const baseline = fingerprint(value, null, taxRate, validUntil, nextItems);
+    setDraftBaseline(baseline);
+    lastPersistedDraftRef.current = baseline;
+    clearStoredDraft();
+    setDraftStatus({ kind: "generated", updatedAt: null });
+  };
+
   const discardDraft = () => {
     if (!window.confirm("임시 저장한 내용을 버리고 마지막으로 저장한 견적으로 돌아갈까요?")) return;
     if (saved) applyQuotation(saved);
@@ -2328,11 +2367,11 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
     <section className="quote-builder">
       <div className="quote-toolbar">
         <div>
-          <span>{quotationDraft ? "AI 초안 검토" : "견적 직접 작성"}</span>
-          <h2>{quotationDraft ? "AI가 정리한 작업과 공수를 확인하세요." : "항목별 공수와 근거를 함께 기록하세요."}</h2>
+          <span>{availableAIDrafts.length > 0 ? "AI 초안 비교" : "견적 직접 작성"}</span>
+          <h2>{availableAIDrafts.length === 3 ? "범위와 공수가 다른 세 견적안을 비교하세요." : availableAIDrafts.length > 0 ? "AI가 정리한 작업과 공수를 확인하세요." : "항목별 공수와 근거를 함께 기록하세요."}</h2>
         </div>
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
-          {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => setScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
+          {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => activateScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
         </div>
         {canWrite && <button type="button" className="quiet-button" onClick={() => resetQuotation()}>새 견적안</button>}
       </div>
@@ -2350,7 +2389,10 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, modelSele
         <header><div><span>견적안 비교</span><strong>핵심안·권장안·확장안을 한눈에 비교하세요.</strong></div><small>카드를 선택하면 해당 견적안을 이어서 편집할 수 있습니다.</small></header>
         <div>{(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => {
           const quotation = latestByScenario[value];
-          return <button type="button" key={value} className={saved?.id === quotation?.id ? "active" : ""} disabled={!quotation} onClick={() => quotation && loadQuotation(quotation)}><span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>{quotation ? <><strong>{formatMoney(quotation.total, quotation.currency)}</strong><small>v{quotation.versionNumber} · {quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}</small></> : <><strong>작성 전</strong><small>저장된 견적 없음</small></>}</button>;
+          const generated = aiDraftByScenario[value];
+          const generatedItems = generated ? quotationDraftItems(generated, rateCards, project.currency) : [];
+          const generatedTotal = generatedItems.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0) * (1 + taxRate);
+          return <button type="button" key={value} className={scenario === value ? "active" : ""} disabled={!quotation && !generated} onClick={() => activateScenario(value)}><span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>{quotation ? <><strong>{formatMoney(quotation.total, quotation.currency)}</strong><small>v{quotation.versionNumber} · {quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}</small></> : generated ? <><strong>{formatMoney(generatedTotal, project.currency)}</strong><small>AI 초안 · {generated.items.length}개 작업</small></> : <><strong>작성 전</strong><small>저장된 견적 없음</small></>}</button>;
         })}</div>
       </section>
 

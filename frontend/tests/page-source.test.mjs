@@ -539,10 +539,14 @@ test("completed AI analysis prices its editable draft from active server rate ca
     read("../app/globals.css"),
   ]);
   assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
-  assert.match(workspace, /quotationDraft=\{run\?\.result\?\.quotationDraft \?\? null\}/);
+  assert.match(api, /quotationDrafts: AgentQuotationDraft\[\]/);
+  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts \?\? \[\]\}/);
   assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
+  assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
+  assert.match(workspace, /aiDraftByScenario/);
+  assert.match(workspace, /AI 초안 · \{generated\.items\.length\}개 작업/);
   assert.match(workspace, /selectRateCardForDraftItem\(item, rateCards, currency\)/);
-  assert.match(workspace, /hydrateMissingDraftRates\(restored\.items, generatedItems\)/);
+  assert.match(workspace, /hydrateMissingDraftRates\(restored\.items, restoredGeneratedItems\)/);
   assert.match(workspace, /const activeRateCards = nextRateCards\.filter\(\(card\) => card\.active\)/);
   assert.match(workspace, /const defaultItems = generatedItems \?\? \(latest \? quotationItemsAsInput\(latest\)/);
   assert.match(workspace, /item\.unitRate > 0/);

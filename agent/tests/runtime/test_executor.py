@@ -50,11 +50,11 @@ class FixedGateway:
 
 
 class FixedProvider:
-    def __init__(self, *, questions: list[str] | None = None, tokens: int = 10, model_calls: int = 1, quotation_draft: dict[str, object] | None = None) -> None:  # noqa: E501
+    def __init__(self, *, questions: list[str] | None = None, tokens: int = 10, model_calls: int = 1, quotation_drafts: list[dict[str, object]] | None = None) -> None:  # noqa: E501
         self.questions = questions or []
         self.tokens = tokens
         self.model_calls = model_calls
-        self.quotation_draft = quotation_draft
+        self.quotation_drafts = quotation_drafts or []
         self.calls = 0
         self.prompts: list[str] = []
 
@@ -73,7 +73,7 @@ class FixedProvider:
             payload={
                 "summary": "work product",
                 "open_questions": self.questions,
-                "quotation_draft": self.quotation_draft
+                "quotation_drafts": self.quotation_drafts
             },
             input_tokens=self.tokens,
             output_tokens=self.tokens,
@@ -314,36 +314,42 @@ async def test_required_question_creates_clarification_interruption() -> None:
     assert outcome.interruption.kind.value == "CLARIFICATION"
 
 
-async def test_agent_result_contains_editable_quotation_draft_without_prices() -> None:
-    draft = {
-        "scenario": "RECOMMENDED",
-        "items": [
-            {
-                "title": "API 구현",
-                "description": "인증된 API를 구현합니다.",
-                "quantity": 16,
-                "unit": "HOUR",
-                "rate_card_hint": "백엔드 개발",
-                "basis": {
-                    "type": "ASSUMPTION",
-                    "content": "외부 연동 사양이 확정되어 있다고 가정합니다.",
-                    "source_reference": None,
-                    "source_title": None
+async def test_agent_result_contains_three_editable_quotation_drafts_without_prices() -> None:
+    def draft(scenario: str, quantity: int) -> dict[str, object]:
+        return {
+            "scenario": scenario,
+            "items": [
+                {
+                    "title": "API 구현",
+                    "description": "인증된 API를 구현합니다.",
+                    "quantity": quantity,
+                    "unit": "HOUR",
+                    "rate_card_hint": "백엔드 개발",
+                    "basis": {
+                        "type": "ASSUMPTION",
+                        "content": "외부 연동 사양이 확정되어 있다고 가정합니다.",
+                        "source_reference": None,
+                        "source_title": None
+                    }
                 }
-            }
-        ]
-    }
+            ]
+        }
+
+    drafts = [draft("LEAN", 8), draft("RECOMMENDED", 16), draft("EXPANDED", 24)]
     executor = OperationalAgentExecutor(
         FixedGateway(RouteLabel.SIMPLE_LLM),
-        FixedProvider(quotation_draft=draft)
+        FixedProvider(quotation_drafts=drafts)
     )
 
     outcome = await executor.execute(_request())
 
     assert outcome.result is not None
     assert outcome.result.quotation_draft is not None
+    assert outcome.result.quotation_draft.scenario == "RECOMMENDED"
     assert outcome.result.quotation_draft.items[0].title == "API 구현"
     assert "unit_rate" not in outcome.result.quotation_draft.model_dump()
+    assert [item.scenario for item in outcome.result.quotation_drafts] == ["LEAN", "RECOMMENDED", "EXPANDED"]
+    assert [item.items[0].quantity for item in outcome.result.quotation_drafts] == [8, 16, 24]
 
 
 async def test_clarification_questions_are_deduplicated_and_limited_to_three() -> None:

@@ -21,7 +21,7 @@ class DepartmentWorkProduct(BaseModel):
 
     summary: str = Field(max_length=10000)
     open_questions: list[str] = Field(default_factory=list, max_length=10)
-    quotation_draft: QuotationDraft | None = None
+    quotation_drafts: list[QuotationDraft] = Field(default_factory=list, max_length=3)
 
 
 class AssumptionSuggestion(BaseModel):
@@ -48,7 +48,7 @@ class ReActStep(BaseModel):
     arguments: ReActArguments = Field(default_factory=lambda: ReActArguments())
     summary: str | None = Field(default=None, max_length=10000)
     open_questions: list[str] = Field(default_factory=list, max_length=10)
-    quotation_draft: QuotationDraft | None = None
+    quotation_drafts: list[QuotationDraft] = Field(default_factory=list, max_length=3)
 
 
 @dataclass(frozen=True, slots=True)

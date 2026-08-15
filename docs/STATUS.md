@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: AI가 하나의 견적 초안만 만든 뒤 `핵심`·`권장`·`확장` 버튼이 같은 내용을 다시 보여주던 구조를 수정했다. Requirements·Deal Design 분석은 `LEAN`·`RECOMMENDED`·`EXPANDED` 세 견적의 작업 범위와 공수를 하나의 제한된 구조화 응답에서 각각 생성하며, 세 시나리오가 모두 존재하고 중복되지 않는지 Agent 실행 경계에서 검증한다. Spring·OpenAPI 계약에는 복수 초안을 추가하되 기존 단일 `quotationDraft`는 권장안 호환 필드로 유지했다. Frontend는 AI 초안 세 개를 즉시 비교·전환하고, 사용자가 저장한 견적 revision이 있으면 해당 시나리오의 생성 초안보다 우선해 보여준다. 단가·세금·할인·합계는 LLM이 만들지 않고 기존 rate card 연결과 Java 계산 흐름을 그대로 사용한다. Agent 전체 pytest `173 passed, 1 skipped`, Ruff, strict mypy 57개 source, Frontend TypeScript·Node 테스트 43건·ESLint, OpenAPI 2개 계약 검증과 Backend main·test source 컴파일이 통과했다. Backend JUnit 실행은 코드 컴파일 이후 기존 로컬 Windows Gradle worker의 `GradleWorkerMain` classpath 오류로 시작되지 못했으며 Linux CI에서 재검증한다.
+
 - 2026-08-16: AI 분석 진행 그래프의 단계별 연결선이 7열 grid에서 노드와 개별 선을 함께 배치해 중간이 끊겨 보이던 구조를 수정했다. 첫 노드부터 마지막 노드까지 이어지는 단일 트랙과 실제 진행 위치를 반영하는 상태선을 사용하고, 실행 중에는 트랙 안에서만 절제된 신호가 이동하도록 했다. 각 단계에는 `완료`·`처리 중`·`확인 필요`·`대기`·`중단` 상태를 직접 표시하며 활성 노드의 높이·테두리·그림자를 구분했다. 완료 상태는 정적인 100% 트랙으로 남겨 실행 중인 것처럼 오해하지 않게 했고 `prefers-reduced-motion` 전역 정책도 그대로 적용된다. Frontend TypeScript·Node 테스트 43건·ESLint가 통과했다.
 
 - 2026-08-16: 결과 회고 화면의 정보 구조와 입력 UI를 완성형으로 재설계했다. 왼쪽 제목은 `다음` 뒤에서 의도적으로 줄을 나눠 `견적`이 쪼개지지 않게 했고 문의 화면 제목도 `문의 내용을` 뒤에서 줄을 나눠 단어 중간 개행을 막았다. 오른쪽은 `최종 결과`·`항목별 실제 결과`·`처음 예상과 달라진 점`의 세 카드로 역할을 분리했다. 기준 견적, 계약 금액, 실제 비용·공수, 완료일은 공통 스타일에 덮이지 않는 독립 input shell과 50px control·단위 표시·hover/focus/read-only 상태를 사용한다. 선택형 세부 작업은 설명, 빈 상태와 `첫 항목 추가` 동작을 분리했고 변경 유형은 아이콘이 있는 3열 안내와 명확한 textarea 외곽 control로 정리했다. 프로젝트 단계 탭은 과도한 파란 밑줄·채움 효과를 제거해 텍스트 중심으로 단순화했다. 1180px 이하 2열, 520px 이하 1열 재배치와 회귀 테스트를 추가했으며 Frontend TypeScript·Node 테스트 43건·ESLint가 통과했다.

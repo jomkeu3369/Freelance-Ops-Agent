@@ -53,7 +53,7 @@ class ReActLoopBudget:
 class ReActLoopResult:
     summary: str
     open_questions: list[str]
-    quotation_draft: QuotationDraft | None
+    quotation_drafts: list[QuotationDraft]
     model_calls: int
     tool_calls: int
     input_tokens: int
@@ -114,7 +114,7 @@ class BoundedReActLoop:
                 return ReActLoopResult(
                     summary=step.summary,
                     open_questions=step.open_questions,
-                    quotation_draft=step.quotation_draft,
+                    quotation_drafts=step.quotation_drafts,
                     model_calls=model_calls,
                     tool_calls=tool_calls,
                     input_tokens=input_tokens,
@@ -126,7 +126,7 @@ class BoundedReActLoop:
                 step.tool_name is None
                 or step.summary is not None
                 or step.open_questions
-                or step.quotation_draft is not None
+                or step.quotation_drafts
             ):
                 raise ReActLoopError("REACT_TOOL_CALL_INVALID")
             tool = self._tools.get(step.tool_name)
