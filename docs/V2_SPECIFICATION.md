@@ -905,6 +905,7 @@ POST   /workspaces/{workspaceId}/projects/{projectId}/documents
 
 ```text
 POST   /workspaces/{workspaceId}/projects/{projectId}/agent-runs
+GET    /workspaces/{workspaceId}/projects/{projectId}/agent-runs/latest
 GET    /workspaces/{workspaceId}/agent-runs/{runId}
 GET    /workspaces/{workspaceId}/agent-runs/{runId}/events
 POST   /workspaces/{workspaceId}/agent-runs/{runId}/responses

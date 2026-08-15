@@ -8,6 +8,7 @@ import com.freelanceops.backend.domain.agentrun.service.AgentRunGatewayService;
 import com.freelanceops.backend.domain.agentrun.service.AgentEventRelay;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,6 +67,21 @@ public class AgentRunController {
             runId,
             trustedTraceparent(traceparent)
         );
+    }
+
+    @GetMapping("/projects/{projectId}/agent-runs/latest")
+    public ResponseEntity<AgentRunView> latestForProject(
+        @PathVariable UUID workspaceId,
+        @PathVariable UUID projectId,
+        @RequestHeader(value = "traceparent", required = false) String traceparent,
+        Authentication authentication
+    ) {
+        return gatewayService.latestForProject(
+            authenticatedUserId(authentication),
+            workspaceId,
+            projectId,
+            trustedTraceparent(traceparent)
+        ).map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @GetMapping(value = "/agent-runs/{runId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

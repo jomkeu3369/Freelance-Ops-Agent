@@ -865,6 +865,14 @@ export function getAgentRun(session: AuthSession, runId: string): Promise<AgentR
   );
 }
 
+export function getLatestProjectAgentRun(session: AuthSession, projectId: string): Promise<AgentRunView | null> {
+  return request<AgentRunView | undefined>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/latest`,
+    {},
+    session.accessToken,
+  ).then((run) => run ?? null);
+}
+
 export function getAgentRunUsage(session: AuthSession, runId: string): Promise<AgentRunUsage> {
   return request(`/api/v2/workspaces/${session.workspaceId}/agent-runs/${runId}/usage`, {}, session.accessToken);
 }

@@ -789,12 +789,18 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /permissions\.has\("project\.delete"\)/);
   assert.match(workspace, /deleteConfirmation !== project\.title/);
   assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
+  assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
+  assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
+  assert.match(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
+  assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
   assert.match(workspace, /aria-modal="true"/);
   assert.match(workspace, /정리된 요구사항/);
   assert.match(workspace, /AI 분석 기록/);
   assert.match(workspace, /견적과 결과 기록/);
   assert.match(api, /export function deleteProject/);
+  assert.match(api, /export function getLatestProjectAgentRun/);
+  assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/latest/);
   assert.match(api, /method: "DELETE"/);
   assert.match(css, /\.project-delete-confirmation/);
   assert.match(css, /@keyframes deleteDialogIn/);

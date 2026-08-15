@@ -151,6 +151,30 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
+    void restoresLatestProjectRunAndSynchronizesItsCurrentStatus() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        AgentRunEntity run = run(runId, workspaceId, projectId, userId);
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(),
+            Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
+        )));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId)).thenReturn(Optional.of(run));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
+        when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(view(runId, AgentRunStatus.WAITING_FOR_USER));
+
+        Optional<AgentRunView> response = service.latestForProject(userId, workspaceId, projectId, "traceparent");
+
+        assertThat(response).isPresent().get().extracting(AgentRunView::status).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
+        assertThat(run.status()).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
+        verify(agentRunRepository).save(run);
+    }
+
+    @Test
     void synchronizesAndValidatesInterruptionBeforeResuming() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();

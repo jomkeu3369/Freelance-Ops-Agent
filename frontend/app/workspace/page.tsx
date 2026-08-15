@@ -79,6 +79,7 @@ import {
   deleteProject,
   getAgentRun,
   getAgentRunUsage,
+  getLatestProjectAgentRun,
   getDocument,
   getEstimationPolicy,
   getMe,
@@ -120,6 +121,7 @@ type StreamState = "idle" | "connecting" | "connected" | "reconnecting" | "settl
 gsap.registerPlugin(useGSAP);
 
 const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
+const projectDeletionBlockingStatuses = new Set(["QUEUED", "RUNNING", "WAITING_FOR_USER"]);
 
 const currencyOptions = [
   { value: "KRW", label: "대한민국 원 (KRW)" },
@@ -156,6 +158,7 @@ export default function WorkspacePage() {
   const selectedProjectIdRef = useRef<string | null>(null);
   const [run, setRun] = useState<AgentRunView | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [runLookupPending, setRunLookupPending] = useState(false);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [streamRetryCount, setStreamRetryCount] = useState(0);
@@ -173,6 +176,32 @@ export default function WorkspacePage() {
     [profile, session?.workspaceId],
   );
   const canWriteProject = activePermissions.has("project.write");
+
+  useEffect(() => {
+    if (!session || !selectedProject || activeView !== "project" || !activePermissions.has("agent.run")) {
+      setRunLookupPending(false);
+      return;
+    }
+    let cancelled = false;
+    const projectId = selectedProject.id;
+    setRunLookupPending(true);
+    getLatestProjectAgentRun(session, projectId)
+      .then((latestRun) => {
+        if (cancelled || selectedProjectIdRef.current !== projectId) return;
+        setRun(latestRun);
+        setRunId(latestRun?.runId ?? null);
+        setEvents([]);
+        setStreamState("idle");
+        setStreamRetryCount(0);
+      })
+      .catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "최근 AI 분석 상태를 확인하지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) setRunLookupPending(false);
+      });
+    return () => { cancelled = true; };
+  }, [activePermissions, activeView, selectedProject, session]);
 
   const applyWorkspaceLocation = useCallback((projectResult: Project[], permissions: Set<string>, replaceInvalid = false) => {
     const location = parseWorkspaceLocation(window.location.search);
@@ -581,6 +610,7 @@ export default function WorkspacePage() {
             clients={clients}
             run={run}
             runId={runId}
+            runLookupPending={runLookupPending}
             events={events}
             busy={busy}
             snapshot={snapshot}
@@ -1518,6 +1548,7 @@ function ProjectWorkbench({
   clients,
   run,
   runId,
+  runLookupPending,
   events,
   busy,
   snapshot,
@@ -1536,6 +1567,7 @@ function ProjectWorkbench({
   clients: Client[];
   run: AgentRunView | null;
   runId: string | null;
+  runLookupPending: boolean;
   events: WorkflowEvent[];
   busy: boolean;
   snapshot: ReturnType<typeof snapshotFromEvents>;
@@ -1562,6 +1594,7 @@ function ProjectWorkbench({
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
+  const deleteBlockedByRun = Boolean(run && projectDeletionBlockingStatuses.has(run.status));
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -1619,7 +1652,7 @@ function ProjectWorkbench({
         </div>
         {activeStep !== "agent" && (permissions.has("project.write") || permissions.has("project.delete")) && <div className="project-heading-actions">
           {permissions.has("project.write") && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
-          {permissions.has("project.delete") && <button type="button" className="quiet-button danger" disabled={Boolean(run && !terminalStatuses.has(run.status))} title={run && !terminalStatuses.has(run.status) ? "AI 분석을 중단한 뒤 삭제할 수 있습니다." : undefined} onClick={() => setShowDeleteConfirmation(true)}><Trash size={18} /> 프로젝트 삭제</button>}
+          {permissions.has("project.delete") && <button type="button" className="quiet-button danger" disabled={runLookupPending || deleteBlockedByRun} title={runLookupPending ? "최근 AI 분석 상태를 확인하고 있습니다." : deleteBlockedByRun ? "AI 분석을 중단한 뒤 삭제할 수 있습니다." : undefined} onClick={() => setShowDeleteConfirmation(true)}><Trash size={18} /> 프로젝트 삭제</button>}
         </div>}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
@@ -1651,7 +1684,12 @@ function ProjectWorkbench({
             setDeletingProject(true);
             setDeleteError(null);
             try { await onDelete(); }
-            catch (cause) { setDeleteError(cause instanceof Error ? cause.message : "프로젝트를 삭제하지 못했습니다."); setDeletingProject(false); }
+            catch (cause) {
+              setDeleteError(cause instanceof ApiError && cause.status === 409
+                ? "진행 중이거나 확인을 기다리는 AI 분석이 있습니다. AI 분석에서 실행을 중단한 뒤 다시 삭제해 주세요."
+                : cause instanceof Error ? cause.message : "프로젝트를 삭제하지 못했습니다.");
+              setDeletingProject(false);
+            }
           }}>{deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} 영구 삭제</button>
           </div>
         </section>

@@ -25,6 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.time.Instant;
 
@@ -126,6 +127,18 @@ public class AgentRunGatewayService {
         authorized.run().updateStatus(response.status(), Instant.now());
         agentRunRepository.save(authorized.run());
         return response;
+    }
+
+    public Optional<AgentRunView> latestForProject(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
+        MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requirePermission(membership, PermissionCode.AGENT_RUN);
+        requirePermission(membership, PermissionCode.PROJECT_READ);
+        if (projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId)
+            .map(run -> get(userId, workspaceId, run.id(), traceparent));
     }
 
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {

@@ -12,6 +12,8 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
 
     Optional<AgentRunEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
+    Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(UUID workspaceId, UUID projectId);
+
     boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     boolean existsByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
