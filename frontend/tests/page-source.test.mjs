@@ -559,7 +559,10 @@ test("transactional forms prevent duplicate submission and keep validation error
 });
 
 test("agent results expose reviewable questions and safe source provenance", async () => {
-  const workspace = await read("../app/workspace/page.tsx");
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
   assert.match(workspace, /run\.result\.openQuestions/);
   assert.match(workspace, /아직 확인할 질문/);
   assert.match(workspace, /result\.sources\.length/);
@@ -568,6 +571,9 @@ test("agent results expose reviewable questions and safe source provenance", asy
   assert.match(workspace, /url\.protocol === "https:" \|\| url\.protocol === "http:"/);
   assert.match(workspace, /rel="noopener noreferrer"/);
   assert.match(workspace, /run\.metadata\.promptVersion/);
+  assert.match(workspace, /<details className="department-results">/);
+  assert.match(workspace, /분석 단계별 상세/);
+  assert.match(css, /\.department-results > summary/);
 });
 
 test("quotation revision conflicts preserve the draft and expose explicit recovery choices", async () => {

@@ -1512,15 +1512,18 @@ function ProjectWorkbench({
               {run.metadata && <div className="run-provenance"><span>{run.metadata.provider} · {run.metadata.model}</span><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></div>}
               {run.result.openQuestions.length > 0 && <section className="run-open-questions"><span>아직 확인할 질문</span><ul>{run.result.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>}
               {run.result.quotationDraft && <section className="ai-quote-ready"><div><Receipt size={20} /><span>AI 견적 초안</span><strong>{run.result.quotationDraft.items.length}개 작업 항목을 준비했습니다.</strong><small>단가와 최종 금액은 등록된 기준으로 계산되며 저장 전 직접 확인할 수 있습니다.</small></div><button type="button" className="secondary-button" onClick={() => selectStep("quote")}>견적 검토하기 <ArrowRight size={16} /></button></section>}
-              {run.result.departmentResults.map((result) => <article key={result.department}>
-                <strong>{result.department}</strong>
-                <p>{result.summary}</p>
-                <small>근거 {result.evidenceIds.length} · 가정 {result.assumptionIds.length}</small>
-                {result.sources.length > 0 && <details className="run-sources"><summary>검토 가능한 출처 {result.sources.length}개</summary><ul>{result.sources.map((source, index) => {
-                  const safeUrl = externalHttpUrl(source.url);
-                  return <li key={`${source.url}-${index}`}><div><span>{source.title}</span><small>{source.provider}{source.jurisdiction ? ` · ${source.jurisdiction}` : ""}</small></div>{source.excerpt && <p>{source.excerpt}</p>}{safeUrl ? <a href={safeUrl} target="_blank" rel="noopener noreferrer">원문 열기 <ArrowRight size={13} /></a> : <code>{source.url}</code>}</li>;
-                })}</ul></details>}
-              </article>)}
+              {run.result.departmentResults.length > 0 && <details className="department-results">
+                <summary><span>분석 단계별 상세</span><small>{run.result.departmentResults.length}개 결과</small></summary>
+                <div>{run.result.departmentResults.map((result) => <article key={result.department}>
+                  <strong>{result.department}</strong>
+                  <p>{result.summary}</p>
+                  <small>근거 {result.evidenceIds.length} · 가정 {result.assumptionIds.length}</small>
+                  {result.sources.length > 0 && <details className="run-sources"><summary>검토 가능한 출처 {result.sources.length}개</summary><ul>{result.sources.map((source, index) => {
+                    const safeUrl = externalHttpUrl(source.url);
+                    return <li key={`${source.url}-${index}`}><div><span>{source.title}</span><small>{source.provider}{source.jurisdiction ? ` · ${source.jurisdiction}` : ""}</small></div>{source.excerpt && <p>{source.excerpt}</p>}{safeUrl ? <a href={safeUrl} target="_blank" rel="noopener noreferrer">원문 열기 <ArrowRight size={13} /></a> : <code>{source.url}</code>}</li>;
+                  })}</ul></details>}
+                </article>)}</div>
+              </details>}
               {run.usage && <dl className="usage-list"><div><dt>모델 사용</dt><dd>{run.usage.modelCalls}</dd></div><div><dt>도구 사용</dt><dd>{run.usage.toolCalls}</dd></div><div><dt>소요 시간</dt><dd>{Math.round(run.usage.durationMs / 1000)}초</dd></div></dl>}
               {costUsage && <div className="cost-usage"><div><span>AI 사용 비용</span><strong>{costUsage.actualCost != null && costUsage.costCurrency ? formatMoney(costUsage.actualCost, costUsage.costCurrency) : "계산 대기"}</strong></div><dl><div><dt>입력 토큰</dt><dd>{costUsage.inputTokens.toLocaleString()}</dd></div><div><dt>출력 토큰</dt><dd>{costUsage.outputTokens.toLocaleString()}</dd></div><div><dt>검색 사용량</dt><dd>{costUsage.searchCredits}</dd></div><div><dt>비용 반영</dt><dd>{costUsage.billableOutcome ? "예" : "아니오"}</dd></div></dl><small>{costUsage.costStatus} · {costUsage.requestTier}</small></div>}
             </div>

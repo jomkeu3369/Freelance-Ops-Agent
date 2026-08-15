@@ -12,7 +12,9 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
-- 2026-08-15: AI 분석 완료 결과에 편집 가능한 구조화 견적 초안을 추가했다. Requirements·Deal Design 부서는 작업명, 설명, 공수, 단위, 단가표 힌트와 근거 또는 가정을 반환하되 단가·세금·합계는 생성하지 않는다. Frontend는 활성 단가표를 이름·단위로 안전하게 연결하고 일치하지 않는 항목은 0원으로 표시해 사용자가 단가를 선택하기 전 저장할 수 없게 했다. 최신 저장 견적과 브라우저 임시 초안은 AI 초안보다 우선하며, 금액 계산과 저장·발행은 기존 Spring 견적 흐름을 그대로 사용한다. Agent pytest(기존 운영 DB 통합 테스트 1건 skip), Ruff, strict mypy와 Frontend 테스트 36건·TypeScript가 통과했다. Backend main·test source 컴파일은 통과했으나 로컬 Gradle test worker의 기존 `GradleWorkerMain` classpath 환경 오류로 Java 테스트 실행만 완료하지 못했다.
+- 2026-08-15: AI 분석 완료 화면에서 `프로젝트 요약`이 부서 결과를 합친 내용인데 같은 부서별 요약을 바로 아래에 다시 노출해 중복으로 보이던 문제를 수정했다. 프로젝트 요약과 미확정 질문·견적 CTA만 기본 화면에 유지하고, 부서별 원문·근거·출처는 `분석 단계별 상세` 접기 영역에서 필요할 때만 확인하도록 정리했다.
+
+- 2026-08-15: AI 분석 완료 결과에 편집 가능한 구조화 견적 초안을 추가했다. Requirements·Deal Design 부서는 작업명, 설명, 공수, 단위, 단가표 힌트와 근거 또는 가정을 반환하되 단가·세금·합계는 생성하지 않는다. Frontend는 활성 단가표를 이름·단위로 안전하게 연결하고 일치하지 않는 항목은 0원으로 표시해 사용자가 단가를 선택하기 전 저장할 수 없게 했다. 브라우저에 작성 중인 초안은 보존하고, 그렇지 않으면 새 AI 초안을 최신 저장 견적보다 우선해 새 리비전 후보로 표시한다. 금액 계산과 저장·발행은 기존 Spring 견적 흐름을 그대로 사용한다. Agent pytest(기존 운영 DB 통합 테스트 1건 skip), Ruff, strict mypy와 Frontend 테스트 36건·TypeScript가 통과했다. Backend main·test source 컴파일은 통과했으나 로컬 Gradle test worker의 기존 `GradleWorkerMain` classpath 환경 오류로 Java 테스트 실행만 완료하지 못했다.
 
 - 2026-08-15: 사용자 검토가 반복될 수 있던 Agent HITL 흐름을 수정했다. 기존에는 재개 시 현재 답변의 인덱스와 값만 일회성 프롬프트에 추가해 이전 질문 문맥이 사라졌고, 부서가 새 미확정 항목을 반환할 때 검토 횟수 제한 없이 다시 중단할 수 있었다. 이제 질문 원문과 답변을 Agent run request의 누적 이력으로 PostgreSQL·메모리 store에 보존하고 모든 재실행에 전달한다. 한 run의 clarification 중단은 최초 1회, 노출 질문은 중복 제거 후 최대 3개로 제한하며, 답변 후 발견된 추가 항목은 두 번째 검토를 만들지 않고 완료 결과의 `openQuestions`에 남긴다. 재개 후에도 위험 경로가 해소되지 않으면 반복 중단 대신 `HUMAN_REVIEW_STILL_REQUIRED`로 안전하게 종료한다. Agent 전체 pytest가 통과했고 운영 DB가 필요한 통합 테스트 1건만 기존 조건대로 skip됐으며, Ruff와 strict mypy 50개 source도 통과했다.
 
