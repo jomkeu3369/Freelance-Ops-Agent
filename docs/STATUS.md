@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-15
+> 마지막 갱신: 2026-08-16
 > 현재 branch: `main`
 > 현재 단계: Phase 6 — 제품 연결과 운영 준비
 
@@ -12,6 +12,8 @@
 V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 frontend를 연결하고 운영 검증 증거를 높인다. 2026-08-14 frontend 구현으로 공개 메인 페이지, 인증·프로젝트 intake, 실시간 Agent graph, 수동 견적·발행·공유, 고객 결정과 Outcome 입력 흐름을 추가했지만, 실제 OpenAI/Gemini credential을 사용하는 전체 E2E와 승인된 Production 배포 전이므로 운영 출시 완료로 간주하지 않는다.
 
 ## 완료
+
+- 2026-08-16: 프로젝트 삭제 중 Agent 조회가 500으로 실패하던 남은 원인을 운영 로그로 확인해 수정했다. 과거 Agent 중단 기록에는 확인 질문 9개가 저장돼 있었지만 현재 `AgentInterruption` 계약은 최대 3개여서 PostgreSQL 역직렬화 시 Pydantic 검증 오류가 발생했다. 신규 실행의 최대 3개 제한은 계속 엄격히 적용하고, DB에 이미 저장된 레거시 중단 기록을 읽을 때만 질문 순서를 보존한 첫 3개로 호환 정규화한다. 운영 로그와 같은 9개 질문 회귀 테스트를 추가했으며 Agent 전체 pytest `171 passed, 1 skipped`, Ruff와 strict mypy 55개 source가 통과했다.
 
 - 2026-08-15: 프로젝트 영구 삭제가 활성 Agent run 정리 단계에서 HTTP 500으로 실패하던 문제를 수정했다. Spring DB에는 활성 상태로 남아 있지만 Agent 런타임에는 이미 존재하지 않는 과거 run을 동기화할 때 Agent 404가 처리되지 않은 예외로 전파되는 것이 원인이었다. 삭제 전 일괄 중단에서 404인 run만 `CANCELLED`로 정리해 삭제를 계속하고, Agent 장애·다른 4xx/5xx에서는 실행 중인 작업을 잘못 종료하지 않도록 기존처럼 실패를 유지한다. 고아 run 정리, 정상 활성 run 중단, Agent 503 안전 차단과 프로젝트 삭제 차단 대상 테스트 및 Backend 전체 테스트가 통과했다.
 

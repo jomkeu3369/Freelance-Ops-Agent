@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts import (
+    MAX_INTERRUPTION_QUESTIONS,
     AgentInterruption,
     AgentRunRequest,
     AgentRunResult,
@@ -81,9 +82,6 @@ _ROUTE_DEPARTMENTS: dict[RouteLabel, tuple[DepartmentName, ...]] = {
     ),
     RouteLabel.HUMAN_REQUIRED: (),
 }
-
-_MAX_CLARIFICATION_QUESTIONS = 3
-
 
 class OperationalAgentExecutor:
     def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None) -> None:  # noqa: E501
@@ -444,7 +442,7 @@ class OperationalAgentExecutor:
     def _bounded_questions(questions: list[str]) -> list[str]:
         normalized = (question.strip() for question in questions)
         return list(dict.fromkeys(question for question in normalized if question))[
-            :_MAX_CLARIFICATION_QUESTIONS
+            :MAX_INTERRUPTION_QUESTIONS
         ]
 
     def _react_tools(self, request: AgentRunRequest, department: DepartmentName, authorization: ExecutionAuthorization | None, used_tool_calls: int) -> tuple[list[StructuredTool], Callable[[], ResearchCollection | None]]:  # noqa: E501

@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from contracts import (
+    MAX_INTERRUPTION_QUESTIONS,
     AgentInterruption,
     AgentRunEvent,
     AgentRunMetadata,
@@ -202,7 +203,7 @@ class PostgresAgentRunStore:
             status=AgentRunStatus(model.status),
             active_department=DepartmentName(model.active_department) if model.active_department is not None else None,
             interruption=(
-                AgentInterruption.model_validate(model.interruption_json)
+                PostgresAgentRunStore._stored_interruption(model.interruption_json)
                 if model.interruption_json is not None
                 else None
             ),
@@ -232,6 +233,15 @@ class PostgresAgentRunStore:
     @staticmethod
     def _json(value: AgentInterruption | AgentRunResult | AgentRunUsage | None) -> dict[str, object] | None:
         return value.model_dump(mode="json") if value is not None else None
+
+    @staticmethod
+    def _stored_interruption(value: dict[str, object]) -> AgentInterruption:
+        questions = value.get("questions")
+        if not isinstance(questions, list) or len(questions) <= MAX_INTERRUPTION_QUESTIONS:
+            return AgentInterruption.model_validate(value)
+        return AgentInterruption.model_validate(
+            {**value, "questions": questions[:MAX_INTERRUPTION_QUESTIONS]}
+        )
 
     @staticmethod
     def _string_set(value: object) -> set[str]:

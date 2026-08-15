@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+MAX_INTERRUPTION_QUESTIONS = 3
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(
@@ -248,7 +250,7 @@ class AgentRunAccepted(StrictModel):
 class AgentInterruption(StrictModel):
     interruption_id: UUID
     kind: InterruptionKind
-    questions: list[str] = Field(min_length=1, max_length=3)
+    questions: list[str] = Field(min_length=1, max_length=MAX_INTERRUPTION_QUESTIONS)
 
 
 class DraftWorkUnit(StrEnum):
