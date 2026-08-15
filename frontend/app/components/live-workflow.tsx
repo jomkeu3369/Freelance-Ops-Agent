@@ -113,6 +113,7 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
   const isMoving = snapshot.status === "PREVIEW" || snapshot.status === "QUEUED" || snapshot.status === "RUNNING";
   const isComplete = snapshot.status === "COMPLETED";
   const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / nodes.length) * 100);
+  const trackProgress = isComplete ? 100 : Math.max(0, activeIndex) / (nodes.length - 1) * 100;
 
   return (
     <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={preview ? "제품 흐름 미리보기" : "분석 진행 상황"}>
@@ -127,7 +128,10 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="workflow-rail">
-        {nodes.map((node, index) => {
+        <div className={`workflow-track ${isMoving ? "moving" : ""}`} aria-hidden="true">
+          <span className="workflow-track-progress" style={{ width: `${trackProgress}%` }} />
+        </div>
+        {nodes.map((node) => {
           const Icon = node.icon;
           const state = isComplete
             ? "completed"
@@ -138,16 +142,22 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
               : snapshot.completedNodes.includes(node.id)
                 ? "completed"
                 : "pending";
+          const stateLabel = state === "completed"
+            ? "완료"
+            : state === "failed"
+              ? "중단"
+              : state === "active"
+                ? snapshot.status === "WAITING_FOR_USER" ? "확인 필요" : "처리 중"
+                : "대기";
           return (
             <div className="workflow-node-wrap" key={node.id}>
               <div className={`workflow-node ${state}`} aria-current={state === "active" ? "step" : undefined}>
-                <Icon size={21} weight={state === "active" ? "duotone" : "regular"} />
-                <span>{node.label}</span>
+                <span className="workflow-node-icon">
+                  <Icon size={21} weight={state === "active" ? "duotone" : "regular"} />
+                </span>
+                <span className="workflow-node-label">{node.label}</span>
+                <small>{stateLabel}</small>
               </div>
-              {index < nodes.length - 1 && (
-                <div className={`workflow-link ${isComplete || index < activeIndex - 1 ? "completed" : isMoving && index === activeIndex - 1 ? "active" : "pending"}`}>
-                </div>
-              )}
             </div>
           );
         })}

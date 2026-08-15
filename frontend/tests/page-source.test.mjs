@@ -247,8 +247,11 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(workspace, /LiveWorkflow/);
   assert.match(graph, /role="progressbar"/);
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
-  assert.match(graph, /isMoving && index === activeIndex - 1/);
-  assert.match(css, /\.workflow-link\.active/);
+  assert.match(graph, /workflow-track-progress/);
+  assert.match(graph, /확인 필요/);
+  assert.match(css, /\.workflow-track\.moving \.workflow-track-progress::after/);
+  assert.match(css, /@keyframes workflowTrackSignal/);
+  assert.doesNotMatch(graph, /workflow-link/);
   assert.doesNotMatch(graph, /node-orbit|signal-bars/);
   assert.match(workspace, /route\.selected/);
   assert.match(workspace, /Tool 사용/);
@@ -821,7 +824,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(css, /\.project-delete-confirmation/);
   assert.match(css, /@keyframes deleteDialogIn/);
   assert.match(css, /@keyframes workspacePanelIn/);
-  assert.match(css, /\.workbench-steps button\.active \{[^}]*color: var\(--accent\)/);
+  assert.match(css, /\.workbench-steps button\.active \{[^}]*font-weight: 800/);
   assert.match(css, /\.workspace-theme-toggle/);
 });
 
@@ -841,6 +844,11 @@ test("quotation review aligns calculated amounts and offers bounded AI assumptio
   assert.match(css, /\.quote-amount-field/);
   assert.match(css, /\.quote-amount \{[^}]*height: 46px/);
   assert.match(css, /\.quote-summary-controls/);
+  assert.match(workspace, /id="quote-calculation-settings">계산 조건/);
+  assert.match(workspace, /aria-label="세율"/);
+  assert.match(workspace, /aria-label="견적 유효 기간"/);
+  assert.match(css, /\.quote-tax-control/);
+  assert.match(css, /\.quote-summary-controls > label \{[^}]*grid-template-columns: minmax\(0, 1fr\) 132px/);
   assert.match(css, /\.ai-assumption-button/);
   assert.match(css, /\.run-model-routing/);
 });
@@ -851,8 +859,14 @@ test("outcome review presents deliberate line breaks and complete result inputs"
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /끝난 프로젝트를 다음<br \/>견적의 근거로 남기세요/);
+  assert.match(workspace, /문의 내용을<br \/>먼저 확인합니다/);
   assert.match(workspace, /className="outcome-basics"/);
   assert.match(workspace, /className="outcome-metrics-grid"/);
+  assert.match(workspace, /className="outcome-input-shell"/);
+  assert.match(workspace, /className="outcome-date-shell"/);
+  assert.match(workspace, /className="outcome-select-shell"/);
+  assert.match(workspace, /className="actual-work-heading"/);
+  assert.match(workspace, /첫 항목 추가/);
   assert.match(workspace, /처음 예상과 달라진 점/);
   assert.match(workspace, /추가된 범위/);
   assert.match(workspace, /제외된 작업/);
@@ -861,5 +875,8 @@ test("outcome review presents deliberate line breaks and complete result inputs"
   assert.match(css, /\.outcome-control input, \.outcome-control select/);
   assert.match(css, /\.outcome-change-card textarea \{[^}]*min-height: 156px/);
   assert.match(css, /\.actual-work-empty/);
+  assert.match(css, /\.outcome-form \.outcome-input-shell/);
+  assert.match(css, /\.outcome-change-prompts \{[^}]*grid-template-columns: repeat\(3/);
+  assert.match(css, /\.workbench-steps \{[^}]*border-radius: 0/);
   assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.outcome-metrics-grid \{ grid-template-columns: 1fr/);
 });
