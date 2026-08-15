@@ -144,7 +144,8 @@ test("landing page follows the approved product brief without fabricated social 
   assert.match(source, /function WorkflowStepVisual/);
   assert.match(source, /고객 메시지/);
   assert.match(source, /금액 자동 계산/);
-  assert.match(source, /activeStep === index && <WorkflowStepVisual index=\{index\} \/>/);
+  assert.match(source, /<WorkflowStepVisual index=\{index\} \/>/);
+  assert.doesNotMatch(source, /activeStep === index && <WorkflowStepVisual/);
   assert.match(source, /설명 가능한 결과/);
   assert.match(source, /끝난 프로젝트가/);
   assert.match(source, /aria-selected=\{index === evidenceIndex\}/);
@@ -166,9 +167,9 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.evidence-copy h2, \.outcome-copy h2 \{ font-size: clamp\(3\.1rem, 3\.6vw, 4\.3rem\)/);
   assert.match(css, /\.audience-section \.section-heading h2 \{ font-size: clamp\(1\.9rem, 7\.6vw, 2\.2rem\)/);
   assert.match(css, /\.final-cta h2 \{ font-size: clamp\(2rem, 8\.5vw, 3\.5rem\)/);
-  assert.match(css, /\.accordion-content strong \{[^}]*writing-mode: vertical-rl; text-orientation: upright/);
-  assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
-  assert.match(css, /\.step-visual \{[^}]*grid-template-columns: minmax\(86px, 1fr\) 132px minmax\(90px, 1fr\)/);
+  assert.match(css, /\.accordion-content strong \{[^}]*white-space: normal; word-break: keep-all/);
+  assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
+  assert.match(css, /\.step-visual \{[^}]*grid-template-rows: auto minmax\(82px, 1fr\) auto/);
   assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
   assert.match(source, /\["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"\]/);
@@ -321,7 +322,10 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
 });
 
 test("responsive and reduced-motion gates cover the documented breakpoints", async () => {
-  const css = await read("../app/globals.css");
+  const [page, css] = await Promise.all([
+    read("../app/page.tsx"),
+    read("../app/globals.css"),
+  ]);
   assert.match(css, /@media \(min-width: 1181px\) and \(max-width: 1440px\)/);
   assert.match(css, /\.hero-title \{ font-size: clamp\(3\.4rem, 5\.1vw, 5rem\); \}/);
   assert.match(css, /@media \(max-width: 1180px\)/);
@@ -330,6 +334,12 @@ test("responsive and reduced-motion gates cover the documented breakpoints", asy
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /grid-auto-flow: dense/);
   assert.match(css, /\.hero-title \{ font-size: clamp\(2\.8rem, 12vw, 4\.2rem\); \}/);
+  assert.match(css, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.accordion-content strong \{[^}]*word-break: keep-all/);
+  assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
+  assert.match(css, /scroll-padding-top: 112px/);
+  assert.match(page, /<WorkflowStepVisual index=\{index\} \/>/);
+  assert.doesNotMatch(page, /activeStep === index && <WorkflowStepVisual/);
 });
 
 test("manual quotation, evidence, outcome, and public proposal flows use real Spring contracts", async () => {

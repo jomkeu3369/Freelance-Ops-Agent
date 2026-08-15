@@ -266,7 +266,7 @@ export default function Home() {
               aria-expanded={activeStep === index}
             >
               <span className="accordion-index">{index + 1}</span>
-              {activeStep === index && <WorkflowStepVisual index={index} />}
+              <WorkflowStepVisual index={index} />
               <span className="accordion-content">
                 <strong>{title}</strong>
                 <p>{body}</p>
