@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "agent/**"
+      - "sdk/python/**"
       - "contracts/**"
       - ".github/workflows/agent-ci.yml"
   workflow_dispatch:
@@ -51,6 +52,12 @@ jobs:
       - run: uv run --locked pytest
         env:
           AGENT_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/freelance_ops
+      - name: Enforce pinned model release policy
+        working-directory: ${{ github.workspace }}
+        run: uv run --project agent --locked python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json
+      - name: Test Python platform SDK
+        working-directory: ${{ github.workspace }}/sdk/python
+        run: python -m unittest discover -s tests
       - run: uv run --locked ruff check src tests
       - run: uv run --locked mypy
 

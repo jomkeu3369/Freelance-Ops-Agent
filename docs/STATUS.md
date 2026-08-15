@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 모델 실험을 운영 통제로 연결하는 AI Platform slice를 구현했다. 기존 OpenAI·Gemini adapter 앞에 model allowlist, bounded concurrency·admission timeout, provider/model별 circuit breaker와 명시적 no-fallback 정책을 적용하는 `AIGateway`를 추가했다. prompt·응답·credential 없이 호출 결과·token·최근 p50/p95만 집계하며, 기본 비활성화된 bearer 인증 metrics endpoint와 Grafana dashboard artifact를 제공한다. versioned model registry와 기존 Luna frozen report를 pin한 평가 release gate를 Agent CI에 연결해 승인 용도·accuracy·macro-F1·`HUMAN_REQUIRED` recall·p95·비용 회귀 시 배포를 차단하고, Python consumer SDK, 무료 readiness k6 부하 시나리오, 유료 호출 opt-in smoke, SLO와 장애 Runbook을 추가했다. 결정은 ADR-0026과 AI Platform case study에 기록했다. Agent 전체 `170 passed, 1 skipped`, Ruff, strict mypy 55개 source, SDK 2건, 평가 gate, OpenAPI 두 계약과 Compose config가 통과했다. 실제 production SLO와 Grafana panel은 운영 scraper 연결 후 측정 대상으로 남겼다.
+
 - 2026-08-15: 운영 Agent 실행이 LangSmith에 기록되지 않던 문제를 수정했다. `.env`에 값이 있어도 Compose가 `LANGSMITH_API_KEY`, tracing, project, endpoint를 Agent 컨테이너로 전달하지 않았고, OpenAI·Gemini 호출은 원본 SDK를 사용해 자동 계측 대상도 아니었다. Compose 전달 계약과 LangSmith 직접 의존성을 추가하고 LangGraph 실행, route evaluator, OpenAI·Gemini model call에 trace span을 연결했다. run·workspace·project·provider·model·phase는 검색 가능한 안전한 metadata로 기록한다. 고객 원문, 응답, 비공개 route prompt는 외부로 보내지 않도록 tracing 활성화 시 `LANGSMITH_HIDE_INPUTS/OUTPUTS=true`를 코드와 Compose에서 강제한다. tracing 활성화 상태에서 API key가 비어 있으면 Agent가 시작 단계에서 명확히 실패한다. Agent 전체 pytest(운영 DB 통합 테스트 1건 skip), Ruff, strict mypy와 Production Compose config가 통과했다.
 
 - 2026-08-15: AI 분석 완료 화면에서 `프로젝트 요약`이 부서 결과를 합친 내용인데 같은 부서별 요약을 바로 아래에 다시 노출해 중복으로 보이던 문제를 수정했다. 프로젝트 요약과 미확정 질문·견적 CTA만 기본 화면에 유지하고, 부서별 원문·근거·출처는 `분석 단계별 상세` 접기 영역에서 필요할 때만 확인하도록 정리했다.
@@ -200,6 +202,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 진행 중
 
+- AI Gateway production metrics scraper 연결과 7일 pilot SLO 실측. 현재 dashboard는 import 가능한 artifact이며 운영 달성 수치는 아직 없다.
+- 실제 인증 계정으로 Agent run 1회 smoke를 수행한 뒤 1→10→30 동시 실행을 단계적으로 검증하고 provider 비용·quota를 대조한다.
 - Vercel Preview Project 연결과 실제 배포 검수. `frontend` Root Directory, Preview용 공개 Spring URL과 branch-specific exact CORS origin 설정이 필요하다.
 - 실제 Spring·Agent·PostgreSQL·OpenAI/Gemini를 함께 기동한 가입→문의→Agent→견적→발행→고객 결정 E2E 검증
 - workspace profile·멤버/role·privacy·data export/delete·credit 집계와 견적 제외 범위/지급 조건은 현재 Spring 공개 계약이 없어 fake local state로 구현하지 않고 backend 계약을 기다린다.
@@ -213,8 +217,9 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ### 다음 PC에서 우선 수행
 
-- 현재 working tree의 변경을 검토하고 Agent `main:app` entrypoint를 실제 기동 환경에서 확인한다.
-- 변경을 commit·push한 뒤 PostgreSQL 재시작 HITL test를 포함한 GitHub CI가 green인지 확인한다.
+- 변경을 commit·push한 뒤 Agent 평가 release gate를 포함한 GitHub CI와 자동 Production CD가 green인지 확인한다.
+- 운영 `.env`에 Gateway 동시성·circuit 설정을 검토하고 metrics를 사용할 경우 별도 32바이트 이상 token을 secret manager에서 주입한다.
+- Grafana/Prometheus scraper를 Docker internal network에 연결하고 [`AI Platform SLO`](operations/AI_PLATFORM_SLO.md)를 7일 측정한다.
 - Backend PostgreSQL Testcontainers 5건은 현재 PC에서 통과했으므로 CI에서도 동일 결과인지 확인한다.
 - [`로컬 Compose 및 Swagger 작업 인수인계`](operations/local-compose-and-swagger-handoff.md)에 따라 전체 Compose 기동과 Swagger를 검증한다.
 

@@ -1,0 +1,43 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "panels": [
+    {
+      "title": "Gateway calls / 5m",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(increase(ai_gateway_calls_total[5m])) by (outcome)", "legendFormat": "{{outcome}}" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Gateway latency p95",
+      "type": "timeseries",
+      "targets": [{ "expr": "ai_gateway_latency_ms{quantile=\"0.95\"}", "legendFormat": "p95 ms" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "title": "Inflight model calls",
+      "type": "stat",
+      "targets": [{ "expr": "ai_gateway_inflight_calls" }],
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 }
+    },
+    {
+      "title": "Rejected and failed calls / 15m",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(increase(ai_gateway_outcomes_total{code!=\"SUCCESS\"}[15m])) by (code)", "legendFormat": "{{code}}" }],
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 }
+    },
+    {
+      "title": "Provider tokens / 1h",
+      "type": "timeseries",
+      "targets": [{ "expr": "sum(increase(ai_gateway_tokens_total[1h])) by (type)", "legendFormat": "{{type}}" }],
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 }
+    }
+  ],
+  "schemaVersion": 40,
+  "tags": ["ai-platform", "freelance-ops"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Freelance Ops AI Platform",
+  "uid": "freelance-ops-ai-platform",
+  "version": 1
+}

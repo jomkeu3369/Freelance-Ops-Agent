@@ -5,10 +5,12 @@ from fastapi import FastAPI
 from tavily import AsyncTavilyClient  # type: ignore[import-untyped]
 
 from api.agent_runs.router import router as agent_runs_router
+from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
 from config import Settings, get_settings
 from contracts import HealthResponse
+from gateway import AIGateway, GatewayPolicy
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
 from integrations import SpringToolClient
@@ -32,7 +34,8 @@ RuntimeComponents = tuple[
     RunCoordinator,
     PgVectorConnectionManager | None,
     PostgresAgentRunStore | None,
-    PostgresCheckpointJournal | None
+    PostgresCheckpointJournal | None,
+    AIGateway
 ]
 
 
@@ -76,14 +79,16 @@ class FreelanceOpsAgentAiServer:
         database_manager: PgVectorConnectionManager | None = None
         postgres_run_store: PostgresAgentRunStore | None = None
         checkpoint_journal: PostgresCheckpointJournal | None = None
+        ai_gateway: AIGateway | None = None
 
         if run_coordinator is None:
-            run_coordinator, database_manager, postgres_run_store, checkpoint_journal = _build_run_runtime()
+            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway = _build_run_runtime()
 
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
+        self.app.state.ai_gateway = ai_gateway
         self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(OpenAIRaptorBuildService(), GeminiRaptorBuildService())  # noqa: E501
         self.app.state.delegation_token_verifier = (delegation_token_verifier or _build_delegation_token_verifier())
         self._register_routes()
@@ -100,6 +105,7 @@ class FreelanceOpsAgentAiServer:
 
         self.app.include_router(agent_runs_router)
         self.app.include_router(raptor_router)
+        self.app.include_router(platform_router)
 
     def get_app(self) -> FastAPI:
         return self.app
@@ -112,18 +118,28 @@ def _build_run_runtime() -> RuntimeComponents:
     except RuntimeError:
         gateway = FailClosedOperationalGateway()
 
-    executor = OperationalAgentExecutor(
-        gateway,
+    model_gateway = AIGateway(
         CompositeModelProvider(
             OpenAIModelProvider(
                 timeout_seconds=settings.model_timeout_seconds,
-                max_attempts=settings.model_max_attempts,
+                max_attempts=settings.model_max_attempts
             ),
             GeminiModelProvider(
                 timeout_seconds=settings.model_timeout_seconds,
-                max_attempts=settings.model_max_attempts,
-            ),
+                max_attempts=settings.model_max_attempts
+            )
         ),
+        policy=GatewayPolicy(
+            max_concurrency=settings.gateway_max_concurrency,
+            acquire_timeout_seconds=settings.gateway_acquire_timeout_seconds,
+            circuit_failure_threshold=settings.gateway_circuit_failure_threshold,
+            circuit_recovery_seconds=settings.gateway_circuit_recovery_seconds,
+            allowed_models=settings.allowed_gateway_models()
+        )
+    )
+    executor = OperationalAgentExecutor(
+        gateway,
+        model_gateway,
         SpringToolClient(
             settings.backend_internal_url,
             timeout_seconds=settings.backend_tool_timeout_seconds,
@@ -131,7 +147,7 @@ def _build_run_runtime() -> RuntimeComponents:
         _build_web_research_service(settings)
     )
     if settings.run_store_backend == "memory":
-        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None
+        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway
 
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
@@ -155,7 +171,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint
+    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint, model_gateway
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:

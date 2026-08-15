@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "routing-release-v1",
+  "candidate_name": "B_prompt_llm",
+  "candidate_model": "gpt-5.6-luna",
+  "candidate_use": "OPERATIONAL_ROUTING",
+  "registry": "agent/evaluation/model-registry.json",
+  "report": "experiments/routing_benchmark/reports/2026-08-11-a1-vs-luna/router_ab.json",
+  "minimum": {
+    "accuracy": 0.75,
+    "macro_f1": 0.68,
+    "human_required_recall": 0.8
+  },
+  "maximum": {
+    "p95_ms": 4500,
+    "cost_usd_per_50_cases": 0.05
+  },
+  "known_limitations": [
+    "REACT_AGENT F1 is below the future promotion target and remains fail-closed through runtime policy",
+    "The frozen routing set contains 50 cases; production shadow data is required before local-model promotion"
+  ]
+}

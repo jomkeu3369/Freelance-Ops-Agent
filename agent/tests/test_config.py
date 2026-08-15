@@ -81,3 +81,16 @@ def test_enabled_langsmith_tracing_requires_a_non_empty_api_key(monkeypatch: pyt
 
     assert settings.langsmith_tracing is True
     assert settings.langsmith_project == "freelance-ops-agent-test"
+
+
+def test_gateway_metrics_are_disabled_by_default_and_require_a_token() -> None:
+    assert Settings().gateway_metrics_enabled is False
+
+    with pytest.raises(ValidationError, match="metrics require a bearer token"):
+        Settings(gateway_metrics_enabled=True, gateway_metrics_bearer_token="")
+
+    metrics_secret = "metrics-secret-with-at-least-32-bytes"
+    settings = Settings(gateway_metrics_enabled=True, gateway_metrics_bearer_token=metrics_secret)
+
+    assert settings.gateway_metrics_bearer_token is not None
+    assert settings.gateway_metrics_bearer_token.get_secret_value() == metrics_secret

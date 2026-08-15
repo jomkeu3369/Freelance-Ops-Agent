@@ -7,6 +7,7 @@
 | 주제 | 핵심 내용 | 문서 |
 |---|---|---|
 | AI 신뢰성·라우팅 | RAG answerability와 Agent route를 평가해 local-first 가설을 검증하고 fail-closed LLM 구조로 전환 | [RAG Answerability와 Agent Routing 신뢰성 개선](ai-routing-and-rag-reliability-case-study.md) |
+| AI Platform | 모델 실험을 Gateway 정책, CI release gate, 부하 검증, SLO와 Runbook으로 연결 | [실험을 배포 결정으로 연결한 AI Platform Engineering](ai-platform-engineering-case-study.md) |
 
 ## 활용 원칙
 

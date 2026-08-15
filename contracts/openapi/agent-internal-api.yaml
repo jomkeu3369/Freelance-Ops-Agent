@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.3.0
+  version: 0.4.0
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -10,6 +10,7 @@ tags:
   - name: Health
   - name: AgentRuns
   - name: Raptor
+  - name: AIPlatform
 paths:
   /health:
     get:
@@ -172,12 +173,36 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         "504":
           $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/platform/metrics:
+    get:
+      tags: [AIPlatform]
+      operationId: getAiGatewayMetrics
+      description: Returns prompt-free AI Gateway metrics for an internal Prometheus scraper.
+      security:
+        - metricsToken: []
+      responses:
+        "200":
+          description: Prometheus text exposition
+          content:
+            text/plain:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
+          $ref: "#/components/responses/ProblemResponse"
 components:
   securitySchemes:
     delegationToken:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    metricsToken:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
       description: Short-lived audience-bound token issued by Spring Boot
   parameters:
     RunId:

@@ -15,6 +15,13 @@ class Settings(BaseSettings):
 
     model_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
     model_max_attempts: int = Field(default=2, ge=1, le=3)
+    gateway_max_concurrency: int = Field(default=2, ge=1, le=32)
+    gateway_acquire_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
+    gateway_circuit_failure_threshold: int = Field(default=3, ge=1, le=20)
+    gateway_circuit_recovery_seconds: float = Field(default=30.0, gt=0, le=600)
+    gateway_allowed_models: str = ""
+    gateway_metrics_enabled: bool = False
+    gateway_metrics_bearer_token: SecretStr | None = Field(default=None, min_length=32)
 
     langsmith_tracing: bool = Field(
         default=False,
@@ -89,6 +96,7 @@ class Settings(BaseSettings):
         "delegation_token_previous_key_id",
         "delegation_token_previous_public_key",
         "langsmith_api_key",
+        "gateway_metrics_bearer_token",
         mode="before"
     )
     @classmethod
@@ -141,6 +149,9 @@ class Settings(BaseSettings):
         if self.langsmith_tracing and self.langsmith_api_key is None:
             raise ValueError("enabled LangSmith tracing requires a LangSmith API key")
 
+        if self.gateway_metrics_enabled and self.gateway_metrics_bearer_token is None:
+            raise ValueError("enabled gateway metrics require a bearer token")
+
         if self.web_research_enabled and not self.allowed_web_research_domains():
             raise ValueError("enabled web research requires an explicit domain allowlist")
 
@@ -157,6 +168,9 @@ class Settings(BaseSettings):
                 if domain.strip()
             }
         )
+
+    def allowed_gateway_models(self) -> frozenset[str]:
+        return frozenset(model.strip() for model in self.gateway_allowed_models.split(",") if model.strip())
 
     model_config = SettingsConfigDict(env_prefix="AGENT_", env_file=None, extra="ignore")
 
