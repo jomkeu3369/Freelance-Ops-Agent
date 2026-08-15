@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Protocol
 
+from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .hybrid import ROUTE_ORDER, HybridRouteModel, RouteDecision, RouteLabel
@@ -130,6 +131,7 @@ class OpenAIRouteEvaluator:
         self._system_prompt = system_prompt
         self._config = config or LLMRouteEvaluatorConfig()
 
+    @traceable(name="agent-route-evaluation", run_type="llm", metadata={"component": "route-evaluator"})
     async def evaluate(
         self,
         text: str,

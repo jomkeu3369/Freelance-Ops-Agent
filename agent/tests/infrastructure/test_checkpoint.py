@@ -86,6 +86,11 @@ async def test_record_uses_thread_and_run_namespace() -> None:
     assert state["provider"] == "OPENAI"
     configurable = cast(dict[str, str], config["configurable"])
     assert configurable["thread_id"] == f"lifecycle:{request.context.thread_id}:{request.context.run_id}"
+    assert config["tags"] == ["freelance-ops-agent", "run-lifecycle"]
+    metadata = cast(dict[str, str], config["metadata"])
+    assert metadata["run_id"] == str(request.context.run_id)
+    assert metadata["workspace_id"] == str(request.context.workspace_id)
+    assert metadata["phase"] == "execution_started"
 
 
 @pytest.mark.asyncio

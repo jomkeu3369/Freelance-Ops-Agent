@@ -1,8 +1,10 @@
+import os
 import re
 
 from fastapi.testclient import TestClient
 
 from main import create_app
+from observability import configure_langsmith_privacy
 
 
 def test_w3c_trace_context_is_propagated_with_a_new_span() -> None:
@@ -24,3 +26,13 @@ def test_invalid_trace_context_is_replaced() -> None:
     trace_id = response.headers["X-Trace-Id"]
     assert re.fullmatch(r"[0-9a-f]{32}", trace_id)
     assert "malformed" not in response.headers["traceparent"]
+
+
+def test_langsmith_tracing_always_hides_customer_inputs_and_outputs(monkeypatch) -> None:
+    monkeypatch.delenv("LANGSMITH_HIDE_INPUTS", raising=False)
+    monkeypatch.delenv("LANGSMITH_HIDE_OUTPUTS", raising=False)
+
+    configure_langsmith_privacy(enabled=True)
+
+    assert os.environ["LANGSMITH_HIDE_INPUTS"] == "true"
+    assert os.environ["LANGSMITH_HIDE_OUTPUTS"] == "true"

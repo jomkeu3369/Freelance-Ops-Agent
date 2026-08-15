@@ -12,7 +12,7 @@ from contracts import HealthResponse
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
 from integrations import SpringToolClient
-from observability import trace_context_middleware
+from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
 from routing import OperationalRouteGateway
@@ -62,6 +62,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 class FreelanceOpsAgentAiServer:
     def __init__(self, *, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None) -> None:  # noqa: E501
         settings = get_settings()
+        configure_langsmith_privacy(enabled=settings.langsmith_tracing)
         self.app = FastAPI(
             title="Freelance Ops Agent AI Server",
             description="Freelance Ops Agent Server",

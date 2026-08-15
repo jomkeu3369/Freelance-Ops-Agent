@@ -68,3 +68,16 @@ def test_blank_previous_delegation_key_values_are_treated_as_unset() -> None:
 
     assert settings.delegation_token_previous_key_id is None
     assert settings.delegation_token_previous_public_key is None
+
+
+def test_enabled_langsmith_tracing_requires_a_non_empty_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(ValidationError, match="LangSmith API key"):
+        Settings(langsmith_tracing=True, langsmith_api_key="")
+
+    monkeypatch.setenv("LANGSMITH_TRACING", "true")
+    monkeypatch.setenv("LANGSMITH_API_KEY", "lsv2_test_secret")
+    monkeypatch.setenv("LANGSMITH_PROJECT", "freelance-ops-agent-test")
+    settings = Settings()
+
+    assert settings.langsmith_tracing is True
+    assert settings.langsmith_project == "freelance-ops-agent-test"

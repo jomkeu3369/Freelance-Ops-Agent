@@ -129,7 +129,17 @@ class PostgresCheckpointJournal:
         config = {
             "configurable": {
                 "thread_id": f"lifecycle:{context.thread_id}:{context.run_id}",
-            }
+            },
+            "tags": ["freelance-ops-agent", "run-lifecycle"],
+            "metadata": {
+                "service": "freelance-ops-agent",
+                "run_id": str(context.run_id),
+                "workspace_id": str(context.workspace_id),
+                "project_id": str(context.project_id),
+                "provider": request.model_selection.provider.value,
+                "model": request.model_selection.model,
+                "phase": phase,
+            },
         }
         await self._graph.ainvoke(state, config)
 

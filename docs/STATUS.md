@@ -12,6 +12,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 운영 Agent 실행이 LangSmith에 기록되지 않던 문제를 수정했다. `.env`에 값이 있어도 Compose가 `LANGSMITH_API_KEY`, tracing, project, endpoint를 Agent 컨테이너로 전달하지 않았고, OpenAI·Gemini 호출은 원본 SDK를 사용해 자동 계측 대상도 아니었다. Compose 전달 계약과 LangSmith 직접 의존성을 추가하고 LangGraph 실행, route evaluator, OpenAI·Gemini model call에 trace span을 연결했다. run·workspace·project·provider·model·phase는 검색 가능한 안전한 metadata로 기록한다. 고객 원문, 응답, 비공개 route prompt는 외부로 보내지 않도록 tracing 활성화 시 `LANGSMITH_HIDE_INPUTS/OUTPUTS=true`를 코드와 Compose에서 강제한다. tracing 활성화 상태에서 API key가 비어 있으면 Agent가 시작 단계에서 명확히 실패한다. Agent 전체 pytest(운영 DB 통합 테스트 1건 skip), Ruff, strict mypy와 Production Compose config가 통과했다.
+
 - 2026-08-15: AI 분석 완료 화면에서 `프로젝트 요약`이 부서 결과를 합친 내용인데 같은 부서별 요약을 바로 아래에 다시 노출해 중복으로 보이던 문제를 수정했다. 프로젝트 요약과 미확정 질문·견적 CTA만 기본 화면에 유지하고, 부서별 원문·근거·출처는 `분석 단계별 상세` 접기 영역에서 필요할 때만 확인하도록 정리했다.
 
 - 2026-08-15: AI 분석 완료 결과에 편집 가능한 구조화 견적 초안을 추가했다. Requirements·Deal Design 부서는 작업명, 설명, 공수, 단위, 단가표 힌트와 근거 또는 가정을 반환하되 단가·세금·합계는 생성하지 않는다. Frontend는 활성 단가표를 이름·단위로 안전하게 연결하고 일치하지 않는 항목은 0원으로 표시해 사용자가 단가를 선택하기 전 저장할 수 없게 했다. 브라우저에 작성 중인 초안은 보존하고, 그렇지 않으면 새 AI 초안을 최신 저장 견적보다 우선해 새 리비전 후보로 표시한다. 금액 계산과 저장·발행은 기존 Spring 견적 흐름을 그대로 사용한다. Agent pytest(기존 운영 DB 통합 테스트 1건 skip), Ruff, strict mypy와 Frontend 테스트 36건·TypeScript가 통과했다. Backend main·test source 컴파일은 통과했으나 로컬 Gradle test worker의 기존 `GradleWorkerMain` classpath 환경 오류로 Java 테스트 실행만 완료하지 못했다.

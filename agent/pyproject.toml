@@ -12,6 +12,7 @@ dependencies = [
     "langchain-community>=0.4.2",
     "langchain-openai>=1.4.3",
     "langgraph==1.2.9",
+    "langsmith>=0.10,<1",
     "matplotlib>=3.10,<4",
     "numpy>=2,<3",
     "openai>=2.26,<3",

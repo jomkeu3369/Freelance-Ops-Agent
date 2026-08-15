@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
+from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, Field
 
 from contracts import ModelSelection, Provider, QuotationDraft
@@ -152,6 +153,7 @@ class OpenAIModelProvider(ResilientProvider):
             max_attempts=max_attempts
         )
 
+    @traceable(name="agent-openai-model-call", run_type="llm", metadata={"component": "model-provider"})
     async def _generate(self, selection: ModelSelection, prompt: str, schema: type[BaseModel], schema_name: str, system_instruction: str, *, max_output_tokens: int, max_attempts: int | None) -> ModelGeneration:  # noqa: E501
         if selection.provider is not Provider.OPENAI:
             raise ProviderNotConfiguredError(f"provider is not configured: {selection.provider.value}")
@@ -223,6 +225,7 @@ class GeminiModelProvider(ResilientProvider):
             max_attempts=max_attempts
         )
 
+    @traceable(name="agent-gemini-model-call", run_type="llm", metadata={"component": "model-provider"})
     async def _generate(self, selection: ModelSelection, prompt: str, schema: type[BaseModel], system_instruction: str, *, max_output_tokens: int, max_attempts: int | None) -> ModelGeneration:  # noqa: E501
         if selection.provider is not Provider.GEMINI:
             raise ProviderNotConfiguredError(f"provider is not configured: {selection.provider.value}")

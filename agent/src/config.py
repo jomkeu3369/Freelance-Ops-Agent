@@ -16,6 +16,36 @@ class Settings(BaseSettings):
     model_timeout_seconds: float = Field(default=60.0, gt=0, le=300)
     model_max_attempts: int = Field(default=2, ge=1, le=3)
 
+    langsmith_tracing: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "LANGSMITH_TRACING",
+            "LANGSMITH_TRACING_V2",
+            "AGENT_LANGSMITH_TRACING",
+            "langsmith_tracing"
+        )
+    )
+    langsmith_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "LANGSMITH_API_KEY",
+            "LANGCHAIN_API_KEY",
+            "AGENT_LANGSMITH_API_KEY",
+            "langsmith_api_key"
+        )
+    )
+    langsmith_project: str = Field(
+        default="freelance-ops-agent",
+        min_length=1,
+        max_length=200,
+        validation_alias=AliasChoices(
+            "LANGSMITH_PROJECT",
+            "LANGCHAIN_PROJECT",
+            "AGENT_LANGSMITH_PROJECT",
+            "langsmith_project"
+        )
+    )
+
     event_stream_idle_timeout_seconds: float = Field(default=15.0, gt=0, le=300)
 
     raptor_build_timeout_seconds: float = Field(default=300.0, gt=0, le=900)
@@ -58,10 +88,11 @@ class Settings(BaseSettings):
     @field_validator(
         "delegation_token_previous_key_id",
         "delegation_token_previous_public_key",
+        "langsmith_api_key",
         mode="before"
     )
     @classmethod
-    def normalize_empty_previous_delegation_key(cls, value: object) -> object:
+    def normalize_empty_optional_secret(cls, value: object) -> object:
         if isinstance(value, str) and not value.strip():
             return None
 
@@ -106,6 +137,9 @@ class Settings(BaseSettings):
 
         if self.web_research_max_fetches > self.web_research_max_results:
             raise ValueError("web_research_max_fetches must not exceed web_research_max_results")
+
+        if self.langsmith_tracing and self.langsmith_api_key is None:
+            raise ValueError("enabled LangSmith tracing requires a LangSmith API key")
 
         if self.web_research_enabled and not self.allowed_web_research_domains():
             raise ValueError("enabled web research requires an explicit domain allowlist")
