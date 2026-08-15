@@ -655,3 +655,17 @@ test("agent runs request enough model calls for the four-department ReAct route"
   const api = await read("../app/lib/api.ts");
   assert.match(api, /maxModelCalls: 12/);
 });
+
+test("waiting agent runs prioritize a readable collapsible review panel", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /setReviewFocused\(run\?\.status === "WAITING_FOR_USER"\)/);
+  assert.match(workspace, /aria-controls="run-execution-graph"/);
+  assert.match(workspace, /aria-expanded=\{!reviewFocused\}/);
+  assert.match(workspace, /실행 그래프 펼치기/);
+  assert.match(css, /\.workbench-grid\.review-focused \{ grid-template-columns: 68px minmax\(0, 1fr\)/);
+  assert.match(css, /\.interruption-form label \{[^}]*font-size: 1rem/);
+  assert.match(css, /\.interruption-form textarea \{[^}]*min-height: 132px/);
+});

@@ -21,6 +21,7 @@ from contracts import (
     AgentRunStatus,
     AgentRunUsage,
     AgentRunView,
+    ClarificationAnswer,
     DepartmentName,
     RequestTier,
     ResumeAgentRunRequest,
@@ -232,6 +233,7 @@ class InMemoryAgentRunStore:
             if len(indices) != len(set(indices)) or any(index >= question_count for index in indices):
                 raise AgentRunStateError("resume answers do not match active questions")
             record.idempotency_keys.add(command.idempotency_key)
+            record.request = append_clarification_history(record.request, record.interruption, command)
             self._append_event(record, "clarification.responded")
             return record.request
 
@@ -261,6 +263,19 @@ def _metadata(request: AgentRunRequest) -> AgentRunMetadata:
         prompt_version="department-work-product-v1",
         tool_schema_version="spring-tool-api-v0.2.0",
         trace_id=request.context.trace_id,
+    )
+
+
+def append_clarification_history(request: AgentRunRequest, interruption: AgentInterruption, command: ResumeAgentRunRequest) -> AgentRunRequest:  # noqa: E501
+    additions = [
+        ClarificationAnswer(
+            question=interruption.questions[answer.question_index],
+            answer=answer.answer
+        )
+        for answer in sorted(command.answers, key=lambda item: item.question_index)
+    ]
+    return request.model_copy(
+        update={"clarification_history": [*request.clarification_history, *additions]}
     )
 
 

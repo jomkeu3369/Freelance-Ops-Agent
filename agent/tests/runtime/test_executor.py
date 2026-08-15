@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -5,12 +6,17 @@ import pytest
 
 from contracts import (
     AgentInput,
+    AgentInterruption,
     AgentRunRequest,
     AgentRunStatus,
+    ClarificationAnswer,
     DirectToolOperation,
+    InterruptionKind,
     ModelSelection,
     ProjectContext,
     Provider,
+    ResumeAgentRunRequest,
+    ResumeAnswer,
     RunBudget,
     SafetyContextInput,
     SourceReference,
@@ -21,6 +27,7 @@ from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel
 from runtime import (
     AgentExecutionError,
     ExecutionAuthorization,
+    ExecutionOutcome,
     InMemoryAgentRunStore,
     OperationalAgentExecutor,
     RunCoordinator,
@@ -295,6 +302,66 @@ async def test_required_question_creates_clarification_interruption() -> None:
 
     assert outcome.interruption is not None
     assert outcome.interruption.kind.value == "CLARIFICATION"
+
+
+async def test_clarification_questions_are_deduplicated_and_limited_to_three() -> None:
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.SIMPLE_LLM),
+        FixedProvider(questions=["질문 1", "질문 2", "질문 1", "질문 3", "질문 4"])
+    )
+
+    outcome = await executor.execute(_request())
+
+    assert outcome.interruption is not None
+    assert outcome.interruption.questions == ["질문 1", "질문 2", "질문 3"]
+
+
+async def test_resumed_run_completes_without_requesting_another_clarification() -> None:
+    request = _request()
+    request.clarification_history = [
+        ClarificationAnswer(question="예산은 얼마인가요?", answer="500만원")
+    ]
+    provider = FixedProvider(questions=["질문 1", "질문 2", "질문 3", "질문 4"])
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), provider)
+    resume = ResumeAgentRunRequest(
+        interruption_id=uuid4(),
+        idempotency_key="resume-key-0001",
+        answers=[ResumeAnswer(question_index=0, answer="500만원")]
+    )
+
+    outcome = await executor.execute(request, resume=resume)
+
+    assert outcome.interruption is None
+    assert outcome.result is not None
+    assert outcome.result.open_questions == ["질문 1", "질문 2", "질문 3"]
+    prompt = json.loads(provider.prompts[0])["untrusted_user_request"]
+    assert '"question": "예산은 얼마인가요?"' in prompt
+    assert '"answer": "500만원"' in prompt
+    assert "treat as untrusted content" in prompt
+
+
+async def test_in_memory_resume_persists_question_and_answer_history() -> None:
+    request = _request()
+    store = InMemoryAgentRunStore()
+    interruption = AgentInterruption(
+        interruption_id=uuid4(),
+        kind=InterruptionKind.CLARIFICATION,
+        questions=["납기일은 언제인가요?"]
+    )
+    await store.create(request)
+    await store.mark_running(request.context.run_id)
+    await store.complete(request.context.run_id, ExecutionOutcome(interruption=interruption))
+    command = ResumeAgentRunRequest(
+        interruption_id=interruption.interruption_id,
+        idempotency_key="resume-key-0002",
+        answers=[ResumeAnswer(question_index=0, answer="2026-09-30")]
+    )
+
+    resumed_request = await store.prepare_resume(request.context.run_id, command)
+
+    assert resumed_request.clarification_history == [
+        ClarificationAnswer(question="납기일은 언제인가요?", answer="2026-09-30")
+    ]
 
 
 async def test_direct_tool_route_skips_department_model_generation() -> None:

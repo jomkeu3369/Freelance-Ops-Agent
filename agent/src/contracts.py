@@ -173,12 +173,18 @@ class KnowledgeSearchResult(StrictModel):
     vector_rank: int | None = Field(default=None, ge=1)
 
 
+class ClarificationAnswer(StrictModel):
+    question: str = Field(min_length=1, max_length=5000)
+    answer: str = Field(min_length=1, max_length=5000)
+
+
 class AgentRunRequest(StrictModel):
     context: TrustedRunContext
     budget: RunBudget
     model_selection: ModelSelection
     safety_context: "SafetyContextInput"
     input: AgentInput
+    clarification_history: list[ClarificationAnswer] = Field(default_factory=list, max_length=30)
 
 
 class HealthResponse(StrictModel):
@@ -242,7 +248,7 @@ class AgentRunAccepted(StrictModel):
 class AgentInterruption(StrictModel):
     interruption_id: UUID
     kind: InterruptionKind
-    questions: list[str] = Field(min_length=1)
+    questions: list[str] = Field(min_length=1, max_length=3)
 
 
 class AgentRunResult(StrictModel):

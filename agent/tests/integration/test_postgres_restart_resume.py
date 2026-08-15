@@ -80,6 +80,8 @@ async def test_hitl_resume_survives_fresh_database_and_checkpoint_instances() ->
     )
     try:
         _, persisted_request = await second_coordinator.accept_resume(request.context.run_id, command)
+        assert len(persisted_request.clarification_history) == 1
+        assert persisted_request.clarification_history[0].answer == "2026-09-30"
         await second_coordinator.resume(persisted_request, command, authorization)
         completed = await second_coordinator.view(request.context.run_id)
 

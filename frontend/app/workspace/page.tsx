@@ -1407,6 +1407,7 @@ function ProjectWorkbench({
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
+  const [reviewFocused, setReviewFocused] = useState(run?.status === "WAITING_FOR_USER");
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
@@ -1414,6 +1415,10 @@ function ProjectWorkbench({
   useEffect(() => {
     Promise.resolve().then(() => setActiveStep(initialStep));
   }, [initialStep, project.id]);
+
+  useEffect(() => {
+    Promise.resolve().then(() => setReviewFocused(run?.status === "WAITING_FOR_USER"));
+  }, [project.id, run?.status]);
 
   const selectStep = (step: WorkbenchStep) => {
     setActiveStep(step);
@@ -1467,22 +1472,26 @@ function ProjectWorkbench({
 
       {activeStep === "intake" && <IntakeReview session={session} project={project} permissions={permissions} onContinue={() => selectStep("agent")} />}
 
-      {activeStep === "agent" && <div className="workbench-grid">
-        <div className="graph-panel">
-          <LiveWorkflow snapshot={snapshot} />
-          {runId && canCancel && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && <div className="run-action-bar"><span>필요하면 현재 실행을 안전하게 중단할 수 있습니다.</span><button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{busy ? <CircleNotch className="spin" /> : <Warning size={17} />} 실행 중단</button></div>}
-          <div className="event-timeline">
-            <div className="panel-title"><span>최근 실행 신호</span><small>{events.length ? `${events.length}개 수신` : "아직 신호 없음"}</small></div>
-            {events.length === 0 ? (
-              <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
-            ) : (
-              <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{event.type}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
-            )}
-          </div>
+      {activeStep === "agent" && <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
+        <div id="run-execution-graph" className="graph-panel">
+          {reviewFocused ? (
+            <button type="button" className="graph-restore" aria-label="실행 그래프 펼치기" onClick={() => setReviewFocused(false)}><Graph size={20} /><span>실행 그래프</span><ArrowRight size={16} /></button>
+          ) : <>
+            <LiveWorkflow snapshot={snapshot} />
+            {runId && canCancel && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && <div className="run-action-bar"><span>필요하면 현재 실행을 안전하게 중단할 수 있습니다.</span><button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{busy ? <CircleNotch className="spin" /> : <Warning size={17} />} 실행 중단</button></div>}
+            <div className="event-timeline">
+              <div className="panel-title"><span>최근 실행 신호</span><small>{events.length ? `${events.length}개 수신` : "아직 신호 없음"}</small></div>
+              {events.length === 0 ? (
+                <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
+              ) : (
+                <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{event.type}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
+              )}
+            </div>
+          </>}
         </div>
 
         <aside className="run-inspector">
-          <div className="panel-title"><span>검토 패널</span>{run && <small>{run.status}</small>}</div>
+          <div className="panel-title inspector-title"><span>검토 패널</span><div>{run && <small>{run.status}</small>}<button type="button" className="panel-focus-toggle" aria-controls="run-execution-graph" aria-expanded={!reviewFocused} onClick={() => setReviewFocused((current) => !current)}>{reviewFocused ? <><ArrowLeft size={15} /> 그래프 펼치기</> : <>검토 넓게 보기 <ArrowRight size={15} /></>}</button></div></div>
           {!run ? (
             <div className="inspector-empty"><Clock size={26} /><p>실행 결과와 확인 질문이 여기에 나타납니다.</p></div>
           ) : run.status === "WAITING_FOR_USER" && run.interruption ? (

@@ -331,6 +331,12 @@ components:
           $ref: "#/components/schemas/ModelSelection"
         safetyContext:
           $ref: "#/components/schemas/SafetyContext"
+        clarificationHistory:
+          type: array
+          maxItems: 30
+          default: []
+          items:
+            $ref: "#/components/schemas/ClarificationAnswer"
         input:
           type: object
           additionalProperties: false
@@ -350,6 +356,19 @@ components:
             directToolOperation:
               type: string
               enum: [GET_PROJECT_CONTEXT]
+    ClarificationAnswer:
+      type: object
+      additionalProperties: false
+      required: [question, answer]
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        answer:
+          type: string
+          minLength: 1
+          maxLength: 5000
     SafetyContext:
       type: object
       additionalProperties: false
@@ -593,6 +612,7 @@ components:
         questions:
           type: array
           minItems: 1
+          maxItems: 3
           items:
             type: string
             maxLength: 1000

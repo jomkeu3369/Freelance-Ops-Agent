@@ -24,7 +24,7 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
-from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, merge_usage
+from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, append_clarification_history, merge_usage
 
 
 class PostgresAgentRunStore:
@@ -157,8 +157,14 @@ class PostgresAgentRunStore:
                 raise AgentRunStateError("resume answers do not match active questions")
             keys.add(command.idempotency_key)
             model.idempotency_keys = sorted(keys)
+            request = append_clarification_history(
+                AgentRunRequest.model_validate(model.request_json),
+                view.interruption,
+                command
+            )
+            model.request_json = request.model_dump(mode="json")
             await self._append_event(session, run_id, "clarification.responded")
-            return AgentRunRequest.model_validate(model.request_json)
+            return request
 
     @staticmethod
     async def _locked(session: AsyncSession, run_id: UUID) -> AgentRunStateModel:

@@ -12,6 +12,10 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 사용자 검토가 반복될 수 있던 Agent HITL 흐름을 수정했다. 기존에는 재개 시 현재 답변의 인덱스와 값만 일회성 프롬프트에 추가해 이전 질문 문맥이 사라졌고, 부서가 새 미확정 항목을 반환할 때 검토 횟수 제한 없이 다시 중단할 수 있었다. 이제 질문 원문과 답변을 Agent run request의 누적 이력으로 PostgreSQL·메모리 store에 보존하고 모든 재실행에 전달한다. 한 run의 clarification 중단은 최초 1회, 노출 질문은 중복 제거 후 최대 3개로 제한하며, 답변 후 발견된 추가 항목은 두 번째 검토를 만들지 않고 완료 결과의 `openQuestions`에 남긴다. 재개 후에도 위험 경로가 해소되지 않으면 반복 중단 대신 `HUMAN_REVIEW_STILL_REQUIRED`로 안전하게 종료한다. Agent 전체 pytest가 통과했고 운영 DB가 필요한 통합 테스트 1건만 기존 조건대로 skip됐으며, Ruff와 strict mypy 50개 source도 통과했다.
+
+- 2026-08-15: AI 분석 화면에서 실행 그래프와 검토 패널을 동시에 고정 폭으로 노출해 질문·입력 글자가 작아지던 문제를 수정했다. `WAITING_FOR_USER`에서는 검토 패널을 자동으로 집중 모드로 열고 실행 그래프를 68px 접이식 rail로 전환하며, 사용자는 `그래프 펼치기`·`검토 넓게 보기`로 즉시 전환할 수 있다. 질문·답변 입력·분석 결과 본문은 15~16px 수준과 넉넉한 행간으로 키우고 textarea 최소 높이를 132px로 조정했으며, 1180px 이하에서는 집중 모드의 그래프를 완전히 접어 단일 열을 확보한다. Frontend 테스트 35건, TypeScript, ESLint, Next.js production build가 통과했고 로컬 브라우저 렌더링에서 console warning·error 0건을 확인했다. 인증된 실제 `WAITING_FOR_USER` 데이터의 최종 시각 확인은 배포 후 진행한다.
+
 - 2026-08-15: 운영 Agent의 `REACT_BUDGET_EXCEEDED`를 분석해 Supervisor 4개 부서 경로의 정상 Tool 선택 흐름이 최소 약 10회의 모델 호출을 요구하는데 Frontend·Backend·Compose 기본 상한이 8회였던 불일치를 수정했다. 기본 요청·운영 상한을 12회로 조정하고, 각 부서 실행 전에 뒤 부서의 최소 모델·token 예산을 예약하도록 변경했다. 임의의 `ValueError`를 예산 오류로 덮어쓰던 처리도 제거해 이후에는 `MODEL_CALL_BUDGET_EXCEEDED`, `INPUT_TOKEN_BUDGET_EXCEEDED` 등 실제 소진 항목을 반환한다. Agent 전체 pytest(기존 skip 1건 제외), Ruff, mypy 50개 source와 Frontend 테스트 34건·TypeScript·ESLint가 통과했다. Backend Java·test source 컴파일은 통과했으나 로컬 Gradle 9.6.1 test worker의 `GradleWorkerMain` classpath 환경 오류로 정책 테스트 실행만 완료하지 못했다.
 
 - 2026-08-15: 운영 Agent 실행이 접수된 뒤 `AGENT_EXECUTION_FAILED`로만 종료되던 문제를 수정했다. OpenAI Structured Outputs에 전달하는 JSON Schema를 모든 속성이 required인 폐쇄형 schema로 정규화하고, ReAct Tool 인자를 현재 허용된 `query` 계약으로 제한했다. Provider 호출 실패는 `MODEL_PROVIDER_FAILED`로 구분해 저장하며, 예기치 않은 오류는 prompt·응답·secret 없이 run ID와 예외 유형, 정제된 stack frame만 운영 로그에 남긴다. Agent 전체 pytest(기존 skip 1건 제외), Ruff, mypy 50개 source 검증이 통과했다.
