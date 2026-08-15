@@ -27,6 +27,7 @@ from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel
 from runtime import (
     AgentExecutionError,
     ExecutionAuthorization,
+    ExecutionEvent,
     ExecutionOutcome,
     InMemoryAgentRunStore,
     OperationalAgentExecutor,
@@ -212,6 +213,9 @@ async def test_supervisor_executes_bounded_departments() -> None:
     assert outcome.usage.tool_calls == 1
     assert outcome.usage.input_tokens == 40
     assert outcome.usage.output_tokens == 40
+    assert outcome.events[0].type == "route.selected"
+    assert outcome.events[0].data["route"] == "SUPERVISOR"
+    assert any(event.data.get("toolName") == "get_project_context" for event in outcome.events)
 
 
 async def test_research_department_receives_grounded_sources_and_charges_budget() -> None:
@@ -238,6 +242,7 @@ async def test_research_department_receives_grounded_sources_and_charges_budget(
     assert outcome.usage.tool_calls == 3
     assert outcome.usage.search_credits == 1
     assert outcome.usage.crawled_pages == 1
+    assert any(event.data.get("toolName") == "web_research" for event in outcome.events)
 
 
 async def test_operational_react_route_uses_model_selected_allowlisted_tools() -> None:
@@ -387,7 +392,13 @@ async def test_in_memory_resume_persists_question_and_answer_history() -> None:
     )
     await store.create(request)
     await store.mark_running(request.context.run_id)
-    await store.complete(request.context.run_id, ExecutionOutcome(interruption=interruption))
+    await store.complete(
+        request.context.run_id,
+        ExecutionOutcome(
+            interruption=interruption,
+            events=(ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),)
+        )
+    )
     command = ResumeAgentRunRequest(
         interruption_id=interruption.interruption_id,
         idempotency_key="resume-key-0002",
@@ -395,9 +406,13 @@ async def test_in_memory_resume_persists_question_and_answer_history() -> None:
     )
 
     resumed_request = await store.prepare_resume(request.context.run_id, command)
+    events = await store.list_events(request.context.run_id)
 
     assert resumed_request.clarification_history == [
         ClarificationAnswer(question="납기일은 언제인가요?", answer="2026-09-30")
+    ]
+    assert [event.type for event in events] == [
+        "run.accepted", "run.started", "route.selected", "clarification.requested", "clarification.responded"
     ]
 
 
@@ -418,6 +433,8 @@ async def test_direct_tool_route_skips_department_model_generation() -> None:
     assert outcome.usage.request_tier.value == "DIRECT_TOOL"
     assert outcome.usage.model_calls == 1
     assert outcome.usage.tool_calls == 1
+    assert [event.type for event in outcome.events] == ["route.selected", "tool.completed"]
+    assert outcome.events[1].data["toolName"] == "get_project_context"
 
 
 async def test_model_call_budget_fails_before_department_call() -> None:

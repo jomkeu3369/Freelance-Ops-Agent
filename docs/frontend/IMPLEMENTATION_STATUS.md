@@ -22,7 +22,7 @@
 | Evidence Library | Workspace 자료 조회·검색·유형 필터, 청크 preview, 업로드·보관 | 완료 |
 | 분석 진행 상태 | Spring SSE만 구독하는 단계별 진행 카드, 접근 가능한 진행률·대기/응답대기/완료/실패/취소 상태, Last-Event-ID cursor와 bounded backoff 자동 재연결, HITL 재개·실행 중단·재실행, 열린 질문·안전한 출처 provenance·실행 메타데이터, audit 권한 기반 실제 원가·token·credit 표시 | 완료 |
 | HITL 답변 복구 | 사용자·Workspace·run·interruption별 versioned 현재 탭 임시저장, 24시간·질문 일치 검증, 단계 전환 복원, 제출 성공 시 삭제·실패 시 보존 | 완료 |
-| Quote Builder | Lean·Recommended·Expanded 최신안 비교, Workspace 단가표 또는 직접 단가, 항목별 공수·할인, evidence provenance와 Inspector, assumption, Java 계산 결과, immutable revision | 완료 |
+| Quote Builder | Lean·Recommended·Expanded 최신안 비교, AI 작업·공수와 같은 통화·단위의 활성 Workspace 단가표 자동 연결, 기존 0원 임시 초안 보정, 직접 단가·항목별 공수·할인, 읽기 쉬운 단가·근거 선택기와 여러 줄 assumption 편집, evidence provenance와 Inspector, Java 계산 결과, immutable revision | 완료 |
 | 견적 편집 복구 | 사용자·Workspace·프로젝트별 versioned 현재 탭 임시저장, 450ms debounce, 7일 유효성 검증, 복원·폐기 상태 안내, 서버 revision 전환과 이탈 보호 | 완료 |
 | Proposal Preview | 공개 token 조회, 공유 링크 생성·만료 표시·비활성화, 범위·근거·금액, 승인·수정 요청·거절, browser PDF 출력 | 완료 |
 | Outcome Review | 실제 매출·비용·공수·변경 사유와 항목별 실제 결과, 승인 견적 대비 매출·시간 오차 | 완료 |

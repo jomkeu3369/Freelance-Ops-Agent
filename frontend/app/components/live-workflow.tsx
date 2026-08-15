@@ -41,6 +41,7 @@ const nodes = [
 
 const eventNode: Record<string, WorkflowNodeId> = {
   "run.started": "routing",
+  "route.selected": "routing",
   "requirement.updated": "analysis",
   "clarification.requested": "review",
   "tool.started": "context",
@@ -93,6 +94,7 @@ function publicEventLabel(type: string): string {
   return (
     {
       "run.started": "실행을 시작했습니다",
+      "route.selected": "요청에 맞는 실행 경로와 모델을 선택했습니다",
       "requirement.updated": "요구사항 초안을 갱신했습니다",
       "clarification.requested": "사용자 확인을 기다리고 있습니다",
       "tool.started": "필요한 업무 정보를 조회하고 있습니다",

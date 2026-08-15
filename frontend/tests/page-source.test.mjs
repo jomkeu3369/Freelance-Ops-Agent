@@ -6,6 +6,7 @@ import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "..
 import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
 import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
+import { hydrateMissingDraftRates, selectRateCardForDraftItem } from "../app/lib/rate-card-match.mjs";
 import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../app/lib/interruption-draft.mjs";
 
 test("HITL drafts remain isolated to an exact run and expire after 24 hours", () => {
@@ -169,7 +170,7 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.doesNotMatch(css, /\.accordion-content strong \{[^}]*rotate\(180deg\)/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-columns: minmax\(86px, 1fr\) 132px minmax\(90px, 1fr\)/);
   assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
-  assert.doesNotMatch(css, /stepPacketFlow|orbitPulse|graphSheen|nodeSpin|signalFlow|signalBar/);
+  assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
   assert.match(source, /\["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"\]/);
 });
 
@@ -243,6 +244,13 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /isMoving && index === activeIndex - 1/);
   assert.match(css, /\.workflow-link\.active/);
   assert.doesNotMatch(graph, /node-orbit|signal-bars/);
+  assert.match(workspace, /route\.selected/);
+  assert.match(workspace, /Tool 사용/);
+  assert.match(workspace, /reasonCodes/);
+  assert.match(workspace, /decisionSource/);
+  assert.match(workspace, /toolName/);
+  assert.match(css, /\.event-activity-route/);
+  assert.match(css, /\.event-activity-tool/);
   assert.match(api, /NEXT_PUBLIC_API_BASE_URL/);
   assert.match(api, /\/api\/v2\/workspaces/);
   assert.doesNotMatch(api, /localhost:8000|\/internal\/v1/);
@@ -484,7 +492,7 @@ test("workspace presents operational AI metadata in human-readable labels", asyn
   assert.doesNotMatch(workspace, /<span>\{event\.type\}<\/span>/);
 });
 
-test("completed AI analysis prepares an editable quotation draft without inventing prices", async () => {
+test("completed AI analysis prices its editable draft from active server rate cards", async () => {
   const [workspace, api, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
@@ -492,8 +500,9 @@ test("completed AI analysis prepares an editable quotation draft without inventi
   ]);
   assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
   assert.match(workspace, /quotationDraft=\{run\?\.result\?\.quotationDraft \?\? null\}/);
-  assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\]\)/);
-  assert.match(workspace, /unitRate: card\?\.rate \?\? 0/);
+  assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
+  assert.match(workspace, /selectRateCardForDraftItem\(item, rateCards, currency\)/);
+  assert.match(workspace, /hydrateMissingDraftRates\(restored\.items, generatedItems\)/);
   assert.match(workspace, /const activeRateCards = nextRateCards\.filter\(\(card\) => card\.active\)/);
   assert.match(workspace, /const defaultItems = generatedItems \?\? \(latest \? quotationItemsAsInput\(latest\)/);
   assert.match(workspace, /item\.unitRate > 0/);
@@ -501,6 +510,24 @@ test("completed AI analysis prepares an editable quotation draft without inventi
   assert.match(workspace, /AI가 정리한 작업과 공수를 확인하세요/);
   assert.match(css, /\.ai-quote-ready/);
   assert.match(css, /\.quote-draft-state\.generated/);
+  assert.match(css, /\.quote-select-control select/);
+  assert.match(css, /\.basis-copy textarea/);
+});
+
+test("rate-card matching deterministically fills generated and restored zero-price items", () => {
+  const cards = [
+    { id: "day-general", name: "일반 개발", unit: "DAY", rate: 400000, currency: "KRW", active: true },
+    { id: "day-backend", name: "백엔드 개발", unit: "DAY", rate: 550000, currency: "KRW", active: true },
+    { id: "hour-backend", name: "백엔드 개발", unit: "HOUR", rate: 80000, currency: "KRW", active: true },
+  ];
+  const item = { title: "API 구현", description: "인증 API를 개발합니다.", quantity: 2, unit: "DAY", rateCardHint: "백엔드 개발" };
+  assert.equal(selectRateCardForDraftItem(item, cards, "KRW")?.id, "day-backend");
+  assert.equal(selectRateCardForDraftItem({ ...item, rateCardHint: null, title: "기타 작업", description: "" }, cards, "KRW")?.id, "day-general");
+  assert.equal(selectRateCardForDraftItem(item, cards, "USD"), null);
+
+  const restored = [{ rateCardId: null, title: "API 구현", description: "", quantity: 2, unit: "DAY", unitRate: 0, discountRate: 0, basis: { type: "ASSUMPTION", content: "사양 확정", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } }];
+  const generated = [{ ...restored[0], rateCardId: "day-backend", unitRate: 550000 }];
+  assert.deepEqual(hydrateMissingDraftRates(restored, generated), generated);
 });
 
 test("workspace evidence library exposes the complete document lifecycle", async () => {

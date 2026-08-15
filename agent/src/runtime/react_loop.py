@@ -58,6 +58,7 @@ class ReActLoopResult:
     tool_calls: int
     input_tokens: int
     output_tokens: int
+    tool_names: tuple[str, ...]
 
 
 class ReActStepProvider(Protocol):
@@ -81,6 +82,7 @@ class BoundedReActLoop:
         tool_calls = 0
         input_tokens = 0
         output_tokens = 0
+        tool_names: list[str] = []
 
         while model_calls < budget.max_model_calls:
             remaining_attempts = min(budget.max_retries + 1, budget.max_model_calls - model_calls)
@@ -117,6 +119,7 @@ class BoundedReActLoop:
                     tool_calls=tool_calls,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
+                    tool_names=tuple(tool_names)
                 )
 
             if (
@@ -147,6 +150,7 @@ class BoundedReActLoop:
             if call_cost < 1:
                 raise ReActLoopError("TOOL_USAGE_INVALID")
             tool_calls += call_cost
+            tool_names.append(tool.name)
             self._require_budget(budget, model_calls, tool_calls, input_tokens, output_tokens)
             observations.append(
                 {

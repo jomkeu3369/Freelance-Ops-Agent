@@ -18,6 +18,7 @@ from contracts import (
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
+    AgentRunUsage,
     DepartmentName,
     ResumeAgentRunRequest,
 )
@@ -208,19 +209,27 @@ class PostgresCheckpointJournal:
                 outcome.interruption.model_dump(mode="json") if outcome.interruption is not None else None
             ),
             "active_department": outcome.active_department.value if outcome.active_department is not None else None,
+            "usage": outcome.usage.model_dump(mode="json") if outcome.usage is not None else None,
+            "events": [{"type": event.type, "data": event.data} for event in outcome.events],
         }
 
     @staticmethod
     def _deserialize_outcome(value: dict[str, Any]) -> Any:
-        from runtime.runs import ExecutionOutcome
+        from runtime.runs import ExecutionEvent, ExecutionOutcome
 
         result = value.get("result")
         interruption = value.get("interruption")
         department = value.get("active_department")
+        usage = value.get("usage")
         return ExecutionOutcome(
             result=AgentRunResult.model_validate(result) if result is not None else None,
             interruption=AgentInterruption.model_validate(interruption) if interruption is not None else None,
             active_department=DepartmentName(department) if department is not None else None,
+            usage=AgentRunUsage.model_validate(usage) if usage is not None else None,
+            events=tuple(
+                ExecutionEvent(type=event["type"], data=event.get("data", {}))
+                for event in value.get("events", [])
+            )
         )
 
     @staticmethod

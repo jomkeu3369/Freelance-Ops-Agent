@@ -826,7 +826,7 @@ Agent의 견적 초안은 Markdown이 아니라 schema 검증 가능한 구조�
 }
 ```
 
-금액은 위 구조와 rate card를 `calculate_quote`에 전달하여 계산한다.
+금액은 위 구조의 단위·`rateCardHint`와 Workspace의 활성 rate card를 통화·단위·이름 유사도 순으로 결정적으로 연결한 뒤 `calculate_quote`에 전달하여 계산한다. 이름이 일치하지 않아도 같은 통화·단위의 활성 rate card가 있으면 안정적인 서버 정렬 순서의 첫 항목을 검토용 기본값으로 적용한다. LLM은 단가·세금·합계를 생성하지 않으며 사용자는 저장 전에 연결된 rate card를 변경할 수 있다.
 
 ### 11.2 시나리오
 
@@ -919,6 +919,7 @@ POST   /workspaces/{workspaceId}/agent-runs/{runId}/cancel
 
 ```text
 run.started
+route.selected
 requirement.updated
 clarification.requested
 tool.started

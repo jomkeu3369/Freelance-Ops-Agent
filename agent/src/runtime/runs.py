@@ -55,11 +55,18 @@ class ExecutionAuthorization:
 
 
 @dataclass(frozen=True, slots=True)
+class ExecutionEvent:
+    type: str
+    data: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionOutcome:
     result: AgentRunResult | None = None
     interruption: AgentInterruption | None = None
     active_department: DepartmentName | None = None
     usage: AgentRunUsage | None = None
+    events: tuple[ExecutionEvent, ...] = ()
 
     def __post_init__(self) -> None:
         if (self.result is None) == (self.interruption is None):
@@ -182,6 +189,8 @@ class InMemoryAgentRunStore:
                 else AgentRunStatus.COMPLETED
             )
             record.updated_at = datetime.now(UTC)
+            for event in outcome.events:
+                self._append_event(record, event.type, event.data)
             if outcome.interruption is not None:
                 self._append_event(
                     record,

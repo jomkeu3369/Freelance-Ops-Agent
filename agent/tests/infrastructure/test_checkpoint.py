@@ -134,7 +134,7 @@ async def test_open_runs_official_saver_setup_and_close(monkeypatch: pytest.Monk
 
 @pytest.mark.asyncio
 async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_state() -> None:
-    from runtime import ExecutionAuthorization, ExecutionOutcome
+    from runtime import ExecutionAuthorization, ExecutionEvent, ExecutionOutcome
 
     class Executor:
         token: str | None = None
@@ -145,7 +145,10 @@ async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_sta
             self.token = authorization.delegation_token
             from contracts import AgentRunResult
 
-            return ExecutionOutcome(result=AgentRunResult(project_summary=request.input.requirement_text))
+            return ExecutionOutcome(
+                result=AgentRunResult(project_summary=request.input.requirement_text),
+                events=(ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),)
+            )
 
     request = _request()
     saver = InMemorySaver()
@@ -167,6 +170,7 @@ async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_sta
     snapshot = await journal._execution_graph.aget_state(config)
 
     assert outcome.result is not None
+    assert outcome.events == (ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),)
     assert executor.token == "transient-delegation-token"
     assert snapshot.values["phase"] == "executed"
     assert "transient-delegation-token" not in repr(snapshot.values)

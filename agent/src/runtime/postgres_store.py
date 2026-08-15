@@ -93,6 +93,8 @@ class PostgresAgentRunStore:
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, outcome.usage))
             model.updated_at = datetime.now(UTC)
+            for event in outcome.events:
+                await self._append_event(session, run_id, event.type, event.data)
             if outcome.interruption is not None:
                 await self._append_event(
                     session,

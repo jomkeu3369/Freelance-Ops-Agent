@@ -31,7 +31,7 @@ from routing.llm_evaluator import RouteDecisionSource
 from web_research import ResearchCollection, WebResearchBudgetError
 
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, StructuredTool
-from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionOutcome
+from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionEvent, ExecutionOutcome
 
 
 class NoToolArguments(BaseModel):
@@ -118,6 +118,7 @@ class OperationalAgentExecutor:
             authority_verified=request.safety_context.authority_verified,
         )
         decision = await self._gateway.route(text, safety)
+        route_event = self._route_event(request, decision)
         input_tokens = decision.llm_evaluation.input_tokens if decision.llm_evaluation is not None else 0
         output_tokens = decision.llm_evaluation.output_tokens if decision.llm_evaluation is not None else 0
         # 운영 route gateway 자체가 1회의 model decision이다. 테스트 adapter도 같은 예산 계약을 따른다.
@@ -136,7 +137,8 @@ class OperationalAgentExecutor:
                 ),
                 usage=self._usage(
                     decision.route, route_model_calls, 0, input_tokens, output_tokens, 0, 0, 0, started_ns
-                )
+                ),
+                events=(route_event,)
             )
 
         if decision.route is RouteLabel.DIRECT_TOOL:
@@ -159,7 +161,8 @@ class OperationalAgentExecutor:
                 active_department=DepartmentName.VERIFICATION,
                 usage=self._usage(
                     decision.route, route_model_calls, 1, input_tokens, output_tokens, 0, 0, 0, started_ns
-                )
+                ),
+                events=(route_event, self._tool_event("get_project_context", DepartmentName.VERIFICATION))
             )
 
         if decision.route is RouteLabel.SUPERVISOR and request.budget.max_hierarchy_depth < 2:
@@ -189,14 +192,17 @@ class OperationalAgentExecutor:
             )
 
         project_context: ProjectContext | None = None
+        tool_events: list[ExecutionEvent] = []
         if decision.route in {RouteLabel.REACT_AGENT, RouteLabel.SUPERVISOR}:
             project_context = await self._load_project_context(request, authorization)
+            tool_events.append(self._tool_event("get_project_context"))
 
         tool_calls = 1 if project_context is not None else 0
         research: ResearchCollection | None = None
         if DepartmentName.RESEARCH in departments and request.budget.max_search_credits > 0:
             research = await self._collect_research(request, tool_calls)
             tool_calls += research.tool_calls
+            tool_events.append(self._tool_event("web_research", DepartmentName.RESEARCH))
 
         results: list[DepartmentResult] = []
         questions: list[str] = []
@@ -258,7 +264,8 @@ class OperationalAgentExecutor:
                     research.search_credits if research is not None else 0,
                     research.fetched_pages if research is not None else 0,
                     started_ns
-                )
+                ),
+                events=(route_event, *tool_events)
             )
 
         project_summary = "\n\n".join(
@@ -281,7 +288,8 @@ class OperationalAgentExecutor:
                 research.search_credits if research is not None else 0,
                 research.fetched_pages if research is not None else 0,
                 started_ns
-            )
+            ),
+            events=(route_event, *tool_events)
         )
 
     async def _execute_react_departments(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], text: str, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None, model_calls: int, input_tokens: int, output_tokens: int, started_ns: int) -> ExecutionOutcome:  # noqa: E501
@@ -289,6 +297,7 @@ class OperationalAgentExecutor:
         questions: list[str] = []
         quotation_draft: QuotationDraft | None = None
         tool_calls = 0
+        tool_events: list[ExecutionEvent] = []
         research_usage = ResearchCollection(sources=[], search_credits=0, tool_calls=0, fetched_pages=0)
 
         for department_index, department in enumerate(departments):
@@ -336,6 +345,7 @@ class OperationalAgentExecutor:
 
             model_calls += outcome.model_calls
             tool_calls += outcome.tool_calls
+            tool_events.extend(self._tool_event(name, department) for name in outcome.tool_names)
             input_tokens += outcome.input_tokens
             output_tokens += outcome.output_tokens
             selected = selected_research()
@@ -381,6 +391,7 @@ class OperationalAgentExecutor:
                 ),
                 active_department=departments[-1] if departments else None,
                 usage=usage,
+                events=(self._route_event(request, decision), *tool_events)
             )
         return ExecutionOutcome(
             result=AgentRunResult(
@@ -393,6 +404,40 @@ class OperationalAgentExecutor:
             ),
             active_department=departments[-1] if departments else None,
             usage=usage,
+            events=(self._route_event(request, decision), *tool_events)
+        )
+
+    @staticmethod
+    def _route_event(request: AgentRunRequest, decision: FinalRouteDecision) -> ExecutionEvent:
+        reason_codes = (
+            [reason.value for reason in decision.llm_evaluation.verdict.reason_codes]
+            if decision.llm_evaluation is not None
+            else [decision.failure_code or decision.source.value]
+        )
+        return ExecutionEvent(
+            type="route.selected",
+            data={
+                "route": decision.route.value,
+                "provider": request.model_selection.provider.value,
+                "model": request.model_selection.model,
+                "decisionSource": decision.source.value,
+                "reasonCodes": reason_codes
+            }
+        )
+
+    @staticmethod
+    def _tool_event(name: str, department: DepartmentName | None = None) -> ExecutionEvent:
+        reasons = {
+            "get_project_context": "프로젝트 범위, 예산과 확정된 요구사항을 조회하기 위해 사용했습니다.",
+            "web_research": "내부 자료만으로 부족한 외부 근거와 출처를 확인하기 위해 사용했습니다.",
+        }
+        return ExecutionEvent(
+            type="tool.completed",
+            data={
+                "toolName": name,
+                "reason": reasons.get(name, "선택된 실행 경로에 필요한 정보를 확인하기 위해 사용했습니다."),
+                "department": department.value if department is not None else None
+            }
         )
 
     @staticmethod

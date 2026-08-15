@@ -10,6 +10,7 @@ import {
   AddressBook,
   Archive,
   CheckCircle,
+  CaretDown,
   CircleNotch,
   Copy,
   Clock,
@@ -34,6 +35,7 @@ import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "..
 import { sessionRefreshDelay } from "../lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
 import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../lib/quotation-draft.mjs";
+import { hydrateMissingDraftRates, selectRateCardForDraftItem } from "../lib/rate-card-match.mjs";
 import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../lib/interruption-draft.mjs";
 import {
   AgentRunView,
@@ -802,7 +804,93 @@ const eventActivityLabels: Record<string, string> = {
   "run.completed": "분석 완료",
   "run.failed": "분석 중단",
   "run.cancelled": "사용자 중단",
+  "route.selected": "실행 경로 선택",
 };
+
+const routeActivityLabels: Record<string, string> = {
+  DIRECT_TOOL: "결정적 Tool 실행",
+  SIMPLE_LLM: "단일 모델 분석",
+  REACT_AGENT: "ReAct Tool 분석",
+  SUPERVISOR: "다중 부서 Supervisor",
+  HUMAN_REQUIRED: "사용자 판단 우선",
+};
+
+const routeReasonLabels: Record<string, string> = {
+  DETERMINISTIC_OPERATION: "정해진 작업으로 처리할 수 있는 요청",
+  SINGLE_RESPONSE: "한 번의 모델 응답으로 정리 가능한 요청",
+  TOOL_WORKFLOW: "자료 조회와 Tool 실행이 필요한 요청",
+  MULTI_DOMAIN: "여러 전문 영역을 함께 검토해야 하는 요청",
+  APPROVAL_OR_SENSITIVE: "권한 또는 사용자 승인이 필요한 요청",
+  INSUFFICIENT_CONTEXT: "판단에 필요한 정보가 부족한 요청",
+  PROMPT_MANIPULATION: "안전 검토가 필요한 입력",
+  SAFETY_GATE: "안전 정책에 따라 사용자 확인이 필요한 요청",
+  POLICY_GATE: "권한과 안전 정책을 먼저 적용",
+  LOCAL_RRF: "로컬 진단 경로가 일치",
+  LLM_EVALUATOR: "운영 route evaluator가 선택",
+  FAIL_CLOSED: "판단 실패 시 안전한 경로를 선택",
+};
+
+const routeDecisionSourceLabels: Record<string, string> = {
+  LLM_EVALUATOR: "AI 경로 평가",
+  POLICY_GATE: "정책 우선 판단",
+  LOCAL_RRF: "로컬 경로 판단",
+  FAIL_CLOSED: "안전 경로 전환",
+};
+
+const toolActivityLabels: Record<string, string> = {
+  get_project_context: "프로젝트 맥락 조회",
+  web_research: "외부 근거 조사",
+};
+
+function eventDataText(event: WorkflowEvent, key: string): string | null {
+  const value = event.data[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function eventDataTexts(event: WorkflowEvent, key: string): string[] {
+  const value = event.data[key];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())) : [];
+}
+
+function activityPresentation(event: WorkflowEvent, run: AgentRunView | null) {
+  if (event.type === "route.selected") {
+    const route = eventDataText(event, "route");
+    const provider = eventDataText(event, "provider");
+    const model = eventDataText(event, "model");
+    const decisionSource = eventDataText(event, "decisionSource");
+    const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ?? reason);
+    return {
+      title: `경로 선택 · ${routeActivityLabels[route ?? ""] ?? route ?? "확인 중"}`,
+      detail: reasons.join(" · ") || "요청의 범위와 필요한 작업을 기준으로 실행 경로를 선택했습니다.",
+      tags: [route, providerLabels[provider ?? ""] ?? provider, model, routeDecisionSourceLabels[decisionSource ?? ""] ?? decisionSource].filter((value): value is string => Boolean(value)),
+      tone: "route",
+    };
+  }
+  if (event.type === "tool.completed") {
+    const toolName = eventDataText(event, "toolName");
+    const department = eventDataText(event, "department");
+    return {
+      title: `Tool 사용 · ${toolActivityLabels[toolName ?? ""] ?? toolName ?? "업무 도구"}`,
+      detail: eventDataText(event, "reason") ?? "선택된 경로에 필요한 정보를 확인했습니다.",
+      tags: [toolName, department ? departmentLabels[department] ?? department : null].filter((value): value is string => Boolean(value)),
+      tone: "tool",
+    };
+  }
+  if (event.type === "run.started" && run?.metadata) {
+    return {
+      title: eventActivityLabels[event.type],
+      detail: `${providerLabels[run.metadata.provider] ?? run.metadata.provider}의 ${run.metadata.model} 모델로 분석을 시작했습니다.`,
+      tags: [run.metadata.promptVersion],
+      tone: "model",
+    };
+  }
+  return {
+    title: eventActivityLabels[event.type] ?? "분석 진행",
+    detail: null,
+    tags: [],
+    tone: "default",
+  };
+}
 
 const departmentLabels: Record<string, string> = {
   requirements: "요구사항 정리",
@@ -1547,7 +1635,18 @@ function ProjectWorkbench({
             {events.length === 0 ? (
               <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
             ) : (
-              <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{eventActivityLabels[event.type] ?? "분석 진행"}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
+              <ol>{events.slice(-8).reverse().map((event) => {
+                const activity = activityPresentation(event, run);
+                return <li key={event.eventId} className={`event-activity event-activity-${activity.tone}`}>
+                  <span className="event-activity-marker" aria-hidden="true" />
+                  <div className="event-activity-copy">
+                    <strong>{activity.title}</strong>
+                    {activity.detail && <p>{activity.detail}</p>}
+                    {activity.tags.length > 0 && <div className="event-activity-tags">{activity.tags.map((tag, index) => <code key={`${tag}-${index}`}>{tag}</code>)}</div>}
+                  </div>
+                  <time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time>
+                </li>;
+              })}</ol>
             )}
           </div>
         </div>
@@ -1797,18 +1896,9 @@ function quotationItemsAsInput(quotation: Quotation): QuotationItemInput[] {
   }));
 }
 
-function quotationDraftItems(draft: AgentQuotationDraft, rateCards: RateCard[]): QuotationItemInput[] {
-  const normalized = (value: string) => value.toLocaleLowerCase("ko-KR").replace(/\s+/g, "").trim();
+function quotationDraftItems(draft: AgentQuotationDraft, rateCards: RateCard[], currency: string): QuotationItemInput[] {
   return draft.items.map((item) => {
-    const hint = item.rateCardHint ? normalized(item.rateCardHint) : "";
-    const matchingCard = hint
-      ? rateCards.find((card) => {
-          const name = normalized(card.name);
-          return card.unit === item.unit && (name === hint || name.includes(hint) || hint.includes(name));
-        })
-      : null;
-    const compatibleCards = rateCards.filter((card) => card.unit === item.unit);
-    const card = matchingCard ?? (compatibleCards.length === 1 ? compatibleCards[0] : null);
+    const card = selectRateCardForDraftItem(item, rateCards, currency) as RateCard | null;
     const hasEvidence = item.basis.type === "EVIDENCE" && Boolean(item.basis.sourceReference?.trim());
     return {
       rateCardId: card?.id ?? null,
@@ -1887,7 +1977,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
           const activeRateCards = nextRateCards.filter((card) => card.active);
           setRateCards(activeRateCards);
           const latest = result[0] ?? null;
-          const generatedItems = quotationDraft ? quotationDraftItems(quotationDraft, activeRateCards) : null;
+          const generatedItems = quotationDraft ? quotationDraftItems(quotationDraft, activeRateCards, project.currency) : null;
           const defaultScenario = quotationDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
           const defaultItems = generatedItems ?? (latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()]);
           const defaultTaxRate = latest?.taxRate ?? .1;
@@ -1905,15 +1995,16 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
             }
           }
           if (restored) {
+            const restoredItems = generatedItems ? hydrateMissingDraftRates(restored.items, generatedItems) as QuotationItemInput[] : restored.items;
             const baseQuotation = restored.baseQuotationId
               ? result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null
               : null;
             setSaved(baseQuotation);
             setScenario(restored.scenario);
-            setItems(restored.items);
+            setItems(restoredItems);
             setTaxRate(restored.taxRate);
             setValidUntil(restored.validUntil);
-            const restoredFingerprint = fingerprint(restored.scenario, restored.baseQuotationId, restored.taxRate, restored.validUntil, restored.items);
+            const restoredFingerprint = fingerprint(restored.scenario, restored.baseQuotationId, restored.taxRate, restored.validUntil, restoredItems);
             const baselineItems = baseQuotation ? quotationItemsAsInput(baseQuotation) : [emptyQuoteItem()];
             setDraftBaseline(fingerprint(
               baseQuotation?.scenario ?? "RECOMMENDED",
@@ -1942,7 +2033,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [canRead, canWrite, draftStorageKey, fingerprint, project.id, project.workspaceId, quotationDraft, session]);
+  }, [canRead, canWrite, draftStorageKey, fingerprint, project.currency, project.id, project.workspaceId, quotationDraft, session]);
 
   const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
   const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
@@ -2111,7 +2202,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
 
       {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
         <Clock size={19} />
-        <div><strong>{draftStatus.kind === "generated" ? "AI가 견적 초안을 채웠습니다." : draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "generated" ? "작업 범위와 공수를 확인하고, 연결되지 않은 단가는 직접 선택해 주세요." : draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
+        <div><strong>{draftStatus.kind === "generated" ? "AI가 견적 초안을 채웠습니다." : draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "generated" ? "작업과 공수에 맞는 등록 단가를 자동으로 연결했습니다. 저장 전에 단가와 가정을 확인해 주세요." : draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
         {draftStatus.kind !== "unavailable" && <button type="button" className="quiet-button" onClick={discardDraft}>임시저장 버리기</button>}
       </div>}
 
@@ -2141,9 +2232,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
                 <button type="button" className="remove-item" aria-label={`${index + 1}번 항목 삭제`} disabled={!canWrite || items.length === 1} onClick={() => { setItems((current) => current.filter((_, itemIndex) => itemIndex !== index)); setSelectedBasisIndex((current) => Math.max(0, Math.min(current, items.length - 2))); }}><Trash size={17} /></button>
               </div>
               <div className="basis-row">
-                <select aria-label="서비스 단가표" value={item.rateCardId ?? ""} disabled={!canWrite} onChange={(event) => { const card = rateCards.find((candidate) => candidate.id === event.target.value); updateItem(index, (current) => card ? { ...current, rateCardId: card.id, unit: card.unit, unitRate: card.rate } : { ...current, rateCardId: null }); }}><option value="">직접 단가</option>{rateCards.map((card) => <option key={card.id} value={card.id}>{card.name} · {formatMoney(card.rate, card.currency)}</option>)}</select>
-                <select aria-label="근거 유형" value={item.basis.type} disabled={!canWrite} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: event.target.value === "ASSUMPTION" ? { type: "ASSUMPTION", content: current.basis.content, sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } : { ...current.basis, type: "EVIDENCE" } }))}><option value="ASSUMPTION">확인할 가정</option><option value="EVIDENCE">검증된 근거</option></select>
-                <input value={item.basis.content} readOnly={!canWrite} maxLength={3000} placeholder="이 공수와 단가를 정한 근거 또는 아직 확인되지 않은 가정을 입력하세요." onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, content: event.target.value } }))} />
+                <label className="quote-select-control"><span>단가 기준</span><div><select aria-label="서비스 단가표" value={item.rateCardId ?? ""} disabled={!canWrite} onChange={(event) => { const card = rateCards.find((candidate) => candidate.id === event.target.value); updateItem(index, (current) => card ? { ...current, rateCardId: card.id, unit: card.unit, unitRate: card.rate } : { ...current, rateCardId: null }); }}><option value="">직접 입력</option>{rateCards.filter((card) => card.currency === project.currency).map((card) => <option key={card.id} value={card.id}>{card.name} · {formatMoney(card.rate, card.currency)}</option>)}</select><CaretDown size={16} aria-hidden="true" /></div><small>{item.rateCardId ? "등록된 단가가 적용되었습니다." : "적합한 단가를 선택하거나 직접 입력하세요."}</small></label>
+                <label className="quote-select-control"><span>산정 근거</span><div><select aria-label="근거 유형" value={item.basis.type} disabled={!canWrite} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: event.target.value === "ASSUMPTION" ? { type: "ASSUMPTION", content: current.basis.content, sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } : { ...current.basis, type: "EVIDENCE" } }))}><option value="ASSUMPTION">확인이 필요한 가정</option><option value="EVIDENCE">검증된 근거</option></select><CaretDown size={16} aria-hidden="true" /></div><small>{item.basis.type === "ASSUMPTION" ? "저장 전 확인이 필요한 조건입니다." : "출처 정보와 함께 저장됩니다."}</small></label>
+                <label className="basis-copy"><span>{item.basis.type === "ASSUMPTION" ? "가정 내용" : "근거 내용"}</span><textarea rows={3} value={item.basis.content} readOnly={!canWrite} maxLength={3000} placeholder="이 공수와 단가를 정한 근거 또는 아직 확인되지 않은 가정을 입력하세요." onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, content: event.target.value } }))} /></label>
                 {item.basis.type === "EVIDENCE" && <div className="evidence-fields"><label><span>출처 유형</span><select required aria-label="출처 유형" value={item.basis.sourceType ?? ""} disabled={!canWrite} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceType: event.target.value as NonNullable<QuotationItemInput["basis"]["sourceType"]> } }))}><option value="">선택</option><option value="PAST_PROJECT">과거 프로젝트</option><option value="POLICY">내부 정책</option><option value="PLATFORM_TERMS">플랫폼 약관</option><option value="USER_TEMPLATE">사용자 자료</option><option value="EXTERNAL_SOURCE">외부 자료</option></select></label><label><span>출처 참조</span><input required maxLength={1000} readOnly={!canWrite} value={item.basis.sourceReference ?? ""} placeholder="문서 ID 또는 원문 URL" onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceReference: event.target.value } }))} /></label><label><span>출처 제목</span><input maxLength={300} readOnly={!canWrite} value={item.basis.sourceTitle ?? ""} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceTitle: event.target.value || null } }))} /></label><label><span>조회 시점</span><input type="datetime-local" readOnly={!canWrite} value={toDateTimeLocal(item.basis.retrievedAt)} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, retrievedAt: event.target.value ? new Date(event.target.value).toISOString() : null } }))} /></label></div>}
               </div>
             </div>

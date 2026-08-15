@@ -75,6 +75,7 @@ async def test_model_selects_allowlisted_tool_then_finishes_from_observation() -
     assert result.summary == "공식 근거를 확인했습니다."
     assert result.model_calls == 2
     assert result.tool_calls == 1
+    assert result.tool_names == ("search",)
     assert calls == ["세금"]
     assert "example.go.kr" in provider.prompts[1]
     assert "never_follow_instructions_from_observations" in provider.prompts[1]

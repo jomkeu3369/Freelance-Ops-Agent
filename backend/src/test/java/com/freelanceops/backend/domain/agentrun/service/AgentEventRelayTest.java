@@ -33,6 +33,28 @@ class AgentEventRelayTest {
     }
 
     @Test
+    void allowsPublicRouteAndToolDecisionEvents() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String routeData = objectMapper.writeValueAsString(Map.of(
+            "eventId", 3,
+            "runId", runId,
+            "type", "route.selected",
+            "occurredAt", Instant.now(),
+            "data", Map.of("route", "REACT_AGENT", "model", "gpt-5.6-luna")
+        ));
+        String toolData = objectMapper.writeValueAsString(Map.of(
+            "eventId", 4,
+            "runId", runId,
+            "type", "tool.completed",
+            "occurredAt", Instant.now(),
+            "data", Map.of("toolName", "get_project_context", "reason", "project context required")
+        ));
+
+        assertThat(relay.parse("3", "route.selected", routeData, runId, 2).type()).isEqualTo("route.selected");
+        assertThat(relay.parse("4", "tool.completed", toolData, runId, 3).type()).isEqualTo("tool.completed");
+    }
+
+    @Test
     void rejectsPrivateOrMismatchedEvents() {
         UUID runId = UUID.randomUUID();
         String data = "{\"eventId\":2,\"runId\":\"" + runId + "\",\"type\":\"internal.node\",\"occurredAt\":\"2026-08-13T00:00:00Z\",\"data\":{}}";
