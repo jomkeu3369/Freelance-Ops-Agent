@@ -342,6 +342,20 @@ test("responsive and reduced-motion gates cover the documented breakpoints", asy
   assert.doesNotMatch(page, /activeStep === index && <WorkflowStepVisual/);
 });
 
+test("landing color tokens and section grids keep light and dark hierarchy consistent", async () => {
+  const css = await read("../app/globals.css");
+  assert.match(css, /--accent-card-bg: #242426/);
+  assert.match(css, /--bg: #0b0f17/);
+  assert.match(css, /--surface-solid: #141a26/);
+  assert.match(css, /--muted: #b7c0ce/);
+  assert.match(css, /--accent-card-bg: #151b2b/);
+  assert.match(css, /\.deliverables-section,[\s\S]*?grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.deliverable-card\.featured \{[^}]*background: var\(--accent-card-bg\)/);
+  assert.match(css, /\.outcome-card \{[^}]*background: var\(--accent-card-bg\)/);
+  assert.match(css, /\.final-cta \{[^}]*background: var\(--cta-bg\)/);
+  assert.doesNotMatch(css, /\[data-theme="dark"\] \.deliverable-card\.featured/);
+});
+
 test("manual quotation, evidence, outcome, and public proposal flows use real Spring contracts", async () => {
   const [workspace, api, proposal] = await Promise.all([
     read("../app/workspace/page.tsx"),
