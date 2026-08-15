@@ -49,10 +49,11 @@ class FixedGateway:
 
 
 class FixedProvider:
-    def __init__(self, *, questions: list[str] | None = None, tokens: int = 10, model_calls: int = 1) -> None:
+    def __init__(self, *, questions: list[str] | None = None, tokens: int = 10, model_calls: int = 1, quotation_draft: dict[str, object] | None = None) -> None:  # noqa: E501
         self.questions = questions or []
         self.tokens = tokens
         self.model_calls = model_calls
+        self.quotation_draft = quotation_draft
         self.calls = 0
         self.prompts: list[str] = []
 
@@ -68,7 +69,11 @@ class FixedProvider:
         self.calls += 1
         self.prompts.append(prompt)
         return ModelGeneration(
-            payload={"summary": "work product", "open_questions": self.questions},
+            payload={
+                "summary": "work product",
+                "open_questions": self.questions,
+                "quotation_draft": self.quotation_draft
+            },
             input_tokens=self.tokens,
             output_tokens=self.tokens,
             model_calls=self.model_calls,
@@ -302,6 +307,38 @@ async def test_required_question_creates_clarification_interruption() -> None:
 
     assert outcome.interruption is not None
     assert outcome.interruption.kind.value == "CLARIFICATION"
+
+
+async def test_agent_result_contains_editable_quotation_draft_without_prices() -> None:
+    draft = {
+        "scenario": "RECOMMENDED",
+        "items": [
+            {
+                "title": "API 구현",
+                "description": "인증된 API를 구현합니다.",
+                "quantity": 16,
+                "unit": "HOUR",
+                "rate_card_hint": "백엔드 개발",
+                "basis": {
+                    "type": "ASSUMPTION",
+                    "content": "외부 연동 사양이 확정되어 있다고 가정합니다.",
+                    "source_reference": None,
+                    "source_title": None
+                }
+            }
+        ]
+    }
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.SIMPLE_LLM),
+        FixedProvider(quotation_draft=draft)
+    )
+
+    outcome = await executor.execute(_request())
+
+    assert outcome.result is not None
+    assert outcome.result.quotation_draft is not None
+    assert outcome.result.quotation_draft.items[0].title == "API 구현"
+    assert "unit_rate" not in outcome.result.quotation_draft.model_dump()
 
 
 async def test_clarification_questions_are_deduplicated_and_limited_to_three() -> None:

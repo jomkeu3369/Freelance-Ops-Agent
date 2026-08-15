@@ -38,6 +38,7 @@ import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft }
 import {
   AgentRunView,
   AgentRunUsage,
+  AgentQuotationDraft,
   ApiError,
   ActualOutcome,
   AuthSession,
@@ -1473,25 +1474,21 @@ function ProjectWorkbench({
       {activeStep === "intake" && <IntakeReview session={session} project={project} permissions={permissions} onContinue={() => selectStep("agent")} />}
 
       {activeStep === "agent" && <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
-        <div id="run-execution-graph" className="graph-panel">
-          {reviewFocused ? (
-            <button type="button" className="graph-restore" aria-label="실행 그래프 펼치기" onClick={() => setReviewFocused(false)}><Graph size={20} /><span>실행 그래프</span><ArrowRight size={16} /></button>
-          ) : <>
-            <LiveWorkflow snapshot={snapshot} />
-            {runId && canCancel && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && <div className="run-action-bar"><span>필요하면 현재 실행을 안전하게 중단할 수 있습니다.</span><button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{busy ? <CircleNotch className="spin" /> : <Warning size={17} />} 실행 중단</button></div>}
-            <div className="event-timeline">
-              <div className="panel-title"><span>최근 실행 신호</span><small>{events.length ? `${events.length}개 수신` : "아직 신호 없음"}</small></div>
-              {events.length === 0 ? (
-                <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
-              ) : (
-                <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{event.type}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
-              )}
-            </div>
-          </>}
+        <div id="run-execution-graph" className="graph-panel" hidden={reviewFocused}>
+          <LiveWorkflow snapshot={snapshot} />
+          {runId && canCancel && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && <div className="run-action-bar"><span>필요하면 현재 실행을 안전하게 중단할 수 있습니다.</span><button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{busy ? <CircleNotch className="spin" /> : <Warning size={17} />} 실행 중단</button></div>}
+          <div className="event-timeline">
+            <div className="panel-title"><span>최근 실행 신호</span><small>{events.length ? `${events.length}개 수신` : "아직 신호 없음"}</small></div>
+            {events.length === 0 ? (
+              <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
+            ) : (
+              <ol>{events.slice(-6).reverse().map((event) => <li key={event.eventId}><span>{event.type}</span><time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : "방금"}</time></li>)}</ol>
+            )}
+          </div>
         </div>
 
         <aside className="run-inspector">
-          <div className="panel-title inspector-title"><span>검토 패널</span><div>{run && <small>{run.status}</small>}<button type="button" className="panel-focus-toggle" aria-controls="run-execution-graph" aria-expanded={!reviewFocused} onClick={() => setReviewFocused((current) => !current)}>{reviewFocused ? <><ArrowLeft size={15} /> 그래프 펼치기</> : <>검토 넓게 보기 <ArrowRight size={15} /></>}</button></div></div>
+          <div className="panel-title inspector-title"><span>검토 패널</span><div>{run && <small className="run-status-chip">{run.status}</small>}<button type="button" className="panel-focus-toggle" aria-controls="run-execution-graph" aria-expanded={!reviewFocused} onClick={() => setReviewFocused((current) => !current)}>{reviewFocused ? <><Graph size={16} /> 실행 과정 보기</> : <>검토 넓게 보기 <ArrowRight size={15} /></>}</button></div></div>
           {!run ? (
             <div className="inspector-empty"><Clock size={26} /><p>실행 결과와 확인 질문이 여기에 나타납니다.</p></div>
           ) : run.status === "WAITING_FOR_USER" && run.interruption ? (
@@ -1514,6 +1511,7 @@ function ProjectWorkbench({
               <p>{run.result.projectSummary}</p>
               {run.metadata && <div className="run-provenance"><span>{run.metadata.provider} · {run.metadata.model}</span><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></div>}
               {run.result.openQuestions.length > 0 && <section className="run-open-questions"><span>아직 확인할 질문</span><ul>{run.result.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>}
+              {run.result.quotationDraft && <section className="ai-quote-ready"><div><Receipt size={20} /><span>AI 견적 초안</span><strong>{run.result.quotationDraft.items.length}개 작업 항목을 준비했습니다.</strong><small>단가와 최종 금액은 등록된 기준으로 계산되며 저장 전 직접 확인할 수 있습니다.</small></div><button type="button" className="secondary-button" onClick={() => selectStep("quote")}>견적 검토하기 <ArrowRight size={16} /></button></section>}
               {run.result.departmentResults.map((result) => <article key={result.department}>
                 <strong>{result.department}</strong>
                 <p>{result.summary}</p>
@@ -1532,7 +1530,7 @@ function ProjectWorkbench({
         </aside>
       </div>}
 
-      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} />}
+      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} />}
       {activeStep === "outcome" && <OutcomeReview session={session} project={project} permissions={permissions} />}
       {editingProject && <ProjectEditDialog session={session} project={project} clients={clients} onClose={() => setEditingProject(false)} onUpdated={(updated) => { onProjectUpdated(updated); setEditingProject(false); }} />}
     </>
@@ -1731,6 +1729,39 @@ function quotationItemsAsInput(quotation: Quotation): QuotationItemInput[] {
   }));
 }
 
+function quotationDraftItems(draft: AgentQuotationDraft, rateCards: RateCard[]): QuotationItemInput[] {
+  const normalized = (value: string) => value.toLocaleLowerCase("ko-KR").replace(/\s+/g, "").trim();
+  return draft.items.map((item) => {
+    const hint = item.rateCardHint ? normalized(item.rateCardHint) : "";
+    const matchingCard = hint
+      ? rateCards.find((card) => {
+          const name = normalized(card.name);
+          return card.unit === item.unit && (name === hint || name.includes(hint) || hint.includes(name));
+        })
+      : null;
+    const compatibleCards = rateCards.filter((card) => card.unit === item.unit);
+    const card = matchingCard ?? (compatibleCards.length === 1 ? compatibleCards[0] : null);
+    const hasEvidence = item.basis.type === "EVIDENCE" && Boolean(item.basis.sourceReference?.trim());
+    return {
+      rateCardId: card?.id ?? null,
+      title: item.title,
+      description: item.description,
+      quantity: item.quantity,
+      unit: card?.unit ?? item.unit,
+      unitRate: card?.rate ?? 0,
+      discountRate: 0,
+      basis: {
+        type: hasEvidence ? "EVIDENCE" : "ASSUMPTION",
+        content: item.basis.content,
+        sourceType: hasEvidence ? "EXTERNAL_SOURCE" : null,
+        sourceReference: hasEvidence ? item.basis.sourceReference : null,
+        sourceTitle: hasEvidence ? item.basis.sourceTitle : null,
+        retrievedAt: null
+      }
+    };
+  });
+}
+
 async function copyToClipboard(value: string): Promise<boolean> {
   if (!navigator.clipboard?.writeText) return false;
   try {
@@ -1742,11 +1773,11 @@ async function copyToClipboard(value: string): Promise<boolean> {
 }
 
 type QuoteDraftStatus = {
-  kind: "restored" | "saved" | "unavailable";
+  kind: "generated" | "restored" | "saved" | "unavailable";
   updatedAt: string | null;
 };
 
-function QuoteBuilder({ session, project, permissions }: { session: AuthSession; project: Project; permissions: Set<string> }) {
+function QuoteBuilder({ session, project, permissions, quotationDraft }: { session: AuthSession; project: Project; permissions: Set<string>; quotationDraft: AgentQuotationDraft | null }) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
   const canPublish = permissions.has("quotation.publish");
@@ -1785,10 +1816,12 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
         if (!cancelled) {
           setDraftStatus(null);
           setQuotations(result);
-          setRateCards(nextRateCards.filter((card) => card.active));
+          const activeRateCards = nextRateCards.filter((card) => card.active);
+          setRateCards(activeRateCards);
           const latest = result[0] ?? null;
-          const defaultScenario = latest?.scenario ?? "RECOMMENDED";
-          const defaultItems = latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()];
+          const generatedItems = quotationDraft ? quotationDraftItems(quotationDraft, activeRateCards) : null;
+          const defaultScenario = quotationDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
+          const defaultItems = generatedItems ?? (latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()]);
           const defaultTaxRate = latest?.taxRate ?? .1;
           const defaultValidUntil = latest?.validUntil ?? "";
           let restored = null;
@@ -1832,6 +1865,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
             const baseline = fingerprint(defaultScenario, latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
             setDraftBaseline(baseline);
             lastPersistedDraftRef.current = baseline;
+            if (generatedItems) setDraftStatus({ kind: "generated", updatedAt: null });
           }
           setDraftProjectId(project.id);
         }
@@ -1840,7 +1874,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [canRead, canWrite, draftStorageKey, fingerprint, project.id, project.workspaceId, session]);
+  }, [canRead, canWrite, draftStorageKey, fingerprint, project.id, project.workspaceId, quotationDraft, session]);
 
   const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
   const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
@@ -1881,7 +1915,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
   const estimatedSubtotal = items.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0);
   const canSave = canWrite && items.length > 0 && items.every((item) => item.title.trim()
     && item.quantity > 0
-    && item.unitRate >= 0
+    && item.unitRate > 0
     && item.basis.content.trim()
     && (item.basis.type === "ASSUMPTION" || Boolean(item.basis.sourceType && item.basis.sourceReference?.trim())));
   const selectedBasis = items[Math.min(selectedBasisIndex, items.length - 1)]?.basis ?? null;
@@ -1998,8 +2032,8 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
     <section className="quote-builder">
       <div className="quote-toolbar">
         <div>
-          <span>견적 직접 작성</span>
-          <h2>항목별 공수와 근거를 함께 기록하세요.</h2>
+          <span>{quotationDraft ? "AI 초안 검토" : "견적 직접 작성"}</span>
+          <h2>{quotationDraft ? "AI가 정리한 작업과 공수를 확인하세요." : "항목별 공수와 근거를 함께 기록하세요."}</h2>
         </div>
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => setScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
@@ -2009,7 +2043,7 @@ function QuoteBuilder({ session, project, permissions }: { session: AuthSession;
 
       {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
         <Clock size={19} />
-        <div><strong>{draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
+        <div><strong>{draftStatus.kind === "generated" ? "AI가 견적 초안을 채웠습니다." : draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "generated" ? "작업 범위와 공수를 확인하고, 연결되지 않은 단가는 직접 선택해 주세요." : draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
         {draftStatus.kind !== "unavailable" && <button type="button" className="quiet-button" onClick={discardDraft}>임시저장 버리기</button>}
       </div>}
 

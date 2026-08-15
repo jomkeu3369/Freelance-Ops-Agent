@@ -112,6 +112,31 @@ class HttpAgentRunClientTest {
         assertThat(HttpAgentRunClient.http11Client().version()).isEqualTo(HttpClient.Version.HTTP_1_1);
     }
 
+    @Test
+    void deserializesStructuredQuotationDraftWithoutPrices() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpAgentRunClient client = testClient(builder);
+        UUID runId = UUID.randomUUID();
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        String result = "{\"projectSummary\":\"분석 완료\",\"openQuestions\":[],\"departmentResults\":[],"
+            + "\"quotationDraft\":{\"scenario\":\"RECOMMENDED\",\"items\":[{\"title\":\"API 구현\","
+            + "\"description\":\"인증 API\",\"quantity\":16,\"unit\":\"HOUR\","
+            + "\"rateCardHint\":\"백엔드 개발\",\"basis\":{\"type\":\"ASSUMPTION\","
+            + "\"content\":\"사양 확정 가정\",\"sourceReference\":null,\"sourceTitle\":null}}]}}";
+        String view = "{\"runId\":\"" + runId + "\",\"status\":\"COMPLETED\",\"result\":" + result
+            + ",\"metadata\":{\"provider\":\"OPENAI\",\"model\":\"gpt-test\",\"promptVersion\":\"v1\","
+            + "\"toolSchemaVersion\":\"v1\",\"traceId\":\"trace\"},\"updatedAt\":\"2026-08-13T10:00:00Z\"}";
+        server.expect(requestTo("http://agent:8000/internal/v1/agent-runs/" + runId))
+            .andRespond(withSuccess(view, MediaType.APPLICATION_JSON));
+
+        AgentRunView response = client.get(runId, "signed-token", traceparent);
+
+        assertThat(response.result().quotationDraft().items()).hasSize(1);
+        assertThat(response.result().quotationDraft().items().getFirst().title()).isEqualTo("API 구현");
+        server.verify();
+    }
+
     private static HttpAgentRunClient testClient(RestClient.Builder builder) {
         return new HttpAgentRunClient(builder, "http://agent:8000", HttpAgentRunClient.http11Client());
     }

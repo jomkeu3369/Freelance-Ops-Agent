@@ -9,7 +9,7 @@ from typing import Protocol
 
 from pydantic import BaseModel, ValidationError
 
-from contracts import ModelSelection
+from contracts import ModelSelection, QuotationDraft
 from providers import ModelGeneration, ReActStep
 
 
@@ -53,6 +53,7 @@ class ReActLoopBudget:
 class ReActLoopResult:
     summary: str
     open_questions: list[str]
+    quotation_draft: QuotationDraft | None
     model_calls: int
     tool_calls: int
     input_tokens: int
@@ -111,13 +112,19 @@ class BoundedReActLoop:
                 return ReActLoopResult(
                     summary=step.summary,
                     open_questions=step.open_questions,
+                    quotation_draft=step.quotation_draft,
                     model_calls=model_calls,
                     tool_calls=tool_calls,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
                 )
 
-            if step.tool_name is None or step.summary is not None or step.open_questions:
+            if (
+                step.tool_name is None
+                or step.summary is not None
+                or step.open_questions
+                or step.quotation_draft is not None
+            ):
                 raise ReActLoopError("REACT_TOOL_CALL_INVALID")
             tool = self._tools.get(step.tool_name)
             if tool is None:

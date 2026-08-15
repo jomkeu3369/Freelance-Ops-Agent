@@ -52,7 +52,7 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
     assert responses.calls[0]["tools"] == []
     output_format = responses.calls[0]["text"]["format"]
     schema = output_format["schema"]
-    assert schema["required"] == ["summary", "open_questions"]
+    assert schema["required"] == ["summary", "open_questions", "quotation_draft"]
     assert schema["additionalProperties"] is False
 
 
@@ -106,7 +106,14 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
     assert output_format["name"] == "bounded_react_step"
     assert output_format["strict"] is True
     schema = output_format["schema"]
-    assert schema["required"] == ["action", "tool_name", "arguments", "summary", "open_questions"]
+    assert schema["required"] == [
+        "action",
+        "tool_name",
+        "arguments",
+        "summary",
+        "open_questions",
+        "quotation_draft"
+    ]
     arguments_schema = schema["$defs"]["ReActArguments"]
     assert arguments_schema["required"] == ["query"]
     assert arguments_schema["additionalProperties"] is False

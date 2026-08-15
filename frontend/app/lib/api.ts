@@ -146,6 +146,23 @@ export interface AgentInterruption {
   questions: string[];
 }
 
+export interface AgentQuotationDraft {
+  scenario: QuotationScenario;
+  items: Array<{
+    title: string;
+    description: string;
+    quantity: number;
+    unit: WorkUnit;
+    rateCardHint: string | null;
+    basis: {
+      type: BasisType;
+      content: string;
+      sourceReference: string | null;
+      sourceTitle: string | null;
+    };
+  }>;
+}
+
 export interface AgentRunView {
   runId: string;
   status: AgentRunStatus;
@@ -169,6 +186,7 @@ export interface AgentRunView {
       }>;
       errorCode: string | null;
     }>;
+    quotationDraft: AgentQuotationDraft | null;
   } | null;
   errorCode: string | null;
   metadata: {

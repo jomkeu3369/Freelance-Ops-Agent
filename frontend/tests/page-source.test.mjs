@@ -471,6 +471,25 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
   assert.match(css, /\.quote-draft-state\.unavailable/);
 });
 
+test("completed AI analysis prepares an editable quotation draft without inventing prices", async () => {
+  const [workspace, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
+  assert.match(workspace, /quotationDraft=\{run\?\.result\?\.quotationDraft \?\? null\}/);
+  assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\]\)/);
+  assert.match(workspace, /unitRate: card\?\.rate \?\? 0/);
+  assert.match(workspace, /const activeRateCards = nextRateCards\.filter\(\(card\) => card\.active\)/);
+  assert.match(workspace, /const defaultItems = generatedItems \?\? \(latest \? quotationItemsAsInput\(latest\)/);
+  assert.match(workspace, /item\.unitRate > 0/);
+  assert.match(workspace, /AI가 견적 초안을 채웠습니다/);
+  assert.match(workspace, /AI가 정리한 작업과 공수를 확인하세요/);
+  assert.match(css, /\.ai-quote-ready/);
+  assert.match(css, /\.quote-draft-state\.generated/);
+});
+
 test("workspace evidence library exposes the complete document lifecycle", async () => {
   const [workspace, api] = await Promise.all([
     read("../app/workspace/page.tsx"),
@@ -664,8 +683,11 @@ test("waiting agent runs prioritize a readable collapsible review panel", async 
   assert.match(workspace, /setReviewFocused\(run\?\.status === "WAITING_FOR_USER"\)/);
   assert.match(workspace, /aria-controls="run-execution-graph"/);
   assert.match(workspace, /aria-expanded=\{!reviewFocused\}/);
-  assert.match(workspace, /실행 그래프 펼치기/);
-  assert.match(css, /\.workbench-grid\.review-focused \{ grid-template-columns: 68px minmax\(0, 1fr\)/);
+  assert.match(workspace, /className="graph-panel" hidden=\{reviewFocused\}/);
+  assert.match(workspace, /실행 과정 보기/);
+  assert.match(css, /\.workbench-grid\.review-focused \{ grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(css, /\.workbench-grid\.review-focused \.graph-panel \{ display: none/);
+  assert.doesNotMatch(css, /\.graph-restore/);
   assert.match(css, /\.interruption-form label \{[^}]*font-size: 1rem/);
   assert.match(css, /\.interruption-form textarea \{[^}]*min-height: 132px/);
 });

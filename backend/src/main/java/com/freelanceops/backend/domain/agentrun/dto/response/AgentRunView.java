@@ -28,7 +28,29 @@ public record AgentRunView(
     public record AgentRunResult(
         String projectSummary,
         List<String> openQuestions,
-        List<DepartmentResult> departmentResults
+        List<DepartmentResult> departmentResults,
+        QuotationDraft quotationDraft
+    ) {
+    }
+
+    public record QuotationDraft(String scenario, List<QuotationDraftItem> items) {
+    }
+
+    public record QuotationDraftItem(
+        String title,
+        String description,
+        double quantity,
+        String unit,
+        String rateCardHint,
+        QuotationDraftBasis basis
+    ) {
+    }
+
+    public record QuotationDraftBasis(
+        String type,
+        String content,
+        String sourceReference,
+        String sourceTitle
     ) {
     }
 

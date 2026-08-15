@@ -251,10 +251,43 @@ class AgentInterruption(StrictModel):
     questions: list[str] = Field(min_length=1, max_length=3)
 
 
+class DraftWorkUnit(StrEnum):
+    HOUR = "HOUR"
+    DAY = "DAY"
+    FIXED = "FIXED"
+
+
+class DraftBasisType(StrEnum):
+    ASSUMPTION = "ASSUMPTION"
+    EVIDENCE = "EVIDENCE"
+
+
+class QuotationDraftBasis(StrictModel):
+    type: DraftBasisType
+    content: str = Field(min_length=1, max_length=3000)
+    source_reference: str | None = Field(default=None, max_length=2048)
+    source_title: str | None = Field(default=None, max_length=300)
+
+
+class QuotationDraftItem(StrictModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=5000)
+    quantity: float = Field(gt=0)
+    unit: DraftWorkUnit
+    rate_card_hint: str | None = Field(default=None, max_length=200)
+    basis: QuotationDraftBasis
+
+
+class QuotationDraft(StrictModel):
+    scenario: str = Field(default="RECOMMENDED", pattern=r"^(LEAN|RECOMMENDED|EXPANDED)$")
+    items: list[QuotationDraftItem] = Field(min_length=1, max_length=50)
+
+
 class AgentRunResult(StrictModel):
     project_summary: str = Field(max_length=10000)
     open_questions: list[str] = Field(default_factory=list)
     department_results: list[DepartmentResult] = Field(default_factory=list, max_length=4)
+    quotation_draft: QuotationDraft | None = None
 
 
 class AgentRunMetadata(StrictModel):
