@@ -29,6 +29,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -204,6 +206,60 @@ class AgentRunGatewayServiceTest {
         verify(agentRunClient).cancel(waitingRunId, "waiting-token", "traceparent");
         assertThat(completedRun.status()).isEqualTo(AgentRunStatus.COMPLETED);
         assertThat(waitingRun.status()).isEqualTo(AgentRunStatus.CANCELLED);
+    }
+
+    @Test
+    void retiresAnActiveRunMissingFromTheAgentRuntimeBeforePermanentDeletion() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        AgentRunEntity missingRun = run(runId, workspaceId, projectId, userId);
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(),
+            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
+        )));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
+            .thenReturn(List.of(missingRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(missingRun));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("missing-token");
+        when(agentRunClient.get(runId, "missing-token", "traceparent"))
+            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+
+        service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
+
+        assertThat(missingRun.status()).isEqualTo(AgentRunStatus.CANCELLED);
+        verify(agentRunRepository).save(missingRun);
+        verify(agentRunClient, never()).cancel(eq(runId), any(), any());
+    }
+
+    @Test
+    void doesNotRetireAnActiveRunWhenTheAgentRuntimeIsUnavailable() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        AgentRunEntity activeRun = run(runId, workspaceId, projectId, userId);
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(),
+            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
+        )));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
+            .thenReturn(List.of(activeRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(activeRun));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("unavailable-token");
+        when(agentRunClient.get(runId, "unavailable-token", "traceparent"))
+            .thenThrow(new HttpClientErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(() -> service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent"))
+            .isInstanceOf(HttpClientErrorException.class)
+            .extracting(error -> ((HttpClientErrorException) error).getStatusCode())
+            .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+
+        assertThat(activeRun.status()).isEqualTo(AgentRunStatus.QUEUED);
+        verify(agentRunRepository, never()).save(activeRun);
     }
 
     @Test

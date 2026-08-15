@@ -21,6 +21,7 @@ import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Comparator;
@@ -163,10 +164,28 @@ public class AgentRunGatewayService {
             ACTIVE_STATUSES
         );
         for (AgentRunEntity activeRun : activeRuns) {
-            AgentRunView current = get(userId, workspaceId, activeRun.id(), traceparent);
-            if (ACTIVE_STATUSES.contains(current.status())) {
+            Optional<AgentRunView> current = synchronizeForProjectDeletion(
+                userId,
+                workspaceId,
+                activeRun,
+                traceparent
+            );
+            if (current.isPresent() && ACTIVE_STATUSES.contains(current.get().status())) {
                 cancel(userId, workspaceId, activeRun.id(), traceparent);
             }
+        }
+    }
+
+    private Optional<AgentRunView> synchronizeForProjectDeletion(UUID userId, UUID workspaceId, AgentRunEntity activeRun, String traceparent) {
+        try {
+            return Optional.of(get(userId, workspaceId, activeRun.id(), traceparent));
+        } catch (RestClientResponseException error) {
+            if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
+                throw error;
+            }
+            activeRun.updateStatus(AgentRunStatus.CANCELLED, Instant.now());
+            agentRunRepository.save(activeRun);
+            return Optional.empty();
         }
     }
 
