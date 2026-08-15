@@ -1,7 +1,5 @@
 package com.freelanceops.backend.domain.project.service;
 
-import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
-import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.project.dto.request.CreateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.request.UpdateProjectRequest;
@@ -18,28 +16,21 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ProjectService {
 
-    private static final EnumSet<AgentRunStatus> ACTIVE_AGENT_STATUSES = EnumSet.of(
-        AgentRunStatus.QUEUED,
-        AgentRunStatus.RUNNING,
-        AgentRunStatus.WAITING_FOR_USER
-    );
-
     private final ProjectRepository projectRepository;
     private final ClientRepository clientRepository;
-    private final AgentRunRepository agentRunRepository;
+    private final ActiveProjectRunReader activeProjectRunReader;
     private final WorkspaceAuthorizationService authorizationService;
 
-    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, AgentRunRepository agentRunRepository, WorkspaceAuthorizationService authorizationService) {
+    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, ActiveProjectRunReader activeProjectRunReader, WorkspaceAuthorizationService authorizationService) {
         this.projectRepository = projectRepository;
         this.clientRepository = clientRepository;
-        this.agentRunRepository = agentRunRepository;
+        this.activeProjectRunReader = activeProjectRunReader;
         this.authorizationService = authorizationService;
     }
 
@@ -103,7 +94,7 @@ public class ProjectService {
     public void delete(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE);
         ProjectEntity project = find(workspaceId, projectId);
-        if (agentRunRepository.existsByWorkspaceIdAndProjectIdAndStatusIn(workspaceId, projectId, ACTIVE_AGENT_STATUSES)) {
+        if (activeProjectRunReader.exists(workspaceId, projectId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "진행 중인 AI 분석을 중단한 뒤 프로젝트를 삭제하세요.");
         }
         projectRepository.delete(project);

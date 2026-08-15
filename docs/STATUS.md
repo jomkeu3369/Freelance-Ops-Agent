@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-15: 프로젝트 삭제 안전장치가 `project` 도메인에서 `agentrun` 저장소를 직접 참조해 CI의 domain cycle 검사를 실패시키던 문제를 수정했다. `project`에는 활성 실행 여부를 묻는 `ActiveProjectRunReader` 계약만 두고, 실제 조회 구현과 실행 상태 기준은 `agentrun`으로 이동해 기존 `agentrun -> project` 의존 방향을 유지했다. Backend main·test source 컴파일이 통과했으며 Linux 전체 테스트는 후속 CI에서 재검증한다.
+
 - 2026-08-15: Workspace 상단에 다크·라이트 모드 전환 버튼을 추가하고 기존 `next-themes` 저장 방식에 연결해 새로고침 뒤에도 선택한 화면 모드가 유지되도록 했다. 프로젝트 상세에는 `project.delete` 권한이 있는 사용자만 볼 수 있는 삭제 흐름을 추가했다. 오삭제를 막기 위해 프로젝트명을 정확히 다시 입력해야 영구 삭제 버튼이 활성화되며, 실행 중인 AI 분석이 있으면 먼저 중단하도록 UI와 서버 양쪽에서 차단한다. 삭제 시 요구사항·AI 실행 기록·견적·결과처럼 프로젝트에 종속된 데이터도 DB 연쇄 삭제 규칙에 따라 함께 정리된다. Frontend TypeScript와 Node 테스트 39건은 통과했고 Backend main·test source도 컴파일됐다. Backend 단위 테스트 실행은 코드 컴파일 이후 로컬 Gradle worker의 기존 `GradleWorkerMain` classpath 환경 오류로 시작되지 못했다.
 
 - 2026-08-15: AI 견적 초안의 작업·공수만 채워지고 단가가 0원으로 남던 문제를 수정했다. LLM이 가격을 생성하지 않는 원칙은 유지하면서, Frontend가 Workspace의 활성 rate card 중 프로젝트 통화와 작업 단위가 같은 항목을 `rateCardHint`·제목·설명 유사도로 결정적으로 연결하고 일치어가 없으면 서버 정렬 순서의 첫 호환 단가를 검토용 기본값으로 적용한다. 이전에 현재 탭에 저장된 0원 초안도 제목·순서가 일치하는 AI 초안의 서버 단가로 보정한다. 견적 행의 단가·근거 선택기는 레이블, 설명, 명확한 경계와 focus 상태를 가진 control로 다시 설계했고, 한 줄에서 잘리던 가정은 최소 3줄의 크기 조절 가능한 textarea로 변경했다. Frontend TypeScript, Node 테스트 38건, ESLint가 통과했다.

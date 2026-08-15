@@ -1,6 +1,5 @@
 package com.freelanceops.backend.domain.project.service;
 
-import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
@@ -31,7 +30,7 @@ class ProjectServiceTest {
     @Mock
     private ClientRepository clientRepository;
     @Mock
-    private AgentRunRepository agentRunRepository;
+    private ActiveProjectRunReader activeProjectRunReader;
     @Mock
     private WorkspaceAuthorizationService authorizationService;
 
@@ -44,7 +43,7 @@ class ProjectServiceTest {
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
             .thenReturn(AuthorizationDecision.ALLOWED);
         when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
-        ProjectService service = new ProjectService(projectRepository, clientRepository, agentRunRepository, authorizationService);
+        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
 
         service.delete(userId, workspaceId, projectId);
 
@@ -58,7 +57,7 @@ class ProjectServiceTest {
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
             .thenReturn(AuthorizationDecision.FORBIDDEN);
-        ProjectService service = new ProjectService(projectRepository, clientRepository, agentRunRepository, authorizationService);
+        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
 
         assertThatThrownBy(() -> service.delete(userId, workspaceId, UUID.randomUUID()))
             .isInstanceOfSatisfying(ResponseStatusException.class, error ->
@@ -75,12 +74,8 @@ class ProjectServiceTest {
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
             .thenReturn(AuthorizationDecision.ALLOWED);
         when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(mock(ProjectEntity.class)));
-        when(agentRunRepository.existsByWorkspaceIdAndProjectIdAndStatusIn(
-            org.mockito.ArgumentMatchers.eq(workspaceId),
-            org.mockito.ArgumentMatchers.eq(projectId),
-            org.mockito.ArgumentMatchers.any()
-        )).thenReturn(true);
-        ProjectService service = new ProjectService(projectRepository, clientRepository, agentRunRepository, authorizationService);
+        when(activeProjectRunReader.exists(workspaceId, projectId)).thenReturn(true);
+        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
 
         assertThatThrownBy(() -> service.delete(userId, workspaceId, projectId))
             .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
