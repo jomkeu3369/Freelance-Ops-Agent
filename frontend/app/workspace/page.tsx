@@ -108,6 +108,7 @@ import {
   startAgentRun,
   streamRunEvents,
   subscribeToSessionRecovery,
+  suggestQuotationAssumption,
   publishQuotation,
   updateProject,
   updateProjectDetails,
@@ -885,12 +886,19 @@ function activityPresentation(event: WorkflowEvent, run: AgentRunView | null) {
     const route = eventDataText(event, "route");
     const provider = eventDataText(event, "provider");
     const model = eventDataText(event, "model");
+    const routingProvider = eventDataText(event, "routingProvider");
+    const routingModel = eventDataText(event, "routingModel");
     const decisionSource = eventDataText(event, "decisionSource");
     const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ?? reason);
     return {
       title: `경로 선택 · ${routeActivityLabels[route ?? ""] ?? route ?? "확인 중"}`,
       detail: reasons.join(" · ") || "요청의 범위와 필요한 작업을 기준으로 실행 경로를 선택했습니다.",
-      tags: [route, providerLabels[provider ?? ""] ?? provider, model, routeDecisionSourceLabels[decisionSource ?? ""] ?? decisionSource].filter((value): value is string => Boolean(value)),
+      tags: [
+        route ? `경로 ${route}` : null,
+        routingModel ? `경로 판정 ${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}` : "경로 판정 정책 Gate",
+        model ? `분석 실행 ${providerLabels[provider ?? ""] ?? provider} · ${model}` : null,
+        routeDecisionSourceLabels[decisionSource ?? ""] ?? decisionSource,
+      ].filter((value): value is string => Boolean(value)),
       tone: "route",
     };
   }
@@ -1600,6 +1608,10 @@ function ProjectWorkbench({
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
   const deleteBlockedByRun = Boolean(run && projectDeletionBlockingStatuses.has(run.status) && !canCancel);
+  const latestRouteEvent = [...events].reverse().find((event) => event.type === "route.selected") ?? null;
+  const selectedRoute = latestRouteEvent ? eventDataText(latestRouteEvent, "route") : null;
+  const routingProvider = latestRouteEvent ? eventDataText(latestRouteEvent, "routingProvider") : null;
+  const routingModel = latestRouteEvent ? eventDataText(latestRouteEvent, "routingModel") : null;
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -1663,6 +1675,7 @@ function ProjectWorkbench({
           <div className="run-controls">
             <label>AI 제공사<select value={provider} onChange={(event) => { const nextProvider = event.target.value as Provider; setProvider(nextProvider); setModel(configuredModelOptions[nextProvider][0] ?? ""); }}><option value="OPENAI">OpenAI</option><option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>Gemini{configuredModelOptions.GEMINI.length === 0 ? " · 설정 필요" : ""}</option></select></label>
             <label>AI 모델<select value={model} disabled={configuredModelOptions[provider].length === 0} onChange={(event) => setModel(event.target.value)}>{configuredModelOptions[provider].length === 0 ? <option value="">등록된 모델 없음</option> : configuredModelOptions[provider].map((option) => <option key={option} value={option}>{option}</option>)}</select></label>
+            <span className="model-selection-note">분석 실행 모델 · 자동 전환 없음</span>
             <button type="button" className="primary-button" disabled={busy || !model.trim()} onClick={() => onRun(provider, model.trim())}>
               {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
             </button>
@@ -1763,7 +1776,7 @@ function ProjectWorkbench({
               <span className="result-state"><CheckCircle size={17} /> 분석 결과</span>
               <h3>프로젝트 요약</h3>
               <p>{run.result.projectSummary}</p>
-              {run.metadata && <details className="run-provenance run-technical-details"><summary>실행 정보</summary><span>{providerLabels[run.metadata.provider] ?? run.metadata.provider} · {run.metadata.model}</span><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></details>}
+              {run.metadata && <details className="run-provenance run-technical-details"><summary>실행 정보</summary><dl className="run-model-routing"><div><dt>경로 판정</dt><dd>{routingModel ? `${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}` : "정책 Gate"}</dd></div><div><dt>선택 경로</dt><dd>{selectedRoute ? routeActivityLabels[selectedRoute] ?? selectedRoute : "기록 확인 중"}</dd></div><div><dt>분석 실행</dt><dd>{providerLabels[run.metadata.provider] ?? run.metadata.provider} · {run.metadata.model}</dd></div><div><dt>자동 전환</dt><dd>사용 안 함</dd></div></dl><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></details>}
               {run.result.openQuestions.length > 0 && <section className="run-open-questions"><span>아직 확인할 질문</span><ul>{run.result.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>}
               {run.result.quotationDraft && <section className="ai-quote-ready"><div><Receipt size={20} /><span>AI 견적 초안</span><strong>{run.result.quotationDraft.items.length}개 작업 항목을 준비했습니다.</strong><small>단가와 최종 금액은 등록된 기준으로 계산되며 저장 전 직접 확인할 수 있습니다.</small></div><button type="button" className="secondary-button" onClick={() => selectStep("quote")}>견적 검토하기 <ArrowRight size={16} /></button></section>}
               {run.result.departmentResults.length > 0 && <details className="department-results">
@@ -1787,7 +1800,7 @@ function ProjectWorkbench({
         </aside>
       </div>}
 
-      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} />}
+      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} modelSelection={run?.metadata ? { provider: run.metadata.provider, model: run.metadata.model } : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }} />}
       {activeStep === "outcome" && <OutcomeReview session={session} project={project} permissions={permissions} />}
       {editingProject && <ProjectEditDialog session={session} project={project} clients={clients} onClose={() => setEditingProject(false)} onUpdated={(updated) => { onProjectUpdated(updated); setEditingProject(false); }} />}
     </>
@@ -2025,7 +2038,7 @@ type QuoteDraftStatus = {
   updatedAt: string | null;
 };
 
-function QuoteBuilder({ session, project, permissions, quotationDraft }: { session: AuthSession; project: Project; permissions: Set<string>; quotationDraft: AgentQuotationDraft | null }) {
+function QuoteBuilder({ session, project, permissions, quotationDraft, modelSelection }: { session: AuthSession; project: Project; permissions: Set<string>; quotationDraft: AgentQuotationDraft | null; modelSelection: { provider: Provider; model: string } }) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
   const canPublish = permissions.has("quotation.publish");
@@ -2041,6 +2054,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
   const [shareCopyState, setShareCopyState] = useState<"copied" | "manual" | null>(null);
   const [conflictLatest, setConflictLatest] = useState<Quotation | null>(null);
   const [busy, setBusy] = useState(false);
+  const [assumptionBusyIndex, setAssumptionBusyIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<QuoteDraftStatus | null>(null);
   const [draftBaseline, setDraftBaseline] = useState<string | null>(null);
@@ -2174,6 +2188,39 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
 
   const updateItem = (index: number, update: (item: QuotationItemInput) => QuotationItemInput) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
+  };
+
+  const suggestAssumption = async (index: number) => {
+    const item = items[index];
+    if (!item || !item.title.trim() || !modelSelection.model.trim()) return;
+    setAssumptionBusyIndex(index);
+    setError(null);
+    try {
+      const suggestion = await suggestQuotationAssumption(session, project.id, {
+        itemTitle: item.title.trim(),
+        itemDescription: item.description.trim(),
+        quantity: item.quantity,
+        unit: item.unit,
+        currentAssumption: item.basis.type === "ASSUMPTION" ? item.basis.content : "",
+        modelSelection: { ...modelSelection, reasoningEffort: "LOW" },
+      });
+      updateItem(index, (current) => ({
+        ...current,
+        basis: {
+          type: "ASSUMPTION",
+          content: suggestion.content,
+          sourceType: null,
+          sourceReference: null,
+          sourceTitle: null,
+          retrievedAt: null,
+        },
+      }));
+      setSelectedBasisIndex(index);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "AI 가정 제안을 불러오지 못했습니다.");
+    } finally {
+      setAssumptionBusyIndex(null);
+    }
   };
 
   const clearStoredDraft = () => {
@@ -2318,13 +2365,13 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
                 <label><span className="quote-field-label">단위</span><select value={item.unit} disabled={!canWrite || Boolean(item.rateCardId)} onChange={(event) => updateItem(index, (current) => ({ ...current, unit: event.target.value as QuotationItemInput["unit"] }))}><option value="HOUR">시간</option><option value="DAY">일</option><option value="FIXED">고정</option></select></label>
                 <label><span className="quote-field-label">단가</span><input type="number" min="0" step="1000" readOnly={!canWrite || Boolean(item.rateCardId)} value={item.unitRate} onChange={(event) => updateItem(index, (current) => ({ ...current, unitRate: Number(event.target.value) }))} /></label>
                 <label><span className="quote-field-label">할인율 (%)</span><input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(item.discountRate * 100)} onChange={(event) => updateItem(index, (current) => ({ ...current, discountRate: Number(event.target.value) / 100 }))} /></label>
-                <div className="quote-amount"><span className="quote-field-label">예상 금액</span><strong>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}</strong></div>
+                <div className="quote-amount-field"><span className="quote-field-label">예상 금액</span><div className="quote-amount"><strong>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}</strong></div></div>
                 <button type="button" className="remove-item" aria-label={`${index + 1}번 항목 삭제`} disabled={!canWrite || items.length === 1} onClick={() => { setItems((current) => current.filter((_, itemIndex) => itemIndex !== index)); setSelectedBasisIndex((current) => Math.max(0, Math.min(current, items.length - 2))); }}><Trash size={17} /></button>
               </div>
               <div className="basis-row">
                 <label className="quote-select-control"><span>단가 기준</span><div><select aria-label="서비스 단가표" value={item.rateCardId ?? ""} disabled={!canWrite} onChange={(event) => { const card = rateCards.find((candidate) => candidate.id === event.target.value); updateItem(index, (current) => card ? { ...current, rateCardId: card.id, unit: card.unit, unitRate: card.rate } : { ...current, rateCardId: null }); }}><option value="">직접 입력</option>{rateCards.filter((card) => card.currency === project.currency).map((card) => <option key={card.id} value={card.id}>{card.name} · {formatMoney(card.rate, card.currency)}</option>)}</select><CaretDown size={16} aria-hidden="true" /></div><small>{item.rateCardId ? "등록된 단가가 적용되었습니다." : "적합한 단가를 선택하거나 직접 입력하세요."}</small></label>
                 <label className="quote-select-control"><span>산정 근거</span><div><select aria-label="근거 유형" value={item.basis.type} disabled={!canWrite} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: event.target.value === "ASSUMPTION" ? { type: "ASSUMPTION", content: current.basis.content, sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } : { ...current.basis, type: "EVIDENCE" } }))}><option value="ASSUMPTION">확인이 필요한 가정</option><option value="EVIDENCE">검증된 근거</option></select><CaretDown size={16} aria-hidden="true" /></div><small>{item.basis.type === "ASSUMPTION" ? "저장 전 확인이 필요한 조건입니다." : "출처 정보와 함께 저장됩니다."}</small></label>
-                <label className="basis-copy"><span>{item.basis.type === "ASSUMPTION" ? "가정 내용" : "근거 내용"}</span><textarea rows={3} value={item.basis.content} readOnly={!canWrite} maxLength={3000} placeholder="이 공수와 단가를 정한 근거 또는 아직 확인되지 않은 가정을 입력하세요." onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, content: event.target.value } }))} /></label>
+                <div className="basis-copy"><div className="basis-copy-heading"><label htmlFor={`quotation-basis-${index}`}>{item.basis.type === "ASSUMPTION" ? "가정 내용" : "근거 내용"}</label>{canWrite && item.basis.type === "ASSUMPTION" && <button type="button" className="ai-assumption-button" disabled={assumptionBusyIndex !== null || !item.title.trim() || !modelSelection.model.trim()} onClick={() => void suggestAssumption(index)}>{assumptionBusyIndex === index ? <CircleNotch className="spin" size={15} /> : <Waveform size={15} />} {item.basis.content.trim() ? "AI로 다듬기" : "AI로 제안받기"}</button>}</div><textarea id={`quotation-basis-${index}`} rows={3} value={item.basis.content} readOnly={!canWrite} maxLength={3000} placeholder="이 공수와 단가를 정한 근거 또는 아직 확인되지 않은 가정을 입력하세요." onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, content: event.target.value } }))} />{item.basis.type === "ASSUMPTION" && <small className="ai-assumption-note">{providerLabels[modelSelection.provider]} · {modelSelection.model}이 문장만 제안하며 공수와 금액은 변경하지 않습니다.</small>}</div>
                 {item.basis.type === "EVIDENCE" && <div className="evidence-fields"><label><span>출처 유형</span><select required aria-label="출처 유형" value={item.basis.sourceType ?? ""} disabled={!canWrite} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceType: event.target.value as NonNullable<QuotationItemInput["basis"]["sourceType"]> } }))}><option value="">선택</option><option value="PAST_PROJECT">과거 프로젝트</option><option value="POLICY">내부 정책</option><option value="PLATFORM_TERMS">플랫폼 약관</option><option value="USER_TEMPLATE">사용자 자료</option><option value="EXTERNAL_SOURCE">외부 자료</option></select></label><label><span>출처 참조</span><input required maxLength={1000} readOnly={!canWrite} value={item.basis.sourceReference ?? ""} placeholder="문서 ID 또는 원문 URL" onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceReference: event.target.value } }))} /></label><label><span>출처 제목</span><input maxLength={300} readOnly={!canWrite} value={item.basis.sourceTitle ?? ""} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, sourceTitle: event.target.value || null } }))} /></label><label><span>조회 시점</span><input type="datetime-local" readOnly={!canWrite} value={toDateTimeLocal(item.basis.retrievedAt)} onChange={(event) => updateItem(index, (current) => ({ ...current, basis: { ...current.basis, retrievedAt: event.target.value ? new Date(event.target.value).toISOString() : null } }))} /></label></div>}
               </div>
             </div>
@@ -2335,8 +2382,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft }: { sessi
         <aside className="quote-summary">
           <span><Receipt size={18} /> 계산 미리보기</span>
           <dl><div><dt>항목 합계</dt><dd>{formatMoney(estimatedSubtotal, project.currency)}</dd></div><div><dt>부가세</dt><dd>{formatMoney(estimatedSubtotal * taxRate, project.currency)}</dd></div><div className="quote-total"><dt>예상 합계</dt><dd>{formatMoney(estimatedSubtotal * (1 + taxRate), project.currency)}</dd></div></dl>
-          <label>세율<input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(taxRate * 100)} onChange={(event) => setTaxRate(Number(event.target.value) / 100)} /><small>%</small></label>
-          <label>유효 기간<input type="date" readOnly={!canWrite} value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></label>
+          <div className="quote-summary-controls"><label><span>세율</span><div><input type="number" min="0" max="100" step="1" readOnly={!canWrite} value={Math.round(taxRate * 100)} onChange={(event) => setTaxRate(Number(event.target.value) / 100)} /><small>%</small></div></label><label><span>유효 기간</span><input type="date" readOnly={!canWrite} value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></label></div>
           <p>저장할 때 위험 대비 금액과 세금까지 반영한 최종 합계를 다시 확인합니다.</p>
           {selectedBasis && <section className="evidence-inspector"><span>선택 항목 근거</span><strong>{selectedBasis.type === "EVIDENCE" ? selectedBasis.sourceTitle || "제목 없는 근거" : "확인할 가정"}</strong><p>{selectedBasis.content || "근거 또는 가정 내용을 입력하세요."}</p>{selectedBasis.type === "EVIDENCE" && <dl><div><dt>유형</dt><dd>{selectedBasis.sourceType ? sourceTypeLabel[selectedBasis.sourceType] : "미선택"}</dd></div><div><dt>참조</dt><dd>{selectedBasis.sourceReference || "미입력"}</dd></div><div><dt>조회</dt><dd>{selectedBasis.retrievedAt ? new Date(selectedBasis.retrievedAt).toLocaleString("ko-KR") : "미지정"}</dd></div></dl>}</section>}
           {canWrite ? <button type="button" className="primary-button" disabled={busy || !canSave} onClick={() => void save()}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 검토용 초안 저장</button> : <small className="validation-hint">읽기 전용 견적입니다.</small>}
@@ -2390,7 +2436,7 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
 
   return (
     <section className="outcome-review">
-      <div className="guided-copy"><span>프로젝트 회고</span><h2>끝난 프로젝트를 다음 견적의 근거로 남기세요.</h2><p>실제 공수와 비용을 직접 확정해 두면 이후 유사한 프로젝트의 참고 자료로 활용할 수 있습니다.</p></div>
+      <div className="guided-copy outcome-guided-copy"><span>프로젝트 회고</span><h2>끝난 프로젝트를 다음<br />견적의 근거로 남기세요.</h2><p>실제 공수와 비용을 직접 확정해 두면 이후 유사한 프로젝트의 참고 자료로 활용할 수 있습니다.</p></div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
       {outcome && <div className="outcome-snapshot"><Graph size={25} /><div><span>확정된 결과</span><strong>이익률 {Math.round(outcome.profitMargin * 100)}%</strong></div><dl><div><dt>매출</dt><dd>{formatMoney(outcome.totalRevenue, project.currency)}</dd></div><div><dt>실제 비용</dt><dd>{formatMoney(outcome.actualCost, project.currency)}</dd></div><div><dt>실제 공수</dt><dd>{outcome.actualHours}시간</dd></div></dl></div>}
       {outcome && approvedQuotation && <section className="outcome-variance"><header><span>예상 대비 오차</span><strong>{approvedQuotation.scenario} v{approvedQuotation.versionNumber}</strong></header><dl><div><dt>견적 대비 계약 금액</dt><dd className={revenueVariance != null && revenueVariance >= 0 ? "positive" : "negative"}>{revenueVariance == null ? "-" : `${revenueVariance >= 0 ? "+" : ""}${formatMoney(revenueVariance, project.currency)}`}</dd><small>견적 {formatMoney(approvedQuotation.total, approvedQuotation.currency)} → 실제 {formatMoney(outcome.totalRevenue, project.currency)}</small></div><div><dt>시간 공수 오차</dt><dd className={hoursVariance != null && hoursVariance <= 0 ? "positive" : "negative"}>{hoursVariance == null ? "비교 불가" : `${hoursVariance >= 0 ? "+" : ""}${hoursVariance.toLocaleString()}시간`}</dd><small>{quotedHours > 0 ? `시간 단위 견적 ${quotedHours.toLocaleString()}시간 → 실제 ${outcome.actualHours.toLocaleString()}시간` : "시간 단위 견적 항목이 없습니다."}</small></div></dl></section>}
@@ -2418,9 +2464,24 @@ function OutcomeReview({ session, project, permissions }: { session: AuthSession
         }
       }}>
         <fieldset className="outcome-fields" disabled={busy}>
-        <div className="form-row"><label>기준 견적<select name="approvedQuotationId" disabled={!canWrite} defaultValue={outcome?.approvedQuotationId ?? ""}><option value="">연결하지 않음</option>{quotations.filter((quotation) => quotation.status === "PUBLISHED").map((quotation) => <option key={quotation.id} value={quotation.id}>{quotationScenarioLabels[quotation.scenario]} v{quotation.versionNumber} · {formatMoney(quotation.total, quotation.currency)}</option>)}</select></label><label>최종 계약 금액<input name="totalRevenue" type="number" min="0" required readOnly={!canWrite} defaultValue={outcome?.totalRevenue ?? ""} /></label><label>실제 비용<input name="actualCost" type="number" min="0" required readOnly={!canWrite} defaultValue={outcome?.actualCost ?? ""} /></label><label>실제 공수(시간)<input name="actualHours" type="number" min="0" step="0.5" required readOnly={!canWrite} defaultValue={outcome?.actualHours ?? ""} /></label><label>완료일<input name="completedOn" type="date" readOnly={!canWrite} defaultValue={outcome?.completedOn ?? ""} /></label></div>
-        <div className="actual-work-items"><div><span>항목별 실제 결과</span>{canWrite && <button type="button" className="secondary-button" onClick={() => setWorkItems((current) => [...current, { title: "", actualHours: 0, actualCost: 0, notes: "" }])}><Plus size={16} /> 항목 추가</button>}</div>{workItems.length === 0 ? <p>필요하면 작업 항목별 실제 공수와 비용을 추가하세요.</p> : workItems.map((item, index) => <fieldset key={index} disabled={!canWrite}><legend>실제 작업 {index + 1}</legend><div className="form-row"><label>작업명<input required maxLength={200} value={item.title} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, title: event.target.value } : currentItem))} /></label><label>공수(시간)<input type="number" min="0" step="0.5" value={item.actualHours} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualHours: Number(event.target.value) } : currentItem))} /></label><label>비용<input type="number" min="0" step="1000" value={item.actualCost} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualCost: Number(event.target.value) } : currentItem))} /></label></div><label>메모<textarea rows={2} maxLength={3000} value={item.notes} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, notes: event.target.value } : currentItem))} /></label>{canWrite && <button type="button" className="remove-feature" onClick={() => setWorkItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash size={16} /> 항목 제거</button>}</fieldset>)}</div>
-        <label>범위 변경과 예상 차이<textarea name="changeReason" rows={6} maxLength={5000} readOnly={!canWrite} defaultValue={outcome?.changeReason ?? ""} placeholder="추가된 범위, 줄어든 작업, 예상보다 오래 걸린 이유를 기록하세요." /></label>
+        <section className="outcome-basics" aria-labelledby="outcome-basics-title">
+          <header><span>최종 결과</span><div><h3 id="outcome-basics-title">계약과 실제 투입을 확정하세요.</h3><p>발행한 견적을 연결하면 예상 대비 차이를 함께 확인할 수 있습니다.</p></div></header>
+          <div className="outcome-metrics-grid">
+            <label className="outcome-control outcome-quotation-control"><span>기준 견적</span><select name="approvedQuotationId" disabled={!canWrite} defaultValue={outcome?.approvedQuotationId ?? ""}><option value="">견적을 연결하지 않음</option>{quotations.filter((quotation) => quotation.status === "PUBLISHED").map((quotation) => <option key={quotation.id} value={quotation.id}>{quotationScenarioLabels[quotation.scenario]} v{quotation.versionNumber} · {formatMoney(quotation.total, quotation.currency)}</option>)}</select><small>고객이 승인한 견적</small></label>
+            <label className="outcome-control"><span>최종 계약 금액</span><div><input name="totalRevenue" type="number" min="0" step="1000" required readOnly={!canWrite} defaultValue={outcome?.totalRevenue ?? ""} /><small>{project.currency}</small></div></label>
+            <label className="outcome-control"><span>실제 비용</span><div><input name="actualCost" type="number" min="0" step="1000" required readOnly={!canWrite} defaultValue={outcome?.actualCost ?? ""} /><small>{project.currency}</small></div></label>
+            <label className="outcome-control"><span>실제 공수</span><div><input name="actualHours" type="number" min="0" step="0.5" required readOnly={!canWrite} defaultValue={outcome?.actualHours ?? ""} /><small>시간</small></div></label>
+            <label className="outcome-control"><span>완료일</span><input name="completedOn" type="date" readOnly={!canWrite} defaultValue={outcome?.completedOn ?? ""} /></label>
+          </div>
+        </section>
+        <div className="actual-work-items"><div><div><span>항목별 실제 결과</span><small>필요할 때만 세부 작업의 공수와 비용을 나눠 기록하세요.</small></div>{canWrite && <button type="button" className="secondary-button" onClick={() => setWorkItems((current) => [...current, { title: "", actualHours: 0, actualCost: 0, notes: "" }])}><Plus size={16} /> 항목 추가</button>}</div>{workItems.length === 0 ? <div className="actual-work-empty"><Graph size={22} /><div><strong>아직 나눈 작업 항목이 없습니다.</strong><span>전체 결과만 남겨도 저장할 수 있습니다.</span></div></div> : workItems.map((item, index) => <fieldset key={index} disabled={!canWrite}><legend>실제 작업 {index + 1}</legend><div className="form-row"><label>작업명<input required maxLength={200} value={item.title} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, title: event.target.value } : currentItem))} /></label><label>실제 공수<input type="number" min="0" step="0.5" value={item.actualHours} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualHours: Number(event.target.value) } : currentItem))} /></label><label>실제 비용<input type="number" min="0" step="1000" value={item.actualCost} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, actualCost: Number(event.target.value) } : currentItem))} /></label></div><label>작업 메모<textarea rows={3} maxLength={3000} value={item.notes} onChange={(event) => setWorkItems((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, notes: event.target.value } : currentItem))} /></label>{canWrite && <button type="button" className="remove-feature" onClick={() => setWorkItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash size={16} /> 항목 제거</button>}</fieldset>)}</div>
+        <section className="outcome-change-card" aria-labelledby="outcome-change-title">
+          <header><div><span>견적 대비 기록</span><h3 id="outcome-change-title">처음 예상과 달라진 점</h3><p>다음 견적에서 같은 오차를 줄일 수 있도록 실제로 달라진 이유만 남겨주세요.</p></div><PencilSimple size={22} /></header>
+          <div className="outcome-change-prompts" aria-hidden="true"><span>추가된 범위</span><span>제외된 작업</span><span>일정·비용 변화</span></div>
+          <label htmlFor="outcome-change-reason">변경 내용</label>
+          <textarea id="outcome-change-reason" name="changeReason" rows={6} maxLength={5000} readOnly={!canWrite} defaultValue={outcome?.changeReason ?? ""} placeholder="예: 고객 확인이 늦어져 일정이 3일 늘었고, 관리자 통계 화면이 추가되어 개발 공수가 6시간 증가했습니다." />
+          <small>확인된 사실을 중심으로 작성하세요. 비어 있어도 결과를 저장할 수 있습니다.</small>
+        </section>
         {canWrite ? <button type="submit" className="primary-button" disabled={busy}>{busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 사용자 확정 결과 저장</button> : <p className="permission-note">읽기 전용 결과입니다.</p>}
         </fieldset>
       </form>

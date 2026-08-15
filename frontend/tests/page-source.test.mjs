@@ -824,3 +824,42 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(css, /\.workbench-steps button\.active \{[^}]*color: var\(--accent\)/);
   assert.match(css, /\.workspace-theme-toggle/);
 });
+
+test("quotation review aligns calculated amounts and offers bounded AI assumption drafting", async () => {
+  const [workspace, api, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/lib/api.ts"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /AI로 제안받기/);
+  assert.match(workspace, /AI로 다듬기/);
+  assert.match(workspace, /공수와 금액은 변경하지 않습니다/);
+  assert.match(workspace, /경로 판정/);
+  assert.match(workspace, /자동 전환/);
+  assert.match(api, /export function suggestQuotationAssumption/);
+  assert.match(api, /quotations\/assumption-suggestions/);
+  assert.match(css, /\.quote-amount-field/);
+  assert.match(css, /\.quote-amount \{[^}]*height: 46px/);
+  assert.match(css, /\.quote-summary-controls/);
+  assert.match(css, /\.ai-assumption-button/);
+  assert.match(css, /\.run-model-routing/);
+});
+
+test("outcome review presents deliberate line breaks and complete result inputs", async () => {
+  const [workspace, css] = await Promise.all([
+    read("../app/workspace/page.tsx"),
+    read("../app/globals.css"),
+  ]);
+  assert.match(workspace, /끝난 프로젝트를 다음<br \/>견적의 근거로 남기세요/);
+  assert.match(workspace, /className="outcome-basics"/);
+  assert.match(workspace, /className="outcome-metrics-grid"/);
+  assert.match(workspace, /처음 예상과 달라진 점/);
+  assert.match(workspace, /추가된 범위/);
+  assert.match(workspace, /제외된 작업/);
+  assert.match(workspace, /일정·비용 변화/);
+  assert.match(workspace, /확인된 사실을 중심으로 작성하세요/);
+  assert.match(css, /\.outcome-control input, \.outcome-control select/);
+  assert.match(css, /\.outcome-change-card textarea \{[^}]*min-height: 156px/);
+  assert.match(css, /\.actual-work-empty/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.outcome-metrics-grid \{ grid-template-columns: 1fr/);
+});

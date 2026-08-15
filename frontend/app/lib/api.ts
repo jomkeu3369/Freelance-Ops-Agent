@@ -585,6 +585,13 @@ export function updateProjectDetails(session: AuthSession, project: Project, inp
   ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); return updated; });
 }
 
+export interface QuotationAssumptionSuggestion {
+  requestId: string;
+  content: string;
+  provider: Provider;
+  model: string;
+}
+
 export function deleteProject(session: AuthSession, projectId: string): Promise<void> {
   return request<void>(
     `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}`,
@@ -861,6 +868,25 @@ export function getAgentRun(session: AuthSession, runId: string): Promise<AgentR
   return request(
     `/api/v2/workspaces/${session.workspaceId}/agent-runs/${runId}`,
     {},
+    session.accessToken,
+  );
+}
+
+export function suggestQuotationAssumption(
+  session: AuthSession,
+  projectId: string,
+  input: {
+    itemTitle: string;
+    itemDescription: string;
+    quantity: number;
+    unit: WorkUnit;
+    currentAssumption: string;
+    modelSelection: { provider: Provider; model: string; reasoningEffort: ReasoningEffort };
+  },
+): Promise<QuotationAssumptionSuggestion> {
+  return request<QuotationAssumptionSuggestion>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/quotations/assumption-suggestions`,
+    { method: "POST", body: JSON.stringify(input) },
     session.accessToken,
   );
 }

@@ -87,6 +87,33 @@ class AgentInput(StrictModel):
     direct_tool_operation: DirectToolOperation | None = None
 
 
+class AssumptionSuggestionRequest(StrictModel):
+    context: TrustedRunContext
+    model_selection: ModelSelection
+    project_requirement: str = Field(min_length=1, max_length=50000)
+    item_title: str = Field(min_length=1, max_length=200)
+    item_description: str = Field(default="", max_length=5000)
+    quantity: float = Field(gt=0)
+    unit: str = Field(min_length=1, max_length=20)
+    current_assumption: str = Field(default="", max_length=3000)
+
+
+class AssumptionSuggestionUsage(StrictModel):
+    model_calls: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    retry_count: int = Field(ge=0)
+    duration_ms: int = Field(ge=0)
+
+
+class AssumptionSuggestionResponse(StrictModel):
+    run_id: UUID
+    content: str = Field(min_length=1, max_length=3000)
+    provider: Provider
+    model: str = Field(min_length=1, max_length=100)
+    usage: AssumptionSuggestionUsage
+
+
 class ProjectContext(StrictModel):
     project_id: UUID
     workspace_id: UUID

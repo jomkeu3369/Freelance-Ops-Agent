@@ -9,6 +9,7 @@ servers:
 tags:
   - name: Health
   - name: AgentRuns
+  - name: QuotationAssumptions
   - name: Raptor
   - name: AIPlatform
 paths:
@@ -142,6 +143,36 @@ paths:
         "404":
           $ref: "#/components/responses/ProblemResponse"
         "409":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/quotation-assumptions/suggest:
+    post:
+      tags: [QuotationAssumptions]
+      operationId: suggestQuotationAssumption
+      description: Suggests one reviewable assumption without changing quotation quantities or prices.
+      security:
+        - delegationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssumptionSuggestionRequest"
+      responses:
+        "200":
+          description: Reviewable assumption suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssumptionSuggestionResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "502":
+          $ref: "#/components/responses/ProblemResponse"
+        "503":
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/raptor/build:
     post:
@@ -343,6 +374,75 @@ components:
           type: string
           enum: [NONE, LOW, MEDIUM, HIGH]
           default: LOW
+    AssumptionSuggestionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - context
+        - modelSelection
+        - projectRequirement
+        - itemTitle
+        - quantity
+        - unit
+      properties:
+        context:
+          $ref: "#/components/schemas/TrustedRunContext"
+        modelSelection:
+          $ref: "#/components/schemas/ModelSelection"
+        projectRequirement:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        itemTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+        itemDescription:
+          type: string
+          maxLength: 5000
+          default: ""
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+        currentAssumption:
+          type: string
+          maxLength: 3000
+          default: ""
+    AssumptionSuggestionResponse:
+      type: object
+      additionalProperties: false
+      required: [runId, content, provider, model, usage]
+      properties:
+        runId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          minLength: 1
+          maxLength: 3000
+        provider:
+          type: string
+          enum: [OPENAI, GEMINI]
+        model:
+          type: string
+          minLength: 1
+          maxLength: 100
+        usage:
+          $ref: "#/components/schemas/AssumptionSuggestionUsage"
+    AssumptionSuggestionUsage:
+      type: object
+      additionalProperties: false
+      required: [modelCalls, inputTokens, outputTokens, retryCount, durationMs]
+      properties:
+        modelCalls: {type: integer, minimum: 0}
+        inputTokens: {type: integer, minimum: 0}
+        outputTokens: {type: integer, minimum: 0}
+        retryCount: {type: integer, minimum: 0}
+        durationMs: {type: integer, minimum: 0}
     AgentRunRequest:
       type: object
       additionalProperties: false

@@ -59,6 +59,18 @@ class ApiRateLimitFilterTest {
     }
 
     @Test
+    void appliesAgentLimitToAssumptionSuggestions() throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        String path = "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
+            + "00000000-0000-0000-0000-000000000002/quotations/assumption-suggestions";
+
+        authenticate("user-a");
+        assertThat(invoke(filter, chain, path, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, path, "203.0.113.10").getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void ignoresReadOnlyAndUnrelatedRequests() throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);

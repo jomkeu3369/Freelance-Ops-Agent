@@ -13,6 +13,10 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 결과 회고 화면의 정보 구조와 입력 UI를 완성형으로 재설계했다. 왼쪽 제목은 `다음` 뒤에서 의도적으로 줄을 나눠 `견적`이 쪼개지지 않게 했고, 오른쪽은 `최종 결과`·`항목별 실제 결과`·`처음 예상과 달라진 점`의 세 카드로 역할을 분리했다. 기준 견적, 계약 금액, 실제 비용·공수, 완료일에 동일한 50px control·단위 표시·hover/focus/read-only 상태를 적용했으며, 선택형 세부 작업에는 설명과 빈 상태를 추가했다. 기존의 단독 `범위 변경과 예상 차이` textarea는 변경 유형 안내, 구체적인 예시, 작성 기준을 포함한 회고 카드로 교체했다. 1180px 이하 2열, 520px 이하 1열 재배치와 회귀 테스트를 추가했으며 Frontend TypeScript·Node 테스트 43건·ESLint가 통과했다.
+
+- 2026-08-16: AI 실행의 모델 투명성과 견적 검토 화면을 함께 보완했다. `route.selected` 공개 이벤트에 경로 판정 provider/model을 추가하고 완료 화면에서 경로 판정 모델, 선택 경로, 실제 분석 모델, 자동 전환 미사용을 분리해 확인할 수 있게 했다. 견적 항목의 예상 금액 높이를 다른 입력과 맞추고 계산 미리보기의 세율·유효 기간 control을 일관된 card 입력으로 정리했다. 가정 항목에는 현재 분석 provider/model을 그대로 사용하는 `AI로 제안받기/다듬기`를 추가했으며, Spring 공개 API와 짧은 수명의 위임 토큰을 거쳐 Agent 내부 API를 호출한다. 이 호출은 `agent.run`·`quotation.write` 권한과 workspace/project/user 범위를 재검증하고 Agent 요청 제한을 공유하며, 가정 문장만 교체하고 공수·단가·금액은 변경하지 않는다. 내부 OpenAPI 계약과 권한 회귀 테스트를 추가했다. Agent pytest `173 passed, 1 skipped`, Ruff, strict mypy 57개 source, Frontend TypeScript·Node 테스트 42건·ESLint, Backend 전체 테스트 106건(5건 skip)이 통과했다.
+
 - 2026-08-16: 프로젝트 삭제 중 Agent 조회가 500으로 실패하던 남은 원인을 운영 로그로 확인해 수정했다. 과거 Agent 중단 기록에는 확인 질문 9개가 저장돼 있었지만 현재 `AgentInterruption` 계약은 최대 3개여서 PostgreSQL 역직렬화 시 Pydantic 검증 오류가 발생했다. 신규 실행의 최대 3개 제한은 계속 엄격히 적용하고, DB에 이미 저장된 레거시 중단 기록을 읽을 때만 질문 순서를 보존한 첫 3개로 호환 정규화한다. 운영 로그와 같은 9개 질문 회귀 테스트를 추가했으며 Agent 전체 pytest `171 passed, 1 skipped`, Ruff와 strict mypy 55개 source가 통과했다.
 
 - 2026-08-15: 프로젝트 영구 삭제가 활성 Agent run 정리 단계에서 HTTP 500으로 실패하던 문제를 수정했다. Spring DB에는 활성 상태로 남아 있지만 Agent 런타임에는 이미 존재하지 않는 과거 run을 동기화할 때 Agent 404가 처리되지 않은 예외로 전파되는 것이 원인이었다. 삭제 전 일괄 중단에서 404인 run만 `CANCELLED`로 정리해 삭제를 계속하고, Agent 장애·다른 4xx/5xx에서는 실행 중인 작업을 잘못 종료하지 않도록 기존처럼 실패를 유지한다. 고아 run 정리, 정상 활성 run 중단, Agent 503 안전 차단과 프로젝트 삭제 차단 대상 테스트 및 Backend 전체 테스트가 통과했다.

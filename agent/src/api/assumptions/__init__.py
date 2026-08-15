@@ -1,0 +1,1 @@
+"""Quotation assumption suggestion API."""

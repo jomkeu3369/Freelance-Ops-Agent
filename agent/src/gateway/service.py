@@ -88,6 +88,18 @@ class AIGateway:
             )
         )
 
+    async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        return await self._call(
+            "quotation_assumption",
+            selection,
+            lambda: self._provider.generate_assumption(
+                selection,
+                prompt,
+                max_output_tokens=max_output_tokens,
+                max_attempts=max_attempts
+            )
+        )
+
     async def _call(self, operation: str, selection: ModelSelection, invoke: Callable[[], Awaitable[ModelGeneration]]) -> ModelGeneration:  # noqa: E501
         self._require_allowed_model(selection)
         circuit_key = f"{selection.provider.value}:{selection.model}"

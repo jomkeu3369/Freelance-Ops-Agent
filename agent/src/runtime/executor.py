@@ -418,6 +418,12 @@ class OperationalAgentExecutor:
                 "route": decision.route.value,
                 "provider": request.model_selection.provider.value,
                 "model": request.model_selection.model,
+                "routingProvider": "OPENAI" if decision.llm_evaluation is not None else None,
+                "routingModel": (
+                    decision.llm_evaluation.model
+                    if decision.llm_evaluation is not None
+                    else None
+                ),
                 "decisionSource": decision.source.value,
                 "reasonCodes": reason_codes
             }
