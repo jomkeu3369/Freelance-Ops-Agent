@@ -13,7 +13,7 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
-- 2026-08-15: GitHub README 첫 화면에서 제품과 AI 엔지니어링 핵심을 한 장으로 이해할 수 있는 16:9 hero 이미지를 제작했다. 실제 Workspace 설정 화면을 중심으로 `Routing · ReAct · HITL · Evidence · Deterministic Pricing`과 `ROUTE → RETRIEVE → ANALYZE → QUOTE` 흐름을 함께 배치했으며, 개인 정보·브라우저 UI·과도한 장식과 작은 설명 문구는 제외했다. 기존 상단 overview GIF를 1672×941 PNG hero로 교체했고 세부 기능 GIF는 각 사용 단계 설명에 유지했다.
+- 2026-08-15: GitHub README 첫 화면의 생성형 hero가 실제 제품보다 가짜 UI·네온·아이콘을 강조해 포트폴리오 신뢰도를 떨어뜨리는 문제를 수정했다. AI 생성 요소를 모두 제거하고 실제 운영 Workspace의 AI 실행 완료·HITL·분석 결과 화면을 그대로 사용한 1600×900 편집 이미지로 교체했다. 왼쪽에는 제품이 해결하는 문제, 아래에는 `ROUTING`, `HUMAN-IN-THE-LOOP`, `DETERMINISTIC QUOTE`의 운영 원칙만 짧게 배치했으며 브라우저 chrome·개인 정보·장식용 AI 이미지는 포함하지 않았다. PNG 용량도 약 1.36MB에서 241KB로 줄였다.
 
 - 2026-08-15: 프로젝트 삭제 확인 UI를 본문에 풀린 인라인 영역에서 중앙 경고 모달로 교체했다. 삭제되는 요구사항·AI 분석·견적·결과 기록을 항목별로 보여주고, 프로젝트명 확인 입력과 취소·영구 삭제 버튼을 분리했으며 닫기 버튼과 Esc 키를 지원한다. 프로젝트 화면에는 현재 단계의 파란 강조색, 정상 상태의 초록색, 삭제 작업의 빨간색을 역할별로 적용하고 단계 전환 패널 진입·상태 표시·모달에 짧은 motion을 추가했다. `prefers-reduced-motion`에서는 기존 전역 정책에 따라 motion이 비활성화된다. Frontend TypeScript, Node 테스트 40건과 ESLint가 통과했다.
 
