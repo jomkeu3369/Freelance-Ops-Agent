@@ -111,6 +111,7 @@ const subscribeToHydration = () => () => undefined;
 export default function Home() {
   const pageRef = useRef<HTMLElement>(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [workflowPaused, setWorkflowPaused] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [outcomeIndex, setOutcomeIndex] = useState(0);
   const [evidenceIndex, setEvidenceIndex] = useState(0);
@@ -169,6 +170,12 @@ export default function Home() {
   );
 
   const previewSnapshot = snapshotFromEvents(previewEvents.slice(0, previewIndex + 1), "PREVIEW");
+
+  useEffect(() => {
+    if (workflowPaused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(() => setActiveStep((current) => (current + 1) % workflowSteps.length), 1900);
+    return () => window.clearInterval(timer);
+  }, [workflowPaused]);
 
   return (
     <main id="main-content" ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
@@ -254,7 +261,16 @@ export default function Home() {
           <p className="section-context">문의에서 제안까지</p>
           <h2>한 번의 문의가,<br />검토 가능한 제안서가 됩니다.</h2>
         </div>
-        <div className="horizontal-accordion" role="list">
+        <div
+          className="horizontal-accordion workflow-auto-sequence"
+          role="list"
+          onMouseEnter={() => setWorkflowPaused(true)}
+          onMouseLeave={() => setWorkflowPaused(false)}
+          onFocusCapture={() => setWorkflowPaused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setWorkflowPaused(false);
+          }}
+        >
           {workflowSteps.map(([title, body], index) => (
             <button
               type="button"

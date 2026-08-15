@@ -170,6 +170,11 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.accordion-content strong \{[^}]*white-space: normal; word-break: keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-rows: auto minmax\(82px, 1fr\) auto/);
+  assert.match(source, /window\.setInterval\(\(\) => setActiveStep/);
+  assert.match(source, /onMouseEnter=\{\(\) => setWorkflowPaused\(true\)\}/);
+  assert.match(css, /@keyframes workflowCardPulse/);
+  assert.match(css, /@keyframes workflowCoreScan/);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*?workflow-auto-sequence::after/);
   assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
   assert.match(source, /\["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"\]/);
