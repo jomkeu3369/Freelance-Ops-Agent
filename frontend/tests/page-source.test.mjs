@@ -458,6 +458,12 @@ test("CRM lifecycle and project-to-client linking use the Spring client contract
   assert.match(api, /clients:\$\{session\.workspaceId\}/);
   assert.match(api, /\/clients\/\$\{clientId\}/);
   assert.match(api, /clientId: string \| null/);
+  assert.match(workspace, /function projectClientLabel\(project: Project, clients: Client\[\]\)/);
+  assert.match(workspace, /client\.companyName \? `\$\{client\.companyName\} · \$\{client\.name\}` : client\.name/);
+  assert.match(workspace, /className="pipeline-card-client"/);
+  assert.match(workspace, /className="sidebar-project-client"/);
+  assert.match(workspace, /className="project-client"/);
+  assert.match(workspace, /projectClientLabel\(project, clients\)/);
 });
 
 test("workspace switching and agent cancellation preserve recoverable operator control", async () => {

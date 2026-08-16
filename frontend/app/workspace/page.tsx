@@ -528,7 +528,7 @@ export default function WorkspacePage() {
               }}
             >
               <option value="">{projects.length ? "프로젝트 선택" : "프로젝트 없음"}</option>
-              {projects.map((project) => <option key={project.id} value={project.id}>{project.title} · {pipelineStatusLabels[project.status] ?? project.status}</option>)}
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.title} · {projectClientLabel(project, clients)} · {pipelineStatusLabels[project.status] ?? project.status}</option>)}
             </select>
           </label>
           {canWriteProject && <button type="button" onClick={() => setShowNewProject(true)} aria-label="새 프로젝트 만들기"><Plus size={18} /><span>새 프로젝트</span></button>}
@@ -553,6 +553,7 @@ export default function WorkspacePage() {
               }}
             >
               <span>{project.title}</span>
+              <small className="sidebar-project-client">{projectClientLabel(project, clients)}</small>
               <small>{pipelineStatusLabels[project.status] ?? project.status}</small>
             </button>
           ))}
@@ -569,6 +570,7 @@ export default function WorkspacePage() {
           <PipelineBoard
             session={session}
             projects={projects}
+            clients={clients}
             canWrite={canWriteProject}
             onCreate={() => setShowNewProject(true)}
             onSelect={(project) => navigateWorkspace("project", project)}
@@ -804,6 +806,13 @@ const pipelineStatusLabels: Record<string, string> = {
   CANCELLED: "취소됨",
 };
 
+function projectClientLabel(project: Project, clients: Client[]): string {
+  if (!project.clientId) return "고객 미연결";
+  const client = clients.find((candidate) => candidate.id === project.clientId);
+  if (!client) return "연결된 고객";
+  return client.companyName ? `${client.companyName} · ${client.name}` : client.name;
+}
+
 const runStatusLabels: Record<string, string> = {
   QUEUED: "준비 중",
   RUNNING: "분석 중",
@@ -969,6 +978,7 @@ const quotationStatusLabels: Record<string, string> = {
 function PipelineBoard({
   session,
   projects,
+  clients,
   canWrite,
   onCreate,
   onSelect,
@@ -976,6 +986,7 @@ function PipelineBoard({
 }: {
   session: AuthSession;
   projects: Project[];
+  clients: Client[];
   canWrite: boolean;
   onCreate: () => void;
   onSelect: (project: Project) => void;
@@ -1014,7 +1025,13 @@ function PipelineBoard({
               <header><div><h2 id={`pipeline-${column.key}`}>{column.title}</h2><p>{column.caption}</p></div><span>{columnProjects.length}</span></header>
               <div className="pipeline-cards">
                 {columnProjects.length === 0 ? <p className="column-empty">이 단계의 프로젝트가 없습니다.</p> : columnProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
-                  <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}><span>{project.currency}</span><h3>{project.title}</h3><p>{project.requirementText}</p><small>{project.deadline ? `${project.deadline}까지` : "일정 미정"}</small></button>
+                  <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}>
+                    <span className="pipeline-card-client"><AddressBook size={14} />{projectClientLabel(project, clients)}</span>
+                    <span className="pipeline-card-currency">{project.currency}</span>
+                    <h3>{project.title}</h3>
+                    <p>{project.requirementText}</p>
+                    <small>{project.deadline ? `${project.deadline}까지` : "일정 미정"}</small>
+                  </button>
                   {canWrite && <label>단계 이동<select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
                 </article>)}
               </div>
@@ -1657,7 +1674,10 @@ function ProjectWorkbench({
     <>
       <div className="project-heading">
         <div>
-          <span className="project-status"><i /> {pipelineStatusLabels[project.status] ?? project.status}</span>
+          <div className="project-context-line">
+            <span className="project-status"><i /> {pipelineStatusLabels[project.status] ?? project.status}</span>
+            <span className="project-client"><AddressBook size={15} />{projectClientLabel(project, clients)}</span>
+          </div>
           <h1>{project.title}</h1>
           <p>{project.requirementText}</p>
         </div>

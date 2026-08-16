@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 프로젝트 현황에서 프로젝트명만 보여 고객과 업무의 연결을 한눈에 확인하기 어렵던 문제를 수정했다. Pipeline 카드 상단, 데스크톱 사이드바, 모바일 프로젝트 선택창과 프로젝트 상세 제목에 동일한 `회사명 · 담당자` 표기를 추가했다. 고객이 연결되지 않았거나 고객 조회 권한이 없는 경우에는 각각 `고객 미연결`·`연결된 고객`으로 표시해 잘못된 개인정보를 추정하지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
+
 - 2026-08-16: 프로젝트 삭제를 Agent 실행 정리 성공 여부와 완전히 분리했다. Frontend는 `agent.cancel` 권한이 있으면 활성 실행 중단을 best-effort로 먼저 시도하지만 `cancel-active`가 4xx·5xx 또는 연결 오류를 반환해도 프로젝트 DELETE를 계속 호출한다. Spring도 과거 `RUNNING`·`WAITING_FOR_USER` row를 삭제 차단 조건으로 사용하지 않으며 `project.delete` 권한과 workspace 범위만 확인한 뒤 프로젝트 aggregate를 한 트랜잭션으로 삭제한다. 따라서 이번 운영 화면에서 확인된 `cancel-active` 500과 stale 실행 상태는 더 이상 프로젝트 삭제를 막지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint와 Backend 테스트 106건 중 Docker 의존 6건을 제외한 100건이 통과했다.
 
 - 2026-08-16: 최신 AI 분석은 완료됐지만 과거 실행 row가 `RUNNING`·`WAITING_FOR_USER`로 남아 프로젝트 삭제가 `409`로 거부되는 상태를 복구했다. Frontend는 프로젝트를 먼저 직접 삭제하고, 실제로 `409`가 발생했으며 사용자에게 `agent.cancel` 권한이 있을 때만 프로젝트의 활성 실행들을 Spring을 통해 Agent 상태와 동기화·중단한 후 삭제를 한 번 재시도한다. 정상 삭제에는 Agent 호출이 추가되지 않고 실제 실행 중인 작업은 기존 안전 중단 절차를 거친다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
