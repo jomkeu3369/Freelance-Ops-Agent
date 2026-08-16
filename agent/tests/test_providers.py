@@ -50,6 +50,7 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
     assert generation.input_tokens == 11
     assert responses.calls[0]["store"] is False
     assert responses.calls[0]["tools"] == []
+    assert responses.calls[0]["text"]["verbosity"] == "low"
     output_format = responses.calls[0]["text"]["format"]
     schema = output_format["schema"]
     assert schema["required"] == ["summary", "open_questions", "quotation_drafts"]
@@ -200,3 +201,50 @@ async def test_successful_retry_reports_every_model_call() -> None:
     )
 
     assert generation.model_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_openai_incomplete_output_is_rejected_before_json_parsing() -> None:
+    class IncompleteResponses:
+        async def create(self, **kwargs: object) -> object:
+            del kwargs
+            return SimpleNamespace(
+                status="incomplete",
+                incomplete_details=SimpleNamespace(reason="max_output_tokens"),
+                output_text='{"action":"FINAL","summary":"truncated',
+                usage=SimpleNamespace(input_tokens=10, output_tokens=100)
+            )
+
+    provider = OpenAIModelProvider(SimpleNamespace(responses=IncompleteResponses()))
+
+    with pytest.raises(ProviderCallError, match="incomplete output") as caught:
+        await provider.generate_react_step(
+            ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
+            "bounded step",
+            max_output_tokens=100
+        )
+
+    assert "truncated" not in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_openai_malformed_output_is_sanitized() -> None:
+    class MalformedResponses:
+        async def create(self, **kwargs: object) -> object:
+            del kwargs
+            return SimpleNamespace(
+                status="completed",
+                output_text='{"action":"FINAL","summary":"malformed',
+                usage=SimpleNamespace(input_tokens=10, output_tokens=10)
+            )
+
+    provider = OpenAIModelProvider(SimpleNamespace(responses=MalformedResponses()))
+
+    with pytest.raises(ProviderCallError, match="invalid structured output") as caught:
+        await provider.generate_react_step(
+            ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
+            "bounded step",
+            max_output_tokens=100
+        )
+
+    assert "malformed" not in str(caught.value)

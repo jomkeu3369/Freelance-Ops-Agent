@@ -729,7 +729,7 @@ class OperationalAgentExecutor:
             max_model_calls=remaining_model_calls - reserved_model_calls,
             max_tool_calls=remaining_tool_calls,
             max_input_tokens=remaining_input_tokens - (remaining_departments - 1),
-            max_output_tokens=remaining_output_tokens - (remaining_departments - 1),
+            max_output_tokens=remaining_output_tokens // remaining_departments,
             max_retries=request.budget.max_retries
         )
 

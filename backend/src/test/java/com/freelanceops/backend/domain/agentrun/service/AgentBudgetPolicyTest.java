@@ -13,7 +13,7 @@ class AgentBudgetPolicyTest {
         12,
         12,
         50000,
-        12000,
+        48000,
         4,
         2,
         2,
@@ -23,7 +23,7 @@ class AgentBudgetPolicyTest {
 
     @Test
     void acceptsBudgetWithinOperationalCaps() {
-        policy.enforce(new RunBudget(120, 12, 6, 20000, 5000, 4, 2, 1, 1, 3));
+        policy.enforce(new RunBudget(120, 12, 6, 20000, 48000, 4, 2, 1, 1, 3));
     }
 
     @Test

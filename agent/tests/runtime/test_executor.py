@@ -365,6 +365,32 @@ async def test_react_route_reserves_a_model_call_for_each_remaining_department()
     assert len(provider.prompts) == 0
 
 
+def test_react_output_budget_is_shared_fairly_between_remaining_departments() -> None:
+    request = _request(model_calls=12, output_tokens=48000)
+
+    first_department = OperationalAgentExecutor._remaining_react_budget(
+        request,
+        model_calls=0,
+        tool_calls=0,
+        input_tokens=0,
+        output_tokens=0,
+        reserved_model_calls=3,
+        remaining_departments=4
+    )
+    final_department = OperationalAgentExecutor._remaining_react_budget(
+        request,
+        model_calls=9,
+        tool_calls=0,
+        input_tokens=0,
+        output_tokens=36000,
+        reserved_model_calls=0,
+        remaining_departments=1
+    )
+
+    assert first_department.max_output_tokens == 12000
+    assert final_department.max_output_tokens == 12000
+
+
 async def test_react_budget_exhaustion_returns_completed_department_as_partial_result() -> None:
     request = _request(model_calls=5, tool_calls=1, input_tokens=100, output_tokens=100)
     provider = BudgetExhaustingReActProvider()

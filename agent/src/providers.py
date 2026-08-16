@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 from langsmith import traceable
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from contracts import ModelSelection, Provider, QuotationDraft
 
@@ -196,6 +196,7 @@ class OpenAIModelProvider(ResilientProvider):
                 store=False,
                 max_output_tokens=max_output_tokens,
                 text={
+                    "verbosity": "low",
                     "format": {
                         "type": "json_schema",
                         "name": schema_name,
@@ -206,7 +207,18 @@ class OpenAIModelProvider(ResilientProvider):
             )
 
         response, model_calls = await self._invoke(call, max_attempts)
-        payload = schema.model_validate_json(str(response.output_text))
+        if getattr(response, "status", "completed") != "completed":
+            incomplete_details = getattr(response, "incomplete_details", None)
+            logger.warning(
+                "OpenAI model response was incomplete: reason=%s",
+                getattr(incomplete_details, "reason", None)
+            )
+            raise ProviderCallError("model provider returned incomplete output") from None
+        try:
+            payload = schema.model_validate_json(str(response.output_text))
+        except ValidationError:
+            logger.warning("OpenAI model response did not satisfy the structured output contract")
+            raise ProviderCallError("model provider returned invalid structured output") from None
         usage = getattr(response, "usage", None)
 
         return ModelGeneration(
