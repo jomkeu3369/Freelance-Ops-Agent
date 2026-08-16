@@ -30,8 +30,6 @@ class ProjectServiceTest {
     @Mock
     private ClientRepository clientRepository;
     @Mock
-    private ActiveProjectRunReader activeProjectRunReader;
-    @Mock
     private WorkspaceAuthorizationService authorizationService;
 
     @Test
@@ -43,7 +41,7 @@ class ProjectServiceTest {
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
             .thenReturn(AuthorizationDecision.ALLOWED);
         when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
-        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
+        ProjectService service = new ProjectService(projectRepository, clientRepository, authorizationService);
 
         service.delete(userId, workspaceId, projectId);
 
@@ -57,7 +55,7 @@ class ProjectServiceTest {
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
             .thenReturn(AuthorizationDecision.FORBIDDEN);
-        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
+        ProjectService service = new ProjectService(projectRepository, clientRepository, authorizationService);
 
         assertThatThrownBy(() -> service.delete(userId, workspaceId, UUID.randomUUID()))
             .isInstanceOfSatisfying(ResponseStatusException.class, error ->
@@ -66,22 +64,4 @@ class ProjectServiceTest {
         verify(projectRepository, never()).delete(org.mockito.ArgumentMatchers.any());
     }
 
-    @Test
-    void activeAgentRunMustBeStoppedBeforeDelete() {
-        UUID userId = UUID.randomUUID();
-        UUID workspaceId = UUID.randomUUID();
-        UUID projectId = UUID.randomUUID();
-        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
-            .thenReturn(AuthorizationDecision.ALLOWED);
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(mock(ProjectEntity.class)));
-        when(activeProjectRunReader.exists(workspaceId, projectId)).thenReturn(true);
-        ProjectService service = new ProjectService(projectRepository, clientRepository, activeProjectRunReader, authorizationService);
-
-        assertThatThrownBy(() -> service.delete(userId, workspaceId, projectId))
-            .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
-                assertThat(error.getStatusCode().value()).isEqualTo(409);
-                assertThat(error.getReason()).contains("AI 분석을 중단");
-            });
-        verify(projectRepository, never()).delete(org.mockito.ArgumentMatchers.any());
-    }
 }

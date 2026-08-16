@@ -24,13 +24,11 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final ClientRepository clientRepository;
-    private final ActiveProjectRunReader activeProjectRunReader;
     private final WorkspaceAuthorizationService authorizationService;
 
-    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, ActiveProjectRunReader activeProjectRunReader, WorkspaceAuthorizationService authorizationService) {
+    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService) {
         this.projectRepository = projectRepository;
         this.clientRepository = clientRepository;
-        this.activeProjectRunReader = activeProjectRunReader;
         this.authorizationService = authorizationService;
     }
 
@@ -94,9 +92,6 @@ public class ProjectService {
     public void delete(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE);
         ProjectEntity project = find(workspaceId, projectId);
-        if (activeProjectRunReader.exists(workspaceId, projectId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "진행 중인 AI 분석을 중단한 뒤 프로젝트를 삭제하세요.");
-        }
         projectRepository.delete(project);
     }
 

@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 프로젝트 삭제를 Agent 실행 정리 성공 여부와 완전히 분리했다. Frontend는 `agent.cancel` 권한이 있으면 활성 실행 중단을 best-effort로 먼저 시도하지만 `cancel-active`가 4xx·5xx 또는 연결 오류를 반환해도 프로젝트 DELETE를 계속 호출한다. Spring도 과거 `RUNNING`·`WAITING_FOR_USER` row를 삭제 차단 조건으로 사용하지 않으며 `project.delete` 권한과 workspace 범위만 확인한 뒤 프로젝트 aggregate를 한 트랜잭션으로 삭제한다. 따라서 이번 운영 화면에서 확인된 `cancel-active` 500과 stale 실행 상태는 더 이상 프로젝트 삭제를 막지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint와 Backend 테스트 106건 중 Docker 의존 6건을 제외한 100건이 통과했다.
+
 - 2026-08-16: 최신 AI 분석은 완료됐지만 과거 실행 row가 `RUNNING`·`WAITING_FOR_USER`로 남아 프로젝트 삭제가 `409`로 거부되는 상태를 복구했다. Frontend는 프로젝트를 먼저 직접 삭제하고, 실제로 `409`가 발생했으며 사용자에게 `agent.cancel` 권한이 있을 때만 프로젝트의 활성 실행들을 Spring을 통해 Agent 상태와 동기화·중단한 후 삭제를 한 번 재시도한다. 정상 삭제에는 Agent 호출이 추가되지 않고 실제 실행 중인 작업은 기존 안전 중단 절차를 거친다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
 
 - 2026-08-16: 프로젝트 영구 삭제가 `500`으로 중단되던 경로를 수정했다. 삭제 가능 상태에서도 Frontend가 Agent 취소 API를 무조건 선행 호출하던 결합을 제거하고 Spring의 프로젝트 삭제 API를 직접 호출하도록 변경했다. 견적 revision·가정·근거·공개 결정·실제 결과가 함께 있는 프로젝트도 한 트랜잭션으로 삭제되도록 `V18__project_aggregate_delete_rules.sql`에서 하위 aggregate의 FK 삭제 규칙을 명시했으며, 전체 관계를 구성한 뒤 프로젝트 삭제를 검증하는 PostgreSQL 통합 테스트를 추가했다. Frontend TypeScript·Node 테스트 45건·ESLint와 Backend 테스트 107건 중 Docker 의존 6건을 제외한 101건이 통과했다. 로컬 Docker가 중지돼 새 PostgreSQL 통합 테스트 1건을 포함한 6건은 skip됐고 CI의 PostgreSQL 17 환경에서 최종 검증한다.

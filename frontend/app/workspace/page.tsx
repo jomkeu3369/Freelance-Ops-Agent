@@ -76,7 +76,7 @@ import {
   createQuotation,
   createRequirementVersion,
   createProject,
-  deleteProjectAfterRunCleanup,
+  deleteProjectWithBestEffortRunCleanup,
   getAgentRun,
   getAgentRunUsage,
   getLatestProjectAgentRun,
@@ -159,7 +159,6 @@ export default function WorkspacePage() {
   const selectedProjectIdRef = useRef<string | null>(null);
   const [run, setRun] = useState<AgentRunView | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
-  const [runLookupPending, setRunLookupPending] = useState(false);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [streamRetryCount, setStreamRetryCount] = useState(0);
@@ -185,7 +184,6 @@ export default function WorkspacePage() {
     Promise.resolve()
       .then(() => {
         if (cancelled) return undefined;
-        setRunLookupPending(true);
         return getLatestProjectAgentRun(session, projectId);
       })
       .then((latestRun) => {
@@ -198,9 +196,6 @@ export default function WorkspacePage() {
       })
       .catch((cause) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "최근 AI 분석 상태를 확인하지 못했습니다.");
-      })
-      .finally(() => {
-        if (!cancelled) setRunLookupPending(false);
       });
     return () => { cancelled = true; };
   }, [activePermissions, activeView, selectedProject, session]);
@@ -612,7 +607,6 @@ export default function WorkspacePage() {
             clients={clients}
             run={run}
             runId={runId}
-            runLookupPending={runLookupPending}
             events={events}
             busy={busy}
             snapshot={snapshot}
@@ -630,7 +624,7 @@ export default function WorkspacePage() {
             }}
             onDelete={async () => {
               const deletedProjectId = selectedProject.id;
-              await deleteProjectAfterRunCleanup(
+              await deleteProjectWithBestEffortRunCleanup(
                 session,
                 deletedProjectId,
                 activePermissions.has("agent.cancel")
@@ -1564,7 +1558,6 @@ function ProjectWorkbench({
   clients,
   run,
   runId,
-  runLookupPending,
   events,
   busy,
   snapshot,
@@ -1583,7 +1576,6 @@ function ProjectWorkbench({
   clients: Client[];
   run: AgentRunView | null;
   runId: string | null;
-  runLookupPending: boolean;
   events: WorkflowEvent[];
   busy: boolean;
   snapshot: ReturnType<typeof snapshotFromEvents>;
@@ -1610,7 +1602,6 @@ function ProjectWorkbench({
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
-  const deleteBlockedByRun = Boolean(run && projectDeletionBlockingStatuses.has(run.status) && !canCancel);
   const latestRouteEvent = [...events].reverse().find((event) => event.type === "route.selected") ?? null;
   const selectedRoute = latestRouteEvent ? eventDataText(latestRouteEvent, "route") : null;
   const routingProvider = latestRouteEvent ? eventDataText(latestRouteEvent, "routingProvider") : null;
@@ -1672,7 +1663,7 @@ function ProjectWorkbench({
         </div>
         {activeStep !== "agent" && (permissions.has("project.write") || permissions.has("project.delete")) && <div className="project-heading-actions">
           {permissions.has("project.write") && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}
-          {permissions.has("project.delete") && <button type="button" className="quiet-button danger" disabled={runLookupPending || deleteBlockedByRun} title={runLookupPending ? "최근 AI 분석 상태를 확인하고 있습니다." : deleteBlockedByRun ? "AI 분석을 중단한 뒤 삭제할 수 있습니다." : undefined} onClick={() => setShowDeleteConfirmation(true)}><Trash size={18} /> 프로젝트 삭제</button>}
+          {permissions.has("project.delete") && <button type="button" className="quiet-button danger" onClick={() => setShowDeleteConfirmation(true)}><Trash size={18} /> 프로젝트 삭제</button>}
         </div>}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">

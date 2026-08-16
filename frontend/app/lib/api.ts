@@ -601,14 +601,15 @@ export function deleteProject(session: AuthSession, projectId: string): Promise<
   ).then(() => { invalidateQueries(`projects:${session.workspaceId}`); });
 }
 
-export async function deleteProjectAfterRunCleanup(session: AuthSession, projectId: string, canCancelRuns: boolean): Promise<void> {
-  try {
-    await deleteProject(session, projectId);
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 409 || !canCancelRuns) throw error;
-    await cancelActiveProjectAgentRuns(session, projectId);
-    await deleteProject(session, projectId);
+export async function deleteProjectWithBestEffortRunCleanup(session: AuthSession, projectId: string, canCancelRuns: boolean): Promise<void> {
+  if (canCancelRuns) {
+    try {
+      await cancelActiveProjectAgentRuns(session, projectId);
+    } catch {
+      // Project deletion must not depend on Agent availability or stale runtime state.
+    }
   }
+  await deleteProject(session, projectId);
 }
 
 export function listRequirements(session: AuthSession, projectId: string): Promise<RequirementVersion[]> {
