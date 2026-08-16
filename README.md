@@ -89,6 +89,12 @@ AI가 어디까지 이해했고 무엇을 새로 해석했는지도 바로 확�
 | 검색한 자료와 결과가 따로 남음 | 각 제안 항목에 참고한 자료나 가정을 연결 |
 | 서버가 재시작되면 진행 상황을 잃기 쉬움 | 진행 상황을 저장해 멈춘 작업을 다시 이어서 처리 |
 
+## 시스템 구성
+
+Frontend는 Vercel에서 제공하고, Spring Boot와 Python Agent runtime은 Vultr의 Docker 환경에서 운영합니다. 외부 요청은 Cloudflare와 Caddy를 거쳐 처리하며 PostgreSQL과 pgvector를 업무 데이터와 검색 근거의 저장소로 사용합니다.
+
+![Freelance Ops Agent 시스템 아키텍처와 배포 파이프라인](docs/assets/readme/system-architecture-pipeline.png)
+
 ## 안심하고 일을 맡길 수 있도록
 
 ```mermaid
