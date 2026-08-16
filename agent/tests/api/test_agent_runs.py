@@ -11,6 +11,7 @@ from contracts import (
     AgentInterruption,
     AgentRunRequest,
     AgentRunResult,
+    AgentWorkflowMode,
     InterruptionKind,
     ModelSelection,
     Provider,
@@ -274,6 +275,7 @@ def test_waiting_run_can_be_cancelled() -> None:
 
 def test_http_vertical_slice_routes_calls_spring_tool_and_generates_result() -> None:
     request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    request.input.workflow_mode = AgentWorkflowMode.AD_HOC
     request.budget.max_tool_calls = 1
     request.budget.max_model_calls = 3
     request.budget.max_departments = 2

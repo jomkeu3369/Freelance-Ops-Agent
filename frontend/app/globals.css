@@ -123,6 +123,9 @@ button { color: inherit; }
 .workflow-node.active small { color: var(--accent); opacity: 1; }
 .workflow-node.completed .workflow-node-icon { color: var(--success); border-color: color-mix(in srgb, var(--success) 48%, var(--line)); background: color-mix(in srgb, var(--success) 5%, var(--surface-solid)); }
 .workflow-node.completed small { color: var(--success); opacity: .9; }
+.workflow-node.skipped { opacity: .46; }
+.workflow-node.skipped .workflow-node-icon { border-style: dashed; box-shadow: none; }
+.workflow-node.skipped small { opacity: .9; }
 .workflow-node.failed .workflow-node-icon { color: var(--danger); border-color: var(--danger); }
 .workflow-node.failed small { color: var(--danger); opacity: 1; }
 .live-event { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 11px 14px; background: var(--surface-2); border-left: 2px solid var(--accent); }
@@ -461,6 +464,8 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .scenario-switch { display: grid; grid-template-columns: repeat(3, auto); border: 1px solid var(--line); }
 .scenario-switch button { min-height: 42px; padding: 0 16px; color: var(--muted); border: 0; border-right: 1px solid var(--line); background: transparent; cursor: pointer; }
 .scenario-switch button:last-child { border-right: 0; }.scenario-switch button.active { color: var(--accent-ink); background: var(--accent); }
+.quote-toolbar .discard-ai-draft { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 38%, var(--line)); background: color-mix(in srgb, var(--danger) 4%, transparent); }
+.quote-toolbar .discard-ai-draft:hover { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
 .inline-error { margin-top: 18px; padding: 13px; display: flex; align-items: center; gap: 9px; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent); }
 .quote-conflict { margin-top: 18px; padding: 18px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--line)); background: color-mix(in srgb, var(--danger) 5%, var(--surface-solid)); }.quote-conflict > div:first-child { display: flex; align-items: flex-start; gap: 12px; }.quote-conflict svg { flex: 0 0 auto; color: var(--danger); }.quote-conflict strong { font-size: .76rem; }.quote-conflict p { margin: 6px 0 0; max-width: 650px; color: var(--muted); font-size: .66rem; line-height: 1.55; }.quote-conflict > div:last-child { display: flex; gap: 8px; flex: 0 0 auto; }.quote-conflict .quiet-button { min-height: 42px; padding: 0 12px; color: var(--ink); border: 1px solid var(--line); background: transparent; cursor: pointer; }
 .permission-note { margin: 12px 0 0; padding: 12px 14px; color: var(--muted); border: 1px solid var(--line); background: var(--surface); font-size: .7rem; line-height: 1.5; }

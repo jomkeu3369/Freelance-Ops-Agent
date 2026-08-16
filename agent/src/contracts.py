@@ -51,6 +51,11 @@ class DirectToolOperation(StrEnum):
     GET_PROJECT_CONTEXT = "GET_PROJECT_CONTEXT"
 
 
+class AgentWorkflowMode(StrEnum):
+    PROJECT_ANALYSIS = "PROJECT_ANALYSIS"
+    AD_HOC = "AD_HOC"
+
+
 class TrustedRunContext(StrictModel):
     run_id: UUID
     thread_id: UUID
@@ -85,6 +90,7 @@ class AgentInput(StrictModel):
     locale: str = "ko-KR"
     jurisdiction_code: str | None = Field(default=None, min_length=2, max_length=32)
     direct_tool_operation: DirectToolOperation | None = None
+    workflow_mode: AgentWorkflowMode = AgentWorkflowMode.PROJECT_ANALYSIS
 
 
 class AssumptionSuggestionRequest(StrictModel):

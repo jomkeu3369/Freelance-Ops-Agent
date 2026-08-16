@@ -5,7 +5,7 @@ import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
 import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
-import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
+import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates, selectRateCardForDraftItem } from "../app/lib/rate-card-match.mjs";
 import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../app/lib/interruption-draft.mjs";
 
@@ -249,6 +249,10 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
   assert.match(graph, /workflow-track-progress/);
   assert.match(graph, /확인 필요/);
+  assert.match(graph, /routeNodes/);
+  assert.match(graph, /skippedNodes/);
+  assert.match(graph, /해당 없음/);
+  assert.match(css, /\.workflow-node\.skipped/);
   assert.match(css, /\.workflow-track\.moving \.workflow-track-progress::after/);
   assert.match(css, /@keyframes workflowTrackSignal/);
   assert.doesNotMatch(graph, /workflow-link/);
@@ -257,6 +261,9 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(workspace, /Tool 사용/);
   assert.match(workspace, /reasonCodes/);
   assert.match(workspace, /decisionSource/);
+  assert.match(workspace, /PROJECT_ANALYSIS_FULL_WORKFLOW/);
+  assert.match(workspace, /evaluatorSuggestedRoute/);
+  assert.match(api, /maxDepartments: 4/);
   assert.match(workspace, /toolName/);
   assert.match(css, /\.event-activity-route/);
   assert.match(css, /\.event-activity-tool/);
@@ -519,6 +526,26 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
   assert.match(workspace, /다른 브라우저에서는 이어서 볼 수 없습니다/);
   assert.match(css, /\.quote-draft-state/);
   assert.match(css, /\.quote-draft-state\.unavailable/);
+});
+
+test("a discarded AI quotation scenario stays hidden only for the same generated content", async () => {
+  const draft = {
+    scenario: "RECOMMENDED",
+    items: [{ title: "API 구현", description: "", quantity: 2, unit: "DAY", rateCardHint: "백엔드 개발", basis: { type: "ASSUMPTION", content: "범위 확정" } }],
+  };
+  const fingerprint = quotationAIDraftFingerprint(draft);
+  const stored = createQuotationAIDraftDismissals([fingerprint, fingerprint]);
+
+  assert.equal(quotationAIDraftDismissalKey("user-1", "workspace / alpha", "project-17"), "freelance-ops-quotation-ai-draft-dismissals-v1:user-1:workspace%20%2F%20alpha:project-17");
+  assert.deepEqual(parseQuotationAIDraftDismissals(JSON.stringify(stored)), [fingerprint]);
+  assert.notEqual(quotationAIDraftFingerprint({ ...draft, items: [{ ...draft.items[0], quantity: 3 }] }), fingerprint);
+  assert.deepEqual(parseQuotationAIDraftDismissals("not-json"), []);
+
+  const workspace = await read("../app/workspace/page.tsx");
+  assert.match(workspace, /AI \{quotationScenarioLabels\[scenario\]\} 버리기/);
+  assert.match(workspace, /저장된 견적과 다른 견적안은 그대로 유지됩니다/);
+  assert.match(workspace, /초안 폐기됨/);
+  assert.match(workspace, /새 분석에서 다시 생성됩니다/);
 });
 
 test("workspace presents operational AI metadata in human-readable labels", async () => {

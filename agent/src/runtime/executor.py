@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Protocol
 from uuid import UUID, uuid4
 
@@ -16,6 +17,7 @@ from contracts import (
     AgentRunRequest,
     AgentRunResult,
     AgentRunUsage,
+    AgentWorkflowMode,
     DepartmentName,
     DepartmentResult,
     DirectToolOperation,
@@ -116,6 +118,7 @@ class OperationalAgentExecutor:
             authority_verified=request.safety_context.authority_verified,
         )
         decision = await self._gateway.route(text, safety)
+        decision = self._apply_workflow_route_policy(request, decision)
         route_event = self._route_event(request, decision)
         input_tokens = decision.llm_evaluation.input_tokens if decision.llm_evaluation is not None else 0
         output_tokens = decision.llm_evaluation.output_tokens if decision.llm_evaluation is not None else 0
@@ -138,6 +141,12 @@ class OperationalAgentExecutor:
                 ),
                 events=(route_event,)
             )
+
+        if (
+            request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS
+            and request.input.direct_tool_operation is None
+        ):
+            self._enforce_project_analysis_budget(request)
 
         if decision.route is RouteLabel.DIRECT_TOOL:
             # 자연어를 Tool 이름으로 해석하지 않고 Spring이 보낸 구조화된 작업만 실행합니다.
@@ -412,7 +421,9 @@ class OperationalAgentExecutor:
     @staticmethod
     def _route_event(request: AgentRunRequest, decision: FinalRouteDecision) -> ExecutionEvent:
         reason_codes = (
-            [reason.value for reason in decision.llm_evaluation.verdict.reason_codes]
+            [decision.policy_code]
+            if decision.policy_code is not None
+            else [reason.value for reason in decision.llm_evaluation.verdict.reason_codes]
             if decision.llm_evaluation is not None
             else [decision.failure_code or decision.source.value]
         )
@@ -429,9 +440,43 @@ class OperationalAgentExecutor:
                     else None
                 ),
                 "decisionSource": decision.source.value,
-                "reasonCodes": reason_codes
+                "reasonCodes": reason_codes,
+                "evaluatorSuggestedRoute": (
+                    decision.policy_overrode_route.value
+                    if decision.policy_overrode_route is not None
+                    else None
+                )
             }
         )
+
+    @staticmethod
+    def _apply_workflow_route_policy(request: AgentRunRequest, decision: FinalRouteDecision) -> FinalRouteDecision:
+        if (
+            request.input.workflow_mode is not AgentWorkflowMode.PROJECT_ANALYSIS
+            or request.input.direct_tool_operation is not None
+            or decision.route is RouteLabel.HUMAN_REQUIRED
+            or decision.route is RouteLabel.SUPERVISOR
+        ):
+            return decision
+        return replace(
+            decision,
+            route=RouteLabel.SUPERVISOR,
+            source=RouteDecisionSource.POLICY_GATE,
+            policy_code="PROJECT_ANALYSIS_FULL_WORKFLOW",
+            policy_overrode_route=decision.route
+        )
+
+    @staticmethod
+    def _enforce_project_analysis_budget(request: AgentRunRequest) -> None:
+        budget = request.budget
+        if (
+            budget.max_departments < len(_ROUTE_DEPARTMENTS[RouteLabel.SUPERVISOR])
+            or budget.max_hierarchy_depth < 2
+            or budget.max_handoffs < 3
+            or budget.max_model_calls < 5
+            or budget.max_tool_calls < 1
+        ):
+            raise AgentExecutionError("PROJECT_ANALYSIS_BUDGET_INSUFFICIENT")
 
     @staticmethod
     def _tool_event(name: str, department: DepartmentName | None = None) -> ExecutionEvent:

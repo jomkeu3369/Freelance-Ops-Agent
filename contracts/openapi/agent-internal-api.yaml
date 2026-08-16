@@ -481,6 +481,11 @@ components:
             directToolOperation:
               type: string
               enum: [GET_PROJECT_CONTEXT]
+            workflowMode:
+              type: string
+              enum: [PROJECT_ANALYSIS, AD_HOC]
+              default: PROJECT_ANALYSIS
+              description: Full project analysis is the default; AD_HOC is reserved for bounded internal tasks.
     ClarificationAnswer:
       type: object
       additionalProperties: false

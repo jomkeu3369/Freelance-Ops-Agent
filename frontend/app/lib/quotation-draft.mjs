@@ -1,5 +1,8 @@
 const DRAFT_VERSION = 1;
 const DRAFT_PREFIX = "freelance-ops-quotation-draft-v1";
+const AI_DRAFT_DISMISSAL_VERSION = 1;
+const AI_DRAFT_DISMISSAL_PREFIX = "freelance-ops-quotation-ai-draft-dismissals-v1";
+const MAX_DISMISSED_AI_DRAFTS = 12;
 const MAX_DRAFT_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const SCENARIOS = new Set(["LEAN", "RECOMMENDED", "EXPANDED"]);
 const UNITS = new Set(["HOUR", "DAY", "FIXED"]);
@@ -27,6 +30,34 @@ function validItem(item) {
 
 export function quotationDraftKey(userId, workspaceId, projectId) {
   return `${DRAFT_PREFIX}:${encodeURIComponent(userId)}:${encodeURIComponent(workspaceId)}:${encodeURIComponent(projectId)}`;
+}
+
+export function quotationAIDraftDismissalKey(userId, workspaceId, projectId) {
+  return `${AI_DRAFT_DISMISSAL_PREFIX}:${encodeURIComponent(userId)}:${encodeURIComponent(workspaceId)}:${encodeURIComponent(projectId)}`;
+}
+
+export function quotationAIDraftFingerprint(draft) {
+  return JSON.stringify({ scenario: draft.scenario, items: draft.items });
+}
+
+export function parseQuotationAIDraftDismissals(raw) {
+  try {
+    const stored = JSON.parse(raw);
+    if (stored.version !== AI_DRAFT_DISMISSAL_VERSION
+      || !Array.isArray(stored.fingerprints)
+      || stored.fingerprints.length > MAX_DISMISSED_AI_DRAFTS
+      || !stored.fingerprints.every((fingerprint) => typeof fingerprint === "string" && fingerprint.length > 0)) return [];
+    return [...new Set(stored.fingerprints)];
+  } catch {
+    return [];
+  }
+}
+
+export function createQuotationAIDraftDismissals(fingerprints) {
+  return {
+    version: AI_DRAFT_DISMISSAL_VERSION,
+    fingerprints: [...new Set(fingerprints)].slice(-MAX_DISMISSED_AI_DRAFTS),
+  };
 }
 
 export function quotationDraftFingerprint(draft) {

@@ -182,6 +182,8 @@ class FinalRouteDecision:
     llm_evaluation: LLMRouteEvaluation | None = None
     failure_code: str | None = None
     safety_decision: SafetyDecision | None = None
+    policy_code: str | None = None
+    policy_overrode_route: RouteLabel | None = None
 
 
 class BoundaryAwareRouteGateway:

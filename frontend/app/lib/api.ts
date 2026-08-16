@@ -844,7 +844,7 @@ export function startAgentRun(
           maxToolCalls: 12,
           maxInputTokens: 50000,
           maxOutputTokens: 12000,
-          maxDepartments: 3,
+          maxDepartments: 4,
           maxHierarchyDepth: 2,
           maxSearchCredits: 2,
           maxRetries: 2,

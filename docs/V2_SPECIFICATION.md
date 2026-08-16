@@ -918,6 +918,8 @@ POST   /workspaces/{workspaceId}/agent-runs/{runId}/cancel
 - event stream은 SSE를 사용한다.
 - 재연결 시 `Last-Event-ID` 이후 이벤트를 전달할 수 있어야 한다.
 - frontend가 node 이름에 의존하지 않고 공개된 event type만 사용한다.
+- 공개 `분석 시작`은 단순 질의가 아니라 `PROJECT_ANALYSIS` workflow다. Safety Gate가 사람 검토를 요구하지 않는 한 Requirements·Research·Deal Design·Verification을 포함하는 `SUPERVISOR` 경로보다 낮게 실행하지 않는다.
+- route evaluator가 더 작은 경로를 제안하면 후보는 감사 정보로 남기되 `PROJECT_ANALYSIS_FULL_WORKFLOW` 정책으로 상향한다. 네 부서를 실행할 수 없는 budget은 부분 실행하지 않고 거부한다.
 
 공개 event 예시:
 
@@ -936,6 +938,7 @@ run.failed
 ```
 
 Spring은 frontend SSE를 소유하고 Agent service의 내부 event를 검증·정제해 relay한다. 브라우저가 Python service에 직접 연결하지 않는다.
+Frontend 진행 그래프는 최종 경로의 실제 실행 대상만 완료로 표시하고, 경로상 실행하지 않는 단계는 `해당 없음`으로 구분한다.
 
 ### 12.4 Agent Internal API
 

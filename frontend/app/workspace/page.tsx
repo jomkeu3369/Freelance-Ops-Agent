@@ -37,7 +37,7 @@ import { LiveWorkflow, snapshotFromEvents } from "../components/live-workflow";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../lib/stream-retry.mjs";
 import { sessionRefreshDelay } from "../lib/session-timing.mjs";
 import { buildWorkspaceSearch, parseWorkspaceLocation } from "../lib/workspace-navigation.mjs";
-import { createQuotationDraft, parseQuotationDraft, quotationDraftFingerprint, quotationDraftKey } from "../lib/quotation-draft.mjs";
+import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "../lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates, selectRateCardForDraftItem } from "../lib/rate-card-match.mjs";
 import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../lib/interruption-draft.mjs";
 import {
@@ -838,7 +838,7 @@ const eventActivityLabels: Record<string, string> = {
 
 const routeActivityLabels: Record<string, string> = {
   DIRECT_TOOL: "결정적 Tool 실행",
-  SIMPLE_LLM: "단일 모델 분석",
+  SIMPLE_LLM: "빠른 요구 정리",
   REACT_AGENT: "ReAct Tool 분석",
   SUPERVISOR: "다중 부서 Supervisor",
   HUMAN_REQUIRED: "사용자 판단 우선",
@@ -847,6 +847,7 @@ const routeActivityLabels: Record<string, string> = {
 const routeReasonLabels: Record<string, string> = {
   DETERMINISTIC_OPERATION: "정해진 작업으로 처리할 수 있는 요청",
   SINGLE_RESPONSE: "한 번의 모델 응답으로 정리 가능한 요청",
+  PROJECT_ANALYSIS_FULL_WORKFLOW: "첫 분석에 필요한 전체 검토 경로를 적용",
   TOOL_WORKFLOW: "자료 조회와 Tool 실행이 필요한 요청",
   MULTI_DOMAIN: "여러 전문 영역을 함께 검토해야 하는 요청",
   APPROVAL_OR_SENSITIVE: "권한 또는 사용자 승인이 필요한 요청",
@@ -889,6 +890,7 @@ function activityPresentation(event: WorkflowEvent, run: AgentRunView | null) {
     const routingProvider = eventDataText(event, "routingProvider");
     const routingModel = eventDataText(event, "routingModel");
     const decisionSource = eventDataText(event, "decisionSource");
+    const evaluatorSuggestedRoute = eventDataText(event, "evaluatorSuggestedRoute");
     const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ?? reason);
     return {
       title: `경로 선택 · ${routeActivityLabels[route ?? ""] ?? route ?? "확인 중"}`,
@@ -897,6 +899,7 @@ function activityPresentation(event: WorkflowEvent, run: AgentRunView | null) {
         route ? `경로 ${route}` : null,
         routingModel ? `경로 판정 ${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}` : "경로 판정 정책 Gate",
         model ? `분석 실행 ${providerLabels[provider ?? ""] ?? provider} · ${model}` : null,
+        evaluatorSuggestedRoute ? `평가 후보 ${routeActivityLabels[evaluatorSuggestedRoute] ?? evaluatorSuggestedRoute}` : null,
         routeDecisionSourceLabels[decisionSource ?? ""] ?? decisionSource,
       ].filter((value): value is string => Boolean(value)),
       tone: "route",
@@ -1800,7 +1803,7 @@ function ProjectWorkbench({
         </aside>
       </div>}
 
-      {activeStep === "quote" && <QuoteBuilder session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} quotationDrafts={run?.result?.quotationDrafts ?? []} modelSelection={run?.metadata ? { provider: run.metadata.provider, model: run.metadata.model } : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }} />}
+      {activeStep === "quote" && <QuoteBuilder key={project.id} session={session} project={project} permissions={permissions} quotationDraft={run?.result?.quotationDraft ?? null} quotationDrafts={run?.result?.quotationDrafts ?? []} modelSelection={run?.metadata ? { provider: run.metadata.provider, model: run.metadata.model } : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }} />}
       {activeStep === "outcome" && <OutcomeReview session={session} project={project} permissions={permissions} />}
       {editingProject && <ProjectEditDialog session={session} project={project} clients={clients} onClose={() => setEditingProject(false)} onUpdated={(updated) => { onProjectUpdated(updated); setEditingProject(false); }} />}
     </>
@@ -2061,9 +2064,20 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
   const [draftProjectId, setDraftProjectId] = useState<string | null>(null);
   const lastPersistedDraftRef = useRef("");
   const draftStorageKey = quotationDraftKey(session.userId, project.workspaceId, project.id);
-  const availableAIDrafts = useMemo(() => quotationDrafts.length > 0
+  const aiDraftDismissalStorageKey = quotationAIDraftDismissalKey(session.userId, project.workspaceId, project.id);
+  const [dismissedAIDraftFingerprints, setDismissedAIDraftFingerprints] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.sessionStorage.getItem(aiDraftDismissalStorageKey);
+      return raw ? parseQuotationAIDraftDismissals(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const rawAIDrafts = useMemo(() => quotationDrafts.length > 0
     ? quotationDrafts
     : quotationDraft ? [quotationDraft] : [], [quotationDraft, quotationDrafts]);
+  const availableAIDrafts = useMemo(() => rawAIDrafts.filter((draft) => !dismissedAIDraftFingerprints.includes(quotationAIDraftFingerprint(draft))), [dismissedAIDraftFingerprints, rawAIDrafts]);
 
   const fingerprint = useCallback((nextScenario: QuotationScenario, baseQuotationId: string | null, nextTaxRate: number, nextValidUntil: string, nextItems: QuotationItemInput[]) => quotationDraftFingerprint({
     scenario: nextScenario,
@@ -2194,6 +2208,9 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
   const aiDraftByScenario = useMemo(() => Object.fromEntries(
     (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, availableAIDrafts.find((draft) => draft.scenario === value) ?? null]),
   ) as Record<QuotationScenario, AgentQuotationDraft | null>, [availableAIDrafts]);
+  const rawAIDraftByScenario = useMemo(() => Object.fromEntries(
+    (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, rawAIDrafts.find((draft) => draft.scenario === value) ?? null]),
+  ) as Record<QuotationScenario, AgentQuotationDraft | null>, [rawAIDrafts]);
 
   const updateItem = (index: number, update: (item: QuotationItemInput) => QuotationItemInput) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
@@ -2319,6 +2336,33 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
     else resetQuotation(true);
   };
 
+  const discardGeneratedAIDraft = () => {
+    const generated = aiDraftByScenario[scenario];
+    if (!generated || saved) return;
+    if (!window.confirm(`AI가 만든 ${quotationScenarioLabels[scenario]}을 버릴까요? 저장된 견적과 다른 견적안은 그대로 유지됩니다.`)) return;
+
+    const fingerprintToDismiss = quotationAIDraftFingerprint(generated);
+    const nextDismissed = [...new Set([...dismissedAIDraftFingerprints, fingerprintToDismiss])];
+    try {
+      window.sessionStorage.setItem(aiDraftDismissalStorageKey, JSON.stringify(createQuotationAIDraftDismissals(nextDismissed)));
+    } catch {
+      // The current editor still discards the draft when browser storage is unavailable.
+    }
+    setDismissedAIDraftFingerprints(nextDismissed);
+
+    const nextItems = [emptyQuoteItem()];
+    setItems(nextItems);
+    setSelectedBasisIndex(0);
+    setProposalShare(null);
+    setShareCopyState(null);
+    setConflictLatest(null);
+    setError(null);
+    const baseline = fingerprint(scenario, null, taxRate, validUntil, nextItems);
+    setDraftBaseline(baseline);
+    lastPersistedDraftRef.current = baseline;
+    clearStoredDraft();
+  };
+
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -2373,6 +2417,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
         <div className="scenario-switch" role="group" aria-label="견적 시나리오">
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => <button type="button" key={value} disabled={!canWrite} className={scenario === value ? "active" : ""} onClick={() => activateScenario(value)}>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</button>)}
         </div>
+        {canWrite && aiDraftByScenario[scenario] && !saved && <button type="button" className="quiet-button danger discard-ai-draft" onClick={discardGeneratedAIDraft}>AI {quotationScenarioLabels[scenario]} 버리기</button>}
         {canWrite && <button type="button" className="quiet-button" onClick={() => resetQuotation()}>새 견적안</button>}
       </div>
 
@@ -2390,9 +2435,10 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
         <div>{(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => {
           const quotation = latestByScenario[value];
           const generated = aiDraftByScenario[value];
+          const dismissed = Boolean(rawAIDraftByScenario[value] && !generated);
           const generatedItems = generated ? quotationDraftItems(generated, rateCards, project.currency) : [];
           const generatedTotal = generatedItems.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0) * (1 + taxRate);
-          return <button type="button" key={value} className={scenario === value ? "active" : ""} disabled={!quotation && !generated} onClick={() => activateScenario(value)}><span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>{quotation ? <><strong>{formatMoney(quotation.total, quotation.currency)}</strong><small>v{quotation.versionNumber} · {quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}</small></> : generated ? <><strong>{formatMoney(generatedTotal, project.currency)}</strong><small>AI 초안 · {generated.items.length}개 작업</small></> : <><strong>작성 전</strong><small>저장된 견적 없음</small></>}</button>;
+          return <button type="button" key={value} className={scenario === value ? "active" : ""} disabled={!quotation && !generated} onClick={() => activateScenario(value)}><span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>{quotation ? <><strong>{formatMoney(quotation.total, quotation.currency)}</strong><small>v{quotation.versionNumber} · {quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}</small></> : generated ? <><strong>{formatMoney(generatedTotal, project.currency)}</strong><small>AI 초안 · {generated.items.length}개 작업</small></> : dismissed ? <><strong>초안 폐기됨</strong><small>새 분석에서 다시 생성됩니다.</small></> : <><strong>작성 전</strong><small>저장된 견적 없음</small></>}</button>;
         })}</div>
       </section>
 

@@ -41,3 +41,4 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0024: Backend와 Agent의 독립 CI/CD](0024-independent-backend-agent-delivery.md)
 - [ADR-0025: main CI 통과 후 자동 Production 배포](0025-main-ci-gated-automatic-production-delivery.md)
 - [ADR-0026: 정책 기반 AI Gateway와 평가 승격 Gate](0026-policy-controlled-ai-gateway.md)
+- [ADR-0027: 프로젝트 최초 분석은 전체 Supervisor 경로를 보장](0027-full-project-analysis-route-floor.md)

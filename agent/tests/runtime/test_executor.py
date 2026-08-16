@@ -9,6 +9,7 @@ from contracts import (
     AgentInterruption,
     AgentRunRequest,
     AgentRunStatus,
+    AgentWorkflowMode,
     ClarificationAnswer,
     DirectToolOperation,
     InterruptionKind,
@@ -187,7 +188,10 @@ def _request(
         ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-5.4-mini"),
         safety_context=SafetyContextInput(),
-        input=AgentInput(requirement_text="프로젝트 요구사항을 분석해 주세요."),
+        input=AgentInput(
+            requirement_text="프로젝트 요구사항을 분석해 주세요.",
+            workflow_mode=AgentWorkflowMode.AD_HOC
+        ),
     )
 
 
@@ -216,6 +220,37 @@ async def test_supervisor_executes_bounded_departments() -> None:
     assert outcome.events[0].type == "route.selected"
     assert outcome.events[0].data["route"] == "SUPERVISOR"
     assert any(event.data.get("toolName") == "get_project_context" for event in outcome.events)
+
+
+async def test_project_analysis_policy_upgrades_simple_route_to_full_supervisor_workflow() -> None:
+    request = _request(tool_calls=1)
+    request.input = AgentInput(requirement_text="프로젝트 요구사항을 분석해 주세요.")
+    request.budget.max_hierarchy_depth = 2
+    provider = FixedProvider()
+    tool = FixedProjectContextTool(request)
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), provider, tool)
+
+    outcome = await executor.execute(
+        request,
+        authorization=ExecutionAuthorization("delegation-token")
+    )
+
+    assert outcome.result is not None
+    assert len(outcome.result.department_results) == 4
+    assert provider.calls == 4
+    assert outcome.events[0].data["route"] == "SUPERVISOR"
+    assert outcome.events[0].data["decisionSource"] == "POLICY_GATE"
+    assert outcome.events[0].data["reasonCodes"] == ["PROJECT_ANALYSIS_FULL_WORKFLOW"]
+    assert outcome.events[0].data["evaluatorSuggestedRoute"] == "SIMPLE_LLM"
+
+
+async def test_project_analysis_rejects_budget_that_cannot_run_the_full_workflow() -> None:
+    request = _request(tool_calls=1)
+    request.input.workflow_mode = AgentWorkflowMode.PROJECT_ANALYSIS
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), FixedProvider())
+
+    with pytest.raises(AgentExecutionError, match="PROJECT_ANALYSIS_BUDGET_INSUFFICIENT"):
+        await executor.execute(request)
 
 
 async def test_research_department_receives_grounded_sources_and_charges_budget() -> None:

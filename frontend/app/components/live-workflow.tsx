@@ -23,6 +23,7 @@ export type WorkflowNodeId =
 export interface WorkflowSnapshot {
   activeNode: WorkflowNodeId;
   completedNodes: WorkflowNodeId[];
+  skippedNodes: WorkflowNodeId[];
   failedNode?: WorkflowNodeId;
   status: AgentRunStatus | "PREVIEW" | "IDLE";
   eventLabel: string;
@@ -53,6 +54,14 @@ const eventNode: Record<string, WorkflowNodeId> = {
   "run.failed": "review",
 };
 
+const routeNodes: Record<string, WorkflowNodeId[]> = {
+  DIRECT_TOOL: ["intake", "routing", "context", "review"],
+  SIMPLE_LLM: ["intake", "routing", "analysis", "review"],
+  REACT_AGENT: ["intake", "routing", "context", "analysis", "evidence", "review"],
+  SUPERVISOR: nodes.map((node) => node.id),
+  HUMAN_REQUIRED: ["intake", "routing", "review"],
+};
+
 const statusCopy: Record<WorkflowSnapshot["status"], string> = {
   IDLE: "실행 대기",
   PREVIEW: "흐름 미리보기",
@@ -72,6 +81,7 @@ export function snapshotFromEvents(
     return {
       activeNode: status === "IDLE" ? "intake" : "routing",
       completedNodes: status === "IDLE" ? [] : ["intake"],
+      skippedNodes: [],
       status,
       eventLabel: status === "IDLE" ? "실행을 기다리고 있습니다" : "실행 경로를 준비하고 있습니다",
       eventCount: 0,
@@ -80,9 +90,17 @@ export function snapshotFromEvents(
   const last = events.at(-1)!;
   const activeNode = eventNode[last.type] ?? "analysis";
   const activeIndex = nodes.findIndex((node) => node.id === activeNode);
+  const route = [...events].reverse().find((event) => event.type === "route.selected")?.data.route;
+  const expectedNodes = typeof route === "string" && routeNodes[route]
+    ? routeNodes[route]
+    : nodes.map((node) => node.id);
+  const completedNodes = status === "COMPLETED"
+    ? expectedNodes
+    : expectedNodes.filter((node) => nodes.findIndex((item) => item.id === node) < activeIndex);
   return {
     activeNode,
-    completedNodes: nodes.slice(0, Math.max(activeIndex, 0)).map((node) => node.id),
+    completedNodes,
+    skippedNodes: nodes.map((node) => node.id).filter((node) => !expectedNodes.includes(node)),
     failedNode: last.type === "run.failed" || status === "FAILED" ? activeNode : undefined,
     status,
     eventLabel: publicEventLabel(last.type),
@@ -112,7 +130,8 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
   const activeIndex = nodes.findIndex((node) => node.id === snapshot.activeNode);
   const isMoving = snapshot.status === "PREVIEW" || snapshot.status === "QUEUED" || snapshot.status === "RUNNING";
   const isComplete = snapshot.status === "COMPLETED";
-  const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / nodes.length) * 100);
+  const expectedNodeCount = Math.max(1, nodes.length - snapshot.skippedNodes.length);
+  const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / expectedNodeCount) * 100);
   const trackProgress = isComplete ? 100 : Math.max(0, activeIndex) / (nodes.length - 1) * 100;
 
   return (
@@ -133,21 +152,23 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         </div>
         {nodes.map((node) => {
           const Icon = node.icon;
-          const state = isComplete
-            ? "completed"
-            : snapshot.failedNode === node.id
+          const state = snapshot.failedNode === node.id
             ? "failed"
-            : snapshot.activeNode === node.id
-              ? "active"
+            : snapshot.skippedNodes.includes(node.id)
+              ? "skipped"
               : snapshot.completedNodes.includes(node.id)
                 ? "completed"
-                : "pending";
+                : snapshot.activeNode === node.id
+                  ? "active"
+                  : "pending";
           const stateLabel = state === "completed"
             ? "완료"
             : state === "failed"
               ? "중단"
               : state === "active"
                 ? snapshot.status === "WAITING_FOR_USER" ? "확인 필요" : "처리 중"
+                : state === "skipped"
+                  ? "해당 없음"
                 : "대기";
           return (
             <div className="workflow-node-wrap" key={node.id}>
