@@ -5,6 +5,7 @@ public enum AgentRunStatus {
     RUNNING,
     WAITING_FOR_USER,
     COMPLETED,
+    PARTIAL,
     FAILED,
     CANCELLED
 }

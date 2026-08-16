@@ -211,6 +211,7 @@ class PostgresCheckpointJournal:
             "active_department": outcome.active_department.value if outcome.active_department is not None else None,
             "usage": outcome.usage.model_dump(mode="json") if outcome.usage is not None else None,
             "events": [{"type": event.type, "data": event.data} for event in outcome.events],
+            "partial_error_code": outcome.partial_error_code,
         }
 
     @staticmethod
@@ -229,7 +230,8 @@ class PostgresCheckpointJournal:
             events=tuple(
                 ExecutionEvent(type=event["type"], data=event.get("data", {}))
                 for event in value.get("events", [])
-            )
+            ),
+            partial_error_code=value.get("partial_error_code")
         )
 
     @staticmethod

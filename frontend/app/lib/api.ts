@@ -7,6 +7,7 @@ export type AgentRunStatus =
   | "RUNNING"
   | "WAITING_FOR_USER"
   | "COMPLETED"
+  | "PARTIAL"
   | "FAILED"
   | "CANCELLED";
 
@@ -851,7 +852,7 @@ export function startAgentRun(
         modelSelection: input,
         budget: {
           maxDurationSeconds: 180,
-          maxModelCalls: 12,
+          maxModelCalls: 50,
           maxToolCalls: 12,
           maxInputTokens: 50000,
           maxOutputTokens: 12000,

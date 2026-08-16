@@ -545,6 +545,7 @@ components:
         - RUNNING
         - WAITING_FOR_USER
         - COMPLETED
+        - PARTIAL
         - FAILED
         - CANCELLED
     AgentRunEvent:

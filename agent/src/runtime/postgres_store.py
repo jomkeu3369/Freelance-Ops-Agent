@@ -86,11 +86,14 @@ class PostgresAgentRunStore:
             model.status = (
                 AgentRunStatus.WAITING_FOR_USER.value
                 if outcome.interruption is not None
+                else AgentRunStatus.PARTIAL.value
+                if outcome.partial_error_code is not None
                 else AgentRunStatus.COMPLETED.value
             )
             model.active_department = outcome.active_department.value if outcome.active_department is not None else None
             model.interruption_json = self._json(outcome.interruption)
             model.result_json = self._json(outcome.result)
+            model.error_code = outcome.partial_error_code
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, outcome.usage))
             model.updated_at = datetime.now(UTC)
@@ -102,6 +105,13 @@ class PostgresAgentRunStore:
                     run_id,
                     "clarification.requested",
                     {"kind": outcome.interruption.kind.value},
+                )
+            elif outcome.partial_error_code is not None:
+                await self._append_event(
+                    session,
+                    run_id,
+                    "run.partial",
+                    {"errorCode": outcome.partial_error_code},
                 )
             else:
                 await self._append_event(session, run_id, "run.completed")
@@ -121,6 +131,7 @@ class PostgresAgentRunStore:
             model = await self._locked(session, run_id)
             if model.status in {
                 AgentRunStatus.COMPLETED.value,
+                AgentRunStatus.PARTIAL.value,
                 AgentRunStatus.FAILED.value,
                 AgentRunStatus.CANCELLED.value,
             }:

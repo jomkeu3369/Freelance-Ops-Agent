@@ -148,6 +148,7 @@ async def _event_stream(coordinator: RunCoordinator, run_id: UUID, after_event_i
     terminal = {
         AgentRunStatus.WAITING_FOR_USER,
         AgentRunStatus.COMPLETED,
+        AgentRunStatus.PARTIAL,
         AgentRunStatus.FAILED,
         AgentRunStatus.CANCELLED,
     }

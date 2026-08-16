@@ -17,7 +17,7 @@ import java.util.UUID;
 public class AgentEventRelay {
     private static final int MAX_EVENT_DATA_LENGTH = 262_144;
     private static final Set<String> ALLOWED_EVENT_TYPES = Set.of(
-        "run.accepted", "run.started", "run.completed", "run.failed", "run.cancelled",
+        "run.accepted", "run.started", "run.completed", "run.partial", "run.failed", "run.cancelled",
         "clarification.requested", "clarification.responded", "route.selected", "tool.completed"
     );
     private final ObjectMapper objectMapper;

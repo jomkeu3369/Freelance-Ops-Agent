@@ -67,10 +67,13 @@ class ExecutionOutcome:
     active_department: DepartmentName | None = None
     usage: AgentRunUsage | None = None
     events: tuple[ExecutionEvent, ...] = ()
+    partial_error_code: str | None = None
 
     def __post_init__(self) -> None:
         if (self.result is None) == (self.interruption is None):
             raise ValueError("execution outcome requires exactly one of result or interruption")
+        if self.partial_error_code is not None and self.result is None:
+            raise ValueError("partial execution outcome requires a result")
 
 
 class AgentRunExecutor(Protocol):
@@ -186,8 +189,11 @@ class InMemoryAgentRunStore:
             record.status = (
                 AgentRunStatus.WAITING_FOR_USER
                 if outcome.interruption is not None
+                else AgentRunStatus.PARTIAL
+                if outcome.partial_error_code is not None
                 else AgentRunStatus.COMPLETED
             )
+            record.error_code = outcome.partial_error_code
             record.updated_at = datetime.now(UTC)
             for event in outcome.events:
                 self._append_event(record, event.type, event.data)
@@ -197,6 +203,8 @@ class InMemoryAgentRunStore:
                     "clarification.requested",
                     {"kind": outcome.interruption.kind.value},
                 )
+            elif outcome.partial_error_code is not None:
+                self._append_event(record, "run.partial", {"errorCode": outcome.partial_error_code})
             else:
                 self._append_event(record, "run.completed")
 
@@ -215,6 +223,7 @@ class InMemoryAgentRunStore:
             record = self._record(run_id)
             if record.status in {
                 AgentRunStatus.COMPLETED,
+                AgentRunStatus.PARTIAL,
                 AgentRunStatus.FAILED,
                 AgentRunStatus.CANCELLED,
             }:
@@ -389,13 +398,26 @@ class RunCoordinator:
                 timeout=request.budget.max_duration_seconds,
             )
             await self._store.complete(run_id, outcome)
-            status = AgentRunStatus.WAITING_FOR_USER if outcome.interruption is not None else AgentRunStatus.COMPLETED
-            phase = "interrupted" if outcome.interruption is not None else "execution_completed"
+            status = (
+                AgentRunStatus.WAITING_FOR_USER
+                if outcome.interruption is not None
+                else AgentRunStatus.PARTIAL
+                if outcome.partial_error_code is not None
+                else AgentRunStatus.COMPLETED
+            )
+            phase = (
+                "interrupted"
+                if outcome.interruption is not None
+                else "execution_partially_completed"
+                if outcome.partial_error_code is not None
+                else "execution_completed"
+            )
             await self._checkpoint_journal.record(
                 request,
                 status,
                 phase,
                 active_department=outcome.active_department,
+                error_code=outcome.partial_error_code,
             )
         except TimeoutError:
             await self._store.fail(run_id, "RUN_TIMEOUT")

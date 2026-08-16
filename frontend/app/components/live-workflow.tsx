@@ -52,6 +52,7 @@ const eventNode: Record<string, WorkflowNodeId> = {
   "quotation.draft.created": "quotation",
   "approval.requested": "review",
   "run.completed": "review",
+  "run.partial": "review",
 };
 
 function recordedCompletedNodes(events: WorkflowEvent[]): WorkflowNodeId[] {
@@ -64,6 +65,7 @@ function recordedCompletedNodes(events: WorkflowEvent[]): WorkflowNodeId[] {
   if (types.has("evidence.added")) completed.add("evidence");
   if (types.has("quotation.draft.created")) completed.add("quotation");
   if (types.has("run.completed")) completed.add("review");
+  if (types.has("run.partial")) completed.add("review");
   return nodes.map((node) => node.id).filter((node) => completed.has(node));
 }
 
@@ -82,6 +84,7 @@ const statusCopy: Record<WorkflowSnapshot["status"], string> = {
   RUNNING: "실시간 처리 중",
   WAITING_FOR_USER: "사용자 응답 대기",
   COMPLETED: "실행 완료",
+  PARTIAL: "부분 결과 제공",
   FAILED: "실행 중단",
   CANCELLED: "사용자 중단",
 };
@@ -143,6 +146,7 @@ function publicEventLabel(type: string): string {
       "quotation.draft.created": "견적 초안을 계산했습니다",
       "approval.requested": "최종 검토를 기다리고 있습니다",
       "run.completed": "분석을 완료했습니다",
+      "run.partial": "완료된 단계의 부분 결과를 준비했습니다",
       "run.failed": "실행을 안전하게 중단했습니다",
     }[type] ?? "분석을 진행하고 있습니다"
   );

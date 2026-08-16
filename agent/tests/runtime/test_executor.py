@@ -113,6 +113,34 @@ class SequenceReActProvider:
         return ModelGeneration(payload=self.payloads.pop(0), input_tokens=5, output_tokens=5)
 
 
+class BudgetExhaustingReActProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def generate_react_step(
+        self,
+        selection: ModelSelection,
+        prompt: str,
+        *,
+        max_output_tokens: int,
+        max_attempts: int | None = None,
+    ) -> ModelGeneration:
+        del selection, prompt, max_output_tokens, max_attempts
+        self.calls += 1
+        if self.calls == 1:
+            return ModelGeneration(
+                payload={"action": "FINAL", "summary": "요구사항 분석 완료", "arguments": {}},
+                input_tokens=5,
+                output_tokens=5
+            )
+        return ModelGeneration(
+            payload={"action": "TOOL", "tool_name": "get_project_context", "arguments": {}},
+            input_tokens=15,
+            output_tokens=15,
+            model_calls=3
+        )
+
+
 class FixedProjectContextTool:
     def __init__(self, request: AgentRunRequest) -> None:
         self._request = request
@@ -335,6 +363,33 @@ async def test_react_route_reserves_a_model_call_for_each_remaining_department()
         await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
 
     assert len(provider.prompts) == 0
+
+
+async def test_react_budget_exhaustion_returns_completed_department_as_partial_result() -> None:
+    request = _request(model_calls=5, tool_calls=1, input_tokens=100, output_tokens=100)
+    provider = BudgetExhaustingReActProvider()
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.REACT_AGENT),
+        provider,  # type: ignore[arg-type]
+        FixedProjectContextTool(request)
+    )
+    store = InMemoryAgentRunStore()
+    coordinator = RunCoordinator(store, executor)
+
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("delegation-token"))
+    view = await coordinator.view(request.context.run_id)
+    events = await coordinator.events(request.context.run_id)
+
+    assert view.status is AgentRunStatus.PARTIAL
+    assert view.error_code == "MODEL_CALL_BUDGET_EXCEEDED"
+    assert view.result is not None
+    assert [result.status for result in view.result.department_results] == ["COMPLETED", "FAILED"]
+    assert view.result.department_results[0].summary == "요구사항 분석 완료"
+    assert view.result.quotation_drafts == []
+    assert view.usage is not None
+    assert view.usage.model_calls == 5
+    assert events[-1].type == "run.partial"
 
 
 async def test_required_question_creates_clarification_interruption() -> None:

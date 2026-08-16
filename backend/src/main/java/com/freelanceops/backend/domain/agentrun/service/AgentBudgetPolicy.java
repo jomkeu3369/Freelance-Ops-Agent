@@ -13,7 +13,7 @@ public class AgentBudgetPolicy {
 
     public AgentBudgetPolicy(
         @Value("${agent.quota.max-duration-seconds:180}") int maxDurationSeconds,
-        @Value("${agent.quota.max-model-calls:12}") int maxModelCalls,
+        @Value("${agent.quota.max-model-calls:50}") int maxModelCalls,
         @Value("${agent.quota.max-tool-calls:12}") int maxToolCalls,
         @Value("${agent.quota.max-input-tokens:50000}") int maxInputTokens,
         @Value("${agent.quota.max-output-tokens:12000}") int maxOutputTokens,

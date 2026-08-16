@@ -87,6 +87,7 @@ public class AgentInterruptionService {
     }
 
     private static boolean isTerminal(AgentRunStatus status) {
-        return status == AgentRunStatus.COMPLETED || status == AgentRunStatus.FAILED || status == AgentRunStatus.CANCELLED;
+        return status == AgentRunStatus.COMPLETED || status == AgentRunStatus.PARTIAL
+            || status == AgentRunStatus.FAILED || status == AgentRunStatus.CANCELLED;
     }
 }

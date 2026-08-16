@@ -85,6 +85,14 @@ _ROUTE_DEPARTMENTS: dict[RouteLabel, tuple[DepartmentName, ...]] = {
     RouteLabel.HUMAN_REQUIRED: (),
 }
 
+_RECOVERABLE_PARTIAL_CODES = frozenset({
+    "MODEL_CALL_BUDGET_EXCEEDED",
+    "TOOL_CALL_BUDGET_EXCEEDED",
+    "INPUT_TOKEN_BUDGET_EXCEEDED",
+    "OUTPUT_TOKEN_BUDGET_EXCEEDED",
+    "MODEL_PROVIDER_FAILED",
+})
+
 class OperationalAgentExecutor:
     def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None) -> None:  # noqa: E501
         self._gateway = gateway
@@ -320,15 +328,36 @@ class OperationalAgentExecutor:
                 self._react_department_call_floor(request, pending_department, authorization)
                 for pending_department in departments[department_index + 1:]
             )
-            react_budget = self._remaining_react_budget(
-                request,
-                model_calls,
-                tool_calls,
-                input_tokens,
-                output_tokens,
-                reserved_model_calls,
-                remaining_departments
-            )
+            try:
+                react_budget = self._remaining_react_budget(
+                    request,
+                    model_calls,
+                    tool_calls,
+                    input_tokens,
+                    output_tokens,
+                    reserved_model_calls,
+                    remaining_departments
+                )
+            except AgentExecutionError as error:
+                if results and error.code in _RECOVERABLE_PARTIAL_CODES:
+                    return self._partial_react_outcome(
+                        request,
+                        decision,
+                        departments,
+                        department_index,
+                        results,
+                        questions,
+                        quotation_drafts,
+                        tool_events,
+                        research_usage,
+                        error.code,
+                        model_calls,
+                        tool_calls,
+                        input_tokens,
+                        output_tokens,
+                        started_ns
+                    )
+                raise
             loop = BoundedReActLoop(self._provider, tools)
             try:
                 outcome = await loop.run(
@@ -349,9 +378,45 @@ class OperationalAgentExecutor:
                     react_budget,
                 )
             except ProviderCallError as error:
+                if results:
+                    return self._partial_react_outcome(
+                        request,
+                        decision,
+                        departments,
+                        department_index,
+                        results,
+                        questions,
+                        quotation_drafts,
+                        tool_events,
+                        research_usage,
+                        "MODEL_PROVIDER_FAILED",
+                        model_calls,
+                        tool_calls,
+                        input_tokens,
+                        output_tokens,
+                        started_ns
+                    )
                 raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
             except ReActLoopError as error:
-                raise AgentExecutionError(str(error)) from error
+                if results and error.code in _RECOVERABLE_PARTIAL_CODES:
+                    return self._partial_react_outcome(
+                        request,
+                        decision,
+                        departments,
+                        department_index,
+                        results,
+                        questions,
+                        quotation_drafts,
+                        tool_events,
+                        research_usage,
+                        error.code,
+                        model_calls + error.model_calls,
+                        tool_calls + error.tool_calls,
+                        input_tokens + error.input_tokens,
+                        output_tokens + error.output_tokens,
+                        started_ns
+                    )
+                raise AgentExecutionError(error.code) from error
 
             model_calls += outcome.model_calls
             tool_calls += outcome.tool_calls
@@ -416,6 +481,58 @@ class OperationalAgentExecutor:
             active_department=departments[-1] if departments else None,
             usage=usage,
             events=(self._route_event(request, decision), *tool_events)
+        )
+
+    def _partial_react_outcome(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], failed_index: int, results: list[DepartmentResult], questions: list[str], quotation_drafts: list[QuotationDraft], tool_events: list[ExecutionEvent], research_usage: ResearchCollection, error_code: str, model_calls: int, tool_calls: int, input_tokens: int, output_tokens: int, started_ns: int) -> ExecutionOutcome:  # noqa: E501
+        unfinished = [
+            DepartmentResult(
+                department=department,
+                status="FAILED" if index == failed_index else "SKIPPED",
+                summary=(
+                    "실행 한도 또는 일시적인 모델 오류로 이 단계를 완료하지 못했습니다."
+                    if index == failed_index
+                    else "앞 단계가 부분 완료되어 이 단계는 실행하지 않았습니다."
+                ),
+                error_code=error_code if index == failed_index else None
+            )
+            for index, department in enumerate(departments)
+            if index >= failed_index
+        ]
+        completed_summary = "\n\n".join(
+            f"[{result.department.value}] {result.summary}" for result in results
+        )
+        bounded_questions = self._bounded_questions(questions)
+        safe_quotation_drafts = (
+            quotation_drafts
+            if any(result.department is DepartmentName.DEAL_DESIGN for result in results)
+            else []
+        )
+        usage = self._usage(
+            decision.route,
+            model_calls,
+            tool_calls,
+            input_tokens,
+            output_tokens,
+            max(0, model_calls - (1 + len(results))),
+            research_usage.search_credits,
+            research_usage.fetched_pages,
+            started_ns
+        )
+        return ExecutionOutcome(
+            result=AgentRunResult(
+                project_summary=(
+                    "일부 분석 단계만 완료되었습니다. 완료된 결과는 다음과 같습니다.\n\n"
+                    f"{completed_summary}"
+                ),
+                open_questions=bounded_questions,
+                department_results=[*results, *unfinished],
+                quotation_draft=self._recommended_draft(safe_quotation_drafts),
+                quotation_drafts=safe_quotation_drafts
+            ),
+            active_department=departments[failed_index],
+            usage=usage,
+            events=(self._route_event(request, decision), *tool_events),
+            partial_error_code=error_code
         )
 
     @staticmethod

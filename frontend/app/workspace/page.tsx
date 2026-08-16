@@ -121,7 +121,7 @@ type StreamState = "idle" | "connecting" | "connected" | "reconnecting" | "settl
 
 gsap.registerPlugin(useGSAP);
 
-const terminalStatuses = new Set(["COMPLETED", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
+const terminalStatuses = new Set(["COMPLETED", "PARTIAL", "FAILED", "CANCELLED", "WAITING_FOR_USER"]);
 const projectDeletionBlockingStatuses = new Set(["QUEUED", "RUNNING", "WAITING_FOR_USER"]);
 
 const currencyOptions = [
@@ -818,6 +818,7 @@ const runStatusLabels: Record<string, string> = {
   RUNNING: "분석 중",
   WAITING_FOR_USER: "확인 필요",
   COMPLETED: "분석 완료",
+  PARTIAL: "부분 분석 완료",
   FAILED: "실행 중단",
   CANCELLED: "사용자 중단",
 };
@@ -845,6 +846,7 @@ const eventActivityLabels: Record<string, string> = {
   "quotation.draft.created": "견적 초안 준비",
   "approval.requested": "최종 확인 요청",
   "run.completed": "분석 완료",
+  "run.partial": "부분 분석 완료",
   "run.failed": "분석 중단",
   "run.cancelled": "사용자 중단",
   "route.selected": "실행 경로 선택",
@@ -1798,7 +1800,8 @@ function ProjectWorkbench({
             <div className="run-failed"><Warning size={30} /><h3>{run.status === "CANCELLED" ? "사용자가 실행을 중단했습니다." : "실행이 중단되었습니다."}</h3><p>{run.status === "CANCELLED" ? "저장된 프로젝트와 이전 결과는 변경되지 않습니다." : runFailureMessage(run.errorCode)}</p>{run.status === "FAILED" && run.errorCode && <small>오류 코드 · {run.errorCode}</small>}</div>
           ) : run.result ? (
             <div className="run-result">
-              <span className="result-state"><CheckCircle size={17} /> 분석 결과</span>
+              {run.status === "PARTIAL" && <div className="run-partial"><Warning size={20} /><div><strong>일부 분석 결과를 먼저 제공합니다.</strong><p>완료된 단계의 검증된 결과만 표시합니다. 누락된 단계는 다시 분석해 보완할 수 있습니다.</p>{run.errorCode && <small>중단 사유 · {run.errorCode}</small>}</div></div>}
+              <span className={`result-state${run.status === "PARTIAL" ? " partial" : ""}`}>{run.status === "PARTIAL" ? <Warning size={17} /> : <CheckCircle size={17} />} {run.status === "PARTIAL" ? "부분 분석 결과" : "분석 결과"}</span>
               <h3>프로젝트 요약</h3>
               <p>{run.result.projectSummary}</p>
               {run.metadata && <details className="run-provenance run-technical-details"><summary>실행 정보</summary><dl className="run-model-routing"><div><dt>경로 판정</dt><dd>{routingModel ? `${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}` : "정책 Gate"}</dd></div><div><dt>선택 경로</dt><dd>{selectedRoute ? routeActivityLabels[selectedRoute] ?? selectedRoute : "기록 확인 중"}</dd></div><div><dt>분석 실행</dt><dd>{providerLabels[run.metadata.provider] ?? run.metadata.provider} · {run.metadata.model}</dd></div><div><dt>자동 전환</dt><dd>사용 안 함</dd></div></dl><small>프롬프트 {run.metadata.promptVersion} · 도구 규격 {run.metadata.toolSchemaVersion}</small></details>}

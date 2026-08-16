@@ -822,8 +822,17 @@ test("project intake compares the current source with the last confirmed revisio
 });
 
 test("agent runs request enough model calls for the four-department ReAct route", async () => {
-  const api = await read("../app/lib/api.ts");
-  assert.match(api, /maxModelCalls: 12/);
+  const [api, workspace, workflow] = await Promise.all([
+    read("../app/lib/api.ts"),
+    read("../app/workspace/page.tsx"),
+    read("../app/components/live-workflow.tsx"),
+  ]);
+  assert.match(api, /maxModelCalls: 50/);
+  assert.match(api, /\| "PARTIAL"/);
+  assert.match(workspace, /일부 분석 결과를 먼저 제공합니다/);
+  assert.match(workspace, /run\.status === "PARTIAL"/);
+  assert.match(workflow, /"run\.partial": "review"/);
+  assert.match(workflow, /PARTIAL: "부분 결과 제공"/);
 });
 
 test("waiting agent runs prioritize a readable collapsible review panel", async () => {

@@ -16,6 +16,14 @@ from providers import ModelGeneration, ReActStep
 class ReActLoopError(RuntimeError):
     """Sanitized execution error represented by a stable public code."""
 
+    def __init__(self, code: str, *, model_calls: int = 0, tool_calls: int = 0, input_tokens: int = 0, output_tokens: int = 0) -> None:  # noqa: E501
+        super().__init__(code)
+        self.code = code
+        self.model_calls = model_calls
+        self.tool_calls = tool_calls
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
 
 ToolHandler = Callable[[BaseModel], Awaitable[object]]
 ObservationSanitizer = Callable[[object], object]
@@ -171,7 +179,13 @@ class BoundedReActLoop:
                 }
             )
 
-        raise ReActLoopError("MODEL_CALL_BUDGET_EXCEEDED")
+        raise ReActLoopError(
+            "MODEL_CALL_BUDGET_EXCEEDED",
+            model_calls=model_calls,
+            tool_calls=tool_calls,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens
+        )
 
     def _prompt(self, objective: dict[str, object], observations: list[dict[str, object]], remaining_model_calls: int, remaining_tool_calls: int, contract_feedback: dict[str, object] | None) -> str:  # noqa: E501
         return json.dumps(
@@ -239,10 +253,34 @@ class BoundedReActLoop:
     @staticmethod
     def _require_budget(budget: ReActLoopBudget, model_calls: int, tool_calls: int, input_tokens: int, output_tokens: int) -> None:  # noqa: E501
         if model_calls > budget.max_model_calls:
-            raise ReActLoopError("MODEL_CALL_BUDGET_EXCEEDED")
+            raise ReActLoopError(
+                "MODEL_CALL_BUDGET_EXCEEDED",
+                model_calls=model_calls,
+                tool_calls=tool_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            )
         if tool_calls > budget.max_tool_calls:
-            raise ReActLoopError("TOOL_CALL_BUDGET_EXCEEDED")
+            raise ReActLoopError(
+                "TOOL_CALL_BUDGET_EXCEEDED",
+                model_calls=model_calls,
+                tool_calls=tool_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            )
         if input_tokens > budget.max_input_tokens:
-            raise ReActLoopError("INPUT_TOKEN_BUDGET_EXCEEDED")
+            raise ReActLoopError(
+                "INPUT_TOKEN_BUDGET_EXCEEDED",
+                model_calls=model_calls,
+                tool_calls=tool_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            )
         if output_tokens > budget.max_output_tokens:
-            raise ReActLoopError("OUTPUT_TOKEN_BUDGET_EXCEEDED")
+            raise ReActLoopError(
+                "OUTPUT_TOKEN_BUDGET_EXCEEDED",
+                model_calls=model_calls,
+                tool_calls=tool_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            )

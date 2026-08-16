@@ -147,7 +147,8 @@ async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_sta
 
             return ExecutionOutcome(
                 result=AgentRunResult(project_summary=request.input.requirement_text),
-                events=(ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),)
+                events=(ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),),
+                partial_error_code="MODEL_CALL_BUDGET_EXCEEDED"
             )
 
     request = _request()
@@ -171,6 +172,7 @@ async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_sta
 
     assert outcome.result is not None
     assert outcome.events == (ExecutionEvent("route.selected", {"route": "REACT_AGENT"}),)
+    assert outcome.partial_error_code == "MODEL_CALL_BUDGET_EXCEEDED"
     assert executor.token == "transient-delegation-token"
     assert snapshot.values["phase"] == "executed"
     assert "transient-delegation-token" not in repr(snapshot.values)

@@ -55,6 +55,23 @@ class AgentEventRelayTest {
     }
 
     @Test
+    void allowsPartialCompletionWithoutExposingPrivateExecutionState() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String data = objectMapper.writeValueAsString(Map.of(
+            "eventId", 5,
+            "runId", runId,
+            "type", "run.partial",
+            "occurredAt", Instant.now(),
+            "data", Map.of("errorCode", "MODEL_CALL_BUDGET_EXCEEDED")
+        ));
+
+        var event = relay.parse("5", "run.partial", data, runId, 4);
+
+        assertThat(event.type()).isEqualTo("run.partial");
+        assertThat(event.data()).containsEntry("errorCode", "MODEL_CALL_BUDGET_EXCEEDED");
+    }
+
+    @Test
     void rejectsPrivateOrMismatchedEvents() {
         UUID runId = UUID.randomUUID();
         String data = "{\"eventId\":2,\"runId\":\"" + runId + "\",\"type\":\"internal.node\",\"occurredAt\":\"2026-08-13T00:00:00Z\",\"data\":{}}";
