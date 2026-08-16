@@ -39,6 +39,12 @@ public class AgentRunGatewayService {
         AgentRunStatus.RUNNING,
         AgentRunStatus.WAITING_FOR_USER
     );
+    private static final EnumSet<AgentRunStatus> TERMINAL_STATUSES = EnumSet.of(
+        AgentRunStatus.COMPLETED,
+        AgentRunStatus.PARTIAL,
+        AgentRunStatus.FAILED,
+        AgentRunStatus.CANCELLED
+    );
 
     private final WorkspacePermissionReader permissionReader;
     private final ProjectRepository projectRepository;
@@ -132,8 +138,7 @@ public class AgentRunGatewayService {
         requireMatchingRun(runId, response == null ? null : response.runId());
         interruptionService.synchronize(authorized.run(), response);
         costService.synchronize(authorized.run(), response);
-        authorized.run().updateStatus(response.status(), Instant.now());
-        agentRunRepository.save(authorized.run());
+        synchronizeStatus(authorized.run(), response.status());
         return response;
     }
 
@@ -183,8 +188,7 @@ public class AgentRunGatewayService {
             if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
                 throw error;
             }
-            activeRun.updateStatus(AgentRunStatus.CANCELLED, Instant.now());
-            agentRunRepository.save(activeRun);
+            synchronizeStatus(activeRun, AgentRunStatus.CANCELLED);
             return Optional.empty();
         }
     }
@@ -205,8 +209,7 @@ public class AgentRunGatewayService {
         );
         requireMatchingRun(runId, response == null ? null : response.runId());
         interruptionService.markResponded(interruption, request, Instant.now());
-        authorized.run().updateStatus(response.status(), Instant.now());
-        agentRunRepository.save(authorized.run());
+        synchronizeStatus(authorized.run(), response.status());
         return response;
     }
 
@@ -220,8 +223,7 @@ public class AgentRunGatewayService {
         requireMatchingRun(runId, response == null ? null : response.runId());
         interruptionService.synchronize(authorized.run(), response);
         costService.synchronize(authorized.run(), response);
-        authorized.run().updateStatus(response.status(), Instant.now());
-        agentRunRepository.save(authorized.run());
+        synchronizeStatus(authorized.run(), response.status());
         return response;
     }
 
@@ -246,6 +248,17 @@ public class AgentRunGatewayService {
 
     private String issueToken(AgentRunEntity run, UUID userId, List<String> permissions) {
         return tokenIssuer.issue(run.id(), run.workspaceId(), run.projectId(), userId, permissions);
+    }
+
+    private void synchronizeStatus(AgentRunEntity run, AgentRunStatus status) {
+        Instant updatedAt = Instant.now();
+        agentRunRepository.synchronizeStatus(
+            run.id(),
+            run.workspaceId(),
+            status,
+            updatedAt,
+            TERMINAL_STATUSES
+        );
     }
 
     private static List<String> permissionCodes(MembershipPermissions membership) {

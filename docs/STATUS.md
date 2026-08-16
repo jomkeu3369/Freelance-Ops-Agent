@@ -1,6 +1,6 @@
 # Freelance Ops Agent V2 작업 인수인계
 
-> 마지막 갱신: 2026-08-16
+> 마지막 갱신: 2026-08-17
 > 현재 branch: `main`
 > 현재 단계: Phase 6 — 제품 연결과 운영 준비
 
@@ -12,6 +12,8 @@
 V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 frontend를 연결하고 운영 검증 증거를 높인다. 2026-08-14 frontend 구현으로 공개 메인 페이지, 인증·프로젝트 intake, 실시간 Agent graph, 수동 견적·발행·공유, 고객 결정과 Outcome 입력 흐름을 추가했지만, 실제 OpenAI/Gemini credential을 사용하는 전체 E2E와 승인된 Production 배포 전이므로 운영 출시 완료로 간주하지 않는다.
 
 ## 완료
+
+- 2026-08-17: 결과 회고 저장 직후 화면에 표시된 500은 Outcome 저장 실패가 아니라 동시에 실행된 최신 Agent 상태 조회의 낙관적 잠금 충돌임을 운영 로그로 확인했다. `GET latestForProject`가 외부 Agent 상태를 반영하면서 transaction 밖의 detached `AgentRunEntity`를 `save()`로 merge해 재개·취소·다른 조회와 version 경쟁을 일으키던 경로를 원자적 상태 갱신 query로 교체했다. 조회·재개·취소·삭제 전 동기화가 같은 갱신 경로를 사용하고, 이미 완료·부분 완료·실패·취소된 terminal 상태는 늦게 도착한 응답으로 되돌아가지 않으며 동일 상태 polling은 DB write를 만들지 않는다. 회귀 테스트는 조회 경로가 detached entity를 다시 저장하지 않는지 검증하며 Backend 전체 테스트 109건 중 Docker 의존 6건을 제외한 103건이 통과했다.
 
 - 2026-08-16: OpenAI Responses가 `completed` 상태이지만 ReAct JSON/schema 계약을 만족하지 못할 때 첫 파싱 실패에서 즉시 `MODEL_PROVIDER_FAILED`로 종료하던 경로를 수정했다. 동일 provider·model과 남은 호출 예산 안에서 구조화 생성을 1회만 다시 요청하며, 재생성도 실패하면 원문을 노출하지 않고 기존처럼 fail-closed한다. 재생성에 사용한 모델 호출 수와 token도 usage에 합산한다. Agent 전체 pytest `185 passed, 1 skipped`, Ruff와 strict mypy 57개 source가 통과했다.
 

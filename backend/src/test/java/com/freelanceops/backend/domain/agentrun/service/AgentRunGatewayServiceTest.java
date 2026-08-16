@@ -146,8 +146,8 @@ class AgentRunGatewayServiceTest {
         AgentRunView response = service.get(userId, workspaceId, runId, "traceparent");
 
         assertThat(response.status()).isEqualTo(AgentRunStatus.RUNNING);
-        assertThat(run.status()).isEqualTo(AgentRunStatus.RUNNING);
-        verify(agentRunRepository).save(run);
+        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.RUNNING), any(Instant.class), any());
+        verify(agentRunRepository, never()).save(run);
         verify(interruptionService).synchronize(run, response);
         verify(costService).synchronize(run, response);
     }
@@ -172,8 +172,8 @@ class AgentRunGatewayServiceTest {
         Optional<AgentRunView> response = service.latestForProject(userId, workspaceId, projectId, "traceparent");
 
         assertThat(response).isPresent().get().extracting(AgentRunView::status).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
-        assertThat(run.status()).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
-        verify(agentRunRepository).save(run);
+        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.WAITING_FOR_USER), any(Instant.class), any());
+        verify(agentRunRepository, never()).save(run);
     }
 
     @Test
@@ -204,8 +204,9 @@ class AgentRunGatewayServiceTest {
 
         verify(agentRunClient, never()).cancel(eq(completedRunId), any(), any());
         verify(agentRunClient).cancel(waitingRunId, "waiting-token", "traceparent");
-        assertThat(completedRun.status()).isEqualTo(AgentRunStatus.COMPLETED);
-        assertThat(waitingRun.status()).isEqualTo(AgentRunStatus.CANCELLED);
+        verify(agentRunRepository).synchronizeStatus(eq(completedRunId), eq(workspaceId), eq(AgentRunStatus.COMPLETED), any(Instant.class), any());
+        verify(agentRunRepository).synchronizeStatus(eq(waitingRunId), eq(workspaceId), eq(AgentRunStatus.WAITING_FOR_USER), any(Instant.class), any());
+        verify(agentRunRepository).synchronizeStatus(eq(waitingRunId), eq(workspaceId), eq(AgentRunStatus.CANCELLED), any(Instant.class), any());
     }
 
     @Test
@@ -229,8 +230,8 @@ class AgentRunGatewayServiceTest {
 
         service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
 
-        assertThat(missingRun.status()).isEqualTo(AgentRunStatus.CANCELLED);
-        verify(agentRunRepository).save(missingRun);
+        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.CANCELLED), any(Instant.class), any());
+        verify(agentRunRepository, never()).save(missingRun);
         verify(agentRunClient, never()).cancel(eq(runId), any(), any());
     }
 
