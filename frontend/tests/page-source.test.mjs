@@ -931,6 +931,9 @@ test("outcome review presents deliberate line breaks and complete result inputs"
   assert.match(workspace, /className="outcome-basics"/);
   assert.match(workspace, /className="outcome-metrics-grid"/);
   assert.match(workspace, /className="outcome-input-shell"/);
+  assert.match(workspace, /name="totalRevenue" type="number" min="0" step="0\.01"/);
+  assert.match(workspace, /name="actualCost" type="number" min="0" step="0\.01"/);
+  assert.doesNotMatch(workspace, /name="(?:totalRevenue|actualCost)"[^>]*step="1000"/);
   assert.match(workspace, /className="outcome-date-shell"/);
   assert.match(workspace, /className="outcome-select-shell"/);
   assert.match(workspace, /className="actual-work-heading"/);
