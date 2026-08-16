@@ -76,7 +76,7 @@ import {
   createQuotation,
   createRequirementVersion,
   createProject,
-  deleteProject,
+  deleteProjectAfterRunCleanup,
   getAgentRun,
   getAgentRunUsage,
   getLatestProjectAgentRun,
@@ -630,7 +630,11 @@ export default function WorkspacePage() {
             }}
             onDelete={async () => {
               const deletedProjectId = selectedProject.id;
-              await deleteProject(session, deletedProjectId);
+              await deleteProjectAfterRunCleanup(
+                session,
+                deletedProjectId,
+                activePermissions.has("agent.cancel")
+              );
               setProjects((current) => current.filter((project) => project.id !== deletedProjectId));
               selectedProjectIdRef.current = null;
               setSelectedProject(null);

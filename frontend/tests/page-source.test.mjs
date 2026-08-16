@@ -848,7 +848,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
   assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
-  assert.doesNotMatch(workspace, /cancelActiveProjectAgentRuns\(session, deletedProjectId\)/);
+  assert.match(workspace, /deleteProjectAfterRunCleanup\([\s\S]*activePermissions\.has\("agent\.cancel"\)/);
   assert.match(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
   assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
@@ -857,6 +857,9 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /AI 분석 기록/);
   assert.match(workspace, /견적과 결과 기록/);
   assert.match(api, /export function deleteProject/);
+  assert.match(api, /export async function deleteProjectAfterRunCleanup/);
+  assert.match(api, /error\.status !== 409 \|\| !canCancelRuns/);
+  assert.match(api, /await cancelActiveProjectAgentRuns\(session, projectId\);[\s\S]*await deleteProject\(session, projectId\)/);
   assert.match(api, /export function getLatestProjectAgentRun/);
   assert.match(api, /export function cancelActiveProjectAgentRuns/);
   assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/latest/);

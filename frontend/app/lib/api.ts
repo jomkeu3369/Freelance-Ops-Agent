@@ -601,6 +601,16 @@ export function deleteProject(session: AuthSession, projectId: string): Promise<
   ).then(() => { invalidateQueries(`projects:${session.workspaceId}`); });
 }
 
+export async function deleteProjectAfterRunCleanup(session: AuthSession, projectId: string, canCancelRuns: boolean): Promise<void> {
+  try {
+    await deleteProject(session, projectId);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409 || !canCancelRuns) throw error;
+    await cancelActiveProjectAgentRuns(session, projectId);
+    await deleteProject(session, projectId);
+  }
+}
+
 export function listRequirements(session: AuthSession, projectId: string): Promise<RequirementVersion[]> {
   return queryCached(`requirements:${session.workspaceId}:${projectId}`, () => request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/requirements`,
