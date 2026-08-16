@@ -2,7 +2,9 @@ package com.freelanceops.backend.global.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -31,7 +33,36 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, DelegationTokenFilter delegationTokenFilter, ApiRateLimitFilter rateLimitFilter, JwtDecoder authJwtDecoder) throws Exception {
+    @Order(1)
+    SecurityFilterChain internalToolSecurityFilterChain(HttpSecurity http, DelegationTokenFilter delegationTokenFilter) throws Exception {
+        return http
+            .securityMatcher("/internal/v1/**")
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+            .addFilterBefore(
+                delegationTokenFilter,
+                org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class
+            )
+            .build();
+    }
+
+    @Bean
+    FilterRegistrationBean<DelegationTokenFilter> delegationTokenFilterRegistration(DelegationTokenFilter delegationTokenFilter) {
+        FilterRegistrationBean<DelegationTokenFilter> registration = new FilterRegistrationBean<>(delegationTokenFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    FilterRegistrationBean<ApiRateLimitFilter> apiRateLimitFilterRegistration(ApiRateLimitFilter apiRateLimitFilter) {
+        FilterRegistrationBean<ApiRateLimitFilter> registration = new FilterRegistrationBean<>(apiRateLimitFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    @Order(2)
+    SecurityFilterChain publicApiSecurityFilterChain(HttpSecurity http, ApiRateLimitFilter rateLimitFilter, JwtDecoder authJwtDecoder) throws Exception {
         return http
             .csrf(csrf -> csrf.disable())
             .cors(Customizer.withDefaults())
@@ -41,10 +72,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v2/auth/**").permitAll()
                 .requestMatchers("/api/v2/proposals/**").permitAll()
-                .requestMatchers("/internal/v1/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(delegationTokenFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .addFilterAfter(rateLimitFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(authJwtDecoder)))
             .build();

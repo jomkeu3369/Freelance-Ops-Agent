@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 운영 HITL 재개 실행이 `SPRING_TOOL_FORBIDDEN`으로 중단된 원인을 Spring Security filter chain에서 확인해 수정했다. `/internal/v1/**` 위임 토큰 요청이 커스텀 RSA 검증을 통과한 뒤 일반 사용자 JWT resource-server filter에서 다시 검증되던 충돌을 제거하고, 내부 Tool 전용 chain과 공개 API chain을 우선순위로 분리했다. Delegation·rate-limit filter의 servlet 전역 자동 등록도 비활성화해 지정된 chain에서 각각 한 번만 실행되게 했다. 실제 Spring Security 전체 chain에 run-bound RSA 토큰을 넣어 내부 Tool 200과 잘못된 토큰 401을 검증하고 기존 사용자 로그인 보안 회귀 테스트도 함께 통과시켰다. Agent는 Spring 401을 `SPRING_TOOL_UNAUTHORIZED`, 실제 403을 `SPRING_TOOL_FORBIDDEN`으로 분리해 이후 인증 만료와 권한 부족을 오진하지 않는다. Backend 전체 테스트, Agent `178 passed, 1 skipped`, Ruff, strict mypy 57개 source, Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
+
 - 2026-08-16: 운영 실행 `cc452162-6f49-4df4-9cfe-cb98e16e70f5`가 첫 ReAct 판단에서 `REACT_TOOL_CALL_INVALID`로 중단된 원인을 수정했다. `TOOL` 단계에 최종 요약·확인 질문·견적 초안이 함께 반환되는 계약 위반이 발생하면 잘못된 출력이나 내부 추론을 저장하지 않고, 허용된 Tool 이름·입력 schema와 비어 있어야 하는 필드를 명시해 1회만 자동 교정한다. 교정도 실패하면 기존처럼 fail-closed로 중단하며 전체 모델·token 예산을 그대로 강제한다. 실행 그래프는 실패 시 실제로 저장된 이벤트만 완료 처리해 `run.started → run.failed`뿐인 실행에서 경로 판단 이후 단계를 완료로 표시하지 않는다. 사용자 화면에는 복구 가능한 설명을 먼저 보여주고 공개 오류 코드는 보조 정보로 유지한다. Agent pytest `177 passed, 1 skipped`, Ruff, strict mypy 57개 source와 Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
 
 - 2026-08-16: 프로젝트 현황에서 프로젝트명만 보여 고객과 업무의 연결을 한눈에 확인하기 어렵던 문제를 수정했다. Pipeline 카드 상단, 데스크톱 사이드바, 모바일 프로젝트 선택창과 프로젝트 상세 제목에 동일한 `회사명 · 담당자` 표기를 추가했다. 고객이 연결되지 않았거나 고객 조회 권한이 없는 경우에는 각각 `고객 미연결`·`연결된 고객`으로 표시해 잘못된 개인정보를 추정하지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.

@@ -145,7 +145,10 @@ class SpringToolClient:
 
     @staticmethod
     def _accepted_response(response: Any) -> Any:
-        if response.status_code in {401, 403}:
+        if response.status_code == 401:
+            raise SpringToolError("SPRING_TOOL_UNAUTHORIZED")
+
+        if response.status_code == 403:
             raise SpringToolError("SPRING_TOOL_FORBIDDEN")
 
         if response.status_code == 404:

@@ -56,6 +56,20 @@ async def test_project_context_maps_permission_failure_without_response_body_lea
             )
 
 
+async def test_project_context_distinguishes_invalid_delegation_token() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(401, text="secret details")),
+        base_url="http://backend:8080",
+    ) as http_client:
+        client = SpringToolClient("http://backend:8080", client=http_client)
+        with pytest.raises(SpringToolError, match="SPRING_TOOL_UNAUTHORIZED"):
+            await client.get_project_context(
+                "expired-token",
+                run_id=uuid4(),
+                project_id=uuid4(),
+            )
+
+
 async def test_all_structured_spring_tool_contracts() -> None:
     run_id = uuid4()
     project_id = uuid4()
