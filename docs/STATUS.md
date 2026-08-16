@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: HITL 답변 후 route evaluator가 다시 `HUMAN_REQUIRED`를 선택할 때 `HUMAN_REVIEW_STILL_REQUIRED`로 실행을 실패시키던 분기를 제거했다. 안전 결정을 우회하지 않고 새 `RISK_DECISION` interruption을 발행해 실행을 `WAITING_FOR_USER`로 유지하며, 사용자에게 추가 승인 또는 보완 정보를 요청한다. Agent 전체 pytest `181 passed, 1 skipped`, Ruff와 strict mypy 57개 source가 통과했다.
+
 - 2026-08-16: 전체 Supervisor 분석이 모델 호출·Tool·token 예산을 소진하거나 후반부 Provider 장애를 만났을 때 이미 검증된 앞 부서 결과까지 `FAILED`로 폐기하던 동작을 개선했다. 최소 한 부서가 완료된 복구 가능 오류는 `PARTIAL` 상태로 종료하고 완료된 요약·근거·견적 초안, 실패·미실행 부서와 공개 오류 코드를 함께 보존한다. 결과가 전혀 없거나 인증·권한·안전 경계 오류는 기존처럼 fail-closed한다. Agent run store·PostgreSQL·checkpoint·SSE에 `run.partial`을 추가하고 Spring relay·interruption 정리 및 Frontend 진행 그래프·부분 결과 안내까지 연결했다. Agent 전체 pytest `179 passed, 1 skipped`, Ruff, strict mypy 57개 source, Frontend TypeScript·Node 테스트 45건·ESLint, Backend main/test source 컴파일, Production Compose와 OpenAPI 2개 계약 검증이 통과했다. 로컬 Backend JUnit은 기존 Windows Gradle worker 경로 문제로 실행되지 않아 Linux CI에서 최종 검증한다.
 
 - 2026-08-16: 운영 전체 Supervisor 분석이 Frontend가 요청한 모델 호출 상한 12회를 Tool 선택·최종 응답·제한된 보정 과정에서 소진해 `MODEL_CALL_BUDGET_EXCEEDED`로 중단되는 문제를 수정했다. 실행별 모델 호출 예산과 Backend·Compose 운영 정책의 기본 상한을 계약상 최대인 50회로 일치시켰다. 무제한 반복은 허용하지 않고 기존 ReAct 종료 조건, Tool·token·시간·재시도 상한은 그대로 유지한다. Frontend TypeScript·Node 테스트 45건·ESLint, Backend 예산 정책 테스트와 Production Compose config가 통과했다.

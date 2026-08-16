@@ -454,6 +454,23 @@ async def test_clarification_questions_are_deduplicated_and_limited_to_three() -
     assert outcome.interruption.questions == ["질문 1", "질문 2", "질문 3"]
 
 
+async def test_resumed_human_review_stays_waiting_instead_of_failing() -> None:
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.HUMAN_REQUIRED), FixedProvider())
+    resume = ResumeAgentRunRequest(
+        interruption_id=uuid4(),
+        idempotency_key="resume-key-risk-review",
+        answers=[ResumeAnswer(question_index=0, answer="승인 여부와 권한을 다시 확인했습니다.")]
+    )
+
+    outcome = await executor.execute(_request(), resume=resume)
+
+    assert outcome.result is None
+    assert outcome.interruption is not None
+    assert outcome.interruption.kind is InterruptionKind.RISK_DECISION
+    assert "자동 진행 조건이 아직 충족되지 않았습니다" in outcome.interruption.questions[0]
+    assert outcome.events[0].type == "route.selected"
+
+
 async def test_resumed_run_completes_without_requesting_another_clarification() -> None:
     request = _request()
     request.clarification_history = [

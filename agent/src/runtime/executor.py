@@ -134,15 +134,17 @@ class OperationalAgentExecutor:
         route_model_calls = 1
         self._enforce_token_budget(request, input_tokens, output_tokens)
         if decision.route is RouteLabel.HUMAN_REQUIRED:
-            if resume is not None:
-                raise AgentExecutionError("HUMAN_REVIEW_STILL_REQUIRED")
+            question = (
+                "검토 답변을 반영했지만 자동 진행 조건이 아직 충족되지 않았습니다. "
+                "권한과 위험을 다시 확인하고, 진행에 필요한 승인 또는 보완 정보를 입력해 주세요."
+                if resume is not None
+                else "이 요청은 자동 실행할 수 없습니다. 권한과 위험을 검토한 뒤 계속할지 결정해 주세요."
+            )
             return ExecutionOutcome(
                 interruption=AgentInterruption(
                     interruption_id=uuid4(),
                     kind=InterruptionKind.RISK_DECISION,
-                    questions=[
-                        "이 요청은 자동 실행할 수 없습니다. 권한과 위험을 검토한 뒤 계속할지 결정해 주세요."
-                    ],
+                    questions=[question],
                 ),
                 usage=self._usage(
                     decision.route, route_model_calls, 0, input_tokens, output_tokens, 0, 0, 0, started_ns
