@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 설정의 현재 섹션·선택 단가 카드뿐 아니라 Workspace 전체에 남아 있던 파란 발광형 외곽선과 glow를 제거했다. 입력 포커스는 중성색 2px outline과 진한 경계, 카드 선택은 배경 명도 차이와 얇은 선으로 통일했다. 고객·근거 자료·견적 시나리오·견적 항목·사이드바·설정 목차·실행 그래프·랜딩 작업 흐름까지 같은 규칙을 적용했다. 실행 중임을 보여주는 진행 이동과 상태 pulse는 유지하되 광원·색 번짐·회전 발광 테두리는 제거했다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했고 로컬 브라우저의 계산된 활성 상태에서 accent glow와 filter가 없음을 확인했다.
+
 - 2026-08-16: AI가 생성한 핵심·권장·확장 견적안을 개별적으로 폐기할 수 있게 했다. 현재 선택한 AI 초안에만 `AI ○○안 버리기`를 노출하고 확인 후 빈 견적 편집기로 전환하며, 저장된 견적과 다른 두 시나리오는 변경하지 않는다. 폐기한 초안은 같은 브라우저 탭에서 다시 자동 노출되지 않지만 초안 내용의 fingerprint가 달라지는 새 분석 결과는 새 안으로 표시된다. 비교 카드에는 `초안 폐기됨` 상태를 남겨 사라진 이유를 알 수 있게 했다. Frontend TypeScript·Node 테스트 44건·ESLint가 통과했다.
 
 - 2026-08-16: 신규 프로젝트의 첫 분석이 범용 route evaluator의 `SIMPLE_LLM` 판정을 그대로 따라 Requirements 한 부서만 실행하던 정책 결함을 수정했다. 내부 Agent 입력은 기본적으로 `PROJECT_ANALYSIS` workflow이며 Safety Gate가 `HUMAN_REQUIRED`를 선택한 경우를 제외하고 Requirements·Research·Deal Design·Verification 네 부서의 `SUPERVISOR` 경로를 보장한다. evaluator의 후보 경로는 감사 정보로 남기고 최근 활동에는 `첫 분석에 필요한 전체 검토 경로를 적용` 사유와 함께 표시한다. 네 부서를 실행할 수 없는 예산은 일부 결과로 축소하지 않고 명확히 실패하며 Frontend 요청은 `maxDepartments: 4`로 맞췄다. 실행 그래프는 경로상 사용하지 않은 단계를 완료로 채우지 않고 `해당 없음`으로 표시하며 `SIMPLE_LLM` 표기는 모델 등급으로 오해하지 않도록 `빠른 요구 정리`로 바꿨다. 결정은 [ADR-0027](adr/0027-full-project-analysis-route-floor.md)에 기록했다. Agent 전체 pytest `175 passed, 1 skipped`, Ruff, strict mypy 57개 source와 Frontend TypeScript·Node 테스트 43건·ESLint가 통과했다.

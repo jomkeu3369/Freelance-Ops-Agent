@@ -228,6 +228,16 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.budget-range \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
 });
 
+test("workspace interaction states use neutral focus and selection without neon halos", async () => {
+  const css = await read("../app/globals.css");
+  assert.match(css, /Neutral interaction language/);
+  assert.match(css, /input:focus-visible[\s\S]*outline: 2px solid color-mix\(in srgb, var\(--ink\)/);
+  assert.match(css, /\.settings-content > section:target \{[^}]*outline: 1px solid[^}]*box-shadow: var\(--shadow\)/);
+  assert.match(css, /\.rate-card-list > button\.active,[\s\S]*\.quote-item-block\.selected,[\s\S]*box-shadow: none/);
+  assert.match(css, /\.graph-panel \.workflow-node\.active \.workflow-node-icon,[\s\S]*box-shadow: none/);
+  assert.match(css, /\.accordion-slice\.active \{[^}]*background: var\(--surface-2\);[^}]*box-shadow: none/);
+});
+
 test("every CSS custom property resolves except runtime font variables", async () => {
   const css = await read("../app/globals.css");
   const definitions = new Set([...css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)].map((match) => match[1]));
