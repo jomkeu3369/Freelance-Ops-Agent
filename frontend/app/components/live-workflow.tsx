@@ -41,6 +41,7 @@ const nodes = [
 ];
 
 const eventNode: Record<string, WorkflowNodeId> = {
+  "run.accepted": "intake",
   "run.started": "routing",
   "route.selected": "routing",
   "requirement.updated": "analysis",
@@ -51,8 +52,20 @@ const eventNode: Record<string, WorkflowNodeId> = {
   "quotation.draft.created": "quotation",
   "approval.requested": "review",
   "run.completed": "review",
-  "run.failed": "review",
 };
+
+function recordedCompletedNodes(events: WorkflowEvent[]): WorkflowNodeId[] {
+  const types = new Set(events.map((event) => event.type));
+  const completed = new Set<WorkflowNodeId>();
+  if (types.has("run.accepted") || types.has("run.started")) completed.add("intake");
+  if (types.has("route.selected")) completed.add("routing");
+  if (types.has("tool.completed")) completed.add("context");
+  if (types.has("requirement.updated")) completed.add("analysis");
+  if (types.has("evidence.added")) completed.add("evidence");
+  if (types.has("quotation.draft.created")) completed.add("quotation");
+  if (types.has("run.completed")) completed.add("review");
+  return nodes.map((node) => node.id).filter((node) => completed.has(node));
+}
 
 const routeNodes: Record<string, WorkflowNodeId[]> = {
   DIRECT_TOOL: ["intake", "routing", "context", "review"],
@@ -88,20 +101,29 @@ export function snapshotFromEvents(
     };
   }
   const last = events.at(-1)!;
-  const activeNode = eventNode[last.type] ?? "analysis";
-  const activeIndex = nodes.findIndex((node) => node.id === activeNode);
+  const failed = last.type === "run.failed" || status === "FAILED";
   const route = [...events].reverse().find((event) => event.type === "route.selected")?.data.route;
   const expectedNodes = typeof route === "string" && routeNodes[route]
     ? routeNodes[route]
     : nodes.map((node) => node.id);
+  const eventCompletedNodes = recordedCompletedNodes(events).filter((node) => expectedNodes.includes(node));
+  const lastProgressEvent = [...events].reverse().find((event) => event.type !== "run.failed");
+  const inferredActiveNode = eventNode[lastProgressEvent?.type ?? last.type] ?? "analysis";
+  const failedNode = failed
+    ? expectedNodes.find((node) => !eventCompletedNodes.includes(node)) ?? inferredActiveNode
+    : undefined;
+  const activeNode = failedNode ?? eventNode[last.type] ?? inferredActiveNode;
+  const activeIndex = nodes.findIndex((node) => node.id === activeNode);
   const completedNodes = status === "COMPLETED"
     ? expectedNodes
-    : expectedNodes.filter((node) => nodes.findIndex((item) => item.id === node) < activeIndex);
+    : failed
+      ? eventCompletedNodes
+      : expectedNodes.filter((node) => nodes.findIndex((item) => item.id === node) < activeIndex);
   return {
     activeNode,
     completedNodes,
     skippedNodes: nodes.map((node) => node.id).filter((node) => !expectedNodes.includes(node)),
-    failedNode: last.type === "run.failed" || status === "FAILED" ? activeNode : undefined,
+    failedNode,
     status,
     eventLabel: publicEventLabel(last.type),
     eventCount: events.length,

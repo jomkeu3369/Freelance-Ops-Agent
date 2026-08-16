@@ -33,13 +33,13 @@ def generation(payload: dict[str, object], *, model_calls: int = 1, tokens: int 
     return ModelGeneration(payload=payload, input_tokens=tokens, output_tokens=tokens, model_calls=model_calls)
 
 
-def budget(*, model_calls: int = 3, tool_calls: int = 2, tokens: int = 100) -> ReActLoopBudget:
+def budget(*, model_calls: int = 3, tool_calls: int = 2, tokens: int = 100, retries: int = 1) -> ReActLoopBudget:
     return ReActLoopBudget(
         max_model_calls=model_calls,
         max_tool_calls=tool_calls,
         max_input_tokens=tokens,
         max_output_tokens=tokens,
-        max_retries=1,
+        max_retries=retries,
     )
 
 
@@ -117,6 +117,63 @@ async def test_identical_tool_call_is_rejected_instead_of_looping() -> None:
         await loop.run(selection(), {"request": "test"}, budget())
 
 
+async def test_invalid_tool_contract_is_corrected_once_before_execution() -> None:
+    provider = SequenceProvider(
+        [
+            generation(
+                {
+                    "action": "TOOL",
+                    "tool_name": "search",
+                    "arguments": {"query": "세금"},
+                    "summary": "Tool 단계에는 요약을 포함하면 안 됩니다."
+                }
+            ),
+            generation({"action": "TOOL", "tool_name": "search", "arguments": {"query": "세금"}}),
+            generation({"action": "FINAL", "summary": "교정 후 완료", "arguments": {}})
+        ]
+    )
+    calls: list[str] = []
+
+    async def search(arguments: BaseModel) -> object:
+        validated = SearchInput.model_validate(arguments)
+        calls.append(validated.query)
+        return {"result": "확인"}
+
+    loop = BoundedReActLoop(provider, [StructuredTool("search", "검색", SearchInput, search)])
+
+    result = await loop.run(selection(), {"request": "test"}, budget(model_calls=4))
+
+    assert result.summary == "교정 후 완료"
+    assert result.model_calls == 3
+    assert result.tool_calls == 1
+    assert calls == ["세금"]
+    assert '"error_code": "REACT_TOOL_CALL_INVALID"' in provider.prompts[1]
+    assert '"summary": null' in provider.prompts[1]
+    assert '"previous_step_feedback": null' in provider.prompts[2]
+
+
+async def test_invalid_tool_contract_fails_after_one_correction() -> None:
+    invalid = generation(
+        {
+            "action": "TOOL",
+            "tool_name": "search",
+            "arguments": {"query": "세금"},
+            "open_questions": ["잘못 포함된 질문"]
+        }
+    )
+    provider = SequenceProvider([invalid, invalid])
+
+    async def search(arguments: BaseModel) -> object:
+        return arguments
+
+    loop = BoundedReActLoop(provider, [StructuredTool("search", "검색", SearchInput, search)])
+
+    with pytest.raises(ReActLoopError, match="REACT_TOOL_CALL_INVALID"):
+        await loop.run(selection(), {"request": "test"}, budget())
+
+    assert len(provider.prompts) == 2
+
+
 @pytest.mark.parametrize(
     ("payload", "error_code"),
     [
@@ -134,7 +191,7 @@ async def test_invalid_structured_decisions_fail_closed(payload: dict[str, Any],
     loop = BoundedReActLoop(provider, [StructuredTool("search", "검색", SearchInput, search)])
 
     with pytest.raises(ReActLoopError, match=error_code):
-        await loop.run(selection(), {"request": "test"}, budget())
+        await loop.run(selection(), {"request": "test"}, budget(retries=0))
 
 
 async def test_provider_retry_usage_cannot_exceed_model_budget() -> None:

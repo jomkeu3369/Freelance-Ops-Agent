@@ -822,6 +822,15 @@ const runStatusLabels: Record<string, string> = {
   CANCELLED: "사용자 중단",
 };
 
+const runFailureMessages: Record<string, string> = {
+  REACT_TOOL_CALL_INVALID: "AI 응답 형식을 자동으로 다시 확인했지만 분석을 계속할 수 없었습니다. 새 분석으로 다시 시도해 주세요.",
+};
+
+function runFailureMessage(errorCode: string | null): string {
+  if (!errorCode) return "분석을 완료하지 못했습니다. 새 분석으로 다시 시도해 주세요.";
+  return runFailureMessages[errorCode] ?? "분석을 완료하지 못했습니다. 저장된 프로젝트 정보는 변경되지 않았습니다.";
+}
+
 const eventActivityLabels: Record<string, string> = {
   "run.accepted": "분석 요청 접수",
   "run.started": "분석 시작",
@@ -1784,7 +1793,7 @@ function ProjectWorkbench({
               onSubmit={onResume}
             />
           ) : ["FAILED", "CANCELLED"].includes(run.status) ? (
-            <div className="run-failed"><Warning size={30} /><h3>{run.status === "CANCELLED" ? "사용자가 실행을 중단했습니다." : "실행이 중단되었습니다."}</h3><p>{run.status === "CANCELLED" ? "저장된 프로젝트와 이전 결과는 변경되지 않습니다." : run.errorCode ?? "공개 오류 코드가 없습니다."}</p></div>
+            <div className="run-failed"><Warning size={30} /><h3>{run.status === "CANCELLED" ? "사용자가 실행을 중단했습니다." : "실행이 중단되었습니다."}</h3><p>{run.status === "CANCELLED" ? "저장된 프로젝트와 이전 결과는 변경되지 않습니다." : runFailureMessage(run.errorCode)}</p>{run.status === "FAILED" && run.errorCode && <small>오류 코드 · {run.errorCode}</small>}</div>
           ) : run.result ? (
             <div className="run-result">
               <span className="result-state"><CheckCircle size={17} /> 분석 결과</span>

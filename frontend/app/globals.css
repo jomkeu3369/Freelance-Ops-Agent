@@ -400,6 +400,7 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .panel-focus-toggle:hover, .panel-focus-toggle:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .inspector-empty, .run-failed { min-height: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: var(--muted); }
 .inspector-empty p, .run-failed p { max-width: 280px; line-height: 1.6; }
+.run-failed small { margin-top: 4px; color: var(--muted); font-size: .72rem; }
 .inspector-empty.running svg { color: var(--accent); }
 .run-failed { color: var(--danger); }
 .run-result { margin-top: 26px; }

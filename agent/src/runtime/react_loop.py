@@ -83,6 +83,8 @@ class BoundedReActLoop:
         input_tokens = 0
         output_tokens = 0
         tool_names: list[str] = []
+        tool_contract_repairs = 0
+        contract_feedback: dict[str, object] | None = None
 
         while model_calls < budget.max_model_calls:
             remaining_attempts = min(budget.max_retries + 1, budget.max_model_calls - model_calls)
@@ -92,7 +94,8 @@ class BoundedReActLoop:
                     objective,
                     observations,
                     budget.max_model_calls - model_calls,
-                    budget.max_tool_calls - tool_calls
+                    budget.max_tool_calls - tool_calls,
+                    contract_feedback
                 ),
                 max_output_tokens=max(1, budget.max_output_tokens - output_tokens),
                 max_attempts=remaining_attempts,
@@ -128,7 +131,15 @@ class BoundedReActLoop:
                 or step.open_questions
                 or step.quotation_drafts
             ):
+                if (
+                    tool_contract_repairs < min(1, budget.max_retries)
+                    and model_calls < budget.max_model_calls
+                ):
+                    tool_contract_repairs += 1
+                    contract_feedback = self._tool_contract_feedback()
+                    continue
                 raise ReActLoopError("REACT_TOOL_CALL_INVALID")
+            contract_feedback = None
             tool = self._tools.get(step.tool_name)
             if tool is None:
                 raise ReActLoopError("TOOL_NOT_ALLOWED")
@@ -162,7 +173,7 @@ class BoundedReActLoop:
 
         raise ReActLoopError("MODEL_CALL_BUDGET_EXCEEDED")
 
-    def _prompt(self, objective: dict[str, object], observations: list[dict[str, object]], remaining_model_calls: int, remaining_tool_calls: int) -> str:  # noqa: E501
+    def _prompt(self, objective: dict[str, object], observations: list[dict[str, object]], remaining_model_calls: int, remaining_tool_calls: int, contract_feedback: dict[str, object] | None) -> str:  # noqa: E501
         return json.dumps(
             {
                 "operation": "bounded_react_step",
@@ -176,6 +187,7 @@ class BoundedReActLoop:
                     for tool in self._tools.values()
                 ],
                 "observations": observations,
+                "previous_step_feedback": contract_feedback,
                 "rules": {
                     "choose_one_allowed_tool_or_final": True,
                     "return_final_when_no_unused_tool_is_needed": True,
@@ -191,6 +203,21 @@ class BoundedReActLoop:
             ensure_ascii=False,
             sort_keys=True,
         )
+
+    @staticmethod
+    def _tool_contract_feedback() -> dict[str, object]:
+        return {
+            "error_code": "REACT_TOOL_CALL_INVALID",
+            "instruction": "Return one corrected TOOL step. Do not repeat the invalid step.",
+            "required_shape": {
+                "action": "TOOL",
+                "tool_name": "one name from allowed_tools",
+                "arguments": "an object matching that Tool input_schema",
+                "summary": None,
+                "open_questions": [],
+                "quotation_drafts": []
+            }
+        }
 
     @staticmethod
     def _signature(tool_name: str, validated_input: BaseModel) -> str:

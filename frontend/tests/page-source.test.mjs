@@ -283,6 +283,10 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /tool\.started/);
   assert.match(graph, /quotation\.draft\.created/);
   assert.match(graph, /run\.completed/);
+  assert.match(graph, /function recordedCompletedNodes\(events: WorkflowEvent\[\]\)/);
+  assert.match(graph, /expectedNodes\.find\(\(node\) => !eventCompletedNodes\.includes\(node\)\)/);
+  assert.match(workspace, /REACT_TOOL_CALL_INVALID: "AI 응답 형식을 자동으로 다시 확인했지만/);
+  assert.match(workspace, /runFailureMessage\(run\.errorCode\)/);
 });
 
 test("Agent SSE reconnects from the last durable event with bounded backoff", async () => {

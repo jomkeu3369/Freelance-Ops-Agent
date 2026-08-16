@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: 운영 실행 `cc452162-6f49-4df4-9cfe-cb98e16e70f5`가 첫 ReAct 판단에서 `REACT_TOOL_CALL_INVALID`로 중단된 원인을 수정했다. `TOOL` 단계에 최종 요약·확인 질문·견적 초안이 함께 반환되는 계약 위반이 발생하면 잘못된 출력이나 내부 추론을 저장하지 않고, 허용된 Tool 이름·입력 schema와 비어 있어야 하는 필드를 명시해 1회만 자동 교정한다. 교정도 실패하면 기존처럼 fail-closed로 중단하며 전체 모델·token 예산을 그대로 강제한다. 실행 그래프는 실패 시 실제로 저장된 이벤트만 완료 처리해 `run.started → run.failed`뿐인 실행에서 경로 판단 이후 단계를 완료로 표시하지 않는다. 사용자 화면에는 복구 가능한 설명을 먼저 보여주고 공개 오류 코드는 보조 정보로 유지한다. Agent pytest `177 passed, 1 skipped`, Ruff, strict mypy 57개 source와 Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
+
 - 2026-08-16: 프로젝트 현황에서 프로젝트명만 보여 고객과 업무의 연결을 한눈에 확인하기 어렵던 문제를 수정했다. Pipeline 카드 상단, 데스크톱 사이드바, 모바일 프로젝트 선택창과 프로젝트 상세 제목에 동일한 `회사명 · 담당자` 표기를 추가했다. 고객이 연결되지 않았거나 고객 조회 권한이 없는 경우에는 각각 `고객 미연결`·`연결된 고객`으로 표시해 잘못된 개인정보를 추정하지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint가 통과했다.
 
 - 2026-08-16: 프로젝트 삭제를 Agent 실행 정리 성공 여부와 완전히 분리했다. Frontend는 `agent.cancel` 권한이 있으면 활성 실행 중단을 best-effort로 먼저 시도하지만 `cancel-active`가 4xx·5xx 또는 연결 오류를 반환해도 프로젝트 DELETE를 계속 호출한다. Spring도 과거 `RUNNING`·`WAITING_FOR_USER` row를 삭제 차단 조건으로 사용하지 않으며 `project.delete` 권한과 workspace 범위만 확인한 뒤 프로젝트 aggregate를 한 트랜잭션으로 삭제한다. 따라서 이번 운영 화면에서 확인된 `cancel-active` 500과 stale 실행 상태는 더 이상 프로젝트 삭제를 막지 않는다. Frontend TypeScript·Node 테스트 45건·ESLint와 Backend 테스트 106건 중 Docker 의존 6건을 제외한 100건이 통과했다.
