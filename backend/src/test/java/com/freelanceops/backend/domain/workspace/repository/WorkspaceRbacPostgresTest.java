@@ -158,6 +158,153 @@ class WorkspaceRbacPostgresTest {
         assertThat(deniedCount).isEqualTo(1);
     }
 
+    @Test
+    void deletingProjectRemovesQuotationAndOutcomeAggregate() {
+        UUID ownerId = insertUser("project-delete-owner");
+        WorkspaceProvisioningResult workspace = provisioningService.create(
+            ownerId,
+            "Project Delete Workspace",
+            "project-delete-workspace"
+        );
+        UUID projectId = UUID.randomUUID();
+        UUID firstQuotationId = UUID.randomUUID();
+        UUID revisedQuotationId = UUID.randomUUID();
+        UUID assumptionId = UUID.randomUUID();
+        UUID quotationItemId = UUID.randomUUID();
+        UUID shareId = UUID.randomUUID();
+        UUID outcomeId = UUID.randomUUID();
+
+        jdbcClient.sql("""
+                INSERT INTO app.project (
+                    id, workspace_id, title, requirement_text, currency, status, created_by
+                ) VALUES (:id, :workspaceId, 'Delete me', 'Requirement', 'KRW', 'LEAD', :ownerId)
+                """)
+            .param("id", projectId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("ownerId", ownerId)
+            .update();
+        insertQuotation(firstQuotationId, workspace.workspaceId(), projectId, null, 1, ownerId);
+        insertQuotation(revisedQuotationId, workspace.workspaceId(), projectId, firstQuotationId, 2, ownerId);
+        jdbcClient.sql("""
+                INSERT INTO app.quotation_assumption (
+                    id, workspace_id, quotation_id, content, created_at
+                ) VALUES (:id, :workspaceId, :quotationId, 'Confirmed assumption', CURRENT_TIMESTAMP)
+                """)
+            .param("id", assumptionId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("quotationId", revisedQuotationId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.quotation_item (
+                    id, workspace_id, quotation_id, title, quantity, unit, unit_rate,
+                    subtotal, discount_rate, discount_amount, total, assumption_id,
+                    sort_order, created_at
+                ) VALUES (
+                    :id, :workspaceId, :quotationId, 'Implementation', 1, 'FIXED', 100000,
+                    100000, 0, 0, 100000, :assumptionId, 0, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", quotationItemId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("quotationId", revisedQuotationId)
+            .param("assumptionId", assumptionId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.proposal_share (
+                    id, workspace_id, quotation_id, token_hash, expires_at, created_by, created_at
+                ) VALUES (
+                    :id, :workspaceId, :quotationId, :tokenHash,
+                    CURRENT_TIMESTAMP + INTERVAL '7 days', :ownerId, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", shareId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("quotationId", revisedQuotationId)
+            .param("tokenHash", "a".repeat(64))
+            .param("ownerId", ownerId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.quotation_decision (
+                    id, workspace_id, quotation_id, decision, share_id, client_name, created_at
+                ) VALUES (
+                    :id, :workspaceId, :quotationId, 'APPROVED', :shareId, 'Client', CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", UUID.randomUUID())
+            .param("workspaceId", workspace.workspaceId())
+            .param("quotationId", revisedQuotationId)
+            .param("shareId", shareId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.actual_outcome (
+                    id, workspace_id, project_id, approved_quotation_id, total_revenue,
+                    actual_cost, actual_hours, profit_amount, created_by, created_at, updated_at
+                ) VALUES (
+                    :id, :workspaceId, :projectId, :quotationId, 100000,
+                    60000, 8, 40000, :ownerId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", outcomeId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("projectId", projectId)
+            .param("quotationId", revisedQuotationId)
+            .param("ownerId", ownerId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.actual_work_item (
+                    id, workspace_id, outcome_id, quotation_item_id, title,
+                    actual_hours, actual_cost, sort_order, created_at
+                ) VALUES (
+                    :id, :workspaceId, :outcomeId, :quotationItemId, 'Implementation',
+                    8, 60000, 0, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", UUID.randomUUID())
+            .param("workspaceId", workspace.workspaceId())
+            .param("outcomeId", outcomeId)
+            .param("quotationItemId", quotationItemId)
+            .update();
+
+        int deleted = jdbcClient.sql("DELETE FROM app.project WHERE id = :projectId")
+            .param("projectId", projectId)
+            .update();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(countRows("quotation", "project_id", projectId)).isZero();
+        assertThat(countRows("actual_outcome", "project_id", projectId)).isZero();
+        assertThat(countRows("proposal_share", "quotation_id", revisedQuotationId)).isZero();
+        assertThat(countRows("quotation_decision", "quotation_id", revisedQuotationId)).isZero();
+    }
+
+    private void insertQuotation(UUID quotationId, UUID workspaceId, UUID projectId, UUID previousVersionId, int versionNumber, UUID ownerId) {
+        jdbcClient.sql("""
+                INSERT INTO app.quotation (
+                    id, workspace_id, project_id, series_id, previous_version_id, version_number,
+                    scenario, status, currency, subtotal, discount_total, risk_buffer_rate,
+                    risk_buffer_amount, tax_rate, tax_amount, total, created_by, created_at, updated_at
+                ) VALUES (
+                    :id, :workspaceId, :projectId, :seriesId, :previousVersionId, :versionNumber,
+                    'RECOMMENDED', 'DRAFT', 'KRW', 100000, 0, 0,
+                    0, 0, 0, 100000, :ownerId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", quotationId)
+            .param("workspaceId", workspaceId)
+            .param("projectId", projectId)
+            .param("seriesId", projectId)
+            .param("previousVersionId", previousVersionId)
+            .param("versionNumber", versionNumber)
+            .param("ownerId", ownerId)
+            .update();
+    }
+
+    private Integer countRows(String table, String column, UUID id) {
+        return jdbcClient.sql("SELECT COUNT(*) FROM app." + table + " WHERE " + column + " = :id")
+            .param("id", id)
+            .query(Integer.class)
+            .single();
+    }
+
     private UUID insertUser(String subject) {
         UUID userId = UUID.randomUUID();
         jdbcClient.sql("""

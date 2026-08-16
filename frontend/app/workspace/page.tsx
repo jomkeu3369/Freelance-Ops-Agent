@@ -67,7 +67,6 @@ import {
   WorkflowEvent,
   clearSession,
   cancelAgentRun,
-  cancelActiveProjectAgentRuns,
   archiveDocument,
   archiveClient,
   createClient,
@@ -631,9 +630,6 @@ export default function WorkspacePage() {
             }}
             onDelete={async () => {
               const deletedProjectId = selectedProject.id;
-              if (activePermissions.has("agent.cancel")) {
-                await cancelActiveProjectAgentRuns(session, deletedProjectId);
-              }
               await deleteProject(session, deletedProjectId);
               setProjects((current) => current.filter((project) => project.id !== deletedProjectId));
               selectedProjectIdRef.current = null;

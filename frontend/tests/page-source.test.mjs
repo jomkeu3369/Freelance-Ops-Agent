@@ -848,7 +848,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
   assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
-  assert.match(workspace, /cancelActiveProjectAgentRuns\(session, deletedProjectId\)/);
+  assert.doesNotMatch(workspace, /cancelActiveProjectAgentRuns\(session, deletedProjectId\)/);
   assert.match(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
   assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
