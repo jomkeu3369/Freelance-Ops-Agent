@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-16: OpenAI Responses가 `completed` 상태이지만 ReAct JSON/schema 계약을 만족하지 못할 때 첫 파싱 실패에서 즉시 `MODEL_PROVIDER_FAILED`로 종료하던 경로를 수정했다. 동일 provider·model과 남은 호출 예산 안에서 구조화 생성을 1회만 다시 요청하며, 재생성도 실패하면 원문을 노출하지 않고 기존처럼 fail-closed한다. 재생성에 사용한 모델 호출 수와 token도 usage에 합산한다. Agent 전체 pytest `185 passed, 1 skipped`, Ruff와 strict mypy 57개 source가 통과했다.
+
 - 2026-08-16: 운영 LangSmith trace에서 `ReActStep`의 JSON 문자열이 8,493자 지점에서 닫히지 않은 채 종료되어 전체 분석이 `AGENT_EXECUTION_FAILED`가 되던 문제를 수정했다. OpenAI Responses 요청에 `text.verbosity=low`를 명시하고 `status=incomplete`와 구조화 출력 파싱 실패를 원문 노출 없는 `MODEL_PROVIDER_FAILED`로 정규화했다. 4개 부서 전체 분석의 총 출력 예산은 12,000에서 48,000 token으로 조정하되 각 남은 부서가 동일 몫만 사용하도록 배분해 한 부서가 전체 예산을 독점하지 못하게 했다. 무제한 출력은 허용하지 않으며 모델 자체 상한, 비용·시간·호출·Tool 예산과 fail-closed 경계는 유지한다. Agent 전체 pytest `183 passed, 1 skipped`, Ruff, strict mypy 57개 source, Frontend TypeScript와 Node 테스트 45건이 통과했다. Backend main·test source는 컴파일됐으나 JUnit worker는 기존 Windows `GradleWorkerMain` classpath 환경 오류로 시작되지 않아 Linux CI에서 최종 검증한다.
 
 - 2026-08-16: HITL 답변 후 route evaluator가 다시 `HUMAN_REQUIRED`를 선택할 때 `HUMAN_REVIEW_STILL_REQUIRED`로 실행을 실패시키던 분기를 제거했다. 안전 결정을 우회하지 않고 새 `RISK_DECISION` interruption을 발행해 실행을 `WAITING_FOR_USER`로 유지하며, 사용자에게 추가 승인 또는 보완 정보를 요청한다. Agent 전체 pytest `181 passed, 1 skipped`, Ruff와 strict mypy 57개 source가 통과했다.

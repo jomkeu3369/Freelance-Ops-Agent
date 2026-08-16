@@ -230,15 +230,20 @@ async def test_openai_incomplete_output_is_rejected_before_json_parsing() -> Non
 @pytest.mark.asyncio
 async def test_openai_malformed_output_is_sanitized() -> None:
     class MalformedResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
         async def create(self, **kwargs: object) -> object:
             del kwargs
+            self.calls += 1
             return SimpleNamespace(
                 status="completed",
                 output_text='{"action":"FINAL","summary":"malformed',
                 usage=SimpleNamespace(input_tokens=10, output_tokens=10)
             )
 
-    provider = OpenAIModelProvider(SimpleNamespace(responses=MalformedResponses()))
+    responses = MalformedResponses()
+    provider = OpenAIModelProvider(SimpleNamespace(responses=responses))
 
     with pytest.raises(ProviderCallError, match="invalid structured output") as caught:
         await provider.generate_react_step(
@@ -248,3 +253,48 @@ async def test_openai_malformed_output_is_sanitized() -> None:
         )
 
     assert "malformed" not in str(caught.value)
+    assert responses.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_openai_invalid_structured_output_is_regenerated_once() -> None:
+    class RegeneratedResponses:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def create(self, **kwargs: object) -> object:
+            del kwargs
+            self.calls += 1
+            if self.calls == 1:
+                output_text = '{"action":"FINAL","summary":"malformed'
+            else:
+                output_text = json.dumps(
+                    {
+                        "action": "FINAL",
+                        "tool_name": None,
+                        "arguments": {"query": None},
+                        "summary": "재생성 완료",
+                        "open_questions": [],
+                        "quotation_drafts": []
+                    }
+                )
+            return SimpleNamespace(
+                status="completed",
+                output_text=output_text,
+                usage=SimpleNamespace(input_tokens=10, output_tokens=5)
+            )
+
+    responses = RegeneratedResponses()
+    provider = OpenAIModelProvider(SimpleNamespace(responses=responses))
+
+    generation = await provider.generate_react_step(
+        ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
+        "bounded step",
+        max_output_tokens=100
+    )
+
+    assert generation.payload["summary"] == "재생성 완료"
+    assert generation.model_calls == 2
+    assert generation.input_tokens == 20
+    assert generation.output_tokens == 10
+    assert responses.calls == 2

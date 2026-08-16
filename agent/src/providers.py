@@ -206,27 +206,43 @@ class OpenAIModelProvider(ResilientProvider):
                 }
             )
 
-        response, model_calls = await self._invoke(call, max_attempts)
-        if getattr(response, "status", "completed") != "completed":
-            incomplete_details = getattr(response, "incomplete_details", None)
-            logger.warning(
-                "OpenAI model response was incomplete: reason=%s",
-                getattr(incomplete_details, "reason", None)
-            )
-            raise ProviderCallError("model provider returned incomplete output") from None
-        try:
-            payload = schema.model_validate_json(str(response.output_text))
-        except ValidationError:
-            logger.warning("OpenAI model response did not satisfy the structured output contract")
-            raise ProviderCallError("model provider returned invalid structured output") from None
-        usage = getattr(response, "usage", None)
+        attempt_limit = min(self._max_attempts, max_attempts) if max_attempts is not None else self._max_attempts
+        if attempt_limit < 1:
+            raise ValueError("model provider max_attempts must be positive")
+        model_calls = 0
+        input_tokens = 0
+        output_tokens = 0
+        while model_calls < attempt_limit:
+            response, call_attempts = await self._invoke(call, attempt_limit - model_calls)
+            model_calls += call_attempts
+            usage = getattr(response, "usage", None)
+            input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+            output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
+            if getattr(response, "status", "completed") != "completed":
+                incomplete_details = getattr(response, "incomplete_details", None)
+                logger.warning(
+                    "OpenAI model response was incomplete: reason=%s",
+                    getattr(incomplete_details, "reason", None)
+                )
+                raise ProviderCallError("model provider returned incomplete output") from None
+            try:
+                payload = schema.model_validate_json(str(response.output_text))
+            except ValidationError:
+                if model_calls >= attempt_limit:
+                    logger.warning("OpenAI model response did not satisfy the structured output contract")
+                    raise ProviderCallError("model provider returned invalid structured output") from None
+                logger.warning("OpenAI model response was invalid; retrying structured generation")
+                await asyncio.sleep(0.1 * model_calls)
+                continue
 
-        return ModelGeneration(
-            payload=payload.model_dump(),
-            input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
-            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
-            model_calls=model_calls
-        )
+            return ModelGeneration(
+                payload=payload.model_dump(),
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model_calls=model_calls
+            )
+
+        raise AssertionError("unreachable structured generation retry state")
 
 
 class GeminiModelProvider(ResilientProvider):
