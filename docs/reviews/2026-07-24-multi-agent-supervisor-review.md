@@ -29,7 +29,7 @@
 1. OpenAI와 LangSmith에서 해당 키를 즉시 폐기하고 새 키를 발급한다.
 2. 새 키는 저장소 밖의 안전한 환경 변수 또는 secret store로 관리한다.
 3. `test/.env.example`이 필요하면 값 없이 변수 이름만 기록한다.
-4. 두 Codex 환경과 shell history, IDE run configuration에 기존 키가 남아 있는지 확인한다.
+4. 두 개발 환경과 shell history, IDE run configuration에 기존 키가 남아 있는지 확인한다.
 5. Git history와 원격 branch에 secret이 포함되지 않았는지 별도 secret scan을 실행한다.
 
 실제 키 값은 문서와 로그에 복사하지 않는다.

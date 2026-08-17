@@ -982,7 +982,7 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 ### 13.1 디자인 원칙
 
 - 최종 visual design은 현업 웹디자이너가 제작한 1920×1080 결과물을 기준으로 한다.
-- Codex는 제품 문서와 레퍼런스를 디자이너용 자료로 정리하고, 승인된 HTML·CSS·JavaScript handoff를 React로 변환한다.
+- 구현 담당자는 제품 문서와 레퍼런스를 디자이너용 자료로 정리하고, 승인된 HTML·CSS·JavaScript handoff를 React로 변환한다.
 - 현재 repository의 frontend prototype은 기술 검증 자료이며 최종 visual source of truth가 아니다.
 - “AI 관리자 콘솔”이 아니라 프리랜서가 매일 사용하는 업무 도구처럼 보여야 한다.
 - 과도한 dark neon, terminal 문구, AI gradient를 기본 visual identity로 사용하지 않는다.
@@ -1064,9 +1064,9 @@ PUT    /workspaces/{workspaceId}/projects/{projectId}/outcomes/{outcomeId}
 ### 13.4 디자인 handoff와 구현
 
 - 사용자가 참고할 실제 사이트 2~3개를 선정한다.
-- Codex는 V2 명세를 바탕으로 문구, page 목적, component, state, interaction과 접근성 요구사항을 웹디자이너에게 전달할 문서로 만든다.
+- 구현 담당자는 V2 명세를 바탕으로 문구, page 목적, component, state, interaction과 접근성 요구사항을 웹디자이너에게 전달할 문서로 만든다.
 - 웹디자이너는 1920×1080 기준 결과물과 가능한 경우 HTML·CSS·JavaScript, asset, font, license와 interaction 설명을 제공한다.
-- Codex는 Next.js·React·TypeScript component로 변환하고 1440, 1024, 768과 약 390px 화면을 기준으로 반응형을 추가한다.
+- 구현 담당자는 Next.js·React·TypeScript component로 변환하고 1440, 1024, 768과 약 390px 화면을 기준으로 반응형을 추가한다.
 - 1920×1080 원본의 layout, typography, color와 spacing을 보존하며, 디자인 해석이 필요한 변경은 사용자 승인 없이 확정하지 않는다.
 - 자세한 절차는 [`docs/frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md`](frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md)와 [ADR-0010](adr/0010-designer-first-frontend-vercel.md)을 따른다.
 

@@ -2,7 +2,7 @@
 
 ## 목적
 
-Freelance Ops Agent V2의 frontend는 Codex가 시각 디자인을 임의로 완성하는 방식으로 진행하지 않는다. 현업 웹디자이너가 1920×1080 기준의 시안을 설계하고, Codex는 제품 문서와 디자인 결과물을 연결해 Next.js·React·TypeScript 코드와 반응형 화면으로 구현한다.
+Freelance Ops Agent V2의 frontend는 구현 담당자가 시각 디자인을 임의로 완성하는 방식으로 진행하지 않는다. 현업 웹디자이너가 1920×1080 기준의 시안을 설계하고, 구현 담당자는 제품 문서와 디자인 결과물을 연결해 Next.js·React·TypeScript 코드와 반응형 화면으로 구현한다.
 
 현재 `frontend/`에 있는 화면은 제품 구조, 테마, 모션과 빌드 방식을 검증한 prototype이다. 최종 시각 디자인의 기준이나 웹디자이너의 handoff를 제한하는 source of truth로 사용하지 않는다.
 
@@ -15,7 +15,7 @@ Freelance Ops Agent V2의 frontend는 Codex가 시각 디자인을 임의로 완
 - 웹디자이너의 1920×1080 결과물을 검수하고 최종 시각 방향을 승인한다.
 - Vercel Preview를 검수한 뒤 Production 배포를 승인한다.
 
-### Codex
+### 구현 담당자
 
 - 레퍼런스를 복제하지 않고 정보 구조, 레이아웃 원칙, 타이포그래피, 상호작용과 상태 표현으로 분해한다.
 - `docs/V2_SPECIFICATION.md`와 관련 문서를 근거로 실제 화면 문구와 제품 규칙을 정리한다.
@@ -46,7 +46,7 @@ Freelance Ops Agent V2의 frontend는 Codex가 시각 디자인을 임의로 완
 
 ### 2. 디자이너 전달자료 작성
 
-Codex는 다음 문서를 `docs/frontend/`에 준비한다.
+구현 담당자는 다음 문서를 `docs/frontend/`에 준비한다.
 
 ```text
 DESIGN_BRIEF.md

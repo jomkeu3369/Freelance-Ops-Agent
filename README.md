@@ -8,7 +8,7 @@
 Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프리랜서 업무 도구입니다.
 
 [Live Product](https://www.freelance-ops.site) · [기술 포트폴리오](docs/portfolio/README.md)<br/>
-[Architecture](docs/V2_SPECIFICATION.md) · [Current Status](docs/STATUS.md)
+[Architecture](docs/V2_SPECIFICATION.md) · [Evaluation & Operations](docs/portfolio/README.md)
 
 ![Production Pilot](https://img.shields.io/badge/status-production_pilot-111827?style=flat-square)
 ![Next.js](https://img.shields.io/badge/Web-Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white)

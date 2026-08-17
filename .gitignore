@@ -21,6 +21,22 @@ faiss_index/
 # Local IDE settings
 .idea/
 *.iml
+backend/.metadata/
+
+# Local AI assistant and handoff files
+AGENTS.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+.agents/
+docs/STATUS.md
+docs/adr/템플릿.md
+docs/operations/ai-server-pc-handoff-2026-08-13.md
+docs/operations/local-compose-and-swagger-handoff.md
+
+# Local application and test artifacts
+output/
+tmp/
+agent/.tmp-pytest-*/
 
 # Local-only experiment inputs and generated artifacts
 experiments/local_archive/

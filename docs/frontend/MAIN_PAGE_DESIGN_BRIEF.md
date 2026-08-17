@@ -1,6 +1,6 @@
 # Freelance Ops Agent 메인 페이지 디자인 브리프
 
-> 대상: 웹 디자이너 · 제작 범위: 1920×1080 기준 메인 랜딩 페이지 · 반응형·세부 페이지·React 구현: 디자인 handoff 이후 Codex 담당
+> 대상: 웹 디자이너 · 제작 범위: 1920×1080 기준 메인 랜딩 페이지 · 반응형·세부 페이지·React 구현: 디자인 handoff 이후 구현 담당자 담당
 
 ## 1. 이 페이지가 해야 하는 일
 
@@ -49,7 +49,7 @@
 - 실제 API 연결과 인증
 - loading, error, empty 등 모든 제품 상태 구현
 
-반응형과 세부 페이지는 승인된 메인 페이지의 시각 언어를 기준으로 Codex가 확장합니다.
+반응형과 세부 페이지는 승인된 메인 페이지의 시각 언어를 기준으로 구현 담당자가 확장합니다.
 
 ## 3. 선택한 시각 레퍼런스
 
@@ -680,7 +680,7 @@ no text, no logo, no human face, no robot, no stock photo look
 - 근거 Drawer는 견적 항목을 선택했을 때 연결 관계가 보입니다.
 - 버튼은 크기 변화보다 색상과 밝기 변화로 반응합니다.
 
-실제 애니메이션, 키보드 접근성과 reduced-motion 처리는 Codex가 React 구현 단계에서 담당합니다.
+실제 애니메이션, 키보드 접근성과 reduced-motion 처리는 구현 담당자가 React 구현 단계에서 담당합니다.
 
 ## 9. 사용하면 안 되는 콘텐츠
 
@@ -710,7 +710,7 @@ no text, no logo, no human face, no robot, no stock photo look
 - 섹션별 사용 문구
 - 주요 모션의 시작·종료 상태를 설명한 메모
 
-반응형, 세부 페이지와 React component 분리는 handoff 이후 Codex가 담당합니다.
+반응형, 세부 페이지와 React component 분리는 handoff 이후 구현 담당자가 담당합니다.
 
 ## 11. 최종 검수 질문
 
@@ -723,7 +723,7 @@ no text, no logo, no human face, no robot, no stock photo look
 - 근거, 계산식과 사용자 검토가 제품의 차별점으로 보이는가?
 - 가짜 후기, 수치, 고객사와 확정되지 않은 가격이 없는가?
 - Pinterest 레퍼런스의 분위기를 참고했지만 브랜드와 그래픽은 독창적인가?
-- 이후 Codex가 세부 페이지에 적용할 수 있는 시각 규칙이 충분한가?
+- 이후 구현 담당자가 세부 페이지에 적용할 수 있는 시각 규칙이 충분한가?
 
 ## 12. 이 문서의 근거 자료
 

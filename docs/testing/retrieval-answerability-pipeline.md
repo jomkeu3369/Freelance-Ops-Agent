@@ -219,4 +219,4 @@ Local accept 승격 기준은 다음과 같다.
 - 파생 dataset: `agent/tests/유사도측정/data/klue_mrc_answerability_650.jsonl`
 
 관련 Python 테스트 17건과 Ruff, Python compile 검사를 통과했다. 모델 weight, embedding cache와 평가
-산출물은 Git에 포함하지 않고 `.uv-cache`와 Codex visualization 디렉터리에 보관한다.
+산출물은 Git에 포함하지 않고 `.uv-cache`와 로컬 visualization 디렉터리에 보관한다.
