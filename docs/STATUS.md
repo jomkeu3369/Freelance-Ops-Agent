@@ -13,6 +13,8 @@ V2 코드 구현도 90% 수준의 backend·Agent 기반에 실제 API 기반 fro
 
 ## 완료
 
+- 2026-08-17: GitHub README의 제품 사용 예시를 임시 fixture GIF 3종에서 실제 운영 화면을 촬영한 자료로 교체했다. 고객 정보 등록, 프로젝트 문의 등록, AI 분석, 사용자 검토, 견적 결과 검토, 프로젝트 결과 회고까지 6단계로 다시 구성했으며 기존 `freelance-ops-hero.png`는 유지했다. 더 이상 사용하지 않는 `intake-to-requirements.gif`, `hitl-resume.gif`, `evidence-to-proposal.gif`는 제거했고 README의 모든 로컬 미디어 링크와 신규 GIF·PNG 파일 무결성을 확인했다.
+
 - 2026-08-17: 결과 회고의 `최종 계약 금액`·`실제 비용`·항목별 실제 비용 입력이 `step=1000`으로 제한돼, 발행 견적과 동일한 `1,270,500원`처럼 천 원 단위로 나누어떨어지지 않는 정상 금액을 브라우저가 저장 요청 전에 차단하던 문제를 수정했다. Backend의 `Numeric(19,2)` 계약에 맞춰 금액 입력 정밀도를 `0.01`로 통일했으며 Frontend TypeScript, Node 테스트 45건과 ESLint가 통과했다.
 
 - 2026-08-17: 결과 회고 저장 직후 화면에 표시된 500은 Outcome 저장 실패가 아니라 동시에 실행된 최신 Agent 상태 조회의 낙관적 잠금 충돌임을 운영 로그로 확인했다. `GET latestForProject`가 외부 Agent 상태를 반영하면서 transaction 밖의 detached `AgentRunEntity`를 `save()`로 merge해 재개·취소·다른 조회와 version 경쟁을 일으키던 경로를 원자적 상태 갱신 query로 교체했다. 조회·재개·취소·삭제 전 동기화가 같은 갱신 경로를 사용하고, 이미 완료·부분 완료·실패·취소된 terminal 상태는 늦게 도착한 응답으로 되돌아가지 않으며 동일 상태 polling은 DB write를 만들지 않는다. 회귀 테스트는 조회 경로가 detached entity를 다시 저장하지 않는지 검증하며 Backend 전체 테스트 109건 중 Docker 의존 6건을 제외한 103건이 통과했다.
