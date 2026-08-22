@@ -20,6 +20,27 @@ public interface ProjectRepository extends JpaRepository<ProjectEntity, UUID> {
     Optional<ProjectEntity> findByIdAndWorkspaceIdForUpdate(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
     List<ProjectEntity> findAllByWorkspaceIdOrderByUpdatedAtDesc(UUID workspaceId);
+
+    @Query("""
+        select project
+        from ProjectEntity project
+        where project.workspaceId = :workspaceId
+          and (
+            lower(project.title) like :search
+            or exists (
+              select client.id
+              from ClientEntity client
+              where client.id = project.clientId
+                and client.workspaceId = :workspaceId
+                and (
+                  lower(client.name) like :search
+                  or lower(coalesce(client.companyName, '')) like :search
+                )
+            )
+          )
+        order by project.updatedAt desc
+        """)
+    List<ProjectEntity> searchByWorkspaceId(@Param("workspaceId") UUID workspaceId, @Param("search") String search);
 }
 
 

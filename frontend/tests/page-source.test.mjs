@@ -343,9 +343,10 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
   assert.match(workspace, /permissions\.has\("document\.read"\)/);
   assert.match(workspace, /projectResult\.find\(\(item\) => item\.id === location\.projectId\)/);
   assert.match(workspace, /selectedProjectIdRef\.current !== project\.id/);
-  assert.match(workspace, /aria-label="프로젝트 바로가기"/);
-  assert.match(workspace, /projects\.find\(\(item\) => item\.id === event\.target\.value\)/);
-  assert.match(css, /\.mobile-project-switcher \{ display: none; \}/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트 바로가기"/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트 목록"/);
+  assert.match(workspace, /className="pipeline-list-open" onClick=\{\(\) => onSelect\(project\)\}/);
+  assert.match(workspace, /aria-label="프로젝트 검색"/);
   assert.match(css, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.workspace-sidebar nav \{ display: none; \}/);
 });
@@ -465,7 +466,7 @@ test("CRM lifecycle and project-to-client linking use the Spring client contract
   assert.match(workspace, /function projectClientLabel\(project: Project, clients: Client\[\]\)/);
   assert.match(workspace, /client\.companyName \? `\$\{client\.companyName\} · \$\{client\.name\}` : client\.name/);
   assert.match(workspace, /className="pipeline-card-client"/);
-  assert.match(workspace, /className="sidebar-project-client"/);
+  assert.doesNotMatch(workspace, /className="sidebar-project-client"/);
   assert.match(workspace, /className="project-client"/);
   assert.match(workspace, /projectClientLabel\(project, clients\)/);
 });

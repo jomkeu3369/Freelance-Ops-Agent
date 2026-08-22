@@ -513,8 +513,13 @@ export function getMe(session: AuthSession): Promise<MeProfile> {
   return queryCached(`me:${session.userId}`, () => request("/api/v2/me", {}, session.accessToken));
 }
 
-export function listProjects(session: AuthSession): Promise<Project[]> {
-  return queryCached(`projects:${session.workspaceId}`, () => request(`/api/v2/workspaces/${session.workspaceId}/projects`, {}, session.accessToken));
+export function listProjects(session: AuthSession, search = ""): Promise<Project[]> {
+  const normalizedSearch = search.trim();
+  const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}` : "";
+  return queryCached(
+    `projects:${session.workspaceId}:${normalizedSearch.toLocaleLowerCase()}`,
+    () => request(`/api/v2/workspaces/${session.workspaceId}/projects${query}`, {}, session.accessToken)
+  );
 }
 
 export function listClients(session: AuthSession): Promise<Client[]> {

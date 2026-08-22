@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -33,9 +34,13 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProjectResponse> list(UUID userId, UUID workspaceId) {
+    public List<ProjectResponse> list(UUID userId, UUID workspaceId, String search) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
-        return projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId).stream()
+        String normalizedSearch = search == null ? "" : search.strip().toLowerCase(Locale.ROOT);
+        List<ProjectEntity> projects = normalizedSearch.isEmpty()
+            ? projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId)
+            : projectRepository.searchByWorkspaceId(workspaceId, "%" + normalizedSearch + "%");
+        return projects.stream()
             .map(ProjectService::response)
             .toList();
     }

@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,6 +32,38 @@ class ProjectServiceTest {
     private ClientRepository clientRepository;
     @Mock
     private WorkspaceAuthorizationService authorizationService;
+
+    @Test
+    void listSearchesProjectAndClientNamesWithinWorkspace() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_READ))
+            .thenReturn(AuthorizationDecision.ALLOWED);
+        when(projectRepository.searchByWorkspaceId(workspaceId, "%고객 포털%"))
+            .thenReturn(List.of());
+        ProjectService service = new ProjectService(projectRepository, clientRepository, authorizationService);
+
+        assertThat(service.list(userId, workspaceId, "  고객 포털  ")).isEmpty();
+
+        verify(projectRepository).searchByWorkspaceId(workspaceId, "%고객 포털%");
+        verify(projectRepository, never()).findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId);
+    }
+
+    @Test
+    void blankSearchUsesUpdatedProjectList() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_READ))
+            .thenReturn(AuthorizationDecision.ALLOWED);
+        when(projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId))
+            .thenReturn(List.of());
+        ProjectService service = new ProjectService(projectRepository, clientRepository, authorizationService);
+
+        assertThat(service.list(userId, workspaceId, "   ")).isEmpty();
+
+        verify(projectRepository).findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId);
+        verify(projectRepository, never()).searchByWorkspaceId(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void deleteUsesDedicatedPermissionAndWorkspaceScopedLookup() {

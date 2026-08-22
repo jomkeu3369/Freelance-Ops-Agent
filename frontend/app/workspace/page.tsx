@@ -511,56 +511,9 @@ export default function WorkspacePage() {
           {activePermissions.has("document.read") && <button type="button" aria-current={activeView === "knowledge" ? "page" : undefined} className={activeView === "knowledge" ? "active" : ""} onClick={() => navigateWorkspace("knowledge")}><FileText size={18} /><span>근거 자료</span></button>}
           <button type="button" aria-current={activeView === "settings" ? "page" : undefined} className={activeView === "settings" ? "active" : ""} onClick={() => navigateWorkspace("settings")}><GearSix size={18} /><span>설정</span></button>
         </div>
-        <div className="sidebar-heading">
-          <span>프로젝트</span>
-          {canWriteProject && <button type="button" onClick={() => setShowNewProject(true)} aria-label="새 프로젝트 만들기"><Plus size={18} /></button>}
-        </div>
-        <div className="mobile-project-switcher">
-          <label>
-            <span className="sr-only">프로젝트 바로가기</span>
-            <select
-              aria-label="프로젝트 바로가기"
-              value={activeView === "project" ? selectedProject?.id ?? "" : ""}
-              disabled={projects.length === 0}
-              onChange={(event) => {
-                const project = projects.find((item) => item.id === event.target.value);
-                if (project) navigateWorkspace("project", project);
-              }}
-            >
-              <option value="">{projects.length ? "프로젝트 선택" : "프로젝트 없음"}</option>
-              {projects.map((project) => <option key={project.id} value={project.id}>{project.title} · {projectClientLabel(project, clients)} · {pipelineStatusLabels[project.status] ?? project.status}</option>)}
-            </select>
-          </label>
-          {canWriteProject && <button type="button" onClick={() => setShowNewProject(true)} aria-label="새 프로젝트 만들기"><Plus size={18} /><span>새 프로젝트</span></button>}
-        </div>
-        <nav aria-label="프로젝트 목록">
-          {projects.length === 0 ? (
-            <button className="empty-project" type="button" disabled={!canWriteProject} onClick={() => setShowNewProject(true)}>
-              <FolderOpen size={24} /><span>첫 프로젝트를 만드세요</span>
-            </button>
-          ) : projects.map((project) => (
-            <button
-              type="button"
-              key={project.id}
-              aria-current={selectedProject?.id === project.id && activeView === "project" ? "page" : undefined}
-              className={selectedProject?.id === project.id ? "active" : ""}
-              onClick={() => {
-                setSelectedProject(project);
-                navigateWorkspace("project", project);
-                setRun(null);
-                setRunId(null);
-                setEvents([]);
-              }}
-            >
-              <span>{project.title}</span>
-              <small className="sidebar-project-client">{projectClientLabel(project, clients)}</small>
-              <small>{pipelineStatusLabels[project.status] ?? project.status}</small>
-            </button>
-          ))}
-        </nav>
         <div className="sidebar-foot">
-          <span>작업 공간</span>
-          <code>{session.workspaceId.slice(0, 8)}</code>
+          <span className="sidebar-avatar" aria-hidden="true">{profile?.displayName.slice(0, 1) ?? "F"}</span>
+          <span><strong>{profile?.displayName ?? "사용자"}</strong><small>{profile?.email}</small></span>
         </div>
       </aside>
 
@@ -571,6 +524,7 @@ export default function WorkspacePage() {
             session={session}
             projects={projects}
             clients={clients}
+            displayName={profile?.displayName ?? "사용자"}
             canWrite={canWriteProject}
             onCreate={() => setShowNewProject(true)}
             onSelect={(project) => navigateWorkspace("project", project)}
@@ -992,6 +946,7 @@ function PipelineBoard({
   session,
   projects,
   clients,
+  displayName,
   canWrite,
   onCreate,
   onSelect,
@@ -1000,6 +955,7 @@ function PipelineBoard({
   session: AuthSession;
   projects: Project[];
   clients: Client[];
+  displayName: string;
   canWrite: boolean;
   onCreate: () => void;
   onSelect: (project: Project) => void;
@@ -1007,7 +963,32 @@ function PipelineBoard({
 }) {
   const [movingId, setMovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const activeProjects = projects.filter((project) => project.status !== "CANCELLED");
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Project[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [activeColumn, setActiveColumn] = useState(pipelineColumns[0].key);
+  const [sort, setSort] = useState<"updated" | "deadline">("updated");
+  const activeProjects = (searchResults ?? projects).filter((project) => project.status !== "CANCELLED");
+  const selectedColumn = pipelineColumns.find((column) => column.key === activeColumn) ?? pipelineColumns[0];
+  const visibleProjects = activeProjects
+    .filter((project) => selectedColumn.statuses.includes(project.status as ProjectStatus))
+    .toSorted((left, right) => sort === "deadline"
+      ? (left.deadline ?? "9999-12-31").localeCompare(right.deadline ?? "9999-12-31")
+      : new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
+
+  const submitSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (searching) return;
+    setSearching(true);
+    setError(null);
+    try {
+      setSearchResults(search.trim() ? await listProjects(session, search) : null);
+    } catch (cause) {
+      setError(cause instanceof Error ? `검색 결과를 불러오지 못했습니다. ${cause.message}` : "검색 결과를 불러오지 못했습니다.");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const move = async (project: Project, status: ProjectStatus) => {
     if (project.status === status) return;
@@ -1024,32 +1005,35 @@ function PipelineBoard({
 
   return (
     <section className="pipeline-page">
-      <div className="pipeline-heading">
-        <div><span>프로젝트 현황</span><h1>지금 확인할 일을 모았습니다.</h1><p>새 문의부터 진행 중인 작업, 마무리할 회고까지 한곳에서 확인하세요.</p></div>
-        {canWrite && <button type="button" className="primary-button" onClick={onCreate}><Plus size={18} /> 새 문의 등록</button>}
+      <div className="pipeline-hero">
+        <div className="pipeline-heading">
+          <div><h1>안녕하세요. {displayName}님,<br />지금 확인할 일을 모았습니다.</h1><p>새 문의부터 진행 중인 작업, 마무리할 회고까지 한곳에서 확인하세요.</p></div>
+        </div>
+        <div className="pipeline-summary"><div><span>전체 프로젝트</span><strong>{projects.length}건</strong></div><div><span>견적 진행</span><strong>{projects.filter((project) => ["QUOTING", "NEGOTIATING"].includes(project.status)).length}건</strong></div><div><span>회고 필요</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}건</strong></div></div>
       </div>
-      <div className="pipeline-summary"><div><span>활성 프로젝트</span><strong>{activeProjects.length}</strong></div><div><span>견적 진행</span><strong>{projects.filter((project) => ["QUOTING", "NEGOTIATING"].includes(project.status)).length}</strong></div><div><span>회고 필요</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}</strong></div></div>
+      <div className="pipeline-toolbar">
+        <div className="pipeline-view-tabs" aria-label="프로젝트 보기 방식"><span aria-disabled="true">한눈에 보기</span><strong>목록 보기</strong></div>
+        <div className="pipeline-actions">
+          <label className="pipeline-sort"><span className="sr-only">정렬 기준</span><select value={sort} onChange={(event) => setSort(event.target.value as "updated" | "deadline")}><option value="updated">업데이트 순</option><option value="deadline">마감일 순</option></select><CaretDown size={15} /></label>
+          <form className="pipeline-search" role="search" onSubmit={submitSearch}><input aria-label="프로젝트 검색" value={search} onChange={(event) => { setSearch(event.target.value); if (!event.target.value.trim()) setSearchResults(null); }} placeholder="프로젝트명, 고객명으로 검색" /><button type="submit" aria-label="검색" disabled={searching}>{searching ? <CircleNotch size={18} className="spin" /> : <MagnifyingGlass size={18} />}</button></form>
+          {canWrite && <button type="button" className="primary-button" onClick={onCreate}><Plus size={18} /> 신규 문의 등록</button>}
+        </div>
+      </div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
-      {activeProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>아직 등록된 문의가 없습니다.</h2><p>{canWrite ? "첫 고객 문의를 등록하면 이곳에서 단계별 진행 상태를 관리할 수 있습니다." : "현재 작업 공간의 프로젝트를 조회할 수 있습니다."}</p>{canWrite && <button type="button" className="primary-button" onClick={onCreate}>첫 문의 등록</button>}</div> : (
-        <div className="pipeline-board">
-          {pipelineColumns.map((column) => {
-            const columnProjects = activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus));
-            return <section className="pipeline-column" key={column.key} aria-labelledby={`pipeline-${column.key}`}>
-              <header><div><h2 id={`pipeline-${column.key}`}>{column.title}</h2><p>{column.caption}</p></div><span>{columnProjects.length}</span></header>
-              <div className="pipeline-cards">
-                {columnProjects.length === 0 ? <p className="column-empty">이 단계의 프로젝트가 없습니다.</p> : columnProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
-                  <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}>
-                    <span className="pipeline-card-client"><AddressBook size={14} />{projectClientLabel(project, clients)}</span>
-                    <span className="pipeline-card-currency">{project.currency}</span>
-                    <h3>{project.title}</h3>
-                    <p>{project.requirementText}</p>
-                    <small>{project.deadline ? `${project.deadline}까지` : "일정 미정"}</small>
-                  </button>
-                  {canWrite && <label>단계 이동<select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
-                </article>)}
-              </div>
-            </section>;
-          })}
+      <div className="pipeline-status-tabs" role="tablist" aria-label="프로젝트 단계">
+        {pipelineColumns.map((column) => <button key={column.key} type="button" role="tab" aria-selected={activeColumn === column.key} className={activeColumn === column.key ? "active" : ""} onClick={() => setActiveColumn(column.key)}>{column.title}<span>{activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}</span></button>)}
+      </div>
+      {visibleProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>{searchResults ? "검색 조건에 맞는 프로젝트가 없습니다." : `${selectedColumn.title} 단계의 프로젝트가 없습니다.`}</h2><p>{canWrite && !searchResults ? "새 고객 문의를 등록하거나 다른 단계를 확인해 주세요." : "검색어 또는 다른 진행 단계를 확인해 주세요."}</p>{canWrite && !searchResults && <button type="button" className="primary-button" onClick={onCreate}>문의 등록</button>}</div> : (
+        <div className="pipeline-list">
+          {visibleProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
+            <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)}>
+              <span className="pipeline-card-client">{projectClientLabel(project, clients)}</span><span className="pipeline-list-divider">·</span><span className="pipeline-status-text">{pipelineStatusLabels[project.status] ?? project.status}</span>
+              <h2>{project.title}</h2>
+              <p>{project.requirementText}</p>
+              <dl><div><dt>통화</dt><dd>{project.currency}</dd></div><div><dt>희망 완료일</dt><dd>{project.deadline ?? "미정"}</dd></div><div><dt>예산 범위</dt><dd>{project.budgetMin == null && project.budgetMax == null ? "미정" : `${formatMoney(project.budgetMin ?? 0, project.currency)}–${formatMoney(project.budgetMax ?? 0, project.currency)}`}</dd></div></dl>
+            </button>
+            {canWrite && <label className="pipeline-status-select"><span>단계 변경</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
+          </article>)}
         </div>
       )}
     </section>
@@ -1689,10 +1673,9 @@ function ProjectWorkbench({
         <div>
           <div className="project-context-line">
             <span className="project-status"><i /> {pipelineStatusLabels[project.status] ?? project.status}</span>
-            <span className="project-client"><AddressBook size={15} />{projectClientLabel(project, clients)}</span>
           </div>
           <h1>{project.title}</h1>
-          <p>{project.requirementText}</p>
+          <span className="project-client"><AddressBook size={15} />{projectClientLabel(project, clients)}</span>
         </div>
         {activeStep !== "agent" && (permissions.has("project.write") || permissions.has("project.delete")) && <div className="project-heading-actions">
           {permissions.has("project.write") && <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}><PencilSimple size={18} /> 프로젝트 정보 수정</button>}

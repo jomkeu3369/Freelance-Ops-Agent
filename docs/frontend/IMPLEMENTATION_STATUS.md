@@ -14,6 +14,7 @@
 | 업무 단계 작동 방식 시각화 | 5개 활성 단계마다 입력→처리→결과를 보여주는 코드 기반 미니 화면, 820px 이하 compact layout | 완료 |
 | dark/light theme와 reduced motion | theme provider, `prefers-reduced-motion` | 완료 |
 | Home / Pipeline | 실제 Project status 조회·변경 API 기반 6단계 pipeline | 완료 |
+| Figma 프로젝트 현황 | 인사말·요약 지표·정렬·Spring 검색·6단계 탭·목록형 카드, 왼쪽 프로젝트 목록 제거 | 완료 |
 | Pipeline 상태 정확성 | 협상 열에 함께 표시되는 `ACCEPTED`도 select가 실제 server status를 유지하고 `고객 승인됨`으로 구분 | 완료 |
 | CRM / 고객 연결 | 고객 검색·등록·수정·보관과 새 프로젝트의 기존 고객 연결 | 완료 |
 | Workspace 전환 | `/me` membership 기반 기존 Workspace 전환과 workspace-scoped 데이터 재조회 | 완료 |
@@ -37,7 +38,7 @@
 | 키보드 작업 수명주기 | 인증 tab 화살표 이동, 현재 위치 전달, modal focus trap·배경 scroll lock·trigger focus 복귀 | 완료 |
 | Transactional form UX | 모든 mutation form의 중복 제출 차단, Client·Settings·Outcome pending field lock, modal-local validation·API error, network failure 한국어 복구 | 완료 |
 | 작업 맥락 복원 | Workspace 화면·프로젝트·진행 단계를 URL에 기록하고 새로고침·뒤로/앞으로 복원, 잘못된 대상과 권한 없는 화면은 Pipeline으로 정규화 | 완료 |
-| 모바일 Workspace 탐색 | 820px 이하 sticky 4열 핵심 메뉴, 네이티브 프로젝트 선택기와 새 프로젝트 진입, 데스크톱 프로젝트 목록 가로 스크롤 제거 | 완료 |
+| 모바일 Workspace 탐색 | 820px 이하 sticky 4열 핵심 메뉴, 현황 목록을 통한 프로젝트 진입, 왼쪽·모바일 프로젝트 선택기 제거 | 완료 |
 | 업무 중심 시각 정리 | 중성 surface·절제된 단일 강조색, 장식용 궤도·패킷·광원 제거, 원시 상태·이벤트·부서 식별자 한국어화, 기술 실행 정보 기본 접기 | 완료 |
 | 반응형 업무 밀도 | 1500px 이하 파이프라인 3열×2행, 700px 이하 단일 열, 모바일 설정 전체 폭 본문·가로 목차, 모바일 현황 메뉴 축약 | 완료 |
 
