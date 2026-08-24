@@ -13,6 +13,8 @@ uv run pytest tests/runtime_predictor_prototype
 uv run python -m tests.runtime_predictor_prototype.run_experiment
 uv run python -m tests.runtime_predictor_prototype.plot_experiment
 uv run python -m tests.runtime_predictor_prototype.plot_ema_experiment
+uv run python -m tests.runtime_predictor_prototype.plot_gated_ema_experiment
+uv run python -m tests.runtime_predictor_prototype.plot_online_learning_experiment
 ```
 
 실험은 고정 seed로 5,000개의 이력을 생성하고 동일 validation set에서 median baseline,
@@ -59,5 +61,50 @@ Stationary workload에서는 residual EMA가 noise까지 추적하여 모든 모
 30% drift에서도 XGBoost만 소폭 개선됐다. 따라서 EMA를 기본 예측 경로에 무조건 적용할 근거는
 부족하며, drift 감지 후 제한적으로 활성화하거나 예측 오차 monitoring 용도로 사용하는 것이
 현재 결과에 부합한다.
+
+## Drift-gated correction experiment
+
+XGBoost base prediction을 유지하면서 상시 EMA, rolling-median residual, drift-gated clipped
+EMA를 시간순 validation에서 비교했다. Gate는 clipped signed-residual EMA가 1.5초를 25건
+연속 초과한 경우에만 열리며, 보정은 최대 5초이면서 base prediction의 20%를 넘지 않는다.
+
+| Scenario | Strategy | MAE | RMSE | R² | Gate activation |
+|---|---|---:|---:|---:|---:|
+| Stationary | Base XGBoost | 3.83 sec | 6.88 sec | 0.915 | - |
+| Stationary | Always EMA | 4.02 sec | 7.05 sec | 0.911 | - |
+| Stationary | Rolling median | 3.85 sec | 6.91 sec | 0.915 | - |
+| Stationary | Drift-gated EMA | 3.83 sec | 6.88 sec | 0.915 | None |
+| 30% latency drift | Base XGBoost | 5.34 sec | 10.04 sec | 0.885 | - |
+| 30% latency drift | Always EMA | 5.30 sec | 9.63 sec | 0.895 | - |
+| 30% latency drift | Rolling median | 4.89 sec | 9.50 sec | 0.897 | - |
+| 30% latency drift | Drift-gated EMA | 4.87 sec | 9.44 sec | 0.898 | Task 80 |
+
+Drift-gated EMA는 stationary 환경에서 비활성 상태를 유지해 base 성능을 보존했고, drift
+환경에서는 gate 활성화 후 네 전략 중 가장 낮은 MAE를 기록했다. 다만 threshold는 synthetic
+workload 한 종류에서 정한 값이므로 실제 execution history의 시간순 calibration 구간에서 다시
+선정해야 한다.
+
+## Asynchronous online residual learning
+
+XGBoost는 serving model로 고정하고 `SGDRegressor.partial_fit()`이 완료된 task의 base residual을
+실시간 학습하는 hybrid 구조를 검증했다. Categorical feature는 고정 크기 hashing으로 변환하고,
+numeric feature는 사전 정의된 scale과 interaction으로 변환하므로 새로운 category에도 online
+encoder 재학습이 필요 없다.
+
+Replay는 enqueue 시점마다 그 시각 이전에 `completed_at`에 도달한 task만 online model에
+반영한다. 따라서 동시에 실행 중이거나 아직 끝나지 않은 task의 target은 현재 예측에 사용되지
+않는다.
+
+| Scenario | Strategy | MAE | RMSE | R² |
+|---|---|---:|---:|---:|
+| Stationary | Base XGBoost | 3.83 sec | 6.88 sec | 0.915 |
+| Stationary | XGBoost + online residual SGD | 3.84 sec | 6.89 sec | 0.915 |
+| 30% latency drift | Base XGBoost | 5.34 sec | 10.04 sec | 0.885 |
+| 30% latency drift | XGBoost + online residual SGD | 4.78 sec | 9.30 sec | 0.901 |
+
+Online residual SGD는 stationary workload에서 성능을 사실상 유지했고, 30% drift에서 base 대비
+MAE를 약 10.5% 줄였다. 앞선 drift-gated EMA의 4.87초보다도 낮았다. 다만 online state의
+persistence, checkpoint 복구, 업데이트 idempotency, correction rollback과 실제 workload의
+시간순 검증이 마련되기 전에는 production 기본 경로로 활성화하지 않는다.
 
 `joblib` artifact는 pickle 계열 포맷이므로 신뢰할 수 있는 내부 파일만 로드해야 한다.
