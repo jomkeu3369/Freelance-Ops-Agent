@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.UUID;
+import java.time.Duration;
 import java.net.http.HttpClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +33,12 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class HttpAgentRunClientTest {
+
+    @Test
+    void configuresABoundedConnectionTimeoutForAgentCalls() {
+        assertThat(HttpAgentRunClient.http11Client(Duration.ofMillis(750)).connectTimeout())
+            .contains(Duration.ofMillis(750));
+    }
 
     @Test
     void sendsVersionedAgentContractWithBearerTokenAndTraceContext() {

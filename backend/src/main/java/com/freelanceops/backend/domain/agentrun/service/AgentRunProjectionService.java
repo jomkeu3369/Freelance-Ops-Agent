@@ -17,6 +17,8 @@ import java.util.UUID;
 @Service
 public class AgentRunProjectionService {
 
+    private static final java.time.Duration RECONCILIATION_INTERVAL = java.time.Duration.ofSeconds(5);
+
     private final AgentRunRepository runRepository;
     private final AgentInterruptionService interruptionService;
     private final AgentCostService costService;
@@ -33,6 +35,7 @@ public class AgentRunProjectionService {
         interruptionService.synchronize(run, view);
         costService.synchronize(run, view);
         run.synchronizeStatus(view.status(), Instant.now());
+        run.scheduleReconciliation(Instant.now().plus(RECONCILIATION_INTERVAL));
     }
 
     @Transactional
@@ -52,6 +55,11 @@ public class AgentRunProjectionService {
     @Transactional
     public void synchronizeStatus(UUID runId, UUID workspaceId, AgentRunStatus status) {
         lock(runId, workspaceId).synchronizeStatus(status, Instant.now());
+    }
+
+    @Transactional
+    public void deferReconciliation(UUID runId, UUID workspaceId, Instant nextAttempt) {
+        lock(runId, workspaceId).scheduleReconciliation(nextAttempt);
     }
 
     private AgentRunEntity lock(UUID runId, UUID workspaceId) {

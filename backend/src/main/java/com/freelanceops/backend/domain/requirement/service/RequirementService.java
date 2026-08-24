@@ -65,7 +65,8 @@ public class RequirementService {
     public RequirementVersionResponse create(UUID userId, UUID workspaceId, UUID projectId, CreateRequirementVersionRequest request) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
         projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+            .requireNotDeleting();
         int versionNumber = versionRepository.findTopByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(workspaceId, projectId)
             .map(current -> current.versionNumber() + 1).orElse(1);
         Instant now = Instant.now();

@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.project.entity;
 
+import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -53,6 +55,9 @@ public class ProjectEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "deletion_requested_at")
+    private Instant deletionRequestedAt;
+
     @Version
     private long version;
 
@@ -80,6 +85,7 @@ public class ProjectEntity {
     }
 
     public void update(UUID clientId, String title, String requirementText, String currency, LocalDate deadline, BigDecimal budgetMin, BigDecimal budgetMax, String status, Instant now) {
+        requireNotDeleting();
         this.clientId = clientId;
         this.title = title;
         this.requirementText = requirementText;
@@ -89,6 +95,20 @@ public class ProjectEntity {
         this.budgetMax = budgetMax;
         this.status = status;
         this.updatedAt = now;
+    }
+
+    public void requestDeletion(Instant now) {
+        if (deletionRequestedAt == null) deletionRequestedAt = now;
+    }
+
+    public void requireNotDeleting() {
+        if (deletionRequestedAt != null) {
+            throw new ProjectDeletionInProgressException();
+        }
+    }
+
+    public boolean deletionRequested() {
+        return deletionRequestedAt != null;
     }
 
     public UUID id() {

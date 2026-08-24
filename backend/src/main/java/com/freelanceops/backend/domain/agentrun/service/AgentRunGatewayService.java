@@ -47,15 +47,17 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final DelegationTokenIssuer tokenIssuer;
     private final AgentRunClient agentRunClient;
     private final AgentRunProjectionService projectionService;
+    private final AgentRunCommandQueue commandQueue;
     private final AgentBudgetPolicy budgetPolicy;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentBudgetPolicy budgetPolicy) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
         this.tokenIssuer = tokenIssuer;
         this.agentRunClient = agentRunClient;
         this.projectionService = projectionService;
+        this.commandQueue = commandQueue;
         this.budgetPolicy = budgetPolicy;
     }
 
@@ -68,6 +70,9 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         requirePermission(membership, PermissionCode.PROJECT_READ);
         ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (project.deletionRequested()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "project deletion is in progress");
+        }
 
         UUID runId = UUID.randomUUID();
         UUID threadId = UUID.randomUUID();
@@ -75,7 +80,6 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             .map(PermissionCode::code)
             .sorted(Comparator.naturalOrder())
             .toList();
-        String token = tokenIssuer.issue(runId, workspaceId, project.id(), userId, permissions);
         TrustedRunContext context = new TrustedRunContext(
             runId,
             threadId,
@@ -109,37 +113,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             Instant.now()
         );
         agentRunRepository.saveAndFlush(run);
-        try {
-            StartAgentRunResponse response = agentRunClient.start(internalRequest, token, traceparent);
-            requireMatchingRun(runId, response == null ? null : response.runId());
-            run.synchronizeStatus(response.status(), Instant.now());
-            return response;
-        } catch (RuntimeException error) {
-            if (!isAmbiguousFailure(error)) {
-                run.synchronizeStatus(AgentRunStatus.FAILED, Instant.now());
-                throw error;
-            }
-            Optional<AgentRunView> recovered = recoverStartedRun(runId, token, traceparent);
-            if (recovered.isPresent()) {
-                AgentRunView view = recovered.get();
-                requireMatchingRun(runId, view.runId());
-                projectionService.synchronize(runId, workspaceId, view);
-                return new StartAgentRunResponse(runId, view.status(), view.updatedAt());
-            }
-            try {
-                StartAgentRunResponse retried = agentRunClient.start(internalRequest, token, traceparent);
-                requireMatchingRun(runId, retried == null ? null : retried.runId());
-                run.synchronizeStatus(retried.status(), Instant.now());
-                return retried;
-            } catch (RuntimeException retryError) {
-                if (!isAmbiguousFailure(retryError)) {
-                    run.synchronizeStatus(AgentRunStatus.FAILED, Instant.now());
-                    throw retryError;
-                }
-            }
-            // 전송 결과가 불명확할 때 FAILED로 단정하지 않는다. 동일 runId 조회로 후속 재조정한다.
-            return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
-        }
+        commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
+        return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
     }
 
     public AgentRunView get(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
@@ -205,22 +180,16 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         }
     }
 
+    @Transactional
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
-        String token = issueToken(authorized.run(), userId, authorized.permissions());
-        AgentRunView current = agentRunClient.get(runId, token, traceparent);
-        requireMatchingRun(runId, current == null ? null : current.runId());
-        projectionService.synchronize(runId, workspaceId, current);
+        projectRepository.findByIdAndWorkspaceIdForUpdate(authorized.run().projectId(), workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+            .requireNotDeleting();
         projectionService.validateResume(runId, workspaceId, request);
-        StartAgentRunResponse response = agentRunClient.resume(
-            runId,
-            request,
-            token,
-            traceparent
-        );
-        requireMatchingRun(runId, response == null ? null : response.runId());
-        projectionService.acceptResume(runId, workspaceId, request, response.status());
-        return response;
+        commandQueue.enqueueResume(runId, request, userId, authorized.permissions(), traceparent);
+        projectionService.acceptResume(runId, workspaceId, request, AgentRunStatus.QUEUED);
+        return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
     }
 
     public AgentRunView cancel(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
@@ -297,26 +266,6 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             }
             projectionService.synchronize(run.id(), workspaceId, cancelled);
         }
-    }
-
-    private Optional<AgentRunView> recoverStartedRun(UUID runId, String token, String traceparent) {
-        try {
-            return Optional.ofNullable(agentRunClient.get(runId, token, traceparent));
-        } catch (RuntimeException ignored) {
-            return Optional.empty();
-        }
-    }
-
-    private static boolean isAmbiguousFailure(RuntimeException error) {
-        if (error instanceof IllegalStateException || error instanceof ResponseStatusException) {
-            return false;
-        }
-        if (error instanceof RestClientResponseException responseError) {
-            return responseError.getStatusCode().is5xxServerError()
-                || responseError.getStatusCode().value() == 408
-                || responseError.getStatusCode().value() == 429;
-        }
-        return true;
     }
 
     private static List<String> permissionCodes(MembershipPermissions membership) {

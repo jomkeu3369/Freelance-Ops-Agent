@@ -53,7 +53,8 @@ public class ActualOutcomeService {
     public ActualOutcomeResponse upsert(UUID userId, UUID workspaceId, UUID projectId, UpsertActualOutcomeRequest request) {
         authorize(userId, workspaceId, PermissionCode.OUTCOME_WRITE);
         projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+            .requireNotDeleting();
         QuotationEntity quotation = validateQuotation(workspaceId, projectId, request.approvedQuotationId());
         validateWorkItems(workspaceId, quotation, request);
         Instant now = Instant.now();

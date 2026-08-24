@@ -141,7 +141,10 @@ public class ProposalShareService {
                 Instant.now()
             ));
         } catch (DataIntegrityViolationException error) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "a decision was already submitted for this share", error);
+            if (causedByDuplicateShareDecision(error)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "a decision was already submitted for this share", error);
+            }
+            throw error;
         }
         return new ProposalDecisionResponse(
             saved.id(),
@@ -194,6 +197,15 @@ public class ProposalShareService {
 
     private static String trim(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static boolean causedByDuplicateShareDecision(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().contains("uq_quotation_decision_share")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String token() {

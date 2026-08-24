@@ -8,6 +8,7 @@ import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionR
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.policy.SystemRole;
+import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,6 +22,10 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,12 +51,17 @@ class WorkspaceRbacPostgresTest {
     @Autowired
     private AuthorizationAuditSink auditSink;
 
+    @Autowired
+    private AgentRunCommandQueue agentRunCommandQueue;
+
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.flyway.create-schemas", () -> true);
+        registry.add("agent.command-dispatch-enabled", () -> false);
+        registry.add("agent.reconciliation-enabled", () -> false);
     }
 
     @Test
@@ -77,6 +87,53 @@ class WorkspaceRbacPostgresTest {
 
         assertThat(vectorExtension).isEqualTo(1);
         assertThat(proposalShareTable).isEqualTo(1);
+    }
+
+    @Test
+    void databaseAllowsOnlyOneDurableStartCommandPerAgentRun() {
+        UUID ownerId = insertUser("agent-command-owner");
+        WorkspaceProvisioningResult workspace = provisioningService.create(
+            ownerId, "Agent Command Workspace", "agent-command-workspace"
+        );
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO app.project (
+                    id, workspace_id, title, requirement_text, currency, status, created_by
+                ) VALUES (:id, :workspaceId, 'Agent project', 'Requirement', 'KRW', 'LEAD', :ownerId)
+                """)
+            .param("id", projectId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("ownerId", ownerId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.agent_run (
+                    id, workspace_id, project_id, thread_id, initiated_by, provider, model, status
+                ) VALUES (:id, :workspaceId, :projectId, :threadId, :ownerId, 'OPENAI', 'gpt-test', 'QUEUED')
+                """)
+            .param("id", runId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("projectId", projectId)
+            .param("threadId", UUID.randomUUID())
+            .param("ownerId", ownerId)
+            .update();
+        insertStartCommand(UUID.randomUUID(), runId, ownerId);
+
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<UUID> first = executor.submit(() -> claimAfter(start));
+            Future<UUID> second = executor.submit(() -> claimAfter(start));
+            start.countDown();
+            long claimed = Stream.of(first.get(), second.get())
+                .filter(runId::equals)
+                .count();
+            assertThat(claimed).isEqualTo(1);
+        } catch (Exception error) {
+            throw new AssertionError("concurrent Agent command claims failed", error);
+        }
+
+        assertThatThrownBy(() -> insertStartCommand(UUID.randomUUID(), runId, ownerId))
+            .isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -316,6 +373,25 @@ class WorkspaceRbacPostgresTest {
             .param("email", subject + "@example.com")
             .update();
         return userId;
+    }
+
+    private void insertStartCommand(UUID commandId, UUID runId, UUID ownerId) {
+        jdbcClient.sql("""
+                INSERT INTO app.agent_run_command (
+                    id, run_id, command_type, payload, requested_by, effective_permissions, status
+                ) VALUES (:id, :runId, 'START', '{}', :ownerId, '[]', 'PENDING')
+                """)
+            .param("id", commandId)
+            .param("runId", runId)
+            .param("ownerId", ownerId)
+            .update();
+    }
+
+    private UUID claimAfter(CountDownLatch start) throws InterruptedException {
+        start.await();
+        return agentRunCommandQueue.claimNext()
+            .map(AgentRunCommandQueue.ClaimedCommand::runId)
+            .orElse(null);
     }
 }
 

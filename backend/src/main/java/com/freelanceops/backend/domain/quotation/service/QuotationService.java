@@ -75,10 +75,12 @@ public class QuotationService {
         return response(find(workspaceId, quotationId));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public QuotationResponse getPublishedForShare(UUID userId, UUID workspaceId, UUID quotationId) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_PUBLISH);
-        return publishedResponse(workspaceId, quotationId);
+        QuotationResponse quotation = publishedResponse(workspaceId, quotationId);
+        requireWritableProject(workspaceId, quotation.projectId());
+        return quotation;
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +91,7 @@ public class QuotationService {
     @Transactional
     public QuotationResponse create(UUID userId, UUID workspaceId, UUID projectId, CreateQuotationRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
-        requireProject(workspaceId, projectId);
+        requireWritableProject(workspaceId, projectId);
         UUID quotationId = UUID.randomUUID();
         return createVersion(userId, workspaceId, projectId, quotationId, null, quotationId, 1, request);
     }
@@ -104,6 +106,7 @@ public class QuotationService {
         if (!latest.id().equals(source.id())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "revision must be created from the latest version");
         }
+        requireWritableProject(workspaceId, source.projectId());
         return createVersion(userId, workspaceId, source.projectId(), UUID.randomUUID(), source.id(), source.seriesId(), source.versionNumber() + 1, request);
     }
 
@@ -112,6 +115,7 @@ public class QuotationService {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_PUBLISH);
         QuotationEntity quotation = quotationRepository.findByIdAndWorkspaceIdForUpdate(quotationId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requireWritableProject(workspaceId, quotation.projectId());
         try {
             quotation.publish(userId, Instant.now());
         } catch (IllegalStateException error) {
@@ -211,6 +215,12 @@ public class QuotationService {
         if (projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+    }
+
+    private void requireWritableProject(UUID workspaceId, UUID projectId) {
+        projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
+            .requireNotDeleting();
     }
 
     private QuotationEntity find(UUID workspaceId, UUID quotationId) {

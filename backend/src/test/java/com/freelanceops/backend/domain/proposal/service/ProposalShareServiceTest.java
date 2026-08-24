@@ -113,7 +113,9 @@ class ProposalShareServiceTest {
         );
         when(shareRepository.findByTokenHashForUpdate(ProposalShareService.hash(token))).thenReturn(Optional.of(share));
         when(quotationService.getPublishedInternal(workspaceId, quotationId)).thenReturn(quotation(workspaceId, projectId, quotationId));
-        when(decisionRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(decisionRepository.saveAndFlush(any())).thenThrow(
+            new DataIntegrityViolationException("duplicate constraint uq_quotation_decision_share")
+        );
 
         assertThatThrownBy(() -> service.decide(token, ProposalDecision.APPROVED, "고객", null, null))
             .isInstanceOfSatisfying(ResponseStatusException.class, error ->

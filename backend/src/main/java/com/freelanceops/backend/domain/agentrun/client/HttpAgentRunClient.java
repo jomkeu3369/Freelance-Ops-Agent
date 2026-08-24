@@ -7,7 +7,6 @@ import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunRespon
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -18,6 +17,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 
 @Component
 public class HttpAgentRunClient implements AgentRunClient {
@@ -27,14 +27,19 @@ public class HttpAgentRunClient implements AgentRunClient {
     private final HttpClient eventClient;
 
     @Autowired
-    public HttpAgentRunClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
-        HttpClient httpClient = http11Client();
-        this.restClient = builder
-            .requestFactory(new JdkClientHttpRequestFactory(httpClient))
-            .baseUrl(baseUrl)
-            .build();
+    public HttpAgentRunClient(
+        RestClient.Builder builder,
+        @Value("${agent.base-url:http://localhost:8000}") String baseUrl,
+        @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs
+    ) {
+        HttpClient httpClient = http11Client(Duration.ofMillis(connectTimeoutMs));
+        this.restClient = builder.baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = httpClient;
+    }
+
+    public HttpAgentRunClient(RestClient.Builder builder, String baseUrl) {
+        this(builder, baseUrl, 2000);
     }
 
     HttpAgentRunClient(RestClient.Builder builder, String baseUrl, HttpClient eventClient) {
@@ -115,7 +120,15 @@ public class HttpAgentRunClient implements AgentRunClient {
     }
 
     static HttpClient http11Client() {
+        return http11Client(Duration.ofSeconds(2));
+    }
+
+    static HttpClient http11Client(Duration connectTimeout) {
+        if (connectTimeout.isZero() || connectTimeout.isNegative()) {
+            throw new IllegalArgumentException("connectTimeout must be positive");
+        }
         return HttpClient.newBuilder()
+            .connectTimeout(connectTimeout)
             .version(HttpClient.Version.HTTP_1_1)
             .followRedirects(HttpClient.Redirect.NEVER)
             .build();

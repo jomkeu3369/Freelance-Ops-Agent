@@ -30,7 +30,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -66,6 +65,8 @@ class AgentRunGatewayServiceTest {
     @Mock
     private AgentRunProjectionService projectionService;
     @Mock
+    private AgentRunCommandQueue commandQueue;
+    @Mock
     private AgentBudgetPolicy budgetPolicy;
 
     private AgentRunGatewayService service;
@@ -79,12 +80,13 @@ class AgentRunGatewayServiceTest {
             tokenIssuer,
             agentRunClient,
             projectionService,
+            commandQueue,
             budgetPolicy
         );
     }
 
     @Test
-    void validatesWorkspacePermissionsAndCallsAgentWithRunBoundToken() {
+    void validatesWorkspacePermissionsAndPersistsAStartCommandWithTheRun() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
@@ -93,16 +95,11 @@ class AgentRunGatewayServiceTest {
             Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
         )));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(tokenIssuer.issue(any(), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("signed-token");
-        when(agentRunClient.start(any(), eq("signed-token"), eq("traceparent"))).thenAnswer(invocation -> {
-            InternalAgentRunRequest request = invocation.getArgument(0);
-            return new StartAgentRunResponse(request.context().runId(), AgentRunStatus.QUEUED, Instant.now());
-        });
-
         StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
 
         ArgumentCaptor<InternalAgentRunRequest> captor = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
-        verify(agentRunClient).start(captor.capture(), eq("signed-token"), eq("traceparent"));
+        verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
+            eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
@@ -203,7 +200,7 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
-    void retriesAnAmbiguousStartWithTheSameRunId() {
+    void doesNotCallTheAgentBeforeTheStartTransactionCommits() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
@@ -211,23 +208,10 @@ class AgentRunGatewayServiceTest {
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
         )));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(tokenIssuer.issue(any(), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("signed-token");
-        when(agentRunClient.start(any(), eq("signed-token"), eq("traceparent")))
-            .thenThrow(new ResourceAccessException("response lost"))
-            .thenAnswer(invocation -> {
-                InternalAgentRunRequest retried = invocation.getArgument(0);
-                return new StartAgentRunResponse(retried.context().runId(), AgentRunStatus.QUEUED, Instant.now());
-            });
-        when(agentRunClient.get(any(), eq("signed-token"), eq("traceparent")))
-            .thenThrow(new ResourceAccessException("not yet visible"));
-
         StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
 
-        ArgumentCaptor<InternalAgentRunRequest> requests = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
-        verify(agentRunClient, times(2)).start(requests.capture(), eq("signed-token"), eq("traceparent"));
-        assertThat(requests.getAllValues().get(0).context().runId())
-            .isEqualTo(requests.getAllValues().get(1).context().runId())
-            .isEqualTo(response.runId());
+        verify(commandQueue).enqueueStart(eq(response.runId()), any(), eq(userId), anyList(), eq("traceparent"));
+        verify(agentRunClient, never()).start(any(), any(), any());
     }
 
     @Test
@@ -310,7 +294,7 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
-    void synchronizesAndValidatesInterruptionBeforeResuming() {
+    void atomicallyConsumesTheInterruptionAndPersistsAResumeCommand() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
@@ -320,22 +304,20 @@ class AgentRunGatewayServiceTest {
         ResumeAgentRunRequest request = new ResumeAgentRunRequest(
             interruptionId, "idempotency-key", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "예산은 500만원입니다."))
         );
-        AgentRunView current = interruptedView(runId, interruptionId);
         when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND)
         )));
         when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
-        when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(current);
-        when(agentRunClient.resume(runId, request, "fresh-token", "traceparent"))
-            .thenReturn(new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now()));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
+            .thenReturn(Optional.of(project(projectId, workspaceId)));
 
         StartAgentRunResponse response = service.resume(userId, workspaceId, runId, request, "traceparent");
 
         assertThat(response.status()).isEqualTo(AgentRunStatus.QUEUED);
-        verify(projectionService).synchronize(runId, workspaceId, current);
         verify(projectionService).validateResume(runId, workspaceId, request);
+        verify(commandQueue).enqueueResume(runId, request, userId, List.of("agent.respond"), "traceparent");
         verify(projectionService).acceptResume(runId, workspaceId, request, AgentRunStatus.QUEUED);
+        verify(agentRunClient, never()).resume(any(), any(), any(), any());
     }
 
     @Test

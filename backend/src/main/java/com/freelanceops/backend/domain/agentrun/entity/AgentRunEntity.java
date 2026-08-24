@@ -49,6 +49,9 @@ public class AgentRunEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "next_reconciliation_at", nullable = false)
+    private Instant nextReconciliationAt;
+
     @Version
     private long version;
 
@@ -71,10 +74,15 @@ public class AgentRunEntity {
     public void updateStatus(AgentRunStatus status, Instant now) {
         this.status = status;
         this.updatedAt = now;
+        this.nextReconciliationAt = now;
     }
 
     public void synchronizeStatus(AgentRunStatus status, Instant now) {
         if (isTerminal(this.status) || this.status == status) {
+            return;
+        }
+        // 늦게 도착한 START 응답(QUEUED)이 이미 RUNNING인 public projection을 되돌리지 못하게 한다.
+        if (this.status == AgentRunStatus.RUNNING && status == AgentRunStatus.QUEUED) {
             return;
         }
         updateStatus(status, now);
@@ -85,6 +93,10 @@ public class AgentRunEntity {
             || status == AgentRunStatus.PARTIAL
             || status == AgentRunStatus.FAILED
             || status == AgentRunStatus.CANCELLED;
+    }
+
+    public void scheduleReconciliation(Instant when) {
+        this.nextReconciliationAt = when;
     }
 
     public UUID id() {

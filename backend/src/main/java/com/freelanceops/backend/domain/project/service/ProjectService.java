@@ -27,12 +27,14 @@ public class ProjectService {
     private final ClientRepository clientRepository;
     private final WorkspaceAuthorizationService authorizationService;
     private final ProjectAgentRunCleanup agentRunCleanup;
+    private final ProjectDeletionTransaction deletionTransaction;
 
-    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService, ProjectAgentRunCleanup agentRunCleanup) {
+    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService, ProjectAgentRunCleanup agentRunCleanup, ProjectDeletionTransaction deletionTransaction) {
         this.projectRepository = projectRepository;
         this.clientRepository = clientRepository;
         this.authorizationService = authorizationService;
         this.agentRunCleanup = agentRunCleanup;
+        this.deletionTransaction = deletionTransaction;
     }
 
     @Transactional(readOnly = true)
@@ -80,7 +82,9 @@ public class ProjectService {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
         validateBudget(request.budgetMin(), request.budgetMax());
         validateClient(workspaceId, request.clientId());
-        ProjectEntity project = find(workspaceId, projectId);
+        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        project.requireNotDeleting();
         project.update(
             request.clientId(),
             request.title(),
@@ -95,13 +99,11 @@ public class ProjectService {
         return response(projectRepository.save(project));
     }
 
-    @Transactional
     public void delete(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE);
-        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        deletionTransaction.begin(workspaceId, projectId);
         agentRunCleanup.cancelActiveRuns(userId, workspaceId, projectId, traceparent);
-        projectRepository.delete(project);
+        deletionTransaction.finish(workspaceId, projectId);
     }
 
     private ProjectEntity find(UUID workspaceId, UUID projectId) {

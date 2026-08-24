@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -21,6 +22,8 @@ import com.freelanceops.backend.global.security.ApiRateLimitFilter;
 
 import java.util.Arrays;
 import java.util.List;
+import java.net.http.HttpClient;
+import java.time.Duration;
 
 @Configuration
 @EnableWebSecurity
@@ -28,8 +31,21 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    RestClient.Builder restClientBuilder() {
-        return RestClient.builder();
+    RestClient.Builder restClientBuilder(
+        @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs,
+        @Value("${app.http.read-timeout-ms:10000}") long readTimeoutMs
+    ) {
+        if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
+            throw new IllegalStateException("HTTP client timeouts must be positive");
+        }
+        HttpClient client = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+            .version(HttpClient.Version.HTTP_1_1)
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(client);
+        factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        return RestClient.builder().requestFactory(factory);
     }
 
     @Bean

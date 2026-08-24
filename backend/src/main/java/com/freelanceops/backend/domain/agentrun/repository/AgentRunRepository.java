@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,17 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
     Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(UUID workspaceId, UUID projectId);
 
     List<AgentRunEntity> findAllByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
+
+    @Query("""
+        select run from AgentRunEntity run
+        where run.status in :statuses and run.nextReconciliationAt <= :now
+        order by run.nextReconciliationAt, run.createdAt
+        """)
+    List<AgentRunEntity> findDueForReconciliation(
+        @Param("statuses") Collection<AgentRunStatus> statuses,
+        @Param("now") Instant now,
+        Pageable pageable
+    );
 
     boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
