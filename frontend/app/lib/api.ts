@@ -607,17 +607,6 @@ export function deleteProject(session: AuthSession, projectId: string): Promise<
   ).then(() => { invalidateQueries(`projects:${session.workspaceId}`); });
 }
 
-export async function deleteProjectWithBestEffortRunCleanup(session: AuthSession, projectId: string, canCancelRuns: boolean): Promise<void> {
-  if (canCancelRuns) {
-    try {
-      await cancelActiveProjectAgentRuns(session, projectId);
-    } catch {
-      // Project deletion must not depend on Agent availability or stale runtime state.
-    }
-  }
-  await deleteProject(session, projectId);
-}
-
 export function listRequirements(session: AuthSession, projectId: string): Promise<RequirementVersion[]> {
   return queryCached(`requirements:${session.workspaceId}:${projectId}`, () => request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/requirements`,
@@ -915,14 +904,6 @@ export function getLatestProjectAgentRun(session: AuthSession, projectId: string
     {},
     session.accessToken,
   ).then((run) => run ?? null);
-}
-
-export function cancelActiveProjectAgentRuns(session: AuthSession, projectId: string): Promise<void> {
-  return request<void>(
-    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/cancel-active`,
-    { method: "POST" },
-    session.accessToken,
-  );
 }
 
 export function getAgentRunUsage(session: AuthSession, runId: string): Promise<AgentRunUsage> {

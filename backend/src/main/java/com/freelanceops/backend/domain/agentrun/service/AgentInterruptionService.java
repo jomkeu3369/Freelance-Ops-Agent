@@ -28,7 +28,7 @@ public class AgentInterruptionService {
     public void synchronize(AgentRunEntity run, AgentRunView view) {
         AgentRunView.AgentInterruption interruption = view.interruption();
         if (interruption == null) {
-            if (isTerminal(view.status())) cancelPending(run);
+            if (view.status() != AgentRunStatus.WAITING_FOR_USER) cancelPending(run);
             return;
         }
         repository.findByIdAndWorkspaceIdAndAgentRunId(interruption.interruptionId(), run.workspaceId(), run.id())
@@ -86,8 +86,4 @@ public class AgentInterruptionService {
         }
     }
 
-    private static boolean isTerminal(AgentRunStatus status) {
-        return status == AgentRunStatus.COMPLETED || status == AgentRunStatus.PARTIAL
-            || status == AgentRunStatus.FAILED || status == AgentRunStatus.CANCELLED;
-    }
 }

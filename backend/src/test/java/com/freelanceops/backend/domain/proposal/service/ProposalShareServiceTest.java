@@ -17,6 +17,8 @@ import com.freelanceops.backend.domain.quotation.service.QuotationService;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,6 +28,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -65,6 +68,7 @@ class ProposalShareServiceTest {
         assertThat(persisted.tokenHash()).isEqualTo(ProposalShareService.hash(created.token()));
         assertThat(persisted.tokenHash()).doesNotContain(created.token());
         when(shareRepository.findByTokenHash(anyString())).thenReturn(Optional.of(persisted));
+        when(shareRepository.findByTokenHashForUpdate(anyString())).thenReturn(Optional.of(persisted));
         when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(
             new ProjectEntity(projectId, workspaceId, "고객 프로젝트", "요구사항", "KRW", null, null, null)
         ));
@@ -76,7 +80,7 @@ class ProposalShareServiceTest {
         assertThat(shared.items()).hasSize(1);
         assertThat(shared.items().getFirst().basis().type()).isEqualTo(BasisType.ASSUMPTION);
 
-        when(decisionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(decisionRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var decision = service.decide(
             created.token(),
             ProposalDecision.APPROVED,
@@ -87,6 +91,33 @@ class ProposalShareServiceTest {
 
         assertThat(decision.decision()).isEqualTo(ProposalDecision.APPROVED);
         assertThat(decision.quotationId()).isEqualTo(quotationId);
+    }
+
+    @Test
+    void maps_a_concurrent_duplicate_decision_to_conflict() {
+        ProposalShareRepository shareRepository = mock(ProposalShareRepository.class);
+        ProjectRepository projectRepository = mock(ProjectRepository.class);
+        QuotationService quotationService = mock(QuotationService.class);
+        WorkspaceAuthorizationService authorizationService = mock(WorkspaceAuthorizationService.class);
+        ProposalDecisionRepository decisionRepository = mock(ProposalDecisionRepository.class);
+        ProposalShareService service = new ProposalShareService(
+            shareRepository, projectRepository, quotationService, authorizationService, decisionRepository
+        );
+        String token = "a".repeat(43);
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID quotationId = UUID.randomUUID();
+        ProposalShareEntity share = new ProposalShareEntity(
+            UUID.randomUUID(), workspaceId, quotationId, ProposalShareService.hash(token),
+            Instant.now().plusSeconds(3600), UUID.randomUUID(), Instant.now()
+        );
+        when(shareRepository.findByTokenHashForUpdate(ProposalShareService.hash(token))).thenReturn(Optional.of(share));
+        when(quotationService.getPublishedInternal(workspaceId, quotationId)).thenReturn(quotation(workspaceId, projectId, quotationId));
+        when(decisionRepository.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate"));
+
+        assertThatThrownBy(() -> service.decide(token, ProposalDecision.APPROVED, "고객", null, null))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                assertThat(error.getStatusCode().value()).isEqualTo(409));
     }
 
     private static QuotationResponse quotation(UUID workspaceId, UUID projectId, UUID quotationId) {

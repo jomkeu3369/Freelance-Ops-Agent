@@ -152,7 +152,10 @@ class InMemoryAgentRunStore:
         async with self._lock:
             run_id = request.context.run_id
             if run_id in self._records:
-                raise AgentRunStateError("agent run already exists")
+                existing = self._records[run_id]
+                if existing.request != request:
+                    raise AgentRunStateError("agent run already exists with a different request")
+                return existing.view()
             now = datetime.now(UTC)
             record = _RunRecord(request=request, status=AgentRunStatus.QUEUED, updated_at=now)
             self._append_event(record, "run.accepted")
@@ -252,6 +255,9 @@ class InMemoryAgentRunStore:
                 raise AgentRunStateError("resume answers do not match active questions")
             record.idempotency_keys.add(command.idempotency_key)
             record.request = append_clarification_history(record.request, record.interruption, command)
+            record.status = AgentRunStatus.QUEUED
+            record.interruption = None
+            record.updated_at = datetime.now(UTC)
             self._append_event(record, "clarification.responded")
             return record.request
 
@@ -380,6 +386,9 @@ class RunCoordinator:
             await self._run(request, resume, authorization)
             return
         async with self._task_lock:
+            active = self._active_tasks.get(run_id)
+            if active is not None and active is not task and not active.done():
+                return
             self._active_tasks[run_id] = task
         try:
             await self._run(request, resume, authorization)
@@ -435,6 +444,8 @@ class RunCoordinator:
                 "execution_failed",
                 error_code=error.code,
             )
+        except AgentRunStateError:
+            logger.info("Agent run transition was already claimed or superseded: run_id=%s", run_id)
         except Exception as error:
             frames = [
                 {"file": Path(frame.filename).name, "line": frame.lineno, "function": frame.name}

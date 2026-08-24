@@ -18,6 +18,7 @@ import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -121,22 +122,27 @@ public class ProposalShareService {
 
     @Transactional
     public ProposalDecisionResponse decide(String token, ProposalDecision decision, String clientName, String clientEmail, String comment) {
-        ProposalShareEntity share = requireAvailableShare(token);
+        ProposalShareEntity share = requireAvailableShareForUpdate(token);
         if (decisionRepository.existsByShareId(share.id())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "a decision was already submitted for this share");
         }
         quotationService.getPublishedInternal(share.workspaceId(), share.quotationId());
-        ProposalDecisionEntity saved = decisionRepository.save(new ProposalDecisionEntity(
-            UUID.randomUUID(),
-            share.workspaceId(),
-            share.quotationId(),
-            share.id(),
-            decision.name(),
-            trim(comment),
-            clientName.trim(),
-            trim(clientEmail),
-            Instant.now()
-        ));
+        ProposalDecisionEntity saved;
+        try {
+            saved = decisionRepository.saveAndFlush(new ProposalDecisionEntity(
+                UUID.randomUUID(),
+                share.workspaceId(),
+                share.quotationId(),
+                share.id(),
+                decision.name(),
+                trim(comment),
+                clientName.trim(),
+                trim(clientEmail),
+                Instant.now()
+            ));
+        } catch (DataIntegrityViolationException error) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "a decision was already submitted for this share", error);
+        }
         return new ProposalDecisionResponse(
             saved.id(),
             saved.quotationId(),
@@ -173,6 +179,15 @@ public class ProposalShareService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         return shareRepository.findByTokenHash(hash(token))
+            .filter(candidate -> candidate.availableAt(Instant.now()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    private ProposalShareEntity requireAvailableShareForUpdate(String token) {
+        if (token == null || !token.matches("^[A-Za-z0-9_-]{43}$")) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        return shareRepository.findByTokenHashForUpdate(hash(token))
             .filter(candidate -> candidate.availableAt(Instant.now()))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }

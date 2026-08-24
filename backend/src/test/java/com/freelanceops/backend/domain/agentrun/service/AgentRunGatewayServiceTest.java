@@ -14,7 +14,6 @@ import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
-import com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity;
 import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
@@ -31,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -44,10 +44,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class AgentRunGatewayServiceTest {
@@ -63,9 +64,7 @@ class AgentRunGatewayServiceTest {
     @Mock
     private AgentRunClient agentRunClient;
     @Mock
-    private AgentInterruptionService interruptionService;
-    @Mock
-    private AgentCostService costService;
+    private AgentRunProjectionService projectionService;
     @Mock
     private AgentBudgetPolicy budgetPolicy;
 
@@ -79,8 +78,7 @@ class AgentRunGatewayServiceTest {
             agentRunRepository,
             tokenIssuer,
             agentRunClient,
-            interruptionService,
-            costService,
+            projectionService,
             budgetPolicy
         );
     }
@@ -94,7 +92,7 @@ class AgentRunGatewayServiceTest {
             UUID.randomUUID(),
             Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
         )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
         when(tokenIssuer.issue(any(), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("signed-token");
         when(agentRunClient.start(any(), eq("signed-token"), eq("traceparent"))).thenAnswer(invocation -> {
             InternalAgentRunRequest request = invocation.getArgument(0);
@@ -105,7 +103,7 @@ class AgentRunGatewayServiceTest {
 
         ArgumentCaptor<InternalAgentRunRequest> captor = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
         verify(agentRunClient).start(captor.capture(), eq("signed-token"), eq("traceparent"));
-        verify(agentRunRepository, org.mockito.Mockito.times(2)).save(any(AgentRunEntity.class));
+        verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
@@ -124,7 +122,7 @@ class AgentRunGatewayServiceTest {
         assertThatThrownBy(() -> service.start(userId, workspaceId, UUID.randomUUID(), request(), "traceparent"))
             .isInstanceOf(ResponseStatusException.class)
             .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(403));
-        verify(projectRepository, never()).findByIdAndWorkspaceId(any(), any());
+        verify(projectRepository, never()).findByIdAndWorkspaceIdForUpdate(any(), any());
         verify(agentRunClient, never()).start(any(), any(), any());
     }
 
@@ -146,10 +144,7 @@ class AgentRunGatewayServiceTest {
         AgentRunView response = service.get(userId, workspaceId, runId, "traceparent");
 
         assertThat(response.status()).isEqualTo(AgentRunStatus.RUNNING);
-        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.RUNNING), any(Instant.class), any());
-        verify(agentRunRepository, never()).save(run);
-        verify(interruptionService).synchronize(run, response);
-        verify(costService).synchronize(run, response);
+        verify(projectionService).synchronize(runId, workspaceId, response);
     }
 
     @Test
@@ -172,8 +167,7 @@ class AgentRunGatewayServiceTest {
         Optional<AgentRunView> response = service.latestForProject(userId, workspaceId, projectId, "traceparent");
 
         assertThat(response).isPresent().get().extracting(AgentRunView::status).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
-        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.WAITING_FOR_USER), any(Instant.class), any());
-        verify(agentRunRepository, never()).save(run);
+        verify(projectionService).synchronize(runId, workspaceId, response.orElseThrow());
     }
 
     @Test
@@ -204,9 +198,62 @@ class AgentRunGatewayServiceTest {
 
         verify(agentRunClient, never()).cancel(eq(completedRunId), any(), any());
         verify(agentRunClient).cancel(waitingRunId, "waiting-token", "traceparent");
-        verify(agentRunRepository).synchronizeStatus(eq(completedRunId), eq(workspaceId), eq(AgentRunStatus.COMPLETED), any(Instant.class), any());
-        verify(agentRunRepository).synchronizeStatus(eq(waitingRunId), eq(workspaceId), eq(AgentRunStatus.WAITING_FOR_USER), any(Instant.class), any());
-        verify(agentRunRepository).synchronizeStatus(eq(waitingRunId), eq(workspaceId), eq(AgentRunStatus.CANCELLED), any(Instant.class), any());
+        verify(projectionService).synchronize(eq(completedRunId), eq(workspaceId), any(AgentRunView.class));
+        verify(projectionService, org.mockito.Mockito.times(2)).synchronize(eq(waitingRunId), eq(workspaceId), any(AgentRunView.class));
+    }
+
+    @Test
+    void retriesAnAmbiguousStartWithTheSameRunId() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
+        )));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(tokenIssuer.issue(any(), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("signed-token");
+        when(agentRunClient.start(any(), eq("signed-token"), eq("traceparent")))
+            .thenThrow(new ResourceAccessException("response lost"))
+            .thenAnswer(invocation -> {
+                InternalAgentRunRequest retried = invocation.getArgument(0);
+                return new StartAgentRunResponse(retried.context().runId(), AgentRunStatus.QUEUED, Instant.now());
+            });
+        when(agentRunClient.get(any(), eq("signed-token"), eq("traceparent")))
+            .thenThrow(new ResourceAccessException("not yet visible"));
+
+        StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
+
+        ArgumentCaptor<InternalAgentRunRequest> requests = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(agentRunClient, times(2)).start(requests.capture(), eq("signed-token"), eq("traceparent"));
+        assertThat(requests.getAllValues().get(0).context().runId())
+            .isEqualTo(requests.getAllValues().get(1).context().runId())
+            .isEqualTo(response.runId());
+    }
+
+    @Test
+    void projectDeletionUsesServerOwnedCleanupAuthorityAndRequiresCancellationAcknowledgement() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        AgentRunEntity run = run(runId, workspaceId, projectId, userId);
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.PROJECT_DELETE)
+        )));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
+            .thenReturn(List.of(run));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), argThat(permissions ->
+            permissions.contains("project.delete") && permissions.contains("agent.run") && permissions.contains("agent.cancel")
+        ))).thenReturn("cleanup-token");
+        when(agentRunClient.get(runId, "cleanup-token", "traceparent"))
+            .thenReturn(view(runId, AgentRunStatus.RUNNING));
+        when(agentRunClient.cancel(runId, "cleanup-token", "traceparent"))
+            .thenReturn(view(runId, AgentRunStatus.CANCELLED));
+
+        service.cancelActiveRuns(userId, workspaceId, projectId, "traceparent");
+
+        verify(projectionService, org.mockito.Mockito.times(2)).synchronize(eq(runId), eq(workspaceId), any(AgentRunView.class));
     }
 
     @Test
@@ -230,8 +277,7 @@ class AgentRunGatewayServiceTest {
 
         service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
 
-        verify(agentRunRepository).synchronizeStatus(eq(runId), eq(workspaceId), eq(AgentRunStatus.CANCELLED), any(Instant.class), any());
-        verify(agentRunRepository, never()).save(missingRun);
+        verify(projectionService).synchronizeStatus(runId, workspaceId, AgentRunStatus.CANCELLED);
         verify(agentRunClient, never()).cancel(eq(runId), any(), any());
     }
 
@@ -275,23 +321,21 @@ class AgentRunGatewayServiceTest {
             interruptionId, "idempotency-key", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "예산은 500만원입니다."))
         );
         AgentRunView current = interruptedView(runId, interruptionId);
-        AgentInterruptionEntity interruption = mock(AgentInterruptionEntity.class);
         when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND)
         )));
         when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
         when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
         when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(current);
-        when(interruptionService.requirePending(run, request)).thenReturn(interruption);
         when(agentRunClient.resume(runId, request, "fresh-token", "traceparent"))
             .thenReturn(new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now()));
 
         StartAgentRunResponse response = service.resume(userId, workspaceId, runId, request, "traceparent");
 
         assertThat(response.status()).isEqualTo(AgentRunStatus.QUEUED);
-        verify(interruptionService).synchronize(run, current);
-        verify(interruptionService).requirePending(run, request);
-        verify(interruptionService).markResponded(eq(interruption), eq(request), any(Instant.class));
+        verify(projectionService).synchronize(runId, workspaceId, current);
+        verify(projectionService).validateResume(runId, workspaceId, request);
+        verify(projectionService).acceptResume(runId, workspaceId, request, AgentRunStatus.QUEUED);
     }
 
     @Test

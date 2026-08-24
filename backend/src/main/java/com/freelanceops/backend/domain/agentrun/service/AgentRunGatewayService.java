@@ -11,11 +11,11 @@ import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgent
 import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
-import com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
+import com.freelanceops.backend.domain.project.service.ProjectAgentRunCleanup;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -23,56 +23,50 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.Instant;
 
 @Service
-public class AgentRunGatewayService {
+public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     private static final EnumSet<AgentRunStatus> ACTIVE_STATUSES = EnumSet.of(
         AgentRunStatus.QUEUED,
         AgentRunStatus.RUNNING,
         AgentRunStatus.WAITING_FOR_USER
     );
-    private static final EnumSet<AgentRunStatus> TERMINAL_STATUSES = EnumSet.of(
-        AgentRunStatus.COMPLETED,
-        AgentRunStatus.PARTIAL,
-        AgentRunStatus.FAILED,
-        AgentRunStatus.CANCELLED
-    );
-
     private final WorkspacePermissionReader permissionReader;
     private final ProjectRepository projectRepository;
     private final AgentRunRepository agentRunRepository;
     private final DelegationTokenIssuer tokenIssuer;
     private final AgentRunClient agentRunClient;
-    private final AgentInterruptionService interruptionService;
-    private final AgentCostService costService;
+    private final AgentRunProjectionService projectionService;
     private final AgentBudgetPolicy budgetPolicy;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentInterruptionService interruptionService, AgentCostService costService, AgentBudgetPolicy budgetPolicy) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentBudgetPolicy budgetPolicy) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
         this.tokenIssuer = tokenIssuer;
         this.agentRunClient = agentRunClient;
-        this.interruptionService = interruptionService;
-        this.costService = costService;
+        this.projectionService = projectionService;
         this.budgetPolicy = budgetPolicy;
     }
 
+    @Transactional
     public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent) {
         budgetPolicy.enforce(request.budget());
         MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, PermissionCode.AGENT_RUN);
         requirePermission(membership, PermissionCode.PROJECT_READ);
-        ProjectEntity project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
+        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         UUID runId = UUID.randomUUID();
@@ -114,17 +108,37 @@ public class AgentRunGatewayService {
             AgentRunStatus.QUEUED,
             Instant.now()
         );
-        agentRunRepository.save(run);
+        agentRunRepository.saveAndFlush(run);
         try {
             StartAgentRunResponse response = agentRunClient.start(internalRequest, token, traceparent);
             requireMatchingRun(runId, response == null ? null : response.runId());
-            run.updateStatus(response.status(), Instant.now());
-            agentRunRepository.save(run);
+            run.synchronizeStatus(response.status(), Instant.now());
             return response;
         } catch (RuntimeException error) {
-            run.updateStatus(AgentRunStatus.FAILED, Instant.now());
-            agentRunRepository.save(run);
-            throw error;
+            if (!isAmbiguousFailure(error)) {
+                run.synchronizeStatus(AgentRunStatus.FAILED, Instant.now());
+                throw error;
+            }
+            Optional<AgentRunView> recovered = recoverStartedRun(runId, token, traceparent);
+            if (recovered.isPresent()) {
+                AgentRunView view = recovered.get();
+                requireMatchingRun(runId, view.runId());
+                projectionService.synchronize(runId, workspaceId, view);
+                return new StartAgentRunResponse(runId, view.status(), view.updatedAt());
+            }
+            try {
+                StartAgentRunResponse retried = agentRunClient.start(internalRequest, token, traceparent);
+                requireMatchingRun(runId, retried == null ? null : retried.runId());
+                run.synchronizeStatus(retried.status(), Instant.now());
+                return retried;
+            } catch (RuntimeException retryError) {
+                if (!isAmbiguousFailure(retryError)) {
+                    run.synchronizeStatus(AgentRunStatus.FAILED, Instant.now());
+                    throw retryError;
+                }
+            }
+            // 전송 결과가 불명확할 때 FAILED로 단정하지 않는다. 동일 runId 조회로 후속 재조정한다.
+            return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
         }
     }
 
@@ -136,9 +150,7 @@ public class AgentRunGatewayService {
             traceparent
         );
         requireMatchingRun(runId, response == null ? null : response.runId());
-        interruptionService.synchronize(authorized.run(), response);
-        costService.synchronize(authorized.run(), response);
-        synchronizeStatus(authorized.run(), response.status());
+        projectionService.synchronize(runId, workspaceId, response);
         return response;
     }
 
@@ -198,9 +210,8 @@ public class AgentRunGatewayService {
         String token = issueToken(authorized.run(), userId, authorized.permissions());
         AgentRunView current = agentRunClient.get(runId, token, traceparent);
         requireMatchingRun(runId, current == null ? null : current.runId());
-        interruptionService.synchronize(authorized.run(), current);
-        costService.synchronize(authorized.run(), current);
-        AgentInterruptionEntity interruption = interruptionService.requirePending(authorized.run(), request);
+        projectionService.synchronize(runId, workspaceId, current);
+        projectionService.validateResume(runId, workspaceId, request);
         StartAgentRunResponse response = agentRunClient.resume(
             runId,
             request,
@@ -208,8 +219,7 @@ public class AgentRunGatewayService {
             traceparent
         );
         requireMatchingRun(runId, response == null ? null : response.runId());
-        interruptionService.markResponded(interruption, request, Instant.now());
-        synchronizeStatus(authorized.run(), response.status());
+        projectionService.acceptResume(runId, workspaceId, request, response.status());
         return response;
     }
 
@@ -221,9 +231,7 @@ public class AgentRunGatewayService {
             traceparent
         );
         requireMatchingRun(runId, response == null ? null : response.runId());
-        interruptionService.synchronize(authorized.run(), response);
-        costService.synchronize(authorized.run(), response);
-        synchronizeStatus(authorized.run(), response.status());
+        projectionService.synchronize(runId, workspaceId, response);
         return response;
     }
 
@@ -251,14 +259,64 @@ public class AgentRunGatewayService {
     }
 
     private void synchronizeStatus(AgentRunEntity run, AgentRunStatus status) {
-        Instant updatedAt = Instant.now();
-        agentRunRepository.synchronizeStatus(
-            run.id(),
-            run.workspaceId(),
-            status,
-            updatedAt,
-            TERMINAL_STATUSES
+        projectionService.synchronizeStatus(run.id(), run.workspaceId(), status);
+    }
+
+    @Override
+    public void cancelActiveRuns(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
+        MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        requirePermission(membership, PermissionCode.PROJECT_DELETE);
+        if (projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        HashSet<String> effectivePermissions = new HashSet<>(permissionCodes(membership));
+        effectivePermissions.add(PermissionCode.AGENT_RUN.code());
+        effectivePermissions.add(PermissionCode.AGENT_CANCEL.code());
+        List<String> cleanupPermissions = effectivePermissions.stream().sorted().toList();
+        List<AgentRunEntity> activeRuns = agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+            workspaceId, projectId, ACTIVE_STATUSES
         );
+        for (AgentRunEntity run : activeRuns) {
+            String token = tokenIssuer.issue(run.id(), workspaceId, projectId, userId, cleanupPermissions);
+            AgentRunView current;
+            try {
+                current = agentRunClient.get(run.id(), token, traceparent);
+            } catch (RestClientResponseException error) {
+                if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) throw error;
+                projectionService.synchronizeStatus(run.id(), workspaceId, AgentRunStatus.CANCELLED);
+                continue;
+            }
+            requireMatchingRun(run.id(), current == null ? null : current.runId());
+            projectionService.synchronize(run.id(), workspaceId, current);
+            if (!ACTIVE_STATUSES.contains(current.status())) continue;
+            AgentRunView cancelled = agentRunClient.cancel(run.id(), token, traceparent);
+            requireMatchingRun(run.id(), cancelled == null ? null : cancelled.runId());
+            if (cancelled.status() != AgentRunStatus.CANCELLED) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Agent run did not acknowledge cancellation");
+            }
+            projectionService.synchronize(run.id(), workspaceId, cancelled);
+        }
+    }
+
+    private Optional<AgentRunView> recoverStartedRun(UUID runId, String token, String traceparent) {
+        try {
+            return Optional.ofNullable(agentRunClient.get(runId, token, traceparent));
+        } catch (RuntimeException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private static boolean isAmbiguousFailure(RuntimeException error) {
+        if (error instanceof IllegalStateException || error instanceof ResponseStatusException) {
+            return false;
+        }
+        if (error instanceof RestClientResponseException responseError) {
+            return responseError.getStatusCode().is5xxServerError()
+                || responseError.getStatusCode().value() == 408
+                || responseError.getStatusCode().value() == 429;
+        }
+        return true;
     }
 
     private static List<String> permissionCodes(MembershipPermissions membership) {

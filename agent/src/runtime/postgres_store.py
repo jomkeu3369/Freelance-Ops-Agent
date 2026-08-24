@@ -51,7 +51,11 @@ class PostgresAgentRunStore:
                 await session.flush()
                 await self._append_event(session, model.run_id, "run.accepted")
         except IntegrityError as error:
-            raise AgentRunStateError("agent run already exists") from error
+            async with self._database.session() as session:
+                existing = await session.get(AgentRunStateModel, request.context.run_id)
+                if existing is None or AgentRunRequest.model_validate(existing.request_json) != request:
+                    raise AgentRunStateError("agent run already exists with a different request") from error
+                return self._view(existing)
         return self._view(model)
 
     async def get(self, run_id: UUID) -> AgentRunView:
@@ -177,6 +181,9 @@ class PostgresAgentRunStore:
                 command
             )
             model.request_json = request.model_dump(mode="json")
+            model.status = AgentRunStatus.QUEUED.value
+            model.interruption_json = None
+            model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "clarification.responded")
             return request
 

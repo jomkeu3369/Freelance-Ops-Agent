@@ -73,6 +73,20 @@ public class AgentRunEntity {
         this.updatedAt = now;
     }
 
+    public void synchronizeStatus(AgentRunStatus status, Instant now) {
+        if (isTerminal(this.status) || this.status == status) {
+            return;
+        }
+        updateStatus(status, now);
+    }
+
+    private static boolean isTerminal(AgentRunStatus status) {
+        return status == AgentRunStatus.COMPLETED
+            || status == AgentRunStatus.PARTIAL
+            || status == AgentRunStatus.FAILED
+            || status == AgentRunStatus.CANCELLED;
+    }
+
     public UUID id() {
         return id;
     }

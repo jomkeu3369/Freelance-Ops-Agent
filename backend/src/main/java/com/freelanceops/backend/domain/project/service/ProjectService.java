@@ -26,11 +26,13 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ClientRepository clientRepository;
     private final WorkspaceAuthorizationService authorizationService;
+    private final ProjectAgentRunCleanup agentRunCleanup;
 
-    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService) {
+    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService, ProjectAgentRunCleanup agentRunCleanup) {
         this.projectRepository = projectRepository;
         this.clientRepository = clientRepository;
         this.authorizationService = authorizationService;
+        this.agentRunCleanup = agentRunCleanup;
     }
 
     @Transactional(readOnly = true)
@@ -94,9 +96,11 @@ public class ProjectService {
     }
 
     @Transactional
-    public void delete(UUID userId, UUID workspaceId, UUID projectId) {
+    public void delete(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE);
-        ProjectEntity project = find(workspaceId, projectId);
+        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        agentRunCleanup.cancelActiveRuns(userId, workspaceId, projectId, traceparent);
         projectRepository.delete(project);
     }
 

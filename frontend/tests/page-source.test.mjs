@@ -873,7 +873,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   );
   assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
-  assert.match(workspace, /deleteProjectWithBestEffortRunCleanup\([\s\S]*activePermissions\.has\("agent\.cancel"\)/);
+  assert.match(workspace, /await deleteProject\(session, deletedProjectId\)/);
   assert.doesNotMatch(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
   assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
@@ -882,13 +882,12 @@ test("workspace supports persistent theme switching and guarded project deletion
   assert.match(workspace, /AI 분석 기록/);
   assert.match(workspace, /견적과 결과 기록/);
   assert.match(api, /export function deleteProject/);
-  assert.match(api, /export async function deleteProjectWithBestEffortRunCleanup/);
-  assert.match(api, /catch \{[\s\S]*Project deletion must not depend on Agent availability/);
-  assert.match(api, /await cancelActiveProjectAgentRuns\(session, projectId\);[\s\S]*await deleteProject\(session, projectId\)/);
+  assert.doesNotMatch(api, /deleteProjectWithBestEffortRunCleanup/);
+  assert.doesNotMatch(api, /Project deletion must not depend on Agent availability/);
   assert.match(api, /export function getLatestProjectAgentRun/);
-  assert.match(api, /export function cancelActiveProjectAgentRuns/);
+  assert.doesNotMatch(api, /cancelActiveProjectAgentRuns/);
   assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/latest/);
-  assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/cancel-active/);
+  assert.doesNotMatch(api, /projects\/\$\{projectId\}\/agent-runs\/cancel-active/);
   assert.match(api, /method: "DELETE"/);
   assert.match(css, /\.project-delete-confirmation/);
   assert.match(css, /@keyframes deleteDialogIn/);
