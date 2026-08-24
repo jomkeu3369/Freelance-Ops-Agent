@@ -1,4 +1,4 @@
-package com.freelanceops.backend.domain.project.entity;
+package com.freelanceops.backend.domain.project.model;
 
 public enum ProjectStatus {
     LEAD,

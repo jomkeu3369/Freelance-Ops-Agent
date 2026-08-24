@@ -18,8 +18,9 @@
 ## Decision
 
 - Spring modular monolith의 업무 기능은 `com.freelanceops.backend.domain.{domain}` 아래에 둔다.
-- 일반 도메인은 `controller`, `dto/request`, `dto/response`, `entity`, `repository`, `service`를 기본 패키지로 사용한다.
-- 도메인 특성에 따라 `policy`, `model`, `client`, `security`를 추가할 수 있다.
+- 모든 도메인은 `agentrun`을 기준으로 `client`, `controller`, `dto/request`, `dto/response`, `entity`, `model`, `repository`, `security`, `service` 패키지를 갖는다.
+- 아직 구현이 없는 계층도 `package-info.java`로 패키지 의도와 물리 구조를 보존한다.
+- 도메인 특성에 따라 `policy` 등 추가 패키지를 둘 수 있다.
 - workspace RBAC의 권한 코드와 불변조건은 `workspace.policy`에 둔다.
 - Python Agent 연동 DTO와 HTTP adapter는 `agentrun.client`에 두며 LangGraph 구현을 Spring에 포함하지 않는다.
 - 인증된 내부 Tool API는 `internaltool` 도메인으로 분리하고 실제 업무 처리는 각 업무 Service를 통해 수행한다.
@@ -27,7 +28,7 @@
 - API request와 response는 JPA Entity와 분리된 최상위 DTO 파일로 작성한다. 여러 DTO를 `Contracts` 클래스에 중첩하지 않는다.
 - 구현체가 하나뿐인 업무 Service에는 형식적인 interface/implementation 쌍을 강제하지 않는다. 외부 연동이나 실제 교체 경계에는 interface를 사용한다.
 - 테스트 패키지는 운영 코드 구조를 반영한다.
-- ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증한다.
+- ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증하고, 구조 테스트로 모든 도메인의 표준 패키지를 검증한다.
 
 ## Consequences
 

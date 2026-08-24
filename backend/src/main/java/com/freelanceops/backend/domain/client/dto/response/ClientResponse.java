@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.client.dto.response;
 
-import com.freelanceops.backend.domain.client.entity.ClientStatus;
+import com.freelanceops.backend.domain.client.model.ClientStatus;
 
 import java.time.Instant;
 import java.util.UUID;

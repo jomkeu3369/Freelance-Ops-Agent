@@ -5,7 +5,7 @@ import com.freelanceops.backend.domain.project.dto.request.CreateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.request.UpdateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.response.ProjectResponse;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
-import com.freelanceops.backend.domain.project.entity.ProjectStatus;
+import com.freelanceops.backend.domain.project.model.ProjectStatus;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;

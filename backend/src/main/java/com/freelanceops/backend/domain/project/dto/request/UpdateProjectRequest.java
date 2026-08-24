@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.project.dto.request;
 
-import com.freelanceops.backend.domain.project.entity.ProjectStatus;
+import com.freelanceops.backend.domain.project.model.ProjectStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.client.entity;
 
+import com.freelanceops.backend.domain.client.model.ClientStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

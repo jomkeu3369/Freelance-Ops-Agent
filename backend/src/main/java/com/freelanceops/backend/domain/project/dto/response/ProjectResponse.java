@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.project.dto.response;
 
-import com.freelanceops.backend.domain.project.entity.ProjectStatus;
+import com.freelanceops.backend.domain.project.model.ProjectStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;

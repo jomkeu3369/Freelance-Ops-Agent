@@ -4,7 +4,7 @@ import com.freelanceops.backend.domain.client.dto.request.CreateClientRequest;
 import com.freelanceops.backend.domain.client.dto.request.UpdateClientRequest;
 import com.freelanceops.backend.domain.client.dto.response.ClientResponse;
 import com.freelanceops.backend.domain.client.entity.ClientEntity;
-import com.freelanceops.backend.domain.client.entity.ClientStatus;
+import com.freelanceops.backend.domain.client.model.ClientStatus;
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
