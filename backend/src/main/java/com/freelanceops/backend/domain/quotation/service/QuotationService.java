@@ -260,13 +260,16 @@ public class QuotationService {
     private static QuotationResponse response(QuotationEntity quotation, List<QuotationItemEntity> items, List<QuotationAssumptionEntity> assumptions, List<QuotationEvidenceEntity> evidences) {
         Map<UUID, QuotationAssumptionEntity> assumptionById = new HashMap<>();
         assumptions.forEach(assumption -> assumptionById.put(assumption.id(), assumption));
+        
         Map<UUID, QuotationEvidenceEntity> evidenceById = new HashMap<>();
         evidences.forEach(evidence -> evidenceById.put(evidence.id(), evidence));
+        
         List<QuotationItemResponse> itemResponses = items.stream().map(item -> new QuotationItemResponse(
             item.rateCardId(), item.title(), item.description(), item.quantity(), WorkUnit.valueOf(item.unit()),
             item.unitRate(), item.subtotal(), item.discountRate(), item.discountAmount(), item.total(),
             basisResponse(item, assumptionById, evidenceById)
         )).toList();
+        
         return new QuotationResponse(
             quotation.id(), quotation.workspaceId(), quotation.projectId(), quotation.seriesId(), quotation.previousVersionId(),
             quotation.versionNumber(), QuotationScenario.valueOf(quotation.scenario()), QuotationStatus.valueOf(quotation.status()),

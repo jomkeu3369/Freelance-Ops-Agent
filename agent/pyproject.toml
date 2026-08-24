@@ -39,11 +39,14 @@ local-router = [
 
 [dependency-groups]
 dev = [
+    "joblib>=1.4,<2",
     "langgraph-cli[inmem]>=0.4.31",
     "mypy>=1.17,<2",
     "pytest>=8.4,<9",
     "pytest-asyncio>=1.1,<2",
     "ruff>=0.12,<1",
+    "scikit-learn>=1.6,<2",
+    "xgboost>=3,<4"
 ]
 
 [tool.uv]
@@ -67,6 +70,9 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/runtime_predictor_prototype/*.py" = ["E501", "I001"]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true
@@ -76,4 +82,8 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["torch", "safetensors.*", "transformers"]
 follow_imports = "skip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["joblib", "sklearn.*", "xgboost"]
 ignore_missing_imports = true
