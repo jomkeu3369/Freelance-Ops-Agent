@@ -104,6 +104,7 @@ public class AgentRunCommandDispatcher {
         InternalAgentRunRequest request = read(command.payload(), InternalAgentRunRequest.class);
         StartAgentRunResponse response = client.start(request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
+        if (compensateForProjectDeletion(command, run, token)) return;
         projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
@@ -112,6 +113,7 @@ public class AgentRunCommandDispatcher {
         ResumeAgentRunRequest request = read(command.payload(), ResumeAgentRunRequest.class);
         StartAgentRunResponse response = client.resume(run.id(), request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
+        if (compensateForProjectDeletion(command, run, token)) return;
         projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
@@ -131,6 +133,24 @@ public class AgentRunCommandDispatcher {
         } catch (RuntimeException recoveryError) {
             return false;
         }
+    }
+
+    private boolean compensateForProjectDeletion(AgentRunCommandQueue.ClaimedCommand command,
+                                                  AgentRunEntity run, String token) {
+        boolean deletionRequested = projectRepository.findByIdAndWorkspaceId(run.projectId(), run.workspaceId())
+            .map(project -> project.deletionRequested())
+            .orElse(true);
+        if (!deletionRequested) return false;
+        AgentRunView cancelled = client.cancel(run.id(), token, command.traceparent());
+        requireMatchingRun(run.id(), cancelled == null ? null : cancelled.runId());
+        if (cancelled.status() != AgentRunStatus.CANCELLED) {
+            throw new IllegalStateException("Agent run did not acknowledge compensating cancellation");
+        }
+        queue.fail(command.id(), command.attempts(), "project deletion began during Agent command delivery");
+        if (projectRepository.findByIdAndWorkspaceId(run.projectId(), run.workspaceId()).isPresent()) {
+            projectionService.synchronize(run.id(), run.workspaceId(), cancelled);
+        }
+        return true;
     }
 
     private <T> T read(String payload, Class<T> type) {

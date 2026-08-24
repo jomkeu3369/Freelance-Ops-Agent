@@ -1,6 +1,9 @@
 package com.freelanceops.backend.domain.knowledge.service;
 
 import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
+import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
+import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
+import com.freelanceops.backend.domain.knowledge.model.KnowledgeSourceType;
 import com.freelanceops.backend.domain.knowledge.entity.DocumentChunkEntity;
 import com.freelanceops.backend.domain.knowledge.entity.DocumentEntity;
 import com.freelanceops.backend.domain.knowledge.repository.DocumentChunkRepository;
@@ -13,12 +16,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +53,25 @@ class KnowledgeServiceTest {
         assertThat(results).hasSize(2);
         assertThat(results.get(0).rrfScore()).isEqualTo(results.get(1).rrfScore());
         assertThat(results).allSatisfy(result -> assertThat(result.documentId()).isEqualTo(documentId));
+    }
+
+    @Test
+    void duplicateWorkspaceContentIsReportedAsAConflict() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.DOCUMENT_WRITE))
+            .thenReturn(AuthorizationDecision.ALLOWED);
+        when(documentRepository.saveAndFlush(any())).thenThrow(
+            new DataIntegrityViolationException("constraint uq_document_workspace_hash")
+        );
+        CreateDocumentRequest request = new CreateDocumentRequest(
+            KnowledgeSourceType.POLICY, "정책", null, null, null, null, null,
+            List.of(new DocumentChunkRequest("동일한 본문", null, null, null, null))
+        );
+
+        assertThatThrownBy(() -> service().create(userId, workspaceId, request))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error ->
+                assertThat(error.getStatusCode().value()).isEqualTo(409));
     }
 
     private KnowledgeService service() {

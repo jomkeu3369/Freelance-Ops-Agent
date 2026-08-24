@@ -35,4 +35,18 @@ public interface AgentRunCommandRepository extends JpaRepository<AgentRunCommand
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select command from AgentRunCommandEntity command where command.id = :id")
     Optional<AgentRunCommandEntity> findByIdForUpdate(@Param("id") UUID id);
+
+    @Query("""
+        select (count(command) > 0) from AgentRunCommandEntity command, AgentRunEntity run
+        where command.runId = run.id
+          and run.workspaceId = :workspaceId
+          and run.projectId = :projectId
+          and command.status = com.freelanceops.backend.domain.agentrun.model.AgentRunCommandStatus.PROCESSING
+          and command.leaseUntil > :now
+        """)
+    boolean existsInFlightForProject(
+        @Param("workspaceId") UUID workspaceId,
+        @Param("projectId") UUID projectId,
+        @Param("now") Instant now
+    );
 }

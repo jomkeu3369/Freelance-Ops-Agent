@@ -16,6 +16,7 @@ import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -64,11 +65,19 @@ public class KnowledgeService {
         UUID documentId = UUID.randomUUID();
         Instant now = Instant.now();
         String hash = hashContent(request.chunks());
-        DocumentEntity document = documentRepository.saveAndFlush(new DocumentEntity(
-            documentId, workspaceId, request.sourceType().name(), request.title().trim(), trim(request.sourceUri()),
-            trim(request.sourceVersion()), trim(request.jurisdiction()), request.effectiveFrom(), request.effectiveUntil(),
-            hash, userId, now
-        ));
+        DocumentEntity document;
+        try {
+            document = documentRepository.saveAndFlush(new DocumentEntity(
+                documentId, workspaceId, request.sourceType().name(), request.title().trim(), trim(request.sourceUri()),
+                trim(request.sourceVersion()), trim(request.jurisdiction()), request.effectiveFrom(), request.effectiveUntil(),
+                hash, userId, now
+            ));
+        } catch (DataIntegrityViolationException error) {
+            if (causedBy(error, "uq_document_workspace_hash")) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "a document with the same content already exists", error);
+            }
+            throw error;
+        }
         List<DocumentChunkEntity> chunks = new ArrayList<>();
         for (int index = 0; index < request.chunks().size(); index++) {
             DocumentChunkRequest chunk = request.chunks().get(index);
@@ -180,6 +189,13 @@ public class KnowledgeService {
     }
 
     private static String trim(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    private static boolean causedBy(Throwable error, String constraintName) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause.getMessage() != null && cause.getMessage().contains(constraintName)) return true;
+        }
+        return false;
+    }
 
     private record RankedChunk(DocumentChunkEntity chunk, double score, int keywordRank, Integer vectorRank) {
     }

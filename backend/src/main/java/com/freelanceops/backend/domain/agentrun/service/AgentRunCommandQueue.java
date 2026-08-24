@@ -11,6 +11,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+import com.freelanceops.backend.domain.project.service.ProjectAgentCommandFence;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -19,7 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-public class AgentRunCommandQueue {
+public class AgentRunCommandQueue implements ProjectAgentCommandFence {
 
     private static final Duration LEASE = Duration.ofMinutes(2);
     private final AgentRunCommandRepository repository;
@@ -69,6 +71,14 @@ public class AgentRunCommandQueue {
         return repository.findByIdForUpdate(commandId)
             .map(command -> command.fail(Instant.now(), error, claimedAttempt))
             .orElse(false);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void requireNoInFlightCommands(UUID workspaceId, UUID projectId) {
+        if (repository.existsInFlightForProject(workspaceId, projectId, Instant.now())) {
+            throw new ProjectDeletionInProgressException();
+        }
     }
 
     private UUID enqueue(UUID runId, AgentRunCommandType type, Object payload, UUID requestedBy,

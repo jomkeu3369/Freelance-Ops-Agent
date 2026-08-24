@@ -14,9 +14,11 @@ import java.util.UUID;
 public class ProjectDeletionTransaction {
 
     private final ProjectRepository repository;
+    private final ProjectAgentCommandFence commandFence;
 
-    public ProjectDeletionTransaction(ProjectRepository repository) {
+    public ProjectDeletionTransaction(ProjectRepository repository, ProjectAgentCommandFence commandFence) {
         this.repository = repository;
+        this.commandFence = commandFence;
     }
 
     @Transactional
@@ -31,6 +33,7 @@ public class ProjectDeletionTransaction {
         if (!project.deletionRequested()) {
             throw new IllegalStateException("project deletion was not fenced");
         }
+        commandFence.requireNoInFlightCommands(workspaceId, projectId);
         repository.delete(project);
     }
 

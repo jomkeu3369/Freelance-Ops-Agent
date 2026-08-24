@@ -9,6 +9,9 @@ import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.policy.SystemRole;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
+import com.freelanceops.backend.domain.quotation.dto.request.UpdateEstimationPolicyRequest;
+import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
+import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +19,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -26,6 +31,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -53,6 +59,15 @@ class WorkspaceRbacPostgresTest {
 
     @Autowired
     private AgentRunCommandQueue agentRunCommandQueue;
+
+    @Autowired
+    private PricingConfigurationService pricingConfigurationService;
+
+    @Autowired
+    private WorkspaceAuthorizationService workspaceAuthorizationService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -131,9 +146,37 @@ class WorkspaceRbacPostgresTest {
         } catch (Exception error) {
             throw new AssertionError("concurrent Agent command claims failed", error);
         }
+        TransactionTemplate deletionCheck = new TransactionTemplate(transactionManager);
+        assertThatThrownBy(() -> deletionCheck.executeWithoutResult(status ->
+            agentRunCommandQueue.requireNoInFlightCommands(workspace.workspaceId(), projectId)
+        )).isInstanceOf(ProjectDeletionInProgressException.class);
 
         assertThatThrownBy(() -> insertStartCommand(UUID.randomUUID(), runId, ownerId))
             .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void concurrentInitialPolicyUpsertsProduceOneWorkspacePolicy() {
+        UUID ownerId = insertUser("policy-concurrency-owner");
+        WorkspaceProvisioningResult workspace = provisioningService.create(
+            ownerId, "Policy Workspace", "policy-concurrency-workspace"
+        );
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<?> first = executor.submit(() -> updatePolicyAfter(start, ownerId, workspace.workspaceId(), "0.10"));
+            Future<?> second = executor.submit(() -> updatePolicyAfter(start, ownerId, workspace.workspaceId(), "0.20"));
+            start.countDown();
+            first.get();
+            second.get();
+        } catch (Exception error) {
+            throw new AssertionError("concurrent policy upserts failed", error);
+        }
+
+        Integer policies = jdbcClient.sql("SELECT COUNT(*) FROM app.estimation_policy WHERE workspace_id = :workspaceId")
+            .param("workspaceId", workspace.workspaceId())
+            .query(Integer.class)
+            .single();
+        assertThat(policies).isEqualTo(1);
     }
 
     @Test
@@ -375,6 +418,35 @@ class WorkspaceRbacPostgresTest {
         return userId;
     }
 
+    @Test
+    void deniedAccessAuditSurvivesTheCallerTransactionRollback() {
+        UUID ownerId = insertUser("rollback-audit-owner");
+        UUID intruderId = insertUser("rollback-audit-intruder");
+        WorkspaceProvisioningResult workspace = provisioningService.create(
+            ownerId, "Rollback Audit Workspace", "rollback-audit-workspace"
+        );
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            AuthorizationDecision decision = workspaceAuthorizationService.authorize(
+                intruderId, workspace.workspaceId(), PermissionCode.PROJECT_DELETE
+            );
+            assertThat(decision).isEqualTo(AuthorizationDecision.NOT_FOUND);
+            throw new IllegalStateException("force caller rollback");
+        })).isInstanceOf(IllegalStateException.class);
+
+        Integer deniedCount = jdbcClient.sql("""
+                SELECT COUNT(*) FROM app.rbac_audit_event
+                WHERE actor_user_id = :actorUserId
+                  AND permission_code = 'project.delete'
+                  AND outcome = 'NOT_FOUND'
+                """)
+            .param("actorUserId", intruderId)
+            .query(Integer.class)
+            .single();
+        assertThat(deniedCount).isEqualTo(1);
+    }
+
     private void insertStartCommand(UUID commandId, UUID runId, UUID ownerId) {
         jdbcClient.sql("""
                 INSERT INTO app.agent_run_command (
@@ -392,6 +464,22 @@ class WorkspaceRbacPostgresTest {
         return agentRunCommandQueue.claimNext()
             .map(AgentRunCommandQueue.ClaimedCommand::runId)
             .orElse(null);
+    }
+
+    private void updatePolicyAfter(CountDownLatch start, UUID userId, UUID workspaceId, String taxRate) {
+        try {
+            start.await();
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(error);
+        }
+        pricingConfigurationService.updatePolicy(
+            userId,
+            workspaceId,
+            new UpdateEstimationPolicyRequest(
+                new BigDecimal(taxRate), new BigDecimal("0.10"), new BigDecimal("0.30")
+            )
+        );
     }
 }
 

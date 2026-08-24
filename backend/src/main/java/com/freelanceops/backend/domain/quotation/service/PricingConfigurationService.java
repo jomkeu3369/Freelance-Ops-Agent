@@ -12,6 +12,7 @@ import com.freelanceops.backend.domain.quotation.repository.RateCardRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+import com.freelanceops.backend.domain.workspace.repository.WorkspaceRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,10 +28,12 @@ public class PricingConfigurationService {
     private final RateCardRepository rateCardRepository;
     private final EstimationPolicyRepository policyRepository;
     private final WorkspaceAuthorizationService authorizationService;
+    private final WorkspaceRepository workspaceRepository;
 
-    public PricingConfigurationService(RateCardRepository rateCardRepository, EstimationPolicyRepository policyRepository, WorkspaceAuthorizationService authorizationService) {
+    public PricingConfigurationService(RateCardRepository rateCardRepository, EstimationPolicyRepository policyRepository, WorkspaceAuthorizationService authorizationService, WorkspaceRepository workspaceRepository) {
         this.rateCardRepository = rateCardRepository; this.policyRepository = policyRepository;
         this.authorizationService = authorizationService;
+        this.workspaceRepository = workspaceRepository;
     }
 
     @Transactional(readOnly = true)
@@ -42,6 +45,7 @@ public class PricingConfigurationService {
     @Transactional
     public RateCardResponse upsertRateCard(UUID userId, UUID workspaceId, UUID rateCardId, UpsertRateCardRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
+        lockWorkspace(workspaceId);
         Instant now = Instant.now();
         RateCardEntity entity = rateCardRepository.findByIdAndWorkspaceId(rateCardId, workspaceId)
             .orElseGet(() -> new RateCardEntity(rateCardId, workspaceId, request.name().trim(), request.unit().name(), request.rate(), request.minimumAmount(), request.currency(), userId, now));
@@ -59,6 +63,7 @@ public class PricingConfigurationService {
     @Transactional
     public EstimationPolicyResponse updatePolicy(UUID userId, UUID workspaceId, UpdateEstimationPolicyRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
+        lockWorkspace(workspaceId);
         Instant now = Instant.now();
         EstimationPolicyEntity entity = policyRepository.findById(workspaceId)
             .orElseGet(() -> new EstimationPolicyEntity(workspaceId, request.defaultTaxRate(), request.defaultRiskBufferRate(), request.maximumDiscountRate(), userId, now));
@@ -70,6 +75,12 @@ public class PricingConfigurationService {
         AuthorizationDecision decision = authorizationService.authorize(userId, workspaceId, permission);
         if (decision == AuthorizationDecision.NOT_FOUND) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         if (decision == AuthorizationDecision.FORBIDDEN) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    private void lockWorkspace(UUID workspaceId) {
+        if (workspaceRepository.findByIdForUpdate(workspaceId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
     }
 
     private static RateCardResponse response(RateCardEntity entity) {

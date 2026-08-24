@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -68,7 +69,7 @@ class AgentRunCommandDispatcherTest {
 
         verify(projectionService).synchronize(fixture.runId(), fixture.workspaceId(), running);
         verify(queue).complete(command.id(), command.attempts());
-        verify(queue, never()).retry(any(), any(Integer.class), any(), any());
+        verify(queue, never()).retry(any(), anyInt(), any(), any());
     }
 
     @Test
@@ -84,7 +85,7 @@ class AgentRunCommandDispatcherTest {
         dispatcher.dispatch(command);
 
         verify(queue).retry(eq(command.id()), eq(command.attempts()), any(), any());
-        verify(queue, never()).fail(any(), any(Integer.class), any());
+        verify(queue, never()).fail(any(), anyInt(), any());
     }
 
     @Test
@@ -103,22 +104,58 @@ class AgentRunCommandDispatcherTest {
 
         verify(projectionService).synchronize(fixture.runId(), fixture.workspaceId(), queued);
         verify(queue).complete(command.id(), command.attempts());
-        verify(queue, never()).fail(any(), any(Integer.class), any());
+        verify(queue, never()).fail(any(), anyInt(), any());
+    }
+
+    @Test
+    void cancelsAStartAcceptedAfterTheProjectDeletionFenceWasRaised() throws Exception {
+        Fixture fixture = fixture();
+        InternalAgentRunRequest request = startRequest(fixture);
+        var command = commandWithoutProject(fixture, AgentRunCommandType.START, objectMapper.writeValueAsString(request), 1);
+        when(projectRepository.findByIdAndWorkspaceId(fixture.projectId(), fixture.workspaceId()))
+            .thenReturn(Optional.of(project(fixture, false)))
+            .thenReturn(Optional.of(project(fixture, true)))
+            .thenReturn(Optional.of(project(fixture, true)));
+        when(client.start(request, "token", "traceparent"))
+            .thenReturn(new com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse(
+                fixture.runId(), AgentRunStatus.QUEUED, Instant.now()
+            ));
+        AgentRunView cancelled = view(fixture.runId(), AgentRunStatus.CANCELLED, null);
+        when(client.cancel(fixture.runId(), "token", "traceparent")).thenReturn(cancelled);
+
+        dispatcher.dispatch(command);
+
+        verify(client).cancel(fixture.runId(), "token", "traceparent");
+        verify(queue).fail(command.id(), command.attempts(), "project deletion began during Agent command delivery");
+        verify(queue, never()).complete(any(), anyInt());
+        verify(projectionService).synchronize(fixture.runId(), fixture.workspaceId(), cancelled);
     }
 
     private AgentRunCommandQueue.ClaimedCommand command(Fixture fixture, AgentRunCommandType type,
                                                          String payload, int attempts) {
-        when(runRepository.findById(fixture.runId())).thenReturn(Optional.of(fixture.run()));
+        AgentRunCommandQueue.ClaimedCommand command = commandWithoutProject(fixture, type, payload, attempts);
         when(projectRepository.findByIdAndWorkspaceId(fixture.projectId(), fixture.workspaceId()))
-            .thenReturn(Optional.of(new ProjectEntity(
-                fixture.projectId(), fixture.workspaceId(), "프로젝트", "요구사항", "KRW", null, null, null
-            )));
+            .thenReturn(Optional.of(project(fixture, false)));
+        return command;
+    }
+
+    private AgentRunCommandQueue.ClaimedCommand commandWithoutProject(Fixture fixture, AgentRunCommandType type,
+                                                                       String payload, int attempts) {
+        when(runRepository.findById(fixture.runId())).thenReturn(Optional.of(fixture.run()));
         when(tokenIssuer.issue(fixture.runId(), fixture.workspaceId(), fixture.projectId(),
             fixture.userId(), List.of("agent.run", "agent.respond"))).thenReturn("token");
         return new AgentRunCommandQueue.ClaimedCommand(
             UUID.randomUUID(), fixture.runId(), type, payload, fixture.userId(),
             List.of("agent.run", "agent.respond"), "traceparent", attempts
         );
+    }
+
+    private static ProjectEntity project(Fixture fixture, boolean deleting) {
+        ProjectEntity project = new ProjectEntity(
+            fixture.projectId(), fixture.workspaceId(), "프로젝트", "요구사항", "KRW", null, null, null
+        );
+        if (deleting) project.requestDeletion(Instant.now());
+        return project;
     }
 
     private static Fixture fixture() {

@@ -5,6 +5,8 @@ import com.freelanceops.backend.domain.workspace.repository.AuthorizationAuditSi
 import com.freelanceops.backend.domain.workspace.entity.RbacAuditEventEntity;
 import com.freelanceops.backend.domain.workspace.repository.RbacAuditEventRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JpaAuthorizationAuditSink implements AuthorizationAuditSink {
@@ -16,6 +18,7 @@ public class JpaAuthorizationAuditSink implements AuthorizationAuditSink {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void record(AuthorizationAuditEvent event) {
         auditEventRepository.save(RbacAuditEventEntity.authorizationCheck(event));
     }

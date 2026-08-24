@@ -115,6 +115,12 @@ public class QuotationService {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_PUBLISH);
         QuotationEntity quotation = quotationRepository.findByIdAndWorkspaceIdForUpdate(quotationId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        QuotationEntity latest = quotationRepository.findTopByWorkspaceIdAndSeriesIdOrderByVersionNumberDesc(
+            workspaceId, quotation.seriesId()
+        ).orElseThrow(() -> new IllegalStateException("quotation series has no latest version"));
+        if (!latest.id().equals(quotation.id())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "only the latest quotation version can be published");
+        }
         requireWritableProject(workspaceId, quotation.projectId());
         try {
             quotation.publish(userId, Instant.now());

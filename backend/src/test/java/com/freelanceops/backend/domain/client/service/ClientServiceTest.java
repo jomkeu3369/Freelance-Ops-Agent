@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -37,7 +38,7 @@ class ClientServiceTest {
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE))
             .thenReturn(AuthorizationDecision.ALLOWED);
-        when(clientRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(clientRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         ClientService service = new ClientService(clientRepository, authorizationService);
 
         service.create(userId, workspaceId, new CreateClientRequest(
@@ -49,7 +50,7 @@ class ClientServiceTest {
         ));
 
         ArgumentCaptor<ClientEntity> captor = ArgumentCaptor.forClass(ClientEntity.class);
-        verify(clientRepository).save(captor.capture());
+        verify(clientRepository).saveAndFlush(captor.capture());
         assertThat(captor.getValue().workspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().email()).isEqualTo("client@example.com");
         assertThat(captor.getValue().name()).isEqualTo("Client Name");
@@ -83,5 +84,22 @@ class ClientServiceTest {
             .isInstanceOfSatisfying(ResponseStatusException.class, error ->
                 assertThat(error.getStatusCode().value()).isEqualTo(404));
         verify(clientRepository).findByIdAndWorkspaceId(clientId, workspaceId);
+    }
+
+    @Test
+    void duplicateActiveEmailIsReportedAsAConflict() {
+        UUID userId = UUID.randomUUID();
+        UUID workspaceId = UUID.randomUUID();
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE))
+            .thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.saveAndFlush(any())).thenThrow(
+            new DataIntegrityViolationException("constraint uq_client_workspace_email_active")
+        );
+        ClientService service = new ClientService(clientRepository, authorizationService);
+
+        assertThatThrownBy(() -> service.create(userId, workspaceId, new CreateClientRequest(
+            "Client", null, "client@example.com", null, null
+        ))).isInstanceOfSatisfying(ResponseStatusException.class, error ->
+            assertThat(error.getStatusCode().value()).isEqualTo(409));
     }
 }
