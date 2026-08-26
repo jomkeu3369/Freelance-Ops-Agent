@@ -46,6 +46,7 @@ dev = [
     "pytest-asyncio>=1.1,<2",
     "ruff>=0.12,<1",
     "scikit-learn>=1.6,<2",
+    "streamlit>=1.49,<2",
     "xgboost>=3,<4"
 ]
 

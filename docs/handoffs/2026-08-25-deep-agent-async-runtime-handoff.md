@@ -476,8 +476,10 @@ time은 병렬 child의 합이 아니라 dependency critical path, queue wait와
 - event-time replay를 통한 future target leakage 방지
 - 결과 plot
 
-마지막으로 알려진 prototype 검증 결과는 21개 테스트 통과, Ruff 통과, strict mypy 통과다.
-이는 이번 문서 작성 시 재실행한 결과가 아니라 이전 작업의 마지막 검증 상태다.
+2026-08-26 최종 prototype 검증 결과는 Runtime Predictor, Scheduler simulation, plot과
+Streamlit AppTest를 포함한 pytest 37개 통과와 작업 범위 Ruff 통과다. 기존 `src` 대상 strict
+mypy 결과는 이전 작업에서 통과했으며 이번 prototype 추가 파일은 `tests` 경로이므로 mypy의
+현재 검사 범위에 포함되지 않는다.
 
 대표적인 이전 실험 결과:
 
@@ -495,6 +497,63 @@ online residual SGD MAE 4.78 sec
 별도 Streamlit 실험 보고서에서는 XGBoost가 SGD보다 좋은 결과를 보였지만 데이터 scale과 생성
 조건이 달라 위 수치와 직접 비교하지 않는다. 다음 검증은 동일 stream, 동일 batch와 여러 seed를
 사용해야 한다.
+
+### 10.1 Scheduler 효용성 prototype 추가
+
+2026-08-26에 `agent/tests/runtime_predictor_prototype/`에 실제 운영 Scheduler와 분리된
+event-driven multi-workspace simulator를 추가했다.
+
+```text
+scheduler_simulation.py
+test_scheduler_simulation.py
+plot_scheduler_simulation.py
+test_scheduler_plot.py
+streamlit_scheduler_simulation.py
+test_scheduler_streamlit.py
+```
+
+동일 task stream에서 FIFO, Fair FIFO, Fair Predicted-SJF, bounded Aging과 Fair Oracle-SJF를
+비교한다. cache hit은 Worker를 점유하지 않고 완료되며 Oracle만 실제 runtime을 dispatch 결정에
+사용한다. 실제 정책은 XGBoost prediction만 사용한다.
+
+용량 근접 조건의 seed 5개 결과:
+
+```text
+offered load 0.94 ± 0.02
+prediction MAE 5.84 ± 0.25 sec
+prediction RMSE 10.86 ± 1.96 sec
+prediction R² 0.845 ± 0.036
+
+FIFO mean wait 97.22 sec
+Fair Predicted-SJF mean wait 56.45 sec
+Fair Oracle-SJF mean wait 54.72 sec
+Fair Predicted-SJF Oracle regret 2.38%
+
+Predicted-SJF maximum wait 1322.77 sec
+Predicted-SJF + Aging maximum wait 1036.36 sec
+```
+
+Predicted-SJF는 FIFO 대비 mean wait를 약 41.9% 줄였지만 긴 task의 maximum wait가 커졌다.
+bounded Aging은 mean wait를 일부 희생하면서 maximum wait를 약 21.7% 낮췄다. 저부하, 용량
+근접, 과부하, prediction noise와 high cache hit 조건을 별도 stress plot으로 비교했다. offered
+load가 1을 넘으면 정책만으로 queue 증가를 해결할 수 없으므로 admission 또는 Worker 확장이
+필요하다.
+
+생성 plot:
+
+```text
+scheduler_policy_comparison.png
+scheduler_stress_test.png
+scheduler_multidimensional_evaluation.png
+scheduler_slo_stress_heatmap.png
+```
+
+Streamlit dashboard는 workload, prediction noise, cache hit, max wait와 overdue lane interval을
+조절하고 여러 seed 결과와 workspace별 결과를 조회한다. P95, maximum wait, fairness, wait violation,
+high-priority violation SLO도 조절하며 모든 hard gate를 반복 seed에서 통과한 정책 중 mean
+completion이 가장 짧은 정책만 선택한다. 동일 parameter는 `st.cache_data`로 재사용한다. 기본
+부하 0.94에서는 통과 정책이 없었고, 저부하 0.60에서는 Global Predicted-SJF + Aging이 선택됐다.
+이 prototype은 Scheduler의 효용성 검증이며 운영 queue 구현은 아니다.
 
 ## 11. 비용·캐시 관측 지표
 

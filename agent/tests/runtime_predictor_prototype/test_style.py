@@ -6,7 +6,7 @@ import tokenize
 from pathlib import Path
 
 
-STYLE_PATHS = (Path(__file__).with_name("prototype.py"), Path(__file__).with_name("plot_experiment.py"), Path(__file__).with_name("plot_ema_experiment.py"), Path(__file__).with_name("plot_gated_ema_experiment.py"), Path(__file__).with_name("plot_online_learning_experiment.py"))
+STYLE_PATHS = (Path(__file__).with_name("prototype.py"), Path(__file__).with_name("plot_experiment.py"), Path(__file__).with_name("plot_ema_experiment.py"), Path(__file__).with_name("plot_gated_ema_experiment.py"), Path(__file__).with_name("plot_online_learning_experiment.py"), Path(__file__).with_name("scheduler_simulation.py"), Path(__file__).with_name("scheduler_evaluation.py"), Path(__file__).with_name("plot_scheduler_simulation.py"), Path(__file__).with_name("plot_scheduler_evaluation.py"), Path(__file__).with_name("streamlit_scheduler_simulation.py"))
 
 
 def _trailing_comma_lines(path: Path) -> list[int]:
