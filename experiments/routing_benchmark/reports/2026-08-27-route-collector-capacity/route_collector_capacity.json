@@ -1,0 +1,653 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T02:08:45.308973+00:00",
+  "implementation_model": {
+    "batch_size": 20,
+    "fixed_delay_seconds": 1.0,
+    "horizon_seconds": 3600.0,
+    "claim_strategy": "up to 20 durable queue rows per scheduler cycle",
+    "execution_strategy": "one virtual thread per claimed run, bounded by batch size"
+  },
+  "results": [
+    {
+      "concurrency": 1,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 600.0,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 0.9999999999999527,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 600.0,
+      "completed_in_hour": 6000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.0999999999999404,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 600.0,
+      "completed_in_hour": 12000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.2000000000330147,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 600.0,
+      "completed_in_hour": 23996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.900000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 400.0,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999880356,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 400.0,
+      "completed_in_hour": 6000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.2000000000439286,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 400.0,
+      "completed_in_hour": 11999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 400.0,
+      "completed_in_hour": 23983,
+      "backlog_after_hour": 17,
+      "p95_collection_delay_seconds": 4.700000000000273,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 200.0,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 200.0,
+      "completed_in_hour": 5999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 2.1550000000000535,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 200.0,
+      "completed_in_hour": 11966,
+      "backlog_after_hour": 34,
+      "p95_collection_delay_seconds": 10.400000000000091,
+      "stable": false
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 200.0,
+      "completed_in_hour": 11989,
+      "backlog_after_hour": 12011,
+      "p95_collection_delay_seconds": 1711.99,
+      "stable": false
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 109.0909090909091,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 2.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 109.0909090909091,
+      "completed_in_hour": 5986,
+      "backlog_after_hour": 14,
+      "p95_collection_delay_seconds": 10.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 109.0909090909091,
+      "completed_in_hour": 6537,
+      "backlog_after_hour": 5463,
+      "p95_collection_delay_seconds": 1559.3600000000001,
+      "stable": false
+    },
+    {
+      "concurrency": 1,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 109.0909090909091,
+      "completed_in_hour": 6531,
+      "backlog_after_hour": 17469,
+      "p95_collection_delay_seconds": 2486.875,
+      "stable": false
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 0.9999999999999527,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 6000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 11999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 23995,
+      "backlog_after_hour": 5,
+      "p95_collection_delay_seconds": 1.1499999999887904,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999880356,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 5999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.199999999855254,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 11998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.1999999998552766,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 23992,
+      "backlog_after_hour": 8,
+      "p95_collection_delay_seconds": 1.3000000000110958,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 533.3333333333334,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 533.3333333333334,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 533.3333333333334,
+      "completed_in_hour": 11996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 533.3333333333334,
+      "completed_in_hour": 23994,
+      "backlog_after_hour": 6,
+      "p95_collection_delay_seconds": 2.400000000000034,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 342.8571428571429,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 342.8571428571429,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 342.8571428571429,
+      "completed_in_hour": 11992,
+      "backlog_after_hour": 8,
+      "p95_collection_delay_seconds": 2.800000000000182,
+      "stable": true
+    },
+    {
+      "concurrency": 4,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 342.8571428571429,
+      "completed_in_hour": 20547,
+      "backlog_after_hour": 3453,
+      "p95_collection_delay_seconds": 491.08500000000004,
+      "stable": false
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 1043.4782608695655,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 0.9999999999999527,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 1043.4782608695655,
+      "completed_in_hour": 6000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 1043.4782608695655,
+      "completed_in_hour": 11999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 1043.4782608695655,
+      "completed_in_hour": 23997,
+      "backlog_after_hour": 3,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 923.076923076923,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999880356,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 923.076923076923,
+      "completed_in_hour": 5999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.199999999855254,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 923.076923076923,
+      "completed_in_hour": 11998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.1999999998552766,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 923.076923076923,
+      "completed_in_hour": 23995,
+      "backlog_after_hour": 5,
+      "p95_collection_delay_seconds": 1.149999999989086,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 685.7142857142858,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 685.7142857142858,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 685.7142857142858,
+      "completed_in_hour": 11996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 685.7142857142858,
+      "completed_in_hour": 23996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.8500000000000227,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 480.0,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 480.0,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 480.0,
+      "completed_in_hour": 11996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 8,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 480.0,
+      "completed_in_hour": 23984,
+      "backlog_after_hour": 16,
+      "p95_collection_delay_seconds": 2.8500000000001364,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 1142.857142857143,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 0.9999999999999527,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 1142.857142857143,
+      "completed_in_hour": 6000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 1142.857142857143,
+      "completed_in_hour": 11999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 50,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 1142.857142857143,
+      "completed_in_hour": 23997,
+      "backlog_after_hour": 3,
+      "p95_collection_delay_seconds": 1.099999999960346,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 1090.9090909090908,
+      "completed_in_hour": 3000,
+      "backlog_after_hour": 0,
+      "p95_collection_delay_seconds": 1.099999999880356,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 1090.9090909090908,
+      "completed_in_hour": 5999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.199999999855254,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 1090.9090909090908,
+      "completed_in_hour": 11998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.1999999998552766,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 100,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 1090.9090909090908,
+      "completed_in_hour": 23995,
+      "backlog_after_hour": 5,
+      "p95_collection_delay_seconds": 1.149999999989086,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 11996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 250,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 960.0,
+      "completed_in_hour": 23992,
+      "backlog_after_hour": 8,
+      "p95_collection_delay_seconds": 1.400000000000091,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 50,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 2999,
+      "backlog_after_hour": 1,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 100,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 5998,
+      "backlog_after_hour": 2,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 200,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 11996,
+      "backlog_after_hour": 4,
+      "p95_collection_delay_seconds": 1.7000000000002728,
+      "stable": true
+    },
+    {
+      "concurrency": 20,
+      "request_latency_ms": 500,
+      "arrivals_per_minute": 400,
+      "theoretical_capacity_per_minute": 800.0,
+      "completed_in_hour": 23991,
+      "backlog_after_hour": 9,
+      "p95_collection_delay_seconds": 1.8500000000000227,
+      "stable": true
+    }
+  ]
+}

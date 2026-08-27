@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
 
 import java.util.UUID;
 
@@ -18,6 +19,8 @@ public interface AgentRunClient {
     AgentRunView cancel(UUID runId, String delegationToken, String traceparent);
 
     AgentEventStream events(UUID runId, Long lastEventId, String delegationToken, String traceparent);
+
+    RouteObservationBatch routeObservations(UUID runId, long afterEventId, String delegationToken, String traceparent);
 }
 
 

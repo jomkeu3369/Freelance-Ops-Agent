@@ -5,7 +5,6 @@ import time
 from typing import Any, Literal
 
 import langsmith as ls
-import torch
 from pydantic import BaseModel, ConfigDict, Field
 
 RouteLabel = Literal["DIRECT_TOOL", "SIMPLE_LLM", "REACT_AGENT", "SUPERVISOR", "HUMAN_REQUIRED"]
@@ -29,7 +28,10 @@ def calculate_cost(
 
 class LiquidEncoderRouter:
     def __init__(self, model_config: dict[str, Any], routes: dict[str, str]) -> None:
+        import torch
         from transformers import AutoModel, AutoTokenizer
+
+        self._torch = torch
 
         requested_device = str(model_config["device"])
         if requested_device == "cuda" and not torch.cuda.is_available():
@@ -83,7 +85,7 @@ class LiquidEncoderRouter:
         self._synchronize()
 
         started = time.perf_counter()
-        with torch.inference_mode():
+        with self._torch.inference_mode():
             scores = self.model.route(prompt, self.route_lanes, tokenizer=self.tokenizer)
 
         self._synchronize()
@@ -112,7 +114,7 @@ class LiquidEncoderRouter:
 
     def _synchronize(self) -> None:
         if self.device.type == "cuda":
-            torch.cuda.synchronize()
+            self._torch.cuda.synchronize()
 
 
 def build_openai_client() -> Any:

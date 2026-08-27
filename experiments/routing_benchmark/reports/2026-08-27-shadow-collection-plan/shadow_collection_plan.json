@@ -1,0 +1,1261 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T01:20:25.478255+00:00",
+  "method": {
+    "monte_carlo_trials_per_point": 2000,
+    "seed": 20260827,
+    "group_holdout_rate": 0.2,
+    "mean_observations_per_group_assumption": 4,
+    "structural_gate": "holdout >=1000, groups >=50, each route >=100, zero-error false-automation Wilson upper <=1%",
+    "quality_assumption": "planning assumes zero false automation; measured F1 and recall gates remain separate"
+  },
+  "summaries": [
+    {
+      "scenario": "balanced",
+      "route_priors": {
+        "DIRECT_TOOL": 0.2,
+        "SIMPLE_LLM": 0.2,
+        "REACT_AGENT": 0.2,
+        "SUPERVISOR": 0.2,
+        "HUMAN_REQUIRED": 0.2
+      },
+      "minimum_reviews_for_95pct_structural_gate": 11000,
+      "estimated_days": {
+        "25": 440,
+        "50": 220,
+        "100": 110,
+        "200": 55
+      }
+    },
+    {
+      "scenario": "expected_mix",
+      "route_priors": {
+        "DIRECT_TOOL": 0.3,
+        "SIMPLE_LLM": 0.3,
+        "REACT_AGENT": 0.1,
+        "SUPERVISOR": 0.2,
+        "HUMAN_REQUIRED": 0.1
+      },
+      "minimum_reviews_for_95pct_structural_gate": 21000,
+      "estimated_days": {
+        "25": 840,
+        "50": 420,
+        "100": 210,
+        "200": 105
+      }
+    },
+    {
+      "scenario": "sparse_risk_routes",
+      "route_priors": {
+        "DIRECT_TOOL": 0.35,
+        "SIMPLE_LLM": 0.35,
+        "REACT_AGENT": 0.05,
+        "SUPERVISOR": 0.2,
+        "HUMAN_REQUIRED": 0.05
+      },
+      "minimum_reviews_for_95pct_structural_gate": 42000,
+      "estimated_days": {
+        "25": 1680,
+        "50": 840,
+        "100": 420,
+        "200": 210
+      }
+    }
+  ],
+  "curves": {
+    "balanced": [
+      {
+        "total_reviews": 1000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 1500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 8000,
+        "structural_gate_probability": 0.003
+      },
+      {
+        "total_reviews": 8500,
+        "structural_gate_probability": 0.026
+      },
+      {
+        "total_reviews": 9000,
+        "structural_gate_probability": 0.1975
+      },
+      {
+        "total_reviews": 9500,
+        "structural_gate_probability": 0.494
+      },
+      {
+        "total_reviews": 10000,
+        "structural_gate_probability": 0.787
+      },
+      {
+        "total_reviews": 10500,
+        "structural_gate_probability": 0.9415
+      },
+      {
+        "total_reviews": 11000,
+        "structural_gate_probability": 0.99
+      },
+      {
+        "total_reviews": 11500,
+        "structural_gate_probability": 0.9975
+      },
+      {
+        "total_reviews": 12000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 12500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 13000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 13500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 14000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 14500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 15000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 15500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 16000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 16500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 17000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 17500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 18000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 18500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 19000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 19500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 20000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 20500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 21000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 21500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 22000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 22500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 23000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 23500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 24000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 24500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 25000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 25500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 26000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 26500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 27000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 27500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 28000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 28500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 29000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 29500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 30000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 30500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 31000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 31500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 32000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 32500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 33000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 33500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 34000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 34500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 35000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 35500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 36000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 36500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 37000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 37500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 38000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 38500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 39000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 39500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 40000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 40500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 41000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 41500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 42000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 42500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 43000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 43500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 44000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 44500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 45000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 45500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 50000,
+        "structural_gate_probability": 1.0
+      }
+    ],
+    "expected_mix": [
+      {
+        "total_reviews": 1000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 1500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 8000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 8500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 9000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 9500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 10000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 10500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 11000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 11500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 12000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 12500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 13000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 13500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 14000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 14500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 15000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 15500,
+        "structural_gate_probability": 0.0005
+      },
+      {
+        "total_reviews": 16000,
+        "structural_gate_probability": 0.0015
+      },
+      {
+        "total_reviews": 16500,
+        "structural_gate_probability": 0.0095
+      },
+      {
+        "total_reviews": 17000,
+        "structural_gate_probability": 0.027
+      },
+      {
+        "total_reviews": 17500,
+        "structural_gate_probability": 0.0745
+      },
+      {
+        "total_reviews": 18000,
+        "structural_gate_probability": 0.182
+      },
+      {
+        "total_reviews": 18500,
+        "structural_gate_probability": 0.3225
+      },
+      {
+        "total_reviews": 19000,
+        "structural_gate_probability": 0.478
+      },
+      {
+        "total_reviews": 19500,
+        "structural_gate_probability": 0.663
+      },
+      {
+        "total_reviews": 20000,
+        "structural_gate_probability": 0.797
+      },
+      {
+        "total_reviews": 20500,
+        "structural_gate_probability": 0.9025
+      },
+      {
+        "total_reviews": 21000,
+        "structural_gate_probability": 0.958
+      },
+      {
+        "total_reviews": 21500,
+        "structural_gate_probability": 0.987
+      },
+      {
+        "total_reviews": 22000,
+        "structural_gate_probability": 0.995
+      },
+      {
+        "total_reviews": 22500,
+        "structural_gate_probability": 0.9985
+      },
+      {
+        "total_reviews": 23000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 23500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 24000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 24500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 25000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 25500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 26000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 26500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 27000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 27500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 28000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 28500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 29000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 29500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 30000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 30500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 31000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 31500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 32000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 32500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 33000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 33500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 34000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 34500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 35000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 35500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 36000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 36500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 37000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 37500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 38000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 38500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 39000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 39500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 40000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 40500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 41000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 41500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 42000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 42500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 43000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 43500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 44000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 44500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 45000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 45500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 50000,
+        "structural_gate_probability": 1.0
+      }
+    ],
+    "sparse_risk_routes": [
+      {
+        "total_reviews": 1000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 1500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 2500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 3500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 4500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 5500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 6500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 7500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 8000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 8500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 9000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 9500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 10000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 10500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 11000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 11500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 12000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 12500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 13000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 13500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 14000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 14500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 15000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 15500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 16000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 16500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 17000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 17500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 18000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 18500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 19000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 19500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 20000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 20500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 21000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 21500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 22000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 22500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 23000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 23500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 24000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 24500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 25000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 25500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 26000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 26500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 27000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 27500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 28000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 28500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 29000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 29500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 30000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 30500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 31000,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 31500,
+        "structural_gate_probability": 0.0
+      },
+      {
+        "total_reviews": 32000,
+        "structural_gate_probability": 0.0005
+      },
+      {
+        "total_reviews": 32500,
+        "structural_gate_probability": 0.002
+      },
+      {
+        "total_reviews": 33000,
+        "structural_gate_probability": 0.004
+      },
+      {
+        "total_reviews": 33500,
+        "structural_gate_probability": 0.015
+      },
+      {
+        "total_reviews": 34000,
+        "structural_gate_probability": 0.016
+      },
+      {
+        "total_reviews": 34500,
+        "structural_gate_probability": 0.034
+      },
+      {
+        "total_reviews": 35000,
+        "structural_gate_probability": 0.067
+      },
+      {
+        "total_reviews": 35500,
+        "structural_gate_probability": 0.0975
+      },
+      {
+        "total_reviews": 36000,
+        "structural_gate_probability": 0.1625
+      },
+      {
+        "total_reviews": 36500,
+        "structural_gate_probability": 0.221
+      },
+      {
+        "total_reviews": 37000,
+        "structural_gate_probability": 0.286
+      },
+      {
+        "total_reviews": 37500,
+        "structural_gate_probability": 0.365
+      },
+      {
+        "total_reviews": 38000,
+        "structural_gate_probability": 0.4935
+      },
+      {
+        "total_reviews": 38500,
+        "structural_gate_probability": 0.5925
+      },
+      {
+        "total_reviews": 39000,
+        "structural_gate_probability": 0.6685
+      },
+      {
+        "total_reviews": 39500,
+        "structural_gate_probability": 0.765
+      },
+      {
+        "total_reviews": 40000,
+        "structural_gate_probability": 0.82
+      },
+      {
+        "total_reviews": 40500,
+        "structural_gate_probability": 0.8705
+      },
+      {
+        "total_reviews": 41000,
+        "structural_gate_probability": 0.9175
+      },
+      {
+        "total_reviews": 41500,
+        "structural_gate_probability": 0.9415
+      },
+      {
+        "total_reviews": 42000,
+        "structural_gate_probability": 0.973
+      },
+      {
+        "total_reviews": 42500,
+        "structural_gate_probability": 0.985
+      },
+      {
+        "total_reviews": 43000,
+        "structural_gate_probability": 0.991
+      },
+      {
+        "total_reviews": 43500,
+        "structural_gate_probability": 0.993
+      },
+      {
+        "total_reviews": 44000,
+        "structural_gate_probability": 0.995
+      },
+      {
+        "total_reviews": 44500,
+        "structural_gate_probability": 0.9985
+      },
+      {
+        "total_reviews": 45000,
+        "structural_gate_probability": 0.9995
+      },
+      {
+        "total_reviews": 45500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 46500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 47500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 48500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49000,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 49500,
+        "structural_gate_probability": 1.0
+      },
+      {
+        "total_reviews": 50000,
+        "structural_gate_probability": 1.0
+      }
+    ]
+  }
+}

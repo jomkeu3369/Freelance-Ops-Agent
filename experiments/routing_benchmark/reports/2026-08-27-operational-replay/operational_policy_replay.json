@@ -1,0 +1,178 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T00:38:34.776444+00:00",
+  "sources": {
+    "ab_report": "experiments/routing_benchmark/reports/2026-08-11-a1-vs-luna/router_ab.json",
+    "hybrid_report": "experiments/routing_benchmark/reports/2026-08-13-hybrid-rrf/hybrid_router_evaluation.json",
+    "train": "experiments/routing_benchmark/data/generated-v1/train.jsonl",
+    "validation": "experiments/routing_benchmark/data/generated-v1/validation.jsonl"
+  },
+  "method": {
+    "frozen_test_count": 50,
+    "trusted_contract_fixture_count": 20,
+    "local_model": "word+character TF-IDF with multinomial logistic regression",
+    "selected_c": 4.0,
+    "validation_macro_f1": 0.9879654884776088,
+    "mean_single_query_latency_ms": 2.441666,
+    "p95_single_query_latency_ms": 4.3724799999999995,
+    "thresholds": {
+      "DIRECT_TOOL": 0.3626695929037758,
+      "HUMAN_REQUIRED": 0.0,
+      "REACT_AGENT": 0.5698004003185914,
+      "SIMPLE_LLM": 0.4589051271560385,
+      "SUPERVISOR": 0.47531997845027396
+    },
+    "threshold_min_precision": 0.95,
+    "threshold_min_accepts": 5,
+    "threshold_selection_used_frozen_test": false,
+    "policy_latency_assumption_ms": 0.1,
+    "local_latency_source": "2026-08-13 hybrid CPU mean"
+  },
+  "policies": [
+    {
+      "name": "LLM for every request",
+      "mode": "llm_all",
+      "accuracy": 0.76,
+      "macro_f1": 0.688,
+      "minimum_route_f1": 0.0,
+      "route_f1": {
+        "DIRECT_TOOL": 1.0,
+        "SIMPLE_LLM": 0.8,
+        "REACT_AGENT": 0.0,
+        "SUPERVISOR": 1.0,
+        "HUMAN_REQUIRED": 0.64
+      },
+      "human_required_recall": 0.8,
+      "false_automation_count": 2,
+      "over_escalation_count": 7,
+      "llm_calls": 50,
+      "llm_call_rate": 1.0,
+      "llm_cost_usd": 0.044768,
+      "mean_estimated_latency_ms": 2339.3123060057405,
+      "p95_estimated_latency_ms": 4044.9663600185886,
+      "decision_counts": {
+        "TRUSTED_POLICY": 0,
+        "LOCAL_MODEL": 0,
+        "LLM": 50
+      },
+      "passes_local_promotion_gate": false,
+      "llm_cost_savings_rate": 0.0
+    },
+    {
+      "name": "Trusted contract → LLM",
+      "mode": "policy_first",
+      "accuracy": 0.76,
+      "macro_f1": 0.688,
+      "minimum_route_f1": 0.0,
+      "route_f1": {
+        "DIRECT_TOOL": 1.0,
+        "SIMPLE_LLM": 0.8,
+        "REACT_AGENT": 0.0,
+        "SUPERVISOR": 1.0,
+        "HUMAN_REQUIRED": 0.64
+      },
+      "human_required_recall": 0.8,
+      "false_automation_count": 2,
+      "over_escalation_count": 7,
+      "llm_calls": 30,
+      "llm_call_rate": 0.6,
+      "llm_cost_usd": 0.026579999999999996,
+      "mean_estimated_latency_ms": 1378.542368006157,
+      "p95_estimated_latency_ms": 3899.3636550265355,
+      "decision_counts": {
+        "TRUSTED_POLICY": 20,
+        "LOCAL_MODEL": 0,
+        "LLM": 30
+      },
+      "passes_local_promotion_gate": false,
+      "llm_cost_savings_rate": 0.4062723373838457
+    },
+    {
+      "name": "Trusted contract → safe local escalation → LLM",
+      "mode": "policy_escalation",
+      "accuracy": 0.76,
+      "macro_f1": 0.6898550724637681,
+      "minimum_route_f1": 0.0,
+      "route_f1": {
+        "DIRECT_TOOL": 1.0,
+        "SIMPLE_LLM": 0.782608695652174,
+        "REACT_AGENT": 0.0,
+        "SUPERVISOR": 1.0,
+        "HUMAN_REQUIRED": 0.6666666666666666
+      },
+      "human_required_recall": 0.9,
+      "false_automation_count": 1,
+      "over_escalation_count": 8,
+      "llm_calls": 21,
+      "llm_call_rate": 0.42,
+      "llm_cost_usd": 0.018593,
+      "mean_estimated_latency_ms": 985.1095558849712,
+      "p95_estimated_latency_ms": 3218.6600150307604,
+      "decision_counts": {
+        "TRUSTED_POLICY": 20,
+        "LOCAL_MODEL": 9,
+        "LLM": 21
+      },
+      "passes_local_promotion_gate": false,
+      "llm_cost_savings_rate": 0.5846810221586849
+    },
+    {
+      "name": "Trusted contract → calibrated local → LLM",
+      "mode": "policy_calibrated",
+      "accuracy": 0.68,
+      "macro_f1": 0.6151515151515151,
+      "minimum_route_f1": 0.0,
+      "route_f1": {
+        "DIRECT_TOOL": 0.9090909090909091,
+        "SIMPLE_LLM": 0.6666666666666666,
+        "REACT_AGENT": 0.0,
+        "SUPERVISOR": 1.0,
+        "HUMAN_REQUIRED": 0.5
+      },
+      "human_required_recall": 0.6,
+      "false_automation_count": 4,
+      "over_escalation_count": 8,
+      "llm_calls": 7,
+      "llm_call_rate": 0.14,
+      "llm_cost_usd": 0.006462,
+      "mean_estimated_latency_ms": 333.0087823621014,
+      "p95_estimated_latency_ms": 2147.1267200075085,
+      "decision_counts": {
+        "TRUSTED_POLICY": 20,
+        "LOCAL_MODEL": 23,
+        "LLM": 7
+      },
+      "passes_local_promotion_gate": false,
+      "llm_cost_savings_rate": 0.8556558255897069
+    },
+    {
+      "name": "Legacy lane agreement → LLM",
+      "mode": "legacy_agreement",
+      "accuracy": 0.7,
+      "macro_f1": 0.6295334295334295,
+      "minimum_route_f1": 0.0,
+      "route_f1": {
+        "DIRECT_TOOL": 0.9523809523809523,
+        "SIMPLE_LLM": 0.7407407407407407,
+        "REACT_AGENT": 0.0,
+        "SUPERVISOR": 1.0,
+        "HUMAN_REQUIRED": 0.45454545454545453
+      },
+      "human_required_recall": 0.5,
+      "false_automation_count": 5,
+      "over_escalation_count": 7,
+      "llm_calls": 21,
+      "llm_call_rate": 0.42,
+      "llm_cost_usd": 0.018830999999999997,
+      "mean_estimated_latency_ms": 1057.8337701661737,
+      "p95_estimated_latency_ms": 3899.3636550265355,
+      "decision_counts": {
+        "TRUSTED_POLICY": 20,
+        "LOCAL_MODEL": 9,
+        "LLM": 21
+      },
+      "passes_local_promotion_gate": false,
+      "llm_cost_savings_rate": 0.579364724803431
+    }
+  ]
+}

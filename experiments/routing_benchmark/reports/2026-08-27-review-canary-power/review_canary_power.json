@@ -1,0 +1,850 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T03:40:14.361820+00:00",
+  "method": {
+    "trials_per_point": 5000,
+    "seed": 20260827,
+    "target_overturn_rate": 0.01,
+    "confidence": 0.95,
+    "accept_rule": "Wilson 95% upper <= 1%",
+    "reject_rule": "Wilson 95% lower > 1%",
+    "otherwise": "INCONCLUSIVE"
+  },
+  "selected": [
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "decision": "ACCEPT",
+      "minimum_audits_for_95_percent_power": 381,
+      "days_at_100_audits_per_day": 4
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "decision": "ACCEPT",
+      "minimum_audits_for_95_percent_power": 750,
+      "days_at_100_audits_per_day": 8
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "decision": "ACCEPT",
+      "minimum_audits_for_95_percent_power": 1500,
+      "days_at_100_audits_per_day": 15
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "decision": "ACCEPT",
+      "minimum_audits_for_95_percent_power": 5000,
+      "days_at_100_audits_per_day": 50
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "decision": "REJECT",
+      "minimum_audits_for_95_percent_power": 7500,
+      "days_at_100_audits_per_day": 75
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "decision": "REJECT",
+      "minimum_audits_for_95_percent_power": 2000,
+      "days_at_100_audits_per_day": 20
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "decision": "REJECT",
+      "minimum_audits_for_95_percent_power": 750,
+      "days_at_100_audits_per_day": 8
+    }
+  ],
+  "results": [
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 1.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 1.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 381,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 750,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 1000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 1500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 2000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 3000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 5000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 7500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 10000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 15000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0,
+      "audit_samples": 20000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0004,
+      "inconclusive_probability": 0.9996
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0002,
+      "inconclusive_probability": 0.9998
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 381,
+      "accept_probability": 0.6828,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.3172
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 500,
+      "accept_probability": 0.6118,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.3882
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 750,
+      "accept_probability": 0.9602,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0398
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 1000,
+      "accept_probability": 0.983,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.017
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 1500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 2000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 3000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 5000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 7500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 10000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 15000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.001,
+      "audit_samples": 20000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0024,
+      "inconclusive_probability": 0.9976
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0004,
+      "inconclusive_probability": 0.9996
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 381,
+      "accept_probability": 0.386,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.614
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 500,
+      "accept_probability": 0.2966,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.7034
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 750,
+      "accept_probability": 0.7126,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.2874
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 1000,
+      "accept_probability": 0.7528,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.2472
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 1500,
+      "accept_probability": 0.9646,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0354
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 2000,
+      "accept_probability": 0.995,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.005
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 3000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 5000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 7500,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 10000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 15000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.0025,
+      "audit_samples": 20000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0142,
+      "inconclusive_probability": 0.9858
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.0026,
+      "inconclusive_probability": 0.9974
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 381,
+      "accept_probability": 0.1514,
+      "reject_probability": 0.0006,
+      "inconclusive_probability": 0.848
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 500,
+      "accept_probability": 0.0834,
+      "reject_probability": 0.0002,
+      "inconclusive_probability": 0.9164
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 750,
+      "accept_probability": 0.2782,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.7218
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 1000,
+      "accept_probability": 0.2586,
+      "reject_probability": 0.0002,
+      "inconclusive_probability": 0.7412
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 1500,
+      "accept_probability": 0.538,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.462
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 2000,
+      "accept_probability": 0.697,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.303
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 3000,
+      "accept_probability": 0.8798,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.1202
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 5000,
+      "accept_probability": 0.983,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.017
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 7500,
+      "accept_probability": 0.999,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.001
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 10000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 15000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "safe",
+      "true_overturn_rate": 0.005,
+      "audit_samples": 20000,
+      "accept_probability": 1.0,
+      "reject_probability": 0.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.1918,
+      "inconclusive_probability": 0.8082
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.179,
+      "inconclusive_probability": 0.821
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 381,
+      "accept_probability": 0.0042,
+      "reject_probability": 0.213,
+      "inconclusive_probability": 0.7828
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 500,
+      "accept_probability": 0.0004,
+      "reject_probability": 0.2182,
+      "inconclusive_probability": 0.7814
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 750,
+      "accept_probability": 0.0008,
+      "reject_probability": 0.337,
+      "inconclusive_probability": 0.6622
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 1000,
+      "accept_probability": 0.0002,
+      "reject_probability": 0.342,
+      "inconclusive_probability": 0.6578
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 1500,
+      "accept_probability": 0.0,
+      "reject_probability": 0.472,
+      "inconclusive_probability": 0.528
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 2000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.608,
+      "inconclusive_probability": 0.392
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 3000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.748,
+      "inconclusive_probability": 0.252
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 5000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9202,
+      "inconclusive_probability": 0.0798
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 7500,
+      "accept_probability": 0.0,
+      "reject_probability": 0.981,
+      "inconclusive_probability": 0.019
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 10000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9944,
+      "inconclusive_probability": 0.0056
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 15000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.015,
+      "audit_samples": 20000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.3162,
+      "inconclusive_probability": 0.6838
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.3678,
+      "inconclusive_probability": 0.6322
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 381,
+      "accept_probability": 0.0006,
+      "reject_probability": 0.4976,
+      "inconclusive_probability": 0.5018
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 500,
+      "accept_probability": 0.0,
+      "reject_probability": 0.5442,
+      "inconclusive_probability": 0.4558
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 750,
+      "accept_probability": 0.0002,
+      "reject_probability": 0.7404,
+      "inconclusive_probability": 0.2594
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 1000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.7726,
+      "inconclusive_probability": 0.2274
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 1500,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9228,
+      "inconclusive_probability": 0.0772
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 2000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9738,
+      "inconclusive_probability": 0.0262
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 3000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9968,
+      "inconclusive_probability": 0.0032
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 5000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 7500,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 10000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 15000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.02,
+      "audit_samples": 20000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 100,
+      "accept_probability": 0.0,
+      "reject_probability": 0.5956,
+      "inconclusive_probability": 0.4044
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 200,
+      "accept_probability": 0.0,
+      "reject_probability": 0.728,
+      "inconclusive_probability": 0.272
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 381,
+      "accept_probability": 0.0,
+      "reject_probability": 0.8914,
+      "inconclusive_probability": 0.1086
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 500,
+      "accept_probability": 0.0,
+      "reject_probability": 0.933,
+      "inconclusive_probability": 0.067
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 750,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9912,
+      "inconclusive_probability": 0.0088
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 1000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9956,
+      "inconclusive_probability": 0.0044
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 1500,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 2000,
+      "accept_probability": 0.0,
+      "reject_probability": 0.9998,
+      "inconclusive_probability": 0.0002
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 3000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 5000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 7500,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 10000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 15000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    },
+    {
+      "classification": "unsafe",
+      "true_overturn_rate": 0.03,
+      "audit_samples": 20000,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0
+    }
+  ]
+}

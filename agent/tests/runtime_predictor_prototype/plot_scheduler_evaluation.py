@@ -14,7 +14,7 @@ from .scheduler_evaluation import OPERATIONAL_POLICIES, MultiDimensionalEvaluati
 from .scheduler_simulation import POLICY_LABELS, SchedulerExperimentConfig
 
 
-POLICY_COLORS = ("tab:gray", "tab:orange", "tab:red", "tab:blue", "tab:green", "tab:olive", "tab:purple")
+POLICY_COLORS = ("tab:gray", "tab:orange", "tab:red", "tab:blue", "tab:green", "tab:olive", "tab:cyan", "tab:brown", "tab:purple")
 
 
 def _metric_panel(axis: plt.Axes, summaries: tuple[PolicyEvaluationSummary, ...], title: str, ylabel: str, metric_name: str, *, threshold: float | None = None, percent: bool = False) -> None:

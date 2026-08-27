@@ -1,0 +1,488 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T02:50:28.956943+00:00",
+  "method": {
+    "labels": 11000,
+    "risk_fraction": 0.5,
+    "trials_per_strategy": 5000,
+    "seed": 20260827,
+    "wrong_label_assumption": "uniform across the other four routes",
+    "adjudicator_assumption": "resolves every disagreement correctly",
+    "selection_gate": "p95 accepted-label error <= 1%"
+  },
+  "selected": [
+    {
+      "scenario": "optimistic",
+      "natural_reviewer_error": 0.01,
+      "risk_reviewer_error": 0.05,
+      "natural_dual_fraction": 0.0,
+      "risk_dual_fraction": 1.0,
+      "mean_label_error_rate": 0.005301181818181819,
+      "p95_label_error_rate": 0.006454545454545454,
+      "mean_reviews_per_gold_label": 1.5484047272727273,
+      "mean_adjudication_rate": 0.048404727272727266
+    },
+    {
+      "scenario": "expected",
+      "natural_reviewer_error": 0.02,
+      "risk_reviewer_error": 0.08,
+      "natural_dual_fraction": 0.25,
+      "risk_dual_fraction": 1.0,
+      "mean_label_error_rate": 0.0082994,
+      "p95_label_error_rate": 0.009727272727272727,
+      "mean_reviews_per_gold_label": 1.7059291818181817,
+      "mean_adjudication_rate": 0.08092918181818182
+    },
+    {
+      "scenario": "stressed",
+      "natural_reviewer_error": 0.05,
+      "risk_reviewer_error": 0.15,
+      "natural_dual_fraction": 1.0,
+      "risk_dual_fraction": 1.0,
+      "mean_label_error_rate": 0.003116763636363636,
+      "p95_label_error_rate": 0.004,
+      "mean_reviews_per_gold_label": 2.1843692363636364,
+      "mean_adjudication_rate": 0.18436923636363636
+    }
+  ],
+  "results": {
+    "optimistic": [
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.02998047272727273,
+        "p95_label_error_rate": 0.03263636363636364,
+        "mean_reviews_per_gold_label": 1.0,
+        "mean_adjudication_rate": 0.0
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.017647054545454545,
+        "p95_label_error_rate": 0.019636363636363636,
+        "mean_reviews_per_gold_label": 1.2742616181818183,
+        "mean_adjudication_rate": 0.02426161818181818
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.005301181818181819,
+        "p95_label_error_rate": 0.006454545454545454,
+        "mean_reviews_per_gold_label": 1.5484047272727273,
+        "mean_adjudication_rate": 0.048404727272727266
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.029491818181818178,
+        "p95_label_error_rate": 0.03218181818181818,
+        "mean_reviews_per_gold_label": 1.0509903818181818,
+        "mean_adjudication_rate": 0.0009903818181818181
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.017152418181818185,
+        "p95_label_error_rate": 0.019181818181818182,
+        "mean_reviews_per_gold_label": 1.3252449818181817,
+        "mean_adjudication_rate": 0.025244981818181817
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.004819654545454546,
+        "p95_label_error_rate": 0.005909090909090909,
+        "mean_reviews_per_gold_label": 1.5994175454545454,
+        "mean_adjudication_rate": 0.04941754545454546
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.02873425454545454,
+        "p95_label_error_rate": 0.031363636363636364,
+        "mean_reviews_per_gold_label": 1.1274860363636363,
+        "mean_adjudication_rate": 0.0024860363636363637
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.01639889090909091,
+        "p95_label_error_rate": 0.018454545454545456,
+        "mean_reviews_per_gold_label": 1.4017172727272729,
+        "mean_adjudication_rate": 0.02671727272727273
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.004060781818181819,
+        "p95_label_error_rate": 0.005090909090909091,
+        "mean_reviews_per_gold_label": 1.6759245636363638,
+        "mean_adjudication_rate": 0.050924563636363634
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.027502254545454546,
+        "p95_label_error_rate": 0.030090909090909092,
+        "mean_reviews_per_gold_label": 1.2549731636363637,
+        "mean_adjudication_rate": 0.004973163636363637
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.015166090909090909,
+        "p95_label_error_rate": 0.01709090909090909,
+        "mean_reviews_per_gold_label": 1.5292179454545454,
+        "mean_adjudication_rate": 0.02921794545454546
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.0028266363636363636,
+        "p95_label_error_rate": 0.0036363636363636364,
+        "mean_reviews_per_gold_label": 1.8034282,
+        "mean_adjudication_rate": 0.053428199999999995
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.026227327272727273,
+        "p95_label_error_rate": 0.028727272727272726,
+        "mean_reviews_per_gold_label": 1.3824517818181818,
+        "mean_adjudication_rate": 0.0074517818181818185
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.013900999999999998,
+        "p95_label_error_rate": 0.01572727272727273,
+        "mean_reviews_per_gold_label": 1.6567199636363636,
+        "mean_adjudication_rate": 0.03171996363636364
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.001569109090909091,
+        "p95_label_error_rate": 0.002181818181818182,
+        "mean_reviews_per_gold_label": 1.9309030545454544,
+        "mean_adjudication_rate": 0.05590305454545455
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.02500127272727273,
+        "p95_label_error_rate": 0.027454545454545454,
+        "mean_reviews_per_gold_label": 1.509954509090909,
+        "mean_adjudication_rate": 0.009954509090909091
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.012631581818181819,
+        "p95_label_error_rate": 0.014363636363636363,
+        "mean_reviews_per_gold_label": 1.7841527636363637,
+        "mean_adjudication_rate": 0.03415276363636364
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.0003235090909090909,
+        "p95_label_error_rate": 0.0006363636363636364,
+        "mean_reviews_per_gold_label": 2.0583602363636366,
+        "mean_adjudication_rate": 0.05836023636363636
+      }
+    ],
+    "expected": [
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.050018236363636365,
+        "p95_label_error_rate": 0.05336363636363636,
+        "mean_reviews_per_gold_label": 1.0,
+        "mean_adjudication_rate": 0.0
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.03041474545454546,
+        "p95_label_error_rate": 0.03309090909090909,
+        "mean_reviews_per_gold_label": 1.2880311818181818,
+        "mean_adjudication_rate": 0.03803118181818182
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.01081410909090909,
+        "p95_label_error_rate": 0.012454545454545454,
+        "mean_reviews_per_gold_label": 1.5760090727272726,
+        "mean_adjudication_rate": 0.07600907272727273
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.048998400000000004,
+        "p95_label_error_rate": 0.052454545454545455,
+        "mean_reviews_per_gold_label": 1.0519818727272727,
+        "mean_adjudication_rate": 0.0019818727272727273
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.02941994545454545,
+        "p95_label_error_rate": 0.032090909090909094,
+        "mean_reviews_per_gold_label": 1.3399688181818183,
+        "mean_adjudication_rate": 0.03996881818181818
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.009788472727272728,
+        "p95_label_error_rate": 0.011363636363636364,
+        "mean_reviews_per_gold_label": 1.627974618181818,
+        "mean_adjudication_rate": 0.07797461818181818
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.04750370909090909,
+        "p95_label_error_rate": 0.05081818181818182,
+        "mean_reviews_per_gold_label": 1.1299342363636362,
+        "mean_adjudication_rate": 0.004934236363636364
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.027892818181818182,
+        "p95_label_error_rate": 0.030454545454545453,
+        "mean_reviews_per_gold_label": 1.4179418727272728,
+        "mean_adjudication_rate": 0.04294187272727273
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.0082994,
+        "p95_label_error_rate": 0.009727272727272727,
+        "mean_reviews_per_gold_label": 1.7059291818181817,
+        "mean_adjudication_rate": 0.08092918181818182
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.04503427272727273,
+        "p95_label_error_rate": 0.04818181818181818,
+        "mean_reviews_per_gold_label": 1.2598654363636363,
+        "mean_adjudication_rate": 0.009865436363636362
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.0254114,
+        "p95_label_error_rate": 0.027909090909090908,
+        "mean_reviews_per_gold_label": 1.547859181818182,
+        "mean_adjudication_rate": 0.04785918181818182
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.005824418181818182,
+        "p95_label_error_rate": 0.007,
+        "mean_reviews_per_gold_label": 1.8358905636363638,
+        "mean_adjudication_rate": 0.08589056363636365
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.04254403636363636,
+        "p95_label_error_rate": 0.045636363636363635,
+        "mean_reviews_per_gold_label": 1.3897971636363635,
+        "mean_adjudication_rate": 0.014797163636363637
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.02294930909090909,
+        "p95_label_error_rate": 0.025186363636363653,
+        "mean_reviews_per_gold_label": 1.6778131454545455,
+        "mean_adjudication_rate": 0.05281314545454545
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.0033325636363636365,
+        "p95_label_error_rate": 0.004272727272727273,
+        "mean_reviews_per_gold_label": 1.965859527272727,
+        "mean_adjudication_rate": 0.09085952727272727
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.040027272727272724,
+        "p95_label_error_rate": 0.043,
+        "mean_reviews_per_gold_label": 1.519742818181818,
+        "mean_adjudication_rate": 0.019742818181818184
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.020470145454545455,
+        "p95_label_error_rate": 0.022636363636363635,
+        "mean_reviews_per_gold_label": 1.807760109090909,
+        "mean_adjudication_rate": 0.0577601090909091
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.0008534909090909093,
+        "p95_label_error_rate": 0.0013636363636363637,
+        "mean_reviews_per_gold_label": 2.095695709090909,
+        "mean_adjudication_rate": 0.09569570909090909
+      }
+    ],
+    "stressed": [
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.10005147272727272,
+        "p95_label_error_rate": 0.10472727272727272,
+        "mean_reviews_per_gold_label": 1.0,
+        "mean_adjudication_rate": 0.0
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.06393634545454546,
+        "p95_label_error_rate": 0.06763636363636363,
+        "mean_reviews_per_gold_label": 1.317971090909091,
+        "mean_adjudication_rate": 0.06797109090909091
+      },
+      {
+        "natural_dual_fraction": 0.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.027764218181818182,
+        "p95_label_error_rate": 0.030363636363636363,
+        "mean_reviews_per_gold_label": 1.6359319272727275,
+        "mean_adjudication_rate": 0.13593192727272727
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.09751058181818183,
+        "p95_label_error_rate": 0.1020909090909091,
+        "mean_reviews_per_gold_label": 1.054834181818182,
+        "mean_adjudication_rate": 0.004834181818181818
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.061442072727272715,
+        "p95_label_error_rate": 0.06509090909090909,
+        "mean_reviews_per_gold_label": 1.3727884,
+        "mean_adjudication_rate": 0.0727884
+      },
+      {
+        "natural_dual_fraction": 0.1,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.02533930909090909,
+        "p95_label_error_rate": 0.02781818181818182,
+        "mean_reviews_per_gold_label": 1.6907042181818182,
+        "mean_adjudication_rate": 0.1407042181818182
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.09378470909090908,
+        "p95_label_error_rate": 0.09827272727272728,
+        "mean_reviews_per_gold_label": 1.1370888181818182,
+        "mean_adjudication_rate": 0.012088818181818181
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.05774349090909091,
+        "p95_label_error_rate": 0.06127272727272727,
+        "mean_reviews_per_gold_label": 1.4551083454545453,
+        "mean_adjudication_rate": 0.08010834545454545
+      },
+      {
+        "natural_dual_fraction": 0.25,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.021661690909090908,
+        "p95_label_error_rate": 0.024,
+        "mean_reviews_per_gold_label": 1.7730546363636364,
+        "mean_adjudication_rate": 0.1480546363636364
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.08768436363636364,
+        "p95_label_error_rate": 0.09209090909090908,
+        "mean_reviews_per_gold_label": 1.2741997272727272,
+        "mean_adjudication_rate": 0.024199727272727272
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.051554363636363634,
+        "p95_label_error_rate": 0.05490909090909091,
+        "mean_reviews_per_gold_label": 1.5922207454545454,
+        "mean_adjudication_rate": 0.09222074545454545
+      },
+      {
+        "natural_dual_fraction": 0.5,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.015478781818181818,
+        "p95_label_error_rate": 0.017363636363636362,
+        "mean_reviews_per_gold_label": 1.9101315272727275,
+        "mean_adjudication_rate": 0.16013152727272728
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.08150885454545453,
+        "p95_label_error_rate": 0.08563636363636364,
+        "mean_reviews_per_gold_label": 1.4113289454545455,
+        "mean_adjudication_rate": 0.03632894545454546
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.0454404,
+        "p95_label_error_rate": 0.04845454545454545,
+        "mean_reviews_per_gold_label": 1.7293384545454544,
+        "mean_adjudication_rate": 0.10433845454545454
+      },
+      {
+        "natural_dual_fraction": 0.75,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.009306945454545456,
+        "p95_label_error_rate": 0.010818181818181819,
+        "mean_reviews_per_gold_label": 2.0471758363636363,
+        "mean_adjudication_rate": 0.17217583636363637
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.0,
+        "mean_label_error_rate": 0.07532056363636364,
+        "p95_label_error_rate": 0.07927272727272727,
+        "mean_reviews_per_gold_label": 1.5484324,
+        "mean_adjudication_rate": 0.048432399999999994
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 0.5,
+        "mean_label_error_rate": 0.03921683636363636,
+        "p95_label_error_rate": 0.04209090909090909,
+        "mean_reviews_per_gold_label": 1.8664060363636368,
+        "mean_adjudication_rate": 0.11640603636363635
+      },
+      {
+        "natural_dual_fraction": 1.0,
+        "risk_dual_fraction": 1.0,
+        "mean_label_error_rate": 0.003116763636363636,
+        "p95_label_error_rate": 0.004,
+        "mean_reviews_per_gold_label": 2.1843692363636364,
+        "mean_adjudication_rate": 0.18436923636363636
+      }
+    ]
+  }
+}

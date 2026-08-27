@@ -138,6 +138,8 @@ class AgentRunStore(Protocol):
 
     async def list_events(self, run_id: UUID, after_event_id: int = 0) -> list[AgentRunEvent]: ...
 
+    async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]: ...  # noqa: E501
+
     async def prepare_resume(self, run_id: UUID, command: ResumeAgentRunRequest) -> AgentRunRequest: ...
 
 
@@ -239,6 +241,16 @@ class InMemoryAgentRunStore:
         async with self._lock:
             record = self._record(run_id)
             return [event for event in record.events if event.event_id > after_event_id]
+
+    async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
+        if not 1 <= limit <= 101:
+            raise ValueError("route event limit must be between 1 and 101")
+        async with self._lock:
+            events = [
+                event for event in self._record(run_id).events
+                if event.event_id > after_event_id and event.type == "route.selected"
+            ]
+            return events[:limit]
 
     async def prepare_resume(self, run_id: UUID, command: ResumeAgentRunRequest) -> AgentRunRequest:
         async with self._lock:
@@ -355,6 +367,9 @@ class RunCoordinator:
 
     async def events(self, run_id: UUID, after_event_id: int = 0) -> list[AgentRunEvent]:
         return await self._store.list_events(run_id, after_event_id)
+
+    async def route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
+        return await self._store.list_route_events(run_id, after_event_id, limit)
 
     async def cancel(self, run_id: UUID) -> None:
         request = await self._store.get_request(run_id)

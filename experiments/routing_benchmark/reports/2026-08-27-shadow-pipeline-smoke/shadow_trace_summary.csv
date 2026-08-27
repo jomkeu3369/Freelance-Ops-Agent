@@ -1,0 +1,4 @@
+﻿name,sample_count,effective_sample_size,accuracy,macro_f1,minimum_route_f1,human_required_recall,false_automation_count,false_automation_weighted_rate,over_escalation_count,over_escalation_weighted_rate,llm_call_rate,mean_routing_cost_usd,estimated_cohort_routing_cost_usd,mean_routing_latency_ms,p95_routing_latency_ms
+Observed final route,6,4.103742613263296,0.8840000000000001,0.5599999999999999,0.0,1.0,0,0.0,0,0.0,1.0,0.000897544,0.005385264,2185.8130839969967,4064.366400009021
+Shadow accepts every suggestion,6,4.103742613263296,0.8840000000000001,0.5599999999999999,0.0,1.0,0,0.0,0,0.0,0.0,0.0,0.0,1.6801000000000004,1.6801
+Shadow accepts HUMAN_REQUIRED only,6,4.103742613263296,0.8840000000000001,0.5599999999999999,0.0,1.0,0,0.0,0,0.0,0.5800000000000001,0.0004905640000000001,0.0029433840000000003,1400.1271480027783,4064.366400009021

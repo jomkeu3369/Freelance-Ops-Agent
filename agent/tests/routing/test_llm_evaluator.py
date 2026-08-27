@@ -258,6 +258,8 @@ async def test_operational_gateway_sends_even_confident_local_routes_to_llm() ->
     assert decision.source is RouteDecisionSource.LLM_EVALUATOR
     assert decision.local_decision is not None
     assert decision.local_decision.route is RouteLabel.DIRECT_TOOL
+    assert decision.local_decision_latency_ms is not None
+    assert decision.local_decision_latency_ms >= 0
 
 
 @pytest.mark.asyncio

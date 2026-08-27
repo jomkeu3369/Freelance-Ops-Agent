@@ -24,7 +24,16 @@ from contracts import (
     TrustedRunContext,
 )
 from providers import ModelGeneration, ProviderCallError
-from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel
+from routing import (
+    EvaluationReason,
+    FinalRouteDecision,
+    LLMRouteEvaluation,
+    LLMRouteVerdict,
+    RouteDecision,
+    RouteDecisionSource,
+    RouteLabel,
+    RouteRank,
+)
 from runtime import (
     AgentExecutionError,
     ExecutionAuthorization,
@@ -40,9 +49,11 @@ from web_research import ResearchCollection
 class FixedGateway:
     def __init__(self, route: RouteLabel) -> None:
         self.selected_route = route
+        self.calls = 0
 
     async def route(self, text: str, safety_context: object = None) -> FinalRouteDecision:
         del text, safety_context
+        self.calls += 1
         return FinalRouteDecision(
             route=self.selected_route,
             source=RouteDecisionSource.LLM_EVALUATOR,
@@ -256,7 +267,8 @@ async def test_project_analysis_policy_upgrades_simple_route_to_full_supervisor_
     request.budget.max_hierarchy_depth = 2
     provider = FixedProvider()
     tool = FixedProjectContextTool(request)
-    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), provider, tool)
+    gateway = FixedGateway(RouteLabel.SIMPLE_LLM)
+    executor = OperationalAgentExecutor(gateway, provider, tool)
 
     outcome = await executor.execute(
         request,
@@ -266,10 +278,13 @@ async def test_project_analysis_policy_upgrades_simple_route_to_full_supervisor_
     assert outcome.result is not None
     assert len(outcome.result.department_results) == 4
     assert provider.calls == 4
+    assert gateway.calls == 0
+    assert outcome.usage is not None
+    assert outcome.usage.model_calls == 4
     assert outcome.events[0].data["route"] == "SUPERVISOR"
     assert outcome.events[0].data["decisionSource"] == "POLICY_GATE"
     assert outcome.events[0].data["reasonCodes"] == ["PROJECT_ANALYSIS_FULL_WORKFLOW"]
-    assert outcome.events[0].data["evaluatorSuggestedRoute"] == "SIMPLE_LLM"
+    assert outcome.events[0].data["evaluatorSuggestedRoute"] is None
 
 
 async def test_project_analysis_rejects_budget_that_cannot_run_the_full_workflow() -> None:
@@ -556,24 +571,111 @@ async def test_in_memory_resume_persists_question_and_answer_history() -> None:
 
 
 async def test_direct_tool_route_skips_department_model_generation() -> None:
-    request = _request(model_calls=1, tool_calls=1)
+    request = _request(model_calls=0, tool_calls=1)
     request.input.direct_tool_operation = DirectToolOperation.GET_PROJECT_CONTEXT
     provider = FixedProvider()
     tool = FixedProjectContextTool(request)
-    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.DIRECT_TOOL), provider, tool)
+    gateway = FixedGateway(RouteLabel.SIMPLE_LLM)
+    executor = OperationalAgentExecutor(gateway, provider, tool)
 
     outcome = await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
 
     assert outcome.result is not None
     assert outcome.active_department is not None
     assert provider.calls == 0
+    assert gateway.calls == 0
     assert "테스트 프로젝트" in outcome.result.project_summary
     assert outcome.usage is not None
     assert outcome.usage.request_tier.value == "DIRECT_TOOL"
-    assert outcome.usage.model_calls == 1
+    assert outcome.usage.model_calls == 0
     assert outcome.usage.tool_calls == 1
     assert [event.type for event in outcome.events] == ["route.selected", "tool.completed"]
     assert outcome.events[1].data["toolName"] == "get_project_context"
+
+
+async def test_trusted_safety_gate_skips_route_model() -> None:
+    request = _request(model_calls=0)
+    request.safety_context.approval_required = True
+    gateway = FixedGateway(RouteLabel.SIMPLE_LLM)
+    executor = OperationalAgentExecutor(gateway, FixedProvider())
+
+    outcome = await executor.execute(request)
+
+    assert outcome.interruption is not None
+    assert gateway.calls == 0
+    assert outcome.usage is not None
+    assert outcome.usage.model_calls == 0
+    assert outcome.events[0].data["decisionSource"] == "POLICY_GATE"
+
+
+def test_route_event_records_non_sensitive_shadow_signals() -> None:
+    ranking = (
+        RouteRank(RouteLabel.SIMPLE_LLM, 1, 0.8),
+        RouteRank(RouteLabel.REACT_AGENT, 2, 0.2)
+    )
+    shadow = RouteDecision(
+        route=None,
+        suggested_route=RouteLabel.SIMPLE_LLM,
+        needs_fallback=True,
+        fallback_reason="LANE_DISAGREEMENT",
+        fused_share=0.61,
+        margin=0.12,
+        bm25_ranking=ranking,
+        encoder_ranking=tuple(reversed(ranking)),
+        fused_ranking=ranking,
+        matched_example_ids=("example-1",)
+    )
+    decision = FinalRouteDecision(
+        route=RouteLabel.SIMPLE_LLM,
+        source=RouteDecisionSource.LLM_EVALUATOR,
+        local_decision=shadow
+    )
+
+    event = OperationalAgentExecutor._route_event(_request(), decision)
+
+    assert event.data["shadowSuggestedRoute"] == "SIMPLE_LLM"
+    assert event.data["shadowNeedsFallback"] is True
+    assert event.data["shadowFallbackReason"] == "LANE_DISAGREEMENT"
+    assert event.data["shadowFusedShare"] == 0.61
+    assert event.data["shadowMargin"] == 0.12
+    assert event.data["shadowLaneAgreement"] is False
+    assert event.data["shadowLatencyMs"] is None
+    assert event.data["routingInputTokens"] == 0
+    assert event.data["routingOutputTokens"] == 0
+    assert "matchedExampleIds" not in event.data
+
+
+def test_route_event_uses_collector_evaluator_model_contract() -> None:
+    evaluation = LLMRouteEvaluation(
+        verdict=LLMRouteVerdict(
+            route=RouteLabel.SIMPLE_LLM,
+            abstain=False,
+            self_reported_confidence=0.9,
+            reason_codes=[EvaluationReason.SINGLE_RESPONSE],
+            prompt_manipulation_detected=False
+        ),
+        model="gpt-5.6-luna",
+        prompt_version="v1",
+        prompt_sha256="0" * 64,
+        response_id="response-1",
+        input_tokens=123,
+        output_tokens=17
+    )
+    decision = FinalRouteDecision(
+        route=RouteLabel.SIMPLE_LLM,
+        source=RouteDecisionSource.LLM_EVALUATOR,
+        local_decision=None,
+        llm_evaluation=evaluation
+    )
+
+    event = OperationalAgentExecutor._route_event(_request(), decision)
+
+    assert event.data["evaluatorModel"] == "gpt-5.6-luna"
+    assert event.data["evaluatorProvider"] == "OPENAI"
+    assert "routingModel" not in event.data
+    assert "routingProvider" not in event.data
+    assert event.data["routingInputTokens"] == 123
+    assert event.data["routingOutputTokens"] == 17
 
 
 async def test_model_call_budget_fails_before_department_call() -> None:

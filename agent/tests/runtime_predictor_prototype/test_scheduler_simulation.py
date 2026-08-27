@@ -4,7 +4,7 @@ import math
 
 import pytest
 
-from .scheduler_simulation import SchedulerExperimentConfig, SchedulerTask, SchedulingPolicy, generate_scheduler_workload, run_policy_comparison, run_scheduler_benchmark, simulate_scheduler
+from .scheduler_simulation import SchedulerExperimentConfig, SchedulerTask, SchedulingPolicy, WorkerCapacityEvent, generate_scheduler_workload, run_policy_comparison, run_scheduler_benchmark, simulate_scheduler
 
 
 def _task(task_id: str, workspace_id: str, runtime: float, predicted: float, *, queued_at: float = 0.0, priority: int = 3, cache_hit: bool = False) -> SchedulerTask:
@@ -109,3 +109,42 @@ def test_global_predicted_sjf_does_not_apply_workspace_fairness() -> None:
     fair_order = [task.task_id for task in sorted(fair_result.task_results, key=lambda task: task.started_at_seconds)]
     assert global_order == ["a-short", "a-medium", "b-long"]
     assert fair_order == ["a-short", "b-long", "a-medium"]
+
+
+def test_capacity_event_adds_workers_without_preempting_running_tasks() -> None:
+    tasks = [_task(f"task-{index}", "workspace", 10.0, 10.0) for index in range(4)]
+    static = simulate_scheduler(tasks, SchedulingPolicy.FIFO, worker_count=1)
+    scaled = simulate_scheduler(tasks, SchedulingPolicy.FIFO, worker_count=1, capacity_events=(WorkerCapacityEvent(at_seconds=5.0, worker_count=2),))
+    assert scaled.metrics.mean_completion_seconds < static.metrics.mean_completion_seconds
+    assert max(result.completed_at_seconds for result in scaled.task_results) == 25.0
+
+
+def test_bounded_fair_policy_does_not_grant_unbounded_idle_credit() -> None:
+    tasks = [_task(f"a-{index}", "workspace-a", 5.0, 5.0) for index in range(20)]
+    tasks.append(_task("b-initial", "workspace-b", 5.0, 5.0))
+    tasks.extend(_task(f"b-return-{index}", "workspace-b", 5.0, 5.0, queued_at=55.0) for index in range(5))
+    legacy = simulate_scheduler(tasks, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING, worker_count=1, max_wait_seconds=120.0)
+    bounded = simulate_scheduler(tasks, SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING, worker_count=1, max_wait_seconds=120.0)
+    legacy_after_return = [task.workspace_id for task in sorted(legacy.task_results, key=lambda task: task.started_at_seconds) if 55.0 <= task.started_at_seconds < 70.0]
+    bounded_after_return = [task.workspace_id for task in sorted(bounded.task_results, key=lambda task: task.started_at_seconds) if 55.0 <= task.started_at_seconds < 70.0]
+    assert legacy_after_return == ["workspace-b", "workspace-b", "workspace-b"]
+    assert bounded_after_return.count("workspace-a") >= 1
+
+
+def test_bounded_fair_global_rescue_limits_cross_workspace_starvation() -> None:
+    tasks = [_task("victim", "workspace-a", 20.0, 200.0)]
+    tasks.extend(_task(f"short-{index}", "workspace-b", 1.0, 1.0, queued_at=index * 0.8) for index in range(30))
+    result = simulate_scheduler(tasks, SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING, worker_count=1, max_wait_seconds=4.0, aging_overdue_interval=2)
+    victim = next(task for task in result.task_results if task.task_id == "victim")
+    assert victim.started_at_seconds <= 5.0
+
+
+def test_slo_aware_policy_rescues_high_priority_elephant() -> None:
+    tasks = [_task("priority-elephant", "workspace-a", 30.0, 30.0, priority=5)]
+    tasks.extend(_task(f"short-{index}", "workspace-b", 2.0, 2.0, priority=2) for index in range(40))
+    global_result = simulate_scheduler(tasks, SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING, worker_count=1, max_wait_seconds=120.0)
+    slo_aware = simulate_scheduler(tasks, SchedulingPolicy.SLO_AWARE_PREDICTED_SJF, worker_count=1, max_wait_seconds=120.0, high_priority_rescue_seconds=20.0)
+    global_elephant = next(task for task in global_result.task_results if task.task_id == "priority-elephant")
+    rescued_elephant = next(task for task in slo_aware.task_results if task.task_id == "priority-elephant")
+    assert global_elephant.started_at_seconds == 80.0
+    assert rescued_elephant.started_at_seconds == 20.0

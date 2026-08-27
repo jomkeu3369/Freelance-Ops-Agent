@@ -12,6 +12,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunReques
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -117,6 +118,29 @@ class HttpAgentRunClientTest {
     @Test
     void productionTransportUsesHttp11ForUvicornCompatibility() {
         assertThat(HttpAgentRunClient.http11Client().version()).isEqualTo(HttpClient.Version.HTTP_1_1);
+    }
+
+    @Test
+    void fetchesFiniteRouteObservationBatchFromCursor() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpAgentRunClient client = testClient(builder);
+        UUID runId = UUID.randomUUID();
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        String body = "{\"runId\":\"" + runId + "\",\"status\":\"COMPLETED\",\"events\":[],"
+            + "\"nextEventId\":7,\"hasMore\":false,\"terminal\":true}";
+        server.expect(requestTo("http://agent:8000/internal/v1/agent-runs/" + runId + "/route-observations"))
+            .andExpect(method(HttpMethod.GET))
+            .andExpect(header("Authorization", "Bearer signed-token"))
+            .andExpect(header("After-Event-ID", "7"))
+            .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        RouteObservationBatch batch = client.routeObservations(runId, 7, "signed-token", traceparent);
+
+        assertThat(batch.runId()).isEqualTo(runId);
+        assertThat(batch.terminal()).isTrue();
+        assertThat(batch.nextEventId()).isEqualTo(7);
+        server.verify();
     }
 
     @Test

@@ -9,6 +9,12 @@ import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.policy.SystemRole;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
+import com.freelanceops.backend.domain.agentrun.repository.AgentRouteObservationRepository;
+import com.freelanceops.backend.domain.agentrun.entity.AgentRouteObservationEntity;
+import com.freelanceops.backend.domain.agentrun.dto.request.ReviewRouteObservationRequest;
+import com.freelanceops.backend.domain.agentrun.model.AgentRouteLabel;
+import com.freelanceops.backend.domain.agentrun.model.RouteCorrectionSource;
+import com.freelanceops.backend.domain.agentrun.service.AgentRouteReviewService;
 import com.freelanceops.backend.domain.quotation.dto.request.UpdateEstimationPolicyRequest;
 import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
 import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
@@ -32,6 +38,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +68,12 @@ class WorkspaceRbacPostgresTest {
 
     @Autowired
     private AgentRunCommandQueue agentRunCommandQueue;
+
+    @Autowired
+    private AgentRouteObservationRepository agentRouteObservationRepository;
+
+    @Autowired
+    private AgentRouteReviewService agentRouteReviewService;
 
     @Autowired
     private PricingConfigurationService pricingConfigurationService;
@@ -153,6 +168,161 @@ class WorkspaceRbacPostgresTest {
 
         assertThatThrownBy(() -> insertStartCommand(UUID.randomUUID(), runId, ownerId))
             .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
+    void routeReviewQueriesSeparateNaturalAndRiskStrataInPostgres() {
+        UUID ownerId = insertUser("route-review-owner");
+        WorkspaceProvisioningResult workspace = provisioningService.create(
+            ownerId, "Route Review Workspace", "route-review-workspace"
+        );
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID naturalId = UUID.randomUUID();
+        UUID riskId = UUID.randomUUID();
+        UUID secondRiskId = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO app.project (
+                    id, workspace_id, title, requirement_text, currency, status, created_by
+                ) VALUES (:id, :workspaceId, 'Route project', 'Requirement', 'KRW', 'LEAD', :ownerId)
+                """)
+            .param("id", projectId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("ownerId", ownerId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.agent_run (
+                    id, workspace_id, project_id, thread_id, initiated_by, provider, model, status
+                ) VALUES (:id, :workspaceId, :projectId, :threadId, :ownerId, 'OPENAI', 'gpt-test', 'COMPLETED')
+                """)
+            .param("id", runId)
+            .param("workspaceId", workspace.workspaceId())
+            .param("projectId", projectId)
+            .param("threadId", UUID.randomUUID())
+            .param("ownerId", ownerId)
+            .update();
+        insertRouteObservation(naturalId, workspace.workspaceId(), projectId, runId, 1, "SIMPLE_LLM");
+        insertRouteObservation(riskId, workspace.workspaceId(), projectId, runId, 2, "HUMAN_REQUIRED");
+        insertRouteObservation(secondRiskId, workspace.workspaceId(), projectId, runId, 3, "REACT_AGENT");
+
+        assertThat(agentRouteObservationRepository.findNaturalPending(workspace.workspaceId(), 10))
+            .extracting(observation -> observation.id())
+            .containsExactly(naturalId);
+        assertThat(agentRouteObservationRepository.findRiskPending(workspace.workspaceId(), 10))
+            .extracting(observation -> observation.id())
+            .containsExactly(riskId, secondRiskId);
+
+        CountDownLatch start = new CountDownLatch(1);
+        UUID firstReviewer = insertUser("route-review-first");
+        UUID secondReviewer = insertUser("route-review-second");
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Future<UUID> first = executor.submit(() -> claimRiskAfter(start, workspace.workspaceId(), firstReviewer));
+            Future<UUID> second = executor.submit(() -> claimRiskAfter(start, workspace.workspaceId(), secondReviewer));
+            start.countDown();
+            assertThat(Stream.of(first.get(), second.get()).distinct().count()).isEqualTo(2);
+        } catch (Exception error) {
+            throw new AssertionError("concurrent route review claims failed", error);
+        }
+        assertThat(agentRouteObservationRepository.findRiskPending(workspace.workspaceId(), 10)).isEmpty();
+
+        UUID consensusId = UUID.randomUUID();
+        insertRouteObservation(consensusId, workspace.workspaceId(), projectId, runId, 4, "HUMAN_REQUIRED");
+        UUID firstConsensusReviewer = insertUser("route-consensus-first");
+        UUID secondConsensusReviewer = insertUser("route-consensus-second");
+        UUID adjudicator = insertUser("route-consensus-adjudicator");
+        addRole(workspace.workspaceId(), firstConsensusReviewer, ownerId, "MANAGER");
+        addRole(workspace.workspaceId(), secondConsensusReviewer, ownerId, "MANAGER");
+        addRole(workspace.workspaceId(), adjudicator, ownerId, "ADMIN");
+
+        var firstClaims = agentRouteReviewService.claim(firstConsensusReviewer, workspace.workspaceId(), 2);
+        assertThat(firstClaims).extracting(item -> item.id()).contains(consensusId);
+        agentRouteReviewService.review(
+            firstConsensusReviewer, workspace.workspaceId(), consensusId,
+            new ReviewRouteObservationRequest(AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW)
+        );
+        assertThat(agentRouteReviewService.claim(secondConsensusReviewer, workspace.workspaceId(), 1))
+            .extracting(item -> item.id()).containsExactly(consensusId);
+        var auditRequired = agentRouteReviewService.review(
+            secondConsensusReviewer, workspace.workspaceId(), consensusId,
+            new ReviewRouteObservationRequest(AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW)
+        );
+        assertThat(auditRequired.reviewStatus().name()).isEqualTo("ADJUDICATION");
+        assertThat(agentRouteReviewService.claimAdjudication(adjudicator, workspace.workspaceId(), 1))
+            .extracting(item -> item.id()).containsExactly(consensusId);
+        assertThat(agentRouteReviewService.adjudicationContext(
+            adjudicator, workspace.workspaceId(), consensusId
+        ).priorVotes()).containsExactly(AgentRouteLabel.REACT_AGENT, AgentRouteLabel.REACT_AGENT);
+        var completed = agentRouteReviewService.review(
+            adjudicator, workspace.workspaceId(), consensusId,
+            new ReviewRouteObservationRequest(AgentRouteLabel.SUPERVISOR, RouteCorrectionSource.HUMAN_REVIEW)
+        );
+
+        assertThat(completed.reviewStatus().name()).isEqualTo("COMPLETED");
+        assertThat(completed.reviewVotes()).isEqualTo(3);
+        assertThat(completed.goldRoute()).isEqualTo(AgentRouteLabel.SUPERVISOR);
+        Integer voteCount = jdbcClient.sql("""
+                SELECT COUNT(*) FROM app.agent_route_review_vote WHERE observation_id = :observationId
+                """)
+            .param("observationId", consensusId)
+            .query(Integer.class)
+            .single();
+        assertThat(voteCount).isEqualTo(3);
+        var canary = agentRouteReviewService.canaryMetrics(
+            adjudicator, workspace.workspaceId(), Instant.now().minus(Duration.ofDays(30)), 100
+        );
+        assertThat(canary.riskConsensusOverturn().total()).isEqualTo(1);
+        assertThat(canary.riskConsensusOverturn().errors()).isEqualTo(1);
+        assertThat(canary.riskAvailableConsensusAudits()).isEqualTo(1);
+        assertThat(canary.riskConsensusOverturn().decision()).isEqualTo("INCONCLUSIVE");
+        assertThat(canary.naturalConsensusOverturn().decision()).isEqualTo("INCONCLUSIVE");
+        assertThat(canary.overallDecision()).isEqualTo("INCONCLUSIVE");
+
+        Instant exportUntil = Instant.now();
+        Instant snapshotAt = Instant.now();
+        var firstExport = agentRouteReviewService.exportCohort(
+            ownerId, workspace.workspaceId(), exportUntil.minus(Duration.ofDays(1)), exportUntil,
+            snapshotAt, null, null, 1
+        );
+        assertThat(firstExport.observations()).hasSize(1);
+        assertThat(firstExport.hasMore()).isTrue();
+        var secondExport = agentRouteReviewService.exportCohort(
+            ownerId, workspace.workspaceId(), exportUntil.minus(Duration.ofDays(1)), exportUntil,
+            snapshotAt, firstExport.nextOccurredAt(), firstExport.nextObservationId(), 1
+        );
+        assertThat(secondExport.observations()).hasSize(1);
+        assertThat(secondExport.observations().getFirst().observationId())
+            .isNotEqualTo(firstExport.observations().getFirst().observationId());
+
+        jdbcClient.sql("""
+                INSERT INTO app.model_pricing (
+                    id, workspace_id, provider, model, version_label, currency,
+                    input_per_million, cached_input_per_million, output_per_million,
+                    valid_from, created_by, created_at
+                ) VALUES (
+                    :id, :workspaceId, 'OPENAI', 'gpt-export', 'v1', 'USD',
+                    1, 0, 10, :validFrom, :ownerId, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", UUID.randomUUID())
+            .param("workspaceId", workspace.workspaceId())
+            .param("validFrom", Timestamp.from(exportUntil.minus(Duration.ofDays(30))))
+            .param("ownerId", ownerId)
+            .update();
+        assertThatThrownBy(() -> jdbcClient.sql("""
+                INSERT INTO app.model_pricing (
+                    id, workspace_id, provider, model, version_label, currency,
+                    input_per_million, cached_input_per_million, output_per_million,
+                    valid_from, created_by, created_at
+                ) VALUES (
+                    :id, :workspaceId, 'OPENAI', 'gpt-export', 'v2', 'USD',
+                    2, 0, 20, :validFrom, :ownerId, CURRENT_TIMESTAMP
+                )
+                """)
+            .param("id", UUID.randomUUID())
+            .param("workspaceId", workspace.workspaceId())
+            .param("validFrom", Timestamp.from(exportUntil.minus(Duration.ofDays(1))))
+            .param("ownerId", ownerId)
+            .update()).isInstanceOf(DataAccessException.class);
     }
 
     @Test
@@ -459,11 +629,74 @@ class WorkspaceRbacPostgresTest {
             .update();
     }
 
+    private void insertRouteObservation(UUID id, UUID workspaceId, UUID projectId, UUID runId,
+                                        long eventId, String route) {
+        jdbcClient.sql("""
+                INSERT INTO app.agent_route_observation (
+                    id, workspace_id, project_id, agent_run_id, agent_event_id,
+                    occurred_at, route_data, captured_at, review_target
+                ) VALUES (
+                    :id, :workspaceId, :projectId, :runId, :eventId,
+                    CURRENT_TIMESTAMP, CAST(:routeData AS jsonb), CURRENT_TIMESTAMP, :reviewTarget
+                )
+                """)
+            .param("id", id)
+            .param("workspaceId", workspaceId)
+            .param("projectId", projectId)
+            .param("runId", runId)
+            .param("eventId", eventId)
+            .param("routeData", "{\"route\":\"" + route + "\"}")
+            .param("reviewTarget", "REACT_AGENT".equals(route) || "HUMAN_REQUIRED".equals(route) ? 3 : 1)
+            .update();
+    }
+
+    private void addRole(UUID workspaceId, UUID userId, UUID assignedBy, String roleCode) {
+        UUID membershipId = UUID.randomUUID();
+        UUID managerRoleId = jdbcClient.sql("""
+                SELECT id FROM app.workspace_role WHERE workspace_id = :workspaceId AND code = :roleCode
+                """)
+            .param("workspaceId", workspaceId)
+            .param("roleCode", roleCode)
+            .query(UUID.class)
+            .single();
+        jdbcClient.sql("""
+                INSERT INTO app.workspace_member (id, workspace_id, user_id, status, joined_at)
+                VALUES (:id, :workspaceId, :userId, 'ACTIVE', CURRENT_TIMESTAMP)
+                """)
+            .param("id", membershipId)
+            .param("workspaceId", workspaceId)
+            .param("userId", userId)
+            .update();
+        jdbcClient.sql("""
+                INSERT INTO app.member_role (workspace_id, membership_id, role_id, assigned_by)
+                VALUES (:workspaceId, :membershipId, :roleId, :assignedBy)
+                """)
+            .param("workspaceId", workspaceId)
+            .param("membershipId", membershipId)
+            .param("roleId", managerRoleId)
+            .param("assignedBy", assignedBy)
+            .update();
+    }
+
     private UUID claimAfter(CountDownLatch start) throws InterruptedException {
         start.await();
         return agentRunCommandQueue.claimNext()
             .map(AgentRunCommandQueue.ClaimedCommand::runId)
             .orElse(null);
+    }
+
+    private UUID claimRiskAfter(CountDownLatch start, UUID workspaceId, UUID reviewerId) throws InterruptedException {
+        start.await();
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        return transaction.execute(status -> {
+            AgentRouteObservationEntity observation = agentRouteObservationRepository
+                .claimRiskPending(workspaceId, reviewerId, Instant.now(), 1)
+                .stream()
+                .findFirst()
+                .orElseThrow();
+            observation.claimReview(reviewerId, Instant.now(), Duration.ofMinutes(15));
+            return observation.id();
+        });
     }
 
     private void updatePolicyAfter(CountDownLatch start, UUID userId, UUID workspaceId, String taxRate) {

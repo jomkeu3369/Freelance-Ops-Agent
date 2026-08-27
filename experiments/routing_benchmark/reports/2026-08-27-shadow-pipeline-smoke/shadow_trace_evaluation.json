@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.1",
+  "created_at": "2026-08-27T05:10:38.199137+00:00",
+  "source": {
+    "path": "experiments/routing_benchmark/reports/2026-08-27-shadow-pipeline-smoke/shadow_trace_fixture.jsonl",
+    "sha256": "eb3738ee8d219f72c00f90f3bfeb993bf5ff701e96e9d5dbc7b401a58d5426a0"
+  },
+  "privacy": {
+    "contains_prompt_text": false,
+    "allowed_identifiers": "one-way SHA-256 hashes only"
+  },
+  "split": {
+    "method": "SHA-256 group bucket; project_group_hash preferred, otherwise workspace_group_hash",
+    "holdout_percent": 20,
+    "total_samples": 50,
+    "holdout_samples": 6,
+    "total_groups": 25,
+    "holdout_groups": 3,
+    "holdout_trace_hashes": [
+      "39e702b56a725024caebc99fbb95247a803eb0729e13bdf79bd14f7d0ebf82d3",
+      "a2be384ce01f89344da47fffe2d8f28129a9dce71c3028ccab0de57b082890c8",
+      "ba7b767162c3f6bb28b7568e466f2d0f00fd7016d80aca8034102177390c5c08",
+      "1b2b3eb3619bed26b4379e4b6bcba5e5a61bc1bc8f18fb08083e366e1330be25",
+      "8eba810411e8c4c1cc30c0ab207f949a6bd011015f969c8628719d82c4947dcf",
+      "a6035fe9475453384c8e1ff4d8cedfaecc3a375992c8a4035d4152bcd8d0851d"
+    ]
+  },
+  "traffic_prior": "post-stratified from all exported observation natural/risk frequencies",
+  "weighting": {
+    "method": "population stratum probability divided by reviewed holdout stratum count",
+    "effective_sample_size": 4.103742613263296,
+    "confidence_interval": "Kish effective sample size Wilson approximation"
+  },
+  "metrics": [
+    {
+      "name": "Observed final route",
+      "mode": "actual",
+      "sample_count": 6,
+      "effective_sample_size": 4.103742613263296,
+      "accuracy": 0.8840000000000001,
+      "accuracy_ci95": {
+        "successes": 3.627708470124754,
+        "total": 4.103742613263296,
+        "estimate": 0.8840000000000001,
+        "lower": 0.4084249234591096,
+        "upper": 0.9882515300183445
+      },
+      "macro_f1": 0.5599999999999999,
+      "minimum_route_f1": 0.0,
+      "human_required_recall": 1.0,
+      "human_required_recall_ci95": {
+        "successes": 1.0,
+        "total": 1.0,
+        "estimate": 1.0,
+        "lower": 0.20654931437723742,
+        "upper": 1.0
+      },
+      "false_automation_count": 0,
+      "false_automation_weighted_rate": 0.0,
+      "false_automation_rate_ci95": {
+        "successes": 0.0,
+        "total": 1.0,
+        "estimate": 0.0,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "over_escalation_count": 0,
+      "over_escalation_weighted_rate": 0.0,
+      "llm_call_rate": 1.0,
+      "mean_routing_cost_usd": 0.000897544,
+      "estimated_cohort_routing_cost_usd": 0.005385264,
+      "mean_routing_latency_ms": 2185.8130839969967,
+      "p95_routing_latency_ms": 4064.366400009021,
+      "route_counts": {
+        "SIMPLE_LLM": 2,
+        "REACT_AGENT": 1,
+        "HUMAN_REQUIRED": 1,
+        "DIRECT_TOOL": 2
+      },
+      "traffic_route_share": {
+        "DIRECT_TOOL": 0.23199999999999998,
+        "SIMPLE_LLM": 0.23199999999999998,
+        "REACT_AGENT": 0.11599999999999999,
+        "SUPERVISOR": 0.0,
+        "HUMAN_REQUIRED": 0.42
+      },
+      "sampling_weighted": true
+    },
+    {
+      "name": "Shadow accepts every suggestion",
+      "mode": "shadow_full",
+      "sample_count": 6,
+      "effective_sample_size": 4.103742613263296,
+      "accuracy": 0.8840000000000001,
+      "accuracy_ci95": {
+        "successes": 3.627708470124754,
+        "total": 4.103742613263296,
+        "estimate": 0.8840000000000001,
+        "lower": 0.4084249234591096,
+        "upper": 0.9882515300183445
+      },
+      "macro_f1": 0.5599999999999999,
+      "minimum_route_f1": 0.0,
+      "human_required_recall": 1.0,
+      "human_required_recall_ci95": {
+        "successes": 1.0,
+        "total": 1.0,
+        "estimate": 1.0,
+        "lower": 0.20654931437723742,
+        "upper": 1.0
+      },
+      "false_automation_count": 0,
+      "false_automation_weighted_rate": 0.0,
+      "false_automation_rate_ci95": {
+        "successes": 0.0,
+        "total": 1.0,
+        "estimate": 0.0,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "over_escalation_count": 0,
+      "over_escalation_weighted_rate": 0.0,
+      "llm_call_rate": 0.0,
+      "mean_routing_cost_usd": 0.0,
+      "estimated_cohort_routing_cost_usd": 0.0,
+      "mean_routing_latency_ms": 1.6801000000000004,
+      "p95_routing_latency_ms": 1.6801,
+      "route_counts": {
+        "SIMPLE_LLM": 2,
+        "REACT_AGENT": 1,
+        "HUMAN_REQUIRED": 1,
+        "DIRECT_TOOL": 2
+      },
+      "traffic_route_share": {
+        "DIRECT_TOOL": 0.23199999999999998,
+        "SIMPLE_LLM": 0.23199999999999998,
+        "REACT_AGENT": 0.11599999999999999,
+        "SUPERVISOR": 0.0,
+        "HUMAN_REQUIRED": 0.42
+      },
+      "sampling_weighted": true
+    },
+    {
+      "name": "Shadow accepts HUMAN_REQUIRED only",
+      "mode": "safe_escalation",
+      "sample_count": 6,
+      "effective_sample_size": 4.103742613263296,
+      "accuracy": 0.8840000000000001,
+      "accuracy_ci95": {
+        "successes": 3.627708470124754,
+        "total": 4.103742613263296,
+        "estimate": 0.8840000000000001,
+        "lower": 0.4084249234591096,
+        "upper": 0.9882515300183445
+      },
+      "macro_f1": 0.5599999999999999,
+      "minimum_route_f1": 0.0,
+      "human_required_recall": 1.0,
+      "human_required_recall_ci95": {
+        "successes": 1.0,
+        "total": 1.0,
+        "estimate": 1.0,
+        "lower": 0.20654931437723742,
+        "upper": 1.0
+      },
+      "false_automation_count": 0,
+      "false_automation_weighted_rate": 0.0,
+      "false_automation_rate_ci95": {
+        "successes": 0.0,
+        "total": 1.0,
+        "estimate": 0.0,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "over_escalation_count": 0,
+      "over_escalation_weighted_rate": 0.0,
+      "llm_call_rate": 0.5800000000000001,
+      "mean_routing_cost_usd": 0.0004905640000000001,
+      "estimated_cohort_routing_cost_usd": 0.0029433840000000003,
+      "mean_routing_latency_ms": 1400.1271480027783,
+      "p95_routing_latency_ms": 4064.366400009021,
+      "route_counts": {
+        "SIMPLE_LLM": 2,
+        "REACT_AGENT": 1,
+        "HUMAN_REQUIRED": 1,
+        "DIRECT_TOOL": 2
+      },
+      "traffic_route_share": {
+        "DIRECT_TOOL": 0.23199999999999998,
+        "SIMPLE_LLM": 0.23199999999999998,
+        "REACT_AGENT": 0.11599999999999999,
+        "SUPERVISOR": 0.0,
+        "HUMAN_REQUIRED": 0.42
+      },
+      "sampling_weighted": true
+    }
+  ],
+  "promotion_candidate": "safe_escalation",
+  "promotion_gate": {
+    "eligible": false,
+    "checks": {
+      "human_review_only": false,
+      "post_stratification_available": true,
+      "minimum_effective_samples_1000": false,
+      "minimum_groups_50": false,
+      "minimum_100_per_route": false,
+      "macro_f1_at_least_0_80": false,
+      "minimum_route_f1_at_least_0_70": false,
+      "human_recall_at_least_0_95": true,
+      "human_recall_ci_lower_at_least_0_90": false,
+      "zero_false_automation": true,
+      "false_automation_ci_upper_at_most_0_01": false
+    },
+    "group_count": 3,
+    "route_counts": {
+      "SIMPLE_LLM": 2,
+      "REACT_AGENT": 1,
+      "HUMAN_REQUIRED": 1,
+      "DIRECT_TOOL": 2
+    }
+  }
+}

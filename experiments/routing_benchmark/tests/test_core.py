@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+import numpy as np
+
+from routing_benchmark import operational_replay
 from routing_benchmark.config import load_config
 from routing_benchmark.dataset import (
     DIRECT_TOOL_FIXTURES,
@@ -9,6 +12,7 @@ from routing_benchmark.dataset import (
     SIMPLE_SUPRA_INDICES,
     SUPERVISOR_FIXTURES,
 )
+from routing_benchmark.distribution_shift import _expected_calibration_error, _risk_coverage
 from routing_benchmark.judges import aggregate_verdicts
 from routing_benchmark.metrics import exact_mcnemar, routing_metrics
 from routing_benchmark.routers import LLMRouteDecision, calculate_cost
@@ -137,3 +141,45 @@ def test_pandas_tables_export_numeric_summaries(tmp_path: Path) -> None:
         "per_route_metrics.csv",
         "pandas_summary.json",
     }
+
+
+def test_trusted_contract_route_uses_only_product_fixture_contracts() -> None:
+    assert operational_replay._trusted_contract_route({"id": "direct_tool-project-1"}) == "DIRECT_TOOL"
+    assert operational_replay._trusted_contract_route({"id": "supervisor-project-1"}) == "SUPERVISOR"
+    assert operational_replay._trusted_contract_route({"id": "human-orchestration-1"}) is None
+
+
+def test_report_source_path_does_not_leak_local_absolute_path() -> None:
+    path = Path("C:/Users/example/project/experiments/routing_benchmark/report.json")
+
+    assert operational_replay._portable_path(path) == "experiments/routing_benchmark/report.json"
+
+
+def test_threshold_calibration_rejects_false_automation() -> None:
+    probabilities = np.asarray([[0.90, 0.10], [0.85, 0.15], [0.80, 0.20], [0.75, 0.25], [0.70, 0.30], [0.95, 0.05]])
+    truth = ["SIMPLE_LLM"] * 5 + ["HUMAN_REQUIRED"]
+
+    thresholds = operational_replay._calibrate_thresholds(truth, ["SIMPLE_LLM", "HUMAN_REQUIRED"], probabilities)
+
+    assert "SIMPLE_LLM" not in thresholds
+    assert thresholds["HUMAN_REQUIRED"] == 0.0
+
+
+def test_expected_calibration_error_is_zero_for_perfect_confidence() -> None:
+    truth = ["A", "B"]
+    predictions = ["A", "B"]
+
+    assert _expected_calibration_error(truth, predictions, np.asarray([1.0, 1.0])) == 0.0
+
+
+def test_risk_coverage_reduces_coverage_as_threshold_rises() -> None:
+    rows = [
+        {"confidence": 0.9, "correct": True, "expected": "A", "predicted": "A"},
+        {"confidence": 0.4, "correct": False, "expected": "HUMAN_REQUIRED", "predicted": "A"}
+    ]
+
+    points = _risk_coverage(rows)
+
+    assert points[0]["coverage"] == 1.0
+    assert points[-1]["coverage"] == 0.5
+    assert points[-1]["false_automation_count"] == 0.0

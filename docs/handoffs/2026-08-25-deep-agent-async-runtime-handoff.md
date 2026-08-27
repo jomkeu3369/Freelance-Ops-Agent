@@ -1,8 +1,8 @@
 # Deep Agents 비동기 Runtime·캐싱 설계 인수인계
 
-> 작성일: 2026-08-25  
-> 상태: 설계 협의 중 — 구현 승인 전  
-> 대상: 다음 Codex 작업 또는 구현 담당자  
+> 작성일: 2026-08-25
+> 상태: 설계 협의 중 — 구현 승인 전
+> 대상: 다음 Codex 작업 또는 구현 담당자
 > 기준 저장소: `Freelance-Ops-Agent`
 
 ## 1. 이 문서의 사용 방법
@@ -476,8 +476,9 @@ time은 병렬 child의 합이 아니라 dependency critical path, queue wait와
 - event-time replay를 통한 future target leakage 방지
 - 결과 plot
 
-2026-08-26 최종 prototype 검증 결과는 Runtime Predictor, Scheduler simulation, plot과
-Streamlit AppTest를 포함한 pytest 37개 통과와 작업 범위 Ruff 통과다. 기존 `src` 대상 strict
+2026-08-27 최종 prototype 검증 결과는 Runtime Predictor, Scheduler, Admission, Autoscaling,
+scale reliability, retry와 checkpoint simulation, plot과 Streamlit AppTest를 포함한 pytest 65개
+통과와 작업 범위 Ruff 통과다. 기존 `src` 대상 strict
 mypy 결과는 이전 작업에서 통과했으며 이번 prototype 추가 파일은 `tests` 경로이므로 mypy의
 현재 검사 범위에 포함되지 않는다.
 
@@ -505,16 +506,19 @@ event-driven multi-workspace simulator를 추가했다.
 
 ```text
 scheduler_simulation.py
+scheduler_evaluation.py
 test_scheduler_simulation.py
 plot_scheduler_simulation.py
+plot_scheduler_evaluation.py
 test_scheduler_plot.py
 streamlit_scheduler_simulation.py
 test_scheduler_streamlit.py
 ```
 
-동일 task stream에서 FIFO, Fair FIFO, Fair Predicted-SJF, bounded Aging과 Fair Oracle-SJF를
+동일 task stream에서 Global/Fair FIFO, Global/Fair Predicted-SJF, bounded Aging과 Oracle-SJF를
 비교한다. cache hit은 Worker를 점유하지 않고 완료되며 Oracle만 실제 runtime을 dispatch 결정에
-사용한다. 실제 정책은 XGBoost prediction만 사용한다.
+사용한다. 실제 정책은 XGBoost prediction만 사용한다. Global과 Fair를 분리해 workspace 선택과
+runtime ordering의 효과가 섞이지 않게 했다.
 
 용량 근접 조건의 seed 5개 결과:
 
@@ -525,9 +529,9 @@ prediction RMSE 10.86 ± 1.96 sec
 prediction R² 0.845 ± 0.036
 
 FIFO mean wait 97.22 sec
-Fair Predicted-SJF mean wait 56.45 sec
-Fair Oracle-SJF mean wait 54.72 sec
-Fair Predicted-SJF Oracle regret 2.38%
+Global Predicted-SJF mean wait 37.38 sec
+Oracle-SJF mean wait 35.80 sec
+Global Predicted-SJF Oracle regret 2.74%
 
 Predicted-SJF maximum wait 1322.77 sec
 Predicted-SJF + Aging maximum wait 1036.36 sec
@@ -554,6 +558,402 @@ high-priority violation SLO도 조절하며 모든 hard gate를 반복 seed에�
 completion이 가장 짧은 정책만 선택한다. 동일 parameter는 `st.cache_data`로 재사용한다. 기본
 부하 0.94에서는 통과 정책이 없었고, 저부하 0.60에서는 Global Predicted-SJF + Aging이 선택됐다.
 이 prototype은 Scheduler의 효용성 검증이며 운영 queue 구현은 아니다.
+
+### 10.2 Overload Admission prototype 추가
+
+2026-08-27에 predicted backlog 기반 Admission simulator를 추가했다.
+
+```text
+overload_simulation.py
+plot_overload_simulation.py
+test_overload_simulation.py
+```
+
+동일한 Global Predicted-SJF + Aging 뒤에서 Accept all, Bounded defer, Priority shed와 Hybrid
+guard를 비교했다. 거절된 작업도 전체 제출 작업의 SLO 실패로 계산한다.
+
+지속 과부하 `ρ=1.96`에서 Priority shed 결과:
+
+```text
+rejected 26.7%
+priority 4-5 accepted 100.0%
+p95 end-to-end 299.0 sec
+p99 end-to-end 351.6 sec
+300 sec SLO goodput 69.3%
+recovery after final arrival 301.5 sec
+```
+
+Accept all의 recovery는 1119.1초였고 Bounded defer의 SLO goodput은 36.0%로 Accept all의 54.4%보다
+나빴다. 따라서 Deferred는 짧은 burst에만 사용하고 지속 과부하에서는 Priority shed로 중요한
+작업을 보호하면서 autoscaling 또는 service demand 감소를 병행한다. Priority shed도 목표 goodput
+95%는 달성하지 못했으므로 Admission만으로 용량 부족을 해결할 수 있다는 결론은 내리지 않는다.
+
+추가 생성 plot:
+
+```text
+scheduler_overload_admission.png
+scheduler_admission_load_curve.png
+```
+
+상세 연구 기록은 `docs/testing/scheduler-overload-admission-experiment-2026-08-27.md`다. Streamlit은
+기본 평가 비용을 늘리지 않도록 사용자가 checkbox를 선택할 때만 Admission 비교를 실행한다.
+
+### 10.3 Autoscaling 전략 prototype 추가
+
+2026-08-27에 Scheduler와 Admission simulator에 동적 Worker capacity를 추가하고 다음 전략을 동일
+workload에서 비교했다.
+
+```text
+Static accept all
+Static priority shed
+Reactive scale
+Shed then scale
+Predictive scale upper bound
+```
+
+부하율 `1.96`, 기본 Worker 6개, 확장 Worker 12개와 scale-up 지연 60초 조건에서 핵심 결과는
+다음과 같다.
+
+| Strategy | Rejected | P95 end-to-end | SLO goodput | Recovery | SLO tasks / 1,000 worker-sec |
+|---|---:|---:|---:|---:|---:|
+| Static accept all | 0.0% | 1077.1 sec | 54.4% | 1119.1 sec | 19.92 |
+| Static priority shed | 26.7% | 299.0 sec | 69.3% | 301.5 sec | **40.61** |
+| Reactive scale | 0.0% | 261.2 sec | **97.7%** | 162.6 sec | 33.87 |
+| Shed then scale | 5.2% | **183.6 sec** | 94.4% | **105.8 sec** | 34.39 |
+| Predictive scale upper bound | 0.0% | 198.9 sec | **99.4%** | 115.4 sec | 33.77 |
+
+현재 synthetic workload에서 현실적인 기본 후보는 `Reactive scale + Global Predicted-SJF + Aging`이다.
+60초 Reactive scale만 작업 거절 없이 95% SLO gate를 통과했다. Static priority shed는 단위
+worker-second 효율은 가장 높지만 제출 작업 26.7%를 거절하므로 기본 서비스 정책으로 채택하지
+않는다.
+
+Scale-up delay 민감도에서는 120초까지 goodput 95.6%로 목표를 간신히 통과했고 240초에는 83.3%로
+떨어졌다. 초기 운영 기준은 다음과 같다.
+
+```yaml
+scale_trigger_predicted_drain_seconds: 120
+scale_up_target_seconds: 60
+scale_up_hard_deadline_seconds: 120
+scale_factor: 2.0
+```
+
+권장 제어 순서는 `Overload 감지 → Scale 요청 → Grace window → Scale 성공 시 수락 유지 → hard
+deadline까지 실패하거나 backlog가 계속 증가할 때 Priority shed`다. 즉시 Shed then scale은 P95와
+복구시간은 짧지만 불필요한 초기 거절로 goodput 94.4%에 머물렀다.
+
+추가 생성 plot:
+
+```text
+scheduler_autoscaling_comparison.png
+scheduler_scale_delay_sensitivity.png
+```
+
+상세 방법, 해석과 한계는
+`docs/testing/scheduler-autoscaling-experiment-2026-08-27.md`에 기록했다. 다음 검증 대상은 scale
+성공·실패 확률과 idle billing을 포함한 `Scale then fallback shed`, checkpoint resume 대비 restart
+retry의 service demand 증폭, 실제 실행 로그 shadow replay다.
+
+### 10.4 Scale 실패·Fallback·비용 prototype 추가
+
+2026-08-27에 scale 실패 확률, hard-deadline fallback, causal scale-down debounce와 worker-hour 비용을
+추가했다. 각 workload seed를 scale 성공과 실패로 모두 replay한 뒤 지정 확률로 가중해, 적은
+Bernoulli 표본의 우연한 성공률이 정책 결과에 섞이지 않게 했다.
+
+부하율 1.88과 scale 성공률 80% 결과:
+
+| Strategy | Rejected | P95 | SLO goodput | Worker cost |
+|---|---:|---:|---:|---:|
+| Scale only | 0.0% | 343.4 sec | 91.7% | $0.347 |
+| Shed then scale | 8.7% | 193.1 sec | 90.6% | $0.323 |
+| Scale then fallback shed | 5.7% | 256.0 sec | **92.1%** | $0.324 |
+
+Fallback은 tail latency 폭주와 비용을 줄였지만 95% goodput gate는 통과하지 못했다. 현재 workload의
+필요 scale 성공률은 약 89%이며 초기 운영 gate는 90%다. 성공률이 이보다 낮으면 Priority shed만으로
+부족하고 warm reserve, secondary provider 또는 service demand 감소가 필요하다.
+
+Scale 성공률 90%의 causal scale-down 실험에서는 cooldown 60초가 goodput 95.5%를 유지하면서
+120초 대비 worker 비용을 약 4.1% 낮췄다. cooldown 0초는 조기 축소 때문에 최소 과금 600초에서도
+goodput 94.8%에 그쳤다.
+
+추가 생성 plot:
+
+```text
+scheduler_scaling_reliability_comparison.png
+scheduler_scale_success_sensitivity.png
+scheduler_scaling_cost_sensitivity.png
+```
+
+상세 기록은 `docs/testing/scheduler-scaling-reliability-cost-experiment-2026-08-27.md`다. 다음 연구는
+restart retry와 checkpoint resume가 과부하의 service demand를 얼마나 증폭 또는 절감하는지 비교한다.
+
+### 10.5 Retry·Checkpoint Resume prototype 추가
+
+2026-08-27에 attempt-level 독립 failure, correlated provider outage, checkpoint progress, restart,
+exponential backoff, jitter와 global retry budget simulator를 추가했다. 부하율 0.81, 독립 실패율
+20%, 15개 paired seed 결과:
+
+| Strategy | Eventually completed | SLO goodput | P95 | Demand amplification | Wasted work |
+|---|---:|---:|---:|---:|---:|
+| Restart immediate | 99.8% | 94.8% | 258.4 sec | 1.129× | 1028.1 sec |
+| Checkpoint immediate | **99.8%** | **96.0%** | 238.2 sec | 1.104× | 683.9 sec |
+| Checkpoint + backoff | 99.8% | 95.1% | 265.5 sec | 1.104× | 683.9 sec |
+| Checkpoint + backoff + budget | 92.2% | 89.6% | 222.4 sec | 1.022× | 628.0 sec |
+
+30초 checkpoint 후 즉시 resume이 현재 기본 후보이다. Restart 대비 wasted useful work를 33.5%
+줄이고 유일하게 eventual completion 99%와 SLO goodput 95% gate를 함께 통과했다. Failure 0%에서는
+checkpoint overhead가 1.7%였고 약 10%부터 restart와 demand가 같아졌으므로 긴 작업 또는 failure
+risk 10% 이상 작업에 우선 적용한다.
+
+60초 provider outage에서는 checkpoint + backoff가 10초 retry burst를 약 35% 줄였지만 recovery는
+39.9초에서 46.5초로 늘었다. Backoff는 독립 실패에 항상 적용하지 않고 provider circuit breaker가
+correlated failure를 감지했을 때만 사용한다. Global retry budget은 일부 작업을 포기해 demand를
+낮추므로 overload 시 Admission과 결합하고 `RETRY_BUDGET_EXHAUSTED`를 명시적으로 기록한다.
+
+추가 생성 plot:
+
+```text
+scheduler_retry_checkpoint_comparison.png
+scheduler_retry_failure_sensitivity.png
+scheduler_checkpoint_interval_sensitivity.png
+scheduler_retry_outage_comparison.png
+```
+
+상세 기록은 `docs/testing/scheduler-retry-checkpoint-experiment-2026-08-27.md`다. 다음 단계는 실제
+execution history를 시간순으로 replay해 synthetic 결론의 외부 타당성을 검증하는 것이다.
+
+### 10.6 Shadow replay pipeline과 실제 로그 공백
+
+2026-08-27에 `scheduler-shadow-replay-v1` JSONL 계약, strict validator, 관측 기준선과 FIFO,
+Predicted-SJF, Aging, Fair Aging counterfactual replay를 추가했다. 다섯 synthetic paired seed의
+1,500 attempt에서 Observed FIFO와 Replay FIFO의 주요 metric 최대 차이는 정확히 0초였다.
+
+현재 AgentRun과 ToolExecution schema에는 TaskAttempt의 `queued_at`, 실행 전 feature snapshot,
+prediction과 predictor version, retry chain이 고정 필드로 함께 존재하지 않는다. 따라서 이 결과는
+replay pipeline 검증일 뿐 실제 서비스 정책의 우월성 증거가 아니다. 과거 timestamp를 추정해
+채우지 않고 새 append-only telemetry contract를 배포한 뒤 최소 7일·1,000 attempt를 수집한다.
+
+생성 plot:
+
+```text
+scheduler_shadow_replay_pipeline_validation.png
+```
+
+계약, reject 조건, 수집 gate와 conditional replay 한계는
+`docs/testing/scheduler-shadow-replay-readiness-2026-08-27.md`에 기록했다. 다음 구현 우선순위는
+`TASK_ENQUEUED → TASK_STARTED → TASK_ATTEMPT_FINISHED` event와 capacity event 수집이다. Shadow
+replay 확장 후 전체 Runtime Predictor prototype pytest 76건과 작업 범위 Ruff 검사가 통과했다.
+
+### 10.7 Multi-tenant Fairness·Priority SLO prototype
+
+Noisy neighbor, sleep/wake burst와 elephant/mice workload에서 항상-on Fair Queue 가설을 검증했다.
+Global PSJF + Aging이 mean completion 48.4초와 fairness 0.931로 가장 효율적이었고, Legacy Fair와
+idle credit을 제한한 Bounded Fair 후보는 worst-workspace tail을 개선하지 못했다. Bounded Fair는
+operational policy selection에서 제외했다.
+
+SLO-aware strict priority는 priority violation을 13.2%에서 2.1%로 낮췄지만 mean completion은
+68.3초, fairness는 0.804로 악화했다. Elephant batch는 6 Worker 최소 drain time만 약 439초여서
+300초 SLO를 정렬 정책만으로 만족할 수 없다.
+
+추가 생성 plot:
+
+```text
+scheduler_tenant_fairness_comparison.png
+scheduler_tenant_fairness_scenario_table.png
+```
+
+상세 기록은 `docs/testing/scheduler-tenant-fairness-experiment-2026-08-27.md`다. 다음 Scheduler 연구는
+`per-workspace Admission quota → priority feasibility check → Global PSJF + bounded aging → Rescue Queue`
+형태의 adaptive hierarchical policy를 구현하고 autoscaling failure와 함께 검증한다. Tenant fairness
+확장 후 전체 Runtime Predictor prototype pytest 84건과 작업 범위 Ruff 검사가 통과했다.
+
+### 10.8 Adaptive Hierarchical Scheduler prototype
+
+Global predicted drain, workspace soft quota, priority best-case feasibility와 causal scale trigger를 결합했다.
+기본값은 Worker 6개, global drain trigger 120초, scale delay 30초와 scale factor 2.0이다.
+
+`Hierarchical + scale`은 noisy neighbor와 sleep/wake workload에서는 scale하지 않고 elephant burst에서만
+scale했다. 3 scenario × 5 paired seed에서 submitted completion goodput, priority wait SLO와
+worst-workspace goodput이 모두 100%였으며 모든 hard gate를 통과한 유일한 전략이다. Accept-all 대비
+평균 Worker capacity 증가는 약 2.3%였고 효율은 55.1에서 55.2 SLO tasks/1,000 worker-seconds로
+유지됐다.
+
+추가 생성 plot:
+
+```text
+scheduler_hierarchical_comparison.png
+scheduler_hierarchical_scenario_table.png
+scheduler_hierarchical_sensitivity.png
+```
+
+상세 기록은 `docs/testing/scheduler-adaptive-hierarchical-experiment-2026-08-27.md`다. 다음 연구는 scale
+성공률, hard-deadline fallback, billing, predictor underestimation과 retry amplification을 동일
+hierarchical simulator에 결합한다. Adaptive hierarchical 확장 후 전체 Runtime Predictor prototype
+pytest 91건과 작업 범위 Ruff 검사가 통과했다.
+
+### 10.9 Hierarchical Retry·Checkpoint·Failover 결합
+
+Scale 성공·실패, workspace quota fallback, 독립 attempt failure, correlated provider outage와
+checkpoint resume를 하나의 counterfactual simulator에 결합했다. 단순 즉시 retry, 모든 실패에
+backoff, restart와 고정 budget은 두 failure mode의 gate를 동시에 통과하지 못했다.
+
+현재 후보는 `Failure-aware checkpoint + provider failover`다.
+
+```text
+Independent transient
+  → checkpoint immediate resume
+
+Correlated provider outage
+  → circuit breaker
+  → backoff + jitter
+  → global retry budget 20%
+  → secondary provider failover target 20s
+
+Priority wait >= 30s
+  → dispatch rescue
+```
+
+3 scenario × 5 paired seed, scale 성공률 90%에서 completion 99.4%, priority SLO 99.7%,
+worst-workspace 96.6%, failure-mode별 hard-gate pass 96.7%와 $0.144/run을 기록했다. Failover 30초,
+독립 failure 40%와 retry budget 5%는 붕괴 경계였다.
+
+추가 생성 plot:
+
+```text
+scheduler_hierarchical_retry_comparison.png
+scheduler_hierarchical_retry_mode_table.png
+scheduler_hierarchical_retry_sensitivity.png
+```
+
+상세 기록은 `docs/testing/scheduler-hierarchical-retry-failover-experiment-2026-08-27.md`다. 다음 연구는
+failure classifier 오분류, secondary provider 가격·품질과 workspace별 retry token bucket이다.
+
+### 10.10 Failure Classifier·Secondary Provider 운영 경계
+
+Failure-aware 정책의 정분류와 오분류 경로를 동일 seed에서 counterfactual로 실행했다. 기본 FP 5%,
+FN 10%에서 completion 99.20%, quality-adjusted goodput 99.06%, worst-workspace 96.11%, overall hard
+gate 93.5%를 기록했다.
+
+운영 target:
+
+```yaml
+classifier_false_negative: "<= 15%"
+classifier_false_positive: "<= 10%"
+secondary_failover_ready: "<= 20s"
+secondary_latency_ratio: "<= 1.15"
+secondary_quality_failure: "<= 5%"
+provider_cost_index: "<= 1.20 provisional"
+```
+
+추가 생성 plot:
+
+```text
+scheduler_failure_classifier_error_boundary.png
+scheduler_secondary_provider_tradeoff.png
+```
+
+상세 기록은 `docs/testing/scheduler-failure-classifier-provider-envelope-2026-08-27.md`다. 다음 단계는
+실제 incident label을 수집할 TaskAttempt contract, 규칙 기반 multi-signal classifier와 workspace별
+retry token bucket이다.
+
+### 10.11 Multi-signal Failure Classifier와 Incident Label 계약
+
+Failure 분류 입력을 provider 5xx·429·timeout, cross-workspace failure ratio, affected worker ratio,
+provider status, local worker crash와 tool failure concentration으로 확장했다. 최종 incident label은
+예측 feature와 분리하며 `predicted_at_seconds`가 `final_label_available_at_seconds`보다 앞서야 한다.
+
+5 seed × 2,000 incident temporal holdout 결과:
+
+```yaml
+selected_classifier: weighted_multi_signal_rule
+weighted_rule_threshold: 4
+action_false_positive_rate: 5.6%
+detection_false_negative_rate_at_10s: 6.4%
+p95_detection_seconds: 18.3
+correlated_action_precision: 93.7%
+paired_seed_gate_pass_rate: 100%
+```
+
+단일 provider error와 cross-workspace threshold는 action FPR이 각각 40.6%, 78.3%였고, temporal
+LogisticRegression은 drift holdout에서 detection FNR 46.7%를 기록했다. Threshold 4가 실험한 2~7
+중 유일하게 모든 gate를 통과했다.
+
+추가 생성 plot:
+
+```text
+scheduler_failure_signal_classifier_comparison.png
+scheduler_failure_signal_classifier_table.png
+scheduler_failure_signal_threshold_sensitivity.png
+```
+
+상세 기록은 `docs/testing/scheduler-multi-signal-failure-classifier-experiment-2026-08-27.md`다. 다음
+단계는 실제 TaskAttempt shadow telemetry로 label과 threshold를 검증하고 workspace별 retry token
+bucket, circuit half-open probe와 recovery hysteresis를 결합하는 것이다.
+
+### 10.12 Workspace Retry Token Bucket
+
+Global-only retry lifetime budget의 noisy-workspace 선점 문제를 검증했다. 3 adversarial scenario × 5
+seed, noisy attempt failure 35%, healthy failure 5%와 scale 성공률 90%의 paired counterfactual 결과다.
+
+```yaml
+selected_policy: global_plus_workspace_token_bucket
+submitted_completion_goodput: 95.6%
+healthy_workspace_goodput: 99.9%
+noisy_workspace_goodput: 88.7%
+demand_amplification: 1.122
+healthy_budget_exhaustion: 0.1%
+expected_gate_pass: 96.7%
+workspace_bucket: "capacity 12, refill 0.10 token/s"
+global_bucket: "capacity 16, refill 0.10 token/s"
+priority_borrow: disabled
+```
+
+Global-only budget은 전체 goodput 91.6%, healthy goodput 98.1%와 gate pass 43.3%였다. Workspace-only
+bucket은 기본 single-noisy 조건에서 계층형과 같은 성능이지만 distributed failure에서 aggregate retry
+상한이 없다. Priority borrow는 측정 가능한 priority 이득이 없어 제외했다.
+
+추가 생성 plot:
+
+```text
+scheduler_workspace_retry_budget_comparison.png
+scheduler_workspace_retry_budget_table.png
+scheduler_workspace_retry_budget_sensitivity.png
+```
+
+상세 기록은 `docs/testing/scheduler-workspace-retry-token-bucket-experiment-2026-08-27.md`다. Healthy
+workspace attempt failure가 15%까지 확산되면 gate pass가 84.7%로 내려가므로 bucket을 늘리지 말고
+correlated failure circuit, provider probe와 failover로 전환해야 한다. 다음 단계는 실제 TaskAttempt
+shadow telemetry와 runtime-weighted retry token 비교다.
+
+### 10.13 TaskAttempt Telemetry Shadow Contract
+
+`task-attempt-telemetry-v1` event envelope과 strict assembler를 구현했다. Envelope은 unique event/source
+ID, task·attempt identity, attempt sequence, `occurred_at`, `received_at`과 typed event data를 가진다.
+
+```text
+attempt.predicted
+  -> attempt.queued
+  -> attempt.started
+  -> attempt.completed | attempt.failed
+  -> attempt.retry_decided when failed
+  -> attempt.incident_finalized after decision only
+```
+
+20 seed × 60 task defect-injection 결과 clean stream과 receive reordering은 100% 수락·100% fidelity로
+재구성했다. Duplicate source event, missing prediction, sequence gap, occurred-time regression, 300초 초과
+지연, feature snapshot leakage, secret field, runtime mismatch, retry token mismatch, final-label leakage와
+retry decision 누락은 모두 100% 차단했다.
+
+추가 생성 plot:
+
+```text
+scheduler_task_attempt_telemetry_integrity_table.png
+scheduler_task_attempt_telemetry_delay_boundary.png
+```
+
+상세 기록은 `docs/testing/scheduler-task-attempt-telemetry-shadow-contract-experiment-2026-08-27.md`다.
+아직 production `agent_task_attempt`·`agent_task_event` emitter와 DB persistence가 없으므로 실제 telemetry
+검증은 미완료다. 다음 단계는 migration·event emitter·outbox를 구현한 뒤 실제 completeness, duplicate와
+delay 분포를 shadow replay로 측정하는 것이다.
 
 ## 11. 비용·캐시 관측 지표
 

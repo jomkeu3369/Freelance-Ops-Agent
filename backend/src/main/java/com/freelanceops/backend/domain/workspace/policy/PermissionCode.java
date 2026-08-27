@@ -27,6 +27,8 @@ public enum PermissionCode {
     AGENT_RUN("agent.run"),
     AGENT_RESPOND("agent.respond"),
     AGENT_CANCEL("agent.cancel"),
+    AGENT_ROUTE_REVIEW("agent.route.review"),
+    AGENT_ROUTE_ADJUDICATE("agent.route.adjudicate"),
     OUTCOME_READ("outcome.read"),
     OUTCOME_WRITE("outcome.write"),
     INTEGRATION_READ("integration.read"),

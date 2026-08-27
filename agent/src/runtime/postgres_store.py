@@ -159,6 +159,25 @@ class PostgresAgentRunStore:
             models = list((await session.scalars(statement)).all())
         return [self._event(model) for model in models]
 
+    async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
+        if not 1 <= limit <= 101:
+            raise ValueError("route event limit must be between 1 and 101")
+        async with self._database.session() as session:
+            if await session.get(AgentRunStateModel, run_id) is None:
+                raise AgentRunNotFoundError("agent run was not found")
+            statement = (
+                select(AgentRunEventModel)
+                .where(
+                    AgentRunEventModel.run_id == run_id,
+                    AgentRunEventModel.event_id > after_event_id,
+                    AgentRunEventModel.type == "route.selected"
+                )
+                .order_by(AgentRunEventModel.event_id)
+                .limit(limit)
+            )
+            models = list((await session.scalars(statement)).all())
+        return [self._event(model) for model in models]
+
     async def prepare_resume(self, run_id: UUID, command: ResumeAgentRunRequest) -> AgentRunRequest:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)

@@ -66,6 +66,11 @@ app:
     agent-per-minute: ${APP_RATE_LIMIT_AGENT_PER_MINUTE:20}
     max-entries: ${APP_RATE_LIMIT_MAX_ENTRIES:10000}
 agent:
+  route-observation-collection-enabled: ${AGENT_ROUTE_OBSERVATION_COLLECTION_ENABLED:false}
+  route-observation-collection-delay-ms: ${AGENT_ROUTE_OBSERVATION_COLLECTION_DELAY_MS:1000}
+  route-observation-metrics-refresh-ms: ${AGENT_ROUTE_OBSERVATION_METRICS_REFRESH_MS:15000}
+  route-review-natural-dual-percent: ${AGENT_ROUTE_REVIEW_NATURAL_DUAL_PERCENT:50}
+  route-review-natural-senior-audit-percent: ${AGENT_ROUTE_REVIEW_NATURAL_SENIOR_AUDIT_PERCENT:5}
   quota:
     max-duration-seconds: ${AGENT_QUOTA_MAX_DURATION_SECONDS:180}
     max-model-calls: ${AGENT_QUOTA_MAX_MODEL_CALLS:50}

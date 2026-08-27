@@ -7,7 +7,7 @@ from statistics import mean
 from .scheduler_simulation import MetricEstimate, POLICY_LABELS, SchedulerExperimentConfig, SchedulingPolicy, SimulationResult, _estimate, _percentile, generate_scheduler_workload, run_policy_comparison
 
 
-OPERATIONAL_POLICIES = tuple(policy for policy in SchedulingPolicy if policy is not SchedulingPolicy.ORACLE_SJF)
+OPERATIONAL_POLICIES = tuple(policy for policy in SchedulingPolicy if policy not in (SchedulingPolicy.ORACLE_SJF, SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING))
 
 
 @dataclass(frozen=True, slots=True)

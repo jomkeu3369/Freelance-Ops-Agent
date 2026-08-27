@@ -29,7 +29,7 @@ from contracts import (
 )
 from integrations import SpringToolError
 from providers import ModelProvider, ProviderCallError
-from routing import FinalRouteDecision, RouteLabel, SafetyContext
+from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
 from routing.llm_evaluator import RouteDecisionSource
 from web_research import ResearchCollection, WebResearchBudgetError
 
@@ -102,8 +102,6 @@ class OperationalAgentExecutor:
 
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
         started_ns = time.monotonic_ns()
-        if request.budget.max_model_calls < 1:
-            raise AgentExecutionError("MODEL_CALL_BUDGET_EXCEEDED")
         text = request.input.requirement_text
         if request.clarification_history:
             clarifications = [
@@ -125,13 +123,17 @@ class OperationalAgentExecutor:
             approval_required=request.safety_context.approval_required,
             authority_verified=request.safety_context.authority_verified,
         )
-        decision = await self._gateway.route(text, safety)
-        decision = self._apply_workflow_route_policy(request, decision)
+        routing_started_ns = time.perf_counter_ns()
+        decision = self._trusted_route_policy(request, safety)
+        if decision is None:
+            if request.budget.max_model_calls < 1:
+                raise AgentExecutionError("MODEL_CALL_BUDGET_EXCEEDED")
+            decision = await self._gateway.route(text, safety)
+        decision = replace(decision, routing_latency_ms=(time.perf_counter_ns() - routing_started_ns) / 1_000_000)
         route_event = self._route_event(request, decision)
         input_tokens = decision.llm_evaluation.input_tokens if decision.llm_evaluation is not None else 0
         output_tokens = decision.llm_evaluation.output_tokens if decision.llm_evaluation is not None else 0
-        # 운영 route gateway 자체가 1회의 model decision이다. 테스트 adapter도 같은 예산 계약을 따른다.
-        route_model_calls = 1
+        route_model_calls = 0 if decision.source is RouteDecisionSource.POLICY_GATE else 1
         self._enforce_token_budget(request, input_tokens, output_tokens)
         if decision.route is RouteLabel.HUMAN_REQUIRED:
             question = (
@@ -539,6 +541,7 @@ class OperationalAgentExecutor:
 
     @staticmethod
     def _route_event(request: AgentRunRequest, decision: FinalRouteDecision) -> ExecutionEvent:
+        shadow = decision.local_decision
         reason_codes = (
             [decision.policy_code]
             if decision.policy_code is not None
@@ -552,8 +555,8 @@ class OperationalAgentExecutor:
                 "route": decision.route.value,
                 "provider": request.model_selection.provider.value,
                 "model": request.model_selection.model,
-                "routingProvider": "OPENAI" if decision.llm_evaluation is not None else None,
-                "routingModel": (
+                "evaluatorProvider": "OPENAI" if decision.llm_evaluation is not None else None,
+                "evaluatorModel": (
                     decision.llm_evaluation.model
                     if decision.llm_evaluation is not None
                     else None
@@ -564,26 +567,56 @@ class OperationalAgentExecutor:
                     decision.policy_overrode_route.value
                     if decision.policy_overrode_route is not None
                     else None
+                ),
+                "shadowSuggestedRoute": shadow.suggested_route.value if shadow is not None else None,
+                "shadowNeedsFallback": shadow.needs_fallback if shadow is not None else None,
+                "shadowFallbackReason": shadow.fallback_reason if shadow is not None else None,
+                "shadowFusedShare": shadow.fused_share if shadow is not None else None,
+                "shadowMargin": shadow.margin if shadow is not None else None,
+                "shadowLaneAgreement": (
+                    shadow.bm25_ranking[0].route is shadow.encoder_ranking[0].route
+                    if shadow is not None
+                    else None
+                ),
+                "shadowLatencyMs": decision.local_decision_latency_ms,
+                "routingLatencyMs": decision.routing_latency_ms,
+                "routingInputTokens": (
+                    decision.llm_evaluation.input_tokens if decision.llm_evaluation is not None else 0
+                ),
+                "routingOutputTokens": (
+                    decision.llm_evaluation.output_tokens if decision.llm_evaluation is not None else 0
                 )
             }
         )
 
     @staticmethod
-    def _apply_workflow_route_policy(request: AgentRunRequest, decision: FinalRouteDecision) -> FinalRouteDecision:
-        if (
-            request.input.workflow_mode is not AgentWorkflowMode.PROJECT_ANALYSIS
-            or request.input.direct_tool_operation is not None
-            or decision.route is RouteLabel.HUMAN_REQUIRED
-            or decision.route is RouteLabel.SUPERVISOR
-        ):
-            return decision
-        return replace(
-            decision,
-            route=RouteLabel.SUPERVISOR,
-            source=RouteDecisionSource.POLICY_GATE,
-            policy_code="PROJECT_ANALYSIS_FULL_WORKFLOW",
-            policy_overrode_route=decision.route
-        )
+    def _trusted_route_policy(request: AgentRunRequest, safety_context: SafetyContext) -> FinalRouteDecision | None:
+        safety = evaluate_safety(safety_context)
+        if safety.requires_human:
+            return FinalRouteDecision(
+                route=RouteLabel.HUMAN_REQUIRED,
+                source=RouteDecisionSource.POLICY_GATE,
+                local_decision=None,
+                failure_code=safety.code.value,
+                safety_decision=safety
+            )
+        if request.input.direct_tool_operation is not None:
+            return FinalRouteDecision(
+                route=RouteLabel.DIRECT_TOOL,
+                source=RouteDecisionSource.POLICY_GATE,
+                local_decision=None,
+                safety_decision=safety,
+                policy_code="TRUSTED_DIRECT_TOOL_OPERATION"
+            )
+        if request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS:
+            return FinalRouteDecision(
+                route=RouteLabel.SUPERVISOR,
+                source=RouteDecisionSource.POLICY_GATE,
+                local_decision=None,
+                safety_decision=safety,
+                policy_code="PROJECT_ANALYSIS_FULL_WORKFLOW"
+            )
+        return None
 
     @staticmethod
     def _enforce_project_analysis_budget(request: AgentRunRequest) -> None:
@@ -592,7 +625,7 @@ class OperationalAgentExecutor:
             budget.max_departments < len(_ROUTE_DEPARTMENTS[RouteLabel.SUPERVISOR])
             or budget.max_hierarchy_depth < 2
             or budget.max_handoffs < 3
-            or budget.max_model_calls < 5
+            or budget.max_model_calls < 4
             or budget.max_tool_calls < 1
         ):
             raise AgentExecutionError("PROJECT_ANALYSIS_BUDGET_INSUFFICIENT")

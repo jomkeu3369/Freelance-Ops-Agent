@@ -3,6 +3,7 @@
 - 상태: Accepted
 - 결정일: 2026-08-16
 - 보완: [ADR-0015](0015-llm-first-operational-routing.md)
+- 부분 대체: [ADR-0028](0028-trusted-contract-routing-fast-path.md)의 LLM 이전 route 확정과 4회 model call 예산
 
 ## Context
 

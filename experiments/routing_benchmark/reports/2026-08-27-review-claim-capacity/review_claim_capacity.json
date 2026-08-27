@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T03:07:57.269412+00:00",
+  "method": {
+    "trials_per_scenario": 500,
+    "seed": 20260827,
+    "workday_minutes": 480,
+    "review_duration_distribution": "lognormal, sigma=0.35",
+    "target_reviews": 11000,
+    "baseline": "oldest unreviewed row remains visible until POST completes",
+    "candidate": "15-minute lease with PostgreSQL FOR UPDATE SKIP LOCKED"
+  },
+  "summaries": [
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 3,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 159.094,
+      "mean_attempts_per_day": 159.094,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 70
+    },
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 3,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 159.386,
+      "mean_attempts_per_day": 159.386,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 70
+    },
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 5,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 95.064,
+      "mean_attempts_per_day": 95.064,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 116
+    },
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 5,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 95.094,
+      "mean_attempts_per_day": 95.094,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 116
+    },
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 10,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 47.094,
+      "mean_attempts_per_day": 47.094,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 234
+    },
+    {
+      "reviewers": 1,
+      "mean_review_minutes": 10,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 47.124,
+      "mean_attempts_per_day": 47.124,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 234
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 3,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 171.992,
+      "mean_attempts_per_day": 317.966,
+      "mean_duplicate_work_rate": 0.4590789307102597,
+      "days_to_11000_reviews": 64
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 3,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 318.31,
+      "mean_attempts_per_day": 318.31,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 35
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 5,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 103.128,
+      "mean_attempts_per_day": 190.538,
+      "mean_duplicate_work_rate": 0.45873720671695944,
+      "days_to_11000_reviews": 107
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 5,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 190.166,
+      "mean_attempts_per_day": 190.166,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 58
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 10,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 51.114,
+      "mean_attempts_per_day": 94.364,
+      "mean_duplicate_work_rate": 0.4582797610417451,
+      "days_to_11000_reviews": 216
+    },
+    {
+      "reviewers": 2,
+      "mean_review_minutes": 10,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 94.012,
+      "mean_attempts_per_day": 94.012,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 118
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 3,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 185.838,
+      "mean_attempts_per_day": 635.898,
+      "mean_duplicate_work_rate": 0.7077516513190689,
+      "days_to_11000_reviews": 60
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 3,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 635.97,
+      "mean_attempts_per_day": 635.97,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 18
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 5,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 111.21,
+      "mean_attempts_per_day": 379.974,
+      "mean_duplicate_work_rate": 0.7073076766169855,
+      "days_to_11000_reviews": 99
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 5,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 379.802,
+      "mean_attempts_per_day": 379.802,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 29
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 10,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 55.18,
+      "mean_attempts_per_day": 188.014,
+      "mean_duplicate_work_rate": 0.7064843730795887,
+      "days_to_11000_reviews": 200
+    },
+    {
+      "reviewers": 4,
+      "mean_review_minutes": 10,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 187.864,
+      "mean_attempts_per_day": 187.864,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 59
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 3,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 202.044,
+      "mean_attempts_per_day": 1272.27,
+      "mean_duplicate_work_rate": 0.8411918910482734,
+      "days_to_11000_reviews": 55
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 3,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 1273.094,
+      "mean_attempts_per_day": 1273.094,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 9
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 5,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 120.998,
+      "mean_attempts_per_day": 760.418,
+      "mean_duplicate_work_rate": 0.8408767937003393,
+      "days_to_11000_reviews": 91
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 5,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 760.444,
+      "mean_attempts_per_day": 760.444,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 15
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 10,
+      "strategy": "read_then_submit",
+      "mean_unique_reviews_per_day": 60.15,
+      "mean_attempts_per_day": 376.866,
+      "mean_duplicate_work_rate": 0.8403792126829358,
+      "days_to_11000_reviews": 183
+    },
+    {
+      "reviewers": 8,
+      "mean_review_minutes": 10,
+      "strategy": "leased_skip_locked",
+      "mean_unique_reviews_per_day": 376.678,
+      "mean_attempts_per_day": 376.678,
+      "mean_duplicate_work_rate": 0.0,
+      "days_to_11000_reviews": 30
+    }
+  ]
+}

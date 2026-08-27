@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
@@ -184,6 +185,8 @@ class FinalRouteDecision:
     safety_decision: SafetyDecision | None = None
     policy_code: str | None = None
     policy_overrode_route: RouteLabel | None = None
+    routing_latency_ms: float | None = None
+    local_decision_latency_ms: float | None = None
 
 
 class BoundaryAwareRouteGateway:
@@ -254,7 +257,7 @@ class OperationalRouteGateway:
                 safety_decision=safety,
             )
 
-        shadow = await self._shadow_route(text)
+        shadow, shadow_latency_ms = await self._shadow_route(text)
         try:
             # Shadow output is deliberately excluded from the evaluator input.
             evaluation = await self._evaluator.evaluate(text, None, context)
@@ -265,6 +268,7 @@ class OperationalRouteGateway:
                 local_decision=shadow,
                 failure_code="LLM_EVALUATOR_FAILED",
                 safety_decision=safety,
+                local_decision_latency_ms=shadow_latency_ms
             )
 
         verdict = evaluation.verdict
@@ -276,6 +280,7 @@ class OperationalRouteGateway:
                 llm_evaluation=evaluation,
                 failure_code="LLM_EVALUATOR_ABSTAINED",
                 safety_decision=safety,
+                local_decision_latency_ms=shadow_latency_ms
             )
         return FinalRouteDecision(
             route=verdict.route,
@@ -283,15 +288,18 @@ class OperationalRouteGateway:
             local_decision=shadow,
             llm_evaluation=evaluation,
             safety_decision=safety,
+            local_decision_latency_ms=shadow_latency_ms
         )
 
-    async def _shadow_route(self, text: str) -> RouteDecision | None:
+    async def _shadow_route(self, text: str) -> tuple[RouteDecision | None, float | None]:
         if self._shadow_model is None:
-            return None
+            return None, None
+        started_ns = time.perf_counter_ns()
         try:
-            return await self._shadow_model.route(text)
+            decision = await self._shadow_model.route(text)
         except Exception:
-            return None
+            return None, None
+        return decision, (time.perf_counter_ns() - started_ns) / 1_000_000
 
 
 _ROUTE_POLICY: Mapping[RouteLabel, str] = {

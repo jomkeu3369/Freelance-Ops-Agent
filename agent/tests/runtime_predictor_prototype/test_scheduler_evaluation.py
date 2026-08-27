@@ -18,11 +18,12 @@ def test_policy_evaluation_rejects_tail_and_priority_slo_violations() -> None:
     assert "high_priority_violation_rate" in evaluation.failed_criteria
 
 
-def test_multidimensional_evaluation_compares_six_operational_policies_and_oracle() -> None:
+def test_multidimensional_evaluation_keeps_rejected_candidate_out_of_operational_selection() -> None:
     config = SchedulerExperimentConfig(workspace_count=2, tasks_per_workspace=8, worker_count=2, training_samples=200)
     evaluation = run_multidimensional_evaluation(config, seeds=(3, 5))
-    assert len(OPERATIONAL_POLICIES) == 6
-    assert len(evaluation.summaries) == 7
-    assert len(evaluation.rows) == 14
+    assert len(OPERATIONAL_POLICIES) == 7
+    assert len(evaluation.summaries) == 9
+    assert len(evaluation.rows) == 18
+    assert SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING not in OPERATIONAL_POLICIES
     assert all(0 <= summary.slo_pass_rate <= 1 for summary in evaluation.summaries)
     assert all(0 <= summary.passed_criteria.mean <= 5 for summary in evaluation.summaries)

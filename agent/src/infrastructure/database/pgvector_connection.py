@@ -11,7 +11,7 @@ from typing import cast
 from sqlalchemy import Table, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, PgExtensionModel
+from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskEventModel, PgExtensionModel
 
 
 class DatabaseNotStartedError(RuntimeError):
@@ -104,7 +104,7 @@ class PgVectorConnectionManager:
         async with engine.begin() as connection:
             await connection.run_sync(
                 AgentRuntimeBase.metadata.create_all,
-                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__)],
+                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskEventModel.__table__)]  # noqa: E501
             )
 
     async def health(self) -> PgVectorHealth:

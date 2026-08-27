@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T04:58:06.263475+00:00",
+  "method": {
+    "trials": 2000,
+    "seed": 20260827,
+    "population_natural_prior": 0.9,
+    "population_risk_prior": 0.1,
+    "review_allocation": "50% natural / 50% risk",
+    "reviews_per_stratum": 5500
+  },
+  "population_truth": {
+    "accuracy": 0.9001999999999999,
+    "macro_f1": 0.8662714667124677,
+    "human_required_recall": 0.9411764705882353,
+    "false_automation_rate": 0.05882352941176475
+  },
+  "summary": [
+    {
+      "strategy": "naive_50_50",
+      "metric": "accuracy",
+      "true_value": 0.9001999999999999,
+      "mean_absolute_error": 0.05512109090909079,
+      "p95_absolute_error": 0.060654545454545294
+    },
+    {
+      "strategy": "naive_50_50",
+      "metric": "macro_f1",
+      "true_value": 0.8662714667124677,
+      "mean_absolute_error": 0.03152475919776041,
+      "p95_absolute_error": 0.03741111051774757
+    },
+    {
+      "strategy": "naive_50_50",
+      "metric": "human_required_recall",
+      "true_value": 0.9411764705882353,
+      "mean_absolute_error": 0.016835967925853238,
+      "p95_absolute_error": 0.02571872181980812
+    },
+    {
+      "strategy": "naive_50_50",
+      "metric": "false_automation_rate",
+      "true_value": 0.05882352941176475,
+      "mean_absolute_error": 0.01683596792585321,
+      "p95_absolute_error": 0.02571872181980811
+    },
+    {
+      "strategy": "post_stratified",
+      "metric": "accuracy",
+      "true_value": 0.9001999999999999,
+      "mean_absolute_error": 0.0027291090909090884,
+      "p95_absolute_error": 0.006729090909091072
+    },
+    {
+      "strategy": "post_stratified",
+      "metric": "macro_f1",
+      "true_value": 0.8662714667124677,
+      "mean_absolute_error": 0.0036195499878352677,
+      "p95_absolute_error": 0.009038694123620603
+    },
+    {
+      "strategy": "post_stratified",
+      "metric": "human_required_recall",
+      "true_value": 0.9411764705882353,
+      "mean_absolute_error": 0.005554129302807386,
+      "p95_absolute_error": 0.013391282241045768
+    },
+    {
+      "strategy": "post_stratified",
+      "metric": "false_automation_rate",
+      "true_value": 0.05882352941176475,
+      "mean_absolute_error": 0.0055541293028073865,
+      "p95_absolute_error": 0.01339128224104582
+    }
+  ]
+}

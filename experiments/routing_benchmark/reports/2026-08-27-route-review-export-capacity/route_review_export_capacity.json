@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T05:29:36.601262+00:00",
+  "method": {
+    "page_size": 1000,
+    "stability_trials": 2000,
+    "seed": 20260827,
+    "initial_events": 10000,
+    "late_captures_during_export": 200,
+    "late_capture_occurrence": "uniform across the cohort window",
+    "late_capture_arrival": "uniform after one of the export page reads"
+  },
+  "scan_work": [
+    {
+      "cohort_size": 10000,
+      "page_size": 1000,
+      "pages": 10,
+      "offset_rows_examined": 55000,
+      "keyset_rows_examined": 10000,
+      "offset_to_keyset_work_ratio": 5.5
+    },
+    {
+      "cohort_size": 100000,
+      "page_size": 1000,
+      "pages": 100,
+      "offset_rows_examined": 5050000,
+      "keyset_rows_examined": 100000,
+      "offset_to_keyset_work_ratio": 50.5
+    },
+    {
+      "cohort_size": 1000000,
+      "page_size": 1000,
+      "pages": 1000,
+      "offset_rows_examined": 500500000,
+      "keyset_rows_examined": 1000000,
+      "offset_to_keyset_work_ratio": 500.5
+    }
+  ],
+  "cohort_stability": [
+    {
+      "strategy": "moving_keyset",
+      "mean_rows_outside_start_snapshot": 89.785,
+      "mean_final_population_omissions": 110.215,
+      "p95_final_population_omissions": 122.0,
+      "reproducibility_failure_rate": 1.0
+    },
+    {
+      "strategy": "fixed_captured_at_snapshot",
+      "mean_rows_outside_start_snapshot": 0.0,
+      "mean_final_population_omissions": 0.0,
+      "p95_final_population_omissions": 0.0,
+      "reproducibility_failure_rate": 0.0
+    }
+  ]
+}
