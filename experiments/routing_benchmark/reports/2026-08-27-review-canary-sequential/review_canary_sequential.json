@@ -1,0 +1,795 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-08-27T04:50:49.410651+00:00",
+  "method": {
+    "trials_per_rate": 20000,
+    "seed": 20260827,
+    "target_overturn_rate": 0.01,
+    "checkpoints": [
+      100,
+      200,
+      381,
+      500,
+      750,
+      1000,
+      1500,
+      2000,
+      3000,
+      5000,
+      7500,
+      10000,
+      15000,
+      20000
+    ],
+    "looks": 14,
+    "strata": 2,
+    "family_wise_looks": 28,
+    "naive_z": 1.959963984540054,
+    "alpha_spending_z": 3.123734630323846,
+    "alpha_spending": "Bonferroni two-sided 5% family-wise error across fixed checkpoints and two strata"
+  },
+  "summary": [
+    {
+      "true_overturn_rate": 0.005,
+      "policy": "naive_repeated_95",
+      "z": 1.959963984540054,
+      "accept_probability": 0.98435,
+      "reject_probability": 0.01565,
+      "inconclusive_probability": 0.0,
+      "median_decision_audits": 1500
+    },
+    {
+      "true_overturn_rate": 0.005,
+      "policy": "alpha_spending",
+      "z": 3.123734630323846,
+      "accept_probability": 0.9996,
+      "reject_probability": 0.0004,
+      "inconclusive_probability": 0.0,
+      "median_decision_audits": 5000
+    },
+    {
+      "true_overturn_rate": 0.01,
+      "policy": "naive_repeated_95",
+      "z": 1.959963984540054,
+      "accept_probability": 0.1079,
+      "reject_probability": 0.21965,
+      "inconclusive_probability": 0.67245,
+      "median_decision_audits": 750
+    },
+    {
+      "true_overturn_rate": 0.01,
+      "policy": "alpha_spending",
+      "z": 3.123734630323846,
+      "accept_probability": 0.0019,
+      "reject_probability": 0.0232,
+      "inconclusive_probability": 0.9749,
+      "median_decision_audits": 500
+    },
+    {
+      "true_overturn_rate": 0.015,
+      "policy": "naive_repeated_95",
+      "z": 1.959963984540054,
+      "accept_probability": 0.00415,
+      "reject_probability": 0.99585,
+      "inconclusive_probability": 0.0,
+      "median_decision_audits": 1000
+    },
+    {
+      "true_overturn_rate": 0.015,
+      "policy": "alpha_spending",
+      "z": 3.123734630323846,
+      "accept_probability": 0.0,
+      "reject_probability": 0.99985,
+      "inconclusive_probability": 0.00015,
+      "median_decision_audits": 5000
+    },
+    {
+      "true_overturn_rate": 0.02,
+      "policy": "naive_repeated_95",
+      "z": 1.959963984540054,
+      "accept_probability": 0.0004,
+      "reject_probability": 0.9996,
+      "inconclusive_probability": 0.0,
+      "median_decision_audits": 381
+    },
+    {
+      "true_overturn_rate": 0.02,
+      "policy": "alpha_spending",
+      "z": 3.123734630323846,
+      "accept_probability": 0.0,
+      "reject_probability": 1.0,
+      "inconclusive_probability": 0.0,
+      "median_decision_audits": 1000
+    }
+  ],
+  "trajectories": {
+    "0.0050:naive_repeated_95": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.01325,
+        "inconclusive_probability": 0.98675
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0152,
+        "inconclusive_probability": 0.9848
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.15015,
+        "cumulative_reject_probability": 0.0155,
+        "inconclusive_probability": 0.83435
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.15015,
+        "cumulative_reject_probability": 0.0156,
+        "inconclusive_probability": 0.83425
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.32365,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.6607
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.37475,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.6096
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.58895,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.3954
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.74795,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.2364
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.8929,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.09145
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.9734,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.01095
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.984,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.00035
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.98435,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.98435,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.98435,
+        "cumulative_reject_probability": 0.01565,
+        "inconclusive_probability": 0.0
+      }
+    ],
+    "0.0050:alpha_spending": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.00025,
+        "inconclusive_probability": 0.99975
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.00035,
+        "inconclusive_probability": 0.99965
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.9996
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.9996
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.9996
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0063,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.9933
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.02325,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.97635
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.1281,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.8715
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.2929,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.7067
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.7721,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.2275
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.9629,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.0367
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.99485,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.00475
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.99955,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 5e-05
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.9996,
+        "cumulative_reject_probability": 0.0004,
+        "inconclusive_probability": 0.0
+      }
+    ],
+    "0.0100:naive_repeated_95": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0799,
+        "inconclusive_probability": 0.9201
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.10465,
+        "inconclusive_probability": 0.89535
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0206,
+        "cumulative_reject_probability": 0.12025,
+        "inconclusive_probability": 0.85915
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0206,
+        "cumulative_reject_probability": 0.12705,
+        "inconclusive_probability": 0.85235
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0328,
+        "cumulative_reject_probability": 0.1424,
+        "inconclusive_probability": 0.8248
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0362,
+        "cumulative_reject_probability": 0.14695,
+        "inconclusive_probability": 0.81685
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.0469,
+        "cumulative_reject_probability": 0.1563,
+        "inconclusive_probability": 0.7968
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.05635,
+        "cumulative_reject_probability": 0.16515,
+        "inconclusive_probability": 0.7785
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.066,
+        "cumulative_reject_probability": 0.17505,
+        "inconclusive_probability": 0.75895
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.0764,
+        "cumulative_reject_probability": 0.1881,
+        "inconclusive_probability": 0.7355
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.08675,
+        "cumulative_reject_probability": 0.1982,
+        "inconclusive_probability": 0.71505
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.09215,
+        "cumulative_reject_probability": 0.2047,
+        "inconclusive_probability": 0.70315
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.1008,
+        "cumulative_reject_probability": 0.2141,
+        "inconclusive_probability": 0.6851
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.1079,
+        "cumulative_reject_probability": 0.21965,
+        "inconclusive_probability": 0.67245
+      }
+    ],
+    "0.0100:alpha_spending": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.00345,
+        "inconclusive_probability": 0.99655
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0072,
+        "inconclusive_probability": 0.9928
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0112,
+        "inconclusive_probability": 0.9888
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.01335,
+        "inconclusive_probability": 0.98665
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.01385,
+        "inconclusive_probability": 0.98615
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0154,
+        "inconclusive_probability": 0.9846
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0167,
+        "inconclusive_probability": 0.9833
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.0001,
+        "cumulative_reject_probability": 0.0183,
+        "inconclusive_probability": 0.9816
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.00025,
+        "cumulative_reject_probability": 0.019,
+        "inconclusive_probability": 0.98075
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.00065,
+        "cumulative_reject_probability": 0.0203,
+        "inconclusive_probability": 0.97905
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.001,
+        "cumulative_reject_probability": 0.0215,
+        "inconclusive_probability": 0.9775
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.00125,
+        "cumulative_reject_probability": 0.02195,
+        "inconclusive_probability": 0.9768
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.0016,
+        "cumulative_reject_probability": 0.02245,
+        "inconclusive_probability": 0.97595
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.0019,
+        "cumulative_reject_probability": 0.0232,
+        "inconclusive_probability": 0.9749
+      }
+    ],
+    "0.0150:naive_repeated_95": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.19295,
+        "inconclusive_probability": 0.80705
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.2668,
+        "inconclusive_probability": 0.7332
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0028,
+        "cumulative_reject_probability": 0.34355,
+        "inconclusive_probability": 0.65365
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0028,
+        "cumulative_reject_probability": 0.3856,
+        "inconclusive_probability": 0.6116
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0039,
+        "cumulative_reject_probability": 0.4771,
+        "inconclusive_probability": 0.519
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.004,
+        "cumulative_reject_probability": 0.52315,
+        "inconclusive_probability": 0.47285
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.6284,
+        "inconclusive_probability": 0.36745
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.7248,
+        "inconclusive_probability": 0.27105
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.83135,
+        "inconclusive_probability": 0.1645
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.94025,
+        "inconclusive_probability": 0.0556
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.9844,
+        "inconclusive_probability": 0.01145
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.9936,
+        "inconclusive_probability": 0.00225
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.99575,
+        "inconclusive_probability": 0.0001
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.00415,
+        "cumulative_reject_probability": 0.99585,
+        "inconclusive_probability": 0.0
+      }
+    ],
+    "0.0150:alpha_spending": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.01845,
+        "inconclusive_probability": 0.98155
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0413,
+        "inconclusive_probability": 0.9587
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0854,
+        "inconclusive_probability": 0.9146
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.1135,
+        "inconclusive_probability": 0.8865
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.1356,
+        "inconclusive_probability": 0.8644
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.1852,
+        "inconclusive_probability": 0.8148
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.2362,
+        "inconclusive_probability": 0.7638
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.32615,
+        "inconclusive_probability": 0.67385
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.43495,
+        "inconclusive_probability": 0.56505
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.69585,
+        "inconclusive_probability": 0.30415
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.8759,
+        "inconclusive_probability": 0.1241
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.95105,
+        "inconclusive_probability": 0.04895
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.9952,
+        "inconclusive_probability": 0.0048
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.99985,
+        "inconclusive_probability": 0.00015
+      }
+    ],
+    "0.0200:naive_repeated_95": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.3215,
+        "inconclusive_probability": 0.6785
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.45195,
+        "inconclusive_probability": 0.54805
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.5997,
+        "inconclusive_probability": 0.3999
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.6716,
+        "inconclusive_probability": 0.328
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.80605,
+        "inconclusive_probability": 0.19355
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.86755,
+        "inconclusive_probability": 0.13205
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.94695,
+        "inconclusive_probability": 0.05265
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.9801,
+        "inconclusive_probability": 0.0195
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.99775,
+        "inconclusive_probability": 0.00185
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.99955,
+        "inconclusive_probability": 5e-05
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.9996,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.9996,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.9996,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.0004,
+        "cumulative_reject_probability": 0.9996,
+        "inconclusive_probability": 0.0
+      }
+    ],
+    "0.0200:alpha_spending": [
+      {
+        "audit_samples": 100,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.0514,
+        "inconclusive_probability": 0.9486
+      },
+      {
+        "audit_samples": 200,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.1242,
+        "inconclusive_probability": 0.8758
+      },
+      {
+        "audit_samples": 381,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.26475,
+        "inconclusive_probability": 0.73525
+      },
+      {
+        "audit_samples": 500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.3565,
+        "inconclusive_probability": 0.6435
+      },
+      {
+        "audit_samples": 750,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.44095,
+        "inconclusive_probability": 0.55905
+      },
+      {
+        "audit_samples": 1000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.58985,
+        "inconclusive_probability": 0.41015
+      },
+      {
+        "audit_samples": 1500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.731,
+        "inconclusive_probability": 0.269
+      },
+      {
+        "audit_samples": 2000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.8745,
+        "inconclusive_probability": 0.1255
+      },
+      {
+        "audit_samples": 3000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.9626,
+        "inconclusive_probability": 0.0374
+      },
+      {
+        "audit_samples": 5000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 0.9989,
+        "inconclusive_probability": 0.0011
+      },
+      {
+        "audit_samples": 7500,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 1.0,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 10000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 1.0,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 15000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 1.0,
+        "inconclusive_probability": 0.0
+      },
+      {
+        "audit_samples": 20000,
+        "cumulative_accept_probability": 0.0,
+        "cumulative_reject_probability": 1.0,
+        "inconclusive_probability": 0.0
+      }
+    ]
+  }
+}

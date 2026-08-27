@@ -3,6 +3,7 @@
 - 상태: Accepted
 - 결정일: 2026-08-13
 - 대체: [ADR-0012](0012-hybrid-agent-routing-gateway.md)의 local-first hybrid cascade
+- 보완: [ADR-0028](0028-trusted-contract-routing-fast-path.md)의 trusted contract fast path
 
 ## Context
 

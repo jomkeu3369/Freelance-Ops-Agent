@@ -48,6 +48,7 @@ class SystemRoleTest {
             PermissionCode.AGENT_RUN,
             PermissionCode.AGENT_RESPOND,
             PermissionCode.AGENT_CANCEL,
+            PermissionCode.AGENT_ROUTE_REVIEW,
             PermissionCode.OUTCOME_READ,
             PermissionCode.OUTCOME_WRITE
         );

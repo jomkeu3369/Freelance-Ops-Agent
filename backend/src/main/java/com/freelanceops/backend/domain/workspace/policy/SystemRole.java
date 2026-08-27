@@ -7,6 +7,7 @@ import java.util.Set;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.AGENT_CANCEL;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.AGENT_RESPOND;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.AGENT_RUN;
+import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.AGENT_ROUTE_REVIEW;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.CLIENT_DELETE;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.CLIENT_READ;
 import static com.freelanceops.backend.domain.workspace.policy.PermissionCode.CLIENT_WRITE;
@@ -54,6 +55,7 @@ public enum SystemRole {
         AGENT_RUN,
         AGENT_RESPOND,
         AGENT_CANCEL,
+        AGENT_ROUTE_REVIEW,
         OUTCOME_READ,
         OUTCOME_WRITE
     )),

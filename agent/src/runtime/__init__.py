@@ -1,5 +1,7 @@
 """Agent run lifecycle orchestration."""
 
+# ruff: noqa: I001
+
 from .executor import (
     FailClosedOperationalGateway,
     OperationalAgentExecutor,
@@ -22,6 +24,15 @@ from .runs import (
     NullCheckpointJournal,
     RunCheckpointJournal,
     RunCoordinator,
+)
+from .task_attempt_events import (
+    InMemoryTaskAttemptEventStore,
+    PostgresTaskAttemptEventStore,
+    TaskAttemptEventConflictError,
+    TaskAttemptEventCursor,
+    TaskAttemptEventRecord,
+    TaskAttemptEventStore,
+    TaskAttemptEventWrite
 )
 
 __all__ = [
@@ -48,4 +59,11 @@ __all__ = [
     "RunCoordinator",
     "RunCheckpointJournal",
     "StructuredTool",
+    "InMemoryTaskAttemptEventStore",
+    "PostgresTaskAttemptEventStore",
+    "TaskAttemptEventConflictError",
+    "TaskAttemptEventCursor",
+    "TaskAttemptEventRecord",
+    "TaskAttemptEventStore",
+    "TaskAttemptEventWrite"
 ]

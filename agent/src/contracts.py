@@ -368,6 +368,15 @@ class AgentRunEvent(StrictModel):
     data: dict[str, object] = Field(default_factory=dict)
 
 
+class RouteObservationBatch(StrictModel):
+    run_id: UUID
+    status: AgentRunStatus
+    events: list[AgentRunEvent] = Field(default_factory=list, max_length=100)
+    next_event_id: int = Field(ge=0)
+    has_more: bool
+    terminal: bool
+
+
 class ResumeAnswer(StrictModel):
     question_index: int = Field(ge=0)
     answer: str = Field(min_length=1, max_length=5000)

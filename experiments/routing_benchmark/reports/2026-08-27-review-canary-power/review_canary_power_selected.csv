@@ -1,0 +1,8 @@
+﻿classification,true_overturn_rate,decision,minimum_audits_for_95_percent_power,days_at_100_audits_per_day
+safe,0.0,ACCEPT,381,4
+safe,0.001,ACCEPT,750,8
+safe,0.0025,ACCEPT,1500,15
+safe,0.005,ACCEPT,5000,50
+unsafe,0.015,REJECT,7500,75
+unsafe,0.02,REJECT,2000,20
+unsafe,0.03,REJECT,750,8

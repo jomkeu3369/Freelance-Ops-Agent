@@ -1,0 +1,5 @@
+﻿strategy,natural_fraction,risk_stratum_fraction,minimum_reviews_for_95pct_gate,review_reduction_vs_natural,days_at_25_reviews_per_day,days_at_50_reviews_per_day,days_at_100_reviews_per_day,days_at_200_reviews_per_day
+natural_only,1.0,0.0,42000,0.0,1680,840,420,210
+70pct_natural_30pct_risk,0.7,0.30000000000000004,12500,0.7023809523809523,500,250,125,63
+50pct_natural_50pct_risk,0.5,0.5,11000,0.7380952380952381,440,220,110,55
+30pct_natural_70pct_risk,0.3,0.7,18500,0.5595238095238095,740,370,185,93

@@ -63,8 +63,14 @@ public class AgentCostService {
         if (request.validUntil() != null && !request.validUntil().isAfter(request.validFrom())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "validUntil must be after validFrom");
         }
+        String model = request.model().trim();
+        if (pricingRepository.hasOverlappingPeriod(
+            workspaceId, request.provider(), model, request.validFrom(), request.validUntil()
+        )) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "model pricing period overlaps an existing snapshot");
+        }
         ModelPricingEntity pricing = new ModelPricingEntity(
-            UUID.randomUUID(), workspaceId, request.provider(), request.model().trim(), request.versionLabel().trim(),
+            UUID.randomUUID(), workspaceId, request.provider(), model, request.versionLabel().trim(),
             request.currency(), request.inputPerMillion(), request.cachedInputPerMillion(), request.outputPerMillion(),
             request.validFrom(), request.validUntil(), userId, Instant.now()
         );
@@ -83,9 +89,19 @@ public class AgentCostService {
     static BigDecimal calculate(AgentRunView.AgentRunUsage usage, ModelPricingEntity pricing) {
         long chargeableInput = usage.inputTokens() - usage.cachedTokens();
         if (chargeableInput < 0) throw new IllegalArgumentException("cached tokens exceed input tokens");
-        BigDecimal input = BigDecimal.valueOf(chargeableInput).multiply(pricing.inputPerMillion());
-        BigDecimal cached = BigDecimal.valueOf(usage.cachedTokens()).multiply(pricing.cachedInputPerMillion());
-        BigDecimal output = BigDecimal.valueOf(usage.outputTokens()).multiply(pricing.outputPerMillion());
+        return calculateTokens(chargeableInput, usage.cachedTokens(), usage.outputTokens(), pricing);
+    }
+
+    static BigDecimal calculateRouting(long inputTokens, long outputTokens, ModelPricingEntity pricing) {
+        if (inputTokens < 0 || outputTokens < 0) throw new IllegalArgumentException("routing tokens cannot be negative");
+        return calculateTokens(inputTokens, 0, outputTokens, pricing);
+    }
+
+    private static BigDecimal calculateTokens(long inputTokens, long cachedTokens, long outputTokens,
+                                               ModelPricingEntity pricing) {
+        BigDecimal input = BigDecimal.valueOf(inputTokens).multiply(pricing.inputPerMillion());
+        BigDecimal cached = BigDecimal.valueOf(cachedTokens).multiply(pricing.cachedInputPerMillion());
+        BigDecimal output = BigDecimal.valueOf(outputTokens).multiply(pricing.outputPerMillion());
         return input.add(cached).add(output).divide(ONE_MILLION, 8, RoundingMode.HALF_UP);
     }
 

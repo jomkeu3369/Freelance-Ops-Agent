@@ -16,9 +16,11 @@ class SchedulingPolicy(StrEnum):
     FIFO = "fifo"
     GLOBAL_PREDICTED_SJF = "global_predicted_sjf"
     GLOBAL_PREDICTED_SJF_AGING = "global_predicted_sjf_aging"
+    SLO_AWARE_PREDICTED_SJF = "slo_aware_predicted_sjf"
     FAIR_FIFO = "fair_fifo"
     FAIR_PREDICTED_SJF = "fair_predicted_sjf"
     FAIR_PREDICTED_SJF_AGING = "fair_predicted_sjf_aging"
+    BOUNDED_FAIR_PREDICTED_SJF_AGING = "bounded_fair_predicted_sjf_aging"
     ORACLE_SJF = "oracle_sjf"
 
 
@@ -26,15 +28,19 @@ POLICY_LABELS = {
     SchedulingPolicy.FIFO: "FIFO",
     SchedulingPolicy.GLOBAL_PREDICTED_SJF: "Global Predicted-SJF",
     SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING: "Global Predicted-SJF + Aging",
+    SchedulingPolicy.SLO_AWARE_PREDICTED_SJF: "SLO-aware Predicted-SJF",
     SchedulingPolicy.FAIR_FIFO: "Fair FIFO",
     SchedulingPolicy.FAIR_PREDICTED_SJF: "Fair Predicted-SJF",
     SchedulingPolicy.FAIR_PREDICTED_SJF_AGING: "Fair Predicted-SJF + Aging",
+    SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING: "Bounded Fair PSJF + Aging",
     SchedulingPolicy.ORACLE_SJF: "Oracle-SJF"
 }
 
 
-FAIR_POLICIES = frozenset((SchedulingPolicy.FAIR_FIFO, SchedulingPolicy.FAIR_PREDICTED_SJF, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING))
-AGING_POLICIES = frozenset((SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING))
+FAIR_POLICIES = frozenset((SchedulingPolicy.FAIR_FIFO, SchedulingPolicy.FAIR_PREDICTED_SJF, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING, SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING))
+AGING_POLICIES = frozenset((SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING, SchedulingPolicy.SLO_AWARE_PREDICTED_SJF, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING, SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING))
+BOUNDED_FAIR_POLICIES = frozenset([SchedulingPolicy.BOUNDED_FAIR_PREDICTED_SJF_AGING])
+SLO_AWARE_POLICIES = frozenset([SchedulingPolicy.SLO_AWARE_PREDICTED_SJF])
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +70,16 @@ class SchedulerTask:
     @property
     def service_runtime_seconds(self) -> float:
         return self.cache_lookup_seconds if self.cache_hit else self.actual_runtime_seconds
+
+
+@dataclass(frozen=True, slots=True)
+class WorkerCapacityEvent:
+    at_seconds: float
+    worker_count: int
+
+    def __post_init__(self) -> None:
+        if self.at_seconds < 0 or self.worker_count < 1:
+            raise ValueError("capacity event time must be non-negative and worker count must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +244,10 @@ def _workspace_choice(ready: Sequence[SchedulerTask], virtual_service: dict[str,
     return min(by_workspace, key=lambda workspace_id: (virtual_service[workspace_id], min(task.queued_at_seconds for task in by_workspace[workspace_id]), workspace_id))
 
 
+def _active_workspace_ids(ready: Sequence[SchedulerTask], running: Sequence[tuple[float, int, SchedulerTask, float]]) -> set[str]:
+    return {task.workspace_id for task in ready} | {task.workspace_id for _, _, task, _ in running}
+
+
 def _task_choice(ready: Sequence[SchedulerTask], policy: SchedulingPolicy, current_time: float, max_wait_seconds: float, aging_rate: float, aging_overdue_interval: int, workspace_dispatch_count: int) -> SchedulerTask:
     if policy is SchedulingPolicy.FIFO:
         return min(ready, key=lambda task: (task.queued_at_seconds, task.task_id))
@@ -243,51 +263,93 @@ def _task_choice(ready: Sequence[SchedulerTask], policy: SchedulingPolicy, curre
     return min(ready, key=lambda task: (task.predicted_runtime_seconds / (1 + 0.25 * (task.priority - 1)), task.queued_at_seconds, task.task_id))
 
 
-def simulate_scheduler(tasks: Sequence[SchedulerTask], policy: SchedulingPolicy, *, worker_count: int = 4, max_wait_seconds: float = 120.0, aging_rate: float = 0.02, aging_overdue_interval: int = 4) -> SimulationResult:
+def simulate_scheduler(tasks: Sequence[SchedulerTask], policy: SchedulingPolicy, *, worker_count: int = 4, max_wait_seconds: float = 120.0, aging_rate: float = 0.02, aging_overdue_interval: int = 4, fair_idle_credit_seconds: float = 10.0, high_priority_rescue_seconds: float = 45.0, high_priority_reserved_workers: int = 0, capacity_events: Sequence[WorkerCapacityEvent] = ()) -> SimulationResult:
     if not tasks:
         raise ValueError("tasks must not be empty")
-    if worker_count < 1 or max_wait_seconds <= 0 or aging_rate < 0 or aging_overdue_interval < 1:
+    if worker_count < 1 or max_wait_seconds <= 0 or aging_rate < 0 or aging_overdue_interval < 1 or fair_idle_credit_seconds < 0 or high_priority_rescue_seconds < 0 or not 0 <= high_priority_reserved_workers < worker_count:
         raise ValueError("worker count and max wait must be positive and aging rate must be non-negative")
     task_ids = [task.task_id for task in tasks]
     if len(task_ids) != len(set(task_ids)):
         raise ValueError("task_id values must be unique")
+    ordered_capacity_events = sorted(capacity_events, key=lambda event: event.at_seconds)
+    if len({event.at_seconds for event in ordered_capacity_events}) != len(ordered_capacity_events):
+        raise ValueError("capacity event times must be unique")
 
     arrivals = sorted((task for task in tasks if not task.cache_hit), key=lambda task: (task.queued_at_seconds, task.task_id))
     completed: list[TaskScheduleResult] = [TaskScheduleResult(task_id=task.task_id, workspace_id=task.workspace_id, queued_at_seconds=task.queued_at_seconds, started_at_seconds=task.queued_at_seconds, completed_at_seconds=task.queued_at_seconds + task.cache_lookup_seconds, actual_runtime_seconds=task.cache_lookup_seconds, predicted_runtime_seconds=task.cache_lookup_seconds, priority=task.priority, cache_hit=True) for task in tasks if task.cache_hit]
     ready: list[SchedulerTask] = []
     running: list[tuple[float, int, SchedulerTask, float]] = []
     virtual_service: dict[str, float] = defaultdict(float)
+    priority_virtual_service: dict[str, float] = defaultdict(float)
+    minimum_virtual_service = 0.0
     workspace_dispatch_counts: dict[str, int] = defaultdict(int)
     arrival_index = 0
     worker_serial = 0
+    capacity_index = 0
+    current_worker_count = worker_count
     current_time = min(task.queued_at_seconds for task in tasks)
 
     while arrival_index < len(arrivals) or ready or running:
+        while capacity_index < len(ordered_capacity_events) and ordered_capacity_events[capacity_index].at_seconds <= current_time:
+            current_worker_count = ordered_capacity_events[capacity_index].worker_count
+            capacity_index += 1
         while running and running[0][0] <= current_time:
             completed_at, _, task, started_at = heappop(running)
             completed.append(TaskScheduleResult(task_id=task.task_id, workspace_id=task.workspace_id, queued_at_seconds=task.queued_at_seconds, started_at_seconds=started_at, completed_at_seconds=completed_at, actual_runtime_seconds=task.actual_runtime_seconds, predicted_runtime_seconds=task.predicted_runtime_seconds, priority=task.priority, cache_hit=False))
+        active_before_arrivals = _active_workspace_ids(ready, running)
+        if policy in BOUNDED_FAIR_POLICIES and active_before_arrivals:
+            minimum_virtual_service = max(minimum_virtual_service, min(virtual_service[workspace_id] for workspace_id in active_before_arrivals))
         while arrival_index < len(arrivals) and arrivals[arrival_index].queued_at_seconds <= current_time:
-            ready.append(arrivals[arrival_index])
+            arriving = arrivals[arrival_index]
+            if policy in BOUNDED_FAIR_POLICIES and arriving.workspace_id not in active_before_arrivals:
+                virtual_service[arriving.workspace_id] = max(virtual_service[arriving.workspace_id], minimum_virtual_service - fair_idle_credit_seconds / arriving.workspace_weight)
+                active_before_arrivals.add(arriving.workspace_id)
+            ready.append(arriving)
             arrival_index += 1
 
-        while ready and len(running) < worker_count:
-            if policy not in FAIR_POLICIES:
+        while ready and len(running) < current_worker_count:
+            priority_ready = any(task.priority >= 4 for task in ready)
+            effective_reserved_workers = min(high_priority_reserved_workers, current_worker_count - 1)
+            normal_worker_limit = current_worker_count - effective_reserved_workers
+            low_priority_running = sum(task.priority < 4 for _, _, task, _ in running)
+            if policy in SLO_AWARE_POLICIES and not priority_ready and low_priority_running >= normal_worker_limit:
+                break
+            global_dispatch_count = workspace_dispatch_counts["__global__"]
+            global_overdue = [task for task in ready if current_time - task.queued_at_seconds >= max_wait_seconds]
+            high_priority_overdue = [task for task in ready if task.priority >= 4 and current_time - task.queued_at_seconds >= high_priority_rescue_seconds]
+            if policy in SLO_AWARE_POLICIES and high_priority_overdue:
+                priority_workspace = min({task.workspace_id for task in high_priority_overdue}, key=lambda workspace_id: (priority_virtual_service[workspace_id], min(task.queued_at_seconds for task in high_priority_overdue if task.workspace_id == workspace_id), workspace_id))
+                selected = min((task for task in high_priority_overdue if task.workspace_id == priority_workspace), key=lambda task: (task.predicted_runtime_seconds, -task.priority, task.queued_at_seconds, task.task_id))
+                scheduling_scope = "__global__"
+            elif policy in BOUNDED_FAIR_POLICIES and global_overdue and global_dispatch_count % aging_overdue_interval == aging_overdue_interval - 1:
+                selected = min(global_overdue, key=lambda task: (task.queued_at_seconds, -task.priority, task.task_id))
+                scheduling_scope = selected.workspace_id
+            elif policy not in FAIR_POLICIES:
                 eligible = ready
                 scheduling_scope = "__global__"
+                workspace_dispatch_count = workspace_dispatch_counts[scheduling_scope]
+                selected = _task_choice(eligible, policy, current_time, max_wait_seconds, aging_rate, aging_overdue_interval, workspace_dispatch_count)
             else:
                 workspace_id = _workspace_choice(ready, virtual_service)
                 eligible = [task for task in ready if task.workspace_id == workspace_id]
                 scheduling_scope = workspace_id
-            workspace_dispatch_count = workspace_dispatch_counts[scheduling_scope]
-            selected = _task_choice(eligible, policy, current_time, max_wait_seconds, aging_rate, aging_overdue_interval, workspace_dispatch_count)
+                workspace_dispatch_count = workspace_dispatch_counts[scheduling_scope]
+                selected = _task_choice(eligible, policy, current_time, max_wait_seconds, aging_rate, aging_overdue_interval, workspace_dispatch_count)
             ready.remove(selected)
             finish_time = current_time + selected.actual_runtime_seconds
             heappush(running, (finish_time, worker_serial, selected, current_time))
             worker_serial += 1
             workspace_dispatch_counts[scheduling_scope] += 1
+            if scheduling_scope != "__global__":
+                workspace_dispatch_counts["__global__"] += 1
+            if policy in SLO_AWARE_POLICIES and selected.priority >= 4:
+                priority_virtual_service[selected.workspace_id] += selected.predicted_runtime_seconds / selected.workspace_weight
             if policy in FAIR_POLICIES:
                 accounting_runtime = selected.predicted_runtime_seconds
                 virtual_service[selected.workspace_id] += accounting_runtime / selected.workspace_weight
+                if policy in BOUNDED_FAIR_POLICIES:
+                    active_workspaces = _active_workspace_ids(ready, running)
+                    minimum_virtual_service = max(minimum_virtual_service, min(virtual_service[workspace_id] for workspace_id in active_workspaces))
 
         if arrival_index >= len(arrivals) and not running and not ready:
             break
@@ -296,6 +358,8 @@ def simulate_scheduler(tasks: Sequence[SchedulerTask], policy: SchedulingPolicy,
             candidates.append(arrivals[arrival_index].queued_at_seconds)
         if running:
             candidates.append(running[0][0])
+        if capacity_index < len(ordered_capacity_events):
+            candidates.append(ordered_capacity_events[capacity_index].at_seconds)
         if candidates:
             future = [candidate for candidate in candidates if candidate > current_time]
             current_time = min(future) if future else current_time

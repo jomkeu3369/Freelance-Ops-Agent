@@ -123,6 +123,37 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
         "404":
           $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/agent-runs/{runId}/route-observations:
+    get:
+      tags: [AgentRuns]
+      operationId: getRouteObservations
+      description: Returns a finite, cursor-based snapshot of persisted route.selected events.
+      security:
+        - delegationToken: []
+      parameters:
+        - $ref: "#/components/parameters/RunId"
+        - name: After-Event-ID
+          in: header
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: At most 100 route observations after the supplied cursor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteObservationBatch"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/cancel:
     post:
       tags: [AgentRuns]
@@ -569,6 +600,28 @@ components:
         data:
           type: object
           additionalProperties: true
+    RouteObservationBatch:
+      type: object
+      additionalProperties: false
+      required: [runId, status, events, nextEventId, hasMore, terminal]
+      properties:
+        runId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/AgentRunStatus"
+        events:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/AgentRunEvent"
+        nextEventId:
+          type: integer
+          minimum: 0
+        hasMore:
+          type: boolean
+        terminal:
+          type: boolean
     DepartmentName:
       type: string
       enum: [REQUIREMENTS, RESEARCH, DEAL_DESIGN, VERIFICATION]

@@ -28,6 +28,7 @@ from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel
 from runtime import (
     AgentRunExecutor,
     ExecutionAuthorization,
+    ExecutionEvent,
     ExecutionOutcome,
     InMemoryAgentRunStore,
     OperationalAgentExecutor,
@@ -45,6 +46,21 @@ class SuccessfulExecutor:
     ) -> ExecutionOutcome:
         del request, resume, authorization
         return ExecutionOutcome(result=AgentRunResult(project_summary="completed"))
+
+
+class RoutedExecutor:
+    async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
+        del request, resume, authorization
+        return ExecutionOutcome(
+            result=AgentRunResult(project_summary="completed"),
+            events=(ExecutionEvent("route.selected", {
+                "route": "SIMPLE_LLM",
+                "decisionSource": "LLM_EVALUATOR",
+                "routingLatencyMs": 120.0,
+                "routingInputTokens": 100,
+                "routingOutputTokens": 10
+            }),)
+        )
 
 
 class InterruptThenCompleteExecutor:
@@ -255,6 +271,45 @@ def test_completed_run_exposes_ordered_server_sent_events() -> None:
     assert "event: run.accepted" in response.text
     assert "event: run.started" in response.text
     assert "event: run.completed" in response.text
+
+
+def test_route_observation_snapshot_is_finite_scoped_and_cursor_based() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    client, token = _client_and_token(request, RoutedExecutor())
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post(
+        "/internal/v1/agent-runs",
+        headers=headers,
+        json=request.model_dump(mode="json", by_alias=True)
+    )
+
+    first = client.get(f"/internal/v1/agent-runs/{request.context.run_id}/route-observations", headers=headers)
+    cursor = first.json()["nextEventId"]
+    second = client.get(
+        f"/internal/v1/agent-runs/{request.context.run_id}/route-observations",
+        headers={**headers, "After-Event-ID": str(cursor)}
+    )
+
+    assert first.status_code == 200
+    assert first.json()["terminal"] is True
+    assert first.json()["hasMore"] is False
+    assert len(first.json()["events"]) == 1
+    assert first.json()["events"][0]["data"]["route"] == "SIMPLE_LLM"
+    assert second.json()["events"] == []
+    assert second.json()["nextEventId"] == cursor
+
+
+def test_route_observation_snapshot_rejects_another_run_scope() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    client, token = _client_and_token(request, RoutedExecutor())
+
+    response = client.get(
+        f"/internal/v1/agent-runs/{uuid4()}/route-observations",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "DELEGATION_FORBIDDEN"
 
 
 def test_waiting_run_can_be_cancelled() -> None:

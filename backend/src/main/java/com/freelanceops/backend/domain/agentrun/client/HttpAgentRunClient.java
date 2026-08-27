@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -121,6 +122,18 @@ public class HttpAgentRunClient implements AgentRunClient {
 
     static HttpClient http11Client() {
         return http11Client(Duration.ofSeconds(2));
+    }
+
+    @Override
+    public RouteObservationBatch routeObservations(UUID runId, long afterEventId, String delegationToken, String traceparent) {
+        return restClient.get()
+            .uri("/internal/v1/agent-runs/{runId}/route-observations", runId)
+            .headers(headers -> {
+                setHeaders(headers, delegationToken, traceparent);
+                headers.set("After-Event-ID", Long.toString(afterEventId));
+            })
+            .retrieve()
+            .body(RouteObservationBatch.class);
     }
 
     static HttpClient http11Client(Duration connectTimeout) {

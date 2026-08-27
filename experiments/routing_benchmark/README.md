@@ -48,6 +48,51 @@ uv run routing-benchmark train-router-a
 
 # 데이터 생성 → A/B → 3-model Judge → Pandas CSV/JSON → Matplotlib 그래프
 uv run routing-benchmark --output-dir reports/latest all --confirm-paid-api
+
+# 저장된 결과를 이용한 무료 operational policy replay와 plot·표 생성
+uv run routing-benchmark --output-dir reports/2026-08-27-operational-replay operational-replay
+
+# group-aware 모델 선택과 OOD selective gate 평가
+uv run routing-benchmark --output-dir reports/2026-08-27-distribution-shift distribution-shift
+
+# 비식별 운영 shadow JSONL을 project/workspace group holdout으로 평가
+uv run routing-benchmark --output-dir reports/latest shadow-evaluate --traces <shadow-traces.jsonl>
+
+# route observation과 human review를 HMAC 비식별 trace로 결합
+uv run routing-benchmark shadow-prepare --observations <observations.jsonl> --reviews <reviews.jsonl> --trace-output <shadow-traces.jsonl>
+
+# Spring의 고정 cohort export page JSONL을 중간 분리 없이 HMAC trace로 변환
+uv run routing-benchmark shadow-export-prepare --pages <export-pages.jsonl> --trace-output <shadow-traces.jsonl>
+
+# 승격 gate에 필요한 review 수와 기간 시뮬레이션
+uv run routing-benchmark --output-dir reports/latest collection-plan
+
+# 자연 traffic과 위험 route review quota 배분 최적화
+uv run routing-benchmark --output-dir reports/latest review-sampling
+
+# durable Spring collector의 동시성·latency·backlog 용량 모델
+uv run routing-benchmark --output-dir reports/latest collector-capacity
+
+# 동시 reviewer의 중복 작업과 claim lease 처리량 비교
+uv run routing-benchmark --output-dir reports/latest review-claim-capacity
+
+# 위험/자연 dual review와 adjudication의 label 오류·비용 frontier
+uv run routing-benchmark --output-dir reports/latest review-consensus
+
+# reviewer 공통오류와 합의 후 senior audit robustness frontier
+uv run routing-benchmark --output-dir reports/latest review-consensus-robustness
+
+# consensus overturn 1% gate의 audit 표본 수와 승인·기각 판정력
+uv run routing-benchmark --output-dir reports/latest review-canary-power
+
+# 반복 checkpoint 조회의 optional-stopping과 alpha-spending 비교
+uv run routing-benchmark --output-dir reports/latest review-canary-sequential
+
+# 50:50 risk oversampling의 단순 평균 편향과 사후층화 보정 비교
+uv run routing-benchmark --output-dir reports/latest review-sampling-bias
+
+# 고정 snapshot keyset export의 scan work와 cohort 재현성 비교
+uv run routing-benchmark --output-dir reports/latest review-export-capacity
 ```
 
 동일 데이터셋·동일 모델의 기존 B 결과를 재사용할 때는
@@ -66,6 +111,42 @@ model ID가 모두 같을 때만 재사용한다. Judge는 6개 병렬 호출과
 - `reports/latest/tables/judge_panel_summary.csv`
 - `reports/latest/tables/pandas_summary.json`
 
+`operational-replay`는 저장된 Luna·hybrid 결과와 synthetic train/validation을 사용해 유료 API
+호출 없이 policy-first·selective cascade를 비교한다. JSON, CSV, dashboard plot과 PNG 표를
+지정한 output directory에 기록한다.
+
+`distribution-shift`는 synthetic 생성 batch를 분리해 local model을 선택하고 confidence와
+nearest-train similarity gate를 frozen test에 적용한다. 결과에는 risk–coverage plot, OOD
+분포 plot, CSV와 PNG 요약 표가 포함된다.
+
+`shadow-evaluate`는 prompt 원문을 허용하지 않는 JSONL schema를 검증하고 project 우선,
+workspace fallback 그룹 holdout에서 actual·local full·safe escalation 정책을 비교한다. Wilson
+신뢰구간과 운영 승격 gate, JSON, CSV, dashboard plot 및 PNG 표를 함께 기록한다.
+
+`shadow-prepare`는 별도 observation/review JSONL을 workspace scope로 검증한 뒤 환경변수의
+32-byte 이상 key로 HMAC-SHA256 비식별화한다. `collection-plan`은 route traffic과 일일 human
+review 처리량별 structural gate 도달 확률·기간을 Monte Carlo로 계산해 plot과 표를 기록한다.
+`review-sampling`은 자연 traffic holdout을 보존하면서 위험 route를 oversample하는 allocation을
+비교한다. `collector-capacity`는 Spring의 20건 claim, 1초 fixed delay, virtual-thread 동시성을
+동일하게 모델링해 snapshot latency와 유입률별 capacity, 1시간 backlog, p95 수집 지연을
+JSON·CSV·dashboard·PNG 표로 기록한다. `review-claim-capacity`는 예약 없는 FIFO review와
+15분 lease + PostgreSQL SKIP LOCKED를 동시 reviewer 수·평균 review 시간별로 비교한다.
+`review-consensus`는 reviewer 오류 시나리오별 risk/natural dual-review 비율을 비교하고 p95
+accepted-label 오류 1% gate를 통과하는 최소비용 정책을 선택한다.
+`review-consensus-robustness`는 동일한 주변 오류율에서 reviewer가 같은 오답을 공유하는
+공통모드 오류와 합의 후 senior audit 비율을 탐색해 최소비용 정책과 관측 가능한 canary
+정책을 함께 기록한다.
+`review-canary-power`는 실제 consensus overturn rate별로 Wilson 상·하한이 1% gate를
+통과하거나 기각할 확률을 Monte Carlo로 계산해 95% 판정력에 필요한 audit 표본 수를 기록한다.
+`review-canary-sequential`은 14개 고정 checkpoint와 risk/natural 두 stratum의 총 28 looks에서
+일반 95% 구간 반복 조회와 Bonferroni alpha-spending을 비교해 family-wise 오판 확률과 판정
+지연을 기록한다.
+`review-sampling-bias`는 실제 traffic 90:10과 review 50:50의 차이로 생기는 accuracy,
+Macro-F1, HUMAN_REQUIRED recall, false automation 편향을 반복 시뮬레이션하고 population prior를
+사용한 사후층화 보정의 MAE와 p95 오차를 JSON·CSV·dashboard·PNG 표로 기록한다.
+`review-export-capacity`는 offset과 keyset pagination의 누적 scan work, export 중 late capture가
+moving cohort에 만드는 누락·혼입, 고정 `captured_at` snapshot의 재현성을 시뮬레이션한다.
+
 `routing_benchmark/reports/`는 최종 실행의 재현 근거로 Git에 포함한다. 보고서에는 공개
 benchmark prompt와 모델의 판정 근거가 포함되므로 실제 고객 데이터로 실행한 결과를 이
 경로에 저장하면 안 된다. 로컬 절대 경로와 secret도 결과 schema에 기록하지 않는다.
@@ -76,4 +157,3 @@ LangSmith로 보내지 않고 공개 benchmark와 프로젝트 fixture만 사용
 2026-08-10 실행 결과와 제한사항은 [`RESULTS.md`](RESULTS.md)에 기록했다.
 현재 `reports/latest`와 `artifacts/2026-08-10`은 GPT-5.4 nano historical baseline이다.
 GPT-5.6 Luna 결과로 해석하지 않으며, 새 유료 실행이 완료된 뒤 별도 날짜 artifact로 보존한다.
-

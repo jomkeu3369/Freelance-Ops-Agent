@@ -311,6 +311,16 @@ received_at
 `(source, source_event_id)`와 `(attempt_id, sequence)`를 유일하게 만들어 재전송을 안전하게
 deduplicate한다. `data`에는 chain-of-thought, secret과 delegation token을 저장하지 않는다.
 
+Scheduler shadow replay용 TaskAttempt event는 `task-attempt-telemetry-v1`로 versioning한다. 최소 lifecycle은
+`attempt.predicted → attempt.queued → attempt.started → attempt.completed|failed`이며 실패 후 retry에는
+`attempt.retry_decided`를 append한다. Prediction feature snapshot은 prediction보다 늦을 수 없고 terminal
+runtime은 `terminal_at - started_at`과 일치해야 한다.
+
+Retry decision에는 classifier·bucket policy version, classification confidence, workspace/global token의
+before·after와 `retry_ready_at`을 원자적으로 저장한다. Final incident label은 decision event를 수정하지
+않고 `attempt.incident_finalized`로 나중에 append한다. Raw event가 source of truth이고 assembled attempt는
+재생성 가능한 projection이다.
+
 ### 8.6 Budget와 사용량
 
 ```text

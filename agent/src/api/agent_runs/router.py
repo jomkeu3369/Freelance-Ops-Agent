@@ -20,6 +20,7 @@ from contracts import (
     AgentRunStatus,
     AgentRunView,
     ResumeAgentRunRequest,
+    RouteObservationBatch,
 )
 from runtime import (
     AgentRunNotFoundError,
@@ -139,6 +140,37 @@ async def stream_agent_run_events(run_id: UUID, principal: PrincipalDependency, 
         _event_stream(coordinator, run_id, cursor),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/{run_id}/route-observations", response_model=RouteObservationBatch)
+async def get_route_observations(run_id: UUID, principal: PrincipalDependency, coordinator: CoordinatorDependency, after_event_id: Annotated[int, Header(alias="After-Event-ID")] = 0) -> RouteObservationBatch | JSONResponse:  # noqa: E501
+    authorization_error = _authorize(principal, run_id=run_id, permission="agent.run")
+    if authorization_error is not None:
+        return authorization_error
+    if after_event_id < 0:
+        return _problem(400, "After-Event-ID is invalid", "AFTER_EVENT_ID_INVALID")
+    try:
+        view = await coordinator.view(run_id)
+        available_events = await coordinator.route_events(run_id, after_event_id, 101)
+    except AgentRunNotFoundError:
+        return _problem(404, "Agent run was not found", "AGENT_RUN_NOT_FOUND")
+    terminal = view.status in {
+        AgentRunStatus.COMPLETED,
+        AgentRunStatus.PARTIAL,
+        AgentRunStatus.FAILED,
+        AgentRunStatus.CANCELLED
+    }
+    has_more = len(available_events) > 100
+    events = available_events[:100]
+    next_event_id = events[-1].event_id if events else after_event_id
+    return RouteObservationBatch(
+        run_id=run_id,
+        status=view.status,
+        events=events,
+        next_event_id=next_event_id,
+        has_more=has_more,
+        terminal=terminal
     )
 
 

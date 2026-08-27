@@ -1,0 +1,4 @@
+﻿scenario,minimum_reviews_for_95pct_structural_gate,days_at_25_reviews_per_day,days_at_50_reviews_per_day,days_at_100_reviews_per_day,days_at_200_reviews_per_day
+balanced,11000,440,220,110,55
+expected_mix,21000,840,420,210,105
+sparse_risk_routes,42000,1680,840,420,210

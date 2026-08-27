@@ -1,7 +1,7 @@
 # Routing·Orchestration·Scheduler 책임 경계
 
-> 작성일: 2026-08-26  
-> 상태: 기존 Accepted ADR과 Runtime 인수인계 문서를 설명하는 보조 문서  
+> 작성일: 2026-08-26
+> 상태: 기존 Accepted ADR과 Runtime 인수인계 문서를 설명하는 보조 문서
 > 기준 문서: `2026-08-25-deep-agent-async-runtime-handoff.md`
 
 ## 1. 결론
@@ -63,10 +63,11 @@ Orchestration을 거쳐 생성된 실행 가능한 작업들의 **실행 시점�
 - `SUPERVISOR`: 여러 부서가 참여하는 orchestration
 - `HUMAN_REQUIRED`: 자동 실행을 중단하고 사람의 판단 요청
 
-ADR-0015에 따라 V2 초기 운영에서는 인증된 Spring 실행 문맥에 대한 결정적
-Safety/Authority Gate를 먼저 적용하고, Gate를 통과한 요청은 LLM route evaluator가
-분류한다. 기존 BM25·encoder·RRF local-first cascade는 운영 route를 결정하지 않으며,
-명시적으로 활성화한 경우에만 shadow 진단 자료를 만든다.
+ADR-0015와 ADR-0028에 따라 V2 운영에서는 인증된 Spring 실행 문맥에 대한 결정적
+Safety/Authority Gate를 먼저 적용한다. 신뢰된 `direct_tool_operation`과
+`workflow_mode=PROJECT_ANALYSIS`은 각각 `DIRECT_TOOL`과 `SUPERVISOR`로 결정하고, 그 외
+`AD_HOC` 요청만 LLM route evaluator가 분류한다. 기존 BM25·encoder·RRF와 새 local 후보는
+운영 route를 결정하지 않으며, 명시적으로 활성화한 경우에만 shadow 진단 자료를 만든다.
 
 실행에 사용할 모델은 route 자체와 동일한 개념이 아니다. 모델은 요청의
 `model_selection`, 부서 프로필 또는 사전 등록된 Specialist 프로필을 통해 별도로 지정하고
