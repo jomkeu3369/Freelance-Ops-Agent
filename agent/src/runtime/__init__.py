@@ -34,6 +34,26 @@ from .task_attempt_events import (
     TaskAttemptEventStore,
     TaskAttemptEventWrite
 )
+from .task_contracts import (
+    AttemptStatus,
+    DepartmentTask,
+    ExecutionRoute,
+    TaskAttempt,
+    TaskCommand,
+    TaskCommandStatus,
+    TaskCommandType,
+    TaskEvent,
+    TaskExecutionSnapshot,
+    TaskRevisionConflictError,
+    TaskScopeError,
+    TaskStatus,
+    TaskTransitionError,
+    ensure_attempt_transition,
+    ensure_expected_revision,
+    ensure_next_revision,
+    ensure_task_transition,
+    ensure_workspace_scope
+)
 
 __all__ = [
     "AgentRunExecutor",
@@ -65,5 +85,23 @@ __all__ = [
     "TaskAttemptEventCursor",
     "TaskAttemptEventRecord",
     "TaskAttemptEventStore",
-    "TaskAttemptEventWrite"
+    "TaskAttemptEventWrite",
+    "AttemptStatus",
+    "DepartmentTask",
+    "ExecutionRoute",
+    "TaskAttempt",
+    "TaskCommand",
+    "TaskCommandStatus",
+    "TaskCommandType",
+    "TaskEvent",
+    "TaskExecutionSnapshot",
+    "TaskRevisionConflictError",
+    "TaskScopeError",
+    "TaskStatus",
+    "TaskTransitionError",
+    "ensure_attempt_transition",
+    "ensure_expected_revision",
+    "ensure_next_revision",
+    "ensure_task_transition",
+    "ensure_workspace_scope"
 ]
