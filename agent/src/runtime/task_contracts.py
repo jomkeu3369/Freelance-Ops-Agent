@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from contracts import DepartmentName, ModelSelection, RunBudget, StrictModel
+from routing.profiles import ExecutionRisk, ToolProfile
 
 TASK_CONTRACT_SCHEMA_VERSION = "async-task-contract-v1"
 FORBIDDEN_RUNTIME_DATA_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "secret"))
@@ -98,6 +99,13 @@ class TaskExecutionSnapshot(RuntimeContractModel):
     policy_version: str = Field(min_length=1, max_length=100)
     prompt_version: str = Field(min_length=1, max_length=100)
     tool_schema_version: str = Field(min_length=1, max_length=100)
+    risk_level: ExecutionRisk = ExecutionRisk.LOW
+    tool_profile: ToolProfile = ToolProfile.READ_ONLY
+    model_profile: str = Field(default="react-read-v1", min_length=1, max_length=100)
+    route_profile_version: str = Field(default="route-profile-v1", min_length=1, max_length=100)
+    guard_policy_version: str = Field(default="task-guard-v1", min_length=1, max_length=100)
+    authorization_revision: int = Field(default=1, ge=1)
+    budget_revision: int = Field(default=1, ge=1)
 
     @field_validator("permissions")
     @classmethod

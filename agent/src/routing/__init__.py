@@ -23,6 +23,7 @@ from .llm_evaluator import (
     RouteDecisionSource,
     SecretSystemPrompt,
 )
+from .profiles import ExecutionRisk, RouteExecutionProfile, ToolProfile, execution_profile
 from .safety import SafetyContext, SafetyDecision, SafetyDecisionCode, evaluate_safety
 from .wiring import build_openai_route_evaluator
 
@@ -51,4 +52,8 @@ __all__ = [
     "load_route_examples",
     "build_openai_route_evaluator",
     "evaluate_safety",
+    "ExecutionRisk",
+    "RouteExecutionProfile",
+    "ToolProfile",
+    "execution_profile",
 ]

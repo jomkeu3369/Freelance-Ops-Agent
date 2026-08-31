@@ -62,6 +62,7 @@ from .task_registry import (
     TaskNotFoundError,
     TaskRegistryError,
 )
+from .task_guard import TaskGuard, TaskGuardRejection
 
 __all__ = [
     "AgentRunExecutor",
@@ -98,6 +99,8 @@ __all__ = [
     "DepartmentTask",
     "ExecutionRoute",
     "TaskAttempt",
+    "TaskGuard",
+    "TaskGuardRejection",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",
