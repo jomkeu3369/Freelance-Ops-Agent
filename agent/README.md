@@ -26,6 +26,16 @@ Agent는 Spring Boot가 소유한 업무 table을 직접 읽거나 수정하지 
 `AGENT_RUN_STORE_BACKEND=postgres`를 사용하며 production에서 memory 설정은 거부된다.
 PostgreSQL 연결과 run/event CRUD는 SQLAlchemy 2 비동기 ORM만 사용하며 직접 SQL 문자열을
 작성하지 않는다. ORM entity는 Agent 소유 `agent_runtime` schema에만 존재한다.
+운영 schema 변경은 `migrations/`의 Alembic revision으로 관리한다. PostgreSQL runtime을 직접
+실행할 때는 서버 시작 전에 다음 migration을 적용한다.
+
+```powershell
+$env:AGENT_DATABASE_URL='postgresql://agent_user:password@localhost:5432/freelance_ops'
+uv run --locked alembic upgrade head
+```
+
+Docker image는 같은 migration을 적용한 뒤 API process를 시작하며, migration이 누락된 경우
+Agent는 필요한 runtime table을 임의 생성하지 않고 startup을 실패시킨다.
 상세 lifecycle snapshot은 공식 `AsyncPostgresSaver`가 같은 schema에 기록하며 production에서는
 run store와 checkpointer를 모두 PostgreSQL로 강제한다. checkpoint에는 delegation token이나
 비공개 chain-of-thought를 저장하지 않는다.
