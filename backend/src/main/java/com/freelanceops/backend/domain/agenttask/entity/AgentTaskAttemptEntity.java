@@ -100,6 +100,46 @@ public class AgentTaskAttemptEntity {
         updatedAt = now;
     }
 
+    public boolean projectStarted(Instant now) {
+        if (status.terminal()) return false;
+        if (status == AgentTaskAttemptStatus.RUNNING || status == AgentTaskAttemptStatus.CHECKPOINTED) return true;
+        if (status != AgentTaskAttemptStatus.QUEUED && status != AgentTaskAttemptStatus.LEASED) {
+            throw new IllegalStateException("attempt event cannot start from current status");
+        }
+        status = AgentTaskAttemptStatus.RUNNING;
+        if (startedAt == null) startedAt = now;
+        updatedAt = now;
+        return true;
+    }
+
+    public boolean projectCheckpointed(Instant now) {
+        if (status.terminal()) return false;
+        if (status == AgentTaskAttemptStatus.CHECKPOINTED) return true;
+        if (status != AgentTaskAttemptStatus.RUNNING) {
+            throw new IllegalStateException("only running attempt can checkpoint");
+        }
+        status = AgentTaskAttemptStatus.CHECKPOINTED;
+        updatedAt = now;
+        return true;
+    }
+
+    public boolean projectTerminal(AgentTaskAttemptStatus terminalStatus, String failureCode, Instant now) {
+        if (!terminalStatus.terminal() || terminalStatus == AgentTaskAttemptStatus.SUPERSEDED) {
+            throw new IllegalArgumentException("invalid projected attempt status");
+        }
+        if (status.terminal()) return status == terminalStatus;
+        if (status != AgentTaskAttemptStatus.RUNNING && status != AgentTaskAttemptStatus.CHECKPOINTED) {
+            throw new IllegalStateException("only active attempt can complete");
+        }
+        status = terminalStatus;
+        this.failureCode = failureCode;
+        completedAt = now;
+        leaseOwner = null;
+        leaseUntil = null;
+        updatedAt = now;
+        return true;
+    }
+
     public void supersede(Instant now) {
         if (status.terminal()) return;
         status = AgentTaskAttemptStatus.SUPERSEDED;

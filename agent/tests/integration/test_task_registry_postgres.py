@@ -11,7 +11,7 @@ import pytest
 
 from contracts import AgentInput, AgentRunRequest, DepartmentName, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from runtime import AttemptAlreadyExistsError, AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresTaskRegistry, TaskAlreadyExistsError, TaskAttempt, TaskExecutionSnapshot, TaskRevisionConflictError, TaskScopeError, TaskStatus, TaskTransitionError
+from runtime import AttemptAlreadyExistsError, AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresTaskAttemptEventStore, PostgresTaskRegistry, TaskAlreadyExistsError, TaskAttempt, TaskAttemptEventWrite, TaskExecutionSnapshot, TaskRevisionConflictError, TaskScopeError, TaskStatus, TaskTransitionError
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
@@ -61,8 +61,13 @@ async def test_task_registry_persists_transitions_scope_and_attempts_across_conn
         assert await registry.create_attempt(attempt) == attempt
         with pytest.raises(AttemptAlreadyExistsError):
             await registry.create_attempt(attempt.model_copy(update={"attempt_id": uuid4()}))
-        queued = await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=datetime.now(UTC))
+        queued_at = datetime.now(UTC)
+        queued_event = TaskAttemptEventWrite(event_id=f"{attempt.attempt_id}:queued", run_id=attempt.run_id, source="integration-worker", source_event_id=f"{attempt.attempt_id}:queued", task_id=attempt.task_id, task_revision=attempt.task_revision, attempt_id=attempt.attempt_id, attempt_number=attempt.attempt_number, workspace_id=attempt.workspace_id, sequence=1, event_type="attempt.queued", occurred_at=queued_at)
+        queued = await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event)
         assert queued.status is AttemptStatus.QUEUED
+        assert await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event) == queued
+        persisted_events = await PostgresTaskAttemptEventStore(database).list_for_run(task.run_id)
+        assert [event.event_id for event in persisted_events] == [queued_event.event_id]
 
         revision_two = task.model_copy(update={"revision": 2, "status": TaskStatus.SUBMITTED})
         created_revision = await registry.create_next_revision(task.revision, revision_two)

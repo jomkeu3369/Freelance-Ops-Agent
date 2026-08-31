@@ -59,10 +59,13 @@ class AgentTaskEventModel(AgentRuntimeBase):
     __tablename__ = "agent_task_event"
     __table_args__ = (
         ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["attempt_id"], ["agent_runtime.agent_task_attempt.attempt_id"], ondelete="CASCADE"),
         UniqueConstraint("source", "source_event_id", name="uq_agent_task_event_source"),
         UniqueConstraint("attempt_id", "sequence", name="uq_agent_task_event_attempt_sequence"),
         Index("ix_agent_task_event_run_received", "run_id", "received_at", "event_id"),
         Index("ix_agent_task_event_attempt_occurred", "attempt_id", "occurred_at"),
+        Index("ix_agent_task_event_delivery", "delivery_status", "delivery_available_at", "delivery_lease_until", "received_at"),
         {"schema": "agent_runtime"}
     )
 
@@ -71,15 +74,24 @@ class AgentTaskEventModel(AgentRuntimeBase):
     schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
     source_event_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    task_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    attempt_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    task_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    attempt_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
     workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    phase: Mapped[str | None] = mapped_column(String(100))
+    milestone: Mapped[str | None] = mapped_column(String(200))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     data_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    delivery_status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
+    delivery_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    delivery_available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    delivery_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    delivery_last_error: Mapped[str | None] = mapped_column(String(500))
 
 
 class AgentTaskModel(AgentRuntimeBase):

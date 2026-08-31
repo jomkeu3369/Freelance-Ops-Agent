@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -38,28 +38,35 @@ class TaskAttemptEventWrite:
     run_id: UUID
     source: str
     source_event_id: str
-    task_id: str
-    attempt_id: str
+    task_id: UUID
+    task_revision: int
+    attempt_id: UUID
     attempt_number: int
     workspace_id: UUID
     sequence: int
     event_type: str
     occurred_at: datetime
+    phase: str | None = None
+    milestone: str | None = None
     data: Mapping[str, Any] = field(default_factory=dict)
     schema_version: str = TASK_ATTEMPT_EVENT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
-        identifiers = (self.event_id, self.source, self.source_event_id, self.task_id, self.attempt_id)
+        identifiers = (self.event_id, self.source, self.source_event_id)
         if not all(value.strip() for value in identifiers):
             raise ValueError("TaskAttempt event identifiers must not be blank")
-        if len(self.event_id) > 128 or len(self.source_event_id) > 128 or len(self.task_id) > 128 or len(self.attempt_id) > 128 or len(self.source) > 64:  # noqa: E501
+        if len(self.event_id) > 128 or len(self.source_event_id) > 128 or len(self.source) > 64:  # noqa: E501
             raise ValueError("TaskAttempt event identifier exceeds its storage limit")
         if self.schema_version != TASK_ATTEMPT_EVENT_SCHEMA_VERSION:
             raise ValueError("TaskAttempt event schema version is unsupported")
         if self.event_type not in TASK_ATTEMPT_EVENT_TYPES:
             raise ValueError("TaskAttempt event type is unsupported")
-        if self.attempt_number < 1 or self.sequence < 1:
-            raise ValueError("TaskAttempt number and sequence must be positive")
+        if self.task_revision < 1 or self.attempt_number < 1 or self.sequence < 1:
+            raise ValueError("TaskAttempt revision, number, and sequence must be positive")
+        if self.phase is not None and (not self.phase.strip() or len(self.phase) > 100):
+            raise ValueError("TaskAttempt phase is invalid")
+        if self.milestone is not None and (not self.milestone.strip() or len(self.milestone) > 200):
+            raise ValueError("TaskAttempt milestone is invalid")
         if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
             raise ValueError("TaskAttempt occurred_at must be timezone-aware")
         if _contains_forbidden_key(self.data):
@@ -73,12 +80,15 @@ class TaskAttemptEventRecord:
     schema_version: str
     source: str
     source_event_id: str
-    task_id: str
-    attempt_id: str
+    task_id: UUID
+    task_revision: int
+    attempt_id: UUID
     attempt_number: int
     workspace_id: UUID
     sequence: int
     event_type: str
+    phase: str | None
+    milestone: str | None
     occurred_at: datetime
     received_at: datetime
     data: Mapping[str, Any]
@@ -94,25 +104,38 @@ class TaskAttemptEventCursor:
             raise ValueError("TaskAttempt cursor is invalid")
 
 
+@dataclass(frozen=True, slots=True)
+class ClaimedTaskAttemptEvent:
+    record: TaskAttemptEventRecord
+    delivery_attempt: int
+
+
 class TaskAttemptEventStore(Protocol):
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord: ...
 
     async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]: ...  # noqa: E501
 
+    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]: ...  # noqa: E501
+
+    async def acknowledge_delivery(self, claims: list[ClaimedTaskAttemptEvent]) -> None: ...
+
+    async def retry_delivery(self, claims: list[ClaimedTaskAttemptEvent], *, delay_seconds: int, error: str) -> None: ...  # noqa: E501
+
 
 def _record_from_write(event: TaskAttemptEventWrite, received_at: datetime) -> TaskAttemptEventRecord:
-    return TaskAttemptEventRecord(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at.astimezone(UTC), data=dict(event.data))  # noqa: E501
+    return TaskAttemptEventRecord(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, task_revision=event.task_revision, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, phase=event.phase, milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at.astimezone(UTC), data=dict(event.data))  # noqa: E501
 
 
 def _same_event(record: TaskAttemptEventRecord, event: TaskAttemptEventWrite) -> bool:
-    return record.event_id == event.event_id and record.run_id == event.run_id and record.schema_version == event.schema_version and record.source == event.source and record.source_event_id == event.source_event_id and record.task_id == event.task_id and record.attempt_id == event.attempt_id and record.attempt_number == event.attempt_number and record.workspace_id == event.workspace_id and record.sequence == event.sequence and record.event_type == event.event_type and record.occurred_at == event.occurred_at.astimezone(UTC) and dict(record.data) == dict(event.data)  # noqa: E501
+    return record.event_id == event.event_id and record.run_id == event.run_id and record.schema_version == event.schema_version and record.source == event.source and record.source_event_id == event.source_event_id and record.task_id == event.task_id and record.task_revision == event.task_revision and record.attempt_id == event.attempt_id and record.attempt_number == event.attempt_number and record.workspace_id == event.workspace_id and record.sequence == event.sequence and record.event_type == event.event_type and record.phase == event.phase and record.milestone == event.milestone and record.occurred_at == event.occurred_at.astimezone(UTC) and dict(record.data) == dict(event.data)  # noqa: E501
 
 
 class InMemoryTaskAttemptEventStore:
     def __init__(self) -> None:
         self._records: dict[str, TaskAttemptEventRecord] = {}
         self._source_keys: dict[tuple[str, str], str] = {}
-        self._attempt_sequences: dict[tuple[str, int], str] = {}
+        self._attempt_sequences: dict[tuple[UUID, int], str] = {}
+        self._deliveries: dict[str, tuple[str, int, datetime, datetime | None]] = {}
         self._lock = asyncio.Lock()
 
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord:
@@ -128,6 +151,7 @@ class InMemoryTaskAttemptEventStore:
             self._records[record.event_id] = record
             self._source_keys[(record.source, record.source_event_id)] = record.event_id
             self._attempt_sequences[(record.attempt_id, record.sequence)] = record.event_id
+            self._deliveries[record.event_id] = ("PENDING", 0, record.received_at, None)
             return record
 
     async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]:  # noqa: E501
@@ -136,6 +160,42 @@ class InMemoryTaskAttemptEventStore:
         async with self._lock:
             selected = [record for record in self._records.values() if record.run_id == run_id and (after is None or (record.received_at, record.event_id) > (after.received_at, after.event_id))]  # noqa: E501
             return sorted(selected, key=lambda record: (record.received_at, record.event_id))[:limit]
+
+    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
+        _validate_delivery_options(limit, lease_seconds)
+        now = datetime.now(UTC)
+        async with self._lock:
+            claimable = [event_id for event_id, (status, _, available_at, lease_until) in self._deliveries.items()
+                         if (status == "PENDING" and available_at <= now)
+                         or (status == "PROCESSING" and lease_until is not None and lease_until <= now)]
+            selected = sorted(claimable, key=lambda event_id: (self._records[event_id].received_at, event_id))[:limit]
+            claims: list[ClaimedTaskAttemptEvent] = []
+            for event_id in selected:
+                _, attempts, available_at, _ = self._deliveries[event_id]
+                attempts += 1
+                self._deliveries[event_id] = (
+                    "PROCESSING", attempts, available_at, now + timedelta(seconds=lease_seconds)
+                )
+                claims.append(ClaimedTaskAttemptEvent(self._records[event_id], attempts))
+            return claims
+
+    async def acknowledge_delivery(self, claims: list[ClaimedTaskAttemptEvent]) -> None:
+        now = datetime.now(UTC)
+        async with self._lock:
+            for claim in claims:
+                current = self._deliveries.get(claim.record.event_id)
+                if current is not None and current[0] == "PROCESSING" and current[1] == claim.delivery_attempt:
+                    self._deliveries[claim.record.event_id] = ("DELIVERED", current[1], now, None)
+
+    async def retry_delivery(self, claims: list[ClaimedTaskAttemptEvent], *, delay_seconds: int, error: str) -> None:
+        if delay_seconds < 0 or not error.strip():
+            raise ValueError("TaskAttempt delivery retry is invalid")
+        available_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
+        async with self._lock:
+            for claim in claims:
+                current = self._deliveries.get(claim.record.event_id)
+                if current is not None and current[0] == "PROCESSING" and current[1] == claim.delivery_attempt:
+                    self._deliveries[claim.record.event_id] = ("PENDING", current[1], available_at, None)
 
 
 class PostgresTaskAttemptEventStore:
@@ -147,7 +207,7 @@ class PostgresTaskAttemptEventStore:
 
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord:
         received_at = datetime.now(UTC)
-        model = AgentTaskEventModel(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at, data_json=dict(event.data))  # noqa: E501
+        model = AgentTaskEventModel(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, task_revision=event.task_revision, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, phase=event.phase, milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at, data_json=dict(event.data), delivery_status="PENDING", delivery_attempts=0, delivery_available_at=received_at)  # noqa: E501
         try:
             async with self._database.session() as session:
                 session.add(model)
@@ -170,6 +230,63 @@ class PostgresTaskAttemptEventStore:
             models = list((await session.scalars(statement)).all())
         return [self._record(model) for model in models]
 
+    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
+        _validate_delivery_options(limit, lease_seconds)
+        now = datetime.now(UTC)
+        statement = select(AgentTaskEventModel).where(
+            or_(
+                and_(
+                    AgentTaskEventModel.delivery_status == "PENDING",
+                    AgentTaskEventModel.delivery_available_at <= now,
+                ),
+                and_(
+                    AgentTaskEventModel.delivery_status == "PROCESSING",
+                    AgentTaskEventModel.delivery_lease_until <= now,
+                ),
+            )
+        ).order_by(AgentTaskEventModel.received_at, AgentTaskEventModel.event_id).limit(limit).with_for_update(
+            skip_locked=True
+        )
+        async with self._database.session() as session:
+            models = list((await session.scalars(statement)).all())
+            for model in models:
+                model.delivery_status = "PROCESSING"
+                model.delivery_attempts += 1
+                model.delivery_lease_until = now + timedelta(seconds=lease_seconds)
+            return [ClaimedTaskAttemptEvent(self._record(model), model.delivery_attempts) for model in models]
+
+    async def acknowledge_delivery(self, claims: list[ClaimedTaskAttemptEvent]) -> None:
+        now = datetime.now(UTC)
+        async with self._database.session() as session:
+            for claim in claims:
+                model = await session.get(AgentTaskEventModel, claim.record.event_id, with_for_update=True)
+                if (
+                    model is not None
+                    and model.delivery_status == "PROCESSING"
+                    and model.delivery_attempts == claim.delivery_attempt
+                ):
+                    model.delivery_status = "DELIVERED"
+                    model.delivery_lease_until = None
+                    model.delivered_at = now
+                    model.delivery_last_error = None
+
+    async def retry_delivery(self, claims: list[ClaimedTaskAttemptEvent], *, delay_seconds: int, error: str) -> None:
+        if delay_seconds < 0 or not error.strip():
+            raise ValueError("TaskAttempt delivery retry is invalid")
+        now = datetime.now(UTC)
+        async with self._database.session() as session:
+            for claim in claims:
+                model = await session.get(AgentTaskEventModel, claim.record.event_id, with_for_update=True)
+                if (
+                    model is not None
+                    and model.delivery_status == "PROCESSING"
+                    and model.delivery_attempts == claim.delivery_attempt
+                ):
+                    model.delivery_status = "PENDING"
+                    model.delivery_available_at = now + timedelta(seconds=delay_seconds)
+                    model.delivery_lease_until = None
+                    model.delivery_last_error = error[:500]
+
     async def _find_conflict(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord | None:
         statement = select(AgentTaskEventModel).where(or_(AgentTaskEventModel.event_id == event.event_id, and_(AgentTaskEventModel.source == event.source, AgentTaskEventModel.source_event_id == event.source_event_id), and_(AgentTaskEventModel.attempt_id == event.attempt_id, AgentTaskEventModel.sequence == event.sequence))).limit(1)  # noqa: E501
         async with self._database.session() as session:
@@ -178,4 +295,9 @@ class PostgresTaskAttemptEventStore:
 
     @staticmethod
     def _record(model: AgentTaskEventModel) -> TaskAttemptEventRecord:
-        return TaskAttemptEventRecord(event_id=model.event_id, run_id=model.run_id, schema_version=model.schema_version, source=model.source, source_event_id=model.source_event_id, task_id=model.task_id, attempt_id=model.attempt_id, attempt_number=model.attempt_number, workspace_id=model.workspace_id, sequence=model.sequence, event_type=model.event_type, occurred_at=model.occurred_at, received_at=model.received_at, data=dict(model.data_json))  # noqa: E501
+        return TaskAttemptEventRecord(event_id=model.event_id, run_id=model.run_id, schema_version=model.schema_version, source=model.source, source_event_id=model.source_event_id, task_id=model.task_id, task_revision=model.task_revision, attempt_id=model.attempt_id, attempt_number=model.attempt_number, workspace_id=model.workspace_id, sequence=model.sequence, event_type=model.event_type, phase=model.phase, milestone=model.milestone, occurred_at=model.occurred_at, received_at=model.received_at, data=dict(model.data_json))  # noqa: E501
+
+
+def _validate_delivery_options(limit: int, lease_seconds: int) -> None:
+    if not 1 <= limit <= 500 or not 1 <= lease_seconds <= 300:
+        raise ValueError("TaskAttempt delivery batch or lease is invalid")

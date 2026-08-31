@@ -18,6 +18,8 @@ def test_task_event_model_has_idempotency_constraints() -> None:
 
     assert "uq_agent_task_event_source" in constraint_names
     assert "uq_agent_task_event_attempt_sequence" in constraint_names
+    assert "task_revision" in AgentTaskEventModel.__table__.columns
+    assert "delivery_status" in AgentTaskEventModel.__table__.columns
 
 
 def test_run_queries_are_sqlalchemy_expressions() -> None:
