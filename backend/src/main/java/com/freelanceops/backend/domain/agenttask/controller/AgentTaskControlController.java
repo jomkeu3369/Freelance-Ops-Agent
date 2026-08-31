@@ -2,10 +2,13 @@ package com.freelanceops.backend.domain.agenttask.controller;
 
 import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskHeartbeatRequest;
 import com.freelanceops.backend.domain.agenttask.dto.request.RegisterAgentTaskRequest;
+import com.freelanceops.backend.domain.agenttask.dto.request.IngestAgentTaskEventBatchRequest;
+import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskEventBatchResponse;
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskResponse;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.security.AgentTaskAuthority;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
+import com.freelanceops.backend.domain.agenttask.service.AgentTaskEventIngestionService;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
 import jakarta.validation.Valid;
@@ -27,10 +30,13 @@ public class AgentTaskControlController {
 
     private final AgentTaskRegistry registry;
     private final AgentTaskAuthority authority;
+    private final AgentTaskEventIngestionService eventIngestionService;
 
-    public AgentTaskControlController(AgentTaskRegistry registry, AgentTaskAuthority authority) {
+    public AgentTaskControlController(AgentTaskRegistry registry, AgentTaskAuthority authority,
+                                      AgentTaskEventIngestionService eventIngestionService) {
         this.registry = registry;
         this.authority = authority;
+        this.eventIngestionService = eventIngestionService;
     }
 
     @PostMapping("/tasks")
@@ -58,5 +64,15 @@ public class AgentTaskControlController {
         authority.requireControl(principal);
         registry.heartbeat(taskId, attemptId, principal.workspaceId(), request.expectedTaskRevision(),
             request.attemptNumber(), request.phase(), request.activity(), Instant.now());
+    }
+
+    @PostMapping("/task-events:batch")
+    public AgentTaskEventBatchResponse ingestEvents(
+        @Valid @RequestBody IngestAgentTaskEventBatchRequest request,
+        @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
+    ) {
+        authority.requireControl(principal);
+        return new AgentTaskEventBatchResponse(eventIngestionService.ingest(
+            request.events(), principal.workspaceId(), principal.runId(), Instant.now()));
     }
 }

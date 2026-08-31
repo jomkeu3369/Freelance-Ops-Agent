@@ -5,14 +5,15 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from infrastructure.database import PgVectorConnectionManager
-from infrastructure.database.models import AgentTaskAttemptModel, AgentTaskModel
+from infrastructure.database.models import AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel
 
 from .task_contracts import (
     AttemptStatus,
@@ -26,6 +27,7 @@ from .task_contracts import (
     ensure_task_transition,
     ensure_workspace_scope
 )
+from .task_attempt_events import TaskAttemptEventConflictError, TaskAttemptEventWrite
 
 
 class TaskRegistryError(RuntimeError):
@@ -138,22 +140,91 @@ class PostgresTaskRegistry:
         ensure_workspace_scope(workspace_id, model.workspace_id)
         return self._attempt(model)
 
-    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None) -> TaskAttempt:
+    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: TaskAttemptEventWrite | None = None) -> TaskAttempt:
         async with self._database.session() as session:
             statement = select(AgentTaskAttemptModel).where(AgentTaskAttemptModel.attempt_id == attempt_id).with_for_update()
             model = await session.scalar(statement)
             if model is None:
                 raise AttemptNotFoundError("task attempt was not found")
             ensure_workspace_scope(workspace_id, model.workspace_id)
+            now = datetime.now(UTC)
+            if event is not None:
+                self._require_event_identity(model, event, target)
+                existing = await self._event_conflict(session, event)
+                if existing is not None:
+                    if self._same_event_model(existing, event) and AttemptStatus(model.status) is target:
+                        return self._attempt(model)
+                    raise TaskAttemptEventConflictError(
+                        "TaskAttempt event idempotency key conflicts with different data"
+                    )
             ensure_attempt_transition(AttemptStatus(model.status), target)
             model.status = target.value
             model.queued_at = queued_at if queued_at is not None else model.queued_at
             model.started_at = started_at if started_at is not None else model.started_at
             model.finished_at = finished_at if finished_at is not None else model.finished_at
-            model.updated_at = datetime.now(UTC)
+            model.updated_at = now
+            if event is not None:
+                session.add(self._event_model(event, now))
             attempt = self._attempt(model)
             await session.flush()
             return attempt
+
+    @staticmethod
+    def _require_event_identity(model: AgentTaskAttemptModel, event: TaskAttemptEventWrite,
+                                target: AttemptStatus) -> None:
+        expected_type = {
+            AttemptStatus.QUEUED: "attempt.queued",
+            AttemptStatus.RUNNING: "attempt.started",
+            AttemptStatus.CHECKPOINTED: "attempt.checkpointed",
+            AttemptStatus.COMPLETED: "attempt.completed",
+            AttemptStatus.FAILED: "attempt.failed",
+        }.get(target)
+        if (
+            event.attempt_id != model.attempt_id
+            or event.task_id != model.task_id
+            or event.task_revision != model.task_revision
+            or event.attempt_number != model.attempt_number
+            or event.run_id != model.run_id
+            or event.workspace_id != model.workspace_id
+            or event.event_type != expected_type
+        ):
+            raise TaskRevisionConflictError("attempt event identity or transition type does not match")
+
+    @staticmethod
+    async def _event_conflict(session: AsyncSession, event: TaskAttemptEventWrite) -> AgentTaskEventModel | None:
+        statement = select(AgentTaskEventModel).where(or_(
+            AgentTaskEventModel.event_id == event.event_id,
+            and_(AgentTaskEventModel.source == event.source, AgentTaskEventModel.source_event_id == event.source_event_id),
+            and_(AgentTaskEventModel.attempt_id == event.attempt_id, AgentTaskEventModel.sequence == event.sequence),
+        )).limit(1)
+        return cast(AgentTaskEventModel | None, await session.scalar(statement))
+
+    @staticmethod
+    def _same_event_model(model: AgentTaskEventModel, event: TaskAttemptEventWrite) -> bool:
+        return (
+            model.event_id == event.event_id and model.run_id == event.run_id
+            and model.schema_version == event.schema_version and model.source == event.source
+            and model.source_event_id == event.source_event_id and model.task_id == event.task_id
+            and model.task_revision == event.task_revision and model.attempt_id == event.attempt_id
+            and model.attempt_number == event.attempt_number and model.workspace_id == event.workspace_id
+            and model.sequence == event.sequence and model.event_type == event.event_type
+            and model.phase == event.phase and model.milestone == event.milestone
+            and model.occurred_at == event.occurred_at.astimezone(UTC)
+            and dict(model.data_json) == dict(event.data)
+        )
+
+    @staticmethod
+    def _event_model(event: TaskAttemptEventWrite, received_at: datetime) -> AgentTaskEventModel:
+        return AgentTaskEventModel(
+            event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version,
+            source=event.source, source_event_id=event.source_event_id, task_id=event.task_id,
+            task_revision=event.task_revision, attempt_id=event.attempt_id,
+            attempt_number=event.attempt_number, workspace_id=event.workspace_id,
+            sequence=event.sequence, event_type=event.event_type, phase=event.phase,
+            milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC),
+            received_at=received_at, data_json=dict(event.data), delivery_status="PENDING",
+            delivery_attempts=0, delivery_available_at=received_at,
+        )
 
     async def _locked_task(self, session: AsyncSession, task_id: UUID, revision: int) -> AgentTaskModel:
         statement = select(AgentTaskModel).where(AgentTaskModel.task_id == task_id, AgentTaskModel.revision == revision).with_for_update()

@@ -88,6 +88,30 @@ public class AgentTaskEntity {
         updatedAt = now;
     }
 
+    public boolean projectStarted(int eventRevision, int attemptNumber, Instant now) {
+        if (!isCurrent(eventRevision, attemptNumber) || status.terminal() || status == AgentTaskStatus.CANCELLING) {
+            return false;
+        }
+        if (status == AgentTaskStatus.DISPATCHED) status = AgentTaskStatus.RUNNING;
+        if (status != AgentTaskStatus.RUNNING && status != AgentTaskStatus.WAITING_FOR_TOOL
+            && status != AgentTaskStatus.WAITING_FOR_USER && status != AgentTaskStatus.UPDATE_PENDING) {
+            throw new IllegalStateException("task event cannot start from current status");
+        }
+        updatedAt = now;
+        return true;
+    }
+
+    public boolean projectProgress(int eventRevision, int attemptNumber, String phase, String activity, Instant now) {
+        if (!isCurrent(eventRevision, attemptNumber) || status.terminal() || status == AgentTaskStatus.CANCELLING) {
+            return false;
+        }
+        this.phase = requireText(phase, "phase");
+        this.activity = requireText(activity, "activity");
+        lastHeartbeatAt = now;
+        updatedAt = now;
+        return true;
+    }
+
     public boolean complete(int expectedRevision, int attemptNumber, AgentTaskStatus terminalStatus, Instant now) {
         if (revision != expectedRevision || currentAttemptNumber != attemptNumber) return false;
         if (!terminalStatus.terminal() || terminalStatus == AgentTaskStatus.CANCELLED) {
@@ -119,6 +143,10 @@ public class AgentTaskEntity {
     private void requireCurrentAttempt(int expectedRevision, int attemptNumber) {
         requireRevision(expectedRevision);
         if (currentAttemptNumber != attemptNumber) throw new IllegalStateException("task attempt is not current");
+    }
+
+    private boolean isCurrent(int eventRevision, int attemptNumber) {
+        return revision == eventRevision && currentAttemptNumber == attemptNumber;
     }
 
     private static String requireText(String value, String name) {
