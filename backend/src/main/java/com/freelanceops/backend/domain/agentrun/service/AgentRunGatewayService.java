@@ -109,6 +109,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             userId,
             request.modelSelection().provider(),
             request.modelSelection().model(),
+            request.modelSelection().reasoningEffort(),
+            request.budget(),
             AgentRunStatus.QUEUED,
             Instant.now()
         );

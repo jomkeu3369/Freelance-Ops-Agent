@@ -9,6 +9,7 @@ import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.security.AgentTaskAuthority;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskEventIngestionService;
+import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistrationService;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
 import jakarta.validation.Valid;
@@ -31,12 +32,15 @@ public class AgentTaskControlController {
     private final AgentTaskRegistry registry;
     private final AgentTaskAuthority authority;
     private final AgentTaskEventIngestionService eventIngestionService;
+    private final AgentTaskRegistrationService registrationService;
 
     public AgentTaskControlController(AgentTaskRegistry registry, AgentTaskAuthority authority,
-                                      AgentTaskEventIngestionService eventIngestionService) {
+                                      AgentTaskEventIngestionService eventIngestionService,
+                                      AgentTaskRegistrationService registrationService) {
         this.registry = registry;
         this.authority = authority;
         this.eventIngestionService = eventIngestionService;
+        this.registrationService = registrationService;
     }
 
     @PostMapping("/tasks")
@@ -50,7 +54,8 @@ public class AgentTaskControlController {
         AgentTaskEntity task = new AgentTaskEntity(request.taskId(), principal.workspaceId(), principal.runId(),
             request.parentTaskId(), request.department(), request.specialistProfile(), request.alias(),
             request.objectiveReference(), request.priority(), request.deadlineAt(), now);
-        return AgentTaskResponse.from(registry.register(task, request.dependencyTaskIds(), now));
+        return AgentTaskResponse.from(registrationService.register(task, request.dependencyTaskIds(),
+            request.executionProfile(), principal, now));
     }
 
     @PostMapping("/tasks/{taskId}/attempts/{attemptId}/heartbeat")

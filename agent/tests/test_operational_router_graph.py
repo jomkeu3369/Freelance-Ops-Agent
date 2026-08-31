@@ -24,4 +24,6 @@ async def test_operational_graph_fails_closed_without_private_evaluator() -> Non
     assert result["route"] == "HUMAN_REQUIRED"
     assert result["source"] == "FAIL_CLOSED"
     assert result["failure_code"] == "ROUTE_EVALUATOR_UNAVAILABLE"
+    assert result["risk_level"] == "RESTRICTED"
+    assert result["tool_profile"] == "NONE"
     assert "private" not in str(result)

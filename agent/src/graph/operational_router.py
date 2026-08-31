@@ -10,7 +10,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from config import get_settings
-from routing import OperationalRouteGateway, SafetyContext, build_openai_route_evaluator
+from routing import OperationalRouteGateway, SafetyContext, build_openai_route_evaluator, execution_profile
 
 
 class SafetyContextInput(TypedDict, total=False):
@@ -45,6 +45,10 @@ class OperationalRouterState(TypedDict, total=False):
     shadow_needs_fallback: bool | None
     shadow_fallback_reason: str | None
     error_code: str
+    risk_level: str
+    model_profile: str
+    tool_profile: str
+    profile_policy_version: str
 
 
 @lru_cache(maxsize=1)
@@ -88,10 +92,15 @@ def build_operational_router_graph(gateway_provider: Callable[[], OperationalRou
                 "source": "FAIL_CLOSED",
                 "failure_code": "ROUTE_EVALUATOR_UNAVAILABLE",
                 "shadow_enabled": False,
+                "risk_level": "RESTRICTED",
+                "model_profile": "human-required",
+                "tool_profile": "NONE",
+                "profile_policy_version": "route-profile-v1",
             }
 
         evaluation = decision.llm_evaluation
         shadow = decision.local_decision
+        profile = execution_profile(decision.route, _safety_context(state.get("safety_context")))
 
         return {
             "status": "HUMAN_REQUIRED" if decision.route.value == "HUMAN_REQUIRED" else "ROUTED",
@@ -107,6 +116,10 @@ def build_operational_router_graph(gateway_provider: Callable[[], OperationalRou
             "shadow_suggested_route": shadow.suggested_route.value if shadow is not None else None,
             "shadow_needs_fallback": shadow.needs_fallback if shadow is not None else None,
             "shadow_fallback_reason": shadow.fallback_reason if shadow is not None else None,
+            "risk_level": profile.risk.value,
+            "model_profile": profile.model_profile,
+            "tool_profile": profile.tool_profile.value,
+            "profile_policy_version": profile.policy_version,
         }
 
     builder: StateGraph[OperationalRouterState, None, OperationalRouterInput, OperationalRouterState] = StateGraph(OperationalRouterState, input_schema=OperationalRouterInput)  # noqa: E501
