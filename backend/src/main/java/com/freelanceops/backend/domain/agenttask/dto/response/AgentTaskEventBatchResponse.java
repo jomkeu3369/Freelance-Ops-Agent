@@ -2,8 +2,8 @@ package com.freelanceops.backend.domain.agenttask.dto.response;
 
 import java.util.List;
 
-public record AgentTaskEventBatchResponse(List<String> acknowledgedEventIds) {
+public record AgentTaskEventBatchResponse(List<String> acceptedEventIds) {
     public AgentTaskEventBatchResponse {
-        acknowledgedEventIds = List.copyOf(acknowledgedEventIds);
+        acceptedEventIds = List.copyOf(acceptedEventIds);
     }
 }
