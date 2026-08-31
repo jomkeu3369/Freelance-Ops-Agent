@@ -1,12 +1,14 @@
 """SQLAlchemy ORM entities owned by the Agent runtime schema."""
 
+# ruff: noqa: E501, I001
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Float, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -78,6 +80,66 @@ class AgentTaskEventModel(AgentRuntimeBase):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     data_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class AgentTaskModel(AgentRuntimeBase):
+    __tablename__ = "agent_task"
+    __table_args__ = (
+        ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
+        CheckConstraint("revision >= 1", name="ck_agent_task_revision"),
+        CheckConstraint("priority BETWEEN 1 AND 5", name="ck_agent_task_priority"),
+        CheckConstraint("status IN ('SUBMITTED','ADMITTED','DEFERRED','QUEUED','RUNNING','CHECKPOINTED','PAUSED','RETRY_WAIT','WAITING_FOR_CAPACITY','COMPLETED','FAILED','CANCELLED','REJECTED','SUPERSEDED')", name="ck_agent_task_status"),
+        Index("ix_agent_task_workspace_status_priority", "workspace_id", "status", "priority", "created_at"),
+        Index("ix_agent_task_run_status", "run_id", "status"),
+        {"schema": "agent_runtime"}
+    )
+
+    task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    project_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    department: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False)
+    dependency_task_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    execution_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTaskAttemptModel(AgentRuntimeBase):
+    __tablename__ = "agent_task_attempt"
+    __table_args__ = (
+        ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        UniqueConstraint("task_id", "task_revision", "attempt_number", name="uq_agent_task_attempt_number"),
+        CheckConstraint("attempt_number >= 1", name="ck_agent_task_attempt_number"),
+        CheckConstraint("status IN ('PREDICTED','QUEUED','RUNNING','CHECKPOINTED','COMPLETED','FAILED','CANCELLED','SUPERSEDED')", name="ck_agent_task_attempt_status"),
+        CheckConstraint("predicted_service_runtime_seconds IS NULL OR predicted_service_runtime_seconds >= 0", name="ck_agent_task_attempt_prediction_nonnegative"),
+        CheckConstraint("(predicted_service_runtime_seconds IS NULL AND predictor_version IS NULL) OR (predicted_service_runtime_seconds IS NOT NULL AND predictor_version IS NOT NULL)", name="ck_agent_task_attempt_prediction_pair"),
+        CheckConstraint("(queued_at IS NULL OR started_at IS NULL OR queued_at <= started_at) AND (started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at)", name="ck_agent_task_attempt_time_order"),
+        Index("ix_agent_task_attempt_workspace_status", "workspace_id", "status", "created_at"),
+        Index("ix_agent_task_attempt_task_status", "task_id", "task_revision", "status"),
+        {"schema": "agent_runtime"}
+    )
+
+    attempt_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    task_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    predicted_service_runtime_seconds: Mapped[float | None] = mapped_column(Float)
+    predictor_version: Mapped[str | None] = mapped_column(String(100))
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class PgExtensionModel(AgentRuntimeBase):

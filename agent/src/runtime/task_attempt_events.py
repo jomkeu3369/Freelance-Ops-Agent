@@ -143,7 +143,7 @@ class PostgresTaskAttemptEventStore:
         self._database = database
 
     async def initialize(self) -> None:
-        await self._database.create_runtime_tables()
+        await self._database.verify_runtime_tables()
 
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord:
         received_at = datetime.now(UTC)

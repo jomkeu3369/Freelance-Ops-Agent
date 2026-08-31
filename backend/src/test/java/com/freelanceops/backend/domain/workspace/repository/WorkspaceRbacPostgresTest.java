@@ -120,6 +120,26 @@ class WorkspaceRbacPostgresTest {
     }
 
     @Test
+    void migrationsCreateAuthoritativeAgentTaskRegistry() {
+        Integer taskRegistryTables = jdbcClient.sql("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = 'app'
+                  AND table_name IN ('agent_task', 'agent_task_dependency', 'agent_task_attempt')
+                """)
+            .query(Integer.class)
+            .single();
+        Integer attemptNumberConstraint = jdbcClient.sql("""
+                SELECT COUNT(*) FROM pg_constraint
+                WHERE conname = 'uq_agent_task_attempt_number'
+                """)
+            .query(Integer.class)
+            .single();
+
+        assertThat(taskRegistryTables).isEqualTo(3);
+        assertThat(attemptNumberConstraint).isEqualTo(1);
+    }
+
+    @Test
     void databaseAllowsOnlyOneDurableStartCommandPerAgentRun() {
         UUID ownerId = insertUser("agent-command-owner");
         WorkspaceProvisioningResult workspace = provisioningService.create(

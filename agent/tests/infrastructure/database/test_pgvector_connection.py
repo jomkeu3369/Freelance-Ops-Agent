@@ -16,6 +16,14 @@ class FakeResult:
         return ("freelance_ops", "agent_user", "agent_runtime", "0.8.1")
 
 
+class RuntimeTableResult:
+    def __init__(self, values: tuple[str | None, ...]) -> None:
+        self._values = values
+
+    def one(self) -> tuple[str | None, ...]:
+        return self._values
+
+
 class FakeSession:
     def __init__(self) -> None:
         self.statements: list[object] = []
@@ -108,3 +116,21 @@ async def test_health_uses_orm_statement_and_commits() -> None:
 
     await manager.close()
     assert engine.dispose_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_runtime_table_verification_fails_closed_when_migration_is_missing() -> None:
+    manager = PgVectorConnectionManager(make_config())
+    engine = FakeEngine()
+    session = FakeSession()
+
+    async def execute(statement: object) -> RuntimeTableResult:
+        session.statements.append(statement)
+        return RuntimeTableResult(("agent_run_state", "agent_run_event", "agent_task", None, "agent_task_event"))
+
+    session.execute = cast(Any, execute)
+    manager._engine = cast(Any, engine)
+    manager._sessions = cast(Any, lambda: session)
+
+    with pytest.raises(RuntimeError, match="agent_task_attempt"):
+        await manager.verify_runtime_tables()

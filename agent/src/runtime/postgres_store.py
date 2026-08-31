@@ -35,7 +35,7 @@ class PostgresAgentRunStore:
         self._database = database
 
     async def initialize(self) -> None:
-        await self._database.create_runtime_tables()
+        await self._database.verify_runtime_tables()
 
     async def create(self, request: AgentRunRequest) -> AgentRunView:
         model = AgentRunStateModel(

@@ -54,6 +54,14 @@ from .task_contracts import (
     ensure_task_transition,
     ensure_workspace_scope
 )
+from .task_registry import (
+    AttemptAlreadyExistsError,
+    AttemptNotFoundError,
+    PostgresTaskRegistry,
+    TaskAlreadyExistsError,
+    TaskNotFoundError,
+    TaskRegistryError,
+)
 
 __all__ = [
     "AgentRunExecutor",
@@ -103,5 +111,11 @@ __all__ = [
     "ensure_expected_revision",
     "ensure_next_revision",
     "ensure_task_transition",
-    "ensure_workspace_scope"
+    "ensure_workspace_scope",
+    "AttemptAlreadyExistsError",
+    "AttemptNotFoundError",
+    "PostgresTaskRegistry",
+    "TaskAlreadyExistsError",
+    "TaskNotFoundError",
+    "TaskRegistryError",
 ]

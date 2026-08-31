@@ -1,5 +1,7 @@
 """SQLAlchemy async connection manager for PostgreSQL and pgvector."""
 
+# ruff: noqa: E501, I001
+
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +13,15 @@ from typing import cast
 from sqlalchemy import Table, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskEventModel, PgExtensionModel
+from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel, PgExtensionModel
+
+REQUIRED_RUNTIME_TABLES = (
+    "agent_runtime.agent_run_state",
+    "agent_runtime.agent_run_event",
+    "agent_runtime.agent_task",
+    "agent_runtime.agent_task_attempt",
+    "agent_runtime.agent_task_event"
+)
 
 
 class DatabaseNotStartedError(RuntimeError):
@@ -100,12 +110,20 @@ class PgVectorConnectionManager:
 
     async def create_runtime_tables(self) -> None:
         engine = self._require_engine()
-        # 운영 migration 도입 전까지 Agent 소유 schema의 ORM 테이블만 생성한다.
+        # 테스트 전용 호환 경로다. 운영 startup은 Alembic migration 후 verify_runtime_tables를 사용한다.
         async with engine.begin() as connection:
             await connection.run_sync(
                 AgentRuntimeBase.metadata.create_all,
-                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskEventModel.__table__)]  # noqa: E501
+                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskModel.__table__), cast(Table, AgentTaskAttemptModel.__table__), cast(Table, AgentTaskEventModel.__table__)]  # noqa: E501
             )
+
+    async def verify_runtime_tables(self) -> None:
+        statement = select(*(func.to_regclass(table_name) for table_name in REQUIRED_RUNTIME_TABLES))
+        async with self.session() as session:
+            row = (await session.execute(statement)).one()
+        missing = [table_name for table_name, resolved in zip(REQUIRED_RUNTIME_TABLES, row, strict=True) if resolved is None]
+        if missing:
+            raise RuntimeError(f"Agent runtime migrations are incomplete: {', '.join(missing)}")
 
     async def health(self) -> PgVectorHealth:
         statement = (
