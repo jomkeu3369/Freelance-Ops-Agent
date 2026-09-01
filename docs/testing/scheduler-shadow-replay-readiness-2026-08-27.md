@@ -114,7 +114,6 @@ Observed FIFO와 Replay FIFO의 mean wait, P95 wait와 mean completion 최대 �
 이 값은 loader → Task 변환 → event simulation → metric 집계 경로가 기준 fixture를 정확히 재현했다는
 검증이다.
 
-![Shadow replay pipeline validation](../../agent/tests/runtime_predictor_prototype/scheduler_shadow_replay_pipeline_validation.png)
 
 후보 정책 수치는 synthetic fixture에서만 해석한다. Global Predicted-SJF는 평균을 크게 낮추지만
 maximum wait가 759.1초까지 증가했고, Aging은 maximum wait를 202.3초로 줄였다. 이번 Fair 정책은
@@ -195,6 +194,6 @@ plot 생성 경로는 준비됐다. 현재 확정할 수 있는 결론은 replay
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_shadow_replay
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_shadow_replay.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_shadow_replay
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_shadow_replay.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

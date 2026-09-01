@@ -153,15 +153,12 @@ circuit breaker, provider probe와 failover로 전환할 조건이다.
 
 ### 정책 비교
 
-![Workspace retry budget comparison](../../agent/tests/runtime_predictor_prototype/scheduler_workspace_retry_budget_comparison.png)
 
 ### Scenario별 Plot 표
 
-![Workspace retry budget table](../../agent/tests/runtime_predictor_prototype/scheduler_workspace_retry_budget_table.png)
 
 ### Capacity·Refill·분산 장애 민감도
 
-![Workspace retry budget sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_workspace_retry_budget_sensitivity.png)
 
 ## 9. Scheduler 적용 계약
 
@@ -217,20 +214,20 @@ PRIORITY_BORROW_ALLOWED
 ```powershell
 cd agent
 $env:PYTHONPATH = "$PWD\.venv\Lib\site-packages"
-.\.venv-codex\Scripts\python.exe -m pytest tests\runtime_predictor_prototype\test_workspace_retry_budget_simulation.py -q
-.\.venv-codex\Scripts\python.exe -m tests.runtime_predictor_prototype.plot_workspace_retry_budget
+.\.venv-codex\Scripts\python.exe -m pytest experiments\runtime_scheduler\test_workspace_retry_budget_simulation.py -q
+.\.venv-codex\Scripts\python.exe -m experiments.runtime_scheduler.plot_workspace_retry_budget
 ```
 
 관련 구현:
 
-- `agent/tests/runtime_predictor_prototype/retry_checkpoint_simulation.py`
-- `agent/tests/runtime_predictor_prototype/workspace_retry_budget_simulation.py`
-- `agent/tests/runtime_predictor_prototype/plot_workspace_retry_budget.py`
-- `agent/tests/runtime_predictor_prototype/test_workspace_retry_budget_simulation.py`
+- `experiments/runtime_scheduler/retry_checkpoint_simulation.py`
+- `experiments/runtime_scheduler/workspace_retry_budget_simulation.py`
+- `experiments/runtime_scheduler/plot_workspace_retry_budget.py`
+- `experiments/runtime_scheduler/test_workspace_retry_budget_simulation.py`
 
 검증 결과:
 
 ```text
-pytest tests/runtime_predictor_prototype -q: 124 passed
-ruff check tests/runtime_predictor_prototype: All checks passed
+pytest experiments/runtime_scheduler -q: 124 passed
+ruff check experiments/runtime_scheduler: All checks passed
 ```

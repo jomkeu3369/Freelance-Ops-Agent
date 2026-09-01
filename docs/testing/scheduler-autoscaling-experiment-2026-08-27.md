@@ -64,7 +64,6 @@ paired_seeds: 5
 | Shed then scale | 5.2% | **183.6 sec** | 94.4% | 100.0% | **105.8 sec** | 34.39 |
 | Predictive scale upper bound | 0.0% | 198.9 sec | **99.4%** | 100.0% | 115.4 sec | 33.77 |
 
-![Autoscaling strategy comparison](../../agent/tests/runtime_predictor_prototype/scheduler_autoscaling_comparison.png)
 
 ## 5. Scale-up 지연 민감도
 
@@ -76,7 +75,6 @@ paired_seeds: 5
 | 120 sec | 95.6% | 295.8 sec | 87.5% | 186.0 sec |
 | 240 sec | 83.3% | 360.5 sec | 81.4% | 195.9 sec |
 
-![Scale-up delay sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_scale_delay_sensitivity.png)
 
 ## 6. 해석
 
@@ -171,12 +169,12 @@ Predicted backlog Overload Detector
 
 ```powershell
 cd agent
-uv run python -m tests.runtime_predictor_prototype.plot_autoscaling_simulation
-uv run pytest tests/runtime_predictor_prototype/test_autoscaling_simulation.py
+uv run python -m experiments.runtime_scheduler.plot_autoscaling_simulation
+uv run pytest experiments/runtime_scheduler/test_autoscaling_simulation.py
 ```
 
 구현 파일:
 
-- `agent/tests/runtime_predictor_prototype/autoscaling_simulation.py`
-- `agent/tests/runtime_predictor_prototype/plot_autoscaling_simulation.py`
-- `agent/tests/runtime_predictor_prototype/test_autoscaling_simulation.py`
+- `experiments/runtime_scheduler/autoscaling_simulation.py`
+- `experiments/runtime_scheduler/plot_autoscaling_simulation.py`
+- `experiments/runtime_scheduler/test_autoscaling_simulation.py`

@@ -16,7 +16,7 @@
 
 현재 `PostgresCheckpointJournal`은 run lifecycle과 LangGraph 실행 state를 저장하지만, 실패 직전까지
 Sub-Agent가 수행한 세부 service progress를 몇 초나 재사용하는지는 측정하지 않는다. 이번 코드는
-운영 runtime을 수정하지 않고 `agent/tests/runtime_predictor_prototype`의 event simulator에서 다음을
+운영 runtime을 수정하지 않고 `experiments/runtime_scheduler`의 event simulator에서 다음을
 모델링한다.
 
 ```text
@@ -66,7 +66,6 @@ Task stream과 Runtime Predictor 출력을 재사용한다.
 | Checkpoint + backoff | 99.8% | 95.1% | 265.5 sec | 1.104× | 683.9 sec | $0.341 |
 | Checkpoint + backoff + budget | 92.2% | 89.6% | **222.4 sec** | **1.022×** | **628.0 sec** | **$0.326** |
 
-![Retry and checkpoint strategy comparison](../../agent/tests/runtime_predictor_prototype/scheduler_retry_checkpoint_comparison.png)
 
 `Checkpoint immediate`만 99% eventual completion과 95% SLO goodput gate를 모두 통과했다. Restart
 immediate 대비 다음 변화가 있었다.
@@ -90,7 +89,6 @@ provider가 즉시 회복 가능한 상태라면 resume을 지연할 근거가 �
 | 30% | 88.8% | 1.211× | 91.2% | 1.159× |
 | 40% | 80.4% | 1.313× | 84.4% | 1.224× |
 
-![Retry failure sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_retry_failure_sensitivity.png)
 
 Failure 0%에서는 checkpoint write 때문에 demand가 1.7% 증가한다. 약 10%에서는 restart와 checkpoint
 demand가 같아지고, 20%부터 checkpoint의 이점이 분명해진다. 따라서 모든 짧은 Task에 checkpoint를
@@ -114,7 +112,6 @@ Budget 전략의 P95가 failure 30–40%에서 낮아지는 것은 빠른 복구
 | 60 sec | 95.4% | 1.119× | 33.5 sec | $0.331 |
 | 120 sec | 95.4% | 1.124× | 4.9 sec | $0.333 |
 
-![Checkpoint interval sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_checkpoint_interval_sensitivity.png)
 
 20초는 goodput과 demand가 가장 좋고 30초는 거의 같은 SLO에서 checkpoint overhead와 worker 비용이
 더 낮다. Hard gate 통과 후 비용을 최소화하는 현재 선택 규칙에 따라 기본값은 30초로 둔다. 작업
@@ -141,7 +138,6 @@ retry_burst_window_seconds: 10
 | Checkpoint immediate | 6.0 | 31.7 | **39.9 sec** | **97.3%** |
 | Checkpoint + backoff | **3.9** | **28.4** | 46.5 sec | 97.0% |
 
-![Provider outage retry storm](../../agent/tests/runtime_predictor_prototype/scheduler_retry_outage_comparison.png)
 
 Checkpoint + backoff는 checkpoint immediate 대비 10초 retry burst를 약 35%, peak queue를 약 10.4%
 줄였다. 대신 recovery가 39.9초에서 46.5초로 16.5% 늘고 goodput이 0.3%p 감소했다. Backoff는
@@ -217,12 +213,12 @@ retry_budget_exhaustion_reason: RETRY_BUDGET_EXHAUSTED
 
 ```powershell
 cd agent
-uv run python -m tests.runtime_predictor_prototype.plot_retry_checkpoint_simulation
-uv run pytest tests/runtime_predictor_prototype/test_retry_checkpoint_simulation.py
+uv run python -m experiments.runtime_scheduler.plot_retry_checkpoint_simulation
+uv run pytest experiments/runtime_scheduler/test_retry_checkpoint_simulation.py
 ```
 
 구현 파일:
 
-- `agent/tests/runtime_predictor_prototype/retry_checkpoint_simulation.py`
-- `agent/tests/runtime_predictor_prototype/plot_retry_checkpoint_simulation.py`
-- `agent/tests/runtime_predictor_prototype/test_retry_checkpoint_simulation.py`
+- `experiments/runtime_scheduler/retry_checkpoint_simulation.py`
+- `experiments/runtime_scheduler/plot_retry_checkpoint_simulation.py`
+- `experiments/runtime_scheduler/test_retry_checkpoint_simulation.py`

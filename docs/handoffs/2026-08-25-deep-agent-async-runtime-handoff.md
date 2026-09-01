@@ -87,8 +87,8 @@ evaluation과 보안 회귀 검사가 필요하다. Async Sub-Agent 기능은 �
 
 ```text
 .vscode/
-agent/tests/runtime_predictor_prototype/streamlit_xgb_sgd_online_demo.py
-agent/tests/runtime_predictor_prototype/xgboost_runtime_test.py
+experiments/runtime_scheduler/streamlit_xgb_sgd_online_demo.py
+experiments/runtime_scheduler/xgboost_runtime_demo.py
 model.json
 model_updated.json
 ```
@@ -458,7 +458,7 @@ time은 병렬 child의 합이 아니라 dependency critical path, queue wait와
 
 ## 10. Runtime Predictor 실험 현황
 
-현재 prototype은 `agent/tests/runtime_predictor_prototype/`에 있다.
+현재 prototype은 `experiments/runtime_scheduler/`에 있다.
 
 구현 또는 실험된 항목:
 
@@ -501,7 +501,7 @@ online residual SGD MAE 4.78 sec
 
 ### 10.1 Scheduler 효용성 prototype 추가
 
-2026-08-26에 `agent/tests/runtime_predictor_prototype/`에 실제 운영 Scheduler와 분리된
+2026-08-26에 `experiments/runtime_scheduler/`에 실제 운영 Scheduler와 분리된
 event-driven multi-workspace simulator를 추가했다.
 
 ```text
@@ -1043,7 +1043,7 @@ actual_cost_per_successful_outcome
 
 - Python 함수 정의와 호출 인자는 가로 형식으로 작성한다.
 - 닫는 괄호 앞에 trailing comma를 찍지 않는다.
-- `agent/tests/runtime_predictor_prototype/test_style.py`의 스타일 검사를 유지한다.
+- `experiments/runtime_scheduler/test_style.py`의 스타일 검사를 유지한다.
 - 기존 사용자 변경과 untracked 파일을 임의로 수정하거나 삭제하지 않는다.
 - 파일 수정에는 `apply_patch`를 사용한다.
 - 작업 완료 후 생성된 `__pycache__`, `.pytest_cache`, `.ruff_cache`, `.mypy_cache`와

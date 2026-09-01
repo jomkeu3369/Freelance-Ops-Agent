@@ -7,6 +7,7 @@ COPY --from=uv /uv /uvx /bin/
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 COPY src src
+COPY resources resources
 COPY alembic.ini alembic.ini
 COPY migrations migrations
 COPY docker-entrypoint.sh docker-entrypoint.sh

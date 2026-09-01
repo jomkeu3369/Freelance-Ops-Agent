@@ -77,7 +77,6 @@ primary service demand 대비 1.120배였다.
 
 ## 4. Classifier 오류 경계
 
-![Failure classifier error boundary](../../agent/tests/runtime_predictor_prototype/scheduler_failure_classifier_error_boundary.png)
 
 ### False negative
 
@@ -116,7 +115,6 @@ False positive는 불필요한 backoff와 global budget 소비를 만들어 독�
 
 ## 5. Secondary Provider 경계
 
-![Secondary provider tradeoff](../../agent/tests/runtime_predictor_prototype/scheduler_secondary_provider_tradeoff.png)
 
 ### Latency multiplier
 
@@ -230,6 +228,6 @@ Final failure label은 장애 종료 후 incident correlation, provider status�
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_failure_classifier_simulation
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_failure_classifier_simulation.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_failure_classifier_simulation
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_failure_classifier_simulation.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

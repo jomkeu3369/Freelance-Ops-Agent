@@ -284,9 +284,7 @@ priority_4_5_wait_over_60_seconds_rate: 0.01
 - 예측 노이즈가 있는 `ρ=0.95`: 모든 정책 탈락
 - 과부하 `ρ=1.99`: 모든 정책 탈락
 
-![다면 SLO 평가](../../agent/tests/runtime_predictor_prototype/scheduler_multidimensional_evaluation.png)
 
-![SLO 강건성 히트맵](../../agent/tests/runtime_predictor_prototype/scheduler_slo_stress_heatmap.png)
 
 ## 8. 사용자 실시간 제어
 
@@ -421,7 +419,7 @@ Scheduler 지표와 Runtime Predictor 지표는 model version, policy version과
 
 ## 13. 현재 구현 범위와 한계
 
-현재 `agent/tests/runtime_predictor_prototype`에는 다음 검증 코드가 있다.
+현재 `experiments/runtime_scheduler`에는 다음 검증 코드가 있다.
 
 - XGBoost 기반 Runtime Predictor
 - Global/Fair FIFO와 Predicted-SJF 비교
@@ -581,7 +579,7 @@ fallback`이다. 50% 체계적 runtime 과소예측에서도 합성 gate는 유�
 - [Deep Agents 목표 구조](deep-agents-target-architecture.md)
 - [Deep Agents Department Runtime ADR](../adr/0013-deep-agents-department-runtime.md)
 - [Policy-controlled AI Gateway ADR](../adr/0026-policy-controlled-ai-gateway.md)
-- [Runtime Predictor Prototype](../../agent/tests/runtime_predictor_prototype/README.md)
+- [Runtime Predictor Prototype](../../experiments/runtime_scheduler/README.md)
 - [Overload Admission 실험](../testing/scheduler-overload-admission-experiment-2026-08-27.md)
 - [Autoscaling 전략 실험](../testing/scheduler-autoscaling-experiment-2026-08-27.md)
 - [Scale 실패·Fallback·비용 실험](../testing/scheduler-scaling-reliability-cost-experiment-2026-08-27.md)

@@ -82,7 +82,6 @@ minimum_scale_billing_seconds: 300
 | Shed then scale | 8.7% | **193.1 sec** | 90.6% | $0.323 | 1032.6 |
 | Scale then fallback shed | 5.7% | 256.0 sec | **92.1%** | $0.324 | 1032.5 |
 
-![Scale failure and fallback comparison](../../agent/tests/runtime_predictor_prototype/scheduler_scaling_reliability_comparison.png)
 
 80% 성공률에서는 어떤 전략도 95% goodput gate를 통과하지 못했다. Fallback은 `Scale only` 대비
 P95를 343.4초에서 256.0초로 25.5% 낮추고 worker 비용을 약 6.6% 낮췄지만, 거절을 실패로
@@ -100,7 +99,6 @@ P95를 343.4초에서 256.0초로 25.5% 낮추고 worker 비용을 약 6.6% 낮�
 | 95% | 97.1% | 258.8 sec | 97.2% | 237.0 sec |
 | 100% | 98.9% | 230.7 sec | 98.9% | 230.7 sec |
 
-![Scale success sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_scale_success_sensitivity.png)
 
 현재 workload에서 95% goodput을 만족하려면 scale 성공률이 약 89% 이상이어야 하며 초기 운영
 gate는 보수적으로 90%로 둔다. Fallback은 실패 시 tail latency 폭주를 크게 완화하지만 부족한
@@ -125,7 +123,6 @@ service degradation 또는 checkpoint resume로 service demand를 줄이는 추�
 | 300 sec goodput | 95.5% | 95.5% | 95.5% |
 | 300 sec cost | $0.401 | $0.401 | $0.401 |
 
-![Scale-down cost sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_scaling_cost_sensitivity.png)
 
 Cooldown 0초는 arrival gap에서 너무 일찍 축소되어 최소 과금 600초에서도 goodput 94.8%로 gate를
 통과하지 못했다. 60초부터 goodput 95.5%를 유지했고, 120초 대비 비용이 약 4.1%, 300초 대비
@@ -183,12 +180,12 @@ high_priority_acceptance: 0.99
 
 ```powershell
 cd agent
-uv run python -m tests.runtime_predictor_prototype.plot_autoscaling_reliability
-uv run pytest tests/runtime_predictor_prototype/test_autoscaling_reliability_simulation.py
+uv run python -m experiments.runtime_scheduler.plot_autoscaling_reliability
+uv run pytest experiments/runtime_scheduler/test_autoscaling_reliability_simulation.py
 ```
 
 구현 파일:
 
-- `agent/tests/runtime_predictor_prototype/autoscaling_reliability_simulation.py`
-- `agent/tests/runtime_predictor_prototype/plot_autoscaling_reliability.py`
-- `agent/tests/runtime_predictor_prototype/test_autoscaling_reliability_simulation.py`
+- `experiments/runtime_scheduler/autoscaling_reliability_simulation.py`
+- `experiments/runtime_scheduler/plot_autoscaling_reliability.py`
+- `experiments/runtime_scheduler/test_autoscaling_reliability_simulation.py`

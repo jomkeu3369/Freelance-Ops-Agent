@@ -79,7 +79,6 @@ tail latency가 계속 증가한다.
 | Priority shed | 73.3% | 0.0% | 26.7% | 299.0 sec | 351.6 sec | 69.3% | 100.0% | 301.5 sec |
 | Hybrid guard | 79.2% | 59.6% | 20.8% | 493.1 sec | 551.7 sec | 54.5% | 92.6% | 490.1 sec |
 
-![Overload admission benchmark](../../agent/tests/runtime_predictor_prototype/scheduler_overload_admission.png)
 
 ## 5. 부하 민감도
 
@@ -90,7 +89,6 @@ tail latency가 계속 증가한다.
 | Overloaded | 1.99 | 18.4% | 57.9% | 399.4 sec |
 | Severe overload | 3.40 | 30.7% | 49.8% | 398.5 sec |
 
-![Admission load curve](../../agent/tests/runtime_predictor_prototype/scheduler_admission_load_curve.png)
 
 ## 6. 해석
 
@@ -178,12 +176,12 @@ Provider 일시 장애
 
 ```powershell
 cd agent
-uv run python -m tests.runtime_predictor_prototype.plot_overload_simulation
-uv run pytest tests/runtime_predictor_prototype/test_overload_simulation.py
+uv run python -m experiments.runtime_scheduler.plot_overload_simulation
+uv run pytest experiments/runtime_scheduler/test_overload_simulation.py
 ```
 
 구현 파일:
 
-- `agent/tests/runtime_predictor_prototype/overload_simulation.py`
-- `agent/tests/runtime_predictor_prototype/plot_overload_simulation.py`
-- `agent/tests/runtime_predictor_prototype/test_overload_simulation.py`
+- `experiments/runtime_scheduler/overload_simulation.py`
+- `experiments/runtime_scheduler/plot_overload_simulation.py`
+- `experiments/runtime_scheduler/test_overload_simulation.py`

@@ -210,13 +210,13 @@ Local accept 승격 기준은 다음과 같다.
 
 ## 11. 구현과 결과 위치
 
-- 실험 요약: `agent/tests/유사도측정/PIPELINE_RESULTS.md`
-- Hybrid pipeline: `agent/tests/유사도측정/run_hybrid_pipeline_benchmark.py`
-- Local ensemble: `agent/tests/유사도측정/run_local_ensemble_benchmark.py`
-- Full KLUE verifier: `agent/tests/유사도측정/run_full_klue_verifier.py`
-- QA reader benchmark: `agent/tests/유사도측정/run_qa_reader_benchmark.py`
-- LLM verifier benchmark: `agent/tests/유사도측정/run_llm_answerability_benchmark.py`
-- 파생 dataset: `agent/tests/유사도측정/data/klue_mrc_answerability_650.jsonl`
+- 실험 요약: `experiments/retrieval_benchmark/PIPELINE_RESULTS.md`
+- Hybrid pipeline: `experiments/retrieval_benchmark/run_hybrid_pipeline_benchmark.py`
+- Local ensemble: `experiments/retrieval_benchmark/run_local_ensemble_benchmark.py`
+- Full KLUE verifier: `experiments/retrieval_benchmark/run_full_klue_verifier.py`
+- QA reader benchmark: `experiments/retrieval_benchmark/run_qa_reader_benchmark.py`
+- LLM verifier benchmark: `experiments/retrieval_benchmark/run_llm_answerability_benchmark.py`
+- 파생 dataset: `experiments/retrieval_benchmark/data/klue_mrc_answerability_650.jsonl`
 
 관련 Python 테스트 17건과 Ruff, Python compile 검사를 통과했다. 모델 weight, embedding cache와 평가
 산출물은 Git에 포함하지 않고 `.uv-cache`와 로컬 visualization 디렉터리에 보관한다.

@@ -113,7 +113,6 @@ SLO tasks per 1,000 worker-seconds가 높은 정책을 선택한다.
 | Hierarchical static | 94.1% | 94.0% | 97.9% | 82.4% | 129.4 sec | **3,061** | 64.6 | 0.0% | 66.7% |
 | Hierarchical + scale | **100.0%** | **100.0%** | **100.0%** | **100.0%** | 118.9 sec | 3,535 | 55.2 | 33.3% | **100.0%** |
 
-![Hierarchical Scheduler comparison](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_comparison.png)
 
 `Hierarchical + scale`만 15개 paired run의 모든 hard gate를 통과했다. Accept-all과 비교하면 평균
 Worker capacity는 3,456에서 3,535 worker-seconds로 약 2.3% 증가했지만, completion·priority·worst
@@ -124,7 +123,6 @@ workspace goodput이 모두 100%가 됐다. SLO efficiency도 55.1에서 55.2로
 
 ## 6. Scenario별 결과
 
-![Hierarchical Scheduler scenario table](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_scenario_table.png)
 
 `Hierarchical + scale` 결과:
 
@@ -140,7 +138,6 @@ capacity feasibility에 따라 동작했다는 의미다.
 
 ## 7. 민감도
 
-![Hierarchical Scheduler sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_sensitivity.png)
 
 ### Scale-up delay
 
@@ -222,6 +219,6 @@ or priority best-case drain > 60s
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_hierarchical_scheduler_simulation
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_hierarchical_scheduler_simulation.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_hierarchical_scheduler_simulation
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_hierarchical_scheduler_simulation.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

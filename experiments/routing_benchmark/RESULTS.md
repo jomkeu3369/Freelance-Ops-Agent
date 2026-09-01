@@ -128,8 +128,7 @@ Terra `$0.102290`, nano `$0.009661`, 합계 `$0.334141`이다.
 평가 재시도의 실제 청구액은 이 로컬 집계에 포함되지 않을 수 있으므로 최종 비용은 provider
 billing을 기준으로 확인한다.
 
-- [학습 곡선](checkpoints/a1/learning-curve.png)
-- [A1 체크포인트 manifest](checkpoints/a1/manifest.json)
+- [A1 학습 manifest](reports/2026-08-11-router-head-training/manifest.json)
 - [A1/B A/B 그래프](reports/2026-08-11-a1-vs-luna/plots/router-ab-dashboard.png)
 - [3-model Judge 그래프](reports/2026-08-11-a1-vs-luna/plots/router-judge-dashboard.png)
 - [A1/B 결과 JSON](reports/2026-08-11-a1-vs-luna/router_ab.json)
@@ -238,12 +237,12 @@ Luna는 GPT-5.4 nano의 두 예측에서 사용자 입력에 없는 비가역성
 
 ## 그래프와 수치 파일
 
-- [라우터 A/B 대시보드](artifacts/2026-08-10/router-ab-dashboard.png)
-- [GPT-5.6 Luna 평가 대시보드](artifacts/2026-08-10/router-judge-dashboard.png)
-- [라우터 요약 CSV](artifacts/2026-08-10/router_summary.csv)
-- [route별 CSV](artifacts/2026-08-10/per_route_metrics.csv)
-- [Luna 요약 CSV](artifacts/2026-08-10/luna_judge_summary.csv)
-- [Pandas 전체 요약 JSON](artifacts/2026-08-10/pandas_summary.json)
+- [라우터 A/B 대시보드](reports/latest/plots/router-ab-dashboard.png)
+- [평가 대시보드](reports/latest/plots/router-judge-dashboard.png)
+- [라우터 요약 CSV](reports/latest/tables/router_summary.csv)
+- [route별 CSV](reports/latest/tables/per_route_metrics.csv)
+- [평가 요약 CSV](reports/latest/tables/luna_judge_summary.csv)
+- [Pandas 전체 요약 JSON](reports/latest/tables/pandas_summary.json)
 
 ## 제한사항과 다음 실험
 

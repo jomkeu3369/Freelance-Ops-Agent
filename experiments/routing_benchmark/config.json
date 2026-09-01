@@ -15,7 +15,7 @@
     "model_id": "LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
     "revision": "35ca4a0469f180f1cf05a630df8842fa17ac18e3",
     "device": "cuda",
-    "head_path": "checkpoints/a1/curve-2500/head.safetensors"
+    "head_path": "../../agent/resources/routing/head.safetensors"
   },
   "router_b": {
     "name": "B_prompt_llm",

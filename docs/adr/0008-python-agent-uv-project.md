@@ -3,6 +3,9 @@
 - 상태: Accepted
 - 결정일: 2026-07-29
 
+> 2026-09-01 저장소 정리에서 V1 source는 Git history로 이관했다. 아래 `legacy/v1`
+> 설명은 결정 당시의 migration 경계를 기록한 역사적 맥락이다.
+
 ## Context
 
 V2는 Spring Boot 제품 backend와 Python Agent runtime을 분리하며 Python
