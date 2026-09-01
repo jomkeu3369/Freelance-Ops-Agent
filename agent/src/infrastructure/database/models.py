@@ -270,6 +270,32 @@ class AgentWorkerCapacityEventModel(AgentRuntimeBase):
     policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
+class AgentRuntimeReleaseModel(AgentRuntimeBase):
+    __tablename__ = "agent_runtime_release"
+    __table_args__ = (
+        UniqueConstraint("release_kind", "version", "resource_pool", name="uq_agent_runtime_release_version"),
+        CheckConstraint("release_kind IN ('RUNTIME_PREDICTOR','SCHEDULER_POLICY')", name="ck_agent_runtime_release_kind"),
+        CheckConstraint("status IN ('SHADOW_ONLY','APPROVED','REJECTED')", name="ck_agent_runtime_release_status"),
+        CheckConstraint("artifact_sha256 ~ '^[0-9a-f]{64}$' AND dataset_fingerprint ~ '^[0-9a-f]{64}$'", name="ck_agent_runtime_release_hashes"),
+        CheckConstraint("(status = 'APPROVED' AND approved_at IS NOT NULL) OR (status <> 'APPROVED' AND approved_at IS NULL)", name="ck_agent_runtime_release_approved"),
+        Index("ix_agent_runtime_release_pool_status", "resource_pool", "release_kind", "status", "created_at"),
+        {"schema": "agent_runtime"}
+    )
+
+    release_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    release_kind: Mapped[str] = mapped_column(String(30), nullable=False)
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_pool: Mapped[str] = mapped_column(String(100), nullable=False)
+    artifact_reference: Mapped[str] = mapped_column(String(500), nullable=False)
+    artifact_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    dataset_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    report_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class AgentTaskCommandReceiptModel(AgentRuntimeBase):
     __tablename__ = "agent_task_command_receipt"
     __table_args__ = (

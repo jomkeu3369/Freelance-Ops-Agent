@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
 from contracts import AgentInput, AgentRunRequest, DepartmentName, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresShadowSchedulerStore, PostgresTaskRegistry, SchedulerCandidate, SchedulerQueueKind, TaskAttempt, TaskExecutionSnapshot, TaskStatus, WorkerCapacitySnapshot
+from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresRuntimeEvaluationStore, PostgresShadowSchedulerStore, PostgresTaskRegistry, RuntimeEvaluationPolicy, RuntimeReleaseKind, RuntimeReleaseStatus, SchedulerCandidate, SchedulerEvaluationMetrics, SchedulerQueueKind, TaskAttempt, TaskExecutionSnapshot, TaskStatus, WorkerCapacitySnapshot, evaluate_runtime_release, runtime_dataset_fingerprint
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
@@ -53,5 +53,23 @@ async def test_scheduler_preserves_fifo_claim_and_records_shadow_snapshot() -> N
         assert claim.rank.actual_rank == 1
         await scheduler.acknowledge_dispatch(attempt.attempt_id, claim.claim_id, "worker-1")
         assert await scheduler.claim_next("default", "worker-2", queued_at) is None
+        started_at = queued_at + timedelta(seconds=1)
+        finished_at = started_at + timedelta(seconds=12)
+        await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at)
+        await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.RUNNING)
+        await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=finished_at)
+        await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.COMPLETED)
+        evaluations = PostgresRuntimeEvaluationStore(database)
+        batch = await evaluations.assemble(since=queued_at - timedelta(seconds=1), until=finished_at + timedelta(seconds=1), resource_pool="default")
+        report = evaluate_runtime_release(batch.records, load_band_count=batch.load_band_count, source_terminal_count=batch.source_terminal_count, shadow_scheduler=SchedulerEvaluationMetrics(1, 1, 1, 1, 1), policy=RuntimeEvaluationPolicy(minimum_attempts=1, minimum_observation_days=0, minimum_load_bands=1, maximum_mae_seconds=1, maximum_p95_absolute_error_seconds=1, minimum_r2=-1))
+        release_id = uuid4()
+        fingerprint = runtime_dataset_fingerprint(batch.records)
+        release = await evaluations.record_release(release_id, RuntimeReleaseKind.SCHEDULER_POLICY, "scheduler-shadow-v1", "default", "code://scheduler-shadow-v1", "a" * 64, fingerprint, report)
+        repeated_release = await evaluations.record_release(release_id, RuntimeReleaseKind.SCHEDULER_POLICY, "scheduler-shadow-v1", "default", "code://scheduler-shadow-v1", "a" * 64, fingerprint, report)
+
+        assert batch.source_terminal_count == 1
+        assert batch.load_band_count == 1
+        assert report.status is RuntimeReleaseStatus.SHADOW_ONLY
+        assert release == repeated_release
     finally:
         await database.close()
