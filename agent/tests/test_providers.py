@@ -225,6 +225,9 @@ async def test_openai_incomplete_output_is_rejected_before_json_parsing() -> Non
         )
 
     assert "truncated" not in str(caught.value)
+    assert caught.value.model_calls == 1
+    assert caught.value.input_tokens == 10
+    assert caught.value.output_tokens == 100
 
 
 @pytest.mark.asyncio
@@ -254,6 +257,9 @@ async def test_openai_malformed_output_is_sanitized() -> None:
 
     assert "malformed" not in str(caught.value)
     assert responses.calls == 2
+    assert caught.value.model_calls == 2
+    assert caught.value.input_tokens == 20
+    assert caught.value.output_tokens == 20
 
 
 @pytest.mark.asyncio

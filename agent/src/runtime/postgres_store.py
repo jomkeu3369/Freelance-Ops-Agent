@@ -120,13 +120,15 @@ class PostgresAgentRunStore:
             else:
                 await self._append_event(session, run_id, "run.completed")
 
-    async def fail(self, run_id: UUID, error_code: str) -> None:
+    async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
             if model.status == AgentRunStatus.CANCELLED.value:
                 return
             model.status = AgentRunStatus.FAILED.value
             model.error_code = error_code
+            current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current_usage, usage))
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.failed", {"errorCode": error_code})
 

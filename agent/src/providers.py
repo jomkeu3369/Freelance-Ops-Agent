@@ -74,6 +74,12 @@ class ProviderNotConfiguredError(RuntimeError):
 class ProviderCallError(RuntimeError):
     """Sanitized provider failure that never exposes request or credential data."""
 
+    def __init__(self, message: str, *, model_calls: int = 0, input_tokens: int = 0, output_tokens: int = 0) -> None:  # noqa: E501
+        super().__init__(message)
+        self.model_calls = model_calls
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
 
 def _strict_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Normalize Pydantic output to the closed, fully-required provider subset."""
@@ -224,13 +230,23 @@ class OpenAIModelProvider(ResilientProvider):
                     "OpenAI model response was incomplete: reason=%s",
                     getattr(incomplete_details, "reason", None)
                 )
-                raise ProviderCallError("model provider returned incomplete output") from None
+                raise ProviderCallError(
+                    "model provider returned incomplete output",
+                    model_calls=model_calls,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens
+                ) from None
             try:
                 payload = schema.model_validate_json(str(response.output_text))
             except ValidationError:
                 if model_calls >= attempt_limit:
                     logger.warning("OpenAI model response did not satisfy the structured output contract")
-                    raise ProviderCallError("model provider returned invalid structured output") from None
+                    raise ProviderCallError(
+                        "model provider returned invalid structured output",
+                        model_calls=model_calls,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens
+                    ) from None
                 logger.warning("OpenAI model response was invalid; retrying structured generation")
                 await asyncio.sleep(0.1 * model_calls)
                 continue
@@ -302,13 +318,23 @@ class GeminiModelProvider(ResilientProvider):
             return await client.models.generate_content(model=selection.model, contents=prompt, config=config)
 
         response, model_calls = await self._invoke(call, max_attempts)
-        payload = schema.model_validate_json(str(response.text))
         usage = getattr(response, "usage_metadata", None)
+        input_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)
+        output_tokens = int(getattr(usage, "candidates_token_count", 0) or 0)
+        try:
+            payload = schema.model_validate_json(str(response.text))
+        except ValidationError:
+            raise ProviderCallError(
+                "model provider returned invalid structured output",
+                model_calls=model_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            ) from None
 
         return ModelGeneration(
             payload=payload.model_dump(),
-            input_tokens=int(getattr(usage, "prompt_token_count", 0) or 0),
-            output_tokens=int(getattr(usage, "candidates_token_count", 0) or 0),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             model_calls=model_calls
         )
 

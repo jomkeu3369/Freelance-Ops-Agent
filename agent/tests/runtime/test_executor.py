@@ -103,7 +103,7 @@ class FailingProvider:
         max_attempts: int | None = None,
     ) -> ModelGeneration:
         del selection, prompt, max_output_tokens, max_attempts
-        raise ProviderCallError("model provider call failed")
+        raise ProviderCallError("model provider call failed", model_calls=1, input_tokens=17, output_tokens=3)
 
 
 class SequenceReActProvider:
@@ -767,3 +767,7 @@ async def test_model_provider_failure_uses_stable_public_error_code() -> None:
 
     assert view.status is AgentRunStatus.FAILED
     assert view.error_code == "MODEL_PROVIDER_FAILED"
+    assert view.usage is not None
+    assert view.usage.model_calls == 2
+    assert view.usage.input_tokens == 17
+    assert view.usage.output_tokens == 3

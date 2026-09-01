@@ -168,10 +168,14 @@ async def test_invalid_tool_contract_fails_after_one_correction() -> None:
 
     loop = BoundedReActLoop(provider, [StructuredTool("search", "검색", SearchInput, search)])
 
-    with pytest.raises(ReActLoopError, match="REACT_TOOL_CALL_INVALID"):
+    with pytest.raises(ReActLoopError, match="REACT_TOOL_CALL_INVALID") as caught:
         await loop.run(selection(), {"request": "test"}, budget())
 
     assert len(provider.prompts) == 2
+    assert caught.value.model_calls == 2
+    assert caught.value.tool_calls == 0
+    assert caught.value.input_tokens == 10
+    assert caught.value.output_tokens == 10
 
 
 @pytest.mark.parametrize(

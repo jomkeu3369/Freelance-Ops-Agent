@@ -94,6 +94,15 @@ class BoundedReActLoop:
         tool_contract_repairs = 0
         contract_feedback: dict[str, object] | None = None
 
+        def execution_error(code: str) -> ReActLoopError:
+            return ReActLoopError(
+                code,
+                model_calls=model_calls,
+                tool_calls=tool_calls,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
+            )
+
         while model_calls < budget.max_model_calls:
             remaining_attempts = min(budget.max_retries + 1, budget.max_model_calls - model_calls)
             generation = await self._provider.generate_react_step(
@@ -116,12 +125,12 @@ class BoundedReActLoop:
             try:
                 step = ReActStep.model_validate(generation.payload)
             except ValidationError as error:
-                raise ReActLoopError("REACT_STEP_INVALID") from error
+                raise execution_error("REACT_STEP_INVALID") from error
             arguments = step.arguments.model_dump(mode="json", exclude_none=True)
 
             if step.action == "FINAL":
                 if step.summary is None or step.tool_name is not None or arguments:
-                    raise ReActLoopError("REACT_FINAL_INVALID")
+                    raise execution_error("REACT_FINAL_INVALID")
                 return ReActLoopResult(
                     summary=step.summary,
                     open_questions=step.open_questions,
@@ -146,38 +155,44 @@ class BoundedReActLoop:
                     tool_contract_repairs += 1
                     contract_feedback = self._tool_contract_feedback()
                     continue
-                raise ReActLoopError("REACT_TOOL_CALL_INVALID")
+                raise execution_error("REACT_TOOL_CALL_INVALID")
             contract_feedback = None
             tool = self._tools.get(step.tool_name)
             if tool is None:
-                raise ReActLoopError("TOOL_NOT_ALLOWED")
+                raise execution_error("TOOL_NOT_ALLOWED")
             if tool_calls >= budget.max_tool_calls:
-                raise ReActLoopError("TOOL_CALL_BUDGET_EXCEEDED")
+                raise execution_error("TOOL_CALL_BUDGET_EXCEEDED")
             try:
                 validated_input = tool.input_model.model_validate(arguments)
             except ValidationError as error:
-                raise ReActLoopError("TOOL_INPUT_INVALID") from error
+                raise execution_error("TOOL_INPUT_INVALID") from error
 
             signature = self._signature(tool.name, validated_input)
             if signature in signatures:
-                raise ReActLoopError("REPEATED_TOOL_CALL")
+                raise execution_error("REPEATED_TOOL_CALL")
             signatures.add(signature)
 
             # Tool 결과만 관찰값으로 전달하며 예외 원문이나 비공개 추론은 모델 context에 넣지 않습니다.
-            result = await tool.handler(validated_input)
+            try:
+                result = await tool.handler(validated_input)
+            except ReActLoopError as error:
+                raise execution_error(error.code) from error
+            except Exception as error:
+                code = getattr(error, "code", None)
+                if not isinstance(code, str):
+                    code = "TOOL_EXECUTION_FAILED"
+                raise execution_error(code) from error
             call_cost = tool.call_cost(result)
             if call_cost < 1:
-                raise ReActLoopError("TOOL_USAGE_INVALID")
+                raise execution_error("TOOL_USAGE_INVALID")
             tool_calls += call_cost
             tool_names.append(tool.name)
             self._require_budget(budget, model_calls, tool_calls, input_tokens, output_tokens)
-            observations.append(
-                {
-                    "tool": tool.name,
-                    "arguments": validated_input.model_dump(mode="json"),
-                    "result": self._safe_value(tool.sanitize_observation(result)),
-                }
-            )
+            try:
+                safe_result = self._safe_value(tool.sanitize_observation(result))
+            except ReActLoopError as error:
+                raise execution_error(error.code) from error
+            observations.append({"tool": tool.name, "arguments": validated_input.model_dump(mode="json"), "result": safe_result})  # noqa: E501
 
         raise ReActLoopError(
             "MODEL_CALL_BUDGET_EXCEEDED",
