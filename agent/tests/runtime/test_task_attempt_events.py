@@ -54,7 +54,7 @@ async def test_list_for_run_supports_cursor_and_run_isolation() -> None:
     assert [record.event_id for record in page] == ["event-2"]
 
 
-@pytest.mark.parametrize("data", [{"secret": "value"}, {"nested": {"api_key": "value"}}, {"items": [{"chain_of_thought": "value"}]}])  # noqa: E501
+@pytest.mark.parametrize("data", [{"secret": "value"}, {"nested": {"api_key": "value"}}, {"resume_token": "raw-token"}, {"items": [{"chain_of_thought": "value"}]}])  # noqa: E501
 def test_event_rejects_forbidden_fields(data: dict[str, object]) -> None:
     with pytest.raises(ValueError, match="forbidden"):
         make_event(data=data)

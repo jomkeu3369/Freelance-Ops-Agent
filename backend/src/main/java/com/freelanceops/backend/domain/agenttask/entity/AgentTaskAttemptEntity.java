@@ -13,8 +13,10 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -38,6 +40,21 @@ public class AgentTaskAttemptEntity {
     @Column(name = "prediction_feature_snapshot", columnDefinition = "jsonb") private Map<String, Object> predictionFeatureSnapshot;
     @Column(name = "cache_outcome", length = 30) private String cacheOutcome;
     @Column(name = "failure_code", length = 100) private String failureCode;
+    @Column(name = "checkpoint_id", length = 128) private String checkpointId;
+    @Column(name = "checkpoint_artifact_reference", length = 500) private String checkpointArtifactReference;
+    @Column(name = "checkpoint_restored_seconds") private Double checkpointRestoredSeconds;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "completed_steps", nullable = false, columnDefinition = "jsonb") private List<String> completedSteps = List.of();
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "side_effect_idempotency_keys", nullable = false, columnDefinition = "jsonb") private List<String> sideEffectIdempotencyKeys = List.of();
+    @Column(name = "failure_classification", length = 40) private String failureClassification;
+    @Column(name = "classification_confidence") private Double classificationConfidence;
+    @Column(name = "classifier_version", length = 100) private String classifierVersion;
+    @Column(name = "retry_decision", length = 20) private String retryDecision;
+    @Column(name = "retry_reason", length = 80) private String retryReason;
+    @Column(name = "retry_ready_at") private Instant retryReadyAt;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "retry_snapshot", columnDefinition = "jsonb") private Map<String, Object> retrySnapshot;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Version private long version;
@@ -112,15 +129,47 @@ public class AgentTaskAttemptEntity {
         return true;
     }
 
-    public boolean projectCheckpointed(Instant now) {
+    public boolean projectCheckpointed(Map<String, Object> data, Instant now) {
         if (status.terminal()) return false;
-        if (status == AgentTaskAttemptStatus.CHECKPOINTED) return true;
+        if (status == AgentTaskAttemptStatus.CHECKPOINTED && Objects.equals(checkpointId, text(data, "checkpoint_id"))) return true;
         if (status != AgentTaskAttemptStatus.RUNNING) {
             throw new IllegalStateException("only running attempt can checkpoint");
         }
+        checkpointId = requiredText(data, "checkpoint_id");
+        checkpointArtifactReference = requiredText(data, "checkpoint_artifact_reference");
+        checkpointRestoredSeconds = nonnegativeDouble(data, "checkpoint_restored_seconds");
+        completedSteps = stringList(data, "completed_steps");
+        sideEffectIdempotencyKeys = stringList(data, "side_effect_idempotency_keys");
         status = AgentTaskAttemptStatus.CHECKPOINTED;
         updatedAt = now;
         return true;
+    }
+
+    public void projectRetryDecision(Map<String, Object> data, Instant now) {
+        if (status != AgentTaskAttemptStatus.FAILED) throw new IllegalStateException("retry decision requires failed attempt");
+        failureClassification = requiredText(data, "failure_classification");
+        classificationConfidence = boundedDouble(data, "classification_confidence", 0, 1);
+        classifierVersion = requiredText(data, "classifier_version");
+        requiredText(data, "bucket_policy_version");
+        retryDecision = requiredText(data, "decision");
+        if (!Set.of("ALLOW", "DENY").contains(retryDecision)) throw new IllegalArgumentException("retry decision is invalid");
+        retryReason = requiredText(data, "reason");
+        double workspaceBefore = nonnegativeDouble(data, "workspace_tokens_before");
+        double workspaceAfter = nonnegativeDouble(data, "workspace_tokens_after");
+        double globalBefore = nonnegativeDouble(data, "global_tokens_before");
+        double globalAfter = nonnegativeDouble(data, "global_tokens_after");
+        boolean tokenAccountingMatches = "ALLOW".equals(retryDecision)
+            ? Math.abs(workspaceBefore - workspaceAfter - 1) < 0.000001
+                && Math.abs(globalBefore - globalAfter - 1) < 0.000001
+            : Math.abs(workspaceBefore - workspaceAfter) < 0.000001
+                && Math.abs(globalBefore - globalAfter) < 0.000001;
+        if (!tokenAccountingMatches) throw new IllegalArgumentException("retry token accounting is invalid");
+        retryReadyAt = instant(data, "retry_ready_at");
+        if ("ALLOW".equals(retryDecision) != (retryReadyAt != null)) {
+            throw new IllegalArgumentException("retry ready time does not match decision");
+        }
+        retrySnapshot = Map.copyOf(data);
+        updatedAt = now;
     }
 
     public boolean projectTerminal(AgentTaskAttemptStatus terminalStatus, String failureCode, Instant now) {
@@ -176,6 +225,46 @@ public class AgentTaskAttemptEntity {
         return value;
     }
 
+    private static String requiredText(Map<String, Object> data, String key) {
+        return requireText(text(data, key), key);
+    }
+
+    private static String text(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static Double nonnegativeDouble(Map<String, Object> data, String key) {
+        return boundedDouble(data, key, 0, Double.MAX_VALUE);
+    }
+
+    private static Double boundedDouble(Map<String, Object> data, String key, double minimum, double maximum) {
+        Object value = data.get(key);
+        if (!(value instanceof Number number) || number.doubleValue() < minimum || number.doubleValue() > maximum) {
+            throw new IllegalArgumentException(key + " is invalid");
+        }
+        return number.doubleValue();
+    }
+
+    private static List<String> stringList(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        if (!(value instanceof Iterable<?> values)) throw new IllegalArgumentException(key + " is invalid");
+        List<String> result = new java.util.ArrayList<>();
+        for (Object item : values) result.add(requireText(String.valueOf(item), key));
+        if (result.size() != Set.copyOf(result).size()) throw new IllegalArgumentException(key + " must be unique");
+        return List.copyOf(result);
+    }
+
+    private static Instant instant(Map<String, Object> data, String key) {
+        Object value = data.get(key);
+        if (value == null) return null;
+        try {
+            return Instant.parse(String.valueOf(value));
+        } catch (java.time.format.DateTimeParseException error) {
+            throw new IllegalArgumentException(key + " is invalid", error);
+        }
+    }
+
     public UUID id() { return id; }
     public UUID workspaceId() { return workspaceId; }
     public UUID taskId() { return taskId; }
@@ -184,4 +273,14 @@ public class AgentTaskAttemptEntity {
     public AgentTaskAttemptStatus status() { return status; }
     public String leaseOwner() { return leaseOwner; }
     public Instant leaseUntil() { return leaseUntil; }
+    public String checkpointId() { return checkpointId; }
+    public String checkpointArtifactReference() { return checkpointArtifactReference; }
+    public Double checkpointRestoredSeconds() { return checkpointRestoredSeconds; }
+    public List<String> completedSteps() { return List.copyOf(completedSteps); }
+    public List<String> sideEffectIdempotencyKeys() { return List.copyOf(sideEffectIdempotencyKeys); }
+    public String failureClassification() { return failureClassification; }
+    public Double classificationConfidence() { return classificationConfidence; }
+    public String retryDecision() { return retryDecision; }
+    public String retryReason() { return retryReason; }
+    public Instant retryReadyAt() { return retryReadyAt; }
 }

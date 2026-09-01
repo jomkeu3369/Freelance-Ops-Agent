@@ -12,6 +12,7 @@ from runtime.task_contracts import (
     DepartmentTask,
     ExecutionRoute,
     TaskAttempt,
+    TaskCheckpoint,
     TaskCommand,
     TaskCommandType,
     TaskEvent,
@@ -75,7 +76,20 @@ def test_task_attempt_requires_prediction_version_and_monotonic_timestamps() -> 
         TaskAttempt(attempt_id=uuid4(), task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), task_revision=1, attempt_number=1, queued_at=now, started_at=now - timedelta(seconds=1))
 
 
-@pytest.mark.parametrize("payload", [{"secret": "value"}, {"nested": {"delegation_token": "value"}}, {"items": [{"chain_of_thought": "value"}]}])
+def test_checkpoint_contract_requires_hashed_resume_identity_and_unique_boundaries() -> None:
+    now = datetime.now(UTC)
+    checkpoint = TaskCheckpoint(checkpoint_id="checkpoint-1", artifact_reference="artifact://checkpoint-1",
+        resume_token_hash="a" * 64, completed_steps=["plan"], side_effect_idempotency_keys=["tool-1"],
+        durable_progress_seconds=30, created_at=now)
+
+    assert checkpoint.resume_token_hash == "a" * 64
+    with pytest.raises(ValidationError, match="unique"):
+        TaskCheckpoint(checkpoint_id="checkpoint-1", artifact_reference="artifact://checkpoint-1",
+            resume_token_hash="a" * 64, completed_steps=["plan", "plan"], durable_progress_seconds=30,
+            created_at=now)
+
+
+@pytest.mark.parametrize("payload", [{"secret": "value"}, {"nested": {"delegation_token": "value"}}, {"resume_token": "raw-token"}, {"items": [{"chain_of_thought": "value"}]}])
 def test_command_and_event_reject_forbidden_runtime_data(payload: dict[str, object]) -> None:
     with pytest.raises(ValidationError, match="forbidden"):
         TaskCommand(command_id=uuid4(), task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), expected_revision=1, type=TaskCommandType.SOFT_UPDATE, idempotency_key="command-1", requested_by=uuid4(), requested_at=datetime.now(UTC), payload=payload)

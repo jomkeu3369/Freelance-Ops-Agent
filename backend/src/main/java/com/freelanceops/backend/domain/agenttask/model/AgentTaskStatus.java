@@ -7,6 +7,8 @@ public enum AgentTaskStatus {
     WAITING_FOR_TOOL,
     WAITING_FOR_USER,
     UPDATE_PENDING,
+    RETRY_WAIT,
+    WAITING_FOR_CAPACITY,
     CANCELLING,
     CANCELLED,
     COMPLETED,

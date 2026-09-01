@@ -13,7 +13,14 @@ from contracts import RunBudget
 
 from .research_specialist import ResearchSpecialistError, ResearchSpecialistResult
 from .task_attempt_events import TaskAttemptEventWrite
-from .task_contracts import AttemptStatus, DepartmentTask, TaskAttempt, TaskStatus
+from .task_contracts import (
+    AttemptStatus,
+    DepartmentTask,
+    FailureSignals,
+    RetryDecisionSnapshot,
+    TaskAttempt,
+    TaskStatus,
+)
 from .task_guard import TaskGuard
 
 
@@ -27,13 +34,18 @@ class ResearchTaskRegistry(Protocol):
     async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: TaskAttemptEventWrite | None = None) -> TaskAttempt: ...
 
 
+class ResearchFailureHandler(Protocol):
+    async def decide_retry(self, attempt_id: UUID, workspace_id: UUID, signals: FailureSignals, *, max_attempts: int, backoff_seconds: float = 0, source: str = "failure-classifier-v1") -> RetryDecisionSnapshot: ...
+
+
 class ResearchTaskWorker:
     SOURCE = "research-read-worker-v1"
 
-    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None) -> None:
+    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None, failure_handler: ResearchFailureHandler | None = None) -> None:
         self._registry = registry
         self._specialist = specialist
         self._guard = guard or TaskGuard()
+        self._failure_handler = failure_handler
 
     async def run(self, task: DepartmentTask, attempt: TaskAttempt, *, objective: str, jurisdiction: str | None, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> ResearchSpecialistResult:
         self._require_identity(task, attempt)
@@ -49,7 +61,12 @@ class ResearchTaskWorker:
             failed_at = datetime.now(UTC)
             failed_event = self._event(task, attempt, 2, "attempt.failed", failed_at, phase="VERIFICATION", milestone="Research specialist failed", data={"failure_code": code})
             await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.FAILED, finished_at=failed_at, event=failed_event)
-            await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.FAILED)
+            if self._failure_handler is None:
+                await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.FAILED)
+            else:
+                await self._failure_handler.decide_retry(attempt.attempt_id, task.workspace_id,
+                    self._failure_signals(code), max_attempts=task.execution.budget.max_retries + 1,
+                    source=self.SOURCE)
             if isinstance(error, ResearchSpecialistError):
                 raise
             raise ResearchSpecialistError(code) from error
@@ -65,6 +82,14 @@ class ResearchTaskWorker:
         invalid = task.status is not TaskStatus.QUEUED or attempt.status is not AttemptStatus.QUEUED or attempt.task_id != task.task_id or attempt.task_revision != task.revision or attempt.run_id != task.run_id or attempt.workspace_id != task.workspace_id
         if invalid:
             raise ResearchSpecialistError("RESEARCH_ATTEMPT_IDENTITY_INVALID")
+
+    @staticmethod
+    def _failure_signals(code: str) -> FailureSignals:
+        if code == "MODEL_PROVIDER_FAILED":
+            return FailureSignals(provider_error=True)
+        if code == "RESEARCH_WORKER_FAILED" or code == "RESEARCH_EXECUTION_FAILED":
+            return FailureSignals(local_worker_error=True)
+        return FailureSignals(deterministic_error=True)
 
     @classmethod
     def _event(cls, task: DepartmentTask, attempt: TaskAttempt, sequence: int, event_type: str, occurred_at: datetime, *, phase: str, milestone: str, data: dict[str, object] | None = None) -> TaskAttemptEventWrite:

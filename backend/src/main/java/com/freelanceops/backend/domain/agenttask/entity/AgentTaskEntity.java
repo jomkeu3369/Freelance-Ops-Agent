@@ -173,6 +173,16 @@ public class AgentTaskEntity {
         return true;
     }
 
+    public void projectRetryDecision(int expectedRevision, int attemptNumber, boolean allowed, String reason, Instant now) {
+        requireCurrentAttempt(expectedRevision, attemptNumber);
+        if (status.terminal() || status == AgentTaskStatus.CANCELLING) return;
+        status = allowed ? AgentTaskStatus.RETRY_WAIT : AgentTaskStatus.FAILED;
+        phase = "RELIABILITY";
+        activity = requireText(reason, "retryReason");
+        lastHeartbeatAt = now;
+        updatedAt = now;
+    }
+
     private void requireRevision(int expectedRevision) {
         if (revision != expectedRevision) throw new IllegalStateException("task revision conflict");
     }

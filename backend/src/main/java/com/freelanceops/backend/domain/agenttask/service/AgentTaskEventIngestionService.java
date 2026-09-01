@@ -24,7 +24,8 @@ public class AgentTaskEventIngestionService {
     private static final Set<String> EVENT_TYPES = Set.of("attempt.predicted", "attempt.queued", "attempt.started",
         "attempt.checkpointed", "attempt.update_applied", "attempt.cancelled", "attempt.failed",
         "attempt.retry_decided", "attempt.completed", "attempt.incident_finalized");
-    private static final Set<String> FORBIDDEN_KEYS = Set.of("api_key", "chain_of_thought", "delegation_token", "prompt", "secret");
+    private static final Set<String> FORBIDDEN_KEYS = Set.of("api_key", "chain_of_thought", "delegation_token",
+        "prompt", "resume_token", "secret");
     private final AgentTaskRepository taskRepository;
     private final AgentTaskAttemptRepository attemptRepository;
     private final AgentTaskEventRepository eventRepository;
@@ -75,7 +76,7 @@ public class AgentTaskEventIngestionService {
                 attempt.projectStarted(event.occurredAt());
                 task.projectStarted(event.taskRevision(), event.attemptNumber(), receivedAt);
             }
-            case "attempt.checkpointed" -> attempt.projectCheckpointed(event.occurredAt());
+            case "attempt.checkpointed" -> attempt.projectCheckpointed(event.data(), event.occurredAt());
             case "attempt.update_applied" -> {
                 attempt.projectUpdateApplied(event.occurredAt());
                 task.applySoftUpdate(event.taskRevision(), event.attemptNumber(), receivedAt);
@@ -92,12 +93,24 @@ public class AgentTaskEventIngestionService {
             }
             case "attempt.failed" -> attempt.projectTerminal(AgentTaskAttemptStatus.FAILED,
                 textValue(event.data().get("failure_code")), event.occurredAt());
+            case "attempt.retry_decided" -> {
+                attempt.projectRetryDecision(event.data(), event.occurredAt());
+                task.projectRetryDecision(event.taskRevision(), event.attemptNumber(),
+                    "ALLOW".equals(event.data().get("decision")), textValue(event.data().get("reason")), receivedAt);
+            }
             default -> { }
         }
         if (event.phase() != null && !event.phase().isBlank()) {
             task.projectProgress(event.taskRevision(), event.attemptNumber(), event.phase(),
-                event.milestone() == null || event.milestone().isBlank() ? event.eventType() : event.milestone(), receivedAt);
+                activity(event), receivedAt);
         }
+    }
+
+    private static String activity(IngestAgentTaskEventRequest event) {
+        if ("attempt.retry_decided".equals(event.eventType()) && event.data().get("reason") != null) {
+            return String.valueOf(event.data().get("reason"));
+        }
+        return event.milestone() == null || event.milestone().isBlank() ? event.eventType() : event.milestone();
     }
 
     private static String textValue(Object value) {

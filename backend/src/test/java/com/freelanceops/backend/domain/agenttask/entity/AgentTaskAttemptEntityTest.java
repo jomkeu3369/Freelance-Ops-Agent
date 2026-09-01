@@ -44,10 +44,14 @@ class AgentTaskAttemptEntityTest {
         Instant now = Instant.parse("2026-08-31T00:00:00Z");
         AgentTaskAttemptEntity attempt = attempt(now);
         attempt.projectStarted(now.plusSeconds(1));
-        attempt.projectCheckpointed(now.plusSeconds(2));
+        attempt.projectCheckpointed(Map.of("checkpoint_id", "checkpoint-1",
+            "checkpoint_artifact_reference", "artifact://checkpoint-1", "checkpoint_restored_seconds", 30.0,
+            "completed_steps", java.util.List.of("plan"), "side_effect_idempotency_keys", java.util.List.of("tool-1")),
+            now.plusSeconds(2));
 
         assertThat(attempt.projectUpdateApplied(now.plusSeconds(3))).isTrue();
         assertThat(attempt.status()).isEqualTo(AgentTaskAttemptStatus.RUNNING);
+        assertThat(attempt.checkpointId()).isEqualTo("checkpoint-1");
     }
 
     private static AgentTaskAttemptEntity attempt(Instant now) {
