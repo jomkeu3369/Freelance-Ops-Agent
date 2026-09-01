@@ -25,7 +25,8 @@ REQUIRED_RUNTIME_TABLES = (
     "agent_runtime.agent_retry_bucket",
     "agent_runtime.agent_provider_circuit",
     "agent_runtime.agent_scheduler_entry",
-    "agent_runtime.agent_worker_capacity_event"
+    "agent_runtime.agent_worker_capacity_event",
+    "agent_runtime.agent_runtime_release"
 )
 
 
