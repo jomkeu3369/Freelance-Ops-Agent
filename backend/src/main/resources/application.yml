@@ -66,6 +66,7 @@ app:
     agent-per-minute: ${APP_RATE_LIMIT_AGENT_PER_MINUTE:20}
     max-entries: ${APP_RATE_LIMIT_MAX_ENTRIES:10000}
 agent:
+  raptor-build-read-timeout-ms: ${AGENT_RAPTOR_BUILD_READ_TIMEOUT_MS:310000}
   route-observation-collection-enabled: ${AGENT_ROUTE_OBSERVATION_COLLECTION_ENABLED:false}
   route-observation-collection-delay-ms: ${AGENT_ROUTE_OBSERVATION_COLLECTION_DELAY_MS:1000}
   route-observation-metrics-refresh-ms: ${AGENT_ROUTE_OBSERVATION_METRICS_REFRESH_MS:15000}

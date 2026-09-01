@@ -117,7 +117,10 @@ class _OpenAIEmbedder:
         self._model = model
 
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
-        response = await self._client.embeddings.create(model=self._model, input=list(texts))
+        options: dict[str, object] = {"model": self._model, "input": list(texts)}
+        if self._model.startswith("text-embedding-3-"):
+            options["dimensions"] = 1536
+        response = await self._client.embeddings.create(**options)
         ordered = sorted(response.data, key=lambda item: item.index)
         return [item.embedding for item in ordered]
 
@@ -149,7 +152,7 @@ class _GeminiEmbedder:
         response = await self._client.models.embed_content(
             model=self._model,
             contents=list(texts),
-            config={"task_type": "RETRIEVAL_DOCUMENT"},
+            config={"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
         )
         embeddings = getattr(response, "embeddings", None)
         if embeddings is None:

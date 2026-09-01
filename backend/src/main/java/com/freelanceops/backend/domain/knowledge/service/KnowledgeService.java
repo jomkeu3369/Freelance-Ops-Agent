@@ -38,10 +38,13 @@ public class KnowledgeService {
     private final DocumentChunkRepository chunkRepository;
     private final KnowledgeSearchRepository searchRepository;
     private final WorkspaceAuthorizationService authorizationService;
+    private final RaptorRetrievalService raptorRetrievalService;
+    private final RaptorIndexTransactions raptorIndexTransactions;
 
-    public KnowledgeService(DocumentRepository documentRepository, DocumentChunkRepository chunkRepository, KnowledgeSearchRepository searchRepository, WorkspaceAuthorizationService authorizationService) {
+    public KnowledgeService(DocumentRepository documentRepository, DocumentChunkRepository chunkRepository, KnowledgeSearchRepository searchRepository, WorkspaceAuthorizationService authorizationService, RaptorRetrievalService raptorRetrievalService, RaptorIndexTransactions raptorIndexTransactions) {
         this.documentRepository = documentRepository; this.chunkRepository = chunkRepository;
         this.searchRepository = searchRepository; this.authorizationService = authorizationService;
+        this.raptorRetrievalService = raptorRetrievalService; this.raptorIndexTransactions = raptorIndexTransactions;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +65,7 @@ public class KnowledgeService {
     public DocumentResponse create(UUID userId, UUID workspaceId, CreateDocumentRequest request) {
         authorize(userId, workspaceId, PermissionCode.DOCUMENT_WRITE);
         validateChunks(request.chunks());
+        raptorIndexTransactions.invalidateActiveSnapshot(workspaceId);
         UUID documentId = UUID.randomUUID();
         Instant now = Instant.now();
         String hash = hashContent(request.chunks());
@@ -93,6 +97,7 @@ public class KnowledgeService {
     @Transactional
     public void archive(UUID userId, UUID workspaceId, UUID documentId) {
         authorize(userId, workspaceId, PermissionCode.DOCUMENT_DELETE);
+        raptorIndexTransactions.invalidateActiveSnapshot(workspaceId);
         DocumentEntity document = find(workspaceId, documentId);
         document.archive(Instant.now());
         documentRepository.save(document);
@@ -104,9 +109,11 @@ public class KnowledgeService {
         int candidateLimit = Math.min(request.limit() * 4, 200);
         List<DocumentChunkEntity> keyword = searchRepository.keywordSearch(workspaceId, request.query().trim(), candidateLimit);
         List<DocumentChunkEntity> vector = request.embedding() == null ? List.of() : searchRepository.vectorSearch(workspaceId, embedding(request.embedding()), candidateLimit);
+        List<DocumentChunkEntity> raptor = request.embedding() == null ? List.of() : raptorRetrievalService.retrieve(workspaceId, embedding(request.embedding()), candidateLimit, candidateLimit);
         Map<UUID, RankedChunk> ranked = new HashMap<>();
-        addRanks(ranked, keyword, true);
-        addRanks(ranked, vector, false);
+        addRanks(ranked, keyword, RankSource.KEYWORD);
+        addRanks(ranked, vector, RankSource.VECTOR);
+        addRanks(ranked, raptor, RankSource.RAPTOR);
         return ranked.values().stream()
             .sorted(Comparator.comparingDouble(RankedChunk::score).reversed())
             .limit(request.limit())
@@ -126,15 +133,17 @@ public class KnowledgeService {
         );
     }
 
-    private static void addRanks(Map<UUID, RankedChunk> ranked, List<DocumentChunkEntity> chunks, boolean keyword) {
+    private static void addRanks(Map<UUID, RankedChunk> ranked, List<DocumentChunkEntity> chunks, RankSource source) {
         for (int index = 0; index < chunks.size(); index++) {
             int rank = index + 1;
             DocumentChunkEntity chunk = chunks.get(index);
-            RankedChunk current = ranked.getOrDefault(chunk.id(), new RankedChunk(chunk, 0, 0, null));
+            RankedChunk current = ranked.getOrDefault(chunk.id(), new RankedChunk(chunk, 0, 0, null, null));
             double score = current.score() + 1.0 / (RRF_K + rank);
-            ranked.put(chunk.id(), keyword
-                ? new RankedChunk(chunk, score, rank, current.vectorRank())
-                : new RankedChunk(chunk, score, current.keywordRank(), rank));
+            ranked.put(chunk.id(), switch (source) {
+                case KEYWORD -> new RankedChunk(chunk, score, rank, current.vectorRank(), current.raptorRank());
+                case VECTOR -> new RankedChunk(chunk, score, current.keywordRank(), rank, current.raptorRank());
+                case RAPTOR -> new RankedChunk(chunk, score, current.keywordRank(), current.vectorRank(), rank);
+            });
         }
     }
 
@@ -197,6 +206,8 @@ public class KnowledgeService {
         return false;
     }
 
-    private record RankedChunk(DocumentChunkEntity chunk, double score, int keywordRank, Integer vectorRank) {
+    private enum RankSource { KEYWORD, VECTOR, RAPTOR }
+
+    private record RankedChunk(DocumentChunkEntity chunk, double score, int keywordRank, Integer vectorRank, Integer raptorRank) {
     }
 }
