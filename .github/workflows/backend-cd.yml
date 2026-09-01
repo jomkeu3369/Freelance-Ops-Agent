@@ -74,6 +74,26 @@ jobs:
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$RELEASE_DIR'"
           scp deployment.tgz "$DEPLOY_USER@$DEPLOY_HOST:$RELEASE_DIR/"
           ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$RELEASE_DIR' && tar -xzf deployment.tgz"
+      - name: Prepare required PostgreSQL extensions
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'SCRIPT'
+          mapfile -t postgres_container_ids < <(
+            docker ps \
+              --filter label=com.docker.compose.project=freelance-ops-v2-infra \
+              --filter label=com.docker.compose.service=postgres \
+              --format '{{.ID}}'
+          )
+          if [ "${#postgres_container_ids[@]}" -ne 1 ]; then
+            echo "expected exactly one production PostgreSQL container" >&2
+            exit 1
+          fi
+          docker exec "${postgres_container_ids[0]}" \
+            psql --username postgres --dbname freelance_ops --set=ON_ERROR_STOP=1 \
+            --command 'CREATE EXTENSION IF NOT EXISTS btree_gist'
+          SCRIPT
       - name: Authenticate registry and deploy Backend
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
