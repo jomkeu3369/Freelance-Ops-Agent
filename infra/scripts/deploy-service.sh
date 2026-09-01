@@ -83,6 +83,9 @@ validate_tag "$BACKEND_IMAGE_TAG"
 validate_tag "$AGENT_IMAGE_TAG"
 
 rollback() {
+    echo "$SERVICE deployment diagnostics:" >&2
+    $COMPOSE ps "$SERVICE" >&2 || true
+    $COMPOSE logs --no-color --tail=200 "$SERVICE" >&2 || true
     if [ -n "$PREVIOUS_TAG" ]; then
         echo "$SERVICE deployment failed; rolling back to $PREVIOUS_TAG" >&2
         if [ "$SERVICE" = "backend" ]; then
