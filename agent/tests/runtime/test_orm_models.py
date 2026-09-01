@@ -2,7 +2,7 @@
 
 from sqlalchemy import Select, select
 
-from infrastructure.database.models import AgentProviderCircuitModel, AgentRetryBucketModel, AgentRunEventModel, AgentRunStateModel, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel
+from infrastructure.database.models import AgentProviderCircuitModel, AgentRetryBucketModel, AgentRunEventModel, AgentRunStateModel, AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel, AgentWorkerCapacityEventModel
 
 
 def test_runtime_models_are_confined_to_agent_schema() -> None:
@@ -13,6 +13,8 @@ def test_runtime_models_are_confined_to_agent_schema() -> None:
     assert AgentTaskAttemptModel.__table__.schema == "agent_runtime"
     assert AgentRetryBucketModel.__table__.schema == "agent_runtime"
     assert AgentProviderCircuitModel.__table__.schema == "agent_runtime"
+    assert AgentSchedulerEntryModel.__table__.schema == "agent_runtime"
+    assert AgentWorkerCapacityEventModel.__table__.schema == "agent_runtime"
 
 
 def test_task_event_model_has_idempotency_constraints() -> None:
@@ -43,3 +45,12 @@ def test_task_registry_models_have_revision_and_attempt_constraints() -> None:
     assert "ck_agent_task_attempt_time_order" in attempt_constraints
     assert "ck_agent_task_attempt_checkpoint_pair" in attempt_constraints
     assert "ck_agent_task_attempt_retry_decision" in attempt_constraints
+
+
+def test_scheduler_models_preserve_fifo_claim_and_shadow_policy_state() -> None:
+    entry_constraints = {constraint.name for constraint in AgentSchedulerEntryModel.__table__.constraints}
+
+    assert "ck_agent_scheduler_entry_claim" in entry_constraints
+    assert "actual_policy_version" in AgentSchedulerEntryModel.__table__.columns
+    assert "shadow_policy_version" in AgentSchedulerEntryModel.__table__.columns
+    assert "admission_snapshot" in AgentSchedulerEntryModel.__table__.columns

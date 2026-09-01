@@ -74,6 +74,8 @@ from .research_worker import ResearchTaskWorker
 from .task_commands import PostgresTaskCommandInbox, TaskCommandAcceptance, TaskCommandConflictError, TaskCommandInboxError, TaskCommandPendingError  # noqa: E501
 from .reliability import FailureAssessment, HierarchicalRetryBudget, ProviderCircuit, ProviderCircuitPolicy, TokenBucketState, WeightedFailureClassifier, default_retry_buckets, issue_resume_token, verify_resume_token  # noqa: E501
 from .task_reliability_store import PostgresTaskReliabilityStore, TaskReliabilityError
+from .scheduler import HierarchicalShadowScheduler, SchedulerCandidate, SchedulerPolicy, SchedulerQueueKind, SchedulerRank, ShadowAdmissionDecision, ShadowAdmissionReason, ShadowAdmissionSnapshot, ShadowSchedulingLane, WorkerCapacitySnapshot  # noqa: E501
+from .task_scheduler_store import ClaimedSchedulerEntry, PostgresShadowSchedulerStore, SchedulerClaimConflictError, SchedulerObservation, SchedulerObservationConflictError, SchedulerStoreError  # noqa: E501
 
 __all__ = [
     "AgentRunExecutor",
@@ -139,6 +141,22 @@ __all__ = [
     "verify_resume_token",
     "PostgresTaskReliabilityStore",
     "TaskReliabilityError",
+    "HierarchicalShadowScheduler",
+    "SchedulerCandidate",
+    "SchedulerPolicy",
+    "SchedulerQueueKind",
+    "SchedulerRank",
+    "ShadowAdmissionDecision",
+    "ShadowAdmissionReason",
+    "ShadowAdmissionSnapshot",
+    "ShadowSchedulingLane",
+    "WorkerCapacitySnapshot",
+    "ClaimedSchedulerEntry",
+    "PostgresShadowSchedulerStore",
+    "SchedulerClaimConflictError",
+    "SchedulerObservation",
+    "SchedulerObservationConflictError",
+    "SchedulerStoreError",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",
