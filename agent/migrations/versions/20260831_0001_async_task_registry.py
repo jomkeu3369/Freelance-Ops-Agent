@@ -8,8 +8,6 @@ branch_labels = None
 depends_on = None
 
 UPGRADE_SQL = """
-CREATE SCHEMA IF NOT EXISTS agent_runtime;
-
 CREATE TABLE IF NOT EXISTS agent_runtime.agent_run_state (
     run_id UUID PRIMARY KEY,
     request_json JSONB NOT NULL,

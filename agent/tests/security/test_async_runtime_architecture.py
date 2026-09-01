@@ -33,3 +33,10 @@ def test_runtime_database_startup_never_creates_schema_implicitly() -> None:
     assert "create_all" not in open_method
     assert "create_runtime_tables" not in open_method
     assert "verify_runtime_tables" in connection_source
+
+
+def test_agent_runtime_schema_is_provisioned_only_by_infrastructure() -> None:
+    migration_paths = [Path("migrations/env.py"), *Path("migrations/versions").glob("*.py")]
+    violations = [str(path) for path in migration_paths if "CREATE SCHEMA" in path.read_text(encoding="utf-8").upper()]
+
+    assert violations == []
