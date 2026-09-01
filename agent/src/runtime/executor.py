@@ -236,7 +236,18 @@ class OperationalAgentExecutor:
                     max_attempts=request.budget.max_retries + 1,
                 )
             except ProviderCallError as error:
-                raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
+                usage = self._usage(
+                    decision.route,
+                    used_model_calls + error.model_calls,
+                    tool_calls,
+                    input_tokens + error.input_tokens,
+                    output_tokens + error.output_tokens,
+                    max(0, used_model_calls + error.model_calls - required_model_calls),
+                    research.search_credits if research is not None else 0,
+                    research.fetched_pages if research is not None else 0,
+                    started_ns
+                )
+                raise AgentExecutionError("MODEL_PROVIDER_FAILED", usage) from error
             input_tokens += generation.input_tokens
             output_tokens += generation.output_tokens
             used_model_calls += generation.model_calls
@@ -382,6 +393,9 @@ class OperationalAgentExecutor:
                     react_budget,
                 )
             except ProviderCallError as error:
+                model_calls += error.model_calls
+                input_tokens += error.input_tokens
+                output_tokens += error.output_tokens
                 if results:
                     return self._partial_react_outcome(
                         request,
@@ -400,8 +414,23 @@ class OperationalAgentExecutor:
                         output_tokens,
                         started_ns
                     )
-                raise AgentExecutionError("MODEL_PROVIDER_FAILED") from error
+                usage = self._usage(
+                    decision.route,
+                    model_calls,
+                    tool_calls,
+                    input_tokens,
+                    output_tokens,
+                    max(0, model_calls - 1),
+                    research_usage.search_credits,
+                    research_usage.fetched_pages,
+                    started_ns
+                )
+                raise AgentExecutionError("MODEL_PROVIDER_FAILED", usage) from error
             except ReActLoopError as error:
+                model_calls += error.model_calls
+                tool_calls += error.tool_calls
+                input_tokens += error.input_tokens
+                output_tokens += error.output_tokens
                 if results and error.code in _RECOVERABLE_PARTIAL_CODES:
                     return self._partial_react_outcome(
                         request,
@@ -414,13 +443,24 @@ class OperationalAgentExecutor:
                         tool_events,
                         research_usage,
                         error.code,
-                        model_calls + error.model_calls,
-                        tool_calls + error.tool_calls,
-                        input_tokens + error.input_tokens,
-                        output_tokens + error.output_tokens,
+                        model_calls,
+                        tool_calls,
+                        input_tokens,
+                        output_tokens,
                         started_ns
                     )
-                raise AgentExecutionError(error.code) from error
+                usage = self._usage(
+                    decision.route,
+                    model_calls,
+                    tool_calls,
+                    input_tokens,
+                    output_tokens,
+                    max(0, model_calls - 1),
+                    research_usage.search_credits,
+                    research_usage.fetched_pages,
+                    started_ns
+                )
+                raise AgentExecutionError(error.code, usage) from error
 
             model_calls += outcome.model_calls
             tool_calls += outcome.tool_calls

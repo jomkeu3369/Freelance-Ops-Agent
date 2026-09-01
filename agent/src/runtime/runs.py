@@ -39,9 +39,10 @@ class AgentRunStateError(RuntimeError):
 
 
 class AgentExecutionError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, usage: AgentRunUsage | None = None) -> None:
         super().__init__(code)
         self.code = code
+        self.usage = usage
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +133,7 @@ class AgentRunStore(Protocol):
 
     async def complete(self, run_id: UUID, outcome: ExecutionOutcome) -> None: ...
 
-    async def fail(self, run_id: UUID, error_code: str) -> None: ...
+    async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None: ...
 
     async def cancel(self, run_id: UUID) -> None: ...
 
@@ -213,13 +214,14 @@ class InMemoryAgentRunStore:
             else:
                 self._append_event(record, "run.completed")
 
-    async def fail(self, run_id: UUID, error_code: str) -> None:
+    async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._lock:
             record = self._record(run_id)
             if record.status is AgentRunStatus.CANCELLED:
                 return
             record.status = AgentRunStatus.FAILED
             record.error_code = error_code
+            record.usage = merge_usage(record.usage, usage)
             record.updated_at = datetime.now(UTC)
             self._append_event(record, "run.failed", {"errorCode": error_code})
 
@@ -452,7 +454,7 @@ class RunCoordinator:
                 error_code="RUN_TIMEOUT",
             )
         except AgentExecutionError as error:
-            await self._store.fail(run_id, error.code)
+            await self._store.fail(run_id, error.code, error.usage)
             await self._checkpoint_journal.record(
                 request,
                 AgentRunStatus.FAILED,
