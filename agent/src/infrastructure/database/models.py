@@ -210,6 +210,66 @@ class AgentProviderCircuitModel(AgentRuntimeBase):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AgentSchedulerEntryModel(AgentRuntimeBase):
+    __tablename__ = "agent_scheduler_entry"
+    __table_args__ = (
+        ForeignKeyConstraint(["attempt_id"], ["agent_runtime.agent_task_attempt.attempt_id"], ondelete="CASCADE"),
+        CheckConstraint("queue_kind IN ('READY','RETRY')", name="ck_agent_scheduler_entry_kind"),
+        CheckConstraint("entry_status IN ('PENDING','CLAIMED','DISPATCHED','CANCELLED')", name="ck_agent_scheduler_entry_status"),
+        CheckConstraint("priority BETWEEN 1 AND 5 AND predicted_runtime_seconds >= 0", name="ck_agent_scheduler_entry_values"),
+        CheckConstraint("available_at >= enqueued_at", name="ck_agent_scheduler_entry_available"),
+        CheckConstraint("shadow_decision IN ('ADMIT','DEFER','REJECT')", name="ck_agent_scheduler_entry_shadow_decision"),
+        CheckConstraint("(entry_status = 'CLAIMED' AND claim_id IS NOT NULL AND claimed_by IS NOT NULL AND lease_until IS NOT NULL) OR (entry_status <> 'CLAIMED' AND claim_id IS NULL AND claimed_by IS NULL AND lease_until IS NULL)", name="ck_agent_scheduler_entry_claim"),
+        Index("ix_agent_scheduler_entry_pending", "resource_pool", "entry_status", "available_at", "enqueued_at"),
+        Index("ix_agent_scheduler_entry_workspace_pending", "resource_pool", "workspace_id", "entry_status", "available_at"),
+        {"schema": "agent_runtime"}
+    )
+
+    attempt_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    task_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    resource_pool: Mapped[str] = mapped_column(String(100), nullable=False)
+    queue_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    entry_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False)
+    predicted_runtime_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    predictor_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    enqueued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    actual_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    shadow_policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    shadow_decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    shadow_reason: Mapped[str] = mapped_column(String(80), nullable=False)
+    shadow_available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    admission_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    last_actual_rank: Mapped[int | None] = mapped_column(Integer)
+    last_shadow_rank: Mapped[int | None] = mapped_column(Integer)
+    last_shadow_score: Mapped[float | None] = mapped_column(Float)
+    last_shadow_lane: Mapped[str | None] = mapped_column(String(40))
+    claim_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    claimed_by: Mapped[str | None] = mapped_column(String(100))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentWorkerCapacityEventModel(AgentRuntimeBase):
+    __tablename__ = "agent_worker_capacity_event"
+    __table_args__ = (
+        CheckConstraint("worker_count >= 1", name="ck_agent_worker_capacity_event_count"),
+        Index("ix_agent_worker_capacity_event_pool_time", "resource_pool", "captured_at"),
+        {"schema": "agent_runtime"}
+    )
+
+    event_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    resource_pool: Mapped[str] = mapped_column(String(100), nullable=False)
+    worker_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
 class AgentTaskCommandReceiptModel(AgentRuntimeBase):
     __tablename__ = "agent_task_command_receipt"
     __table_args__ = (
