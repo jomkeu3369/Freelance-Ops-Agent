@@ -80,7 +80,7 @@ flowchart TB
 
     subgraph EXT["External providers"]
         MODELS["OpenAI / Gemini"]
-        RESEARCH["WebResearchProvider"]
+        RESEARCH["SearchProvider / FetchProvider"]
         MCP["Optional external MCP"]
     end
 

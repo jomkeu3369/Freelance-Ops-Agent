@@ -233,7 +233,7 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 | Frontend | React/Next.js + TypeScript | 제품형 UI와 타입 안전한 API 연동 |
 | Primary DB | PostgreSQL | 관계형 데이터, 트랜잭션, 상태, 감사 기록 통합 |
 | Vector Search | pgvector | 비즈니스 데이터와 embedding을 동일 DB에서 관리 |
-| Web Research | Provider interface + Tavily + Crawl4AI | 탐색과 통제된 수집을 분리하고 provider 종속 방지 |
+| Web Research | Search/Fetch interface + Tavily + Direct HTTP/PDF | 탐색과 통제된 원문 수집을 분리하고 provider 종속 방지 |
 | Migration | Flyway | 재현 가능한 schema 변경 |
 | File Storage | 개발: Docker volume, 운영: S3-compatible storage | 원본 문서를 DB와 분리 |
 | Observability | Micrometer + OpenTelemetry-compatible tracing | API·LLM·Tool 실행 추적 |
@@ -286,7 +286,7 @@ flowchart LR
         DEPT["Bounded Department Deep Agents"]
         SPEC["Specialist Agent / ReAct / HITL"]
         MODEL["OpenAI / Gemini Adapter"]
-        WEB["WebResearchProvider"]
+        WEB["SearchProvider / FetchProvider"]
     end
 
     API --> ID
@@ -313,7 +313,7 @@ flowchart LR
     EVID --> PG
     EXPORT --> FS[("File/Object Storage")]
     WEB --> TAVILY["Tavily"]
-    WEB --> CRAWL["Crawl4AI / Direct Fetch / PDF"]
+    WEB --> FETCH["Direct HTTP / PDF"]
     SPEC -. optional .-> MCP["External MCP Servers"]
 ```
 
@@ -328,7 +328,7 @@ flowchart LR
 - 그 외 Spring 모듈은 독립 확장·배포 필요성이 측정되기 전에는 microservice로 분리하지 않는다.
 - PostgreSQL은 단일 system of record다.
 - Vultr public ingress는 TLS reverse proxy와 Spring 공개 API로 제한하고 Agent와 PostgreSQL은 public port를 갖지 않는다.
-- Crawl4AI는 초기에는 Agent runtime의 제한된 비동기 worker로 실행하며 독립 확장 필요성이 입증되기 전에는 별도 서비스로 분리하지 않는다.
+- 브라우저 crawler는 실제 동적 페이지 요구와 독립 운영 필요성이 입증되기 전에는 도입하지 않는다.
 
 ---
 
@@ -501,7 +501,7 @@ V2 Agent는 모든 로직을 LLM에 위임하지 않는다.
 | OpenAI/Gemini 호출과 structured output | Python model provider adapter |
 | 금액, 기간, 세금, 합계 계산 | Spring의 결정적 Java Tool |
 | 내부 지식 검색 | Spring의 PostgreSQL full-text + pgvector Tool |
-| 외부 자료 탐색·수집 | Python WebResearchProvider와 검증된 수집 정책 |
+| 외부 자료 탐색·수집 | Python SearchProvider·FetchProvider와 검증된 수집 정책 |
 | 상세 checkpoint와 resume | LangGraph `AsyncPostgresSaver` |
 | 결과 근거 검증 | Spring validator + 제한된 LLM evaluator |
 | 최종 수정·승인 | 사용자 HITL, Spring public API 경유 |
@@ -732,15 +732,11 @@ created_by_run_id
 
 ### 10.4 웹 자료 탐색·수집
 
-Agent node는 Tavily나 Crawl4AI SDK를 직접 contract로 노출하지 않고 다음 provider-neutral capability를 사용한다.
+Agent node는 Tavily SDK나 HTTP client를 직접 contract로 노출하지 않고 다음 provider-neutral capability를 사용한다.
 
 ```text
-WebResearchProvider
-├─ search(query, filters)
-├─ map(domain, constraints)
-├─ fetch(url)
-├─ crawl(seed_url, policy)
-└─ extract(document, schema)
+SearchProvider.search(query, filters)
+FetchProvider.fetch(url)
 ```
 
 기본 routing 정책은 다음과 같다.
@@ -748,11 +744,10 @@ WebResearchProvider
 | 상황 | 기본 route |
 |---|---|
 | 새로운 출처와 최신 정보 탐색 | Tavily Search |
-| 공식 사이트 URL 구조 파악 | Tavily Map |
-| 알려진 정적 URL 조회 | Direct HTTP 또는 Tavily Extract |
-| 허용된 사이트의 다중 페이지 수집 | Tavily Crawl 또는 Crawl4AI benchmark winner |
-| JavaScript 동적 페이지·구조화 추출 | Crawl4AI |
+| 알려진 정적 URL 조회 | Direct HTTP |
 | 법령·가이드 PDF | 전용 PDF extractor |
+
+JavaScript 동적 페이지와 다중 페이지 수집은 현재 지원하지 않는다. 실제 요구, 브라우저 runtime 운영 계획과 동일 corpus benchmark가 준비되면 별도 ADR로 provider를 도입한다.
 
 수집 pipeline은 다음과 같다.
 
@@ -760,7 +755,7 @@ WebResearchProvider
 source registry
 → discovery
 → allowlist·robots·이용약관·rate limit 확인
-→ fetch/crawl
+→ fetch
 → 악성 지시·PII·content type 검사
 → normalize/extract
 → deduplicate/content hash
@@ -1201,7 +1196,7 @@ Agent 실행 route 자체는 별도로 다음 구성을 비교한다.
 - 무료 사용자의 token·검색 credit·크롤링 한도 초과
 - 외부 웹 문서가 Tool 호출이나 내부 prompt 변경을 지시하는 prompt injection
 - 관할권과 기준일이 다른 법률 source의 혼합
-- Crawl4AI timeout·browser crash·사이트 구조 변경
+- 외부 검색 timeout·사이트 구조 변경
 - 수집 snapshot은 성공했지만 chunk·embedding publish가 실패한 경우의 rollback/reconciliation
 
 ---
@@ -1349,7 +1344,7 @@ agent-python
 postgres-pgvector
 ```
 
-`agent-python`은 Docker 내부 network에만 expose한다. 선택적으로 observability profile을 제공할 수 있다. Crawl4AI는 초기에는 `agent-python` 내부의 동시성 1인 비동기 worker로 시작하며 필요할 때만 `crawler-worker` profile로 분리한다. 로컬 개발 기본 경로에 Kafka, MongoDB, Qdrant, Redis를 포함하지 않는다.
+`agent-python`은 Docker 내부 network에만 expose한다. 선택적으로 observability profile을 제공할 수 있다. 브라우저 crawler는 실제 요구와 운영 benchmark가 생길 때 별도 배포 결정을 내린다. 로컬 개발 기본 경로에 Kafka, MongoDB, Qdrant, Redis를 포함하지 않는다.
 
 ### 18.2 PostgreSQL
 
@@ -1538,9 +1533,8 @@ postgres-pgvector
 
 ### Phase 6. 웹 조사와 제한된 공개 검증
 
-- `WebResearchProvider`와 Tavily adapter
+- `SearchProvider`와 Tavily adapter
 - Direct HTTP와 PDF extractor
-- Crawl4AI adapter와 제한된 crawler worker
 - source allowlist, snapshot, freshness와 parser version
 - 한국 소프트웨어 개발 프리랜서용 첫 domain/jurisdiction pack
 - plan별 quota, run별 원가 ledger와 hard budget
@@ -1548,7 +1542,7 @@ postgres-pgvector
 
 완료 조건:
 
-- Tavily·Crawl4AI·직접 수집 route가 동일 corpus benchmark로 비교된다.
+- Tavily 검색과 직접 수집 route가 공식 source corpus에서 검증된다.
 - 같은 공식 문서를 사용자마다 재수집하지 않는다.
 - 모든 법률·정책 주장이 관할권, 기준일과 source snapshot을 가진다.
 - 무료 사용자의 호출·검색·크롤링 비용이 hard limit 안에 있다.
@@ -1654,7 +1648,7 @@ V2의 첫 공개 릴리스는 다음 조건을 모두 만족해야 한다.
 - [ ] 모든 견적 항목에 evidence 또는 assumption이 연결된다.
 - [ ] source chunk를 UI에서 확인할 수 있다.
 - [ ] 웹 수집 source에 관할권, 기준일, 원문 snapshot과 parser version이 기록된다.
-- [ ] Tavily, Crawl4AI, Direct HTTP/PDF가 provider-neutral contract 뒤에 격리된다.
+- [ ] Tavily와 Direct HTTP/PDF가 provider-neutral contract 뒤에 격리된다.
 - [ ] 외부 문서의 prompt injection과 허용되지 않은 도메인 수집을 차단하는 테스트가 통과한다.
 - [ ] 발행된 견적은 version 불변성을 가진다.
 - [ ] 실제 결과를 기록하고 다음 검색에 활용할 수 있다.
@@ -1681,7 +1675,7 @@ Agent       고정 LLM workflow → durable workflow + 제한된 계층형 Super
 Reasoning   자유 텍스트 설명 → Evidence Ledger + 계산식 + assumption
 Learning    FAISS 누적 → versioned outcome-informed retrieval
 Evaluation  notebook 실험 → golden dataset + CI regression evaluation
-Web         단일 검색 호출 → Tavily·Crawl4AI·Direct/PDF provider routing + snapshot
+Web         단일 검색 호출 → Tavily 검색·Direct HTTP/PDF 수집 + snapshot
 Business    개인 프로젝트 → 무료 제한 + 건별 산출물 + quota 기반 구독 가설
 MCP         기술 시연용 전면 적용 → 안정된 internal Tool·외부 connector 경계에 선택 적용
 Deployment  근거 없는 infra → frontend/Spring/Agent/PostgreSQL 중심 Compose

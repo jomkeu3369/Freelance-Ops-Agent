@@ -22,7 +22,6 @@ class WebModel(BaseModel):
 class WebProvider(StrEnum):
     TAVILY = "TAVILY"
     DIRECT_HTTP = "DIRECT_HTTP"
-    CRAWL4AI = "CRAWL4AI"
 
 
 class AuthorityLevel(StrEnum):
@@ -74,18 +73,6 @@ class FetchRequest(WebModel):
         return SearchRequest.normalize_domains(domains)
 
 
-class CrawlPolicy(WebModel):
-    allowed_domains: list[str] = Field(min_length=1, max_length=20)
-    max_pages: int = Field(default=10, ge=1, le=50)
-    max_depth: int = Field(default=2, ge=0, le=3)
-    respect_robots_txt: bool = True
-
-    @field_validator("allowed_domains")
-    @classmethod
-    def normalize_allowed_domains(cls, domains: list[str]) -> list[str]:
-        return SearchRequest.normalize_domains(domains)
-
-
 class WebDocument(WebModel):
     source_url: HttpUrl
     final_url: HttpUrl
@@ -109,11 +96,3 @@ class SearchProvider(Protocol):
 
 class FetchProvider(Protocol):
     async def fetch(self, request: FetchRequest) -> WebDocument: ...
-
-
-class CrawlProvider(Protocol):
-    async def crawl(self, seed: FetchRequest, policy: CrawlPolicy) -> list[WebDocument]: ...
-
-
-class WebResearchProvider(SearchProvider, FetchProvider, CrawlProvider, Protocol):
-    pass

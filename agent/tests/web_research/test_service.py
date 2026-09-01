@@ -5,6 +5,8 @@ import pytest
 from web_research import (
     AuthorityLevel,
     BoundedWebResearchService,
+    FetchRequest,
+    SearchRequest,
     SearchResult,
     WebDocument,
     WebProvider,
@@ -12,13 +14,13 @@ from web_research import (
 )
 
 
-class FakeRouter:
+class FakeProvider:
     def __init__(self, document: WebDocument) -> None:
         self.document = document
         self.search_calls = 0
         self.fetch_calls = 0
 
-    async def search(self, request: object) -> list[SearchResult]:
+    async def search(self, request: SearchRequest) -> list[SearchResult]:
         del request
         self.search_calls += 1
         return [
@@ -31,8 +33,8 @@ class FakeRouter:
             )
         ]
 
-    async def fetch(self, request: object, dynamic: bool = False) -> WebDocument:
-        del request, dynamic
+    async def fetch(self, request: FetchRequest) -> WebDocument:
+        del request
         self.fetch_calls += 1
         return self.document
 
@@ -55,8 +57,8 @@ def _document(signals: list[str] | None = None) -> WebDocument:
 
 
 async def test_collects_only_fetched_grounded_sources_with_budget_usage() -> None:
-    router = FakeRouter(_document())
-    service = BoundedWebResearchService(router, ["example.go.kr"])  # type: ignore[arg-type]
+    provider = FakeProvider(_document())
+    service = BoundedWebResearchService(provider, provider, ["example.go.kr"])
 
     result = await service.collect("프리랜서 정책", "KR", max_search_credits=1, max_tool_calls=2)
 
@@ -68,8 +70,8 @@ async def test_collects_only_fetched_grounded_sources_with_budget_usage() -> Non
 
 
 async def test_prompt_injection_document_is_not_exposed_to_model() -> None:
-    router = FakeRouter(_document(["IGNORE_INSTRUCTIONS"]))
-    service = BoundedWebResearchService(router, ["example.go.kr"])  # type: ignore[arg-type]
+    provider = FakeProvider(_document(["IGNORE_INSTRUCTIONS"]))
+    service = BoundedWebResearchService(provider, provider, ["example.go.kr"])
 
     result = await service.collect("프리랜서 정책", "KR", max_search_credits=1, max_tool_calls=2)
 
@@ -78,7 +80,8 @@ async def test_prompt_injection_document_is_not_exposed_to_model() -> None:
 
 
 async def test_research_requires_search_and_tool_budget() -> None:
-    service = BoundedWebResearchService(FakeRouter(_document()), ["example.go.kr"])  # type: ignore[arg-type]
+    provider = FakeProvider(_document())
+    service = BoundedWebResearchService(provider, provider, ["example.go.kr"])
 
     with pytest.raises(WebResearchBudgetError, match="SEARCH_CREDIT_BUDGET_EXCEEDED"):
         await service.collect("프리랜서 정책", "KR", max_search_credits=0, max_tool_calls=2)

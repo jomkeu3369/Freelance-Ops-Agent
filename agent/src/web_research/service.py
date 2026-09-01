@@ -7,8 +7,7 @@ from dataclasses import dataclass
 
 from contracts import SourceReference
 
-from .contracts import AuthorityLevel, FetchRequest, SearchRequest
-from .router import WebResearchRouter
+from .contracts import AuthorityLevel, FetchProvider, FetchRequest, SearchProvider, SearchRequest
 
 
 class WebResearchBudgetError(RuntimeError):
@@ -24,7 +23,7 @@ class ResearchCollection:
 
 
 class BoundedWebResearchService:
-    def __init__(self, router: WebResearchRouter, allowed_domains: list[str], max_results: int = 5, max_fetches: int = 3, timeout_seconds: float = 30.0) -> None:  # noqa: E501
+    def __init__(self, search: SearchProvider, fetch: FetchProvider, allowed_domains: list[str], max_results: int = 5, max_fetches: int = 3, timeout_seconds: float = 30.0) -> None:  # noqa: E501
         if not allowed_domains:
             raise ValueError("web research requires at least one allowed domain")
        
@@ -34,7 +33,8 @@ class BoundedWebResearchService:
         if timeout_seconds <= 0:
             raise ValueError("web research timeout must be positive")
         
-        self._router = router
+        self._search = search
+        self._fetch = fetch
         self._allowed_domains = allowed_domains
         self._max_results = max_results
         self._max_fetches = max_fetches
@@ -48,7 +48,7 @@ class BoundedWebResearchService:
             raise WebResearchBudgetError("TOOL_CALL_BUDGET_EXCEEDED")
         
         async with asyncio.timeout(self._timeout_seconds):
-            results = await self._router.search(
+            results = await self._search.search(
                 SearchRequest(
                     query=query,
                     allowed_domains=self._allowed_domains,
@@ -61,7 +61,7 @@ class BoundedWebResearchService:
             for result in results[:fetch_limit]:
                 attempted_fetches += 1
                 try:
-                    document = await self._router.fetch(
+                    document = await self._fetch.fetch(
                         FetchRequest(
                             url=result.url,
                             allowed_domains=self._allowed_domains,

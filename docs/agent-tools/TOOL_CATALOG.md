@@ -26,7 +26,7 @@
 |---|---|---|
 | Agent 구조 비교 | Python in-memory/fixture Tool | Graph와 Tool 선택 성능 비교 |
 | 검색 평가 | Python의 고정 문서 corpus | 검색 변동 없이 grounding 비교 |
-| 외부 조사 평가 | Tavily·Crawl4AI adapter | 실제 웹 조사 품질 비교 |
+| 외부 조사 평가 | Tavily 검색·직접 원문 수집 | 실제 웹 조사 품질 비교 |
 | V2 서비스 통합 | Python Tool wrapper → Spring internal REST | RBAC·업무 규칙·DB 연결 |
 | 선택적 확장 | 같은 계약의 MCP adapter | 외부 host와 connector 연동 |
 
@@ -80,12 +80,10 @@ Python prototype은 운영 업무 로직의 최종 소유자가 아니다. Sprin
 | `search_documents` | 고정 corpus 또는 운영 검색 저장소에서 관련 chunk를 찾는다. |
 | `read_document_chunks` | 선택한 chunk의 원문을 읽는다. |
 | `search_similar_project_evidence` | 유사 사례의 요구사항·기술 선택 근거를 검색한다. |
-| `web_search` | Tavily를 통해 외부 source 후보를 찾는다. |
-| `crawl_url` | Crawl4AI로 선택한 페이지의 본문과 구조를 추출한다. |
-| `fetch_document` | 공식 URL 또는 PDF 원문을 직접 수집한다. |
+| `web_research` | Tavily로 허용된 외부 source를 찾고 공식 URL 또는 PDF 원문을 직접 수집한다. |
 
 Agent 구조만 비교하는 첫 실험에서는 웹 결과의 변동을 막기 위해
-`web_search`, `crawl_url`, `fetch_document`를 비활성화한다.
+`web_research`를 비활성화한다.
 
 ### 4.3 Risk Agent
 

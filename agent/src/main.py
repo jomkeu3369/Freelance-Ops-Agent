@@ -31,7 +31,7 @@ from runtime import (
     RunCoordinator,
 )
 from security import DelegationTokenVerifier
-from web_research import BoundedWebResearchService, DirectHttpProvider, TavilyWebResearchProvider, WebResearchRouter
+from web_research import BoundedWebResearchService, DirectHttpProvider, TavilySearchProvider
 
 RuntimeComponents = tuple[
     RunCoordinator,
@@ -187,11 +187,11 @@ def _build_web_research_service(settings: Settings) -> BoundedWebResearchService
 
     api_key = settings.tavily_api_key
     key_value = api_key.get_secret_value() if api_key is not None else ""
-    tavily = TavilyWebResearchProvider(AsyncTavilyClient(api_key=key_value))
-    router = WebResearchRouter(tavily, DirectHttpProvider())
+    tavily = TavilySearchProvider(AsyncTavilyClient(api_key=key_value))
 
     return BoundedWebResearchService(
-        router,
+        tavily,
+        DirectHttpProvider(),
         settings.allowed_web_research_domains(),
         max_results=settings.web_research_max_results,
         max_fetches=settings.web_research_max_fetches,

@@ -655,13 +655,9 @@ output_schema_version은 {output_schema_version}입니다.
 
 ### 연결 Tool
 
-- `web_search`
-- `web_map`
-- `direct_fetch`
-- `approved_crawl`
-- `pdf_extract`
+- `web_research`
 
-실제 provider SDK가 아니라 `WebResearchProvider` capability만 노출한다.
+실제 provider SDK가 아니라 `SearchProvider`·`FetchProvider` capability만 노출한다.
 
 ### System prompt
 
