@@ -38,18 +38,27 @@ public class AgentTaskCommandOutbox {
     public UUID enqueue(UUID workspaceId, UUID runId, UUID taskId, int expectedRevision,
                         AgentTaskCommandType type, String idempotencyKey, Map<String, Object> payload,
                         UUID requestedBy, long authorizationRevision, long budgetRevision, Instant now) {
+        return enqueueWithResult(workspaceId, runId, taskId, expectedRevision, type, idempotencyKey, payload,
+            requestedBy, authorizationRevision, budgetRevision, now).commandId();
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public EnqueueResult enqueueWithResult(UUID workspaceId, UUID runId, UUID taskId, int expectedRevision,
+                                           AgentTaskCommandType type, String idempotencyKey,
+                                           Map<String, Object> payload, UUID requestedBy,
+                                           long authorizationRevision, long budgetRevision, Instant now) {
         Optional<AgentTaskCommandEntity> existing = commandRepository
             .findByWorkspaceIdAndTaskIdAndIdempotencyKey(workspaceId, taskId, idempotencyKey);
         if (existing.isPresent()) {
             if (matches(existing.get(), runId, expectedRevision, type, payload, requestedBy,
-                authorizationRevision, budgetRevision)) return existing.get().id();
+                authorizationRevision, budgetRevision)) return new EnqueueResult(existing.get().id(), false);
             throw new IllegalStateException("task command idempotency key conflicts with different data");
         }
         AgentTaskCommandEntity command = new AgentTaskCommandEntity(UUID.randomUUID(), workspaceId, runId, taskId,
             expectedRevision, type, idempotencyKey, payload, requestedBy, authorizationRevision, budgetRevision, now);
         commandRepository.saveAndFlush(command);
         deliveryRepository.saveAndFlush(new AgentTaskCommandDeliveryEntity(command.id(), now));
-        return command.id();
+        return new EnqueueResult(command.id(), true);
     }
 
     @Transactional
@@ -84,8 +93,9 @@ public class AgentTaskCommandOutbox {
         AgentTaskCommandEntity command = commandRepository.findById(delivery.commandId())
             .orElseThrow(() -> new IllegalStateException("task command delivery has no immutable command"));
         return new ClaimedCommand(command.id(), command.workspaceId(), command.runId(), command.taskId(),
-            command.expectedTaskRevision(), command.commandType(), command.payload(), command.requestedBy(),
-            command.authorizationRevision(), command.budgetRevision(), delivery.attempts());
+            command.expectedTaskRevision(), command.commandType(), command.idempotencyKey(), command.payload(),
+            command.requestedBy(), command.requestedAt(), command.authorizationRevision(), command.budgetRevision(),
+            delivery.attempts());
     }
 
     private static boolean matches(AgentTaskCommandEntity command, UUID runId, int expectedRevision,
@@ -99,10 +109,14 @@ public class AgentTaskCommandOutbox {
     }
 
     public record ClaimedCommand(UUID id, UUID workspaceId, UUID runId, UUID taskId, int expectedTaskRevision,
-                                 AgentTaskCommandType type, Map<String, Object> payload, UUID requestedBy,
-                                 long authorizationRevision, long budgetRevision, int deliveryAttempt) {
+                                 AgentTaskCommandType type, String idempotencyKey, Map<String, Object> payload,
+                                 UUID requestedBy, Instant requestedAt, long authorizationRevision,
+                                 long budgetRevision, int deliveryAttempt) {
         public ClaimedCommand {
             payload = Map.copyOf(payload);
         }
+    }
+
+    public record EnqueueResult(UUID commandId, boolean created) {
     }
 }

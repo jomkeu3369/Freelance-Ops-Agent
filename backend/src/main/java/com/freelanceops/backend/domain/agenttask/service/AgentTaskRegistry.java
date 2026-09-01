@@ -90,12 +90,34 @@ public class AgentTaskRegistry {
     @Transactional
     public int hardRedirect(UUID taskId, UUID workspaceId, int expectedRevision, Instant now) {
         AgentTaskEntity task = lockTask(taskId, workspaceId);
+        return hardRedirect(task, expectedRevision, task.objectiveReference(), now);
+    }
+
+    @Transactional
+    public int hardRedirect(UUID taskId, UUID workspaceId, int expectedRevision, String objectiveReference, Instant now) {
+        AgentTaskEntity task = lockTask(taskId, workspaceId);
+        return hardRedirect(task, expectedRevision, objectiveReference, now);
+    }
+
+    @Transactional
+    public boolean acknowledgeCancellation(UUID taskId, UUID workspaceId, int expectedRevision, Instant now) {
+        AgentTaskEntity task = lockTask(taskId, workspaceId);
+        if (task.revision() != expectedRevision) return false;
         int attemptNumber = task.currentAttemptNumber();
         if (attemptNumber > 0) {
             attemptRepository.findCurrentForUpdate(taskId, expectedRevision, attemptNumber)
+                .ifPresent(attempt -> attempt.cancel(now));
+        }
+        return task.cancel(expectedRevision, attemptNumber, now);
+    }
+
+    private int hardRedirect(AgentTaskEntity task, int expectedRevision, String objectiveReference, Instant now) {
+        int attemptNumber = task.currentAttemptNumber();
+        if (attemptNumber > 0) {
+            attemptRepository.findCurrentForUpdate(task.id(), expectedRevision, attemptNumber)
                 .ifPresent(attempt -> attempt.supersede(now));
         }
-        return task.redirect(expectedRevision, now);
+        return task.redirect(expectedRevision, objectiveReference, now);
     }
 
     private AgentTaskEntity lockTask(UUID taskId, UUID workspaceId) {

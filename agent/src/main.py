@@ -9,6 +9,7 @@ from api.assumptions.router import router as assumptions_router
 from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
+from api.task_commands.router import router as task_commands_router
 from config import Settings, get_settings
 from contracts import HealthResponse
 from gateway import AIGateway, GatewayPolicy
@@ -26,6 +27,7 @@ from runtime import (
     OperationalAgentExecutor,
     OperationalGateway,
     PostgresAgentRunStore,
+    PostgresTaskCommandInbox,
     RunCoordinator,
 )
 from security import DelegationTokenVerifier
@@ -64,7 +66,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 class FreelanceOpsAgentAiServer:
-    def __init__(self, *, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None) -> None:  # noqa: E501
+    def __init__(self, *, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None) -> None:  # noqa: E501
         settings = get_settings()
         configure_langsmith_privacy(enabled=settings.langsmith_tracing)
         self.app = FastAPI(
@@ -89,6 +91,9 @@ class FreelanceOpsAgentAiServer:
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
+        self.app.state.task_command_inbox = task_command_inbox or (
+            PostgresTaskCommandInbox(database_manager) if database_manager is not None else None
+        )
         self.app.state.ai_gateway = ai_gateway
         self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(OpenAIRaptorBuildService(), GeminiRaptorBuildService())  # noqa: E501
         self.app.state.delegation_token_verifier = (delegation_token_verifier or _build_delegation_token_verifier())
@@ -108,6 +113,7 @@ class FreelanceOpsAgentAiServer:
         self.app.include_router(assumptions_router)
         self.app.include_router(raptor_router)
         self.app.include_router(platform_router)
+        self.app.include_router(task_commands_router)
 
     def get_app(self) -> FastAPI:
         return self.app
@@ -228,11 +234,12 @@ def _build_delegation_token_verifier() -> DelegationTokenVerifier:
         leeway_seconds=settings.delegation_token_leeway_seconds
     )
 
-def create_app(*, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None) -> FastAPI:  # noqa: E501
+def create_app(*, run_coordinator: RunCoordinator | None = None, delegation_token_verifier: DelegationTokenVerifier | None = None, raptor_build_service: RaptorBuildService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None) -> FastAPI:  # noqa: E501
     server = FreelanceOpsAgentAiServer(
         run_coordinator=run_coordinator,
         delegation_token_verifier=delegation_token_verifier,
-        raptor_build_service=raptor_build_service
+        raptor_build_service=raptor_build_service,
+        task_command_inbox=task_command_inbox
     )
     return server.get_app()
 

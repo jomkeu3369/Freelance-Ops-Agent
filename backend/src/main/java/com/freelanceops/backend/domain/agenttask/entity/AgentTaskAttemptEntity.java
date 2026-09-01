@@ -140,6 +140,28 @@ public class AgentTaskAttemptEntity {
         return true;
     }
 
+    public boolean projectUpdateApplied(Instant now) {
+        if (status.terminal()) return false;
+        if (status == AgentTaskAttemptStatus.RUNNING) return true;
+        if (status != AgentTaskAttemptStatus.CHECKPOINTED) {
+            throw new IllegalStateException("only checkpointed attempt can apply update");
+        }
+        status = AgentTaskAttemptStatus.RUNNING;
+        updatedAt = now;
+        return true;
+    }
+
+    public boolean cancel(Instant now) {
+        if (status == AgentTaskAttemptStatus.CANCELLED) return true;
+        if (status.terminal()) return false;
+        status = AgentTaskAttemptStatus.CANCELLED;
+        completedAt = startedAt == null ? null : now;
+        leaseOwner = null;
+        leaseUntil = null;
+        updatedAt = now;
+        return true;
+    }
+
     public void supersede(Instant now) {
         if (status.terminal()) return;
         status = AgentTaskAttemptStatus.SUPERSEDED;

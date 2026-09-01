@@ -42,6 +42,24 @@ class AgentTaskEntityTest {
             .hasMessageContaining("revision");
     }
 
+    @Test
+    void softUpdateAndCancellationExposeOnlyAuthoritativeStates() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        AgentTaskEntity task = task(now);
+        int attempt = task.dispatch(1, now);
+        task.start(1, attempt, now.plusSeconds(1));
+
+        task.requestSoftUpdate(1, now.plusSeconds(2));
+        assertThat(task.status()).isEqualTo(AgentTaskStatus.UPDATE_PENDING);
+        task.applySoftUpdate(1, attempt, now.plusSeconds(3));
+        assertThat(task.status()).isEqualTo(AgentTaskStatus.RUNNING);
+
+        task.requestCancellation(1, now.plusSeconds(4));
+        assertThat(task.status()).isEqualTo(AgentTaskStatus.CANCELLING);
+        assertThat(task.cancel(1, attempt, now.plusSeconds(5))).isTrue();
+        assertThat(task.status()).isEqualTo(AgentTaskStatus.CANCELLED);
+    }
+
     private static AgentTaskEntity task(Instant now) {
         return new AgentTaskEntity(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null,
             DepartmentName.RESEARCH, "research-v1", "Research #1", "objective:1", 3, null, now);

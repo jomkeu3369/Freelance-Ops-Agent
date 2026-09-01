@@ -22,7 +22,8 @@ public class AgentTaskEventIngestionService {
 
     private static final String SCHEMA_VERSION = "task-attempt-telemetry-v1";
     private static final Set<String> EVENT_TYPES = Set.of("attempt.predicted", "attempt.queued", "attempt.started",
-        "attempt.checkpointed", "attempt.failed", "attempt.retry_decided", "attempt.completed", "attempt.incident_finalized");
+        "attempt.checkpointed", "attempt.update_applied", "attempt.cancelled", "attempt.failed",
+        "attempt.retry_decided", "attempt.completed", "attempt.incident_finalized");
     private static final Set<String> FORBIDDEN_KEYS = Set.of("api_key", "chain_of_thought", "delegation_token", "prompt", "secret");
     private final AgentTaskRepository taskRepository;
     private final AgentTaskAttemptRepository attemptRepository;
@@ -75,6 +76,14 @@ public class AgentTaskEventIngestionService {
                 task.projectStarted(event.taskRevision(), event.attemptNumber(), receivedAt);
             }
             case "attempt.checkpointed" -> attempt.projectCheckpointed(event.occurredAt());
+            case "attempt.update_applied" -> {
+                attempt.projectUpdateApplied(event.occurredAt());
+                task.applySoftUpdate(event.taskRevision(), event.attemptNumber(), receivedAt);
+            }
+            case "attempt.cancelled" -> {
+                attempt.cancel(event.occurredAt());
+                task.cancel(event.taskRevision(), event.attemptNumber(), receivedAt);
+            }
             case "attempt.completed" -> {
                 attempt.projectTerminal(AgentTaskAttemptStatus.COMPLETED, null, event.occurredAt());
                 AgentTaskStatus result = "COMPLETED_REUSED".equals(event.data().get("task_status"))

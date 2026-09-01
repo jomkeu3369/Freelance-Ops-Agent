@@ -193,6 +193,8 @@ class TaskCommand(RuntimeContractModel):
     requested_by: UUID
     requested_at: datetime
     payload: dict[str, Any] = Field(default_factory=dict)
+    authorization_revision: int = Field(default=1, ge=1)
+    budget_revision: int = Field(default=1, ge=1)
     schema_version: str = TASK_CONTRACT_SCHEMA_VERSION
 
     @field_validator("requested_at")

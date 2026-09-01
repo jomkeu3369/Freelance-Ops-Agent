@@ -124,9 +124,14 @@ public class AgentTaskEntity {
     }
 
     public int redirect(int expectedRevision, Instant now) {
+        return redirect(expectedRevision, objectiveReference, now);
+    }
+
+    public int redirect(int expectedRevision, String objectiveReference, Instant now) {
         requireRevision(expectedRevision);
         if (status.terminal()) throw new IllegalStateException("terminal task cannot be redirected");
         revision++;
+        this.objectiveReference = requireText(objectiveReference, "objectiveReference");
         currentAttemptNumber = 0;
         status = AgentTaskStatus.QUEUED;
         phase = null;
@@ -134,6 +139,38 @@ public class AgentTaskEntity {
         lastHeartbeatAt = null;
         updatedAt = now;
         return revision;
+    }
+
+    public void requestSoftUpdate(int expectedRevision, Instant now) {
+        requireRevision(expectedRevision);
+        if (status.terminal() || status == AgentTaskStatus.CANCELLING) {
+            throw new IllegalStateException("terminal or cancelling task cannot be updated");
+        }
+        status = AgentTaskStatus.UPDATE_PENDING;
+        updatedAt = now;
+    }
+
+    public void applySoftUpdate(int expectedRevision, int attemptNumber, Instant now) {
+        requireCurrentAttempt(expectedRevision, attemptNumber);
+        if (status != AgentTaskStatus.UPDATE_PENDING) throw new IllegalStateException("task has no pending update");
+        status = AgentTaskStatus.RUNNING;
+        updatedAt = now;
+    }
+
+    public void requestCancellation(int expectedRevision, Instant now) {
+        requireRevision(expectedRevision);
+        if (status.terminal()) throw new IllegalStateException("terminal task cannot be cancelled");
+        status = AgentTaskStatus.CANCELLING;
+        updatedAt = now;
+    }
+
+    public boolean cancel(int expectedRevision, int attemptNumber, Instant now) {
+        if (!isCurrent(expectedRevision, attemptNumber)) return false;
+        if (status == AgentTaskStatus.CANCELLED) return true;
+        if (status != AgentTaskStatus.CANCELLING) throw new IllegalStateException("task is not cancelling");
+        status = AgentTaskStatus.CANCELLED;
+        updatedAt = now;
+        return true;
     }
 
     private void requireRevision(int expectedRevision) {

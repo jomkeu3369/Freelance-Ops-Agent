@@ -154,6 +154,37 @@ class AgentTaskAttemptModel(AgentRuntimeBase):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AgentTaskCommandReceiptModel(AgentRuntimeBase):
+    __tablename__ = "agent_task_command_receipt"
+    __table_args__ = (
+        ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        CheckConstraint("status IN ('PENDING','APPLIED','REJECTED')", name="ck_agent_task_command_receipt_status"),
+        CheckConstraint("task_revision >= 1 AND authorization_revision >= 1 AND budget_revision >= 1", name="ck_agent_task_command_receipt_revision"),
+        CheckConstraint("(status = 'APPLIED' AND applied_at IS NOT NULL) OR (status <> 'APPLIED' AND applied_at IS NULL)", name="ck_agent_task_command_receipt_applied"),
+        Index("ix_agent_task_command_receipt_pending", "status", "received_at"),
+        {"schema": "agent_runtime"}
+    )
+
+    command_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    task_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    attempt_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    command_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    requested_by: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    authorization_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    budget_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class PgExtensionModel(AgentRuntimeBase):
     """Read-only catalog mapping used by the internal database health check."""
 

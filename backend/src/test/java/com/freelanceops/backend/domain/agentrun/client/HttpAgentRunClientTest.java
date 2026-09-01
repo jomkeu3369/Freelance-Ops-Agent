@@ -1,6 +1,8 @@
 package com.freelanceops.backend.domain.agentrun.client;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.AgentInput;
+import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentTaskCommandRequest;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.InternalAgentTaskCommandResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
@@ -21,7 +23,9 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
 import java.time.Duration;
 import java.net.http.HttpClient;
 
@@ -140,6 +144,34 @@ class HttpAgentRunClientTest {
         assertThat(batch.runId()).isEqualTo(runId);
         assertThat(batch.terminal()).isTrue();
         assertThat(batch.nextEventId()).isEqualTo(7);
+        server.verify();
+    }
+
+    @Test
+    void sendsTaskCommandUsingTheRunScopedCamelCaseContract() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        HttpAgentRunClient client = testClient(builder);
+        UUID runId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID commandId = UUID.randomUUID();
+        String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        server.expect(requestTo("http://agent:8000/internal/v1/agent-runs/" + runId + "/task-commands"))
+            .andExpect(method(HttpMethod.POST))
+            .andExpect(header("Authorization", "Bearer signed-token"))
+            .andExpect(content().string(containsString("\"commandId\":\"" + commandId + "\"")))
+            .andExpect(content().string(containsString("\"type\":\"SOFT_UPDATE\"")))
+            .andRespond(withSuccess("{\"commandId\":\"" + commandId + "\",\"taskId\":\"" + taskId
+                + "\",\"taskRevision\":1,\"status\":\"PENDING\",\"targetRevision\":1}", MediaType.APPLICATION_JSON));
+        InternalAgentTaskCommandRequest request = new InternalAgentTaskCommandRequest(commandId, taskId, runId,
+            UUID.randomUUID(), null, 1, "SOFT_UPDATE", "PENDING", "instruction-1", UUID.randomUUID(),
+            Instant.parse("2026-09-01T00:00:00Z"), Map.of("instruction", "새 지시"), 2, 3,
+            "async-task-contract-v1");
+
+        InternalAgentTaskCommandResponse response = client.taskCommand(runId, request, "signed-token", traceparent);
+
+        assertThat(response.commandId()).isEqualTo(commandId);
+        assertThat(response.status()).isEqualTo("PENDING");
         server.verify();
     }
 

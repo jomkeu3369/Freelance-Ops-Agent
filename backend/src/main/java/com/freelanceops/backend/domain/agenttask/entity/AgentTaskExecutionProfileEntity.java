@@ -109,6 +109,15 @@ public class AgentTaskExecutionProfileEntity {
     public String routeProfileVersion() { return routeProfileVersion; }
     public String guardPolicyVersion() { return guardPolicyVersion; }
 
+    public AgentTaskExecutionProfileEntity copyForRevision(int revision, Instant now) {
+        StartAgentRunRequest.RunBudget budget = new StartAgentRunRequest.RunBudget(maxDurationSeconds, maxModelCalls,
+            maxToolCalls, maxInputTokens, maxOutputTokens, maxDepartments, maxHierarchyDepth, maxSearchCredits,
+            maxRetries, maxHandoffs);
+        return new AgentTaskExecutionProfileEntity(new AgentTaskExecutionProfileId(id.taskId(), revision), workspaceId,
+            runId, route, riskLevel, modelProfile, toolProfile, provider, model, reasoningEffort, permissions, budget,
+            authorizationRevision, budgetRevision, routeProfileVersion, guardPolicyVersion, now);
+    }
+
     private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
         return value;

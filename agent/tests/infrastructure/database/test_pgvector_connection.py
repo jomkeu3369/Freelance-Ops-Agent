@@ -126,7 +126,8 @@ async def test_runtime_table_verification_fails_closed_when_migration_is_missing
 
     async def execute(statement: object) -> RuntimeTableResult:
         session.statements.append(statement)
-        return RuntimeTableResult(("agent_run_state", "agent_run_event", "agent_task", None, "agent_task_event"))
+        return RuntimeTableResult(("agent_run_state", "agent_run_event", "agent_task", None,
+                                   "agent_task_event", "agent_task_command_receipt"))
 
     session.execute = cast(Any, execute)
     manager._engine = cast(Any, engine)
