@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -10,7 +11,7 @@ import pytest
 
 from contracts import AgentInput, AgentRunRequest, DepartmentName, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresRuntimeEvaluationStore, PostgresShadowSchedulerStore, PostgresTaskRegistry, RuntimeEvaluationPolicy, RuntimeReleaseKind, RuntimeReleaseStatus, SchedulerCandidate, SchedulerEvaluationMetrics, SchedulerQueueKind, TaskAttempt, TaskExecutionSnapshot, TaskStatus, WorkerCapacitySnapshot, evaluate_runtime_release, runtime_dataset_fingerprint
+from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresRuntimeEvaluationStore, PostgresRuntimeOperationalMetrics, PostgresShadowSchedulerStore, PostgresTaskRegistry, RuntimeEvaluationPolicy, RuntimeReleaseKind, RuntimeReleaseStatus, SchedulerCandidate, SchedulerEvaluationMetrics, SchedulerQueueKind, TaskAttempt, TaskExecutionSnapshot, TaskStatus, WorkerCapacitySnapshot, evaluate_runtime_release, runtime_dataset_fingerprint
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
@@ -44,15 +45,26 @@ async def test_scheduler_preserves_fifo_claim_and_records_shadow_snapshot() -> N
 
         first = await scheduler.observe_queued(candidate, capacity)
         repeated = await scheduler.observe_queued(candidate, capacity)
-        claim = await scheduler.claim_next("default", "worker-1", queued_at)
+        metrics = PostgresRuntimeOperationalMetrics(database)
+        pending_snapshot = await metrics.snapshot("default", now=queued_at)
+        concurrent_claims = await asyncio.gather(scheduler.claim_next("default", "worker-1", queued_at), scheduler.claim_next("default", "worker-2", queued_at))
+        claims = [selected for selected in concurrent_claims if selected is not None]
 
         assert first == repeated
         assert first.shadow_admission.policy_version == "scheduler-shadow-v1"
-        assert claim is not None
+        assert pending_snapshot.queue_depth == 1
+        assert len(claims) == 1
+        claim = claims[0]
         assert claim.candidate.attempt_id == attempt.attempt_id
         assert claim.rank.actual_rank == 1
-        await scheduler.acknowledge_dispatch(attempt.attempt_id, claim.claim_id, "worker-1")
+        reclaimed = await scheduler.claim_next("default", "worker-3", claim.lease_until)
+        assert reclaimed is not None
+        assert reclaimed.claim_id != claim.claim_id
+        await scheduler.acknowledge_dispatch(attempt.attempt_id, reclaimed.claim_id, "worker-3")
         assert await scheduler.claim_next("default", "worker-2", queued_at) is None
+        dispatched_snapshot = await metrics.snapshot("default", now=claim.lease_until)
+        assert dispatched_snapshot.queue_depth == 0
+        assert dispatched_snapshot.expired_lease_count == 0
         started_at = queued_at + timedelta(seconds=1)
         finished_at = started_at + timedelta(seconds=12)
         await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at)

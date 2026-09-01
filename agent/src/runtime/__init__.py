@@ -78,6 +78,7 @@ from .scheduler import HierarchicalShadowScheduler, SchedulerCandidate, Schedule
 from .task_scheduler_store import ClaimedSchedulerEntry, PostgresShadowSchedulerStore, SchedulerClaimConflictError, SchedulerObservation, SchedulerObservationConflictError, SchedulerStoreError  # noqa: E501
 from .runtime_evaluation import PredictorEvaluationMetrics, RuntimeEvaluationPolicy, RuntimeEvaluationReport, RuntimeGate, RuntimeReleaseStatus, SchedulerEvaluationMetrics, TaskAttemptEvaluationRecord, evaluate_runtime_release  # noqa: E501
 from .runtime_evaluation_store import PostgresRuntimeEvaluationStore, RuntimeEvaluationBatch, RuntimeEvaluationStoreError, RuntimeReleaseKind, RuntimeReleaseRecord, runtime_dataset_fingerprint  # noqa: E501
+from .runtime_operational_metrics import PostgresRuntimeOperationalMetrics, RuntimeOperationalSnapshot
 
 __all__ = [
     "AgentRunExecutor",
@@ -173,6 +174,8 @@ __all__ = [
     "RuntimeReleaseKind",
     "RuntimeReleaseRecord",
     "runtime_dataset_fingerprint",
+    "PostgresRuntimeOperationalMetrics",
+    "RuntimeOperationalSnapshot",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",
