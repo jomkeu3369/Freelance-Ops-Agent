@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +34,8 @@ class KnowledgeServiceTest {
     @Mock private DocumentRepository documentRepository;
     @Mock private DocumentChunkRepository chunkRepository;
     @Mock private KnowledgeSearchRepository searchRepository;
+    @Mock private RaptorRetrievalService raptorRetrievalService;
+    @Mock private RaptorIndexTransactions raptorIndexTransactions;
     @Mock private WorkspaceAuthorizationService authorizationService;
 
     @Test
@@ -72,10 +75,11 @@ class KnowledgeServiceTest {
         assertThatThrownBy(() -> service().create(userId, workspaceId, request))
             .isInstanceOfSatisfying(ResponseStatusException.class, error ->
                 assertThat(error.getStatusCode().value()).isEqualTo(409));
+        verify(raptorIndexTransactions).invalidateActiveSnapshot(workspaceId);
     }
 
     private KnowledgeService service() {
-        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService);
+        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService, raptorRetrievalService, raptorIndexTransactions);
     }
 
     private static DocumentChunkEntity chunk(UUID workspaceId, UUID documentId, String content) {
