@@ -65,15 +65,11 @@ target-version = "py312"
 line-length = 120
 src = ["src", "tests"]
 extend-exclude = [
-    "tests/model_test",
-    "tests/유사도측정/*.ipynb",
+    "tests/model_test"
 ]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/runtime_predictor_prototype/*.py" = ["E501", "I001"]
 
 [tool.mypy]
 python_version = "3.12"

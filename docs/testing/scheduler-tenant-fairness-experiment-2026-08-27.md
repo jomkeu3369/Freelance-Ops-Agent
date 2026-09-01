@@ -73,7 +73,6 @@ offered load는 약 44이며, 전체 작업을 300초 안에 끝내는 것은 �
 | Legacy Fair PSJF | 54.1 sec | 173.3 sec | 207.9 sec | 0.855 | 97.4% | 15.9% | 0.358 | 20.0% |
 | Bounded Fair PSJF | 56.2 sec | 186.0 sec | 210.4 sec | 0.822 | 97.5% | 17.0% | 0.338 | 0.0% |
 
-![Tenant fairness comparison](../../agent/tests/runtime_predictor_prototype/scheduler_tenant_fairness_comparison.png)
 
 어떤 정책도 모든 adversarial run에서 gate를 통과하지 못했다. 평균값만 보면 Global PSJF + Aging이
 가장 효율적이고 slowdown fairness도 가장 높았다. 항상-on virtual-service Fair Queue는 이름과 달리
@@ -81,7 +80,6 @@ worst-workspace P95와 Jain fairness를 개선하지 못했다.
 
 ## 6. Scenario별 결과
 
-![Tenant fairness scenario table](../../agent/tests/runtime_predictor_prototype/scheduler_tenant_fairness_scenario_table.png)
 
 ### Noisy neighbor
 
@@ -176,6 +174,6 @@ Scheduler다. 동일 adversarial workload에서 다음을 검증한다.
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_tenant_fairness_simulation
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_tenant_fairness_simulation.py tests/runtime_predictor_prototype/test_scheduler_simulation.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_tenant_fairness_simulation
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_tenant_fairness_simulation.py experiments/runtime_scheduler/test_scheduler_simulation.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

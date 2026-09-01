@@ -78,7 +78,6 @@ expected_gate_pass_probability: ">= 0.90"
 | Scale → workspace quota | **99.6%** | **99.8%** | 97.9% | **96.7%** | **$0.137** | **1,487.4** |
 | Scale → hierarchical fallback | 99.4% | 99.8% | 98.2% | 96.7% | $0.138 | 1,474.2 |
 
-![Hierarchical reliability comparison](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_reliability_comparison.png)
 
 정적 정책은 가장 싸고 단순하지만 completion과 worst-workspace gate를 통과하지 못했다. Scale을
 사용하는 네 전략은 모두 기본 gate를 통과했다. 이 중 `Scale → workspace quota`가 비용과 SLO
@@ -97,7 +96,6 @@ telemetry에서 다시 검증해야 한다.
 | 90% | 99.6% | 99.8% | 97.9% | 96.7% | $0.137 |
 | 100% | 100.0% | 100.0% | 100.0% | 100.0% | $0.141 |
 
-![Scale success boundary](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_scale_success_boundary.png)
 
 합성 workload에서 hard gate를 통과하는 최소 scale 성공률은 약 70%다. 운영에서는 model risk와 실제
 분포 이동을 고려해 90%를 control-plane SLO로 둔다. 최근 rolling window가 90% 미만이면 warm
@@ -117,7 +115,6 @@ reserve, secondary capacity 또는 service-demand degradation을 활성화하고
 | 1.10 | 99.6% | 97.9% | 118.1 sec | 96.7% |
 | 1.25 | 99.3% | 97.2% | 114.3 sec | 96.0% |
 
-![Runtime prediction drift](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_prediction_drift.png)
 
 현재 workload에서는 50% 과소예측도 gate를 무너뜨리지 않았다. 이는 predictor가 충분히 강건하다는
 운영 증거가 아니라, capacity trigger와 fallback이 이 합성 분포에서 오차를 흡수했다는 뜻이다.
@@ -176,6 +173,6 @@ failure에만 별도 budget으로 허용한다.
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_hierarchical_reliability
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_hierarchical_reliability_simulation.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_hierarchical_reliability
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_hierarchical_reliability_simulation.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

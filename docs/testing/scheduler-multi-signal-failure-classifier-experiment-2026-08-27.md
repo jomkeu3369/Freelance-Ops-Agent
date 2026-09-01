@@ -136,15 +136,12 @@ failover를 만들고, 5 이상은 false positive를 제거하지만 correlated 
 
 ### Classifier 운영 지표 비교
 
-![Multi-signal classifier comparison](../../agent/tests/runtime_predictor_prototype/scheduler_failure_signal_classifier_comparison.png)
 
 ### Incident 유형별 행동 및 운영 지표
 
-![Multi-signal classifier result table](../../agent/tests/runtime_predictor_prototype/scheduler_failure_signal_classifier_table.png)
 
 ### Weighted rule threshold 민감도
 
-![Weighted rule threshold sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_failure_signal_threshold_sensitivity.png)
 
 ## 8. 운영 적용안
 
@@ -191,19 +188,19 @@ secondary provider로 즉시 전환하지 않고 bounded retry와 probe를 먼�
 ```powershell
 cd agent
 $env:PYTHONPATH = "$PWD\.venv\Lib\site-packages"
-.\.venv-codex\Scripts\python.exe -m pytest tests\runtime_predictor_prototype\test_failure_signal_classifier.py -q
-.\.venv-codex\Scripts\python.exe -m tests.runtime_predictor_prototype.plot_failure_signal_classifier
+.\.venv-codex\Scripts\python.exe -m pytest experiments\runtime_scheduler\test_failure_signal_classifier.py -q
+.\.venv-codex\Scripts\python.exe -m experiments.runtime_scheduler.plot_failure_signal_classifier
 ```
 
 관련 구현:
 
-- `agent/tests/runtime_predictor_prototype/failure_signal_classifier.py`
-- `agent/tests/runtime_predictor_prototype/plot_failure_signal_classifier.py`
-- `agent/tests/runtime_predictor_prototype/test_failure_signal_classifier.py`
+- `experiments/runtime_scheduler/failure_signal_classifier.py`
+- `experiments/runtime_scheduler/plot_failure_signal_classifier.py`
+- `experiments/runtime_scheduler/test_failure_signal_classifier.py`
 
 검증 결과:
 
 ```text
-pytest tests/runtime_predictor_prototype -q: 118 passed
-ruff check tests/runtime_predictor_prototype: All checks passed
+pytest experiments/runtime_scheduler -q: 118 passed
+ruff check experiments/runtime_scheduler: All checks passed
 ```

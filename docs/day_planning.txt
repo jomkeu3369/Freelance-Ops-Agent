@@ -1,9 +1,0 @@
-오늘 15시 ~ 다음날 3시까지 할 작업 모음
-
-1. agent 라우팅 성능 분석 ( 특히, 검색기 성능 분석 )
-
-2. deep_agent 구조 적용 및 성능 평가 (groundless)
-
-3. supervisor 구조 성능 개선
-
-4. 백엔드와 연결 ( GraphQL )

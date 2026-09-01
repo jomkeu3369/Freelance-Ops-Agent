@@ -46,14 +46,14 @@ ROUTE_DESCRIPTIONS = {
 
 @lru_cache(maxsize=1)
 def build_local_route_model() -> HybridRouteModel:
-    repository_root = Path(__file__).resolve().parents[3]
-    benchmark_root = repository_root / "experiments" / "routing_benchmark"
-    examples = load_route_examples(benchmark_root / "data" / "generated-v1" / "train.jsonl")
+    agent_root = Path(__file__).resolve().parents[2]
+    resource_root = agent_root / "resources" / "routing"
+    examples = load_route_examples(resource_root / "examples.jsonl")
 
     encoder = LiquidEncoderRouteScorer(
         model_id="LiquidAI/LFM2.5-Encoder-350M-Prompt-Router",
         revision="35ca4a0469f180f1cf05a630df8842fa17ac18e3",
-        head_path=benchmark_root / "checkpoints" / "a1" / "curve-2500" / "head.safetensors",
+        head_path=resource_root / "head.safetensors",
         route_descriptions=ROUTE_DESCRIPTIONS,
         device="auto"
     )

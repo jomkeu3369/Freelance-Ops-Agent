@@ -155,5 +155,5 @@ API key와 LangSmith 설정은 `experiments/.env`에서 자동으로 읽는다. 
 LangSmith로 보내지 않고 공개 benchmark와 프로젝트 fixture만 사용한다.
 
 2026-08-10 실행 결과와 제한사항은 [`RESULTS.md`](RESULTS.md)에 기록했다.
-현재 `reports/latest`와 `artifacts/2026-08-10`은 GPT-5.4 nano historical baseline이다.
+현재 `reports/latest`는 GPT-5.4 nano historical baseline이다.
 GPT-5.6 Luna 결과로 해석하지 않으며, 새 유료 실행이 완료된 뒤 별도 날짜 artifact로 보존한다.

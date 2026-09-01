@@ -47,11 +47,11 @@ experiments/routing_benchmark/reports/pytest-*/
 experiments/routing_benchmark/reports/**/judge_items.partial.jsonl
 experiments/**/.venv/
 experiments/**/artifacts/
-!experiments/routing_benchmark/artifacts/
-!experiments/routing_benchmark/artifacts/2026-08-10/
-!experiments/routing_benchmark/artifacts/2026-08-10/*
 experiments/**/*.faiss
 experiments/**/*.pkl
+experiments/runtime_scheduler/*.png
+experiments/runtime_scheduler/model*.json
+experiments/retrieval_benchmark/output/
 
 # V2 build outputs
 backend/.gradle/
@@ -74,11 +74,6 @@ agent/.uv-python/
 .gradle-local/
 __pycache__/
 *.py[cod]
-
-# Legacy local environments and generated runtime data
-legacy/v1/.venv/
-legacy/v1/logs_data/
-legacy/v1/faiss_data/
 
 # Local infrastructure state and secrets
 infra/**/*.local

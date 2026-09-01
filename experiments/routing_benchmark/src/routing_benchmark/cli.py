@@ -57,12 +57,12 @@ def _parser() -> argparse.ArgumentParser:
     replay = commands.add_parser("operational-replay")
     replay.add_argument("--ab-report", default="reports/2026-08-11-a1-vs-luna/router_ab.json")
     replay.add_argument("--hybrid-report", default="reports/2026-08-13-hybrid-rrf/hybrid_router_evaluation.json")
-    replay.add_argument("--train", default="data/generated-v1/train.jsonl")
+    replay.add_argument("--train", default="../../agent/resources/routing/examples.jsonl")
     replay.add_argument("--validation", default="data/generated-v1/validation.jsonl")
 
     shift = commands.add_parser("distribution-shift")
     shift.add_argument("--ab-report", default="reports/2026-08-11-a1-vs-luna/router_ab.json")
-    shift.add_argument("--train", default="data/generated-v1/train.jsonl")
+    shift.add_argument("--train", default="../../agent/resources/routing/examples.jsonl")
     shift.add_argument("--validation", default="data/generated-v1/validation.jsonl")
 
     shadow_fixture = commands.add_parser("shadow-fixture")

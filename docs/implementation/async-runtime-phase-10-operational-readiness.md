@@ -10,9 +10,10 @@
 
 ## 2. 의도적으로 유지한 경계
 
-기존 AgentRun fallback과 `legacy/v1`은 실제 production pilot과 runtime release gate 통과 전까지
-삭제하지 않는다. 이번 단계의 "레거시 정리"는 무검증 삭제가 아니라 운영 wiring에서 금지된
-의존성을 자동 검사하고, fallback 제거 조건을 명시하는 것이다.
+기존 AgentRun fallback은 실제 production pilot과 runtime release gate 통과 전까지 삭제하지
+않는다. V1 source snapshot은 저장소 정리 결정에 따라 Git history로 이관했으며 rollback에 필요한
+운영 경로는 active source에 유지한다. fallback 제거는 여전히 아래 조건을 충족한 별도 PR에서만
+검토한다.
 
 다음 조건을 모두 충족한 별도 PR에서만 기존 경로 제거를 검토한다.
 
@@ -43,7 +44,7 @@ Attempt를 복제하지 않는다.
 
 ## 5. 보안 경계
 
-- runtime은 `tests/runtime_predictor_prototype`를 import하지 않는다.
+- runtime은 `experiments/runtime_scheduler`를 import하지 않는다.
 - Redis, Kafka, FAISS, MongoDB/Beanie는 production runtime dependency가 아니다.
 - Agent startup은 `create_all`을 호출하지 않고 Alembic migration 존재를 검증한다.
 - prompt, chain-of-thought, secret, delegation token과 raw resume token은 event에 저장하지 않는다.

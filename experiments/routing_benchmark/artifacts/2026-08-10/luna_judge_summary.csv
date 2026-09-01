@@ -1,3 +1,0 @@
-﻿router,samples,route_pass_rate,mean_groundless_rate,hallucination_rate,judge_cost_usd
-A_liquid_encoder,20,0.2,0.0,0.0,0.0042656
-B_prompt_llm,20,0.7,0.0875,0.1,0.0045574

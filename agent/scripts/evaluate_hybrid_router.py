@@ -285,7 +285,7 @@ def main() -> None:
     parser.add_argument(
         "--train",
         type=Path,
-        default=repository_root / "experiments" / "routing_benchmark" / "data" / "generated-v1" / "train.jsonl",
+        default=repository_root / "agent" / "resources" / "routing" / "examples.jsonl",
     )
     parser.add_argument(
         "--output-dir",

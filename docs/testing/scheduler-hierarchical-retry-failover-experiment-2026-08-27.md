@@ -121,7 +121,6 @@ gate로 사용하지 않는다.
 | Checkpoint + backoff + budget | 96.7% | 99.2% | 89.6% | 1.061× | $0.146 | 55.7% |
 | Failure-aware checkpoint + failover | **99.4%** | **99.7%** | **96.6%** | 1.102× | **$0.144** | **96.7%** |
 
-![Hierarchical retry comparison](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_retry_comparison.png)
 
 Demand amplification만 최소화하면 budget 정책이 좋아 보이지만 retry를 너무 일찍 차단해 submitted
 completion과 worst-workspace goodput을 낮춘다. Failure-aware 정책은 약 10.2% service demand 증가를
@@ -129,7 +128,6 @@ completion과 worst-workspace goodput을 낮춘다. Failure-aware 정책은 약 
 
 ## 6. Failure mode별 결과
 
-![Failure-mode result table](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_retry_mode_table.png)
 
 | Policy | Independent gate | Provider outage gate |
 |---|---:|---:|
@@ -145,7 +143,6 @@ completion과 worst-workspace goodput을 낮춘다. Failure-aware 정책은 약 
 
 ## 7. 민감도 경계
 
-![Hierarchical retry sensitivity](../../agent/tests/runtime_predictor_prototype/scheduler_hierarchical_retry_sensitivity.png)
 
 ### Provider failover deadline
 
@@ -236,6 +233,6 @@ data-plane과 별도 control-plane에서 최소 용량을 계속 보장해야 �
 
 ```powershell
 cd agent
-& '.venv-codex\Scripts\python.exe' -m tests.runtime_predictor_prototype.plot_hierarchical_retry_simulation
-& '.venv-codex\Scripts\python.exe' -m pytest tests/runtime_predictor_prototype/test_hierarchical_retry_simulation.py tests/runtime_predictor_prototype/test_retry_checkpoint_simulation.py tests/runtime_predictor_prototype/test_scheduler_plot.py tests/runtime_predictor_prototype/test_style.py -q
+& '.venv-codex\Scripts\python.exe' -m experiments.runtime_scheduler.plot_hierarchical_retry_simulation
+& '.venv-codex\Scripts\python.exe' -m pytest experiments/runtime_scheduler/test_hierarchical_retry_simulation.py experiments/runtime_scheduler/test_retry_checkpoint_simulation.py experiments/runtime_scheduler/test_scheduler_plot.py experiments/runtime_scheduler/test_style.py -q
 ```

@@ -255,7 +255,7 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 
 ### 5.3 제한적으로 유지할 대상
 
-- 기존 V1은 migration과 benchmark 비교를 위해 `legacy/v1` 또는 Git tag로 보존한다.
+- 기존 V1은 migration과 benchmark 비교를 위해 Git history와 release tag로 보존한다.
 - FAISS는 `evaluation/baselines`의 오프라인 비교 구현에서만 사용할 수 있다.
 - Python은 FastAPI/LangGraph Agent runtime과 데이터셋 평가에 사용한다. Spring business domain을 Python에 중복 구현하지 않는다.
 
@@ -382,7 +382,7 @@ agent/
 - `agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
 - 배포 wheel을 만들지 않는 application project이며 `[tool.uv] package = false`와
   flat `src/` import root를 사용한다.
-- V2 Agent dependency를 `legacy/v1`의 V1 Poetry project와 혼합하지 않는다.
+- V2 Agent dependency를 Git history에 보존된 V1 Poetry project와 혼합하지 않는다.
 - LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
 - FastAPI request/response는 versioned Pydantic schema를 사용한다.
 - Agent service는 Spring이 발급한 delegation token과 `aud=agent-service`를 검증한다.

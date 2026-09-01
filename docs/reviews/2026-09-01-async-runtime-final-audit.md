@@ -4,6 +4,9 @@
 > 기준 커밋: `de70aeb3d0bbcb4a3eb4686f5aba0c25d5f6df10`  
 > 범위: Deep Agent 오케스트레이션, 요청 라우팅, Task 제어, 신뢰성, Scheduler shadow, 평가·학습 승격, 운영 준비
 
+> 후속 결정: 저장소 소유자의 명시적 승인으로 V1 source는 Git history로 이관했다. 운영
+> `AgentRun` fallback과 Scheduler shadow 경계는 그대로 유지한다.
+
 ## 1. 결론
 
 Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되었다. 공개 제어 영역은 Spring이,
@@ -12,8 +15,9 @@ Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되�
 운영 순서·권한·비용·provider를 바꾸지 않는다.
 
 현재 판정은 **구현 완료, 제한적 파일럿 준비 완료, 운영 승격 보류**다. 최소 7일·1,000건의 실제 실행,
-실제 provider 장애 표본, 부하·복구 훈련과 독립 승인이 아직 없으므로 기존 AgentRun fallback과
-`legacy/v1`을 제거하거나 Scheduler를 active로 전환해서는 안 된다.
+실제 provider 장애 표본, 부하·복구 훈련과 독립 승인이 아직 없으므로 기존 AgentRun fallback을
+제거하거나 Scheduler를 active로 전환해서는 안 된다. V1 source snapshot은 후속 저장소 정리
+결정으로 Git history에 보존한다.
 
 ## 2. 설계 대 구현 추적표
 
@@ -97,7 +101,7 @@ Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되�
 - write side effect용 Action Gateway는 `BOUNDED_WRITE`가 계속 fail-closed이므로 별도 설계·승인이 필요하다.
 - 조건부 autoscale, secondary provider failover와 Scheduler active admission은 운영 gate 통과 전까지
   활성화하지 않는다.
-- 기존 AgentRun fallback과 `legacy/v1`은 rollback 근거가 확보될 때까지 유지한다.
+- 기존 AgentRun fallback은 rollback 근거가 확보될 때까지 유지한다.
 
 위 항목은 현재 구현의 결함을 숨기는 예외가 아니라 운영 승격 전에 충족해야 할 명시적 조건이다.
 
@@ -107,8 +111,8 @@ Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되�
 2. 운영 snapshot과 release report로 queue age, lease, 예측 오차, SLO와 workspace 공정성을 검토한다.
 3. provider 장애 주입, checkpoint resume, cancel, immutable image rollback과 backup restore drill을 수행한다.
 4. 독립 reviewer가 증거와 runbook을 승인한 뒤 predictor 또는 Scheduler를 각각 별도 release로 승격한다.
-5. 승격 후에도 fallback을 유지하고, 중복 side effect·tenant 위반·만료 lease가 모두 0일 때만 레거시
-   제거 PR을 별도로 검토한다.
+5. 승격 후에도 fallback을 유지하고, 중복 side effect·tenant 위반·만료 lease가 모두 0일 때만
+   fallback 제거 PR을 별도로 검토한다.
 
 ## 7. 최종 판정
 
@@ -117,6 +121,7 @@ implementation_sequence: COMPLETE
 automated_regression: PASSED
 limited_read_only_pilot: READY
 production_scheduler_promotion: BLOCKED_PENDING_EVIDENCE
-legacy_removal: NOT_AUTHORIZED
+v1_source_archive: GIT_HISTORY
+fallback_removal: NOT_AUTHORIZED
 external_gpu_training: NOT_NEEDED
 ```

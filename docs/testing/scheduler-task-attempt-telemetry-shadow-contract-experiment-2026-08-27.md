@@ -192,11 +192,9 @@ Clean stream과 수신 순서가 뒤바뀐 stream 모두 runtime과 predicted ru
 
 ### 결함별 검증 Plot 표
 
-![TaskAttempt telemetry integrity table](../../agent/tests/runtime_predictor_prototype/scheduler_task_attempt_telemetry_integrity_table.png)
 
 ### Ingestion delay 경계
 
-![TaskAttempt telemetry delay boundary](../../agent/tests/runtime_predictor_prototype/scheduler_task_attempt_telemetry_delay_boundary.png)
 
 ## 10. 운영 연결
 
@@ -256,21 +254,21 @@ telemetry_p99_delay: "measured and below calibrated warning limit"
 ```powershell
 cd agent
 $env:PYTHONPATH = "$PWD\.venv\Lib\site-packages"
-.\.venv-codex\Scripts\python.exe -m pytest tests\runtime_predictor_prototype\test_task_attempt_telemetry.py tests\runtime_predictor_prototype\test_task_attempt_telemetry_experiment.py -q
-.\.venv-codex\Scripts\python.exe -m tests.runtime_predictor_prototype.plot_task_attempt_telemetry
+.\.venv-codex\Scripts\python.exe -m pytest experiments\runtime_scheduler\test_task_attempt_telemetry.py experiments\runtime_scheduler\test_task_attempt_telemetry_experiment.py -q
+.\.venv-codex\Scripts\python.exe -m experiments.runtime_scheduler.plot_task_attempt_telemetry
 ```
 
 관련 구현:
 
-- `agent/tests/runtime_predictor_prototype/task_attempt_telemetry.py`
-- `agent/tests/runtime_predictor_prototype/task_attempt_telemetry_experiment.py`
-- `agent/tests/runtime_predictor_prototype/plot_task_attempt_telemetry.py`
-- `agent/tests/runtime_predictor_prototype/test_task_attempt_telemetry.py`
-- `agent/tests/runtime_predictor_prototype/test_task_attempt_telemetry_experiment.py`
+- `experiments/runtime_scheduler/task_attempt_telemetry.py`
+- `experiments/runtime_scheduler/task_attempt_telemetry_experiment.py`
+- `experiments/runtime_scheduler/plot_task_attempt_telemetry.py`
+- `experiments/runtime_scheduler/test_task_attempt_telemetry.py`
+- `experiments/runtime_scheduler/test_task_attempt_telemetry_experiment.py`
 
 검증 결과:
 
 ```text
-pytest tests/runtime_predictor_prototype -q -p no:cacheprovider: 137 passed
-ruff check tests/runtime_predictor_prototype: All checks passed
+pytest experiments/runtime_scheduler -q -p no:cacheprovider: 137 passed
+ruff check experiments/runtime_scheduler: All checks passed
 ```

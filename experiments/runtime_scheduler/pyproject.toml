@@ -1,0 +1,37 @@
+[project]
+name = "runtime-scheduler-experiment"
+version = "0.1.0"
+description = "Runtime prediction and scheduler simulations"
+requires-python = "==3.12.*"
+dependencies = [
+    "joblib>=1.4,<2",
+    "matplotlib>=3.10,<4",
+    "numpy>=2,<3",
+    "scikit-learn>=1.6,<2",
+    "streamlit>=1.49,<2",
+    "xgboost>=3,<4"
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<9",
+    "ruff>=0.12,<1"
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+addopts = "-q"
+pythonpath = ["../.."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"*.py" = ["E501", "I001"]
