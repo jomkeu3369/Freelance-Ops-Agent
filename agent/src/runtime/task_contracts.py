@@ -104,6 +104,7 @@ class TaskExecutionSnapshot(RuntimeContractModel):
     model_profile: str = Field(default="react-read-v1", min_length=1, max_length=100)
     route_profile_version: str = Field(default="route-profile-v1", min_length=1, max_length=100)
     guard_policy_version: str = Field(default="task-guard-v1", min_length=1, max_length=100)
+    specialist_profile: str = Field(default="default-v1", min_length=1, max_length=100)
     authorization_revision: int = Field(default=1, ge=1)
     budget_revision: int = Field(default=1, ge=1)
 

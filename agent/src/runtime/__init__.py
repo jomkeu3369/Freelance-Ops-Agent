@@ -63,6 +63,8 @@ from .task_registry import (
     TaskRegistryError,
 )
 from .task_guard import TaskGuard, TaskGuardRejection
+from .research_specialist import ReadOnlyResearchSpecialist, ResearchResultVerifier, ResearchSpecialistError, ResearchSpecialistResult  # noqa: E501
+from .research_worker import ResearchTaskWorker
 
 __all__ = [
     "AgentRunExecutor",
@@ -101,6 +103,11 @@ __all__ = [
     "TaskAttempt",
     "TaskGuard",
     "TaskGuardRejection",
+    "ReadOnlyResearchSpecialist",
+    "ResearchResultVerifier",
+    "ResearchSpecialistError",
+    "ResearchSpecialistResult",
+    "ResearchTaskWorker",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",
