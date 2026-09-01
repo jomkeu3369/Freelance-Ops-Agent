@@ -19,29 +19,23 @@ from numpy.typing import NDArray
 Embedding = tuple[float, ...]
 FloatArray = NDArray[np.float64]
 
-
 class EmbeddingProvider(Protocol):
     """Embed texts using the model recorded on the index snapshot."""
-
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
-
 
 class SummaryProvider(Protocol):
     """Summarise one cluster without changing source authority."""
 
     async def summarize(self, texts: Sequence[str]) -> str: ...
 
-
 class NodeClusterer(Protocol):
     """Partition one tree level into non-empty clusters."""
 
     def cluster(self, embeddings: Sequence[Embedding]) -> tuple[tuple[int, ...], ...]: ...
 
-
 class RaptorNodeKind(StrEnum):
     LEAF = "LEAF"
     SUMMARY = "SUMMARY"
-
 
 @dataclass(frozen=True, slots=True)
 class SourceChunk:
@@ -55,7 +49,6 @@ class SourceChunk:
     def __post_init__(self) -> None:
         if not self.text.strip():
             raise ValueError("source chunk text must not be empty")
-
 
 @dataclass(frozen=True, slots=True)
 class RaptorNode:
@@ -84,7 +77,6 @@ class RaptorNode:
         elif self.source_chunk_id is not None or self.document_id is not None or not self.child_ids:
             raise ValueError("summary nodes require children and must not impersonate source chunks")
 
-
 @dataclass(frozen=True, slots=True)
 class RaptorIndex:
     workspace_id: UUID
@@ -108,7 +100,6 @@ class RaptorIndex:
     def nodes_by_id(self) -> dict[UUID, RaptorNode]:
         return {node.node_id: node for node in self.nodes}
 
-
 @dataclass(frozen=True, slots=True)
 class RaptorBuildConfig:
     target_cluster_size: int = 4
@@ -122,7 +113,6 @@ class RaptorBuildConfig:
             raise ValueError("max_summary_levels must be at least 1")
         if self.kmeans_iterations < 1:
             raise ValueError("kmeans_iterations must be at least 1")
-
 
 class CosineKMeansClusterer:
     """Small deterministic spherical K-means baseline.
@@ -193,24 +183,16 @@ class CosineKMeansClusterer:
                     updated[cluster_id] = centroid / norm
         return updated
 
-
 class RaptorTreeBuilder:
     """Build an immutable recursive abstraction tree from source chunks."""
 
-    def __init__(
-        self,
-        embedder: EmbeddingProvider,
-        summarizer: SummaryProvider,
-        *,
-        config: RaptorBuildConfig | None = None,
-        clusterer: NodeClusterer | None = None,
-    ) -> None:
+    def __init__(self, embedder: EmbeddingProvider, summarizer: SummaryProvider, *, config: RaptorBuildConfig | None = None, clusterer: NodeClusterer | None = None) -> None:
         self._embedder = embedder
         self._summarizer = summarizer
         self._config = config or RaptorBuildConfig()
         self._clusterer = clusterer or CosineKMeansClusterer(
             target_cluster_size=self._config.target_cluster_size,
-            iterations=self._config.kmeans_iterations,
+            iterations=self._config.kmeans_iterations
         )
 
     async def build(
@@ -318,7 +300,6 @@ class RaptorTreeBuilder:
         _normalised_matrix(embeddings)
         return embeddings
 
-
 @dataclass(frozen=True, slots=True)
 class RaptorEvidenceHit:
     source_chunk_id: UUID
@@ -327,12 +308,10 @@ class RaptorEvidenceHit:
     score: float
     metadata: Mapping[str, str]
 
-
 @dataclass(frozen=True, slots=True)
 class RaptorRetrieval:
     selected_nodes: tuple[RaptorNode, ...]
     evidence: tuple[RaptorEvidenceHit, ...]
-
 
 class RaptorRetriever:
     """Retrieve across tree levels and resolve every result back to source leaves."""
@@ -340,22 +319,17 @@ class RaptorRetriever:
     def __init__(self, embedder: EmbeddingProvider) -> None:
         self._embedder = embedder
 
-    async def retrieve(
-        self,
-        index: RaptorIndex,
-        query: str,
-        *,
-        tree_top_k: int = 5,
-        evidence_top_k: int = 5,
-    ) -> RaptorRetrieval:
+    async def retrieve(self, index: RaptorIndex, query: str, *, tree_top_k: int = 5, evidence_top_k: int = 5) -> RaptorRetrieval:
         if not query.strip():
             raise ValueError("query must not be empty")
+
         if tree_top_k < 1 or evidence_top_k < 1:
             raise ValueError("retrieval limits must be positive")
 
         raw_query = await self._embedder.embed([query])
         if len(raw_query) != 1:
             raise ValueError("embedding provider must return one query vector")
+        
         query_vector = _normalised_matrix([tuple(float(value) for value in raw_query[0])])[0]
         node_matrix = _normalised_matrix([node.embedding for node in index.nodes])
         if query_vector.shape[0] != node_matrix.shape[1]:
@@ -369,6 +343,7 @@ class RaptorRetriever:
         leaf_ids: set[UUID] = set()
         for node in selected:
             self._collect_leaf_ids(node, nodes_by_id, leaf_ids)
+
         leaves = [nodes_by_id[node_id] for node_id in leaf_ids]
         leaf_matrix = _normalised_matrix([leaf.embedding for leaf in leaves])
         leaf_scores = leaf_matrix @ query_vector
@@ -388,15 +363,11 @@ class RaptorRetriever:
         return RaptorRetrieval(selected_nodes=selected, evidence=evidence)
 
     @classmethod
-    def _collect_leaf_ids(
-        cls,
-        node: RaptorNode,
-        nodes_by_id: Mapping[UUID, RaptorNode],
-        output: set[UUID],
-    ) -> None:
+    def _collect_leaf_ids(cls, node: RaptorNode, nodes_by_id: Mapping[UUID, RaptorNode], output: set[UUID]) -> None:
         if node.kind is RaptorNodeKind.LEAF:
             output.add(node.node_id)
             return
+        
         for child_id in node.child_ids:
             try:
                 child = nodes_by_id[child_id]
@@ -404,23 +375,25 @@ class RaptorRetriever:
                 raise ValueError(f"RAPTOR child node is missing: {child_id}") from error
             cls._collect_leaf_ids(child, nodes_by_id, output)
 
-
 def _normalised_matrix(embeddings: Sequence[Embedding]) -> FloatArray:
     if not embeddings:
         raise ValueError("embeddings must not be empty")
+    
     dimensions = {len(embedding) for embedding in embeddings}
     if len(dimensions) != 1 or 0 in dimensions:
         raise ValueError("embeddings must have one non-zero dimension")
+
     matrix = np.asarray(embeddings, dtype=np.float64)
     if not np.isfinite(matrix).all():
         raise ValueError("embeddings must contain finite values")
+
     norms = np.linalg.norm(matrix, axis=1, keepdims=True)
     if np.any(norms == 0):
         raise ValueError("zero vectors cannot be used for cosine retrieval")
     return matrix / norms
 
-
 def _required_uuid(value: UUID | None) -> UUID:
     if value is None:
         raise RuntimeError("leaf source id invariant was violated")
+
     return value

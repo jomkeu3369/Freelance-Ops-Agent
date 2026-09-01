@@ -42,6 +42,7 @@ class FakeGeminiModels:
     async def embed_content(self, **kwargs: object) -> object:
         contents = kwargs["contents"]
         assert isinstance(contents, list)
+        assert kwargs["config"] == {"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
         self.embed_calls += 1
         values = [[1.0, 0.0], [0.0, 1.0]] if len(contents) == 2 else [[0.7, 0.7]]
         return SimpleNamespace(embeddings=[SimpleNamespace(values=value) for value in values])

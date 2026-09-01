@@ -135,7 +135,7 @@ class _OpenAISummarizer:
             input=json.dumps({"untrusted_source_passages": list(texts)}, ensure_ascii=False),
             tools=[],
             store=False,
-            max_output_tokens=800,
+            max_output_tokens=800
         )
         return str(response.output_text).strip()
 
@@ -149,7 +149,7 @@ class _GeminiEmbedder:
         response = await self._client.models.embed_content(
             model=self._model,
             contents=list(texts),
-            config={"task_type": "RETRIEVAL_DOCUMENT"},
+            config={"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
         )
         embeddings = getattr(response, "embeddings", None)
         if embeddings is None:

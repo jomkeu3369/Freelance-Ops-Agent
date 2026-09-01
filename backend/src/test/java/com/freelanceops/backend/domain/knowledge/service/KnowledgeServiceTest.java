@@ -33,6 +33,7 @@ class KnowledgeServiceTest {
     @Mock private DocumentRepository documentRepository;
     @Mock private DocumentChunkRepository chunkRepository;
     @Mock private KnowledgeSearchRepository searchRepository;
+    @Mock private RaptorRetrievalService raptorRetrievalService;
     @Mock private WorkspaceAuthorizationService authorizationService;
 
     @Test
@@ -75,7 +76,7 @@ class KnowledgeServiceTest {
     }
 
     private KnowledgeService service() {
-        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService);
+        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService, raptorRetrievalService);
     }
 
     private static DocumentChunkEntity chunk(UUID workspaceId, UUID documentId, String content) {
