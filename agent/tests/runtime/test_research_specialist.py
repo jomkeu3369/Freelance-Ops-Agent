@@ -8,7 +8,7 @@ import pytest
 from contracts import DepartmentName, ModelSelection, Provider, RunBudget, SourceReference
 from providers import ModelGeneration
 from routing import ExecutionRisk, ToolProfile
-from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, ReadOnlyResearchSpecialist, ResearchSpecialistError, ResearchTaskWorker, TaskAttempt, TaskAttemptEventWrite, TaskExecutionSnapshot, TaskStatus
+from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, FailureClassification, FailureSignals, ReadOnlyResearchSpecialist, ResearchSpecialistError, ResearchSpecialistResult, ResearchTaskWorker, RetryDecision, RetryDecisionSnapshot, RetryReason, TaskAttempt, TaskAttemptEventWrite, TaskExecutionSnapshot, TaskStatus
 from web_research import ResearchCollection
 
 
@@ -176,3 +176,39 @@ async def test_worker_emits_sanitized_failure_event_when_verification_fails() ->
     assert registry.calls[-2:] == [("attempt", AttemptStatus.FAILED), ("task", TaskStatus.FAILED)]
     assert registry.events[-1].event_type == "attempt.failed"
     assert registry.events[-1].data == {"failure_code": "RESEARCH_EVIDENCE_REQUIRED"}
+
+
+class ProviderFailureExecution:
+    async def execute(self, value: DepartmentTask, *, objective: str, jurisdiction: str | None = None) -> ResearchSpecialistResult:
+        del value, objective, jurisdiction
+        raise ResearchSpecialistError("MODEL_PROVIDER_FAILED")
+
+
+class RecordingFailureHandler:
+    def __init__(self) -> None:
+        self.signals: FailureSignals | None = None
+
+    async def decide_retry(self, attempt_id: UUID, workspace_id: UUID, signals: FailureSignals, *, max_attempts: int, backoff_seconds: float = 0, source: str = "failure-classifier-v1") -> RetryDecisionSnapshot:
+        del attempt_id, workspace_id, max_attempts, backoff_seconds, source
+        self.signals = signals
+        return RetryDecisionSnapshot(decision=RetryDecision.ALLOW, reason=RetryReason.RETRY_ALLOWED,
+            failure_classification=FailureClassification.INDEPENDENT_TRANSIENT, classification_confidence=0.79,
+            classifier_version="weighted-multi-signal-v1", bucket_policy_version="hierarchical-count-v1",
+            workspace_tokens_before=12, workspace_tokens_after=11, global_tokens_before=16,
+            global_tokens_after=15, retry_ready_at=datetime.now(UTC))
+
+
+@pytest.mark.asyncio
+async def test_worker_delegates_provider_failure_to_retry_policy_without_finalizing_task() -> None:
+    value = task()
+    registry = RecordingRegistry()
+    failure_handler = RecordingFailureHandler()
+    worker = ResearchTaskWorker(registry, ProviderFailureExecution(), failure_handler=failure_handler)
+
+    with pytest.raises(ResearchSpecialistError, match="MODEL_PROVIDER_FAILED"):
+        await worker.run(value, attempt(value), objective="Check provider failure", jurisdiction="KR",
+            current_permissions={"agent.run", "project.read"}, current_authorization_revision=3,
+            current_budget_revision=2, parent_budget=budget())
+
+    assert registry.calls[-1] == ("attempt", AttemptStatus.FAILED)
+    assert failure_handler.signals == FailureSignals(provider_error=True)

@@ -17,7 +17,7 @@ from infrastructure.database.models import AgentTaskEventModel
 
 TASK_ATTEMPT_EVENT_SCHEMA_VERSION = "task-attempt-telemetry-v1"
 TASK_ATTEMPT_EVENT_TYPES = frozenset(("attempt.predicted", "attempt.queued", "attempt.started", "attempt.checkpointed", "attempt.failed", "attempt.retry_decided", "attempt.completed", "attempt.incident_finalized"))  # noqa: E501
-FORBIDDEN_TASK_EVENT_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "secret"))
+FORBIDDEN_TASK_EVENT_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret"))  # noqa: E501
 
 
 class TaskAttemptEventConflictError(RuntimeError):

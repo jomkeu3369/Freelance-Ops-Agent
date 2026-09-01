@@ -21,7 +21,9 @@ REQUIRED_RUNTIME_TABLES = (
     "agent_runtime.agent_task",
     "agent_runtime.agent_task_attempt",
     "agent_runtime.agent_task_event",
-    "agent_runtime.agent_task_command_receipt"
+    "agent_runtime.agent_task_command_receipt",
+    "agent_runtime.agent_retry_bucket",
+    "agent_runtime.agent_provider_circuit"
 )
 
 

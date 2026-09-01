@@ -21,7 +21,7 @@ def test_task_model_round_trip_preserves_versioned_contract() -> None:
 
 
 def test_attempt_model_round_trip_preserves_prediction_and_status() -> None:
-    attempt = TaskAttempt(attempt_id=uuid4(), task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), task_revision=2, attempt_number=3, status=AttemptStatus.QUEUED, predicted_service_runtime_seconds=12.5, predictor_version="predictor-v2", queued_at=datetime.now(UTC))
+    attempt = TaskAttempt(attempt_id=uuid4(), task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), task_revision=2, attempt_number=3, status=AttemptStatus.QUEUED, predicted_service_runtime_seconds=12.5, predictor_version="predictor-v2", queued_at=datetime.now(UTC), checkpoint_id="checkpoint-1", checkpoint_artifact_reference="artifact://checkpoint-1", resume_token_hash="a" * 64, checkpoint_restored_seconds=30, completed_steps=["plan"], side_effect_idempotency_keys=["tool-1"])
 
     model = PostgresTaskRegistry._attempt_model(attempt)
     restored = PostgresTaskRegistry._attempt(model)

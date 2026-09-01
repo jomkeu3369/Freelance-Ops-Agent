@@ -16,24 +16,20 @@ from contracts import DepartmentName, ModelSelection, RunBudget, StrictModel
 from routing.profiles import ExecutionRisk, ToolProfile
 
 TASK_CONTRACT_SCHEMA_VERSION = "async-task-contract-v1"
-FORBIDDEN_RUNTIME_DATA_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "secret"))
+FORBIDDEN_RUNTIME_DATA_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret"))
 
 
 class TaskContractError(RuntimeError):
     pass
 
-
 class TaskTransitionError(TaskContractError):
     pass
-
 
 class TaskRevisionConflictError(TaskContractError):
     pass
 
-
 class TaskScopeError(TaskContractError):
     pass
-
 
 class ExecutionRoute(StrEnum):
     DIRECT_TOOL = "DIRECT_TOOL"
@@ -41,7 +37,6 @@ class ExecutionRoute(StrEnum):
     REACT_AGENT = "REACT_AGENT"
     SUPERVISOR = "SUPERVISOR"
     HUMAN_REQUIRED = "HUMAN_REQUIRED"
-
 
 class TaskStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
@@ -59,7 +54,6 @@ class TaskStatus(StrEnum):
     REJECTED = "REJECTED"
     SUPERSEDED = "SUPERSEDED"
 
-
 class AttemptStatus(StrEnum):
     PREDICTED = "PREDICTED"
     QUEUED = "QUEUED"
@@ -70,14 +64,12 @@ class AttemptStatus(StrEnum):
     CANCELLED = "CANCELLED"
     SUPERSEDED = "SUPERSEDED"
 
-
 class TaskCommandType(StrEnum):
     PAUSE = "PAUSE"
     RESUME = "RESUME"
     SOFT_UPDATE = "SOFT_UPDATE"
     HARD_REDIRECT = "HARD_REDIRECT"
     CANCEL = "CANCEL"
-
 
 class TaskCommandStatus(StrEnum):
     PENDING = "PENDING"
@@ -87,9 +79,27 @@ class TaskCommandStatus(StrEnum):
     SUPERSEDED = "SUPERSEDED"
 
 
+class FailureClassification(StrEnum):
+    INDEPENDENT_TRANSIENT = "INDEPENDENT_TRANSIENT"
+    CORRELATED_PROVIDER = "CORRELATED_PROVIDER"
+    DETERMINISTIC = "DETERMINISTIC"
+
+
+class RetryDecision(StrEnum):
+    ALLOW = "ALLOW"
+    DENY = "DENY"
+
+
+class RetryReason(StrEnum):
+    RETRY_ALLOWED = "RETRY_ALLOWED"
+    NON_RETRYABLE_FAILURE = "NON_RETRYABLE_FAILURE"
+    WORKSPACE_BUCKET_EMPTY = "WORKSPACE_BUCKET_EMPTY"
+    GLOBAL_BUCKET_EMPTY = "GLOBAL_BUCKET_EMPTY"
+    MAX_ATTEMPTS_REACHED = "MAX_ATTEMPTS_REACHED"
+    CORRELATED_FAILURE_CIRCUIT_OPEN = "CORRELATED_FAILURE_CIRCUIT_OPEN"
+
 class RuntimeContractModel(StrictModel):
     model_config = ConfigDict(frozen=True)
-
 
 class TaskExecutionSnapshot(RuntimeContractModel):
     route: ExecutionRoute
@@ -117,7 +127,6 @@ class TaskExecutionSnapshot(RuntimeContractModel):
             raise ValueError("permission snapshot entries must be unique")
         return permissions
 
-
 class DepartmentTask(RuntimeContractModel):
     task_id: UUID
     run_id: UUID
@@ -141,12 +150,13 @@ class DepartmentTask(RuntimeContractModel):
     def validate_dependencies(self) -> DepartmentTask:
         if self.task_id in self.dependency_task_ids:
             raise ValueError("task cannot depend on itself")
+
         if len(self.dependency_task_ids) != len(set(self.dependency_task_ids)):
             raise ValueError("task dependencies must be unique")
+
         if self.schema_version != TASK_CONTRACT_SCHEMA_VERSION:
             raise ValueError("task contract schema version is unsupported")
         return self
-
 
 class TaskAttempt(RuntimeContractModel):
     attempt_id: UUID
@@ -161,6 +171,12 @@ class TaskAttempt(RuntimeContractModel):
     queued_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    checkpoint_id: str | None = Field(default=None, min_length=1, max_length=128)
+    checkpoint_artifact_reference: str | None = Field(default=None, min_length=1, max_length=500)
+    resume_token_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    checkpoint_restored_seconds: float = Field(default=0, ge=0)
+    completed_steps: list[str] = Field(default_factory=list, max_length=200)
+    side_effect_idempotency_keys: list[str] = Field(default_factory=list, max_length=500)
     schema_version: str = TASK_CONTRACT_SCHEMA_VERSION
 
     @field_validator("queued_at", "started_at", "finished_at")
@@ -175,10 +191,67 @@ class TaskAttempt(RuntimeContractModel):
         ordered = [value for value in (self.queued_at, self.started_at, self.finished_at) if value is not None]
         if ordered != sorted(ordered):
             raise ValueError("attempt timestamps must be monotonic")
+        checkpoint_parts = (self.checkpoint_id, self.checkpoint_artifact_reference, self.resume_token_hash)
+        if any(value is None for value in checkpoint_parts) != all(value is None for value in checkpoint_parts):
+            raise ValueError("checkpoint identity, artifact reference, and resume token hash must be recorded together")
+        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(set(self.side_effect_idempotency_keys)):
+            raise ValueError("checkpoint steps and side effect keys must be unique")
         if self.schema_version != TASK_CONTRACT_SCHEMA_VERSION:
             raise ValueError("task contract schema version is unsupported")
         return self
 
+
+class TaskCheckpoint(RuntimeContractModel):
+    checkpoint_id: str = Field(min_length=1, max_length=128)
+    artifact_reference: str = Field(min_length=1, max_length=500)
+    resume_token_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    completed_steps: list[str] = Field(default_factory=list, max_length=200)
+    side_effect_idempotency_keys: list[str] = Field(default_factory=list, max_length=500)
+    durable_progress_seconds: float = Field(ge=0)
+    created_at: datetime
+
+    @field_validator("created_at")
+    @classmethod
+    def validate_created_at(cls, value: datetime) -> datetime:
+        return _require_timezone(value, "checkpoint created_at")
+
+    @model_validator(mode="after")
+    def validate_checkpoint(self) -> TaskCheckpoint:
+        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(set(self.side_effect_idempotency_keys)):
+            raise ValueError("checkpoint steps and side effect keys must be unique")
+        if _contains_forbidden_key(self.model_dump(mode="python")):
+            raise ValueError("checkpoint contains forbidden secret or reasoning data")
+        return self
+
+
+class FailureSignals(RuntimeContractModel):
+    provider_error: bool = False
+    rate_limited: bool = False
+    affected_workspaces: int = Field(default=1, ge=1)
+    affected_worker_ratio: float = Field(default=0, ge=0, le=1)
+    provider_status_degraded: bool = False
+    local_worker_error: bool = False
+    deterministic_error: bool = False
+    tool_health_confirmed: bool = False
+
+
+class RetryDecisionSnapshot(RuntimeContractModel):
+    decision: RetryDecision
+    reason: RetryReason
+    failure_classification: FailureClassification
+    classification_confidence: float = Field(ge=0, le=1)
+    classifier_version: str = Field(min_length=1, max_length=100)
+    bucket_policy_version: str = Field(min_length=1, max_length=100)
+    workspace_tokens_before: float = Field(ge=0)
+    workspace_tokens_after: float = Field(ge=0)
+    global_tokens_before: float = Field(ge=0)
+    global_tokens_after: float = Field(ge=0)
+    retry_ready_at: datetime | None = None
+
+    @field_validator("retry_ready_at")
+    @classmethod
+    def validate_retry_ready_at(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else _require_timezone(value, "retry ready_at")
 
 class TaskCommand(RuntimeContractModel):
     command_id: UUID
@@ -216,7 +289,6 @@ class TaskCommand(RuntimeContractModel):
         if self.schema_version != TASK_CONTRACT_SCHEMA_VERSION:
             raise ValueError("task contract schema version is unsupported")
         return self
-
 
 class TaskEvent(RuntimeContractModel):
     event_id: str = Field(min_length=1, max_length=128)
@@ -287,11 +359,9 @@ def ensure_task_transition(current: TaskStatus, target: TaskStatus) -> None:
     if target not in TASK_TRANSITIONS[current]:
         raise TaskTransitionError(f"task transition {current.value} -> {target.value} is not allowed")
 
-
 def ensure_attempt_transition(current: AttemptStatus, target: AttemptStatus) -> None:
     if target not in ATTEMPT_TRANSITIONS[current]:
         raise TaskTransitionError(f"attempt transition {current.value} -> {target.value} is not allowed")
-
 
 def ensure_expected_revision(actual_revision: int, expected_revision: int) -> None:
     if actual_revision != expected_revision:
@@ -299,18 +369,15 @@ def ensure_expected_revision(actual_revision: int, expected_revision: int) -> No
             f"task revision conflict: expected {expected_revision}, current {actual_revision}"
         )
 
-
 def ensure_next_revision(current_revision: int, proposed_revision: int) -> None:
     if proposed_revision != current_revision + 1:
         raise TaskRevisionConflictError(
             f"next task revision must be {current_revision + 1}, got {proposed_revision}"
         )
 
-
 def ensure_workspace_scope(expected_workspace_id: UUID, actual_workspace_id: UUID) -> None:
     if expected_workspace_id != actual_workspace_id:
         raise TaskScopeError("task workspace does not match the trusted execution context")
-
 
 def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, Mapping):
@@ -321,7 +388,6 @@ def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_contains_forbidden_key(item) for item in value)
     return False
-
 
 def _require_timezone(value: datetime, field_name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:

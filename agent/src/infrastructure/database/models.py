@@ -132,6 +132,10 @@ class AgentTaskAttemptModel(AgentRuntimeBase):
         CheckConstraint("predicted_service_runtime_seconds IS NULL OR predicted_service_runtime_seconds >= 0", name="ck_agent_task_attempt_prediction_nonnegative"),
         CheckConstraint("(predicted_service_runtime_seconds IS NULL AND predictor_version IS NULL) OR (predicted_service_runtime_seconds IS NOT NULL AND predictor_version IS NOT NULL)", name="ck_agent_task_attempt_prediction_pair"),
         CheckConstraint("(queued_at IS NULL OR started_at IS NULL OR queued_at <= started_at) AND (started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at)", name="ck_agent_task_attempt_time_order"),
+        CheckConstraint("(checkpoint_id IS NULL AND checkpoint_artifact_reference IS NULL AND resume_token_hash IS NULL) OR (checkpoint_id IS NOT NULL AND checkpoint_artifact_reference IS NOT NULL AND resume_token_hash IS NOT NULL)", name="ck_agent_task_attempt_checkpoint_pair"),
+        CheckConstraint("checkpoint_restored_seconds >= 0", name="ck_agent_task_attempt_checkpoint_restored"),
+        CheckConstraint("classification_confidence IS NULL OR classification_confidence BETWEEN 0 AND 1", name="ck_agent_task_attempt_classification_confidence"),
+        CheckConstraint("retry_decision IS NULL OR retry_decision IN ('ALLOW','DENY')", name="ck_agent_task_attempt_retry_decision"),
         Index("ix_agent_task_attempt_workspace_status", "workspace_id", "status", "created_at"),
         Index("ix_agent_task_attempt_task_status", "task_id", "task_revision", "status"),
         {"schema": "agent_runtime"}
@@ -149,8 +153,60 @@ class AgentTaskAttemptModel(AgentRuntimeBase):
     queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checkpoint_id: Mapped[str | None] = mapped_column(String(128))
+    checkpoint_artifact_reference: Mapped[str | None] = mapped_column(String(500))
+    resume_token_hash: Mapped[str | None] = mapped_column(String(64))
+    checkpoint_restored_seconds: Mapped[float] = mapped_column(Float, default=0, nullable=False)
+    completed_steps: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    side_effect_idempotency_keys: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    failure_classification: Mapped[str | None] = mapped_column(String(40))
+    classification_confidence: Mapped[float | None] = mapped_column(Float)
+    classifier_version: Mapped[str | None] = mapped_column(String(100))
+    retry_decision: Mapped[str | None] = mapped_column(String(20))
+    retry_reason: Mapped[str | None] = mapped_column(String(80))
+    retry_ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retry_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     schema_version: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentRetryBucketModel(AgentRuntimeBase):
+    __tablename__ = "agent_retry_bucket"
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('GLOBAL','WORKSPACE')", name="ck_agent_retry_bucket_scope_type"),
+        CheckConstraint("capacity > 0 AND tokens >= 0 AND tokens <= capacity AND refill_per_second >= 0", name="ck_agent_retry_bucket_values"),
+        CheckConstraint("(scope_type = 'GLOBAL' AND workspace_id IS NULL) OR (scope_type = 'WORKSPACE' AND workspace_id IS NOT NULL)", name="ck_agent_retry_bucket_scope"),
+        UniqueConstraint("workspace_id", name="uq_agent_retry_bucket_workspace"),
+        {"schema": "agent_runtime"}
+    )
+
+    bucket_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    scope_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    workspace_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    capacity: Mapped[float] = mapped_column(Float, nullable=False)
+    tokens: Mapped[float] = mapped_column(Float, nullable=False)
+    refill_per_second: Mapped[float] = mapped_column(Float, nullable=False)
+    refilled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+class AgentProviderCircuitModel(AgentRuntimeBase):
+    __tablename__ = "agent_provider_circuit"
+    __table_args__ = (
+        UniqueConstraint("provider", "model", name="uq_agent_provider_circuit_identity"),
+        CheckConstraint("state IN ('CLOSED','OPEN','HALF_OPEN')", name="ck_agent_provider_circuit_state"),
+        CheckConstraint("(state = 'CLOSED' AND opened_at IS NULL AND probe_after IS NULL) OR (state IN ('OPEN','HALF_OPEN') AND opened_at IS NOT NULL AND probe_after IS NOT NULL)", name="ck_agent_provider_circuit_open"),
+        {"schema": "agent_runtime"}
+    )
+
+    circuit_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(30), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    probe_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    policy_version: Mapped[str] = mapped_column(String(100), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
