@@ -65,6 +65,7 @@ from .task_registry import (
 from .task_guard import TaskGuard, TaskGuardRejection
 from .research_specialist import ReadOnlyResearchSpecialist, ResearchResultVerifier, ResearchSpecialistError, ResearchSpecialistResult  # noqa: E501
 from .research_worker import ResearchTaskWorker
+from .task_commands import PostgresTaskCommandInbox, TaskCommandAcceptance, TaskCommandConflictError, TaskCommandInboxError, TaskCommandPendingError  # noqa: E501
 
 __all__ = [
     "AgentRunExecutor",
@@ -108,6 +109,11 @@ __all__ = [
     "ResearchSpecialistError",
     "ResearchSpecialistResult",
     "ResearchTaskWorker",
+    "PostgresTaskCommandInbox",
+    "TaskCommandAcceptance",
+    "TaskCommandConflictError",
+    "TaskCommandInboxError",
+    "TaskCommandPendingError",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",

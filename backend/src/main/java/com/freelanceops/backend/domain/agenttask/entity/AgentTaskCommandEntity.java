@@ -68,4 +68,5 @@ public class AgentTaskCommandEntity {
     public UUID requestedBy() { return requestedBy; }
     public long authorizationRevision() { return authorizationRevision; }
     public long budgetRevision() { return budgetRevision; }
+    public Instant requestedAt() { return requestedAt; }
 }

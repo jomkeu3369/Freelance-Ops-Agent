@@ -13,14 +13,15 @@ from typing import cast
 from sqlalchemy import Table, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel, PgExtensionModel
+from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskAttemptModel, AgentTaskCommandReceiptModel, AgentTaskEventModel, AgentTaskModel, PgExtensionModel
 
 REQUIRED_RUNTIME_TABLES = (
     "agent_runtime.agent_run_state",
     "agent_runtime.agent_run_event",
     "agent_runtime.agent_task",
     "agent_runtime.agent_task_attempt",
-    "agent_runtime.agent_task_event"
+    "agent_runtime.agent_task_event",
+    "agent_runtime.agent_task_command_receipt"
 )
 
 
@@ -114,7 +115,7 @@ class PgVectorConnectionManager:
         async with engine.begin() as connection:
             await connection.run_sync(
                 AgentRuntimeBase.metadata.create_all,
-                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskModel.__table__), cast(Table, AgentTaskAttemptModel.__table__), cast(Table, AgentTaskEventModel.__table__)]  # noqa: E501
+                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskModel.__table__), cast(Table, AgentTaskAttemptModel.__table__), cast(Table, AgentTaskEventModel.__table__), cast(Table, AgentTaskCommandReceiptModel.__table__)]  # noqa: E501
             )
 
     async def verify_runtime_tables(self) -> None:

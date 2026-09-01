@@ -2,6 +2,8 @@ package com.freelanceops.backend.domain.agentrun.client;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentTaskCommandRequest;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.InternalAgentTaskCommandResponse;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
@@ -134,6 +136,18 @@ public class HttpAgentRunClient implements AgentRunClient {
             })
             .retrieve()
             .body(RouteObservationBatch.class);
+    }
+
+    @Override
+    public InternalAgentTaskCommandResponse taskCommand(UUID runId, InternalAgentTaskCommandRequest request,
+                                                        String delegationToken, String traceparent) {
+        return restClient.post()
+            .uri("/internal/v1/agent-runs/{runId}/task-commands", runId)
+            .contentType(MediaType.APPLICATION_JSON)
+            .headers(headers -> setHeaders(headers, delegationToken, traceparent))
+            .body(request)
+            .retrieve()
+            .body(InternalAgentTaskCommandResponse.class);
     }
 
     static HttpClient http11Client(Duration connectTimeout) {

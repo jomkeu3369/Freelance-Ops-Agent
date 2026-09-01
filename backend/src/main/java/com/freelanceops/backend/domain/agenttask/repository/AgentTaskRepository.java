@@ -8,11 +8,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface AgentTaskRepository extends JpaRepository<AgentTaskEntity, UUID> {
 
     Optional<AgentTaskEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    List<AgentTaskEntity> findAllByWorkspaceIdAndRunIdOrderByCreatedAtAsc(UUID workspaceId, UUID runId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select task from AgentTaskEntity task where task.id = :id and task.workspaceId = :workspaceId")

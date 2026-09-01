@@ -39,6 +39,17 @@ class AgentTaskAttemptEntityTest {
         assertThat(attempt.leaseUntil()).isNull();
     }
 
+    @Test
+    void softUpdateResumesOnlyFromCheckpoint() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        AgentTaskAttemptEntity attempt = attempt(now);
+        attempt.projectStarted(now.plusSeconds(1));
+        attempt.projectCheckpointed(now.plusSeconds(2));
+
+        assertThat(attempt.projectUpdateApplied(now.plusSeconds(3))).isTrue();
+        assertThat(attempt.status()).isEqualTo(AgentTaskAttemptStatus.RUNNING);
+    }
+
     private static AgentTaskAttemptEntity attempt(Instant now) {
         return new AgentTaskAttemptEntity(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), 1, 1,
             12.0, "predictor-v1", Map.of("route", "SUPERVISOR"), now);

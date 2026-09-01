@@ -2,6 +2,8 @@ package com.freelanceops.backend.domain.agentrun.client;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentTaskCommandRequest;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.InternalAgentTaskCommandResponse;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
@@ -21,6 +23,9 @@ public interface AgentRunClient {
     AgentEventStream events(UUID runId, Long lastEventId, String delegationToken, String traceparent);
 
     RouteObservationBatch routeObservations(UUID runId, long afterEventId, String delegationToken, String traceparent);
+
+    InternalAgentTaskCommandResponse taskCommand(UUID runId, InternalAgentTaskCommandRequest request,
+                                                 String delegationToken, String traceparent);
 }
 
 

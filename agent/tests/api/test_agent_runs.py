@@ -32,7 +32,12 @@ from runtime import (
     ExecutionOutcome,
     InMemoryAgentRunStore,
     OperationalAgentExecutor,
+    PostgresTaskCommandInbox,
     RunCoordinator,
+    TaskCommand,
+    TaskCommandAcceptance,
+    TaskCommandStatus,
+    TaskCommandType,
 )
 from security import DelegationTokenVerifier
 
@@ -98,6 +103,15 @@ class RecordingRaptorService:
         )
 
 
+class RecordingTaskCommandInbox(PostgresTaskCommandInbox):
+    def __init__(self) -> None:
+        self.command: TaskCommand | None = None
+
+    async def accept(self, command: TaskCommand) -> TaskCommandAcceptance:
+        self.command = command
+        return TaskCommandAcceptance(command_id=command.command_id, task_id=command.task_id, task_revision=command.expected_revision, status=TaskCommandStatus.APPLIED, target_revision=command.expected_revision)  # noqa: E501
+
+
 def _request(run_id: UUID, workspace_id: UUID, project_id: UUID, user_id: UUID) -> AgentRunRequest:
     return AgentRunRequest(
         context=TrustedRunContext(
@@ -128,6 +142,7 @@ def _client_and_token(
     request: AgentRunRequest,
     executor: AgentRunExecutor | None = None,
     raptor_service: RecordingRaptorService | None = None,
+    task_command_inbox: PostgresTaskCommandInbox | None = None,
 ) -> tuple[TestClient, str]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_pem = private_key.public_key().public_bytes(
@@ -165,10 +180,28 @@ def _client_and_token(
                 run_coordinator=coordinator,
                 delegation_token_verifier=verifier,
                 raptor_build_service=raptor_service,
+                task_command_inbox=task_command_inbox,
             )
         ),
         token,
     )
+
+
+def test_task_command_requires_delegated_scope_and_returns_durable_acceptance() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    inbox = RecordingTaskCommandInbox()
+    client, token = _client_and_token(request, task_command_inbox=inbox)
+    command = TaskCommand(command_id=uuid4(), task_id=uuid4(), run_id=request.context.run_id,
+        workspace_id=request.context.workspace_id, expected_revision=1, type=TaskCommandType.CANCEL,
+        idempotency_key="cancel-1", requested_by=request.context.initiated_by, requested_at=datetime.now(UTC),
+        authorization_revision=1, budget_revision=1)
+
+    response = client.post(f"/internal/v1/agent-runs/{request.context.run_id}/task-commands",
+        headers={"Authorization": f"Bearer {token}"}, json=command.model_dump(mode="json", by_alias=True))
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "APPLIED"
+    assert inbox.command == command
 
 
 def test_start_and_read_completed_agent_run() -> None:
