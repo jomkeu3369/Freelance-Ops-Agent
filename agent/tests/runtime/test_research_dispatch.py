@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+# ruff: noqa: E501, I001
+
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
+
+from contracts import DepartmentName, ModelSelection, Provider, RunBudget
+from runtime import AttemptStatus, ClaimedSchedulerEntry, DepartmentTask, ExecutionRoute, PostgresResearchResultFence, ResearchDispatchContext, ResearchWorkerDispatchSink, SchedulerCandidate, SchedulerQueueKind, SchedulerRank, ShadowSchedulingLane, TaskAttempt, TaskExecutionSnapshot, TaskStatus
+
+
+def fixture() -> tuple[ResearchDispatchContext, ClaimedSchedulerEntry]:
+    now = datetime.now(UTC)
+    budget = RunBudget(max_duration_seconds=60, max_model_calls=2, max_tool_calls=2, max_input_tokens=1000, max_output_tokens=1000, max_departments=1, max_hierarchy_depth=1)
+    execution = TaskExecutionSnapshot(route=ExecutionRoute.REACT_AGENT, permissions=["agent.run", "project.read"], budget=budget, model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"), policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", specialist_profile="research-read-v1", authorization_revision=3, budget_revision=2)
+    task = DepartmentTask(task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), project_id=uuid4(), department=DepartmentName.RESEARCH, revision=1, status=TaskStatus.QUEUED, execution=execution, created_at=now)
+    attempt = TaskAttempt(attempt_id=uuid4(), task_id=task.task_id, run_id=task.run_id, workspace_id=task.workspace_id, task_revision=1, attempt_number=1, status=AttemptStatus.QUEUED, predicted_service_runtime_seconds=30, predictor_version="pilot-static-v1", queued_at=now)
+    candidate = SchedulerCandidate(attempt.attempt_id, task.task_id, 1, task.workspace_id, "research-read-v1", task.priority, 30, "pilot-static-v1", SchedulerQueueKind.READY, now, now)
+    rank = SchedulerRank(attempt.attempt_id, 1, 1, 30, ShadowSchedulingLane.PREDICTED_SJF)
+    claim = ClaimedSchedulerEntry(candidate, uuid4(), "dispatcher-1", now + timedelta(seconds=60), rank)
+    context = ResearchDispatchContext(task, attempt, "Check the official policy", "KR", {"agent.run", "project.read"}, 3, 2, budget, "workload-token")
+    return context, claim
+
+
+class FixedLoader:
+    def __init__(self, context: ResearchDispatchContext | None) -> None:
+        self.context = context
+
+    async def load(self, claim: ClaimedSchedulerEntry) -> ResearchDispatchContext | None:
+        del claim
+        return self.context
+
+    async def discard(self, attempt_id: object) -> None:
+        del attempt_id
+        self.context = None
+
+
+class RecordingWorker:
+    def __init__(self) -> None:
+        self.calls: list[tuple[DepartmentTask, TaskAttempt, str]] = []
+
+    def validate(self, task: DepartmentTask, attempt: TaskAttempt, **values: object) -> None:
+        del task, attempt, values
+
+    async def run(self, task: DepartmentTask, attempt: TaskAttempt, **values: object) -> None:
+        self.calls.append((task, attempt, str(values["objective"])))
+
+
+class RejectingWorker(RecordingWorker):
+    def validate(self, task: DepartmentTask, attempt: TaskAttempt, **values: object) -> None:
+        del task, attempt, values
+        raise RuntimeError("TaskGuard rejected the dispatch")
+
+
+class CurrentStateRegistry:
+    def __init__(self, task: DepartmentTask, attempt: TaskAttempt) -> None:
+        self.task = task
+        self.attempt = attempt
+
+    async def get_task(self, task_id: object, revision: int, workspace_id: object) -> DepartmentTask:
+        del task_id, revision, workspace_id
+        return self.task
+
+    async def get_attempt(self, attempt_id: object, workspace_id: object) -> TaskAttempt:
+        del attempt_id, workspace_id
+        return self.attempt
+
+
+async def test_dispatch_sink_starts_worker_only_for_exact_current_claim() -> None:
+    context, claim = fixture()
+    worker = RecordingWorker()
+    sink = ResearchWorkerDispatchSink(worker, FixedLoader(context))  # type: ignore[arg-type]
+
+    assert await sink.dispatch(claim)
+    await sink.wait()
+
+    assert worker.calls == [(context.task, context.attempt, context.objective)]
+
+
+async def test_dispatch_sink_rejects_claim_with_different_attempt() -> None:
+    context, claim = fixture()
+    worker = RecordingWorker()
+    different = claim.candidate.__class__(uuid4(), claim.candidate.task_id, claim.candidate.task_revision, claim.candidate.workspace_id, claim.candidate.resource_pool, claim.candidate.priority, claim.candidate.predicted_runtime_seconds, claim.candidate.predictor_version, claim.candidate.queue_kind, claim.candidate.enqueued_at, claim.candidate.available_at)
+    claim = claim.__class__(different, claim.claim_id, claim.claimed_by, claim.lease_until, claim.rank)
+    sink = ResearchWorkerDispatchSink(worker, FixedLoader(context))  # type: ignore[arg-type]
+
+    assert not await sink.dispatch(claim)
+    assert worker.calls == []
+
+
+async def test_dispatch_sink_rejects_before_worker_scheduling_when_guard_fails() -> None:
+    context, claim = fixture()
+    worker = RejectingWorker()
+    sink = ResearchWorkerDispatchSink(worker, FixedLoader(context))  # type: ignore[arg-type]
+
+    assert not await sink.dispatch(claim)
+    await sink.wait()
+
+    assert worker.calls == []
+
+
+def test_dispatch_context_repr_hides_workload_token() -> None:
+    context, _ = fixture()
+
+    assert context.workload_token not in repr(context)
+
+
+async def test_postgres_result_fence_rejects_cancelled_current_state() -> None:
+    context, _ = fixture()
+    current_task = context.task.model_copy(update={"status": TaskStatus.CANCELLED})
+    current_attempt = context.attempt.model_copy(update={"status": AttemptStatus.CANCELLED})
+    fence = PostgresResearchResultFence(CurrentStateRegistry(current_task, current_attempt))  # type: ignore[arg-type]
+
+    assert not await fence.allows(context.task, context.attempt)

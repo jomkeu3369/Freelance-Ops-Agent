@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from contracts import AgentInput, AgentRunRequest, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
 from integrations.task_registration import SpringTaskRegistration
 from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel, SafetyContext
-from runtime import AttemptStatus, DepartmentTask, PostgresResearchTaskShadowRegistrar, TaskAttempt, TaskStatus
+from runtime import AttemptStatus, DepartmentTask, PostgresResearchTaskShadowRegistrar, TaskAttempt, TaskStatus, WorkerCapacitySnapshot
 from runtime.task_registry import AttemptNotFoundError, TaskNotFoundError
 
 
@@ -83,6 +83,36 @@ class RecordingPublisher:
         return 1
 
 
+class RecordingFifoDispatcher:
+    prediction = (30.0, "pilot-static-v1")
+
+    def __init__(self) -> None:
+        self.observed: list[tuple[DepartmentTask, TaskAttempt]] = []
+        self.dispatches = 0
+
+    def capacity(self, captured_at: datetime) -> WorkerCapacitySnapshot:
+        return WorkerCapacitySnapshot("research-read-v1", 1, captured_at)
+
+    async def observe_queued(self, task: DepartmentTask, attempt: TaskAttempt, capacity: WorkerCapacitySnapshot) -> object:
+        del capacity
+        self.observed.append((task, attempt))
+        return object()
+
+    async def dispatch_once(self, *, now: datetime | None = None) -> object:
+        del now
+        self.dispatches += 1
+        return object()
+
+
+class RecordingContextBroker:
+    def __init__(self) -> None:
+        self.values: list[tuple[DepartmentTask, TaskAttempt, str]] = []
+
+    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
+        del request
+        self.values.append((task, attempt, workload_token))
+
+
 def request() -> AgentRunRequest:
     return AgentRunRequest(context=TrustedRunContext(run_id=uuid4(), thread_id=uuid4(), trace_id="trace-shadow", workspace_id=uuid4(), project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run", "project.read", "project.write"]), budget=RunBudget(max_duration_seconds=30, max_model_calls=4, max_tool_calls=2, max_input_tokens=1000, max_output_tokens=1000, max_departments=2, max_hierarchy_depth=1), model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-5.4-mini"), safety_context=SafetyContextInput(), input=AgentInput(requirement_text="민감한 원문은 payload에 넣지 않습니다."))  # noqa: E501
 
@@ -123,3 +153,23 @@ async def test_failed_shadow_observation_marks_task_terminal_without_requiring_f
     terminal = registry.events[-1]
     assert terminal.event_type == "attempt.failed"  # type: ignore[attr-defined]
     assert terminal.data == {"task_terminal": True}  # type: ignore[attr-defined]
+
+
+async def test_fifo_shadow_registration_stages_context_without_starting_primary_attempt() -> None:
+    run_request = request()
+    registry = MemoryRegistry()
+    dispatcher = RecordingFifoDispatcher()
+    broker = RecordingContextBroker()
+    spring = RecordingSpringRegistration(run_request)
+    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker)  # type: ignore[arg-type]
+    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+
+    handle = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
+
+    assert handle.task.status is TaskStatus.QUEUED
+    assert handle.attempt.status is AttemptStatus.QUEUED
+    assert handle.attempt.predicted_service_runtime_seconds == 30
+    assert registry.events == []
+    assert dispatcher.dispatches == 1
+    assert broker.values == [(handle.task, handle.attempt, "workload-token")]
+    assert spring.payloads[0]["predictedServiceRuntimeSeconds"] == 30

@@ -38,18 +38,22 @@ class ResearchFailureHandler(Protocol):
     async def decide_retry(self, attempt_id: UUID, workspace_id: UUID, signals: FailureSignals, *, max_attempts: int, backoff_seconds: float = 0, source: str = "failure-classifier-v1") -> RetryDecisionSnapshot: ...
 
 
+class ResearchResultFence(Protocol):
+    async def allows(self, task: DepartmentTask, attempt: TaskAttempt) -> bool: ...
+
+
 class ResearchTaskWorker:
     SOURCE = "research-read-worker-v1"
 
-    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None, failure_handler: ResearchFailureHandler | None = None) -> None:
+    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None, failure_handler: ResearchFailureHandler | None = None, result_fence: ResearchResultFence | None = None) -> None:
         self._registry = registry
         self._specialist = specialist
         self._guard = guard or TaskGuard()
         self._failure_handler = failure_handler
+        self._result_fence = result_fence
 
     async def run(self, task: DepartmentTask, attempt: TaskAttempt, *, objective: str, jurisdiction: str | None, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> ResearchSpecialistResult:
-        self._require_identity(task, attempt)
-        self._guard.validate(task, current_permissions=current_permissions, current_authorization_revision=current_authorization_revision, current_budget_revision=current_budget_revision, parent_budget=parent_budget)
+        self.validate(task, attempt, current_permissions=current_permissions, current_authorization_revision=current_authorization_revision, current_budget_revision=current_budget_revision, parent_budget=parent_budget)
         started_at = datetime.now(UTC)
         started_event = self._event(task, attempt, 1, "attempt.started", started_at, phase="RESEARCH", milestone="Research specialist started")
         await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at, event=started_event)
@@ -71,11 +75,18 @@ class ResearchTaskWorker:
                 raise
             raise ResearchSpecialistError(code) from error
 
+        if self._result_fence is not None and not await self._result_fence.allows(task, attempt):
+            raise ResearchSpecialistError("RESEARCH_RESULT_SUPERSEDED")
+
         completed_at = datetime.now(UTC)
         completed_event = self._event(task, attempt, 2, "attempt.completed", completed_at, phase="VERIFICATION", milestone="Evidence verification passed", data={"result": result.model_dump(mode="json")})
         await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=completed_at, event=completed_event)
         await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.COMPLETED)
         return result
+
+    def validate(self, task: DepartmentTask, attempt: TaskAttempt, *, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> None:
+        self._require_identity(task, attempt)
+        self._guard.validate(task, current_permissions=current_permissions, current_authorization_revision=current_authorization_revision, current_budget_revision=current_budget_revision, parent_budget=parent_budget)
 
     @staticmethod
     def _require_identity(task: DepartmentTask, attempt: TaskAttempt) -> None:
