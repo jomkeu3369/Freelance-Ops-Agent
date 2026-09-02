@@ -57,20 +57,26 @@ async def test_scheduler_preserves_fifo_claim_and_records_shadow_snapshot() -> N
         claim = claims[0]
         assert claim.candidate.attempt_id == attempt.attempt_id
         assert claim.rank.actual_rank == 1
-        reclaimed = await scheduler.claim_next("default", "worker-3", claim.lease_until)
+        expired_snapshot = await metrics.snapshot("default", now=claim.lease_until)
+        assert expired_snapshot.expired_lease_count == 1
+        restarted_scheduler = PostgresShadowSchedulerStore(database)
+        reclaimed = await restarted_scheduler.claim_next("default", "worker-3", claim.lease_until)
         assert reclaimed is not None
         assert reclaimed.claim_id != claim.claim_id
-        await scheduler.acknowledge_dispatch(attempt.attempt_id, reclaimed.claim_id, "worker-3")
-        assert await scheduler.claim_next("default", "worker-2", queued_at) is None
+        await restarted_scheduler.acknowledge_dispatch(attempt.attempt_id, reclaimed.claim_id, "worker-3")
+        assert await restarted_scheduler.claim_next("default", "worker-2", queued_at) is None
         dispatched_snapshot = await metrics.snapshot("default", now=claim.lease_until)
         assert dispatched_snapshot.queue_depth == 0
         assert dispatched_snapshot.expired_lease_count == 0
+        assert dispatched_snapshot.dispatched_not_started_count == 1
         started_at = queued_at + timedelta(seconds=1)
         finished_at = started_at + timedelta(seconds=12)
         await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at)
         await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.RUNNING)
         await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=finished_at)
         await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.COMPLETED)
+        terminal_snapshot = await metrics.snapshot("default", now=finished_at)
+        assert terminal_snapshot.dispatched_not_started_count == 0
         evaluations = PostgresRuntimeEvaluationStore(database)
         batch = await evaluations.assemble(since=queued_at - timedelta(seconds=1), until=finished_at + timedelta(seconds=1), resource_pool="default")
         report = evaluate_runtime_release(batch.records, load_band_count=batch.load_band_count, source_terminal_count=batch.source_terminal_count, shadow_scheduler=SchedulerEvaluationMetrics(1, 1, 1, 1, 1), policy=RuntimeEvaluationPolicy(minimum_attempts=1, minimum_observation_days=0, minimum_load_bands=1, maximum_mae_seconds=1, maximum_p95_absolute_error_seconds=1, minimum_r2=-1))

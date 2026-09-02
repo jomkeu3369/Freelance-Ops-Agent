@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1, 11C-2 완료, 11C-3 준비 중
+> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1, 11C-2, 11C-3 완료, 11D 준비 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -120,6 +120,11 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - restart, checkpoint resume, cancel, redirect, ACK loss를 주입한다.
 - queue age, lease expiry, retry budget, provider circuit, observation coverage를 측정한다.
 - 실패 시 feature flag로 dispatcher를 끄고 기존 AgentRun fallback을 유지한다.
+- `DISPATCHED` queue row와 아직 `QUEUED`인 Attempt의 불일치를 운영 snapshot에서 별도 집계한다.
+- 장애 주입 증거, duplicate side effect, workspace 침범, 관측 coverage와 fallback 보존 여부를
+  fail-closed readiness gate로 함께 평가한다.
+- gate가 하나라도 위반을 발견하면 `ROLLBACK_REQUIRED`를 반환하며 11D 제한 pilot을 시작하지 않는다.
+- 독립 rollback 절차는 `docs/operations/phase-11-research-pilot-rollback.md`를 따른다.
 
 ### 11D · 제한적 pilot과 승격 판단
 
