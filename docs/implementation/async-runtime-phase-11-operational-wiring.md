@@ -1,7 +1,7 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A 및 11B-1 구현 중  
-> 선행 조건: Phase 0~10 구현·자동 검증 완료  
+> 상태: 11A 및 11B-1 완료, 11B-2a 구현 중
+> 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
 ## 1. 검토 결론
@@ -46,17 +46,28 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - memory AgentRun 구성은 PostgreSQL 런타임 서비스를 만들지 않는다.
 - 기존 AgentRun 실행과 command API 회귀가 없다.
 
-### 11B-2 · Task shadow identity와 observation
+### 11B-2a · Task shadow identity와 멱등 등록
 
-- Spring이 발급한 `workspaceId`, `runId`, `taskId`, `attemptId`, `revision`을 Python이 그대로 사용한다.
+- Agent가 한 번 생성한 `taskId`를 Spring과 Python이 공유하고 Spring TaskGuard가 revision과
+  authorization/budget revision을 권위 있게 확정한다.
 - Research `DepartmentTask` 생성 경계에서 idempotent shadow registration을 수행한다.
 - registration 이전에는 provider 작업을 시작하지 않는다.
 - shadow 경로가 실패하면 명시적인 bypass 사유를 남기고 기존 AgentRun 경로로 복귀한다.
+
+완료 기준:
+
+- 동일 Task 등록 재전송은 같은 권위 revision을 반환한다.
+- 같은 Task ID에 다른 계약을 보내면 fail-closed로 거부한다.
+- Spring과 Python의 workspace/run/task/revision identity가 일치한다.
+
+### 11B-2b · Attempt identity와 terminal observation
+
+- Agent가 한 번 생성한 `attemptId`를 Spring과 Python Registry에 동일하게 등록한다.
 - terminal observation coverage의 분모를 등록된 terminal attempt로 고정한다.
 
 완료 기준:
 
-- Spring과 Python의 다섯 identity가 일치한다.
+- Spring과 Python의 attempt ID와 attempt number가 일치한다.
 - 중복 요청과 재시작이 Task 또는 Attempt를 복제하지 않는다.
 - terminal attempt observation coverage가 100%다.
 
@@ -104,12 +115,13 @@ Scheduler 재정렬 활성화와 AgentRun fallback 제거는 Phase 11에 포함�
 ## 3. PR 순서
 
 1. 11A + 11B-1: 공통 Router builder와 Runtime composition
-2. 11B-2: Task identity·shadow registration·terminal observation
-3. 11B-3: Spring event projection·ACK·replay
-4. 11C-1: PostgreSQL FIFO dispatcher pilot
-5. 11C-2: Research worker와 command fencing
-6. 11C-3: 장애 주입·운영 snapshot·rollback 검증
-7. 11D: 제한적 pilot 증거 수집과 독립 승격 심사
+2. 11B-2a: Task identity·멱등 shadow registration
+3. 11B-2b: Attempt identity·terminal observation
+4. 11B-3: Spring event projection·ACK·replay
+5. 11C-1: PostgreSQL FIFO dispatcher pilot
+6. 11C-2: Research worker와 command fencing
+7. 11C-3: 장애 주입·운영 snapshot·rollback 검증
+8. 11D: 제한적 pilot 증거 수집과 독립 승격 심사
 
 각 PR은 기본 비활성 feature flag, 기존 fallback 보존, 독립 rollback 절차를 포함해야 다음
 단계로 진행할 수 있다.

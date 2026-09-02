@@ -29,4 +29,6 @@ public class AgentTaskDependencyEntity {
         this.dependencyType = dependencyType;
         this.createdAt = Objects.requireNonNull(now);
     }
+
+    public AgentTaskDependencyId id() { return id; }
 }

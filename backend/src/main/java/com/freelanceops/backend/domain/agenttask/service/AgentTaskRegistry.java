@@ -15,7 +15,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AgentTaskRegistry {
@@ -33,6 +35,16 @@ public class AgentTaskRegistry {
 
     @Transactional
     public AgentTaskEntity register(AgentTaskEntity task, Collection<UUID> dependencyTaskIds, Instant now) {
+        var existing = taskRepository.findByIdAndWorkspaceIdForUpdate(task.id(), task.workspaceId());
+        if (existing.isPresent()) {
+            Set<UUID> requestedDependencies = Set.copyOf(dependencyTaskIds);
+            Set<UUID> registeredDependencies = dependencyRepository.findAllByTaskId(task.id()).stream()
+                .map(dependency -> dependency.id().dependsOnTaskId()).collect(Collectors.toUnmodifiableSet());
+            if (!existing.get().hasSameRegistration(task) || !registeredDependencies.equals(requestedDependencies)) {
+                throw new IllegalStateException("task registration idempotency key conflicts with different data");
+            }
+            return existing.get();
+        }
         Collection<AgentTaskDependencyEntity> dependencies = dependencyTaskIds.stream().distinct().map(dependencyTaskId -> {
             AgentTaskEntity dependency = taskRepository.findByIdAndWorkspaceId(dependencyTaskId, task.workspaceId())
                 .orElseThrow(() -> new IllegalArgumentException("dependency was not found in workspace"));

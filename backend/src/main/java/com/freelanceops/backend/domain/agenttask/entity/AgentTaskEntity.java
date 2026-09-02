@@ -217,4 +217,12 @@ public class AgentTaskEntity {
     public Instant lastHeartbeatAt() { return lastHeartbeatAt; }
     public String phase() { return phase; }
     public String activity() { return activity; }
+
+    public boolean hasSameRegistration(AgentTaskEntity other) {
+        return id.equals(other.id) && workspaceId.equals(other.workspaceId) && runId.equals(other.runId)
+            && Objects.equals(parentTaskId, other.parentTaskId) && department == other.department
+            && specialistProfile.equals(other.specialistProfile) && alias.equals(other.alias)
+            && objectiveReference.equals(other.objectiveReference) && priority == other.priority
+            && Objects.equals(deadlineAt, other.deadlineAt);
+    }
 }

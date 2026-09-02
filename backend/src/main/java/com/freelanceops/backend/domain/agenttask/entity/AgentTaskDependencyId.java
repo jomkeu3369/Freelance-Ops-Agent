@@ -21,6 +21,9 @@ public class AgentTaskDependencyId implements Serializable {
         this.dependsOnTaskId = Objects.requireNonNull(dependsOnTaskId);
     }
 
+    public UUID taskId() { return taskId; }
+    public UUID dependsOnTaskId() { return dependsOnTaskId; }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;
