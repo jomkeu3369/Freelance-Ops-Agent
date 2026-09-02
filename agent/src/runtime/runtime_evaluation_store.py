@@ -91,10 +91,10 @@ class PostgresRuntimeEvaluationStore:
         records = [self._record(attempt, task, entry) for attempt, task, entry in rows]
         return RuntimeEvaluationBatch(records, source_terminal_count, load_band_count)
 
-    async def terminal_observation_coverage(self, *, since: datetime, until: datetime) -> TerminalObservationCoverage:
+    async def terminal_observation_coverage(self, *, workspace_id: UUID, since: datetime, until: datetime) -> TerminalObservationCoverage:
         if since.tzinfo is None or until.tzinfo is None or since.utcoffset() is None or until.utcoffset() is None or since >= until:
             raise ValueError("terminal observation window must be timezone-aware and increasing")
-        terminal_filter = (AgentTaskAttemptModel.status.in_(("COMPLETED", "FAILED")), AgentTaskAttemptModel.finished_at >= since.astimezone(UTC), AgentTaskAttemptModel.finished_at < until.astimezone(UTC))
+        terminal_filter = (AgentTaskAttemptModel.workspace_id == workspace_id, AgentTaskAttemptModel.status.in_(("COMPLETED", "FAILED")), AgentTaskAttemptModel.finished_at >= since.astimezone(UTC), AgentTaskAttemptModel.finished_at < until.astimezone(UTC))
         terminal_events = AgentTaskEventModel.event_type.in_(("attempt.completed", "attempt.failed"))
         join = AgentTaskEventModel.attempt_id == AgentTaskAttemptModel.attempt_id
         async with self._database.session() as session:

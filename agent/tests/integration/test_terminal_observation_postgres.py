@@ -46,11 +46,11 @@ async def test_terminal_observation_coverage_tracks_outbox_and_delivery_ack() ->
         await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=finished, event=completed)
         await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.COMPLETED)
         evaluation = PostgresRuntimeEvaluationStore(database)
-        coverage = await evaluation.terminal_observation_coverage(since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
+        coverage = await evaluation.terminal_observation_coverage(workspace_id=context.workspace_id, since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
         assert (coverage.source_terminal_count, coverage.observed_terminal_count, coverage.delivered_terminal_count) == (1, 1, 0)
         claims = await events.claim_for_delivery()
         await events.acknowledge_delivery(claims)
-        delivered = await evaluation.terminal_observation_coverage(since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
+        delivered = await evaluation.terminal_observation_coverage(workspace_id=context.workspace_id, since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
         assert delivered.delivery_coverage == 1
     finally:
         await database.close()
