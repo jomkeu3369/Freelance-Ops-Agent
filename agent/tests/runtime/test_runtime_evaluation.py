@@ -3,7 +3,14 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from runtime import RuntimeEvaluationPolicy, RuntimeReleaseStatus, SchedulerEvaluationMetrics, TaskAttemptEvaluationRecord, evaluate_runtime_release, runtime_dataset_fingerprint
+from runtime import RuntimeEvaluationPolicy, RuntimeReleaseStatus, SchedulerEvaluationMetrics, TaskAttemptEvaluationRecord, TerminalObservationCoverage, evaluate_runtime_release, runtime_dataset_fingerprint
+
+
+def test_terminal_observation_coverage_uses_registered_terminal_attempts_as_denominator() -> None:
+    coverage = TerminalObservationCoverage(10, 9, 8)
+
+    assert coverage.observation_coverage == 0.9
+    assert coverage.delivery_coverage == 0.8
 
 
 def records() -> list[TaskAttemptEvaluationRecord]:

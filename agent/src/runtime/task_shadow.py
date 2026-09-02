@@ -14,6 +14,7 @@ from contracts import AgentRunRequest, DepartmentName
 from integrations.task_registration import SpringTaskRegistration, SpringTaskRegistrationClient
 from routing import FinalRouteDecision, RouteExecutionProfile, SafetyContext, execution_profile
 
+from .task_attempt_events import TaskAttemptEventWrite
 from .task_contracts import AttemptStatus, DepartmentTask, ExecutionRoute, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 from .task_registry import AttemptNotFoundError, PostgresTaskRegistry, TaskNotFoundError
 
@@ -28,14 +29,20 @@ class ResearchTaskShadowRegistrar(Protocol):
     async def register(self, request: AgentRunRequest, decision: FinalRouteDecision, safety: SafetyContext, workload_token: str) -> TaskShadowHandle: ...  # noqa: E501
 
 
+class TaskShadowPublisher(Protocol):
+    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int: ...
+
+
 class PostgresResearchTaskShadowRegistrar:
-    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient) -> None:
+    SOURCE = "agent-run-shadow-v1"
+
+    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient, publisher: TaskShadowPublisher | None = None) -> None:
         self._registry = registry
         self._spring = spring
+        self._publisher = publisher
 
     async def register(self, request: AgentRunRequest, decision: FinalRouteDecision, safety: SafetyContext, workload_token: str) -> TaskShadowHandle:
-        task_id = uuid5(request.context.run_id, "research-read-v1:task:1")
-        attempt_id = uuid5(task_id, "attempt:1")
+        task_id, attempt_id = _identities(request.context.run_id)
         permissions = _read_only_permissions(request.context.effective_permissions)
         route_profile = execution_profile(decision.route, safety)
         payload = _payload(request, task_id, attempt_id, permissions, route_profile)
@@ -47,7 +54,30 @@ class PostgresResearchTaskShadowRegistrar:
         attempt = TaskAttempt(attempt_id=attempt_id, task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, task_revision=task.revision, attempt_number=registered.attempt.attempt_number)
         task = await self._ensure_task(task)
         attempt = await self._ensure_attempt(attempt, created_at)
+        task, attempt = await self._ensure_started(task, attempt)
+        await self._publish(workload_token)
         return TaskShadowHandle(task, attempt)
+
+    async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:
+        if target not in {AttemptStatus.COMPLETED, AttemptStatus.FAILED}:
+            raise ValueError("Research Task shadow terminal status is unsupported")
+        task_id, attempt_id = _identities(request.context.run_id)
+        try:
+            task = await self._registry.get_task(task_id, 1, request.context.workspace_id)
+            attempt = await self._registry.get_attempt(attempt_id, request.context.workspace_id)
+        except (TaskNotFoundError, AttemptNotFoundError):
+            return False
+        task, attempt = await self._ensure_started(task, attempt)
+        if attempt.status is AttemptStatus.RUNNING:
+            occurred_at = datetime.now(UTC)
+            event_type = "attempt.completed" if target is AttemptStatus.COMPLETED else "attempt.failed"
+            data: dict[str, object] = {} if failure_code is None else {"failure_code": failure_code}
+            attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, target, finished_at=occurred_at, event=self._event(task, attempt, 2, event_type, occurred_at, "VERIFICATION", "Research shadow observation completed", data))
+        task_target = TaskStatus.COMPLETED if target is AttemptStatus.COMPLETED else TaskStatus.FAILED
+        if task.status is TaskStatus.RUNNING:
+            await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, task_target)
+        await self._publish(workload_token)
+        return attempt.status is target
 
     async def _ensure_task(self, proposed: DepartmentTask) -> DepartmentTask:
         try:
@@ -69,12 +99,34 @@ class PostgresResearchTaskShadowRegistrar:
             attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at)
         return attempt
 
+    async def _ensure_started(self, task: DepartmentTask, attempt: TaskAttempt) -> tuple[DepartmentTask, TaskAttempt]:
+        if attempt.status is AttemptStatus.QUEUED:
+            started_at = datetime.now(UTC)
+            attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, AttemptStatus.RUNNING, started_at=started_at, event=self._event(task, attempt, 1, "attempt.started", started_at, "RESEARCH", "Research shadow execution started", {}))
+        if task.status is TaskStatus.QUEUED:
+            task = await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING)
+        return task, attempt
+
+    async def _publish(self, workload_token: str) -> None:
+        if self._publisher is not None:
+            await self._publisher.publish_once(workload_token)
+
+    @classmethod
+    def _event(cls, task: DepartmentTask, attempt: TaskAttempt, sequence: int, event_type: str, occurred_at: datetime, phase: str, milestone: str, data: dict[str, object]) -> TaskAttemptEventWrite:
+        event_id = f"{attempt.attempt_id}:{sequence}:{event_type}"
+        return TaskAttemptEventWrite(event_id=event_id, run_id=task.run_id, source=cls.SOURCE, source_event_id=event_id, task_id=task.task_id, task_revision=task.revision, attempt_id=attempt.attempt_id, attempt_number=attempt.attempt_number, workspace_id=task.workspace_id, sequence=sequence, event_type=event_type, phase=phase, milestone=milestone, occurred_at=occurred_at, data=data)
+
 
 def _read_only_permissions(values: Collection[str]) -> list[str]:
     permissions = sorted({value for value in values if value == "agent.run" or value.endswith(".read")})
     if "agent.run" not in permissions or "project.read" not in permissions:
         raise ValueError("Research Task shadow requires agent.run and project.read")
     return permissions
+
+
+def _identities(run_id: UUID) -> tuple[UUID, UUID]:
+    task_id = uuid5(run_id, "research-read-v1:task:1")
+    return task_id, uuid5(task_id, "attempt:1")
 
 
 def _payload(request: AgentRunRequest, task_id: UUID, attempt_id: UUID, permissions: list[str], route_profile: RouteExecutionProfile) -> dict[str, object]:

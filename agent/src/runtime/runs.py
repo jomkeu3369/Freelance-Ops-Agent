@@ -27,6 +27,8 @@ from contracts import (
     ResumeAgentRunRequest,
 )
 
+from .task_contracts import AttemptStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +81,10 @@ class ExecutionOutcome:
 
 class AgentRunExecutor(Protocol):
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome: ...  # noqa: E501
+
+
+class TaskTerminalObserver(Protocol):
+    async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool: ...  # noqa: E501
 
 
 class RunCheckpointJournal(Protocol):
@@ -345,10 +351,11 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
 
 
 class RunCoordinator:
-    def __init__(self, store: AgentRunStore, executor: AgentRunExecutor, checkpoint_journal: RunCheckpointJournal | None = None) -> None:  # noqa: E501
+    def __init__(self, store: AgentRunStore, executor: AgentRunExecutor, checkpoint_journal: RunCheckpointJournal | None = None, task_terminal_observer: TaskTerminalObserver | None = None) -> None:  # noqa: E501
         self._store = store
         self._executor = executor
         self._checkpoint_journal = checkpoint_journal or NullCheckpointJournal()
+        self._task_terminal_observer = task_terminal_observer
         self._active_tasks: dict[UUID, asyncio.Task[None]] = {}
         self._task_lock = asyncio.Lock()
 
@@ -445,6 +452,10 @@ class RunCoordinator:
                 active_department=outcome.active_department,
                 error_code=outcome.partial_error_code,
             )
+            if outcome.interruption is None:
+                research_completed = outcome.result is not None and any(result.department is DepartmentName.RESEARCH for result in outcome.result.department_results)  # noqa: E501
+                target = AttemptStatus.COMPLETED if outcome.partial_error_code is None or research_completed else AttemptStatus.FAILED  # noqa: E501
+                await self._observe_terminal(request, target, None if target is AttemptStatus.COMPLETED else outcome.partial_error_code, authorization)  # noqa: E501
         except TimeoutError:
             await self._store.fail(run_id, "RUN_TIMEOUT")
             await self._checkpoint_journal.record(
@@ -453,6 +464,7 @@ class RunCoordinator:
                 "execution_failed",
                 error_code="RUN_TIMEOUT",
             )
+            await self._observe_terminal(request, AttemptStatus.FAILED, "RUN_TIMEOUT", authorization)
         except AgentExecutionError as error:
             await self._store.fail(run_id, error.code, error.usage)
             await self._checkpoint_journal.record(
@@ -461,6 +473,7 @@ class RunCoordinator:
                 "execution_failed",
                 error_code=error.code,
             )
+            await self._observe_terminal(request, AttemptStatus.FAILED, error.code, authorization)
         except AgentRunStateError:
             logger.info("Agent run transition was already claimed or superseded: run_id=%s", run_id)
         except Exception as error:
@@ -481,3 +494,12 @@ class RunCoordinator:
                 "execution_failed",
                 error_code="AGENT_EXECUTION_FAILED",
             )
+            await self._observe_terminal(request, AttemptStatus.FAILED, "AGENT_EXECUTION_FAILED", authorization)
+
+    async def _observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
+        if self._task_terminal_observer is None or authorization is None:
+            return
+        try:
+            await self._task_terminal_observer.observe_terminal(request, target, failure_code, authorization.delegation_token)  # noqa: E501
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
+            logger.warning("Research Task terminal observation deferred: error_type=%s", error.__class__.__name__)

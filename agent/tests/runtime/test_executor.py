@@ -36,6 +36,7 @@ from routing import (
 )
 from runtime import (
     AgentExecutionError,
+    AttemptStatus,
     ExecutionAuthorization,
     ExecutionEvent,
     ExecutionOutcome,
@@ -209,6 +210,16 @@ class FailingTaskShadowRegistrar:
         raise RuntimeError("shadow unavailable")
 
 
+class RecordingTerminalObserver:
+    def __init__(self) -> None:
+        self.calls: list[tuple[AttemptStatus, str | None, str]] = []
+
+    async def observe_terminal(self, request: object, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:  # noqa: E501
+        del request
+        self.calls.append((target, failure_code, workload_token))
+        return True
+
+
 def _request(
     *,
     model_calls: int = 5,
@@ -284,6 +295,19 @@ async def test_shadow_registration_failure_preserves_primary_execution() -> None
     assert outcome.events[0].type == "route.selected"
     assert outcome.events[0].data["route"] == "SUPERVISOR"
     assert any(event.data.get("toolName") == "get_project_context" for event in outcome.events)
+
+
+async def test_coordinator_projects_terminal_research_observation_after_primary_completion() -> None:
+    request = _request(tool_calls=1)
+    request.budget.max_hierarchy_depth = 2
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SUPERVISOR), FixedProvider(), FixedProjectContextTool(request))  # noqa: E501
+    observer = RecordingTerminalObserver()
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), executor, task_terminal_observer=observer)
+
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("delegation-token"))
+
+    assert observer.calls == [(AttemptStatus.COMPLETED, None, "delegation-token")]
 
 
 async def test_project_analysis_policy_upgrades_simple_route_to_full_supervisor_workflow() -> None:

@@ -15,7 +15,7 @@ from contracts import HealthResponse
 from gateway import AIGateway, GatewayPolicy
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from integrations import SpringTaskRegistrationClient, SpringToolClient
+from integrations import SpringTaskEventClient, SpringTaskRegistrationClient, SpringToolClient, TaskEventPublisher
 from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
@@ -178,7 +178,11 @@ def _build_run_runtime() -> RuntimeComponents:
     task_shadow_registrar = (
         PostgresResearchTaskShadowRegistrar(
             services.task_registry,
-            SpringTaskRegistrationClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
+            SpringTaskRegistrationClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds),  # noqa: E501
+            TaskEventPublisher(
+                services.task_event_store,
+                SpringTaskEventClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
+            )
         )
         if settings.task_shadow_enabled
         else None
@@ -193,7 +197,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint, model_gateway, services
+    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services  # noqa: E501
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:
