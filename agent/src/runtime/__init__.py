@@ -10,6 +10,7 @@ from .executor import (
     ResearchTool,
 )
 from .composition import AsyncRuntimeServices, build_async_runtime_services
+from .task_shadow import PostgresResearchTaskShadowRegistrar, ResearchTaskShadowRegistrar, TaskShadowHandle
 from .postgres_store import PostgresAgentRunStore
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
 from .runs import (
@@ -85,6 +86,9 @@ __all__ = [
     "AgentRunExecutor",
     "AgentExecutionError",
     "AsyncRuntimeServices",
+    "PostgresResearchTaskShadowRegistrar",
+    "ResearchTaskShadowRegistrar",
+    "TaskShadowHandle",
     "AgentRunNotFoundError",
     "AgentRunStateError",
     "AgentRunStore",

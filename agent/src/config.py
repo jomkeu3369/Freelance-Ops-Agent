@@ -75,6 +75,7 @@ class Settings(BaseSettings):
     route_evaluator_prompt_version: str | None = None
     route_evaluator_prompt_sha256: str | None = None
     route_shadow_enabled: bool = False
+    task_shadow_enabled: bool = False
 
     delegation_token_issuer: str = "freelance-ops-backend"
     delegation_token_audience: str = "freelance-ops-agent"

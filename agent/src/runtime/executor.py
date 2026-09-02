@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import replace
@@ -35,6 +36,9 @@ from web_research import ResearchCollection, WebResearchBudgetError
 
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, StructuredTool
 from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionEvent, ExecutionOutcome
+from .task_shadow import ResearchTaskShadowRegistrar
+
+logger = logging.getLogger(__name__)
 
 
 class NoToolArguments(BaseModel):
@@ -94,11 +98,12 @@ _RECOVERABLE_PARTIAL_CODES = frozenset({
 })
 
 class OperationalAgentExecutor:
-    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None) -> None:  # noqa: E501
+    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None, task_shadow_registrar: ResearchTaskShadowRegistrar | None = None) -> None:  # noqa: E501
         self._gateway = gateway
         self._provider = provider
         self._project_context_tool = project_context_tool
         self._research_tool = research_tool
+        self._task_shadow_registrar = task_shadow_registrar
 
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
         started_ns = time.monotonic_ns()
@@ -188,6 +193,11 @@ class OperationalAgentExecutor:
             raise AgentExecutionError("HIERARCHY_DEPTH_EXCEEDED")
 
         departments = _ROUTE_DEPARTMENTS[decision.route][: request.budget.max_departments]
+        if DepartmentName.RESEARCH in departments and self._task_shadow_registrar is not None and authorization is not None:  # noqa: E501
+            try:
+                await self._task_shadow_registrar.register(request, decision, safety, authorization.delegation_token)
+            except (OSError, RuntimeError, TypeError, ValueError) as error:
+                logger.warning("Research Task shadow registration bypassed: error_type=%s", error.__class__.__name__)
         if max(0, len(departments) - 1) > request.budget.max_handoffs:
             raise AgentExecutionError("HANDOFF_BUDGET_EXCEEDED")
         required_model_calls = route_model_calls + len(departments)

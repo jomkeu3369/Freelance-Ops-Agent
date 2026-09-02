@@ -199,6 +199,16 @@ class FixedResearchTool:
         )
 
 
+class FailingTaskShadowRegistrar:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def register(self, request: object, decision: object, safety: object, workload_token: str) -> object:
+        del request, decision, safety, workload_token
+        self.calls += 1
+        raise RuntimeError("shadow unavailable")
+
+
 def _request(
     *,
     model_calls: int = 5,
@@ -246,6 +256,21 @@ async def test_supervisor_executes_bounded_departments() -> None:
         authorization=ExecutionAuthorization("delegation-token"),
     )
 
+    assert outcome.result is not None
+    assert len(outcome.result.department_results) == 4
+
+
+async def test_shadow_registration_failure_preserves_primary_execution() -> None:
+    request = _request(tool_calls=1)
+    request.budget.max_hierarchy_depth = 2
+    provider = FixedProvider()
+    tool = FixedProjectContextTool(request)
+    registrar = FailingTaskShadowRegistrar()
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SUPERVISOR), provider, tool, task_shadow_registrar=registrar)  # type: ignore[arg-type]  # noqa: E501
+
+    outcome = await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
+
+    assert registrar.calls == 1
     assert outcome.result is not None
     assert len(outcome.result.department_results) == 4
     assert provider.calls == 4
