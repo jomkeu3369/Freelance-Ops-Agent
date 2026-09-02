@@ -52,20 +52,25 @@ class ResearchDispatchBroker(Protocol):
 class PostgresResearchTaskShadowRegistrar:
     SOURCE = "agent-run-shadow-v1"
 
-    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient, publisher: TaskShadowPublisher | None = None, dispatcher: ResearchFifoPilot | None = None, context_broker: ResearchDispatchBroker | None = None) -> None:
+    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient, publisher: TaskShadowPublisher | None = None, dispatcher: ResearchFifoPilot | None = None, context_broker: ResearchDispatchBroker | None = None, dispatcher_workspace_allowlist: Collection[UUID] | None = None) -> None:
         if (dispatcher is None) != (context_broker is None):
             raise ValueError("Research FIFO dispatcher and context broker must be configured together")
+        selected_workspaces = frozenset(dispatcher_workspace_allowlist or ())
+        if (dispatcher is None and selected_workspaces) or (dispatcher is not None and not selected_workspaces):
+            raise ValueError("Research FIFO dispatcher requires an explicit workspace allowlist")
         self._registry = registry
         self._spring = spring
         self._publisher = publisher
         self._dispatcher = dispatcher
         self._context_broker = context_broker
+        self._dispatcher_workspace_allowlist = selected_workspaces
 
     async def register(self, request: AgentRunRequest, decision: FinalRouteDecision, safety: SafetyContext, workload_token: str) -> TaskShadowHandle:
         task_id, attempt_id = _identities(request.context.run_id)
         permissions = _read_only_permissions(request.context.effective_permissions)
         route_profile = execution_profile(decision.route, safety)
-        prediction = (None, None) if self._dispatcher is None else self._dispatcher.prediction
+        uses_dispatcher = self._uses_dispatcher(request.context.workspace_id)
+        prediction = (None, None) if not uses_dispatcher or self._dispatcher is None else self._dispatcher.prediction
         payload = _payload(request, task_id, attempt_id, permissions, route_profile, *prediction)
         registered = await self._spring.register(payload, workload_token)
         _require_identity(registered, request, task_id, attempt_id)
@@ -75,7 +80,7 @@ class PostgresResearchTaskShadowRegistrar:
         attempt = TaskAttempt(attempt_id=attempt_id, task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, task_revision=task.revision, attempt_number=registered.attempt.attempt_number, predicted_service_runtime_seconds=prediction[0], predictor_version=prediction[1])
         task = await self._ensure_task(task)
         attempt = await self._ensure_attempt(attempt, created_at)
-        if self._dispatcher is not None and self._context_broker is not None:
+        if uses_dispatcher and self._dispatcher is not None and self._context_broker is not None:
             if task.status is TaskStatus.QUEUED and attempt.status is AttemptStatus.QUEUED:
                 await self._context_broker.stage(request, task, attempt, workload_token)
                 await self._dispatcher.observe_queued(task, attempt, self._dispatcher.capacity(created_at))
@@ -88,6 +93,8 @@ class PostgresResearchTaskShadowRegistrar:
     async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:
         if target not in {AttemptStatus.COMPLETED, AttemptStatus.FAILED}:
             raise ValueError("Research Task shadow terminal status is unsupported")
+        if self._uses_dispatcher(request.context.workspace_id):
+            return False
         task_id, attempt_id = _identities(request.context.run_id)
         try:
             task = await self._registry.get_task(task_id, 1, request.context.workspace_id)
@@ -141,6 +148,9 @@ class PostgresResearchTaskShadowRegistrar:
     async def _publish(self, workload_token: str) -> None:
         if self._publisher is not None:
             await self._publisher.publish_once(workload_token)
+
+    def _uses_dispatcher(self, workspace_id: UUID) -> bool:
+        return self._dispatcher is not None and workspace_id in self._dispatcher_workspace_allowlist
 
     @classmethod
     def _event(cls, task: DepartmentTask, attempt: TaskAttempt, sequence: int, event_type: str, occurred_at: datetime, phase: str, milestone: str, data: dict[str, object]) -> TaskAttemptEventWrite:

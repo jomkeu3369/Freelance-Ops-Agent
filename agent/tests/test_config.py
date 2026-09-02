@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
@@ -54,10 +56,21 @@ def test_fifo_dispatcher_is_default_off_and_requires_bounded_runtime_dependencie
     with pytest.raises(ValidationError, match="FIFO dispatcher"):
         Settings(fifo_dispatcher_enabled=True)
 
-    settings = Settings(fifo_dispatcher_enabled=True, task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+    workspace_id = uuid4()
+    settings = Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=str(workspace_id), task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
 
     assert settings.fifo_dispatcher_resource_pool == "research-read-v1"
     assert settings.fifo_dispatcher_predictor_version == "pilot-static-v1"
+    assert settings.allowed_fifo_dispatcher_workspaces() == {workspace_id}
+
+    with pytest.raises(ValidationError, match="workspace allowlist"):
+        Settings(fifo_dispatcher_enabled=True, task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+    with pytest.raises(ValidationError, match="UUIDs"):
+        Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist="not-a-uuid", task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+    with pytest.raises(ValidationError, match="at most 5"):
+        Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=",".join(str(uuid4()) for _ in range(6)), task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+    with pytest.raises(ValidationError, match="research-read-v1"):
+        Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=str(workspace_id), fifo_dispatcher_resource_pool="general", task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
 
 
 def test_delegation_rotation_requires_complete_distinct_previous_key() -> None:

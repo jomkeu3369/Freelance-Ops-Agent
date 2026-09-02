@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+from uuid import UUID
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -83,6 +84,7 @@ class Settings(BaseSettings):
     fifo_dispatcher_predicted_runtime_seconds: float = Field(default=30, ge=0, le=3600)
     fifo_dispatcher_predictor_version: str = Field(default="pilot-static-v1", min_length=1, max_length=100)
     fifo_dispatcher_worker_count: int = Field(default=1, ge=1, le=32)
+    fifo_dispatcher_workspace_allowlist: str = ""
 
     delegation_token_issuer: str = "freelance-ops-backend"
     delegation_token_audience: str = "freelance-ops-agent"
@@ -169,6 +171,14 @@ class Settings(BaseSettings):
         if self.fifo_dispatcher_enabled and (not self.task_shadow_enabled or self.run_store_backend != "postgres" or not self.web_research_enabled):  # noqa: E501
             raise ValueError("enabled FIFO dispatcher requires PostgreSQL Task shadow and web research")
 
+        fifo_workspaces = self.allowed_fifo_dispatcher_workspaces() if self.fifo_dispatcher_enabled else frozenset()
+        if self.fifo_dispatcher_enabled and not fifo_workspaces:
+            raise ValueError("enabled FIFO dispatcher requires an explicit workspace allowlist")
+        if len(fifo_workspaces) > 5:
+            raise ValueError("FIFO dispatcher pilot allows at most 5 workspaces")
+        if self.fifo_dispatcher_enabled and self.fifo_dispatcher_resource_pool != "research-read-v1":
+            raise ValueError("FIFO dispatcher pilot requires the research-read-v1 resource pool")
+
         return self
 
     def allowed_web_research_domains(self) -> list[str]:
@@ -182,6 +192,12 @@ class Settings(BaseSettings):
 
     def allowed_gateway_models(self) -> frozenset[str]:
         return frozenset(model.strip() for model in self.gateway_allowed_models.split(",") if model.strip())
+
+    def allowed_fifo_dispatcher_workspaces(self) -> frozenset[UUID]:
+        try:
+            return frozenset(UUID(value.strip()) for value in self.fifo_dispatcher_workspace_allowlist.split(",") if value.strip())  # noqa: E501
+        except ValueError as error:
+            raise ValueError("FIFO dispatcher workspace allowlist must contain UUIDs") from error
 
     model_config = SettingsConfigDict(env_prefix="AGENT_", env_file=None, extra="ignore")
 

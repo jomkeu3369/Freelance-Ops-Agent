@@ -161,7 +161,7 @@ async def test_fifo_shadow_registration_stages_context_without_starting_primary_
     dispatcher = RecordingFifoDispatcher()
     broker = RecordingContextBroker()
     spring = RecordingSpringRegistration(run_request)
-    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker)  # type: ignore[arg-type]
+    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker, dispatcher_workspace_allowlist={run_request.context.workspace_id})  # type: ignore[arg-type]
     decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
 
     handle = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
@@ -173,3 +173,24 @@ async def test_fifo_shadow_registration_stages_context_without_starting_primary_
     assert dispatcher.dispatches == 1
     assert broker.values == [(handle.task, handle.attempt, "workload-token")]
     assert spring.payloads[0]["predictedServiceRuntimeSeconds"] == 30
+    assert not await registrar.observe_terminal(run_request, AttemptStatus.COMPLETED, None, "workload-token")
+
+
+async def test_fifo_shadow_allowlist_preserves_legacy_lifecycle_outside_selected_workspace() -> None:
+    run_request = request()
+    registry = MemoryRegistry()
+    dispatcher = RecordingFifoDispatcher()
+    broker = RecordingContextBroker()
+    spring = RecordingSpringRegistration(run_request)
+    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker, dispatcher_workspace_allowlist={uuid4()})  # type: ignore[arg-type]
+    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+
+    handle = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
+
+    assert handle.task.status is TaskStatus.RUNNING
+    assert handle.attempt.status is AttemptStatus.RUNNING
+    assert dispatcher.observed == []
+    assert dispatcher.dispatches == 0
+    assert broker.values == []
+    assert spring.payloads[0]["predictedServiceRuntimeSeconds"] is None
+    assert await registrar.observe_terminal(run_request, AttemptStatus.COMPLETED, None, "workload-token")

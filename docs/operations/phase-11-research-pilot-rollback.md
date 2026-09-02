@@ -43,6 +43,8 @@ rollback하지 않는다. 대신 circuit·retry drill 실패와 coverage 누락�
 
 1. 새 Research FIFO pilot 유입을 중단한다.
 2. Agent 배포 설정의 `AGENT_FIFO_DISPATCHER_ENABLED`를 `false`로 변경한다.
+   `AGENT_FIFO_DISPATCHER_WORKSPACE_ALLOWLIST`는 incident 비교를 위해 secret/config history에
+   보존하되 새 dispatcher 실행에는 사용하지 않는다.
 3. 정상 종료 유예 시간 동안 현재 in-memory Research worker가 끝나는 것을 기다린 뒤 Agent replica를
    순차 재시작한다.
 4. `AGENT_TASK_SHADOW_ENABLED`와 기존 AgentRun 경로는 유지한다. Task shadow까지 장애 원인인 경우에만

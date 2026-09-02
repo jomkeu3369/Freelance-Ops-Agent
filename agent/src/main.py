@@ -208,7 +208,8 @@ def _build_run_runtime() -> RuntimeComponents:
             SpringTaskRegistrationClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds),  # noqa: E501
             event_publisher,
             dispatcher,
-            context_broker
+            context_broker,
+            settings.allowed_fifo_dispatcher_workspaces() if dispatcher is not None else None
         )
         if settings.task_shadow_enabled
         else None
@@ -223,8 +224,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    terminal_observer = None if dispatcher is not None else task_shadow_registrar
-    return RunCoordinator(store, executor, checkpoint, terminal_observer), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
+    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:
