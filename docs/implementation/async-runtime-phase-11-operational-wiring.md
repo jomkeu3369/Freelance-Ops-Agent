@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1, 11C-2, 11C-3 완료, 11D 준비 중
+> 상태: 11A~11D 구현·자동 검증 완료, 11D 실제 운영 증거 수집은 HOLD
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -133,6 +133,15 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - 중복 side effect, workspace 침범, 만료 lease 미회수는 각각 0이어야 한다.
 - provider 장애, immutable image rollback, backup restore, 실제 네트워크 부하 훈련을 통과한다.
 - 독립 reviewer가 release evidence와 runbook을 승인해야 한다.
+- dispatcher 활성화 시 UUID workspace allowlist를 필수로 하고, allowlist 밖 요청은 기존 Task shadow와
+  AgentRun fallback lifecycle을 유지한다.
+- 승인된 immutable runtime release, 11C-3 readiness report, 외부 drill artifact와 배포 commit에 묶인
+  독립 review를 `ResearchPilotPromotionGate`에서 결합한다.
+- 모든 조건을 통과해도 `ELIGIBLE_FOR_SEPARATE_RELEASE_REVIEW`만 반환하며 Scheduler 정책 활성화나
+  fallback 제거를 자동 수행하지 않는다.
+- 실제 7일·1,000건과 외부 drill 증거가 없는 상태는 `HOLD`로 유지하고 synthetic 또는 조건부 제외된
+  테스트 결과로 대체하지 않는다.
+- 수집·심사 절차는 `docs/operations/phase-11-limited-research-pilot.md`를 따른다.
 
 Scheduler 재정렬 활성화와 AgentRun fallback 제거는 Phase 11에 포함하지 않는다. 각각 별도의
 `APPROVED SCHEDULER_POLICY` release와 제거 PR로 검토한다.

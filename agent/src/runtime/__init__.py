@@ -84,6 +84,7 @@ from .runtime_evaluation import PredictorEvaluationMetrics, RuntimeEvaluationPol
 from .runtime_evaluation_store import PostgresRuntimeEvaluationStore, RuntimeEvaluationBatch, RuntimeEvaluationStoreError, RuntimeReleaseKind, RuntimeReleaseRecord, TerminalObservationCoverage, runtime_dataset_fingerprint  # noqa: E501
 from .runtime_operational_metrics import PostgresRuntimeOperationalMetrics, RuntimeOperationalSnapshot
 from .research_pilot_readiness import ResearchPilotDrillEvidence, ResearchPilotReadinessGate, ResearchPilotReadinessPolicy, ResearchPilotReadinessReport, ResearchPilotReadinessStatus  # noqa: E501
+from .research_pilot_promotion import IndependentPilotReview, ResearchPilotPromotionEvidence, ResearchPilotPromotionGate, ResearchPilotPromotionPolicy, ResearchPilotPromotionReport, ResearchPilotPromotionStatus  # noqa: E501
 
 __all__ = [
     "AgentRunExecutor",
@@ -202,6 +203,12 @@ __all__ = [
     "ResearchPilotReadinessPolicy",
     "ResearchPilotReadinessReport",
     "ResearchPilotReadinessStatus",
+    "IndependentPilotReview",
+    "ResearchPilotPromotionEvidence",
+    "ResearchPilotPromotionGate",
+    "ResearchPilotPromotionPolicy",
+    "ResearchPilotPromotionReport",
+    "ResearchPilotPromotionStatus",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",
