@@ -4,7 +4,7 @@ import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskHeartbeatR
 import com.freelanceops.backend.domain.agenttask.dto.request.RegisterAgentTaskRequest;
 import com.freelanceops.backend.domain.agenttask.dto.request.IngestAgentTaskEventBatchRequest;
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskEventBatchResponse;
-import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskResponse;
+import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskRegistrationResponse;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.security.AgentTaskAuthority;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
@@ -45,7 +45,7 @@ public class AgentTaskControlController {
 
     @PostMapping("/tasks")
     @ResponseStatus(HttpStatus.CREATED)
-    public AgentTaskResponse register(
+    public AgentTaskRegistrationResponse register(
         @Valid @RequestBody RegisterAgentTaskRequest request,
         @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
     ) {
@@ -54,8 +54,9 @@ public class AgentTaskControlController {
         AgentTaskEntity task = new AgentTaskEntity(request.taskId(), principal.workspaceId(), principal.runId(),
             request.parentTaskId(), request.department(), request.specialistProfile(), request.alias(),
             request.objectiveReference(), request.priority(), request.deadlineAt(), now);
-        return AgentTaskResponse.from(registrationService.register(task, request.dependencyTaskIds(),
-            request.executionProfile(), principal, now));
+        AgentTaskRegistrationService.RegistrationResult result = registrationService.register(task,
+            request.dependencyTaskIds(), request.executionProfile(), principal, now);
+        return AgentTaskRegistrationResponse.from(result.task(), result.profile());
     }
 
     @PostMapping("/tasks/{taskId}/attempts/{attemptId}/heartbeat")

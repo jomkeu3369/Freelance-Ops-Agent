@@ -109,6 +109,21 @@ public class AgentTaskExecutionProfileEntity {
     public String routeProfileVersion() { return routeProfileVersion; }
     public String guardPolicyVersion() { return guardPolicyVersion; }
 
+    public boolean hasSameContract(AgentTaskExecutionProfileEntity other) {
+        return id.equals(other.id) && workspaceId.equals(other.workspaceId) && runId.equals(other.runId)
+            && route == other.route && riskLevel == other.riskLevel && modelProfile.equals(other.modelProfile)
+            && toolProfile == other.toolProfile && provider == other.provider && model.equals(other.model)
+            && reasoningEffort == other.reasoningEffort && permissions.equals(other.permissions)
+            && maxDurationSeconds == other.maxDurationSeconds && maxModelCalls == other.maxModelCalls
+            && maxToolCalls == other.maxToolCalls && maxInputTokens == other.maxInputTokens
+            && maxOutputTokens == other.maxOutputTokens && maxDepartments == other.maxDepartments
+            && maxHierarchyDepth == other.maxHierarchyDepth && maxSearchCredits == other.maxSearchCredits
+            && maxRetries == other.maxRetries && maxHandoffs == other.maxHandoffs
+            && authorizationRevision == other.authorizationRevision && budgetRevision == other.budgetRevision
+            && routeProfileVersion.equals(other.routeProfileVersion)
+            && guardPolicyVersion.equals(other.guardPolicyVersion);
+    }
+
     public AgentTaskExecutionProfileEntity copyForRevision(int revision, Instant now) {
         StartAgentRunRequest.RunBudget budget = new StartAgentRunRequest.RunBudget(maxDurationSeconds, maxModelCalls,
             maxToolCalls, maxInputTokens, maxOutputTokens, maxDepartments, maxHierarchyDepth, maxSearchCredits,

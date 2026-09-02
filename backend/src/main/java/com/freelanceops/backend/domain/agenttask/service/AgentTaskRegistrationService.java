@@ -27,12 +27,25 @@ public class AgentTaskRegistrationService {
     }
 
     @Transactional
-    public AgentTaskEntity register(AgentTaskEntity task, Collection<UUID> dependencies,
-                                    AgentTaskExecutionProfileRequest profile,
-                                    DelegationPrincipal principal, Instant now) {
+    public RegistrationResult register(AgentTaskEntity task, Collection<UUID> dependencies,
+                                       AgentTaskExecutionProfileRequest profile,
+                                       DelegationPrincipal principal, Instant now) {
         AgentTaskExecutionProfileEntity validated = guard.validate(task, profile, principal, now);
         AgentTaskEntity registered = registry.register(task, dependencies, now);
-        profileRepository.saveAndFlush(validated);
-        return registered;
+        AgentTaskExecutionProfileEntity stored = profileRepository.findById(validated.id())
+            .map(existing -> requireSameProfile(existing, validated))
+            .orElseGet(() -> profileRepository.saveAndFlush(validated));
+        return new RegistrationResult(registered, stored);
+    }
+
+    private static AgentTaskExecutionProfileEntity requireSameProfile(AgentTaskExecutionProfileEntity existing,
+                                                                       AgentTaskExecutionProfileEntity requested) {
+        if (!existing.hasSameContract(requested)) {
+            throw new IllegalStateException("task execution profile conflicts with existing registration");
+        }
+        return existing;
+    }
+
+    public record RegistrationResult(AgentTaskEntity task, AgentTaskExecutionProfileEntity profile) {
     }
 }

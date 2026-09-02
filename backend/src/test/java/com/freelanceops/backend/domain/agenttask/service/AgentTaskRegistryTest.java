@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -32,6 +33,7 @@ class AgentTaskRegistryTest {
         UUID workspaceId = UUID.randomUUID();
         UUID dependencyId = UUID.randomUUID();
         AgentTaskEntity task = task(workspaceId, UUID.randomUUID(), now);
+        when(taskRepository.findByIdAndWorkspaceIdForUpdate(task.id(), workspaceId)).thenReturn(Optional.empty());
         when(taskRepository.findByIdAndWorkspaceId(dependencyId, workspaceId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> registry.register(task, List.of(dependencyId), now))
@@ -40,6 +42,37 @@ class AgentTaskRegistryTest {
 
         verify(taskRepository, never()).saveAndFlush(task);
         verify(dependencyRepository, never()).saveAll(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void exactRegistrationRetryReturnsExistingTaskWithoutWriting() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        UUID workspaceId = UUID.randomUUID();
+        AgentTaskEntity task = task(workspaceId, UUID.randomUUID(), now);
+        when(taskRepository.findByIdAndWorkspaceIdForUpdate(task.id(), workspaceId)).thenReturn(Optional.of(task));
+        when(dependencyRepository.findAllByTaskId(task.id())).thenReturn(List.of());
+
+        AgentTaskEntity registered = registry.register(task, List.of(), now.plusSeconds(1));
+
+        assertThat(registered).isSameAs(task);
+        verify(taskRepository, never()).saveAndFlush(task);
+        verify(dependencyRepository, never()).saveAll(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void registrationRetryRejectsDifferentContract() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        UUID workspaceId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        AgentTaskEntity existing = task(workspaceId, runId, now);
+        AgentTaskEntity conflicting = new AgentTaskEntity(existing.id(), workspaceId, runId, null,
+            DepartmentName.RESEARCH, "research-v1", "Different alias", "objective:1", 3, null, now);
+        when(taskRepository.findByIdAndWorkspaceIdForUpdate(existing.id(), workspaceId))
+            .thenReturn(Optional.of(existing));
+        when(dependencyRepository.findAllByTaskId(existing.id())).thenReturn(List.of());
+
+        assertThatThrownBy(() -> registry.register(conflicting, List.of(), now.plusSeconds(1)))
+            .isInstanceOf(IllegalStateException.class).hasMessageContaining("idempotency");
     }
 
     @Test
