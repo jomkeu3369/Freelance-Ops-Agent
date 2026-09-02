@@ -83,6 +83,7 @@ from .task_scheduler_store import ClaimedSchedulerEntry, PostgresShadowScheduler
 from .runtime_evaluation import PredictorEvaluationMetrics, RuntimeEvaluationPolicy, RuntimeEvaluationReport, RuntimeGate, RuntimeReleaseStatus, SchedulerEvaluationMetrics, TaskAttemptEvaluationRecord, evaluate_runtime_release  # noqa: E501
 from .runtime_evaluation_store import PostgresRuntimeEvaluationStore, RuntimeEvaluationBatch, RuntimeEvaluationStoreError, RuntimeReleaseKind, RuntimeReleaseRecord, TerminalObservationCoverage, runtime_dataset_fingerprint  # noqa: E501
 from .runtime_operational_metrics import PostgresRuntimeOperationalMetrics, RuntimeOperationalSnapshot
+from .research_pilot_readiness import ResearchPilotDrillEvidence, ResearchPilotReadinessGate, ResearchPilotReadinessPolicy, ResearchPilotReadinessReport, ResearchPilotReadinessStatus  # noqa: E501
 
 __all__ = [
     "AgentRunExecutor",
@@ -196,6 +197,11 @@ __all__ = [
     "runtime_dataset_fingerprint",
     "PostgresRuntimeOperationalMetrics",
     "RuntimeOperationalSnapshot",
+    "ResearchPilotDrillEvidence",
+    "ResearchPilotReadinessGate",
+    "ResearchPilotReadinessPolicy",
+    "ResearchPilotReadinessReport",
+    "ResearchPilotReadinessStatus",
     "TaskCommand",
     "TaskCommandStatus",
     "TaskCommandType",

@@ -36,6 +36,12 @@ class RecordingStore:
         self.acknowledged.append((attempt_id, claim_id, claimed_by))
 
 
+class FailingAckStore(RecordingStore):
+    async def acknowledge_dispatch(self, attempt_id: object, claim_id: object, claimed_by: str) -> None:
+        del attempt_id, claim_id, claimed_by
+        raise RuntimeError("simulated ACK loss")
+
+
 class RecordingSink:
     def __init__(self, accepted: bool) -> None:
         self.accepted = accepted
@@ -81,6 +87,14 @@ async def test_dispatcher_leaves_claim_leased_when_sink_does_not_accept() -> Non
 
     assert await dispatcher.dispatch_once(now=capacity.captured_at) == claim
     assert store.acknowledged == []
+
+
+async def test_dispatcher_surfaces_ack_loss_after_sink_acceptance() -> None:
+    _, _, capacity, claim = fixture()
+    dispatcher = ResearchFifoDispatcherPilot(FailingAckStore(claim), RecordingSink(True), resource_pool="research-read-v1", claimed_by="dispatcher-1")  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="ACK loss"):
+        await dispatcher.dispatch_once(now=capacity.captured_at)
 
 
 async def test_dispatcher_rejects_unapproved_profile() -> None:

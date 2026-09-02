@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from contracts import DepartmentName, ModelSelection, Provider, RunBudget
 from runtime import AttemptStatus, ClaimedSchedulerEntry, DepartmentTask, ExecutionRoute, PostgresResearchResultFence, ResearchDispatchContext, ResearchWorkerDispatchSink, SchedulerCandidate, SchedulerQueueKind, SchedulerRank, ShadowSchedulingLane, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 
@@ -105,10 +107,11 @@ def test_dispatch_context_repr_hides_workload_token() -> None:
     assert context.workload_token not in repr(context)
 
 
-async def test_postgres_result_fence_rejects_cancelled_current_state() -> None:
+@pytest.mark.parametrize("task_status,attempt_status", [(TaskStatus.CANCELLED, AttemptStatus.CANCELLED), (TaskStatus.SUPERSEDED, AttemptStatus.SUPERSEDED)])
+async def test_postgres_result_fence_rejects_cancelled_or_redirected_current_state(task_status: TaskStatus, attempt_status: AttemptStatus) -> None:
     context, _ = fixture()
-    current_task = context.task.model_copy(update={"status": TaskStatus.CANCELLED})
-    current_attempt = context.attempt.model_copy(update={"status": AttemptStatus.CANCELLED})
+    current_task = context.task.model_copy(update={"status": task_status})
+    current_attempt = context.attempt.model_copy(update={"status": attempt_status})
     fence = PostgresResearchResultFence(CurrentStateRegistry(current_task, current_attempt))  # type: ignore[arg-type]
 
     assert not await fence.allows(context.task, context.attempt)
