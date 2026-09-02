@@ -10,6 +10,7 @@ from .executor import (
     ResearchTool,
 )
 from .composition import AsyncRuntimeServices, build_async_runtime_services
+from .fifo_dispatcher import FifoDispatchSink, ResearchFifoDispatcherPilot
 from .task_shadow import PostgresResearchTaskShadowRegistrar, ResearchTaskShadowRegistrar, TaskShadowHandle
 from .postgres_store import PostgresAgentRunStore
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
@@ -86,6 +87,8 @@ __all__ = [
     "AgentRunExecutor",
     "AgentExecutionError",
     "AsyncRuntimeServices",
+    "FifoDispatchSink",
+    "ResearchFifoDispatcherPilot",
     "PostgresResearchTaskShadowRegistrar",
     "ResearchTaskShadowRegistrar",
     "TaskShadowHandle",
