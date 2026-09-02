@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3 완료, 11C-1 준비 중
+> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1 완료, 11C-2 준비 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -98,6 +98,9 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - 사전 등록한 `research-read-v1`만 pilot 대상으로 허용한다.
 - `PENDING → CLAIMED → DISPATCHED` lease 전이를 적용한다.
 - 동일 resource pool의 경쟁 dispatcher 중 하나만 claim한다.
+- dispatcher sink가 claim을 인수한 경우에만 `DISPATCHED`로 ACK하고, 거절·장애 시 lease를 유지해
+  같은 queue row가 회수되게 한다.
+- 실제 sink와 feature flag composition은 11C-2에서 연결하며, 11C-1은 기존 AgentRun 경로를 변경하지 않는다.
 
 ### 11C-2 · Research worker pilot
 
