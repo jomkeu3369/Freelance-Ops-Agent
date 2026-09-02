@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A 및 11B-1 완료, 11B-2a 구현 중
+> 상태: 11A, 11B-1, 11B-2a 완료, 11B-2b 구현 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -63,6 +63,8 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 ### 11B-2b · Attempt identity와 terminal observation
 
 - Agent가 한 번 생성한 `attemptId`를 Spring과 Python Registry에 동일하게 등록한다.
+- Task와 첫 Attempt는 Spring의 한 transaction에서 등록하고 exact retry에는 같은 Attempt를 반환한다.
+- 같은 Attempt ID에 다른 task/revision/prediction 계약을 보내면 fail-closed로 거부한다.
 - terminal observation coverage의 분모를 등록된 terminal attempt로 고정한다.
 
 완료 기준:
