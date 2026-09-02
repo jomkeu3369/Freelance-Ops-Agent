@@ -15,7 +15,7 @@ from contracts import HealthResponse
 from gateway import AIGateway, GatewayPolicy
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from integrations import SpringToolClient
+from integrations import SpringTaskRegistrationClient, SpringToolClient
 from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
@@ -27,6 +27,7 @@ from runtime import (
     OperationalAgentExecutor,
     OperationalGateway,
     PostgresAgentRunStore,
+    PostgresResearchTaskShadowRegistrar,
     PostgresTaskCommandInbox,
     RunCoordinator,
     build_async_runtime_services,
@@ -39,7 +40,8 @@ RuntimeComponents = tuple[
     PgVectorConnectionManager | None,
     PostgresAgentRunStore | None,
     PostgresCheckpointJournal | None,
-    AIGateway
+    AIGateway,
+    AsyncRuntimeServices | None
 ]
 
 
@@ -92,8 +94,7 @@ class FreelanceOpsAgentAiServer:
         async_runtime_services: AsyncRuntimeServices | None = None
 
         if run_coordinator is None:
-            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway = _build_run_runtime()
-            async_runtime_services = build_async_runtime_services(database_manager) if database_manager is not None else None  # noqa: E501
+            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services = _build_run_runtime()  # noqa: E501
 
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
@@ -154,17 +155,11 @@ def _build_run_runtime() -> RuntimeComponents:
             allowed_models=settings.allowed_gateway_models()
         )
     )
-    executor = OperationalAgentExecutor(
-        gateway,
-        model_gateway,
-        SpringToolClient(
-            settings.backend_internal_url,
-            timeout_seconds=settings.backend_tool_timeout_seconds,
-        ),
-        _build_web_research_service(settings)
-    )
+    project_context_tool = SpringToolClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
+    research_tool = _build_web_research_service(settings)
     if settings.run_store_backend == "memory":
-        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway
+        executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool)
+        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None
 
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
@@ -179,6 +174,16 @@ def _build_run_runtime() -> RuntimeComponents:
     )
 
     store = PostgresAgentRunStore(database)
+    services = build_async_runtime_services(database)
+    task_shadow_registrar = (
+        PostgresResearchTaskShadowRegistrar(
+            services.task_registry,
+            SpringTaskRegistrationClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
+        )
+        if settings.task_shadow_enabled
+        else None
+    )
+    executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar)  # noqa: E501
     checkpoint = (
         PostgresCheckpointJournal(
             settings.database_url,
@@ -188,7 +193,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint, model_gateway
+    return RunCoordinator(store, executor, checkpoint), database, store, checkpoint, model_gateway, services
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:

@@ -2,5 +2,6 @@
 
 from .spring_tools import SpringToolClient, SpringToolError
 from .task_events import SpringTaskEventClient, SpringTaskEventError, TaskEventPublisher
+from .task_registration import SpringTaskRegistrationClient, SpringTaskRegistrationError
 
-__all__ = ["SpringTaskEventClient", "SpringTaskEventError", "SpringToolClient", "SpringToolError", "TaskEventPublisher"]
+__all__ = ["SpringTaskEventClient", "SpringTaskEventError", "SpringTaskRegistrationClient", "SpringTaskRegistrationError", "SpringToolClient", "SpringToolError", "TaskEventPublisher"]  # noqa: E501

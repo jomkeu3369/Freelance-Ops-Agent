@@ -65,6 +65,9 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - Agent가 한 번 생성한 `attemptId`를 Spring과 Python Registry에 동일하게 등록한다.
 - Task와 첫 Attempt는 Spring의 한 transaction에서 등록하고 exact retry에는 같은 Attempt를 반환한다.
 - 같은 Attempt ID에 다른 task/revision/prediction 계약을 보내면 fail-closed로 거부한다.
+- `AGENT_TASK_SHADOW_ENABLED` 기본값은 `false`이며 활성화된 PostgreSQL runtime에서만 등록한다.
+- Spring이 확정한 identity와 authorization/budget revision을 검증한 뒤 Python Registry에 수렴시킨다.
+- shadow 등록 실패는 오류 유형만 기록하고 기존 AgentRun 실행을 유지한다.
 - terminal observation coverage의 분모를 등록된 terminal attempt로 고정한다.
 
 완료 기준:
