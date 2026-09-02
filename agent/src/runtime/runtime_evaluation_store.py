@@ -17,7 +17,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 
 from infrastructure.database import PgVectorConnectionManager
-from infrastructure.database.models import AgentRuntimeReleaseModel, AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskModel, AgentWorkerCapacityEventModel
+from infrastructure.database.models import AgentRuntimeReleaseModel, AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel, AgentWorkerCapacityEventModel
 
 from .runtime_evaluation import RuntimeEvaluationReport, RuntimeReleaseStatus, TaskAttemptEvaluationRecord
 
@@ -36,6 +36,21 @@ class RuntimeEvaluationBatch:
     records: list[TaskAttemptEvaluationRecord]
     source_terminal_count: int
     load_band_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class TerminalObservationCoverage:
+    source_terminal_count: int
+    observed_terminal_count: int
+    delivered_terminal_count: int
+
+    @property
+    def observation_coverage(self) -> float:
+        return 0 if self.source_terminal_count == 0 else self.observed_terminal_count / self.source_terminal_count
+
+    @property
+    def delivery_coverage(self) -> float:
+        return 0 if self.source_terminal_count == 0 else self.delivered_terminal_count / self.source_terminal_count
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +90,18 @@ class PostgresRuntimeEvaluationStore:
             load_band_count = int(await session.scalar(capacity_statement) or 0)
         records = [self._record(attempt, task, entry) for attempt, task, entry in rows]
         return RuntimeEvaluationBatch(records, source_terminal_count, load_band_count)
+
+    async def terminal_observation_coverage(self, *, workspace_id: UUID, since: datetime, until: datetime) -> TerminalObservationCoverage:
+        if since.tzinfo is None or until.tzinfo is None or since.utcoffset() is None or until.utcoffset() is None or since >= until:
+            raise ValueError("terminal observation window must be timezone-aware and increasing")
+        terminal_filter = (AgentTaskAttemptModel.workspace_id == workspace_id, AgentTaskAttemptModel.status.in_(("COMPLETED", "FAILED")), AgentTaskAttemptModel.finished_at >= since.astimezone(UTC), AgentTaskAttemptModel.finished_at < until.astimezone(UTC))
+        terminal_events = AgentTaskEventModel.event_type.in_(("attempt.completed", "attempt.failed"))
+        join = AgentTaskEventModel.attempt_id == AgentTaskAttemptModel.attempt_id
+        async with self._database.session() as session:
+            source = int(await session.scalar(select(func.count()).select_from(AgentTaskAttemptModel).where(*terminal_filter)) or 0)
+            observed = int(await session.scalar(select(func.count(func.distinct(AgentTaskEventModel.attempt_id))).select_from(AgentTaskEventModel).join(AgentTaskAttemptModel, join).where(*terminal_filter, terminal_events)) or 0)
+            delivered = int(await session.scalar(select(func.count(func.distinct(AgentTaskEventModel.attempt_id))).select_from(AgentTaskEventModel).join(AgentTaskAttemptModel, join).where(*terminal_filter, terminal_events, AgentTaskEventModel.delivery_status == "DELIVERED")) or 0)
+        return TerminalObservationCoverage(source, observed, delivered)
 
     async def record_release(self, release_id: UUID, release_kind: RuntimeReleaseKind, version: str, resource_pool: str, artifact_reference: str, artifact_sha256: str, dataset_fingerprint: str, report: RuntimeEvaluationReport) -> RuntimeReleaseRecord:
         values = (version, resource_pool, artifact_reference)

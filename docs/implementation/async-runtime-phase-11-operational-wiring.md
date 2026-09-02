@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a 완료, 11B-2b 구현 중
+> 상태: 11A, 11B-1, 11B-2a, 11B-2b 완료, 11B-3 준비 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -68,13 +68,16 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - `AGENT_TASK_SHADOW_ENABLED` 기본값은 `false`이며 활성화된 PostgreSQL runtime에서만 등록한다.
 - Spring이 확정한 identity와 authorization/budget revision을 검증한 뒤 Python Registry에 수렴시킨다.
 - shadow 등록 실패는 오류 유형만 기록하고 기존 AgentRun 실행을 유지한다.
-- terminal observation coverage의 분모를 등록된 terminal attempt로 고정한다.
+- 실행 시작과 성공·실패 종료를 같은 Attempt의 순번 이벤트로 outbox에 원자 기록한다.
+- terminal observation coverage의 분모를 Python Registry에서 종료된 등록 Attempt로 고정하고,
+  terminal event 기록률과 Spring 전달 ACK 비율을 별도로 측정한다.
 
 완료 기준:
 
 - Spring과 Python의 attempt ID와 attempt number가 일치한다.
 - 중복 요청과 재시작이 Task 또는 Attempt를 복제하지 않는다.
-- terminal attempt observation coverage가 100%다.
+- 완료·실패 Attempt의 terminal event 기록률이 100%다.
+- Spring 전달 ACK 비율은 11B-3 replay 검증에서 100%를 충족해야 한다.
 
 ### 11B-3 · Spring projection과 ACK
 

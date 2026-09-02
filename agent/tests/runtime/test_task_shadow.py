@@ -31,6 +31,7 @@ class MemoryRegistry:
         self.attempts: dict[UUID, TaskAttempt] = {}
         self.task_creations = 0
         self.attempt_creations = 0
+        self.events: list[object] = []
 
     async def get_task(self, task_id: UUID, revision: int, workspace_id: UUID) -> DepartmentTask:
         del workspace_id
@@ -62,11 +63,24 @@ class MemoryRegistry:
         self.attempts[attempt.attempt_id] = attempt
         return attempt
 
-    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None) -> TaskAttempt:
+    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: object | None = None) -> TaskAttempt:
         del workspace_id
-        attempt = self.attempts[attempt_id].model_copy(update={"status": target, "queued_at": queued_at})
+        current = self.attempts[attempt_id]
+        attempt = current.model_copy(update={"status": target, "queued_at": queued_at or current.queued_at, "started_at": started_at or current.started_at, "finished_at": finished_at or current.finished_at})
         self.attempts[attempt_id] = attempt
+        if event is not None:
+            self.events.append(event)
         return attempt
+
+
+class RecordingPublisher:
+    def __init__(self) -> None:
+        self.tokens: list[str] = []
+
+    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int:
+        del batch_size
+        self.tokens.append(workload_token)
+        return 1
 
 
 def request() -> AgentRunRequest:
@@ -77,7 +91,8 @@ async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> No
     run_request = request()
     spring = RecordingSpringRegistration(run_request)
     registry = MemoryRegistry()
-    registrar = PostgresResearchTaskShadowRegistrar(registry, spring)  # type: ignore[arg-type]
+    publisher = RecordingPublisher()
+    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, publisher)  # type: ignore[arg-type]
     decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
 
     first = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
@@ -87,5 +102,10 @@ async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> No
     assert first.attempt.attempt_id == second.attempt.attempt_id
     assert registry.task_creations == 1
     assert registry.attempt_creations == 1
+    assert first.attempt.status is AttemptStatus.RUNNING
+    assert await registrar.observe_terminal(run_request, AttemptStatus.COMPLETED, None, "workload-token")
+    assert registry.attempts[first.attempt.attempt_id].status is AttemptStatus.COMPLETED
+    assert [event.event_type for event in registry.events] == ["attempt.started", "attempt.completed"]  # type: ignore[attr-defined]
+    assert publisher.tokens == ["workload-token", "workload-token", "workload-token"]
     assert spring.payloads[0]["executionProfile"]["permissions"] == ["agent.run", "project.read"]  # type: ignore[index]
     assert "민감한 원문" not in str(spring.payloads[0])
