@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,6 +73,43 @@ class AgentTaskRegistryTest {
         when(dependencyRepository.findAllByTaskId(existing.id())).thenReturn(List.of());
 
         assertThatThrownBy(() -> registry.register(conflicting, List.of(), now.plusSeconds(1)))
+            .isInstanceOf(IllegalStateException.class).hasMessageContaining("idempotency");
+    }
+
+    @Test
+    void exactAttemptRetryReturnsExistingAttemptWithoutDispatchingAgain() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        UUID workspaceId = UUID.randomUUID();
+        AgentTaskEntity task = task(workspaceId, UUID.randomUUID(), now);
+        int attemptNumber = task.dispatch(1, now);
+        UUID attemptId = UUID.randomUUID();
+        AgentTaskAttemptEntity existing = new AgentTaskAttemptEntity(attemptId, workspaceId, task.id(), 1,
+            attemptNumber, 12.0, "baseline-v1", Map.of("profile", "research-read-v1"), now);
+        when(attemptRepository.findByIdAndWorkspaceIdForUpdate(attemptId, workspaceId))
+            .thenReturn(Optional.of(existing));
+
+        AgentTaskAttemptEntity registered = registry.createAttempt(task.id(), workspaceId, 1, attemptId, 12.0,
+            "baseline-v1", Map.of("profile", "research-read-v1"), now.plusSeconds(1));
+
+        assertThat(registered).isSameAs(existing);
+        assertThat(task.currentAttemptNumber()).isEqualTo(1);
+        verify(attemptRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void attemptRetryRejectsDifferentPredictionContract() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        UUID workspaceId = UUID.randomUUID();
+        AgentTaskEntity task = task(workspaceId, UUID.randomUUID(), now);
+        int attemptNumber = task.dispatch(1, now);
+        UUID attemptId = UUID.randomUUID();
+        AgentTaskAttemptEntity existing = new AgentTaskAttemptEntity(attemptId, workspaceId, task.id(), 1,
+            attemptNumber, 12.0, "baseline-v1", Map.of(), now);
+        when(attemptRepository.findByIdAndWorkspaceIdForUpdate(attemptId, workspaceId))
+            .thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> registry.createAttempt(task.id(), workspaceId, 1, attemptId, 15.0,
+            "baseline-v1", Map.of(), now.plusSeconds(1)))
             .isInstanceOf(IllegalStateException.class).hasMessageContaining("idempotency");
     }
 

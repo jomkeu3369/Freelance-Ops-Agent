@@ -55,8 +55,10 @@ public class AgentTaskControlController {
             request.parentTaskId(), request.department(), request.specialistProfile(), request.alias(),
             request.objectiveReference(), request.priority(), request.deadlineAt(), now);
         AgentTaskRegistrationService.RegistrationResult result = registrationService.register(task,
-            request.dependencyTaskIds(), request.executionProfile(), principal, now);
-        return AgentTaskRegistrationResponse.from(result.task(), result.profile());
+            request.dependencyTaskIds(), request.executionProfile(), request.attemptId(),
+            request.predictedServiceRuntimeSeconds(), request.predictionModelVersion(),
+            request.predictionFeatureSnapshot(), principal, now);
+        return AgentTaskRegistrationResponse.from(result.task(), result.attempt(), result.profile());
     }
 
     @PostMapping("/tasks/{taskId}/attempts/{attemptId}/heartbeat")

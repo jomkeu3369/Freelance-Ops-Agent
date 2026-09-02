@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
 import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskExecutionProfileRequest;
+import com.freelanceops.backend.domain.agenttask.entity.AgentTaskAttemptEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskExecutionProfileEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskExecutionProfileId;
@@ -12,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -34,7 +37,9 @@ class AgentTaskRegistrationServiceTest {
         AgentTaskEntity registered = mock(AgentTaskEntity.class);
         AgentTaskExecutionProfileRequest request = mock(AgentTaskExecutionProfileRequest.class);
         AgentTaskExecutionProfileEntity validated = mock(AgentTaskExecutionProfileEntity.class);
+        AgentTaskAttemptEntity attempt = mock(AgentTaskAttemptEntity.class);
         DelegationPrincipal principal = mock(DelegationPrincipal.class);
+        UUID attemptId = UUID.randomUUID();
         Instant now = Instant.parse("2026-08-31T00:00:00Z");
         when(guard.validate(task, request, principal, now)).thenReturn(validated);
         when(registry.register(task, List.of(), now)).thenReturn(registered);
@@ -42,11 +47,17 @@ class AgentTaskRegistrationServiceTest {
         when(validated.id()).thenReturn(profileId);
         when(profiles.findById(validated.id())).thenReturn(Optional.empty());
         when(profiles.saveAndFlush(validated)).thenReturn(validated);
+        when(registered.id()).thenReturn(UUID.randomUUID());
+        when(registered.workspaceId()).thenReturn(UUID.randomUUID());
+        when(registered.revision()).thenReturn(1);
+        when(registry.createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
+            Map.of(), now)).thenReturn(attempt);
 
         AgentTaskRegistrationService.RegistrationResult result = service.register(task, List.of(), request,
-            principal, now);
+            attemptId, null, null, Map.of(), principal, now);
 
         assertThat(result.task()).isSameAs(registered);
+        assertThat(result.attempt()).isSameAs(attempt);
         assertThat(result.profile()).isSameAs(validated);
 
         InOrder order = inOrder(guard, registry, profiles);
@@ -54,6 +65,8 @@ class AgentTaskRegistrationServiceTest {
         order.verify(registry).register(task, List.of(), now);
         order.verify(profiles).findById(validated.id());
         order.verify(profiles).saveAndFlush(validated);
+        order.verify(registry).createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
+            Map.of(), now);
     }
 
     @Test
@@ -63,7 +76,9 @@ class AgentTaskRegistrationServiceTest {
         AgentTaskExecutionProfileRequest request = mock(AgentTaskExecutionProfileRequest.class);
         AgentTaskExecutionProfileEntity validated = mock(AgentTaskExecutionProfileEntity.class);
         AgentTaskExecutionProfileEntity existing = mock(AgentTaskExecutionProfileEntity.class);
+        AgentTaskAttemptEntity attempt = mock(AgentTaskAttemptEntity.class);
         DelegationPrincipal principal = mock(DelegationPrincipal.class);
+        UUID attemptId = UUID.randomUUID();
         Instant now = Instant.parse("2026-08-31T00:00:00Z");
         AgentTaskExecutionProfileId profileId = mock(AgentTaskExecutionProfileId.class);
         when(guard.validate(task, request, principal, now)).thenReturn(validated);
@@ -71,11 +86,17 @@ class AgentTaskRegistrationServiceTest {
         when(validated.id()).thenReturn(profileId);
         when(profiles.findById(profileId)).thenReturn(Optional.of(existing));
         when(existing.hasSameContract(validated)).thenReturn(true);
+        when(registered.id()).thenReturn(UUID.randomUUID());
+        when(registered.workspaceId()).thenReturn(UUID.randomUUID());
+        when(registered.revision()).thenReturn(1);
+        when(registry.createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
+            Map.of(), now)).thenReturn(attempt);
 
         AgentTaskRegistrationService.RegistrationResult result = service.register(task, List.of(), request,
-            principal, now);
+            attemptId, null, null, Map.of(), principal, now);
 
         assertThat(result.task()).isSameAs(registered);
+        assertThat(result.attempt()).isSameAs(attempt);
         assertThat(result.profile()).isSameAs(existing);
     }
 
@@ -87,7 +108,8 @@ class AgentTaskRegistrationServiceTest {
         Instant now = Instant.parse("2026-08-31T00:00:00Z");
         when(guard.validate(task, request, principal, now)).thenThrow(new IllegalStateException("rejected"));
 
-        assertThatThrownBy(() -> service.register(task, List.of(), request, principal, now))
+        assertThatThrownBy(() -> service.register(task, List.of(), request, UUID.randomUUID(), null, null,
+            Map.of(), principal, now))
             .isInstanceOf(IllegalStateException.class).hasMessage("rejected");
         verifyNoInteractions(registry, profiles);
     }
@@ -95,8 +117,8 @@ class AgentTaskRegistrationServiceTest {
     @Test
     void registrationBoundaryIsTransactional() throws NoSuchMethodException {
         var method = AgentTaskRegistrationService.class.getMethod("register", AgentTaskEntity.class,
-            java.util.Collection.class, AgentTaskExecutionProfileRequest.class, DelegationPrincipal.class,
-            Instant.class);
+            java.util.Collection.class, AgentTaskExecutionProfileRequest.class, UUID.class, Double.class,
+            String.class, Map.class, DelegationPrincipal.class, Instant.class);
 
         assertThat(method.getAnnotation(Transactional.class)).isNotNull();
     }

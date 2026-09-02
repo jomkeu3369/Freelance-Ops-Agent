@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
 import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskExecutionProfileRequest;
+import com.freelanceops.backend.domain.agenttask.entity.AgentTaskAttemptEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskExecutionProfileEntity;
 import com.freelanceops.backend.domain.agenttask.repository.AgentTaskExecutionProfileRepository;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -29,13 +31,18 @@ public class AgentTaskRegistrationService {
     @Transactional
     public RegistrationResult register(AgentTaskEntity task, Collection<UUID> dependencies,
                                        AgentTaskExecutionProfileRequest profile,
+                                       UUID attemptId, Double predictedSeconds, String predictionModelVersion,
+                                       Map<String, Object> predictionFeatureSnapshot,
                                        DelegationPrincipal principal, Instant now) {
         AgentTaskExecutionProfileEntity validated = guard.validate(task, profile, principal, now);
         AgentTaskEntity registered = registry.register(task, dependencies, now);
         AgentTaskExecutionProfileEntity stored = profileRepository.findById(validated.id())
             .map(existing -> requireSameProfile(existing, validated))
             .orElseGet(() -> profileRepository.saveAndFlush(validated));
-        return new RegistrationResult(registered, stored);
+        AgentTaskAttemptEntity attempt = registry.createAttempt(registered.id(), registered.workspaceId(),
+            registered.revision(), attemptId, predictedSeconds, predictionModelVersion,
+            predictionFeatureSnapshot, now);
+        return new RegistrationResult(registered, attempt, stored);
     }
 
     private static AgentTaskExecutionProfileEntity requireSameProfile(AgentTaskExecutionProfileEntity existing,
@@ -46,6 +53,7 @@ public class AgentTaskRegistrationService {
         return existing;
     }
 
-    public record RegistrationResult(AgentTaskEntity task, AgentTaskExecutionProfileEntity profile) {
+    public record RegistrationResult(AgentTaskEntity task, AgentTaskAttemptEntity attempt,
+                                     AgentTaskExecutionProfileEntity profile) {
     }
 }

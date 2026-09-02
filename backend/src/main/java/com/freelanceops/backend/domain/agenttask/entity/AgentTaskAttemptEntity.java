@@ -283,4 +283,19 @@ public class AgentTaskAttemptEntity {
     public String retryDecision() { return retryDecision; }
     public String retryReason() { return retryReason; }
     public Instant retryReadyAt() { return retryReadyAt; }
+    public Instant queuedAt() { return queuedAt; }
+    public Double predictedServiceRuntimeSeconds() { return predictedServiceRuntimeSeconds; }
+    public String predictionModelVersion() { return predictionModelVersion; }
+    public Map<String, Object> predictionFeatureSnapshot() {
+        return predictionFeatureSnapshot == null ? Map.of() : Map.copyOf(predictionFeatureSnapshot);
+    }
+
+    public boolean hasSameRegistration(UUID expectedWorkspaceId, UUID expectedTaskId, int expectedRevision,
+                                       Double predictedSeconds, String predictorVersion,
+                                       Map<String, Object> featureSnapshot) {
+        return workspaceId.equals(expectedWorkspaceId) && taskId.equals(expectedTaskId)
+            && taskRevision == expectedRevision && Objects.equals(predictedServiceRuntimeSeconds, predictedSeconds)
+            && Objects.equals(predictionModelVersion, predictorVersion)
+            && predictionFeatureSnapshot().equals(featureSnapshot == null ? Map.of() : featureSnapshot);
+    }
 }

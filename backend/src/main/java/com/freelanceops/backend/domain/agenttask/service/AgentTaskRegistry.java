@@ -60,6 +60,15 @@ public class AgentTaskRegistry {
     public AgentTaskAttemptEntity createAttempt(UUID taskId, UUID workspaceId, int expectedRevision, UUID attemptId,
                                                 Double predictedSeconds, String predictionModelVersion,
                                                 Map<String, Object> predictionFeatureSnapshot, Instant now) {
+        var existing = attemptRepository.findByIdAndWorkspaceIdForUpdate(attemptId, workspaceId);
+        if (existing.isPresent()) {
+            AgentTaskAttemptEntity attempt = existing.get();
+            if (!attempt.hasSameRegistration(workspaceId, taskId, expectedRevision, predictedSeconds,
+                predictionModelVersion, predictionFeatureSnapshot)) {
+                throw new IllegalStateException("task attempt idempotency key conflicts with different data");
+            }
+            return attempt;
+        }
         AgentTaskEntity task = lockTask(taskId, workspaceId);
         int attemptNumber = task.dispatch(expectedRevision, now);
         AgentTaskAttemptEntity attempt = new AgentTaskAttemptEntity(attemptId, workspaceId, taskId,
