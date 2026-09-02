@@ -23,6 +23,7 @@ from routing import (
     SafetyContext,
     SecretSystemPrompt,
     build_openai_route_evaluator,
+    build_operational_route_gateway,
 )
 
 
@@ -242,6 +243,37 @@ def test_wiring_requires_complete_approved_secret() -> None:
         build_openai_route_evaluator(Settings(), client=client)
     with pytest.raises(ValueError, match="configured together"):
         Settings(route_evaluator_system_prompt=private_content)
+
+
+@pytest.mark.asyncio
+async def test_operational_wiring_records_shadow_without_changing_primary_route(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: E501
+    evaluator = RecordingEvaluator(verdict(RouteLabel.SIMPLE_LLM))
+    local = HybridRouteModel(examples(), FixedEncoder(RouteLabel.DIRECT_TOOL))
+    monkeypatch.setattr("routing.wiring.build_openai_route_evaluator", lambda settings, client=None: evaluator)
+
+    gateway = build_operational_route_gateway(Settings(route_shadow_enabled=True), shadow_model_provider=lambda: local)
+    decision = await gateway.route("금액 부가세 합계 계산")
+
+    assert decision.route is RouteLabel.SIMPLE_LLM
+    assert decision.source is RouteDecisionSource.LLM_EVALUATOR
+    assert decision.local_decision is not None
+    assert decision.local_decision.suggested_route is RouteLabel.DIRECT_TOOL
+
+
+@pytest.mark.asyncio
+async def test_operational_wiring_keeps_primary_route_when_shadow_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: E501
+    evaluator = RecordingEvaluator(verdict(RouteLabel.REACT_AGENT))
+    monkeypatch.setattr("routing.wiring.build_openai_route_evaluator", lambda settings, client=None: evaluator)
+
+    def unavailable_shadow() -> object:
+        raise RuntimeError("local model is unavailable")
+
+    gateway = build_operational_route_gateway(Settings(route_shadow_enabled=True), shadow_model_provider=unavailable_shadow)  # noqa: E501
+    decision = await gateway.route("공개 자료를 조사해 주세요")
+
+    assert decision.route is RouteLabel.REACT_AGENT
+    assert decision.source is RouteDecisionSource.LLM_EVALUATOR
+    assert decision.local_decision is None
 
 
 @pytest.mark.asyncio
