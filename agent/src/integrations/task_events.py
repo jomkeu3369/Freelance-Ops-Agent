@@ -6,7 +6,7 @@ from typing import Any
 
 import httpx
 
-from runtime.task_attempt_events import ClaimedTaskAttemptEvent, TaskAttemptEventStore
+from runtime.task_attempt_events import ClaimedTaskAttemptEvent, TaskAttemptEventRecord, TaskAttemptEventStore
 
 
 class SpringTaskEventError(RuntimeError):
@@ -46,13 +46,23 @@ class SpringTaskEventClient:
         if response.status_code < 200 or response.status_code >= 300:
             raise SpringTaskEventError("SPRING_TASK_EVENT_UNAVAILABLE")
         try:
-            accepted = response.json()["acceptedEventIds"]
-            result = {str(event_id) for event_id in accepted}
+            acknowledgements = response.json()["acknowledgements"]
         except (KeyError, TypeError, ValueError) as error:
             raise SpringTaskEventError("SPRING_TASK_EVENT_RESPONSE_INVALID") from error
-        expected = {claim.record.event_id for claim in claims}
-        if not result.issubset(expected):
+        if not isinstance(acknowledgements, list):
             raise SpringTaskEventError("SPRING_TASK_EVENT_RESPONSE_INVALID")
+        expected = {claim.record.event_id: claim.record for claim in claims}
+        result: set[str] = set()
+        for acknowledgement in acknowledgements:
+            if not isinstance(acknowledgement, dict):
+                raise SpringTaskEventError("SPRING_TASK_EVENT_RESPONSE_INVALID")
+            event_id = acknowledgement.get("eventId")
+            if not isinstance(event_id, str):
+                raise SpringTaskEventError("SPRING_TASK_EVENT_RESPONSE_INVALID")
+            event = expected.get(event_id)
+            if event is None or event_id in result or not _matches_acknowledgement(acknowledgement, event):
+                raise SpringTaskEventError("SPRING_TASK_EVENT_RESPONSE_INVALID")
+            result.add(event_id)
         return result
 
 
@@ -102,6 +112,21 @@ def _payload(claim: ClaimedTaskAttemptEvent) -> dict[str, object]:
         "milestone": event.milestone,
         "data": dict(event.data),
         "occurredAt": event.occurred_at.isoformat().replace("+00:00", "Z"),
+    }
+
+
+def _matches_acknowledgement(acknowledgement: dict[object, object], record: TaskAttemptEventRecord) -> bool:
+    return acknowledgement == {
+        "eventId": record.event_id,
+        "workspaceId": str(record.workspace_id),
+        "runId": str(record.run_id),
+        "taskId": str(record.task_id),
+        "taskRevision": record.task_revision,
+        "attemptId": str(record.attempt_id),
+        "attemptNumber": record.attempt_number,
+        "source": record.source,
+        "sourceEventId": record.source_event_id,
+        "sequence": record.sequence,
     }
 
 

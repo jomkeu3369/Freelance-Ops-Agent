@@ -27,16 +27,32 @@ def event() -> TaskAttemptEventWrite:
     )
 
 
+def acknowledgement(task_event: TaskAttemptEventWrite) -> dict[str, object]:
+    return {
+        "eventId": task_event.event_id,
+        "workspaceId": str(task_event.workspace_id),
+        "runId": str(task_event.run_id),
+        "taskId": str(task_event.task_id),
+        "taskRevision": task_event.task_revision,
+        "attemptId": str(task_event.attempt_id),
+        "attemptNumber": task_event.attempt_number,
+        "source": task_event.source,
+        "sourceEventId": task_event.source_event_id,
+        "sequence": task_event.sequence,
+    }
+
+
 async def test_publisher_acknowledges_exact_spring_batch_response() -> None:
     observed: dict[str, object] = {}
+    task_event = event()
 
     def handler(request: httpx.Request) -> httpx.Response:
         observed.update(__import__("json").loads(request.content))
         assert request.headers["Authorization"] == "Bearer workload-token"
-        return httpx.Response(200, json={"acceptedEventIds": ["event-1"]})
+        return httpx.Response(200, json={"acknowledgements": [acknowledgement(task_event)]})
 
     store = InMemoryTaskAttemptEventStore()
-    await store.append(event())
+    await store.append(task_event)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://backend:8080") as http_client:
         publisher = TaskEventPublisher(store, SpringTaskEventClient("http://backend:8080", client=http_client))
         assert await publisher.publish_once("workload-token") == 1
@@ -46,6 +62,21 @@ async def test_publisher_acknowledges_exact_spring_batch_response() -> None:
     assert isinstance(payload, list)
     assert payload[0]["taskRevision"] == 2
     assert payload[0]["phase"] == "research"
+
+
+async def test_publisher_rejects_acknowledgement_with_different_revision() -> None:
+    task_event = event()
+    invalid = acknowledgement(task_event)
+    invalid["taskRevision"] = task_event.task_revision + 1
+    store = InMemoryTaskAttemptEventStore()
+    await store.append(task_event)
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"acknowledgements": [invalid]})),
+        base_url="http://backend:8080"
+    ) as http_client:
+        publisher = TaskEventPublisher(store, SpringTaskEventClient("http://backend:8080", client=http_client))
+        with pytest.raises(SpringTaskEventError, match="RESPONSE_INVALID"):
+            await publisher.publish_once("workload-token")
 
 
 async def test_publisher_releases_claim_for_retry_after_failure() -> None:

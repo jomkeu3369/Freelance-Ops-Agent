@@ -109,3 +109,17 @@ async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> No
     assert publisher.tokens == ["workload-token", "workload-token", "workload-token"]
     assert spring.payloads[0]["executionProfile"]["permissions"] == ["agent.run", "project.read"]  # type: ignore[index]
     assert "민감한 원문" not in str(spring.payloads[0])
+
+
+async def test_failed_shadow_observation_marks_task_terminal_without_requiring_failure_code() -> None:
+    run_request = request()
+    registry = MemoryRegistry()
+    registrar = PostgresResearchTaskShadowRegistrar(registry, RecordingSpringRegistration(run_request))  # type: ignore[arg-type]
+    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+
+    await registrar.register(run_request, decision, SafetyContext(), "workload-token")
+    assert await registrar.observe_terminal(run_request, AttemptStatus.FAILED, None, "workload-token")
+
+    terminal = registry.events[-1]
+    assert terminal.event_type == "attempt.failed"  # type: ignore[attr-defined]
+    assert terminal.data == {"task_terminal": True}  # type: ignore[attr-defined]
