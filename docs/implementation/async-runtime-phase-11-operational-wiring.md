@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a, 11B-2b 완료, 11B-3 준비 중
+> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3 완료, 11C-1 준비 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -82,8 +82,10 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 ### 11B-3 · Spring projection과 ACK
 
 - Python event outbox를 Spring projection 계약에 연결한다.
-- ACK는 workspace, task, attempt, revision, event identity를 모두 fencing한다.
+- ACK는 event ID만 반환하지 않고 workspace, run, task, attempt, revision, source, sequence identity를
+  함께 반환하며 Python이 claim 원본과 전부 일치하는지 검증한다.
 - ACK 유실·재전송·과거 revision event를 idempotent하게 처리한다.
+- 최종 실패 event는 retry 판단을 기다리는 일반 실패와 구분해 현재 Task를 `FAILED`로 종료한다.
 
 완료 기준:
 

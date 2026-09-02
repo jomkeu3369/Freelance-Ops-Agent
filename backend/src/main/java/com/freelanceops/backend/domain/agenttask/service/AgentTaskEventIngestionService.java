@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
 import com.freelanceops.backend.domain.agenttask.dto.request.IngestAgentTaskEventRequest;
+import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskEventAcknowledgement;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskAttemptEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEventEntity;
@@ -39,13 +40,15 @@ public class AgentTaskEventIngestionService {
     }
 
     @Transactional
-    public List<String> ingest(List<IngestAgentTaskEventRequest> requests, java.util.UUID principalWorkspaceId,
-                               java.util.UUID principalRunId, Instant receivedAt) {
+    public List<AgentTaskEventAcknowledgement> ingest(List<IngestAgentTaskEventRequest> requests,
+                                                      java.util.UUID principalWorkspaceId, java.util.UUID principalRunId,
+                                                      Instant receivedAt) {
         return requests.stream().map(request -> ingestOne(request, principalWorkspaceId, principalRunId, receivedAt)).toList();
     }
 
-    private String ingestOne(IngestAgentTaskEventRequest request, java.util.UUID principalWorkspaceId,
-                             java.util.UUID principalRunId, Instant receivedAt) {
+    private AgentTaskEventAcknowledgement ingestOne(IngestAgentTaskEventRequest request,
+                                                    java.util.UUID principalWorkspaceId, java.util.UUID principalRunId,
+                                                    Instant receivedAt) {
         validate(request, principalWorkspaceId, principalRunId);
         AgentTaskEntity task = taskRepository.findByIdAndWorkspaceIdForUpdate(request.taskId(), request.workspaceId())
             .orElseThrow(() -> new IllegalArgumentException("task event target was not found in workspace"));
@@ -60,12 +63,14 @@ public class AgentTaskEventIngestionService {
         List<AgentTaskEventEntity> conflicts = eventRepository.findConflicts(request.eventId(), request.source(),
             request.sourceEventId(), request.attemptId(), request.sequence());
         if (!conflicts.isEmpty()) {
-            if (conflicts.stream().allMatch(existing -> sameIdentity(existing, incoming))) return conflicts.getFirst().eventId();
+            if (conflicts.stream().allMatch(existing -> sameIdentity(existing, incoming))) {
+                return AgentTaskEventAcknowledgement.from(conflicts.getFirst());
+            }
             throw new IllegalStateException("task event idempotency key conflicts with different data");
         }
         eventRepository.saveAndFlush(incoming);
         project(request, task, attempt, receivedAt);
-        return incoming.eventId();
+        return AgentTaskEventAcknowledgement.from(incoming);
     }
 
     private static void project(IngestAgentTaskEventRequest event, AgentTaskEntity task,
@@ -91,8 +96,13 @@ public class AgentTaskEventIngestionService {
                     ? AgentTaskStatus.COMPLETED_REUSED : AgentTaskStatus.COMPLETED;
                 task.complete(event.taskRevision(), event.attemptNumber(), result, receivedAt);
             }
-            case "attempt.failed" -> attempt.projectTerminal(AgentTaskAttemptStatus.FAILED,
-                textValue(event.data().get("failure_code")), event.occurredAt());
+            case "attempt.failed" -> {
+                attempt.projectTerminal(AgentTaskAttemptStatus.FAILED,
+                    textValue(event.data().get("failure_code")), event.occurredAt());
+                if (Boolean.TRUE.equals(event.data().get("task_terminal"))) {
+                    task.complete(event.taskRevision(), event.attemptNumber(), AgentTaskStatus.FAILED, receivedAt);
+                }
+            }
             case "attempt.retry_decided" -> {
                 attempt.projectRetryDecision(event.data(), event.occurredAt());
                 task.projectRetryDecision(event.taskRevision(), event.attemptNumber(),

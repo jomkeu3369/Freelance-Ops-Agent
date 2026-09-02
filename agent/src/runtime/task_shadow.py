@@ -71,7 +71,11 @@ class PostgresResearchTaskShadowRegistrar:
         if attempt.status is AttemptStatus.RUNNING:
             occurred_at = datetime.now(UTC)
             event_type = "attempt.completed" if target is AttemptStatus.COMPLETED else "attempt.failed"
-            data: dict[str, object] = {} if failure_code is None else {"failure_code": failure_code}
+            data: dict[str, object] = {}
+            if target is AttemptStatus.FAILED:
+                data["task_terminal"] = True
+                if failure_code is not None:
+                    data["failure_code"] = failure_code
             attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, target, finished_at=occurred_at, event=self._event(task, attempt, 2, event_type, occurred_at, "VERIFICATION", "Research shadow observation completed", data))
         task_target = TaskStatus.COMPLETED if target is AttemptStatus.COMPLETED else TaskStatus.FAILED
         if task.status is TaskStatus.RUNNING:
