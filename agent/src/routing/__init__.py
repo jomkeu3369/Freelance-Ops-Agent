@@ -25,7 +25,7 @@ from .llm_evaluator import (
 )
 from .profiles import ExecutionRisk, RouteExecutionProfile, ToolProfile, execution_profile
 from .safety import SafetyContext, SafetyDecision, SafetyDecisionCode, evaluate_safety
-from .wiring import build_openai_route_evaluator
+from .wiring import build_openai_route_evaluator, build_operational_route_gateway
 
 __all__ = [
     "EncoderRouteScorer",
@@ -51,6 +51,7 @@ __all__ = [
     "SafetyDecisionCode",
     "load_route_examples",
     "build_openai_route_evaluator",
+    "build_operational_route_gateway",
     "evaluate_safety",
     "ExecutionRisk",
     "RouteExecutionProfile",

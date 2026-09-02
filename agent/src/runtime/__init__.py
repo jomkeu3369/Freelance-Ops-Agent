@@ -9,6 +9,7 @@ from .executor import (
     ProjectContextTool,
     ResearchTool,
 )
+from .composition import AsyncRuntimeServices, build_async_runtime_services
 from .postgres_store import PostgresAgentRunStore
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
 from .runs import (
@@ -83,6 +84,7 @@ from .runtime_operational_metrics import PostgresRuntimeOperationalMetrics, Runt
 __all__ = [
     "AgentRunExecutor",
     "AgentExecutionError",
+    "AsyncRuntimeServices",
     "AgentRunNotFoundError",
     "AgentRunStateError",
     "AgentRunStore",
@@ -154,6 +156,7 @@ __all__ = [
     "ShadowAdmissionSnapshot",
     "ShadowSchedulingLane",
     "WorkerCapacitySnapshot",
+    "build_async_runtime_services",
     "ClaimedSchedulerEntry",
     "PostgresShadowSchedulerStore",
     "SchedulerClaimConflictError",

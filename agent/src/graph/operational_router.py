@@ -10,7 +10,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from config import get_settings
-from routing import OperationalRouteGateway, SafetyContext, build_openai_route_evaluator, execution_profile
+from routing import OperationalRouteGateway, SafetyContext, build_operational_route_gateway, execution_profile
 
 
 class SafetyContextInput(TypedDict, total=False):
@@ -53,14 +53,7 @@ class OperationalRouterState(TypedDict, total=False):
 
 @lru_cache(maxsize=1)
 def build_operational_gateway() -> OperationalRouteGateway:
-    settings = get_settings()
-    evaluator = build_openai_route_evaluator(settings)
-    shadow_model = None
-    if settings.route_shadow_enabled:
-        from graph.router import build_local_route_model
-
-        shadow_model = build_local_route_model()
-    return OperationalRouteGateway(evaluator, shadow_model=shadow_model)
+    return build_operational_route_gateway(get_settings())
 
 
 def _safety_context(raw: SafetyContextInput | None) -> SafetyContext:

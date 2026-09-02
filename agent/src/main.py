@@ -19,9 +19,9 @@ from integrations import SpringToolClient
 from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
-from routing import OperationalRouteGateway
-from routing.wiring import build_openai_route_evaluator
+from routing import build_operational_route_gateway
 from runtime import (
+    AsyncRuntimeServices,
     FailClosedOperationalGateway,
     InMemoryAgentRunStore,
     OperationalAgentExecutor,
@@ -29,6 +29,7 @@ from runtime import (
     PostgresAgentRunStore,
     PostgresTaskCommandInbox,
     RunCoordinator,
+    build_async_runtime_services,
 )
 from security import DelegationTokenVerifier
 from web_research import BoundedWebResearchService, DirectHttpProvider, TavilySearchProvider
@@ -47,11 +48,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     database: PgVectorConnectionManager | None = app.state.database_manager
     store: PostgresAgentRunStore | None = app.state.postgres_run_store
     checkpoint: PostgresCheckpointJournal | None = app.state.checkpoint_journal
+    async_runtime_services: AsyncRuntimeServices | None = app.state.async_runtime_services
 
     try:
         if database is not None and store is not None:
             await database.open()
             await store.initialize()
+
+        if async_runtime_services is not None:
+            await async_runtime_services.task_registry.initialize()
+            await async_runtime_services.task_event_store.initialize()
 
         if checkpoint is not None:
             await checkpoint.open()
@@ -83,16 +89,19 @@ class FreelanceOpsAgentAiServer:
         postgres_run_store: PostgresAgentRunStore | None = None
         checkpoint_journal: PostgresCheckpointJournal | None = None
         ai_gateway: AIGateway | None = None
+        async_runtime_services: AsyncRuntimeServices | None = None
 
         if run_coordinator is None:
             run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway = _build_run_runtime()
+            async_runtime_services = build_async_runtime_services(database_manager) if database_manager is not None else None  # noqa: E501
 
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
+        self.app.state.async_runtime_services = async_runtime_services
         self.app.state.task_command_inbox = task_command_inbox or (
-            PostgresTaskCommandInbox(database_manager) if database_manager is not None else None
+            async_runtime_services.task_command_inbox if async_runtime_services is not None else None
         )
         self.app.state.ai_gateway = ai_gateway
         self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(OpenAIRaptorBuildService(), GeminiRaptorBuildService())  # noqa: E501
@@ -121,7 +130,7 @@ class FreelanceOpsAgentAiServer:
 def _build_run_runtime() -> RuntimeComponents:
     settings = get_settings()
     try:
-        gateway: OperationalGateway = OperationalRouteGateway(build_openai_route_evaluator(settings))
+        gateway: OperationalGateway = build_operational_route_gateway(settings)
 
     except RuntimeError:
         gateway = FailClosedOperationalGateway()
