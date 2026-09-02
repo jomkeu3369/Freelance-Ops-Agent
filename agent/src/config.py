@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     route_evaluator_prompt_sha256: str | None = None
     route_shadow_enabled: bool = False
     task_shadow_enabled: bool = False
+    fifo_dispatcher_enabled: bool = False
+    fifo_dispatcher_resource_pool: str = Field(default="research-read-v1", min_length=1, max_length=100)
+    fifo_dispatcher_claimed_by: str = Field(default="agent-research-dispatcher", min_length=1, max_length=100)
+    fifo_dispatcher_lease_seconds: int = Field(default=60, ge=1, le=300)
+    fifo_dispatcher_predicted_runtime_seconds: float = Field(default=30, ge=0, le=3600)
+    fifo_dispatcher_predictor_version: str = Field(default="pilot-static-v1", min_length=1, max_length=100)
+    fifo_dispatcher_worker_count: int = Field(default=1, ge=1, le=32)
 
     delegation_token_issuer: str = "freelance-ops-backend"
     delegation_token_audience: str = "freelance-ops-agent"
@@ -158,6 +165,9 @@ class Settings(BaseSettings):
 
         if self.web_research_enabled and self.tavily_api_key is None:
             raise ValueError("enabled web research requires a Tavily API key")
+
+        if self.fifo_dispatcher_enabled and (not self.task_shadow_enabled or self.run_store_backend != "postgres" or not self.web_research_enabled):  # noqa: E501
+            raise ValueError("enabled FIFO dispatcher requires PostgreSQL Task shadow and web research")
 
         return self
 

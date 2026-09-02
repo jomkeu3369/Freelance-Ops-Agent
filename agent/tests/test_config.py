@@ -49,6 +49,17 @@ def test_enabled_web_research_requires_allowlist_and_api_key() -> None:
     assert settings.allowed_web_research_domains() == ["example.go.kr", "www.example.go.kr"]
 
 
+def test_fifo_dispatcher_is_default_off_and_requires_bounded_runtime_dependencies() -> None:
+    assert not Settings().fifo_dispatcher_enabled
+    with pytest.raises(ValidationError, match="FIFO dispatcher"):
+        Settings(fifo_dispatcher_enabled=True)
+
+    settings = Settings(fifo_dispatcher_enabled=True, task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+
+    assert settings.fifo_dispatcher_resource_pool == "research-read-v1"
+    assert settings.fifo_dispatcher_predictor_version == "pilot-static-v1"
+
+
 def test_delegation_rotation_requires_complete_distinct_previous_key() -> None:
     with pytest.raises(ValidationError, match="configured together"):
         Settings(delegation_token_previous_key_id="previous-v1")

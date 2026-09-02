@@ -24,11 +24,17 @@ from runtime import (
     AsyncRuntimeServices,
     FailClosedOperationalGateway,
     InMemoryAgentRunStore,
+    InMemoryResearchDispatchContextBroker,
     OperationalAgentExecutor,
     OperationalGateway,
     PostgresAgentRunStore,
+    PostgresResearchResultFence,
     PostgresResearchTaskShadowRegistrar,
     PostgresTaskCommandInbox,
+    ReadOnlyResearchSpecialist,
+    ResearchFifoDispatcherPilot,
+    ResearchTaskWorker,
+    ResearchWorkerDispatchSink,
     RunCoordinator,
     build_async_runtime_services,
 )
@@ -41,7 +47,8 @@ RuntimeComponents = tuple[
     PostgresAgentRunStore | None,
     PostgresCheckpointJournal | None,
     AIGateway,
-    AsyncRuntimeServices | None
+    AsyncRuntimeServices | None,
+    ResearchWorkerDispatchSink | None
 ]
 
 
@@ -51,6 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     store: PostgresAgentRunStore | None = app.state.postgres_run_store
     checkpoint: PostgresCheckpointJournal | None = app.state.checkpoint_journal
     async_runtime_services: AsyncRuntimeServices | None = app.state.async_runtime_services
+    research_worker_sink: ResearchWorkerDispatchSink | None = app.state.research_worker_sink
 
     try:
         if database is not None and store is not None:
@@ -66,6 +74,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
 
     finally:
+        if research_worker_sink is not None:
+            await research_worker_sink.wait()
+
         if checkpoint is not None:
             await checkpoint.close()
 
@@ -92,15 +103,17 @@ class FreelanceOpsAgentAiServer:
         checkpoint_journal: PostgresCheckpointJournal | None = None
         ai_gateway: AIGateway | None = None
         async_runtime_services: AsyncRuntimeServices | None = None
+        research_worker_sink: ResearchWorkerDispatchSink | None = None
 
         if run_coordinator is None:
-            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services = _build_run_runtime()  # noqa: E501
+            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services, research_worker_sink = _build_run_runtime()  # noqa: E501
 
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
         self.app.state.async_runtime_services = async_runtime_services
+        self.app.state.research_worker_sink = research_worker_sink
         self.app.state.task_command_inbox = task_command_inbox or (
             async_runtime_services.task_command_inbox if async_runtime_services is not None else None
         )
@@ -159,7 +172,7 @@ def _build_run_runtime() -> RuntimeComponents:
     research_tool = _build_web_research_service(settings)
     if settings.run_store_backend == "memory":
         executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool)
-        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None
+        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None, None
 
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
@@ -175,14 +188,27 @@ def _build_run_runtime() -> RuntimeComponents:
 
     store = PostgresAgentRunStore(database)
     services = build_async_runtime_services(database)
+    event_publisher = TaskEventPublisher(
+        services.task_event_store,
+        SpringTaskEventClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)
+    )
+    research_worker_sink: ResearchWorkerDispatchSink | None = None
+    dispatcher: ResearchFifoDispatcherPilot | None = None
+    context_broker: InMemoryResearchDispatchContextBroker | None = None
+    if settings.fifo_dispatcher_enabled:
+        if research_tool is None:
+            raise RuntimeError("enabled FIFO dispatcher requires the Research tool")
+        context_broker = InMemoryResearchDispatchContextBroker()
+        worker = ResearchTaskWorker(services.task_registry, ReadOnlyResearchSpecialist(model_gateway, research_tool), result_fence=PostgresResearchResultFence(services.task_registry))  # noqa: E501
+        research_worker_sink = ResearchWorkerDispatchSink(worker, context_broker, event_publisher)
+        dispatcher = ResearchFifoDispatcherPilot(services.scheduler_store, research_worker_sink, resource_pool=settings.fifo_dispatcher_resource_pool, claimed_by=settings.fifo_dispatcher_claimed_by, lease_seconds=settings.fifo_dispatcher_lease_seconds, predicted_runtime_seconds=settings.fifo_dispatcher_predicted_runtime_seconds, predictor_version=settings.fifo_dispatcher_predictor_version, worker_count=settings.fifo_dispatcher_worker_count)  # noqa: E501
     task_shadow_registrar = (
         PostgresResearchTaskShadowRegistrar(
             services.task_registry,
             SpringTaskRegistrationClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds),  # noqa: E501
-            TaskEventPublisher(
-                services.task_event_store,
-                SpringTaskEventClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
-            )
+            event_publisher,
+            dispatcher,
+            context_broker
         )
         if settings.task_shadow_enabled
         else None
@@ -197,7 +223,8 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services  # noqa: E501
+    terminal_observer = None if dispatcher is not None else task_shadow_registrar
+    return RunCoordinator(store, executor, checkpoint, terminal_observer), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:

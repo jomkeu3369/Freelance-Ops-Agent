@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1 완료, 11C-2 준비 중
+> 상태: 11A, 11B-1, 11B-2a, 11B-2b, 11B-3, 11C-1, 11C-2 완료, 11C-3 준비 중
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -107,6 +107,13 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 - 유효한 claim, 현재 revision, TaskGuard 검증을 모두 통과한 작업만 실행한다.
 - cancel과 hard redirect 이후의 늦은 결과는 현재 revision에 병합하지 않는다.
 - lease 만료 시 같은 queue row와 attempt를 회수한다.
+- dispatcher는 기본 비활성이며 PostgreSQL Task shadow와 allowlist web research가 함께 활성화된 경우에만 조립한다.
+- 원문 objective와 workload token을 queue·Task event에 추가 저장하지 않고 실행 중 메모리
+  dispatch context에만 보관한 뒤 폐기한다.
+- sink 인수 전 TaskGuard를 검증하고 worker 내부에서 다시 검증하며, verified result 기록 직전에
+  PostgreSQL의 현재 Task·Attempt 상태를 다시 fencing한다.
+- FIFO shadow worker가 활성화되면 기존 AgentRun은 primary fallback으로 계속 실행하고,
+  RunCoordinator terminal observer 대신 worker가 shadow Task lifecycle을 소유한다.
 
 ### 11C-3 · 복구·관측 검증
 

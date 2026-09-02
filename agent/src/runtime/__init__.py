@@ -73,7 +73,8 @@ from .task_registry import (
 )
 from .task_guard import TaskGuard, TaskGuardRejection
 from .research_specialist import ReadOnlyResearchSpecialist, ResearchResultVerifier, ResearchSpecialistError, ResearchSpecialistResult  # noqa: E501
-from .research_worker import ResearchTaskWorker
+from .research_dispatch import InMemoryResearchDispatchContextBroker, PostgresResearchResultFence, ResearchDispatchContext, ResearchDispatchContextLoader, ResearchWorkerDispatchSink  # noqa: E501
+from .research_worker import ResearchFailureHandler, ResearchResultFence, ResearchTaskRegistry, ResearchTaskWorker  # noqa: E501
 from .task_commands import PostgresTaskCommandInbox, TaskCommandAcceptance, TaskCommandConflictError, TaskCommandInboxError, TaskCommandPendingError  # noqa: E501
 from .reliability import FailureAssessment, HierarchicalRetryBudget, ProviderCircuit, ProviderCircuitPolicy, TokenBucketState, WeightedFailureClassifier, default_retry_buckets, issue_resume_token, verify_resume_token  # noqa: E501
 from .task_reliability_store import PostgresTaskReliabilityStore, TaskReliabilityError
@@ -136,7 +137,15 @@ __all__ = [
     "ResearchResultVerifier",
     "ResearchSpecialistError",
     "ResearchSpecialistResult",
+    "ResearchFailureHandler",
+    "ResearchResultFence",
+    "ResearchTaskRegistry",
     "ResearchTaskWorker",
+    "PostgresResearchResultFence",
+    "ResearchDispatchContext",
+    "ResearchDispatchContextLoader",
+    "ResearchWorkerDispatchSink",
+    "InMemoryResearchDispatchContextBroker",
     "PostgresTaskCommandInbox",
     "TaskCommandAcceptance",
     "TaskCommandConflictError",

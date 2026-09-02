@@ -147,6 +147,12 @@ class RecordingRegistry:
         return attempt(value).model_copy(update={"status": target})
 
 
+class DenyResultFence:
+    async def allows(self, task: DepartmentTask, current_attempt: TaskAttempt) -> bool:
+        del task, current_attempt
+        return False
+
+
 @pytest.mark.asyncio
 async def test_worker_emits_started_and_verified_completion_events() -> None:
     value = task()
@@ -161,6 +167,20 @@ async def test_worker_emits_started_and_verified_completion_events() -> None:
     assert registry.calls == [("attempt", AttemptStatus.RUNNING), ("task", TaskStatus.RUNNING), ("attempt", AttemptStatus.COMPLETED), ("task", TaskStatus.COMPLETED)]
     assert [event.event_type for event in registry.events] == ["attempt.started", "attempt.completed"]
     assert registry.events[-1].data["result"]["verification_status"] == "PASSED"
+
+
+@pytest.mark.asyncio
+async def test_worker_discards_verified_result_after_cancel_or_redirect_fence() -> None:
+    value = task()
+    registry = RecordingRegistry()
+    specialist = ReadOnlyResearchSpecialist(FakeProvider("Policy applies. [source:1]"), FakeResearchTool())
+    worker = ResearchTaskWorker(registry, specialist, result_fence=DenyResultFence())  # type: ignore[arg-type]
+
+    with pytest.raises(ResearchSpecialistError, match="RESEARCH_RESULT_SUPERSEDED"):
+        await worker.run(value, attempt(value), objective="Check the official policy", jurisdiction="KR", current_permissions={"agent.run", "project.read"}, current_authorization_revision=3, current_budget_revision=2, parent_budget=budget())
+
+    assert registry.calls == [("attempt", AttemptStatus.RUNNING), ("task", TaskStatus.RUNNING)]
+    assert [event.event_type for event in registry.events] == ["attempt.started"]
 
 
 @pytest.mark.asyncio
