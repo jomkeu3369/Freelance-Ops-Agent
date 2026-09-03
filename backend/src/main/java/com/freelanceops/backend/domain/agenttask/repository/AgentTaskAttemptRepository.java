@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public interface AgentTaskAttemptRepository extends JpaRepository<AgentTaskAttemptEntity, UUID> {
 
+    Optional<AgentTaskAttemptEntity> findByTaskIdAndTaskRevisionAndAttemptNumber(UUID taskId, int taskRevision, int attemptNumber);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select attempt from AgentTaskAttemptEntity attempt where attempt.id = :id and attempt.workspaceId = :workspaceId")
     Optional<AgentTaskAttemptEntity> findByIdAndWorkspaceIdForUpdate(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId);

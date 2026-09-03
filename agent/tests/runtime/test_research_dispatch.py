@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+
 # ruff: noqa: E501, I001
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -79,6 +81,21 @@ async def test_dispatch_sink_starts_worker_only_for_exact_current_claim() -> Non
     assert worker.calls == [(context.task, context.attempt, context.objective)]
 
 
+async def test_dispatch_sink_publishes_only_the_worker_workload() -> None:
+    context, claim = fixture()
+    observed: list[tuple[str, UUID, UUID]] = []
+
+    class Publisher:
+        async def publish_once(self, workload_token: str, *, workspace_id: UUID, run_id: UUID, batch_size: int = 100) -> int:
+            observed.append((workload_token, workspace_id, run_id))
+            return 1
+
+    sink = ResearchWorkerDispatchSink(RecordingWorker(), FixedLoader(context), Publisher())  # type: ignore[arg-type]
+    assert await sink.dispatch(claim)
+    await sink.wait()
+    assert observed == [(context.workload_token, context.task.workspace_id, context.task.run_id)]
+
+
 async def test_dispatch_sink_rejects_claim_with_different_attempt() -> None:
     context, claim = fixture()
     worker = RecordingWorker()
@@ -115,3 +132,95 @@ async def test_postgres_result_fence_rejects_cancelled_or_redirected_current_sta
     fence = PostgresResearchResultFence(CurrentStateRegistry(current_task, current_attempt))  # type: ignore[arg-type]
 
     assert not await fence.allows(context.task, context.attempt)
+
+
+class BlockingWorker(RecordingWorker):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.cancelled = False
+
+    async def run(self, task: DepartmentTask, attempt: TaskAttempt, **values: object) -> None:
+        await super().run(task, attempt, **values)
+        self.started.set()
+        try:
+            await self.release.wait()
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+
+
+async def test_worker_capacity_is_reserved_before_loader_await() -> None:
+    context, claim = fixture()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class SlowLoader(FixedLoader):
+        async def load(self, claim: ClaimedSchedulerEntry) -> ResearchDispatchContext | None:
+            entered.set()
+            await release.wait()
+            return await super().load(claim)
+
+    worker = BlockingWorker()
+    sink = ResearchWorkerDispatchSink(worker, SlowLoader(context), worker_count=1)  # type: ignore[arg-type]
+    first = asyncio.create_task(sink.dispatch(claim))
+    await entered.wait()
+    assert not sink.has_capacity
+    assert not await sink.dispatch(claim)
+    release.set()
+    assert await first
+    await worker.started.wait()
+    assert len(worker.calls) == 1
+    worker.release.set()
+    await sink.wait()
+    assert sink.has_capacity
+
+
+async def test_ack_failure_does_not_start_worker_and_releases_slot() -> None:
+    context, claim = fixture()
+    worker = RecordingWorker()
+    sink = ResearchWorkerDispatchSink(worker, FixedLoader(context))  # type: ignore[arg-type]
+
+    async def fail_ack() -> None:
+        raise RuntimeError("ACK unavailable")
+
+    with pytest.raises(RuntimeError, match="ACK unavailable"):
+        await sink.dispatch(claim, acknowledge=fail_ack)
+    await sink.wait()
+    assert worker.calls == []
+    assert sink.has_capacity
+
+
+async def test_worker_starts_only_after_ack_and_close_cancels_bounded_work() -> None:
+    context, claim = fixture()
+    worker = BlockingWorker()
+    sink = ResearchWorkerDispatchSink(worker, FixedLoader(context), shutdown_timeout_seconds=0.01)  # type: ignore[arg-type]
+
+    async def acknowledge() -> None:
+        assert worker.calls == []
+
+    assert await sink.dispatch(claim, acknowledge=acknowledge)
+    await worker.started.wait()
+    await asyncio.wait_for(sink.close(), timeout=2)
+    assert worker.cancelled
+    assert not await sink.dispatch(claim)
+
+
+async def test_dispatch_loop_polls_without_new_registration_and_stops_on_close() -> None:
+    reached = asyncio.Event()
+    calls = 0
+
+    async def dispatch_once() -> None:
+        nonlocal calls
+        calls += 1
+        if calls >= 2:
+            reached.set()
+
+    sink = ResearchWorkerDispatchSink(RecordingWorker(), FixedLoader(None))  # type: ignore[arg-type]
+    sink.bind_dispatcher(dispatch_once)
+    sink.start()
+    sink.start()
+    await asyncio.wait_for(reached.wait(), timeout=2)
+    await sink.close()
+    assert sink._dispatcher_task is not None and sink._dispatcher_task.done()

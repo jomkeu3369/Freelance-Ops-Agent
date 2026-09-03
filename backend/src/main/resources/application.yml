@@ -66,6 +66,9 @@ app:
     agent-per-minute: ${APP_RATE_LIMIT_AGENT_PER_MINUTE:20}
     max-entries: ${APP_RATE_LIMIT_MAX_ENTRIES:10000}
 agent:
+  research-recovery-enabled: ${AGENT_RESEARCH_RECOVERY_ENABLED:false}
+  research-recovery-workspaces: ${AGENT_FIFO_DISPATCHER_WORKSPACE_ALLOWLIST:}
+  research-recovery-delay-ms: ${AGENT_RESEARCH_RECOVERY_DELAY_MS:10000}
   raptor-build-read-timeout-ms: ${AGENT_RAPTOR_BUILD_READ_TIMEOUT_MS:310000}
   route-observation-collection-enabled: ${AGENT_ROUTE_OBSERVATION_COLLECTION_ENABLED:false}
   route-observation-collection-delay-ms: ${AGENT_ROUTE_OBSERVATION_COLLECTION_DELAY_MS:1000}

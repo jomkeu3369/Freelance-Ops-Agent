@@ -6,13 +6,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Collection
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass, field, replace
 from typing import Protocol
 from uuid import UUID
 
 from contracts import AgentRunRequest, RunBudget
+from security import DelegationTokenVerifier, TokenVerificationError
 
+from .research_input import research_input_digest
 from .research_specialist import ResearchSpecialistError
 from .research_worker import ResearchTaskWorker
 from .task_contracts import AttemptStatus, DepartmentTask, TaskAttempt, TaskStatus
@@ -46,6 +48,7 @@ class ResearchDispatchContext:
     current_budget_revision: int
     parent_budget: RunBudget
     workload_token: str = field(repr=False)
+    initiated_by: UUID | None = None
 
 
 class ResearchDispatchContextLoader(Protocol):
@@ -55,16 +58,20 @@ class ResearchDispatchContextLoader(Protocol):
 
 
 class ResearchEventPublisher(Protocol):
-    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int: ...
+    async def publish_once(self, workload_token: str, *, workspace_id: UUID, run_id: UUID, batch_size: int = 100) -> int: ...
 
 
 class InMemoryResearchDispatchContextBroker:
-    def __init__(self) -> None:
+    def __init__(self, verifier: DelegationTokenVerifier) -> None:
         self._contexts: dict[UUID, ResearchDispatchContext] = {}
         self._lock = asyncio.Lock()
+        self._verifier = verifier
 
     async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
-        context = ResearchDispatchContext(task, attempt, request.input.requirement_text, None, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, request.budget, workload_token)
+        if task.execution.input_sha256 is not None and task.execution.input_sha256 != research_input_digest(request):
+            raise ValueError("Research input reference has changed")
+        context = ResearchDispatchContext(task, attempt, request.input.requirement_text, request.input.jurisdiction_code, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, request.budget, workload_token, request.context.initiated_by)
+        self._authorize(context)
         async with self._lock:
             existing = self._contexts.get(attempt.attempt_id)
             if existing is not None and replace(existing, workload_token=workload_token) != context:
@@ -73,7 +80,20 @@ class InMemoryResearchDispatchContextBroker:
 
     async def load(self, claim: ClaimedSchedulerEntry) -> ResearchDispatchContext | None:
         async with self._lock:
-            return self._contexts.get(claim.candidate.attempt_id)
+            context = self._contexts.get(claim.candidate.attempt_id)
+            if context is not None:
+                try:
+                    self._authorize(context)
+                except TokenVerificationError:
+                    self._contexts.pop(claim.candidate.attempt_id, None)
+                    return None
+            return context
+
+    def _authorize(self, context: ResearchDispatchContext) -> None:
+        principal = self._verifier.verify(context.workload_token)
+        task = context.task
+        if principal.run_id != task.run_id or principal.workspace_id != task.workspace_id or principal.project_id != task.project_id or principal.initiated_by != context.initiated_by or not set(task.execution.permissions).issubset(principal.permissions):
+            raise TokenVerificationError("Research context exceeds delegated authority")
 
     async def discard(self, attempt_id: UUID) -> None:
         async with self._lock:
@@ -81,40 +101,112 @@ class InMemoryResearchDispatchContextBroker:
 
 
 class ResearchWorkerDispatchSink:
-    def __init__(self, worker: ResearchTaskWorker, loader: ResearchDispatchContextLoader, publisher: ResearchEventPublisher | None = None) -> None:
+    def __init__(self, worker: ResearchTaskWorker, loader: ResearchDispatchContextLoader, publisher: ResearchEventPublisher | None = None, *, worker_count: int = 1, shutdown_timeout_seconds: float = 10) -> None:
+        if worker_count < 1 or shutdown_timeout_seconds <= 0:
+            raise ValueError("Research worker capacity and shutdown timeout must be positive")
         self._worker = worker
         self._loader = loader
         self._publisher = publisher
         self._tasks: set[asyncio.Task[None]] = set()
+        self._worker_count = worker_count
+        self._shutdown_timeout_seconds = shutdown_timeout_seconds
+        self._reserved: set[UUID] = set()
+        self._closing = False
+        self._dispatch_once: Callable[[], Awaitable[object]] | None = None
+        self._dispatcher_task: asyncio.Task[None] | None = None
 
-    async def dispatch(self, claim: ClaimedSchedulerEntry) -> bool:
-        context = await self._loader.load(claim)
-        if context is None or not self._matches(claim, context):
+    def bind_dispatcher(self, dispatch_once: Callable[[], Awaitable[object]]) -> None:
+        self._dispatch_once = dispatch_once
+
+    def start(self) -> None:
+        if self._dispatch_once is not None and self._dispatcher_task is None and not self._closing:
+            self._dispatcher_task = asyncio.create_task(self._dispatch_loop(), name="research-fifo-dispatcher")
+
+    async def _dispatch_loop(self) -> None:
+        assert self._dispatch_once is not None
+        while not self._closing:
+            try:
+                await self._dispatch_once()
+            except (OSError, RuntimeError, ValueError):
+                logger.warning("Research dispatch deferred after a dispatch failure")
+            await asyncio.sleep(0.5)
+
+    @property
+    def has_capacity(self) -> bool:
+        return not self._closing and len(self._reserved) < self._worker_count
+
+    async def dispatch(self, claim: ClaimedSchedulerEntry, *, acknowledge: Callable[[], Awaitable[None]] | None = None) -> bool:
+        attempt_id = claim.candidate.attempt_id
+        if not self.has_capacity or attempt_id in self._reserved:
             return False
+        # Reserve before the first await so concurrent callers cannot oversubscribe this process.
+        self._reserved.add(attempt_id)
+        scheduled = False
         try:
-            self._worker.validate(context.task, context.attempt, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
-        except (ResearchSpecialistError, RuntimeError, ValueError) as error:
-            logger.warning("Research FIFO dispatch rejected: error_type=%s", error.__class__.__name__)
-            return False
-        task = asyncio.create_task(self._run(context), name=f"research-attempt-{context.attempt.attempt_id}")
-        self._tasks.add(task)
-        task.add_done_callback(self._completed)
-        return True
+            context = await self._loader.load(claim)
+            if context is None or not self._matches(claim, context):
+                return False
+            try:
+                self._worker.validate(context.task, context.attempt, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
+            except (ResearchSpecialistError, RuntimeError, ValueError) as error:
+                logger.warning("Research FIFO dispatch rejected: error_type=%s", error.__class__.__name__)
+                return False
+            if self._closing:
+                return False
+            if acknowledge is not None:
+                await acknowledge()
+            if self._closing:
+                return False
+            task = asyncio.create_task(self._run(context), name=f"research-attempt-{context.attempt.attempt_id}")
+            self._tasks.add(task)
+            task.add_done_callback(lambda completed: self._completed_attempt(completed, attempt_id))
+            scheduled = True
+            return True
+        finally:
+            if not scheduled:
+                self._reserved.discard(attempt_id)
 
     async def wait(self) -> None:
         if self._tasks:
             await asyncio.gather(*tuple(self._tasks), return_exceptions=True)
 
+    async def close(self) -> None:
+        self._closing = True
+        if self._dispatcher_task is not None:
+            self._dispatcher_task.cancel()
+            await asyncio.gather(self._dispatcher_task, return_exceptions=True)
+        tasks = tuple(self._tasks)
+        if not tasks:
+            return
+        _, pending = await asyncio.wait(tasks, timeout=self._shutdown_timeout_seconds)
+        for task in pending:
+            task.cancel()
+        if pending:
+            # Cancellation-cooperative providers get a bounded cleanup window.
+            _, unfinished = await asyncio.wait(pending, timeout=1)
+            if unfinished:
+                logger.error("Research workers exceeded cancellation grace: count=%s", len(unfinished))
+
     async def _run(self, context: ResearchDispatchContext) -> None:
+        cancelled = False
         try:
             await self._worker.run(context.task, context.attempt, objective=context.objective, jurisdiction=context.jurisdiction, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
         finally:
-            if self._publisher is not None:
-                try:
-                    await self._publisher.publish_once(context.workload_token)
-                except (OSError, RuntimeError, TypeError, ValueError) as error:
-                    logger.warning("Research Task event publication deferred: error_type=%s", error.__class__.__name__)
-            await self._loader.discard(context.attempt.attempt_id)
+            try:
+                if self._publisher is not None and not cancelled:
+                    try:
+                        await self._publisher.publish_once(context.workload_token, workspace_id=context.task.workspace_id, run_id=context.task.run_id)
+                    except (OSError, RuntimeError, TypeError, ValueError) as error:
+                        logger.warning("Research Task event publication deferred: error_type=%s", error.__class__.__name__)
+            finally:
+                await self._loader.discard(context.attempt.attempt_id)
+
+    def _completed_attempt(self, task: asyncio.Task[None], attempt_id: UUID) -> None:
+        self._reserved.discard(attempt_id)
+        self._completed(task)
 
     def _completed(self, task: asyncio.Task[None]) -> None:
         self._tasks.discard(task)

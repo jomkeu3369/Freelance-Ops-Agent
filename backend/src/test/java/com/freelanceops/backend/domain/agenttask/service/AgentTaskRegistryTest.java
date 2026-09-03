@@ -17,6 +17,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,6 +57,9 @@ class AgentTaskRegistryTest {
         AgentTaskEntity registered = registry.register(task, List.of(), now.plusSeconds(1));
 
         assertThat(registered).isSameAs(task);
+        var order = inOrder(taskRepository);
+        order.verify(taskRepository).lockRegistration(task.id());
+        order.verify(taskRepository).findByIdAndWorkspaceIdForUpdate(task.id(), workspaceId);
         verify(taskRepository, never()).saveAndFlush(task);
         verify(dependencyRepository, never()).saveAll(org.mockito.ArgumentMatchers.any());
     }
@@ -133,5 +137,33 @@ class AgentTaskRegistryTest {
     private static AgentTaskEntity task(UUID workspaceId, UUID runId, Instant now) {
         return new AgentTaskEntity(UUID.randomUUID(), workspaceId, runId, null, DepartmentName.RESEARCH,
             "research-v1", "Research #1", "objective:1", 3, null, now);
+    }
+
+    @Test
+    void rejectsParentFromAnotherRun() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        UUID workspaceId = UUID.randomUUID();
+        AgentTaskEntity parent = task(workspaceId, UUID.randomUUID(), now);
+        AgentTaskEntity child = new AgentTaskEntity(UUID.randomUUID(), workspaceId, UUID.randomUUID(), parent.id(),
+            DepartmentName.RESEARCH, "research-v1", "Child", "objective:1", 3, null, now);
+        when(taskRepository.findByIdAndWorkspaceId(parent.id(), workspaceId)).thenReturn(Optional.of(parent));
+
+        assertThatThrownBy(() -> registry.register(child, List.of(), now))
+            .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("same run");
+        verify(taskRepository, never()).saveAndFlush(child);
+    }
+
+    @Test
+    void rejectsOriginalRegistrationAfterRedirect() {
+        Instant now = Instant.parse("2026-08-31T00:00:00Z");
+        AgentTaskEntity original = task(UUID.randomUUID(), UUID.randomUUID(), now);
+        AgentTaskEntity current = new AgentTaskEntity(original.id(), original.workspaceId(), original.runId(), null,
+            DepartmentName.RESEARCH, "research-v1", "Research #1", "objective:1", 3, null, now);
+        current.redirect(1, now.plusSeconds(1));
+        when(taskRepository.findByIdAndWorkspaceIdForUpdate(original.id(), original.workspaceId()))
+            .thenReturn(Optional.of(current));
+
+        assertThatThrownBy(() -> registry.register(original, List.of(), now.plusSeconds(2)))
+            .isInstanceOf(IllegalStateException.class).hasMessageContaining("idempotency");
     }
 }

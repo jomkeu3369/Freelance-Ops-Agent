@@ -57,11 +57,14 @@ def test_fifo_dispatcher_is_default_off_and_requires_bounded_runtime_dependencie
         Settings(fifo_dispatcher_enabled=True)
 
     workspace_id = uuid4()
-    settings = Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=str(workspace_id), task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
+    settings = Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=str(workspace_id), task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key", fifo_dispatcher_readiness_path="readiness.json", fifo_dispatcher_readiness_sha256="a" * 64, fifo_dispatcher_deployment_commit_sha="b" * 40)  # noqa: E501
 
     assert settings.fifo_dispatcher_resource_pool == "research-read-v1"
     assert settings.fifo_dispatcher_predictor_version == "pilot-static-v1"
     assert settings.allowed_fifo_dispatcher_workspaces() == {workspace_id}
+
+    with pytest.raises(ValidationError, match="pinned readiness evidence"):
+        Settings(fifo_dispatcher_enabled=True, fifo_dispatcher_workspace_allowlist=str(workspace_id), task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501
 
     with pytest.raises(ValidationError, match="workspace allowlist"):
         Settings(fifo_dispatcher_enabled=True, task_shadow_enabled=True, run_store_backend="postgres", web_research_enabled=True, web_research_allowed_domains="example.gov", tavily_api_key="test-key")  # noqa: E501

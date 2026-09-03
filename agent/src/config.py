@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     route_evaluator_prompt_version: str | None = None
     route_evaluator_prompt_sha256: str | None = None
     route_shadow_enabled: bool = False
+    route_shadow_timeout_seconds: float = Field(default=0.25, gt=0, le=5)
     task_shadow_enabled: bool = False
     fifo_dispatcher_enabled: bool = False
     fifo_dispatcher_resource_pool: str = Field(default="research-read-v1", min_length=1, max_length=100)
@@ -84,7 +85,11 @@ class Settings(BaseSettings):
     fifo_dispatcher_predicted_runtime_seconds: float = Field(default=30, ge=0, le=3600)
     fifo_dispatcher_predictor_version: str = Field(default="pilot-static-v1", min_length=1, max_length=100)
     fifo_dispatcher_worker_count: int = Field(default=1, ge=1, le=32)
+    fifo_dispatcher_shutdown_timeout_seconds: float = Field(default=10, gt=0, le=60)
     fifo_dispatcher_workspace_allowlist: str = ""
+    fifo_dispatcher_readiness_path: str = ""
+    fifo_dispatcher_readiness_sha256: str = ""
+    fifo_dispatcher_deployment_commit_sha: str = ""
 
     delegation_token_issuer: str = "freelance-ops-backend"
     delegation_token_audience: str = "freelance-ops-agent"
@@ -178,6 +183,8 @@ class Settings(BaseSettings):
             raise ValueError("FIFO dispatcher pilot allows at most 5 workspaces")
         if self.fifo_dispatcher_enabled and self.fifo_dispatcher_resource_pool != "research-read-v1":
             raise ValueError("FIFO dispatcher pilot requires the research-read-v1 resource pool")
+        if self.fifo_dispatcher_enabled and (not self.fifo_dispatcher_readiness_path.strip() or len(self.fifo_dispatcher_readiness_sha256) != 64 or len(self.fifo_dispatcher_deployment_commit_sha) != 40):  # noqa: E501
+            raise ValueError("FIFO dispatcher pilot requires pinned readiness evidence and deployment identity")
 
         return self
 

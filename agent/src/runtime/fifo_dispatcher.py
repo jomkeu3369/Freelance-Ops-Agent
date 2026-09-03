@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Protocol
 from uuid import uuid5
@@ -12,7 +13,10 @@ from .task_scheduler_store import ClaimedSchedulerEntry, PostgresShadowScheduler
 
 
 class FifoDispatchSink(Protocol):
-    async def dispatch(self, claim: ClaimedSchedulerEntry) -> bool: ...
+    @property
+    def has_capacity(self) -> bool: ...
+
+    async def dispatch(self, claim: ClaimedSchedulerEntry, *, acknowledge: Callable[[], Awaitable[None]]) -> bool: ...
 
 
 class ResearchFifoDispatcherPilot:
@@ -54,9 +58,12 @@ class ResearchFifoDispatcherPilot:
         return await self._store.observe_queued(candidate, capacity)
 
     async def dispatch_once(self, *, now: datetime | None = None) -> ClaimedSchedulerEntry | None:
+        if not self._sink.has_capacity:
+            return None
         claim = await self._store.claim_next(self._resource_pool, self._claimed_by, now or datetime.now(UTC), lease_seconds=self._lease_seconds)  # noqa: E501
         if claim is None:
             return None
-        if await self._sink.dispatch(claim):
+        async def acknowledge() -> None:
             await self._store.acknowledge_dispatch(claim.candidate.attempt_id, claim.claim_id, self._claimed_by)
+        await self._sink.dispatch(claim, acknowledge=acknowledge)
         return claim

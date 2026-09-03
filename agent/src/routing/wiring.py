@@ -64,4 +64,4 @@ def build_operational_route_gateway(settings: Settings, *, client: Any | None = 
             shadow_model = provider()
         except (ImportError, OSError, RuntimeError, ValueError) as error:
             logger.warning("Local route shadow is unavailable: error_type=%s", error.__class__.__name__)
-    return OperationalRouteGateway(evaluator, shadow_model=shadow_model)
+    return OperationalRouteGateway(evaluator, shadow_model=shadow_model, shadow_timeout_seconds=settings.route_shadow_timeout_seconds)  # noqa: E501

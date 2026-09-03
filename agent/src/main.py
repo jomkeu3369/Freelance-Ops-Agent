@@ -9,6 +9,7 @@ from api.assumptions.router import router as assumptions_router
 from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
+from api.research_recovery.router import router as research_recovery_router
 from api.task_commands.router import router as task_commands_router
 from config import Settings, get_settings
 from contracts import HealthResponse
@@ -38,6 +39,8 @@ from runtime import (
     RunCoordinator,
     build_async_runtime_services,
 )
+from runtime.research_pilot_activation import require_pilot_activation
+from runtime.research_recovery import ResearchRecoveryService
 from security import DelegationTokenVerifier
 from web_research import BoundedWebResearchService, DirectHttpProvider, TavilySearchProvider
 
@@ -48,7 +51,8 @@ RuntimeComponents = tuple[
     PostgresCheckpointJournal | None,
     AIGateway,
     AsyncRuntimeServices | None,
-    ResearchWorkerDispatchSink | None
+    ResearchWorkerDispatchSink | None,
+    ResearchRecoveryService | None
 ]
 
 
@@ -71,11 +75,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         if checkpoint is not None:
             await checkpoint.open()
+        if research_worker_sink is not None:
+            if async_runtime_services is None:
+                raise RuntimeError("Research pilot requires durable operational metrics")
+            settings = get_settings()
+            snapshot = await async_runtime_services.operational_metrics.snapshot(settings.fifo_dispatcher_resource_pool)
+            require_pilot_activation(settings.fifo_dispatcher_readiness_path, settings.fifo_dispatcher_readiness_sha256, settings.fifo_dispatcher_deployment_commit_sha, settings.allowed_fifo_dispatcher_workspaces(), snapshot)  # noqa: E501
+            research_worker_sink.start()
         yield
 
     finally:
         if research_worker_sink is not None:
-            await research_worker_sink.wait()
+            await research_worker_sink.close()
 
         if checkpoint is not None:
             await checkpoint.close()
@@ -104,9 +115,10 @@ class FreelanceOpsAgentAiServer:
         ai_gateway: AIGateway | None = None
         async_runtime_services: AsyncRuntimeServices | None = None
         research_worker_sink: ResearchWorkerDispatchSink | None = None
+        research_recovery_service: ResearchRecoveryService | None = None
 
         if run_coordinator is None:
-            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services, research_worker_sink = _build_run_runtime()  # noqa: E501
+            run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services, research_worker_sink, research_recovery_service = _build_run_runtime()  # noqa: E501
 
         self.app.state.run_coordinator = run_coordinator
         self.app.state.database_manager = database_manager
@@ -114,6 +126,7 @@ class FreelanceOpsAgentAiServer:
         self.app.state.checkpoint_journal = checkpoint_journal
         self.app.state.async_runtime_services = async_runtime_services
         self.app.state.research_worker_sink = research_worker_sink
+        self.app.state.research_recovery_service = research_recovery_service
         self.app.state.task_command_inbox = task_command_inbox or (
             async_runtime_services.task_command_inbox if async_runtime_services is not None else None
         )
@@ -137,6 +150,7 @@ class FreelanceOpsAgentAiServer:
         self.app.include_router(raptor_router)
         self.app.include_router(platform_router)
         self.app.include_router(task_commands_router)
+        self.app.include_router(research_recovery_router)
 
     def get_app(self) -> FastAPI:
         return self.app
@@ -172,7 +186,7 @@ def _build_run_runtime() -> RuntimeComponents:
     research_tool = _build_web_research_service(settings)
     if settings.run_store_backend == "memory":
         executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool)
-        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None, None
+        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None, None, None
 
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
@@ -195,13 +209,17 @@ def _build_run_runtime() -> RuntimeComponents:
     research_worker_sink: ResearchWorkerDispatchSink | None = None
     dispatcher: ResearchFifoDispatcherPilot | None = None
     context_broker: InMemoryResearchDispatchContextBroker | None = None
+    recovery: ResearchRecoveryService | None = None
     if settings.fifo_dispatcher_enabled:
         if research_tool is None:
             raise RuntimeError("enabled FIFO dispatcher requires the Research tool")
-        context_broker = InMemoryResearchDispatchContextBroker()
+        verifier = _build_delegation_token_verifier()
+        context_broker = InMemoryResearchDispatchContextBroker(verifier)
         worker = ResearchTaskWorker(services.task_registry, ReadOnlyResearchSpecialist(model_gateway, research_tool), result_fence=PostgresResearchResultFence(services.task_registry))  # noqa: E501
-        research_worker_sink = ResearchWorkerDispatchSink(worker, context_broker, event_publisher)
+        research_worker_sink = ResearchWorkerDispatchSink(worker, context_broker, event_publisher, worker_count=settings.fifo_dispatcher_worker_count, shutdown_timeout_seconds=settings.fifo_dispatcher_shutdown_timeout_seconds)  # noqa: E501
         dispatcher = ResearchFifoDispatcherPilot(services.scheduler_store, research_worker_sink, resource_pool=settings.fifo_dispatcher_resource_pool, claimed_by=settings.fifo_dispatcher_claimed_by, lease_seconds=settings.fifo_dispatcher_lease_seconds, predicted_runtime_seconds=settings.fifo_dispatcher_predicted_runtime_seconds, predictor_version=settings.fifo_dispatcher_predictor_version, worker_count=settings.fifo_dispatcher_worker_count)  # noqa: E501
+        research_worker_sink.bind_dispatcher(dispatcher.dispatch_once)
+        recovery = ResearchRecoveryService(store, services.task_registry, context_broker, dispatcher, event_publisher, verifier, settings.allowed_fifo_dispatcher_workspaces())  # noqa: E501
     task_shadow_registrar = (
         PostgresResearchTaskShadowRegistrar(
             services.task_registry,
@@ -224,7 +242,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
+    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services, research_worker_sink, recovery  # noqa: E501
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:

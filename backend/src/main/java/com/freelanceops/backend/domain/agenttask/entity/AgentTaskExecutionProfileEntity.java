@@ -3,6 +3,7 @@ package com.freelanceops.backend.domain.agenttask.entity;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskExecutionProfileRequest;
 import com.freelanceops.backend.domain.agenttask.model.AgentTaskRiskLevel;
 import com.freelanceops.backend.domain.agenttask.model.AgentTaskRoute;
 import com.freelanceops.backend.domain.agenttask.model.AgentTaskToolProfile;
@@ -72,7 +73,7 @@ public class AgentTaskExecutionProfileEntity {
         this.provider = Objects.requireNonNull(provider);
         this.model = requireText(model, "model");
         this.reasoningEffort = Objects.requireNonNull(reasoningEffort);
-        this.permissions = List.copyOf(Objects.requireNonNull(permissions));
+        this.permissions = Objects.requireNonNull(permissions).stream().sorted().toList();
         if (new HashSet<>(this.permissions).size() != this.permissions.size()) {
             throw new IllegalArgumentException("permissions must be unique");
         }
@@ -109,11 +110,19 @@ public class AgentTaskExecutionProfileEntity {
     public String routeProfileVersion() { return routeProfileVersion; }
     public String guardPolicyVersion() { return guardPolicyVersion; }
 
+    public AgentTaskExecutionProfileRequest asRequest() {
+        StartAgentRunRequest.RunBudget budget = new StartAgentRunRequest.RunBudget(maxDurationSeconds, maxModelCalls,
+            maxToolCalls, maxInputTokens, maxOutputTokens, maxDepartments, maxHierarchyDepth, maxSearchCredits,
+            maxRetries, maxHandoffs);
+        return new AgentTaskExecutionProfileRequest(route, riskLevel, modelProfile, toolProfile, provider, model,
+            reasoningEffort, permissions, budget, routeProfileVersion, guardPolicyVersion);
+    }
+
     public boolean hasSameContract(AgentTaskExecutionProfileEntity other) {
         return id.equals(other.id) && workspaceId.equals(other.workspaceId) && runId.equals(other.runId)
             && route == other.route && riskLevel == other.riskLevel && modelProfile.equals(other.modelProfile)
             && toolProfile == other.toolProfile && provider == other.provider && model.equals(other.model)
-            && reasoningEffort == other.reasoningEffort && permissions.equals(other.permissions)
+            && reasoningEffort == other.reasoningEffort && new HashSet<>(permissions).equals(new HashSet<>(other.permissions))
             && maxDurationSeconds == other.maxDurationSeconds && maxModelCalls == other.maxModelCalls
             && maxToolCalls == other.maxToolCalls && maxInputTokens == other.maxInputTokens
             && maxOutputTokens == other.maxOutputTokens && maxDepartments == other.maxDepartments

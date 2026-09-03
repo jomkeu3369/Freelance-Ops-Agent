@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 import httpx
 
@@ -71,11 +72,15 @@ class TaskEventPublisher:
         self._store = store
         self._client = client
 
-    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int:
-        claims = await self._store.claim_for_delivery(limit=batch_size)
+    async def publish_once(self, workload_token: str, *, workspace_id: UUID, run_id: UUID, batch_size: int = 100) -> int:  # noqa: E501
+        if not workload_token.strip():
+            raise SpringTaskEventError("SPRING_TASK_EVENT_AUTHORIZATION_REQUIRED")
+        claims = await self._store.claim_for_delivery(workspace_id=workspace_id, run_id=run_id, limit=batch_size)
         if not claims:
             return 0
         try:
+            if any(claim.record.workspace_id != workspace_id or claim.record.run_id != run_id for claim in claims):
+                raise SpringTaskEventError("SPRING_TASK_EVENT_SCOPE_MISMATCH")
             accepted_ids = await self._client.publish(claims, workload_token)
         except SpringTaskEventError as error:
             await self._store.retry_delivery(

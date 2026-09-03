@@ -48,7 +48,10 @@ async def test_terminal_observation_coverage_tracks_outbox_and_delivery_ack() ->
         evaluation = PostgresRuntimeEvaluationStore(database)
         coverage = await evaluation.terminal_observation_coverage(workspace_id=context.workspace_id, since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
         assert (coverage.source_terminal_count, coverage.observed_terminal_count, coverage.delivered_terminal_count) == (1, 1, 0)
-        claims = await events.claim_for_delivery()
+        assert await events.claim_for_delivery(workspace_id=uuid4(), run_id=context.run_id) == []
+        assert await events.claim_for_delivery(workspace_id=context.workspace_id, run_id=uuid4()) == []
+        claims = await events.claim_for_delivery(workspace_id=context.workspace_id, run_id=context.run_id)
+        assert {claim.record.event_id for claim in claims} == {started.event_id, completed.event_id}
         await events.acknowledge_delivery(claims)
         delivered = await evaluation.terminal_observation_coverage(workspace_id=context.workspace_id, since=now - timedelta(seconds=1), until=finished + timedelta(seconds=1))
         assert delivered.delivery_coverage == 1

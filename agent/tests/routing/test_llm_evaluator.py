@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
@@ -36,6 +37,32 @@ class FixedEncoder:
     async def score_routes(self, text: str) -> Mapping[RouteLabel, float]:
         del text
         return {route: 1.0 if route is self._route else 0.1 for route in RouteLabel}
+
+
+async def test_shadow_timeout_keeps_one_inflight_inference_without_blocking_primary() -> None:
+    release = asyncio.Event()
+    calls = 0
+
+    class SlowShadow:
+        async def route(self, text: str) -> object:
+            nonlocal calls
+            calls += 1
+            await release.wait()
+            raise RuntimeError("late shadow failure")
+
+    evaluator = RecordingEvaluator(verdict(RouteLabel.SIMPLE_LLM))
+    gateway = OperationalRouteGateway(evaluator, shadow_model=SlowShadow(), shadow_timeout_seconds=0.01)  # type: ignore[arg-type]
+    try:
+        first = await asyncio.wait_for(gateway.route("first"), timeout=1)
+        second = await asyncio.wait_for(gateway.route("second"), timeout=1)
+        assert first.route is RouteLabel.SIMPLE_LLM
+        assert second.route is RouteLabel.SIMPLE_LLM
+        assert calls == 1
+        assert evaluator.calls == ["first", "second"]
+    finally:
+        release.set()
+        if gateway._shadow_task is not None:
+            await asyncio.gather(gateway._shadow_task, return_exceptions=True)
 
 
 def examples() -> tuple[RouteExample, ...]:

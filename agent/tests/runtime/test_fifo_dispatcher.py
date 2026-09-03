@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # ruff: noqa: E501, I001
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -43,12 +44,16 @@ class FailingAckStore(RecordingStore):
 
 
 class RecordingSink:
+    has_capacity = True
+
     def __init__(self, accepted: bool) -> None:
         self.accepted = accepted
         self.claims: list[ClaimedSchedulerEntry] = []
 
-    async def dispatch(self, claim: ClaimedSchedulerEntry) -> bool:
+    async def dispatch(self, claim: ClaimedSchedulerEntry, *, acknowledge: Callable[[], Awaitable[None]]) -> bool:
         self.claims.append(claim)
+        if self.accepted:
+            await acknowledge()
         return self.accepted
 
 

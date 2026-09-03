@@ -117,6 +117,7 @@ class TaskExecutionSnapshot(RuntimeContractModel):
     specialist_profile: str = Field(default="default-v1", min_length=1, max_length=100)
     authorization_revision: int = Field(default=1, ge=1)
     budget_revision: int = Field(default=1, ge=1)
+    input_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("permissions")
     @classmethod

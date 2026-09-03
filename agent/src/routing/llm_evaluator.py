@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
@@ -233,14 +234,13 @@ class BoundaryAwareRouteGateway:
 class OperationalRouteGateway:
     """Use deterministic safety facts and an LLM for every operational route decision."""
 
-    def __init__(
-        self,
-        evaluator: BoundaryRouteEvaluator,
-        *,
-        shadow_model: HybridRouteModel | None = None,
-    ) -> None:
+    def __init__(self, evaluator: BoundaryRouteEvaluator, *, shadow_model: HybridRouteModel | None = None, shadow_timeout_seconds: float = 0.25) -> None:  # noqa: E501
         self._evaluator = evaluator
         self._shadow_model = shadow_model
+        if shadow_timeout_seconds <= 0:
+            raise ValueError("shadow timeout must be positive")
+        self._shadow_timeout_seconds = shadow_timeout_seconds
+        self._shadow_task: asyncio.Task[RouteDecision] | None = None
 
     async def route(self, text: str, safety_context: SafetyContext | None = None) -> FinalRouteDecision:
         if not text.strip():
@@ -294,12 +294,26 @@ class OperationalRouteGateway:
     async def _shadow_route(self, text: str) -> tuple[RouteDecision | None, float | None]:
         if self._shadow_model is None:
             return None, None
+        if self._shadow_task is not None and not self._shadow_task.done():
+            return None, None
         started_ns = time.perf_counter_ns()
+        task = asyncio.create_task(self._shadow_model.route(text))
+        self._shadow_task = task
+        task.add_done_callback(self._consume_shadow_result)
         try:
-            decision = await self._shadow_model.route(text)
+            # Do not cancel the thread-backed inference or queue further calls behind it.
+            done, _ = await asyncio.wait({task}, timeout=self._shadow_timeout_seconds)
+            if not done:
+                return None, None
+            decision = task.result()
         except Exception:
             return None, None
         return decision, (time.perf_counter_ns() - started_ns) / 1_000_000
+
+    @staticmethod
+    def _consume_shadow_result(task: asyncio.Task[RouteDecision]) -> None:
+        if not task.cancelled():
+            task.exception()
 
 
 _ROUTE_POLICY: Mapping[RouteLabel, str] = {

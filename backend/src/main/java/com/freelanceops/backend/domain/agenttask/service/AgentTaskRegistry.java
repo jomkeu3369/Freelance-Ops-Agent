@@ -35,6 +35,8 @@ public class AgentTaskRegistry {
 
     @Transactional
     public AgentTaskEntity register(AgentTaskEntity task, Collection<UUID> dependencyTaskIds, Instant now) {
+        // A row lock cannot serialize the first insertion of a Task that does not exist yet.
+        taskRepository.lockRegistration(task.id());
         var existing = taskRepository.findByIdAndWorkspaceIdForUpdate(task.id(), task.workspaceId());
         if (existing.isPresent()) {
             Set<UUID> requestedDependencies = Set.copyOf(dependencyTaskIds);
@@ -44,6 +46,11 @@ public class AgentTaskRegistry {
                 throw new IllegalStateException("task registration idempotency key conflicts with different data");
             }
             return existing.get();
+        }
+        if (task.parentTaskId() != null) {
+            AgentTaskEntity parent = taskRepository.findByIdAndWorkspaceId(task.parentTaskId(), task.workspaceId())
+                .orElseThrow(() -> new IllegalArgumentException("parent task was not found in workspace"));
+            if (!parent.runId().equals(task.runId())) throw new IllegalArgumentException("parent must belong to the same run");
         }
         Collection<AgentTaskDependencyEntity> dependencies = dependencyTaskIds.stream().distinct().map(dependencyTaskId -> {
             AgentTaskEntity dependency = taskRepository.findByIdAndWorkspaceId(dependencyTaskId, task.workspaceId())
@@ -60,6 +67,7 @@ public class AgentTaskRegistry {
     public AgentTaskAttemptEntity createAttempt(UUID taskId, UUID workspaceId, int expectedRevision, UUID attemptId,
                                                 Double predictedSeconds, String predictionModelVersion,
                                                 Map<String, Object> predictionFeatureSnapshot, Instant now) {
+        taskRepository.lockRegistration(taskId);
         var existing = attemptRepository.findByIdAndWorkspaceIdForUpdate(attemptId, workspaceId);
         if (existing.isPresent()) {
             AgentTaskAttemptEntity attempt = existing.get();

@@ -220,6 +220,7 @@ public class AgentTaskEntity {
 
     public boolean hasSameRegistration(AgentTaskEntity other) {
         return id.equals(other.id) && workspaceId.equals(other.workspaceId) && runId.equals(other.runId)
+            && revision == other.revision
             && Objects.equals(parentTaskId, other.parentTaskId) && department == other.department
             && specialistProfile.equals(other.specialistProfile) && alias.equals(other.alias)
             && objectiveReference.equals(other.objectiveReference) && priority == other.priority

@@ -115,7 +115,7 @@ class TaskAttemptEventStore(Protocol):
 
     async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]: ...  # noqa: E501
 
-    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]: ...  # noqa: E501
+    async def claim_for_delivery(self, *, workspace_id: UUID, run_id: UUID, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]: ...  # noqa: E501
 
     async def acknowledge_delivery(self, claims: list[ClaimedTaskAttemptEvent]) -> None: ...
 
@@ -161,13 +161,15 @@ class InMemoryTaskAttemptEventStore:
             selected = [record for record in self._records.values() if record.run_id == run_id and (after is None or (record.received_at, record.event_id) > (after.received_at, after.event_id))]  # noqa: E501
             return sorted(selected, key=lambda record: (record.received_at, record.event_id))[:limit]
 
-    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
-        _validate_delivery_options(limit, lease_seconds)
+    async def claim_for_delivery(self, *, workspace_id: UUID, run_id: UUID, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:  # noqa: E501
+        _validate_delivery_options(workspace_id, run_id, limit, lease_seconds)
         now = datetime.now(UTC)
         async with self._lock:
             claimable = [event_id for event_id, (status, _, available_at, lease_until) in self._deliveries.items()
-                         if (status == "PENDING" and available_at <= now)
-                         or (status == "PROCESSING" and lease_until is not None and lease_until <= now)]
+                         if self._records[event_id].workspace_id == workspace_id
+                         and self._records[event_id].run_id == run_id
+                         and ((status == "PENDING" and available_at <= now)
+                              or (status == "PROCESSING" and lease_until is not None and lease_until <= now))]
             selected = sorted(claimable, key=lambda event_id: (self._records[event_id].received_at, event_id))[:limit]
             claims: list[ClaimedTaskAttemptEvent] = []
             for event_id in selected:
@@ -230,10 +232,12 @@ class PostgresTaskAttemptEventStore:
             models = list((await session.scalars(statement)).all())
         return [self._record(model) for model in models]
 
-    async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
-        _validate_delivery_options(limit, lease_seconds)
+    async def claim_for_delivery(self, *, workspace_id: UUID, run_id: UUID, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:  # noqa: E501
+        _validate_delivery_options(workspace_id, run_id, limit, lease_seconds)
         now = datetime.now(UTC)
         statement = select(AgentTaskEventModel).where(
+            AgentTaskEventModel.workspace_id == workspace_id,
+            AgentTaskEventModel.run_id == run_id,
             or_(
                 and_(
                     AgentTaskEventModel.delivery_status == "PENDING",
@@ -298,6 +302,8 @@ class PostgresTaskAttemptEventStore:
         return TaskAttemptEventRecord(event_id=model.event_id, run_id=model.run_id, schema_version=model.schema_version, source=model.source, source_event_id=model.source_event_id, task_id=model.task_id, task_revision=model.task_revision, attempt_id=model.attempt_id, attempt_number=model.attempt_number, workspace_id=model.workspace_id, sequence=model.sequence, event_type=model.event_type, phase=model.phase, milestone=model.milestone, occurred_at=model.occurred_at, received_at=model.received_at, data=dict(model.data_json))  # noqa: E501
 
 
-def _validate_delivery_options(limit: int, lease_seconds: int) -> None:
+def _validate_delivery_options(workspace_id: UUID, run_id: UUID, limit: int, lease_seconds: int) -> None:
+    if not isinstance(workspace_id, UUID) or not isinstance(run_id, UUID):
+        raise ValueError("TaskAttempt delivery requires workspace and run UUIDs")
     if not 1 <= limit <= 500 or not 1 <= lease_seconds <= 300:
         raise ValueError("TaskAttempt delivery batch or lease is invalid")

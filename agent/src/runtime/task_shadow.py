@@ -18,6 +18,7 @@ from .task_attempt_events import TaskAttemptEventWrite
 from .task_contracts import AttemptStatus, DepartmentTask, ExecutionRoute, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 from .scheduler import WorkerCapacitySnapshot
 from .task_registry import AttemptNotFoundError, PostgresTaskRegistry, TaskNotFoundError
+from .research_input import research_input_digest
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +32,7 @@ class ResearchTaskShadowRegistrar(Protocol):
 
 
 class TaskShadowPublisher(Protocol):
-    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int: ...
+    async def publish_once(self, workload_token: str, *, workspace_id: UUID, run_id: UUID, batch_size: int = 100) -> int: ...
 
 
 class ResearchFifoPilot(Protocol):
@@ -76,6 +77,7 @@ class PostgresResearchTaskShadowRegistrar:
         _require_identity(registered, request, task_id, attempt_id)
         created_at = registered.attempt.queued_at.astimezone(UTC)
         execution = TaskExecutionSnapshot(route=ExecutionRoute(decision.route.value), permissions=permissions, budget=request.budget, model_selection=request.model_selection, policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", risk_level=route_profile.risk, tool_profile=route_profile.tool_profile, model_profile=route_profile.model_profile, route_profile_version=route_profile.policy_version, guard_policy_version="task-guard-v1", specialist_profile="research-read-v1", authorization_revision=registered.authorization_revision, budget_revision=registered.budget_revision)
+        execution = execution.model_copy(update={"input_sha256": research_input_digest(request)})
         task = DepartmentTask(task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, project_id=request.context.project_id, department=DepartmentName.RESEARCH, revision=registered.task.revision, priority=3, execution=execution, created_at=created_at)
         attempt = TaskAttempt(attempt_id=attempt_id, task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, task_revision=task.revision, attempt_number=registered.attempt.attempt_number, predicted_service_runtime_seconds=prediction[0], predictor_version=prediction[1])
         task = await self._ensure_task(task)
@@ -87,7 +89,7 @@ class PostgresResearchTaskShadowRegistrar:
                 await self._dispatcher.dispatch_once(now=created_at)
             return TaskShadowHandle(task, attempt)
         task, attempt = await self._ensure_started(task, attempt)
-        await self._publish(workload_token)
+        await self._publish(workload_token, request)
         return TaskShadowHandle(task, attempt)
 
     async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:
@@ -114,7 +116,7 @@ class PostgresResearchTaskShadowRegistrar:
         task_target = TaskStatus.COMPLETED if target is AttemptStatus.COMPLETED else TaskStatus.FAILED
         if task.status is TaskStatus.RUNNING:
             await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, task_target)
-        await self._publish(workload_token)
+        await self._publish(workload_token, request)
         return attempt.status is target
 
     async def _ensure_task(self, proposed: DepartmentTask) -> DepartmentTask:
@@ -145,9 +147,9 @@ class PostgresResearchTaskShadowRegistrar:
             task = await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING)
         return task, attempt
 
-    async def _publish(self, workload_token: str) -> None:
+    async def _publish(self, workload_token: str, request: AgentRunRequest) -> None:
         if self._publisher is not None:
-            await self._publisher.publish_once(workload_token)
+            await self._publisher.publish_once(workload_token, workspace_id=request.context.workspace_id, run_id=request.context.run_id)
 
     def _uses_dispatcher(self, workspace_id: UUID) -> bool:
         return self._dispatcher is not None and workspace_id in self._dispatcher_workspace_allowlist

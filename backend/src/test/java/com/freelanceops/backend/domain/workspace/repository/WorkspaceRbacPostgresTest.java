@@ -18,6 +18,12 @@ import com.freelanceops.backend.domain.agentrun.service.AgentRouteReviewService;
 import com.freelanceops.backend.domain.quotation.dto.request.UpdateEstimationPolicyRequest;
 import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
 import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
+import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
+import com.freelanceops.backend.domain.agenttask.repository.AgentTaskRepository;
+import com.freelanceops.backend.domain.agenttask.model.AgentTaskStatus;
+import org.springframework.data.domain.PageRequest;
+import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +39,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -83,6 +92,61 @@ class WorkspaceRbacPostgresTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private AgentTaskRegistry taskRegistry;
+
+    @Autowired
+    private AgentTaskRepository taskRepository;
+
+    @Test
+    void concurrentFirstTaskAndAttemptRegistrationIsIdempotent() throws Exception {
+        UUID ownerId = insertUser("task-registration-race");
+        var workspace = provisioningService.create(ownerId, "Task race", "task-registration-race");
+        UUID projectId = UUID.randomUUID();
+        UUID runId = UUID.randomUUID();
+        UUID taskId = UUID.randomUUID();
+        UUID attemptId = UUID.randomUUID();
+        Instant now = Instant.now();
+        jdbcClient.sql("""
+                INSERT INTO app.project (id, workspace_id, title, requirement_text, currency, status, created_by)
+                VALUES (:id, :workspace, 'Task race', 'Requirement', 'KRW', 'LEAD', :owner)
+                """)
+            .param("id", projectId).param("workspace", workspace.workspaceId()).param("owner", ownerId).update();
+        jdbcClient.sql("""
+                INSERT INTO app.agent_run (id, workspace_id, project_id, thread_id, initiated_by, provider, model, status)
+                VALUES (:id, :workspace, :project, :thread, :owner, 'OPENAI', 'gpt-test', 'QUEUED')
+                """)
+            .param("id", runId).param("workspace", workspace.workspaceId()).param("project", projectId)
+            .param("thread", UUID.randomUUID()).param("owner", ownerId).update();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        java.util.concurrent.Callable<UUID> register = () -> {
+            ready.countDown();
+            if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("registration start timed out");
+            return new TransactionTemplate(transactionManager).execute(status -> {
+                AgentTaskEntity task = new AgentTaskEntity(taskId, workspace.workspaceId(), runId, null,
+                    DepartmentName.RESEARCH, "research-read-v1", "Research", "objective:1", 3, null, now);
+                taskRegistry.register(task, List.of(), now);
+                return taskRegistry.createAttempt(taskId, workspace.workspaceId(), 1, attemptId,
+                    30.0, "pilot-static-v1", Map.of(), now).id();
+            });
+        };
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(register);
+            var second = executor.submit(register);
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(first.get(20, TimeUnit.SECONDS)).isEqualTo(attemptId);
+            assertThat(second.get(20, TimeUnit.SECONDS)).isEqualTo(attemptId);
+        }
+        assertThat(jdbcClient.sql("select count(*) from app.agent_task_attempt where task_id = :id")
+            .param("id", taskId).query(Integer.class).single()).isEqualTo(1);
+        assertThat(taskRepository.findRecoveryCandidates(List.of(workspace.workspaceId()), List.of(AgentTaskStatus.DISPATCHED), null, PageRequest.of(0, 1)))
+            .extracting(AgentTaskEntity::id).containsExactly(taskId);
+        assertThat(taskRepository.findRecoveryCandidates(List.of(workspace.workspaceId()), List.of(AgentTaskStatus.DISPATCHED), taskId, PageRequest.of(0, 1))).isEmpty();
+        assertThat(taskRepository.findRecoveryCandidates(List.of(UUID.randomUUID()), List.of(AgentTaskStatus.DISPATCHED), null, PageRequest.of(0, 1))).isEmpty();
+    }
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {

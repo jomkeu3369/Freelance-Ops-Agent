@@ -76,10 +76,12 @@ class MemoryRegistry:
 class RecordingPublisher:
     def __init__(self) -> None:
         self.tokens: list[str] = []
+        self.scopes: list[tuple[UUID, UUID]] = []
 
-    async def publish_once(self, workload_token: str, *, batch_size: int = 100) -> int:
+    async def publish_once(self, workload_token: str, *, workspace_id: UUID, run_id: UUID, batch_size: int = 100) -> int:
         del batch_size
         self.tokens.append(workload_token)
+        self.scopes.append((workspace_id, run_id))
         return 1
 
 
@@ -137,6 +139,7 @@ async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> No
     assert registry.attempts[first.attempt.attempt_id].status is AttemptStatus.COMPLETED
     assert [event.event_type for event in registry.events] == ["attempt.started", "attempt.completed"]  # type: ignore[attr-defined]
     assert publisher.tokens == ["workload-token", "workload-token", "workload-token"]
+    assert publisher.scopes == [(run_request.context.workspace_id, run_request.context.run_id)] * 3
     assert spring.payloads[0]["executionProfile"]["permissions"] == ["agent.run", "project.read"]  # type: ignore[index]
     assert "민감한 원문" not in str(spring.payloads[0])
 

@@ -1,11 +1,16 @@
 # ruff: noqa: I001
 
+from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 
 from runtime.task_attempt_events import InMemoryTaskAttemptEventStore, TaskAttemptEventConflictError, TaskAttemptEventCursor, TaskAttemptEventWrite  # noqa: E501, I001
+from runtime.task_attempt_events import PostgresTaskAttemptEventStore
 
 
 def make_event(*, event_id: str = "event-1", source_event_id: str = "source-1", attempt_id=None, sequence: int = 1, data: dict[str, object] | None = None, run_id=None) -> TaskAttemptEventWrite:  # noqa: ANN001, E501
@@ -70,3 +75,51 @@ def test_event_rejects_naive_timestamp() -> None:
 def test_cursor_rejects_naive_timestamp() -> None:
     with pytest.raises(ValueError, match="invalid"):
         TaskAttemptEventCursor(received_at=datetime.now() - timedelta(seconds=1), event_id="event-1")  # noqa: DTZ005
+
+
+@pytest.mark.parametrize("expired_lease", [False, True])
+async def test_delivery_scope_applies_before_batch_limit_and_lease_recovery(expired_lease: bool) -> None:
+    store = InMemoryTaskAttemptEventStore()
+    selected = make_event()
+    other_run = replace(make_event(event_id="other-run", source_event_id="other-run"), workspace_id=selected.workspace_id)  # noqa: E501
+    other_workspace = replace(make_event(event_id="other-workspace", source_event_id="other-workspace"), run_id=selected.run_id)  # noqa: E501
+    for item in (other_run, other_workspace, selected):
+        await store.append(item)
+        if expired_lease:
+            await store.claim_for_delivery(workspace_id=item.workspace_id, run_id=item.run_id)
+            store._deliveries[item.event_id] = ("PROCESSING", 1, datetime.now(UTC), datetime.now(UTC) - timedelta(seconds=1))  # noqa: E501
+
+    claims = await store.claim_for_delivery(workspace_id=selected.workspace_id, run_id=selected.run_id, limit=1)
+    assert [claim.record.event_id for claim in claims] == [selected.event_id]
+    await store.retry_delivery(claims, delay_seconds=0, error="ACK lost")
+    replay = await store.claim_for_delivery(workspace_id=selected.workspace_id, run_id=selected.run_id)
+    assert [claim.record.event_id for claim in replay] == [selected.event_id]
+    for item in (other_run, other_workspace):
+        untouched = await store.claim_for_delivery(workspace_id=item.workspace_id, run_id=item.run_id)
+        assert [(claim.record.event_id, claim.delivery_attempt) for claim in untouched] == [(item.event_id, 2 if expired_lease else 1)]  # noqa: E501
+
+
+@pytest.mark.parametrize("workspace_id,run_id", [(None, uuid4()), (uuid4(), None), ("", uuid4())])
+async def test_delivery_rejects_missing_or_invalid_scope(workspace_id, run_id) -> None:
+    with pytest.raises(ValueError, match="workspace and run UUIDs"):
+        await InMemoryTaskAttemptEventStore().claim_for_delivery(workspace_id=workspace_id, run_id=run_id)
+
+
+async def test_postgres_delivery_query_filters_scope_before_claiming_rows() -> None:
+    workspace_id, run_id = uuid4(), uuid4()
+    result = Mock()
+    result.all.return_value = []
+    session = SimpleNamespace(scalars=AsyncMock(return_value=result))
+
+    @asynccontextmanager
+    async def open_session():
+        yield session
+
+    store = PostgresTaskAttemptEventStore(SimpleNamespace(session=open_session))
+    assert await store.claim_for_delivery(workspace_id=workspace_id, run_id=run_id, limit=1) == []
+    statement = session.scalars.call_args.args[0]
+    compiled = statement.compile()
+    assert "agent_runtime.agent_task_event.workspace_id =" in str(compiled)
+    assert "agent_runtime.agent_task_event.run_id =" in str(compiled)
+    assert compiled.params["workspace_id_1"] == workspace_id
+    assert compiled.params["run_id_1"] == run_id

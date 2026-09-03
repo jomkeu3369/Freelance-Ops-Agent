@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 from datetime import UTC, datetime
 from uuid import uuid4
+from unittest.mock import Mock
 
 import pytest
 
 from contracts import AgentInput, AgentRunRequest, DepartmentName, DepartmentResult, ModelSelection, Provider, RunBudget, SafetyContextInput, SourceReference, TrustedRunContext
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
+from security import DelegationPrincipal, DelegationTokenVerifier
 from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, InMemoryResearchDispatchContextBroker, PostgresAgentRunStore, PostgresResearchResultFence, PostgresShadowSchedulerStore, PostgresTaskRegistry, ResearchFifoDispatcherPilot, ResearchSpecialistResult, ResearchTaskWorker, ResearchWorkerDispatchSink, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
@@ -38,7 +40,9 @@ async def test_fifo_dispatcher_runs_fenced_research_worker_to_terminal_state() -
     run_store = PostgresAgentRunStore(database)
     registry = PostgresTaskRegistry(database)
     scheduler = PostgresShadowSchedulerStore(database)
-    broker = InMemoryResearchDispatchContextBroker()
+    verifier = Mock(spec=DelegationTokenVerifier)
+    verifier.verify.return_value = DelegationPrincipal(str(context.initiated_by), "integration-test", context.run_id, context.workspace_id, context.project_id, context.initiated_by, frozenset(context.effective_permissions))
+    broker = InMemoryResearchDispatchContextBroker(verifier)
     worker = ResearchTaskWorker(registry, FixedResearchExecution(), result_fence=PostgresResearchResultFence(registry))
     sink = ResearchWorkerDispatchSink(worker, broker)
     dispatcher = ResearchFifoDispatcherPilot(scheduler, sink, resource_pool="research-read-v1", claimed_by="dispatcher-integration")
