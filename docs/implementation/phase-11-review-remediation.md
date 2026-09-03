@@ -119,3 +119,7 @@ Spring의 재검증은 토큰 발급 시점의 스냅샷이다. 이미 발급한
 - 실제 서비스 재시작/강제 종료, Docker 이미지 빌드, 운영 호출 및 배포는 미실행이다.
 
 완료 판정: **복원 계약의 구현·단위 검증 완료 / 전체 안정화·운영 승인 미완료 (HOLD)**.
+
+### 인계 상태
+
+브랜치 `codex/phase-11-review-fixes`를 최신 `origin/main` 위로 정렬했고 검증 전후 tree가 동일함을 확인했다. 구현 커밋은 `da70902`이며 원격 push를 완료했다. Draft PR 생성은 GitHub integration의 `403 Resource not accessible by integration`으로 실패했다. PR 생성/승인/병합은 수행하지 않았다. 연결의 PR 쓰기 권한이 필요하다. 이번 작업에서 만든 Python/Gradle 캐시, 테스트 임시 파일과 backend build 산출물은 제거했으며 원본 작업 폴더와 공유 환경의 캐시는 건드리지 않았다.
