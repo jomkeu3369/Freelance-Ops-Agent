@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime
 from typing import Protocol
-from uuid import uuid5
+from uuid import UUID, uuid5
 
 from .scheduler import SchedulerCandidate, SchedulerQueueKind, WorkerCapacitySnapshot
 from .task_contracts import DepartmentTask, TaskAttempt
@@ -22,7 +22,7 @@ class FifoDispatchSink(Protocol):
 class ResearchFifoDispatcherPilot:
     PROFILE = "research-read-v1"
 
-    def __init__(self, store: PostgresShadowSchedulerStore, sink: FifoDispatchSink, *, resource_pool: str, claimed_by: str, lease_seconds: int = 60, predicted_runtime_seconds: float = 30, predictor_version: str = "pilot-static-v1", worker_count: int = 1) -> None:  # noqa: E501
+    def __init__(self, store: PostgresShadowSchedulerStore, sink: FifoDispatchSink, *, resource_pool: str, claimed_by: str, lease_seconds: int = 60, predicted_runtime_seconds: float = 30, predictor_version: str = "pilot-static-v1", worker_count: int = 1, workspace_ids: Collection[UUID] | None = None, ready_attempt_ids: Callable[[], Awaitable[frozenset[UUID]]] | None = None, recover: Callable[[], Awaitable[int]] | None = None) -> None:  # noqa: E501
         if not resource_pool.strip() or not claimed_by.strip() or not 1 <= lease_seconds <= 300 or predicted_runtime_seconds < 0 or not predictor_version.strip() or worker_count < 1:  # noqa: E501
             raise ValueError("Research FIFO dispatcher configuration is invalid")
         self._store = store
@@ -33,6 +33,9 @@ class ResearchFifoDispatcherPilot:
         self._predicted_runtime_seconds = predicted_runtime_seconds
         self._predictor_version = predictor_version
         self._worker_count = worker_count
+        self._workspace_ids = workspace_ids
+        self._ready_attempt_ids = ready_attempt_ids
+        self._recover = recover
 
     @property
     def prediction(self) -> tuple[float, str]:
@@ -58,9 +61,14 @@ class ResearchFifoDispatcherPilot:
         return await self._store.observe_queued(candidate, capacity)
 
     async def dispatch_once(self, *, now: datetime | None = None) -> ClaimedSchedulerEntry | None:
+        if self._recover is not None:
+            await self._recover()
         if not self._sink.has_capacity:
             return None
-        claim = await self._store.claim_next(self._resource_pool, self._claimed_by, now or datetime.now(UTC), lease_seconds=self._lease_seconds)  # noqa: E501
+        ready = None if self._ready_attempt_ids is None else await self._ready_attempt_ids()
+        if ready is not None and not ready:
+            return None
+        claim = await self._store.claim_next(self._resource_pool, self._claimed_by, now or datetime.now(UTC), lease_seconds=self._lease_seconds, worker_count=self._worker_count, workspace_ids=self._workspace_ids, attempt_ids=ready)  # noqa: E501
         if claim is None:
             return None
         async def acknowledge() -> None:

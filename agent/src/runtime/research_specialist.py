@@ -44,6 +44,7 @@ class ResearchSpecialistResult(BaseModel):
     tool_calls: int = Field(ge=1)
     input_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
+    search_credits: int = Field(default=0, ge=0)
     citation_count: int = Field(ge=1)
     verification_status: str = Field(pattern="^PASSED$")
     specialist_profile: str = Field(pattern="^research-read-v1$")
@@ -146,7 +147,7 @@ class ReadOnlyResearchSpecialist:
         sources = self._unique_sources(collections)
         verified = self._verifier.verify(result.summary, sources)
         department_result = DepartmentResult(department=DepartmentName.RESEARCH, status="COMPLETED", summary=result.summary, sources=verified.sources)
-        return ResearchSpecialistResult(department_result=department_result, model_calls=result.model_calls, tool_calls=result.tool_calls, input_tokens=result.input_tokens, output_tokens=result.output_tokens, citation_count=verified.citation_count, verification_status="PASSED", specialist_profile=self.PROFILE)
+        return ResearchSpecialistResult(department_result=department_result, model_calls=result.model_calls, tool_calls=result.tool_calls, input_tokens=result.input_tokens, output_tokens=result.output_tokens, search_credits=sum(item.search_credits for item in collections), citation_count=verified.citation_count, verification_status="PASSED", specialist_profile=self.PROFILE)
 
     @classmethod
     def _require_contract(cls, task: DepartmentTask, objective: str) -> None:

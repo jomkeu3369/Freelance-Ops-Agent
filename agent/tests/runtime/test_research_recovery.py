@@ -166,3 +166,22 @@ def test_http_contract_requires_recovery_capability_and_hides_reference_errors(s
         assert s.request.input.requirement_text not in response.text
         app.state.research_recovery_service = None
         assert client.post(url, json=s.body.model_dump(mode="json"), headers={"Authorization": f"Bearer {s.token()}"}).status_code == 503
+
+
+async def test_report_only_token_drains_events_but_cannot_restore_execution(setup):
+    s = setup
+    await s.service.restore(s.context.run_id, s.body, s.token())
+    s.dispatcher.observe_queued.reset_mock()
+    token = s.token(permissions=["agent.task.report"])
+    assert (await s.service.replay(s.context.run_id, s.body, token)).status == "REPLAY_ONLY"
+    s.dispatcher.observe_queued.assert_not_awaited()
+    assert await s.broker.load(s.claim) is None
+    with pytest.raises(TokenVerificationError):
+        await s.service.restore(s.context.run_id, s.body, token)
+
+
+async def test_report_only_scope_is_checked_before_outbox_claim(setup):
+    s = setup
+    with pytest.raises(TokenVerificationError):
+        await s.service.replay(s.context.run_id, s.body, s.token(permissions=["agent.task.report"], project_id=str(uuid4())))
+    s.publisher.publish_once.assert_not_awaited()

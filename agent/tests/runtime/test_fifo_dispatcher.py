@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -29,8 +30,8 @@ class RecordingStore:
         self.candidates.append(candidate)
         return object()
 
-    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0) -> ClaimedSchedulerEntry | None:
-        del resource_pool, claimed_by, now, lease_seconds, dispatch_count
+    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0, **options: object) -> ClaimedSchedulerEntry | None:
+        del resource_pool, claimed_by, now, lease_seconds, dispatch_count, options
         return self.claim
 
     async def acknowledge_dispatch(self, attempt_id: object, claim_id: object, claimed_by: str) -> None:
@@ -109,3 +110,34 @@ async def test_dispatcher_rejects_unapproved_profile() -> None:
 
     with pytest.raises(ValueError, match="profile"):
         await dispatcher.observe_queued(task, attempt, capacity)
+
+
+async def test_dispatcher_recovers_even_when_local_worker_is_full() -> None:
+    store = RecordingStore()
+    store.claim_next = AsyncMock()  # type: ignore[method-assign]
+    sink = RecordingSink(True)
+    sink.has_capacity = False
+    recover = AsyncMock(return_value=1)
+    dispatcher = ResearchFifoDispatcherPilot(store, sink, resource_pool="research-read-v1", claimed_by="dispatcher-1", recover=recover)  # type: ignore[arg-type]
+
+    assert await dispatcher.dispatch_once() is None
+    recover.assert_awaited_once()
+    store.claim_next.assert_not_awaited()
+
+
+async def test_dispatcher_claims_only_locally_authorized_attempts_with_shared_capacity() -> None:
+    task, attempt, capacity, _ = fixture()
+    store = RecordingStore()
+    store.claim_next = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    ready = AsyncMock(return_value=frozenset({attempt.attempt_id}))
+    dispatcher = ResearchFifoDispatcherPilot(store, RecordingSink(True), resource_pool="research-read-v1", claimed_by="dispatcher-1", worker_count=2, workspace_ids={task.workspace_id}, ready_attempt_ids=ready)  # type: ignore[arg-type]
+
+    assert await dispatcher.dispatch_once(now=capacity.captured_at) is None
+    options = store.claim_next.await_args.kwargs
+    assert options["worker_count"] == 2
+    assert options["workspace_ids"] == {task.workspace_id}
+    assert options["attempt_ids"] == {attempt.attempt_id}
+    store.claim_next.reset_mock()
+    ready.return_value = frozenset()
+    assert await dispatcher.dispatch_once() is None
+    store.claim_next.assert_not_awaited()

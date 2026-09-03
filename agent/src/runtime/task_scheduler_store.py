@@ -5,14 +5,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, or_, select, func, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from infrastructure.database import PgVectorConnectionManager
-from infrastructure.database.models import AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskModel, AgentWorkerCapacityEventModel
+from infrastructure.database.models import AgentResearchPoolModel, AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskModel, AgentWorkerCapacityEventModel
 
 from .scheduler import HierarchicalShadowScheduler, SchedulerCandidate, SchedulerQueueKind, SchedulerRank, ShadowAdmissionDecision, ShadowAdmissionReason, ShadowAdmissionSnapshot, WorkerCapacitySnapshot
 
@@ -69,8 +71,8 @@ class PostgresShadowSchedulerStore:
         if candidate.resource_pool != capacity.resource_pool:
             raise SchedulerObservationConflictError("scheduler candidate and capacity resource pools do not match")
         async with self._database.session() as session:
-            attempt = await session.get(AgentTaskAttemptModel, candidate.attempt_id, with_for_update=True)
             task = await session.get(AgentTaskModel, (candidate.task_id, candidate.task_revision), with_for_update=True)
+            attempt = await session.get(AgentTaskAttemptModel, candidate.attempt_id, with_for_update=True)
             if attempt is None or task is None:
                 raise SchedulerStoreError("scheduler candidate task or attempt was not found")
             if attempt.task_id != candidate.task_id or attempt.task_revision != candidate.task_revision or attempt.workspace_id != candidate.workspace_id or task.workspace_id != candidate.workspace_id:
@@ -92,14 +94,26 @@ class PostgresShadowSchedulerStore:
             await session.flush()
             return SchedulerObservation(candidate, admission)
 
-    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0) -> ClaimedSchedulerEntry | None:
-        if not resource_pool.strip() or not claimed_by.strip() or not 1 <= lease_seconds <= 300 or dispatch_count < 0:
+    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0, worker_count: int = 1, workspace_ids: Collection[UUID] | None = None, attempt_ids: Collection[UUID] | None = None) -> ClaimedSchedulerEntry | None:
+        if not resource_pool.strip() or not claimed_by.strip() or not 1 <= lease_seconds <= 300 or dispatch_count < 0 or worker_count < 1:
             raise ValueError("scheduler claim options are invalid")
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("scheduler claim time must be timezone-aware")
         current = now.astimezone(UTC)
         async with self._database.session() as session:
+            await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:pool, 11))"), {"pool": resource_pool})
+            await session.execute(insert(AgentResearchPoolModel).values(resource_pool=resource_pool, worker_count=worker_count).on_conflict_do_nothing())
+            pool = await session.get(AgentResearchPoolModel, resource_pool)
+            if pool is None or pool.worker_count != worker_count:
+                raise SchedulerClaimConflictError("Research pool capacity differs from durable configuration")
+            active = await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(AgentSchedulerEntryModel.resource_pool == resource_pool, or_(AgentSchedulerEntryModel.entry_status == "DISPATCHED", and_(AgentSchedulerEntryModel.entry_status == "CLAIMED", AgentSchedulerEntryModel.lease_until > current))))
+            if int(active or 0) >= pool.worker_count:
+                return None
             statement = select(AgentSchedulerEntryModel).where(AgentSchedulerEntryModel.resource_pool == resource_pool, AgentSchedulerEntryModel.available_at <= current, or_(AgentSchedulerEntryModel.entry_status == "PENDING", and_(AgentSchedulerEntryModel.entry_status == "CLAIMED", AgentSchedulerEntryModel.lease_until <= current))).with_for_update(skip_locked=True)
+            if workspace_ids is not None:
+                statement = statement.where(AgentSchedulerEntryModel.workspace_id.in_(workspace_ids))
+            if attempt_ids is not None:
+                statement = statement.where(AgentSchedulerEntryModel.attempt_id.in_(attempt_ids))
             models = list((await session.scalars(statement)).all())
             if not models:
                 return None
@@ -130,12 +144,9 @@ class PostgresShadowSchedulerStore:
     async def acknowledge_dispatch(self, attempt_id: UUID, claim_id: UUID, claimed_by: str) -> None:
         async with self._database.session() as session:
             model = await session.get(AgentSchedulerEntryModel, attempt_id, with_for_update=True)
-            if model is None or model.entry_status != "CLAIMED" or model.claim_id != claim_id or model.claimed_by != claimed_by:
+            if model is None or model.entry_status != "CLAIMED" or model.claim_id != claim_id or model.claimed_by != claimed_by or model.lease_until is None or model.lease_until <= datetime.now(UTC):
                 raise SchedulerClaimConflictError("scheduler dispatch claim does not match")
             model.entry_status = "DISPATCHED"
-            model.claim_id = None
-            model.claimed_by = None
-            model.lease_until = None
             model.updated_at = datetime.now(UTC)
 
     @staticmethod

@@ -25,7 +25,7 @@ def test_async_runtime_services_are_composed_from_one_database_boundary() -> Non
 async def test_lifespan_checks_readiness_before_starting_dispatcher(monkeypatch: pytest.MonkeyPatch) -> None:
     import main
 
-    sink = SimpleNamespace(start=Mock(), close=AsyncMock())
+    sink = SimpleNamespace(start=Mock(), close=AsyncMock(), recover=AsyncMock())
     services = SimpleNamespace(task_registry=SimpleNamespace(initialize=AsyncMock()), task_event_store=SimpleNamespace(initialize=AsyncMock()), operational_metrics=SimpleNamespace(snapshot=AsyncMock(return_value=object())))  # noqa: E501
     app = SimpleNamespace(state=SimpleNamespace(database_manager=None, postgres_run_store=None, checkpoint_journal=None, async_runtime_services=services, research_worker_sink=sink))  # noqa: E501
     validation = Mock(side_effect=ValueError("readiness rejected"))
@@ -36,5 +36,6 @@ async def test_lifespan_checks_readiness_before_starting_dispatcher(monkeypatch:
             pytest.fail("unapproved pilot must not serve requests")
 
     validation.assert_called_once()
+    sink.recover.assert_awaited_once()
     sink.start.assert_not_called()
     sink.close.assert_awaited_once()

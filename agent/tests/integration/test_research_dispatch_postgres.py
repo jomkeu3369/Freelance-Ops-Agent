@@ -12,6 +12,8 @@ import pytest
 from contracts import AgentInput, AgentRunRequest, DepartmentName, DepartmentResult, ModelSelection, Provider, RunBudget, SafetyContextInput, SourceReference, TrustedRunContext
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
 from security import DelegationPrincipal, DelegationTokenVerifier
+from runtime.research_budget import PostgresResearchBudgetLedger, split_research_budget
+from runtime.research_ownership import PostgresResearchOwnership
 from runtime import AttemptStatus, DepartmentTask, ExecutionRoute, InMemoryResearchDispatchContextBroker, PostgresAgentRunStore, PostgresResearchResultFence, PostgresShadowSchedulerStore, PostgresTaskRegistry, ResearchFifoDispatcherPilot, ResearchSpecialistResult, ResearchTaskWorker, ResearchWorkerDispatchSink, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
@@ -29,10 +31,12 @@ class FixedResearchExecution:
 async def test_fifo_dispatcher_runs_fenced_research_worker_to_terminal_state() -> None:
     assert DATABASE_URL is not None
     now = datetime.now(UTC)
-    budget = RunBudget(max_duration_seconds=60, max_model_calls=2, max_tool_calls=2, max_input_tokens=1000, max_output_tokens=1000, max_departments=1, max_hierarchy_depth=1)
+    budget = RunBudget(max_duration_seconds=60, max_model_calls=8, max_tool_calls=8, max_input_tokens=1000, max_output_tokens=1000, max_search_credits=2, max_departments=1, max_hierarchy_depth=1)
     context = TrustedRunContext(run_id=uuid4(), thread_id=uuid4(), trace_id="research-dispatch", workspace_id=uuid4(), project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run", "project.read"])
     request = AgentRunRequest(context=context, budget=budget, model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"), safety_context=SafetyContextInput(), input=AgentInput(requirement_text="Check the official policy"))
-    execution = TaskExecutionSnapshot(route=ExecutionRoute.REACT_AGENT, permissions=context.effective_permissions, budget=budget, model_selection=request.model_selection, policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", specialist_profile="research-read-v1", authorization_revision=3, budget_revision=2)
+    allocation = split_research_budget(request)
+    assert allocation.shadow is not None
+    execution = TaskExecutionSnapshot(route=ExecutionRoute.REACT_AGENT, permissions=context.effective_permissions, budget=allocation.shadow.budget, model_selection=request.model_selection, policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", specialist_profile="research-read-v1", authorization_revision=3, budget_revision=2)
     task = DepartmentTask(task_id=uuid4(), run_id=context.run_id, workspace_id=context.workspace_id, project_id=context.project_id, department=DepartmentName.RESEARCH, revision=1, execution=execution, created_at=now)
     attempt = TaskAttempt(attempt_id=uuid4(), task_id=task.task_id, run_id=task.run_id, workspace_id=task.workspace_id, task_revision=1, attempt_number=1, predicted_service_runtime_seconds=30, predictor_version="pilot-static-v1", queued_at=now)
     database = PgVectorConnectionManager(PgVectorPoolConfig(database_url=DATABASE_URL))
@@ -43,11 +47,12 @@ async def test_fifo_dispatcher_runs_fenced_research_worker_to_terminal_state() -
     verifier = Mock(spec=DelegationTokenVerifier)
     verifier.verify.return_value = DelegationPrincipal(str(context.initiated_by), "integration-test", context.run_id, context.workspace_id, context.project_id, context.initiated_by, frozenset(context.effective_permissions))
     broker = InMemoryResearchDispatchContextBroker(verifier)
-    worker = ResearchTaskWorker(registry, FixedResearchExecution(), result_fence=PostgresResearchResultFence(registry))
+    worker = ResearchTaskWorker(registry, FixedResearchExecution(), result_fence=PostgresResearchResultFence(registry), ownership=PostgresResearchOwnership(database))
     sink = ResearchWorkerDispatchSink(worker, broker)
     dispatcher = ResearchFifoDispatcherPilot(scheduler, sink, resource_pool="research-read-v1", claimed_by="dispatcher-integration")
     try:
         await run_store.create(request)
+        await PostgresResearchBudgetLedger(database, [context.workspace_id]).reserve(request)
         await registry.create_task(task)
         await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.ADMITTED)
         task = await registry.transition_task(task.task_id, 1, task.workspace_id, TaskStatus.QUEUED)

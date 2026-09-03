@@ -17,7 +17,15 @@ public class ResearchRecoveryClient {
     }
 
     public void restore(UUID runId, RecoveryRequest request, String token) {
-        RecoveryResponse response = client.post().uri("/internal/v1/agent-runs/{runId}/research-recovery", runId)
+        send(runId, request, token, "research-recovery");
+    }
+
+    public void replay(UUID runId, RecoveryRequest request, String token) {
+        send(runId, request, token, "research-replay");
+    }
+
+    private void send(UUID runId, RecoveryRequest request, String token, String operation) {
+        RecoveryResponse response = client.post().uri("/internal/v1/agent-runs/{runId}/{operation}", runId, operation)
             .contentType(MediaType.APPLICATION_JSON).headers(headers -> headers.setBearerAuth(token))
             .body(request).retrieve().body(RecoveryResponse.class);
         if (response == null || !request.taskId().equals(response.taskId())

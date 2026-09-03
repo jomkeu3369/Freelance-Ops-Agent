@@ -123,3 +123,40 @@ Spring의 재검증은 토큰 발급 시점의 스냅샷이다. 이미 발급한
 ### 인계 상태
 
 브랜치 `codex/phase-11-review-fixes`를 최신 `origin/main` 위로 정렬했고 검증 전후 tree가 동일함을 확인했다. 구현 커밋은 `da70902`이며 원격 push를 완료했다. Draft PR 생성은 GitHub integration의 `403 Resource not accessible by integration`으로 실패했다. PR 생성/승인/병합은 수행하지 않았다. 연결의 PR 쓰기 권한이 필요하다. 이번 작업에서 만든 Python/Gradle 캐시, 테스트 임시 파일과 backend build 산출물은 제거했으며 원본 작업 폴더와 공유 환경의 캐시는 건드리지 않았다.
+
+## 7. 잔여 구현 · 소유권, 예산 예약, 공유 capacity (2026-09-03)
+
+이 절은 3·5·6절에 남아 있던 구현 차단 항목의 최신 상태다. 구현 완료와 운영 검증 완료는 다르며, feature flag와 pilot은 계속 비활성/HOLD다.
+
+### 해결한 문제와 연결
+
+- ACK가 claim을 지우던 경로를 바꾸어 DISPATCHED에도 소유자·claim ID·lease를 유지한다. worker 시작/종료는 pool → parent run → task → attempt → scheduler entry 순서로 잠그고 현재 소유권과 상태를 검사한다. 상태 변경·사용량 정산·event 저장은 같은 DB 트랜잭션에 포함한다.
+- 시작 전에 끊긴 QUEUED lease는 PENDING으로 복구한다. 이미 실행된 RUNNING은 WORKER_LOST 실패와 사용량 UNKNOWN으로 종료하고 자동 재실행하지 않는다. 이전 worker가 늦게 결과를 제출해도 거절한다. 취소/교체된 task 상태를 덮어쓰지 않는다.
+- 만료 복구는 polling마다 local worker가 가득 찼어도 먼저 수행한다. startup도 readiness snapshot 전에 만료 상태를 정리한다. 이 정리는 외부 모델/도구 실행을 하지 않으며 readiness gate를 우회하지 않는다. 유효한 미만료 DISPATCHED, 오래된 큐, 만료 manifest 등은 여전히 시작을 차단할 수 있어 정리 후 재기동/새 운영 증거가 필요하다.
+- pool 설정과 활성 소유권 수는 DB advisory lock 아래 확인한다. 여러 프로세스가 각자 worker_count만큼 실행하는 대신 같은 pool의 전역 상한을 공유한다. 설정값 불일치는 거부한다. broker가 실제 보유한 유효 토큰의 attempt와 허용 workspace만 후보로 claim한다.
+- opted-in run의 원래 예산을 실행 전에 primary/shadow로 원자적 예약한다. 소비형 상한의 합은 원래 예산을 넘지 않는다. shadow는 대략 1/4에 최소 모델/도구 호출 2회·검색 credit 1을 확보하며, 부족하면 shadow를 생략한다. duration/depth/departments는 시간·구조 제한으로 합산 대상이 아니다.
+- 원장은 primary/shadow 사용량을 별도 저장한다. 실패·응답 유실은 UNKNOWN, 정산 전 종료는 RESERVED로 남기며 자동 환급하지 않는다. pilot은 run당 한 번의 primary 실행만 허용한다. 중단 후 재개·재실행은 `PILOT_RUN_BUDGET_ALREADY_RESERVED`로 거부하며 새 run/admission이 필요하다. 일반 workspace 실행은 바꾸지 않는다.
+- 문맥 참조 해시에 clarification history를 포함하고 primary와 shadow가 동일한 보충 답변 텍스트를 사용한다. 원문/토큰을 큐나 이벤트에 복제하지 않는다.
+- 권한 철회/정책 변경/terminal task에는 실행 권한 없이 `agent.task.report`만 발급하여 `/research-replay`로 기존 event를 전달한다. 이 토큰으로 task 제어/실행 복원은 불가능하다. Agent는 수신한 broker의 context를 제거하고 run/workspace 범위 event만 전송한다. Spring은 active 및 최근 24시간 변경된 terminal task를 순회하며, 그보다 오래된 미전송 이벤트는 별도 감사·수동 복구 대상이다.
+
+### 적용 순서와 제한
+
+1. 기존 dispatcher/worker를 중단하고 살아 있는 CLAIMED/DISPATCHED attempt를 감사하여 종료·정리한다. `20260903_0007`은 구버전 active attempt가 있으면 마이그레이션을 거부한다. 운영 DB에 이번 작업으로 migration을 실행하지 않았다.
+2. DB 백업 후 신규 스키마를 적용하고 새 코드만 기동한다. 혼합 버전 rolling upgrade는 지원하지 않는다. 비용 원장을 삭제하는 자동 downgrade는 제공하지 않으며 되돌리기는 별도 감사된 오프라인 절차가 필요하다.
+3. 같은 resource pool의 모든 프로세스는 같은 worker_count를 사용한다. 상한 변경도 실행을 비운 뒤 감사된 설정 변경으로 처리한다.
+4. 실제 PostgreSQL 경합·ACK 직후 강제 종료·RUNNING 중 종료·재시작·권한 철회·재전송 시험 결과와 유효 readiness manifest가 확보되기 전에는 pilot을 활성화하지 않는다.
+
+lease 상한은 **DB가 인정하는 소유권 수**의 상한이다. 취소를 무시하는 외부 Provider의 실제 작업까지 강제 중단하거나 물리적 동시 실행 수를 보장하지 않는다. 토큰 사용량은 Provider 응답 기반의 사후 계측이며 실제 통화 청구액의 절대 상한을 보장하지 않는다. 원장 분리는 중복 예산 배정을 막지만 통합 UI 청구 집계나 Provider 결제 정산 시스템은 아니다.
+
+새 토큰 발급은 현재 권한을 검사하지만 기존 JWT의 즉시 전역 철회는 아니다. report-only replay가 도착하지 않은 다른 프로세스 broker는 TTL/leeway까지 기존 토큰을 인정할 수 있다. 실제 분산 장애 시험에 이 시간을 포함해야 한다.
+
+### 검증 및 남은 인계 조건
+
+- Python runtime/routing/API/integrations/config 및 integration 선택 실행: **273 passed, 12 skipped**. 기존 FastAPI deprecation warning 1개는 남아 있다.
+- Spring Task 테스트: **51 passed**, PostgreSQL 동시 등록 통합 테스트 **1 skipped**. report-only 토큰이 control 권한으로 쓰이지 않는 것도 검사했다.
+- Python source Mypy: **86개 파일 통과**. 변경 Python 파일 Ruff 통과.
+- 실제 PostgreSQL용 신규 테스트 4개를 추가했다: ACK 후 재구성/옛 소유자 거절, RUNNING 만료 종료/늦은 결과 거절, 별도 연결의 pool capacity/workspace 격리, 중복 부모 예산 예약 거절. DB 상태 경계를 구성하는 테스트이며 실제 OS 프로세스 강제 종료 시험 자체는 아니다.
+- 기존 Agent CI는 pgvector DB 초기화·migration·pytest를 수행하므로 신규 통합 테스트도 그 경로에 포함된다. 이번 환경에는 테스트 DB URL 및 Docker/PostgreSQL 실행 환경이 없어 Python integration **12개를 제외**했다. CI 통과를 확인한 것은 아니다.
+- 실제 DB migration, 프로세스 kill/restart, Docker 이미지 build, 외부 Provider 호출 및 7일/1,000건 관측은 미실행이다. 단위 테스트로 운영 효과의 수치나 승인을 대신하지 않는다.
+
+기대 효과는 재시작 경계의 중복 실행 방지, 다른 broker/작업 범위에 대한 잘못된 claim 차단, primary/shadow 중복 예산 배정 차단이다. 지연·처리량·비용 절감률은 실제 운영 관측 후 측정해야 한다.

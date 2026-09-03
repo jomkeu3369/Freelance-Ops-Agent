@@ -215,11 +215,11 @@ class AgentSchedulerEntryModel(AgentRuntimeBase):
     __table_args__ = (
         ForeignKeyConstraint(["attempt_id"], ["agent_runtime.agent_task_attempt.attempt_id"], ondelete="CASCADE"),
         CheckConstraint("queue_kind IN ('READY','RETRY')", name="ck_agent_scheduler_entry_kind"),
-        CheckConstraint("entry_status IN ('PENDING','CLAIMED','DISPATCHED','CANCELLED')", name="ck_agent_scheduler_entry_status"),
+        CheckConstraint("entry_status IN ('PENDING','CLAIMED','DISPATCHED','CANCELLED','FINISHED')", name="ck_agent_scheduler_entry_status"),
         CheckConstraint("priority BETWEEN 1 AND 5 AND predicted_runtime_seconds >= 0", name="ck_agent_scheduler_entry_values"),
         CheckConstraint("available_at >= enqueued_at", name="ck_agent_scheduler_entry_available"),
         CheckConstraint("shadow_decision IN ('ADMIT','DEFER','REJECT')", name="ck_agent_scheduler_entry_shadow_decision"),
-        CheckConstraint("(entry_status = 'CLAIMED' AND claim_id IS NOT NULL AND claimed_by IS NOT NULL AND lease_until IS NOT NULL) OR (entry_status <> 'CLAIMED' AND claim_id IS NULL AND claimed_by IS NULL AND lease_until IS NULL)", name="ck_agent_scheduler_entry_claim"),
+        CheckConstraint("(entry_status IN ('CLAIMED','DISPATCHED') AND claim_id IS NOT NULL AND claimed_by IS NOT NULL AND lease_until IS NOT NULL) OR (entry_status NOT IN ('CLAIMED','DISPATCHED') AND claim_id IS NULL AND claimed_by IS NULL AND lease_until IS NULL)", name="ck_agent_scheduler_entry_claim"),
         Index("ix_agent_scheduler_entry_pending", "resource_pool", "entry_status", "available_at", "enqueued_at"),
         Index("ix_agent_scheduler_entry_workspace_pending", "resource_pool", "workspace_id", "entry_status", "available_at"),
         {"schema": "agent_runtime"}
@@ -252,6 +252,36 @@ class AgentSchedulerEntryModel(AgentRuntimeBase):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentResearchPoolModel(AgentRuntimeBase):
+    __tablename__ = "agent_research_pool"
+    __table_args__ = (CheckConstraint("worker_count >= 1", name="ck_research_pool_capacity"), {"schema": "agent_runtime"})
+
+    resource_pool: Mapped[str] = mapped_column(String(100), primary_key=True)
+    worker_count: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class AgentResearchBudgetModel(AgentRuntimeBase):
+    __tablename__ = "agent_research_budget"
+    __table_args__ = (
+        ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
+        CheckConstraint("primary_status IN ('RESERVED','COMPLETED','UNKNOWN')", name="ck_research_budget_primary_status"),
+        CheckConstraint("shadow_status IN ('DISABLED','RESERVED','RUNNING','COMPLETED','UNKNOWN')", name="ck_research_budget_shadow_status"),
+        {"schema": "agent_runtime"}
+    )
+
+    run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    input_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    original_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    primary_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    shadow_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    primary_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    primary_usage_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    shadow_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    shadow_usage_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class AgentWorkerCapacityEventModel(AgentRuntimeBase):

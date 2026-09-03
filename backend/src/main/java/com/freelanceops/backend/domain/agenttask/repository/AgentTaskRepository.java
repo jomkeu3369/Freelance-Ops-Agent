@@ -23,6 +23,9 @@ public interface AgentTaskRepository extends JpaRepository<AgentTaskEntity, UUID
     @Query("select task from AgentTaskEntity task where task.specialistProfile = 'research-read-v1' and task.workspaceId in :workspaces and task.status in :statuses and (:afterId is null or task.id > :afterId) order by task.id")
     List<AgentTaskEntity> findRecoveryCandidates(@Param("workspaces") List<UUID> workspaces, @Param("statuses") List<AgentTaskStatus> statuses, @Param("afterId") UUID afterId, Pageable page);
 
+    @Query("select task from AgentTaskEntity task where task.specialistProfile = 'research-read-v1' and task.workspaceId in :workspaces and (task.status in :statuses or task.updatedAt >= :since) and (:afterId is null or task.id > :afterId) order by task.id")
+    List<AgentTaskEntity> findRecoveryAndReplayCandidates(@Param("workspaces") List<UUID> workspaces, @Param("statuses") List<AgentTaskStatus> statuses, @Param("afterId") UUID afterId, @Param("since") java.time.Instant since, Pageable page);
+
     List<AgentTaskEntity> findAllByWorkspaceIdAndRunIdOrderByCreatedAtAsc(UUID workspaceId, UUID runId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

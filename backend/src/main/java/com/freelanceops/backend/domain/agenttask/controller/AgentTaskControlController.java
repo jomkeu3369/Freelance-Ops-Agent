@@ -79,7 +79,7 @@ public class AgentTaskControlController {
         @Valid @RequestBody IngestAgentTaskEventBatchRequest request,
         @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
     ) {
-        authority.requireControl(principal);
+        authority.requireReport(principal);
         return new AgentTaskEventBatchResponse(eventIngestionService.ingest(
             request.events(), principal.workspaceId(), principal.runId(), Instant.now()));
     }

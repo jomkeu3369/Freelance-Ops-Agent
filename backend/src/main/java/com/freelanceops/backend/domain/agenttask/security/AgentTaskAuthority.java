@@ -13,4 +13,10 @@ public class AgentTaskAuthority {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "agent.run permission is required");
         }
     }
+
+    public void requireReport(DelegationPrincipal principal) {
+        if (!principal.permissions().contains("agent.run") && !principal.permissions().contains("agent.task.report")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "task report permission is required");
+        }
+    }
 }

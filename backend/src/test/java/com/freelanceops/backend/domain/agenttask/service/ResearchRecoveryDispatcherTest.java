@@ -23,7 +23,6 @@ import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.EnumSet;
@@ -41,6 +40,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class ResearchRecoveryDispatcherTest {
@@ -67,11 +67,11 @@ class ResearchRecoveryDispatcherTest {
     }
 
     @Test
-    void revokedMembershipNeverIssuesOrDeliversToken() {
+    void revokedMembershipIssuesOnlyReportTokenAndNeverRestoresExecution() {
         Fixture f = fixture();
         when(permissions.findActiveMembership(f.run.initiatedBy(), f.run.workspaceId())).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> f.dispatcher.restore(f.task)).isInstanceOf(ResponseStatusException.class);
-        verifyNoInteractions(issuer, client);
+        f.dispatcher.restore(f.task);
+        verifyReportOnly(f);
     }
 
     @Test
@@ -79,16 +79,16 @@ class ResearchRecoveryDispatcherTest {
         Fixture f = fixture();
         when(permissions.findActiveMembership(f.run.initiatedBy(), f.run.workspaceId())).thenReturn(Optional.of(
             new MembershipPermissions(UUID.randomUUID(), EnumSet.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ, PermissionCode.AGENT_CANCEL))));
-        assertThatThrownBy(() -> f.dispatcher.restore(f.task)).isInstanceOf(IllegalStateException.class).hasMessageContaining("stale");
-        verifyNoInteractions(issuer, client);
+        f.dispatcher.restore(f.task);
+        verifyReportOnly(f);
     }
 
     @Test
     void changedBudgetPolicyStopsRecoveryBeforeIssuingToken() {
         Fixture f = fixture();
         doThrow(new IllegalStateException("budget denied")).when(budgets).enforce(any());
-        assertThatThrownBy(() -> f.dispatcher.restore(f.task)).isInstanceOf(IllegalStateException.class);
-        verifyNoInteractions(issuer, client);
+        f.dispatcher.restore(f.task);
+        verifyReportOnly(f);
     }
 
     @Test
@@ -100,10 +100,16 @@ class ResearchRecoveryDispatcherTest {
     @Test
     void aFailedCandidateDoesNotStopTheRestOfTheBatch() {
         Fixture f = fixture();
-        when(tasks.findRecoveryCandidates(any(), any(), any(), any())).thenReturn(List.of(f.task, f.task));
+        when(tasks.findRecoveryAndReplayCandidates(any(), any(), any(), any(), any())).thenReturn(List.of(f.task, f.task));
         doThrow(new IllegalStateException("temporary")).doNothing().when(client).restore(any(), any(), any());
         f.dispatcher.refresh();
         verify(client, times(2)).restore(any(), any(), any());
+    }
+
+    private void verifyReportOnly(Fixture f) {
+        verify(issuer).issue(f.run.id(), f.run.workspaceId(), f.run.projectId(), f.run.initiatedBy(), List.of("agent.task.report"));
+        verify(client).replay(f.run.id(), f.request, "fresh-token");
+        verify(client, never()).restore(any(), any(), any());
     }
 
     private Fixture fixture() {

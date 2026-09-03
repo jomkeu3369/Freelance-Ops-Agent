@@ -195,7 +195,7 @@ async def test_worker_emits_sanitized_failure_event_when_verification_fails() ->
 
     assert registry.calls[-2:] == [("attempt", AttemptStatus.FAILED), ("task", TaskStatus.FAILED)]
     assert registry.events[-1].event_type == "attempt.failed"
-    assert registry.events[-1].data == {"failure_code": "RESEARCH_EVIDENCE_REQUIRED"}
+    assert registry.events[-1].data == {"failure_code": "RESEARCH_EVIDENCE_REQUIRED", "task_terminal": True, "usage_unknown": True}
 
 
 class ProviderFailureExecution:

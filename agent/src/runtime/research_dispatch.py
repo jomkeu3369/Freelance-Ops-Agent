@@ -14,7 +14,7 @@ from uuid import UUID
 from contracts import AgentRunRequest, RunBudget
 from security import DelegationTokenVerifier, TokenVerificationError
 
-from .research_input import research_input_digest
+from .research_input import research_input_digest, research_objective
 from .research_specialist import ResearchSpecialistError
 from .research_worker import ResearchTaskWorker
 from .task_contracts import AttemptStatus, DepartmentTask, TaskAttempt, TaskStatus
@@ -70,7 +70,7 @@ class InMemoryResearchDispatchContextBroker:
     async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
         if task.execution.input_sha256 is not None and task.execution.input_sha256 != research_input_digest(request):
             raise ValueError("Research input reference has changed")
-        context = ResearchDispatchContext(task, attempt, request.input.requirement_text, request.input.jurisdiction_code, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, request.budget, workload_token, request.context.initiated_by)
+        context = ResearchDispatchContext(task, attempt, research_objective(request), request.input.jurisdiction_code, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, task.execution.budget, workload_token, request.context.initiated_by)
         self._authorize(context)
         async with self._lock:
             existing = self._contexts.get(attempt.attempt_id)
@@ -88,6 +88,17 @@ class InMemoryResearchDispatchContextBroker:
                     self._contexts.pop(claim.candidate.attempt_id, None)
                     return None
             return context
+
+    async def ready_attempt_ids(self) -> frozenset[UUID]:
+        async with self._lock:
+            ready = set()
+            for attempt_id, context in list(self._contexts.items()):
+                try:
+                    self._authorize(context)
+                    ready.add(attempt_id)
+                except TokenVerificationError:
+                    self._contexts.pop(attempt_id, None)
+            return frozenset(ready)
 
     def _authorize(self, context: ResearchDispatchContext) -> None:
         principal = self._verifier.verify(context.workload_token)
@@ -114,9 +125,15 @@ class ResearchWorkerDispatchSink:
         self._closing = False
         self._dispatch_once: Callable[[], Awaitable[object]] | None = None
         self._dispatcher_task: asyncio.Task[None] | None = None
+        self._recover: Callable[[], Awaitable[int]] | None = None
 
-    def bind_dispatcher(self, dispatch_once: Callable[[], Awaitable[object]]) -> None:
+    def bind_dispatcher(self, dispatch_once: Callable[[], Awaitable[object]], recover: Callable[[], Awaitable[int]] | None = None) -> None:
         self._dispatch_once = dispatch_once
+        self._recover = recover
+
+    async def recover(self) -> None:
+        if self._recover is not None:
+            await self._recover()
 
     def start(self) -> None:
         if self._dispatch_once is not None and self._dispatcher_task is None and not self._closing:
@@ -157,7 +174,7 @@ class ResearchWorkerDispatchSink:
                 await acknowledge()
             if self._closing:
                 return False
-            task = asyncio.create_task(self._run(context), name=f"research-attempt-{context.attempt.attempt_id}")
+            task = asyncio.create_task(self._run(context, claim), name=f"research-attempt-{context.attempt.attempt_id}")
             self._tasks.add(task)
             task.add_done_callback(lambda completed: self._completed_attempt(completed, attempt_id))
             scheduled = True
@@ -187,10 +204,14 @@ class ResearchWorkerDispatchSink:
             if unfinished:
                 logger.error("Research workers exceeded cancellation grace: count=%s", len(unfinished))
 
-    async def _run(self, context: ResearchDispatchContext) -> None:
+    async def _run(self, context: ResearchDispatchContext, claim: ClaimedSchedulerEntry) -> None:
         cancelled = False
         try:
-            await self._worker.run(context.task, context.attempt, objective=context.objective, jurisdiction=context.jurisdiction, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
+            fresh = await self._loader.load(claim)
+            if fresh is None or not self._matches(claim, fresh):
+                return
+            context = fresh
+            await self._worker.run(context.task, context.attempt, objective=context.objective, jurisdiction=context.jurisdiction, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget, claim=claim)
         except asyncio.CancelledError:
             cancelled = True
             raise

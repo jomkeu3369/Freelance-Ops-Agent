@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Protocol
@@ -22,6 +23,7 @@ from .task_contracts import (
     TaskStatus,
 )
 from .task_guard import TaskGuard
+from .task_scheduler_store import ClaimedSchedulerEntry
 
 
 class ResearchExecution(Protocol):
@@ -42,35 +44,54 @@ class ResearchResultFence(Protocol):
     async def allows(self, task: DepartmentTask, attempt: TaskAttempt) -> bool: ...
 
 
+class ResearchAttemptOwnership(Protocol):
+    async def begin(self, task: DepartmentTask, attempt: TaskAttempt, claim: ClaimedSchedulerEntry, event: TaskAttemptEventWrite) -> None: ...
+
+    async def finish(self, task: DepartmentTask, attempt: TaskAttempt, claim: ClaimedSchedulerEntry, event: TaskAttemptEventWrite) -> None: ...
+
+
 class ResearchTaskWorker:
     SOURCE = "research-read-worker-v1"
 
-    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None, failure_handler: ResearchFailureHandler | None = None, result_fence: ResearchResultFence | None = None) -> None:
+    def __init__(self, registry: ResearchTaskRegistry, specialist: ResearchExecution, guard: TaskGuard | None = None, failure_handler: ResearchFailureHandler | None = None, result_fence: ResearchResultFence | None = None, ownership: ResearchAttemptOwnership | None = None) -> None:
+        if ownership is not None and failure_handler is not None:
+            raise ValueError("Fenced Research attempts require separate budget admission before retry")
         self._registry = registry
         self._specialist = specialist
         self._guard = guard or TaskGuard()
         self._failure_handler = failure_handler
         self._result_fence = result_fence
+        self._ownership = ownership
 
-    async def run(self, task: DepartmentTask, attempt: TaskAttempt, *, objective: str, jurisdiction: str | None, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> ResearchSpecialistResult:
+    async def run(self, task: DepartmentTask, attempt: TaskAttempt, *, objective: str, jurisdiction: str | None, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget, claim: ClaimedSchedulerEntry | None = None) -> ResearchSpecialistResult:
+        if (self._ownership is None) != (claim is None):
+            raise ResearchSpecialistError("RESEARCH_OWNERSHIP_REQUIRED")
         self.validate(task, attempt, current_permissions=current_permissions, current_authorization_revision=current_authorization_revision, current_budget_revision=current_budget_revision, parent_budget=parent_budget)
         started_at = datetime.now(UTC)
         started_event = self._event(task, attempt, 1, "attempt.started", started_at, phase="RESEARCH", milestone="Research specialist started")
-        await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at, event=started_event)
-        await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING)
+        if self._ownership is not None and claim is not None:
+            await self._ownership.begin(task, attempt, claim, started_event)
+        else:
+            await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.RUNNING, started_at=started_at, event=started_event)
+            await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING)
         try:
-            result = await self._specialist.execute(task, objective=objective, jurisdiction=jurisdiction)
+            async with asyncio.timeout(task.execution.budget.max_duration_seconds):
+                result = await self._specialist.execute(task, objective=objective, jurisdiction=jurisdiction)
         except Exception as error:
             code = error.code if isinstance(error, ResearchSpecialistError) else "RESEARCH_WORKER_FAILED"
             failed_at = datetime.now(UTC)
-            failed_event = self._event(task, attempt, 2, "attempt.failed", failed_at, phase="VERIFICATION", milestone="Research specialist failed", data={"failure_code": code})
-            await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.FAILED, finished_at=failed_at, event=failed_event)
-            if self._failure_handler is None:
-                await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.FAILED)
+            failed_event = self._event(task, attempt, 2, "attempt.failed", failed_at, phase="VERIFICATION", milestone="Research specialist failed", data={"failure_code": code, "task_terminal": self._failure_handler is None, "usage_unknown": True})
+            if self._ownership is not None and claim is not None:
+                await self._ownership.finish(task, attempt, claim, failed_event)
             else:
-                await self._failure_handler.decide_retry(attempt.attempt_id, task.workspace_id,
-                    self._failure_signals(code), max_attempts=task.execution.budget.max_retries + 1,
-                    source=self.SOURCE)
+                await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.FAILED, finished_at=failed_at, event=failed_event)
+            if self._ownership is None:
+                if self._failure_handler is None:
+                    await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.FAILED)
+                else:
+                    await self._failure_handler.decide_retry(attempt.attempt_id, task.workspace_id,
+                        self._failure_signals(code), max_attempts=task.execution.budget.max_retries + 1,
+                        source=self.SOURCE)
             if isinstance(error, ResearchSpecialistError):
                 raise
             raise ResearchSpecialistError(code) from error
@@ -80,8 +101,11 @@ class ResearchTaskWorker:
 
         completed_at = datetime.now(UTC)
         completed_event = self._event(task, attempt, 2, "attempt.completed", completed_at, phase="VERIFICATION", milestone="Evidence verification passed", data={"result": result.model_dump(mode="json")})
-        await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=completed_at, event=completed_event)
-        await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.COMPLETED)
+        if self._ownership is not None and claim is not None:
+            await self._ownership.finish(task, attempt, claim, completed_event)
+        else:
+            await self._registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.COMPLETED, finished_at=completed_at, event=completed_event)
+            await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.COMPLETED)
         return result
 
     def validate(self, task: DepartmentTask, attempt: TaskAttempt, *, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> None:

@@ -39,6 +39,8 @@ from runtime import (
     RunCoordinator,
     build_async_runtime_services,
 )
+from runtime.research_budget import PostgresResearchBudgetLedger
+from runtime.research_ownership import PostgresResearchOwnership
 from runtime.research_pilot_activation import require_pilot_activation
 from runtime.research_recovery import ResearchRecoveryService
 from security import DelegationTokenVerifier
@@ -78,6 +80,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if research_worker_sink is not None:
             if async_runtime_services is None:
                 raise RuntimeError("Research pilot requires durable operational metrics")
+            # Lifecycle cleanup makes no external calls; execution remains behind the readiness gate.
+            await research_worker_sink.recover()
             settings = get_settings()
             snapshot = await async_runtime_services.operational_metrics.snapshot(settings.fifo_dispatcher_resource_pool)
             require_pilot_activation(settings.fifo_dispatcher_readiness_path, settings.fifo_dispatcher_readiness_sha256, settings.fifo_dispatcher_deployment_commit_sha, settings.allowed_fifo_dispatcher_workspaces(), snapshot)  # noqa: E501
@@ -210,16 +214,21 @@ def _build_run_runtime() -> RuntimeComponents:
     dispatcher: ResearchFifoDispatcherPilot | None = None
     context_broker: InMemoryResearchDispatchContextBroker | None = None
     recovery: ResearchRecoveryService | None = None
+    budget_ledger: PostgresResearchBudgetLedger | None = None
     if settings.fifo_dispatcher_enabled:
         if research_tool is None:
             raise RuntimeError("enabled FIFO dispatcher requires the Research tool")
         verifier = _build_delegation_token_verifier()
         context_broker = InMemoryResearchDispatchContextBroker(verifier)
-        worker = ResearchTaskWorker(services.task_registry, ReadOnlyResearchSpecialist(model_gateway, research_tool), result_fence=PostgresResearchResultFence(services.task_registry))  # noqa: E501
+        ownership = PostgresResearchOwnership(database)
+        budget_ledger = PostgresResearchBudgetLedger(database, settings.allowed_fifo_dispatcher_workspaces())
+        worker = ResearchTaskWorker(services.task_registry, ReadOnlyResearchSpecialist(model_gateway, research_tool), result_fence=PostgresResearchResultFence(services.task_registry), ownership=ownership)  # noqa: E501
         research_worker_sink = ResearchWorkerDispatchSink(worker, context_broker, event_publisher, worker_count=settings.fifo_dispatcher_worker_count, shutdown_timeout_seconds=settings.fifo_dispatcher_shutdown_timeout_seconds)  # noqa: E501
-        dispatcher = ResearchFifoDispatcherPilot(services.scheduler_store, research_worker_sink, resource_pool=settings.fifo_dispatcher_resource_pool, claimed_by=settings.fifo_dispatcher_claimed_by, lease_seconds=settings.fifo_dispatcher_lease_seconds, predicted_runtime_seconds=settings.fifo_dispatcher_predicted_runtime_seconds, predictor_version=settings.fifo_dispatcher_predictor_version, worker_count=settings.fifo_dispatcher_worker_count)  # noqa: E501
-        research_worker_sink.bind_dispatcher(dispatcher.dispatch_once)
-        recovery = ResearchRecoveryService(store, services.task_registry, context_broker, dispatcher, event_publisher, verifier, settings.allowed_fifo_dispatcher_workspaces())  # noqa: E501
+        async def recover_expired() -> int:
+            return await ownership.recover_expired(settings.fifo_dispatcher_resource_pool, settings.allowed_fifo_dispatcher_workspaces())  # noqa: E501
+        dispatcher = ResearchFifoDispatcherPilot(services.scheduler_store, research_worker_sink, resource_pool=settings.fifo_dispatcher_resource_pool, claimed_by=settings.fifo_dispatcher_claimed_by, lease_seconds=settings.fifo_dispatcher_lease_seconds, predicted_runtime_seconds=settings.fifo_dispatcher_predicted_runtime_seconds, predictor_version=settings.fifo_dispatcher_predictor_version, worker_count=settings.fifo_dispatcher_worker_count, workspace_ids=settings.allowed_fifo_dispatcher_workspaces(), ready_attempt_ids=context_broker.ready_attempt_ids, recover=recover_expired)  # noqa: E501
+        research_worker_sink.bind_dispatcher(dispatcher.dispatch_once, recover_expired)
+        recovery = ResearchRecoveryService(store, services.task_registry, context_broker, dispatcher, event_publisher, verifier, settings.allowed_fifo_dispatcher_workspaces(), budget_ledger)  # noqa: E501
     task_shadow_registrar = (
         PostgresResearchTaskShadowRegistrar(
             services.task_registry,
@@ -232,7 +241,7 @@ def _build_run_runtime() -> RuntimeComponents:
         if settings.task_shadow_enabled
         else None
     )
-    executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar)  # noqa: E501
+    executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar, budget_ledger)  # noqa: E501
     checkpoint = (
         PostgresCheckpointJournal(
             settings.database_url,

@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -55,7 +56,7 @@ public class ResearchRecoveryDispatcher {
 
     @Scheduled(fixedDelayString = "${agent.research-recovery-delay-ms:10000}")
     public void refresh() {
-        List<AgentTaskEntity> batch = tasks.findRecoveryCandidates(workspaces, ACTIVE, afterId, PageRequest.of(0, BATCH_SIZE));
+        List<AgentTaskEntity> batch = tasks.findRecoveryAndReplayCandidates(workspaces, ACTIVE, afterId, Instant.now().minusSeconds(86400), PageRequest.of(0, BATCH_SIZE));
         for (AgentTaskEntity task : batch) {
             afterId = task.id();
             try {
@@ -70,7 +71,7 @@ public class ResearchRecoveryDispatcher {
 
     void restore(AgentTaskEntity candidate) {
         AgentTaskEntity task = tasks.findByIdAndWorkspaceId(candidate.id(), candidate.workspaceId()).orElseThrow();
-        if (!workspaces.contains(task.workspaceId()) || !ACTIVE.contains(task.status()) || !"research-read-v1".equals(task.specialistProfile())) return;
+        if (!workspaces.contains(task.workspaceId()) || !"research-read-v1".equals(task.specialistProfile())) return;
         var run = runs.findByIdAndWorkspaceId(task.runId(), task.workspaceId()).orElseThrow();
         var profile = profiles.findById(new AgentTaskExecutionProfileId(task.id(), task.revision())).orElseThrow();
         var attempt = attempts.findByTaskIdAndTaskRevisionAndAttemptNumber(task.id(), task.revision(), task.currentAttemptNumber()).orElseThrow();
@@ -78,12 +79,21 @@ public class ResearchRecoveryDispatcher {
         // validate reads CURRENT membership, policy and parent budget. A changed revision requires re-admission.
         var principal = new DelegationPrincipal(run.initiatedBy().toString(), "internal-recovery-check", run.id(),
             run.workspaceId(), run.projectId(), run.initiatedBy(), Set.copyOf(profile.permissions()));
-        var checked = guard.validate(task, profile.asRequest(), principal, Instant.now());
-        if (!profile.hasSameContract(checked)) throw new IllegalStateException("Research recovery profile is stale");
+        var request = new ResearchRecoveryClient.RecoveryRequest(task.id(), task.revision(), attempt.id(), profile.authorizationRevision(), profile.budgetRevision());
+        boolean executable = ACTIVE.contains(task.status());
+        try {
+            executable = executable && profile.hasSameContract(guard.validate(task, profile.asRequest(), principal, Instant.now()));
+        } catch (ResponseStatusException | IllegalStateException rejected) {
+            executable = false;
+        }
+        if (!executable) {
+            String reportToken = issuer.issue(run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), List.of("agent.task.report"));
+            client.replay(run.id(), request, reportToken);
+            return;
+        }
         List<String> permissions = new ArrayList<>(profile.permissions());
         permissions.add("agent.task.recover");
         String token = issuer.issue(run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), permissions);
-        client.restore(run.id(), new ResearchRecoveryClient.RecoveryRequest(task.id(), task.revision(), attempt.id(),
-            checked.authorizationRevision(), checked.budgetRevision()), token);
+        client.restore(run.id(), request, token);
     }
 }

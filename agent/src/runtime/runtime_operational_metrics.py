@@ -41,7 +41,7 @@ class PostgresRuntimeOperationalMetrics:
         captured_at = selected_time.astimezone(UTC)
         pool = AgentSchedulerEntryModel.resource_pool == resource_pool
         pending = AgentSchedulerEntryModel.entry_status == "PENDING"
-        claimed = AgentSchedulerEntryModel.entry_status == "CLAIMED"
+        claimed = AgentSchedulerEntryModel.entry_status.in_(("CLAIMED", "DISPATCHED"))
         async with self._database.session() as session:
             queue_depth = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, pending)) or 0)
             retry_depth = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, pending, AgentSchedulerEntryModel.queue_kind == "RETRY")) or 0)
