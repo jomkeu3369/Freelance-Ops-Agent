@@ -160,3 +160,9 @@ lease 상한은 **DB가 인정하는 소유권 수**의 상한이다. 취소를 
 - 실제 DB migration, 프로세스 kill/restart, Docker 이미지 build, 외부 Provider 호출 및 7일/1,000건 관측은 미실행이다. 단위 테스트로 운영 효과의 수치나 승인을 대신하지 않는다.
 
 기대 효과는 재시작 경계의 중복 실행 방지, 다른 broker/작업 범위에 대한 잘못된 claim 차단, primary/shadow 중복 예산 배정 차단이다. 지연·처리량·비용 절감률은 실제 운영 관측 후 측정해야 한다.
+
+### 최종 인계 기록
+
+구현 커밋 `362db83`을 `codex/phase-11-review-fixes`에 push했다. 같은 head의 PR이 없음을 확인한 후 Draft PR 생성을 재시도했으나 다시 `403 Resource not accessible by integration`으로 거절됐다. PR 생성·승인·병합은 하지 못했으며 연결의 PR 쓰기 권한이 필요하다. 변경 소스와 문서는 보존하고, 이번 worktree의 Python 타입검사 캐시·pytest 임시 폴더·Gradle 캐시·backend build 산출물은 제거했다. 공유 가상환경과 원본 작업 폴더는 건드리지 않았다.
+
+남은 작업은 (1) 격리된 PostgreSQL/컨테이너 환경에서 실제 migration·경합·강제 종료/재시작 시험, (2) 권한 복구 후 PR 생성 및 검증 결과 검토, (3) 별도 승인에 따른 제한 pilot과 실측 증거 수집이다. 환경/권한 제공 전에는 전체 완료 또는 운영 승인으로 처리하지 않는다.
