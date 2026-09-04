@@ -192,7 +192,7 @@ Windows에서는 Backend 검증에 `backend\gradlew.bat`을 사용합니다.
 1. [AI 신뢰성 사례 연구](docs/portfolio/ai-routing-and-rag-reliability-case-study.md)
 2. [운영 라우팅 결정](docs/adr/0015-llm-first-operational-routing.md)
 3. [Retrieval Answerability 평가](docs/testing/retrieval-answerability-pipeline.md)
-4. [Agent Tool Catalog](docs/agent-tools/TOOL_CATALOG.md)
+4. [Async Runtime 최종 감사](docs/reviews/2026-09-01-async-runtime-final-audit.md)
 5. [V2 제품·기술 명세](docs/V2_SPECIFICATION.md)
 
 ---

@@ -593,4 +593,4 @@ fallback`이다. 50% 체계적 runtime 과소예측에서도 합성 gate는 유�
 - [Multi-signal Failure Classifier 실험](../testing/scheduler-multi-signal-failure-classifier-experiment-2026-08-27.md)
 - [Workspace Retry Token Bucket 실험](../testing/scheduler-workspace-retry-token-bucket-experiment-2026-08-27.md)
 - [TaskAttempt Telemetry Shadow Contract 실험](../testing/scheduler-task-attempt-telemetry-shadow-contract-experiment-2026-08-27.md)
-- [현재 인수인계 문서](../handoffs/2026-08-25-deep-agent-async-runtime-handoff.md)
+- [Async Runtime 최종 감사](../reviews/2026-09-01-async-runtime-final-audit.md)
