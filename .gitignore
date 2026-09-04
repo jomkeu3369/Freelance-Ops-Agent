@@ -28,6 +28,7 @@ AGENTS.md
 frontend/AGENTS.md
 frontend/CLAUDE.md
 .agents/
+.worktrees/
 docs/STATUS.md
 docs/adr/템플릿.md
 docs/operations/ai-server-pc-handoff-2026-08-13.md
