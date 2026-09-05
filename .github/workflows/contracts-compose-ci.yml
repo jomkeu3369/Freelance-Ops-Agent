@@ -31,6 +31,8 @@ jobs:
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
       - run: docker compose -f docker-compose-infra.yaml config
       - run: docker compose -f docker-compose.yaml config
+      - name: Verify backup ownership and service-role recovery
+        run: sh infra/tests/test-backup-restore.sh
       - run: docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
         env:
           APP_DOMAIN: example.com

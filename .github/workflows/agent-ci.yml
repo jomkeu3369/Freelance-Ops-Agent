@@ -7,6 +7,7 @@ on:
       - "agent/**"
       - "sdk/python/**"
       - "contracts/**"
+      - "infra/postgres/init/**"
       - ".github/workflows/agent-ci.yml"
   workflow_dispatch:
 
@@ -47,15 +48,15 @@ jobs:
       - run: uv sync --locked
       - name: Initialize Agent integration database
         run: |
-          docker exec ${{ job.services.postgres.id }} psql -U postgres -d freelance_ops -v ON_ERROR_STOP=1 -c \
-            "CREATE EXTENSION IF NOT EXISTS vector; CREATE SCHEMA IF NOT EXISTS agent_runtime AUTHORIZATION postgres;"
+          docker exec -i -e APP_DB_PASSWORD=ci-app-password -e AGENT_DB_PASSWORD=ci-agent-password \
+            ${{ job.services.postgres.id }} bash -s < ../infra/postgres/init/001-init.sh
       - name: Apply Agent runtime migrations
         run: uv run --locked alembic upgrade head
         env:
-          AGENT_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/freelance_ops
+          AGENT_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
       - run: uv run --locked pytest
         env:
-          AGENT_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/freelance_ops
+          AGENT_INTEGRATION_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
       - name: Enforce pinned model release policy
         working-directory: ${{ github.workspace }}
         run: uv run --project agent --locked python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json

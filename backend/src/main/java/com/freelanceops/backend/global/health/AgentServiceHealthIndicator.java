@@ -19,7 +19,7 @@ public class AgentServiceHealthIndicator implements HealthIndicator {
     public Health health() {
         try {
             AgentHealthResponse response = restClient.get()
-                .uri("/health")
+                .uri("/health/readiness")
                 .retrieve()
                 .body(AgentHealthResponse.class);
             if (response != null && "UP".equals(response.status())) {
