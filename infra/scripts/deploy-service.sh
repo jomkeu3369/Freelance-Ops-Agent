@@ -115,7 +115,7 @@ if [ "$SERVICE" = "backend" ]; then
     curl --fail --silent --show-error "http://127.0.0.1:${BACKEND_PORT:-8080}/actuator/health/readiness" >/dev/null
 else
     $COMPOSE exec -T agent uv run --no-dev python -c \
-        "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)" >/dev/null
+        "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3)" >/dev/null
 fi
 
 write_tag "$TARGET_MARKER" "$TARGET_TAG"

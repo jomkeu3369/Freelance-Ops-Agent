@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from tavily import AsyncTavilyClient  # type: ignore[import-untyped]
 
 from api.agent_runs.router import router as agent_runs_router
@@ -15,6 +15,7 @@ from contracts import HealthResponse
 from gateway import AIGateway, GatewayPolicy
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
+from infrastructure.readiness import DatabaseReadinessProbe
 from integrations import SpringTaskEventClient, SpringTaskRegistrationClient, SpringToolClient, TaskEventPublisher
 from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
@@ -71,9 +72,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         if checkpoint is not None:
             await checkpoint.open()
+        app.state.runtime_ready = True
         yield
 
     finally:
+        app.state.runtime_ready = False
+        await app.state.database_readiness_probe.close()
         if research_worker_sink is not None:
             await research_worker_sink.wait()
 
@@ -109,6 +113,8 @@ class FreelanceOpsAgentAiServer:
             run_coordinator, database_manager, postgres_run_store, checkpoint_journal, ai_gateway, async_runtime_services, research_worker_sink = _build_run_runtime()  # noqa: E501
 
         self.app.state.run_coordinator = run_coordinator
+        self.app.state.runtime_ready = False
+        self.app.state.database_readiness_probe = DatabaseReadinessProbe()
         self.app.state.database_manager = database_manager
         self.app.state.postgres_run_store = postgres_run_store
         self.app.state.checkpoint_journal = checkpoint_journal
@@ -131,6 +137,19 @@ class FreelanceOpsAgentAiServer:
         async def health_check() -> HealthResponse:
             settings = get_settings()
             return HealthResponse(status="UP", service=settings.service_name, version=settings.service_version)
+
+        @self.app.get("/health/readiness", response_model=HealthResponse, responses={503: {"model": HealthResponse}})
+        async def readiness_check(response: Response) -> HealthResponse:
+            settings = get_settings()
+            ready = self.app.state.runtime_ready
+            database: PgVectorConnectionManager | None = self.app.state.database_manager
+            checkpoint: PostgresCheckpointJournal | None = self.app.state.checkpoint_journal
+            if ready and checkpoint is not None and not checkpoint.is_open:
+                ready = False
+            if ready and database is not None:
+                ready = await self.app.state.database_readiness_probe.check(database)
+            response.status_code = 200 if ready else 503
+            return HealthResponse(status="UP" if ready else "DOWN", service=settings.service_name, version=settings.service_version)  # noqa: E501
 
         self.app.include_router(agent_runs_router)
         self.app.include_router(assumptions_router)
