@@ -15,12 +15,16 @@ Agent는 Spring Boot가 소유한 업무 table을 직접 읽거나 수정하지 
 
 ## Internal API
 
+- `GET /health`: 프로세스 liveness
+- `GET /health/readiness`: startup·checkpoint open·DB query 점검, 준비되지 않으면 `503 DOWN`
 - `POST /internal/v1/agent-runs`: 인증된 run 시작
 - `GET /internal/v1/agent-runs/{runId}`: run 상태·HITL interruption·결과 조회
 - `GET /internal/v1/agent-runs/{runId}/events`: 재연결 cursor를 지원하는 SSE run event 조회
 - `POST /internal/v1/agent-runs/{runId}/resume`: idempotent HITL 응답
 - `POST /internal/v1/agent-runs/{runId}/cancel`: 실행 대기·진행·HITL 대기 run 취소
 - `POST /internal/v1/raptor/build`: Spring 소유 원문 chunk로 storage-neutral RAPTOR node 생성
+
+readiness의 DB 대기는 1초이며 프로세스당 진행 중인 점검 하나를 공유한다. DB 장애 중 driver 취소가 지연돼도 HTTP 응답과 후속 probe가 쌓이지 않는다. `/health`는 DB 장애에도 UP을 유지한다. 이 경로들은 Docker 내부에서만 사용하며 모델 provider의 실제 응답 품질은 별도로 검수한다.
 
 로컬 실행은 memory run store를 사용한다. Compose와 production은
 `AGENT_RUN_STORE_BACKEND=postgres`를 사용하며 production에서 memory 설정은 거부된다.

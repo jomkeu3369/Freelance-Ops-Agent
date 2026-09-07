@@ -31,7 +31,7 @@ Metrics token을 shell history에 직접 입력하지 않고 일시적인 환경
 
 ## 4. 복구 확인
 
-- Agent `/health`와 Spring readiness가 모두 정상이다.
+- Agent `/health/readiness`와 Spring readiness가 모두 정상이다. Agent `/health`는 liveness만 확인한다.
 - 15분 동안 provider failure와 capacity rejection이 SLO 아래다.
 - 1회 opt-in Agent smoke가 접수되고 terminal 상태에 도달한다.
 - Spring usage ledger에 provider/model/token/cost status가 기록된다.

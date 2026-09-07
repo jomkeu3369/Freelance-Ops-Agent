@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.4.0
+  version: 0.4.1
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -20,7 +20,24 @@ paths:
       operationId: getAgentHealth
       responses:
         "200":
-          description: Agent service is healthy
+          description: Agent process is alive; dependency readiness is checked separately
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /health/readiness:
+    get:
+      tags: [Health]
+      operationId: getAgentReadiness
+      responses:
+        "200":
+          description: Runtime startup completed and the configured database is reachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Runtime is starting, stopping, or its required database is unavailable
           content:
             application/json:
               schema:

@@ -56,7 +56,7 @@ services:
         - --no-dev
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3)"
       interval: 5s
       timeout: 5s
       retries: 12
@@ -81,6 +81,10 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/freelance_ops
       DB_USERNAME: app_user
       DB_PASSWORD: ${APP_DB_PASSWORD:-local_app_password}
+      DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-2000}
+      DB_POOL_VALIDATION_TIMEOUT_MS: ${DB_POOL_VALIDATION_TIMEOUT_MS:-1000}
+      DB_SOCKET_TIMEOUT_SECONDS: ${DB_SOCKET_TIMEOUT_SECONDS:-10}
+      DB_CONNECT_TIMEOUT_SECONDS: ${DB_CONNECT_TIMEOUT_SECONDS:-3}
       AGENT_BASE_URL: http://agent:8000
       AGENT_QUOTA_MAX_DURATION_SECONDS: ${AGENT_QUOTA_MAX_DURATION_SECONDS:-180}
       AGENT_QUOTA_MAX_MODEL_CALLS: ${AGENT_QUOTA_MAX_MODEL_CALLS:-50}

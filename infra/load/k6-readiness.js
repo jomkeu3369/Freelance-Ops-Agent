@@ -1,7 +1,7 @@
 import http from "k6/http";
 import { check } from "k6";
 
-const baseUrl = (__ENV.BASE_URL || "https://api.freelance-ops.site").replace(/\/$/, "");
+const baseUrl = (__ENV.BASE_URL || "http://127.0.0.1:18080").replace(/\/$/, "");
 
 export const options = {
   scenarios: {
@@ -20,6 +20,8 @@ export const options = {
     },
   },
   thresholds: {
+    checks: ["rate==1"],
+    dropped_iterations: ["count==0"],
     http_req_failed: ["rate<0.005"],
     http_req_duration: ["p(95)<500", "p(99)<1000"],
   },
@@ -27,10 +29,18 @@ export const options = {
 
 export default function () {
   const response = http.get(`${baseUrl}/actuator/health/readiness`, {
+    timeout: "5s",
+    redirects: 0,
     tags: { operation: "readiness" },
   });
   check(response, {
     "readiness returns 200": (result) => result.status === 200,
-    "readiness is UP": (result) => result.json("status") === "UP",
+    "readiness is UP": (result) => {
+      try {
+        return result.json("status") === "UP";
+      } catch {
+        return false;
+      }
+    },
   });
 }
