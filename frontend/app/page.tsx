@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import "./figma-home.css";
 import {
   ArrowDown,
   ArrowRight,
@@ -178,11 +180,11 @@ export default function Home() {
   }, [workflowPaused]);
 
   return (
-    <main id="main-content" ref={pageRef} className="site-shell overflow-x-hidden w-full max-w-full">
+    <main id="main-content" ref={pageRef} className="site-shell figma-home overflow-x-hidden w-full max-w-full">
 
       <header className="nav-shell" aria-label="주요 탐색">
         <Link className="brand" href="#top" aria-label="Freelance Ops 홈">
-          <span className="brand-wordmark">Freelance Ops</span>
+          <Image src="/figma/logo.svg" alt="" width={32} height={32} /><span className="brand-wordmark">Freelance Ops</span>
         </Link>
         <nav className="nav-links" aria-label="페이지 이동">
           <a href="#product">제품 소개</a>
@@ -206,12 +208,12 @@ export default function Home() {
 
       <section id="top" className="hero-section">
         <div className="hero-copy">
-          <p className="hero-context hero-reveal">한국 소프트웨어 개발 프리랜서를 위한 운영 도구</p>
+          <p className="hero-context hero-reveal">모호한 고객 문의를, 근거 있는 견적으로.</p>
           <h1 className="hero-title hero-reveal">
-            모호한 고객 문의를,<br /><span>근거 있는 견적으로.</span>
+            Freelance Ops
           </h1>
           <p className="hero-description hero-reveal">
-            고객 문의에서 요구사항과 불확실성을 정리하고, 확인 질문·WBS·견적·제안서로 연결합니다.
+            고객 문의에서 요구사항과 불확실성을 정리하고,<br />확인 질문·WBS·견적·제안서로 연결합니다.
           </p>
           <div className="hero-actions hero-reveal">
             <Link className="primary-button" href="/workspace">
@@ -224,7 +226,7 @@ export default function Home() {
           <p className="hero-note hero-reveal">AI 초안은 사용자가 검토하고 확정합니다.</p>
         </div>
         <div className="hero-stage hero-reveal">
-          <LiveWorkflow snapshot={previewSnapshot} preview />
+          <Image src="/figma/dashboard-preview.png" alt="프로젝트 현황 예시: 신규 문의부터 결과 회고까지 여섯 단계로 관리하는 대시보드" width={1250} height={725} priority sizes="(max-width: 820px) 100vw, 1200px" />
         </div>
       </section>
 
@@ -291,6 +293,7 @@ export default function Home() {
           ))}
         </div>
         <p className="workflow-note"><ShieldCheck size={19} /> 중요한 단계마다 사용자의 확인을 기다립니다.</p>
+        <div className="workflow-live-preview"><LiveWorkflow snapshot={previewSnapshot} preview /></div>
       </section>
 
       <section className="chapter deliverables-section">

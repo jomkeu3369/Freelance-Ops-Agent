@@ -160,7 +160,8 @@ test("landing typography keeps Korean display copy within the measured line budg
   ]);
   assert.match(layout, /pretendardvariable-dynamic-subset\.css/);
   assert.doesNotMatch(layout, /next\/font\/google/);
-  assert.match(source, /모호한 고객 문의를,<br \/><span>근거 있는 견적으로\.<\/span>/);
+  assert.match(source, /hero-context hero-reveal">모호한 고객 문의를, 근거 있는 견적으로\./);
+  assert.match(source, /src="\/figma\/dashboard-preview.png"/);
   assert.match(css, /font-synthesis: none/);
   assert.match(css, /word-break: keep-all/);
   assert.match(css, /\.hero-title \{[^}]*clamp\(4\.25rem, 4\.7vw, 5\.65rem\)/);
@@ -862,8 +863,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   ]);
   assert.match(workspace, /useTheme/);
   assert.match(workspace, /setTheme\(isDarkTheme \? "light" : "dark"\)/);
-  assert.match(workspace, /라이트 모드로 전환/);
-  assert.match(workspace, /다크 모드로 전환/);
+  assert.match(workspace, /role="switch" aria-checked=\{isDarkTheme\} aria-label="다크 모드"/);
   assert.match(workspace, /permissions\.has\("project\.delete"\)/);
   assert.match(workspace, /deleteConfirmation !== project\.title/);
   assert.doesNotMatch(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);

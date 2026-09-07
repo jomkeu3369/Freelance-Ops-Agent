@@ -2,6 +2,8 @@
 
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
+import "./figma-workspace.css";
 import { useTheme } from "next-themes";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -19,16 +21,13 @@ import {
   FolderOpen,
   Graph,
   GearSix,
-  House,
   Eye,
   EyeSlash,
   MagnifyingGlass,
-  Moon,
   PencilSimple,
   Plus,
   Receipt,
   SignOut,
-  Sun,
   Trash,
   Warning,
   Waveform,
@@ -169,6 +168,7 @@ export default function WorkspacePage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [executionRevision, setExecutionRevision] = useState(0);
   const [activeView, setActiveView] = useState<WorkspaceView>("pipeline");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projectStep, setProjectStep] = useState<WorkbenchStep>("intake");
   const runStatus = run?.status;
   const activePermissions = useMemo(
@@ -477,10 +477,11 @@ export default function WorkspacePage() {
   if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={error} setError={setError} />;
 
   return (
-    <main id="main-content" className="workspace-shell">
+    <main id="main-content" className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <header className="workspace-topbar">
-        <button type="button" className="workspace-brand" onClick={() => navigateWorkspace("pipeline")}><House size={18} /> Freelance Ops</button>
+        <div className="workspace-brand-group"><button type="button" className="workspace-brand" onClick={() => navigateWorkspace("pipeline")}>Freelance Ops</button><button type="button" className="sidebar-toggle icon-button" aria-label={sidebarCollapsed ? "메뉴 펼치기" : "메뉴 접기"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(!sidebarCollapsed)}><Image src="/figma/sidebar.svg" alt="" width={24} height={24} /></button></div>
         <div className="workspace-live-status" role="status" aria-live="polite">
+          <strong className="workspace-page-label">{activeView === "clients" ? "고객 관리" : activeView === "knowledge" ? "근거 자료 관리" : activeView === "settings" ? "견적 금액 설정" : "프로젝트 현황"}</strong>
           <span className={streamState === "connected" ? "connected" : streamState === "reconnecting" ? "reconnecting" : ""} />
           {!runId ? "실행 대기" : streamState === "connected" ? "실시간 연결됨" : streamState === "connecting" ? "실시간 연결 중" : streamState === "reconnecting" ? `재연결 중${streamRetryCount > 1 ? ` · ${streamRetryCount}차` : ""}` : run?.status === "WAITING_FOR_USER" ? "사용자 확인 대기" : "실행 상태 동기화됨"}
         </div>
@@ -497,23 +498,24 @@ export default function WorkspacePage() {
             navigateWorkspace("pipeline", null, "intake", true);
             try { await refreshProjects(nextSession); } catch (cause) { setError(cause instanceof Error ? cause.message : "작업 공간을 전환하지 못했습니다."); }
           }}>{profile.workspaces.map((workspace) => <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.name}</option>)}</select></label>}
-          <button type="button" className="icon-button workspace-theme-toggle" aria-label={isDarkTheme ? "라이트 모드로 전환" : "다크 모드로 전환"} title={isDarkTheme ? "라이트 모드" : "다크 모드"} onClick={() => setTheme(isDarkTheme ? "light" : "dark")}>
-            {isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
+          <button type="button" className="workspace-theme-toggle" role="switch" aria-checked={isDarkTheme} aria-label="다크 모드" onClick={() => setTheme(isDarkTheme ? "light" : "dark")}>
+            다크 모드 <span className="theme-switch" aria-hidden="true" />
           </button>
-          <button type="button" className="quiet-button" onClick={() => void logout()}><SignOut size={18} /> 로그아웃</button>
+          <button type="button" className="icon-button" aria-label="설정" onClick={() => navigateWorkspace("settings")}><GearSix size={24} /></button>
         </div>
       </header>
 
       <aside className="workspace-sidebar">
         <div className="workspace-nav">
-          <button type="button" aria-label="프로젝트 현황" aria-current={activeView === "pipeline" ? "page" : undefined} className={activeView === "pipeline" ? "active" : ""} onClick={() => navigateWorkspace("pipeline")}><House size={18} /><span className="nav-label-desktop">프로젝트 현황</span><span className="nav-label-mobile">현황</span></button>
-          {activePermissions.has("client.read") && <button type="button" aria-current={activeView === "clients" ? "page" : undefined} className={activeView === "clients" ? "active" : ""} onClick={() => navigateWorkspace("clients")}><AddressBook size={18} /><span>고객</span></button>}
-          {activePermissions.has("document.read") && <button type="button" aria-current={activeView === "knowledge" ? "page" : undefined} className={activeView === "knowledge" ? "active" : ""} onClick={() => navigateWorkspace("knowledge")}><FileText size={18} /><span>근거 자료</span></button>}
-          <button type="button" aria-current={activeView === "settings" ? "page" : undefined} className={activeView === "settings" ? "active" : ""} onClick={() => navigateWorkspace("settings")}><GearSix size={18} /><span>설정</span></button>
+          <button type="button" aria-label="프로젝트 현황" aria-current={activeView === "pipeline" || activeView === "project" ? "page" : undefined} className={activeView === "pipeline" || activeView === "project" ? "active" : ""} onClick={() => navigateWorkspace("pipeline")}><Image src="/figma/dashboard.svg" alt="" width={24} height={24} /><span className="nav-label-desktop">프로젝트 현황</span><span className="nav-label-mobile">현황</span></button>
+          {activePermissions.has("client.read") && <button type="button" aria-label="고객 관리" aria-current={activeView === "clients" ? "page" : undefined} className={activeView === "clients" ? "active" : ""} onClick={() => navigateWorkspace("clients")}><Image src="/figma/person.svg" alt="" width={24} height={24} /><span>고객 관리</span></button>}
+          {activePermissions.has("document.read") && <button type="button" aria-label="근거 자료 관리" aria-current={activeView === "knowledge" ? "page" : undefined} className={activeView === "knowledge" ? "active" : ""} onClick={() => navigateWorkspace("knowledge")}><Image src="/figma/article.svg" alt="" width={24} height={24} /><span>근거 자료 관리</span></button>}
+          <button type="button" aria-label="견적 금액 설정" aria-current={activeView === "settings" ? "page" : undefined} className={activeView === "settings" ? "active" : ""} onClick={() => navigateWorkspace("settings")}><Image src="/figma/payment.svg" alt="" width={24} height={24} /><span>견적 금액 설정</span></button>
         </div>
         <div className="sidebar-foot">
           <span className="sidebar-avatar" aria-hidden="true">{profile?.displayName.slice(0, 1) ?? "F"}</span>
           <span><strong>{profile?.displayName ?? "사용자"}</strong><small>{profile?.email}</small></span>
+          <button type="button" className="icon-button" aria-label="로그아웃" onClick={() => void logout()}><SignOut size={18} /></button>
         </div>
       </aside>
 
@@ -938,16 +940,16 @@ const quotationStatusLabels: Record<string, string> = {
   SUPERSEDED: "이전 버전",
 };
 
-function PipelineBoard({
-  session,
-  projects,
-  clients,
-  displayName,
-  canWrite,
-  onCreate,
-  onSelect,
-  onProjectUpdated,
-}: {
+function DeadlineBadge({ project }: { project: Project }) {
+  const [today] = useState(() => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }));
+  if (project.status === "COMPLETED") return <small className="deadline-badge complete">완료</small>;
+  if (!project.deadline) return null;
+  const days = Math.round((Date.parse(project.deadline.slice(0, 10)) - Date.parse(today)) / 86400000);
+  if (!Number.isFinite(days)) return null;
+  return <small className={`deadline-badge${days <= 7 ? " urgent" : ""}`}>{days === 0 ? "D-Day" : days > 0 ? `D-${days}` : `D+${Math.abs(days)}`}</small>;
+}
+
+function PipelineBoard({ session, projects, clients, displayName, canWrite, onCreate, onSelect, onProjectUpdated }: {
   session: AuthSession;
   projects: Project[];
   clients: Client[];
@@ -963,11 +965,12 @@ function PipelineBoard({
   const [searchResults, setSearchResults] = useState<Project[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [activeColumn, setActiveColumn] = useState(pipelineColumns[0].key);
+  const [view, setView] = useState<"board" | "list">("board");
   const [sort, setSort] = useState<"updated" | "deadline">("updated");
   const activeProjects = (searchResults ?? projects).filter((project) => project.status !== "CANCELLED");
   const selectedColumn = pipelineColumns.find((column) => column.key === activeColumn) ?? pipelineColumns[0];
   const visibleProjects = activeProjects
-    .filter((project) => selectedColumn.statuses.includes(project.status as ProjectStatus))
+    .filter((project) => view === "board" || selectedColumn.statuses.includes(project.status as ProjectStatus))
     .toSorted((left, right) => sort === "deadline"
       ? (left.deadline ?? "9999-12-31").localeCompare(right.deadline ?? "9999-12-31")
       : new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
@@ -991,7 +994,9 @@ function PipelineBoard({
     setMovingId(project.id);
     setError(null);
     try {
-      onProjectUpdated(await updateProject(session, project, status));
+      const updated = await updateProject(session, project, status);
+      onProjectUpdated(updated);
+      setSearchResults((current) => current?.map((item) => item.id === updated.id ? updated : item) ?? null);
     } catch (cause) {
       setError(cause instanceof Error ? `상태 변경이 저장되지 않았습니다. 서버 상태를 다시 확인해 주세요. ${cause.message}` : "상태 변경이 저장되지 않았습니다.");
     } finally {
@@ -1008,7 +1013,7 @@ function PipelineBoard({
         <div className="pipeline-summary"><div><span>전체 프로젝트</span><strong>{projects.length}건</strong></div><div><span>견적 진행</span><strong>{projects.filter((project) => ["QUOTING", "NEGOTIATING"].includes(project.status)).length}건</strong></div><div><span>회고 필요</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}건</strong></div></div>
       </div>
       <div className="pipeline-toolbar">
-        <div className="pipeline-view-tabs" aria-label="프로젝트 보기 방식"><span aria-disabled="true">한눈에 보기</span><strong>목록 보기</strong></div>
+        <div className="pipeline-view-tabs" aria-label="프로젝트 보기 방식"><button type="button" aria-pressed={view === "board"} className={view === "board" ? "active" : ""} onClick={() => setView("board")}>한눈에 보기</button><button type="button" aria-pressed={view === "list"} className={view === "list" ? "active" : ""} onClick={() => setView("list")}>목록 보기</button></div>
         <div className="pipeline-actions">
           <label className="pipeline-sort"><span className="sr-only">정렬 기준</span><select value={sort} onChange={(event) => setSort(event.target.value as "updated" | "deadline")}><option value="updated">업데이트 순</option><option value="deadline">마감일 순</option></select><CaretDown size={15} /></label>
           <form className="pipeline-search" role="search" onSubmit={submitSearch}><input aria-label="프로젝트 검색" value={search} onChange={(event) => { setSearch(event.target.value); if (!event.target.value.trim()) setSearchResults(null); }} placeholder="프로젝트명, 고객명으로 검색" /><button type="submit" aria-label="검색" disabled={searching}>{searching ? <CircleNotch size={18} className="spin" /> : <MagnifyingGlass size={18} />}</button></form>
@@ -1016,17 +1021,31 @@ function PipelineBoard({
         </div>
       </div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
-      <div className="pipeline-status-tabs" role="tablist" aria-label="프로젝트 단계">
-        {pipelineColumns.map((column) => <button key={column.key} type="button" role="tab" aria-selected={activeColumn === column.key} className={activeColumn === column.key ? "active" : ""} onClick={() => setActiveColumn(column.key)}>{column.title}<span>{activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}</span></button>)}
-      </div>
-      {visibleProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>{searchResults ? "검색 조건에 맞는 프로젝트가 없습니다." : `${selectedColumn.title} 단계의 프로젝트가 없습니다.`}</h2><p>{canWrite && !searchResults ? "새 고객 문의를 등록하거나 다른 단계를 확인해 주세요." : "검색어 또는 다른 진행 단계를 확인해 주세요."}</p>{canWrite && !searchResults && <button type="button" className="primary-button" onClick={onCreate}>문의 등록</button>}</div> : (
+      {view === "list" && <div className="pipeline-status-tabs" aria-label="프로젝트 단계">
+        {pipelineColumns.map((column) => <button key={column.key} type="button" aria-pressed={activeColumn === column.key} className={activeColumn === column.key ? "active" : ""} onClick={() => setActiveColumn(column.key)}>{column.title}<span>{activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}</span></button>)}
+      </div>}
+      {view === "board" ? <div className="pipeline-board" aria-label="단계별 프로젝트 보드">
+        {pipelineColumns.map((column) => {
+          const columnProjects = visibleProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus));
+          return <section key={column.key} className={`pipeline-column stage-${column.key}`} aria-label={column.title}>
+            <header><div><h2><i aria-hidden="true" />{column.title}<span>{columnProjects.length}</span></h2><p>{column.caption}</p></div></header>
+            <div className="pipeline-cards">
+              {columnProjects.length === 0 && <p className="column-empty">{searchResults ? "검색 결과가 없습니다" : "현재 프로젝트가 없습니다"}</p>}
+              {columnProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
+                <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}><span className="pipeline-card-client">{projectClientLabel(project, clients)}</span><h3>{project.title}</h3><span className="pipeline-deadline">{project.deadline ? `${project.deadline.replaceAll("-", ".")} 까지` : "희망 완료일 미정"}<DeadlineBadge project={project} /></span></button>
+                {canWrite ? <label><span>단계</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label> : <div className="pipeline-card-status">{pipelineStatusLabels[project.status]}</div>}
+              </article>)}
+            </div>
+          </section>;
+        })}
+      </div> : visibleProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>{searchResults ? "검색 조건에 맞는 프로젝트가 없습니다." : `${selectedColumn.title} 단계의 프로젝트가 없습니다.`}</h2><p>{canWrite && !searchResults ? "새 고객 문의를 등록하거나 다른 단계를 확인해 주세요." : "검색어 또는 다른 진행 단계를 확인해 주세요."}</p>{canWrite && !searchResults && <button type="button" className="primary-button" onClick={onCreate}>문의 등록</button>}</div> : (
         <div className="pipeline-list">
           {visibleProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
             <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)}>
               <span className="pipeline-card-client">{projectClientLabel(project, clients)}</span><span className="pipeline-list-divider">·</span><span className="pipeline-status-text">{pipelineStatusLabels[project.status] ?? project.status}</span>
               <h2>{project.title}</h2>
               <p>{project.requirementText}</p>
-              <dl><div><dt>통화</dt><dd>{project.currency}</dd></div><div><dt>희망 완료일</dt><dd>{project.deadline ?? "미정"}</dd></div><div><dt>예산 범위</dt><dd>{project.budgetMin == null && project.budgetMax == null ? "미정" : `${formatMoney(project.budgetMin ?? 0, project.currency)}–${formatMoney(project.budgetMax ?? 0, project.currency)}`}</dd></div></dl>
+              <dl><div><dt>통화</dt><dd>{project.currency}</dd></div><div><dt>희망 완료일</dt><dd>{project.deadline ?? "미정"} <DeadlineBadge project={project} /></dd></div><div><dt>예산 범위</dt><dd>{project.budgetMin == null && project.budgetMax == null ? "미정" : `${formatMoney(project.budgetMin ?? 0, project.currency)}–${formatMoney(project.budgetMax ?? 0, project.currency)}`}</dd></div></dl>
             </button>
             {canWrite && <label className="pipeline-status-select"><span>단계 변경</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
           </article>)}
