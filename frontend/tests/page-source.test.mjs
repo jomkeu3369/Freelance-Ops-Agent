@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
@@ -30,7 +30,29 @@ test("pipeline and HITL controls preserve the server truth and unfinished answer
   assert.match(css, /\.interruption-actions/);
 });
 
-const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
+// Source checks cover the feature tree rather than assuming a monolithic route file.
+async function readFeatureTree(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const sources = await Promise.all(entries.map(async (entry) => {
+    const location = new URL(entry.name + (entry.isDirectory() ? "/" : ""), directory);
+    if (entry.isDirectory()) return readFeatureTree(location);
+    if (!/\.(tsx?|mjs)$/.test(entry.name)) return "";
+    return readFile(location, "utf8");
+  }));
+  return sources.join("\n");
+}
+
+async function read(path) {
+  const features = {
+    "../app/page.tsx": "../features/home/",
+    "../app/workspace/page.tsx": "../features/workspace/",
+    "../app/proposal/[token]/page.tsx": "../features/proposal/"
+  };
+  if (!features[path]) return readFile(new URL(path, import.meta.url), "utf8");
+  const source = await readFeatureTree(new URL(features[path], import.meta.url));
+  // Ignore formatting-only newlines inside JSX while keeping content checks intact.
+  return source.replace(/\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
+}
 
 test("Vercel Preview uses the standard Next.js build without Cloudflare adapters", async () => {
   const [packageSource, lockfile, vercelSource, nextEnv, runbook] = await Promise.all([
@@ -171,7 +193,7 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.accordion-content strong \{[^}]*white-space: normal; word-break: keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-rows: auto minmax\(82px, 1fr\) auto/);
-  assert.match(source, /window\.setInterval\(\(\) => setActiveStep/);
+  assert.match(source, /window\.setInterval\(\(\) => \{\s*setActiveStep/);
   assert.match(source, /onMouseEnter=\{\(\) => setWorkflowPaused\(true\)\}/);
   assert.match(css, /@keyframes workflowCardPulse/);
   assert.match(css, /@keyframes workflowCoreScan/);
@@ -219,7 +241,7 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);
   assert.match(css, /\.requirement-editor textarea \{[^}]*min-height: 92px/);
   assert.match(workspace, /const configuredModelOptions: Record<Provider, string\[]>/);
-  assert.match(workspace, /<label>AI 모델<select value=\{model\}/);
+  assert.match(workspace, /<label>\s*AI 모델<select value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
   assert.match(workspace, /name="currency" defaultValue="KRW"/);
   assert.match(workspace, /list="suggested-models"/);
@@ -338,8 +360,8 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
     buildWorkspaceSearch({ view: "project", projectId: "project-17", step: "quote" }),
     "?view=project&project=project-17&step=quote",
   );
-  assert.match(workspace, /window\.addEventListener\("popstate", restoreLocation\)/);
-  assert.match(workspace, /window\.history\.replaceState/);
+  assert.match(workspace, /\[pathname, loadedWorkspaceId, activePermissions, applyWorkspaceLocation, projects, session\]/);
+  assert.match(workspace, /router\.replace\(/);
   assert.match(workspace, /permissions\.has\("client\.read"\)/);
   assert.match(workspace, /permissions\.has\("document\.read"\)/);
   assert.match(workspace, /projectResult\.find\(\(item\) => item\.id === location\.projectId\)/);
@@ -478,7 +500,7 @@ test("workspace switching and agent cancellation preserve recoverable operator c
     read("../app/lib/api.ts"),
   ]);
   assert.match(workspace, /profile\.workspaces\.length > 1/);
-  assert.match(workspace, /workspaceId: event\.target\.value/);
+  assert.match(workspace, /onSwitchWorkspace\(event\.target\.value\)/);
   assert.match(workspace, /permissions\.has\("project\.read"\)/);
   assert.match(workspace, /activePermissions\.has\("client\.read"\)/);
   assert.match(workspace, /permissions\.has\("document\.delete"\)/);
@@ -873,7 +895,7 @@ test("workspace supports persistent theme switching and guarded project deletion
   );
   assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
   assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
-  assert.match(workspace, /await deleteProject\(session, deletedProjectId\)/);
+  assert.match(workspace, /await deleteProject\(session, selectedProject\.id\)/);
   assert.doesNotMatch(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
   assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
