@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.project.controller;
 
 import com.freelanceops.backend.domain.project.dto.request.CreateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.request.UpdateProjectRequest;
+import com.freelanceops.backend.domain.project.dto.request.UpdateProjectStatusRequest;
 import com.freelanceops.backend.domain.project.dto.response.ProjectResponse;
 import com.freelanceops.backend.domain.project.service.ProjectService;
 import jakarta.validation.Valid;
@@ -55,6 +56,11 @@ public class ProjectController {
     @PatchMapping("/{projectId}")
     public ProjectResponse update(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @Valid @RequestBody UpdateProjectRequest request, Authentication authentication) {
         return projectService.update(userId(authentication), workspaceId, projectId, request);
+    }
+
+    @PatchMapping("/{projectId}/status")
+    public ProjectResponse updateStatus(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @Valid @RequestBody UpdateProjectStatusRequest request, Authentication authentication) {
+        return projectService.updateStatus(userId(authentication), workspaceId, projectId, request.status());
     }
 
     @DeleteMapping("/{projectId}")

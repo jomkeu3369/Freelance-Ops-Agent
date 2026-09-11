@@ -14,6 +14,9 @@ COPY docker-entrypoint.sh docker-entrypoint.sh
 RUN uv sync --frozen --no-dev
 RUN chmod +x docker-entrypoint.sh
 
+ENV UV_CACHE_DIR=/tmp/uv-cache \
+    UV_NO_SYNC=1
+
 RUN useradd --system --uid 10001 appuser
 USER appuser
 EXPOSE 8000

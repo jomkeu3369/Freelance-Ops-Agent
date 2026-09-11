@@ -97,6 +97,12 @@ public class ProjectEntity {
         this.updatedAt = now;
     }
 
+    public void updateStatus(String status, Instant now) {
+        requireNotDeleting();
+        this.status = status;
+        this.updatedAt = now;
+    }
+
     public void requestDeletion(Instant now) {
         if (deletionRequestedAt == null) deletionRequestedAt = now;
     }

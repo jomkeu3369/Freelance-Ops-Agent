@@ -4,6 +4,7 @@ import { FormEvent, KeyboardEvent as ReactKeyboardEvent, RefObject, useCallback,
 import Link from "next/link";
 import Image from "next/image";
 import "./figma-workspace.css";
+import "./quick-intake.css";
 import { useTheme } from "next-themes";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
@@ -145,6 +146,12 @@ const suggestedModelOptions = [...new Set([...configuredModelOptions.OPENAI, ...
 
 const subscribeToThemeHydration = () => () => undefined;
 
+const subscribeToCompactWorkspace = (onChange: () => void) => {
+  const media = window.matchMedia("(max-width: 820px)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+};
+
 export default function WorkspacePage() {
   const themeMounted = useSyncExternalStore(subscribeToThemeHydration, () => true, () => false);
   const { resolvedTheme, setTheme } = useTheme();
@@ -170,12 +177,31 @@ export default function WorkspacePage() {
   const [activeView, setActiveView] = useState<WorkspaceView>("pipeline");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projectStep, setProjectStep] = useState<WorkbenchStep>("intake");
+  const workspaceContent = useRef<HTMLElement>(null);
+  const pipelineReturn = useRef<{ element: HTMLElement | null; scrollY: number }>({ element: null, scrollY: 0 });
+  const previousView = useRef<WorkspaceView>("pipeline");
   const runStatus = run?.status;
   const activePermissions = useMemo(
     () => new Set(profile?.workspaces.find((workspace) => workspace.workspaceId === session?.workspaceId)?.effectivePermissions ?? []),
     [profile, session?.workspaceId],
   );
   const canWriteProject = activePermissions.has("project.write");
+
+  useEffect(() => {
+    if (previousView.current === activeView) return;
+    previousView.current = activeView;
+    const frame = requestAnimationFrame(() => {
+      const returnTarget = pipelineReturn.current;
+      if (activeView === "pipeline" && returnTarget.element?.isConnected) {
+        returnTarget.element.focus({ preventScroll: true });
+        window.scrollTo({ top: returnTarget.scrollY, behavior: "instant" });
+      } else {
+        workspaceContent.current?.focus({ preventScroll: true });
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeView]);
 
   useEffect(() => {
     if (!session || !selectedProject || activeView !== "project" || !activePermissions.has("agent.run")) return;
@@ -502,6 +528,7 @@ export default function WorkspacePage() {
             다크 모드 <span className="theme-switch" aria-hidden="true" />
           </button>
           <button type="button" className="icon-button" aria-label="설정" onClick={() => navigateWorkspace("settings")}><GearSix size={24} /></button>
+          <button type="button" className="icon-button workspace-mobile-logout" aria-label="로그아웃" onClick={() => void logout()}><SignOut size={18} /></button>
         </div>
       </header>
 
@@ -519,23 +546,28 @@ export default function WorkspacePage() {
         </div>
       </aside>
 
-      <section className="workspace-main">
+      <section ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label="업무 내용">
         {error && <div className="error-banner" role="alert"><Warning size={19} /><span>{error}</span><button type="button" onClick={() => setError(null)}>닫기</button></div>}
-        {activeView === "pipeline" ? (
+        <div hidden={activeView !== "pipeline"}>
           <PipelineBoard
+            key={`${session.userId}:${session.workspaceId}`}
             session={session}
             projects={projects}
             clients={clients}
             displayName={profile?.displayName ?? "사용자"}
             canWrite={canWriteProject}
             onCreate={() => setShowNewProject(true)}
-            onSelect={(project) => navigateWorkspace("project", project)}
+            onSelect={(project) => {
+              pipelineReturn.current = { element: document.activeElement instanceof HTMLElement ? document.activeElement : null, scrollY: window.scrollY };
+              navigateWorkspace("project", project);
+            }}
             onProjectUpdated={(project) => {
               setProjects((current) => current.map((item) => item.id === project.id ? project : item));
               setSelectedProject((current) => current?.id === project.id ? project : current);
             }}
           />
-        ) : activeView === "clients" ? (
+        </div>
+        {activeView === "pipeline" ? null : activeView === "clients" ? (
           <ClientsPanel
             session={session}
             clients={clients}
@@ -964,33 +996,66 @@ function PipelineBoard({ session, projects, clients, displayName, canWrite, onCr
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Project[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [activeColumn, setActiveColumn] = useState(pipelineColumns[0].key);
-  const [view, setView] = useState<"board" | "list">("board");
+  const searchRevision = useRef(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const [activeColumn, setActiveColumn] = useState("all");
+  const compact = useSyncExternalStore(subscribeToCompactWorkspace, () => window.matchMedia("(max-width: 820px)").matches, () => false);
+  const [preferredView, setView] = useState<"board" | "list" | null>(null);
+  const view = preferredView ?? (compact ? "list" : "board");
   const [sort, setSort] = useState<"updated" | "deadline">("updated");
-  const activeProjects = (searchResults ?? projects).filter((project) => project.status !== "CANCELLED");
-  const selectedColumn = pipelineColumns.find((column) => column.key === activeColumn) ?? pipelineColumns[0];
+  const activeProjects = projects.filter((project) => project.status !== "CANCELLED" && (!searchResults || searchResults.some((result) => result.id === project.id)));
+  const selectedColumn = pipelineColumns.find((column) => column.key === activeColumn);
   const visibleProjects = activeProjects
-    .filter((project) => view === "board" || selectedColumn.statuses.includes(project.status as ProjectStatus))
+    .filter((project) => view === "board" || !selectedColumn || selectedColumn.statuses.includes(project.status as ProjectStatus))
     .toSorted((left, right) => sort === "deadline"
       ? (left.deadline ?? "9999-12-31").localeCompare(right.deadline ?? "9999-12-31")
       : new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
 
-  const submitSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (searching) return;
+  const executeSearch = useCallback(async () => {
+    const revision = ++searchRevision.current;
     setSearching(true);
     setError(null);
     try {
-      setSearchResults(search.trim() ? await listProjects(session, search) : null);
+      const results = search.trim() ? await listProjects(session, search) : null;
+      if (revision === searchRevision.current) setSearchResults(results);
     } catch (cause) {
-      setError(cause instanceof Error ? `검색 결과를 불러오지 못했습니다. ${cause.message}` : "검색 결과를 불러오지 못했습니다.");
+      if (revision === searchRevision.current) setError(cause instanceof Error ? `검색 결과를 불러오지 못했습니다. ${cause.message}` : "검색 결과를 불러오지 못했습니다.");
     } finally {
-      setSearching(false);
+      if (revision === searchRevision.current) setSearching(false);
     }
+  }, [search, session]);
+
+  useEffect(() => {
+    if (search.trim()) searchTimer.current = setTimeout(() => void executeSearch(), 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      searchRevision.current += 1;
+    };
+  }, [executeSearch, projects, search]);
+
+  const changeSearch = (value: string) => {
+    searchRevision.current += 1;
+    setSearch(value);
+    setSearching(Boolean(value.trim()));
+    setError(null);
+    if (!value.trim()) setSearchResults(null);
+  };
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    void executeSearch();
+  };
+
+  const showStage = (stage: string) => {
+    changeSearch("");
+    setActiveColumn(stage);
+    setView("list");
   };
 
   const move = async (project: Project, status: ProjectStatus) => {
-    if (project.status === status) return;
+    if (!canWrite || movingId || project.status === status) return;
     setMovingId(project.id);
     setError(null);
     try {
@@ -1010,18 +1075,21 @@ function PipelineBoard({ session, projects, clients, displayName, canWrite, onCr
         <div className="pipeline-heading">
           <div><h1>안녕하세요. {displayName}님,<br />지금 확인할 일을 모았습니다.</h1><p>새 문의부터 진행 중인 작업, 마무리할 회고까지 한곳에서 확인하세요.</p></div>
         </div>
-        <div className="pipeline-summary"><div><span>전체 프로젝트</span><strong>{projects.length}건</strong></div><div><span>견적 진행</span><strong>{projects.filter((project) => ["QUOTING", "NEGOTIATING"].includes(project.status)).length}건</strong></div><div><span>회고 필요</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}건</strong></div></div>
+        <div className="pipeline-summary"><button type="button" onClick={() => showStage("all")}><span>전체 프로젝트</span><strong>{projects.filter((project) => project.status !== "CANCELLED").length}건</strong></button><button type="button" onClick={() => showStage("quoting")}><span>견적 작성</span><strong>{projects.filter((project) => project.status === "QUOTING").length}건</strong></button><button type="button" onClick={() => showStage("review")}><span>완료 프로젝트</span><strong>{projects.filter((project) => project.status === "COMPLETED").length}건</strong></button></div>
       </div>
       <div className="pipeline-toolbar">
         <div className="pipeline-view-tabs" aria-label="프로젝트 보기 방식"><button type="button" aria-pressed={view === "board"} className={view === "board" ? "active" : ""} onClick={() => setView("board")}>한눈에 보기</button><button type="button" aria-pressed={view === "list"} className={view === "list" ? "active" : ""} onClick={() => setView("list")}>목록 보기</button></div>
         <div className="pipeline-actions">
           <label className="pipeline-sort"><span className="sr-only">정렬 기준</span><select value={sort} onChange={(event) => setSort(event.target.value as "updated" | "deadline")}><option value="updated">업데이트 순</option><option value="deadline">마감일 순</option></select><CaretDown size={15} /></label>
-          <form className="pipeline-search" role="search" onSubmit={submitSearch}><input aria-label="프로젝트 검색" value={search} onChange={(event) => { setSearch(event.target.value); if (!event.target.value.trim()) setSearchResults(null); }} placeholder="프로젝트명, 고객명으로 검색" /><button type="submit" aria-label="검색" disabled={searching}>{searching ? <CircleNotch size={18} className="spin" /> : <MagnifyingGlass size={18} />}</button></form>
+          <form className="pipeline-search" role="search" onSubmit={submitSearch}><input ref={searchInput} aria-label="프로젝트 검색" value={search} onChange={(event) => changeSearch(event.target.value)} placeholder="프로젝트명, 고객명으로 검색" /><button type="submit" aria-label="검색" disabled={searching}>{searching ? <CircleNotch size={18} className="spin" /> : <MagnifyingGlass size={18} />}</button></form>
           {canWrite && <button type="button" className="primary-button" onClick={onCreate}><Plus size={18} /> 신규 문의 등록</button>}
         </div>
       </div>
       {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
+      <div className="pipeline-results"><p role="status" aria-live="polite">{searching ? "검색 중입니다…" : `${view === "list" && selectedColumn ? selectedColumn.title : "전체"} ${visibleProjects.length}건${searchResults ? " · 검색 결과" : ""}`}</p>{(search || activeColumn !== "all") && <button type="button" className="quiet-button" onClick={() => { changeSearch(""); setActiveColumn("all"); searchInput.current?.focus(); }}>검색·필터 초기화</button>}</div>
+      {view === "list" && <label className="pipeline-mobile-stage"><span>진행 단계</span><select aria-label="진행 단계 필터" value={activeColumn} onChange={(event) => setActiveColumn(event.target.value)}><option value="all">전체 · {activeProjects.length}건</option>{pipelineColumns.map((column) => <option key={column.key} value={column.key}>{column.title} · {activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}건</option>)}</select></label>}
       {view === "list" && <div className="pipeline-status-tabs" aria-label="프로젝트 단계">
+        <button type="button" aria-pressed={activeColumn === "all"} className={activeColumn === "all" ? "active" : ""} onClick={() => setActiveColumn("all")}>전체<span>{activeProjects.length}</span></button>
         {pipelineColumns.map((column) => <button key={column.key} type="button" aria-pressed={activeColumn === column.key} className={activeColumn === column.key ? "active" : ""} onClick={() => setActiveColumn(column.key)}>{column.title}<span>{activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}</span></button>)}
       </div>}
       {view === "board" ? <div className="pipeline-board" aria-label="단계별 프로젝트 보드">
@@ -1033,12 +1101,12 @@ function PipelineBoard({ session, projects, clients, displayName, canWrite, onCr
               {columnProjects.length === 0 && <p className="column-empty">{searchResults ? "검색 결과가 없습니다" : "현재 프로젝트가 없습니다"}</p>}
               {columnProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
                 <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}><span className="pipeline-card-client">{projectClientLabel(project, clients)}</span><h3>{project.title}</h3><span className="pipeline-deadline">{project.deadline ? `${project.deadline.replaceAll("-", ".")} 까지` : "희망 완료일 미정"}<DeadlineBadge project={project} /></span></button>
-                {canWrite ? <label><span>단계</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label> : <div className="pipeline-card-status">{pipelineStatusLabels[project.status]}</div>}
+                {canWrite ? <label><span>단계</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId !== null} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label> : <div className="pipeline-card-status">{pipelineStatusLabels[project.status]}</div>}
               </article>)}
             </div>
           </section>;
         })}
-      </div> : visibleProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>{searchResults ? "검색 조건에 맞는 프로젝트가 없습니다." : `${selectedColumn.title} 단계의 프로젝트가 없습니다.`}</h2><p>{canWrite && !searchResults ? "새 고객 문의를 등록하거나 다른 단계를 확인해 주세요." : "검색어 또는 다른 진행 단계를 확인해 주세요."}</p>{canWrite && !searchResults && <button type="button" className="primary-button" onClick={onCreate}>문의 등록</button>}</div> : (
+      </div> : visibleProjects.length === 0 ? <div className="pipeline-empty"><FolderOpen size={34} /><h2>{searchResults ? "검색 조건에 맞는 프로젝트가 없습니다." : selectedColumn ? `${selectedColumn.title} 단계의 프로젝트가 없습니다.` : "아직 등록된 프로젝트가 없습니다."}</h2><p>{canWrite && !searchResults ? "새 고객 문의를 등록하거나 다른 단계를 확인해 주세요." : "검색어 또는 다른 진행 단계를 확인해 주세요."}</p>{canWrite && !searchResults && <button type="button" className="primary-button" onClick={onCreate}>문의 등록</button>}</div> : (
         <div className="pipeline-list">
           {visibleProjects.map((project) => <article key={project.id} className={movingId === project.id ? "saving" : ""}>
             <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)}>
@@ -1047,7 +1115,7 @@ function PipelineBoard({ session, projects, clients, displayName, canWrite, onCr
               <p>{project.requirementText}</p>
               <dl><div><dt>통화</dt><dd>{project.currency}</dd></div><div><dt>희망 완료일</dt><dd>{project.deadline ?? "미정"} <DeadlineBadge project={project} /></dd></div><div><dt>예산 범위</dt><dd>{project.budgetMin == null && project.budgetMax == null ? "미정" : `${formatMoney(project.budgetMin ?? 0, project.currency)}–${formatMoney(project.budgetMax ?? 0, project.currency)}`}</dd></div></dl>
             </button>
-            {canWrite && <label className="pipeline-status-select"><span>단계 변경</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId === project.id} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
+            {canWrite && <label className="pipeline-status-select"><span>단계 변경</span><select value={project.status} aria-label={`${project.title} 상태`} disabled={movingId !== null} onChange={(event) => void move(project, event.target.value as ProjectStatus)}>{project.status === "ACCEPTED" && <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>}{pipelineColumns.map((target) => <option key={target.key} value={target.moveTo}>{target.title}</option>)}</select></label>}
           </article>)}
         </div>
       )}
@@ -1623,6 +1691,7 @@ function ProjectWorkbench({
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const deleteDialog = useRef<HTMLElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingProject, setDeletingProject] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -1661,14 +1730,7 @@ function ProjectWorkbench({
     setDeleteError(null);
   }, [deletingProject]);
 
-  useEffect(() => {
-    if (!showDeleteConfirmation) return;
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") closeDeleteConfirmation();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [closeDeleteConfirmation, showDeleteConfirmation]);
+  useDialogFocusTrap(deleteDialog, closeDeleteConfirmation, deletingProject, showDeleteConfirmation);
 
   useEffect(() => {
     if (!runId || !run || !terminalStatuses.has(run.status) || !permissions.has("audit.read")) {
@@ -1709,7 +1771,7 @@ function ProjectWorkbench({
       </div>
 
       {showDeleteConfirmation && <div className="project-delete-backdrop">
-        <section className="project-delete-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="project-delete-title" aria-describedby="project-delete-description">
+        <section ref={deleteDialog} className="project-delete-confirmation" role="alertdialog" aria-modal="true" aria-labelledby="project-delete-title" aria-describedby="project-delete-description">
           <header>
             <span className="project-delete-icon" aria-hidden="true"><Trash size={22} /></span>
             <div><span>프로젝트 삭제</span><h2 id="project-delete-title">정말 삭제하시겠어요?</h2></div>
@@ -1898,12 +1960,6 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
 
   return (
     <section className="intake-review requirement-review">
-      <div className="guided-copy">
-        <span>사용자 입력 · 원문</span>
-        <h2>문의 내용을<br />먼저 확인합니다.</h2>
-        <p>왼쪽 원문과 오른쪽 구조화 결과를 나란히 검토합니다. 저장된 버전은 사용자 확정 결과이며 AI 초안과 구분됩니다.</p>
-        <div className="requirement-version-state"><span>{loading ? "불러오는 중" : structuredOutdated ? "문의 변경됨 · 다시 확인 필요" : latest ? `검토 완료 v${latest.versionNumber}` : "정리 전"}</span><small>{latest ? new Date(latest.createdAt).toLocaleString("ko-KR") : "첫 요구사항을 정리해 주세요."}</small></div>
-      </div>
       <div className="intake-document">
         <div><FileText size={20} /><strong>고객 문의 원문</strong><small>{project.requirementText.length.toLocaleString()}자</small></div>
         <p>{project.requirementText}</p>
@@ -1932,6 +1988,12 @@ function IntakeReview({ session, project, permissions, onContinue }: { session: 
           {documents.length > 0 && <ul>{documents.slice(0, 3).map((document) => <li key={document.id}><FileText size={15} /><span>{document.title}</span><small>{document.status}</small></li>)}</ul>}
           <p>업로드한 파일은 이 프로젝트의 참고 자료로 보관되며, AI 분석이 필요한 내용을 찾을 때 활용됩니다.</p>
         </div>
+      </div>
+      <div className="guided-copy">
+        <span>사용자 입력 · 원문</span>
+        <h2>문의 내용을<br />먼저 확인합니다.</h2>
+        <p>고객 문의 원문과 아래 구조화 결과를 검토합니다. 저장된 버전은 사용자 확정 결과이며 AI 초안과 구분됩니다.</p>
+        <div className="requirement-version-state"><span>{loading ? "불러오는 중" : structuredOutdated ? "문의 변경됨 · 다시 확인 필요" : latest ? `검토 완료 v${latest.versionNumber}` : "정리 전"}</span><small>{latest ? new Date(latest.createdAt).toLocaleString("ko-KR") : "첫 요구사항을 정리해 주세요."}</small></div>
       </div>
       <div className="structured-requirements">
         <header><div><span>구조화된 요구사항</span><h3>{latest ? `검토 완료된 버전 ${latest.versionNumber}` : "아직 확정된 버전이 없습니다."}</h3></div>{canWriteProject && <button type="button" className="secondary-button" onClick={() => {
@@ -2446,7 +2508,7 @@ function QuoteBuilder({ session, project, permissions, quotationDraft, quotation
 
       {draftStatus && <div className={`quote-draft-state ${draftStatus.kind}`} role={draftStatus.kind === "unavailable" ? "alert" : "status"} aria-live="polite">
         <Clock size={19} />
-        <div><strong>{draftStatus.kind === "generated" ? "AI가 견적 초안을 채웠습니다." : draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "generated" ? "작업과 공수에 맞는 등록 단가를 자동으로 연결했습니다. 저장 전에 단가와 가정을 확인해 주세요." : draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
+        <div><strong>{draftStatus.kind === "generated" ? "AI가 견적 초안을 채웠습니다." : draftStatus.kind === "restored" ? "작성 중이던 견적을 불러왔습니다." : draftStatus.kind === "saved" ? "작성 중인 견적을 이 탭에 임시 저장했습니다." : "현재 브라우저에서는 임시 저장을 사용할 수 없습니다."}</strong><small>{draftStatus.kind === "generated" ? "등록된 단가 중 맞는 항목이 있으면 연결합니다. 비어 있는 단가를 입력하고, 저장 전에 공수와 가정을 확인해 주세요." : draftStatus.kind === "unavailable" ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요." : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}</small></div>
         {draftStatus.kind !== "unavailable" && <button type="button" className="quiet-button" onClick={discardDraft}>임시저장 버리기</button>}
       </div>}
 
@@ -2704,7 +2766,7 @@ function InterruptionForm({ interruption, draftKey, draftWorkspaceId, draftRunId
   );
 }
 
-function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: () => void, closeDisabled = false) {
+function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: () => void, closeDisabled = false, enabled = true) {
   const closeRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
 
@@ -2714,10 +2776,17 @@ function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: (
   }, [closeDisabled, onClose]);
 
   useEffect(() => {
+    if (!enabled) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    dialogRef.current?.querySelector<HTMLElement>("[data-autofocus], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])")?.focus();
+    const getFocusable = () => [...(dialogRef.current?.querySelectorAll<HTMLElement>("button, input, textarea, select, summary, [href], [tabindex]:not([tabindex='-1'])") ?? [])]
+      .filter((element) => {
+        const closedDetails = element.closest("details:not([open])");
+        return !element.matches(":disabled") && element.tabIndex >= 0 && element.getAttribute("aria-hidden") !== "true" && element.getClientRects().length > 0 && (!closedDetails || closedDetails.querySelector(":scope > summary")?.contains(element));
+      });
+    const initialFocusable = getFocusable();
+    (initialFocusable.find((element) => element.hasAttribute("data-autofocus")) ?? initialFocusable[0])?.focus();
 
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !closeDisabledRef.current) {
@@ -2726,11 +2795,11 @@ function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: (
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>("button, input, textarea, select, [href], [tabindex]:not([tabindex='-1'])")]
-        .filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
-      if (!focusable.length) return;
+      const focusable = getFocusable();
+      if (!focusable.length) { event.preventDefault(); return; }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      if (!dialogRef.current.contains(document.activeElement)) { event.preventDefault(); first.focus(); return; }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
@@ -2741,7 +2810,7 @@ function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: (
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
-  }, [dialogRef]);
+  }, [dialogRef, enabled]);
 }
 
 function ProjectEditDialog({
@@ -2815,51 +2884,65 @@ function ProjectEditDialog({
 
 function ProjectDialog({ clients, onClose, onCreate }: { clients: Client[]; onClose: () => void; onCreate: (input: { clientId: string | null; title: string; requirementText: string; currency: string; deadline: string | null; budgetMin: number | null; budgetMax: number | null }) => Promise<void> }) {
   const dialogRef = useRef<HTMLElement>(null);
+  const optionalRef = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<string | null>(null);
   useDialogFocusTrap(dialogRef, onClose, busy);
 
   return (
     <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
-      <section ref={dialogRef} className="project-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title">
+      <section ref={dialogRef} className="project-dialog quick-intake-dialog" role="dialog" aria-modal="true" aria-labelledby="project-dialog-title" aria-describedby="project-dialog-description">
         <div><span>새 고객 문의</span><button type="button" disabled={busy} onClick={onClose} aria-label="닫기">×</button></div>
-        <h2 id="project-dialog-title">먼저 알고 있는 내용을 적어주세요.</h2>
-        <p>모호해도 괜찮습니다. 확인되지 않은 내용은 다음 단계에서 질문으로 분리합니다.</p>
-        {error && <div className="inline-error" role="alert"><Warning size={18} />{error}</div>}
+        <h2 id="project-dialog-title">이름과 문의 내용으로 시작하세요.</h2>
+        <p id="project-dialog-description">고객이 보낸 내용을 그대로 붙여 넣으세요. 고객 연결과 예산은 나중에 추가해도 됩니다.</p>
+        {error && <div id="project-dialog-error" className="inline-error" role="alert"><Warning size={18} />{error}</div>}
         <form aria-busy={busy} onSubmit={async (event) => {
           event.preventDefault();
           if (busy) return;
-          const data = new FormData(event.currentTarget);
+          const form = event.currentTarget;
+          const data = new FormData(form);
+          const title = String(data.get("title") ?? "").trim();
+          const requirementText = String(data.get("requirementText") ?? "").trim();
+          if (!title || !requirementText) {
+            const field = !title ? "title" : "requirementText";
+            setInvalidField(field);
+            setError(!title ? "프로젝트 이름을 입력해 주세요. 공백만 입력할 수 없습니다." : "고객 문의 내용을 입력해 주세요. 공백만 입력할 수 없습니다.");
+            form.querySelector<HTMLElement>(`[name="${field}"]`)?.focus();
+            return;
+          }
           const budgetMin = data.get("budgetMin") ? Number(data.get("budgetMin")) : null;
           const budgetMax = data.get("budgetMax") ? Number(data.get("budgetMax")) : null;
           if (budgetMin != null && budgetMax != null && budgetMin > budgetMax) {
-            setError("최소 예산은 최대 예산보다 클 수 없습니다.");
+            setInvalidField("budgetMax");
+            setError("최대 예산은 최소 예산 이상으로 입력해 주세요.");
+            if (optionalRef.current) optionalRef.current.open = true;
+            form.querySelector<HTMLElement>('[name="budgetMax"]')?.focus();
             return;
           }
           setBusy(true);
           setError(null);
+          setInvalidField(null);
           try {
-            await onCreate({
-            clientId: String(data.get("clientId")) || null,
-            title: String(data.get("title")).trim(),
-            requirementText: String(data.get("requirementText")).trim(),
-            currency: String(data.get("currency")),
-            deadline: String(data.get("deadline")) || null,
-            budgetMin,
-            budgetMax,
-            });
+            await onCreate({ clientId: String(data.get("clientId") ?? "") || null, title, requirementText, currency: String(data.get("currency") ?? "KRW"), deadline: String(data.get("deadline") ?? "") || null, budgetMin, budgetMax });
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "프로젝트를 만들지 못했습니다.");
           } finally {
             setBusy(false);
           }
-        }}>
+        }} onInput={(event) => { if ((event.target as HTMLInputElement).name === invalidField) { setInvalidField(null); setError(null); } }}>
           <fieldset className="dialog-fields" disabled={busy}>
-            <label>고객 연결<select name="clientId" defaultValue=""><option value="">아직 고객을 연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select><small>{clients.length === 0 ? "고객 메뉴에서 연락처를 먼저 등록할 수 있습니다." : "선택한 고객은 프로젝트와 함께 저장됩니다."}</small></label>
-            <label>프로젝트 이름<input data-autofocus name="title" required maxLength={200} placeholder="예: 브랜드 사이트 리뉴얼" /></label>
-            <label>고객 문의 원문<textarea name="requirementText" required maxLength={50000} rows={8} placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요." /></label>
-            <div className="form-row"><label>통화<select name="currency" defaultValue="KRW">{currencyOptions.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}</select></label><label>희망 완료일<input name="deadline" type="date" /></label><label>예산 범위<div className="budget-range"><input name="budgetMin" type="number" min="0" step="10000" aria-label="최소 예산" placeholder="최소" /><span>–</span><input name="budgetMax" type="number" min="0" step="10000" aria-label="최대 예산" placeholder="최대" /></div></label></div>
-            <button className="primary-button" type="submit">{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} {busy ? "프로젝트를 만들고 있습니다." : "프로젝트 만들기"}</button>
+            <label><span>프로젝트 이름 <small className="quick-intake-required">필수</small></span><input data-autofocus name="title" required maxLength={200} placeholder="예: 브랜드 사이트 리뉴얼" aria-invalid={invalidField === "title" || undefined} aria-describedby={invalidField === "title" ? "project-dialog-error" : undefined} /></label>
+            <label><span>고객 문의 원문 <small className="quick-intake-required">필수</small></span><textarea name="requirementText" required maxLength={50000} rows={6} placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요." aria-invalid={invalidField === "requirementText" || undefined} aria-describedby={invalidField === "requirementText" ? "project-dialog-error" : undefined} /></label>
+            <details ref={optionalRef} className="quick-intake-options" onInvalidCapture={() => { if (optionalRef.current) optionalRef.current.open = true; }}>
+              <summary><span>추가 정보 <small>선택 · 고객, 예산, 일정</small></span><CaretDown size={18} aria-hidden="true" /></summary>
+              <div className="quick-intake-option-fields">
+                <label>고객 연결<select name="clientId" defaultValue=""><option value="">아직 고객을 연결하지 않음</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.companyName ? ` · ${client.companyName}` : ""}</option>)}</select><small>{clients.length === 0 ? "고객 연결 없이 먼저 시작할 수 있습니다." : "선택한 고객은 프로젝트와 함께 저장됩니다."}</small></label>
+                <div className="form-row"><label>통화<select name="currency" defaultValue="KRW">{currencyOptions.map((currency) => <option key={currency.value} value={currency.value}>{currency.label}</option>)}</select></label><label>희망 완료일<input name="deadline" type="date" /></label></div>
+                <label>예산 범위<div className="budget-range"><input name="budgetMin" type="number" min="0" step="any" aria-label="최소 예산" placeholder="최소" /><span>–</span><input name="budgetMax" type="number" min="0" step="any" aria-label="최대 예산" placeholder="최대" aria-invalid={invalidField === "budgetMax" || undefined} aria-describedby={invalidField === "budgetMax" ? "project-dialog-error" : undefined} /></div></label>
+              </div>
+            </details>
+            <div className="quick-intake-submit"><small>통화를 변경하지 않으면 원화(KRW)로 시작합니다.</small><button className="primary-button" type="submit">{busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />} {busy ? "프로젝트를 만들고 있습니다." : "프로젝트 만들기"}</button></div>
           </fieldset>
         </form>
       </section>

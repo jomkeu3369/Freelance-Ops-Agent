@@ -99,6 +99,15 @@ public class ProjectService {
         return response(projectRepository.save(project));
     }
 
+    @Transactional
+    public ProjectResponse updateStatus(UUID userId, UUID workspaceId, UUID projectId, ProjectStatus status) {
+        authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
+        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        project.updateStatus(status.name(), Instant.now());
+        return response(projectRepository.save(project));
+    }
+
     public void delete(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE);
         deletionTransaction.begin(workspaceId, projectId);

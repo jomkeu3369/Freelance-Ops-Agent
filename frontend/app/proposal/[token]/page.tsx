@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowRight, CheckCircle, CircleNotch, FileText, Printer, Warning } from "@phosphor-icons/react";
-import { SharedProposal, getSharedProposal, submitProposalDecision } from "../../lib/api";
+import { ApiError, SharedProposal, getSharedProposal, submitProposalDecision } from "../../lib/api";
 
 type Decision = "APPROVED" | "CHANGES_REQUESTED" | "REJECTED";
 
@@ -14,6 +14,7 @@ export default function ProposalPage() {
   const [proposal, setProposal] = useState<SharedProposal | null>(null);
   const [decision, setDecision] = useState<Decision>("APPROVED");
   const [submitted, setSubmitted] = useState<Decision | null>(null);
+  const [responseRecorded, setResponseRecorded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadRevision, setLoadRevision] = useState(0);
@@ -56,7 +57,7 @@ export default function ProposalPage() {
           <div><span>YOUR DECISION</span><h2>이 제안에 대한 의견을 남겨주세요.</h2><p>남겨주신 선택과 의견은 담당자에게 바로 전달됩니다.</p></div>
           <form aria-busy={busy} onSubmit={async (event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
-            if (busy) return;
+            if (busy || responseRecorded) return;
             setBusy(true);
             setError(null);
             const data = new FormData(event.currentTarget);
@@ -64,12 +65,17 @@ export default function ProposalPage() {
               await submitProposalDecision(token, { decision, clientName: String(data.get("clientName")), clientEmail: String(data.get("clientEmail")), comment: String(data.get("comment")) });
               setSubmitted(decision);
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "응답을 저장하지 못했습니다.");
+              if (cause instanceof ApiError && cause.status === 409) {
+                setResponseRecorded(true);
+                setError("이미 응답이 기록된 제안서입니다. 변경이 필요하면 담당자에게 문의해 주세요.");
+              } else {
+                setError(cause instanceof Error ? cause.message : "응답을 저장하지 못했습니다.");
+              }
             } finally {
               setBusy(false);
             }
           }}>
-            <fieldset className="proposal-response-fields" disabled={busy}>
+            <fieldset className="proposal-response-fields" disabled={busy || responseRecorded}>
               <div className="decision-options" role="group" aria-label="제안 응답"><button type="button" aria-pressed={decision === "APPROVED"} className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>승인</button><button type="button" aria-pressed={decision === "CHANGES_REQUESTED"} className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>수정 요청</button><button type="button" aria-pressed={decision === "REJECTED"} className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>거절</button></div>
               <div className="form-row"><label>이름<input name="clientName" required maxLength={120} /></label><label>이메일<input name="clientEmail" type="email" maxLength={320} /></label></div>
               <label>의견<textarea name="comment" rows={5} maxLength={3000} placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요." /></label>

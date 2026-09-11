@@ -7,6 +7,8 @@ import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilt
 import com.freelanceops.backend.global.config.AuthSecurityConfig;
 import com.freelanceops.backend.global.config.SecurityConfig;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.RequestDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.web.FilterChainProxy;
 
 import java.time.Instant;
 import java.util.List;
@@ -48,6 +53,8 @@ class IdentitySecurityWebTest {
     private MockMvc mockMvc;
     @Autowired
     private JwtEncoder jwtEncoder;
+    @Autowired
+    private FilterChainProxy springSecurityFilterChain;
 
     @MockitoBean
     private AuthService authService;
@@ -113,6 +120,40 @@ class IdentitySecurityWebTest {
         mockMvc.perform(get("/actuator/metrics")
                 .header("Authorization", "Bearer " + accessToken(UUID.randomUUID())))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void publicProposalErrorDispatchPreservesConflictStatus() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/error");
+        request.setServletPath("/error");
+        request.setDispatcherType(DispatcherType.ERROR);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        springSecurityFilterChain.doFilter(request, response, (incoming, outgoing) -> response.setStatus(409));
+        org.assertj.core.api.Assertions.assertThat(response.getStatus()).isEqualTo(409);
+
+        mockMvc.perform(post("/error").servletPath("/error")
+                .with(dispatchedRequest -> { dispatchedRequest.setDispatcherType(DispatcherType.ERROR); return dispatchedRequest; })
+                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409)
+                .requestAttr(RequestDispatcher.ERROR_REQUEST_URI, "/api/v2/proposals/test-token/decisions")
+                .accept("application/json"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void errorRenderingPermissionDoesNotExposeDirectOrPrivateRequests() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v2/me");
+        request.setServletPath("/api/v2/me");
+        request.setDispatcherType(DispatcherType.ERROR);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        springSecurityFilterChain.doFilter(request, response, (incoming, outgoing) -> response.setStatus(200));
+        org.assertj.core.api.Assertions.assertThat(response.getStatus()).isEqualTo(401);
+
+        mockMvc.perform(get("/error").servletPath("/error")
+                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v2/me"))
+            .andExpect(status().isUnauthorized());
     }
 
     private String accessToken(UUID userId) {

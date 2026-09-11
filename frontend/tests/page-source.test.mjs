@@ -681,7 +681,7 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /<fieldset className="auth-fields" disabled=\{busy\}>/);
   assert.match(workspace, /const selectMode = \(nextMode: AuthMode\)/);
   assert.match(workspace, /<form className="outcome-form" aria-busy=\{busy\}/);
-  assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy\}>/);
+  assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy \|\| responseRecorded\}>/);
   assert.match(proposal, /응답을 기록하고 있습니다/);
   assert.match(api, /서버에 연결할 수 없습니다\. 네트워크 상태를 확인한 뒤 다시 시도해 주세요/);
   assert.match(css, /\.dialog-fields:disabled/);
