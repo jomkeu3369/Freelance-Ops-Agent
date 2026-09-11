@@ -2,7 +2,7 @@
 [data-theme="dark"] .figma-home { --bg: #171719; --bg-deep: #202023; --surface: #202023; --surface-solid: #262629; --surface-2: #303034; --ink: #f4f4f5; --muted: #b5b5bf; --line: #35353b; --accent: #a29bff; }
 .figma-home::before { content: ""; position: absolute; inset: 0 0 auto; height: 158px; background: url("/figma/hero-glow.svg") center top / 1920px 158px no-repeat; pointer-events: none; }
 .figma-home::after { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 1371px; background: url("/figma/hero-grid.png") left top / 500px 333.5px; opacity: .04; pointer-events: none; }
-.figma-home .nav-shell { top: 0; width: calc(100% - 168px); max-width: 1752px; min-height: 84px; padding: 20px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+.figma-home .nav-shell { position: absolute; top: 0; width: calc(100% - 168px); max-width: 1752px; min-height: 84px; padding: 20px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
 .figma-home .brand { display: flex; align-items: center; gap: 5px; }
 .figma-home .brand-wordmark { font-size: 18px; font-weight: 600; }
 .figma-home .nav-links { gap: 50px; font-size: 15px; }
@@ -49,14 +49,15 @@
 }
 
 @media (max-width: 600px) {
-  .figma-home .nav-shell { width: calc(100% - 32px); min-height: 72px; padding-block: 14px; }
+  .figma-home .nav-shell { width: calc(100% - 32px); min-height: 72px; padding-block: 14px; gap: 12px; }
   .figma-home .brand-wordmark { font-size: 15px; }
   .figma-home .brand img { width: 26px; height: 26px; }
   .figma-home .nav-actions .primary-button { display: none; }
-  .figma-home .nav-actions .text-link { padding: 8px 12px; }
+  .figma-home .nav-actions .text-link { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; }
+  .figma-home .nav-actions .icon-button { width: 44px; min-height: 44px; }
   .figma-home .hero-section { width: calc(100% - 24px); padding: 132px 0 100px; gap: 36px; }
   .figma-home .hero-context { font-size: 16px; }
-  .figma-home .hero-title { font-size: 48px; }
+  .figma-home .hero-title { font-size: clamp(38px, 12vw, 48px); }
   .figma-home .hero-description { margin-top: 24px; font-size: 15px; }
   .figma-home .hero-actions { flex-direction: row; flex-wrap: wrap; margin-top: 28px; }
   .figma-home .hero-actions a { font-size: 13px; min-height: 46px; }

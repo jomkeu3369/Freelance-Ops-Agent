@@ -370,7 +370,7 @@ export interface SharedProposal {
   validUntil: string | null;
   publishedAt: string;
   shareExpiresAt: string;
-  items: QuotationItem[];
+  items: Omit<QuotationItem, "rateCardId">[];
 }
 
 const SESSION_KEY = "freelance-ops-session-v1";
@@ -566,21 +566,9 @@ export function createProject(
 
 export function updateProject(session: AuthSession, project: Project, status: ProjectStatus): Promise<Project> {
   return request<Project>(
-    `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        clientId: project.clientId,
-        title: project.title,
-        requirementText: project.requirementText,
-        currency: project.currency,
-        deadline: project.deadline,
-        budgetMin: project.budgetMin,
-        budgetMax: project.budgetMax,
-        status,
-      }),
-    },
-    session.accessToken,
+    `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/status`,
+    { method: "PATCH", body: JSON.stringify({ status }) },
+    session.accessToken
   ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); return updated; });
 }
 
