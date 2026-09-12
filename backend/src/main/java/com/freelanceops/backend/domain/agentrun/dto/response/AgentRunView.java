@@ -96,8 +96,12 @@ public record AgentRunView(
         String model,
         String promptVersion,
         String toolSchemaVersion,
-        String traceId
+        String traceId,
+        UUID credentialId
     ) {
+        public AgentRunMetadata(Provider provider, String model, String promptVersion, String toolSchemaVersion, String traceId) {
+            this(provider, model, promptVersion, toolSchemaVersion, traceId, null);
+        }
     }
 
     public record AgentRunUsage(

@@ -83,6 +83,7 @@ class ModelSelection(StrictModel):
     provider: Provider
     model: str = Field(min_length=1, max_length=100)
     reasoning_effort: ReasoningEffort = ReasoningEffort.LOW
+    credential_id: UUID | None = None
 
 
 class AgentInput(StrictModel):
@@ -335,6 +336,7 @@ class AgentRunResult(StrictModel):
 
 
 class AgentRunMetadata(StrictModel):
+    credential_id: UUID | None = None
     provider: Provider
     model: str = Field(min_length=1, max_length=100)
     prompt_version: str = Field(min_length=1, max_length=100)

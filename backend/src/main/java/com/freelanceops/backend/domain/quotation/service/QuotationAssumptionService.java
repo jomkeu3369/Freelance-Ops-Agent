@@ -26,12 +26,14 @@ public class QuotationAssumptionService {
     private final ProjectRepository projectRepository;
     private final DelegationTokenIssuer tokenIssuer;
     private final QuotationAssumptionClient client;
+    private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public QuotationAssumptionService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, DelegationTokenIssuer tokenIssuer, QuotationAssumptionClient client) {
+    public QuotationAssumptionService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, DelegationTokenIssuer tokenIssuer, QuotationAssumptionClient client, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.tokenIssuer = tokenIssuer;
         this.client = client;
+        this.connections = connections;
     }
 
     public QuotationAssumptionSuggestionResponse suggest(UUID userId, UUID workspaceId, UUID projectId, SuggestQuotationAssumptionRequest request, String traceparent) {
@@ -43,6 +45,8 @@ public class QuotationAssumptionService {
         ProjectEntity project = projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
+        project.requireNotDeleting();
+        connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID requestId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
             .map(PermissionCode::code)

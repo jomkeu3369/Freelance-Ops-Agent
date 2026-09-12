@@ -302,10 +302,11 @@ class InMemoryAgentRunStore:
 
 def _metadata(request: AgentRunRequest) -> AgentRunMetadata:
     return AgentRunMetadata(
+        credential_id=request.model_selection.credential_id,
         provider=request.model_selection.provider,
         model=request.model_selection.model,
         prompt_version="department-work-product-v2-pets",
-        tool_schema_version="spring-tool-api-v0.2.0",
+        tool_schema_version="spring-tool-api-v0.3.0",
         trace_id=request.context.trace_id,
     )
 

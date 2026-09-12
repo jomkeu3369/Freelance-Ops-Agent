@@ -68,6 +68,8 @@ class AgentRunGatewayServiceTest {
     private AgentRunCommandQueue commandQueue;
     @Mock
     private AgentBudgetPolicy budgetPolicy;
+    @Mock
+    private AIConnectionService connections;
 
     private AgentRunGatewayService service;
 
@@ -81,7 +83,8 @@ class AgentRunGatewayServiceTest {
             agentRunClient,
             projectionService,
             commandQueue,
-            budgetPolicy
+            budgetPolicy,
+            connections
         );
     }
 
@@ -335,6 +338,32 @@ class AgentRunGatewayServiceTest {
             .isInstanceOf(ResponseStatusException.class)
             .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(404));
         verify(agentRunClient, never()).get(any(), any(), any());
+    }
+
+    @Test
+    void refusesAnotherUsersPersonalRunResumeBeforeQueueing() {
+        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity run = run(runId, workspace, project, UUID.randomUUID());
+        run.useCredential(UUID.randomUUID());
+        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
+        var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
+        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections);
+    }
+
+    @Test
+    void refusesDeletedPersonalConnectionOnResumeBeforeQueueing() {
+        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity run = run(runId, workspace, project, actor);
+        UUID credential = UUID.randomUUID();
+        run.useCredential(credential);
+        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
+        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-test");
+        var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
+        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
+        org.mockito.Mockito.verifyNoInteractions(commandQueue);
     }
 
     private static ProjectEntity project(UUID projectId, UUID workspaceId) {

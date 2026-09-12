@@ -33,6 +33,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
 
   return (
     <>
+    {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? "개인 API 키" : "기본 제공 AI"} · {run.metadata.provider} · {run.metadata.model}</p>}
     <PetWorkspace key={runId ?? "pending"} run={run} />
     <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
       <div id="run-execution-graph" className="graph-panel" hidden={reviewFocused}>

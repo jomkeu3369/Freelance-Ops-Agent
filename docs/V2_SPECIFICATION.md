@@ -11,6 +11,8 @@
 Agent Tool의 책임과 서비스 경계는
 [ADR-0005](adr/0005-agent-tool-mcp-boundary.md)를 따른다.
 
+2026-09-12 개인 AI 연결은 [ADR-0031](adr/0031-personal-ai-connections.md)을 따른다. 일반 설정에서 토큰 단가 수동 입력을 제거하고 사용자·workspace 소유 API 키 연결을 제공한다. Spring은 키 검증·암호화 저장·권한을, Agent는 호출 직전 일시적 해결과 모델 호출을 소유한다. 실행마다 기본 제공/개인 연결을 명시하며 fallback은 없다. 가격 원장과 실행 제한은 유지하고 금액은 제공사 실제 청구액과 구분한 예상치로 표시한다. [사용·운영 안내](frontend/BYOK_CONNECTIONS.md)를 함께 따른다.
+
 ---
 
 ## 1. 문서 목적

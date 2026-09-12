@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
-from langsmith import traceable
+from langsmith import traceable, tracing_context
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from config import get_settings
 from contracts import ModelSelection, Provider, QuotationDraft
+from personal_credentials import resolve_credential
 
 logger = logging.getLogger(__name__)
 
@@ -345,29 +348,71 @@ class CompositeModelProvider:
     def __init__(self, openai: ModelProvider, gemini: ModelProvider) -> None:
         self._providers = {Provider.OPENAI: openai, Provider.GEMINI: gemini}
 
+    @asynccontextmanager
+    async def _selected_provider(self, selection: ModelSelection) -> AsyncIterator[ModelProvider]:
+        if selection.credential_id is None:
+            yield self._providers[selection.provider]
+            return
+        client: Any = None
+        try:
+            settings = get_settings()
+            key = await resolve_credential(
+                selection, settings.backend_internal_url, settings.backend_tool_timeout_seconds
+            )
+            provider: ModelProvider
+            if selection.provider is Provider.OPENAI:
+                from openai import AsyncOpenAI
+
+                client = AsyncOpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0)
+                provider = OpenAIModelProvider(
+                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
+                )
+            else:
+                from google import genai
+
+                client = genai.Client(api_key=key, vertexai=False).aio
+                provider = GeminiModelProvider(
+                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
+                )
+            del key
+            with tracing_context(enabled=False):
+                yield provider
+        except ProviderCallError as error:
+            raise ProviderCallError(
+                "Personal AI connection call failed",
+                model_calls=error.model_calls,
+                input_tokens=error.input_tokens,
+                output_tokens=error.output_tokens
+            ) from None
+        except Exception:
+            raise ProviderCallError("Personal AI connection unavailable") from None
+        finally:
+            if client is not None:
+                try:
+                    if selection.provider is Provider.OPENAI:
+                        await client.close()
+                    else:
+                        await client.aclose()
+                except Exception:
+                    logger.warning("Personal AI client cleanup failed")
+
     async def generate_structured(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._providers[selection.provider].generate_structured(
-            selection,
-            prompt,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
+        async with self._selected_provider(selection) as provider:
+            return await provider.generate_structured(
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+            )
 
     async def generate_react_step(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._providers[selection.provider].generate_react_step(
-            selection,
-            prompt,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
+        async with self._selected_provider(selection) as provider:
+            return await provider.generate_react_step(
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+            )
 
     async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._providers[selection.provider].generate_assumption(
-            selection,
-            prompt,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
+        async with self._selected_provider(selection) as provider:
+            return await provider.generate_assumption(
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+            )
 
 
 _SYSTEM_INSTRUCTION = (

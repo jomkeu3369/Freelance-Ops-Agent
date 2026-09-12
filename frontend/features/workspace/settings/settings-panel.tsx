@@ -3,11 +3,9 @@ import {
   MeProfile,
   RateCard,
   EstimationPolicy,
-  ModelPricing,
   getMe,
   listRateCards,
   getEstimationPolicy,
-  listModelPricing
 } from "../../../app/lib/api";
 import { useState, useRef, useEffect } from "react";
 import { useGSAP } from "@gsap/react";
@@ -16,8 +14,8 @@ import { CircleNotch, Warning, CheckCircle, ArrowRight } from "@phosphor-icons/r
 import { accountStatusLabels } from "../shared/constants";
 import { RateCardManager } from "./rate-card-manager";
 import { EstimationPolicyForm } from "./estimation-policy-form";
-import { formatRate } from "../shared/formatters";
-import { ModelPricingForm } from "./model-pricing-form";
+
+import { AIConnectionSettings } from "./ai-connection-settings";
 
 gsap.registerPlugin(useGSAP);
 
@@ -33,12 +31,10 @@ interface SettingsPanelProps {
 export function SettingsPanel({ session, permissions, projectCount, canCreateProject, onCreateProject, onOpenPipeline }: SettingsPanelProps) {
   const canReadQuotation = permissions.has("quotation.read");
   const canWriteQuotation = permissions.has("quotation.write");
-  const canReadPricing = permissions.has("audit.read");
-  const canManagePricing = permissions.has("workspace.update");
+  const canConnectAI = permissions.has("agent.run");
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [policy, setPolicy] = useState<EstimationPolicy | null>(null);
-  const [modelPricing, setModelPricing] = useState<ModelPricing[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +46,14 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
     Promise.allSettled([
       getMe(session),
       canReadQuotation ? listRateCards(session) : Promise.resolve([]),
-      canReadQuotation ? getEstimationPolicy(session) : Promise.resolve(null),
-      canReadPricing ? listModelPricing(session) : Promise.resolve([])
+      canReadQuotation ? getEstimationPolicy(session) : Promise.resolve(null)
     ])
-      .then(([profileResult, cardsResult, policyResult, pricingResult]) => {
+      .then(([profileResult, cardsResult, policyResult]) => {
         if (cancelled) return;
         if (profileResult.status === "fulfilled") setProfile(profileResult.value);
         if (cardsResult.status === "fulfilled") setRateCards(cardsResult.value);
         if (policyResult.status === "fulfilled") setPolicy(policyResult.value);
-        if (pricingResult.status === "fulfilled") setModelPricing(pricingResult.value);
-        const failed = [profileResult, cardsResult, policyResult, pricingResult].find(
+        const failed = [profileResult, cardsResult, policyResult].find(
           (result) => result.status === "rejected"
         );
         if (failed?.status === "rejected")
@@ -73,7 +67,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
     return () => {
       cancelled = true;
     };
-  }, [canReadPricing, canReadQuotation, session]);
+  }, [canReadQuotation, session]);
 
   const workspace = profile?.workspaces.find((item) => item.workspaceId === session.workspaceId);
   const hasActiveRateCard = rateCards.some((card) => card.active);
@@ -250,11 +244,11 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
             <strong>계산 기준</strong>
             <small>세금·위험·할인 기준</small>
           </a>
-          {canReadPricing && (
-            <a href="#model-pricing">
+          {canConnectAI && (
+            <a href="#ai-connections">
               <span>04</span>
-              <strong>AI 사용 비용</strong>
-              <small>모델별 요금 기준</small>
+              <strong>AI 연결</strong>
+              <small>내 API 키 관리</small>
             </a>
           )}
         </aside>
@@ -336,64 +330,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               <p>계산 기준을 확인할 수 없는 계정입니다.</p>
             )}
           </section>
-          {canReadPricing && (
-            <section id="model-pricing">
-              <header>
-                <span>04</span>
-                <div>
-                  <h2>AI 사용 비용</h2>
-                  <p>AI 분석에 사용되는 모델별 요금을 등록하고 기간별로 관리합니다.</p>
-                </div>
-              </header>
-              <div className="model-pricing-list">
-                {modelPricing.length === 0 ? (
-                  <p>등록된 AI 요금이 없습니다.</p>
-                ) : (
-                  modelPricing.map((pricing) => (
-                    <article key={pricing.id}>
-                      <div>
-                        <span>{pricing.provider}</span>
-                        <strong>{pricing.model}</strong>
-                        <small>{pricing.versionLabel}</small>
-                      </div>
-                      <dl>
-                        <div>
-                          <dt>입력 / 1M</dt>
-                          <dd>{formatRate(pricing.inputPerMillion, pricing.currency)}</dd>
-                        </div>
-                        <div>
-                          <dt>캐시 / 1M</dt>
-                          <dd>{formatRate(pricing.cachedInputPerMillion, pricing.currency)}</dd>
-                        </div>
-                        <div>
-                          <dt>출력 / 1M</dt>
-                          <dd>{formatRate(pricing.outputPerMillion, pricing.currency)}</dd>
-                        </div>
-                      </dl>
-                      <p>
-                        {new Date(pricing.validFrom).toLocaleString("ko-KR")}부터
-                        {pricing.validUntil
-                          ? ` · ${new Date(pricing.validUntil).toLocaleString("ko-KR")}까지`
-                          : " · 종료일 없음"}
-                      </p>
-                    </article>
-                  ))
-                )}
-              </div>
-              {canManagePricing ? (
-                <ModelPricingForm
-                  session={session}
-                  busy={busy}
-                  setBusy={setBusy}
-                  setError={setError}
-                  setSaved={setSaved}
-                  onCreated={(pricing) => setModelPricing((current) => [pricing, ...current])}
-                />
-              ) : (
-                <p className="permission-note">AI 요금은 관리자만 등록할 수 있습니다.</p>
-              )}
-            </section>
-          )}
+          {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}
         </div>
       </div>
     </section>

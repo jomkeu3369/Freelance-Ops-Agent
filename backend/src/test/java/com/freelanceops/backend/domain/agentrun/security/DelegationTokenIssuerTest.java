@@ -18,6 +18,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DelegationTokenIssuerTest {
 
     @Test
+    void personalRunTokenCoversExecutionWithoutExceedingFiveMinutes() throws Exception {
+        KeyPair pair = keyPair();
+        DelegationTokenIssuer issuer = new DelegationTokenIssuer(pem((RSAPrivateKey) pair.getPrivate()), pem((RSAPublicKey) pair.getPublic()), "test-key", "backend", "agent", "spring-tools", 60, "test");
+        String token = issuer.issueForPersonalRun(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), List.of("agent.run"), 270);
+        var claims = com.nimbusds.jwt.SignedJWT.parse(token).getJWTClaimsSet();
+        assertThat(claims.getExpirationTime().getTime() - claims.getIssueTime().getTime()).isEqualTo(300000);
+        assertThatThrownBy(() -> issuer.issueForPersonalRun(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), List.of("agent.run"), 271)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void issuesShortLivedRunBoundTokenAcceptedByAgentVerifierContract() throws Exception {
         KeyPair pair = keyPair();
         DelegationTokenIssuer issuer = new DelegationTokenIssuer(

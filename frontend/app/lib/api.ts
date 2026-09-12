@@ -193,6 +193,7 @@ export interface AgentRunView {
   } | null;
   errorCode: string | null;
   metadata: {
+    credentialId?: string | null;
     provider: Provider;
     model: string;
     promptVersion: string;
@@ -841,7 +842,7 @@ export function saveOutcome(
 export function startAgentRun(
   session: AuthSession,
   project: Project,
-  input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort },
+  input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
@@ -896,7 +897,7 @@ export function suggestQuotationAssumption(
     quantity: number;
     unit: WorkUnit;
     currentAssumption: string;
-    modelSelection: { provider: Provider; model: string; reasoningEffort: ReasoningEffort };
+    modelSelection: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null };
   },
 ): Promise<QuotationAssumptionSuggestion> {
   return request<QuotationAssumptionSuggestion>(
@@ -1010,4 +1011,17 @@ export async function streamRunEvents(
       }
     }
   }
+}
+
+export interface AIConnection { id: string; provider: Provider; model: string; maskedKey: string; updatedAt: string }
+export interface AIConnections { available: boolean; models: Record<Provider, string[]>; connections: AIConnection[] }
+export function listAIConnections(session: AuthSession): Promise<AIConnections> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections`, { cache: "no-store" }, session.accessToken);
+}
+export function saveAIConnection(session: AuthSession, provider: Provider, model: string, apiKey: string): Promise<AIConnection> {
+  // A key must never be replayed using a different recovered login session.
+  return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections/${provider}`, { method: "PUT", body: JSON.stringify({ model, apiKey }), cache: "no-store" }, session.accessToken, false);
+}
+export function deleteAIConnection(session: AuthSession, id: string): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections/${id}`, { method: "DELETE", cache: "no-store" }, session.accessToken);
 }

@@ -103,7 +103,8 @@ class AIGateway:
     async def _call(self, operation: str, selection: ModelSelection, invoke: Callable[[], Awaitable[ModelGeneration]]) -> ModelGeneration:  # noqa: E501
         self._require_allowed_model(selection)
         circuit_key = f"{selection.provider.value}:{selection.model}"
-        await self._require_closed_circuit(circuit_key)
+        if selection.credential_id is None:
+            await self._require_closed_circuit(circuit_key)
         try:
             await asyncio.wait_for(self._semaphore.acquire(), timeout=self._policy.acquire_timeout_seconds)
         except TimeoutError as error:
@@ -120,7 +121,8 @@ class AIGateway:
             raise
         except Exception:
             latency_ms = (time.monotonic() - started) * 1000
-            await self._record_failure(circuit_key)
+            if selection.credential_id is None:
+                await self._record_failure(circuit_key)
             self._telemetry.failed(latency_ms=latency_ms, code="PROVIDER_FAILURE")
             logger.warning(
                 "AI gateway call failed: operation=%s provider=%s model=%s",
@@ -131,7 +133,8 @@ class AIGateway:
             raise
         else:
             latency_ms = (time.monotonic() - started) * 1000
-            await self._record_success(circuit_key)
+            if selection.credential_id is None:
+                await self._record_success(circuit_key)
             self._telemetry.succeeded(
                 latency_ms=latency_ms,
                 input_tokens=generation.input_tokens,

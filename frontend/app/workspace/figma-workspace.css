@@ -193,3 +193,11 @@
   .figma-workspace .project-heading-actions { width: 100%; }
   .figma-workspace .project-heading-actions button { justify-content: center; }
 }
+
+.ai-connection-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+.ai-connection-form label { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ai-connection-form input, .ai-connection-form select { width: 100%; min-width: 0; padding: 12px; border: 1px solid #dddde5; border-radius: 10px; background: var(--surface, white); color: inherit; }
+.ai-connection-form small { grid-column: 1 / -1; line-height: 1.6; }
+.ai-connection-list article { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #dddde5; border-radius: 14px; padding: 18px; margin-top: 14px; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .ai-connection-form { grid-template-columns: minmax(0, 1fr); } }
+.ai-connection-form > button { align-self: end; min-height: 48px; }

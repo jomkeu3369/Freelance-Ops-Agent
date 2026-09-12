@@ -29,6 +29,7 @@ from contracts import (
     ResumeAgentRunRequest,
 )
 from integrations import SpringToolError
+from personal_credentials import credential_scope
 from providers import ModelProvider, ProviderCallError
 from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
 from routing.llm_evaluator import RouteDecisionSource
@@ -118,6 +119,10 @@ class OperationalAgentExecutor:
         self._task_shadow_registrar = task_shadow_registrar
 
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
+        with credential_scope(authorization.delegation_token if authorization else None, request.context.run_id):
+            return await self._execute(request, resume, authorization)
+
+    async def _execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
         started_ns = time.monotonic_ns()
         text = request.input.requirement_text
         if request.clarification_history:

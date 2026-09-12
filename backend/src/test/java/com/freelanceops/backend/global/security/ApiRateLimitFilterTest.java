@@ -83,6 +83,19 @@ class ApiRateLimitFilterTest {
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
+    @Test
+    void limitsPersonalKeyVerificationRequests() throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("key-owner");
+        for (int attempt = 0; attempt < 2; attempt++) {
+            var request = new MockHttpServletRequest("PUT", "/api/v2/workspaces/demo/ai-connections/OPENAI");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            assertThat(response.getStatus()).isEqualTo(attempt == 0 ? 200 : 429);
+        }
+    }
+
     private static MockHttpServletResponse invoke(ApiRateLimitFilter filter, FilterChain chain, String path, String address)
         throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);

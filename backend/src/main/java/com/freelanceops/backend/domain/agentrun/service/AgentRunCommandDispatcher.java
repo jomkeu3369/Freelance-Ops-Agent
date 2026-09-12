@@ -75,7 +75,9 @@ public class AgentRunCommandDispatcher {
             }
             return true;
         }
-        String token = tokenIssuer.issue(
+        String token = run.credentialId() != null ? tokenIssuer.issueForPersonalRun(
+            run.id(), run.workspaceId(), run.projectId(), command.requestedBy(), command.permissions(), run.budget().maxDurationSeconds()
+        ) : tokenIssuer.issue(
             run.id(), run.workspaceId(), run.projectId(), command.requestedBy(), command.permissions()
         );
         try {
