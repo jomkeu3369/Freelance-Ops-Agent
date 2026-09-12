@@ -48,3 +48,7 @@
 - OpenAPI 2개와 Compose 기본·인프라 설정 검사 성공. 로컬 Git Bash에는 flock이 없어 운영 키 생성 shell 회귀는 Linux CI에서 검증한다.
 - Chromium 합성 로컬 fixture: 등록 실패/성공, 교체, 삭제 확인/완료, 입력 비움, 개인 연결 ID의 분석 전달, 320/390px 가로 넘침 없음, 1440px와 라이트/다크 배치, 최종 브라우저 콘솔 오류 없음. 테스트 화면·가상 API는 배포 source에서 제거했다.
 - 미검증: 실제 개인 키의 과금·잔액·제공사 생성 품질. UI 검증은 실제 제공사 호출을 대신하지 않는다. CI의 실제 PostgreSQL migration/소유권/교체·삭제 검증과 운영 배포는 PR에서 이어 확인한다.
+
+## 원격 검증
+
+[PR #36](https://github.com/jomkeu3369/Freelance-Ops-Agent/pull/36)의 구현 commit 318126c는 검사 8개를 통과했다. [Agent CI](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/34679866973)는 PostgreSQL 포함 309개 테스트, SDK 2개, Ruff·mypy·release gate를 통과했다. [Spring CI](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/34679866950)의 test·image, [Frontend CI](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/34679867007), Vercel Preview가 성공했다. [Contracts CI](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/34679866978)는 운영 키 생성·보존·권한·비노출·잘못된 기존 키 거부 회귀를 통과했다. 최종 병합 commit과 운영 CD 결과는 PR의 Result 기록을 따른다.
