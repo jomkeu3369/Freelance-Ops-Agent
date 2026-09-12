@@ -224,7 +224,7 @@ def test_start_and_read_completed_agent_run() -> None:
     assert view.json()["metadata"] == {
         "provider": "OPENAI",
         "model": "gpt-5.4-mini",
-        "promptVersion": "department-work-product-v1",
+        "promptVersion": "department-work-product-v2-pets",
         "toolSchemaVersion": "spring-tool-api-v0.2.0",
         "traceId": "trace-1",
     }

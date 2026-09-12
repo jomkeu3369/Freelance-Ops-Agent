@@ -314,9 +314,16 @@ class QuotationDraftItem(StrictModel):
     basis: QuotationDraftBasis
 
 
+class PetPerspective(StrictModel):
+    proposal: str = Field(min_length=1, max_length=600)
+    rationale: str = Field(min_length=1, max_length=1000)
+    tradeoff: str = Field(min_length=1, max_length=600)
+
+
 class QuotationDraft(StrictModel):
     scenario: str = Field(default="RECOMMENDED", pattern=r"^(LEAN|RECOMMENDED|EXPANDED)$")
     items: list[QuotationDraftItem] = Field(min_length=1, max_length=50)
+    pet_perspective: PetPerspective | None = None
 
 
 class AgentRunResult(StrictModel):

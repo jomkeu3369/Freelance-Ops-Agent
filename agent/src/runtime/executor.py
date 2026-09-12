@@ -40,6 +40,18 @@ from .task_shadow import ResearchTaskShadowRegistrar
 
 logger = logging.getLogger(__name__)
 
+PET_PERSPECTIVE_INSTRUCTIONS = {
+    "LEAN": "일정 담당 거북이: 납기와 필수 범위를 우선하고, 미루는 기능과 그 손실을 설명한다.",
+    "RECOMMENDED": "근거 담당 부엉이: 확인된 자료와 명시된 가정을 구분해 균형 잡힌 범위를 제안한다.",
+    "EXPANDED": "수익 담당 고양이: 제공 가치와 계약 범위를 우선하며 추가 작업·일정 부담을 숨기지 않는다.",
+    "output": (
+        "각 견적안의 pet_perspective에 한국어 proposal, rationale, tradeoff를 작성한다. "
+        "항목의 실제 범위와 근거를 설명하는 공개 요약이며 비공개 추론 과정이 아니다. "
+        "말투만 바꾼 동일 제안을 반복하지 않는다. 없는 근거·합의·반론·가격을 만들지 않는다. "
+        "수익이나 납기를 보장하지 않으며 불확실한 판단은 가정으로 표시한다."
+    )
+}
+
 
 class NoToolArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -398,6 +410,7 @@ class OperationalAgentExecutor:
                             "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"],
                             "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
                             "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
+                            "pet_perspectives": PET_PERSPECTIVE_INSTRUCTIONS,
                         },
                     },
                     react_budget,
@@ -859,6 +872,7 @@ class OperationalAgentExecutor:
                     "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"],
                     "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
                     "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
+                    "pet_perspectives": PET_PERSPECTIVE_INSTRUCTIONS,
                     "quotation_draft_units": ["HOUR", "DAY", "FIXED"]
                 },
                 "trusted_project_context": (

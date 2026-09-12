@@ -41,7 +41,13 @@ public record AgentRunView(
         }
     }
 
-    public record QuotationDraft(String scenario, List<QuotationDraftItem> items) {
+    public record QuotationDraft(String scenario, List<QuotationDraftItem> items, PetPerspective petPerspective) {
+        public QuotationDraft(String scenario, List<QuotationDraftItem> items) {
+            this(scenario, items, null);
+        }
+    }
+
+    public record PetPerspective(String proposal, String rationale, String tradeoff) {
     }
 
     public record QuotationDraftItem(

@@ -385,7 +385,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   };
 
   const publishSavedQuotation = async () => {
-    if (!saved) return;
+    if (!saved || hasUnsavedDraft || !canPublish || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -442,6 +442,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
 
   return {
     canRead,
+    hasUnsavedDraft,
     availableAIDrafts,
     canWrite,
     scenario,

@@ -96,6 +96,15 @@ public class QuotationService {
         return createVersion(userId, workspaceId, projectId, quotationId, null, quotationId, 1, request);
     }
 
+    @Transactional(readOnly = true)
+    public QuotationCalculator.Calculation preview(UUID userId, UUID workspaceId, UUID projectId, CreateQuotationRequest request) {
+        authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
+        authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
+        projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)).requireNotDeleting();
+        return prepareCalculation(workspaceId, request).calculation();
+    }
+
     @Transactional
     public QuotationResponse revise(UUID userId, UUID workspaceId, UUID quotationId, CreateQuotationRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
@@ -131,6 +140,13 @@ public class QuotationService {
     }
 
     private QuotationResponse createVersion(UUID userId, UUID workspaceId, UUID projectId, UUID quotationId, UUID previousVersionId, UUID seriesId, int versionNumber, CreateQuotationRequest request) {
+        PreparedCalculation prepared = prepareCalculation(workspaceId, request);
+        List<ResolvedItem> resolved = prepared.items();
+        QuotationCalculator.Calculation calculation = prepared.calculation();
+        return persistVersion(userId, workspaceId, projectId, quotationId, previousVersionId, seriesId, versionNumber, request, resolved, calculation);
+    }
+
+    private PreparedCalculation prepareCalculation(UUID workspaceId, CreateQuotationRequest request) {
         Policy policy = policy(workspaceId);
         BigDecimal taxRate = request.taxRate() == null ? policy.taxRate() : request.taxRate();
         BigDecimal riskBufferRate = request.applyDefaultRiskBuffer() ? policy.riskBufferRate() : BigDecimal.ZERO;
@@ -141,6 +157,10 @@ public class QuotationService {
             riskBufferRate,
             taxRate
         );
+        return new PreparedCalculation(resolved, calculation);
+    }
+
+    private QuotationResponse persistVersion(UUID userId, UUID workspaceId, UUID projectId, UUID quotationId, UUID previousVersionId, UUID seriesId, int versionNumber, CreateQuotationRequest request, List<ResolvedItem> resolved, QuotationCalculator.Calculation calculation) {
         Instant now = Instant.now();
         QuotationEntity quotation = quotationRepository.saveAndFlush(new QuotationEntity(
             quotationId, workspaceId, projectId, seriesId, previousVersionId, versionNumber,
@@ -298,6 +318,9 @@ public class QuotationService {
     }
 
     private record ResolvedItem(QuotationItemRequest request, UUID rateCardId, WorkUnit unit, BigDecimal unitRate, BigDecimal minimumAmount) {
+    }
+
+    private record PreparedCalculation(List<ResolvedItem> items, QuotationCalculator.Calculation calculation) {
     }
 
     private record BasisIds(UUID assumptionId, UUID evidenceId) {

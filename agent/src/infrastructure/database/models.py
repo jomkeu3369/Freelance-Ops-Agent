@@ -26,6 +26,7 @@ class AgentRunStateModel(AgentRuntimeBase):
 
     run_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     request_json: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    prompt_version: Mapped[str] = mapped_column(String(100), server_default="department-work-product-v1")
     status: Mapped[str] = mapped_column(String(32), index=True)
     active_department: Mapped[str | None] = mapped_column(String(32))
     interruption_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

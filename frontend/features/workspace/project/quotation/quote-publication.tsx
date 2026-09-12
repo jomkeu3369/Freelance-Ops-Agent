@@ -30,7 +30,8 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
               <button
                 type="button"
                 className="secondary-button"
-                disabled={busy}
+                disabled={busy || model.hasUnsavedDraft}
+                title={model.hasUnsavedDraft ? "변경한 초안을 먼저 저장해 주세요." : undefined}
                 onClick={() => void publishSavedQuotation()}
               >
                 발행하기 <ArrowRight size={17} />

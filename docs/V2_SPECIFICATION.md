@@ -1682,3 +1682,7 @@ Deployment  근거 없는 infra → frontend/Spring/Agent/PostgreSQL 중심 Comp
 ```
 
 V2의 성공 기준은 기술 스택의 개수가 아니다. 사용자가 만든 견적이 재현 가능하고, 근거를 확인할 수 있으며, 다른 사용자의 데이터와 격리되고, 실제 결과를 통해 품질 변화를 측정할 수 있는지가 기준이다.
+
+## AI 펫 관점 확장 (2026-09-12, ADR-0030)
+
+기존 bounded run의 세 견적안에 선택적인 공개 의견 petPerspective(proposal/rationale/tradeoff)를 추가한다. 금액 변경 미리보기는 Spring의 POST /api/v2/workspaces/{workspaceId}/projects/{projectId}/quotations/preview를 사용한다. quotation.read/write와 workspace를 검증하며 저장·감사 쓰기 없이 저장과 동일한 정책 계산을 수행한다. 적용은 편집 초안 변경이며 발행 견적은 새 revision으로 저장한다. 개인 API 키와 생성 외형은 후속 계약 범위다.

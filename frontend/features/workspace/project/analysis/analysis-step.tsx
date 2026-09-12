@@ -7,6 +7,7 @@ import { runFailureMessage } from "../../shared/activity-presentation";
 import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
+import { PetWorkspace } from "../../pets/pet-workspace";
 
 interface AnalysisStepProps {
   session: AuthSession;
@@ -31,6 +32,8 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
   }
 
   return (
+    <>
+    <PetWorkspace key={runId ?? "pending"} run={run} />
     <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
       <div id="run-execution-graph" className="graph-panel" hidden={reviewFocused}>
         <LiveWorkflow snapshot={snapshot} />
@@ -117,5 +120,6 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
         )}
       </aside>
     </div>
+    </>
   );
 }

@@ -44,3 +44,4 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0027: 프로젝트 최초 분석은 전체 Supervisor 경로를 보장](0027-full-project-analysis-route-floor.md)
 - [ADR-0028: 신뢰된 실행 계약을 LLM Routing보다 먼저 적용](0028-trusted-contract-routing-fast-path.md)
 - [ADR-0029: Routing 관측과 Human Review는 내구성 있는 비동기 projection으로 운영](0029-durable-route-observation-and-review.md)
+- [ADR-0030: 제한된 AI 펫 관점과 사용자 검토 후 견적 반영](0030-bounded-pet-advisors.md)
