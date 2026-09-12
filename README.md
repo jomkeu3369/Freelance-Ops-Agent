@@ -26,9 +26,9 @@ Freelance Ops Agent는 고객 관리부터 AI 분석, 견적 검토·발행, 실
 
 </div>
 
-[![현재 제품의 AI 동료 제안과 견적 비교 화면](docs/assets/readme/pet-council-current.png)](docs/assets/readme/product-walkthrough-1080p60.mp4)
+[![현재 제품의 AI 동료 제안과 견적 비교 화면](docs/assets/readme/pet-council-current.png)](https://d2ol7oe51mr4n9.cloudfront.net/user_3JEFpmzdSjsTLcCF7FlZFREgfCP/720495dd-0b55-4aa9-b73b-35eddfd54a3c.mp4)
 
-**[▶ 최신 제품 데모 보기 · 1080p / 60fps / 46초](docs/assets/readme/product-walkthrough-1080p60.mp4)**
+**[▶ 최신 제품 데모 보기 · 1080p / 60fps / 46초](https://d2ol7oe51mr4n9.cloudfront.net/user_3JEFpmzdSjsTLcCF7FlZFREgfCP/720495dd-0b55-4aa9-b73b-35eddfd54a3c.mp4)** · [저장소 MP4](docs/assets/readme/product-walkthrough-1080p60.mp4)
 
 2026-09-12 현재 제품 UI를 OBS로 직접 조작해 촬영했습니다. 접힌 견적, 세 견적안 비교, AI 동료 제안과 분석 결과를 보여줍니다. 데이터와 분석 이벤트는 촬영용 합성 예시이며, 실제 고객 업무나 모델 실행 녹화가 아닙니다. [촬영·편집 및 검증 기록](docs/frontend/README_MEDIA.md)
 
