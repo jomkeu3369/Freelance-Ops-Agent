@@ -25,16 +25,16 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
     <>
       <div className="quote-sheet" aria-label="견적 항목">
         {items.map((item, index) => (
-          <div
+          <details
             className={`quote-item-block${selectedBasisIndex === index ? " selected" : ""}`}
             key={index}
             onFocusCapture={() => setSelectedBasisIndex(index)}
-            role="group"
             aria-label={`${index + 1}번 견적 항목`}
           >
-            <div className="quote-item-heading">
-              <span>작업 항목 {String(index + 1).padStart(2, "0")}</span>
-            </div>
+            <summary className="quote-item-disclosure">
+              <span><small>항목 {String(index + 1).padStart(2, "0")}</small><strong>{item.title || "새 작업 항목"}</strong></span>
+              <span>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}<small>상세·근거</small></span>
+            </summary>
             <div className="quote-row">
               <label className="quote-title-field">
                 <span className="quote-field-label">작업 항목</span>
@@ -127,7 +127,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
               </button>
             </div>
             <QuoteItemBasis model={model} item={item} index={index} />
-          </div>
+          </details>
         ))}
         {canWrite && (
           <button

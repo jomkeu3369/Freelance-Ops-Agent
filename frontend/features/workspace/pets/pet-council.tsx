@@ -61,7 +61,8 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
 
   if (!model.availableAIDrafts.length) return null;
 
-  return <section className="pet-council" aria-label="AI 펫 의견 비교">
+  return <details className="pet-council workspace-disclosure" aria-label="AI 펫 의견 비교">
+    <summary>동료 제안 비교·조합 <small>{model.availableAIDrafts.length}개 제안</small></summary>
     <header><span className="pet-eyebrow">서로 다른 관점, 결정은 나에게</span><h3>어떤 제안으로 만들어 볼까요?</h3><p>각 제안의 작업을 선택해 조합하세요. 선택한 작업이 현재 편집 중인 견적의 전체 항목을 대신합니다.</p></header>
     <div className="pet-proposals">
       {petAdvisors.map(pet => {
@@ -91,5 +92,5 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
       </section>}
       {message && <p role="status">{message}</p>}
     </div>
-  </section>;
+  </details>;
 }

@@ -9,8 +9,8 @@ export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
   return (
     <>
       {quotations.length > 0 && (
-        <div className="quote-history">
-          <span>견적 이력</span>
+        <details className="quote-history workspace-disclosure">
+          <summary>견적 이력 <small>{quotations.length}건</small></summary>
           {quotations.map((quotation) => (
             <button type="button" key={quotation.id} onClick={() => loadQuotation(quotation)}>
               <strong>
@@ -20,7 +20,7 @@ export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
               <span>{formatMoney(quotation.total, quotation.currency)}</span>
             </button>
           ))}
-        </div>
+        </details>
       )}
     </>
   );

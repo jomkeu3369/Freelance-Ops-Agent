@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { WorkspaceShell } from "../../features/workspace/workspace-shell";
 import "../../features/workspace/pets/pets.css";
 import "../../features/workspace/auth/auth.css";
+import "../../features/workspace/shared/disclosure.css";
 
 interface WorkspaceLayoutProps {
   children: ReactNode;

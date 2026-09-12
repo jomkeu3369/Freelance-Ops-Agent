@@ -26,7 +26,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
     <section className="quote-builder">
       <QuoteToolbar model={model} />
       <QuoteNotices model={model} />
-      <ScenarioComparison model={model} />
+      <details className="workspace-disclosure"><summary>견적안 비교 <small>핵심·권장·확장</small></summary><ScenarioComparison model={model} /></details>
       <PetCouncil key={`${props.session.workspaceId}:${props.session.userId}:${props.project.id}`} model={model} session={props.session} />
       <div className="quote-layout">
         <QuoteItemsEditor model={model} />
