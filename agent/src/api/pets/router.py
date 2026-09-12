@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from langsmith import tracing_context
 from pydantic import Field, ValidationError
 
 from api.assumptions.router import BearerDependency, VerifierDependency, _problem
@@ -57,7 +58,7 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
         return _problem(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")
     try:
         async with asyncio.timeout(30):
-            with credential_scope(credentials.credentials, body.context.run_id):
+            with tracing_context(enabled=False), credential_scope(credentials.credentials, body.context.run_id):
                 generated = await gateway.generate_pet(
                     body.model_selection,
                     json.dumps({"slot": body.slot, "description": body.description}, ensure_ascii=False),

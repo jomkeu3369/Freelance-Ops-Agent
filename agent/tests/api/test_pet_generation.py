@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from langsmith.run_helpers import get_tracing_context
 from pydantic import ValidationError
 
 from api.pets.router import router
@@ -39,6 +40,10 @@ def client_fixture() -> tuple[TestClient, dict, Mock]:
 
 def test_generation_returns_reviewable_closed_profile_and_bounded_usage() -> None:
     client, body, provider = client_fixture()
+    async def generate_without_prompt_tracing(*args: object, **kwargs: object) -> ModelGeneration:
+        assert get_tracing_context()["enabled"] is False
+        return ModelGeneration(PROFILE, 15, 20)
+    provider.generate_pet.side_effect = generate_without_prompt_tracing
     response = client.post("/internal/v1/pets/generate", json=body, headers={"Authorization": "Bearer synthetic"})
     assert response.status_code == 200
     assert response.json()["profile"] == PROFILE
