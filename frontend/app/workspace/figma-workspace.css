@@ -201,3 +201,8 @@
 .ai-connection-list article { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid #dddde5; border-radius: 14px; padding: 18px; margin-top: 14px; overflow-wrap: anywhere; }
 @media (max-width: 640px) { .ai-connection-form { grid-template-columns: minmax(0, 1fr); } }
 .ai-connection-form > button { align-self: end; min-height: 48px; }
+
+@media (min-width: 821px) {
+  .figma-workspace { grid-template-rows: 70px minmax(0, 1fr); }
+  .figma-workspace .workspace-sidebar { position: sticky; top: 70px; align-self: start; height: calc(100svh - 70px); min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+}
