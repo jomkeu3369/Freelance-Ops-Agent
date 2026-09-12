@@ -49,8 +49,9 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final AgentRunProjectionService projectionService;
     private final AgentRunCommandQueue commandQueue;
     private final AgentBudgetPolicy budgetPolicy;
+    private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
@@ -59,11 +60,15 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         this.projectionService = projectionService;
         this.commandQueue = commandQueue;
         this.budgetPolicy = budgetPolicy;
+        this.connections = connections;
     }
 
     @Transactional
     public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent) {
         budgetPolicy.enforce(request.budget());
+        if (request.modelSelection().credentialId() != null && request.budget().maxDurationSeconds() > 270) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Personal AI runs support a maximum duration of 270 seconds");
+        }
         MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, PermissionCode.AGENT_RUN);
@@ -74,6 +79,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "project deletion is in progress");
         }
 
+        connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
@@ -114,6 +120,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             AgentRunStatus.QUEUED,
             Instant.now()
         );
+        run.useCredential(request.modelSelection().credentialId());
         agentRunRepository.saveAndFlush(run);
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
         return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
@@ -185,6 +192,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     @Transactional
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+        if (authorized.run().credentialId() != null) {
+            if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+            connections.validate(userId, workspaceId, authorized.run().credentialId(), authorized.run().provider(), authorized.run().model());
+        }
         projectRepository.findByIdAndWorkspaceIdForUpdate(authorized.run().projectId(), workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
             .requireNotDeleting();

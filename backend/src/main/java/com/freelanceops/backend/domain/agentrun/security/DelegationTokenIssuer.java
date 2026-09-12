@@ -72,6 +72,15 @@ public class DelegationTokenIssuer {
     }
 
     public String issue(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions) {
+        return issueWithLifetime(runId, workspaceId, projectId, initiatedBy, permissions, lifetime);
+    }
+
+    public String issueForPersonalRun(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions, int durationSeconds) {
+        if (durationSeconds < 1 || durationSeconds > 270) throw new IllegalArgumentException("personal run duration must be at most 270 seconds");
+        return issueWithLifetime(runId, workspaceId, projectId, initiatedBy, permissions, Duration.ofSeconds(durationSeconds + 30L));
+    }
+
+    private String issueWithLifetime(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions, Duration tokenLifetime) {
         if (encoder == null) {
             throw new IllegalStateException("delegation signing key is unavailable");
         }
@@ -82,7 +91,7 @@ public class DelegationTokenIssuer {
             .subject(initiatedBy.toString())
             .id(UUID.randomUUID().toString())
             .issuedAt(now)
-            .expiresAt(now.plus(lifetime))
+            .expiresAt(now.plus(tokenLifetime))
             .claim("run_id", runId.toString())
             .claim("workspace_id", workspaceId.toString())
             .claim("project_id", projectId.toString())

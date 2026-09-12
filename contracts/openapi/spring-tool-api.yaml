@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Spring Internal Tool API
-  version: 0.2.0
+  version: 0.3.0
   description: Python Agent Tool이 Spring Boot 업무 기능을 호출하는 내부 전용 계약
 servers:
   - url: http://backend:8080
@@ -9,6 +9,44 @@ servers:
 security:
   - delegationToken: []
 paths:
+  /internal/v1/ai-connections/{id}/credential:
+    get:
+      operationId: resolvePersonalCredential
+      description: Current delegated permission, owner, workspace, project and model are revalidated. Response is ephemeral, never audited as a tool observation or persisted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: provider
+          in: query
+          required: true
+          schema: {type: string, enum: [OPENAI, GEMINI]}
+        - name: model
+          in: query
+          required: true
+          schema: {type: string, maxLength: 100}
+        - $ref: "#/components/parameters/RunIdHeader"
+      responses:
+        "200":
+          description: Call-local credential; Cache-Control no-store
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [apiKey]
+                properties:
+                  apiKey: {type: string}
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/projects/{projectId}/context:
     get:
       operationId: getProjectContext

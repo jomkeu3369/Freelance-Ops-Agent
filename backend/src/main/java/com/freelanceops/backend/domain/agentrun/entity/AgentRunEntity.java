@@ -142,6 +142,12 @@ public class AgentRunEntity {
         this.nextReconciliationAt = when;
     }
 
+    @jakarta.persistence.Column(name = "credential_id")
+    private UUID credentialId;
+
+    public UUID credentialId() { return credentialId; }
+    public void useCredential(UUID credentialId) { this.credentialId = credentialId; }
+
     public UUID id() {
         return id;
     }

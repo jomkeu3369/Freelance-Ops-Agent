@@ -16,7 +16,7 @@ export interface QuoteBuilderProps {
   permissions: Set<string>;
   quotationDraft: AgentQuotationDraft | null;
   quotationDrafts: AgentQuotationDraft[];
-  modelSelection: { provider: Provider; model: string };
+  modelSelection: { provider: Provider; model: string; credentialId?: string | null };
 }
 
 // API 상태, 수정 충돌 및 탭 임시 저장은 같은 순서로 처리합니다.

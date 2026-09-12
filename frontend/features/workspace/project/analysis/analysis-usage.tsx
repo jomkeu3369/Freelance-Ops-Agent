@@ -29,11 +29,11 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
       {costUsage && (
         <div className="cost-usage">
           <div>
-            <span>AI 사용 비용</span>
+            <span>예상 AI 비용</span>
             <strong>
               {costUsage.actualCost != null && costUsage.costCurrency
                 ? formatMoney(costUsage.actualCost, costUsage.costCurrency)
-                : "계산 대기"}
+                : "단가 미등록 / 계산 대기"}
             </strong>
           </div>
           <dl>
@@ -55,6 +55,7 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
             </div>
           </dl>
           <small>
+            제공사 실제 청구액과 다를 수 있습니다. ·{" "}
             {costStatusLabels[costUsage.costStatus] ?? "상태 확인 필요"} ·{" "}
             {requestTierLabels[costUsage.requestTier] ?? "실행 등급 확인 필요"}
           </small>

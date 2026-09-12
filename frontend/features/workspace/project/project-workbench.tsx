@@ -9,6 +9,7 @@ import {
   getAgentRunUsage,
   ApiError
 } from "../../../app/lib/api";
+import { AIConnection, listAIConnections } from "../../../app/lib/api";
 import { snapshotFromEvents } from "../../../app/components/live-workflow";
 import { WorkbenchStep } from "../shared/types";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -48,7 +49,7 @@ interface ProjectWorkbenchProps {
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string) => Promise<void>;
+  onRun: (provider: Provider, model: string, credentialId?: string) => Promise<void>;
   onResetRun: () => void;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
@@ -56,6 +57,10 @@ interface ProjectWorkbenchProps {
 
 export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
   const [provider, setProvider] = useState<Provider>("OPENAI");
+  const [connections, setConnections] = useState<AIConnection[]>([]);
+  const [credentialId, setCredentialId] = useState("");
+  const [connectionError, setConnectionError] = useState(false);
+  const connection = connections.find((item) => item.id === credentialId);
   const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
@@ -69,6 +74,15 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
+
+  useEffect(() => {
+    if (!canRun) return;
+    let cancelled = false;
+    listAIConnections(session).then((value) => {
+      if (!cancelled) { setConnections(value.connections); setConnectionError(false); }
+    }).catch(() => { if (!cancelled) setConnectionError(true); });
+    return () => { cancelled = true; };
+  }, [canRun, session, runId]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -174,6 +188,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           )}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
+            <label>AI 연결<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
+              <option value="">기본 제공 AI</option>
+              {connections.map((item) => <option key={item.id} value={item.id}>내 키 · {item.provider} · {item.model} · {item.maskedKey}</option>)}
+            </select></label>
+            {connectionError && <span role="alert">개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.</span>}
+            {credentialId && !connection && <span role="alert">선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.</span>}
+            {!credentialId && <>
             <label>
               AI 제공사
               <select
@@ -208,12 +229,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 )}
               </select>
             </label>
-            <span className="model-selection-note">분석 실행 모델 · 자동 전환 없음</span>
+            </>}
+            <span className="model-selection-note">{credentialId ? "내 키로 실행 · 제공사 계정에 청구" : "기본 제공 AI로 실행"} · 자동 전환 없음</span>
             <button
               type="button"
               className="primary-button"
-              disabled={busy || !model.trim()}
-              onClick={() => onRun(provider, model.trim())}
+              disabled={busy || (credentialId ? !connection || connectionError : !model.trim())}
+              onClick={() => connection ? onRun(connection.provider, connection.model, connection.id) : !credentialId && onRun(provider, model.trim())}
             >
               {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
             </button>
@@ -361,7 +383,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           quotationDrafts={run?.result?.quotationDrafts ?? []}
           modelSelection={
             run?.metadata
-              ? { provider: run.metadata.provider, model: run.metadata.model }
+              ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
               : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }
           }
         />

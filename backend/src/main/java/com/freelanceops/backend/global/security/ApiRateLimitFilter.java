@@ -94,6 +94,8 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     }
 
     private static Category category(HttpServletRequest request) {
+        if ("PUT".equalsIgnoreCase(request.getMethod()) && request.getRequestURI().startsWith("/api/v2/workspaces/")
+            && request.getRequestURI().contains("/ai-connections/")) return Category.AGENT;
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return null;
         }

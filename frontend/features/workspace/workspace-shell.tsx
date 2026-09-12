@@ -431,7 +431,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string) => {
+  const beginRun = async (provider: Provider, model: string, credentialId?: string) => {
     if (!session || !selectedProject) return;
     setBusy(true);
     setError(null);
@@ -439,6 +439,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     setRun(null);
     try {
       const accepted = await startAgentRun(session, selectedProject, {
+        credentialId,
         provider,
         model,
         reasoningEffort: "LOW"

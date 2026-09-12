@@ -71,6 +71,9 @@ services:
     restart: unless-stopped
     environment:
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
+      APP_BYOK_ENCRYPTION_KEY: ${APP_BYOK_ENCRYPTION_KEY:-}
+      APP_BYOK_OPENAI_MODELS: ${APP_BYOK_OPENAI_MODELS:-gpt-5.6-luna,gpt-5.6-terra}
+      APP_BYOK_GEMINI_MODELS: ${APP_BYOK_GEMINI_MODELS:-gemini-2.5-flash}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       APP_RATE_LIMIT_ENABLED: ${APP_RATE_LIMIT_ENABLED:-true}
       APP_RATE_LIMIT_AUTH_PER_MINUTE: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:-20}

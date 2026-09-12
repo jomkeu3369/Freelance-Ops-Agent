@@ -84,6 +84,12 @@ class WorkspaceRbacPostgresTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @Autowired
+    private com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier credentialVerifier;
+
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
@@ -92,6 +98,36 @@ class WorkspaceRbacPostgresTest {
         registry.add("spring.flyway.create-schemas", () -> true);
         registry.add("agent.command-dispatch-enabled", () -> false);
         registry.add("agent.reconciliation-enabled", () -> false);
+        registry.add("APP_BYOK_ENCRYPTION_KEY", () -> java.util.Base64.getEncoder().encodeToString(new byte[32]));
+        registry.add("APP_BYOK_OPENAI_MODELS", () -> "test-model");
+    }
+
+    @Test
+    void personalKeysAreEncryptedOwnerScopedReplaceableAndRevocable() {
+        var provider = com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI;
+        UUID owner = insertUser("byok-owner");
+        UUID other = insertUser("byok-other");
+        UUID workspace = provisioningService.create(owner, "BYOK", "byok-test").workspaceId();
+        addRole(workspace, other, owner, "OWNER");
+        UUID secondWorkspace = provisioningService.create(owner, "BYOK Second", "byok-second").workspaceId();
+        var connection = connections.save(owner, workspace, provider, "test-model", "synthetic-first-1234");
+        String stored = jdbcClient.sql("SELECT ciphertext FROM app.ai_connection WHERE id = :id").param("id", connection.id()).query(String.class).single();
+        assertThat(stored).doesNotContain("synthetic-first");
+        assertThat(connection.maskedKey()).isEqualTo("••••1234");
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-first-1234");
+        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.list(other, workspace).connections()).isEmpty();
+        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var replacement = connections.save(owner, workspace, provider, "test-model", "synthetic-second-5678");
+        assertThat(replacement.id()).isEqualTo(connection.id());
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST))
+            .when(credentialVerifier).verify(provider, "test-model", "synthetic-invalid-0000");
+        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "test-model", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+        connections.delete(owner, workspace, connection.id());
+        assertThat(connections.list(owner, workspace).connections()).isEmpty();
+        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test

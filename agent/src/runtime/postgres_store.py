@@ -250,10 +250,11 @@ class PostgresAgentRunStore:
             result=AgentRunResult.model_validate(model.result_json) if model.result_json is not None else None,
             error_code=model.error_code,
             metadata=AgentRunMetadata(
+                credential_id=request.model_selection.credential_id,
                 provider=request.model_selection.provider,
                 model=request.model_selection.model,
                 prompt_version=model.prompt_version or "department-work-product-v1",
-                tool_schema_version="spring-tool-api-v0.2.0",
+                tool_schema_version="spring-tool-api-v0.3.0",
                 trace_id=request.context.trace_id,
             ),
             usage=AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None,

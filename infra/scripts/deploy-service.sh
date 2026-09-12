@@ -52,6 +52,7 @@ validate_tag "$TARGET_TAG"
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/freelance-ops}"
 ENV_FILE="${ENV_FILE:-$DEPLOY_ROOT/.env}"
+sh "$(dirname "$0")/ensure-byok-key.sh" "$ENV_FILE"
 COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yaml -f docker-compose.production.yaml"
 BACKEND_MARKER="$DEPLOY_ROOT/.backend-deployed-tag"
 AGENT_MARKER="$DEPLOY_ROOT/.agent-deployed-tag"

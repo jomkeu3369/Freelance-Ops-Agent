@@ -21,8 +21,12 @@ public record StartAgentRunRequest(
     public record ModelSelection(
         @NotNull Provider provider,
         @NotBlank @Size(max = 100) String model,
-        @NotNull ReasoningEffort reasoningEffort
+        @NotNull ReasoningEffort reasoningEffort,
+        java.util.UUID credentialId
     ) {
+        public ModelSelection(Provider provider, String model, ReasoningEffort reasoningEffort) {
+            this(provider, model, reasoningEffort, null);
+        }
     }
 
     public record RunBudget(

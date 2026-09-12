@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.4.2
+  version: 0.5.0
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -444,6 +444,10 @@ components:
       additionalProperties: false
       required: [provider, model]
       properties:
+        credentialId:
+          type: [string, "null"]
+          format: uuid
+          description: Personal connection identifier; absent means platform credentials. Never an API key.
         provider:
           type: string
           enum: [OPENAI, GEMINI]
@@ -920,6 +924,9 @@ components:
       additionalProperties: false
       required: [provider, model, promptVersion, toolSchemaVersion, traceId]
       properties:
+        credentialId:
+          type: [string, "null"]
+          format: uuid
         provider:
           type: string
           enum: [OPENAI, GEMINI]

@@ -16,6 +16,7 @@ from contracts import (
     AssumptionSuggestionUsage,
 )
 from gateway import AIGateway
+from personal_credentials import credential_scope
 from providers import ProviderCallError
 from security import DelegationPrincipal, DelegationTokenVerifier, TokenVerificationError
 
@@ -72,12 +73,13 @@ async def suggest_assumption(body: AssumptionSuggestionRequest, request: Request
     )
     started = time.monotonic()
     try:
-        generation = await gateway.generate_assumption(
-            body.model_selection,
-            prompt,
-            max_output_tokens=500,
-            max_attempts=2
-        )
+        with credential_scope(credentials.credentials, body.context.run_id):
+            generation = await gateway.generate_assumption(
+                body.model_selection,
+                prompt,
+                max_output_tokens=500,
+                max_attempts=2
+            )
     except ProviderCallError:
         return _problem(502, "Assumption suggestion failed", "ASSUMPTION_MODEL_FAILED")
 

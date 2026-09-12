@@ -751,22 +751,20 @@ test("terminal agent runs expose server-accounted cost only to audit readers", a
   ]);
   assert.match(workspace, /permissions\.has\("audit\.read"\)/);
   assert.match(workspace, /getAgentRunUsage/);
-  assert.match(workspace, /AI 사용 비용/);
+  assert.match(workspace, /예상 AI 비용/);
   assert.match(workspace, /billableOutcome/);
   assert.match(api, /interface AgentRunUsage/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/usage/);
 });
 
-test("workspace administrators can version the server-owned model price catalog", async () => {
+test("settings offer personal AI connections while retaining the server price ledger", async () => {
   const [workspace, api] = await Promise.all([
-    read("../app/workspace/page.tsx"),
+    read("../features/workspace/settings/settings-panel.tsx"),
     read("../app/lib/api.ts"),
   ]);
-  assert.match(workspace, /AI 사용 비용/);
-  assert.match(workspace, /canReadPricing = permissions\.has\("audit\.read"\)/);
-  assert.match(workspace, /canManagePricing = permissions\.has\("workspace\.update"\)/);
-  assert.match(workspace, /가격 유효 종료 시점은 시작 시점보다 늦어야 합니다/);
-  assert.match(workspace, /createModelPricing/);
+  assert.match(workspace, /AI 연결/);
+  assert.match(workspace, /canConnectAI = permissions\.has\("agent\.run"\)/);
+  assert.doesNotMatch(workspace, /ModelPricingForm|listModelPricing|AI 사용 비용/);
   assert.match(api, /interface ModelPricing/);
   assert.match(api, /\/model-pricing/);
 });
