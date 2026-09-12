@@ -38,31 +38,31 @@
 
 고객 정보와 프로젝트의 요구사항·희망 일정·예산을 연결합니다.
 
-![고객 관리 — 이전 UI](docs/assets/readme/client-profile.gif)
+![고객 관리](docs/assets/readme/client-profile-current.gif)
 
-![프로젝트 문의 등록 — 이전 UI](docs/assets/readme/project-intake.gif)
+![프로젝트 문의 등록](docs/assets/readme/project-intake-current.gif)
 
 ### 2. AI 분석과 사용자 확인
 
 AI 동료가 요구사항과 근거를 정리합니다. 확인이 필요한 내용은 질문하고, 답변을 받은 뒤 분석을 이어갑니다.
 
-![AI 동료와 분석 결과](docs/assets/readme/ai-analysis-current.png)
+![AI 동료와 분석 결과](docs/assets/readme/ai-analysis-current.gif)
 
-![사용자 확인과 분석 재개 — 이전 UI](docs/assets/readme/human-review.gif)
+![사용자 확인과 분석 재개](docs/assets/readme/human-review-current.gif)
 
 ### 3. 견적 비교·검토·발행
 
 항목과 예상 금액부터 확인하고, 필요한 상세만 펼칩니다. 세 견적안을 비교하거나 작업을 조합한 뒤 검토한 견적을 발행합니다.
 
-![요약 중심 견적 검토](docs/assets/readme/quote-compact-current.png)
+![요약 중심 견적 검토](docs/assets/readme/quote-review-current.gif)
 
-![세 AI 동료의 제안 비교](docs/assets/readme/pet-council-current.png)
+![세 AI 동료의 제안 비교](docs/assets/readme/pet-council-current.gif)
 
 ### 4. 실제 결과 기록
 
 실제 매출·비용·공수와 예상에서 달라진 이유를 남겨 다음 견적의 참고 자료로 활용합니다.
 
-![프로젝트 결과 기록 — 이전 UI](docs/assets/readme/outcome-review.png)
+![프로젝트 결과 기록](docs/assets/readme/outcome-review-current.gif)
 
 ## 설계 원칙
 
