@@ -619,7 +619,7 @@ test("completed AI analysis prices its editable draft from active server rate ca
   assert.match(workspace, /const defaultItems = generatedItems \?\? \(latest \? quotationItemsAsInput\(latest\)/);
   assert.match(workspace, /item\.unitRate > 0/);
   assert.match(workspace, /AI가 견적 초안을 채웠습니다/);
-  assert.match(workspace, /AI가 정리한 작업과 공수를 확인하세요/);
+  assert.match(workspace, /견적 초안 검토/);
   assert.match(css, /\.ai-quote-ready/);
   assert.match(css, /\.quote-draft-state\.generated/);
   assert.match(css, /\.quote-select-control select/);
@@ -921,7 +921,7 @@ test("quotation review aligns calculated amounts and offers bounded AI assumptio
   ]);
   assert.match(workspace, /AI로 제안받기/);
   assert.match(workspace, /AI로 다듬기/);
-  assert.match(workspace, /공수와 금액은 변경하지 않습니다/);
+  assert.doesNotMatch(await read("../features/workspace/project/quotation/quote-item-basis.tsx"), /ai-assumption-note|providerLabels/);
   assert.match(workspace, /경로 판정/);
   assert.match(workspace, /자동 전환/);
   assert.match(api, /export function suggestQuotationAssumption/);

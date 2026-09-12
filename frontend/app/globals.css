@@ -489,7 +489,6 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .ai-assumption-button { min-height: 30px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line)); border-radius: 999px; background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid)); font-size: .7rem; font-weight: 700; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 .ai-assumption-button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 12%, var(--surface-solid)); transform: translateY(-1px); }
 .ai-assumption-button:disabled { opacity: .48; cursor: not-allowed; }
-.ai-assumption-note { color: var(--muted); font-size: .66rem; line-height: 1.5; }
 .basis-copy textarea { width: 100%; min-height: 94px; resize: vertical; color: var(--ink); border: 1px solid color-mix(in srgb, var(--ink) 24%, var(--line)); border-radius: 8px; outline: 0; background: var(--surface-solid); font-size: .78rem; line-height: 1.55; overflow: auto; }
 .basis-copy textarea:hover { border-color: color-mix(in srgb, var(--ink) 44%, var(--line)); }
 .basis-copy textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent); }
