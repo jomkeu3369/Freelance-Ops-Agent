@@ -13,7 +13,7 @@ export function OutcomeSection() {
         <p>AI가 스스로 학습한다는 의미가 아니라, 사용자가 승인한 실제 결과를 검색 근거로 재사용합니다.</p>
       </div>
       <div className="outcome-carousel" aria-live="polite">
-        <div className="outcome-card">
+        <div className="outcome-card selection-enter" key={selectedOutcome.title}>
           <span>예시 기록</span>
           <h3>{selectedOutcome.title}</h3>
           <strong>{selectedOutcome.metric}</strong>
@@ -27,6 +27,7 @@ export function OutcomeSection() {
               className={index === outcomeIndex ? "active" : ""}
               onClick={() => setOutcomeIndex(index)}
               aria-label={`${outcome.title} 보기`}
+              aria-pressed={index === outcomeIndex}
             />
           ))}
         </div>

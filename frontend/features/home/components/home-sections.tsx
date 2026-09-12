@@ -6,9 +6,10 @@ export function HeroSection() {
   return (
     <section id="top" className="hero-section">
       <div className="hero-copy">
+        <div className="hero-eyebrow hero-reveal"><span /> FROM INQUIRY TO PROPOSAL</div>
         <p className="hero-context hero-reveal">모호한 고객 문의를, 근거 있는 견적으로.</p>
         <h1 className="hero-title hero-reveal">
-          Freelance Ops
+          Freelance <span>Ops</span><span className="hero-title-period">.</span>
         </h1>
         <p className="hero-description hero-reveal">
           고객 문의에서 요구사항과 불확실성을 정리하고,<br />확인 질문·WBS·견적·제안서로 연결합니다.
@@ -23,9 +24,13 @@ export function HeroSection() {
         </div>
         <p className="hero-note hero-reveal">AI 초안은 사용자가 검토하고 확정합니다.</p>
       </div>
-      <div className="hero-stage hero-reveal">
+      <div className="hero-stage">
+        <div className="hero-window-bar"><span className="window-dots" aria-hidden="true"><i /><i /><i /></span><span>Freelance Ops · 프로젝트 한눈에 보기</span><span className="preview-badge">제품 예시</span></div>
         <Image src="/figma/dashboard-preview.png" alt="프로젝트 현황 예시: 신규 문의부터 결과 회고까지 여섯 단계로 관리하는 대시보드" width={1250} height={725} priority sizes="(max-width: 820px) 100vw, 1200px" />
+        <div className="hero-float hero-inquiry"><span className="float-label">01 / 고객의 한마디</span><p>“예약 가능한 웹사이트,<br />얼마면 만들 수 있나요?”</p><span className="float-tag">아직 모호한 범위</span></div>
+        <div className="hero-float hero-result"><span className="float-label">02 / 검토할 수 있는 초안</span><strong><Check size={18} /> 요구사항과 근거 연결</strong><div className="result-lines" aria-hidden="true"><i /><i /><i /></div><span className="float-tag">최종 결정은 사용자에게</span></div>
       </div>
+      <div className="hero-bottom-note"><span>문의</span><ArrowRight size={14} /><span>요구사항</span><ArrowRight size={14} /><span>견적</span><ArrowRight size={14} /><span>제안</span></div>
     </section>
   );
 }
@@ -44,8 +49,9 @@ export function ProductSection() {
             ["요구사항이 불완전합니다", "‘반응형으로 만들어 주세요’라는 한 문장만으로는 화면 수, 관리자 기능과 운영 범위를 알 수 없습니다."],
             ["견적의 근거가 흩어져 있습니다", "과거 프로젝트, 단가표, 작업 경험과 외부 자료를 매번 따로 찾아야 합니다."],
             ["AI 답변도 그대로 믿을 수 없습니다", "출처, 계산식과 가정이 보이지 않으면 빠른 답변도 실제 거래에는 사용하기 어렵습니다."]
-          ].map(([title, body]) => (
+          ].map(([title, body], index) => (
             <article className="problem-card card-lift" key={title}>
+              <span className="problem-number" aria-hidden="true">0{index + 1}</span>
               <h3>{title}</h3>
               <p>{body}</p>
             </article>
@@ -53,6 +59,8 @@ export function ProductSection() {
         </div>
       </section>
       <section className="manifesto chapter">
+        <div className="manifesto-halo" aria-hidden="true" />
+        <p className="section-context">명확해지는 순간, 일이 달라집니다.</p>
         <p className="manifesto-copy" aria-label="감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다.">
           {"감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다."
             .split(" ")
@@ -60,6 +68,7 @@ export function ProductSection() {
               <span className="scrub-word" key={`${word}-${index}`}>{word} </span>
             ))}
         </p>
+        <div className="manifesto-caption"><span>불확실한 요청</span><ArrowRight size={24} /><strong>설명 가능한 제안</strong></div>
       </section>
     </>
   );
@@ -130,6 +139,7 @@ export function AudienceSection() {
 export function CallToActionSection() {
   return (
     <section className="final-cta chapter">
+      <p className="section-context">YOUR NEXT PROJECT STARTS HERE</p>
       <h2>다음 고객 문의부터,<br />더 명확하게 시작하세요.</h2>
       <p>요구사항을 정리하고, 확인할 질문을 찾고, 근거 있는 견적의 첫 초안을 만들어 보세요.</p>
       <Link className="primary-button inverted" href="/workspace">
