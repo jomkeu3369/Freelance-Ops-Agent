@@ -6,7 +6,6 @@ import {
   CircleNotch,
   Waveform
 } from "@phosphor-icons/react";
-import { providerLabels } from "../../shared/constants";
 import { formatMoney, toDateTimeLocal } from "../../shared/formatters";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
@@ -126,12 +125,6 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
             }))
           }
         />
-        {item.basis.type === "ASSUMPTION" && (
-          <small className="ai-assumption-note">
-            {providerLabels[modelSelection.provider]} · {modelSelection.model}이 문장만 제안하며
-            공수와 금액은 변경하지 않습니다.
-          </small>
-        )}
       </div>
       {item.basis.type === "EVIDENCE" && (
         <div className="evidence-fields">

@@ -29,7 +29,7 @@ export function QuoteNotices({ model }: { model: QuoteBuilderModel }) {
             </strong>
             <small>
               {draftStatus.kind === "generated"
-                ? "등록된 단가 중 맞는 항목이 있으면 연결합니다. 비어 있는 단가를 입력하고, 저장 전에 공수와 가정을 확인해 주세요."
+                ? "비어 있는 단가를 입력하고 공수와 가정을 확인하세요."
                 : draftStatus.kind === "unavailable"
                   ? "초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요."
                   : `${draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금"} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.`}

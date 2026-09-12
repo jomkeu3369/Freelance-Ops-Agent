@@ -22,3 +22,28 @@
   .quote-item-disclosure > span:last-of-type { width: auto; margin: 12px 0 0 18px; text-align: left; }
   .workspace-disclosure > summary small { display: block; margin: 6px 0 0 16px; }
 }
+
+/* Compact headings and action groups for the working screens. */
+.quote-builder .quote-toolbar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 16px 24px; padding-bottom: 20px; }
+.quote-toolbar .quote-toolbar-copy { flex: 1 1 220px; min-width: 0; }
+.quote-builder .quote-toolbar h2 { max-width: none; margin: 8px 0 0; font-size: clamp(1.2rem, 1.5vw, 1.5rem); line-height: 1.45; letter-spacing: -.035em; word-break: keep-all; overflow-wrap: anywhere; }
+.quote-toolbar .quote-toolbar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; }
+.quote-toolbar-actions .scenario-switch { flex-shrink: 0; }
+.quote-toolbar-actions .quiet-button { border-radius: 8px; }
+.quote-toolbar-actions .scenario-switch button { min-height: 42px; }
+.quote-builder .quote-draft-state { border-radius: 10px; }
+.quote-builder .quote-draft-state > div { min-width: 0; }
+.quote-builder .quote-draft-state small { line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere; }
+.outcome-review .outcome-guided-copy { min-height: 0; padding: 24px; }
+.outcome-review .outcome-guided-copy p { font-size: .85rem; }
+.quote-builder .scenario-comparison > header { flex-wrap: wrap; gap: 8px 20px; }
+.quote-builder .scenario-comparison > header strong { word-break: keep-all; line-height: 1.5; }
+@media (max-width: 600px) {
+  .quote-toolbar .quote-toolbar-copy { flex-basis: auto; }
+  .quote-toolbar .quote-toolbar-actions { width: 100%; gap: 8px; }
+  .quote-toolbar-actions .scenario-switch { display: flex; width: 100%; }
+  .quote-toolbar-actions .scenario-switch button { flex: 1; }
+  .quote-builder .quote-draft-state { flex-wrap: wrap; align-items: flex-start; }
+  .quote-builder .quote-draft-state > div { flex: 1 1 180px; }
+  .outcome-review .outcome-guided-copy { padding: 20px; }
+}
