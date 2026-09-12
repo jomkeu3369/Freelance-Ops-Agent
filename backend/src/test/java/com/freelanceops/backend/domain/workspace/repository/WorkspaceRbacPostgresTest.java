@@ -102,6 +102,79 @@ class WorkspaceRbacPostgresTest {
         registry.add("APP_BYOK_OPENAI_MODELS", () -> "test-model");
     }
 
+
+    @Autowired
+    private com.freelanceops.backend.domain.agentrun.service.PetProfileService pets;
+
+
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer petTokens;
+    @Autowired
+    private com.freelanceops.backend.domain.agentrun.service.PetGenerationService petGeneration;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.freelanceops.backend.domain.agentrun.client.PetGenerationClient petClient;
+
+    @Test
+    void generationReservesDailyQuotaAuditsUsageAndNeverSavesPreview() {
+        UUID owner = insertUser("pet-gen-owner");
+        UUID workspace = provisioningService.create(owner, "Pet Generation", "pet-generation").workspaceId();
+        UUID project = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
+            .param("id", project).param("workspace", workspace).param("user", owner).update();
+        org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
+            com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Input input = call.getArgument(0);
+            return new com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Output(input.context().runId(), com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst(), model.provider(), model.model(), 15, 20);
+        });
+        for (int i = 0; i < 20; i++) petGeneration.generate(owner, workspace, project, model, "작은 동료", "LEAN");
+        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "작은 동료", "LEAN"))
+            .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(429));
+        org.mockito.Mockito.verify(petClient, org.mockito.Mockito.times(20)).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        assertThat(jdbcClient.sql("SELECT sum(input_tokens) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).query(Long.class).single()).isEqualTo(300L);
+        assertThat(jdbcClient.sql("SELECT count(*) FROM app.pet_profile WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).query(Long.class).single()).isZero();
+        UUID otherProject = UUID.randomUUID();
+        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, otherProject, model, "작은 동료", "LEAN")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
+    @Test
+    void failedGenerationKeepsProfileAndMarksUnknownUsageWithoutRetry() {
+        UUID owner = insertUser("pet-fail-owner");
+        UUID workspace = provisioningService.create(owner, "Pet Failure", "pet-failure").workspaceId();
+        UUID project = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
+            .param("id", project).param("workspace", workspace).param("user", owner).update();
+        var original = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst();
+        pets.save(owner, workspace, original);
+        org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenThrow(new IllegalStateException("sensitive provider error"));
+        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "different", "LEAN")).hasMessageNotContaining("sensitive");
+        org.mockito.Mockito.verify(petClient).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        assertThat(pets.list(owner, workspace)).contains(original);
+        assertThat(jdbcClient.sql("SELECT count(*) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user AND status = 'FAILED' AND input_tokens IS NULL").param("workspace", workspace).param("user", owner).query(Long.class).single()).isEqualTo(1L);
+    }
+
+    @Test
+    void personalPetsArePersistedAndIsolatedEvenFromOtherOwners() {
+        UUID owner = insertUser("pet-owner");
+        UUID other = insertUser("pet-other");
+        UUID workspace = provisioningService.create(owner, "Pets", "pet-test").workspaceId();
+        addRole(workspace, other, owner, "OWNER");
+        UUID second = provisioningService.create(owner, "Pets second", "pet-second").workspaceId();
+        var profile = new com.freelanceops.backend.domain.agentrun.dto.PetProfile("LEAN", "밤이", "cat", "ink", "star", "DIRECT", "PROFIT", "QUALITY", "EXPLORATORY");
+        pets.save(owner, workspace, profile);
+        assertThat(pets.list(owner, workspace)).hasSize(3).contains(profile);
+        assertThat(pets.list(other, workspace)).doesNotContain(profile);
+        assertThat(pets.list(owner, second)).doesNotContain(profile);
+        assertThatThrownBy(() -> pets.list(other, second)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var invalid = new com.freelanceops.backend.domain.agentrun.dto.PetProfile("FOURTH", "밤이", "cat", "ink", "star", "DIRECT", "PROFIT", "QUALITY", "EXPLORATORY");
+        assertThatThrownBy(() -> pets.save(owner, workspace, invalid)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(pets.list(owner, workspace)).hasSize(3).contains(profile);
+        jdbcClient.sql("UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).update();
+        assertThatThrownBy(() -> pets.save(owner, workspace, profile)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
     @Test
     void personalKeysAreEncryptedOwnerScopedReplaceableAndRevocable() {
         var provider = com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI;

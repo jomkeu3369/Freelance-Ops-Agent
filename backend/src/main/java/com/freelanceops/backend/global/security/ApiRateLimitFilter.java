@@ -107,7 +107,7 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             return Category.PUBLIC_PROPOSAL;
         }
         if (path.startsWith("/api/v2/workspaces/")
-            && (path.contains("/agent-runs") || path.endsWith("/assumption-suggestions"))) {
+            && (path.contains("/agent-runs") || path.endsWith("/assumption-suggestions") || path.endsWith("/pet-generations"))) {
             return Category.AGENT;
         }
         return null;

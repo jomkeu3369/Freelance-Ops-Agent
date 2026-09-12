@@ -88,6 +88,18 @@ class AIGateway:
             )
         )
 
+    async def generate_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        return await self._call(
+            "pet_profile",
+            selection,
+            lambda: self._provider.generate_pet(
+                selection,
+                prompt,
+                max_output_tokens=max_output_tokens,
+                max_attempts=max_attempts
+            )
+        )
+
     async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         return await self._call(
             "quotation_assumption",

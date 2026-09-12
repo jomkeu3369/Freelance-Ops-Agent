@@ -225,7 +225,8 @@ def test_start_and_read_completed_agent_run() -> None:
         "credentialId": None,
         "provider": "OPENAI",
         "model": "gpt-5.4-mini",
-        "promptVersion": "department-work-product-v2-pets",
+        "promptVersion": "department-work-product-v3-personal-pets",
+        "petProfiles": [],
         "toolSchemaVersion": "spring-tool-api-v0.3.0",
         "traceId": "trace-1",
     }

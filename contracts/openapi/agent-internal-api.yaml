@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.5.0
+  version: 0.6.0
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -14,6 +14,33 @@ tags:
   - name: Raptor
   - name: AIPlatform
 paths:
+  /internal/v1/pets/generate:
+    post:
+      tags:
+      - Pets
+      operationId: generatePetProfile
+      security:
+      - delegationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeneratePetRequest'
+      responses:
+        '200':
+          description: Reviewable profile, not persisted; max 1 call / 1000 output tokens
+            / 30 seconds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratePetResponse'
+        '403':
+          description: Delegation scope mismatch
+        '502':
+          description: Generation failed; no fallback
+        '503':
+          description: Gateway unavailable
   /health:
     get:
       tags: [Health]
@@ -552,6 +579,11 @@ components:
           additionalProperties: false
           required: [requirementText]
           properties:
+            petProfiles:
+              type: array
+              maxItems: 3
+              items:
+                $ref: '#/components/schemas/PetProfile'
             requirementText:
               type: string
               minLength: 1
@@ -924,6 +956,11 @@ components:
       additionalProperties: false
       required: [provider, model, promptVersion, toolSchemaVersion, traceId]
       properties:
+        petProfiles:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/PetProfile'
         credentialId:
           type: [string, "null"]
           format: uuid
@@ -1132,3 +1169,154 @@ components:
         code:
           type: string
 
+    PetProfile:
+      additionalProperties: false
+      properties:
+        slot:
+          enum:
+          - LEAN
+          - RECOMMENDED
+          - EXPANDED
+          title: Slot
+          type: string
+        name:
+          maxLength: 20
+          minLength: 1
+          title: Name
+          type: string
+        animal:
+          enum:
+          - turtle
+          - owl
+          - cat
+          title: Animal
+          type: string
+        color:
+          enum:
+          - sage
+          - lavender
+          - peach
+          - sky
+          - rose
+          - ink
+          title: Color
+          type: string
+        accessory:
+          enum:
+          - none
+          - glasses
+          - scarf
+          - star
+          title: Accessory
+          type: string
+        tone:
+          enum:
+          - WARM
+          - DIRECT
+          - FORMAL
+          title: Tone
+          type: string
+        valuePriority:
+          enum:
+          - PROFIT
+          - BALANCED
+          - RELATIONSHIP
+          title: Valuepriority
+          type: string
+        deliveryPriority:
+          enum:
+          - SPEED
+          - BALANCED
+          - QUALITY
+          title: Deliverypriority
+          type: string
+        scopePriority:
+          enum:
+          - CAUTIOUS
+          - BALANCED
+          - EXPLORATORY
+          title: Scopepriority
+          type: string
+      required:
+      - slot
+      - name
+      - animal
+      - color
+      - accessory
+      - tone
+      - valuePriority
+      - deliveryPriority
+      - scopePriority
+      title: PetProfile
+      type: object
+    Provider:
+      enum:
+      - OPENAI
+      - GEMINI
+      title: Provider
+      type: string
+    ReasoningEffort:
+      enum:
+      - NONE
+      - LOW
+      - MEDIUM
+      - HIGH
+      title: ReasoningEffort
+      type: string
+    GeneratePetRequest:
+      additionalProperties: false
+      properties:
+        context:
+          $ref: '#/components/schemas/TrustedRunContext'
+        modelSelection:
+          $ref: '#/components/schemas/ModelSelection'
+        description:
+          maxLength: 500
+          minLength: 1
+          title: Description
+          type: string
+        slot:
+          enum:
+          - LEAN
+          - RECOMMENDED
+          - EXPANDED
+          title: Slot
+          type: string
+      required:
+      - context
+      - modelSelection
+      - description
+      - slot
+      title: GeneratePetRequest
+      type: object
+    GeneratePetResponse:
+      additionalProperties: false
+      properties:
+        runId:
+          format: uuid
+          title: Runid
+          type: string
+        profile:
+          $ref: '#/components/schemas/PetProfile'
+        provider:
+          $ref: '#/components/schemas/Provider'
+        model:
+          title: Model
+          type: string
+        inputTokens:
+          minimum: 0
+          title: Inputtokens
+          type: integer
+        outputTokens:
+          minimum: 0
+          title: Outputtokens
+          type: integer
+      required:
+      - runId
+      - profile
+      - provider
+      - model
+      - inputTokens
+      - outputTokens
+      title: GeneratePetResponse
+      type: object

@@ -3,13 +3,15 @@ import { previewQuotation, type AuthSession, type QuotationItemInput, type Quota
 import { formatMoney } from "../shared/formatters";
 import { quotationDraftItems } from "../project/quotation/quotation-helpers";
 import type { QuoteBuilderModel } from "../project/quotation/use-quote-builder";
-import { petAdvisors, duplicateTaskTitles } from "./pet-state.mjs";
+import { advisorsWithProfiles } from "./pet-profile";
+import { duplicateTaskTitles } from "./pet-state.mjs";
 import { PetArt } from "./pet-art";
 
 type Comparison = { fingerprint: string; before: QuotationPreview | null; after: QuotationPreview; items: QuotationItemInput[] };
 
 export function PetCouncil({ model, session }: { model: QuoteBuilderModel; session: AuthSession }) {
   const inputPrefix = useId();
+  const petAdvisors = advisorsWithProfiles(model.petProfiles);
   const [selected, setSelected] = useState<string[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,7 +69,7 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
         if (!draft) return null;
         const opinion = draft.petPerspective;
         return <article key={pet.id} className={`pet-proposal pet-proposal-${pet.id}`}>
-          <div className="pet-proposal-title"><PetArt kind={pet.id} state="ready" /><div><strong>{pet.name}</strong><span>{pet.role}</span><small>{pet.priority}</small></div></div>
+          <div className="pet-proposal-title"><PetArt kind={pet.profile.animal} profile={pet.profile} state="ready" /><div><strong>{pet.name}</strong><span>{pet.role}</span><small>{pet.priority}</small></div></div>
           {opinion ? <><h4>{opinion.proposal}</h4><p>{opinion.rationale}</p><div className="pet-tradeoff"><strong>함께 생각할 점</strong><p>{opinion.tradeoff}</p></div></> : <p className="pet-legacy-note">이전 분석에는 동료의 의견이 기록되어 있지 않습니다. 기존 견적 항목은 비교할 수 있어요.</p>}
           <fieldset disabled={!model.canWrite || loading || model.busy}><legend>이 제안의 작업 선택</legend>
             {draft.items.map((item, index) => <label key={`${draft.scenario}:${index}`} className="pet-task" htmlFor={`${inputPrefix}-${draft.scenario}-${index}`}><input id={`${inputPrefix}-${draft.scenario}-${index}`} aria-label={`${pet.name}의 제안: ${item.title}`} type="checkbox" checked={selected.includes(`${draft.scenario}:${index}`)} onChange={() => toggle(`${draft.scenario}:${index}`)} /><span><strong>{item.title}</strong><small>{item.quantity} {item.unit === "DAY" ? "일" : item.unit === "HOUR" ? "시간" : "건"}</small><span>{item.basis.type === "EVIDENCE" ? "근거" : "가정"} · {item.basis.content}</span></span></label>)}

@@ -49,9 +49,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final AgentRunProjectionService projectionService;
     private final AgentRunCommandQueue commandQueue;
     private final AgentBudgetPolicy budgetPolicy;
+    private final PetProfileService pets;
     private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
@@ -61,6 +62,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         this.commandQueue = commandQueue;
         this.budgetPolicy = budgetPolicy;
         this.connections = connections;
+        this.pets = pets;
     }
 
     @Transactional
@@ -104,7 +106,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                 request.requirementText(),
                 request.locale(),
                 request.jurisdictionCode(),
-                null
+                null,
+                pets.list(userId, workspaceId)
             )
         );
         AgentRunEntity run = new AgentRunEntity(

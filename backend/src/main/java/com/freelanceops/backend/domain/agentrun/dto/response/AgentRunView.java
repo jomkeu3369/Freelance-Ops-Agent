@@ -97,8 +97,12 @@ public record AgentRunView(
         String promptVersion,
         String toolSchemaVersion,
         String traceId,
-        UUID credentialId
+        UUID credentialId,
+        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles
     ) {
+        public AgentRunMetadata(Provider provider, String model, String promptVersion, String toolSchemaVersion, String traceId, UUID credentialId) {
+            this(provider, model, promptVersion, toolSchemaVersion, traceId, credentialId, List.of());
+        }
         public AgentRunMetadata(Provider provider, String model, String promptVersion, String toolSchemaVersion, String traceId) {
             this(provider, model, promptVersion, toolSchemaVersion, traceId, null);
         }

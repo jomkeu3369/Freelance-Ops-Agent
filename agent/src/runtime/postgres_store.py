@@ -41,7 +41,7 @@ class PostgresAgentRunStore:
         model = AgentRunStateModel(
             run_id=request.context.run_id,
             request_json=request.model_dump(mode="json"),
-            prompt_version="department-work-product-v2-pets",
+            prompt_version="department-work-product-v3-personal-pets",
             status=AgentRunStatus.QUEUED.value,
             idempotency_keys=[],
             updated_at=datetime.now(UTC),
@@ -250,6 +250,7 @@ class PostgresAgentRunStore:
             result=AgentRunResult.model_validate(model.result_json) if model.result_json is not None else None,
             error_code=model.error_code,
             metadata=AgentRunMetadata(
+                pet_profiles=request.input.pet_profiles,
                 credential_id=request.model_selection.credential_id,
                 provider=request.model_selection.provider,
                 model=request.model_selection.model,

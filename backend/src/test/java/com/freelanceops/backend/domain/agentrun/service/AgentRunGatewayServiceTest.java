@@ -70,6 +70,8 @@ class AgentRunGatewayServiceTest {
     private AgentBudgetPolicy budgetPolicy;
     @Mock
     private AIConnectionService connections;
+    @Mock
+    private PetProfileService pets;
 
     private AgentRunGatewayService service;
 
@@ -84,7 +86,8 @@ class AgentRunGatewayServiceTest {
             projectionService,
             commandQueue,
             budgetPolicy,
-            connections
+            connections,
+            pets
         );
     }
 
@@ -98,12 +101,15 @@ class AgentRunGatewayServiceTest {
             Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
         )));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        var profiles = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults();
+        when(pets.list(userId, workspaceId)).thenReturn(profiles);
         StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
 
         ArgumentCaptor<InternalAgentRunRequest> captor = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
         verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
             eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
+        assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");

@@ -1,8 +1,10 @@
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
+from unicodedata import category
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_INTERRUPTION_QUESTIONS = 3
 
@@ -86,7 +88,27 @@ class ModelSelection(StrictModel):
     credential_id: UUID | None = None
 
 
+class PetProfile(StrictModel):
+    slot: Literal["LEAN", "RECOMMENDED", "EXPANDED"]
+    name: str = Field(min_length=1, max_length=20)
+    animal: Literal["turtle", "owl", "cat"]
+    color: Literal["sage", "lavender", "peach", "sky", "rose", "ink"]
+    accessory: Literal["none", "glasses", "scarf", "star"]
+    tone: Literal["WARM", "DIRECT", "FORMAL"]
+    value_priority: Literal["PROFIT", "BALANCED", "RELATIONSHIP"]
+    delivery_priority: Literal["SPEED", "BALANCED", "QUALITY"]
+    scope_priority: Literal["CAUTIOUS", "BALANCED", "EXPLORATORY"]
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value.strip() or any(category(char)[0] not in {"L", "N"} and char not in " _-" for char in value):
+            raise ValueError("Pet name must contain letters, numbers, spaces, underscores or hyphens")
+        return value
+
+
 class AgentInput(StrictModel):
+    pet_profiles: list[PetProfile] = Field(default_factory=list, max_length=3)
     requirement_text: str = Field(min_length=1, max_length=50000)
     locale: str = "ko-KR"
     jurisdiction_code: str | None = Field(default=None, min_length=2, max_length=32)
@@ -336,6 +358,7 @@ class AgentRunResult(StrictModel):
 
 
 class AgentRunMetadata(StrictModel):
+    pet_profiles: list[PetProfile] = Field(default_factory=list, max_length=3)
     credential_id: UUID | None = None
     provider: Provider
     model: str = Field(min_length=1, max_length=100)

@@ -54,6 +54,25 @@ PET_PERSPECTIVE_INSTRUCTIONS = {
 }
 
 
+def pet_perspective_instructions(request: AgentRunRequest) -> dict[str, str]:
+    result = dict(PET_PERSPECTIVE_INSTRUCTIONS)
+    labels = {
+        "PROFIT": "수익과 수정 횟수·계약 조건 우선", "RELATIONSHIP": "고객 관계와 단계별 합의 우선",
+        "SPEED": "빠른 납품을 위해 선택 기능 분리", "QUALITY": "검증·테스트·완성도 우선",
+        "CAUTIOUS": "검증된 핵심 범위와 보수적 가정", "EXPLORATORY": "선택 가능한 확장 범위와 위험 제시",
+        "BALANCED": "균형 있게 비교", "WARM": "친근한 말투", "DIRECT": "간결하고 직접적인 말투",
+        "FORMAL": "정중한 말투"
+    }
+    for pet in request.input.pet_profiles:
+        preferences = [pet.value_priority, pet.delivery_priority, pet.scope_priority, pet.tone]
+        result[pet.slot] = (
+            f"{pet.slot}안의 의미와 근거·권한·예산·서버 계산을 유지한다. "
+            + "; ".join(labels[value] for value in preferences)
+            + ". 우선순위를 실제 범위·납품 단계·조건과 트레이드오프에 반영한다."
+        )
+    return result
+
+
 class NoToolArguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -258,7 +277,7 @@ class OperationalAgentExecutor:
             try:
                 generation = await self._provider.generate_structured(
                     request.model_selection,
-                    self._department_prompt(department, decision.route, text, project_context, research),
+                    self._department_prompt(department, decision.route, text, project_context, research, request),
                     max_output_tokens=max(1, request.budget.max_output_tokens - output_tokens),
                     max_attempts=request.budget.max_retries + 1,
                 )
@@ -415,7 +434,9 @@ class OperationalAgentExecutor:
                             "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"],
                             "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
                             "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
-                            "pet_perspectives": PET_PERSPECTIVE_INSTRUCTIONS,
+                            "pet_perspectives": (
+                        pet_perspective_instructions(request) if request is not None else PET_PERSPECTIVE_INSTRUCTIONS
+                    ),
                         },
                     },
                     react_budget,
@@ -856,7 +877,7 @@ class OperationalAgentExecutor:
         )
 
     @staticmethod
-    def _department_prompt(department: DepartmentName, route: RouteLabel, text: str, project_context: ProjectContext | None, research: ResearchCollection | None) -> str:  # noqa: E501
+    def _department_prompt(department: DepartmentName, route: RouteLabel, text: str, project_context: ProjectContext | None, research: ResearchCollection | None, request: AgentRunRequest | None = None) -> str:  # noqa: E501
         research_sources = (
             [source.model_dump(mode="json", by_alias=True) for source in research.sources]
             if research is not None and department in {DepartmentName.RESEARCH, DepartmentName.VERIFICATION}
@@ -877,7 +898,9 @@ class OperationalAgentExecutor:
                     "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"],
                     "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
                     "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
-                    "pet_perspectives": PET_PERSPECTIVE_INSTRUCTIONS,
+                    "pet_perspectives": (
+                        pet_perspective_instructions(request) if request is not None else PET_PERSPECTIVE_INSTRUCTIONS
+                    ),
                     "quotation_draft_units": ["HOUR", "DAY", "FIXED"]
                 },
                 "trusted_project_context": (

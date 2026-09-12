@@ -1,11 +1,13 @@
 import { useState } from "react";
 import type { AgentRunView } from "@/app/lib/api";
 import { PetArt } from "./pet-art";
-import { petAdvisors, petStateLabels, petWorkState } from "./pet-state.mjs";
+import { advisorsWithProfiles } from "./pet-profile";
+import { petStateLabels, petWorkState } from "./pet-state.mjs";
 
 export function PetWorkspace({ run }: { run: AgentRunView | null }) {
   const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const petAdvisors = advisorsWithProfiles(run?.metadata?.petProfiles);
   const advisor = petAdvisors.find(pet => pet.id === selected);
   const heading = !run ? "다음 작업을 함께 준비해요." : run.status === "RUNNING" ? "함께 살펴보고 있어요." : run.status === "WAITING_FOR_USER" ? "확인이 필요한 순간이에요." : run.status === "QUEUED" ? "분석을 시작할 준비 중이에요." : "동료들의 작업 결과를 확인해요.";
   const results = run?.result?.departmentResults.filter(result => advisor?.departments.includes(result.department)) ?? [];
@@ -18,7 +20,7 @@ export function PetWorkspace({ run }: { run: AgentRunView | null }) {
           {petAdvisors.map(pet => {
             const state = petWorkState(run, pet.departments);
             return <button key={pet.id} type="button" className={`pet-station ${selected === pet.id ? "selected" : ""}`} aria-pressed={selected === pet.id} onClick={() => setSelected(selected === pet.id ? null : pet.id)}>
-              <PetArt kind={pet.id} state={state} /><strong>{pet.name}<small>{pet.role}</small></strong><span className={`pet-status pet-status-${state}`}>{petStateLabels[state]}</span>
+              <PetArt kind={pet.profile.animal} profile={pet.profile} state={state} /><strong>{pet.name}<small>{pet.role}</small></strong><span className={`pet-status pet-status-${state}`}>{petStateLabels[state]}</span>
             </button>;
           })}
         </div>
