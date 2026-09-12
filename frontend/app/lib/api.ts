@@ -193,6 +193,7 @@ export interface AgentRunView {
   } | null;
   errorCode: string | null;
   metadata: {
+    petProfiles?: PetProfile[];
     credentialId?: string | null;
     provider: Provider;
     model: string;
@@ -1024,4 +1025,25 @@ export function saveAIConnection(session: AuthSession, provider: Provider, model
 }
 export function deleteAIConnection(session: AuthSession, id: string): Promise<void> {
   return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections/${id}`, { method: "DELETE", cache: "no-store" }, session.accessToken);
+}
+
+export interface PetProfile {
+  slot: "LEAN" | "RECOMMENDED" | "EXPANDED";
+  name: string;
+  animal: "turtle" | "owl" | "cat";
+  color: "sage" | "lavender" | "peach" | "sky" | "rose" | "ink";
+  accessory: "none" | "glasses" | "scarf" | "star";
+  tone: "WARM" | "DIRECT" | "FORMAL";
+  valuePriority: "PROFIT" | "BALANCED" | "RELATIONSHIP";
+  deliveryPriority: "SPEED" | "BALANCED" | "QUALITY";
+  scopePriority: "CAUTIOUS" | "BALANCED" | "EXPLORATORY";
+}
+export function listPets(session: AuthSession): Promise<PetProfile[]> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { cache: "no-store" }, session.accessToken);
+}
+export function savePet(session: AuthSession, profile: PetProfile): Promise<PetProfile> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { method: "PUT", body: JSON.stringify(profile) }, session.accessToken, false);
+}
+export function generatePet(session: AuthSession, projectId: string, input: { slot: PetProfile["slot"]; description: string; modelSelection: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string } }): Promise<{ profile: PetProfile; provider: Provider; model: string; inputTokens: number; outputTokens: number }> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/pet-generations`, { method: "POST", body: JSON.stringify(input) }, session.accessToken, false);
 }

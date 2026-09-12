@@ -30,7 +30,11 @@ public record InternalAgentRunRequest(
         String requirementText,
         String locale,
         String jurisdictionCode,
-        String directToolOperation
+        String directToolOperation,
+        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles
     ) {
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, List.of());
+        }
     }
 }

@@ -11,6 +11,7 @@ export type QuoteDraftStatus = {
 };
 
 export interface QuoteBuilderProps {
+  petProfiles?: import("@/app/lib/api").PetProfile[];
   session: AuthSession;
   project: Project;
   permissions: Set<string>;
@@ -20,7 +21,7 @@ export interface QuoteBuilderProps {
 }
 
 // API 상태, 수정 충돌 및 탭 임시 저장은 같은 순서로 처리합니다.
-export function useQuoteBuilder({ session, project, permissions, quotationDraft, quotationDrafts, modelSelection }: QuoteBuilderProps) {
+export function useQuoteBuilder({ session, project, permissions, quotationDraft, quotationDrafts, modelSelection, petProfiles }: QuoteBuilderProps) {
   const canRead = permissions.has("quotation.read");
   const canWrite = permissions.has("quotation.write");
   const canPublish = permissions.has("quotation.publish");
@@ -469,6 +470,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setItems,
     assumptionBusyIndex,
     modelSelection,
+    petProfiles,
     suggestAssumption,
     estimatedSubtotal,
     setTaxRate,

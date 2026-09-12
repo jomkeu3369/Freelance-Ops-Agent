@@ -10,6 +10,7 @@
 .pet-art { display: block; width: 120px; max-width: 100%; height: auto; flex-shrink: 0; overflow: visible; }
 .pet-station > strong { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; font-size: 16px; }
 .pet-station small { font-size: 11px; font-weight: 400; color: var(--muted); }
+.pet-station > strong, .pet-proposal-title strong { max-width: 100%; overflow-wrap: anywhere; }
 .pet-status { font-size: 11px; text-align: center; color: var(--muted); }
 .pet-status-working, .pet-status-ready { color: var(--success); }
 .pet-status-waiting, .pet-status-partial { color: var(--warning); }
@@ -71,3 +72,42 @@
   .pet-change-preview > button { width: 100%; padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .pet-art * { animation: none !important; transition: none !important; } }
+.pet-customizer { margin: 0 0 24px; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface-solid); color: var(--ink); min-width: 0; }
+.pet-customizer summary { cursor: pointer; font-size: 18px; font-weight: 650; }
+.pet-customizer summary small { margin-left: 16px; font-size: 12px; color: var(--muted); font-weight: 400; }
+.pet-customizer-intro, .pet-generation p, .pet-preview p { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.pet-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 24px 0; }
+.pet-picker button { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface-solid); color: inherit; cursor: pointer; min-width: 0; }
+.pet-picker button[aria-pressed="true"] { background: var(--surface-2); border-color: #9380c5; box-shadow: 0 0 0 1px #9380c5; }
+.pet-picker .pet-art { width: 56px; }
+.pet-picker strong { overflow-wrap: anywhere; }
+.pet-picker small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.pet-studio { display: grid; grid-template-columns: minmax(200px, .85fr) minmax(0, 1.5fr); gap: 28px; }
+.pet-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 32px 20px; border-radius: 18px; background: radial-gradient(ellipse at 40% 20%, #e6ddf8 0%, #f2eee7 65%, #e9f1eb 100%); color: #383345; }
+.pet-preview .pet-art { width: 190px; margin-top: 20px; }
+.pet-preview .pet-eyebrow, .pet-preview p { color: #62596e; }
+.pet-preview h3 { margin: 8px 0 16px; overflow-wrap: anywhere; max-width: 100%; }
+.pet-preview-states { display: flex; gap: 6px; }
+.pet-preview-states button { border: 1px solid #c6becf; border-radius: 100px; padding: 7px 15px; background: #ffffff80; color: #383345; cursor: pointer; }
+.pet-preview-states button[aria-pressed="true"] { background: #383345; color: white; }
+.pet-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.pet-controls legend { font-size: 14px; margin-bottom: 16px; font-weight: 600; }
+.pet-controls label, .pet-generation > label { display: grid; gap: 7px; font-size: 12px; color: var(--muted); }
+.pet-controls input, .pet-controls select, .pet-generation textarea { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 9px; padding: 12px; background: var(--surface-solid); color: var(--ink); font: inherit; }
+.pet-generation { margin-top: 24px; padding: 20px; border-radius: 14px; background: var(--surface-2); }
+.pet-generation textarea { margin-top: 10px; min-height: 78px; resize: vertical; font-size: 14px; }
+.pet-save-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.pet-customizer :focus-visible { outline: 3px solid #8c73c5; outline-offset: 3px; }
+.pet-customizer button:disabled { cursor: default; opacity: .55; }
+.pet-customizer > [role="status"] { font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .pet-customizer { padding: 16px; }
+  .pet-customizer summary small { display: block; margin: 8px 0 0; }
+  .pet-picker { gap: 8px; }
+  .pet-picker button { flex-direction: column; gap: 5px; padding: 8px 4px; font-size: 12px; }
+  .pet-studio { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .pet-preview { padding: 20px; }
+  .pet-preview .pet-art { width: 150px; }
+  .pet-controls { gap: 12px; }
+  .pet-generation { padding: 14px; }
+}

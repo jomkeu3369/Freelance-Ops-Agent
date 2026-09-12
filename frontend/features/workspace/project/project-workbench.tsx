@@ -30,6 +30,7 @@ import {
 } from "@phosphor-icons/react";
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
+import { PetCustomizer } from "../pets/pet-customizer";
 import { AnalysisStep } from "./analysis/analysis-step";
 import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
@@ -247,6 +248,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         ) : null}
       </div>
 
+      {activeStep === "agent" && canRun && !runId && <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={credentialId ? (connection && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null) : model.trim() ? { provider, model: model.trim() } : null} />}
       {showDeleteConfirmation && (
         <div className="project-delete-backdrop">
           <section
@@ -381,6 +383,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           permissions={permissions}
           quotationDraft={run?.result?.quotationDraft ?? null}
           quotationDrafts={run?.result?.quotationDrafts ?? []}
+          petProfiles={run?.metadata?.petProfiles}
           modelSelection={
             run?.metadata
               ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }

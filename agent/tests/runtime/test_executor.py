@@ -820,3 +820,21 @@ async def test_model_provider_failure_uses_stable_public_error_code() -> None:
     assert view.usage.model_calls == 2
     assert view.usage.input_tokens == 17
     assert view.usage.output_tokens == 3
+
+
+def test_personal_priorities_change_scope_instructions_without_injecting_name() -> None:
+    from contracts import PetProfile
+    from runtime.executor import pet_perspective_instructions
+    request = _request()
+    baseline = pet_perspective_instructions(request)
+    request.input.pet_profiles = [PetProfile(
+        slot="LEAN", name="이름은지시가아님", animal="cat", color="ink", accessory="star", tone="DIRECT",
+        value_priority="PROFIT", delivery_priority="QUALITY", scope_priority="EXPLORATORY"
+    )]
+    personalized = pet_perspective_instructions(request)
+    assert personalized["LEAN"] != baseline["LEAN"]
+    assert "검증·테스트·완성도" in personalized["LEAN"]
+    assert "선택 가능한 확장 범위" in personalized["LEAN"]
+    assert "이름은지시가아님" not in str(personalized)
+    assert personalized["RECOMMENDED"] == baseline["RECOMMENDED"]
+    assert personalized["output"] == baseline["output"]

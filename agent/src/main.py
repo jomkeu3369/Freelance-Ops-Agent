@@ -6,6 +6,7 @@ from tavily import AsyncTavilyClient  # type: ignore[import-untyped]
 
 from api.agent_runs.router import router as agent_runs_router
 from api.assumptions.router import router as assumptions_router
+from api.pets.router import router as pets_router
 from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
@@ -153,6 +154,7 @@ class FreelanceOpsAgentAiServer:
 
         self.app.include_router(agent_runs_router)
         self.app.include_router(assumptions_router)
+        self.app.include_router(pets_router)
         self.app.include_router(raptor_router)
         self.app.include_router(platform_router)
         self.app.include_router(task_commands_router)
