@@ -30,36 +30,47 @@ export function WorkflowSection() {
   const [activeStep, setActiveStep] = useState(0);
   const [workflowPaused, setWorkflowPaused] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [userPaused, setUserPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(true);
+  const [pageVisible, setPageVisible] = useState(true);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setPreviewIndex((current) => (current + 1) % previewEvents.length);
-    }, 1500);
-    return () => window.clearInterval(timer);
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => setReducedMotion(preference.matches);
+    const syncVisibility = () => setPageVisible(!document.hidden);
+    syncMotion();
+    syncVisibility();
+    preference.addEventListener("change", syncMotion);
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      preference.removeEventListener("change", syncMotion);
+      document.removeEventListener("visibilitychange", syncVisibility);
+    };
   }, []);
 
   useEffect(() => {
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (workflowPaused || reducedMotion) {
+    if (workflowPaused || userPaused || reducedMotion || !pageVisible) {
       return;
     }
     const timer = window.setInterval(() => {
       setActiveStep((current) => (current + 1) % workflowSteps.length);
-    }, 1900);
+      setPreviewIndex((current) => (current + 1) % previewEvents.length);
+    }, 2600);
     return () => window.clearInterval(timer);
-  }, [workflowPaused]);
+  }, [workflowPaused, userPaused, reducedMotion, pageVisible]);
 
   const previewSnapshot = snapshotFromEvents(previewEvents.slice(0, previewIndex + 1), "PREVIEW");
 
   return (
-    <section id="workflow" className="chapter workflow-chapter">
+    <section id="workflow" className="chapter workflow-chapter" data-paused={workflowPaused || userPaused || reducedMotion || !pageVisible}>
       <div className="section-heading">
         <p className="section-context">문의에서 제안까지</p>
         <h2>한 번의 문의가,<br />검토 가능한 제안서가 됩니다.</h2>
       </div>
       <div
         className="horizontal-accordion workflow-auto-sequence"
-        role="list"
+        role="group"
+        aria-label="작동 단계 선택"
         onMouseEnter={() => setWorkflowPaused(true)}
         onMouseLeave={() => setWorkflowPaused(false)}
         onFocusCapture={() => setWorkflowPaused(true)}
@@ -77,7 +88,7 @@ export function WorkflowSection() {
             onMouseEnter={() => setActiveStep(index)}
             onFocus={() => setActiveStep(index)}
             onClick={() => setActiveStep(index)}
-            aria-expanded={activeStep === index}
+            aria-pressed={activeStep === index}
           >
             <span className="accordion-index">{index + 1}</span>
             <WorkflowStepVisual index={index} />
@@ -92,7 +103,36 @@ export function WorkflowSection() {
         <ShieldCheck size={19} /> 중요한 단계마다 사용자의 확인을 기다립니다.
       </p>
       <div className="workflow-live-preview">
-        <LiveWorkflow snapshot={previewSnapshot} preview />
+        <div className="workflow-preview-toolbar">
+          <div><span className="section-context">LIVE WALKTHROUGH</span><p>문의가 결과로 바뀌는 과정을 따라가 보세요.</p></div>
+          <div className="workflow-preview-actions">
+            <button
+              type="button"
+              className="quiet-button"
+              aria-pressed={userPaused}
+              disabled={reducedMotion}
+              onClick={() => setUserPaused((paused) => !paused)}
+            >
+              {reducedMotion ? "동작 줄이기 적용 중" : userPaused ? "자동 재생" : "일시 정지"}
+            </button>
+            <button
+              type="button"
+              className="quiet-button"
+              onClick={() => {
+                setUserPaused(true);
+                setPreviewIndex((current) => (current + 1) % previewEvents.length);
+                setActiveStep((current) => (current + 1) % workflowSteps.length);
+              }}
+            >
+              다음 단계
+            </button>
+          </div>
+        </div>
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Keyboard users need to focus this horizontally scrollable region. */}
+        <div className="workflow-preview-scroll" role="region" aria-label="제품 흐름 예시, 작은 화면에서는 가로로 스크롤할 수 있습니다" tabIndex={0}>
+          <LiveWorkflow snapshot={previewSnapshot} preview />
+        </div>
+        <p className="workflow-preview-caption">제품 이해를 위한 예시입니다. 실제 분석은 업무 공간에서 시작합니다.<span>작은 화면에서는 좌우로 밀어 전체 흐름을 확인하세요.</span></p>
       </div>
     </section>
   );

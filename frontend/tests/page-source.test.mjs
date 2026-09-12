@@ -51,7 +51,7 @@ async function read(path) {
   if (!features[path]) return readFile(new URL(path, import.meta.url), "utf8");
   const source = await readFeatureTree(new URL(features[path], import.meta.url));
   // Ignore formatting-only newlines inside JSX while keeping content checks intact.
-  return source.replace(/\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
+  return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
 }
 
 test("Vercel Preview uses the standard Next.js build without Cloudflare adapters", async () => {

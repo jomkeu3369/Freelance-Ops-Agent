@@ -209,7 +209,7 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
           );
         })}
       </div>
-      <div className="live-event" aria-live="polite">
+      <div className="live-event" aria-live={preview ? "off" : "polite"}>
         <div><p>{snapshot.eventLabel}</p><small>{nodes[Math.max(activeIndex, 0)].label} · {snapshot.eventCount.toLocaleString("ko-KR")}개 이벤트</small></div>
       </div>
     </section>
