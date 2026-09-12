@@ -164,7 +164,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
         </div>
       )}
       {outcome && approvedQuotation && (
-        <section className="outcome-variance">
+        <details className="outcome-variance workspace-disclosure"><summary>견적 대비 차이</summary>
           <header>
             <span>예상 대비 오차</span>
             <strong>
@@ -198,8 +198,9 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
               </small>
             </div>
           </dl>
-        </section>
+        </details>
       )}
+      <details className="workspace-disclosure outcome-editor"><summary>{outcome ? "결과 기록 상세·수정" : "프로젝트 결과 기록하기"}</summary>
       <form className="outcome-form" aria-busy={busy} onSubmit={handleSubmit}>
         <fieldset className="outcome-fields" disabled={busy}>
           <section className="outcome-basics" aria-labelledby="outcome-basics-title">
@@ -463,6 +464,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
           )}
         </fieldset>
       </form>
+      </details>
     </section>
   );
 }

@@ -1,0 +1,24 @@
+.workspace-disclosure { min-width: 0; margin-block: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-solid); }
+.workspace-disclosure > summary { padding: 16px; color: var(--ink); font-size: .85rem; font-weight: 650; cursor: pointer; overflow-wrap: anywhere; }
+.workspace-disclosure > summary small { margin-left: 10px; color: var(--muted); font-size: .75rem; font-weight: 400; }
+.workspace-disclosure[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.workspace-disclosure > :not(summary) { margin-inline: 16px; }
+.workspace-disclosure > :last-child:not(summary) { margin-bottom: 16px; }
+.pet-council.workspace-disclosure { padding: 0; }
+.quote-summary-controls.workspace-disclosure, .evidence-inspector.workspace-disclosure { padding: 0; }
+.quote-item-block > .quote-item-disclosure { display: list-item; cursor: pointer; color: var(--ink); overflow-wrap: anywhere; }
+.quote-item-disclosure > span { display: inline-flex; flex-direction: column; gap: 5px; max-width: 100%; vertical-align: middle; }
+.quote-item-disclosure > span:first-of-type { width: calc(100% - 175px); padding-right: 14px; }
+.quote-item-disclosure > span:last-of-type { width: 150px; text-align: right; }
+.quote-item-disclosure small { color: var(--muted); font-size: .7rem; font-weight: 400; }
+.quote-item-disclosure strong { font-size: .9rem; }
+.quote-item-block[open] > .quote-item-disclosure { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+.workspace-disclosure > summary:focus-visible, .quote-item-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.outcome-review .outcome-guided-copy h2 { font-size: 1.35rem; line-height: 1.5; }
+.outcome-review .outcome-guided-copy h2 br { display: none; }
+.outcome-review .outcome-guided-copy { margin-bottom: 20px; }
+@media (max-width: 600px) {
+  .quote-item-disclosure > span:first-of-type { width: calc(100% - 20px); }
+  .quote-item-disclosure > span:last-of-type { width: auto; margin: 12px 0 0 18px; text-align: left; }
+  .workspace-disclosure > summary small { display: block; margin: 6px 0 0 16px; }
+}

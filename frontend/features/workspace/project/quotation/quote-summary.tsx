@@ -31,8 +31,8 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
             <dd>{formatMoney(estimatedSubtotal * (1 + taxRate), project.currency)}</dd>
           </div>
         </dl>
-        <section className="quote-summary-controls" aria-labelledby="quote-calculation-settings">
-          <span id="quote-calculation-settings">계산 조건</span>
+        <details className="quote-summary-controls workspace-disclosure">
+          <summary id="quote-calculation-settings">계산 조건 <small>세율 {Math.round(taxRate * 100)}%</small></summary>
           <label>
             <div>
               <strong>세율</strong>
@@ -65,11 +65,11 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
               onChange={(event) => setValidUntil(event.target.value)}
             />
           </label>
-        </section>
+        </details>
         <p>저장할 때 위험 대비 금액과 세금까지 반영한 최종 합계를 다시 확인합니다.</p>
         {selectedBasis && (
-          <section className="evidence-inspector">
-            <span>선택 항목 근거</span>
+          <details className="evidence-inspector workspace-disclosure">
+            <summary>선택 항목 근거</summary>
             <strong>
               {selectedBasis.type === "EVIDENCE"
                 ? selectedBasis.sourceTitle || "제목 없는 근거"
@@ -96,7 +96,7 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
                 </div>
               </dl>
             )}
-          </section>
+          </details>
         )}
         {canWrite ? (
           <button

@@ -78,14 +78,14 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
         </details>
       )}
       {run.result.openQuestions.length > 0 && (
-        <section className="run-open-questions">
-          <span>아직 확인할 질문</span>
+        <details className="run-open-questions workspace-disclosure">
+          <summary>아직 확인할 질문 <small>{run.result.openQuestions.length}개</small></summary>
           <ul>
             {run.result.openQuestions.map((question) => (
               <li key={question}>{question}</li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
       {(run.result.quotationDrafts?.length || run.result.quotationDraft) && (
         <section className="ai-quote-ready">

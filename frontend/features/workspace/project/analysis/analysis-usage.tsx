@@ -8,8 +8,10 @@ interface AnalysisUsageProps {
 }
 
 export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
+  if (!usage && !costUsage) return null;
+
   return (
-    <>
+    <details className="workspace-disclosure"><summary>사용량·예상 AI 비용</summary>
       {usage && (
         <dl className="usage-list">
           <div>
@@ -61,6 +63,6 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
           </small>
         </div>
       )}
-    </>
+    </details>
   );
 }
