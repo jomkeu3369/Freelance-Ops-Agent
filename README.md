@@ -26,7 +26,11 @@ Freelance Ops Agent는 고객 관리부터 AI 분석, 견적 검토·발행, 실
 
 </div>
 
-![고객 문의부터 견적 검토까지 이어지는 Freelance Ops Agent](docs/assets/readme/freelance-ops-hero.png)
+[![현재 제품의 AI 동료 제안과 견적 비교 화면](docs/assets/readme/pet-council-current.png)](docs/assets/readme/product-walkthrough-1080p60.mp4)
+
+**[▶ 최신 제품 데모 보기 · 1080p / 60fps / 46초](docs/assets/readme/product-walkthrough-1080p60.mp4)**
+
+2026-09-12 현재 제품 UI를 OBS로 직접 조작해 촬영했습니다. 접힌 견적, 세 견적안 비교, AI 동료 제안과 분석 결과를 보여줍니다. 데이터와 분석 이벤트는 촬영용 합성 예시이며, 실제 고객 업무나 모델 실행 녹화가 아닙니다. [촬영·편집 및 검증 기록](docs/frontend/README_MEDIA.md)
 
 > **현재 공개 버전: V2 운영 파일럿 · 2026-09-12 기준**
 > AI 펫 개인화·외형/성향 생성, 개인 API 키 연결(BYOK), 요약 중심 견적·결과 화면을 제공합니다. 실제 모델의 결과 품질과 고객 업무 적합성은 사용자 검토가 필요합니다.
@@ -63,15 +67,15 @@ AI가 먼저 정리하고 찾아보되,<br/>
 
 ## 문의부터 결과까지
 
-아래 사진·GIF는 이전 UI로 촬영한 업무 흐름 예시입니다. 현재 화면은 일부 달라졌으며, 사용 방법은 최신 버전을 기준으로 설명합니다.
+견적 비교·AI 동료·분석 결과 사진과 상단 영상은 현재 UI입니다. 아직 재촬영하지 않은 고객 등록·문의 등록·사용자 확인·결과 기록 GIF/사진에는 이전 UI임을 표시했습니다.
 
 ### 1. 고객과 문의를 등록합니다
 
 고객 관리에서 담당자와 회사, 관계 맥락을 기록하고 프로젝트에 고객 문의·희망 일정·예산을 연결합니다. 프로젝트는 **문의 → AI 분석 → 견적 → 결과** 순서로 검토합니다.
 
-![고객 맥락 등록](docs/assets/readme/client-profile.gif)
+![고객 맥락 등록 — 이전 UI 예시](docs/assets/readme/client-profile.gif)
 
-![프로젝트 문의 등록](docs/assets/readme/project-intake.gif)
+![프로젝트 문의 등록 — 이전 UI 예시](docs/assets/readme/project-intake.gif)
 
 ### 2. AI 연결과 동료를 준비합니다
 
@@ -89,9 +93,9 @@ AI가 먼저 정리하고 찾아보되,<br/>
 
 AI가 요구사항을 정리하고 관련 자료와 근거를 연결합니다. 사용자 확인이 필요하면 질문을 남기고 멈추며, 답변 후 저장된 지점에서 이어갑니다. 일부 단계만 완료된 경우에는 부분 결과와 누락 안내를 표시합니다.
 
-![AI 분석 진행](docs/assets/readme/ai-analysis.gif)
+![현재 UI의 AI 동료와 분석 결과 — 합성 데모](docs/assets/readme/ai-analysis-current.png)
 
-![사용자 확인과 분석 재개](docs/assets/readme/human-review.gif)
+![사용자 확인과 분석 재개 — 이전 UI 예시](docs/assets/readme/human-review.gif)
 
 ### 4. 견적의 범위와 근거를 검토합니다
 
@@ -101,13 +105,15 @@ AI가 요구사항을 정리하고 관련 자료와 근거를 연결합니다. �
 
 금액·세금·할인·위험 대비 금액은 Spring의 결정적 계산 규칙으로 처리합니다. 화면의 예상 합계와 저장·서버 미리보기의 최종 계산은 구분하며, 발행된 견적 변경은 새 revision으로 관리합니다.
 
-![견적 초안 검토](docs/assets/readme/proposal-review.gif)
+![현재 UI의 요약 중심 견적 검토 — 합성 데모](docs/assets/readme/quote-compact-current.png)
+
+![현재 UI의 세 AI 동료 제안 비교 — 합성 데모](docs/assets/readme/pet-council-current.png)
 
 ### 5. 실제 결과를 다음 견적의 참고 자료로 남깁니다
 
 계약 금액과 실제 비용·공수를 확정하고 예상과 달라진 이유를 기록합니다. 확정된 지표를 먼저 보여주고 상세 기록과 수정은 펼쳐서 확인합니다. 결과는 이후 유사 프로젝트의 근거로 참고할 수 있으며 모델을 자동 재학습한다는 뜻은 아닙니다.
 
-![프로젝트 실제 결과 기록](docs/assets/readme/outcome-review.png)
+![프로젝트 실제 결과 기록 — 이전 UI 예시](docs/assets/readme/outcome-review.png)
 
 ## 시스템 구성
 
