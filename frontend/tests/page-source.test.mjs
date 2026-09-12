@@ -204,17 +204,14 @@ test("landing typography keeps Korean display copy within the measured line budg
 });
 
 test("authentication layout keeps the form visible and Korean words intact", async () => {
-  const css = await read("../app/globals.css");
-  assert.match(css, /\.auth-page \{[^}]*grid-template-columns: minmax\(0, 1\.05fr\) minmax\(360px, \.95fr\)/);
-  assert.match(css, /\.auth-page \{[^}]*overflow-x: clip/);
+  const css = await read("../features/workspace/auth/auth.css");
+  assert.match(css, /\.auth-layout \{[^}]*minmax\(0, 1fr\)/);
   assert.match(css, /\.auth-message \{[^}]*min-width: 0/);
-  assert.match(css, /\.auth-message h1 \{[^}]*word-break: keep-all/);
-  assert.match(css, /\.auth-message h1 \{[^}]*text-wrap: balance/);
-  assert.match(css, /\.auth-panel \{[^}]*width: min\(calc\(100% - 80px\), 520px\)/);
-  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.auth-message h1 \{[^}]*clamp\(3rem, 10vw, 4\.8rem\)/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.auth-message h1 \{[^}]*clamp\(2\.65rem, 11vw, 3\.8rem\)/);
+  assert.match(css, /\.auth-message h2 \{[^}]*word-break: keep-all/);
+  assert.match(css, /@media \(max-width: 800px\)[\s\S]*?\.auth-panel \{[^}]*grid-row: 1/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.match(css, /\[data-theme="dark"\] \.auth-page/);
 });
-
 test("workspace settings and requirement controls remain readable at desktop widths", async () => {
   const [workspace, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
@@ -710,7 +707,7 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(css, /\.proposal-response-fields:disabled/);
   assert.match(css, /\.settings-fields/);
   assert.match(css, /\.client-fields, \.outcome-fields/);
-  assert.match(css, /\.password-field button:hover, \.password-field button:focus-visible/);
+  assert.match(await read("../features/workspace/auth/auth.css"), /\.auth-page :focus-visible/);
 });
 
 test("agent results expose reviewable questions and safe source provenance", async () => {

@@ -1,7 +1,13 @@
 import { AuthSession, login, register } from "../../../app/lib/api";
-import { useState, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
+import { useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
-import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight } from "@phosphor-icons/react";
+import Image from "next/image";
+import { useTheme } from "next-themes";
+import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight, Moon, Sun, ShieldCheck } from "@phosphor-icons/react";
+import { PetArt } from "../pets/pet-art";
+import { petAdvisors } from "../pets/pet-state.mjs";
+
+const subscribeToHydration = () => () => undefined;
 
 export type AuthMode = "login" | "register";
 
@@ -15,6 +21,9 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = themeMounted && resolvedTheme === "dark";
 
   const selectMode = (nextMode: AuthMode) => {
     if (busy) return;
@@ -63,19 +72,30 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
 
   return (
     <main id="main-content" className="auth-page">
-      <Link href="/" className="auth-back">
-        <ArrowLeft size={18} /> 제품 소개로 돌아가기
-      </Link>
-      <section className="auth-message">
-        <span>Freelance Ops</span>
-        <h1>
-          모호한 문의를
-          <br />
-          검토 가능한 작업으로.
-        </h1>
-        <p>로그인하면 문의 등록부터 AI 분석, 견적 작성과 결과 확인까지 한곳에서 이어갈 수 있습니다.</p>
+      <header className="auth-header">
+        <Link href="/" className="auth-brand" aria-label="Freelance Ops 홈">
+          <Image src="/figma/logo.svg" alt="" width={32} height={32} />
+          <span>Freelance Ops</span>
+        </Link>
+        <div className="auth-header-actions">
+          <Link href="/" className="auth-back"><ArrowLeft size={16} /> 제품 소개</Link>
+          <button className="auth-theme-toggle" type="button" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}>
+            {isDark ? <Sun size={19} /> : <Moon size={19} />}
+          </button>
+        </div>
+      </header>
+      <div className="auth-layout">
+      <section className="auth-message" aria-labelledby="auth-welcome-title">
+        <span className="auth-eyebrow">문의에서 견적까지, 함께</span>
+        <h2 id="auth-welcome-title">혼자 하는 일에,<br/><span>함께할 동료를.</span></h2>
+        <p>흩어진 고객 문의를 정리하고,<br/>근거 있는 견적으로 이어가세요.</p>
+        <div className="auth-companions" aria-label="AI 동료의 기본 모습과 관점">
+          {petAdvisors.map(pet => <div className="auth-companion" key={pet.id}><PetArt kind={pet.id} /><strong>{pet.name}</strong><span>{pet.role}</span></div>)}
+        </div>
+        <div className="auth-message-footer"><span>다른 관점을 모아, 내게 맞는 선택으로.</span><p>AI가 초안을 준비하고, 최종 결정은 내가 합니다.</p></div>
       </section>
       <section className="auth-panel">
+        <div className="auth-intro"><span>나의 업무 공간</span><h1>{mode === "login" ? "다시 만나 반가워요." : "함께할 준비가 됐나요?"}</h1><p>{mode === "login" ? "작은 동료들과 하던 일을 이어가세요." : "계정을 만들고 첫 고객 문의를 정리해 보세요."}</p></div>
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">
           <button
             id="auth-tab-login"
@@ -116,17 +136,17 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               <>
                 <label>
                   표시 이름
-                  <input name="displayName" required maxLength={100} autoComplete="name" />
+                  <input name="displayName" required maxLength={100} autoComplete="name" placeholder="어떻게 불러드릴까요?" />
                 </label>
                 <label>
-                  Workspace 이름
-                  <input name="workspaceName" required maxLength={120} />
+                  업무 공간 이름
+                  <input name="workspaceName" required maxLength={120} placeholder="예: 나의 디자인 스튜디오" />
                 </label>
               </>
             )}
             <label>
               이메일
-              <input name="email" type="email" required autoComplete="email" />
+              <input name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
             </label>
             <div className="auth-field">
               <label htmlFor="auth-password">비밀번호</label>
@@ -139,6 +159,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
                   minLength={12}
                   maxLength={72}
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  placeholder={mode === "login" ? "비밀번호를 입력해 주세요" : "12~72자로 입력해 주세요"}
                   aria-describedby={mode === "register" ? "auth-password-hint" : undefined}
                 />
                 <button
@@ -172,13 +193,15 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               </p>
             )}
             <button className="primary-button auth-submit" type="submit">
+              {busy ? "업무 공간을 준비하고 있어요…" : mode === "login" ? "업무 공간 열기" : "업무 공간 만들기"}
               {busy ? <CircleNotch size={19} className="spin" /> : <ArrowRight size={19} />}
-              {mode === "login" ? "업무 공간 열기" : "Workspace 만들기"}
             </button>
           </fieldset>
         </form>
-        <small>AI 결과는 사용자가 검토하기 전까지 확정되지 않습니다.</small>
+        <small className="auth-assurance"><ShieldCheck size={17} aria-hidden="true"/> AI 결과는 내 검토 후에 확정됩니다.</small>
       </section>
+      </div>
+      <p className="auth-footer">내 일을 더 선명하게. Freelance Ops</p>
     </main>
   );
 }
