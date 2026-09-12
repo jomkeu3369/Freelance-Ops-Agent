@@ -41,6 +41,7 @@ class PostgresAgentRunStore:
         model = AgentRunStateModel(
             run_id=request.context.run_id,
             request_json=request.model_dump(mode="json"),
+            prompt_version="department-work-product-v2-pets",
             status=AgentRunStatus.QUEUED.value,
             idempotency_keys=[],
             updated_at=datetime.now(UTC),
@@ -251,7 +252,7 @@ class PostgresAgentRunStore:
             metadata=AgentRunMetadata(
                 provider=request.model_selection.provider,
                 model=request.model_selection.model,
-                prompt_version="department-work-product-v1",
+                prompt_version=model.prompt_version or "department-work-product-v1",
                 tool_schema_version="spring-tool-api-v0.2.0",
                 trace_id=request.context.trace_id,
             ),

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.4.1
+  version: 0.4.2
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -818,6 +818,10 @@ components:
       additionalProperties: false
       required: [scenario, items]
       properties:
+        petPerspective:
+          anyOf:
+            - $ref: '#/components/schemas/PetPerspective'
+            - type: 'null'
         scenario:
           type: string
           enum: [LEAN, RECOMMENDED, EXPANDED]
@@ -827,6 +831,23 @@ components:
           maxItems: 50
           items:
             $ref: "#/components/schemas/QuotationDraftItem"
+    PetPerspective:
+      type: object
+      additionalProperties: false
+      required: [proposal, rationale, tradeoff]
+      properties:
+        proposal:
+          type: string
+          minLength: 1
+          maxLength: 600
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        tradeoff:
+          type: string
+          minLength: 1
+          maxLength: 600
     QuotationDraftItem:
       type: object
       additionalProperties: false

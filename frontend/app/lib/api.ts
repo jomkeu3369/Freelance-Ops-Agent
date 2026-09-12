@@ -148,6 +148,7 @@ export interface AgentInterruption {
 }
 
 export interface AgentQuotationDraft {
+  petPerspective?: { proposal: string; rationale: string; tradeoff: string } | null;
   scenario: QuotationScenario;
   items: Array<{
     title: string;
@@ -718,6 +719,25 @@ export function createQuotation(
     { method: "POST", body: JSON.stringify(input) },
     session.accessToken,
   ).then((quotation) => { invalidateQueries(`quotations:${session.workspaceId}:${projectId}`); return quotation; });
+}
+
+export interface QuotationPreview {
+  subtotal: number;
+  discountTotal: number;
+  riskBufferRate: number;
+  riskBufferAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  items: Array<{ subtotal: number; discountAmount: number; total: number }>;
+}
+
+export function previewQuotation(session: AuthSession, projectId: string, input: Parameters<typeof createQuotation>[2]): Promise<QuotationPreview> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/quotations/preview`,
+    { method: "POST", body: JSON.stringify(input) },
+    session.accessToken
+  );
 }
 
 export function publishQuotation(session: AuthSession, quotationId: string): Promise<Quotation> {

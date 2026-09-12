@@ -7,6 +7,7 @@ import { QuoteSummary } from "./quote-summary";
 import { QuoteToolbar } from "./quote-toolbar";
 import { ScenarioComparison } from "./scenario-comparison";
 import { useQuoteBuilder, type QuoteBuilderProps } from "./use-quote-builder";
+import { PetCouncil } from "../../pets/pet-council";
 
 export function QuoteBuilder(props: QuoteBuilderProps) {
   const model = useQuoteBuilder(props);
@@ -26,6 +27,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
       <QuoteToolbar model={model} />
       <QuoteNotices model={model} />
       <ScenarioComparison model={model} />
+      <PetCouncil key={`${props.session.workspaceId}:${props.session.userId}:${props.project.id}`} model={model} session={props.session} />
       <div className="quote-layout">
         <QuoteItemsEditor model={model} />
         <QuoteSummary model={model} />

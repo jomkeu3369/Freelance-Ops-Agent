@@ -40,6 +40,9 @@ def test_view_limits_legacy_stored_interruption_questions() -> None:
 
     assert view.interruption is not None
     assert view.interruption.questions == questions[:3]
+    assert view.metadata.prompt_version == "department-work-product-v1"
+    model.prompt_version = "department-work-product-v2-pets"
+    assert PostgresAgentRunStore._view(model).metadata.prompt_version == "department-work-product-v2-pets"
 
 
 def _agent_request(run_id: UUID) -> AgentRunRequest:

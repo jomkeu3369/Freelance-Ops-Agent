@@ -304,7 +304,7 @@ def _metadata(request: AgentRunRequest) -> AgentRunMetadata:
     return AgentRunMetadata(
         provider=request.model_selection.provider,
         model=request.model_selection.model,
-        prompt_version="department-work-product-v1",
+        prompt_version="department-work-product-v2-pets",
         tool_schema_version="spring-tool-api-v0.2.0",
         trace_id=request.context.trace_id,
     )

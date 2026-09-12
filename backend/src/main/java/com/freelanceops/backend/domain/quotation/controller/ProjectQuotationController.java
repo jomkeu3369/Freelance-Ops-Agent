@@ -6,6 +6,7 @@ import com.freelanceops.backend.domain.quotation.dto.response.QuotationAssumptio
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationResponse;
 import com.freelanceops.backend.domain.quotation.service.QuotationAssumptionService;
 import com.freelanceops.backend.domain.quotation.service.QuotationService;
+import com.freelanceops.backend.domain.quotation.service.QuotationCalculator;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -54,6 +55,11 @@ public class ProjectQuotationController {
             request,
             trustedTraceparent(traceparent)
         );
+    }
+
+    @PostMapping("/preview")
+    public QuotationCalculator.Calculation preview(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @Valid @RequestBody CreateQuotationRequest request, Authentication authentication) {
+        return service.preview(userId(authentication), workspaceId, projectId, request);
     }
 
     private static UUID userId(Authentication authentication) {
