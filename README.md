@@ -2,12 +2,12 @@
 
 # Freelance Ops Agent
 
-### 애매하게 들어온 고객 문의를, 실제로 검토하고 보낼 수 있는 견적으로 바꿉니다.
+### 작은 AI 동료와 함께, 고객 문의를 근거 있는 견적으로.
 
 문의 내용을 다시 정리하고, 빠진 내용을 물어보고, 관련 자료를 찾고, 금액을 계산하는 일.<br/>
-Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프리랜서 업무 도구입니다.
+Freelance Ops Agent는 고객 관리부터 AI 분석, 견적 검토·발행, 실제 결과 기록까지 이어지는 프리랜서 업무 도구입니다.
 
-[Live Product](https://www.freelance-ops.site) · [기술 포트폴리오](docs/portfolio/README.md)<br/>
+[서비스 소개](https://www.freelance-ops.site) · [업무 공간 시작](https://www.freelance-ops.site/workspace) · [기술 포트폴리오](docs/portfolio/README.md)<br/>
 [Architecture](docs/V2_SPECIFICATION.md) · [Evaluation & Operations](docs/portfolio/README.md)
 
 ![Production Pilot](https://img.shields.io/badge/status-production_pilot-111827?style=flat-square)
@@ -26,7 +26,20 @@ Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프�
 
 </div>
 
-![AI가 고객 문의를 분석해 근거 있는 견적으로 전환하는 Freelance Ops Agent](docs/assets/readme/freelance-ops-hero.png)
+> **현재 공개 버전: V2 운영 파일럿 · 2026-09-12 기준**
+> AI 펫 개인화·외형/성향 생성, 개인 API 키 연결(BYOK), 요약 중심 견적·결과 화면을 제공합니다. 실제 모델의 결과 품질과 고객 업무 적합성은 사용자 검토가 필요합니다.
+
+## 현재 제공하는 기능
+
+| 기능 | 할 수 있는 일 |
+| --- | --- |
+| 고객·프로젝트 관리 | 고객 맥락과 문의를 연결하고 프로젝트의 진행 단계를 관리 |
+| AI 분석과 사용자 확인 | 요구사항·자료·근거를 정리하고 추가 확인이 필요하면 질문 후 재개 |
+| 세 관점의 AI 동료 | 핵심·권장·확장 견적의 제안과 트레이드오프를 비교 |
+| 나만의 동료 | 이름·동물·색·장식·말투·판단 성향을 꾸미고 자연어로 설정 생성 |
+| 견적 검토·공유 | 항목·근거를 편집하고 초안 저장, 발행, 고객용 링크 공유 |
+| 개인 AI 연결 | OpenAI/Gemini API 키를 연결해 허용 모델로 실행 |
+| 결과 기록 | 실제 매출·비용·공수를 확정하고 견적과 차이를 기록 |
 
 ## 왜 만들었나요?
 
@@ -46,67 +59,55 @@ Freelance Ops Agent는 이 번거로운 과정을 AI와 함께 처리하는 프�
 AI가 먼저 정리하고 찾아보되,<br/>
 모르는 내용까지 그럴듯하게 채우지는 않도록 했습니다.
 
-## 실제로 이렇게 사용합니다
+## 문의부터 결과까지
 
-### 1. 고객의 맥락부터 연결합니다
+### 1. 고객과 문의를 등록합니다
 
-담당자와 회사, 이전 대화에서 알게 된 내용을 먼저 기록합니다.
-새 문의가 들어올 때마다 같은 설명을 처음부터 다시 찾지 않기 위해서입니다.
+고객 관리에서 담당자와 회사, 관계 맥락을 기록하고 프로젝트에 고객 문의·희망 일정·예산을 연결합니다. 프로젝트는 **문의 → AI 분석 → 견적 → 결과** 순서로 검토합니다.
 
-![고객 정보와 관계 맥락을 등록하는 과정](docs/assets/readme/client-profile.gif)
+### 2. AI 연결과 동료를 준비합니다
 
-### 2. 정리되지 않은 문의도 그대로 등록합니다
+설정의 **AI 연결**에서 개인 API 키를 등록하거나, 분석 시작 전에 **기본 제공 AI**를 선택합니다. 제공사와 모델은 실행마다 명시하며 개인 연결 실패 시 기본 제공 모델로 자동 전환하지 않습니다.
 
-프로젝트명, 고객의 원문, 희망 일정과 예산만 입력하면 됩니다.
-모호한 내용은 등록 단계에서 억지로 정리하지 않고 다음 AI 분석에 맡깁니다.
+프로젝트의 **새 분석 준비 → 나만의 작은 동료 만들기**에서 세 동료의 이름·외형·성향을 설정합니다. 자연어로 생성한 설정은 미리보기 후 **이 동료 저장**으로 확정하고 다음 분석부터 사용합니다.
 
-![고객 문의를 프로젝트로 등록하는 과정](docs/assets/readme/project-intake.gif)
+- 외형 생성은 거북이·부엉이·고양이와 지원 색상·장식의 SVG 조합입니다. 자유 형태 이미지 생성은 아닙니다.
+- 성향은 범위·납품 단계·조건의 우선순위에 반영되며 금액 계산과 권한 규칙은 유지됩니다.
+- 기본 동료의 표정·동작은 실제 대기·진행·사용자 확인 상태에 연결됩니다. 캐릭터별로 별도 분석 세 번을 실행하는 구조는 아닙니다.
 
-### 3. AI가 필요한 검토 경로를 선택합니다
+[동료 꾸미기 안내](docs/frontend/PET_CUSTOMIZATION.md) · [BYOK 사용·운영 안내](docs/frontend/BYOK_CONNECTIONS.md)
 
-요구사항 정리, 관련 맥락 조회, 근거 연결과 견적 초안 작성을 하나의 실행으로 이어갑니다.
-어떤 모델과 Tool을 사용했는지, 그 선택이 어떤 작업을 위한 것이었는지도 최근 활동에 남깁니다.
+### 3. 분석하고, 필요한 질문에 답합니다
 
-![AI가 프로젝트 분석 경로를 실행하는 과정](docs/assets/readme/ai-analysis.gif)
+AI가 요구사항을 정리하고 관련 자료와 근거를 연결합니다. 사용자 확인이 필요하면 질문을 남기고 멈추며, 답변 후 저장된 지점에서 이어갑니다. 일부 단계만 완료된 경우에는 부분 결과와 누락 안내를 표시합니다.
 
-### 4. 확인이 필요하면 사람에게 돌아옵니다
+### 4. 견적의 범위와 근거를 검토합니다
 
-정보가 부족하거나 사람의 확인이 필요한 순간에는<br/>
-억지로 답을 만들지 않습니다.
+핵심·권장·확장 견적을 비교하고 각 동료의 제안·판단 이유·트레이드오프를 확인합니다. 여러 제안에서 작업을 골라 조합할 수 있으며, **변경 미리보기 → 확인한 작업으로 편집 초안 변경 → 검토용 초안 저장**을 거칩니다. 조합은 현재 편집 항목 전체를 교체하므로 적용 전 확인이 필요합니다.
 
-필요한 질문을 남기고 잠시 멈췄다가,<br/>
-사용자가 답하면 멈춘 자리에서 다시 이어갑니다.
+견적은 항목명·예상 금액·합계부터 보여줍니다. 상세 편집, 근거·가정, 비교, 계산 조건과 이력은 기본으로 접혀 있어 필요할 때 펼칩니다. 초안 저장 후 검토한 견적을 발행하고 고객용 링크로 공유합니다.
 
-![AI 분석 중 사용자 확인을 받고 실행을 재개하는 과정](docs/assets/readme/human-review.gif)
+금액·세금·할인·위험 대비 금액은 Spring의 결정적 계산 규칙으로 처리합니다. 화면의 예상 합계와 저장·서버 미리보기의 최종 계산은 구분하며, 발행된 견적 변경은 새 revision으로 관리합니다.
 
-### 5. 제안 범위와 금액을 함께 검토합니다
+### 5. 실제 결과를 다음 견적의 참고 자료로 남깁니다
 
-내부 자료와 조사 결과를 바탕으로<br/>
-핵심·권장·확장 범위의 견적 초안을 나눠 제안합니다.
+계약 금액과 실제 비용·공수를 확정하고 예상과 달라진 이유를 기록합니다. 확정된 지표를 먼저 보여주고 상세 기록과 수정은 펼쳐서 확인합니다. 결과는 이후 유사 프로젝트의 근거로 참고할 수 있으며 모델을 자동 재학습한다는 뜻은 아닙니다.
 
-금액은 AI에게 암산시키지 않고 정해진 계산 로직으로 처리합니다.<br/>
-왜 이런 항목과 금액이 나왔는지 알 수 있도록 출처나 가정도 함께 남깁니다.
+<details>
+<summary>이전 버전의 업무 흐름 녹화 보기</summary>
 
-![AI 분석 결과와 견적 초안을 검토하는 과정](docs/assets/readme/proposal-review.gif)
+아래 자료는 2026-08-17에 정리한 이전 UI의 기록입니다. 현재 로그인·펫·설정·견적 화면과 다르며 최신 모습은 [운영 서비스](https://www.freelance-ops.site)에서 확인할 수 있습니다.
 
-### 6. 끝난 프로젝트는 다음 견적의 근거가 됩니다
+| 흐름 | 이전 녹화 |
+| --- | --- |
+| 고객 맥락 등록 | ![이전 UI: 고객 정보 등록](docs/assets/readme/client-profile.gif) |
+| 문의 등록 | ![이전 UI: 프로젝트 문의 등록](docs/assets/readme/project-intake.gif) |
+| AI 분석 | ![이전 UI: AI 분석](docs/assets/readme/ai-analysis.gif) |
+| 사용자 확인 | ![이전 UI: 질문 답변과 재개](docs/assets/readme/human-review.gif) |
+| 견적 검토 | ![이전 UI: 견적 검토](docs/assets/readme/proposal-review.gif) |
+| 결과 기록 | ![이전 UI: 실제 결과](docs/assets/readme/outcome-review.png) |
 
-계약 금액과 실제 비용·공수를 확정하면 예상과 실제의 차이가 기록됩니다.
-이 결과는 다음 프로젝트에서 공수와 가격을 판단할 때 다시 참고할 수 있습니다.
-
-![계약 금액과 실제 비용 및 공수를 기록한 프로젝트 결과](docs/assets/readme/outcome-review.png)
-
-## 채팅창 하나를 더 만든 건 아닙니다
-
-대화를 잘하는 것보다, 실제 업무를 어디까지 맡길 수 있는지가 더 중요하다고 생각했습니다.
-
-| 일반적인 AI 채팅 | Freelance Ops Agent |
-|---|---|
-| 대화가 끝나면 결과가 흩어짐 | 문의부터 견적, 고객 결정까지 한 프로젝트에 이어서 기록 |
-| 모델이 판단과 금액 계산을 모두 처리 | 금액과 권한처럼 틀리면 안 되는 일은 서버가 정해진 규칙대로 처리 |
-| 정보가 부족해도 답을 만들어냄 | 근거가 부족하거나 확인이 필요하면 질문을 남기고 멈춤 |
-| 검색한 자료와 결과가 따로 남음 | 각 제안 항목에 참고한 자료나 가정을 연결 |
-| 서버가 재시작되면 진행 상황을 잃기 쉬움 | 진행 상황을 저장해 멈춘 작업을 다시 이어서 처리 |
+</details>
 
 ## 시스템 구성
 
@@ -114,7 +115,7 @@ Frontend는 Vercel에서 제공하고, Spring Boot와 Python Agent runtime은 Vu
 
 ![Freelance Ops Agent 시스템 아키텍처와 배포 파이프라인](docs/assets/readme/system-architecture-pipeline.png)
 
-## 안심하고 일을 맡길 수 있도록
+## 업무 데이터와 AI 실행의 경계
 
 ```mermaid
 flowchart LR
@@ -134,10 +135,16 @@ flowchart LR
 - 정보가 모호하거나 위험한 요청은 자동으로 진행하지 않고 사람의 확인을 기다립니다.
 - 중간에 서버가 재시작되어도 진행 중이던 작업을 이어갈 수 있습니다.
 
+- 브라우저는 Spring 공개 API만 호출하고, Agent Tool은 위임된 권한으로 Spring 내부 API를 사용합니다.
+- 개인 API 키는 검증 후 암호화 저장하며 원문을 다시 표시하지 않습니다. DB 복원에는 동일한 암호화 키가 필요합니다.
+- BYOK의 모델 호출은 제공사 계정에 청구됩니다. 화면의 예상 AI 비용은 실제 제공사 청구액과 구분합니다.
+
 더 자세한 설계는 [V2 제품·기술 명세](docs/V2_SPECIFICATION.md)와<br/>
 [ADR](docs/adr/README.md)에 정리했습니다.
 
-## 느낌이 아니라 숫자로 확인했습니다
+## 평가와 검증 기록
+
+아래 수치는 과거 고정 평가 데이터에서 얻은 실험 결과이며, 현재 모든 고객 문의의 품질이나 운영 SLA를 의미하지 않습니다.
 
 처음에는 빠르고 저렴한 로컬 모델을 앞단에 두려고 했습니다.
 
@@ -170,14 +177,25 @@ flowchart LR
 
 ## 로컬에서 확인하기
 
-`.env.example`을 기준으로 필요한 환경 변수를 설정한 뒤 실행합니다.
+Docker Compose와 Node.js 22가 필요합니다. 서비스별 소스 검증에는 Java 21, Python 3.12와 uv도 사용합니다.
+
+1. 루트의 [.env.example](.env.example)을 복사해 로컬 `.env`를 만들고 DB·모델·위임 토큰 등 필요한 환경 변수를 설정합니다. 개인 API 키 저장을 사용하려면 BYOK 암호화 키와 제공사별 허용 모델 설정도 필요합니다. 자세한 기준은 [Backend](backend/README.md), [Agent](agent/README.md), [BYOK](docs/frontend/BYOK_CONNECTIONS.md) 문서를 따릅니다.
+2. 저장소 루트에서 DB와 서버를 실행합니다. 이 Compose 구성에는 프론트엔드가 포함되지 않습니다.
 
 ```bash
 docker compose -f docker-compose-infra.yaml up -d --wait
 docker compose -f docker-compose.yaml up --build -d --wait
 ```
 
-서비스별 검증 명령은 다음과 같습니다.
+3. 별도 터미널에서 프론트엔드를 실행합니다. [frontend/.env.example](frontend/.env.example)을 `frontend/.env.local`로 복사하고 `NEXT_PUBLIC_API_BASE_URL`을 Spring 주소(기본 `http://localhost:8080`)로 설정합니다.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+`http://localhost:3000`에서 회원가입 후 업무 공간을 시작합니다. 서비스별 검증 명령은 다음과 같습니다.
 
 ```text
 Agent      cd agent && uv run --locked pytest
@@ -185,15 +203,18 @@ Backend    cd backend && ./gradlew test --no-daemon
 Frontend   cd frontend && npm run preview:check
 ```
 
-Windows에서는 Backend 검증에 `backend\gradlew.bat`을 사용합니다.
+Windows에서는 Backend 검증에 `backend\gradlew.bat`을 사용합니다. DB 통합 검사는 실행 가능한 Docker/PostgreSQL 환경이 필요하며, 생략된 검사는 성공한 검사와 구분합니다.
+
+최근 프론트 변경은 테스트 55개·타입 검사·린트·운영 빌드를 통과했습니다. [최종 UI 수정 PR #42](https://github.com/jomkeu3369/Freelance-Ops-Agent/pull/42)에 검증과 배포 기록이 있습니다. 실제 제공사 생성 품질·과금·고객 업무 E2E·실기기 사용성은 별도 검수 대상입니다.
 
 ## 더 자세히 보고 싶다면
 
-1. [AI 신뢰성 사례 연구](docs/portfolio/ai-routing-and-rag-reliability-case-study.md)
-2. [운영 라우팅 결정](docs/adr/0015-llm-first-operational-routing.md)
-3. [Retrieval Answerability 평가](docs/testing/retrieval-answerability-pipeline.md)
-4. [Async Runtime 최종 감사](docs/reviews/2026-09-01-async-runtime-final-audit.md)
-5. [V2 제품·기술 명세](docs/V2_SPECIFICATION.md)
+1. [동료 개인화](docs/frontend/PET_CUSTOMIZATION.md) · [개인 AI 연결](docs/frontend/BYOK_CONNECTIONS.md)
+2. [AI 신뢰성 사례 연구](docs/portfolio/ai-routing-and-rag-reliability-case-study.md)
+3. [운영 라우팅 결정](docs/adr/0015-llm-first-operational-routing.md)
+4. [Retrieval Answerability 평가](docs/testing/retrieval-answerability-pipeline.md)
+5. [Async Runtime 최종 감사](docs/reviews/2026-09-01-async-runtime-final-audit.md)
+6. [V2 제품·기술 명세](docs/V2_SPECIFICATION.md)
 
 ---
 
