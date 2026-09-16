@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.internaltool.controller;
-
 import tools.jackson.databind.ObjectMapper;
 import com.freelanceops.backend.domain.agentrun.entity.ToolExecutionEntity;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
@@ -22,7 +21,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
 import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -32,7 +30,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -99,7 +96,7 @@ class InternalToolControllerWebTest {
             "KRW",
             null,
             new BigDecimal("1000000"),
-            new BigDecimal("3000000")
+            new BigDecimal("3000000"), java.util.List.of()
         );
         when(runRepository.existsByIdAndWorkspaceId(runId, workspaceId)).thenReturn(true);
         when(toolService.getProjectContext(eq(projectId), any())).thenReturn(context);

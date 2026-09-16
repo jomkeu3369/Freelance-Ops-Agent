@@ -1,5 +1,5 @@
 package com.freelanceops.backend.domain.internaltool.service;
-
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.internaltool.dto.request.QuoteCalculationRequest;
 import com.freelanceops.backend.domain.internaltool.dto.request.RequirementDraft;
 import com.freelanceops.backend.domain.internaltool.dto.response.DomainPack;
@@ -18,7 +18,6 @@ import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,12 +32,14 @@ public class InternalToolService {
     private final WorkspaceAuthorizationService authorizationService;
     private final QuotationCalculator quotationCalculator;
     private final DomainPackRepository domainPackRepository;
+    private final ProjectMemoryService memory;
 
-    public InternalToolService(ProjectRepository projectRepository, WorkspaceAuthorizationService authorizationService, QuotationCalculator quotationCalculator, DomainPackRepository domainPackRepository) {
+    public InternalToolService(ProjectRepository projectRepository, WorkspaceAuthorizationService authorizationService, QuotationCalculator quotationCalculator, DomainPackRepository domainPackRepository, ProjectMemoryService memory) {
         this.projectRepository = projectRepository;
         this.authorizationService = authorizationService;
         this.quotationCalculator = quotationCalculator;
         this.domainPackRepository = domainPackRepository;
+        this.memory = memory;
     }
 
     @Transactional(readOnly = true)
@@ -49,7 +50,7 @@ public class InternalToolService {
         requirePermission(principal, PermissionCode.PROJECT_READ, project.workspaceId());
         return new ProjectContext(
             project.id(), project.workspaceId(), project.title(), project.requirementText(), project.currency(),
-            project.deadline(), project.budgetMin(), project.budgetMax()
+            project.deadline(), project.budgetMin(), project.budgetMax(), memory.current(project.workspaceId(), project.id())
         );
     }
 

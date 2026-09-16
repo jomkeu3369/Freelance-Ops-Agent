@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.knowledge.service;
-
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.internaltool.service.ToolAccessException;
 import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
@@ -18,6 +17,6 @@ public class InternalKnowledgeService {
         if (!principal.permissions().contains("agent.run") || !principal.permissions().contains("document.read")) {
             throw new ToolAccessException(HttpStatus.FORBIDDEN, "TOOL_PERMISSION_REQUIRED");
         }
-        return knowledgeService.search(principal.initiatedBy(), principal.workspaceId(), request);
+        return knowledgeService.search(principal.initiatedBy(), principal.workspaceId(), request, principal.projectId(), principal.runId());
     }
 }

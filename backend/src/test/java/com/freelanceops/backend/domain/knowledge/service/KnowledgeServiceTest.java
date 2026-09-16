@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.knowledge.service;
-
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
+import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
 import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
 import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
@@ -22,7 +23,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,12 +46,13 @@ class KnowledgeServiceTest {
         DocumentChunkEntity keywordOnly = chunk(workspaceId, documentId, "keyword");
         DocumentChunkEntity both = chunk(workspaceId, documentId, "both");
         DocumentEntity document = document(workspaceId, documentId);
+        document.confirm(userId, Instant.now(), null);
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.DOCUMENT_READ)).thenReturn(AuthorizationDecision.ALLOWED);
-        when(searchRepository.keywordSearch(workspaceId, "계약", 20)).thenReturn(List.of(keywordOnly, both));
-        when(searchRepository.vectorSearch(org.mockito.ArgumentMatchers.eq(workspaceId), any(float[].class), org.mockito.ArgumentMatchers.eq(20))).thenReturn(List.of(both, keywordOnly));
+        when(searchRepository.keywordSearch(workspaceId, null, null, "계약", 20)).thenReturn(List.of(keywordOnly, both));
+        when(searchRepository.vectorSearch(org.mockito.ArgumentMatchers.eq(workspaceId), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(), any(float[].class), org.mockito.ArgumentMatchers.eq("embedding"), org.mockito.ArgumentMatchers.eq(20))).thenReturn(List.of(both, keywordOnly));
         when(documentRepository.findByIdAndWorkspaceId(documentId, workspaceId)).thenReturn(Optional.of(document));
 
-        var results = service().search(userId, workspaceId, new KnowledgeSearchRequest("계약", floats(), 5));
+        var results = service().search(userId, workspaceId, new KnowledgeSearchRequest("계약", floats(), 5, "embedding"));
 
         assertThat(results).hasSize(2);
         assertThat(results.get(0).rrfScore()).isEqualTo(results.get(1).rrfScore());
@@ -79,7 +80,7 @@ class KnowledgeServiceTest {
     }
 
     private KnowledgeService service() {
-        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService, raptorRetrievalService, raptorIndexTransactions);
+        return new KnowledgeService(documentRepository, chunkRepository, searchRepository, authorizationService, raptorRetrievalService, raptorIndexTransactions, org.mockito.Mockito.mock(ProjectMemoryService.class), org.mockito.Mockito.mock(ProjectRepository.class));
     }
 
     private static DocumentChunkEntity chunk(UUID workspaceId, UUID documentId, String content) {

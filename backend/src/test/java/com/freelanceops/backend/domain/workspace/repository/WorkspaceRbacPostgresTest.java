@@ -1,5 +1,15 @@
 package com.freelanceops.backend.domain.workspace.repository;
-
+import com.freelanceops.backend.domain.knowledge.service.KnowledgeService;
+import com.freelanceops.backend.domain.knowledge.service.GeneratedMemoryListener;
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
+import com.freelanceops.backend.domain.knowledge.repository.DocumentChunkRepository;
+import com.freelanceops.backend.domain.knowledge.repository.KnowledgeSearchRepository;
+import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
+import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
+import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
+import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
+import com.freelanceops.backend.domain.knowledge.model.KnowledgeSourceType;
+import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
 import com.freelanceops.backend.domain.workspace.repository.AuthorizationAuditSink;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningResult;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
@@ -31,7 +41,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
-
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -41,7 +50,6 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -746,11 +754,141 @@ class WorkspaceRbacPostgresTest {
         assertThat(deniedCount).isEqualTo(1);
     }
 
+
+    @Autowired private KnowledgeService knowledge;
+    @Autowired private GeneratedMemoryListener generatedMemory;
+    @Autowired private ProjectMemoryService memory;
+    @Autowired private DocumentChunkRepository memoryChunks;
+    @Autowired private KnowledgeSearchRepository memorySearch;
+
+    @Test
+    void generatedMemoryRequiresConfirmationAndOriginalEditsRevokeIt() {
+        MemoryFixture fixture = memoryFixture("approval");
+        var event = new RequirementAnalysisCompleted(fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout without subscriptions", java.util.List.of());
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.executeWithoutResult(status -> generatedMemory.completed(event));
+        transaction.executeWithoutResult(status -> generatedMemory.completed(event));
+        var document = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
+        assertThat(knowledge.list(fixture.ownerId(), fixture.workspaceId())).hasSize(1);
+        assertThat(document.origin()).isEqualTo("agent");
+        assertThat(document.confirmationStatus()).isEqualTo("unconfirmed");
+        assertThat(document.sourceMessageIds()).hasSize(2);
+        var query = new KnowledgeSearchRequest("checkout", null, 5);
+        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).isEmpty();
+        var confirmed = knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), document.version());
+        assertThat(confirmed.confirmedBy()).isEqualTo(fixture.ownerId());
+        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).hasSize(1);
+        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), fixture.runId())).isEmpty();
+        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, UUID.randomUUID(), null)).isEmpty();
+        UUID originalId = confirmed.sourceMessageIds().getFirst();
+        assertThatThrownBy(() -> jdbcClient.sql("UPDATE app.source_message SET content = 'fabricated' WHERE id = :id").param("id", originalId).update()).isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(() -> jdbcClient.sql("DELETE FROM app.source_message WHERE id = :id").param("id", originalId).update()).isInstanceOf(DataAccessException.class);
+        jdbcClient.sql("UPDATE app.project SET requirement_text = 'new checkout', requirement_updated_by = :actor WHERE id = :id")
+            .param("actor", fixture.ownerId()).param("id", fixture.projectId()).update();
+        assertThat(knowledge.get(fixture.ownerId(), fixture.workspaceId(), document.id()).confirmationStatus()).isEqualTo("superseded");
+        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).isEmpty();
+        assertThatThrownBy(() -> knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), confirmed.version())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(jdbcClient.sql("SELECT content FROM app.source_message WHERE id = :id").param("id", originalId).query(String.class).single()).isEqualTo("checkout without subscriptions");
+        jdbcClient.sql("DELETE FROM app.project WHERE id = :id").param("id", fixture.projectId()).update();
+        assertThat(jdbcClient.sql("SELECT count(*) FROM app.source_message WHERE project_id = :id").param("id", fixture.projectId()).query(Integer.class).single()).isZero();
+    }
+
+    @Test
+    void lateAnalysisIsSavedAsSupersededAndCannotReplaceNewRequirements() {
+        MemoryFixture fixture = memoryFixture("late");
+        jdbcClient.sql("UPDATE app.project SET requirement_text = 'new request' WHERE id = :id").param("id", fixture.projectId()).update();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> generatedMemory.completed(
+            new RequirementAnalysisCompleted(fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "old checkout", java.util.List.of())
+        ));
+        var document = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
+        assertThat(document.confirmationStatus()).isEqualTo("superseded");
+        assertThat(document.retrievalEligible()).isFalse();
+        assertThat(memory.current(fixture.workspaceId(), fixture.projectId())).extracting(MemorySourceMessage::content).containsExactly("new request");
+    }
+
+    @Test
+    void vectorSearchRejectsWrongModelsAndExpiredDocuments() {
+        MemoryFixture fixture = memoryFixture("vector");
+        var vector = java.util.Collections.nCopies(1536, 0.1F);
+        var document = knowledge.create(fixture.ownerId(), fixture.workspaceId(), new CreateDocumentRequest(
+            KnowledgeSourceType.POLICY, "checkout", null, null, null, null, null,
+            java.util.List.of(new DocumentChunkRequest("checkout", vector, "correct-model", null, null))
+        ));
+        knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), document.version());
+        float[] embedding = new float[1536]; java.util.Arrays.fill(embedding, 0.1F);
+        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "wrong-model", 5)).isEmpty();
+        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "correct-model", 5)).hasSize(1);
+        jdbcClient.sql("UPDATE app.document SET effective_until = CURRENT_DATE - 1 WHERE id = :id").param("id", document.id()).update();
+        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "correct-model", 5)).isEmpty();
+        assertThat(memoryChunks.findAllActiveByWorkspaceId(fixture.workspaceId())).isEmpty();
+    }
+
+
+    @Test
+    void documentRevisionsKeepRootsAndParentLineage() {
+        MemoryFixture fixture = memoryFixture("lineage");
+        var transaction = new TransactionTemplate(transactionManager);
+        transaction.executeWithoutResult(status -> generatedMemory.completed(new RequirementAnalysisCompleted(
+            fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout first", java.util.List.of()
+        )));
+        var first = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
+        knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), first.id(), first.version());
+        UUID secondRun = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
+            .param("id", secondRun).param("ws", fixture.workspaceId()).param("project", fixture.projectId()).param("thread", UUID.randomUUID()).param("owner", fixture.ownerId()).update();
+        insertStartCommand(UUID.randomUUID(), secondRun, fixture.ownerId());
+        jdbcClient.sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run").param("run", secondRun).update();
+        transaction.executeWithoutResult(status -> generatedMemory.completed(new RequirementAnalysisCompleted(
+            secondRun, fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout revised", java.util.List.of(first.id())
+        )));
+        var second = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
+        var confirmed = knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), second.id(), second.version());
+        assertThat(confirmed.revisionNumber()).isEqualTo(2);
+        assertThat(confirmed.supersedes()).isEqualTo(first.id());
+        assertThat(confirmed.parentDocumentIds()).containsExactly(first.id());
+        assertThat(confirmed.sourceMessages()).allSatisfy(source -> assertThat(source.content()).doesNotContain("checkout first"));
+        assertThat(knowledge.get(fixture.ownerId(), fixture.workspaceId(), first.id()).confirmationStatus()).isEqualTo("superseded");
+    }
+
+    @Test
+    void clarificationAnswerIsAnOriginalAndDoesNotPromoteItsModelQuestion() {
+        MemoryFixture fixture = memoryFixture("clarification");
+        UUID interruption = UUID.randomUUID();
+        UUID responder = insertUser("memory-clarification-responder");
+        jdbcClient.sql("INSERT INTO app.agent_run_command(id, run_id, command_type, payload, requested_by, effective_permissions, status) VALUES (:id, :run, 'RESUME', '{}', :actor, '[]', 'COMPLETED')")
+            .param("id", UUID.randomUUID()).param("run", fixture.runId()).param("actor", responder).update();
+        jdbcClient.sql("INSERT INTO app.agent_interruption(id, workspace_id, agent_run_id, kind, status, questions, created_at) VALUES (:id, :ws, :run, 'CLARIFICATION', 'PENDING', '[\"Add subscriptions?\"]', now())")
+            .param("id", interruption).param("ws", fixture.workspaceId()).param("run", fixture.runId()).update();
+        jdbcClient.sql("UPDATE app.agent_interruption SET status = 'RESPONDED', answers = '[{\"questionIndex\":0,\"answer\":\"No\"}]', responded_at = now() WHERE id = :id")
+            .param("id", interruption).update();
+        var clarification = memory.current(fixture.workspaceId(), fixture.projectId()).getLast();
+        assertThat(clarification.content()).isEqualTo("No");
+        assertThat(clarification.prompt()).isEqualTo("Add subscriptions?");
+        assertThat(clarification.kind()).isEqualTo("USER_CLARIFICATION");
+        assertThat(jdbcClient.sql("SELECT created_by FROM app.source_message WHERE id = :id").param("id", clarification.id()).query(UUID.class).single()).isEqualTo(responder);
+        assertThat(memory.forRun(fixture.workspaceId(), fixture.projectId(), fixture.runId())).hasSize(3);
+    }
+
+    private MemoryFixture memoryFixture(String suffix) {
+        UUID owner = insertUser("memory-" + suffix);
+        UUID workspace = provisioningService.create(owner, "Memory", "memory-" + suffix).workspaceId();
+        UUID project = UUID.randomUUID(); UUID run = UUID.randomUUID();
+        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :ws, 'Memory', 'checkout without subscriptions', 'KRW', 'LEAD', :owner)")
+            .param("id", project).param("ws", workspace).param("owner", owner).update();
+        jdbcClient.sql("INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
+            .param("id", run).param("ws", workspace).param("project", project).param("thread", UUID.randomUUID()).param("owner", owner).update();
+        insertStartCommand(UUID.randomUUID(), run, owner);
+        jdbcClient.sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run").param("run", run).update();
+        return new MemoryFixture(owner, workspace, project, run);
+    }
+
+    private record MemoryFixture(UUID ownerId, UUID workspaceId, UUID projectId, UUID runId) {}
+
     private void insertStartCommand(UUID commandId, UUID runId, UUID ownerId) {
         jdbcClient.sql("""
                 INSERT INTO app.agent_run_command (
                     id, run_id, command_type, payload, requested_by, effective_permissions, status
-                ) VALUES (:id, :runId, 'START', '{}', :ownerId, '[]', 'PENDING')
+                ) VALUES (:id, :runId, 'START', '{"input":{"requirementText":"original request"}}', :ownerId, '[]', 'PENDING')
                 """)
             .param("id", commandId)
             .param("runId", runId)

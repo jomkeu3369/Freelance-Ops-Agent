@@ -1,11 +1,9 @@
 package com.freelanceops.backend.domain.agentrun.dto.response;
-
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
 import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.RequestTier;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -30,9 +28,14 @@ public record AgentRunView(
         List<String> openQuestions,
         List<DepartmentResult> departmentResults,
         QuotationDraft quotationDraft,
-        List<QuotationDraft> quotationDrafts
+        List<QuotationDraft> quotationDrafts,
+        List<UUID> referencedDocumentIds
     ) {
+        public AgentRunResult(String projectSummary, List<String> openQuestions, List<DepartmentResult> departmentResults, QuotationDraft quotationDraft, List<QuotationDraft> quotationDrafts) {
+            this(projectSummary, openQuestions, departmentResults, quotationDraft, quotationDrafts, List.of());
+        }
         public AgentRunResult {
+            referencedDocumentIds = referencedDocumentIds == null ? List.of() : List.copyOf(referencedDocumentIds);
             openQuestions = openQuestions == null ? List.of() : List.copyOf(openQuestions);
             departmentResults = departmentResults == null ? List.of() : List.copyOf(departmentResults);
             quotationDrafts = quotationDrafts == null

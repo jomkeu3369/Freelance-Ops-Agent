@@ -651,7 +651,10 @@ test("workspace evidence library exposes the complete document lifecycle", async
   assert.match(workspace, /prepareDocumentUpload/);
   assert.match(workspace, /sourceTypeLabel/);
   assert.match(workspace, /다음 AI 분석부터 참고 대상에서 제외됩니다/);
-  assert.match(workspace, /detail\.chunks\.slice\(0, 4\)/);
+  assert.match(workspace, /detail\.chunks\.map/);
+  assert.match(workspace, /detail\.sourceMessages\.map/);
+  assert.match(workspace, /disabled=\{busy \|\| !reviewed\}/);
+  assert.match(api, /function confirmDocument/);
   assert.match(api, /function getDocument/);
   assert.match(api, /function archiveDocument/);
   assert.match(api, /method: "DELETE"/);

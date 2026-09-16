@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.knowledge.service;
-
 import com.freelanceops.backend.domain.knowledge.client.dto.response.RaptorBuildResponse;
 import com.freelanceops.backend.domain.knowledge.entity.*;
 import com.freelanceops.backend.domain.knowledge.model.*;
@@ -73,6 +72,9 @@ public class RaptorIndexTransactions {
         RaptorIndexSnapshotEntity snapshot = snapshotRepository.findForUpdate(workspaceId, snapshotId).orElse(null);
         if (snapshot != null && snapshot.status() == RaptorSnapshotStatus.BUILDING) snapshot.fail(normalizeFailureCode(failureCode), Instant.now());
     }
+
+    @Transactional
+    public void lockWorkspace(UUID workspaceId) { workspaceRepository.findByIdForUpdate(workspaceId).orElseThrow(); }
 
     @Transactional
     public void invalidateActiveSnapshot(UUID workspaceId) {

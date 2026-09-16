@@ -143,6 +143,15 @@ class AssumptionSuggestionResponse(StrictModel):
     usage: AssumptionSuggestionUsage
 
 
+class MemorySourceMessage(StrictModel):
+    id: UUID
+    event_order: int
+    kind: str
+    content: str
+    prompt: str | None = None
+    created_at: datetime
+
+
 class ProjectContext(StrictModel):
     project_id: UUID
     workspace_id: UUID
@@ -152,6 +161,7 @@ class ProjectContext(StrictModel):
     deadline: str | None = None
     budget_min: float | None = Field(default=None, ge=0)
     budget_max: float | None = Field(default=None, ge=0)
+    source_messages: list[MemorySourceMessage] = Field(default_factory=list)
 
 
 class DomainPackSourceReference(StrictModel):
@@ -210,6 +220,7 @@ class QuoteCalculationResult(StrictModel):
 
 
 class KnowledgeSearchRequest(StrictModel):
+    embedding_model: str | None = None
     query: str = Field(min_length=1, max_length=2000)
     embedding: list[float] | None = Field(default=None, min_length=1536, max_length=1536)
     limit: int = Field(default=10, ge=1, le=50)
@@ -226,6 +237,12 @@ class KnowledgeSearchResult(StrictModel):
     effective_from: str | None = None
     effective_until: str | None = None
     content: str = Field(max_length=20000)
+    origin: str = "external"
+    memory_type: str = "reference"
+    confirmation_status: str = "unconfirmed"
+    project_id: UUID | None = None
+    revision_number: int = 1
+    source_messages: list[MemorySourceMessage] = Field(default_factory=list)
     rrf_score: float
     keyword_rank: int = Field(ge=0)
     vector_rank: int | None = Field(default=None, ge=1)
@@ -350,6 +367,7 @@ class QuotationDraft(StrictModel):
 
 
 class AgentRunResult(StrictModel):
+    referenced_document_ids: list[UUID] = Field(default_factory=list, max_length=50)
     project_summary: str = Field(max_length=10000)
     open_questions: list[str] = Field(default_factory=list)
     department_results: list[DepartmentResult] = Field(default_factory=list, max_length=4)

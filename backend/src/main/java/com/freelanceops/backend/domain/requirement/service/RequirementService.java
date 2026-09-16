@@ -1,5 +1,5 @@
 package com.freelanceops.backend.domain.requirement.service;
-
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.requirement.dto.request.CreateRequirementVersionRequest;
 import com.freelanceops.backend.domain.requirement.dto.response.RequirementFeatureResponse;
@@ -21,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,14 +35,16 @@ public class RequirementService {
     private final RequirementAssumptionRepository assumptionRepository;
     private final RequirementQuestionRepository questionRepository;
     private final WorkspaceAuthorizationService authorizationService;
+    private final ProjectMemoryService memory;
 
-    public RequirementService(ProjectRepository projectRepository, RequirementVersionRepository versionRepository, RequirementFeatureRepository featureRepository, RequirementAssumptionRepository assumptionRepository, RequirementQuestionRepository questionRepository, WorkspaceAuthorizationService authorizationService) {
+    public RequirementService(ProjectRepository projectRepository, RequirementVersionRepository versionRepository, RequirementFeatureRepository featureRepository, RequirementAssumptionRepository assumptionRepository, RequirementQuestionRepository questionRepository, WorkspaceAuthorizationService authorizationService, ProjectMemoryService memory) {
         this.projectRepository = projectRepository;
         this.versionRepository = versionRepository;
         this.featureRepository = featureRepository;
         this.assumptionRepository = assumptionRepository;
         this.questionRepository = questionRepository;
         this.authorizationService = authorizationService;
+        this.memory = memory;
     }
 
     @Transactional(readOnly = true)
@@ -64,9 +65,10 @@ public class RequirementService {
     @Transactional
     public RequirementVersionResponse create(UUID userId, UUID workspaceId, UUID projectId, CreateRequirementVersionRequest request) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
-        projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
-            .requireNotDeleting();
+        var project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        project.requireNotDeleting();
+        if (!project.requirementText().trim().equals(request.sourceText().trim())) throw new ResponseStatusException(HttpStatus.CONFLICT, "original requirements changed; review the latest source");
         int versionNumber = versionRepository.findTopByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(workspaceId, projectId)
             .map(current -> current.versionNumber() + 1).orElse(1);
         Instant now = Instant.now();
@@ -90,6 +92,9 @@ public class RequirementService {
         featureRepository.saveAll(features);
         assumptionRepository.saveAll(assumptions);
         questionRepository.saveAll(questions);
+        String confirmed = "Confirmed features:\n" + request.features().stream().map(feature -> feature.title() + ": " + feature.description() + "\nAcceptance: " + feature.acceptanceCriteria()).collect(java.util.stream.Collectors.joining("\n"))
+            + "\nUNCONFIRMED assumptions:\n" + String.join("\n", request.assumptions()) + "\nOPEN questions:\n" + String.join("\n", request.questions());
+        memory.confirmRequirement(workspaceId, projectId, versionId, confirmed, userId);
         return response(requirement, features, assumptions, questions);
     }
 

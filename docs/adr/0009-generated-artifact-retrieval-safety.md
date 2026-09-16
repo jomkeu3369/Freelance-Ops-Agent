@@ -1,6 +1,6 @@
 # ADR-0009: 생성 Artifact의 검색 자격과 재귀 오염 방지
 
-- 상태: Proposed
+- 상태: Accepted; 기본 사용자 확인 정책 구현 (2026-09-16), 고급 평가·독립 출처 검증은 후속 과제
 - 제안일: 2026-07-29
 
 ## Context
@@ -15,7 +15,7 @@ pgvector로 검색한다. LLM 생성 초안을 검증 없이 검색 corpus에 �
 self-reinforcing feedback를 통해 시스템 품질을 장기적으로 저하시킬 수
 있다.
 
-## Proposed Decision
+## Decision
 
 - artifact의 영속 저장과 retrieval publish를 분리한다.
 - 모든 LLM 생성물은 기본적으로 `DRAFT` 또는 `QUARANTINED`이며
@@ -69,3 +69,7 @@ self-reinforcing feedback를 통해 시스템 품질을 장기적으로 저하�
   순환이므로 거부한다.
 - 생성 text detector만으로 차단: provenance를 대체할 만큼 신뢰할 수 있는
   보안 경계가 아니므로 거부한다.
+
+## 구현 범위
+
+실제 데이터 흐름, 적용 파일과 미구현 항목은 [2026-09-16 구현 기록](../reviews/2026-09-16-project-memory-implementation.md)을 따른다. 이 ADR의 모든 장기 설계가 구현 완료됐다는 의미는 아니다.

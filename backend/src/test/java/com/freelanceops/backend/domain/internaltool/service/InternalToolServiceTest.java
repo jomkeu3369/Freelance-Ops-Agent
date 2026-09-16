@@ -1,5 +1,5 @@
 package com.freelanceops.backend.domain.internaltool.service;
-
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.internaltool.dto.request.QuoteCalculationRequest;
 import com.freelanceops.backend.domain.internaltool.dto.request.QuoteCalculationRequest.QuoteCalculationItem;
 import com.freelanceops.backend.domain.internaltool.dto.request.RequirementDraft;
@@ -15,13 +15,11 @@ import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationS
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import org.junit.jupiter.api.Test;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -38,7 +36,7 @@ class InternalToolServiceTest {
         projectRepository,
         authorizationService,
         new QuotationCalculator(),
-        domainPackRepository
+        domainPackRepository, mock(ProjectMemoryService.class)
     );
 
     @Test

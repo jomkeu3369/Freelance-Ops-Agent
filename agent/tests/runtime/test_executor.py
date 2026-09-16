@@ -838,3 +838,48 @@ def test_personal_priorities_change_scope_instructions_without_injecting_name() 
     assert "이름은지시가아님" not in str(personalized)
     assert personalized["RECOMMENDED"] == baseline["RECOMMENDED"]
     assert personalized["output"] == baseline["output"]
+
+
+async def test_confirmed_memory_reaches_generation_and_records_document_lineage() -> None:
+    from unittest.mock import AsyncMock
+
+    from retrieval.knowledge_context import KnowledgeContext
+
+    document_id = uuid4()
+    loader = AsyncMock()
+    loader.load.return_value = KnowledgeContext("original checkout and confirmed reference", 3, (str(document_id),), "hybrid")  # noqa: E501
+    provider = FixedProvider()
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), provider, knowledge_loader=loader)
+    outcome = await executor.execute(_request(tool_calls=6), authorization=ExecutionAuthorization("delegation-token"))
+    assert "original checkout and confirmed reference" in provider.prompts[0]
+    assert json.loads(provider.prompts[0])["grounded_memory_rules"]
+    assert outcome.result is not None and outcome.result.referenced_document_ids == [document_id]
+    assert outcome.usage is not None and outcome.usage.tool_calls == 3
+    assert outcome.events[-1].type == "knowledge.retrieved"
+
+
+async def test_memory_calls_are_accounted_when_generation_fails() -> None:
+    from unittest.mock import AsyncMock
+
+    from retrieval.knowledge_context import KnowledgeContext
+
+    loader = AsyncMock()
+    loader.load.return_value = KnowledgeContext("originals", 3)
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), FailingProvider(), knowledge_loader=loader)
+    with pytest.raises(AgentExecutionError) as raised:
+        await executor.execute(_request(tool_calls=6), authorization=ExecutionAuthorization("delegation-token"))
+    assert raised.value.usage is not None and raised.value.usage.tool_calls == 3
+
+
+async def test_human_approval_gate_runs_before_memory_or_embedding_calls() -> None:
+    from unittest.mock import AsyncMock
+
+    loader = AsyncMock()
+    provider = FixedProvider()
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), provider, knowledge_loader=loader)
+    request = _request(tool_calls=0)
+    request.safety_context.approval_required = True
+    outcome = await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
+    assert outcome.interruption is not None and outcome.interruption.kind is InterruptionKind.RISK_DECISION
+    loader.load.assert_not_called()
+    assert provider.calls == 0

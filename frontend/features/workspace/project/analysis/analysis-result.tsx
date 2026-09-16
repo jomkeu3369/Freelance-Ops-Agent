@@ -38,6 +38,9 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
         {run.status === "PARTIAL" ? <Warning size={17} /> : <CheckCircle size={17} />}{" "}
         {run.status === "PARTIAL" ? "부분 분석 결과" : "분석 결과"}
       </span>
+      {run.status === "COMPLETED" && run.result.departmentResults.some((result) => result.department === "REQUIREMENTS") && (
+        <p>AI 요구사항 문서는 근거 자료에서 검토할 수 있습니다. 사용자 확인 전에는 다음 분석의 근거로 사용되지 않습니다.</p>
+      )}
       <h3>프로젝트 요약</h3>
       <p>{run.result.projectSummary}</p>
       {run.metadata && (

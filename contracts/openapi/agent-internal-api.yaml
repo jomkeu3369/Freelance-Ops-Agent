@@ -849,6 +849,13 @@ components:
           description: AI-generated LEAN, RECOMMENDED, and EXPANDED drafts with distinct scope and effort.
           items:
             $ref: "#/components/schemas/QuotationDraft"
+        referencedDocumentIds:
+          type: array
+          maxItems: 50
+          description: Confirmed document IDs actually supplied by the runtime, never invented by the model.
+          items:
+            type: string
+            format: uuid
     QuotationDraft:
       type: object
       additionalProperties: false

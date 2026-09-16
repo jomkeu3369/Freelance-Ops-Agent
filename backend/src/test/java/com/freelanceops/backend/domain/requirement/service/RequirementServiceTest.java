@@ -1,5 +1,5 @@
 package com.freelanceops.backend.domain.requirement.service;
-
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.requirement.dto.request.CreateRequirementVersionRequest;
@@ -18,12 +18,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -79,10 +77,10 @@ class RequirementServiceTest {
     }
 
     private RequirementService service() {
-        return new RequirementService(projectRepository, versionRepository, featureRepository, assumptionRepository, questionRepository, authorizationService);
+        return new RequirementService(projectRepository, versionRepository, featureRepository, assumptionRepository, questionRepository, authorizationService, org.mockito.Mockito.mock(ProjectMemoryService.class));
     }
 
     private static ProjectEntity project(UUID projectId, UUID workspaceId) {
-        return new ProjectEntity(projectId, workspaceId, "Project", "Requirement", "KRW", null, null, null);
+        return new ProjectEntity(projectId, workspaceId, "Project", "원문 요구사항", "KRW", null, null, null);
     }
 }

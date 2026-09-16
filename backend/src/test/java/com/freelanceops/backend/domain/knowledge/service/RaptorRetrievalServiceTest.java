@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.knowledge.service;
-
 import com.freelanceops.backend.domain.knowledge.entity.*;
 import com.freelanceops.backend.domain.knowledge.model.RaptorNodeKind;
 import com.freelanceops.backend.domain.knowledge.repository.*;
@@ -26,11 +25,11 @@ class RaptorRetrievalServiceTest {
 
         when(activeRepository.findById(workspaceId)).thenReturn(Optional.of(new RaptorActiveSnapshotEntity(workspaceId, snapshotId, Instant.now())));
         when(nodeRepository.findAllByWorkspaceIdAndSnapshotId(workspaceId, snapshotId)).thenReturn(List.of(first, second, summary));
-        when(searchRepository.nearest(eq(workspaceId), eq(snapshotId), any(float[].class), eq(1))).thenReturn(List.of(summary));
-        when(chunkRepository.findAllById(any())).thenReturn(List.of(firstChunk, secondChunk));
+        when(searchRepository.nearest(eq(workspaceId), eq(snapshotId), any(float[].class), eq("embedding"), eq(1))).thenReturn(List.of(summary));
+        when(chunkRepository.findEligibleByIds(eq(workspaceId), isNull(), isNull(), any())).thenReturn(List.of(firstChunk, secondChunk));
 
         RaptorRetrievalService service = new RaptorRetrievalService(activeRepository, nodeRepository, searchRepository, chunkRepository);
-        assertThat(service.retrieve(workspaceId, vector(1), 1, 2)).extracting(DocumentChunkEntity::id).containsExactly(firstChunkId, secondChunkId);
+        assertThat(service.retrieve(workspaceId, null, null, vector(1), "embedding", 1, 2)).extracting(DocumentChunkEntity::id).containsExactly(firstChunkId, secondChunkId);
     }
 
     private static RaptorNodeEntity node(UUID id, UUID workspaceId, UUID snapshotId, UUID chunkId, UUID documentId, float[] embedding) {

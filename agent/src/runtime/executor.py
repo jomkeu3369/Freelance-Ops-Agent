@@ -31,6 +31,7 @@ from contracts import (
 from integrations import SpringToolError
 from personal_credentials import credential_scope
 from providers import ModelProvider, ProviderCallError
+from retrieval.knowledge_context import KNOWLEDGE_RULES, KnowledgeContext, KnowledgeContextLoader
 from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
 from routing.llm_evaluator import RouteDecisionSource
 from web_research import ResearchCollection, WebResearchBudgetError
@@ -130,18 +131,41 @@ _RECOVERABLE_PARTIAL_CODES = frozenset({
 })
 
 class OperationalAgentExecutor:
-    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None, task_shadow_registrar: ResearchTaskShadowRegistrar | None = None) -> None:  # noqa: E501
+    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None, task_shadow_registrar: ResearchTaskShadowRegistrar | None = None, knowledge_loader: KnowledgeContextLoader | None = None) -> None:  # noqa: E501
         self._gateway = gateway
         self._provider = provider
         self._project_context_tool = project_context_tool
         self._research_tool = research_tool
         self._task_shadow_registrar = task_shadow_registrar
+        self._knowledge_loader = knowledge_loader
 
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
         with credential_scope(authorization.delegation_token if authorization else None, request.context.run_id):
-            return await self._execute(request, resume, authorization)
+            return await self._execute_with_memory(request, resume, authorization)
 
-    async def _execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
+    async def _execute_with_memory(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
+        started_ns = time.monotonic_ns()
+        knowledge = KnowledgeContext()
+        safety = evaluate_safety(SafetyContext(**request.safety_context.model_dump()))
+        if self._knowledge_loader is not None and request.input.direct_tool_operation is None and not safety.requires_human:  # noqa: E501
+            try:
+                knowledge = await self._knowledge_loader.load(request, authorization)
+            except (SpringToolError, ValueError) as error:
+                raise AgentExecutionError(str(error)) from error
+        remaining = request.model_copy(update={"budget": request.budget.model_copy(update={"max_tool_calls": request.budget.max_tool_calls - knowledge.tool_calls})})  # noqa: E501
+        try:
+            outcome = await self._execute(remaining, resume, authorization, knowledge)
+        except AgentExecutionError as error:
+            usage = error.usage.model_copy(update={"tool_calls": error.usage.tool_calls + knowledge.tool_calls, "duration_ms": (time.monotonic_ns() - started_ns) // 1_000_000}) if error.usage else None  # noqa: E501
+            raise AgentExecutionError(error.code, usage) from error
+        if not knowledge.tool_calls:
+            return outcome
+        usage = outcome.usage.model_copy(update={"tool_calls": outcome.usage.tool_calls + knowledge.tool_calls, "duration_ms": (time.monotonic_ns() - started_ns) // 1_000_000}) if outcome.usage else None  # noqa: E501
+        event = ExecutionEvent(type="knowledge.retrieved", data={"document_ids": list(knowledge.document_ids), "mode": knowledge.retrieval_mode, "confirmed_only": True})  # noqa: E501
+        result = outcome.result.model_copy(update={"referenced_document_ids": [UUID(value) for value in dict.fromkeys(knowledge.document_ids)]}) if outcome.result else None  # noqa: E501
+        return replace(outcome, result=result, usage=usage, events=(*outcome.events, event))
+
+    async def _execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None, knowledge: KnowledgeContext) -> ExecutionOutcome:  # noqa: E501
         started_ns = time.monotonic_ns()
         text = request.input.requirement_text
         if request.clarification_history:
@@ -228,6 +252,8 @@ class OperationalAgentExecutor:
         if decision.route is RouteLabel.SUPERVISOR and request.budget.max_hierarchy_depth < 2:
             raise AgentExecutionError("HIERARCHY_DEPTH_EXCEEDED")
 
+        if knowledge.text:
+            text += "\n\nGrounded project memory (separate from the current user request):\n" + knowledge.text
         departments = _ROUTE_DEPARTMENTS[decision.route][: request.budget.max_departments]
         if DepartmentName.RESEARCH in departments and self._task_shadow_registrar is not None and authorization is not None:  # noqa: E501
             try:
@@ -427,6 +453,7 @@ class OperationalAgentExecutor:
                         "department": department.value,
                         "selected_route": decision.route.value,
                         "untrusted_user_request": text,
+                        "grounded_memory_rules": KNOWLEDGE_RULES,
                         "constraints": {
                             "no_price_or_tax_invention": True,
                             "evidence_or_explicit_assumption_required": True,
@@ -888,6 +915,7 @@ class OperationalAgentExecutor:
                 "operation": "produce_department_work_product",
                 "department": department.value,
                 "selected_route": route.value,
+                "grounded_memory_rules": KNOWLEDGE_RULES,
                 "constraints": {
                     "no_external_tools_available": research is None,
                     "no_source_claims_without_evidence": True,

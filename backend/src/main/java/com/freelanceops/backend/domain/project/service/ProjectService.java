@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.project.service;
-
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.project.dto.request.CreateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.request.UpdateProjectRequest;
@@ -14,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -85,6 +83,7 @@ public class ProjectService {
         ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         project.requireNotDeleting();
+        project.requirementUpdatedBy(userId);
         project.update(
             request.clientId(),
             request.title(),
