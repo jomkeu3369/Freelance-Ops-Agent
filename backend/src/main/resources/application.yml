@@ -57,6 +57,9 @@ server:
   shutdown: graceful
   forward-headers-strategy: framework
 app:
+  knowledge:
+    embedding-model: ${KNOWLEDGE_EMBEDDING_MODEL:text-embedding-3-small}
+    summary-model: ${KNOWLEDGE_SUMMARY_MODEL:gpt-5.6-luna}
   environment: ${APP_ENVIRONMENT:development}
   http:
     connect-timeout-ms: ${APP_HTTP_CONNECT_TIMEOUT_MS:2000}

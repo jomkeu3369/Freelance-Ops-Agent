@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.knowledge.controller;
-
+import com.freelanceops.backend.domain.knowledge.service.DocumentReviewService;
+import com.freelanceops.backend.domain.knowledge.dto.response.DocumentConfirmationResponse;
+import com.freelanceops.backend.domain.knowledge.dto.request.ConfirmDocumentRequest;
 import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
 import com.freelanceops.backend.domain.knowledge.dto.response.DocumentResponse;
 import com.freelanceops.backend.domain.knowledge.service.KnowledgeService;
@@ -15,8 +17,14 @@ import java.util.UUID;
 @RequestMapping("/api/v2/workspaces/{workspaceId}/documents")
 public class DocumentController {
     private final KnowledgeService service;
+    private final DocumentReviewService reviews;
 
-    public DocumentController(KnowledgeService service) { this.service = service; }
+    public DocumentController(KnowledgeService service, DocumentReviewService reviews) { this.service = service; this.reviews = reviews; }
+
+    @PostMapping("/{documentId}/confirm")
+    public DocumentConfirmationResponse confirm(@PathVariable UUID workspaceId, @PathVariable UUID documentId, @Valid @RequestBody ConfirmDocumentRequest request, Authentication authentication) {
+        return reviews.confirm(userId(authentication), workspaceId, documentId, request);
+    }
 
     @GetMapping
     public List<DocumentResponse> list(@PathVariable UUID workspaceId, Authentication authentication) {

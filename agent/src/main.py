@@ -21,6 +21,7 @@ from integrations import SpringTaskEventClient, SpringTaskRegistrationClient, Sp
 from observability import configure_langsmith_privacy, trace_context_middleware
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from retrieval.knowledge_context import KnowledgeContextLoader, OpenAIQueryEmbedder
 from routing import build_operational_route_gateway
 from runtime import (
     AsyncRuntimeServices,
@@ -191,8 +192,9 @@ def _build_run_runtime() -> RuntimeComponents:
     )
     project_context_tool = SpringToolClient(settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds)  # noqa: E501
     research_tool = _build_web_research_service(settings)
+    knowledge_loader = KnowledgeContextLoader(project_context_tool, OpenAIQueryEmbedder(settings.knowledge_embedding_model, settings.knowledge_embedding_timeout_seconds), settings.knowledge_embedding_model)  # noqa: E501
     if settings.run_store_backend == "memory":
-        executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool)
+        executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, knowledge_loader=knowledge_loader)  # noqa: E501
         return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None, None
 
     database = PgVectorConnectionManager(
@@ -235,7 +237,7 @@ def _build_run_runtime() -> RuntimeComponents:
         if settings.task_shadow_enabled
         else None
     )
-    executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar)  # noqa: E501
+    executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar, knowledge_loader)  # noqa: E501
     checkpoint = (
         PostgresCheckpointJournal(
             settings.database_url,

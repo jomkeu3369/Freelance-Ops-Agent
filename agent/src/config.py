@@ -56,6 +56,9 @@ class Settings(BaseSettings):
 
     event_stream_idle_timeout_seconds: float = Field(default=15.0, gt=0, le=300)
 
+    knowledge_embedding_model: str = "text-embedding-3-small"
+    knowledge_embedding_timeout_seconds: float = Field(default=10.0, gt=0, le=30)
+
     raptor_build_timeout_seconds: float = Field(default=300.0, gt=0, le=900)
 
     database_url: str = "postgresql://agent_user:agent_password@localhost:5432/freelance_ops"

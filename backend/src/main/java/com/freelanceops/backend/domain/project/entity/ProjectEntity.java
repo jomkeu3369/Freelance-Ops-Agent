@@ -1,13 +1,10 @@
 package com.freelanceops.backend.domain.project.entity;
-
 import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Instant;
@@ -57,6 +54,9 @@ public class ProjectEntity {
 
     @Column(name = "deletion_requested_at")
     private Instant deletionRequestedAt;
+
+    @Column(name = "requirement_updated_by") private UUID requirementUpdatedBy;
+    public void requirementUpdatedBy(UUID actor) { this.requirementUpdatedBy = actor; }
 
     @Version
     private long version;

@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.internaltool.controller;
-
 import com.freelanceops.backend.domain.agentrun.service.ToolExecutionAuditService;
 import com.freelanceops.backend.domain.internaltool.dto.response.ProjectContext;
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
@@ -26,7 +25,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
 import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -36,7 +34,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -99,7 +96,7 @@ class InternalToolSecurityChainWebTest {
             "KRW",
             null,
             new BigDecimal("100000"),
-            new BigDecimal("300000")
+            new BigDecimal("300000"), java.util.List.of()
         );
         when(auditService.execute(eq("get_project_context"), any(), any(), eq(runId), any()))
             .thenReturn(context);

@@ -1,5 +1,4 @@
 package com.freelanceops.backend.integration;
-
 import tools.jackson.databind.ObjectMapper;
 import com.freelanceops.backend.domain.agentrun.client.HttpAgentRunClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
@@ -30,7 +29,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestClient;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.InetSocketAddress;
@@ -43,7 +41,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -123,7 +120,7 @@ class DelegationRoundTripContractTest {
             "KRW",
             null,
             new BigDecimal("1000000"),
-            new BigDecimal("2000000")
+            new BigDecimal("2000000"), java.util.List.of()
         ));
 
         HttpAgentRunClient client = new HttpAgentRunClient(

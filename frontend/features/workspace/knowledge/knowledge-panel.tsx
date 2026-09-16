@@ -5,7 +5,8 @@ import {
   AuthSession,
   listDocuments,
   getDocument,
-  archiveDocument
+  archiveDocument,
+  confirmDocument
 } from "../../../app/lib/api";
 import { useState, useEffect } from "react";
 import {
@@ -30,6 +31,8 @@ interface KnowledgePanelProps {
 export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
   const canWrite = permissions.has("document.write");
   const canDelete = permissions.has("document.delete");
+  const canIndex = permissions.has("agent.run");
+  const [reviewed, setReviewed] = useState(false);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<KnowledgeDocument | null>(null);
@@ -69,7 +72,10 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
     }
     let cancelled = false;
     Promise.resolve().then(() => {
-      if (!cancelled) setDetail(null);
+      if (!cancelled) {
+        setDetail(null);
+        setReviewed(false);
+      }
     });
     getDocument(session, selectedId)
       .then((document) => {
@@ -103,11 +109,34 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
       setDocuments((current) => [document, ...current]);
       setSelectedId(document.id);
       setDetail(document);
-      setNotice("자료를 저장했습니다. 다음 AI 분석부터 참고 자료로 활용됩니다.");
+      setReviewed(false);
+      setNotice("자료를 저장했습니다. 내용을 검토하고 확인한 뒤 다음 AI 분석의 참고 자료로 사용할 수 있습니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "자료를 업로드하지 못했습니다.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const confirm = async () => {
+    if (!detail || detail.id !== selectedId || !reviewed || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await confirmDocument(session, detail);
+      const nextDocuments = await listDocuments(session);
+      setDocuments(nextDocuments);
+      setDetail(result.document);
+      setReviewed(false);
+      setNotice(result.indexStatus === "INDEXED"
+        ? "확인한 문서를 검색 색인에 반영했습니다. 다음 분석부터 원문과 함께 참고합니다."
+        : result.indexStatus === "PENDING"
+          ? "문서 확인은 저장됐지만 벡터 색인은 완료되지 않았습니다. 현재는 키워드 검색만 가능하며, 아래에서 색인을 다시 시도할 수 있습니다."
+          : "문서 확인을 저장했습니다. 키워드 검색의 참고 자료로 사용됩니다.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "문서 확인을 저장하지 못했습니다.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -135,7 +164,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
         <div>
           <span>근거 자료</span>
           <h1>분석에 사용할 자료를 모아두세요.</h1>
-          <p>과거 프로젝트와 정책, 약관을 등록하고 이번 분석에 활용할 자료를 직접 선택할 수 있습니다.</p>
+          <p>AI가 정리한 요구사항과 업로드 자료를 원문과 비교하세요. 확인한 문서만 다음 분석에서 참고합니다.</p>
         </div>
         {canWrite && (
           <label className="primary-button">
@@ -143,7 +172,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
             <input
               type="file"
               accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/json"
-              disabled={uploading}
+              disabled={uploading || busy}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = "";
@@ -210,6 +239,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               <button
                 type="button"
                 key={document.id}
+                disabled={busy}
                 className={selectedId === document.id ? "active" : ""}
                 onClick={() => {
                   setSelectedId(document.id);
@@ -217,7 +247,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                   setNotice(null);
                 }}
               >
-                <span className="document-type">{sourceTypeLabel[document.sourceType]}</span>
+                <span className="document-type">{document.origin === "agent" ? "AI 생성" : sourceTypeLabel[document.sourceType]} · {document.confirmationStatus === "confirmed" ? "확인됨" : document.confirmationStatus === "superseded" ? "이전 버전" : "검토 필요"}</span>
                 <strong>{document.title}</strong>
                 <small>
                   {document.jurisdiction ?? "관할권 미지정"} ·{" "}
@@ -250,7 +280,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               <dl>
                 <div>
                   <dt>상태</dt>
-                  <dd>{detail.status}</dd>
+                  <dd>{detail.confirmationStatus === "confirmed" ? "사용자 확인됨" : detail.confirmationStatus === "superseded" ? "원문 변경 또는 새 버전으로 대체됨" : "미확인 · 검색 제외"}</dd>
                 </div>
                 <div>
                   <dt>관할권</dt>
@@ -275,6 +305,18 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                   <code>{detail.sourceUri}</code>
                 </p>
               )}
+              {detail.sourceMessages.length > 0 && (
+                <section className="document-chunks">
+                  <h3>근거가 된 사용자 원문</h3>
+                  {detail.sourceMessages.map((source) => (
+                    <article key={source.id}>
+                      <small>{source.kind} · {source.id}</small>
+                      {source.prompt && <p>AI 질문: {source.prompt}</p>}
+                      <p style={{ whiteSpace: "pre-wrap" }}>{source.content}</p>
+                    </article>
+                  ))}
+                </section>
+              )}
               <section className="document-chunks">
                 <div>
                   <h3>저장된 내용</h3>
@@ -283,14 +325,26 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                 {detail.chunks.length === 0 ? (
                   <p>표시할 청크가 없습니다.</p>
                 ) : (
-                  detail.chunks.slice(0, 4).map((chunk) => (
+                  detail.chunks.map((chunk) => (
                     <article key={chunk.id}>
                       <span>청크 {chunk.chunkIndex + 1}</span>
-                      <p>{chunk.content.length > 900 ? `${chunk.content.slice(0, 900)}…` : chunk.content}</p>
+                      <p style={{ whiteSpace: "pre-wrap" }}>{chunk.content}</p>
                     </article>
                   ))
                 )}
               </section>
+              {canWrite && (!detail.projectId || canIndex) && detail.confirmationStatus !== "superseded" && (
+                <section className="document-chunks">
+                  <p>원문에 없는 가정과 미결 질문은 확인된 요구사항으로 취급하지 않습니다. 원문과 다른 내용은 요구사항을 수정한 뒤 다시 분석하세요.</p>
+                  <label>
+                    <input type="checkbox" checked={reviewed} disabled={busy} onChange={(event) => setReviewed(event.target.checked)} />
+                    원문과 문서 전체를 검토했으며 다음 분석의 참고 자료로 사용하는 데 동의합니다.
+                  </label>
+                  <button type="button" className="primary-button" disabled={busy || !reviewed} onClick={() => void confirm()}>
+                    {busy ? "반영 중…" : detail.retrievalEligible ? "확인 및 색인 재시도" : "확인하고 참고 자료로 사용"}
+                  </button>
+                </section>
+              )}
               {canDelete && (
                 <footer>
                   {archiveTarget === detail.id ? (

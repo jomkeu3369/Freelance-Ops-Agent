@@ -124,6 +124,15 @@ export interface EstimationPolicy {
   version: number;
 }
 
+export interface MemorySourceMessage {
+  id: string;
+  eventOrder: number;
+  kind: string;
+  content: string;
+  prompt: string | null;
+  createdAt: string;
+}
+
 export interface KnowledgeDocument {
   id: string;
   workspaceId: string;
@@ -135,6 +144,19 @@ export interface KnowledgeDocument {
   effectiveFrom: string | null;
   effectiveUntil: string | null;
   contentSha256: string;
+  origin: "user" | "agent" | "external";
+  memoryType: string;
+  confirmationStatus: "confirmed" | "unconfirmed" | "superseded";
+  retrievalEligible: boolean;
+  projectId: string | null;
+  sourceRunId: string | null;
+  sourceMessageIds: string[];
+  parentDocumentIds: string[];
+  supersedes: string | null;
+  revisionNumber: number;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
+  sourceMessages: MemorySourceMessage[];
   status: string;
   chunks: Array<{ id: string; chunkIndex: number; content: string; embeddingModel: string | null; startOffset: number | null; endOffset: number | null }>;
   createdAt: string;
@@ -572,7 +594,7 @@ export function updateProject(session: AuthSession, project: Project, status: Pr
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/status`,
     { method: "PATCH", body: JSON.stringify({ status }) },
     session.accessToken
-  ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); return updated; });
+  ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return updated; });
 }
 
 export function updateProjectDetails(session: AuthSession, project: Project, input: ProjectInput): Promise<Project> {
@@ -580,7 +602,7 @@ export function updateProjectDetails(session: AuthSession, project: Project, inp
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}`,
     { method: "PATCH", body: JSON.stringify({ ...input, status: project.status }) },
     session.accessToken,
-  ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); return updated; });
+  ).then((updated) => { invalidateQueries(`projects:${session.workspaceId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return updated; });
 }
 
 export interface QuotationAssumptionSuggestion {
@@ -615,7 +637,7 @@ export function createRequirementVersion(
     `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/requirements`,
     { method: "POST", body: JSON.stringify(input) },
     session.accessToken,
-  ).then((version) => { invalidateQueries(`requirements:${session.workspaceId}:${projectId}`); return version; });
+  ).then((version) => { invalidateQueries(`requirements:${session.workspaceId}:${projectId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return version; });
 }
 
 export function listRateCards(session: AuthSession): Promise<RateCard[]> {
@@ -678,6 +700,17 @@ export function createDocument(
     { method: "POST", body: JSON.stringify(input) },
     session.accessToken,
   ).then((document) => { invalidateQueries(`documents:${session.workspaceId}`); return document; });
+}
+
+export async function confirmDocument(session: AuthSession, document: KnowledgeDocument): Promise<{ document: KnowledgeDocument; indexStatus: "INDEXED" | "PENDING" | "KEYWORD_ONLY" }> {
+  const result = await request<{ document: KnowledgeDocument; indexStatus: "INDEXED" | "PENDING" | "KEYWORD_ONLY" }>(
+    `/api/v2/workspaces/${session.workspaceId}/documents/${document.id}/confirm`,
+    { method: "POST", body: JSON.stringify({ expectedVersion: document.version }) },
+    session.accessToken
+  );
+  invalidateQueries(`documents:${session.workspaceId}`);
+  invalidateQueries(`document:${session.workspaceId}:${document.id}`);
+  return result;
 }
 
 export function archiveDocument(session: AuthSession, documentId: string): Promise<void> {
@@ -881,12 +914,14 @@ export function startAgentRun(
   );
 }
 
-export function getAgentRun(session: AuthSession, runId: string): Promise<AgentRunView> {
-  return request(
+export async function getAgentRun(session: AuthSession, runId: string): Promise<AgentRunView> {
+  const result = await request<AgentRunView>(
     `/api/v2/workspaces/${session.workspaceId}/agent-runs/${runId}`,
     {},
     session.accessToken,
   );
+  if (result.status === "COMPLETED") invalidateQueries(`documents:${session.workspaceId}`);
+  return result;
 }
 
 export function suggestQuotationAssumption(

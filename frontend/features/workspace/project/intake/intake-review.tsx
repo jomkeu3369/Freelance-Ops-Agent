@@ -226,7 +226,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             </ul>
           )}
           <p>
-            업로드한 파일은 이 프로젝트의 참고 자료로 보관되며, AI 분석이 필요한 내용을 찾을 때 활용됩니다.
+            업로드한 파일은 워크스페이스 자료로 저장됩니다. 근거 자료 화면에서 내용을 확인한 후 AI 분석에 사용됩니다.
           </p>
         </div>
       </div>

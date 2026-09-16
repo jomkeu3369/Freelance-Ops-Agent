@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.service;
-
+import org.springframework.context.ApplicationEventPublisher;
+import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
+import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity;
@@ -10,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.time.Instant;
 import java.util.UUID;
 
@@ -22,11 +23,13 @@ public class AgentRunProjectionService {
     private final AgentRunRepository runRepository;
     private final AgentInterruptionService interruptionService;
     private final AgentCostService costService;
+    private final ApplicationEventPublisher events;
 
-    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService) {
+    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events) {
         this.runRepository = runRepository;
         this.interruptionService = interruptionService;
         this.costService = costService;
+        this.events = events;
     }
 
     @Transactional
@@ -34,6 +37,13 @@ public class AgentRunProjectionService {
         AgentRunEntity run = lock(runId, workspaceId);
         interruptionService.synchronize(run, view);
         costService.synchronize(run, view);
+        if (view.status() == AgentRunStatus.COMPLETED && view.result() != null) {
+            view.result().departmentResults().stream()
+                .filter(result -> result.department() == DepartmentName.REQUIREMENTS && "COMPLETED".equals(result.status()))
+                .findFirst().ifPresent(result -> events.publishEvent(new RequirementAnalysisCompleted(
+                    run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), result.summary(), view.result().referencedDocumentIds()
+                )));
+        }
         run.synchronizeStatus(view.status(), Instant.now());
         run.scheduleReconciliation(Instant.now().plus(RECONCILIATION_INTERVAL));
     }

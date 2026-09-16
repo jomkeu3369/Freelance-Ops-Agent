@@ -1,5 +1,4 @@
 package com.freelanceops.backend.domain.knowledge.service;
-
 import com.freelanceops.backend.domain.knowledge.entity.*;
 import com.freelanceops.backend.domain.knowledge.model.RaptorNodeKind;
 import com.freelanceops.backend.domain.knowledge.repository.*;
@@ -20,7 +19,7 @@ public class RaptorRetrievalService {
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentChunkEntity> retrieve(UUID workspaceId, float[] queryEmbedding, int treeTopK, int evidenceTopK) {
+    public List<DocumentChunkEntity> retrieve(UUID workspaceId, UUID projectId, UUID excludedRunId, float[] queryEmbedding, String embeddingModel, int treeTopK, int evidenceTopK) {
         if (queryEmbedding == null || queryEmbedding.length != 1536 || treeTopK < 1 || evidenceTopK < 1) throw new IllegalArgumentException("invalid RAPTOR retrieval request");
         RaptorActiveSnapshotEntity active = activeSnapshotRepository.findById(workspaceId).orElse(null);
         if (active == null) return List.of();
@@ -28,15 +27,16 @@ public class RaptorRetrievalService {
         if (nodes.isEmpty()) throw new IllegalStateException("active RAPTOR snapshot has no nodes");
 
         Map<UUID, RaptorNodeEntity> nodesById = new HashMap<>(); nodes.forEach(node -> nodesById.put(node.id(), node));
-        List<RaptorNodeEntity> selected = nodeSearchRepository.nearest(workspaceId, active.snapshotId(), queryEmbedding, Math.min(treeTopK, nodes.size()));
+        List<RaptorNodeEntity> selected = nodeSearchRepository.nearest(workspaceId, active.snapshotId(), queryEmbedding, embeddingModel, Math.min(treeTopK, nodes.size()));
         Set<UUID> leafNodeIds = new HashSet<>();
         for (RaptorNodeEntity node : selected) collectLeaves(node, nodesById, leafNodeIds, new HashSet<>());
         List<UUID> rankedChunkIds = leafNodeIds.stream().map(nodesById::get)
             .sorted(Comparator.comparingDouble((RaptorNodeEntity node) -> cosine(node.embedding(), queryEmbedding)).reversed())
-            .limit(evidenceTopK).map(RaptorNodeEntity::sourceChunkId).toList();
+            .map(RaptorNodeEntity::sourceChunkId).toList();
         Map<UUID, DocumentChunkEntity> chunksById = new HashMap<>();
-        chunkRepository.findAllById(rankedChunkIds).stream().filter(chunk -> workspaceId.equals(chunk.workspaceId())).forEach(chunk -> chunksById.put(chunk.id(), chunk));
-        return rankedChunkIds.stream().map(chunksById::get).filter(Objects::nonNull).toList();
+        if (rankedChunkIds.isEmpty()) return List.of();
+        chunkRepository.findEligibleByIds(workspaceId, projectId, excludedRunId, rankedChunkIds).forEach(chunk -> chunksById.put(chunk.id(), chunk));
+        return rankedChunkIds.stream().map(chunksById::get).filter(Objects::nonNull).limit(evidenceTopK).toList();
     }
 
     private static void collectLeaves(RaptorNodeEntity node, Map<UUID, RaptorNodeEntity> nodesById, Set<UUID> output, Set<UUID> path) {
