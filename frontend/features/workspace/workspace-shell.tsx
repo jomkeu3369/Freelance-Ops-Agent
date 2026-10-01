@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "../../app/lib/ui-language";
 import { ReactNode, useSyncExternalStore, useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { WorkspaceContext, WorkspaceScreens } from "./workspace-context";
@@ -52,6 +53,7 @@ interface WorkspaceShellProps {
 }
 
 export function WorkspaceShell({ children }: WorkspaceShellProps) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const [pipelinePreferences, setPipelinePreferences] = useState<PipelinePreferences>({
@@ -489,12 +491,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     return (
       <main id="main-content" className="workspace-loading" aria-busy="true">
         <CircleNotch size={30} className="spin" />
-        <span>업무 공간을 준비하고 있습니다.</span>
+        <span>{t("업무 공간을 준비하고 있습니다.")}</span>
       </main>
     );
   }
 
-  if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={error} setError={setError} />;
+  if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={t(error)} setError={setError} />;
 
   const handleSwitchWorkspace = async (workspaceId: string) => {
     const nextSession = { ...session, workspaceId: workspaceId };
@@ -659,21 +661,19 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         onSwitchWorkspace={handleSwitchWorkspace}
       />
 
-      <main id="main-content" ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label="업무 내용">
+      <main id="main-content" ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label={t("업무 내용")}>
         {error && (
           <div className="error-banner" role="alert">
             <Warning size={19} />
-            <span>{error}</span>
+            <span>{t(error)}</span>
             <button type="button" onClick={() => setError(null)}>
-              닫기
-            </button>
+              {t("닫기")}</button>
           </div>
         )}
         <WorkspaceContext.Provider value={screens}>
           {loadedWorkspaceId === session.workspaceId ? children : (
             <div className="workspace-loading" role="status" aria-busy="true">
-              <CircleNotch size={30} className="spin" /> 업무 공간을 불러오고 있습니다.
-            </div>
+              <CircleNotch size={30} className="spin" /> {t("업무 공간을 불러오고 있습니다.")}</div>
           )}
         </WorkspaceContext.Provider>
       </main>

@@ -43,13 +43,21 @@ async function readFeatureTree(directory) {
 }
 
 async function read(path) {
+  const normalizeInterfaceCalls = source => source
+    .replace(/=\{t\(("(?:[^"\\]|\\.)*")\)\}/g, '=$1')
+    .replace(/\{t\(("(?:[^"\\]|\\.)*")\)\}/g, (_, literal) => JSON.parse(literal))
+    .replace(/t\(("(?:[^"\\]|\\.)*")\)/g, '$1');
   const features = {
     "../app/page.tsx": "../features/home/",
     "../app/workspace/page.tsx": "../features/workspace/",
     "../app/proposal/[token]/page.tsx": "../features/proposal/"
   };
-  if (!features[path]) return readFile(new URL(path, import.meta.url), "utf8");
-  const source = await readFeatureTree(new URL(features[path], import.meta.url));
+  if (!features[path]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    if (path === "../app/layout.tsx") return source + await readFile(new URL('../app/lib/ui-language.tsx', import.meta.url), 'utf8');
+    return normalizeInterfaceCalls(source);
+  }
+  const source = normalizeInterfaceCalls(await readFeatureTree(new URL(features[path], import.meta.url)));
   // Ignore formatting-only newlines inside JSX while keeping content checks intact.
   return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
 }

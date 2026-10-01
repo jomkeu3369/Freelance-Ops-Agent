@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "../../app/lib/ui-language";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -9,6 +10,7 @@ import ProposalSummary from "./components/ProposalSummary";
 import ProposalDecisionForm from "./components/ProposalDecisionForm";
 
 export default function ProposalPage() {
+  const t = useT();
   const params = useParams<{ token: string }>();
   const token = params.token;
   const [proposal, setProposal] = useState<SharedProposal | null>(null);
@@ -52,11 +54,11 @@ export default function ProposalPage() {
     return (
       <main id="main-content" className="proposal-state">
         <Warning size={34} />
-        <h1>제안서를 열 수 없습니다.</h1>
-        <p>{error}</p>
+        <h1>{t("제안서를 열 수 없습니다.")}</h1>
+        <p>{t(error)}</p>
         <div className="state-actions">
-          <button type="button" className="primary-button" onClick={retryLoading}>다시 시도</button>
-          <Link className="quiet-button" href="/">홈으로 이동</Link>
+          <button type="button" className="primary-button" onClick={retryLoading}>{t("다시 시도")}</button>
+          <Link className="quiet-button" href="/">{t("홈으로 이동")}</Link>
         </div>
       </main>
     );
@@ -66,7 +68,7 @@ export default function ProposalPage() {
     return (
       <main id="main-content" className="proposal-state" aria-busy="true">
         <CircleNotch size={30} className="spin" />
-        <p>제안서를 확인하고 있습니다.</p>
+        <p>{t("제안서를 확인하고 있습니다.")}</p>
       </main>
     );
   }
@@ -76,17 +78,16 @@ export default function ProposalPage() {
       <header className="proposal-header">
         <Link href="/">Freelance Ops</Link>
         <div>
-          <span>견적 제안서 · v{proposal.versionNumber}</span>
+          <span>{t("견적 제안서 · v")}{proposal.versionNumber}</span>
           <button type="button" onClick={printProposal}>
-            <Printer size={17} /> PDF로 저장
-          </button>
+            <Printer size={17} /> {t("PDF로 저장")}</button>
         </div>
       </header>
       <ProposalSummary proposal={proposal} />
       <ProposalDecisionForm token={token} />
       <footer className="proposal-footer">
         <span>Freelance Ops</span>
-        <p>이 링크는 {new Date(proposal.shareExpiresAt).toLocaleDateString("ko-KR")}까지 유효합니다.</p>
+        <p>{t("이 링크는")}{new Date(proposal.shareExpiresAt).toLocaleDateString("ko-KR")}{t("까지 유효합니다.")}</p>
       </footer>
     </main>
   );

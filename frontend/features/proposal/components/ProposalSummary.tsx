@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import { FileText } from "@phosphor-icons/react";
 import { SharedProposal } from "../../../app/lib/api";
 
@@ -8,6 +9,7 @@ function getUnitLabel(unit: string) {
 }
 
 export default function ProposalSummary({ proposal }: { proposal: SharedProposal }) {
+  const t = useT();
   function formatMoney(value: number) {
     return new Intl.NumberFormat("ko-KR", { style: "currency", currency: proposal.currency, maximumFractionDigits: 0 }).format(value);
   }
@@ -18,19 +20,19 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
         <div>
           <span>{proposal.scenario} PROPOSAL</span>
           <h1>{proposal.projectTitle}</h1>
-          <p>범위, 금액과 산정 근거를 확인한 뒤 아래에서 의사를 남겨주세요.</p>
+          <p>{t("범위, 금액과 산정 근거를 확인한 뒤 아래에서 의사를 남겨주세요.")}</p>
         </div>
         <div className="proposal-total">
-          <span>제안 금액</span>
+          <span>{t("제안 금액")}</span>
           <strong>{formatMoney(proposal.total)}</strong>
-          <small>유효 기간 {proposal.validUntil ?? "별도 협의"}</small>
+          <small>{t("유효 기간")}{proposal.validUntil ?? "별도 협의"}</small>
         </div>
       </section>
 
       <section className="proposal-items">
         <div className="proposal-section-title">
           <FileText size={21} />
-          <h2>작업 범위와 산정 근거</h2>
+          <h2>{t("작업 범위와 산정 근거")}</h2>
         </div>
         {proposal.items.map((item, index) => (
           <article key={`${item.title}-${index}`}>
@@ -42,12 +44,12 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
               </div>
             </div>
             <dl>
-              <div><dt>공수</dt><dd>{item.quantity} {getUnitLabel(item.unit)}</dd></div>
-              <div><dt>단가</dt><dd>{formatMoney(item.unitRate)}</dd></div>
-              <div><dt>금액</dt><dd>{formatMoney(item.total)}</dd></div>
+              <div><dt>{t("공수")}</dt><dd>{item.quantity} {getUnitLabel(item.unit)}</dd></div>
+              <div><dt>{t("단가")}</dt><dd>{formatMoney(item.unitRate)}</dd></div>
+              <div><dt>{t("금액")}</dt><dd>{formatMoney(item.total)}</dd></div>
             </dl>
             <aside>
-              <span>{item.basis.type === "EVIDENCE" ? "검증된 근거" : "확인할 가정"}</span>
+              <span>{item.basis.type === "EVIDENCE" ? t("검증된 근거") : t("확인할 가정")}</span>
               <p>{item.basis.content}</p>
             </aside>
           </article>
@@ -55,13 +57,13 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
       </section>
 
       <section className="proposal-calculation">
-        <h2>금액 요약</h2>
+        <h2>{t("금액 요약")}</h2>
         <dl>
-          <div><dt>항목 합계</dt><dd>{formatMoney(proposal.subtotal)}</dd></div>
-          <div><dt>할인</dt><dd>− {formatMoney(proposal.discountTotal)}</dd></div>
-          <div><dt>위험 대비 금액</dt><dd>{formatMoney(proposal.riskBufferAmount)}</dd></div>
-          <div><dt>세금</dt><dd>{formatMoney(proposal.taxAmount)}</dd></div>
-          <div><dt>최종 합계</dt><dd>{formatMoney(proposal.total)}</dd></div>
+          <div><dt>{t("항목 합계")}</dt><dd>{formatMoney(proposal.subtotal)}</dd></div>
+          <div><dt>{t("할인")}</dt><dd>− {formatMoney(proposal.discountTotal)}</dd></div>
+          <div><dt>{t("위험 대비 금액")}</dt><dd>{formatMoney(proposal.riskBufferAmount)}</dd></div>
+          <div><dt>{t("세금")}</dt><dd>{formatMoney(proposal.taxAmount)}</dd></div>
+          <div><dt>{t("최종 합계")}</dt><dd>{formatMoney(proposal.total)}</dd></div>
         </dl>
       </section>
     </>

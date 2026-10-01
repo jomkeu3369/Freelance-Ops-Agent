@@ -1,3 +1,4 @@
+import { useT, LanguageSelector } from "../../../app/lib/ui-language";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -8,6 +9,7 @@ import { useTheme } from "next-themes";
 const subscribeToHydration = () => () => undefined;
 
 export function HomeHeader() {
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
@@ -27,33 +29,34 @@ export function HomeHeader() {
   }
 
   return (
-    <header className="nav-shell" aria-label="주요 탐색" onBlur={(event) => {
+    <header className="nav-shell" aria-label={t("주요 탐색")} onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
     }}>
-      <Link className="brand" href="#top" aria-label="Freelance Ops 홈">
+      <Link className="brand" href="#top" aria-label={t("Freelance Ops 홈")}>
         <Image src="/figma/logo.svg" alt="" width={32} height={32} />
         <span className="brand-wordmark">Freelance Ops</span>
       </Link>
-      <button ref={menuButton} type="button" className="icon-button home-menu-toggle" aria-label={menuOpen ? "페이지 메뉴 닫기" : "페이지 메뉴 열기"} aria-expanded={menuOpen} aria-controls="home-navigation" onClick={() => setMenuOpen((open) => !open)}>
+      <button ref={menuButton} type="button" className="icon-button home-menu-toggle" aria-label={menuOpen ? t("페이지 메뉴 닫기") : t("페이지 메뉴 열기")} aria-expanded={menuOpen} aria-controls="home-navigation" onClick={() => setMenuOpen((open) => !open)}>
         {menuOpen ? <X size={20} /> : <List size={20} />}
       </button>
-      <nav id="home-navigation" className={`nav-links${menuOpen ? " is-open" : ""}`} aria-label="페이지 이동">
-        <a href="#product" onClick={() => closeMenu("#product")}>제품 소개</a>
-        <a href="#workflow" onClick={() => closeMenu("#workflow")}>작동 방식</a>
-        <a href="#evidence" onClick={() => closeMenu("#evidence")}>검증 원칙</a>
-        <a href="#audience" onClick={() => closeMenu("#audience")}>대상 사용자</a>
+      <nav id="home-navigation" className={`nav-links${menuOpen ? " is-open" : ""}`} aria-label={t("페이지 이동")}>
+        <a href="#product" onClick={() => closeMenu("#product")}>{t("제품 소개")}</a>
+        <a href="#workflow" onClick={() => closeMenu("#workflow")}>{t("작동 방식")}</a>
+        <a href="#evidence" onClick={() => closeMenu("#evidence")}>{t("검증 원칙")}</a>
+        <a href="#audience" onClick={() => closeMenu("#audience")}>{t("대상 사용자")}</a>
       </nav>
       <div className="nav-actions">
+        <LanguageSelector />
         <button
           className="icon-button"
           type="button"
           onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          aria-label={isDark ? t("라이트 모드로 전환") : t("다크 모드로 전환")}
         >
           {isDark ? <Sun size={19} weight="bold" /> : <Moon size={19} weight="bold" />}
         </button>
-        <Link className="text-link" href="/workspace">로그인</Link>
-        <Link className="primary-button compact" href="/workspace">요구사항 정리 시작하기</Link>
+        <Link className="text-link" href="/workspace">{t("로그인")}</Link>
+        <Link className="primary-button compact" href="/workspace">{t("요구사항 정리 시작하기")}</Link>
       </div>
     </header>
   );

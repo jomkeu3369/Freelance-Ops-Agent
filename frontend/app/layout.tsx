@@ -30,7 +30,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>
-        <a className="skip-link" href="#main-content">본문으로 건너뛰기</a>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
 import { LiveWorkflow, snapshotFromEvents } from "../../../../app/components/live-workflow";
 import { interruptionDraftKey } from "../../../../app/lib/interruption-draft.mjs";
@@ -27,13 +28,14 @@ interface AnalysisStepProps {
 }
 
 export function AnalysisStep({ session, run, runId, events, busy, snapshot, canCancel, canRespond, reviewFocused, costUsage, onToggleFocus, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+  const t = useT();
   function handleCancel() {
     void onCancel();
   }
 
   return (
     <>
-    {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? "개인 API 키" : "기본 제공 AI"} · {run.metadata.provider} · {run.metadata.model}</p>}
+    {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} · {run.metadata.model}</p>}
     <PetWorkspace key={runId ?? "pending"} run={run} />
     <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
       <div id="run-execution-graph" className="graph-panel" hidden={reviewFocused}>
@@ -42,15 +44,14 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
           canCancel &&
           (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && (
             <div className="run-action-bar">
-              <span>필요하면 현재 실행을 안전하게 중단할 수 있습니다.</span>
+              <span>{t("필요하면 현재 실행을 안전하게 중단할 수 있습니다.")}</span>
               <button
                 type="button"
                 className="quiet-button danger"
                 disabled={busy}
                 onClick={handleCancel}
               >
-                {busy ? <CircleNotch className="spin" /> : <Warning size={17} />} 실행 중단
-              </button>
+                {busy ? <CircleNotch className="spin" /> : <Warning size={17} />} {t("실행 중단")}</button>
             </div>
           )}
         <AnalysisTimeline events={events} run={run} />
@@ -58,7 +59,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
 
       <aside className="run-inspector">
         <div className="panel-title inspector-title">
-          <span>분석 결과</span>
+          <span>{t("분석 결과")}</span>
           <div>
             {run && (
               <small className="run-status-chip">{runStatusLabels[run.status] ?? run.status}</small>
@@ -72,11 +73,10 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
             >
               {reviewFocused ? (
                 <>
-                  <Graph size={16} /> 진행 상황 보기
-                </>
+                  <Graph size={16} /> {t("진행 상황 보기")}</>
               ) : (
                 <>
-                  결과 크게 보기 <ArrowRight size={15} />
+                  {t("결과 크게 보기")}<ArrowRight size={15} />
                 </>
               )}
             </button>
@@ -85,7 +85,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
         {!run ? (
           <div className="inspector-empty">
             <Clock size={26} />
-            <p>실행 결과와 확인 질문이 여기에 나타납니다.</p>
+            <p>{t("실행 결과와 확인 질문이 여기에 나타납니다.")}</p>
           </div>
         ) : run.status === "WAITING_FOR_USER" && run.interruption ? (
           <InterruptionForm
@@ -102,21 +102,21 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
           <div className="run-failed">
             <Warning size={30} />
             <h3>
-              {run.status === "CANCELLED" ? "사용자가 실행을 중단했습니다." : "실행이 중단되었습니다."}
+              {run.status === "CANCELLED" ? t("사용자가 실행을 중단했습니다.") : t("실행이 중단되었습니다.")}
             </h3>
             <p>
               {run.status === "CANCELLED"
-                ? "저장된 프로젝트와 이전 결과는 변경되지 않습니다."
+                ? t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")
                 : runFailureMessage(run.errorCode)}
             </p>
-            {run.status === "FAILED" && run.errorCode && <small>오류 코드 · {run.errorCode}</small>}
+            {run.status === "FAILED" && run.errorCode && <small>{t("오류 코드 ·")}{run.errorCode}</small>}
           </div>
         ) : run.result ? (
           <AnalysisResult run={run} events={events} costUsage={costUsage} onCompareQuotes={onCompareQuotes} />
         ) : (
           <div className="inspector-empty running">
             <CircleNotch size={29} className="spin" />
-            <p>결과를 만들고 있습니다. 그래프에서 현재 단계를 확인하세요.</p>
+            <p>{t("결과를 만들고 있습니다. 그래프에서 현재 단계를 확인하세요.")}</p>
           </div>
         )}
       </aside>

@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import type { FormEvent } from "react";
 import {
   AuthSession,
@@ -30,6 +31,7 @@ interface OutcomeReviewProps {
 }
 
 export function OutcomeReview({ session, project, permissions }: OutcomeReviewProps) {
+  const t = useT();
   const canRead = permissions.has("outcome.read");
   const canWrite = permissions.has("outcome.write");
   const canReadQuotations = permissions.has("quotation.read");
@@ -78,15 +80,14 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     return (
       <div className="workspace-empty">
         <Graph size={38} />
-        <h2>프로젝트 결과를 볼 수 없습니다.</h2>
-        <p>결과 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.</p>
+        <h2>{t("프로젝트 결과를 볼 수 없습니다.")}</h2>
+        <p>{t("결과 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.")}</p>
       </div>
     );
   if (loading)
     return (
       <div className="section-loading">
-        <CircleNotch className="spin" /> 결과 기록을 확인하고 있습니다.
-      </div>
+        <CircleNotch className="spin" /> {t("결과 기록을 확인하고 있습니다.")}</div>
     );
   const approvedQuotation = outcome?.approvedQuotationId
     ? (quotations.find((quotation) => quotation.id === outcome.approvedQuotationId) ?? null)
@@ -126,101 +127,99 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
   return (
     <section className="outcome-review">
       <div className="guided-copy outcome-guided-copy">
-        <span>프로젝트 회고</span>
+        <span>{t("프로젝트 회고")}</span>
         <h2>
-          끝난 프로젝트를 다음
-          <br />
-          견적의 근거로 남기세요.
-        </h2>
-        <p>실제 공수와 비용을 직접 확정해 두면 이후 유사한 프로젝트의 참고 자료로 활용할 수 있습니다.</p>
+          {t("끝난 프로젝트를 다음")}<br />
+          {t("견적의 근거로 남기세요.")}</h2>
+        <p>{t("실제 공수와 비용을 직접 확정해 두면 이후 유사한 프로젝트의 참고 자료로 활용할 수 있습니다.")}</p>
       </div>
       {error && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {error}
+          {t(error)}
         </div>
       )}
       {outcome && (
         <div className="outcome-snapshot">
           <Graph size={25} />
           <div>
-            <span>확정된 결과</span>
-            <strong>이익률 {Math.round(outcome.profitMargin * 100)}%</strong>
+            <span>{t("확정된 결과")}</span>
+            <strong>{t("이익률")}{Math.round(outcome.profitMargin * 100)}%</strong>
           </div>
           <dl>
             <div>
-              <dt>매출</dt>
+              <dt>{t("매출")}</dt>
               <dd>{formatMoney(outcome.totalRevenue, project.currency)}</dd>
             </div>
             <div>
-              <dt>실제 비용</dt>
+              <dt>{t("실제 비용")}</dt>
               <dd>{formatMoney(outcome.actualCost, project.currency)}</dd>
             </div>
             <div>
-              <dt>실제 공수</dt>
-              <dd>{outcome.actualHours}시간</dd>
+              <dt>{t("실제 공수")}</dt>
+              <dd>{outcome.actualHours}{t("시간")}</dd>
             </div>
           </dl>
         </div>
       )}
       {outcome && approvedQuotation && (
-        <details className="outcome-variance workspace-disclosure"><summary>견적 대비 차이</summary>
+        <details className="outcome-variance workspace-disclosure"><summary>{t("견적 대비 차이")}</summary>
           <header>
-            <span>예상 대비 오차</span>
+            <span>{t("예상 대비 오차")}</span>
             <strong>
               {approvedQuotation.scenario} v{approvedQuotation.versionNumber}
             </strong>
           </header>
           <dl>
             <div>
-              <dt>견적 대비 계약 금액</dt>
+              <dt>{t("견적 대비 계약 금액")}</dt>
               <dd className={revenueVariance != null && revenueVariance >= 0 ? "positive" : "negative"}>
                 {revenueVariance == null
                   ? "-"
                   : `${revenueVariance >= 0 ? "+" : ""}${formatMoney(revenueVariance, project.currency)}`}
               </dd>
               <small>
-                견적 {formatMoney(approvedQuotation.total, approvedQuotation.currency)} → 실제{" "}
+                {t("견적")}{formatMoney(approvedQuotation.total, approvedQuotation.currency)} {t("→ 실제")}{" "}
                 {formatMoney(outcome.totalRevenue, project.currency)}
               </small>
             </div>
             <div>
-              <dt>시간 공수 오차</dt>
+              <dt>{t("시간 공수 오차")}</dt>
               <dd className={hoursVariance != null && hoursVariance <= 0 ? "positive" : "negative"}>
                 {hoursVariance == null
-                  ? "비교 불가"
-                  : `${hoursVariance >= 0 ? "+" : ""}${hoursVariance.toLocaleString()}시간`}
+                  ? t("비교 불가")
+                  : t("{v0}{v1}시간", { v0: hoursVariance >= 0 ? "+" : "", v1: hoursVariance.toLocaleString() })}
               </dd>
               <small>
                 {quotedHours > 0
-                  ? `시간 단위 견적 ${quotedHours.toLocaleString()}시간 → 실제 ${outcome.actualHours.toLocaleString()}시간`
-                  : "시간 단위 견적 항목이 없습니다."}
+                  ? t("시간 단위 견적 {v0}시간 → 실제 {v1}시간", { v0: quotedHours.toLocaleString(), v1: outcome.actualHours.toLocaleString() })
+                  : t("시간 단위 견적 항목이 없습니다.")}
               </small>
             </div>
           </dl>
         </details>
       )}
-      <details className="workspace-disclosure outcome-editor"><summary>{outcome ? "결과 기록 상세·수정" : "프로젝트 결과 기록하기"}</summary>
+      <details className="workspace-disclosure outcome-editor"><summary>{outcome ? t("결과 기록 상세·수정") : t("프로젝트 결과 기록하기")}</summary>
       <form className="outcome-form" aria-busy={busy} onSubmit={handleSubmit}>
         <fieldset className="outcome-fields" disabled={busy}>
           <section className="outcome-basics" aria-labelledby="outcome-basics-title">
             <header>
-              <span>최종 결과</span>
+              <span>{t("최종 결과")}</span>
               <div>
-                <h3 id="outcome-basics-title">계약과 실제 투입을 확정하세요.</h3>
-                <p>발행한 견적을 연결하면 예상 대비 차이를 함께 확인할 수 있습니다.</p>
+                <h3 id="outcome-basics-title">{t("계약과 실제 투입을 확정하세요.")}</h3>
+                <p>{t("발행한 견적을 연결하면 예상 대비 차이를 함께 확인할 수 있습니다.")}</p>
               </div>
             </header>
             <div className="outcome-metrics-grid">
               <label className="outcome-control outcome-quotation-control">
-                <span>기준 견적</span>
+                <span>{t("기준 견적")}</span>
                 <div className="outcome-select-shell">
                   <select
                     name="approvedQuotationId"
                     disabled={!canWrite}
                     defaultValue={outcome?.approvedQuotationId ?? ""}
                   >
-                    <option value="">견적을 연결하지 않음</option>
+                    <option value="">{t("견적을 연결하지 않음")}</option>
                     {quotations
                       .filter((quotation) => quotation.status === "PUBLISHED")
                       .map((quotation) => (
@@ -232,10 +231,10 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                   </select>
                   <CaretDown size={15} />
                 </div>
-                <small>고객이 승인한 견적</small>
+                <small>{t("고객이 승인한 견적")}</small>
               </label>
               <label className="outcome-control">
-                <span>최종 계약 금액</span>
+                <span>{t("최종 계약 금액")}</span>
                 <div className="outcome-input-shell">
                   <input
                     name="totalRevenue"
@@ -250,7 +249,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                 </div>
               </label>
               <label className="outcome-control">
-                <span>실제 비용</span>
+                <span>{t("실제 비용")}</span>
                 <div className="outcome-input-shell">
                   <input
                     name="actualCost"
@@ -265,7 +264,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                 </div>
               </label>
               <label className="outcome-control">
-                <span>실제 공수</span>
+                <span>{t("실제 공수")}</span>
                 <div className="outcome-input-shell">
                   <input
                     name="actualHours"
@@ -276,11 +275,11 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     readOnly={!canWrite}
                     defaultValue={outcome?.actualHours ?? ""}
                   />
-                  <small>시간</small>
+                  <small>{t("시간")}</small>
                 </div>
               </label>
               <label className="outcome-control">
-                <span>완료일</span>
+                <span>{t("완료일")}</span>
                 <div className="outcome-date-shell">
                   <input
                     name="completedOn"
@@ -295,8 +294,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
           <section className="actual-work-items">
             <header className="actual-work-heading">
               <div>
-                <span>항목별 실제 결과</span>
-                <small>세부 작업을 나누면 다음 견적에서 공수 오차를 비교할 수 있습니다.</small>
+                <span>{t("항목별 실제 결과")}</span>
+                <small>{t("세부 작업을 나누면 다음 견적에서 공수 오차를 비교할 수 있습니다.")}</small>
               </div>
               {canWrite && workItems.length > 0 && (
                 <button
@@ -309,8 +308,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     ])
                   }
                 >
-                  <Plus size={16} /> 항목 추가
-                </button>
+                  <Plus size={16} /> {t("항목 추가")}</button>
               )}
             </header>
             {workItems.length === 0 ? (
@@ -319,8 +317,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                   <Graph size={22} />
                 </span>
                 <div>
-                  <strong>세부 항목은 선택 사항입니다.</strong>
-                  <span>전체 비용과 공수만 기록해도 결과를 저장할 수 있습니다.</span>
+                  <strong>{t("세부 항목은 선택 사항입니다.")}</strong>
+                  <span>{t("전체 비용과 공수만 기록해도 결과를 저장할 수 있습니다.")}</span>
                 </div>
                 {canWrite && (
                   <button
@@ -328,18 +326,16 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     className="secondary-button"
                     onClick={() => setWorkItems([{ title: "", actualHours: 0, actualCost: 0, notes: "" }])}
                   >
-                    <Plus size={16} /> 첫 항목 추가
-                  </button>
+                    <Plus size={16} /> {t("첫 항목 추가")}</button>
                 )}
               </div>
             ) : (
               workItems.map((item, index) => (
                 <fieldset key={index} disabled={!canWrite}>
-                  <legend>실제 작업 {index + 1}</legend>
+                  <legend>{t("실제 작업")}{index + 1}</legend>
                   <div className="form-row">
                     <label>
-                      작업명
-                      <input
+                      {t("작업명")}<input
                         required
                         maxLength={200}
                         value={item.title}
@@ -355,8 +351,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       />
                     </label>
                     <label>
-                      실제 공수
-                      <input
+                      {t("실제 공수")}<input
                         type="number"
                         min="0"
                         step="0.5"
@@ -373,8 +368,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       />
                     </label>
                     <label>
-                      실제 비용
-                      <input
+                      {t("실제 비용")}<input
                         type="number"
                         min="0"
                         step="0.01"
@@ -392,8 +386,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     </label>
                   </div>
                   <label>
-                    작업 메모
-                    <textarea
+                    {t("작업 메모")}<textarea
                       rows={3}
                       maxLength={3000}
                       value={item.notes}
@@ -414,8 +407,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                         setWorkItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
                       }
                     >
-                      <Trash size={16} /> 항목 제거
-                    </button>
+                      <Trash size={16} /> {t("항목 제거")}</button>
                   )}
                 </fieldset>
               ))
@@ -424,24 +416,21 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
           <section className="outcome-change-card" aria-labelledby="outcome-change-title">
             <header>
               <div>
-                <span>견적 대비 기록</span>
-                <h3 id="outcome-change-title">처음 예상과 달라진 점</h3>
-                <p>다음 견적에서 같은 오차를 줄일 수 있도록 실제로 달라진 이유만 남겨주세요.</p>
+                <span>{t("견적 대비 기록")}</span>
+                <h3 id="outcome-change-title">{t("처음 예상과 달라진 점")}</h3>
+                <p>{t("다음 견적에서 같은 오차를 줄일 수 있도록 실제로 달라진 이유만 남겨주세요.")}</p>
               </div>
               <PencilSimple size={22} />
             </header>
-            <div className="outcome-change-prompts" aria-label="작성할 내용 예시">
+            <div className="outcome-change-prompts" aria-label={t("작성할 내용 예시")}>
               <span>
-                <Plus size={13} /> 추가된 범위
-              </span>
+                <Plus size={13} /> {t("추가된 범위")}</span>
               <span>
-                <Trash size={13} /> 제외된 작업
-              </span>
+                <Trash size={13} /> {t("제외된 작업")}</span>
               <span>
-                <Clock size={13} /> 일정·비용 변화
-              </span>
+                <Clock size={13} /> {t("일정·비용 변화")}</span>
             </div>
-            <label htmlFor="outcome-change-reason">변경 내용</label>
+            <label htmlFor="outcome-change-reason">{t("변경 내용")}</label>
             <div className="outcome-change-input">
               <textarea
                 id="outcome-change-reason"
@@ -450,17 +439,16 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                 maxLength={5000}
                 readOnly={!canWrite}
                 defaultValue={outcome?.changeReason ?? ""}
-                placeholder="예: 고객 확인이 늦어져 일정이 3일 늘었고, 관리자 통계 화면이 추가되어 개발 공수가 6시간 증가했습니다."
+                placeholder={t("예: 고객 확인이 늦어져 일정이 3일 늘었고, 관리자 통계 화면이 추가되어 개발 공수가 6시간 증가했습니다.")}
               />
             </div>
-            <small>확인된 사실을 중심으로 작성하세요. 비어 있어도 결과를 저장할 수 있습니다.</small>
+            <small>{t("확인된 사실을 중심으로 작성하세요. 비어 있어도 결과를 저장할 수 있습니다.")}</small>
           </section>
           {canWrite ? (
             <button type="submit" className="primary-button" disabled={busy}>
-              {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 사용자 확정 결과 저장
-            </button>
+              {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("사용자 확정 결과 저장")}</button>
           ) : (
-            <p className="permission-note">읽기 전용 결과입니다.</p>
+            <p className="permission-note">{t("읽기 전용 결과입니다.")}</p>
           )}
         </fieldset>
       </form>

@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { AgentRunView } from "../../../../app/lib/api";
 import { useRef, useState, useEffect, FormEvent } from "react";
 import { parseInterruptionDraft, createInterruptionDraft } from "../../../../app/lib/interruption-draft.mjs";
@@ -18,6 +19,7 @@ interface InterruptionFormProps {
 }
 
 export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, draftRunId, busy, canRespond, onSubmit }: InterruptionFormProps) {
+  const t = useT();
   const formRef = useRef<HTMLFormElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<string[]>(() => {
@@ -119,8 +121,8 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
 
   return (
     <form ref={formRef} className="interruption-form" aria-busy={pending} onSubmit={handleSubmit}>
-      <span>사용자 확인 필요</span>
-      <h3>다음 내용을 확인해 주세요.</h3>
+      <span>{t("사용자 확인 필요")}</span>
+      <h3>{t("다음 내용을 확인해 주세요.")}</h3>
       {interruption.questions.map((question, index) => (
         <label key={question}>
           {question}
@@ -140,8 +142,8 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
         <div className="interruption-actions">
           <div aria-live="polite">
             {hasDraft
-              ? "작성 중인 답변은 이 탭에 임시 저장됩니다."
-              : "답변을 입력하면 이 탭에 임시 저장됩니다."}
+              ? t("작성 중인 답변은 이 탭에 임시 저장됩니다.")
+              : t("답변을 입력하면 이 탭에 임시 저장됩니다.")}
           </div>
           <span>
             <button
@@ -150,19 +152,17 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
               disabled={pending || !hasDraft}
               onClick={clearDraft}
             >
-              <Trash size={16} /> 답변 지우기
-            </button>
+              <Trash size={16} /> {t("답변 지우기")}</button>
             <button
               type="submit"
               className="primary-button"
               disabled={pending || answers.some((answer) => !answer.trim())}
             >
-              {pending ? <CircleNotch className="spin" /> : <ArrowRight />} 답변하고 계속
-            </button>
+              {pending ? <CircleNotch className="spin" /> : <ArrowRight />} {t("답변하고 계속")}</button>
           </span>
         </div>
       ) : (
-        <p className="permission-note">이 실행에 답변할 권한이 없습니다.</p>
+        <p className="permission-note">{t("이 실행에 답변할 권한이 없습니다.")}</p>
       )}
     </form>
   );

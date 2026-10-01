@@ -1,6 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { demoQuote, demoReducer, initialDemoState } from '../features/home/product-demo.mjs';
+import { demoQuote, demoReducer, initialDemoState, demoProjectSnapshot } from '../features/home/product-demo.mjs';
+
+test('one inquiry retains its identity and moves to negotiation only after the proposal is ready', () => {
+  let state = initialDemoState();
+  assert.equal(demoProjectSnapshot(state).ready, false);
+  for (let tick = 0; tick < 10; tick++) {
+    const card = demoProjectSnapshot(state);
+    assert.equal(card.id, 'FO-024');
+    assert.equal(card.column, tick === 9 ? 1 : 0);
+    if (tick > 0) assert.equal(card.ready, true);
+    state = demoReducer(state, { type: 'tick' });
+  }
+  state = demoReducer(state, { type: 'replay' });
+  assert.equal(demoProjectSnapshot(state).ready, false);
+  assert.equal(demoProjectSnapshot(state).column, 0);
+});
+test('manual and reduced-motion snapshots are complete previews; ordinary pause does not advance the card', () => {
+  const initial = initialDemoState();
+  assert.equal(demoProjectSnapshot(initial, true).ready, true);
+  let state = demoReducer(initial, { type: 'pause' });
+  assert.equal(demoProjectSnapshot(state).ready, false);
+  state = demoReducer(state, { type: 'select', step: 4 });
+  assert.equal(demoProjectSnapshot(state).column, 1);
+  state = demoReducer(state, { type: 'pause' });
+  assert.equal(state.selected, state.step);
+  assert.equal(demoProjectSnapshot(state).column, 0);
+});
 
 test('a demo run alternates running and complete, records each stage once, and stops', () => {
   let state = initialDemoState();

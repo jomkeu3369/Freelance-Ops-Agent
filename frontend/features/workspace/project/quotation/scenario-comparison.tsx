@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { quotationStatusLabels } from "../../shared/constants";
 import { formatMoney } from "../../shared/formatters";
 import {
@@ -7,17 +8,18 @@ import {
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
+  const t = useT();
   const { latestByScenario, aiDraftByScenario, rawAIDraftByScenario, rateCards, project, taxRate, scenario, activateScenario } = model;
 
   return (
     <>
-      <section className="scenario-comparison" aria-label="견적 시나리오 비교">
+      <section className="scenario-comparison" aria-label={t("견적 시나리오 비교")}>
         <header>
           <div>
-            <span>견적안 비교</span>
-            <strong>핵심안·권장안·확장안을 한눈에 비교하세요.</strong>
+            <span>{t("견적안 비교")}</span>
+            <strong>{t("핵심안·권장안·확장안을 한눈에 비교하세요.")}</strong>
           </div>
-          <small>카드를 선택하면 해당 견적안을 이어서 편집할 수 있습니다.</small>
+          <small>{t("카드를 선택하면 해당 견적안을 이어서 편집할 수 있습니다.")}</small>
         </header>
         <div>
           {(["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => {
@@ -41,7 +43,7 @@ export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
                 disabled={!quotation && !generated}
                 onClick={() => activateScenario(value)}
               >
-                <span>{value === "LEAN" ? "핵심" : value === "RECOMMENDED" ? "권장" : "확장"}</span>
+                <span>{value === "LEAN" ? t("핵심") : value === "RECOMMENDED" ? t("권장") : t("확장")}</span>
                 {quotation ? (
                   <>
                     <strong>{formatMoney(quotation.total, quotation.currency)}</strong>
@@ -53,17 +55,17 @@ export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
                 ) : generated ? (
                   <>
                     <strong>{formatMoney(generatedTotal, project.currency)}</strong>
-                    <small>AI 초안 · {generated.items.length}개 작업</small>
+                    <small>{t("AI 초안 ·")}{generated.items.length}{t("개 작업")}</small>
                   </>
                 ) : dismissed ? (
                   <>
-                    <strong>초안 폐기됨</strong>
-                    <small>새 분석에서 다시 생성됩니다.</small>
+                    <strong>{t("초안 폐기됨")}</strong>
+                    <small>{t("새 분석에서 다시 생성됩니다.")}</small>
                   </>
                 ) : (
                   <>
-                    <strong>작성 전</strong>
-                    <small>저장된 견적 없음</small>
+                    <strong>{t("작성 전")}</strong>
+                    <small>{t("저장된 견적 없음")}</small>
                   </>
                 )}
               </button>

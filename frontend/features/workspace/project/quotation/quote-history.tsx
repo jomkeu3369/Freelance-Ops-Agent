@@ -1,16 +1,18 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { quotationScenarioLabels, quotationStatusLabels } from "../../shared/constants";
 import { formatMoney } from "../../shared/formatters";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
+  const t = useT();
   const { quotations, loadQuotation } = model;
 
   return (
     <>
       {quotations.length > 0 && (
         <details className="quote-history workspace-disclosure">
-          <summary>견적 이력 <small>{quotations.length}건</small></summary>
+          <summary>{t("견적 이력")}<small>{quotations.length}{t("건")}</small></summary>
           {quotations.map((quotation) => (
             <button type="button" key={quotation.id} onClick={() => loadQuotation(quotation)}>
               <strong>

@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
   MeProfile,
@@ -29,6 +30,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ session, permissions, projectCount, canCreateProject, onCreateProject, onOpenPipeline }: SettingsPanelProps) {
+  const t = useT();
   const canReadQuotation = permissions.has("quotation.read");
   const canWriteQuotation = permissions.has("quotation.write");
   const canConnectAI = permissions.has("agent.run");
@@ -97,27 +99,26 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
   if (loading)
     return (
       <div className="section-loading">
-        <CircleNotch className="spin" /> 작업 공간 설정을 확인하고 있습니다.
-      </div>
+        <CircleNotch className="spin" /> {t("작업 공간 설정을 확인하고 있습니다.")}</div>
     );
 
   return (
     <section className="settings-page">
       <div className="settings-heading">
-        <span>작업 공간 설정</span>
+        <span>{t("작업 공간 설정")}</span>
         <h1>
           {onboardingComplete
-            ? "견적 기준을 관리하세요."
+            ? t("견적 기준을 관리하세요.")
             : hasActiveRateCard && policy
-              ? "첫 고객 문의를 등록하세요."
-              : "먼저 견적 기준을 정해볼까요?"}
+              ? t("첫 고객 문의를 등록하세요.")
+              : t("먼저 견적 기준을 정해볼까요?")}
         </h1>
-        <p>자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다.</p>
+        <p>{t("자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다.")}</p>
       </div>
       {error && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {error}
+          {t(error)}
         </div>
       )}
       {saved && (
@@ -129,15 +130,15 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
       <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
         <header>
           <div>
-            <span>빠른 시작</span>
-            <h2 id="workspace-onboarding-title">첫 견적을 만들 준비</h2>
+            <span>{t("빠른 시작")}</span>
+            <h2 id="workspace-onboarding-title">{t("첫 견적을 만들 준비")}</h2>
             <p>
               {onboardingComplete
-                ? "준비가 끝났습니다. 이제 고객 문의를 등록하고 견적을 시작해 보세요."
-                : "필요한 항목을 순서대로 안내해 드립니다. 저장한 내용은 진행 상황에 바로 반영됩니다."}
+                ? t("준비가 끝났습니다. 이제 고객 문의를 등록하고 견적을 시작해 보세요.")
+                : t("필요한 항목을 순서대로 안내해 드립니다. 저장한 내용은 진행 상황에 바로 반영됩니다.")}
             </p>
           </div>
-          <strong aria-label={`온보딩 ${completedSetupCount}/${setupStates.length} 완료`}>
+          <strong aria-label={t("온보딩 {v0}/{v1} 완료", { v0: completedSetupCount, v1: setupStates.length })}>
             {completedSetupCount}
             <small> / {setupStates.length}</small>
           </strong>
@@ -159,8 +160,8 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           >
             <span>{setupStates[0] ? <CheckCircle weight="fill" /> : "01"}</span>
             <div>
-              <strong>작업 공간 확인</strong>
-              <p>{setupStates[0] ? workspace?.name : "작업 공간 정보를 확인하고 있습니다."}</p>
+              <strong>{t("작업 공간 확인")}</strong>
+              <p>{setupStates[0] ? workspace?.name : t("작업 공간 정보를 확인하고 있습니다.")}</p>
             </div>
           </article>
           <article
@@ -169,15 +170,15 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           >
             <span>{setupStates[1] ? <CheckCircle weight="fill" /> : "02"}</span>
             <div>
-              <strong>서비스 단가 등록</strong>
+              <strong>{t("서비스 단가 등록")}</strong>
               <p>
                 {setupStates[1]
-                  ? `${rateCards.filter((card) => card.active).length}개 단가 사용 중`
-                  : "견적 계산에 사용할 시간·일·고정 단가를 등록하세요."}
+                  ? t("{v0}개 단가 사용 중", { v0: rateCards.filter((card) => card.active).length })
+                  : t("견적 계산에 사용할 시간·일·고정 단가를 등록하세요.")}
               </p>
               {!setupStates[1] && canWriteQuotation && (
                 <a href="#rate-cards">
-                  단가 등록하기 <ArrowRight />
+                  {t("단가 등록하기")}<ArrowRight />
                 </a>
               )}
             </div>
@@ -188,15 +189,15 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           >
             <span>{setupStates[2] ? <CheckCircle weight="fill" /> : "03"}</span>
             <div>
-              <strong>계산 기준 확인</strong>
+              <strong>{t("계산 기준 확인")}</strong>
               <p>
                 {setupStates[2]
-                  ? `세율 ${Math.round(policy!.defaultTaxRate * 100)}% · 위험 대비율 ${Math.round(policy!.defaultRiskBufferRate * 100)}%`
-                  : "세금과 위험 대비 기준을 확인하세요."}
+                  ? t("세율 {v0}% · 위험 대비율 {v1}%", { v0: Math.round(policy!.defaultTaxRate * 100), v1: Math.round(policy!.defaultRiskBufferRate * 100) })
+                  : t("세금과 위험 대비 기준을 확인하세요.")}
               </p>
               {!setupStates[2] && canWriteQuotation && (
                 <a href="#estimation-policy">
-                  계산 기준 확인하기 <ArrowRight />
+                  {t("계산 기준 확인하기")}<ArrowRight />
                 </a>
               )}
             </div>
@@ -207,15 +208,15 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           >
             <span>{setupStates[3] ? <CheckCircle weight="fill" /> : "04"}</span>
             <div>
-              <strong>첫 문의 등록</strong>
+              <strong>{t("첫 문의 등록")}</strong>
               <p>
                 {setupStates[3]
-                  ? `${projectCount}개 프로젝트 연결됨`
-                  : "고객 원문을 등록해 실제 업무 흐름을 시작하세요."}
+                  ? t("{v0}개 프로젝트 연결됨", { v0: projectCount })
+                  : t("고객 원문을 등록해 실제 업무 흐름을 시작하세요.")}
               </p>
               {!setupStates[3] && canCreateProject && (
                 <button type="button" onClick={onCreateProject}>
-                  문의 등록하기 <ArrowRight />
+                  {t("문의 등록하기")}<ArrowRight />
                 </button>
               )}
             </div>
@@ -223,32 +224,32 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
         </div>
         {onboardingComplete && (
           <button type="button" className="secondary-button onboarding-finish" onClick={onOpenPipeline}>
-            프로젝트 현황 보기 <ArrowRight size={17} />
+            {t("프로젝트 현황 보기")}<ArrowRight size={17} />
           </button>
         )}
       </div>
       <div className="settings-grid">
-        <aside className="settings-index" aria-label="작업 공간 설정 목차">
+        <aside className="settings-index" aria-label={t("작업 공간 설정 목차")}>
           <a href="#workspace-profile">
             <span>01</span>
-            <strong>작업 공간</strong>
-            <small>계정과 작업 공간</small>
+            <strong>{t("작업 공간")}</strong>
+            <small>{t("계정과 작업 공간")}</small>
           </a>
           <a href="#rate-cards">
             <span>02</span>
-            <strong>서비스 단가</strong>
-            <small>시간·일·고정 금액</small>
+            <strong>{t("서비스 단가")}</strong>
+            <small>{t("시간·일·고정 금액")}</small>
           </a>
           <a href="#estimation-policy">
             <span>03</span>
-            <strong>계산 기준</strong>
-            <small>세금·위험·할인 기준</small>
+            <strong>{t("계산 기준")}</strong>
+            <small>{t("세금·위험·할인 기준")}</small>
           </a>
           {canConnectAI && (
             <a href="#ai-connections">
               <span>04</span>
-              <strong>AI 연결</strong>
-              <small>내 API 키 관리</small>
+              <strong>{t("AI 연결")}</strong>
+              <small>{t("내 API 키 관리")}</small>
             </a>
           )}
         </aside>
@@ -257,21 +258,21 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
             <header>
               <span>01</span>
               <div>
-                <h2>작업 공간</h2>
-                <p>현재 로그인한 계정과 작업 공간을 확인합니다.</p>
+                <h2>{t("작업 공간")}</h2>
+                <p>{t("현재 로그인한 계정과 작업 공간을 확인합니다.")}</p>
               </div>
             </header>
             <dl>
               <div>
-                <dt>작업 공간</dt>
+                <dt>{t("작업 공간")}</dt>
                 <dd>{workspace?.name ?? session.workspaceId}</dd>
               </div>
               <div>
-                <dt>사용자</dt>
+                <dt>{t("사용자")}</dt>
                 <dd>{profile?.displayName ?? profile?.email ?? "-"}</dd>
               </div>
               <div>
-                <dt>상태</dt>
+                <dt>{t("상태")}</dt>
                 <dd>{profile ? (accountStatusLabels[profile.status] ?? "상태 확인 필요") : "-"}</dd>
               </div>
             </dl>
@@ -280,8 +281,8 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
             <header>
               <span>02</span>
               <div>
-                <h2>서비스 단가</h2>
-                <p>견적 계산에 사용할 시간·일·고정 금액 기준을 등록합니다.</p>
+                <h2>{t("서비스 단가")}</h2>
+                <p>{t("견적 계산에 사용할 시간·일·고정 금액 기준을 등록합니다.")}</p>
               </div>
             </header>
             <RateCardManager
@@ -295,8 +296,8 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
             <header>
               <span>03</span>
               <div>
-                <h2>견적 계산 기준</h2>
-                <p>견적에 기본으로 반영할 세금, 위험 대비율과 할인 한도를 정합니다.</p>
+                <h2>{t("견적 계산 기준")}</h2>
+                <p>{t("견적에 기본으로 반영할 세금, 위험 대비율과 할인 한도를 정합니다.")}</p>
               </div>
             </header>
             {policy ? (
@@ -313,21 +314,21 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               ) : (
                 <dl>
                   <div>
-                    <dt>기본 세율</dt>
+                    <dt>{t("기본 세율")}</dt>
                     <dd>{Math.round(policy.defaultTaxRate * 100)}%</dd>
                   </div>
                   <div>
-                    <dt>위험 대비율</dt>
+                    <dt>{t("위험 대비율")}</dt>
                     <dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd>
                   </div>
                   <div>
-                    <dt>최대 할인율</dt>
+                    <dt>{t("최대 할인율")}</dt>
                     <dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd>
                   </div>
                 </dl>
               )
             ) : (
-              <p>계산 기준을 확인할 수 없는 계정입니다.</p>
+              <p>{t("계산 기준을 확인할 수 없는 계정입니다.")}</p>
             )}
           </section>
           {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}

@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
   Project,
@@ -57,6 +58,7 @@ interface ProjectWorkbenchProps {
 }
 
 export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+  const t = useT();
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [connections, setConnections] = useState<AIConnection[]>([]);
   const [credentialId, setCredentialId] = useState("");
@@ -173,8 +175,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             <div className="project-heading-actions">
               {permissions.has("project.write") && (
                 <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}>
-                  <PencilSimple size={18} /> 프로젝트 정보 수정
-                </button>
+                  <PencilSimple size={18} /> {t("프로젝트 정보 수정")}</button>
               )}
               {permissions.has("project.delete") && (
                 <button
@@ -182,23 +183,21 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                   className="quiet-button danger"
                   onClick={() => setShowDeleteConfirmation(true)}
                 >
-                  <Trash size={18} /> 프로젝트 삭제
-                </button>
+                  <Trash size={18} /> {t("프로젝트 삭제")}</button>
               )}
             </div>
           )}
         {!runId && activeStep === "agent" && canRun ? (
           <div className="run-controls">
-            <label>AI 연결<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
-              <option value="">기본 제공 AI</option>
-              {connections.map((item) => <option key={item.id} value={item.id}>내 키 · {item.provider} · {item.model} · {item.maskedKey}</option>)}
+            <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
+              <option value="">{t("기본 제공 AI")}</option>
+              {connections.map((item) => <option key={item.id} value={item.id}>{t("내 키 ·")}{item.provider} · {item.model} · {item.maskedKey}</option>)}
             </select></label>
-            {connectionError && <span role="alert">개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.</span>}
-            {credentialId && !connection && <span role="alert">선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.</span>}
+            {connectionError && <span role="alert">{t("개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.")}</span>}
+            {credentialId && !connection && <span role="alert">{t("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.")}</span>}
             {!credentialId && <>
             <label>
-              AI 제공사
-              <select
+              {t("AI 제공사")}<select
                 value={provider}
                 onChange={(event) => {
                   const nextProvider = event.target.value as Provider;
@@ -208,19 +207,18 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               >
                 <option value="OPENAI">OpenAI</option>
                 <option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>
-                  Gemini{configuredModelOptions.GEMINI.length === 0 ? " · 설정 필요" : ""}
+                  Gemini{configuredModelOptions.GEMINI.length === 0 ? t(" · 설정 필요") : ""}
                 </option>
               </select>
             </label>
             <label>
-              AI 모델
-              <select
+              {t("AI 모델")}<select
                 value={model}
                 disabled={configuredModelOptions[provider].length === 0}
                 onChange={(event) => setModel(event.target.value)}
               >
                 {configuredModelOptions[provider].length === 0 ? (
-                  <option value="">등록된 모델 없음</option>
+                  <option value="">{t("등록된 모델 없음")}</option>
                 ) : (
                   configuredModelOptions[provider].map((option) => (
                     <option key={option} value={option}>
@@ -231,20 +229,18 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               </select>
             </label>
             </>}
-            <span className="model-selection-note">{credentialId ? "내 키로 실행 · 제공사 계정에 청구" : "기본 제공 AI로 실행"} · 자동 전환 없음</span>
+            <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
             <button
               type="button"
               className="primary-button"
               disabled={busy || (credentialId ? !connection || connectionError : !model.trim())}
               onClick={() => connection ? onRun(connection.provider, connection.model, connection.id) : !credentialId && onRun(provider, model.trim())}
             >
-              {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
-            </button>
+              {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} {t("분석 시작")}</button>
           </div>
         ) : activeStep === "agent" && run && terminalStatuses.has(run.status) && canRun ? (
           <button type="button" className="secondary-button" onClick={onResetRun}>
-            <ArrowRight size={18} /> 새 분석 준비
-          </button>
+            <ArrowRight size={18} /> {t("새 분석 준비")}</button>
         ) : null}
       </div>
 
@@ -264,13 +260,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 <Trash size={22} />
               </span>
               <div>
-                <span>프로젝트 삭제</span>
-                <h2 id="project-delete-title">정말 삭제하시겠어요?</h2>
+                <span>{t("프로젝트 삭제")}</span>
+                <h2 id="project-delete-title">{t("정말 삭제하시겠어요?")}</h2>
               </div>
               <button
                 type="button"
                 className="project-delete-close"
-                aria-label="삭제 창 닫기"
+                aria-label={t("삭제 창 닫기")}
                 disabled={deletingProject}
                 onClick={closeDeleteConfirmation}
               >
@@ -278,24 +274,24 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               </button>
             </header>
             <div className="project-delete-copy" id="project-delete-description">
-              <p>삭제하면 다음 자료를 다시 복구할 수 없습니다.</p>
+              <p>{t("삭제하면 다음 자료를 다시 복구할 수 없습니다.")}</p>
               <ul>
-                <li>정리된 요구사항</li>
-                <li>AI 분석 기록</li>
-                <li>견적과 결과 기록</li>
+                <li>{t("정리된 요구사항")}</li>
+                <li>{t("AI 분석 기록")}</li>
+                <li>{t("견적과 결과 기록")}</li>
               </ul>
               {run && projectDeletionBlockingStatuses.has(run.status) && (
-                <p>진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다.</p>
+                <p>{t("진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다.")}</p>
               )}
             </div>
             <label>
-              <span>확인을 위해 프로젝트명을 입력해 주세요.</span>
+              <span>{t("확인을 위해 프로젝트명을 입력해 주세요.")}</span>
               <strong>{project.title}</strong>
               <input
                 autoComplete="off"
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder="프로젝트명 입력"
+                placeholder={t("프로젝트명 입력")}
               />
             </label>
             {deleteError && (
@@ -310,22 +306,20 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 disabled={deletingProject}
                 onClick={closeDeleteConfirmation}
               >
-                취소
-              </button>
+                {t("취소")}</button>
               <button
                 type="button"
                 className="danger-button"
                 disabled={deletingProject || deleteConfirmation !== project.title}
                 onClick={deleteProject}
               >
-                {deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} 영구 삭제
-              </button>
+                {deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} {t("영구 삭제")}</button>
             </div>
           </section>
         </div>
       )}
 
-      <nav className="workbench-steps" aria-label="프로젝트 진행 단계">
+      <nav className="workbench-steps" aria-label={t("프로젝트 진행 단계")}>
         {(
           [
             ["intake", "01", "문의"],

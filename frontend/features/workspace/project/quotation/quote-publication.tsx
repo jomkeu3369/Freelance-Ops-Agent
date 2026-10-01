@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import {
   Archive,
   ArrowRight,
@@ -9,6 +10,7 @@ import { formatMoney } from "../../shared/formatters";
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
+  const t = useT();
   const { saved, canPublish, busy, publishSavedQuotation, proposalShare, createCustomerLink, shareCopyState, copyCustomerLink, disableCustomerLink } = model;
 
   return (
@@ -16,13 +18,13 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
       {saved && (
         <article className="saved-quote" aria-live="polite">
           <div>
-            <span>견적 저장 완료 · {quotationStatusLabels[saved.status] ?? "상태 확인 필요"}</span>
+            <span>{t("견적 저장 완료 ·")}{quotationStatusLabels[saved.status] ?? "상태 확인 필요"}</span>
             <h3>
               {quotationScenarioLabels[saved.scenario]} v{saved.versionNumber}
             </h3>
             <p>
-              총액 {formatMoney(saved.total, saved.currency)} · 위험 대비율{" "}
-              {Math.round(saved.riskBufferRate * 100)}% · 세금 {formatMoney(saved.taxAmount, saved.currency)}
+              {t("총액")}{formatMoney(saved.total, saved.currency)} {t("· 위험 대비율")}{" "}
+              {Math.round(saved.riskBufferRate * 100)}{t("% · 세금")}{formatMoney(saved.taxAmount, saved.currency)}
             </p>
           </div>
           <div className="saved-quote-actions">
@@ -31,10 +33,10 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
                 type="button"
                 className="secondary-button"
                 disabled={busy || model.hasUnsavedDraft}
-                title={model.hasUnsavedDraft ? "변경한 초안을 먼저 저장해 주세요." : undefined}
+                title={model.hasUnsavedDraft ? t("변경한 초안을 먼저 저장해 주세요.") : undefined}
                 onClick={() => void publishSavedQuotation()}
               >
-                발행하기 <ArrowRight size={17} />
+                {t("발행하기")}<ArrowRight size={17} />
               </button>
             )}
             {saved.status === "PUBLISHED" && canPublish && !proposalShare && (
@@ -44,7 +46,7 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
                 disabled={busy}
                 onClick={() => void createCustomerLink()}
               >
-                고객 링크 만들기 <ArrowRight size={17} />
+                {t("고객 링크 만들기")}<ArrowRight size={17} />
               </button>
             )}
           </div>
@@ -55,13 +57,13 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
           <div>
             <span>
               {shareCopyState === "copied"
-                ? "고객 제안서 링크를 만들고 복사했습니다."
-                : "고객 제안서 링크를 만들었습니다."}
+                ? t("고객 제안서 링크를 만들고 복사했습니다.")
+                : t("고객 제안서 링크를 만들었습니다.")}
             </span>
             <small>
               {shareCopyState === "manual"
-                ? "자동 복사가 차단되었습니다. 아래 링크를 직접 복사하세요."
-                : `${new Date(proposalShare.expiresAt).toLocaleDateString("ko-KR")}까지 유효`}
+                ? t("자동 복사가 차단되었습니다. 아래 링크를 직접 복사하세요.")
+                : t("{v0}까지 유효", { v0: new Date(proposalShare.expiresAt).toLocaleDateString("ko-KR") })}
             </small>
           </div>
           <a href={proposalShare.url} target="_blank" rel="noopener noreferrer">
@@ -74,16 +76,14 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
               disabled={busy}
               onClick={() => void copyCustomerLink()}
             >
-              <Copy size={17} /> 링크 복사
-            </button>
+              <Copy size={17} /> {t("링크 복사")}</button>
             <button
               type="button"
               className="quiet-button danger"
               disabled={busy}
               onClick={() => void disableCustomerLink()}
             >
-              <Archive size={17} /> 링크 비활성화
-            </button>
+              <Archive size={17} /> {t("링크 비활성화")}</button>
           </div>
         </div>
       )}

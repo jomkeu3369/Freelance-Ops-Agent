@@ -1623,3 +1623,7 @@ summary:focus-visible { outline: 2px solid color-mix(in srgb, var(--ink) 68%, va
   .pipeline-status-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pipeline-list-open dl { align-items: flex-start; flex-direction: column; gap: 10px; }
 }
+.ui-language-selector { display: inline-flex; align-items: center; flex-shrink: 0; }
+.ui-language-selector select { width: auto; min-height: 44px; max-width: 104px; padding: 8px 6px; border: 1px solid var(--line,#ddd); border-radius: 8px; font: inherit; font-size: 13px; background: var(--surface-solid,var(--surface,#fff)); color: var(--ink,inherit); }
+.ui-language-selector select:focus-visible { outline: 2px solid #6750e8; outline-offset: 3px; }
+@media(max-width:600px) { .ui-language-selector select { max-width: 82px; font-size: 12px; } }

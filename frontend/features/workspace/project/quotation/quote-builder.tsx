@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { Receipt } from "@phosphor-icons/react";
 import { QuoteHistory } from "./quote-history";
 import { QuoteItemsEditor } from "./quote-items-editor";
@@ -10,14 +11,15 @@ import { useQuoteBuilder, type QuoteBuilderProps } from "./use-quote-builder";
 import { PetCouncil } from "../../pets/pet-council";
 
 export function QuoteBuilder(props: QuoteBuilderProps) {
+  const t = useT();
   const model = useQuoteBuilder(props);
 
   if (!model.canRead) {
     return (
       <div className="workspace-empty">
         <Receipt size={38} />
-        <h2>이 견적을 볼 수 없습니다.</h2>
-        <p>견적 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.</p>
+        <h2>{t("이 견적을 볼 수 없습니다.")}</h2>
+        <p>{t("견적 조회가 필요하다면 작업 공간 관리자에게 문의해 주세요.")}</p>
       </div>
     );
   }
@@ -26,7 +28,7 @@ export function QuoteBuilder(props: QuoteBuilderProps) {
     <section className="quote-builder">
       <QuoteToolbar model={model} />
       <QuoteNotices model={model} />
-      <details className="workspace-disclosure"><summary>견적안 비교 <small>핵심·권장·확장</small></summary><ScenarioComparison model={model} /></details>
+      <details className="workspace-disclosure"><summary>{t("견적안 비교")}<small>{t("핵심·권장·확장")}</small></summary><ScenarioComparison model={model} /></details>
       <PetCouncil key={`${props.session.workspaceId}:${props.session.userId}:${props.project.id}`} model={model} session={props.session} />
       <div className="quote-layout">
         <QuoteItemsEditor model={model} />

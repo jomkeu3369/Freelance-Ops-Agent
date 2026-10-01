@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import { FormEvent, useState } from "react";
 import { ArrowRight, CheckCircle, CircleNotch } from "@phosphor-icons/react";
 import { ApiError, submitProposalDecision } from "../../../app/lib/api";
@@ -11,6 +12,7 @@ function getDecisionMessage(decision: Decision) {
 }
 
 export default function ProposalDecisionForm({ token }: { token: string }) {
+  const t = useT();
   const [decision, setDecision] = useState<Decision>("APPROVED");
   const [submitted, setSubmitted] = useState<Decision | null>(null);
   const [responseRecorded, setResponseRecorded] = useState(false);
@@ -48,9 +50,9 @@ export default function ProposalDecisionForm({ token }: { token: string }) {
       <section className="proposal-decision">
         <div className="decision-complete">
           <CheckCircle size={38} />
-          <span>응답이 기록되었습니다.</span>
+          <span>{t("응답이 기록되었습니다.")}</span>
           <h2>{getDecisionMessage(submitted)}</h2>
-          <p>Freelance Ops가 응답 시각과 선택 내용을 안전하게 기록했습니다.</p>
+          <p>{t("Freelance Ops가 응답 시각과 선택 내용을 안전하게 기록했습니다.")}</p>
         </div>
       </section>
     );
@@ -60,28 +62,27 @@ export default function ProposalDecisionForm({ token }: { token: string }) {
     <section className="proposal-decision">
       <div>
         <span>YOUR DECISION</span>
-        <h2>이 제안에 대한 의견을 남겨주세요.</h2>
-        <p>남겨주신 선택과 의견은 담당자에게 바로 전달됩니다.</p>
+        <h2>{t("이 제안에 대한 의견을 남겨주세요.")}</h2>
+        <p>{t("남겨주신 선택과 의견은 담당자에게 바로 전달됩니다.")}</p>
       </div>
       <form aria-busy={busy} onSubmit={handleSubmit}>
         <fieldset className="proposal-response-fields" disabled={busy || responseRecorded}>
-          <div className="decision-options" role="group" aria-label="제안 응답">
-            <button type="button" aria-pressed={decision === "APPROVED"} className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>승인</button>
-            <button type="button" aria-pressed={decision === "CHANGES_REQUESTED"} className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>수정 요청</button>
-            <button type="button" aria-pressed={decision === "REJECTED"} className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>거절</button>
+          <div className="decision-options" role="group" aria-label={t("제안 응답")}>
+            <button type="button" aria-pressed={decision === "APPROVED"} className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>{t("승인")}</button>
+            <button type="button" aria-pressed={decision === "CHANGES_REQUESTED"} className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>{t("수정 요청")}</button>
+            <button type="button" aria-pressed={decision === "REJECTED"} className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>{t("거절")}</button>
           </div>
           <div className="form-row">
-            <label>이름<input name="clientName" required maxLength={120} /></label>
-            <label>이메일<input name="clientEmail" type="email" maxLength={320} /></label>
+            <label>{t("이름")}<input name="clientName" required maxLength={120} /></label>
+            <label>{t("이메일")}<input name="clientEmail" type="email" maxLength={320} /></label>
           </div>
           <label>
-            의견
-            <textarea name="comment" rows={5} maxLength={3000} placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요." />
+            {t("의견")}<textarea name="comment" rows={5} maxLength={3000} placeholder={t("승인 조건이나 수정이 필요한 내용을 남겨주세요.")} />
           </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
+          {error && <p className="form-error" role="alert">{t(error)}</p>}
           <button type="submit" className="primary-button">
             {busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />}
-            {" "}{busy ? "응답을 기록하고 있습니다." : "응답 제출"}
+            {" "}{busy ? t("응답을 기록하고 있습니다.") : t("응답 제출")}
           </button>
         </fieldset>
       </form>

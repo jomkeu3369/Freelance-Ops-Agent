@@ -235,3 +235,18 @@
   .figma-home .demo-scene[data-playing="true"] .demo-route-spinner { animation: none; }
   .figma-home .demo-view > h3 { animation: none; }
 }
+.figma-home .demo-project-flow { margin: 16px 0 20px; }
+.figma-home .demo-inquiry-composer { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-bottom: 14px; }
+.figma-home .demo-inquiry-composer label { display: block; font-size: 12px; font-weight: 600; margin-top: 10px; color: var(--ink); }
+.figma-home .demo-inquiry-composer input, .figma-home .demo-inquiry-composer textarea { display: block; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-top: 5px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; line-height: 1.6; resize: none; }
+.figma-home .demo-input-status, .figma-home .demo-board-note { display: block; font-size: 12px; line-height: 1.6; color: var(--muted); margin-top: 8px; }
+.figma-home .demo-project-board { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; position: relative; min-height: 204px; }
+.figma-home .demo-board-lane { border-top: 2px solid var(--line); background: color-mix(in srgb,var(--accent) 4%,var(--surface)); border-radius: 8px; padding-top: 8px; min-width: 0; }
+.figma-home .demo-board-lane > strong { display: inline-block; font-size: 13px; padding: 0 8px; color: var(--ink); }
+.figma-home .demo-board-lane > span { display: none; }
+.figma-home .demo-moving-card { position: absolute; top: 0; left: 0; box-sizing: border-box; padding: 12px; border: 1px solid color-mix(in srgb,var(--accent) 30%,var(--line)); border-radius: 10px; background: var(--surface); box-shadow: 0 4px 12px #41305a0a; opacity: 0; min-height: 148px; will-change: transform; }
+.figma-home .demo-card-id { font-size: 10px; color: var(--accent); font-weight: 600; }
+.figma-home .demo-moving-card h4 { font-size: 14px; line-height: 1.5; margin: 8px 0; color: var(--ink); }
+.figma-home .demo-moving-card p { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0; }
+.figma-home .demo-card-price { display: block; color: var(--accent); font-size: 12px; margin-top: 8px; }
+@media(max-width:600px) { .figma-home .demo-project-board { gap: 8px; min-height: 222px; } .figma-home .demo-moving-card { padding: 9px; min-height: 166px; } .figma-home .demo-moving-card h4 { font-size: 12px; } }
