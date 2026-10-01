@@ -1,4 +1,4 @@
-package com.freelanceops.backend.domain.mcp;
+package com.freelanceops.backend.global.mcp;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;

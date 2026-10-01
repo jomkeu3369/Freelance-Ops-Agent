@@ -1,4 +1,4 @@
-package com.freelanceops.backend.domain.mcp;
+package com.freelanceops.backend.global.mcp;
 
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
 import com.freelanceops.backend.global.config.AuthSecurityConfig;

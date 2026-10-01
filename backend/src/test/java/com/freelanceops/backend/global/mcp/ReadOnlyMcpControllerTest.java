@@ -1,4 +1,4 @@
-package com.freelanceops.backend.domain.mcp;
+package com.freelanceops.backend.global.mcp;
 
 import tools.jackson.databind.ObjectMapper;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunGatewayService;
