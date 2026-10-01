@@ -46,7 +46,7 @@ export function WorkspaceChrome({ session, profile, sidebarCollapsed, setSidebar
               : activeView === "knowledge"
                 ? "근거 자료 관리"
                 : activeView === "settings"
-                  ? "견적 금액 설정"
+                  ? "설정"
                   : "프로젝트 현황"}
           </strong>
           <span
@@ -150,13 +150,13 @@ export function WorkspaceChrome({ session, profile, sidebarCollapsed, setSidebar
           )}
           <button
             type="button"
-            aria-label="견적 금액 설정"
+            aria-label="설정"
             aria-current={activeView === "settings" ? "page" : undefined}
             className={activeView === "settings" ? "active" : ""}
             onClick={() => navigateWorkspace("settings")}
           >
             <Image src="/figma/payment.svg" alt="" width={24} height={24} />
-            <span>견적 금액 설정</span>
+            <span>설정</span>
           </button>
         </div>
         <div className="sidebar-foot">

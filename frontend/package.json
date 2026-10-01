@@ -10,6 +10,7 @@
     "build": "node scripts/validate-vercel-env.mjs && next build",
     "start": "next start",
     "test": "node --test tests/*.test.mjs",
+    "test:ui": "playwright test",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint .",
     "ci:check": "npm run typecheck && npm test && npm run lint",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@eslint/js": "9.39.4",
     "@next/eslint-plugin-next": "16.3.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

@@ -12,6 +12,7 @@ import { useState, useRef, useSyncExternalStore, useCallback, useEffect, FormEve
 import { pipelineColumns, pipelineStatusLabels } from "../shared/constants";
 import { CaretDown, CircleNotch, MagnifyingGlass, Plus, Warning, FolderOpen } from "@phosphor-icons/react";
 import { projectClientLabel, formatMoney } from "../shared/formatters";
+import { EmptyWorkspace } from "../project/empty-workspace";
 
 export const subscribeToCompactWorkspace = (onChange: () => void) => {
   const media = window.matchMedia("(max-width: 820px)");
@@ -165,6 +166,10 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
       setMovingId(null);
     }
   };
+
+  if (projects.length === 0 && !search.trim() && searchResults === null && !searching) {
+    return <EmptyWorkspace canCreate={canWrite} onCreate={onCreate} />;
+  }
 
   return (
     <section className="pipeline-page">

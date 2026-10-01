@@ -262,7 +262,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
             <div className="knowledge-empty">
               <FileText size={34} />
               <h2>검토할 자료를 선택하세요.</h2>
-              <p>문서의 provenance와 실제 저장 청크를 확인할 수 있습니다.</p>
+              <p>자료의 출처와 견적에 참고할 내용을 확인할 수 있습니다.</p>
             </div>
           ) : !detail ? (
             <div className="section-loading">
@@ -320,14 +320,14 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               <section className="document-chunks">
                 <div>
                   <h3>저장된 내용</h3>
-                  <span>{detail.chunks.length}개 청크</span>
+                  <span>{detail.chunks.length}개 내용 구간</span>
                 </div>
                 {detail.chunks.length === 0 ? (
-                  <p>표시할 청크가 없습니다.</p>
+                  <p>표시할 자료 내용이 없습니다.</p>
                 ) : (
                   detail.chunks.map((chunk) => (
                     <article key={chunk.id}>
-                      <span>청크 {chunk.chunkIndex + 1}</span>
+                      <span>내용 {chunk.chunkIndex + 1}</span>
                       <p style={{ whiteSpace: "pre-wrap" }}>{chunk.content}</p>
                     </article>
                   ))

@@ -148,7 +148,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               <div className="client-empty">
                 <AddressBook size={30} />
                 <strong>{clients.length === 0 ? "첫 고객을 등록하세요." : "검색 결과가 없습니다."}</strong>
-                <span>고객을 등록하면 프로젝트 생성 시 바로 선택할 수 있습니다.</span>
+                <span>{clients.length === 0 ? "고객을 등록하면 새 문의에 바로 연결할 수 있습니다." : "다른 검색어로 찾아보세요."}</span>
               </div>
             ) : (
               filtered.map((client) => {
@@ -158,6 +158,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                     type="button"
                     key={client.id}
                     className={selected?.id === client.id ? "active" : ""}
+                    aria-pressed={selected?.id === client.id}
                     onClick={() => {
                       setSelected(client);
                       setSaved(null);
