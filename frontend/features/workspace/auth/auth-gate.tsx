@@ -52,6 +52,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
     }
     setBusy(true);
     setError(null);
+    let accountCreated = false;
     try {
       const session =
         mode === "login"
@@ -62,9 +63,15 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               displayName: String(data.get("displayName")),
               workspaceName: String(data.get("workspaceName"))
             });
+      accountCreated = mode === "register";
       await onAuthenticated(session, mode === "register");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "인증 요청을 완료하지 못했습니다.");
+      if (accountCreated) {
+        setMode("login");
+        setError("계정은 생성되었습니다. 업무 공간을 불러오지 못했습니다. 로그인으로 다시 시도해 주세요.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "인증 요청을 완료하지 못했습니다.");
+      }
     } finally {
       setBusy(false);
     }
