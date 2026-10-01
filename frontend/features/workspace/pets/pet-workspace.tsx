@@ -15,7 +15,7 @@ export function PetWorkspace({ run }: { run: AgentRunView | null }) {
   const results = run?.result?.departmentResults.filter(result => advisor?.departments.includes(result.department)) ?? [];
   return (
     <section className="pet-workspace" aria-label={t("AI 펫 동료 작업 공간")}>
-      <header><div><span className="pet-eyebrow">{t("작은 동료들, 다른 관점")}</span><h3>{heading}</h3></div><button type="button" className="quiet-button" aria-expanded={!collapsed} aria-controls="pet-workspace-content" onClick={() => setCollapsed(!collapsed)}>{collapsed ? t("동료 펼치기") : t("동료 접기")}</button></header>
+      <header><div><span className="pet-eyebrow">{t("작은 동료들, 다른 관점")}</span><h3>{t(heading)}</h3></div><button type="button" className="quiet-button" aria-expanded={!collapsed} aria-controls="pet-workspace-content" onClick={() => setCollapsed(!collapsed)}>{collapsed ? t("동료 펼치기") : t("동료 접기")}</button></header>
       <p className="pet-workspace-note">{run?.status === "WAITING_FOR_USER" ? t("사용자의 답변을 기다리고 있어요. 확인 질문은 분석 결과에서 답변해 주세요.") : t("하나의 분석에서 일정·근거·수익 관점을 함께 검토합니다.")}</p>
       <div id="pet-workspace-content" hidden={collapsed}>
         <div className="pet-desk">

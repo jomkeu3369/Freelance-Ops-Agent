@@ -289,6 +289,26 @@ export interface RunAccepted {
   acceptedAt: string;
 }
 
+export interface EstimationPolicyProposal {
+  proposalId: string;
+  projectId: string;
+  sourceMessage: string;
+  status: "PENDING" | "APPLIED" | "EXPIRED";
+  before: EstimationPolicy;
+  after: EstimationPolicy;
+  confirmationToken: string;
+  expiresAt: string;
+  appliedAt: string | null;
+  createdAt: string;
+}
+
+export interface AgentRunHistoryItem {
+  runId: string;
+  requirementText: string;
+  status: AgentRunStatus;
+  createdAt: string;
+}
+
 export interface WorkflowEvent {
   eventId: number;
   runId: string;
@@ -660,6 +680,10 @@ export function getEstimationPolicy(session: AuthSession): Promise<EstimationPol
   return queryCached(`estimation-policy:${session.workspaceId}`, () => request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, {}, session.accessToken));
 }
 
+export function getCurrentEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, { cache: "no-store" }, session.accessToken);
+}
+
 export function saveEstimationPolicy(
   session: AuthSession,
   input: Omit<EstimationPolicy, "workspaceId" | "version">,
@@ -877,13 +901,14 @@ export function startAgentRun(
   session: AuthSession,
   project: Project,
   input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
+  message?: string,
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
     {
       method: "POST",
       body: JSON.stringify({
-        requirementText: project.requirementText,
+        requirementText: message ?? project.requirementText,
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
@@ -912,6 +937,43 @@ export function startAgentRun(
     },
     session.accessToken,
   );
+}
+
+export function listProjectAgentRunHistory(session: AuthSession, projectId: string): Promise<AgentRunHistoryItem[]> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/history?limit=20`,
+    { cache: "no-store" },
+    session.accessToken,
+  );
+}
+
+export function proposeEstimationPolicy(session: AuthSession, input: {
+  projectId: string;
+  sourceMessage: string;
+  defaultTaxRate: number;
+  defaultRiskBufferRate: number;
+  maximumDiscountRate: number;
+  expectedVersion: number;
+  idempotencyKey: string;
+}): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals`,
+    { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+
+export function listProjectEstimationPolicyProposals(session: AuthSession, projectId: string): Promise<EstimationPolicyProposal[]> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/estimation-policy/proposals`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function getEstimationPolicyProposal(session: AuthSession, proposalId: string): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function confirmEstimationPolicyProposal(session: AuthSession, proposalId: string, confirmationToken: string): Promise<EstimationPolicyProposal> {
+  return request<EstimationPolicyProposal>(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}/confirm`,
+    { method: "POST", body: JSON.stringify({ confirmationToken }) }, session.accessToken)
+    .then((proposal: EstimationPolicyProposal) => { invalidateQueries(`estimation-policy:${session.workspaceId}`); return proposal; });
 }
 
 export async function getAgentRun(session: AuthSession, runId: string): Promise<AgentRunView> {

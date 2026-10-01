@@ -9,9 +9,11 @@ import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
 import { PetWorkspace } from "../../pets/pet-workspace";
+import { AgentChat } from "./agent-chat";
 
 interface AnalysisStepProps {
   session: AuthSession;
+  projectId: string;
   run: AgentRunView | null;
   runId: string | null;
   events: WorkflowEvent[];
@@ -19,6 +21,10 @@ interface AnalysisStepProps {
   snapshot: ReturnType<typeof snapshotFromEvents>;
   canCancel: boolean;
   canRespond: boolean;
+  canRun: boolean;
+  canEditPolicy: boolean;
+  modelAvailable: boolean;
+  onSendMessage: (message: string) => Promise<boolean>;
   reviewFocused: boolean;
   costUsage: AgentRunUsage | null;
   onToggleFocus: () => void;
@@ -27,7 +33,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, run, runId, events, busy, snapshot, canCancel, canRespond, reviewFocused, costUsage, onToggleFocus, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, onSendMessage, reviewFocused, costUsage, onToggleFocus, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   function handleCancel() {
     void onCancel();
@@ -35,6 +41,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
 
   return (
     <>
+    <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy} canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable} onSend={onSendMessage} onCancel={onCancel} />
     {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} · {run.metadata.model}</p>}
     <PetWorkspace key={runId ?? "pending"} run={run} />
     <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>

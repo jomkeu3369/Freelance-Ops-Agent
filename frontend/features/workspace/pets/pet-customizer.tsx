@@ -16,7 +16,7 @@ export function PetCustomizer({ session, projectId, selection, disabled }: { ses
   const [preview, setPreview] = useState("idle");
   useEffect(() => {
     let current = true;
-    listPets(session).then(values => { if (current) { setProfiles(values); setDraft(values[0]); setStatus(""); } }).catch(() => { if (current) setStatus("동료 설정을 불러오지 못했습니다. 다시 불러와 주세요."); });
+    listPets(session).then(values => { if (current) { setProfiles(values); setDraft(values[0] ?? petDefaults[0]); setStatus(""); } }).catch(() => { if (current) setStatus("동료 설정을 불러오지 못했습니다. 다시 불러와 주세요."); });
     return () => { current = false; };
   }, [session, reload]);
   const locked = busy || disabled || !profiles;
@@ -27,7 +27,7 @@ export function PetCustomizer({ session, projectId, selection, disabled }: { ses
     setBusy(true); setStatus("");
     try {
       const value = await savePet(session, draft);
-      setProfiles(current => current!.map(pet => pet.slot === value.slot ? value : pet));
+      setProfiles(current => current?.some(pet => pet.slot === value.slot) ? current.map(pet => pet.slot === value.slot ? value : pet) : [...(current ?? []), value]);
       setDraft(value); setStatus("저장했습니다. 다음 분석부터 이 외형과 성향을 사용합니다.");
     } catch { setStatus("저장하지 못했습니다. 입력 내용은 유지됩니다. 다시 시도해 주세요."); }
     finally { setBusy(false); }
@@ -64,7 +64,7 @@ export function PetCustomizer({ session, projectId, selection, disabled }: { ses
       </fieldset>
     </div>
     <div className="pet-generation"><label htmlFor={`${prefix}-description`}>{t("한 문장으로 만들어 보기")}</label><textarea id={`${prefix}-description`} maxLength={500} disabled={locked} value={description} onChange={event => setDescription(event.target.value)} placeholder={t("무뚝뚝하지만 내 수익을 챙겨 주는, 별 장식을 단 검은 고양이")}/><p>{t("지원하는 동물·색·장식의 조합을 생성합니다.")}{selection ? t("{v0} · {v1} · {v2}", { v0: selection.credentialId ? t("내 키") : t("기본 제공 AI"), v1: selection.provider, v2: selection.model }) : t("위에서 사용할 AI를 선택해 주세요.")}<br/>{t("생성 버튼을 누르면 AI를 1회 호출합니다. 최대 1,000 출력 토큰 · 하루 20회(실패 포함), 사용한 모델의 비용이 발생할 수 있습니다.")}</p><button type="button" className="secondary-button" disabled={locked || !selection || !description.trim()} onClick={() => void generate()}>{busy ? t("처리 중…") : t("AI로 외형·성향 생성")}</button></div>
-    <div className="pet-save-actions"><button type="button" className="quiet-button" disabled={locked} onClick={() => { setDraft(petDefaults.find(pet => pet.slot === draft.slot)!); setStatus("기본 모습의 미리보기입니다. 저장하면 다음 분석부터 적용됩니다."); }}>{t("기본 모습으로 복원")}</button><button type="button" className="quiet-button" disabled={locked || !dirty} onClick={() => { setDraft(saved!); setStatus("저장된 설정으로 되돌렸습니다."); }}>{t("수정 취소")}</button><button type="button" className="primary-button" disabled={locked || !dirty || !validName} onClick={() => void save()}>{t("이 동료 저장")}</button></div>
+    <div className="pet-save-actions"><button type="button" className="quiet-button" disabled={locked} onClick={() => { setDraft(petDefaults.find(pet => pet.slot === draft.slot)!); setStatus("기본 모습의 미리보기입니다. 저장하면 다음 분석부터 적용됩니다."); }}>{t("기본 모습으로 복원")}</button><button type="button" className="quiet-button" disabled={locked || !dirty || !saved} onClick={() => { if (saved) setDraft(saved); setStatus("저장된 설정으로 되돌렸습니다."); }}>{t("수정 취소")}</button><button type="button" className="primary-button" disabled={locked || !dirty || !validName} onClick={() => void save()}>{t("이 동료 저장")}</button></div>
     {dirty && profiles && <p className="pet-customizer-intro">{t("미저장 변경이 있습니다. 저장하거나 수정 취소 후 다른 동료를 선택하세요.")}</p>}
     {!validName && <p role="alert">{t("이름은 문자·숫자·공백·밑줄·하이픈으로 1~20자 입력해 주세요.")}</p>}
     <p role="status" aria-live="polite">{status}</p>

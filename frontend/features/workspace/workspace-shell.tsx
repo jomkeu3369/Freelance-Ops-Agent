@@ -45,6 +45,7 @@ import { ProjectDialog } from "./project/dialogs/project-dialog";
 import { createProjectIntakeDraft, projectIntakeDraftScope } from "@/app/lib/project-intake-draft.mjs";
 import "../../app/workspace/figma-workspace.css";
 import "../../app/workspace/quick-intake.css";
+import "./project/analysis/agent-chat.css";
 
 export const subscribeToThemeHydration = () => () => undefined;
 
@@ -452,22 +453,24 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string) => {
-    if (!session || !selectedProject) return;
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string): Promise<boolean> => {
+    if (!session || !selectedProject) return false;
     setBusy(true);
     setError(null);
-    setEvents([]);
-    setRun(null);
     try {
       const accepted = await startAgentRun(session, selectedProject, {
         credentialId,
         provider,
         model,
         reasoningEffort: "LOW"
-      });
+      }, message);
+      setEvents([]);
+      setRun(null);
       setRunId(accepted.runId);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
+      return false;
     } finally {
       setBusy(false);
     }

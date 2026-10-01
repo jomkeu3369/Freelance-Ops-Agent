@@ -51,7 +51,7 @@ interface ProjectWorkbenchProps {
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string, credentialId?: string) => Promise<void>;
+  onRun: (provider: Provider, model: string, credentialId?: string, message?: string) => Promise<boolean>;
   onResetRun: () => void;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
@@ -77,6 +77,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
+  const chatModel = credentialId
+    ? connection && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
+    : model.trim() ? { provider, model: model.trim(), credentialId: undefined } : null;
 
   useEffect(() => {
     if (!canRun) return;
@@ -336,7 +339,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             onClick={() => selectStep(id)}
           >
             <span>{number}</span>
-            {label}
+            {t(label)}
           </button>
         ))}
       </nav>
@@ -353,6 +356,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       {activeStep === "agent" && (
         <AnalysisStep
           session={session}
+          projectId={project.id}
           run={run}
           runId={runId}
           events={events}
@@ -360,6 +364,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           snapshot={snapshot}
           canCancel={canCancel}
           canRespond={canRespond}
+          canRun={canRun}
+          canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
+          modelAvailable={!!chatModel}
+          onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
           reviewFocused={reviewFocused}
           costUsage={costUsage}
           onToggleFocus={toggleReviewFocus}
