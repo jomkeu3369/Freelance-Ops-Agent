@@ -25,7 +25,14 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
-from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, append_clarification_history, merge_usage
+from .runs import (
+    AgentRunNotFoundError,
+    AgentRunStateError,
+    ExecutionEvent,
+    ExecutionOutcome,
+    append_clarification_history,
+    merge_usage,
+)
 
 
 class PostgresAgentRunStore:
@@ -161,6 +168,13 @@ class PostgresAgentRunStore:
             )
             models = list((await session.scalars(statement)).all())
         return [self._event(model) for model in models]
+
+    async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None:
+        async with self._database.session() as session:
+            model = await self._locked(session, run_id)
+            if model.status != AgentRunStatus.RUNNING.value:
+                raise AgentRunStateError("only a running Agent run can publish progress")
+            await self._append_event(session, run_id, event.type, event.data)
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
         if not 1 <= limit <= 101:

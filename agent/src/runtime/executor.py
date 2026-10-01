@@ -30,13 +30,14 @@ from contracts import (
 )
 from integrations import SpringToolError
 from personal_credentials import credential_scope
-from providers import ModelProvider, ProviderCallError
+from providers import ModelGeneration, ModelProvider, ProviderCallError
 from retrieval.knowledge_context import KNOWLEDGE_RULES, KnowledgeContext, KnowledgeContextLoader
 from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
 from routing.llm_evaluator import RouteDecisionSource
 from web_research import ResearchCollection, WebResearchBudgetError
 
-from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, StructuredTool
+from .internal_delegation import delegate_internal_task
+from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
 from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionEvent, ExecutionOutcome
 from .task_shadow import ResearchTaskShadowRegistrar
 
@@ -300,12 +301,22 @@ class OperationalAgentExecutor:
         quotation_drafts: list[QuotationDraft] = []
         used_model_calls = route_model_calls
         for department in departments:
-            try:
-                generation = await self._provider.generate_structured(
+            async def run_department(
+                selected: DepartmentName = department, current_output_tokens: int = output_tokens
+            ) -> ModelGeneration:
+                return await self._provider.generate_structured(
                     request.model_selection,
-                    self._department_prompt(department, decision.route, text, project_context, research, request),
-                    max_output_tokens=max(1, request.budget.max_output_tokens - output_tokens),
+                    self._department_prompt(selected, decision.route, text, project_context, research, request),
+                    max_output_tokens=max(1, request.budget.max_output_tokens - current_output_tokens),
                     max_attempts=request.budget.max_retries + 1,
+                )
+
+            try:
+                generation = await delegate_internal_task(
+                    request.context.run_id,
+                    department,
+                    run_department,
+                    lambda response: self._validated_task_summary(response.payload),
                 )
             except ProviderCallError as error:
                 usage = self._usage(
@@ -446,11 +457,15 @@ class OperationalAgentExecutor:
                     )
                 raise
             loop = BoundedReActLoop(self._provider, tools)
-            try:
-                outcome = await loop.run(
+            async def run_department_react(
+                specialist: BoundedReActLoop = loop,
+                selected: DepartmentName = department,
+                budget: ReActLoopBudget = react_budget,
+            ) -> ReActLoopResult:
+                return await specialist.run(
                     request.model_selection,
                     {
-                        "department": department.value,
+                        "department": selected.value,
                         "selected_route": decision.route.value,
                         "untrusted_user_request": text,
                         "grounded_memory_rules": KNOWLEDGE_RULES,
@@ -461,12 +476,18 @@ class OperationalAgentExecutor:
                             "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"],
                             "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
                             "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
-                            "pet_perspectives": (
-                        pet_perspective_instructions(request) if request is not None else PET_PERSPECTIVE_INSTRUCTIONS
-                    ),
+                            "pet_perspectives": pet_perspective_instructions(request),
                         },
                     },
-                    react_budget,
+                    budget,
+                )
+
+            try:
+                outcome = await delegate_internal_task(
+                    request.context.run_id,
+                    department,
+                    run_department_react,
+                    lambda response: response.summary,
                 )
             except ProviderCallError as error:
                 model_calls += error.model_calls
@@ -654,6 +675,14 @@ class OperationalAgentExecutor:
             events=(self._route_event(request, decision), *tool_events),
             partial_error_code=error_code
         )
+
+    @staticmethod
+    def _validated_task_summary(payload: dict[str, object]) -> str:
+        summary = payload.get("summary")
+        questions = payload.get("open_questions")
+        if not isinstance(summary, str) or not isinstance(questions, list):
+            raise ValueError("department response does not satisfy its schema")
+        return summary
 
     @staticmethod
     def _route_event(request: AgentRunRequest, decision: FinalRouteDecision) -> ExecutionEvent:

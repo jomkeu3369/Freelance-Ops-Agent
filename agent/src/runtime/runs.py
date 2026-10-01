@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import traceback
+from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -61,6 +63,18 @@ class ExecutionAuthorization:
 class ExecutionEvent:
     type: str
     data: dict[str, object] = field(default_factory=dict)
+
+
+_progress_publisher: ContextVar[Callable[[ExecutionEvent], Awaitable[None]] | None] = ContextVar(
+    "agent_run_progress_publisher", default=None
+)
+
+
+async def publish_progress(event: ExecutionEvent) -> None:
+    """Persist a genuine in-flight event before the next specialist starts."""
+    publisher = _progress_publisher.get()
+    if publisher is not None:
+        await publisher(event)
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +158,8 @@ class AgentRunStore(Protocol):
     async def cancel(self, run_id: UUID) -> None: ...
 
     async def list_events(self, run_id: UUID, after_event_id: int = 0) -> list[AgentRunEvent]: ...
+
+    async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None: ...
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]: ...  # noqa: E501
 
@@ -249,6 +265,13 @@ class InMemoryAgentRunStore:
         async with self._lock:
             record = self._record(run_id)
             return [event for event in record.events if event.event_id > after_event_id]
+
+    async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None:
+        async with self._lock:
+            record = self._record(run_id)
+            if record.status is not AgentRunStatus.RUNNING:
+                raise AgentRunStateError("only a running Agent run can publish progress")
+            self._append_event(record, event.type, event.data)
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
         if not 1 <= limit <= 101:
@@ -428,10 +451,17 @@ class RunCoordinator:
         try:
             await self._store.mark_running(run_id)
             await self._checkpoint_journal.record(request, AgentRunStatus.RUNNING, "execution_started")
-            outcome = await asyncio.wait_for(
-                self._checkpoint_journal.execute(self._executor, request, resume, authorization),
-                timeout=request.budget.max_duration_seconds,
-            )
+            async def record_progress(event: ExecutionEvent) -> None:
+                await self._store.append_progress(run_id, event)
+
+            progress_token = _progress_publisher.set(record_progress)
+            try:
+                outcome = await asyncio.wait_for(
+                    self._checkpoint_journal.execute(self._executor, request, resume, authorization),
+                    timeout=request.budget.max_duration_seconds,
+                )
+            finally:
+                _progress_publisher.reset(progress_token)
             await self._store.complete(run_id, outcome)
             status = (
                 AgentRunStatus.WAITING_FOR_USER

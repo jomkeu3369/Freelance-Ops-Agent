@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -269,6 +270,88 @@ async def test_supervisor_executes_bounded_departments() -> None:
 
     assert outcome.result is not None
     assert len(outcome.result.department_results) == 4
+
+
+async def test_internal_specialist_task_events_are_persisted_during_real_work() -> None:
+    request = _request()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class WaitingProvider(FixedProvider):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            entered.set()
+            await release.wait()
+            return await super().generate_structured(*args, **kwargs)  # type: ignore[arg-type]
+
+    store = InMemoryAgentRunStore()
+    coordinator = RunCoordinator(
+        store, OperationalAgentExecutor(FixedGateway(RouteLabel.SIMPLE_LLM), WaitingProvider())
+    )
+    await coordinator.accept(request)
+    running = asyncio.create_task(coordinator.execute(request))
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        progress = await coordinator.events(request.context.run_id)
+        delegated = [event for event in progress if event.type == "task.delegated"]
+        assert len(delegated) == 1
+        assert delegated[0].data["department"] == "REQUIREMENTS"
+        assert not any(event.type == "task.completed" for event in progress)
+        release.set()
+        await asyncio.wait_for(running, 2)
+        events = await coordinator.events(request.context.run_id)
+        completed = [event for event in events if event.type == "task.completed"]
+        assert len(completed) == 1
+        assert completed[0].data["taskId"] == delegated[0].data["taskId"]
+        assert completed[0].data["summary"] == "work product"
+        assert events[-1].type == "run.completed"
+        replay_after_disconnect = await coordinator.events(request.context.run_id, delegated[0].event_id)
+        assert not any(event.type == "task.delegated" for event in replay_after_disconnect)
+        assert any(event.type == "task.completed" for event in replay_after_disconnect)
+    finally:
+        release.set()
+        if not running.done():
+            running.cancel()
+            await asyncio.gather(running, return_exceptions=True)
+
+
+async def test_cancelling_internal_specialist_does_not_emit_false_completion() -> None:
+    request = _request()
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class WaitingProvider(FixedProvider):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            entered.set()
+            await release.wait()
+            return await super().generate_structured(*args, **kwargs)  # type: ignore[arg-type]
+
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), OperationalAgentExecutor(
+        FixedGateway(RouteLabel.SIMPLE_LLM), WaitingProvider()))
+    await coordinator.accept(request)
+    running = asyncio.create_task(coordinator.execute(request))
+    await asyncio.wait_for(entered.wait(), 2)
+    await coordinator.cancel(request.context.run_id)
+    await asyncio.gather(running, return_exceptions=True)
+    events = await coordinator.events(request.context.run_id)
+    assert any(event.type == "task.delegated" for event in events)
+    assert any(event.type == "run.cancelled" for event in events)
+    assert not any(event.type == "task.completed" for event in events)
+    assert (await coordinator.view(request.context.run_id)).status is AgentRunStatus.CANCELLED
+
+
+async def test_failed_internal_specialist_reports_failure_without_artifact() -> None:
+    request = _request()
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), OperationalAgentExecutor(
+        FixedGateway(RouteLabel.SIMPLE_LLM), FailingProvider()))
+    await coordinator.accept(request)
+
+    await coordinator.execute(request)
+
+    events = await coordinator.events(request.context.run_id)
+    assert any(event.type == "task.delegated" for event in events)
+    assert any(event.type == "task.failed" for event in events)
+    assert not any(event.type == "task.completed" for event in events)
+    assert events[-1].type == "run.failed"
 
 
 async def test_shadow_registration_failure_preserves_primary_execution() -> None:
