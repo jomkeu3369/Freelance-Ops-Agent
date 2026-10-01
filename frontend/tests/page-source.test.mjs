@@ -161,16 +161,12 @@ test("landing page follows the approved product brief without fabricated social 
   assert.match(source, /근거 있는 견적으로/);
   assert.match(source, /AI 초안은 사용자가 검토하고 확정합니다/);
   assert.match(source, /한국 소프트웨어 개발/);
-  assert.match(source, /견적이 어려운 이유는/);
   assert.match(source, /한 번의 문의가/);
-  assert.match(source, /function WorkflowStepVisual/);
-  assert.match(source, /고객 메시지/);
-  assert.match(source, /금액 자동 계산/);
-  assert.match(source, /<WorkflowStepVisual index=\{index\} \/>/);
-  assert.doesNotMatch(source, /activeStep === index && <WorkflowStepVisual/);
-  assert.match(source, /설명 가능한 결과/);
-  assert.match(source, /끝난 프로젝트가/);
-  assert.match(source, /aria-selected=\{index === evidenceIndex\}/);
+  assert.match(source, /가상의 문의와 결과/);
+  assert.match(source, /예시 일단가/);
+  assert.match(source, /실제 견적 아님/);
+  assert.match(source, /실제 분석이나 저장은 실행되지 않습니다/);
+  assert.match(source, /사용자 검토 필요/);
   assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한 AI|모든 직군|모든 국가|자동 학습합니다/);
 });
 
@@ -193,14 +189,14 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /\.accordion-content strong \{[^}]*white-space: normal; word-break: keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
   assert.match(css, /\.step-visual \{[^}]*grid-template-rows: auto minmax\(82px, 1fr\) auto/);
-  assert.match(source, /window\.setInterval\(\(\) => \{\s*setActiveStep/);
-  assert.match(source, /onMouseEnter=\{\(\) => setWorkflowPaused\(true\)\}/);
+  assert.match(source, /IntersectionObserver/);
+  assert.match(source, /visibilitychange/);
+  assert.match(source, /preference\.addEventListener\("change"/);
   assert.match(css, /@keyframes workflowCardPulse/);
   assert.match(css, /@keyframes workflowCoreScan/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*?workflow-auto-sequence::after/);
   assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
-  assert.match(source, /\["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"\]/);
 });
 
 test("authentication layout keeps the form visible and Korean words intact", async () => {
@@ -240,7 +236,7 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(workspace, /const configuredModelOptions: Record<Provider, string\[]>/);
   assert.match(workspace, /<label>\s*AI 모델<select value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
-  assert.match(workspace, /name="currency" defaultValue="KRW"/);
+  assert.match(workspace, /name="currency" value=\{draft.currency\}/);
   assert.match(workspace, /list="suggested-models"/);
   assert.match(css, /--workspace-radius-lg: 22px/);
   assert.match(css, /\.settings-content > section \{[^}]*border: 0;[^}]*background: color-mix/);
@@ -388,8 +384,8 @@ test("responsive and reduced-motion gates cover the documented breakpoints", asy
   assert.match(css, /\.accordion-content strong \{[^}]*word-break: keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
   assert.match(css, /scroll-padding-top: 112px/);
-  assert.match(page, /<WorkflowStepVisual index=\{index\} \/>/);
-  assert.doesNotMatch(page, /activeStep === index && <WorkflowStepVisual/);
+  assert.match(page, /제품 예시 단계 선택/);
+  assert.match(page, /aria-controls="workflow-example"/);
 });
 
 test("landing color tokens and section grids keep light and dark hierarchy consistent", async () => {

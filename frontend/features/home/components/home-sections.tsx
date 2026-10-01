@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowRight, Check, FileText } from "@phosphor-icons/react";
+import { ArrowDown, ArrowRight, Check } from "@phosphor-icons/react";
 
 export function HeroSection() {
   return (
@@ -35,113 +35,13 @@ export function HeroSection() {
   );
 }
 
-export function ProductSection() {
-  return (
-    <>
-      <section id="product" className="chapter problem-section">
-        <div className="section-heading wide-heading">
-          <p className="section-context">견적 전 판단해야 할 것</p>
-          <h2>견적이 어려운 이유는<br />가격표가 없어서가 아닙니다.</h2>
-          <p>고객의 말 속에서 범위, 일정, 위험과 빠진 정보를 동시에 판단해야 하기 때문입니다.</p>
-        </div>
-        <div className="bento-grid problem-grid">
-          {[
-            ["요구사항이 불완전합니다", "‘반응형으로 만들어 주세요’라는 한 문장만으로는 화면 수, 관리자 기능과 운영 범위를 알 수 없습니다."],
-            ["견적의 근거가 흩어져 있습니다", "과거 프로젝트, 단가표, 작업 경험과 외부 자료를 매번 따로 찾아야 합니다."],
-            ["AI 답변도 그대로 믿을 수 없습니다", "출처, 계산식과 가정이 보이지 않으면 빠른 답변도 실제 거래에는 사용하기 어렵습니다."]
-          ].map(([title, body], index) => (
-            <article className="problem-card card-lift" key={title}>
-              <span className="problem-number" aria-hidden="true">0{index + 1}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className="manifesto chapter">
-        <div className="manifesto-halo" aria-hidden="true" />
-        <p className="section-context">명확해지는 순간, 일이 달라집니다.</p>
-        <p className="manifesto-copy" aria-label="감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다.">
-          {"감이 아니라 확인된 정보로 범위를 합의하고 근거로 가격을 설명합니다."
-            .split(" ")
-            .map((word, index) => (
-              <span className="scrub-word" key={`${word}-${index}`}>{word} </span>
-            ))}
-        </p>
-        <div className="manifesto-caption"><span>불확실한 요청</span><ArrowRight size={24} /><strong>설명 가능한 제안</strong></div>
-      </section>
-    </>
-  );
-}
-
-export function DeliverablesSection() {
-  return (
-    <section className="chapter deliverables-section">
-      <div className="section-heading wide-heading">
-        <p className="section-context">대화가 아닌 실제 산출물</p>
-        <h2>실제 업무에 사용할<br />결과를 만듭니다.</h2>
-      </div>
-      <div className="bento-grid deliverable-grid">
-        <article className="deliverable-card card-lift">
-          <FileText size={27} />
-          <h3>요구사항 명세</h3>
-          <p>기능, 제약, 일정, 예산, 누락 정보와 확인 질문을 구조화합니다.</p>
-          <ul>
-            <li>확정된 요구사항</li>
-            <li>확인 필요</li>
-            <li>제외 범위</li>
-          </ul>
-        </article>
-        <article className="deliverable-card featured card-lift">
-          <span className="scenario recommended">추천안</span>
-          <h3>범위별 견적안</h3>
-          <p>필수, 권장, 확장 범위의 공수·금액·가정을 한 화면에서 비교합니다.</p>
-          <div className="scenario-row">
-            <span>필수</span>
-            <span>권장</span>
-            <span>확장</span>
-          </div>
-        </article>
-        <article className="deliverable-card card-lift">
-          <Check size={27} />
-          <h3>고객 전달용 제안서</h3>
-          <p>범위, 금액, 일정, 지급 조건, 가정과 제외 사항을 한 문서로 정리합니다.</p>
-          <ul>
-            <li>미리보기</li>
-            <li>승인 요청</li>
-            <li>결정 기록</li>
-          </ul>
-        </article>
-      </div>
-    </section>
-  );
-}
-
-export function AudienceSection() {
-  return (
-    <section id="audience" className="audience-section chapter">
-      <div className="section-heading wide-heading">
-        <p className="section-context">첫 번째 실제 업무 범위</p>
-        <h2>먼저, 한국 소프트웨어 개발<br />프리랜서의 견적 업무부터.</h2>
-        <p>웹·앱·자동화 프로젝트의 요구사항 정리, 작업 범위 산정과 고객 제안 흐름을 우선 검증합니다.</p>
-      </div>
-      <div className="role-marquee" aria-label="우선 지원 직무">
-        <div>
-          {["프론트엔드", "백엔드", "풀스택", "모바일", "업무 자동화"].map((role) => (
-            <span key={role}>{role}</span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function CallToActionSection() {
   return (
-    <section className="final-cta chapter">
-      <p className="section-context">YOUR NEXT PROJECT STARTS HERE</p>
+    <section id="audience" tabIndex={-1} className="final-cta chapter">
+      <p className="section-context">한국 소프트웨어 개발 프리랜서를 위한 첫 시작</p>
       <h2>다음 고객 문의부터,<br />더 명확하게 시작하세요.</h2>
       <p>요구사항을 정리하고, 확인할 질문을 찾고, 근거 있는 견적의 첫 초안을 만들어 보세요.</p>
+      <p className="cta-audience">웹·앱·업무 자동화 프로젝트의 견적부터 시작합니다.</p>
       <Link className="primary-button inverted" href="/workspace">
         요구사항 정리 시작하기 <ArrowRight size={18} />
       </Link>

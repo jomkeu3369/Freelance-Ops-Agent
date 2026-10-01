@@ -41,6 +41,7 @@ import { CircleNotch, Warning } from "@phosphor-icons/react";
 import { AuthGate } from "./auth/auth-gate";
 import { WorkspaceChrome } from "./workspace-chrome";
 import { ProjectDialog } from "./project/dialogs/project-dialog";
+import { createProjectIntakeDraft, projectIntakeDraftScope } from "@/app/lib/project-intake-draft.mjs";
 import "../../app/workspace/figma-workspace.css";
 import "../../app/workspace/quick-intake.css";
 
@@ -84,6 +85,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
+  // Drafts stay in this layout across dialog unmounts and route changes, scoped to their owner.
+  const [intakeDrafts, setIntakeDrafts] = useState<Record<string, ReturnType<typeof createProjectIntakeDraft>>>({});
   const [executionRevision, setExecutionRevision] = useState(0);
   const [activeView, setActiveView] = useState<WorkspaceView>("pipeline");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -157,6 +160,9 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const applyWorkspaceLocation = useCallback(
     (projectResult: Project[], permissions: Set<string>, replaceInvalid = false) => {
+      // A delayed restore must not redirect after the user has left the workspace.
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/workspace" && !currentPath.startsWith("/workspace/")) return;
       const location = parseWorkspacePath(window.location.pathname, window.location.search);
       const viewAllowed = location.view !== "clients" || permissions.has("client.read");
       const knowledgeAllowed = location.view !== "knowledge" || permissions.has("document.read");
@@ -276,6 +282,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           return;
         }
         setSession(null);
+        setIntakeDrafts({});
+        setShowNewProject(false);
         setProjects([]);
         setClients([]);
         setProfile(null);
@@ -419,6 +427,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     } finally {
       clearSession();
       setSession(null);
+      setIntakeDrafts({});
+      setShowNewProject(false);
       setLoadedWorkspaceId(null);
       setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
       setProjects([]);
@@ -487,6 +497,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     });
     pipelineReturn.current = { element: null, scrollY: 0 };
     setLoadedWorkspaceId(null);
+    setShowNewProject(false);
     saveSession(nextSession);
     setSession(nextSession);
     setSelectedProject(null);
@@ -505,6 +516,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const handleCreateProject = async (input: Parameters<typeof createProject>[1]) => {
     setError(null);
     const project = await createProject(session, input);
+    setIntakeDrafts((current) => ({ ...current, [projectIntakeDraftScope(session)]: createProjectIntakeDraft() }));
     setProjects((current) => [project, ...current]);
     setSelectedProject(project);
     navigateWorkspace("project", project);
@@ -617,8 +629,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   };
 
   return (
-    <main
-      id="main-content"
+    <div
       className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
     >
       <WorkspaceChrome
@@ -639,7 +650,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         onSwitchWorkspace={handleSwitchWorkspace}
       />
 
-      <section ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label="업무 내용">
+      <main id="main-content" ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label="업무 내용">
         {error && (
           <div className="error-banner" role="alert">
             <Warning size={19} />
@@ -649,16 +660,25 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             </button>
           </div>
         )}
-        <WorkspaceContext.Provider value={screens}>{children}</WorkspaceContext.Provider>
-      </section>
+        <WorkspaceContext.Provider value={screens}>
+          {loadedWorkspaceId === session.workspaceId ? children : (
+            <div className="workspace-loading" role="status" aria-busy="true">
+              <CircleNotch size={30} className="spin" /> 업무 공간을 불러오고 있습니다.
+            </div>
+          )}
+        </WorkspaceContext.Provider>
+      </main>
 
       {showNewProject && canWriteProject && (
         <ProjectDialog
           clients={clients}
+          draft={intakeDrafts[projectIntakeDraftScope(session)] ?? createProjectIntakeDraft()}
+          onDraftChange={(draft) => setIntakeDrafts((current) => ({ ...current, [projectIntakeDraftScope(session)]: draft }))}
+          onDiscard={() => setIntakeDrafts((current) => ({ ...current, [projectIntakeDraftScope(session)]: createProjectIntakeDraft() }))}
           onClose={() => setShowNewProject(false)}
           onCreate={handleCreateProject}
         />
       )}
-    </main>
+    </div>
   );
 }

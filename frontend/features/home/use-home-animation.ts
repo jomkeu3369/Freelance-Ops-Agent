@@ -6,7 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 export function useHomeAnimation() {
-  const pageRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   useGSAP(
     () => {
@@ -20,25 +20,11 @@ export function useHomeAnimation() {
           stagger: 0.09,
           ease: "power3.out"
         });
-        gsap.fromTo(".scrub-word", { opacity: 0.24 }, {
-          opacity: 1,
-          stagger: 0.1,
-          scrollTrigger: {
-            trigger: ".manifesto-copy",
-            start: "top 82%",
-            end: "bottom 48%",
-            scrub: 1
-          }
-        });
         gsap.from(".hero-stage", {
           y: 70, rotationX: 9, scale: 0.94, duration: 1.3, delay: 0.25,
           transformPerspective: 1400, ease: "power3.out"
         });
         gsap.from(".hero-float", { y: 25, opacity: 0, duration: 0.8, stagger: 0.18, delay: 0.8 });
-        gsap.fromTo(".manifesto-halo", { scale: 0.6, y: 80 }, {
-          scale: 1.25, y: -60, ease: "none",
-          scrollTrigger: { trigger: ".manifesto", start: "top bottom", end: "bottom top", scrub: 1 }
-        });
         gsap.utils.toArray<HTMLElement>(".section-heading, .problem-card, .deliverable-card, .evidence-copy, .outcome-copy, .final-cta h2").forEach((element) => {
           gsap.from(element, {
             y: 36, opacity: 0, duration: 0.75, ease: "power3.out",

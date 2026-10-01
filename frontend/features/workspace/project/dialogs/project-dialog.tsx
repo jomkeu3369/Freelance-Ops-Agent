@@ -1,12 +1,16 @@
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { Client } from "../../../../app/lib/api";
 import { useRef, useState } from "react";
 import { useDialogFocusTrap } from "../../shared/use-dialog-focus-trap";
 import { Warning, CaretDown, CircleNotch, ArrowRight } from "@phosphor-icons/react";
 import { currencyOptions } from "../../shared/constants";
+import { createProjectIntakeDraft, hasProjectIntakeDraft, readProjectIntakeDraft } from "@/app/lib/project-intake-draft.mjs";
 
 interface ProjectDialogProps {
   clients: Client[];
+  draft: ReturnType<typeof createProjectIntakeDraft>;
+  onDraftChange: (draft: ReturnType<typeof createProjectIntakeDraft>) => void;
+  onDiscard: () => void;
   onClose: () => void;
   onCreate: (input: {
     clientId: string | null;
@@ -19,21 +23,29 @@ interface ProjectDialogProps {
   }) => Promise<void>;
 }
 
-export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps) {
+export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClose, onCreate }: ProjectDialogProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const optionalRef = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invalidField, setInvalidField] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const hasDraft = hasProjectIntakeDraft(draft);
   useDialogFocusTrap(dialogRef, onClose, busy);
+
+  function handleDraftChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
+    const field = event.currentTarget.name;
+    if (Object.hasOwn(draft, field)) onDraftChange({ ...draft, [field]: event.currentTarget.value });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     const form = event.currentTarget;
     const data = new FormData(form);
-    const title = String(data.get("title") ?? "").trim();
-    const requirementText = String(data.get("requirementText") ?? "").trim();
+    const rawDraft = readProjectIntakeDraft(data);
+    const title = rawDraft.title.trim();
+    const requirementText = rawDraft.requirementText.trim();
     if (!title || !requirementText) {
       const field = !title ? "title" : "requirementText";
       setInvalidField(field);
@@ -124,6 +136,8 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
               <input
                 data-autofocus
                 name="title"
+                value={draft.title}
+                onChange={handleDraftChange}
                 required
                 maxLength={200}
                 placeholder="예: 브랜드 사이트 리뉴얼"
@@ -137,6 +151,8 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
               </span>
               <textarea
                 name="requirementText"
+                value={draft.requirementText}
+                onChange={handleDraftChange}
                 required
                 maxLength={50000}
                 rows={6}
@@ -161,7 +177,7 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
               <div className="quick-intake-option-fields">
                 <label>
                   고객 연결
-                  <select name="clientId" defaultValue="">
+                  <select name="clientId" value={draft.clientId} onChange={handleDraftChange}>
                     <option value="">아직 고객을 연결하지 않음</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.id}>
@@ -179,7 +195,7 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
                 <div className="form-row">
                   <label>
                     통화
-                    <select name="currency" defaultValue="KRW">
+                    <select name="currency" value={draft.currency} onChange={handleDraftChange}>
                       {currencyOptions.map((currency) => (
                         <option key={currency.value} value={currency.value}>
                           {currency.label}
@@ -189,7 +205,7 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
                   </label>
                   <label>
                     희망 완료일
-                    <input name="deadline" type="date" />
+                    <input name="deadline" type="date" value={draft.deadline} onChange={handleDraftChange} />
                   </label>
                 </div>
                 <label>
@@ -197,6 +213,8 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
                   <div className="budget-range">
                     <input
                       name="budgetMin"
+                      value={draft.budgetMin}
+                      onChange={handleDraftChange}
                       type="number"
                       min="0"
                       step="any"
@@ -206,6 +224,8 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
                     <span>–</span>
                     <input
                       name="budgetMax"
+                      value={draft.budgetMax}
+                      onChange={handleDraftChange}
                       type="number"
                       min="0"
                       step="any"
@@ -218,6 +238,25 @@ export function ProjectDialog({ clients, onClose, onCreate }: ProjectDialogProps
                 </label>
               </div>
             </details>
+            <div className="intake-draft-status">
+              <small>닫아도 작성 내용은 이 작업 공간에 유지됩니다. 로그아웃하거나 페이지를 새로 고치면 초기화됩니다.</small>
+              {hasDraft && !confirmDiscard && (
+                <button type="button" className="quiet-button intake-draft-clear" onClick={() => setConfirmDiscard(true)}>초안 비우기</button>
+              )}
+              {confirmDiscard && (
+                <div className="intake-discard-confirm" role="group" aria-label="초안 폐기 확인">
+                  <strong>작성한 내용을 모두 비울까요?</strong>
+                  <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(false)}>계속 작성</button>
+                  <button type="button" className="quiet-button" onClick={() => {
+                    onDiscard();
+                    setConfirmDiscard(false);
+                    setError(null);
+                    setInvalidField(null);
+                    dialogRef.current?.querySelector<HTMLInputElement>('[name="title"]')?.focus();
+                  }}>작성값 폐기</button>
+                </div>
+              )}
+            </div>
             <div className="quick-intake-submit">
               <small>통화를 변경하지 않으면 원화(KRW)로 시작합니다.</small>
               <button className="primary-button" type="submit">
