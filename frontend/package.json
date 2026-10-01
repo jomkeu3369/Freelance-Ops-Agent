@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "node scripts/validate-vercel-env.mjs && next build",
     "start": "next start",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node scripts/run-unit-tests.mjs",
     "test:ui": "playwright test",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint .",

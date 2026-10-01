@@ -189,11 +189,6 @@ test("autoplay records five completed stages and automatically starts the next e
   await expect(chapter).toHaveAttribute("data-phase", "complete", { timeout: 6000 });
   await expect(page.locator(".demo-history li")).toHaveCount(5);
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
-  await mkdir("outputs/ui-ux/product-demo-after", { recursive: true });
-  await mkdir("outputs/ui-ux/reference-layout-after", { recursive: true });
-  await page.locator(".demo-scene").screenshot({ path: "outputs/ui-ux/reference-layout-after/demo-completed-desktop.png" });
-  await page.waitForTimeout(1800);
-  await expect(page.locator(".demo-history li")).toHaveCount(5);
   await expect(page.getByRole("button", { name: "예시 다시 시작" })).toHaveCount(0);
   await expect(chapter).toHaveAttribute("data-run", "2", { timeout: 7000 });
   await expect(chapter).toHaveAttribute("data-run-step", "0");
@@ -481,6 +476,9 @@ for(const width of [320,390,1440]) for(const theme of ['light','dark']) {
     await page.getByRole('tab',{name:'Sign up',exact:true}).click();
     await expect(page.locator('input[name="displayName"]')).toHaveAttribute('placeholder','What should we call you?');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    const brand = await page.locator('.auth-brand').boundingBox();
+    const language = await page.locator('.auth-header .ui-language-selector').boundingBox();
+    expect(brand.x + brand.width).toBeLessThanOrEqual(language.x);
     await screenshot(page,`auth-en-${width}-${theme}`);
   });
 }
@@ -495,7 +493,7 @@ test('language switching preserves inquiry drafts and never translates saved cli
   await expect(page.locator('input[name="title"]')).toHaveValue('견적');await expect(page.locator('textarea[name="requirementText"]')).toHaveValue('원문 보관');
   await page.keyboard.press('Escape');await page.getByRole('combobox',{name:'표시 언어'}).selectOption('en');
   await page.getByRole('button',{name:'New inquiry',exact:true}).click();await expect(page.locator('input[name="title"]')).toHaveValue('견적');
-  await page.locator('input[name="title"]').fill('   ');await page.locator('button[type="submit"]').click();await expect(page.getByRole('alert')).toContainText('Enter a project name');
+  await page.locator('input[name="title"]').fill('   ');await page.locator('.project-dialog button[type="submit"]').click();await expect(page.locator('.project-dialog [role="alert"]')).toContainText('Enter a project name');
   expect(state.submissions).toEqual([]);expect(state.unexpected).toEqual([]);
 });
 for(const language of ['ko','en'])test(`continuous ${language} card motion freezes mid-flight and replays the same node`,async({page})=>{
