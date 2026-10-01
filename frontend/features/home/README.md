@@ -1,25 +1,22 @@
 # 메인 소개 화면 수정 안내
 
-주소 `/`의 실제 화면 코드는 이 폴더에 있습니다. `app/page.tsx`는 화면을 연결하고 기존 스타일을 불러오는 진입점입니다.
+주소 `/`의 화면 코드는 이 폴더에 있습니다. `app/page.tsx`는 화면과 기존 스타일을 연결합니다. 구성은 사용자 디자인의 상단 → 문의에서 제안까지의 제품 체험 → 시작 안내 → 하단 메뉴입니다.
 
 | 수정하려는 내용 | 파일 |
-| --- | --- |
-| 영역 표시 순서, 영역 추가·제거 | `home-page.tsx` |
-| 작동 방식·견적 근거·결과 예시 문구 | `home-content.ts` |
-| 상단 메뉴와 테마 전환 | `components/home-header.tsx` |
-| 첫 소개, 제품 설명, 산출물, 대상 사용자, 시작 버튼, 하단 메뉴 | `components/home-sections.tsx` |
-| 작동 방식 자동 전환과 실시간 분석 예시 | `components/workflow-section.tsx` |
-| 견적 항목 선택과 연결 근거 | `components/evidence-section.tsx` |
-| 완료 프로젝트 결과 예시 전환 | `components/outcome-section.tsx` |
-| 등장 효과와 스크롤 애니메이션 | `use-home-animation.ts` |
-| 색상, 여백, 반응형 배치 | `../../app/figma-home.css` |
+|---|---|
+| 영역 표시 순서 | `home-page.tsx` |
+| 상단 메뉴·모바일 탐색·테마 | `components/home-header.tsx` |
+| 히어로·시작 안내·하단 메뉴 | `components/home-sections.tsx` |
+| 제품 창·문의/요구사항/리스크/견적/제안 화면·활동 패널 | `components/product-experience.tsx` |
+| 예시 단계·진행 상태·이력·범위·견적 계산 | `product-demo.mjs` |
+| 등장 효과·스크롤 애니메이션 | `use-home-animation.ts` |
+| 히어로·공통 색상·여백 | `../../app/figma-home.css` |
+| 제품 체험 배치·반응형·활동 패널 | `../../app/product-demo.css` |
 
-각 상호작용 영역은 선택 상태와 타이머를 자체 관리합니다. 다른 영역을 수정하지 않고 개별적으로 작업할 수 있습니다. `home-page.tsx`의 `use client` 선언 아래에서 영역들이 실행되므로 각 파일에 같은 선언을 반복하지 않아도 됩니다.
+`WorkflowSection`은 `product-experience.tsx`에서 내보내며 `home-page.tsx`가 연결합니다. 제품 체험은 `product-demo.mjs`의 단일 reducer로 실행 단계(`step`), 선택 화면(`selected`), 진행 상태(`phase`), 완료 이력(`history`)과 범위(`scope`)를 관리합니다. 수동 선택은 자동 진행을 멈추고 실제 자동 완료 이력을 만들어 내지 않습니다. `demoQuote`는 같은 범위를 요구사항·금액·제안서에 반영합니다. 모든 예시는 가상이며 실제 API·AI 요청·고객 데이터 저장을 하지 않습니다.
 
-소개 화면의 예시는 `home-content.ts`에서 관리하며 실제 고객 데이터가 아닙니다. 공통 분석 표시 컴포넌트 `app/components/live-workflow.tsx`는 프로젝트 화면에서도 사용하므로 변경할 때 두 화면을 함께 확인해 주세요.
+자동 진행은 실행 1.8초·완료 1.5초, 최종 완료 뒤 4.2초 후 반복합니다. 사용자 정지·포인터·내부 초점·동작 줄이기·화면 밖·비활성 탭에서는 멈춥니다. 각 효과는 unmount 시 타이머·리스너·observer를 정리합니다. 기본 콘텐츠는 애니메이션 없이 읽을 수 있어야 합니다. 상단의 Pretendard·보라/라벤더와 사용자 배치를 유지합니다.
 
-2026-09-30 구성은 기존 상단 → 간결한 제품 안내 → 문의 단계와 예시 → 견적 항목의 근거 → 실제 결과 기록 → 시작 버튼이다. 전체 예시는 상단의 예약 웹사이트 문의를 이어받는다. 중·하단 스타일은 기존 상단의 Pretendard와 보라색·라벤더 토큰을 사용하고, 상단 구현은 유지한다. `use-home-animation.ts`는 GSAP matchMedia로 동작 줄이기 설정 변경과 unmount 시 애니메이션을 정리한다. 콘텐츠의 기본 CSS는 애니메이션 없이도 읽을 수 있어야 한다.
+`workflow-preview.mjs`는 이전 매핑의 테스트에서만 사용하며 현재 랜딩 실행에는 연결되지 않습니다. 삭제된 `home-content.ts`, `workflow-section.tsx`, `evidence-section.tsx`, `outcome-section.tsx`를 구현 대상으로 참조하지 않습니다. 공통 `app/components/live-workflow.tsx`는 실제 업무 화면용이므로 변경 시 해당 화면도 확인합니다.
 
-`workflow-live-preview`는 12열 그리드 전체를 차지해야 한다(`grid-column: 1 / -1`, `width: 100%`, `min-width: 0`). 카드·예시·분석 이벤트는 하나의 `activeStep`과 `workflow-preview.mjs` 매핑으로 연결한다. 분석 그래프는 네이티브 `details`로 필요할 때 펼쳐 보며, 열린 동안 자동 전환을 멈춘다. 작은 화면에서는 내부 그래프만 가로 스크롤하며 키보드로도 초점을 줄 수 있다. 자동 전환은 사용자 정지·카드 조작·동작 줄이기·탭 비활성 상태에서도 멈춘다. 시연 이벤트는 화면 읽기 도구로 반복 방송하지 않으며 실제 업무 실행의 알림은 유지한다.
-
-Node 22에서 `npm run preview:check`와, 로컬 production 미리보기 3100 포트를 실행한 뒤 `npm run test:ui`로 검증한다. 브라우저 테스트는 외부 요청을 차단하고 업무 공간 API를 로컬 fixture로 대체한다. 검수 기록은 `docs/frontend/UI_LANDING_RESUME_2026-09-30.md`를 참고한다.
+Node 22에서 `npm run preview:check`를 실행합니다. 로컬 production 서버를 127.0.0.1:3100에 시작한 뒤 `npm run test:ui`로 검증합니다. 다른 포트는 `PLAYWRIGHT_BASE_URL`로 지정합니다. 브라우저 테스트는 외부 요청을 차단하고 Business API를 로컬 fixture로 대체합니다. 제품 체험 검수와 배포 범위는 `docs/frontend/UI_RELEASE_20261001.md`를 참고합니다.

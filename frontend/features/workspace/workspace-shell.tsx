@@ -261,6 +261,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             await refreshProjects(activeSession);
           } catch (cause) {
             clearSession();
+            setSession(null);
+            setLoadedWorkspaceId(null);
             setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
           } finally {
             setHydrated(true);
@@ -413,11 +415,18 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   }, [executionRevision, runId, session]);
 
   const onAuthenticated = async (nextSession: AuthSession, isNewWorkspace = false) => {
-    saveSession(nextSession);
-    setSession(nextSession);
     setError(null);
-    await refreshProjects(nextSession);
-    if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
+    try {
+      await refreshProjects(nextSession);
+      saveSession(nextSession);
+      setSession(nextSession);
+      if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
+    } catch (cause) {
+      clearSession();
+      setSession(null);
+      setLoadedWorkspaceId(null);
+      throw cause;
+    }
   };
 
   const logout = async () => {

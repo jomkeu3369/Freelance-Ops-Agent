@@ -31,8 +31,8 @@ async function screenshot(page, name) {
   await page.screenshot({ path: `outputs/ui-ux/screenshots/${name}.png`, fullPage: true });
 }
 
-async function workspaceFixture(page, { projects = [], delay = 0 } = {}) {
-  const state = { projects, failSave: false, submissions: [], unexpected: [] };
+async function workspaceFixture(page, { projects = [], delay = 0, failLoad = null } = {}) {
+  const state = { projects, failLoad, failSave: false, registerCalls: 0, submissions: [], unexpected: [] };
   const permissions = ["project.read", "project.write", "client.read", "client.write", "document.read", "quotation.read", "quotation.write"];
   await page.addInitScript(() => {
     sessionStorage.setItem("freelance-ops-session-v1", JSON.stringify({ userId: "local-user", workspaceId: "local-space", accessToken: "local-test-only", refreshToken: "local-test-only", accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer" }));
@@ -44,6 +44,13 @@ async function workspaceFixture(page, { projects = [], delay = 0 } = {}) {
     const method = request.method();
     if (url.origin !== "http://localhost:8080") { state.unexpected.push(path); return route.abort(); }
     const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (method === "GET" && path.split("/").at(-1) === state.failLoad) return json({ detail: "로컬 검증용 불러오기 실패" }, 503);
+    if (path === "/api/v2/auth/login" && method === "POST") return json({ userId: "local-user", workspaceId: "local-space", accessToken: "local-test-only", refreshToken: "local-test-only", accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer" });
+    if (path === "/api/v2/auth/register" && method === "POST") {
+      state.registerCalls += 1;
+      if (state.registerCalls > 1) return json({ detail: "이미 생성된 계정입니다." }, 409);
+      return json({ userId: "local-user", workspaceId: "local-space", accessToken: "local-test-only", refreshToken: "local-test-only", accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer" });
+    }
     if (path === "/api/v2/me" && method === "GET") {
       if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
       return json({ id: "local-user", email: "fixture@example.invalid", displayName: "로컬 검수", status: "ACTIVE", workspaces: ["local-space", "other-space"].map((workspaceId) => ({ workspaceId, name: workspaceId === "local-space" ? "로컬 작업 공간" : "다른 작업 공간", slug: workspaceId, effectivePermissions: permissions })) });
@@ -391,6 +398,52 @@ test("drafts survive browser history and remain isolated between workspaces", as
   await workspace.selectOption("local-space");
   await openInquiry(page);
   await expect(page.locator('input[name="title"]')).toHaveValue("원래 문의");
+  expect(state.unexpected).toEqual([]);
+});
+
+for (const endpoint of ["me", "projects", "clients"]) {
+  test(`restore failure at ${endpoint} returns to login and allows retry without reload`, async ({ page }) => {
+    const state = await workspaceFixture(page, { failLoad: endpoint });
+    await page.goto("/workspace/projects");
+    await expect(page.locator(".auth-page")).toBeVisible();
+    await expect(page.locator(".auth-page").getByRole("alert")).toContainText("로컬 검증용 불러오기 실패");
+    await expect(page.locator(".workspace-loading")).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("freelance-ops-session-v1"))).toBeNull();
+    await page.locator('input[name="email"]').fill("fixture@example.invalid");
+    await page.locator('input[name="password"]').fill("local-fixture-only");
+    await page.locator('button[type="submit"]').click();
+    await expect(page.locator(".auth-page").getByRole("alert")).toContainText("로컬 검증용 불러오기 실패");
+    await expect(page.locator('button[type="submit"]')).toBeEnabled();
+    await expect(page.locator(".workspace-loading")).toHaveCount(0);
+    expect(await page.evaluate(() => sessionStorage.getItem("freelance-ops-session-v1"))).toBeNull();
+    state.failLoad = null;
+    await page.locator('button[type="submit"]').click();
+    await expect(page.locator(".workspace-empty")).toBeVisible();
+    await expect(page.locator(".auth-page, .workspace-loading")).toHaveCount(0);
+    expect(state.unexpected).toEqual([]);
+  });
+}
+
+test("successful registration with failed workspace loading switches to login without registering twice", async ({ page }) => {
+  const state = await workspaceFixture(page, { failLoad: "projects" });
+  await page.goto("/workspace/projects");
+  await expect(page.locator(".auth-page")).toBeVisible();
+  await page.getByRole("tab", { name: "처음 시작하기", exact: true }).click();
+  await page.locator('input[name="displayName"]').fill("로컬 검수");
+  await page.locator('input[name="workspaceName"]').fill("로컬 작업 공간");
+  await page.locator('input[name="email"]').fill("fixture@example.invalid");
+  await page.locator('input[name="password"]').fill("local-fixture-only");
+  await page.locator('input[name="passwordConfirm"]').fill("local-fixture-only");
+  await page.locator('button[type="submit"]').click();
+  await expect(page.getByRole("tab", { name: "로그인", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".auth-page").getByRole("alert")).toContainText("계정은 생성되었습니다.");
+  await expect(page.locator('input[name="email"]')).toHaveValue("fixture@example.invalid");
+  await expect(page.locator('input[name="password"]')).toHaveValue("local-fixture-only");
+  await expect(page.locator(".workspace-loading")).toHaveCount(0);
+  state.failLoad = null;
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator(".workspace-empty")).toBeVisible();
+  expect(state.registerCalls).toBe(1);
   expect(state.unexpected).toEqual([]);
 });
 
