@@ -72,7 +72,7 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
         if (!draft) return null;
         const opinion = draft.petPerspective;
         return <article key={pet.id} className={`pet-proposal pet-proposal-${pet.id}`}>
-          <div className="pet-proposal-title"><PetArt kind={pet.profile.animal} profile={pet.profile} state="ready" /><div><strong>{pet.name}</strong><span>{pet.role}</span><small>{pet.priority}</small></div></div>
+          <div className="pet-proposal-title"><PetArt kind={pet.profile.animal} profile={pet.profile} state="ready" /><div><strong>{pet.name}</strong><span>{t(pet.role)}</span><small>{pet.priority}</small></div></div>
           {opinion ? <><h4>{opinion.proposal}</h4><p>{opinion.rationale}</p><div className="pet-tradeoff"><strong>{t("함께 생각할 점")}</strong><p>{opinion.tradeoff}</p></div></> : <p className="pet-legacy-note">{t("이전 분석에는 동료의 의견이 기록되어 있지 않습니다. 기존 견적 항목은 비교할 수 있어요.")}</p>}
           <fieldset disabled={!model.canWrite || loading || model.busy}><legend>{t("이 제안의 작업 선택")}</legend>
             {draft.items.map((item, index) => <label key={`${draft.scenario}:${index}`} className="pet-task" htmlFor={`${inputPrefix}-${draft.scenario}-${index}`}><input id={`${inputPrefix}-${draft.scenario}-${index}`} aria-label={t("{v0}의 제안: {v1}", { v0: pet.name, v1: item.title })} type="checkbox" checked={selected.includes(`${draft.scenario}:${index}`)} onChange={() => toggle(`${draft.scenario}:${index}`)} /><span><strong>{item.title}</strong><small>{item.quantity} {item.unit === "DAY" ? t("일") : item.unit === "HOUR" ? t("시간") : t("건")}</small><span>{item.basis.type === "EVIDENCE" ? t("근거") : t("가정")} · {item.basis.content}</span></span></label>)}
@@ -92,7 +92,7 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
         <p>{t("현재 항목 전체가 교체됩니다. 아직 저장·발행되지 않으며 저장 시 최신 정책과 권한을 다시 확인합니다.")}</p>
         <button type="button" className="primary-button" disabled={!model.canWrite || model.busy || loading} onClick={apply}>{t("확인한 작업으로 편집 초안 변경")}</button>
       </section>}
-      {message && <p role="status">{message}</p>}
+      {message && <p role="status">{t(message)}</p>}
     </div>
   </details>;
 }

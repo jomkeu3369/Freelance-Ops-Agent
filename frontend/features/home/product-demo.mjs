@@ -1,7 +1,7 @@
 // Fictional data only: no server run, AI request, or persistence.
 export const demoSteps = ["문의", "요구사항", "리스크", "견적", "제안"];
 export const demoEvents = ["문의 원문 보관", "기능별 요구사항 정리", "확인 질문과 제외 범위 정리", "작업별 공수와 금액 계산", "검토할 제안서 초안 준비"];
-export const demoProject = Object.freeze({ id: "FO-024", title: "예약 웹사이트", request: "고객이 시간을 선택하고, 관리자가 예약을 확인하면 좋겠어요. 모바일에서도 쓸 수 있어야 해요." });
+export const demoProject = Object.freeze({ id: "FO-024", title: "예약 웹사이트", request: "예약 가능한 웹사이트, 얼마면 만들 수 있나요? 고객이 시간을 선택하고, 관리자가 예약을 확인하면 좋겠어요. 모바일에서도 쓸 수 있어야 해요." });
 export function demoProjectSnapshot(state, reducedMotion = false) {
   const preview = state.manual || reducedMotion;
   const ready = preview || state.selected > 0 || state.phase === "complete";

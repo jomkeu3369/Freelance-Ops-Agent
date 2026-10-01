@@ -249,7 +249,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                 <span className="document-type">{document.origin === "agent" ? t("AI 생성") : sourceTypeLabel[document.sourceType]} · {document.confirmationStatus === "confirmed" ? t("확인됨") : document.confirmationStatus === "superseded" ? t("이전 버전") : t("검토 필요")}</span>
                 <strong>{document.title}</strong>
                 <small>
-                  {document.jurisdiction ?? "관할권 미지정"} ·{" "}
+                  {document.jurisdiction ?? t("관할권 미지정")} ·{" "}
                   {new Date(document.createdAt).toLocaleDateString("ko-KR")}
                 </small>
               </button>
@@ -282,17 +282,17 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                 </div>
                 <div>
                   <dt>{t("관할권")}</dt>
-                  <dd>{detail.jurisdiction ?? "미지정"}</dd>
+                  <dd>{detail.jurisdiction ?? t("미지정")}</dd>
                 </div>
                 <div>
                   <dt>{t("버전")}</dt>
-                  <dd>{detail.sourceVersion ?? "미지정"}</dd>
+                  <dd>{detail.sourceVersion ?? t("미지정")}</dd>
                 </div>
                 <div>
                   <dt>{t("유효 기간")}</dt>
                   <dd>
                     {detail.effectiveFrom || detail.effectiveUntil
-                      ? t("{v0} – {v1}", { v0: detail.effectiveFrom ?? "시작 미정", v1: detail.effectiveUntil ?? "종료 미정" })
+                      ? t("{v0} – {v1}", { v0: detail.effectiveFrom ?? t("시작 미정"), v1: detail.effectiveUntil ?? t("종료 미정") })
                       : t("미지정")}
                   </dd>
                 </div>

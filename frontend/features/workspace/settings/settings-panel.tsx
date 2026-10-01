@@ -124,7 +124,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
       {saved && (
         <div className="settings-saved" role="status">
           <CheckCircle size={18} />
-          {saved}
+          {t(saved)}
         </div>
       )}
       <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
@@ -273,7 +273,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               </div>
               <div>
                 <dt>{t("상태")}</dt>
-                <dd>{profile ? (accountStatusLabels[profile.status] ?? "상태 확인 필요") : "-"}</dd>
+                <dd>{profile ? (t(accountStatusLabels[profile.status]) ?? t("상태 확인 필요")) : "-"}</dd>
               </div>
             </dl>
           </section>

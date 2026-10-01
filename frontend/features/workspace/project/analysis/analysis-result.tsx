@@ -60,14 +60,14 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
               <dt>{t("선택 경로")}</dt>
               <dd>
                 {selectedRoute
-                  ? (routeActivityLabels[selectedRoute] ?? selectedRoute)
+                  ? (t(routeActivityLabels[selectedRoute]) ?? selectedRoute)
                   : t("기록 확인 중")}
               </dd>
             </div>
             <div>
               <dt>{t("분석 실행")}</dt>
               <dd>
-                {providerLabels[run.metadata.provider] ?? run.metadata.provider} ·{" "}
+                {t(providerLabels[run.metadata.provider]) ?? run.metadata.provider} ·{" "}
                 {run.metadata.model}
               </dd>
             </div>

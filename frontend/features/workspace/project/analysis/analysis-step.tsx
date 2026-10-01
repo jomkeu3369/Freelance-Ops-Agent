@@ -62,7 +62,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
           <span>{t("분석 결과")}</span>
           <div>
             {run && (
-              <small className="run-status-chip">{runStatusLabels[run.status] ?? run.status}</small>
+              <small className="run-status-chip">{t(runStatusLabels[run.status]) ?? run.status}</small>
             )}
             <button
               type="button"
@@ -107,7 +107,7 @@ export function AnalysisStep({ session, run, runId, events, busy, snapshot, canC
             <p>
               {run.status === "CANCELLED"
                 ? t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")
-                : runFailureMessage(run.errorCode)}
+                : t(runFailureMessage(run.errorCode))}
             </p>
             {run.status === "FAILED" && run.errorCode && <small>{t("오류 코드 ·")}{run.errorCode}</small>}
           </div>

@@ -167,7 +167,7 @@ export function WorkspaceChrome({ session, profile, sidebarCollapsed, setSidebar
             {profile?.displayName.slice(0, 1) ?? "F"}
           </span>
           <span>
-            <strong>{profile?.displayName ?? "사용자"}</strong>
+            <strong>{profile?.displayName ?? t("사용자")}</strong>
             <small>{profile?.email}</small>
           </span>
           <button type="button" className="icon-button" aria-label={t("로그아웃")} onClick={() => void logout()}>

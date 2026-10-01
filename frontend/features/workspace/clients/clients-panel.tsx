@@ -130,7 +130,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
       {saved && (
         <div className="settings-saved" role="status">
           <CheckCircle size={18} />
-          {saved}
+          {t(saved)}
         </div>
       )}
       <div className="clients-layout">

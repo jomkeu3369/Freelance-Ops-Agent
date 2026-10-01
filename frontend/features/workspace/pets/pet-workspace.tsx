@@ -22,11 +22,11 @@ export function PetWorkspace({ run }: { run: AgentRunView | null }) {
           {petAdvisors.map(pet => {
             const state = petWorkState(run, pet.departments);
             return <button key={pet.id} type="button" className={`pet-station ${selected === pet.id ? "selected" : ""}`} aria-pressed={selected === pet.id} onClick={() => setSelected(selected === pet.id ? null : pet.id)}>
-              <PetArt kind={pet.profile.animal} profile={pet.profile} state={state} /><strong>{pet.name}<small>{pet.role}</small></strong><span className={`pet-status pet-status-${state}`}>{petStateLabels[state]}</span>
+              <PetArt kind={pet.profile.animal} profile={pet.profile} state={state} /><strong>{pet.name}<small>{t(pet.role)}</small></strong><span className={`pet-status pet-status-${state}`}>{t(petStateLabels[state])}</span>
             </button>;
           })}
         </div>
-        {advisor && <div className="pet-detail" aria-live="polite"><strong>{advisor.name}{t("의 관점 ·")}{advisor.priority}</strong>{results.length ? results.map(result => <p key={result.department}>{result.summary}</p>) : <p>{t("아직 공개할 분석 결과가 없습니다. 결과가 준비되면 여기서 확인할 수 있어요.")}</p>}<small>{t("분석 단계의 실제 결과입니다. 견적 탭에서는 세 관점의 제안을 비교할 수 있습니다.")}</small></div>}
+        {advisor && <div className="pet-detail" aria-live="polite"><strong>{advisor.name}{t("의 관점 ·")}{t(advisor.priority)}</strong>{results.length ? results.map(result => <p key={result.department}>{result.summary}</p>) : <p>{t("아직 공개할 분석 결과가 없습니다. 결과가 준비되면 여기서 확인할 수 있어요.")}</p>}<small>{t("분석 단계의 실제 결과입니다. 견적 탭에서는 세 관점의 제안을 비교할 수 있습니다.")}</small></div>}
       </div>
     </section>
   );

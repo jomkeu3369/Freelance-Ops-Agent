@@ -161,13 +161,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         <div>
           <div className="project-context-line">
             <span className="project-status">
-              <i /> {pipelineStatusLabels[project.status] ?? project.status}
+              <i /> {t(pipelineStatusLabels[project.status]) ?? project.status}
             </span>
           </div>
           <h1>{project.title}</h1>
           <span className="project-client">
             <AddressBook size={15} />
-            {projectClientLabel(project, clients)}
+            {projectClientLabel(project, clients, t)}
           </span>
         </div>
         {activeStep !== "agent" &&

@@ -41,7 +41,7 @@ export function QuoteToolbar({ model }: { model: QuoteBuilderModel }) {
               className="quiet-button danger discard-ai-draft"
               onClick={discardGeneratedAIDraft}
             >
-              AI {quotationScenarioLabels[scenario]} {t("버리기")}</button>
+              AI {t(quotationScenarioLabels[scenario])} {t("버리기")}</button>
           )}
           {canWrite && (
             <button type="button" className="quiet-button" onClick={() => resetQuotation()}>

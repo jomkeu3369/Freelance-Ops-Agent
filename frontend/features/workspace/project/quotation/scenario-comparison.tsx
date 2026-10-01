@@ -49,7 +49,7 @@ export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
                     <strong>{formatMoney(quotation.total, quotation.currency)}</strong>
                     <small>
                       v{quotation.versionNumber} ·{" "}
-                      {quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}
+                      {t(quotationStatusLabels[quotation.status]) ?? t("상태 확인 필요")}
                     </small>
                   </>
                 ) : generated ? (

@@ -46,7 +46,8 @@ async function read(path) {
   const normalizeInterfaceCalls = source => source
     .replace(/=\{t\(("(?:[^"\\]|\\.)*")\)\}/g, '=$1')
     .replace(/\{t\(("(?:[^"\\]|\\.)*")\)\}/g, (_, literal) => JSON.parse(literal))
-    .replace(/t\(("(?:[^"\\]|\\.)*")\)/g, '$1');
+    .replace(/\bt\(("(?:[^"\\]|\\.)*")\)/g, '$1')
+    .replace(/\bt\(([a-zA-Z]+Labels\[[^\]]+\])\)/g, '$1');
   const features = {
     "../app/page.tsx": "../features/home/",
     "../app/workspace/page.tsx": "../features/workspace/",
@@ -487,12 +488,12 @@ test("CRM lifecycle and project-to-client linking use the Spring client contract
   assert.match(api, /clients:\$\{session\.workspaceId\}/);
   assert.match(api, /\/clients\/\$\{clientId\}/);
   assert.match(api, /clientId: string \| null/);
-  assert.match(workspace, /function projectClientLabel\(project: Project, clients: Client\[\]\)/);
+  assert.match(workspace, /function projectClientLabel\(project: Project, clients: Client\[\], translate:/);
   assert.match(workspace, /client\.companyName \? `\$\{client\.companyName\} · \$\{client\.name\}` : client\.name/);
   assert.match(workspace, /className="pipeline-card-client"/);
   assert.doesNotMatch(workspace, /className="sidebar-project-client"/);
   assert.match(workspace, /className="project-client"/);
-  assert.match(workspace, /projectClientLabel\(project, clients\)/);
+  assert.match(workspace, /projectClientLabel\(project, clients, t\)/);
 });
 
 test("workspace switching and agent cancellation preserve recoverable operator control", async () => {
@@ -616,7 +617,7 @@ test("completed AI analysis prices its editable draft from active server rate ca
   assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
   assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);
-  assert.match(workspace, /AI 초안 · \{generated\.items\.length\}개 작업/);
+  assert.match(workspace, /AI 초안 ·\s*\{generated\.items\.length\}개 작업/);
   assert.match(workspace, /selectRateCardForDraftItem\(item, rateCards, currency\)/);
   assert.match(workspace, /hydrateMissingDraftRates\(restored\.items, restoredGeneratedItems\)/);
   assert.match(workspace, /const activeRateCards = nextRateCards\.filter\(\(card\) => card\.active\)/);

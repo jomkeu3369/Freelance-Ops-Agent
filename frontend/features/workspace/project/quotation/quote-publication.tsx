@@ -18,9 +18,9 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
       {saved && (
         <article className="saved-quote" aria-live="polite">
           <div>
-            <span>{t("견적 저장 완료 ·")}{quotationStatusLabels[saved.status] ?? "상태 확인 필요"}</span>
+            <span>{t("견적 저장 완료 ·")}{t(quotationStatusLabels[saved.status]) ?? t("상태 확인 필요")}</span>
             <h3>
-              {quotationScenarioLabels[saved.scenario]} v{saved.versionNumber}
+              {t(quotationScenarioLabels[saved.scenario])} v{saved.versionNumber}
             </h3>
             <p>
               {t("총액")}{formatMoney(saved.total, saved.currency)} {t("· 위험 대비율")}{" "}

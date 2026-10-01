@@ -23,7 +23,7 @@ export function AnalysisTimeline({ events, run }: AnalysisTimelineProps) {
             .slice(-8)
             .reverse()
             .map((event) => {
-              const activity = activityPresentation(event, run);
+              const activity = activityPresentation(event, run, t);
               return (
                 <li key={event.eventId} className={`event-activity event-activity-${activity.tone}`}>
                   <span className="event-activity-marker" aria-hidden="true" />

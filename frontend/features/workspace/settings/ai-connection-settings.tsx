@@ -51,7 +51,7 @@ export function AIConnectionSettings({ session }: { session: AuthSession }) {
     <p>{t("연결은 현재 작업 공간에서 나만 사용할 수 있습니다. 키는 암호화해 보관하며 다시 표시하지 않습니다.")}</p>
     <p className="permission-note">{t("개인 키 호출 요금은 제공사 계정에 청구됩니다. 실행 한도는 계속 적용되며, 검색·라우팅 등 서비스 기능은 별도로 작동합니다.")}</p>
     {error && <p role="alert" className="form-error">{t(error)}</p>}
-    {message && <p role="status" className="settings-saved">{message}</p>}
+    {message && <p role="status" className="settings-saved">{t(message)}</p>}
     {!data && !error && <p role="status">{t("연결 확인 중…")}</p>}
     {data && <>
       <div className="ai-connection-list">{data.connections.length === 0 ? <p>{t("아직 연결한 키가 없습니다. 기본 제공 AI로도 시작할 수 있습니다.")}</p> : data.connections.map((connection) => <article key={connection.id}>

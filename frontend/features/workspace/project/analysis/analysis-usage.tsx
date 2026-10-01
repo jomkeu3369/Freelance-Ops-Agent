@@ -60,8 +60,8 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
           </dl>
           <small>
             {t("제공사 실제 청구액과 다를 수 있습니다. ·")}{" "}
-            {costStatusLabels[costUsage.costStatus] ?? "상태 확인 필요"} ·{" "}
-            {requestTierLabels[costUsage.requestTier] ?? "실행 등급 확인 필요"}
+            {t(costStatusLabels[costUsage.costStatus]) ?? t("상태 확인 필요")} ·{" "}
+            {t(requestTierLabels[costUsage.requestTier]) ?? t("실행 등급 확인 필요")}
           </small>
         </div>
       )}

@@ -172,7 +172,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
           </div>
           <div>
             <dt>{t("희망 완료일")}</dt>
-            <dd>{project.deadline ?? "미정"}</dd>
+            <dd>{project.deadline ?? t("미정")}</dd>
           </div>
           <div>
             <dt>{t("예산 범위")}</dt>
@@ -331,7 +331,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                   <dl>
                     <div>
                       <dt>{t("희망 완료일")}</dt>
-                      <dd>{project.deadline ?? "미정"}</dd>
+                      <dd>{project.deadline ?? t("미정")}</dd>
                     </div>
                     <div>
                       <dt>{t("예산 범위")}</dt>

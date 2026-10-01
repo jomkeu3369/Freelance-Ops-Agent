@@ -224,7 +224,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       .filter((quotation) => quotation.status === "PUBLISHED")
                       .map((quotation) => (
                         <option key={quotation.id} value={quotation.id}>
-                          {quotationScenarioLabels[quotation.scenario]} v{quotation.versionNumber} ·{" "}
+                          {t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber} ·{" "}
                           {formatMoney(quotation.total, quotation.currency)}
                         </option>
                       ))}

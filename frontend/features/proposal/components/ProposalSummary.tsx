@@ -25,7 +25,7 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
         <div className="proposal-total">
           <span>{t("제안 금액")}</span>
           <strong>{formatMoney(proposal.total)}</strong>
-          <small>{t("유효 기간")}{proposal.validUntil ?? "별도 협의"}</small>
+          <small>{t("유효 기간")}{proposal.validUntil ?? t("별도 협의")}</small>
         </div>
       </section>
 

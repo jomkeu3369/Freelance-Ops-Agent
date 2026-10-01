@@ -16,9 +16,9 @@ export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
           {quotations.map((quotation) => (
             <button type="button" key={quotation.id} onClick={() => loadQuotation(quotation)}>
               <strong>
-                {quotationScenarioLabels[quotation.scenario]} v{quotation.versionNumber}
+                {t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber}
               </strong>
-              <small>{quotationStatusLabels[quotation.status] ?? "상태 확인 필요"}</small>
+              <small>{t(quotationStatusLabels[quotation.status]) ?? t("상태 확인 필요")}</small>
               <span>{formatMoney(quotation.total, quotation.currency)}</span>
             </button>
           ))}

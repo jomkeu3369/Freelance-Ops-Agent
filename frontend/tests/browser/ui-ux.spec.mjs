@@ -206,6 +206,7 @@ test("focus, hover, explicit pause and live reduced motion independently stop au
   await page.goto("/");
   const chapter = page.locator("#workflow");
   const controls = page.locator(".demo-controls button");
+  await expect(controls.first()).toBeEnabled();
   await controls.first().focus();
   await page.keyboard.press("Tab");
   await expect(page.locator(".demo-step").first()).toBeFocused();
@@ -462,4 +463,50 @@ test("loading, entire workspace empty and search empty are separate states", asy
   await expect(page.locator(".pipeline-list")).toContainText("기존 프로젝트");
   await screenshot(page, "workspace-existing-project");
   expect(state.unexpected).toEqual([]);
+});
+
+for(const width of [320,390,1440]) for(const theme of ['light','dark']) {
+  test(`English ${width}px ${theme}: language persists, main and auth labels fit`, async ({page}) => {
+    await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'reduce'});await setTheme(page,theme);
+    await page.goto('/');await expect(page.locator('html')).toHaveAttribute('lang','ko');
+    await page.getByRole('combobox',{name:'표시 언어'}).selectOption('en');await expect(page.locator('html')).toHaveAttribute('lang','en');
+    for(let stage=0;stage<5;stage++) {
+      await page.locator('.demo-step').nth(stage).click();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      const remaining=await page.locator('.demo-view').innerText();expect(remaining).not.toMatch(/[가-힣]/);
+      for(const button of await page.locator('.product-demo button').all())if(await button.isVisible())expect(await button.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+    }
+    await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','en');await expect(page.getByRole('combobox',{name:'Interface language'})).toHaveValue('en');
+    await page.goto('/workspace');await expect(page.getByRole('tab',{name:'Log in',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Sign up',exact:true}).click();
+    await expect(page.locator('input[name="displayName"]')).toHaveAttribute('placeholder','What should we call you?');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await screenshot(page,`auth-en-${width}-${theme}`);
+  });
+}
+test('language switching preserves inquiry drafts and never translates saved client content',async({page})=>{
+  const project={id:'content-fixture',workspaceId:'local-space',clientId:null,title:'진행 중',requirementText:'고객 원문을 그대로 보존',currency:'KRW',deadline:null,budgetMin:null,budgetMax:null,status:'LEAD',updatedAt:'2026-10-01T00:00:00Z'};
+  const state=await workspaceFixture(page,{projects:[project]});await page.goto('/workspace/projects');await expect(page.locator('.pipeline-summary')).toBeVisible();
+  await page.getByRole('combobox',{name:'표시 언어'}).selectOption('en');await expect(page.locator('html')).toHaveAttribute('lang','en');
+  await expect(page.locator('.pipeline-board h3, .pipeline-list h2').first()).toHaveText('진행 중');
+  await page.getByRole('button',{name:'New inquiry',exact:true}).click();
+  await page.locator('input[name="title"]').fill('견적');await page.locator('textarea[name="requirementText"]').fill('원문 보관');await page.keyboard.press('Escape');
+  await page.getByRole('combobox',{name:'Interface language'}).selectOption('ko');await page.getByRole('button',{name:'신규 문의 등록',exact:true}).click();
+  await expect(page.locator('input[name="title"]')).toHaveValue('견적');await expect(page.locator('textarea[name="requirementText"]')).toHaveValue('원문 보관');
+  await page.keyboard.press('Escape');await page.getByRole('combobox',{name:'표시 언어'}).selectOption('en');
+  await page.getByRole('button',{name:'New inquiry',exact:true}).click();await expect(page.locator('input[name="title"]')).toHaveValue('견적');
+  await page.locator('input[name="title"]').fill('   ');await page.locator('button[type="submit"]').click();await expect(page.getByRole('alert')).toContainText('Enter a project name');
+  expect(state.submissions).toEqual([]);expect(state.unexpected).toEqual([]);
+});
+for(const language of ['ko','en'])test(`continuous ${language} card motion freezes mid-flight and replays the same node`,async({page})=>{
+  await page.emulateMedia({reducedMotion:'no-preference'});await page.addInitScript(lang=>localStorage.setItem('freelance-ops-ui-locale-v1',lang),language);
+  await page.goto('/');await page.locator('.demo-project-board').scrollIntoViewIfNeeded();await page.mouse.move(0,0);
+  const card=page.locator('.demo-moving-card');const node=await card.elementHandle();
+  await expect(card).toHaveAttribute('aria-hidden','false',{timeout:6000});await page.waitForTimeout(900);const initial=await card.boundingBox();
+  await expect(page.locator('.demo-project-flow')).toHaveAttribute('data-column','1',{timeout:22000});
+  await page.waitForTimeout(150);await page.locator('.demo-project-board').hover();const frozen=await card.getAttribute('style');await page.waitForTimeout(500);expect(await card.getAttribute('style')).toBe(frozen);
+  await page.mouse.move(0,0);await page.waitForTimeout(1000);expect((await card.boundingBox()).x).toBeGreaterThan(initial.x+30);
+  expect(await node.evaluate(e=>e===document.querySelector('.demo-moving-card'))).toBe(true);
+  await expect(page.locator('#workflow')).toHaveAttribute('data-run','2',{timeout:7000});expect(await node.evaluate(e=>e===document.querySelector('.demo-moving-card'))).toBe(true);
+  await page.emulateMedia({reducedMotion:'reduce'});await page.locator('.demo-step').nth(4).click();await expect(card).toHaveAttribute('aria-hidden','false');
 });

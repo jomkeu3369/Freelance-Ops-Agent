@@ -1,5 +1,6 @@
 import { WorkflowEvent, AgentRunView } from "../../../app/lib/api";
 import { providerLabels, departmentLabels } from "./constants";
+import { translateUi } from "../../../app/lib/ui-locale.mjs";
 
 export const runFailureMessages: Record<string, string> = {
   REACT_TOOL_CALL_INVALID:
@@ -82,7 +83,7 @@ export function eventDataTexts(event: WorkflowEvent, key: string): string[] {
     : [];
 }
 
-export function activityPresentation(event: WorkflowEvent, run: AgentRunView | null) {
+export function activityPresentation(event: WorkflowEvent, run: AgentRunView | null, t: (source: string, values?: Record<string, string | number>) => string = (source, values) => translateUi(source, "ko", values)) {
   if (event.type === "route.selected") {
     const route = eventDataText(event, "route");
     const provider = eventDataText(event, "provider");
@@ -91,20 +92,20 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
     const routingModel = eventDataText(event, "routingModel");
     const decisionSource = eventDataText(event, "decisionSource");
     const evaluatorSuggestedRoute = eventDataText(event, "evaluatorSuggestedRoute");
-    const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ?? reason);
+    const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ? t(routeReasonLabels[reason]) : reason);
     return {
-      title: `경로 선택 · ${routeActivityLabels[route ?? ""] ?? route ?? "확인 중"}`,
-      detail: reasons.join(" · ") || "요청의 범위와 필요한 작업을 기준으로 실행 경로를 선택했습니다.",
+      title: t("경로 선택 · {route}", { route: t(routeActivityLabels[route ?? ""] ?? route ?? "확인 중") }),
+      detail: reasons.join(" · ") || t("요청의 범위와 필요한 작업을 기준으로 실행 경로를 선택했습니다."),
       tags: [
-        route ? `경로 ${route}` : null,
+        route ? t("경로 {route}", {route}) : null,
         routingModel
-          ? `경로 판정 ${providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI"} · ${routingModel}`
-          : "경로 판정 정책 Gate",
-        model ? `분석 실행 ${providerLabels[provider ?? ""] ?? provider} · ${model}` : null,
+          ? t("경로 판정 {provider} · {model}", {provider: providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI", model: routingModel})
+          : t("경로 판정 정책 Gate"),
+        model ? t("분석 실행 {provider} · {model}", {provider: providerLabels[provider ?? ""] ?? provider ?? "AI", model}) : null,
         evaluatorSuggestedRoute
-          ? `평가 후보 ${routeActivityLabels[evaluatorSuggestedRoute] ?? evaluatorSuggestedRoute}`
+          ? t("평가 후보 {route}", {route: t(routeActivityLabels[evaluatorSuggestedRoute] ?? evaluatorSuggestedRoute)})
           : null,
-        routeDecisionSourceLabels[decisionSource ?? ""] ?? decisionSource
+        decisionSource ? t(routeDecisionSourceLabels[decisionSource] ?? decisionSource) : null
       ].filter((value): value is string => Boolean(value)),
       tone: "route"
     };
@@ -113,9 +114,9 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
     const toolName = eventDataText(event, "toolName");
     const department = eventDataText(event, "department");
     return {
-      title: `Tool 사용 · ${toolActivityLabels[toolName ?? ""] ?? toolName ?? "업무 도구"}`,
-      detail: eventDataText(event, "reason") ?? "선택된 경로에 필요한 정보를 확인했습니다.",
-      tags: [toolName, department ? (departmentLabels[department] ?? department) : null].filter(
+      title: t("Tool 사용 · {tool}", {tool: t(toolActivityLabels[toolName ?? ""] ?? toolName ?? "업무 도구")}),
+      detail: eventDataText(event, "reason") ?? t("선택된 경로에 필요한 정보를 확인했습니다."),
+      tags: [toolName, department ? t(departmentLabels[department] ?? department) : null].filter(
         (value): value is string => Boolean(value)
       ),
       tone: "tool"
@@ -123,14 +124,14 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
   }
   if (event.type === "run.started" && run?.metadata) {
     return {
-      title: eventActivityLabels[event.type],
-      detail: `${providerLabels[run.metadata.provider] ?? run.metadata.provider}의 ${run.metadata.model} 모델로 분석을 시작했습니다.`,
+      title: t(eventActivityLabels[event.type]),
+      detail: t("{provider}의 {model} 모델로 분석을 시작했습니다.", {provider: providerLabels[run.metadata.provider] ?? run.metadata.provider, model: run.metadata.model}),
       tags: [run.metadata.promptVersion],
       tone: "model"
     };
   }
   return {
-    title: eventActivityLabels[event.type] ?? "분석 진행",
+    title: t(eventActivityLabels[event.type] ?? "분석 진행"),
     detail: null,
     tags: [],
     tone: "default"

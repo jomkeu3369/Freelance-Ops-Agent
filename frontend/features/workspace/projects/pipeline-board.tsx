@@ -254,7 +254,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
         <p role="status" aria-live="polite">
           {searching
             ? t("검색 중입니다…")
-            : t("{v0} {v1}건{v2}", { v0: view === "list" && selectedColumn ? selectedColumn.title : "전체", v1: visibleProjects.length, v2: searchResults ? " · 검색 결과" : "" })}
+            : t("{v0} {v1}건{v2}", { v0: view === "list" && selectedColumn ? t(selectedColumn.title) : t("전체"), v1: visibleProjects.length, v2: searchResults ? t(" · 검색 결과") : "" })}
         </p>
         {(search || activeColumn !== "all") && (
           <button
@@ -356,7 +356,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                       className={movingId === project.id ? "saving" : ""}
                     >
                       <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}>
-                        <span className="pipeline-card-client">{projectClientLabel(project, clients)}</span>
+                        <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                         <h3>{project.title}</h3>
                         <span className="pipeline-deadline">
                           {project.deadline
@@ -375,11 +375,11 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                             onChange={(event) => void move(project, event.target.value as ProjectStatus)}
                           >
                             {project.status === "ACCEPTED" && (
-                              <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>
+                              <option value="ACCEPTED">{t(pipelineStatusLabels.ACCEPTED)}</option>
                             )}
                             {pipelineColumns.map((target) => (
                               <option key={target.key} value={target.moveTo}>
-                                {target.title}
+                                {t(target.title)}
                               </option>
                             ))}
                           </select>
@@ -401,7 +401,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             {searchResults
               ? t("검색 조건에 맞는 프로젝트가 없습니다.")
               : selectedColumn
-                ? t("{v0} 단계의 프로젝트가 없습니다.", { v0: selectedColumn.title })
+                ? t("{v0} 단계의 프로젝트가 없습니다.", { v0: t(selectedColumn.title) })
                 : t("아직 등록된 프로젝트가 없습니다.")}
           </h2>
           <p>
@@ -423,10 +423,10 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
               className={movingId === project.id ? "saving" : ""}
             >
               <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)}>
-                <span className="pipeline-card-client">{projectClientLabel(project, clients)}</span>
+                <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                 <span className="pipeline-list-divider">·</span>
                 <span className="pipeline-status-text">
-                  {pipelineStatusLabels[project.status] ?? project.status}
+                  {t(pipelineStatusLabels[project.status]) ?? project.status}
                 </span>
                 <h2>{project.title}</h2>
                 <p>{project.requirementText}</p>
@@ -438,7 +438,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                   <div>
                     <dt>{t("희망 완료일")}</dt>
                     <dd>
-                      {project.deadline ?? "미정"} <DeadlineBadge project={project} />
+                      {project.deadline ?? t("미정")} <DeadlineBadge project={project} />
                     </dd>
                   </div>
                   <div>
@@ -461,11 +461,11 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                     onChange={(event) => void move(project, event.target.value as ProjectStatus)}
                   >
                     {project.status === "ACCEPTED" && (
-                      <option value="ACCEPTED">{pipelineStatusLabels.ACCEPTED}</option>
+                      <option value="ACCEPTED">{t(pipelineStatusLabels.ACCEPTED)}</option>
                     )}
                     {pipelineColumns.map((target) => (
                       <option key={target.key} value={target.moveTo}>
-                        {target.title}
+                        {t(target.title)}
                       </option>
                     ))}
                   </select>

@@ -250,3 +250,5 @@
 .figma-home .demo-moving-card p { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0; }
 .figma-home .demo-card-price { display: block; color: var(--accent); font-size: 12px; margin-top: 8px; }
 @media(max-width:600px) { .figma-home .demo-project-board { gap: 8px; min-height: 222px; } .figma-home .demo-moving-card { padding: 9px; min-height: 166px; } .figma-home .demo-moving-card h4 { font-size: 12px; } }
+@media(max-width:600px) { .figma-home .demo-step > span:not(.demo-step-status) { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 10px; line-height: 1.4; } }
+@media(min-width:601px) { .figma-home .demo-step { gap: 6px; padding-inline: 8px; font-size: 12px; } .figma-home .demo-step > span:not(.demo-step-status) { min-width: 0; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; } }

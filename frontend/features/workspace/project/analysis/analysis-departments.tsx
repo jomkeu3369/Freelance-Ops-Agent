@@ -19,7 +19,7 @@ export function AnalysisDepartments({ results }: { results: DepartmentResults })
       <div>
         {results.map((result) => (
           <article key={result.department}>
-            <strong>{departmentLabels[result.department] ?? "분석 단계"}</strong>
+            <strong>{t(departmentLabels[result.department]) ?? t("분석 단계")}</strong>
             <p>{result.summary}</p>
             <small>
               {t("근거")}{result.evidenceIds.length} {t("· 가정")}{result.assumptionIds.length}

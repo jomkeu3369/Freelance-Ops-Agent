@@ -4,8 +4,10 @@ import { localeStorageKey, normalizeLocale, translateUi } from "./ui-locale.mjs"
 
 type Locale = "ko" | "en";
 let memoryLocale: Locale = "ko";
+let memoryOverride = false;
 const eventName = "freelance-ops-ui-language";
 function readLocale(): Locale {
+  if (memoryOverride) return memoryLocale;
   try { return normalizeLocale(localStorage.getItem(localeStorageKey)) as Locale; } catch { return memoryLocale; }
 }
 function subscribe(onChange: () => void) {
@@ -29,7 +31,7 @@ export function LanguageSelector() {
   const t = useT();
   return <label className="ui-language-selector"><span className="sr-only">{t("표시 언어")}</span><select aria-label={t("표시 언어")} value={locale} onChange={event => {
     memoryLocale = normalizeLocale(event.target.value) as Locale;
-    try { localStorage.setItem(localeStorageKey, memoryLocale); } catch { /* This tab still keeps the choice. */ }
+    try { localStorage.setItem(localeStorageKey, memoryLocale); memoryOverride = false; } catch { memoryOverride = true; }
     window.dispatchEvent(new Event(eventName));
   }}><option value="ko" lang="ko">한국어</option><option value="en" lang="en">English</option></select></label>;
 }

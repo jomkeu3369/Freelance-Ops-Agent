@@ -34,7 +34,7 @@ export function QuoteNotices({ model }: { model: QuoteBuilderModel }) {
                 ? t("비어 있는 단가를 입력하고 공수와 가정을 확인하세요.")
                 : draftStatus.kind === "unavailable"
                   ? t("초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요.")
-                  : t("{v0} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.", { v0: draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "방금" })}
+                  : t("{v0} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.", { v0: draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : t("방금") })}
             </small>
           </div>
           {draftStatus.kind !== "unavailable" && (
