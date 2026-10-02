@@ -61,11 +61,11 @@ export function useHomeAnimation() {
 
       // Read actual layout on refresh, including translated copy and loaded fonts.
       // The source is outside the clipped plate so it can become the lower hub.
-      const squareClip = () => {
+      const clipInsets = () => {
         const half = mark.offsetWidth * .78;
         const top = mark.offsetTop;
         const side = stage.offsetWidth / 2 - half;
-        return `inset(${top - half}px ${side}px ${stage.offsetHeight - top - half}px ${side}px round 28px)`;
+        return { top: top - half, side, bottom: stage.offsetHeight - top - half };
       };
       const destination = () => {
         const from = stage.getBoundingClientRect();
@@ -79,7 +79,13 @@ export function useHomeAnimation() {
       gsap.set(target, { autoAlpha: 0 });
       // The panel is readable from first visibility. One scrubbed playhead
       // owns hold, collapse and travel, preventing conflicting boundary clocks.
-      gsap.set(plate, { clipPath: "inset(0px 0px 0px 0px round 20px)", autoAlpha: 1, y: 0 });
+      // CSSOM normalizes inset shorthand. Tween scalar custom properties,
+      // never the serialized shape string; both sides share one value.
+      gsap.set(plate, {
+        clipPath: "inset(var(--brand-clip-top) var(--brand-clip-side) var(--brand-clip-bottom) var(--brand-clip-side) round var(--brand-clip-radius))",
+        "--brand-clip-top": "0px", "--brand-clip-side": "0px", "--brand-clip-bottom": "0px", "--brand-clip-radius": "20px",
+        autoAlpha: 1, y: 0
+      });
       gsap.set(copy, { opacity: 1 });
       const drift = () => window.innerHeight * .12;
       const transfer = gsap.timeline({ scrollTrigger: {
@@ -88,7 +94,11 @@ export function useHomeAnimation() {
       } });
       transfer.to(plate, { y: drift, duration: .46, ease: "none" }, 0)
         .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { y: drift, duration: .46, ease: "none" }, 0)
-        .to(plate, { clipPath: squareClip, duration: .34, ease: "sine.inOut" }, .12)
+        .to(plate, {
+          "--brand-clip-top": () => `${clipInsets().top}px`, "--brand-clip-side": () => `${clipInsets().side}px`,
+          "--brand-clip-bottom": () => `${clipInsets().bottom}px`, "--brand-clip-radius": "28px",
+          duration: .34, ease: "sine.inOut"
+        }, .12)
         .to(copy, { opacity: 0, duration: .18, ease: "sine.inOut" }, .16)
         .to(plate, { autoAlpha: 0, duration: .09, ease: "sine.in" }, .44)
         .to(mark, { x: () => destination().x, y: () => destination().y, scale: () => destination().scale, duration: .54, ease: "power1.inOut" }, .46)

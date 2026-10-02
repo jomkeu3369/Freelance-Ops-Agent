@@ -100,3 +100,15 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
   .figma-home.spatial-site .story-brand-plate-copy { position: static; }
   .figma-home.spatial-site .story-brand-mark { top: auto; bottom: 32px; transform: translateX(-50%); }
 }
+
+/* The stage summary is readable content, not a faint logo strip. */
+.figma-home.spatial-site .spatial-capability-strip { padding-block: 34px 46px; }
+.figma-home.spatial-site .spatial-capability-strip > span { font-family: var(--landing-font); font-size: 16px; line-height: 1.65; font-weight: 500; letter-spacing: 0; color: #d6cbe1; margin-bottom: 28px; }
+.figma-home.spatial-site .spatial-capability-strip > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+.figma-home.spatial-site .spatial-capability-strip > div > span { min-width: 0; gap: 12px; font-family: var(--landing-font); font-size: 18px; font-weight: 550; line-height: 1.5; letter-spacing: -.01em; color: #f0e8f8; overflow-wrap: anywhere; }
+.figma-home.spatial-site .spatial-capability-strip svg { width: 48px; height: 48px; padding: 11px; border: 1px solid #cab3e539; border-radius: 12px; background: #af8ed421; color: #e1cef7; }
+@media (max-width: 820px) {
+  .figma-home.spatial-site .spatial-capability-strip > div { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 16px; }
+  .figma-home.spatial-site .spatial-capability-strip > div > span { font-size: 16px; }
+}
+@media (max-width: 420px) { .figma-home.spatial-site .spatial-capability-strip > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

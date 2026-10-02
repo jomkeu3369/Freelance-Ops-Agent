@@ -23,11 +23,26 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   useEffect(() => {
     document.documentElement.lang = locale;
-    // Only localize the shared product title; leave route-specific titles intact.
+    // Next can commit metadata after hydration. Follow only shared-title changes,
+    // including replacement title elements, without touching route-specific titles.
     const englishSiteTitle = translateUi(defaultSiteTitle, "en");
-    if (document.title === defaultSiteTitle || document.title === englishSiteTitle) {
-      document.title = translateUi(defaultSiteTitle, locale);
-    }
+    const localizedTitle = translateUi(defaultSiteTitle, locale);
+    const syncTitle = () => {
+      const currentTitle = document.title;
+      if ((currentTitle === defaultSiteTitle || currentTitle === englishSiteTitle) && currentTitle !== localizedTitle) {
+        document.title = localizedTitle;
+      }
+    };
+    const titleObserver = new MutationObserver(records => {
+      if (records.some(record => record.target.nodeName === "TITLE"
+        || record.target.parentNode?.nodeName === "TITLE"
+        || [...record.addedNodes, ...record.removedNodes].some(node => node.nodeName === "TITLE"))) {
+        syncTitle();
+      }
+    });
+    titleObserver.observe(document.head, { childList: true, characterData: true, subtree: true });
+    syncTitle();
+    return () => titleObserver.disconnect();
   }, [locale, pathname]);
   return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
 }
