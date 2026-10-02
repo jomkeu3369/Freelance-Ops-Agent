@@ -70,3 +70,17 @@ four work units as new commits with byte-identical Git trees. Original local com
 are retained in a local backup branch. Commit SHAs differ only because the connector
 creates its own commit metadata. The existing Vercel integration can start an automatic
 preview for a branch backup; its status is separate from the blocked fixture browser QA.
+
+## API-origin normalization follow-up
+
+The runtime API URL builder now trims outer whitespace consistently with the existing
+Vercel environment validator, before its existing trailing-slash removal. Valid
+configured origins, the local default, and prior trailing-slash behavior are unchanged.
+Three focused regressions execute the actual API client with mocked fetch: validator
+consistency, unchanged normal inputs, and valid request construction from padded input.
+The final Node 22 `preview:check` passes typecheck, **74/74** unit/source tests, lint,
+and production build. No environment setting or backend was changed.
+
+This fixes an independently reproduced code defect. It does **not** establish that
+whitespace caused the reported deployed network error; the failing request origin and
+browser error are still needed to distinguish configuration, CORS, and transport issues.

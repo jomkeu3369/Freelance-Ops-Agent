@@ -430,7 +430,7 @@ export class ApiError extends Error {
 }
 
 export function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").trim().replace(/\/$/, "");
 }
 
 export function loadSession(): AuthSession | null {
