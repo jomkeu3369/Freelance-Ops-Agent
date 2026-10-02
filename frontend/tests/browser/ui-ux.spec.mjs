@@ -250,6 +250,8 @@ for (const language of ["ko", "en"]) {
         }
         await expect(page.locator(".spatial-proposal")).toContainText("3,000,000");
         await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? "10일" : "10 days");
+        await expectFinalMetricCounts(page);
+        for (const scene of await page.locator("[data-story-metric-scene]").all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
         await screenshot(page, `home-${language}-${width}-${theme}`);
         if (language === "ko" && width === 1440 && theme === "light") await page.locator(".spatial-world").screenshot({ path: "outputs/ui-ux/screenshots/landing-desktop-middle.png" });
         expect(requests).toEqual([]);
@@ -780,6 +782,185 @@ for (const language of ["ko", "en"]) {
       }
     });
   }
+}
+
+async function expectFinalMetricCounts(page, extended = false) {
+  const expected = extended ? ["13", "04", "13", "3.9"] : ["10", "03", "10", "3.0"];
+  await expect(page.locator("[data-story-count]")).toHaveText(expected);
+  await expect(page.locator("[data-story-count] + .sr-only")).toHaveText(expected);
+  for (const count of await page.locator("[data-story-count]").all()) await expect(count).toHaveAttribute("aria-hidden", "true");
+}
+
+for (const language of ["ko", "en"]) {
+  test(`metric entry ${language}: intermediate counts, ring, line and stagger settle once and follow changed scope`, async ({ page }) => {
+    await openClockedLanding(page, language);
+    const ringScene = page.locator(".story-dashboard-ring[data-story-metric-scene]");
+    const ring = ringScene.locator("[data-story-ring]");
+    const samples = page.locator(".story-sample-columns");
+    await expect(ringScene).toHaveAttribute("data-story-entry-state", "waiting");
+    await expectFinalMetricCounts(page); // Offscreen content is already semantically correct, without a timer.
+    expect(await ring.evaluate(element => element.style.strokeDasharray)).toBe("");
+    expect(await samples.locator("[data-story-sparkline]").evaluate(element => element.style.strokeDashoffset)).toBe("");
+    await ringScene.scrollIntoViewIfNeeded();
+    await expect(ringScene).toHaveAttribute("data-story-entry-state", "running");
+    await expect(ringScene.locator("[data-story-count] + .sr-only")).toHaveText("10");
+    await page.clock.runFor(250);
+    const halfwayCount = Number(await ringScene.locator("[data-story-count]").innerText());
+    expect(halfwayCount).toBeGreaterThan(0);
+    expect(halfwayCount).toBeLessThan(10);
+    const ringFill = await ring.evaluate(element => Number.parseFloat(getComputedStyle(element).strokeDasharray));
+    expect(ringFill).toBeGreaterThan(0);
+    expect(ringFill).toBeLessThan(10 / 13 * 100);
+    await expect(ringScene.locator("[data-story-count] + .sr-only")).toHaveText("10");
+    // Invoke the real scope control without scrolling away, so revision cleanup is tested during an active tween.
+    const choices = page.getByRole("group", { name: landingCopy[language].scope });
+    await choices.getByRole("button", { name: new RegExp(`^${landingCopy[language].extended}`) }).evaluate(button => button.click());
+    await expect(ringScene.locator("[data-story-count]")).toHaveText("13");
+    await expect(ringScene.locator("[data-story-count] + .sr-only")).toHaveText("13");
+    await page.clock.runFor(1800);
+    await expect(ringScene.locator("[data-story-count]")).toHaveText("13");
+    expect(Number.parseFloat(await ring.getAttribute("stroke-dasharray"))).toBe(100);
+    await choices.getByRole("button", { name: new RegExp(`^${landingCopy[language].essential}`) }).evaluate(button => button.click());
+    await page.clock.runFor(1800);
+    await expect(ringScene).toHaveAttribute("data-story-entry-state", "complete");
+    expect(await ring.evaluate(element => element.style.strokeDasharray)).toBe("");
+    expect(Number.parseFloat(await ring.getAttribute("stroke-dasharray"))).toBeCloseTo(10 / 13 * 100, 6);
+
+    await samples.scrollIntoViewIfNeeded();
+    const sampleScenes = samples.locator("[data-story-metric-scene]");
+    for (const scene of await sampleScenes.all()) await expect(scene).toHaveAttribute("data-story-entry-state", "running");
+    await expect(samples.locator("[data-story-count] + .sr-only")).toHaveText(["03", "10", "3.0"]);
+    await page.clock.runFor(250);
+    const countValues = (await samples.locator("[data-story-count]").allTextContents()).map(Number);
+    for (const [index, final] of [3, 10, 3].entries()) {
+      expect(countValues[index]).toBeGreaterThan(0);
+      expect(countValues[index]).toBeLessThan(final);
+    }
+    const lineOffset = await samples.locator("[data-story-sparkline]").evaluate(element => Number.parseFloat(getComputedStyle(element).strokeDashoffset));
+    expect(lineOffset).toBeGreaterThan(0);
+    expect(lineOffset).toBeLessThan(100);
+    await page.clock.runFor(400);
+    const pointOpacity = await samples.locator("[data-story-spark-point]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
+    const segmentOpacity = await samples.locator("[data-story-segment]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
+    expect(pointOpacity[0]).toBeGreaterThan(pointOpacity.at(-1));
+    expect(segmentOpacity[0]).toBeGreaterThan(segmentOpacity.at(-1));
+    await expect(samples.locator("[data-story-count] + .sr-only")).toHaveText(["03", "10", "3.0"]);
+    await page.clock.runFor(1800);
+    for (const scene of await sampleScenes.all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
+    await expectFinalMetricCounts(page);
+    expect(await samples.locator("[data-story-sparkline]").evaluate(element => element.style.strokeDashoffset)).toBe("");
+    for (const element of await samples.locator("[data-story-segment], [data-story-spark-point]").all()) {
+      expect(await element.evaluate(node => node.style.opacity)).toBe("");
+      expect(await element.evaluate(node => node.style.transform)).toBe("");
+    }
+
+    await page.locator("#workflow").scrollIntoViewIfNeeded();
+    await samples.scrollIntoViewIfNeeded();
+    await page.clock.runFor(100);
+    for (const scene of await sampleScenes.all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
+    await expectFinalMetricCounts(page); // Reentry cannot restart completed counts.
+    for (const extended of [true, false, true]) {
+      const copy = landingCopy[language];
+      await page.getByRole("group", { name: copy.scope }).getByRole("button", { name: new RegExp(`^${extended ? copy.extended : copy.essential}`) }).click();
+      await expectFinalMetricCounts(page, extended);
+      await page.clock.runFor(2000);
+      await expectFinalMetricCounts(page, extended); // A stale essential-scope tween cannot overwrite new props.
+      expect(Number.parseFloat(await ring.getAttribute("stroke-dasharray"))).toBeCloseTo((extended ? 13 : 10) / 13 * 100, 6);
+      await expect(samples.locator("[data-story-spark-point]")).toHaveCount(extended ? 4 : 3);
+      await expect(samples.locator("[data-story-segment].is-active")).toHaveCount(extended ? 13 : 10);
+    }
+  });
+}
+
+for (const interruption of ["offscreen", "visibility", "reduced-motion"]) {
+  test(`metric entry ${interruption}: interrupting a count settles to its true result and does not replay`, async ({ page }) => {
+    await openClockedLanding(page);
+    const scene = page.locator(".story-dashboard-ring[data-story-metric-scene]");
+    await scene.scrollIntoViewIfNeeded();
+    await expect(scene).toHaveAttribute("data-story-entry-state", "running");
+    await page.clock.runFor(200);
+    if (interruption === "offscreen") await page.locator("#audience").scrollIntoViewIfNeeded();
+    if (interruption === "reduced-motion") await page.emulateMedia({ reducedMotion: "reduce" });
+    if (interruption === "visibility") await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
+    await expect(scene.locator("[data-story-count]")).toHaveText("10");
+    await expect(scene.locator("[data-story-count] + .sr-only")).toHaveText("10");
+    if (interruption === "reduced-motion") await page.emulateMedia({ reducedMotion: "no-preference" });
+    if (interruption === "visibility") await page.evaluate(() => {
+      delete document.hidden;
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await scene.scrollIntoViewIfNeeded();
+    await page.clock.runFor(2000);
+    await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
+    await expect(scene.locator("[data-story-count]")).toHaveText("10");
+  });
+}
+
+test("desktop opening completes with a contracting centered shell and no loading or input gate", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.addInitScript(() => {
+    window.__introFrames = [];
+    const observer = new MutationObserver(records => {
+      const intro = document.querySelector("[data-story-intro]");
+      if (!intro || !records.some(record => record.target instanceof Element && (record.target === intro || intro.contains(record.target)))) return;
+      if (getComputedStyle(intro).display === "none") return;
+      const shellElement = intro.querySelector(".spatial-intro-shell");
+      const markElement = intro.querySelector(".spatial-intro-mark");
+      if (!shellElement || !markElement) return;
+      const shell = shellElement.getBoundingClientRect();
+      const mark = markElement.getBoundingClientRect();
+      if (!shell.width || !mark.width || window.__introFrames.length >= 240) return;
+      window.__introFrames.push({ shellWidth: shell.width, x: mark.left + mark.width / 2, y: mark.top + mark.height / 2 });
+    });
+    observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["style"] });
+  });
+  await page.clock.install();
+  await page.goto("/");
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1));
+  await page.clock.runFor(1100);
+  const intro = page.locator("[data-story-intro]");
+  await expect(intro).toHaveAttribute("aria-hidden", "true");
+  await expect(intro).toHaveCSS("pointer-events", "none");
+  await expect(intro).toHaveCSS("display", "none");
+  await expect(intro.locator('[data-story-count], [role="progressbar"], button, a, input')).toHaveCount(0);
+  await expect(intro).toHaveText("");
+  const frames = await page.evaluate(() => window.__introFrames);
+  expect(frames.length, "The entry must render intermediate geometry before disappearing").toBeGreaterThan(2);
+  expect(Math.max(...frames.map(frame => frame.shellWidth))).toBeGreaterThan(1440);
+  expect(Math.min(...frames.map(frame => frame.shellWidth))).toBeLessThan(150);
+  for (const frame of frames) {
+    expect(frame.x).toBeCloseTo(720, 0);
+    expect(frame.y).toBeCloseTo(450, 0);
+  }
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "본문으로 건너뛰기" })).toBeFocused();
+});
+
+for (const scenario of [
+  { name: "mobile", width: 390, motion: "no-preference", url: "/" },
+  { name: "reduced motion", width: 1440, motion: "reduce", url: "/" },
+  { name: "deep link", width: 1440, motion: "no-preference", url: "/#review" }
+]) {
+  test(`opening is absent for ${scenario.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: scenario.width, height: 900 });
+    await page.emulateMedia({ reducedMotion: scenario.motion });
+    await page.clock.install();
+    await page.goto(scenario.url);
+    const intro = page.locator("[data-story-intro]");
+    await expect(intro).toHaveCSS("display", "none");
+    await expect(intro).toHaveAttribute("aria-hidden", "true");
+    await page.clock.runFor(1200);
+    await expect(intro).toHaveCSS("display", "none");
+    if (scenario.name === "deep link") {
+      await expect(page).toHaveURL(/#review$/);
+      await expect(page.locator("#review")).toBeInViewport();
+    }
+  });
 }
 
 test("a workspace round trip retains internally coherent spatial example data", async ({ page }) => {

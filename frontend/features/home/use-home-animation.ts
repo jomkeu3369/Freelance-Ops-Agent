@@ -31,6 +31,23 @@ export function useHomeAnimation() {
       });
     });
     motion.add("(min-width: 821px) and (prefers-reduced-motion: no-preference)", () => {
+      const intro = pageRef.current?.querySelector<HTMLElement>("[data-story-intro]");
+      let opening: gsap.core.Timeline | undefined;
+      const finishOpening = () => { opening?.kill(); if (intro) gsap.set(intro, { display: "none" }); };
+      if (intro && window.scrollY < 16 && (!window.location.hash || window.location.hash === "#top") && !document.hidden) {
+        const shell = intro.querySelector(".spatial-intro-shell");
+        const openingMark = intro.querySelector(".spatial-intro-mark");
+        const size = Math.max(window.innerWidth, window.innerHeight) * 1.5;
+        gsap.set(intro, { display: "block" });
+        gsap.set(shell, { width: size, height: size, xPercent: -50, yPercent: -50, scale: 1 });
+        opening = gsap.timeline({ onComplete: () => gsap.set(intro, { display: "none" }) });
+        opening.to(shell, { scale: 90 / size, duration: .64, ease: "power2.inOut" })
+          .to(shell, { opacity: 0, duration: .12 }, .56)
+          .to(openingMark, { opacity: 0, scale: .82, duration: .17 }, .61);
+      }
+      // Decorative, never a loading gate. Input or scrolling dismisses it.
+      const interruptEvents = ["wheel", "touchstart", "pointerdown", "keydown", "scroll", "visibilitychange"] as const;
+      interruptEvents.forEach((event) => window.addEventListener(event, finishOpening, { passive: true, once: true }));
       const plate = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-plate]");
       const scene = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-scene]");
       const copy = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-copy]");
@@ -38,7 +55,9 @@ export function useHomeAnimation() {
       const target = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-target]");
       const card = pageRef.current?.querySelector<HTMLElement>("[data-story-merge-card]");
       const stage = scene?.querySelector<HTMLElement>(".story-brand-stage");
-      if (!plate || !scene || !copy || !mark || !target || !card || !stage) return;
+      if (!plate || !scene || !copy || !mark || !target || !card || !stage) return () => {
+        finishOpening(); interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
+      };
 
       // Read actual layout on refresh, including translated copy and loaded fonts.
       // The source is outside the clipped plate so it can become the lower hub.
@@ -78,7 +97,10 @@ export function useHomeAnimation() {
       });
       layoutObserver.observe(pageRef.current!);
       layoutObserver.observe(card);
-      return () => { layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); };
+      return () => {
+        layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); opening?.kill();
+        interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
+      };
     });
     return () => { ambientObserver.disconnect(); motion.revert(); };
   }, { scope: pageRef });

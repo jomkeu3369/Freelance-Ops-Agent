@@ -93,3 +93,10 @@
 .figma-home.spatial-site .scene-evidence-light .scene-evidence-cool { stroke: #8aa6ce; stroke-width: 60px; filter: blur(24px); opacity: .13; }
 @keyframes sceneEvidenceDrift { from { transform: translate(0, -9px) rotate(-1deg); opacity: .7; } to { transform: translate(8px, 10px) rotate(1deg); opacity: 1; } }
 @media (max-width: 820px) { .figma-home.spatial-site .scene-evidence-ribbon { animation: none; opacity: .7; } .figma-home.spatial-site .scene-evidence-haze { display: none; } }
+
+/* Brief original brand reveal: no loader claims, no focus or input interception. */
+.figma-home.spatial-site .spatial-intro { display: none; position: fixed; inset: 0; z-index: 80; overflow: hidden; pointer-events: none; }
+.figma-home.spatial-site .spatial-intro-shell { position: absolute; top: 50%; left: 50%; border-radius: 28%; background: #d5b4ff; }
+.figma-home.spatial-site .spatial-intro-mark { position: absolute; top: 50%; left: 50%; width: clamp(58px, 5.3vw, 102px); aspect-ratio: 1; display: grid; place-items: center; transform: translate(-50%, -50%); border-radius: 26%; color: #d7baff; background: #171021; }
+.figma-home.spatial-site .spatial-intro-mark svg { width: 66%; height: 66%; }
+@media (max-width: 820px), (prefers-reduced-motion: reduce) { .figma-home.spatial-site .spatial-intro { display: none !important; } }

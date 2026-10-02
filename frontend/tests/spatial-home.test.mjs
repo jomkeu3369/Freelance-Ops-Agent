@@ -126,8 +126,8 @@ test("ambient motion observes each layer independently and cleans up observers, 
     assert.match(component, new RegExp(`preference\\.${action}EventListener\\("change", syncMotion\\)`));
   }
   assert.match(component, /observer\.disconnect\(\)/);
-  for (const layer of ["scene-hero-light", "scene-fog", "scene-footer-light"]) assert.ok(atmosphere.includes(layer));
-  assert.ok((atmosphere.match(/data-ambient-visible="false"/g) ?? []).length >= 3);
+  for (const layer of ["scene-hero-light", "scene-fog", "scene-evidence-light", "scene-footer-light"]) assert.ok(atmosphere.includes(layer));
+  assert.ok((atmosphere.match(/data-ambient-visible="false"/g) ?? []).length >= 4);
   assert.doesNotMatch(atmosphere, /requestAnimationFrame|setInterval|fetch\(|<canvas|<video/);
 });
 
@@ -206,4 +206,79 @@ test("brand handoff travels into the measured radial target and reverses its sin
   visit(source);
   assert.ok(sourceAncestors?.includes("story-brand-stage"));
   assert.ok(!sourceAncestors.includes("story-brand-plate"), "The flying source cannot remain inside the clipped plate");
+});
+
+test("metric counts preserve accurate accessible finals while decorative entry reads current scope props", async () => {
+  const [helper, story] = await Promise.all([
+    sourceFile("../features/home/components/story-metric-entry.tsx"),
+    sourceFile("../features/home/components/reference-story.tsx")
+  ]);
+  assert.match(helper, /value\.toFixed\(decimals\)\.padStart\(digits,\s*"0"\)/);
+  assert.match(helper, /const final\s*=\s*formatCount\(value,\s*decimals,\s*digits\)/);
+  assert.match(helper, /aria-hidden="true"\s+data-story-count=\{value\}/);
+  assert.match(helper, /<span className="sr-only">\{final\}<\/span>/);
+  assert.doesNotMatch(helper, /aria-live|role="status"/);
+  assert.match(helper, /Number\(element\.dataset\.storyCount\)/);
+  assert.match(helper, /Number\(element\.dataset\.countDecimals\)/);
+  assert.match(helper, /Number\(element\.dataset\.countDigits\)/);
+  assert.match(helper, /formatCount\(value\s*\*\s*progress,\s*decimals,\s*digits\)/);
+  assert.match(story, /useStoryMetricEntry\(`\$\{quote\.rows\.length\}:\$\{quote\.days\}:\$\{quote\.total\}`\)/);
+  assert.match(story, /StoryCount value=\{quote\.rows\.length\} digits=\{2\}/);
+  assert.match(story, /StoryCount value=\{quote\.days\}/);
+  assert.match(story, /StoryCount value=\{quote\.total\s*\/\s*1000000\} decimals=\{1\}/);
+});
+
+test("metric entry runs once in view and restores current final values on every interruption and cleanup", async () => {
+  const helper = await sourceFile("../features/home/components/story-metric-entry.tsx");
+  assert.match(helper, /useRef\(new WeakSet<Element>\(\)\)/);
+  assert.match(helper, /if\s*\(entered\.current\.has\(scene\)\s*\|\|\s*document\.hidden\s*\|\|\s*preference\.matches\)\s*return/);
+  assert.match(helper, /entered\.current\.add\(scene\)/);
+  assert.match(helper, /new IntersectionObserver/);
+  assert.match(helper, /if\s*\(entry\.isIntersecting\)\s*\{\s*visible\.add\(scene\);\s*enter\(scene\)/);
+  assert.match(helper, /if\s*\(active\.has\(scene\)\)\s*restore\(scene\)/);
+  assert.match(helper, /if\s*\(document\.hidden\)\s*\{\s*for\s*\(const scene of active\.keys\(\)\)\s*restore\(scene\)/);
+  assert.match(helper, /active\.get\(scene\)\?\.kill\(\)/);
+  assert.match(helper, /renderCount\(scene,\s*1\)/);
+  assert.match(helper, /storyEntryState\s*=\s*"complete"/);
+  assert.match(helper, /observer\.disconnect\(\)/);
+  assert.match(helper, /preference\.removeEventListener\("change",\s*syncMotion\)/);
+  assert.match(helper, /document\.removeEventListener\("visibilitychange",\s*syncVisibility\)/);
+  assert.match(helper, /for\s*\(const scene of scenes\)\s*restore\(scene\)/);
+  assert.match(helper, /\},\s*\[revision\]\)/);
+  assert.doesNotMatch(helper, /setInterval|setTimeout|requestAnimationFrame/);
+  const entry = helper.slice(helper.indexOf("const enter ="), helper.indexOf("const observer ="));
+  assert.ok(entry.indexOf("entered.current.has(scene)") < entry.indexOf("gsap.timeline("));
+  for (const property of ["stroke-dasharray", "stroke-dashoffset", "opacity", "transform", "transform-origin"]) assert.ok(helper.includes(`removeProperty("${property}")`));
+  assert.match(entry, /data-story-ring/);
+  assert.match(entry, /data-story-sparkline/);
+  assert.match(entry, /strokeDashoffset:\s*100/);
+  assert.match(entry, /strokeDashoffset:\s*0/);
+  assert.match(entry, /data-story-spark-point[\s\S]*stagger:\s*\.15/);
+  assert.match(entry, /data-story-segment[\s\S]*stagger:\s*\.055/);
+});
+
+test("the brief intro is decorative, centered, bounded and skipped for reduced motion, mobile and deep links", async () => {
+  const [home, hook, css] = await Promise.all([
+    sourceFile("../features/home/home-page.tsx"),
+    sourceFile("../features/home/use-home-animation.ts"),
+    sourceFile("../app/scene-motion.css")
+  ]);
+  assert.match(home, /className="spatial-intro"\s+data-story-intro\s+aria-hidden="true"/);
+  assert.match(home, /spatial-intro-mark"><StoryMark\s*\/>/);
+  const introMarkup = home.slice(home.indexOf('<div className="spatial-intro"'), home.indexOf("<HomeHeader"));
+  assert.doesNotMatch(introMarkup, /StoryCount|progressbar|aria-live|tabIndex|<button|<input/);
+  assert.match(css, /\.spatial-intro\s*\{[^}]*display:\s*none;[^}]*pointer-events:\s*none/);
+  assert.match(css, /\.spatial-intro-mark\s*\{[^}]*top:\s*50%;[^}]*left:\s*50%/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\),\s*\(prefers-reduced-motion:\s*reduce\)[^{]*\{[^}]*\.spatial-intro\s*\{\s*display:\s*none\s*!important/);
+  assert.match(hook, /window\.scrollY\s*<\s*16/);
+  assert.match(hook, /!window\.location\.hash\s*\|\|\s*window\.location\.hash\s*===\s*"#top"/);
+  assert.match(hook, /&&\s*!document\.hidden/);
+  assert.match(hook, /opening\.to\(shell,\s*\{\s*scale:\s*90\s*\/\s*size,\s*duration:\s*\.64/);
+  assert.match(hook, /\.to\(openingMark,\s*\{\s*opacity:\s*0,\s*scale:\s*\.82,\s*duration:\s*\.17\s*\},\s*\.61\)/);
+  assert.match(hook, /onComplete:\s*\(\)\s*=>\s*gsap\.set\(intro,\s*\{\s*display:\s*"none"\s*\}\)/);
+  assert.match(hook, /opening\?\.kill\(\)/);
+  for (const event of ["wheel", "touchstart", "pointerdown", "keydown", "scroll", "visibilitychange"]) assert.ok(hook.includes(`"${event}"`), `Intro cancellation must handle ${event}`);
+  assert.match(hook, /window\.addEventListener\(event,\s*finishOpening,\s*\{\s*passive:\s*true,\s*once:\s*true\s*\}\)/);
+  assert.match(hook, /window\.removeEventListener\(event,\s*finishOpening\)/);
+  assert.match(hook, /finishOpening\(\);\s*interruptEvents\.forEach/);
 });
