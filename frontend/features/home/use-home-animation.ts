@@ -114,6 +114,11 @@ export function useHomeAnimation() {
       layoutObserver.observe(pageRef.current!);
       layoutObserver.observe(card);
       layoutObserver.observe(copy);
+      // A flexed diagram can change internally while its outer card keeps the
+      // same min-height (for example after translated text or fonts wrap).
+      const targetFrame = target.closest<HTMLElement>(".story-radial");
+      if (targetFrame) layoutObserver.observe(targetFrame);
+      layoutObserver.observe(target);
       return () => {
         layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); opening?.kill();
         ScrollTrigger.removeEventListener("refreshInit", placeMark);

@@ -108,6 +108,42 @@ test("reduced-motion completion and manual previews remain coherent across scope
 
 const sourceFile = path => readFile(new URL(path, import.meta.url), "utf8");
 
+test("proposal bars do not repeat numeric effort in the accessible table", async () => {
+  const story = await sourceFile("../features/home/components/reference-story.tsx");
+  const source = ts.createSourceFile("reference-story.tsx", story, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const decorative = [];
+  function visit(node) {
+    if (ts.isJsxElement(node)) {
+      const attributes = node.openingElement.attributes.properties;
+      const attribute = name => attributes.find(item => ts.isJsxAttribute(item) && item.name.getText(source) === name)?.initializer?.text;
+      if (attribute("className") === "story-grid-effort") {
+        decorative.push(node);
+        assert.equal(attribute("aria-hidden"), "true", "Visual bar header and cells are decorative at every viewport");
+        assert.equal(attribute("role"), undefined, "Decorative bars must not create a duplicate table column");
+        assert.doesNotMatch(node.getText(source), /className="sr-only"/);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.equal(decorative.length, 2, "One decorative header and one mapped visual cell");
+  assert.match(story, /<span role="cell">\{row\.days\}\{t\("일"\)\}<\/span>/, "One readable effort cell remains");
+});
+
+test("mixed-content action text remains readable and the handoff observes its inner target geometry", async () => {
+  const [css, hook] = await Promise.all([
+    sourceFile("../app/landing-readability.css"),
+    sourceFile("../features/home/use-home-animation.ts")
+  ]);
+  for (const selector of [".spatial-assumptions summary", ".spatial-scope-estimator aside > a", "> footer > div > p"]) {
+    const rule = css.slice(css.lastIndexOf(selector)).split("}")[0];
+    assert.match(rule, /font-size:\s*(?:13|14)px/);
+  }
+  assert.match(hook, /target\.closest<HTMLElement>\("\.story-radial"\)/);
+  assert.match(hook, /if \(targetFrame\) layoutObserver\.observe\(targetFrame\)/);
+  assert.match(hook, /layoutObserver\.observe\(target\)/);
+});
+
 test("ambient motion observes each layer independently and cleans up observers, preferences and visibility listeners", async () => {
   const [hook, component, atmosphere] = await Promise.all([
     sourceFile("../features/home/use-home-animation.ts"),

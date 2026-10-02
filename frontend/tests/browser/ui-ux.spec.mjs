@@ -92,6 +92,15 @@ function watchLandingApiRequests(page) {
 }
 
 async function expectSpatialLayout(page) {
+  // Include direct text beside SVGs, spans and <br>; leaf-only scans miss real copy.
+  const tinyCopy = await page.locator(".figma-home *").evaluateAll(elements => elements.flatMap(element => {
+    const directText = [...element.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent.trim()).filter(Boolean).join(" ");
+    const rect = element.getBoundingClientRect();
+    if (directText.length < 4 || rect.width < 2 || rect.height < 2 || element.closest('[aria-hidden="true"], .sr-only')) return [];
+    const size = Number.parseFloat(getComputedStyle(element).fontSize);
+    return size < 12 ? [{ text: directText, size, className: element.className }] : [];
+  }));
+  expect(tinyCopy, "Meaningful mixed-content text must not fall back to micro-type").toEqual([]);
   const documentSize = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth, body: document.body.scrollWidth }));
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
@@ -441,8 +450,9 @@ for (const language of ["ko", "en"]) {
         await expect(comparisons.nth(1).locator(".is-filled")).toHaveCount(days);
         await expect(comparisons.nth(2).locator(".spatial-comparison-price")).toHaveText(`${total}KRW`);
         await expect(table.getByRole("row")).toHaveCount(extended ? 5 : 4);
-        // The visual effort breakdown may collapse on phones; the four-column DOM contract remains.
-        await expect(table.getByRole("columnheader", { includeHidden: true })).toHaveCount(4);
+        // The duplicate visual bar column is decorative on every viewport.
+        await expect(table.getByRole("columnheader")).toHaveCount(3);
+        for (const bars of await table.locator(".story-grid-effort").all()) await expect(bars).toHaveAttribute("aria-hidden", "true");
         for (const heading of language === "ko" ? ["작업", "공수", "금액"] : ["Task", "Effort", "Price"]) {
           await expect(table.getByRole("columnheader", { name: heading, exact: true })).toBeVisible();
         }
@@ -1519,6 +1529,11 @@ for(const width of [320,390,1440]) for(const theme of ['light','dark']) {
     }
     await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','en');await expect(page.getByRole('combobox',{name:'Interface language'})).toHaveValue('en');
     await page.goto('/workspace');await expect(page.getByRole('tab',{name:'Log in',exact:true})).toBeVisible();
+    for (const label of await page.locator('.auth-companion > span, .auth-assurance, .auth-footer').all()) {
+      expect(await label.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(13);
+      expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    }
+    expect(await page.locator('input[name="email"]').evaluate(element => getComputedStyle(element, '::placeholder').opacity)).toBe('1');
     await page.getByRole('tab',{name:'Sign up',exact:true}).click();
     await expect(page.locator('input[name="displayName"]')).toHaveAttribute('placeholder','What should we call you?');
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
