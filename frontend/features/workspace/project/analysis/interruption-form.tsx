@@ -21,6 +21,7 @@ interface InterruptionFormProps {
 export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, draftRunId, busy, canRespond, onSubmit }: InterruptionFormProps) {
   const t = useT();
   const formRef = useRef<HTMLFormElement>(null);
+  const submitLock = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState<string[]>(() => {
     if (typeof window === "undefined") return interruption.questions.map(() => "");
@@ -90,7 +91,8 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
 
   const submitAnswers = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || submitLock.current || !canRespond || answers.some((answer) => !answer.trim())) return;
+    submitLock.current = true;
     setSubmitting(true);
     try {
       await onSubmit(answers.map((answer) => answer.trim()));
@@ -102,6 +104,7 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
     } catch {
       // The parent exposes the API error; retaining the draft is the recovery path.
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   };
@@ -128,7 +131,7 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
           {question}
           <textarea
             required
-            readOnly={!canRespond}
+            readOnly={!canRespond || pending}
             value={answers[index]}
             onChange={(event) =>
               setAnswers((current) =>

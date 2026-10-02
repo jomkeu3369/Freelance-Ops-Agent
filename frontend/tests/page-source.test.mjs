@@ -311,7 +311,7 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /function recordedCompletedNodes\(events: WorkflowEvent\[\]\)/);
   assert.match(graph, /expectedNodes\.find\(\(node\) => !eventCompletedNodes\.includes\(node\)\)/);
   assert.match(workspace, /REACT_TOOL_CALL_INVALID: "AI 응답 형식을 자동으로 다시 확인했지만/);
-  assert.match(workspace, /runFailureMessage\(run\.errorCode\)/);
+  assert.match(workspace, /runFailureMessage\(view\?\.errorCode \?\? null\)/);
 });
 
 test("Agent SSE reconnects from the last durable event with bounded backoff", async () => {
@@ -696,7 +696,7 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /<fieldset className="dialog-fields" disabled=\{busy\}>/);
   assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
   assert.match(workspace, /const pending = busy \|\| submitting/);
-  assert.match(workspace, /if \(pending\) return/);
+  assert.match(workspace, /if \(pending \|\| submitLock\.current \|\| !canRespond/);
   assert.match(workspace, /function EstimationPolicyForm[\s\S]*?if \(busy\) return;/);
   assert.match(workspace, /function ModelPricingForm[\s\S]*?if \(busy\) return;/);
   assert.equal([...workspace.matchAll(/<fieldset className="settings-fields" disabled=\{busy\}>/g)].length, 2);
@@ -863,18 +863,16 @@ test("agent runs request enough model calls and output tokens for the four-depar
   assert.match(workflow, /PARTIAL: "부분 결과 제공"/);
 });
 
-test("waiting agent runs prioritize a readable collapsible review panel", async () => {
+test("waiting agent runs prioritize inline questions and put work detail behind a disclosure", async () => {
   const [workspace, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /setReviewFocused\(run\?\.status === "WAITING_FOR_USER"\)/);
-  assert.match(workspace, /aria-controls="run-execution-graph"/);
-  assert.match(workspace, /aria-expanded=\{!reviewFocused\}/);
-  assert.match(workspace, /className="graph-panel" hidden=\{reviewFocused\}/);
-  assert.match(workspace, /진행 상황 보기/);
-  assert.match(css, /\.workbench-grid\.review-focused \{ grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(css, /\.workbench-grid\.review-focused \.graph-panel \{ display: none/);
+  assert.match(workspace, /status === "WAITING_FOR_USER" && item\.runId === runId \? clarification/);
+  assert.match(workspace, /clarification=\{run\?\.interruption \? <InterruptionForm/);
+  assert.match(workspace, /<details className="workspace-disclosure agent-chat-work-details">/);
+  assert.match(workspace, /<LiveWorkflow snapshot=\{snapshot\}/);
+  assert.match(workspace, /onOpenResult=\{openResult\}/);
   assert.doesNotMatch(css, /\.graph-restore/);
   assert.match(css, /\.interruption-form label \{[^}]*font-size: 1rem/);
   assert.match(css, /\.interruption-form textarea \{[^}]*min-height: 132px/);

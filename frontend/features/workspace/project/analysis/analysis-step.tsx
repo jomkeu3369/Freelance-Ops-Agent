@@ -1,10 +1,9 @@
+import { useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
 import { LiveWorkflow, snapshotFromEvents } from "../../../../app/components/live-workflow";
 import { interruptionDraftKey } from "../../../../app/lib/interruption-draft.mjs";
-import { ArrowRight, CircleNotch, Clock, Graph, Warning } from "@phosphor-icons/react";
-import { runStatusLabels } from "../../shared/constants";
-import { runFailureMessage } from "../../shared/activity-presentation";
+import { StreamState } from "../../shared/types";
 import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
@@ -24,110 +23,48 @@ interface AnalysisStepProps {
   canRun: boolean;
   canEditPolicy: boolean;
   modelAvailable: boolean;
+  streamState: StreamState;
   onSendMessage: (message: string) => Promise<boolean>;
-  reviewFocused: boolean;
   costUsage: AgentRunUsage | null;
-  onToggleFocus: () => void;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, onSendMessage, reviewFocused, costUsage, onToggleFocus, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, streamState, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
-  function handleCancel() {
-    void onCancel();
+  const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
+  const resultPanel = useRef<HTMLDetailsElement>(null);
+  const resultSummary = useRef<HTMLElement>(null);
+  const resultView = reviewedRun?.runId === run?.runId ? run : reviewedRun;
+
+  function openResult(view: AgentRunView) {
+    setReviewedRun(view);
+    requestAnimationFrame(() => {
+      if (resultPanel.current) resultPanel.current.open = true;
+      resultSummary.current?.focus({ preventScroll: true });
+      resultPanel.current?.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    });
   }
 
-  return (
-    <>
-    <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy} canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable} onSend={onSendMessage} onCancel={onCancel} />
-    {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} · {run.metadata.model}</p>}
-    <PetWorkspace key={runId ?? "pending"} run={run} />
-    <div className={`workbench-grid${reviewFocused ? " review-focused" : ""}`}>
-      <div id="run-execution-graph" className="graph-panel" hidden={reviewFocused}>
-        <LiveWorkflow snapshot={snapshot} />
-        {runId &&
-          canCancel &&
-          (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status)) && (
-            <div className="run-action-bar">
-              <span>{t("필요하면 현재 실행을 안전하게 중단할 수 있습니다.")}</span>
-              <button
-                type="button"
-                className="quiet-button danger"
-                disabled={busy}
-                onClick={handleCancel}
-              >
-                {busy ? <CircleNotch className="spin" /> : <Warning size={17} />} {t("실행 중단")}</button>
-            </div>
-          )}
-        <AnalysisTimeline events={events} run={run} />
-      </div>
-
-      <aside className="run-inspector">
-        <div className="panel-title inspector-title">
-          <span>{t("분석 결과")}</span>
-          <div>
-            {run && (
-              <small className="run-status-chip">{t(runStatusLabels[run.status]) ?? run.status}</small>
-            )}
-            <button
-              type="button"
-              className="panel-focus-toggle"
-              aria-controls="run-execution-graph"
-              aria-expanded={!reviewFocused}
-              onClick={onToggleFocus}
-            >
-              {reviewFocused ? (
-                <>
-                  <Graph size={16} /> {t("진행 상황 보기")}</>
-              ) : (
-                <>
-                  {t("결과 크게 보기")}<ArrowRight size={15} />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-        {!run ? (
-          <div className="inspector-empty">
-            <Clock size={26} />
-            <p>{t("실행 결과와 확인 질문이 여기에 나타납니다.")}</p>
-          </div>
-        ) : run.status === "WAITING_FOR_USER" && run.interruption ? (
-          <InterruptionForm
-            key={run.interruption.interruptionId}
-            interruption={run.interruption}
-            draftKey={interruptionDraftKey(session.userId, session.workspaceId, runId ?? run.runId, run.interruption.interruptionId)}
-            draftWorkspaceId={session.workspaceId}
-            draftRunId={runId ?? run.runId}
-            busy={busy}
-            canRespond={canRespond}
-            onSubmit={onResume}
-          />
-        ) : ["FAILED", "CANCELLED"].includes(run.status) ? (
-          <div className="run-failed">
-            <Warning size={30} />
-            <h3>
-              {run.status === "CANCELLED" ? t("사용자가 실행을 중단했습니다.") : t("실행이 중단되었습니다.")}
-            </h3>
-            <p>
-              {run.status === "CANCELLED"
-                ? t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")
-                : t(runFailureMessage(run.errorCode))}
-            </p>
-            {run.status === "FAILED" && run.errorCode && <small>{t("오류 코드 ·")}{run.errorCode}</small>}
-          </div>
-        ) : run.result ? (
-          <AnalysisResult run={run} events={events} costUsage={costUsage} onCompareQuotes={onCompareQuotes} />
-        ) : (
-          <div className="inspector-empty running">
-            <CircleNotch size={29} className="spin" />
-            <p>{t("결과를 만들고 있습니다. 그래프에서 현재 단계를 확인하세요.")}</p>
-          </div>
-        )}
-      </aside>
-    </div>
-    </>
-  );
+  return <>
+    <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
+      canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
+      streamState={streamState} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
+      clarification={run?.interruption ? <InterruptionForm key={run.interruption.interruptionId}
+        interruption={run.interruption}
+        draftKey={interruptionDraftKey(session.userId, session.workspaceId, runId ?? run.runId, run.interruption.interruptionId)}
+        draftWorkspaceId={session.workspaceId} draftRunId={runId ?? run.runId} busy={busy} canRespond={canRespond} onSubmit={onResume} /> : <p>{t("사용자 확인을 기다리고 있습니다")}</p>} />
+    {resultView?.result && <details ref={resultPanel} className="workspace-disclosure agent-chat-result-panel">
+      <summary ref={resultSummary}>{t("분석 결과")}</summary>
+      <AnalysisResult run={resultView} events={resultView.runId === runId ? events : []} costUsage={resultView.runId === runId ? costUsage : null} onCompareQuotes={onCompareQuotes} />
+    </details>}
+    {runId && <details className="workspace-disclosure agent-chat-work-details">
+      <summary>{t("작업 자세히 보기")}<small>{t("담당 작업 · 진행 기록 · 모델 정보")}</small></summary>
+      {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} · {run.metadata.model}</p>}
+      <PetWorkspace key={runId} run={run} />
+      <LiveWorkflow snapshot={snapshot} />
+      <AnalysisTimeline events={events} run={run} />
+    </details>}
+  </>;
 }

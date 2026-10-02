@@ -397,14 +397,26 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   useEffect(() => {
     if (!session || !runId) return;
     let cancelled = false;
+    let pollingError: string | null = null;
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
-        if (!cancelled) setRun(view);
+        if (!cancelled) {
+          setRun(view);
+          if (pollingError) {
+            const recoveredError = pollingError;
+            setError((current) => current === recoveredError ? null : current);
+            pollingError = null;
+          }
+        }
         return terminalStatuses.has(view.status);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.");
-        return true;
+        if (!cancelled) {
+          pollingError = cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.";
+          setError(pollingError);
+        }
+        // Keep reading after a temporary network error; never retry a denied or missing run.
+        return cause instanceof ApiError && [401, 403, 404].includes(cause.status);
       }
     };
     const timer = window.setInterval(async () => {
@@ -591,6 +603,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           runId,
           events,
           busy,
+          streamState,
           snapshot,
           permissions: activePermissions,
           initialStep: projectStep,

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import {
   AgentRunHistoryItem,
@@ -18,6 +18,9 @@ import {
   proposeEstimationPolicy,
 } from "../../../../app/lib/api";
 import { parseChatPolicyIntent } from "../../../../app/lib/chat-policy-intent.mjs";
+import { departmentLabels, runStatusLabels } from "../../shared/constants";
+import { eventActivityLabels, runFailureMessage } from "../../shared/activity-presentation";
+import { StreamState } from "../../shared/types";
 
 interface AgentChatProps {
   session: AuthSession;
@@ -30,6 +33,9 @@ interface AgentChatProps {
   canEditPolicy: boolean;
   canCancel: boolean;
   modelAvailable: boolean;
+  streamState: StreamState;
+  clarification: ReactNode;
+  onOpenResult: (view: AgentRunView) => void;
   onSend: (message: string) => Promise<boolean>;
   onCancel: () => Promise<void>;
 }
@@ -44,15 +50,16 @@ function proposalKey(session: AuthSession, projectId: string) {
 
 const activeStatuses = new Set(["QUEUED", "RUNNING", "WAITING_FOR_USER"]);
 
-function eventText(event: WorkflowEvent): string {
+function eventText(event: WorkflowEvent, t: (source: string) => string): string {
   const summary = event.data.summary;
   const department = event.data.department;
   if (typeof summary === "string" && summary.trim()) return summary;
-  if (typeof department === "string" && department.trim()) return `${department} · ${event.type}`;
-  return event.type;
+  const label = t(eventActivityLabels[event.type] ?? ({ "task.delegated": "담당 작업 시작", "task.completed": "담당 작업 완료" }[event.type]) ?? "분석 진행");
+  if (typeof department === "string" && department.trim()) return `${t(departmentLabels[department.toLowerCase()] ?? "담당 작업")} · ${label}`;
+  return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, onSend, onCancel }: AgentChatProps) {
+export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState<AgentRunHistoryItem[]>([]);
@@ -65,6 +72,15 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const [proposal, setProposal] = useState<EstimationPolicyProposal | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [policyBusy, setPolicyBusy] = useState(false);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [unread, setUnread] = useState(false);
+  const viewport = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const followsLatest = useRef(true);
+  const sendLock = useRef(false);
+  const confirmLock = useRef(false);
+  const composing = useRef(false);
   const key = draftKey(session, projectId);
   const pendingKey = proposalKey(session, projectId);
 
@@ -114,7 +130,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : t("작업 기록을 불러오지 못했습니다.")); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [canRun, projectId, runId, session, t]);
+  }, [canRun, projectId, runId, session, t, historyRevision]);
 
   const turns = useMemo(() => {
     const known = new Map(history.map((item) => [item.runId, item]));
@@ -123,9 +139,40 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   }, [acceptedMessage, history, run?.status, run?.updatedAt, runId]);
   const timeline = useMemo(() => [
     ...turns.map((value) => ({ kind: "run" as const, value, createdAt: value.createdAt })),
-    ...policyHistory.map((value) => ({ kind: "policy" as const, value, createdAt: value.createdAt })),
-  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [turns, policyHistory]);
+    ...[...new Map([...policyHistory, ...(proposal ? [proposal] : [])].map((value) => [value.proposalId, value])).values()].map((value) => ({ kind: "policy" as const, value, createdAt: value.createdAt })),
+  ].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [turns, policyHistory, proposal]);
   const active = !!runId && (!run || activeStatuses.has(run.status));
+  const updateSignature = `${timeline.map((entry) => entry.kind === "policy" ? `${entry.value.proposalId}:${entry.value.status}` : entry.value.runId).join("|")}:${run?.status}:${run?.interruption?.interruptionId}:${events.at(-1)?.eventId}:${run?.result?.projectSummary}`;
+
+  useLayoutEffect(() => {
+    const box = viewport.current;
+    if (!box) return;
+    if (followsLatest.current) box.scrollTop = box.scrollHeight;
+    else Promise.resolve().then(() => setUnread(true));
+  }, [updateSignature]);
+
+  useEffect(() => {
+    const body = content.current;
+    if (!body) return;
+    const observer = new ResizeObserver(() => {
+      if (followsLatest.current && viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
+    });
+    observer.observe(body);
+    return () => observer.disconnect();
+  }, []);
+
+  useLayoutEffect(() => {
+    const field = input.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(field.scrollHeight, 180)}px`;
+  }, [draft]);
+
+  function showLatest() {
+    followsLatest.current = true;
+    setUnread(false);
+    viewport.current?.scrollTo({ top: viewport.current.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }
 
   function updateDraft(value: string) {
     setDraft(value);
@@ -135,7 +182,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = draft;
-    if (!message.trim() || sending || busy || active) return;
+    if (!message.trim() || sendLock.current || busy || active || composing.current) return;
+    sendLock.current = true;
     setSending(true);
     setPolicyError(null);
     try {
@@ -158,55 +206,69 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         try { sessionStorage.setItem(pendingKey, next.proposalId); } catch { /* Keep it in memory. */ }
         updateDraft("");
       } else {
-        if (!canRun || !modelAvailable) return;
-        if (await onSend(message)) { setAcceptedMessage(message); updateDraft(""); }
+        if (!canRun || !modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
+        if (await onSend(message)) { setAcceptedMessage(message); updateDraft(""); showLatest(); }
+        else setPolicyError(t("요청을 보내지 못했습니다. 입력은 보존되었습니다. 다시 보내 주세요."));
       }
     } catch (cause) {
       setPolicyError(cause instanceof Error ? cause.message : t("설정 변경안을 만들지 못했습니다."));
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   }
 
-  async function confirmProposal() {
-    if (!proposal || proposal.status !== "PENDING" || policyBusy) return;
+  async function confirmProposal(item: EstimationPolicyProposal) {
+    if (!canEditPolicy || item.status !== "PENDING" || confirmLock.current) return;
+    confirmLock.current = true;
     setPolicyBusy(true);
     setPolicyError(null);
     try {
-      const applied = await confirmEstimationPolicyProposal(session, proposal.proposalId, proposal.confirmationToken);
+      const applied = await confirmEstimationPolicyProposal(session, item.proposalId, item.confirmationToken);
       setProposal(applied);
       setPolicyHistory((items) => items.map((item) => item.proposalId === applied.proposalId ? applied : item));
       try { sessionStorage.removeItem(pendingKey); } catch { /* ignore */ }
     } catch (cause) {
       if (cause instanceof ApiError && (cause.status === 410 || cause.status === 409)) {
         setProposal(null);
+        setPolicyHistory((items) => items.map((value) => value.proposalId === item.proposalId ? { ...value, status: "EXPIRED" } : value));
         try { sessionStorage.removeItem(pendingKey); } catch { /* ignore */ }
         setPolicyError(t("제안이 만료되었거나 현재 설정이 바뀌었습니다. 새 변경안을 입력해 주세요."));
         return;
       }
       setPolicyError(cause instanceof Error ? cause.message : t("설정 변경을 확정하지 못했습니다."));
-    } finally { setPolicyBusy(false); }
+    } finally { confirmLock.current = false; setPolicyBusy(false); }
   }
 
   return (
     <section className="agent-chat" aria-label={t("에이전트 대화")}>
       <header className="agent-chat-heading">
-        <div><span>{t("프로젝트 에이전트")}</span><h2>{t("무엇을 도와드릴까요?")}</h2></div>
-        <p>{t("요청을 보내면 실제 작업 단계와 결과가 이 대화에 기록됩니다.")}</p>
+        <div><span>{t("프로젝트 에이전트")}</span><h2>{t("프로젝트 대화")}</h2></div>
+        <p>{t("요청하고, 확인하고, 결과를 열어보세요.")}</p>
       </header>
-      <div className="agent-chat-turns" aria-live="polite" aria-relevant="additions text">
+      {/* A scrollable log needs focus so keyboard users can read older messages with arrow keys. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
+      <div ref={viewport} className="agent-chat-turns" role="log" aria-label={t("대화 기록")} aria-live="off" tabIndex={0} onScroll={() => {
+        const box = viewport.current;
+        if (!box) return;
+        followsLatest.current = box.scrollHeight - box.scrollTop - box.clientHeight < 70;
+        if (followsLatest.current) setUnread(false);
+      }}>
+      <div ref={content} className="agent-chat-content">
         {loading && <p className="agent-chat-muted">{t("작업 기록을 불러오는 중입니다.")}</p>}
-        {error && <p role="alert">{error}</p>}
-        {!loading && !error && timeline.length === 0 && <p className="agent-chat-muted">{t("첫 요청을 입력해 주세요.")}</p>}
+        {error && <div role="alert"><p>{error}</p><button type="button" className="quiet-button" onClick={() => setHistoryRevision((value) => value + 1)}>{t("기록 다시 불러오기")}</button></div>}
+        {!loading && !error && timeline.length === 0 && <div className="agent-chat-empty"><strong>{t("무엇을 도와드릴까요?")}</strong><p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p><small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small></div>}
         {timeline.map((entry) => {
           if (entry.kind === "policy") {
             const item = entry.value;
             return <div className="agent-chat-turn" key={`policy-${item.proposalId}`} data-proposal-id={item.proposalId}>
               <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.sourceMessage}</p></div>
-              <div className="agent-chat-message assistant"><span>{t("견적 기본 설정")} · {item.status === "APPLIED" ? t("적용됨") : t("확인 대기")}</span>
-                <p>{t("기본 세율")}: {(item.before.defaultTaxRate * 100).toLocaleString()}% → {(item.after.defaultTaxRate * 100).toLocaleString()}%</p>
-                <p>{t("위험 버퍼")}: {(item.before.defaultRiskBufferRate * 100).toLocaleString()}% → {(item.after.defaultRiskBufferRate * 100).toLocaleString()}%</p>
-                <p>{t("최대 할인")}: {(item.before.maximumDiscountRate * 100).toLocaleString()}% → {(item.after.maximumDiscountRate * 100).toLocaleString()}%</p>
+              <div className="agent-chat-message assistant agent-chat-policy"><span>{t("견적 기본 설정")} · {item.status === "APPLIED" ? t("적용됨") : item.status === "PENDING" ? t("확인 대기") : t("새 변경안 필요")}</span>
+                <strong>{item.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : t("견적 기본 설정 변경안")}</strong>
+                {item.status === "PENDING" && <p className="agent-chat-muted">{t("현재 값과 변경 값을 확인해 주세요. 확인 전에는 적용되지 않습니다.")}</p>}
+                <dl>{([ ["defaultTaxRate", "기본 세율"], ["defaultRiskBufferRate", "위험 버퍼"], ["maximumDiscountRate", "최대 할인"] ] as const).map(([field, label]) => <div key={field}><dt>{t(label)}</dt><dd>{(item.before[field] * 100).toLocaleString()}% → {(item.after[field] * 100).toLocaleString()}%</dd></div>)}</dl>
+                {item.status === "PENDING" && canEditPolicy && <button type="button" className="primary-button" disabled={policyBusy || busy} onClick={() => void confirmProposal(item)}>{policyBusy ? t("적용 중...") : t("확인하고 적용")}</button>}
+                {item.status === "PENDING" && !canEditPolicy && <p>{t("견적 설정 변경 권한이 없습니다.")}</p>}
               </div>
             </div>;
           }
@@ -217,34 +279,29 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
             {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.requirementText}</p></div>}
             <div className="agent-chat-message assistant">
-              <span>{t("작업 상태")} · {t(status)}</span>
-              {liveEvents.length > 0 && <ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}>{eventText(entry)}</li>)}</ol>}
+              <span>{t("작업 상태")} · {t(runStatusLabels[status] ?? "확인 중")}</span>
+              {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}>{eventText(entry, t)}</li>)}</ol></details>}
               {view?.result ? <div className="agent-chat-result">
                 <strong>{t("결과")}</strong>
                 <p>{view.result.projectSummary}</p>
-                {view.result.departmentResults.length > 0 && <details><summary>{t("담당 작업과 근거 보기")}</summary><ul>{view.result.departmentResults.map((result, index) => <li key={`${result.department}-${index}`}><strong>{result.department}</strong> · {result.summary}</li>)}</ul></details>}
-                {(view.result.quotationDraft || view.result.quotationDrafts.length > 0) && <p>{t("견적 초안이 준비되었습니다. 견적 단계에서 검토해 주세요.")}</p>}
-              </div> : <p className="agent-chat-muted">{status === "FAILED" ? t("작업에 실패했습니다. 상세 상태를 확인해 주세요.") : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t("작업 결과를 기다리는 중입니다.")}</p>}
+                <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}</button>
+              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : status === "WAITING_FOR_USER" ? t("사용자 확인을 기다리고 있습니다") : t("작업 결과를 기다리는 중입니다.")}</p>}
+              {status === "CANCELLED" && <p className="agent-chat-muted">{t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")}</p>}
             </div>
           </div>;
         })}
       </div>
-      {proposal && <section className="agent-chat-policy" aria-label={t("견적 기본 설정 변경안")}>
-        <strong>{proposal.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : t("견적 기본 설정 변경안")}</strong>
-        <p>{t("현재 값과 변경 값을 확인해 주세요. 확인 전에는 적용되지 않습니다.")}</p>
-        <dl>
-          {([
-            ["defaultTaxRate", "기본 세율"],
-            ["defaultRiskBufferRate", "위험 버퍼"],
-            ["maximumDiscountRate", "최대 할인"],
-          ] as const).map(([field, label]) => <div key={field}><dt>{t(label)}</dt><dd>{(proposal.before[field] * 100).toLocaleString()}% → {(proposal.after[field] * 100).toLocaleString()}%</dd></div>)}
-        </dl>
-        {proposal.status === "PENDING" && <button type="button" className="primary-button" disabled={policyBusy} onClick={() => void confirmProposal()}>{policyBusy ? t("적용 중...") : t("확인하고 적용")}</button>}
-      </section>}
+      </div>
+      {unread && <button type="button" className="agent-chat-new quiet-button" onClick={showLatest}>{t("새 메시지 보기")}</button>}
+      <p className="sr-only" role="status">{unread ? t("새 메시지가 있습니다.") : run ? t(runStatusLabels[run.status]) : ""}</p>
+      {active && streamState === "reconnecting" && <p className="agent-chat-connection" role="status">{t("연결을 다시 확인하고 있습니다. 요청을 다시 보내지 않아도 됩니다.")}</p>}
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
-        <textarea id="agent-chat-input" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={3} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={(!canRun && !canEditPolicy) || active || busy || sending} />
+        <textarea ref={input} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composing.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
+        }} />
+        <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
         <div className="agent-chat-actions">
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{t("작업 취소")}</button>}
           <button type="submit" className="primary-button" disabled={!draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? t("요청 중...") : t("보내기")}</button>

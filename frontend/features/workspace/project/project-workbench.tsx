@@ -12,7 +12,7 @@ import {
 } from "../../../app/lib/api";
 import { AIConnection, listAIConnections } from "../../../app/lib/api";
 import { snapshotFromEvents } from "../../../app/components/live-workflow";
-import { WorkbenchStep } from "../shared/types";
+import { StreamState, WorkbenchStep } from "../shared/types";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   configuredModelOptions,
@@ -26,7 +26,6 @@ import {
   PencilSimple,
   Trash,
   CircleNotch,
-  Waveform,
   ArrowRight
 } from "@phosphor-icons/react";
 import { projectClientLabel } from "../shared/formatters";
@@ -45,6 +44,7 @@ interface ProjectWorkbenchProps {
   runId: string | null;
   events: WorkflowEvent[];
   busy: boolean;
+  streamState: StreamState;
   snapshot: ReturnType<typeof snapshotFromEvents>;
   permissions: Set<string>;
   initialStep: WorkbenchStep;
@@ -57,7 +57,7 @@ interface ProjectWorkbenchProps {
   onResume: (answers: string[]) => Promise<void>;
 }
 
-export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
   const t = useT();
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [connections, setConnections] = useState<AIConnection[]>([]);
@@ -73,7 +73,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [deletingProject, setDeletingProject] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
-  const [reviewFocused, setReviewFocused] = useState(run?.status === "WAITING_FOR_USER");
   const canRun = permissions.has("agent.run");
   const canRespond = permissions.has("agent.respond");
   const canCancel = permissions.has("agent.cancel");
@@ -98,10 +97,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       setDeleteError(null);
     });
   }, [initialStep, project.id]);
-
-  useEffect(() => {
-    Promise.resolve().then(() => setReviewFocused(run?.status === "WAITING_FOR_USER"));
-  }, [project.id, run?.status]);
 
   const selectStep = (step: WorkbenchStep) => {
     setActiveStep(step);
@@ -135,10 +130,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     };
   }, [permissions, run, runId, session]);
 
-  function toggleReviewFocus() {
-    setReviewFocused((current) => !current);
-  }
-
   function openQuotations() {
     selectStep("quote");
   }
@@ -160,7 +151,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
   return (
     <>
-      <div className="project-heading">
+      <div className={`project-heading${activeStep === "agent" ? " chat-project-heading" : ""}`}>
         <div>
           <div className="project-context-line">
             <span className="project-status">
@@ -190,64 +181,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               )}
             </div>
           )}
-        {!runId && activeStep === "agent" && canRun ? (
-          <div className="run-controls">
-            <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
-              <option value="">{t("기본 제공 AI")}</option>
-              {connections.map((item) => <option key={item.id} value={item.id}>{t("내 키 ·")}{item.provider} · {item.model} · {item.maskedKey}</option>)}
-            </select></label>
-            {connectionError && <span role="alert">{t("개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.")}</span>}
-            {credentialId && !connection && <span role="alert">{t("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.")}</span>}
-            {!credentialId && <>
-            <label>
-              {t("AI 제공사")}<select
-                value={provider}
-                onChange={(event) => {
-                  const nextProvider = event.target.value as Provider;
-                  setProvider(nextProvider);
-                  setModel(configuredModelOptions[nextProvider][0] ?? "");
-                }}
-              >
-                <option value="OPENAI">OpenAI</option>
-                <option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>
-                  Gemini{configuredModelOptions.GEMINI.length === 0 ? t(" · 설정 필요") : ""}
-                </option>
-              </select>
-            </label>
-            <label>
-              {t("AI 모델")}<select
-                value={model}
-                disabled={configuredModelOptions[provider].length === 0}
-                onChange={(event) => setModel(event.target.value)}
-              >
-                {configuredModelOptions[provider].length === 0 ? (
-                  <option value="">{t("등록된 모델 없음")}</option>
-                ) : (
-                  configuredModelOptions[provider].map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-            </>}
-            <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={busy || (credentialId ? !connection || connectionError : !model.trim())}
-              onClick={() => connection ? onRun(connection.provider, connection.model, connection.id) : !credentialId && onRun(provider, model.trim())}
-            >
-              {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} {t("분석 시작")}</button>
-          </div>
-        ) : activeStep === "agent" && run && terminalStatuses.has(run.status) && canRun ? (
-          <button type="button" className="secondary-button" onClick={onResetRun}>
-            <ArrowRight size={18} /> {t("새 분석 준비")}</button>
-        ) : null}
       </div>
 
-      {activeStep === "agent" && canRun && !runId && <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={credentialId ? (connection && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null) : model.trim() ? { provider, model: model.trim() } : null} />}
+
       {showDeleteConfirmation && (
         <div className="project-delete-backdrop">
           <section
@@ -361,6 +297,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           runId={runId}
           events={events}
           busy={busy}
+          streamState={streamState}
           snapshot={snapshot}
           canCancel={canCancel}
           canRespond={canRespond}
@@ -368,14 +305,14 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
           onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
-          reviewFocused={reviewFocused}
           costUsage={costUsage}
-          onToggleFocus={toggleReviewFocus}
           onCancel={onCancel}
           onResume={onResume}
           onCompareQuotes={openQuotations}
         />
       )}
+
+      {aiSettings}
 
       {activeStep === "quote" && (
         <QuoteBuilder
