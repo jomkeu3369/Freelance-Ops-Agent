@@ -32,6 +32,12 @@ export function MiddleAtmosphere() {
   </>;
 }
 
+/** A broad, softly focused bend joins the evidence rows to the fine footer light. */
+export function EvidenceAtmosphere() {
+  const bend = "M1310 -170 C950 15 250 90 102 340 C-80 620 395 610 950 800";
+  return <div className="scene-evidence-light" data-ambient data-ambient-visible="false" aria-hidden="true"><svg viewBox="0 0 1440 800" preserveAspectRatio="none"><defs><linearGradient id="scene-evidence-gradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#a784c3" stopOpacity=".08" /><stop offset=".38" stopColor="#b495d1" stopOpacity=".4" /><stop offset=".61" stopColor="#eddbff" stopOpacity=".86" /><stop offset="1" stopColor="#a18abe" stopOpacity=".12" /></linearGradient></defs><g className="scene-evidence-ribbon"><path className="scene-evidence-haze" d={bend} /><path className="scene-evidence-core" d={bend} /><path className="scene-evidence-cool" d="M1400 -100 C930 40 260 135 114 345 C-25 540 470 665 1050 850" /></g></svg></div>;
+}
+
 export function FooterAtmosphere() {
   return <div className="scene-footer-light" data-ambient data-ambient-visible="false" aria-hidden="true"><svg viewBox="0 0 1440 1000" preserveAspectRatio="none"><defs><linearGradient id="scene-footer-thread"><stop stopColor="#879bdb" stopOpacity=".24" /><stop offset=".4" stopColor="#c99be8" stopOpacity=".7" /><stop offset=".68" stopColor="#f1d6ff" /><stop offset="1" stopColor="#9e78c9" stopOpacity=".12" /></linearGradient></defs><path className="scene-footer-haze" d={footerThreads[9].path} />{footerThreads.map((thread,index)=><path className={`scene-footer-thread${thread.cool ? " is-cool" : ""}`} key={index} d={thread.path} style={{opacity:thread.opacity}} />)}{footerThreads.filter((_,index)=>index % 5 === 0).map((thread,index)=><path className={`scene-travel${thread.cool ? " is-cool" : ""}`} d={thread.path} key={index} pathLength="1000" style={{animationDuration:`${11 + index}s`,animationDelay:`${-index * 2.3}s`}} />)}</svg></div>;
 }

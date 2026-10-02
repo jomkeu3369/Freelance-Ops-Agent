@@ -3,6 +3,7 @@ import { ArrowDown, ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText,
 import { useT } from "../../../app/lib/ui-language";
 import { demoQuote, demoScopes, initialDemoState } from "../product-demo.mjs";
 import { StoryCount, useStoryMetricEntry } from "./story-metric-entry";
+import { EvidenceAtmosphere } from "./scene-atmosphere";
 
 type Quote = {
   label: string;
@@ -83,6 +84,6 @@ export function ReferenceStory({ state, quote, onScopeChange }: StoryProps) {
     <div className="story-brand-scene" data-story-brand-scene><div className="story-brand-stage"><div className="story-brand-plate" data-story-brand-plate><div className="story-brand-plate-copy" data-story-brand-copy><p>FREELANCE OPS</p><p>{t("맥락은 이어지고,")}<br />{t("결정은 선명해집니다.")}</p></div></div><span className="story-brand-mark" data-story-brand-mark aria-hidden="true"><StoryMark /></span></div></div>
     <section className="story-shell story-benefits" aria-labelledby="story-benefits-title"><SectionTitle id="story-benefits-title" eyebrow="근거 있는 결정" title="함께 보이면," accent="더 명확해지니까." description="요구사항과 숫자, 확인할 질문을 한곳에서. 다음 대화에 필요한 근거를 놓치지 않도록." /><BenefitCards quote={quote} t={t} /></section>
     <section id="review" tabIndex={-1} className="story-shell story-dashboard" aria-labelledby="review-title"><SectionTitle id="review-title" eyebrow="프로젝트 한눈에" title="같은 범위로," accent="다음 대화를 준비하세요." description="예약 웹사이트라는 가상의 프로젝트입니다. 위에서 선택한 범위가 아래의 작업과 계산에 그대로 반영됩니다." /><ProposalDashboard quote={quote} t={t} /><p className="story-disclaimer">{t("가상의 문의로 보여드리는 제품 예시입니다. 실제 분석·저장·발송은 실행되지 않습니다.")}</p></section>
-    <section className="story-shell story-samples" aria-labelledby="story-samples-title"><SectionTitle id="story-samples-title" eyebrow="숫자로 보는 예시" title="한 프로젝트의 숫자," accent="숨김없는 계산." description="선택한 작업 범위로 계산한 예시입니다. 고객 수, 매출, 처리 성과를 나타내는 지표가 아닙니다." /><SampleFigures quote={quote} t={t} /><a className="story-text-link" href="#scope-comparison">{t("범위를 바꿔 비교해 보세요")}<ArrowRight size={16} /></a></section>
+    <section className="story-shell story-samples" aria-labelledby="story-samples-title"><EvidenceAtmosphere /><SectionTitle id="story-samples-title" eyebrow="숫자로 보는 예시" title="한 프로젝트의 숫자," accent="숨김없는 계산." description="선택한 작업 범위로 계산한 예시입니다. 고객 수, 매출, 처리 성과를 나타내는 지표가 아닙니다." /><SampleFigures quote={quote} t={t} /><a className="story-text-link" href="#scope-comparison">{t("범위를 바꿔 비교해 보세요")}<ArrowRight size={16} /></a></section>
   </div>;
 }
