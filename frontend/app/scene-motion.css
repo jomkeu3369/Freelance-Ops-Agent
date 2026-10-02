@@ -52,16 +52,11 @@
 
 /* Opacity on a preserve-3d grouping element flattens its faces. Shade faces, not the group. */
 .figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar { opacity: 1; transform-style: preserve-3d; }
-.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-cap { animation: scenePrismCap 4.5s ease-in-out infinite alternate; animation-play-state: var(--ambient-play-state); }
-.figma-home.spatial-site .reference-story .story-prism-column:nth-child(2) .story-prism-cap { animation-delay: -1.4s; }
-.figma-home.spatial-site .reference-story .story-prism-column:nth-child(3) .story-prism-cap { animation-delay: -2.6s; }
-.figma-home.spatial-site .reference-story .story-prism-column:nth-child(4) .story-prism-cap { animation-delay: -3.2s; }
 @keyframes sceneFilamentTravel { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
 @keyframes sceneBloom { from { opacity: .62; transform: scale(.94); } to { opacity: .96; transform: scale(1.06); } }
 @keyframes sceneParticleDrift { from { opacity: .05; transform: translate(0, 0); } to { opacity: .36; transform: translate(6px, -13px); } }
 @keyframes sceneFogDrift { from { opacity: .56; transform: translate3d(-20px, 12px, 0) rotate(-3deg); } to { opacity: .95; transform: translate3d(22px, -15px, 0) rotate(3deg); } }
 @keyframes sceneGlassLight { from { background-position: 0 50%; } to { background-position: 100% 50%; } }
-@keyframes scenePrismCap { from { transform: translateY(calc(-50% - 20px)) rotateX(90deg); } to { transform: translateY(calc(-50% - 27px)) rotateX(90deg); } }
 @media (max-width: 820px) {
   .figma-home.spatial-site .spatial-comparison > .scene-footer-light { width: calc(100% + 48px); left: -24px; }
   .figma-home.spatial-site .spatial-flow { width: 100%; transform: none; backdrop-filter: none; }
@@ -71,7 +66,6 @@
   .figma-home.spatial-site .scene-fog-drift, .figma-home.spatial-site .scene-fog-cool { animation: none; opacity: .55; will-change: auto !important; }
   .figma-home.spatial-site .scene-fog { height: 1000px; }
   .figma-home.spatial-site .scene-hero-light .scene-haze { stroke-width: 90px; filter: blur(25px); opacity: .12; }
-  .figma-home.spatial-site .reference-story .story-prism-chart .story-prism-cap { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .figma-home.spatial-site [data-ambient] *, .figma-home.spatial-site .spatial-flow::after, .figma-home.spatial-site .spatial-graph-pulse { animation: none !important; }

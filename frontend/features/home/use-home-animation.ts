@@ -26,9 +26,7 @@ export function useHomeAnimation() {
       gsap.utils.toArray<HTMLElement>("[data-story-meter]").forEach((element) => {
         gsap.from(element, { scaleX: 0, transformOrigin: "left center", duration: 1.25, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 90%", once: true } });
       });
-      gsap.utils.toArray<HTMLElement>("[data-story-prism]").forEach((element, index) => {
-        gsap.from(element, { y: 30, opacity: 0, duration: 1, delay: index * .08, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 92%", once: true } });
-      });
+
     });
     motion.add("(min-width: 821px) and (prefers-reduced-motion: no-preference)", () => {
       const intro = pageRef.current?.querySelector<HTMLElement>("[data-story-intro]");

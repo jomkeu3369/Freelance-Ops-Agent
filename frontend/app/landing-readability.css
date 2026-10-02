@@ -113,3 +113,24 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 }
 @media (max-width: 420px) { .figma-home.spatial-site .spatial-capability-strip > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .figma-home.spatial-site .story-brand-plate { --brand-clip-top: 0px; --brand-clip-side: 0px; --brand-clip-bottom: 0px; --brand-clip-radius: 20px; }
+
+/* A chart must read as quantities, not detached decorative roof tiles. */
+.figma-home.spatial-site .reference-story .story-prism-chart { gap: 18px; padding-inline: 18px; }
+.figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar-label { margin-bottom: 18px; font-size: 16px; line-height: 1.5; font-weight: 600; color: #efe6f8; }
+.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-front { background: linear-gradient(#785c90, #44304f); }
+.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-side { background: linear-gradient(#a282bc, #684b79); }
+.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-top { background: #d1b4e8; }
+.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-column > small { display: block; width: 100%; max-width: 170px; min-height: 72px; margin: 22px 0 0; font-family: var(--landing-font); font-size: 14px; font-weight: 500; line-height: 1.6; color: #d0c5dc; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .figma-home.spatial-site .reference-story .story-prism-chart { gap: 12px; padding-inline: 8px; }
+  .figma-home.spatial-site .reference-story .story-prism-chart .story-prism-column > small { min-height: 78px; font-size: 12px; }
+  .figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] .spatial-bar { --prism-width: 28px; --prism-half: 14px; }
+  .figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar-label { font-size: 14px; }
+}
+/* Shared rows keep every bar baseline equal even when task names wrap differently. */
+.figma-home.spatial-site .reference-story .story-prism-chart { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto; align-items: end; column-gap: 18px; row-gap: 0; }
+.figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.figma-home.spatial-site .reference-story .story-prism-column { display: contents; }
+.figma-home.spatial-site .reference-story .story-prism-stack { grid-column: var(--chart-column); grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: end; align-self: end; min-width: 0; }
+.figma-home.spatial-site .reference-story .story-prism-chart .story-prism-column > small { grid-column: var(--chart-column); grid-row: 2; align-self: stretch; justify-self: center; }
+@media (max-width: 480px) { .figma-home.spatial-site .reference-story .story-prism-chart { column-gap: 12px; } }

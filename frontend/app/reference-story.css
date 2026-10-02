@@ -66,12 +66,10 @@
 .figma-home .reference-story .spatial-bar i { position: absolute; display: block; }
 .figma-home .story-prism-front { inset: 0; background: linear-gradient(#28252f, #17131e); transform: translateZ(var(--prism-half)); }
 .figma-home .story-prism-side { inset: 0; background: linear-gradient(#34303d, #211c2a); transform: rotateY(90deg) translateZ(var(--prism-half)); }
-.figma-home .story-prism-top, .figma-home .story-prism-cap { top: 0; left: 0; width: var(--prism-width); height: var(--prism-width); background: #524959; transform: translateY(-50%) rotateX(90deg); }
-.figma-home .story-prism-cap { background: #c3bbc9; transform: translateY(calc(-50% - 23px)) rotateX(90deg); }
+.figma-home .story-prism-top { top: 0; left: 0; width: var(--prism-width); height: var(--prism-width); background: #524959; transform: translateY(-50%) rotateX(90deg); }
 .figma-home .story-prism-column:last-child .story-prism-front { background: linear-gradient(#78618e, #362641); }
 .figma-home .story-prism-column:last-child .story-prism-side { background: linear-gradient(#a889c2, #443252); }
 .figma-home .story-prism-column:last-child .story-prism-top { background: #ba97d6; }
-.figma-home .story-prism-column:last-child .story-prism-cap { background: #dfc8fa; }
 .figma-home .reference-story .spatial-bars small { margin-block: 15px 9px; font-family: ui-monospace, monospace; color: #8c8295; font-size: 11px; }
 .figma-home .reference-story .spatial-effort > p { margin: 20px 0 0; color: #8f819d; font-size: 10px; line-height: 1.7; }
 .figma-home .story-brand-scene { position: relative; width: min(1720px, 89%); margin-inline: auto; display: grid; place-items: center; min-height: clamp(450px, 47vw, 900px); padding-block: 70px; overflow: visible; z-index: 2; pointer-events: none; }
