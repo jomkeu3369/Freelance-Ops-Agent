@@ -142,6 +142,23 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     }
 
     public Optional<AgentRunView> latestForProject(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
+        return latestAuthorizedProjectRun(userId, workspaceId, projectId)
+            .map(run -> get(userId, workspaceId, run.id(), traceparent));
+    }
+
+    /** Read-only integrations must not synchronize projections or emit analysis-completed events. */
+    @Transactional(readOnly = true)
+    public Optional<AgentRunView> latestForProjectReadOnly(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {
+        return latestAuthorizedProjectRun(userId, workspaceId, projectId).map(run -> {
+            AgentRunView response = agentRunClient.get(run.id(),
+                issueToken(run, userId, List.of(PermissionCode.AGENT_RUN.code(), PermissionCode.PROJECT_READ.code())),
+                traceparent);
+            requireMatchingRun(run.id(), response == null ? null : response.runId());
+            return response;
+        });
+    }
+
+    private Optional<AgentRunEntity> latestAuthorizedProjectRun(UUID userId, UUID workspaceId, UUID projectId) {
         MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, PermissionCode.AGENT_RUN);
@@ -149,8 +166,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         if (projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        return agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId)
-            .map(run -> get(userId, workspaceId, run.id(), traceparent));
+        return agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId);
     }
 
     public void cancelActiveForProject(UUID userId, UUID workspaceId, UUID projectId, String traceparent) {

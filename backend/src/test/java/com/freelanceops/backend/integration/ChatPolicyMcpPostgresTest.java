@@ -351,6 +351,7 @@ class ChatPolicyMcpPostgresTest {
         agentViews.put(runId, mapper.writeValueAsString(Map.of("runId", runId, "status", "COMPLETED",
             "result", Map.of("projectSummary", "Synthetic result", "departmentResults", List.of()),
             "updatedAt", Instant.now().toString())));
+        String runBefore = runSnapshot(runId);
         mvc.perform(mcp(workspace, bearer(owner), "tools/call", "get_project_result", Map.of("projectId", project)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.result.structuredContent.runId").value(runId.toString()))
             .andExpect(jsonPath("$.result.structuredContent.result.projectSummary").value("Synthetic result"))
@@ -358,6 +359,11 @@ class ChatPolicyMcpPostgresTest {
         mvc.perform(mcp(workspace, bearer(owner), "tools/call", "get_project_progress", Map.of("projectId", project)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.result.structuredContent.run.runId").value(runId.toString()))
             .andExpect(jsonPath("$.result.structuredContent.run.status").value("COMPLETED"));
+        assertThat(runSnapshot(runId)).isEqualTo(runBefore);
+        // The regular workspace GET still performs the existing explicit synchronization.
+        mvc.perform(get("/api/v2/workspaces/" + workspace + "/agent-runs/" + runId)
+                .header("Authorization", bearer(owner)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETED"));
         assertThat(jdbc.sql("SELECT status FROM app.agent_run WHERE id = :run AND workspace_id = :ws AND project_id = :project")
             .param("run", runId).param("ws", workspace).param("project", project).query(String.class).single())
             .isEqualTo("COMPLETED");
@@ -431,6 +437,10 @@ class ChatPolicyMcpPostgresTest {
     private String projectSnapshot() {
         return jdbc.sql("SELECT row_to_json(p)::text FROM app.project p WHERE id = :id")
             .param("id", project).query(String.class).single();
+    }
+    private String runSnapshot(UUID runId) {
+        return jdbc.sql("SELECT row_to_json(r)::text FROM app.agent_run r WHERE id = :id")
+            .param("id", runId).query(String.class).single();
     }
     private String proposalPath() { return "/api/v2/workspaces/" + workspace + "/estimation-policy/proposals"; }
     private String runPath() { return "/api/v2/workspaces/" + workspace + "/projects/" + project + "/agent-runs"; }

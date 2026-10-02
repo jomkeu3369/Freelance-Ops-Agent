@@ -62,14 +62,14 @@ public class McpReadOnlyService {
                 projects.get(userId, workspaceId, projectId(arguments))));
             case "get_project_progress" -> {
                 UUID projectId = projectId(arguments);
-                AgentRunView run = runs.latestForProject(userId, workspaceId, projectId, newTraceparent()).orElse(null);
+                AgentRunView run = runs.latestForProjectReadOnly(userId, workspaceId, projectId, newTraceparent()).orElse(null);
                 yield mapper.valueToTree(run == null
                     ? Map.of("projectId", projectId, "run", Map.of())
                     : Map.of("projectId", projectId, "run", progress(run)));
             }
             case "get_project_result" -> {
                 UUID projectId = projectId(arguments);
-                AgentRunView run = runs.latestForProject(userId, workspaceId, projectId, newTraceparent()).orElse(null);
+                AgentRunView run = runs.latestForProjectReadOnly(userId, workspaceId, projectId, newTraceparent()).orElse(null);
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("projectId", projectId);
                 result.put("runId", run == null ? null : run.runId());

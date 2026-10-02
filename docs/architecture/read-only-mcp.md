@@ -23,6 +23,13 @@ capability. The `Origin` header, if present, must exactly match
 Tool discovery reflects the caller's current workspace permissions. Calls use the existing
 tenant-scoped `ProjectService` and `AgentRunGatewayService`; neither client-supplied user IDs nor
 workspace IDs from tool arguments are trusted. The result excludes model credential metadata.
+Progress/result calls use a dedicated read-only gateway method: it validates membership and
+project scope, delegates only `agent.run` and `project.read`, fetches the remote view, and verifies
+the returned run ID. It does not synchronize database projections, usage/interruption records,
+or analysis events. The regular workspace run endpoint retains its existing synchronization.
+Consequently, MCP can return a newer remote status while stored chat history still reflects the
+last workspace/reconciliation update. Authorization audit logging remains a security concern
+separate from changing project, policy, or run data.
 The `get_project_result` artifact can contain user and AI content, so a caller must make an
 explicit, authorized request and must not automatically forward it to an external host.
 

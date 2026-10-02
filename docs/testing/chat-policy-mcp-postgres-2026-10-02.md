@@ -2,10 +2,20 @@
 
 The two new test classes contain **12 test methods**. They were added on PC091 against
 `689eb545b163f85bebfce7b791fe94435015bf31`. Their code was reviewed against the current DTOs,
-repositories, controllers, schema migrations, and outbox dispatcher. **Compilation and execution
-have not yet been verified:** this PC currently has Java 8, no detected Docker installation/CLI,
-and WSL enumeration fails with access denied. No Java/Docker installation, WSL permission change,
-production DB access, or deployment was performed.
+repositories, controllers, schema migrations, and outbox dispatcher. After installation approval,
+official Temurin Java 21 was downloaded, checksum verified, and extracted to project-local tools.
+Existing Java 8/global settings were preserved. Docker Desktop was found at its user installation
+path (`%LOCALAPPDATA%\Programs\DockerDesktop`); approved execution confirmed its valid signature
+and the existing WSL installation, then started Desktop without reinstalling it or changing WSL settings.
+The initial Java 21 run compiled all code and reported **299 total, 266 passed, 0 failures/errors,
+33 skipped** (existing 21 plus new 12 PostgreSQL cases). This is **not** DB verification. A Docker-backed
+run remains required. Desktop 4.88.1 / CLI 29.7.2 starts but its backend exits before creating the Linux
+engine pipe. The current log reports `initializing Ingest server` / `sailor-ingest.sock` with
+`The file cannot be accessed by the system`. This is the actual PC091 failure, not an assumed failure
+from another machine. No socket removal, factory reset, WSL/security change, or reinstall was attempted.
+No production DB access or deployment was performed.
+`gradlew check assemble --no-daemon` also passed and produced the backend JAR/boot JAR. Its test task
+was up-to-date from the 299-case run; it did not rerun or validate the skipped PostgreSQL cases.
 
 ## Coverage
 
@@ -38,10 +48,12 @@ explicit test call. Each test has unique synthetic users/workspaces; no preexist
 Signing keys are generated in memory and the mock server binds only to `127.0.0.1` on an ephemeral
 port, closing after the class. The container owns the datasource URL and synthetic credentials.
 
-MCP progress/result currently invoke the gateway's existing projection synchronization. Accordingly
-the execution test verifies the agent run's projected status changes; it does not assert that these
-queries issue zero SQL writes. Project summaries and policy data remain unchanged. Eliminating
-projection writes would be a separate application behavior change.
+MCP progress/result now use a dedicated read-only gateway rather than invoking projection synchronization.
+The DB-backed test snapshots the stored run before these calls and asserts its entire row is unchanged,
+even when the remote status differs. A subsequent regular workspace run GET still synchronizes the
+projection and makes the updated status visible in chat history. Four gateway unit regressions cover
+minimal delegation, no projection/outbox writes, missing permission/empty runs, and mismatched run IDs.
+The existing controller regressions also require the dedicated read-only method.
 
 ## Required execution before acceptance
 

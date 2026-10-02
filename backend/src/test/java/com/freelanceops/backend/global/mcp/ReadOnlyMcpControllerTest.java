@@ -90,7 +90,7 @@ class ReadOnlyMcpControllerTest {
 
     @Test
     void progressAndResultUseScopedReadGatewayWithoutStartingRuns() throws Exception {
-        when(runs.latestForProject(eq(userId), eq(workspaceId), eq(projectId), anyString())).thenReturn(Optional.empty());
+        when(runs.latestForProjectReadOnly(eq(userId), eq(workspaceId), eq(projectId), anyString())).thenReturn(Optional.empty());
         String args = "\"arguments\":{\"projectId\":\"" + projectId + "\"},";
         mvc.perform(request("tools/call", "get_project_progress", args, "tools/call", "get_project_progress"))
             .andExpect(status().isOk())
@@ -99,7 +99,7 @@ class ReadOnlyMcpControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.structuredContent.projectId").value(projectId.toString()))
             .andExpect(jsonPath("$.result.structuredContent.result").value(org.hamcrest.Matchers.nullValue()));
-        verify(runs, times(2)).latestForProject(eq(userId), eq(workspaceId), eq(projectId),
+        verify(runs, times(2)).latestForProjectReadOnly(eq(userId), eq(workspaceId), eq(projectId),
             argThat(trace -> trace != null && trace.matches("^00-[0-9a-f]{32}-[0-9a-f]{16}-01$")));
         verifyNoInteractions(projects);
     }

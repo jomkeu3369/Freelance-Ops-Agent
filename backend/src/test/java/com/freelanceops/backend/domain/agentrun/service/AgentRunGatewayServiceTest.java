@@ -92,6 +92,69 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
+    void readOnlyLatestUsesMinimalDelegationWithoutProjectionOrOutboxWrites() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), projectId = UUID.randomUUID(), runId = UUID.randomUUID();
+        var stored = run(runId, workspaceId, projectId, userId);
+        allowRead(userId, workspaceId, projectId);
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId))
+            .thenReturn(Optional.of(stored));
+        when(tokenIssuer.issue(runId, workspaceId, projectId, userId, List.of("agent.run", "project.read")))
+            .thenReturn("read-token");
+        var remote = view(runId, AgentRunStatus.COMPLETED);
+        when(agentRunClient.get(runId, "read-token", "traceparent")).thenReturn(remote);
+
+        assertThat(service.latestForProjectReadOnly(userId, workspaceId, projectId, "traceparent")).contains(remote);
+        assertThat(stored.status()).isEqualTo(AgentRunStatus.QUEUED);
+        verify(agentRunRepository, never()).save(any());
+        verify(agentRunRepository, never()).saveAndFlush(any());
+        org.mockito.Mockito.verifyNoInteractions(projectionService, commandQueue, connections, pets);
+    }
+
+    @Test
+    void readOnlyLatestRejectsForeignAgentResponseWithoutSynchronizingIt() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), projectId = UUID.randomUUID(), runId = UUID.randomUUID();
+        allowRead(userId, workspaceId, projectId);
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId))
+            .thenReturn(Optional.of(run(runId, workspaceId, projectId, userId)));
+        when(tokenIssuer.issue(runId, workspaceId, projectId, userId, List.of("agent.run", "project.read")))
+            .thenReturn("read-token");
+        when(agentRunClient.get(runId, "read-token", "traceparent"))
+            .thenReturn(view(UUID.randomUUID(), AgentRunStatus.COMPLETED));
+        assertThatThrownBy(() -> service.latestForProjectReadOnly(userId, workspaceId, projectId, "traceparent"))
+            .isInstanceOf(IllegalStateException.class);
+        org.mockito.Mockito.verifyNoInteractions(projectionService, commandQueue);
+    }
+
+    @Test
+    void readOnlyLatestWithoutRunsDoesNotContactTheAgent() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), projectId = UUID.randomUUID();
+        allowRead(userId, workspaceId, projectId);
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId))
+            .thenReturn(Optional.empty());
+        assertThat(service.latestForProjectReadOnly(userId, workspaceId, projectId, "traceparent")).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(agentRunClient, tokenIssuer, projectionService, commandQueue);
+    }
+
+    @Test
+    void readOnlyLatestRequiresAgentPermissionBeforeAnyRunLookup() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(
+            new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.PROJECT_READ))));
+        assertThatThrownBy(() -> service.latestForProjectReadOnly(userId, workspaceId, UUID.randomUUID(), "traceparent"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                error -> assertThat(error.getStatusCode().value()).isEqualTo(403));
+        org.mockito.Mockito.verifyNoInteractions(projectRepository, agentRunRepository, agentRunClient, projectionService, commandQueue);
+    }
+
+    private void allowRead(UUID userId, UUID workspaceId, UUID projectId) {
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(
+            new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ,
+                PermissionCode.AGENT_CANCEL, PermissionCode.QUOTATION_WRITE))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+            .thenReturn(Optional.of(project(projectId, workspaceId)));
+    }
+
+    @Test
     void validatesWorkspacePermissionsAndPersistsAStartCommandWithTheRun() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
