@@ -93,8 +93,8 @@ export function WorkflowSection() {
 
     <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} />{t(label)}</span>;})}</div></div>
     <ReferenceStory state={state} quote={quote} onScopeChange={(scope) => dispatch({ type: "scope", scope })} />
-    <FooterAtmosphere />
     <section id="scope-comparison" className="spatial-chapter spatial-comparison" aria-labelledby="comparison-title">
+      <FooterAtmosphere />
       <div className="spatial-comparison-heading section-heading"><p className="spatial-eyebrow"><span /> ONE PROJECT / YOUR SCOPE</p><h2 id="comparison-title">{t("범위가 달라지면,")}<br /><span>{t("숫자도 명확하게.")}</span></h2><p>{t("같은 예시 문의에 예약 변경 기능을 더해 비교해 보세요.")}</p></div>
       <div className="spatial-scope-estimator"><div className="spatial-scope-slider"><label htmlFor="scope-slider">{t("예시 프로젝트 범위")}</label><input id="scope-slider" type="range" min="0" max="1" step="1" value={quote.extra ? 1 : 0} aria-valuetext={t(quote.label)} onChange={(event) => dispatch({ type: "scope", scope: event.target.value === "1" ? "extended" : "essential" })} /><div><span>{t("핵심 범위")}</span><span>{t("예약 변경 추가")}</span></div></div><aside><span>{t("예시 견적")}</span><strong>{money(quote.total)}<small>KRW</small></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><Link href="/workspace">{t("업무 공간 열기")}<ArrowUpRight size={15} /></Link></aside></div>
       <div className="spatial-comparison-grid">

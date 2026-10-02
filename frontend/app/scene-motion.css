@@ -22,17 +22,20 @@
 .figma-home.spatial-site .scene-middle-strands path:nth-child(3n) { stroke-width: 11px; filter: blur(9px); opacity: .09; }
 .figma-home.spatial-site .scene-fog { position: absolute; z-index: -1; width: 100%; height: 1550px; left: 0; overflow: hidden; pointer-events: none; }
 .figma-home.spatial-site .scene-fog-1 { top: 1000px; }
-.figma-home.spatial-site .scene-fog-2 { top: 3150px; height: 1350px; }
+.figma-home.spatial-site .scene-fog-2 { top: 3100px; height: 2350px; }
 .figma-home.spatial-site .scene-fog-drift, .figma-home.spatial-site .scene-fog-cool { position: absolute; width: 130%; height: 110%; top: -5%; left: -15%; background: radial-gradient(ellipse 49% 14% at 37% 44%, #b48bd732, transparent 80%), radial-gradient(ellipse 30% 37% at 54% 56%, #75518926, transparent 76%), linear-gradient(125deg, transparent 23%, #b49ac514 39%, transparent 52%); transform-origin: 50% 50%; animation: sceneFogDrift 16s ease-in-out infinite alternate; animation-play-state: var(--ambient-play-state); }
 .figma-home.spatial-site .scene-fog-cool { background: radial-gradient(ellipse 34% 13% at 57% 44%, #839ccc1a, transparent 75%), linear-gradient(132deg, transparent 25%, #a097c714 46%, transparent 61%); animation-duration: 21s; animation-delay: -8s; }
-.figma-home.spatial-site .scene-fog-2 .scene-fog-drift { transform-origin: 36% 70%; animation-direction: alternate-reverse; }
+.figma-home.spatial-site .scene-fog-2 .scene-fog-drift { transform-origin: 36% 70%; animation-direction: alternate-reverse; background: radial-gradient(ellipse 46% 12% at 30% 74%, #b48bd739, transparent 78%), radial-gradient(ellipse 30% 28% at 52% 52%, #75518926, transparent 76%), linear-gradient(132deg, transparent 32%, #b49ac518 57%, transparent 68%); }
 .figma-home.spatial-site .scene-fog[data-ambient-visible="true"] > div { will-change: transform, opacity; }
 .figma-home.spatial-site .scene-footer-light { position: absolute; left: 0; bottom: 190px; width: 100%; height: 1150px; z-index: -1; opacity: 1; overflow: hidden; pointer-events: none; }
+.figma-home.spatial-site .spatial-comparison > .scene-footer-light { top: -340px; bottom: auto; height: 1450px; width: 112.36%; left: -6.18%; }
 .figma-home.spatial-site .scene-footer-light svg { width: 100%; height: 100%; }
 .figma-home.spatial-site .scene-footer-light .scene-footer-haze { fill: none; stroke: #b78ccf; stroke-width: 90px; filter: blur(25px); opacity: .18; }
 .figma-home.spatial-site .scene-footer-light .scene-footer-thread { fill: none; stroke: url(#scene-footer-thread); stroke-width: .75; filter: none; }
 .figma-home.spatial-site .scene-footer-light .scene-footer-thread.is-cool { stroke: #86a4d7; }
 .figma-home.spatial-site .scene-footer-light .scene-travel { stroke-width: 1.3; opacity: .6; }
+
+.figma-home.spatial-site .spatial-stage:nth-of-type(1) { transform: none; }
 
 /* The visual edge may bleed; the functional UI has normal, intrinsic geometry. */
 .figma-home.spatial-site .spatial-flow { width: calc(100% + 5.5vw - 3px); transform: perspective(1500px) rotateY(3deg) rotateX(1deg); }

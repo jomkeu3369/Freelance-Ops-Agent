@@ -74,9 +74,10 @@
 .figma-home .story-prism-column:last-child .story-prism-cap { background: #dfc8fa; }
 .figma-home .reference-story .spatial-bars small { margin-block: 15px 9px; font-family: ui-monospace, monospace; color: #8c8295; font-size: 11px; }
 .figma-home .reference-story .spatial-effort > p { margin: 20px 0 0; color: #8f819d; font-size: 10px; line-height: 1.7; }
-.figma-home .story-brand-scene { position: relative; width: min(1720px, 89%); margin-inline: auto; display: grid; place-items: center; min-height: clamp(450px, 47vw, 900px); padding-block: 70px; overflow: clip; }
-.figma-home .story-brand-plate { position: relative; display: grid; place-items: center; width: 100%; height: clamp(310px, 28vw, 520px); min-width: 142px; border-radius: 28px; background: radial-gradient(circle, #5c327d35 1px, transparent 1.8px) 0 0 / 42px 42px, #d5b4ff; box-shadow: inset 0 1px #f3e7ff70; overflow: hidden; }
-.figma-home .story-brand-mark { position: absolute; left: 50%; top: 57%; transform: translate(-50%, -50%); z-index: 1; display: grid; place-items: center; width: clamp(66px, 5.3vw, 102px); height: clamp(66px, 5.3vw, 102px); border-radius: 26%; color: #d7baff; background: #171021; }
+.figma-home .story-brand-scene { position: relative; width: min(1720px, 89%); margin-inline: auto; display: grid; place-items: center; min-height: clamp(450px, 47vw, 900px); padding-block: 70px; overflow: visible; z-index: 2; pointer-events: none; }
+.figma-home .story-brand-stage { position: relative; width: 100%; height: clamp(310px, 28vw, 520px); }
+.figma-home .story-brand-plate { position: absolute; inset: 0; display: grid; place-items: center; width: 100%; height: clamp(310px, 28vw, 520px); min-width: 142px; border-radius: 28px; background: radial-gradient(circle, #5c327d35 1px, transparent 1.8px) 0 0 / 42px 42px, #d5b4ff; box-shadow: inset 0 1px #f3e7ff70; overflow: hidden; }
+.figma-home .story-brand-mark { position: absolute; left: 50%; top: 57%; transform: translate(-50%, -50%); z-index: 1; display: grid; place-items: center; width: clamp(92px, 7.8vw, 150px); height: clamp(92px, 7.8vw, 150px); border-radius: 26%; color: #d7baff; background: #171021; }
 .figma-home .story-brand-mark svg { width: 66%; height: 66%; }
 .figma-home .story-brand-plate-copy { position: absolute; inset: 8% 8% auto; color: #281533; text-align: center; opacity: 1; }
 .figma-home .story-brand-plate-copy > p:first-child { margin: 0 0 14px; font-family: ui-monospace, monospace; font-size: 11px; letter-spacing: .17em; }
