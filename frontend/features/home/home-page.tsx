@@ -3,6 +3,8 @@
 import "@/app/product-demo.css";
 import "@/app/reference-story.css";
 import "@/app/scene-motion.css";
+import "@fontsource-variable/noto-sans-kr";
+import "@/app/landing-readability.css";
 
 import { HomeHeader } from "./components/home-header";
 import { CallToActionSection, HomeFooter } from "./components/home-sections";

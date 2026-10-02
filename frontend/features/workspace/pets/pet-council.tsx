@@ -13,7 +13,7 @@ type Comparison = { fingerprint: string; before: QuotationPreview | null; after:
 export function PetCouncil({ model, session }: { model: QuoteBuilderModel; session: AuthSession }) {
   const t = useT();
   const inputPrefix = useId();
-  const petAdvisors = advisorsWithProfiles(model.petProfiles);
+  const petAdvisors = advisorsWithProfiles(model.petProfiles, t);
   const [selected, setSelected] = useState<string[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,7 +88,7 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
       {currentComparison && <section className="pet-change-preview" aria-label={t("견적 변경 미리보기")}>
         <h4>{t("저장 전, 변경 내용을 확인하세요.")}</h4>
         <dl><div><dt>{t("현재 초안 ·")}{model.items.length}{t("개 항목")}</dt><dd>{currentComparison.before ? formatMoney(currentComparison.before.total, model.project.currency) : t("현재 초안 계산 실패")}</dd></div><div><dt>{t("변경 후 ·")}{currentComparison.items.length}{t("개 항목")}</dt><dd>{formatMoney(currentComparison.after.total, model.project.currency)}</dd></div>{currentComparison.before && <div><dt>{t("금액 차이")}</dt><dd>{formatMoney(currentComparison.after.total - currentComparison.before.total, model.project.currency)}</dd></div>}<div><dt>{t("변경 후 위험 대비 / 세금")}</dt><dd>{formatMoney(currentComparison.after.riskBufferAmount, model.project.currency)} / {formatMoney(currentComparison.after.taxAmount, model.project.currency)}</dd></div></dl>
-        <details><summary>{t("교체할 현재 작업과 적용할 작업 확인")}</summary><strong>{t("현재 작업")}</strong><ul>{model.items.map((item, index) => <li key={index}>{item.title || "제목 없음"} · {item.quantity} {item.unit}</li>)}</ul><strong>{t("변경 후 작업")}</strong><ul>{currentComparison.items.map((item, index) => <li key={index}>{item.title} · {item.quantity} {item.unit}</li>)}</ul></details>
+        <details><summary>{t("교체할 현재 작업과 적용할 작업 확인")}</summary><strong>{t("현재 작업")}</strong><ul>{model.items.map((item, index) => <li key={index}>{item.title || t("제목 없음")} · {item.quantity} {item.unit}</li>)}</ul><strong>{t("변경 후 작업")}</strong><ul>{currentComparison.items.map((item, index) => <li key={index}>{item.title} · {item.quantity} {item.unit}</li>)}</ul></details>
         <p>{t("현재 항목 전체가 교체됩니다. 아직 저장·발행되지 않으며 저장 시 최신 정책과 권한을 다시 확인합니다.")}</p>
         <button type="button" className="primary-button" disabled={!model.canWrite || model.busy || loading} onClick={apply}>{t("확인한 작업으로 편집 초안 변경")}</button>
       </section>}

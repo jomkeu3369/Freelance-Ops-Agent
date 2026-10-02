@@ -100,7 +100,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
         <h2 id="auth-welcome-title">{t("혼자 하는 일에,")}<br/><span>{t("함께할 동료를.")}</span></h2>
         <p>{t("흩어진 고객 문의를 정리하고,")}<br/>{t("근거 있는 견적으로 이어가세요.")}</p>
         <div className="auth-companions" aria-label={t("AI 동료의 기본 모습과 관점")}>
-          {petAdvisors.map(pet => <div className="auth-companion" key={pet.id}><PetArt kind={pet.id} /><strong>{pet.name}</strong><span>{t(pet.role)}</span></div>)}
+          {petAdvisors.map(pet => <div className="auth-companion" key={pet.id}><PetArt kind={pet.id} /><strong>{t(pet.name)}</strong><span>{t(pet.role)}</span></div>)}
         </div>
         <div className="auth-message-footer"><span>{t("다른 관점을 모아, 내게 맞는 선택으로.")}</span><p>{t("AI가 초안을 준비하고, 최종 결정은 내가 합니다.")}</p></div>
       </section>

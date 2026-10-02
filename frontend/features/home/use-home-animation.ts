@@ -15,10 +15,10 @@ export function useHomeAnimation() {
     const motion = gsap.matchMedia();
     motion.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.from(".nav-shell", { y: -12, opacity: 0, duration: .6, ease: "power3.out" });
-      gsap.from(".spatial-heading > *", { y: 22, opacity: 0, filter: "blur(5px)", duration: .9, stagger: .08, ease: "power3.out" });
+      gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: .8, stagger: .08, ease: "power3.out" });
       gsap.from(".spatial-flow", { y: 25, opacity: 0, duration: 1.1, delay: .2, ease: "power3.out" });
       gsap.utils.toArray<HTMLElement>("[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div").forEach((element) => {
-        gsap.from(element, { y: 24, opacity: 0, filter: "blur(6px)", duration: .8, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 92%", once: true } });
+        gsap.from(element, { y: 16, opacity: 0, duration: .8, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 92%", once: true } });
       });
       gsap.utils.toArray<HTMLElement>(".story-review-chat").forEach((element) => {
         gsap.from(element.querySelectorAll("[data-story-chat]"), { y: 12, opacity: 0, duration: .6, stagger: .3, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 86%", once: true } });
@@ -73,20 +73,22 @@ export function useHomeAnimation() {
       };
       gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, transformOrigin: "center center" });
       gsap.set(target, { autoAlpha: 0 });
-      const timeline = gsap.timeline({ scrollTrigger: { id: "story-brand-fold", trigger: scene, start: "center 82%", end: "center 42%", scrub: .45, invalidateOnRefresh: true } });
-      timeline.fromTo(plate, { clipPath: squareClip }, { clipPath: "inset(0% 0% round 20px)", duration: 1.4, ease: "power2.inOut" })
-        .fromTo(copy, { opacity: 0 }, { opacity: 1, duration: .6 }, .8)
-        .to({}, { duration: .7 })
-        .to(copy, { opacity: 0, duration: .5 })
-        .to(plate, { clipPath: squareClip, duration: 1.4, ease: "power2.inOut" }, "<");
-
-      // One mark travels all the way into the empty radial hub. Its page-space
-      // delta cancels the intervening scroll; no fixed viewport coordinates.
-      // A zero-duration handoff at the same geometry also reverses cleanly.
-      const transfer = gsap.timeline({ scrollTrigger: { id: "story-brand-merge", trigger: scene, start: "center 42%", endTrigger: target, end: "center 65%", scrub: .45, invalidateOnRefresh: true } });
-      transfer.to(plate, { autoAlpha: 0, duration: .12, ease: "power1.in" }, 0)
-        .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { x: () => destination().x, y: () => destination().y, scale: () => destination().scale, duration: 1, ease: "none" }, 0)
-        .to(mark, { color: "#24142f", backgroundColor: "#cfacf0", boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521", duration: .22 }, .78)
+      // The panel is readable from first visibility. One scrubbed playhead
+      // owns hold, collapse and travel, preventing conflicting boundary clocks.
+      gsap.set(plate, { clipPath: "inset(0% 0% round 20px)", autoAlpha: 1, y: 0 });
+      gsap.set(copy, { opacity: 1 });
+      const drift = () => window.innerHeight * .12;
+      const transfer = gsap.timeline({ scrollTrigger: {
+        id: "story-brand-merge", trigger: stage, start: "center 70%", endTrigger: target, end: "center 65%",
+        scrub: .85, invalidateOnRefresh: true
+      } });
+      transfer.to(plate, { y: drift, duration: .46, ease: "none" }, 0)
+        .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { y: drift, duration: .46, ease: "none" }, 0)
+        .to(plate, { clipPath: squareClip, duration: .34, ease: "sine.inOut" }, .12)
+        .to(copy, { opacity: 0, duration: .18, ease: "sine.inOut" }, .16)
+        .to(plate, { autoAlpha: 0, duration: .09, ease: "sine.in" }, .44)
+        .to(mark, { x: () => destination().x, y: () => destination().y, scale: () => destination().scale, duration: .54, ease: "power1.inOut" }, .46)
+        .to(mark, { color: "#24142f", backgroundColor: "#cfacf0", boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521", duration: .24 }, .76)
         .set(target, { autoAlpha: 1 }, 1)
         .set(mark, { autoAlpha: 0 }, 1);
 
