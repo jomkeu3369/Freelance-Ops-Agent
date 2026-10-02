@@ -25,3 +25,24 @@ test("ambiguous or out-of-range settings requests cannot produce a proposal", ()
   assert.deepEqual(parseChatPolicyIntent("견적 설정 바꿔줘"), { valid: false, values: {} });
   assert.deepEqual(parseChatPolicyIntent("기본 세율 110%"), { valid: false, values: {} });
 });
+
+test("percentages in ordinary or negated requests stay with the agent", () => {
+  for (const message of [
+    "Review a quote with tax rate 10% and explain the assumptions",
+    "기본 세율 10%는 바꾸지 말고 견적 초안을 검토해 줘",
+    "Do not change tax rate to 10%",
+    "Keep pricing settings: tax rate 10%",
+  ]) assert.equal(parseChatPolicyIntent(message), null);
+});
+
+test("explicit settings commands reject partial, duplicate and invalid values", () => {
+  for (const message of [
+    "/settings tax rate -5%",
+    "/settings tax rate 10%, tax rate 20%",
+    "pricing settings: tax rate 10%, risk buffer unknown",
+    "pricing settings: tax rate 10% to 20%",
+  ]) assert.deepEqual(parseChatPolicyIntent(message), { valid: false, values: {} });
+  assert.deepEqual(parseChatPolicyIntent("Set tax rate to 8.5% and risk buffer to 15%"), {
+    valid: true, values: { defaultTaxRate: .085, defaultRiskBufferRate: .15 },
+  });
+});
