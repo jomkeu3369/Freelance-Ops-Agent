@@ -1,4 +1,5 @@
 "use client";
+import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
 import { localeStorageKey, normalizeLocale, translateUi } from "./ui-locale.mjs";
 
@@ -6,6 +7,7 @@ type Locale = "ko" | "en";
 let memoryLocale: Locale = "ko";
 let memoryOverride = false;
 const eventName = "freelance-ops-ui-language";
+const defaultSiteTitle = "Freelance Ops | 근거 있는 견적 운영";
 function readLocale(): Locale {
   if (memoryOverride) return memoryLocale;
   try { return normalizeLocale(localStorage.getItem(localeStorageKey)) as Locale; } catch { return memoryLocale; }
@@ -18,7 +20,15 @@ function subscribe(onChange: () => void) {
 const LocaleContext = createContext<Locale>("ko");
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const locale = useSyncExternalStore(subscribe, readLocale, () => "ko" as Locale);
-  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
+  const pathname = usePathname();
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    // Only localize the shared product title; leave route-specific titles intact.
+    const englishSiteTitle = translateUi(defaultSiteTitle, "en");
+    if (document.title === defaultSiteTitle || document.title === englishSiteTitle) {
+      document.title = translateUi(defaultSiteTitle, locale);
+    }
+  }, [locale, pathname]);
   return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
 }
 export function useUiLocale() { return useContext(LocaleContext); }

@@ -63,19 +63,23 @@ export function useHomeAnimation() {
       // The source is outside the clipped plate so it can become the lower hub.
       const squareClip = () => {
         const half = mark.offsetWidth * .78;
-        const top = stage.offsetHeight * .57;
-        return `inset(${top - half}px ${stage.offsetWidth / 2 - half}px ${stage.offsetHeight - top - half}px round 28px)`;
+        const top = mark.offsetTop;
+        const side = stage.offsetWidth / 2 - half;
+        return `inset(${top - half}px ${side}px ${stage.offsetHeight - top - half}px ${side}px round 28px)`;
       };
       const destination = () => {
         const from = stage.getBoundingClientRect();
         const to = target.getBoundingClientRect();
-        return { x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + from.height * .57), scale: to.width / mark.offsetWidth };
+        return { x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + mark.offsetTop), scale: to.width / mark.offsetWidth };
       };
+      const placeMark = () => gsap.set(mark, { top: Math.max(stage.offsetHeight * .57 + 24, copy.offsetTop + copy.offsetHeight + 24 + mark.offsetHeight / 2) });
+      placeMark();
+      ScrollTrigger.addEventListener("refreshInit", placeMark);
       gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, transformOrigin: "center center" });
       gsap.set(target, { autoAlpha: 0 });
       // The panel is readable from first visibility. One scrubbed playhead
       // owns hold, collapse and travel, preventing conflicting boundary clocks.
-      gsap.set(plate, { clipPath: "inset(0% 0% round 20px)", autoAlpha: 1, y: 0 });
+      gsap.set(plate, { clipPath: "inset(0px 0px 0px 0px round 20px)", autoAlpha: 1, y: 0 });
       gsap.set(copy, { opacity: 1 });
       const drift = () => window.innerHeight * .12;
       const transfer = gsap.timeline({ scrollTrigger: {
@@ -99,8 +103,10 @@ export function useHomeAnimation() {
       });
       layoutObserver.observe(pageRef.current!);
       layoutObserver.observe(card);
+      layoutObserver.observe(copy);
       return () => {
         layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); opening?.kill();
+        ScrollTrigger.removeEventListener("refreshInit", placeMark);
         interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
       };
     });
