@@ -36,12 +36,12 @@ export function useStoryMetricEntry(revision: string) {
       active.get(scene)?.kill();
       active.delete(scene);
       renderCount(scene, 1);
-      scene.querySelectorAll<SVGElement>("[data-story-ring], [data-story-sparkline]").forEach((element) => {
+      scene.querySelectorAll<SVGElement>("[data-story-ring]").forEach((element) => {
         element.style.removeProperty("stroke-dasharray");
         element.style.removeProperty("stroke-dashoffset");
         element.style.removeProperty("opacity");
       });
-      scene.querySelectorAll<HTMLElement | SVGElement>("[data-story-segment], [data-story-spark-point]").forEach((element) => {
+      scene.querySelectorAll<HTMLElement | SVGElement>("[data-story-segment], [data-story-task-marker]").forEach((element) => {
         element.style.removeProperty("transform");
         element.style.removeProperty("transform-origin");
         element.style.removeProperty("opacity");
@@ -60,10 +60,8 @@ export function useStoryMetricEntry(revision: string) {
 
       const ring = scene.querySelector<SVGCircleElement>("[data-story-ring]");
       if (ring) timeline.fromTo(ring, { strokeDasharray: "0 100", opacity: 0 }, { strokeDasharray: ring.getAttribute("stroke-dasharray") ?? "0 100", opacity: 1, duration: 1.45, ease: "power2.out" }, 0);
-      const sparkline = scene.querySelector<SVGPolylineElement>("[data-story-sparkline]");
-      if (sparkline) timeline.fromTo(sparkline, { strokeDasharray: "100 100", strokeDashoffset: 100 }, { strokeDashoffset: 0, duration: 1.3, ease: "power2.inOut" }, 0);
-      const points = scene.querySelectorAll("[data-story-spark-point]");
-      if (points.length) timeline.fromTo(points, { opacity: 0 }, { opacity: 1, duration: .35, stagger: .15, ease: "power1.out" }, .45);
+      const taskMarkers = scene.querySelectorAll("[data-story-task-marker]");
+      if (taskMarkers.length) timeline.fromTo(taskMarkers, { opacity: .35, y: 4 }, { opacity: 1, y: 0, duration: .45, stagger: .1, ease: "power2.out" }, .1);
       const segments = scene.querySelectorAll("[data-story-segment]");
       if (segments.length) timeline.fromTo(segments, { scaleY: .14, opacity: .15, transformOrigin: "center bottom" }, { scaleY: 1, opacity: 1, duration: .5, stagger: .055, ease: "power2.out" }, .08);
       timeline.play();

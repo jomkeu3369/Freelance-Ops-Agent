@@ -49,10 +49,10 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 
 /* Quiet labels must still be readable; preserve hierarchy without 7–9px copy. */
 .figma-home.spatial-site :is(.spatial-comparison-label, .spatial-comparison-disclaimer) { font-size: 12px; line-height: 1.7; color: #bfb0cb; }
-.figma-home.spatial-site .reference-story :is(.story-panel-top, .story-panel-footnote, .story-muted, .story-mono-label, .story-row-number, .story-radial-node > small, .story-card-baseline, .story-quote-caption > span, .story-outline-badge) { font-family: inherit; font-size: 12px; line-height: 1.6; color: #bbafc8; }
-.figma-home.spatial-site .reference-story :is(.story-timeline-row, .story-timeline-row > span:last-child, .story-timeline-axis, .story-task-grid, .story-task-grid > .spatial-quote-head, .story-chat-result, .story-chat-reply > span, .story-chat-message > div > span, .story-scope-switch > p, .story-scope-switch button, .spatial-bar-label, .spatial-bars small, .spatial-effort > p, .story-evidence-meters small, .story-evidence-meters > div > span:last-child, .spatial-quote-total > span, .story-dashboard-ring > small, .story-ring-figure > div > span, .story-figure-caption, .story-figure-explanation > small) { font-size: 12px; line-height: 1.65; color: #bbafc8; }
-.figma-home.spatial-site .reference-story :is(.story-feature-copy > p, .story-section-heading > p, .story-benefit-card > p:not(.story-panel-footnote)) { color: #bcb2c7; }
-.figma-home.spatial-site .reference-story :is(.story-chat-message p, .story-chat-reply p, .story-dashboard-small > p:not(.story-mono-label), .spatial-assumptions p) { font-size: 14px; line-height: 1.75; }
+.figma-home.spatial-site .reference-story .story-panel-top, .figma-home.spatial-site .reference-story .story-panel-footnote, .figma-home.spatial-site .reference-story .story-muted, .figma-home.spatial-site .reference-story .story-mono-label, .figma-home.spatial-site .reference-story .story-row-number, .figma-home.spatial-site .reference-story .story-radial-node > small, .figma-home.spatial-site .reference-story .story-card-baseline, .figma-home.spatial-site .reference-story .story-quote-caption > span, .figma-home.spatial-site .reference-story .story-outline-badge { font-family: inherit; font-size: 12px; line-height: 1.6; color: #bbafc8; }
+.figma-home.spatial-site .reference-story .story-timeline-row, .figma-home.spatial-site .reference-story .story-timeline-row > span:last-child, .figma-home.spatial-site .reference-story .story-timeline-axis, .figma-home.spatial-site .reference-story .story-task-grid, .figma-home.spatial-site .reference-story .story-task-grid > .spatial-quote-head, .figma-home.spatial-site .reference-story .story-chat-result, .figma-home.spatial-site .reference-story .story-chat-reply > span, .figma-home.spatial-site .reference-story .story-chat-message > div > span, .figma-home.spatial-site .reference-story .story-scope-switch > p, .figma-home.spatial-site .reference-story .story-scope-switch button, .figma-home.spatial-site .reference-story .spatial-bar-label, .figma-home.spatial-site .reference-story .spatial-bars small, .figma-home.spatial-site .reference-story .spatial-effort > p, .figma-home.spatial-site .reference-story .story-evidence-meters small, .figma-home.spatial-site .reference-story .story-evidence-meters > div > span:last-child, .figma-home.spatial-site .reference-story .spatial-quote-total > span, .figma-home.spatial-site .reference-story .story-dashboard-ring > small, .figma-home.spatial-site .reference-story .story-ring-figure > div > span, .figma-home.spatial-site .reference-story .story-figure-caption, .figma-home.spatial-site .reference-story .story-figure-explanation > small { font-size: 12px; line-height: 1.65; color: #bbafc8; }
+.figma-home.spatial-site .reference-story .story-feature-copy > p, .figma-home.spatial-site .reference-story .story-section-heading > p, .figma-home.spatial-site .reference-story .story-benefit-card > p:not(.story-panel-footnote) { color: #bcb2c7; }
+.figma-home.spatial-site .reference-story .story-chat-message p, .figma-home.spatial-site .reference-story .story-chat-reply p, .figma-home.spatial-site .reference-story .story-dashboard-small > p:not(.story-mono-label), .figma-home.spatial-site .reference-story .spatial-assumptions p { font-size: 14px; line-height: 1.75; }
 .figma-home.spatial-site .story-disclaimer { width: 100%; min-width: 0; padding: 14px 0 0; font-size: 12px; line-height: 1.75; color: #baadca; text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .figma-home.spatial-site .story-brand-plate-copy > p:last-child { font-weight: 550; letter-spacing: -.035em; line-height: 1.4; }
 .figma-home.spatial-site .story-brand-plate-copy > p:first-child { font-size: 12px; }
@@ -134,3 +134,27 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .reference-story .story-prism-stack { grid-column: var(--chart-column); grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: end; align-self: end; min-width: 0; }
 .figma-home.spatial-site .reference-story .story-prism-chart .story-prism-column > small { grid-column: var(--chart-column); grid-row: 2; align-self: stretch; justify-self: center; }
 @media (max-width: 480px) { .figma-home.spatial-site .reference-story .story-prism-chart { column-gap: 12px; } }
+
+/* Full-page readability audit: explanations and actions are never micro-type. */
+.figma-home.spatial-site .reference-story .story-evidence-meters > div > div > span { font-size: 14px; line-height: 1.65; color: #d0c5dc; }
+.figma-home.spatial-site .reference-story .spatial-quote-total > div > span { font-size: 14px; color: #cfc0dc; }
+.figma-home.spatial-site .reference-story .spatial-quote-total small, .figma-home.spatial-site .reference-story .story-ring-figure strong small, .figma-home.spatial-site .reference-story .spatial-effort-number > span { font-size: 12px; color: #c8b8d5; }
+.figma-home.spatial-site .reference-story .story-scope-chips > span { font-size: 12px; }
+.figma-home.spatial-site .spatial-scope-estimator .spatial-scope-slider > div { font-size: 14px; line-height: 1.65; color: #d2c1df; }
+.figma-home.spatial-site .spatial-comparison-grid strong > span { font-size: 13px; color: #c8b8d4; }
+.figma-home.spatial-site .spatial-comparison-grid strong + p, .figma-home.spatial-site .spatial-comparison-grid li { font-size: 14px; line-height: 1.7; color: #c9bad5; }
+.figma-home.spatial-site .spatial-comparison-footnote { font-size: 13px; line-height: 1.75; color: #c5b6d1; }
+.figma-home.spatial-site .spatial-comparison-grid a { font-size: 14px; line-height: 1.6; }
+.figma-home.spatial-site .spatial-closing-brand > span { font-size: 12px; color: #c3b1ce; }
+.figma-home.spatial-site .spatial-closing-action > .section-context { font-size: 12px; color: #523061; }
+.figma-home.spatial-site .spatial-world .final-cta .spatial-closing-link { font-size: 14px; line-height: 1.5; color: #51335f; }
+.figma-home.spatial-site .spatial-world .final-cta .spatial-closing-link > span:last-child { font-size: 14px; line-height: 1.5; }
+@media (max-width: 580px) {
+  .figma-home.spatial-site .spatial-world .final-cta .spatial-closing-link { flex-direction: column; align-items: stretch; gap: 10px; border-radius: 18px; padding: 12px; text-align: center; }
+  .figma-home.spatial-site .spatial-world .final-cta .spatial-closing-link > span:last-child { justify-content: center; white-space: normal; }
+}
+.figma-home.spatial-site .reference-story .story-task-markers { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 136px; margin: 15px 0 0; padding: 0; list-style: none; }
+.figma-home.spatial-site .reference-story .story-task-markers li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; font-size: 14px; line-height: 1.65; color: #d4c8df; }
+.figma-home.spatial-site .reference-story .story-task-markers li > span:first-child { flex: 0 0 27px; display: grid; place-items: center; min-height: 27px; border-radius: 7px; background: #c4a1e81c; color: #e1cef2; font-size: 12px; font-variant-numeric: tabular-nums; }
+.figma-home.spatial-site .reference-story .story-task-markers li > span:last-child { min-width: 0; padding-top: 2px; overflow-wrap: anywhere; }
+.figma-home.spatial-site .reference-story .story-mini-segments, .figma-home.spatial-site .reference-story .story-mini-rule { height: auto; min-height: 136px; }
