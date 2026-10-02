@@ -59,8 +59,14 @@ physical mobile keyboard or a screen reader; those remain separate checks.
 ## Safety and release status
 
 All browser fixtures use local synthetic accounts and intercepted APIs. No production
-API write, real customer data, paid AI request, migration, merge, deployment, force
+API write, real customer data, paid AI request, migration, merge, production deployment, force
 push, or branch-protection change was made. DB33 remains separate blocked work.
 This is a validated-code backup with a documented browser QA blocker, not a visual
 release sign-off. The existing Frontend CI only auto-runs on pull requests or main
 pushes; a work-branch backup alone does not claim a remote CI result.
+
+The CLI backup lacked an HTTPS credential, so the connected GitHub API preserved the
+four work units as new commits with byte-identical Git trees. Original local commits
+are retained in a local backup branch. Commit SHAs differ only because the connector
+creates its own commit metadata. The existing Vercel integration can start an automatic
+preview for a branch backup; its status is separate from the blocked fixture browser QA.
