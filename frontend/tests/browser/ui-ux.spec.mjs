@@ -739,9 +739,22 @@ async function scrollBrandMerge(page, progress) {
   }, progress);
 }
 
+async function expectBrandCopyClearance(page) {
+  const geometry = await page.evaluate(() => {
+    const copy = document.querySelector("[data-story-brand-copy]").getBoundingClientRect();
+    const mark = document.querySelector("[data-story-brand-mark]").getBoundingClientRect();
+    const plate = document.querySelector("[data-story-brand-plate]").getBoundingClientRect();
+    return { gap: mark.top - copy.bottom, copyTop: copy.top - plate.top, copyLeft: copy.left - plate.left, copyRight: plate.right - copy.right, logoBottom: plate.bottom - mark.bottom };
+  });
+  // offsetTop/offsetHeight are integer layout metrics; allow only subpixel rounding.
+  expect(geometry.gap + 0.75, "Brand copy needs at least 24px of clearance above the F").toBeGreaterThanOrEqual(24);
+  for (const key of ["copyTop", "copyLeft", "copyRight", "logoBottom"]) expect(geometry[key], `${key} must stay inside the readable full plate`).toBeGreaterThanOrEqual(-1);
+}
+
 async function brandPlateClip(page) {
   return page.locator("[data-story-brand-plate]").evaluate(element => {
-    const parts = getComputedStyle(element).clipPath.match(/^inset\((.*?)\s+round/);
+    const clipPath = getComputedStyle(element).clipPath;
+    const parts = clipPath.match(/^inset\((.*?)\s+round/);
     const tokens = parts ? parts[1].trim().split(/\s+/) : ["0"];
     const [top, right = top, bottom = top, left = right] = tokens;
     const pixels = (value, size) => Number.parseFloat(value) * (value.endsWith("%") ? size / 100 : 1);
@@ -750,6 +763,7 @@ async function brandPlateClip(page) {
       width: element.clientWidth - pixels(right, element.clientWidth) - pixels(left, element.clientWidth),
       height: element.clientHeight - pixels(top, element.clientHeight) - pixels(bottom, element.clientHeight),
       fullWidth: element.clientWidth, fullHeight: element.clientHeight,
+      rounding: Number.parseFloat(clipPath.match(/\sround\s+([\d.]+)px/)?.[1] ?? "0"),
       markWidth: mark.offsetWidth, markHeight: mark.offsetHeight
     };
   });
@@ -768,7 +782,7 @@ async function brandMergeGeometry(page, progress) {
     const drift = innerHeight * 0.12;
     const currentDrift = value <= 0.46 ? drift * Math.max(0, value) / 0.46 : drift * (1 - eased);
     const expectedX = stage.left + stage.width / 2 + (to.left + to.width / 2 - stage.left - stage.width / 2) * eased;
-    const expectedY = stage.top + stage.height * 0.57 + currentDrift + (to.top + to.height / 2 - stage.top - stage.height * 0.57) * eased;
+    const expectedY = stage.top + mark.offsetTop + currentDrift + (to.top + to.height / 2 - stage.top - mark.offsetTop) * eased;
     const expectedWidth = mark.offsetWidth + (to.width - mark.offsetWidth) * eased;
     const visible = [mark, target].filter(element => {
       let opacity = 1;
@@ -809,7 +823,7 @@ for (const language of ["ko", "en"]) {
       const target = page.locator("[data-story-brand-target]");
       await expect(mark).toHaveCount(1);
       await expect(target).toHaveCount(1);
-      for (const progress of [-0.1, 0, 0.08, 0.12, 0.29, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.29, 0.08, 0]) {
+      for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.29, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.29, 0.13, 0.08, 0]) {
         const range = await scrollBrandMerge(page, progress);
         expect(range.end).toBeGreaterThan(range.start);
         await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
@@ -823,6 +837,11 @@ for (const language of ["ko", "en"]) {
         expect(geometry.left).toBeGreaterThanOrEqual(-1);
         expect(geometry.right).toBeLessThanOrEqual(geometry.clientWidth + 1);
         expect(geometry.targetInsideCard).toBe(true);
+        if (progress <= 0.13) await expectBrandCopyClearance(page);
+        if (progress >= 0.12 && progress <= 0.46) {
+          // Every numeric inset has the same shape so round 20px must not tween from zero.
+          await expect.poll(async () => (await brandPlateClip(page)).rounding, { message: "Fold corners must retain their initial rounding in both scroll directions" }).toBeGreaterThanOrEqual(19.9);
+        }
         if (progress <= 0.12) {
           await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
           await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("opacity", "1");
@@ -850,13 +869,16 @@ for (const language of ["ko", "en"]) {
       await expect(target).toHaveCSS("visibility", "visible");
       await expect(mark).toHaveCSS("visibility", "hidden");
       expect((await brandMergeGeometry(page, 1)).visibleCount).toBe(1);
+      await scrollBrandMerge(page, 0);
+      await expect.poll(async () => (await brandMergeGeometry(page, 0)).error).toBeLessThanOrEqual(3);
+      await expectBrandCopyClearance(page);
     });
   }
 
-  for (const width of [390, 1440]) {
-    test(`brand merge ${language} ${width}px: reduced motion keeps readable static source and destination`, async ({ page }) => {
+  for (const [width, reducedMotion] of [[320, "no-preference"], [390, "reduce"], [820, "no-preference"], [1440, "reduce"]]) {
+    test(`brand merge ${language} ${width}px ${reducedMotion}: static source and destination keep intrinsic copy clearance`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.emulateMedia({ reducedMotion });
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
       await page.goto("/");
       await expect(page.locator("html")).toHaveAttribute("lang", language);
@@ -872,6 +894,7 @@ for (const language of ["ko", "en"]) {
         await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", "none");
         await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
         await expect(target).toHaveCSS("visibility", "visible");
+        await expectBrandCopyClearance(page);
         const current = await mark.evaluate(element => {
           const box = element.getBoundingClientRect();
           return { x: box.left, y: box.top + scrollY, width: box.width };

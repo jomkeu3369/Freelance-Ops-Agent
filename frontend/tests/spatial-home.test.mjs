@@ -177,7 +177,7 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /trigger:\s*stage,\s*start:\s*"center 70%"/);
   assert.match(hook, /end:\s*"center 65%"/);
   assert.match(hook, /scrub:\s*\.85/);
-  assert.match(hook, /gsap\.set\(plate,\s*\{\s*clipPath:\s*"inset\(0% 0% round 20px\)",\s*autoAlpha:\s*1/);
+  assert.match(hook, /gsap\.set\(plate,\s*\{\s*clipPath:\s*"inset\(0px 0px 0px 0px round 20px\)",\s*autoAlpha:\s*1/);
   assert.match(hook, /gsap\.set\(copy,\s*\{\s*opacity:\s*1\s*\}\)/);
   assert.match(hook, /const drift\s*=\s*\(\)\s*=>\s*window\.innerHeight\s*\*\s*\.12/);
   assert.match(hook, /\.to\(plate,\s*\{\s*y:\s*drift,\s*duration:\s*\.46,\s*ease:\s*"none"\s*\},\s*0\)/);
@@ -185,6 +185,12 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*\.18,\s*ease:\s*"sine.inOut"\s*\},\s*\.16\)/);
   assert.match(hook, /duration:\s*\.54,\s*ease:\s*"power1.inOut"\s*\},\s*\.46\)/);
   assert.match(hook, /endTrigger:\s*target/);
+  assert.match(hook, /const top\s*=\s*mark\.offsetTop/);
+  assert.match(hook, /from\.top\s*\+\s*mark\.offsetTop/);
+  assert.match(hook, /Math\.max\(stage\.offsetHeight\s*\*\s*\.57\s*\+\s*24,\s*copy\.offsetTop\s*\+\s*copy\.offsetHeight\s*\+\s*24\s*\+\s*mark\.offsetHeight\s*\/\s*2\)/);
+  assert.match(hook, /placeMark\(\);\s*ScrollTrigger\.addEventListener\("refreshInit",\s*placeMark\)/);
+  assert.match(hook, /ScrollTrigger\.removeEventListener\("refreshInit",\s*placeMark\)/);
+  assert.ok(hook.includes('inset(${top - half}px ${side}px ${stage.offsetHeight - top - half}px ${side}px round 28px)'), "Open and folded clips need four px insets so the radius cannot interpolate from a missing value");
   assert.match(hook, /stage\.getBoundingClientRect\(\)/);
   assert.match(hook, /target\.getBoundingClientRect\(\)/);
   assert.match(hook, /scale:\s*to\.width\s*\/\s*mark\.offsetWidth/);
@@ -350,4 +356,14 @@ test("default English mascot names translate on auth without changing custom or 
     }
   }
   assert.equal(petDisplayName({ slot: "LEAN", name: "든든" }, key => translateUi(key, "en")), "든든", "A different slot's name is custom content");
+});
+
+
+test("mobile and reduced brand plates reserve intrinsic space for readable copy above the source logo", async () => {
+  const css = await sourceFile("../app/landing-readability.css");
+  const staticPlate = css.slice(css.indexOf('@media (max-width: 820px), (prefers-reduced-motion: reduce)'));
+  assert.match(staticPlate, /\.story-brand-stage\s*\{\s*height:\s*auto/);
+  assert.match(staticPlate, /\.story-brand-plate\s*\{[^}]*position:\s*relative;[^}]*height:\s*auto\s*!important;[^}]*padding:\s*28px 24px calc\(var\(--brand-mark-size\) \+ 64px\)/);
+  assert.match(staticPlate, /\.story-brand-plate-copy\s*\{\s*position:\s*static/);
+  assert.match(staticPlate, /\.story-brand-mark\s*\{\s*top:\s*auto;\s*bottom:\s*32px;\s*transform:\s*translateX\(-50%\)/);
 });
