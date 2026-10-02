@@ -82,185 +82,373 @@ async function openInquiry(page) {
 }
 
 
-for (const width of [320, 390, 768, 1024, 1100, 1440, 1920]) {
-  for (const theme of ["light", "dark"]) {
-    test(`landing ${width}px ${theme}: all five views readable with no overflow`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 900 });
-      await page.emulateMedia({ reducedMotion: "reduce" });
-      await setTheme(page, theme);
-      await page.goto("/");
-      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-      await expect(page.locator("main")).toHaveCount(1);
-      await expect(page.locator(".problem-section, .evidence-section, .outcome-section")).toHaveCount(0);
-      await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "true");
-      for (let step = 0; step < 5; step++) {
-        await page.locator(".demo-step").nth(step).click();
-        await expect(page.locator("#workflow")).toHaveAttribute("data-step", String(step));
-        await expect(page.locator(".demo-step").nth(step)).toHaveAttribute("aria-pressed", "true");
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-        if (step === 3) {
-          const coveredAmounts = await page.locator('.demo-quote-row [role="cell"]:last-child').evaluateAll(cells => {
-            const panel = document.querySelector('.demo-activity').getBoundingClientRect();
-            return cells.filter(cell => { const amount = cell.getBoundingClientRect(); return amount.left < panel.right && amount.right > panel.left && amount.top < panel.bottom && amount.bottom > panel.top; }).map(cell => cell.textContent);
-          });
-          expect(coveredAmounts, "Progress panel must not cover quotation amounts").toEqual([]);
-        }
-        for (const button of await page.locator(".product-demo button").all()) {
-          if (!await button.isVisible()) continue;
-          const box = await button.evaluate(e => ({ height: e.getBoundingClientRect().height, overflow: e.scrollWidth > e.clientWidth }));
-          expect(box.height).toBeGreaterThanOrEqual(44);
-          expect(box.overflow).toBe(false);
-        }
-      }
-      await screenshot(page, `home-${width}-${theme}`);
-      if (width === 1440 && theme === "light") await page.locator(".product-experience").screenshot({ path: "outputs/ui-ux/screenshots/landing-desktop-middle.png" });
-    });
+// The spatial scenes share one fictional project and never submit a Business API request.
+function watchLandingApiRequests(page) {
+  const requests = [];
+  page.on("request", (request) => {
+    if (/^\/api\//.test(new URL(request.url()).pathname)) requests.push(`${request.method()} ${request.url()}`);
+  });
+  return requests;
+}
+
+async function expectSpatialLayout(page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total").evaluateAll(elements => elements.flatMap(element => {
+    const box = element.getBoundingClientRect();
+    if (!box.width || !box.height) return [];
+    return box.left < -1 || box.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1
+      ? [{ className: element.className, left: box.left, right: box.right, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }]
+      : [];
+  }));
+  expect(clipped, "Meaningful scene content must fit, even when its outer shell clips decoration").toEqual([]);
+  const coveredAmounts = await page.locator('.spatial-quote-table [role="cell"]:last-child').evaluateAll(cells => {
+    const panel = document.querySelector(".spatial-review-panel").getBoundingClientRect();
+    return cells.filter(cell => {
+      const amount = cell.getBoundingClientRect();
+      return amount.left < panel.right && amount.right > panel.left && amount.top < panel.bottom && amount.bottom > panel.top;
+    }).map(cell => cell.textContent);
+  });
+  expect(coveredAmounts, "The review panel must not cover quotation amounts").toEqual([]);
+  for (const button of await page.locator(".spatial-world button").all()) {
+    if (!await button.isVisible()) continue;
+    const box = await button.evaluate(element => ({ height: element.getBoundingClientRect().height, clipped: element.scrollWidth > element.clientWidth + 1 }));
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.clipped).toBe(false);
   }
 }
 
-test("landing keyboard, mobile menu, evidence anchor and history navigation", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
+async function openClockedLanding(page, language = "ko") {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+  // Install before navigation; let hydration finish naturally while the demo is offscreen.
+  await page.clock.install();
   await page.goto("/");
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "본문으로 건너뛰기" })).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("#main-content")).toBeFocused();
-  const menu = page.getByRole("button", { name: "페이지 메뉴 열기" });
-  await menu.click();
-  await page.keyboard.press("Escape");
-  await expect(menu).toBeFocused();
-  await expect(menu).toHaveAttribute("aria-expanded", "false");
-  await menu.click();
-  await page.locator("#home-navigation").getByRole("link", { name: "검증 원칙" }).click();
-  await expect(page.locator("#evidence")).toBeFocused();
-  await expect(menu).toHaveAttribute("aria-expanded", "false");
-  const quote = page.getByRole("button", { name: "견적 근거 보기" });
-  await quote.focus(); await page.keyboard.press("Enter");
-  await expect(page.locator("#workflow-example")).toContainText("작업별 공수");
-  await page.locator(".demo-step").nth(4).focus();
-  await page.keyboard.press("Enter");
-  await expect(page.locator(".demo-proposal")).toContainText("예약 웹사이트 개발 제안");
-  await page.goBack(); await page.goForward();
-  await expect(page).toHaveURL(/#evidence$/);
-});
+  await expect(page.locator("html")).toHaveAttribute("lang", language);
+  await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "true");
+  await expect(page.locator(".spatial-motion-toggle")).toBeEnabled();
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+}
 
-test("one scope choice carries through requirements, quote and proposal without a real run", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
-  const steps = page.locator(".demo-step");
-  await steps.nth(0).click();
-  await expect(page.locator("#workflow-example")).toContainText("예약 가능한 웹사이트");
-  await steps.nth(2).click();
-  await expect(page.locator("#workflow-example")).toContainText("온라인 결제도 필요한가요?");
-  await page.getByRole("group", { name: "예약 변경 범위 선택" }).getByRole("button", { name: /예약 변경 추가/ }).click();
-  await steps.nth(1).click();
-  await expect(page.locator(".demo-requirements")).toContainText("고객 예약 변경");
-  await steps.nth(3).click();
-  await expect(page.getByRole("table", { name: "작업별 예시 공수와 금액" })).toContainText("관리자 예약 관리");
-  await expect(page.locator(".demo-total")).toContainText("3,900,000");
-  await expect(page.locator(".demo-total")).toContainText("13일");
-  await steps.nth(4).click();
-  await expect(page.locator(".demo-proposal")).toContainText("3,900,000원");
-  await expect(page.locator(".demo-proposal")).toContainText("13일");
-  await expect(page.locator(".demo-history li")).toHaveCount(0);
-  for (let i = 0; i < 12; i++) {
-    await page.getByRole("button", { name: "다음 단계", exact: true }).click();
-    await expect(page.locator("#workflow")).toHaveAttribute("data-step", String(i % 5));
+async function releaseSpatialInteraction(page) {
+  await page.locator("#main-content").evaluate(element => element.focus({ preventScroll: true }));
+  await page.mouse.move(0, 0);
+}
+
+async function autoplayState(page) {
+  return page.locator("#workflow").evaluate(element => ["data-run", "data-run-step", "data-phase"].map(name => element.getAttribute(name)));
+}
+
+async function expectAutoplayFrozen(page) {
+  await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "true");
+  await expect(page.locator(".spatial-flow")).toHaveAttribute("data-playing", "false");
+  const before = await autoplayState(page);
+  await page.clock.fastForward(6000);
+  expect(await autoplayState(page), "Paused autoplay must retain its execution cursor").toEqual(before);
+}
+
+const landingCopy = {
+  ko: { skip: "본문으로 건너뛰기", menu: "페이지 메뉴 열기", product: "제품 소개", workflow: "작동 방식", evidence: "검증 원칙", audience: "대상 사용자", quote: "견적 근거 보기", scope: "견적 범위 선택", essential: "핵심 범위", extended: "예약 변경 추가", extra: "고객 예약 변경", table: "작업별 예시 공수와 금액", status: "진행 중", finalStatus: "협상 중", stage: ["문의", "요구사항", "리스크", "견적", "제안"] },
+  en: { skip: "Skip to main content", menu: "Open page menu", product: "Product", workflow: "How it works", evidence: "Review principles", audience: "Who it is for", quote: "View estimate evidence", scope: "Choose estimate scope", essential: "Core scope", extended: "Add rescheduling", extra: "Customer rescheduling", table: "Sample task effort and price", status: "In progress", finalStatus: "Negotiating", stage: ["Inquiry", "Requirements", "Risks", "Estimate", "Proposal"] }
+};
+
+for (const language of ["ko", "en"]) {
+  for (const width of [320, 390, 768, 1024, 1100, 1440, 1920]) {
+    for (const theme of ["light", "dark"]) {
+      test(`landing ${language} ${width}px ${theme}: all spatial scenes and five previews fit without overflow`, async ({ page }) => {
+        const copy = landingCopy[language];
+        await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+        await page.setViewportSize({ width, height: 900 });
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await setTheme(page, theme);
+        const requests = watchLandingApiRequests(page);
+        await page.goto("/");
+        await expect(page.locator("html")).toHaveAttribute("lang", language);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        await expect(page.locator("main")).toHaveCount(1);
+        await expect(page.locator(".spatial-chapter")).toHaveCount(3);
+        await expect(page.locator(".product-demo, .demo-layout, .demo-activity")).toHaveCount(0);
+        const chapter = page.locator("#workflow");
+        const card = page.locator(".spatial-project-card");
+        await expect(card).toHaveCount(1);
+        const original = await card.elementHandle();
+        // Reduced motion starts with the finished, readable sample, without running the timeline.
+        await expect(chapter).toHaveAttribute("data-step", "4");
+        await expect(chapter).toHaveAttribute("data-paused", "true");
+        await expect(page.locator(".spatial-flow")).toHaveAttribute("data-column", "1");
+        await expect(page.getByRole("button", { name: language === "ko" ? "동작 줄이기 적용 중" : "Reduced motion enabled" })).toBeDisabled();
+        for (const step of [0, 1, 2, 3, 4, 0, 4]) {
+          const button = page.locator(".spatial-stage").nth(step);
+          await button.click();
+          await expect(chapter).toHaveAttribute("data-step", String(step));
+          await expect(chapter).toHaveAttribute("data-run-step", "0");
+          await expect(button).toHaveAttribute("aria-pressed", "true");
+          await expect(button).toHaveAttribute("aria-controls", "workflow-example");
+          await expect(page.locator('.spatial-stage[aria-pressed="true"]')).toHaveCount(1);
+          await expect(card).toHaveAttribute("data-project-id", "FO-024");
+          await expect(card).toHaveAttribute("aria-label", language === "ko" ? `${copy.stage[step]} 예시 결과` : `${copy.stage[step]} sample results`);
+          await expect(card.locator(".spatial-status")).toHaveText(step === 4 ? copy.finalStatus : copy.status);
+          await expect(page.locator(".spatial-flow")).toHaveAttribute("data-column", step === 4 ? "1" : "0");
+          expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
+          await expect(chapter.getByRole("status")).toContainText(copy.stage[step]);
+          await expectSpatialLayout(page);
+        }
+        await expect(page.locator(".spatial-proposal")).toContainText("3,000,000");
+        await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? "10일" : "10 days");
+        await screenshot(page, `home-${language}-${width}-${theme}`);
+        if (language === "ko" && width === 1440 && theme === "light") await page.locator(".spatial-world").screenshot({ path: "outputs/ui-ux/screenshots/landing-desktop-middle.png" });
+        expect(requests).toEqual([]);
+      });
+    }
   }
-  await steps.nth(3).click();
-  await page.getByRole("group", { name: "견적 범위 선택" }).getByRole("button", { name: "핵심 범위", exact: true }).click();
-  await steps.nth(4).click();
-  await expect(page.locator(".demo-proposal")).toContainText("3,000,000원");
-  await expect(page.locator(".demo-proposal")).not.toContainText("고객 예약 변경");
-});
+}
 
-test("autoplay records five completed stages and automatically starts the next example", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/");
-  await page.locator(".product-demo").scrollIntoViewIfNeeded();
-  await page.mouse.move(0, 0);
+for (const language of ["ko", "en"]) {
+  test(`landing ${language}: keyboard, mobile menu, real anchors and history navigation`, async ({ page }) => {
+    const copy = landingCopy[language];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: copy.skip })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#main-content")).toBeFocused();
+    const menu = page.locator(".home-menu-toggle");
+    await expect(menu).toHaveAccessibleName(copy.menu);
+    await expect(menu).toHaveAttribute("aria-controls", "home-navigation");
+    await menu.click();
+    await expect(menu).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeFocused();
+    await expect(menu).toHaveAttribute("aria-expanded", "false");
+    for (const [name, target] of [[copy.product, "product"], [copy.workflow, "workflow"], [copy.audience, "audience"], [copy.evidence, "evidence"]]) {
+      await menu.click();
+      const link = page.locator("#home-navigation").getByRole("link", { name, exact: true });
+      await expect(link).toHaveAttribute("href", `#${target}`);
+      await link.click();
+      await expect(page.locator(`#${target}`)).toBeFocused();
+      await expect(page).toHaveURL(new RegExp(`#${target}$`));
+      await expect(menu).toHaveAttribute("aria-expanded", "false");
+    }
+    const quote = page.locator("#evidence").getByRole("link", { name: copy.quote });
+    await expect(quote).toHaveAttribute("href", "#review");
+    await quote.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#review")).toBeFocused();
+    await expect(page).toHaveURL(/#review$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/#evidence$/);
+    await page.goForward();
+    await expect(page).toHaveURL(/#review$/);
+    await page.locator(".spatial-stage").nth(4).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".spatial-stage").nth(4)).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".spatial-status")).toHaveText(copy.finalStatus);
+    const hashLinks = await page.locator('.figma-home a[href^="#"]').evaluateAll(links => links.map(link => link.getAttribute("href")));
+    for (const hash of new Set(hashLinks)) await expect(page.locator(hash)).toHaveCount(1);
+    await expect(page.locator(".hero-actions .primary-button")).toHaveAttribute("href", "/workspace");
+    await expect(page.locator(".final-cta .primary-button")).toHaveAttribute("href", "/workspace");
+  });
+
+  for (const width of [390, 1440]) {
+    test(`landing ${language} ${width}px: scope updates the same card, proposal, table and effort chart`, async ({ page }) => {
+      const copy = landingCopy[language];
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      const requests = watchLandingApiRequests(page);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      const scopes = page.getByRole("group", { name: copy.scope });
+      const table = page.getByRole("table", { name: copy.table });
+      const card = page.locator(".spatial-project-card");
+      const original = await card.elementHandle();
+      for (const extended of [false, true, false, true]) {
+        const days = extended ? 13 : 10;
+        const total = extended ? "3,900,000" : "3,000,000";
+        const choice = scopes.getByRole("button", { name: new RegExp(`^${extended ? copy.extended : copy.essential}`) });
+        await choice.click();
+        await expect(choice).toHaveAttribute("aria-pressed", "true");
+        await expect(scopes.locator('[aria-pressed="true"]')).toHaveCount(1);
+        await expect(table.getByRole("row")).toHaveCount(extended ? 5 : 4);
+        await expect(table.getByRole("columnheader")).toHaveCount(3);
+        await expect(table.getByRole("rowheader")).toHaveCount(extended ? 4 : 3);
+        await expect(table.getByRole("rowheader", { name: copy.extra, exact: true })).toHaveCount(extended ? 1 : 0);
+        await expect(page.locator(".spatial-quote-total")).toContainText(total);
+        await expect(page.locator(".spatial-quote-total")).toContainText(language === "ko" ? `${days}일` : `${days} days`);
+        await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? `${days}일` : `${days} days`);
+        await expect(page.locator(".spatial-effort")).toHaveAttribute("role", "img");
+        await expect(page.locator(".spatial-effort")).toHaveAccessibleName(language === "ko"
+          ? `예시 공수 구성: 예약 5일, 관리자 3.5일, 반응형과 검수 1.5일. ${extended ? "예약 변경 3일 추가. 총 13일." : "총 10일."}`
+          : `Sample effort: booking 5 days, admin 3.5 days, responsive design and QA 1.5 days. ${extended ? "Rescheduling adds 3 days. Total: 13 days." : "Total: 10 days."}`);
+        await expect(page.locator(".spatial-bars .spatial-bar")).toHaveCount(extended ? 4 : 3);
+        await expect(page.locator(".spatial-bars .spatial-bar-label")).toHaveText((extended ? [5, 3.5, 1.5, 3] : [5, 3.5, 1.5]).map(value => language === "ko" ? `${value}일` : `${value} days`));
+        const amounts = await table.getByRole("row").evaluateAll(rows => rows.slice(1).map(row => Number(row.querySelector('[role="cell"]:last-child').textContent.replaceAll(",", ""))));
+        expect(amounts).toEqual(extended ? [1500000, 1050000, 450000, 900000] : [1500000, 1050000, 450000]);
+        expect(amounts.reduce((sum, amount) => sum + amount, 0)).toBe(extended ? 3900000 : 3000000);
+        await page.locator(".spatial-stage").nth(1).click();
+        await expect(card.locator(".spatial-card-detail")).toContainText(extended ? copy.extra : copy.stage[1]);
+        if (!extended) await expect(card.locator(".spatial-card-detail")).not.toContainText(copy.extra);
+        await page.locator(".spatial-stage").nth(3).click();
+        await expect(card.locator(".spatial-card-detail")).toContainText(total);
+        await page.locator(".spatial-stage").nth(4).click();
+        await expect(card.locator(".spatial-card-detail")).toContainText(total);
+        await expect(page.locator(".spatial-proposal")).toContainText(total);
+        expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
+        await expectSpatialLayout(page);
+      }
+      await page.locator(".spatial-assumptions summary").click();
+      await expect(page.locator(".spatial-assumptions")).toHaveAttribute("open", "");
+      await expect(page.locator(".spatial-assumptions")).toContainText("300,000");
+      await page.locator(".spatial-assumptions summary").click();
+      await expect(page.locator(".spatial-assumptions")).not.toHaveAttribute("open", "");
+      if (language === "en") expect(await page.locator(".spatial-world").innerText()).not.toMatch(/[가-힣]/);
+      expect(requests).toEqual([]);
+    });
+  }
+
+  test(`landing ${language}: autoplay starts in view, moves FO-024 only at final completion and replays the same node`, async ({ page }) => {
+    const requests = watchLandingApiRequests(page);
+    await openClockedLanding(page, language);
+    const chapter = page.locator("#workflow");
+    const flow = page.locator(".spatial-flow");
+    const card = page.locator(".spatial-project-card");
+    const original = await card.elementHandle();
+    await expectAutoplayFrozen(page);
+    await flow.scrollIntoViewIfNeeded();
+    await releaseSpatialInteraction(page);
+    await expect(chapter).toHaveAttribute("data-paused", "false");
+    await expect(flow).toHaveAttribute("data-playing", "true");
+    const initial = await card.boundingBox();
+    for (let step = 0; step < 5; step++) {
+      await expect(chapter).toHaveAttribute("data-run-step", String(step));
+      await expect(chapter).toHaveAttribute("data-step", String(step));
+      await expect(chapter).toHaveAttribute("data-phase", "running");
+      await expect(flow).toHaveAttribute("data-column", "0");
+      await expect(card.locator(".spatial-status")).toHaveText(landingCopy[language].status);
+      await page.clock.fastForward(1700);
+      await expect(chapter).toHaveAttribute("data-phase", "complete");
+      await expect(flow).toHaveAttribute("data-column", step === 4 ? "1" : "0");
+      await expect(card).toHaveAttribute("data-project-id", "FO-024");
+      await expect(card).toHaveCount(1);
+      expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
+      if (step < 4) await page.clock.fastForward(1100);
+    }
+    await expect(card.locator(".spatial-status")).toHaveText(landingCopy[language].finalStatus);
+    await expect.poll(async () => (await card.boundingBox()).x).toBeGreaterThan(initial.x + 30);
+    // Automatic updates stay silent; manual previews have their own status announcement.
+    await expect(chapter.getByRole("status")).toBeEmpty();
+    await page.clock.fastForward(4300);
+    await expect(chapter).toHaveAttribute("data-run", "2");
+    await expect(chapter).toHaveAttribute("data-run-step", "0");
+    await expect(chapter).toHaveAttribute("data-step", "0");
+    await expect(flow).toHaveAttribute("data-column", "0");
+    expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
+    expect(requests).toEqual([]);
+  });
+}
+
+test("landing manual preview pauses normal motion, stays readable and resumes its execution cursor", async ({ page }) => {
+  await openClockedLanding(page);
   const chapter = page.locator("#workflow");
+  await page.locator(".spatial-flow").scrollIntoViewIfNeeded();
+  await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
-  await expect(page.locator(".demo-history li")).toHaveCount(1, { timeout: 6000 });
-  await expect(chapter).toHaveAttribute("data-run-step", "4", { timeout: 22000 });
-  await expect(chapter).toHaveAttribute("data-phase", "complete", { timeout: 6000 });
-  await expect(page.locator(".demo-history li")).toHaveCount(5);
-  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "5");
-  await expect(page.getByRole("button", { name: "예시 다시 시작" })).toHaveCount(0);
-  await expect(chapter).toHaveAttribute("data-run", "2", { timeout: 7000 });
+  await page.clock.fastForward(1700);
+  await expect(chapter).toHaveAttribute("data-phase", "complete");
+  await page.locator(".spatial-stage").nth(2).click();
+  await expect(chapter).toHaveAttribute("data-step", "2");
   await expect(chapter).toHaveAttribute("data-run-step", "0");
-  await expect(page.locator(".demo-history li")).toHaveCount(0);
+  await expect(page.locator(".spatial-card-detail")).toContainText("온라인 결제도 필요한가요?");
+  await expect(page.locator(".spatial-card-detail")).toHaveCSS("opacity", "1");
+  await releaseSpatialInteraction(page);
+  await expectAutoplayFrozen(page);
+  await page.getByRole("button", { name: "예시 자동 진행 재개" }).click();
+  await releaseSpatialInteraction(page);
+  await expect(chapter).toHaveAttribute("data-paused", "false");
+  await expect(chapter).toHaveAttribute("data-step", "0");
+  await page.clock.fastForward(1100);
+  await expect(chapter).toHaveAttribute("data-run-step", "1");
+  await expect(chapter).toHaveAttribute("data-step", "1");
 });
 
-test("focus, hover, explicit pause and live reduced motion independently stop autoplay", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.goto("/");
+test("landing hover, focus, explicit pause and live reduced motion independently stop autoplay", async ({ page }) => {
+  await openClockedLanding(page);
   const chapter = page.locator("#workflow");
-  const controls = page.locator(".demo-controls button");
-  await expect(controls.first()).toBeEnabled();
-  await controls.first().focus();
-  await page.keyboard.press("Tab");
-  await expect(page.locator(".demo-step").first()).toBeFocused();
-  await expect(chapter).toHaveAttribute("data-paused", "true");
-  await page.waitForTimeout(2100);
-  await expect(chapter).toHaveAttribute("data-phase", "running");
-  await page.locator(".demo-step").nth(2).hover();
-  await page.locator(".demo-step").nth(2).focus();
-  await page.mouse.move(0, 0);
-  await expect(chapter).toHaveAttribute("data-paused", "true");
-  await page.locator("#workflow").focus();
+  const flow = page.locator(".spatial-flow");
+  await flow.scrollIntoViewIfNeeded();
+  await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
-  await page.locator(".demo-history li").first().waitFor({ timeout: 6000 });
+  // Hover alone pauses; focus then keeps it paused after the pointer leaves.
+  await page.locator(".spatial-project-card").hover();
+  await expectAutoplayFrozen(page);
+  await page.locator(".spatial-stage").first().focus();
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".spatial-stage").first()).toBeFocused();
+  await expectAutoplayFrozen(page);
+  await releaseSpatialInteraction(page);
+  await expect(chapter).toHaveAttribute("data-paused", "false");
+  await page.clock.fastForward(1700);
+  await expect(chapter).toHaveAttribute("data-phase", "complete");
   await page.getByRole("button", { name: "자동 진행 일시 정지", exact: true }).click();
-  await page.locator("#workflow").focus(); await page.mouse.move(0, 0);
-  await expect(chapter).toHaveAttribute("data-paused", "true");
+  await releaseSpatialInteraction(page);
+  await expectAutoplayFrozen(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.getByRole("button", { name: "동작 줄이기 적용 중" })).toBeDisabled();
+  await expect(chapter).toHaveAttribute("data-step", "4");
+  await expectAutoplayFrozen(page);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(page.getByRole("button", { name: "예시 자동 진행 재개" })).toBeEnabled();
+  await expectAutoplayFrozen(page); // Changing the preference must not erase explicit pause.
   await page.getByRole("button", { name: "예시 자동 진행 재개" }).click();
-  await page.locator("#workflow").focus(); await page.mouse.move(0, 0);
+  await releaseSpatialInteraction(page);
+  await expect(chapter).toHaveAttribute("data-paused", "false");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expectAutoplayFrozen(page); // Reduced motion alone pauses a running example too.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(chapter).toHaveAttribute("data-paused", "false");
 });
 
-
-test("offscreen demo stops, and a workspace round trip preserves coherent example data", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await workspaceFixture(page);
-  await page.goto("/");
+test("landing leaves and reenters the viewport without advancing while offscreen", async ({ page }) => {
+  await openClockedLanding(page);
   const chapter = page.locator("#workflow");
-  await expect(chapter).toHaveAttribute("data-paused", "true");
-  await page.waitForTimeout(2100);
-  await expect(page.locator(".demo-history li")).toHaveCount(0);
-  await page.locator(".product-demo").scrollIntoViewIfNeeded();
-  await page.mouse.move(0, 0);
+  const flow = page.locator(".spatial-flow");
+  await expectAutoplayFrozen(page);
+  await flow.scrollIntoViewIfNeeded();
+  await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
-  await page.locator(".demo-history li").first().waitFor({ timeout: 6000 });
+  await page.clock.fastForward(1700);
+  await expect(chapter).toHaveAttribute("data-phase", "complete");
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-  await expect(chapter).toHaveAttribute("data-paused", "true");
-  const count = await page.locator(".demo-history li").count();
-  await page.waitForTimeout(2100);
-  await expect(page.locator(".demo-history li")).toHaveCount(count);
+  await expectAutoplayFrozen(page);
+  await flow.scrollIntoViewIfNeeded();
+  await expect(chapter).toHaveAttribute("data-paused", "false");
+  await page.clock.fastForward(1100);
+  await expect(chapter).toHaveAttribute("data-run-step", "1");
+});
+
+test("a workspace round trip retains internally coherent spatial example data", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.locator(".demo-step").nth(3).click();
-  await page.getByRole("group", { name: "견적 범위 선택" }).getByRole("button", { name: "예약 변경 추가" }).click();
+  const fixture = await workspaceFixture(page);
+  await page.goto("/");
+  await page.getByRole("group", { name: "견적 범위 선택" }).getByRole("button", { name: /^예약 변경 추가/ }).click();
   await page.locator(".hero-actions").getByRole("link", { name: "요구사항 정리 시작하기" }).click();
   await expect(page.locator(".workspace-empty")).toBeVisible();
   await expect(page).toHaveURL(/workspace\/projects$/);
   await page.goBack();
-  await expect(page.locator(".product-demo")).toBeVisible();
-  await page.locator(".demo-step").nth(3).click();
-  const extended = await page.getByRole("group", { name: "견적 범위 선택" }).getByRole("button", { name: "예약 변경 추가" }).getAttribute("aria-pressed") === "true";
-  await expect(page.locator(".demo-total")).toContainText(extended ? "3,900,000" : "3,000,000");
-  await page.locator(".demo-step").nth(4).click();
-  await expect(page.locator(".demo-proposal")).toContainText(extended ? "13일" : "10일");
+  await expect(page.locator(".spatial-flow")).toBeVisible();
+  const extended = await page.getByRole("group", { name: "견적 범위 선택" }).getByRole("button", { name: /^예약 변경 추가/ }).getAttribute("aria-pressed") === "true";
+  await expect(page.locator(".spatial-quote-total")).toContainText(extended ? "3,900,000" : "3,000,000");
+  await expect(page.locator(".spatial-effort-number")).toHaveText(extended ? "13일" : "10일");
+  await expect(page.locator(".spatial-quote-table").getByRole("row")).toHaveCount(extended ? 5 : 4);
+  await page.locator(".spatial-stage").nth(4).click();
+  await expect(page.locator(".spatial-card-detail")).toContainText(extended ? "3,900,000" : "3,000,000");
   await page.goForward();
   await expect(page).toHaveURL(/workspace/);
+  expect(fixture.unexpected).toEqual([]);
 });
 
 test("a delayed workspace restore cannot redirect a user who already went back to the landing", async ({ page }) => {
@@ -274,7 +462,7 @@ test("a delayed workspace restore cannot redirect a user who already went back t
     await expect(page).toHaveURL("/");
     await page.waitForTimeout(1400);
     await expect(page).toHaveURL("/");
-    await expect(page.locator(".demo-step")).toHaveCount(5);
+    await expect(page.locator(".spatial-stage")).toHaveCount(5);
   }
   expect(fixture.unexpected).toEqual([]);
 });
@@ -466,10 +654,10 @@ for(const width of [320,390,1440]) for(const theme of ['light','dark']) {
     await page.goto('/');await expect(page.locator('html')).toHaveAttribute('lang','ko');
     await page.getByRole('combobox',{name:'표시 언어'}).selectOption('en');await expect(page.locator('html')).toHaveAttribute('lang','en');
     for(let stage=0;stage<5;stage++) {
-      await page.locator('.demo-step').nth(stage).click();
+      await page.locator('.spatial-stage').nth(stage).click();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      const remaining=await page.locator('.demo-view').innerText();expect(remaining).not.toMatch(/[가-힣]/);
-      for(const button of await page.locator('.product-demo button').all())if(await button.isVisible())expect(await button.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+      const remaining=await page.locator('.spatial-world').innerText();expect(remaining).not.toMatch(/[가-힣]/);
+      for(const button of await page.locator('.spatial-world button').all())if(await button.isVisible())expect(await button.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
     }
     await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','en');await expect(page.getByRole('combobox',{name:'Interface language'})).toHaveValue('en');
     await page.goto('/workspace');await expect(page.getByRole('tab',{name:'Log in',exact:true})).toBeVisible();
@@ -495,16 +683,4 @@ test('language switching preserves inquiry drafts and never translates saved cli
   await page.getByRole('button',{name:'New inquiry',exact:true}).click();await expect(page.locator('input[name="title"]')).toHaveValue('견적');
   await page.locator('input[name="title"]').fill('   ');await page.locator('.project-dialog button[type="submit"]').click();await expect(page.locator('.project-dialog [role="alert"]')).toContainText('Enter a project name');
   expect(state.submissions).toEqual([]);expect(state.unexpected).toEqual([]);
-});
-for(const language of ['ko','en'])test(`continuous ${language} card motion freezes mid-flight and replays the same node`,async({page})=>{
-  await page.emulateMedia({reducedMotion:'no-preference'});await page.addInitScript(lang=>localStorage.setItem('freelance-ops-ui-locale-v1',lang),language);
-  await page.goto('/');await page.locator('.demo-project-board').scrollIntoViewIfNeeded();await page.mouse.move(0,0);
-  const card=page.locator('.demo-moving-card');const node=await card.elementHandle();
-  await expect(card).toHaveAttribute('aria-hidden','false',{timeout:6000});await page.waitForTimeout(900);const initial=await card.boundingBox();
-  await expect(page.locator('.demo-project-flow')).toHaveAttribute('data-column','1',{timeout:22000});
-  await page.waitForTimeout(150);await page.locator('.demo-project-board').hover();const frozen=await card.getAttribute('style');await page.waitForTimeout(500);expect(await card.getAttribute('style')).toBe(frozen);
-  await page.mouse.move(0,0);await page.waitForTimeout(1000);expect((await card.boundingBox()).x).toBeGreaterThan(initial.x+30);
-  expect(await node.evaluate(e=>e===document.querySelector('.demo-moving-card'))).toBe(true);
-  await expect(page.locator('#workflow')).toHaveAttribute('data-run','2',{timeout:7000});expect(await node.evaluate(e=>e===document.querySelector('.demo-moving-card'))).toBe(true);
-  await page.emulateMedia({reducedMotion:'reduce'});await page.locator('.demo-step').nth(4).click();await expect(card).toHaveAttribute('aria-hidden','false');
 });
