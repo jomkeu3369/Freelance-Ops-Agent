@@ -95,8 +95,8 @@ async function expectSpatialLayout(page) {
   const documentSize = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth, body: document.body.scrollWidth }));
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
-  // The outer glass hero intentionally bleeds right; its meaningful content must still fit.
-  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
+  // Decorative glass may extend beyond its frame; meaningful content must stay inside usable width.
+  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
     return box.left < -1 || box.right > document.documentElement.clientWidth + 1 || element.scrollWidth > element.clientWidth + 1
@@ -123,6 +123,13 @@ async function expectSpatialLayout(page) {
       if (intersects(cardBox, label.getBoundingClientRect())) failures.push("Project card overlaps a lane heading");
     }
     const flowBox = document.querySelector(".spatial-flow").getBoundingClientRect();
+    const disclaimer = document.querySelector(".spatial-demo-disclaimer");
+    const disclaimerBox = disclaimer.getBoundingClientRect();
+    if (disclaimer.parentElement !== document.querySelector(".spatial-flow")) failures.push("Demo disclaimer is not an intrinsic glass-panel footer");
+    if (["absolute", "fixed"].includes(getComputedStyle(disclaimer).position)) failures.push("Demo disclaimer is removed from content flow");
+    if (disclaimerBox.left < flowBox.left - 1 || disclaimerBox.right > flowBox.right + 1 || disclaimerBox.top < flowBox.top - 1 || disclaimerBox.bottom > flowBox.bottom + 1) failures.push("Demo disclaimer escapes the glass panel");
+    if (intersects(disclaimerBox, bottom) || intersects(disclaimerBox, cardBox)) failures.push("Demo disclaimer overlaps card or playback controls");
+    if (disclaimer.scrollHeight > disclaimer.clientHeight + 1) failures.push("Demo disclaimer wraps into clipped height");
     const stages = [...document.querySelectorAll(".spatial-stage")];
     for (const stage of stages) {
       const box = stage.getBoundingClientRect();
@@ -136,7 +143,7 @@ async function expectSpatialLayout(page) {
       }
     }
     // Check glyph bounds as well as boxes: a fixed-width table cell can fit while its text paints over its neighbour.
-    const textContainers = document.querySelectorAll('.spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
+    const textContainers = document.querySelectorAll('.spatial-demo-disclaimer, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
     for (const container of textContainers) {
       const box = container.getBoundingClientRect();
       if (!box.width || !box.height) continue;
@@ -163,6 +170,24 @@ async function expectSpatialLayout(page) {
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.clipped).toBe(false);
   }
+}
+
+async function expectReadableLandingText(page) {
+  const failures = await page.locator(".spatial-hero-title, .spatial-stage, .spatial-project-card, .spatial-demo-disclaimer, .spatial-review-panel, .spatial-proposal, .spatial-effort-number, .story-section-heading, .spatial-comparison-heading").evaluateAll(elements => elements.flatMap(element => {
+    const problems = [];
+    for (let ancestor = element; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      if ([...style.filter.matchAll(/blur\(([-\d.]+)px\)/g)].some(match => Number(match[1]) > 0)) problems.push(`blurred text in ${ancestor.className}`);
+      if (style.perspective !== "none" || (style.transform !== "none" && !new DOMMatrixReadOnly(style.transform).is2D)) problems.push(`perspective text in ${ancestor.className}`);
+    }
+    if (element.matches(".spatial-demo-disclaimer")) {
+      const style = getComputedStyle(element);
+      if (Number.parseFloat(style.fontSize) < 12 || Number.parseFloat(style.lineHeight) < 18) problems.push("Disclaimer text is too small or tightly spaced");
+      if (style.whiteSpace === "nowrap") problems.push("Disclaimer cannot wrap");
+    }
+    return problems;
+  }));
+  expect([...new Set(failures)], "Functional text must stay sharp and planar while decorative glass can remain dimensional").toEqual([]);
 }
 
 async function openClockedLanding(page, language = "ko") {
@@ -625,7 +650,7 @@ for (const language of ["ko", "en"]) {
     }
   });
 
-  for (const width of [320, 430]) {
+  for (const width of [320, 430, 1440]) {
     test(`landing ${language} ${width}px: fallback fonts and longer fictional text preserve intrinsic card layout`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "reduce" });
@@ -635,6 +660,11 @@ for (const language of ["ko", "en"]) {
       await expect(page.locator("html")).toHaveAttribute("lang", language);
       await page.addStyleTag({ content: ".spatial-world, .spatial-world * { font-family: Arial, sans-serif !important; }" });
       const requests = watchLandingApiRequests(page);
+      await page.locator(".spatial-demo-disclaimer").evaluate((element, locale) => {
+        element.textContent += locale === "ko"
+          ? " 실제 고객의 개인정보나 저장된 프로젝트를 사용하지 않는 검토용 가상의 예시입니다."
+          : " This readable fictional demonstration does not use any real client information or saved project data.";
+      }, language);
       for (let stage = 0; stage < 5; stage++) {
         await page.locator(".spatial-stage").nth(stage).click();
         await page.locator(".spatial-card-detail p").evaluate((element, locale) => {
@@ -643,6 +673,7 @@ for (const language of ["ko", "en"]) {
             : " This fictional example also reviews booking changes, the cancellation policy, and the detailed work needed before the client approves the proposal.";
         }, language);
         await expectSpatialLayout(page);
+        await expectReadableLandingText(page);
         const geometry = await page.locator(".spatial-project-card").evaluate(element => ({ position: getComputedStyle(element).position, scroll: element.scrollHeight, client: element.clientHeight }));
         expect(geometry.position).not.toBe("absolute");
         expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
@@ -652,17 +683,76 @@ for (const language of ["ko", "en"]) {
   }
 }
 
+for (const language of ["ko", "en"]) {
+  test(`landing ${language} desktop: animated content stays sharp and the disclaimer remains inside the glass`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator(".spatial-world")).toHaveCSS("font-family", /Noto Sans KR Variable/);
+    for (let stage = 0; stage < 5; stage++) {
+      await page.locator(".spatial-stage").nth(stage).click();
+      await expectReadableLandingText(page);
+      await expectSpatialLayout(page);
+    }
+    for (const selector of ["#evidence", "#review", "#scope-comparison"]) {
+      await page.locator(selector).scrollIntoViewIfNeeded();
+      await expectReadableLandingText(page);
+    }
+  });
+}
+
+for (const width of [320, 1440]) {
+  test(`landing to auth ${width}px: default mascot names localize and switch back without clipping`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+    const requests = watchLandingApiRequests(page);
+    await page.goto("/");
+    await page.locator(".hero-actions .primary-button").click();
+    await expect(page.locator(".auth-companion strong")).toHaveText(["Calm", "Clear", "Steady"]);
+    expect(await page.locator(".auth-companions").innerText()).not.toMatch(/[가-힣]/);
+    await page.getByRole("combobox", { name: "Interface language" }).selectOption("ko");
+    await expect(page.locator(".auth-companion strong")).toHaveText(["차근", "또렷", "든든"]);
+    await page.getByRole("combobox", { name: "표시 언어" }).selectOption("en");
+    await expect(page.locator(".auth-companion strong")).toHaveText(["Calm", "Clear", "Steady"]);
+    for (const name of await page.locator(".auth-companion strong").all()) {
+      expect(await name.evaluate(element => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight)).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(requests).toEqual([]);
+  });
+}
+
 async function scrollBrandMerge(page, progress) {
   return page.evaluate(value => {
-    const scene = document.querySelector("[data-story-brand-scene]").getBoundingClientRect();
+    const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
     const target = document.querySelector("[data-story-brand-target]").getBoundingClientRect();
     // Derive the documented scroll range from current DOM geometry, including translated copy and responsive fonts.
-    const start = scrollY + scene.top + scene.height / 2 - innerHeight * 0.42;
+    const start = scrollY + stage.top + stage.height / 2 - innerHeight * 0.70;
     const end = scrollY + target.top + target.height / 2 - innerHeight * 0.65;
     const destination = start + (end - start) * value + (value === 1 ? 2 : value === 0 ? -2 : 0);
     window.scrollTo({ top: destination, behavior: "instant" });
     return { start, end };
   }, progress);
+}
+
+async function brandPlateClip(page) {
+  return page.locator("[data-story-brand-plate]").evaluate(element => {
+    const parts = getComputedStyle(element).clipPath.match(/^inset\((.*?)\s+round/);
+    const tokens = parts ? parts[1].trim().split(/\s+/) : ["0"];
+    const [top, right = top, bottom = top, left = right] = tokens;
+    const pixels = (value, size) => Number.parseFloat(value) * (value.endsWith("%") ? size / 100 : 1);
+    const mark = document.querySelector("[data-story-brand-mark]");
+    return {
+      width: element.clientWidth - pixels(right, element.clientWidth) - pixels(left, element.clientWidth),
+      height: element.clientHeight - pixels(top, element.clientHeight) - pixels(bottom, element.clientHeight),
+      fullWidth: element.clientWidth, fullHeight: element.clientHeight,
+      markWidth: mark.offsetWidth, markHeight: mark.offsetHeight
+    };
+  });
 }
 
 async function brandMergeGeometry(page, progress) {
@@ -672,9 +762,14 @@ async function brandMergeGeometry(page, progress) {
     const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
     const from = mark.getBoundingClientRect();
     const to = target.getBoundingClientRect();
-    const expectedX = stage.left + stage.width / 2 + (to.left + to.width / 2 - stage.left - stage.width / 2) * value;
-    const expectedY = stage.top + stage.height * 0.57 + (to.top + to.height / 2 - stage.top - stage.height * 0.57) * value;
-    const expectedWidth = mark.offsetWidth + (to.width - mark.offsetWidth) * value;
+    // One playhead holds/folds with a small shared downward drift, then eases into the target.
+    const flight = Math.max(0, Math.min(1, (value - 0.46) / 0.54));
+    const eased = flight < 0.5 ? 2 * flight * flight : 1 - Math.pow(-2 * flight + 2, 2) / 2;
+    const drift = innerHeight * 0.12;
+    const currentDrift = value <= 0.46 ? drift * Math.max(0, value) / 0.46 : drift * (1 - eased);
+    const expectedX = stage.left + stage.width / 2 + (to.left + to.width / 2 - stage.left - stage.width / 2) * eased;
+    const expectedY = stage.top + stage.height * 0.57 + currentDrift + (to.top + to.height / 2 - stage.top - stage.height * 0.57) * eased;
+    const expectedWidth = mark.offsetWidth + (to.width - mark.offsetWidth) * eased;
     const visible = [mark, target].filter(element => {
       let opacity = 1;
       for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
@@ -703,7 +798,7 @@ async function brandMergeGeometry(page, progress) {
 
 for (const language of ["ko", "en"]) {
   for (const width of [1024, 1440]) {
-    test(`brand merge ${language} ${width}px: one logo travels into the lower hub, reverses and realigns after resize`, async ({ page }) => {
+    test(`brand merge ${language} ${width}px: full plate holds, folds, merges one logo, reverses and realigns after resize`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
@@ -714,7 +809,7 @@ for (const language of ["ko", "en"]) {
       const target = page.locator("[data-story-brand-target]");
       await expect(mark).toHaveCount(1);
       await expect(target).toHaveCount(1);
-      for (const progress of [0, 0.25, 0.5, 0.75, 0.99, 1, 0.5, 0]) {
+      for (const progress of [-0.1, 0, 0.08, 0.12, 0.29, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.29, 0.08, 0]) {
         const range = await scrollBrandMerge(page, progress);
         expect(range.end).toBeGreaterThan(range.start);
         await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
@@ -728,19 +823,24 @@ for (const language of ["ko", "en"]) {
         expect(geometry.left).toBeGreaterThanOrEqual(-1);
         expect(geometry.right).toBeLessThanOrEqual(geometry.clientWidth + 1);
         expect(geometry.targetInsideCard).toBe(true);
-        if (progress === 0) {
+        if (progress <= 0.12) {
+          await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
+          await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("opacity", "1");
+          await expect.poll(async () => {
+            const clip = await brandPlateClip(page);
+            return Math.max(Math.abs(clip.width - clip.fullWidth), Math.abs(clip.height - clip.fullHeight));
+          }, { message: "The plate must be fully open on first visibility and through the reading hold, including on reverse scroll" }).toBeLessThanOrEqual(2);
+        } else if (progress === 0.29) {
+          await expect.poll(async () => {
+            const clip = await brandPlateClip(page);
+            return clip.width > clip.markWidth * 1.7 && clip.width < clip.fullWidth - 3 && clip.height > clip.markHeight * 1.7 && clip.height < clip.fullHeight - 3;
+          }, { message: "Further scroll must produce a genuine intermediate fold before the source starts flying" }).toBe(true);
+        } else if (progress >= 0.46) {
           await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "0");
-          await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", /inset\(/);
-          await expect.poll(() => page.locator("[data-story-brand-plate]").evaluate(element => {
-            const parts = getComputedStyle(element).clipPath.match(/^inset\((.*?)\s+round/);
-            if (!parts) return false;
-            const values = parts[1].trim().split(/\s+/).map(Number.parseFloat);
-            const [top, right = top, bottom = top, left = right] = values;
-            const mark = document.querySelector("[data-story-brand-mark]");
-            const width = element.clientWidth - right - left;
-            const height = element.clientHeight - top - bottom;
-            return width > 0 && height > 0 && width <= mark.offsetWidth * 1.7 && height <= mark.offsetHeight * 1.7;
-          }), { message: "The full plate must collapse to the source mark before travel begins" }).toBe(true);
+          await expect.poll(async () => {
+            const clip = await brandPlateClip(page);
+            return clip.width > 0 && clip.height > 0 && clip.width <= clip.markWidth * 1.7 && clip.height <= clip.markHeight * 1.7;
+          }, { message: "The full plate must collapse to the source mark before travel begins" }).toBe(true);
         }
       }
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });

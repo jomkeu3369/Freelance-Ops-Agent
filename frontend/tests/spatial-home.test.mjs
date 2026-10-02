@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import ts from "typescript";
 import { translateUi } from "../app/lib/ui-locale.mjs";
 import { englishUi } from "../app/lib/ui-english.mjs";
+import { petAdvisors, petDisplayName } from "../features/workspace/pets/pet-state.mjs";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoScopes, demoSteps, initialDemoState } from "../features/home/product-demo.mjs";
 
 const componentFiles = ["product-experience.tsx", "reference-story.tsx"];
@@ -171,7 +172,18 @@ test("brand handoff travels into the measured radial target and reverses its sin
   ]);
   assert.match(story, /data-story-brand-target/);
   assert.match(story, /data-story-merge-card/);
-  assert.match(hook, /id:\s*"story-brand-merge"/);
+  assert.equal((hook.match(/id:\s*"story-brand-merge"/g) ?? []).length, 1);
+  assert.doesNotMatch(hook, /story-brand-fold/, "A single scrubbed playhead must own the complete hold, fold and flight");
+  assert.match(hook, /trigger:\s*stage,\s*start:\s*"center 70%"/);
+  assert.match(hook, /end:\s*"center 65%"/);
+  assert.match(hook, /scrub:\s*\.85/);
+  assert.match(hook, /gsap\.set\(plate,\s*\{\s*clipPath:\s*"inset\(0% 0% round 20px\)",\s*autoAlpha:\s*1/);
+  assert.match(hook, /gsap\.set\(copy,\s*\{\s*opacity:\s*1\s*\}\)/);
+  assert.match(hook, /const drift\s*=\s*\(\)\s*=>\s*window\.innerHeight\s*\*\s*\.12/);
+  assert.match(hook, /\.to\(plate,\s*\{\s*y:\s*drift,\s*duration:\s*\.46,\s*ease:\s*"none"\s*\},\s*0\)/);
+  assert.match(hook, /\.to\(plate,\s*\{\s*clipPath:\s*squareClip,\s*duration:\s*\.34,\s*ease:\s*"sine.inOut"\s*\},\s*\.12\)/);
+  assert.match(hook, /\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*\.18,\s*ease:\s*"sine.inOut"\s*\},\s*\.16\)/);
+  assert.match(hook, /duration:\s*\.54,\s*ease:\s*"power1.inOut"\s*\},\s*\.46\)/);
   assert.match(hook, /endTrigger:\s*target/);
   assert.match(hook, /stage\.getBoundingClientRect\(\)/);
   assert.match(hook, /target\.getBoundingClientRect\(\)/);
@@ -281,4 +293,61 @@ test("the brief intro is decorative, centered, bounded and skipped for reduced m
   assert.match(hook, /window\.addEventListener\(event,\s*finishOpening,\s*\{\s*passive:\s*true,\s*once:\s*true\s*\}\)/);
   assert.match(hook, /window\.removeEventListener\(event,\s*finishOpening\)/);
   assert.match(hook, /finishOpening\(\);\s*interruptEvents\.forEach/);
+});
+
+test("landing typography is bundled with readable fallbacks and text reveals do not blur or tilt the hero", async () => {
+  const [home, hook, css, pkg] = await Promise.all([
+    sourceFile("../features/home/home-page.tsx"),
+    sourceFile("../features/home/use-home-animation.ts"),
+    sourceFile("../app/landing-readability.css"),
+    sourceFile("../package.json")
+  ]);
+  assert.match(home, /import "@fontsource-variable\/noto-sans-kr"/);
+  assert.ok(JSON.parse(pkg).dependencies["@fontsource-variable/noto-sans-kr"]);
+  assert.ok(home.indexOf("landing-readability.css") > home.indexOf("scene-motion.css"), "Readability overrides must follow scene styles");
+  assert.match(css, /--landing-font:\s*"Noto Sans KR Variable",\s*"Pretendard Variable",\s*system-ui,\s*sans-serif/);
+  assert.match(css, /font-family:\s*var\(--landing-font\)/);
+  assert.match(css, /font-synthesis:\s*none/);
+  assert.doesNotMatch(hook, /filter:\s*["']blur\(/, "Functional content must not blur during entry");
+  assert.match(css, /\.spatial-flow:hover\s*\{[^}]*transform:\s*none;[^}]*transition:\s*none;[^}]*backdrop-filter:\s*none/);
+  assert.match(css, /\.reference-story \.spatial-effort\s*\{\s*transform:\s*none/);
+  assert.match(css, /html\[lang="en"\][^{]*\.spatial-hero-title > span\s*\{[^}]*font-family:\s*inherit;[^}]*font-style:\s*normal/);
+});
+
+test("the translated demo disclaimer is an intrinsic wrapping footer inside the hero glass", async () => {
+  const [component, css] = await Promise.all([
+    sourceFile("../features/home/components/product-experience.tsx"),
+    sourceFile("../app/landing-readability.css")
+  ]);
+  const source = ts.createSourceFile("product-experience.tsx", component, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const className = element => element.openingElement.attributes.properties.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className")?.initializer?.text;
+  const disclaimers = [];
+  function visit(node) {
+    if (ts.isJsxElement(node) && className(node) === "spatial-demo-disclaimer") disclaimers.push(node);
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.equal(disclaimers.length, 1);
+  assert.equal(disclaimers[0].openingElement.tagName.getText(source), "p");
+  assert.ok(ts.isJsxElement(disclaimers[0].parent));
+  assert.equal(className(disclaimers[0].parent), "spatial-flow");
+  assert.match(css, /\.spatial-flow \.spatial-demo-disclaimer\s*\{[^}]*position:\s*static;[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*margin:\s*0;/);
+  assert.match(css, /\.spatial-flow \.spatial-demo-disclaimer\s*\{[^}]*font-size:\s*12px;[^}]*line-height:\s*1\.75;[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test("default English mascot names translate on auth without changing custom or stored names", async () => {
+  const auth = await sourceFile("../features/workspace/auth/auth-gate.tsx");
+  assert.match(auth, /<strong>\{t\(pet\.name\)\}<\/strong>/);
+  assert.deepEqual(petAdvisors.map(pet => translateUi(pet.name, "en")), ["Calm", "Clear", "Steady"]);
+  for (const advisor of petAdvisors) {
+    const profile = { slot: advisor.scenario, name: advisor.name };
+    const original = { ...profile };
+    assert.equal(petDisplayName(profile, key => translateUi(key, "en")), translateUi(advisor.name, "en"));
+    assert.equal(petDisplayName(profile, key => translateUi(key, "ko")), advisor.name);
+    assert.deepEqual(profile, original);
+    for (const name of ["나의 동료", "Project Friend", "", "Calm"]) {
+      assert.equal(petDisplayName({ slot: advisor.scenario, name }, key => translateUi(key, "en")), name);
+    }
+  }
+  assert.equal(petDisplayName({ slot: "LEAN", name: "든든" }, key => translateUi(key, "en")), "든든", "A different slot's name is custom content");
 });
