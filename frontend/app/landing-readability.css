@@ -171,3 +171,5 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .spatial-scope-estimator aside > a { font-size: 14px; line-height: 1.6; white-space: normal; }
 .figma-home.spatial-site > footer > div > p { font-size: 13px; line-height: 1.75; color: #bfb0cb; }
 .figma-home.spatial-site > footer > span { font-size: 12px; line-height: 1.65; }
+.figma-home.spatial-site .reference-story .story-sample-columns > article > strong > small { font-size: 12px; line-height: 1.5; }
+.figma-home.spatial-site .spatial-comparison-formula { font-size: 13px; line-height: 1.65; }

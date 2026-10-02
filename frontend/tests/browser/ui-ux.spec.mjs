@@ -82,6 +82,30 @@ async function openInquiry(page) {
 }
 
 
+test("landing header stays centered through narrow and restored viewports after its animated entrance", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await expect(page.locator(".nav-shell")).toHaveCSS("opacity", "1");
+  for (const width of [590, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.locator(".nav-shell").evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return Math.abs(rect.left + rect.width / 2 - document.documentElement.clientWidth / 2);
+    })).toBeLessThan(1);
+    for (const selector of [".nav-shell .brand", ".nav-actions", ".home-menu-toggle"]) {
+      const control = page.locator(selector);
+      if (!await control.isVisible()) continue;
+      const bounds = await control.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, viewport: document.documentElement.clientWidth };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(0);
+      expect(bounds.right).toBeLessThanOrEqual(bounds.viewport);
+    }
+  }
+});
+
 // The spatial scenes share one fictional project and never submit a Business API request.
 function watchLandingApiRequests(page) {
   const requests = [];
@@ -105,7 +129,7 @@ async function expectSpatialLayout(page) {
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
   // Decorative glass may extend beyond its frame; meaningful content must stay inside usable width.
-  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, .spatial-capability-strip, .spatial-capability-strip > div > span, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
+  const clipped = await page.locator(".nav-shell, .nav-shell .brand, .nav-actions, .spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, .spatial-capability-strip, .spatial-capability-strip > div > span, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
     return box.left < -1 || box.right > document.documentElement.clientWidth + 1 || element.scrollWidth > element.clientWidth + 1

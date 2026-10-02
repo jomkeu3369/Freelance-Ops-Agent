@@ -142,6 +142,9 @@ test("mixed-content action text remains readable and the handoff observes its in
   assert.match(hook, /target\.closest<HTMLElement>\("\.story-radial"\)/);
   assert.match(hook, /if \(targetFrame\) layoutObserver\.observe\(targetFrame\)/);
   assert.match(hook, /layoutObserver\.observe\(target\)/);
+  const navIntro = hook.match(/gsap\.from\("\.nav-shell",\s*\{([^}]*)\}/)?.[1];
+  assert.ok(navIntro, "The header still has a short opacity entrance");
+  assert.doesNotMatch(navIntro, /\b(?:x|y|xPercent|yPercent|transform):/, "CSS must own responsive percentage centering");
 });
 
 test("ambient motion observes each layer independently and cleans up observers, preferences and visibility listeners", async () => {

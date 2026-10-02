@@ -14,7 +14,9 @@ export function useHomeAnimation() {
     pageRef.current?.querySelectorAll<HTMLElement>("[data-ambient]").forEach((element) => ambientObserver.observe(element));
     const motion = gsap.matchMedia();
     motion.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap.from(".nav-shell", { y: -12, opacity: 0, duration: .6, ease: "power3.out" });
+      // CSS owns percentage-based centering. A GSAP transform would cache its
+      // horizontal pixel offset and move the header offscreen after zoom/resize.
+      gsap.from(".nav-shell", { opacity: 0, duration: .6, ease: "power3.out" });
       gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: .8, stagger: .08, ease: "power3.out" });
       gsap.from(".spatial-flow", { y: 25, opacity: 0, duration: 1.1, delay: .2, ease: "power3.out" });
       gsap.utils.toArray<HTMLElement>("[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div").forEach((element) => {
