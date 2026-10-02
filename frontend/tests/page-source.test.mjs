@@ -170,11 +170,11 @@ test("landing page follows the approved product brief without fabricated social 
   assert.match(source, /근거 있는 견적으로/);
   assert.match(source, /AI 초안은 사용자가 검토하고 확정합니다/);
   assert.match(source, /한국 소프트웨어 개발/);
-  assert.match(source, /한 번의 문의가/);
-  assert.match(source, /가상의 문의와 결과/);
+  assert.match(source, /하나의 흐름으로/);
+  assert.match(source, /가상의 문의로 보여드리는 제품 예시/);
   assert.match(source, /예시 일단가/);
   assert.match(source, /실제 견적 아님/);
-  assert.match(source, /실제 분석이나 저장은 실행되지 않습니다/);
+  assert.match(source, /실제 분석·저장·발송은 실행되지 않습니다/);
   assert.match(source, /사용자 검토 필요/);
   assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한 AI|모든 직군|모든 국가|자동 학습합니다/);
 });

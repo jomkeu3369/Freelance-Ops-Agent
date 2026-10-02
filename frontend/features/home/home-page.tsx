@@ -16,8 +16,10 @@ export default function HomePage() {
       <HomeHeader />
       <main id="main-content" tabIndex={-1}>
         <HeroSection />
-        <WorkflowSection />
-        <CallToActionSection />
+        <div className="spatial-world">
+          <WorkflowSection />
+          <CallToActionSection />
+        </div>
       </main>
       <HomeFooter />
     </div>
