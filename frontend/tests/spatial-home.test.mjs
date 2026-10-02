@@ -144,7 +144,7 @@ test("CSS travel has visible, paused, mobile and reduced-motion guards", async (
   assert.match(mobile, /scene-travel\s*\{\s*display:\s*none/);
   assert.match(mobile, /scene-particles[^}]*display:\s*none/);
   assert.match(mobile, /scene-fog-cool\s*\{\s*animation:\s*none/);
-  assert.match(mobile, /story-prism-cap\s*\{\s*animation:\s*none/);
+  assert.doesNotMatch(css, /story-prism-cap|scenePrismCap/, "Removed detached caps must not remain in motion styles");
   const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
   assert.match(reduced, /\[data-ambient\]\s*\*/);
   assert.match(reduced, /animation:\s*none\s*!important/);
@@ -276,10 +276,9 @@ test("metric entry runs once in view and restores current final values on every 
   assert.ok(entry.indexOf("entered.current.has(scene)") < entry.indexOf("gsap.timeline("));
   for (const property of ["stroke-dasharray", "stroke-dashoffset", "opacity", "transform", "transform-origin"]) assert.ok(helper.includes(`removeProperty("${property}")`));
   assert.match(entry, /data-story-ring/);
-  assert.match(entry, /data-story-sparkline/);
-  assert.match(entry, /strokeDashoffset:\s*100/);
-  assert.match(entry, /strokeDashoffset:\s*0/);
-  assert.match(entry, /data-story-spark-point[\s\S]*stagger:\s*\.15/);
+  assert.doesNotMatch(helper, /data-story-sparkline|data-story-spark-point/);
+  assert.match(entry, /data-story-task-marker[\s\S]*opacity:\s*\.35,[\s\S]*stagger:\s*\.1/);
+  assert.match(helper, /\[data-story-segment\], \[data-story-task-marker\]/);
   assert.match(entry, /data-story-segment[\s\S]*stagger:\s*\.055/);
 });
 
@@ -386,4 +385,57 @@ test("the stage summary uses readable normal typography, larger icons and respon
   assert.match(css, /@media\s*\(max-width:\s*820px\)\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(css, /@media\s*\(max-width:\s*820px\)[\s\S]*\.spatial-capability-strip > div > span\s*\{\s*font-size:\s*16px/);
   assert.match(css, /@media\s*\(max-width:\s*420px\)\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+});
+
+
+test("effort prisms use three attached faces, actual translated tasks and no independent stagger", async () => {
+  const [component, hook, storyCss, readability] = await Promise.all([
+    sourceFile("../features/home/components/reference-story.tsx"),
+    sourceFile("../features/home/use-home-animation.ts"),
+    sourceFile("../app/reference-story.css"),
+    sourceFile("../app/landing-readability.css")
+  ]);
+  const prism = component.slice(component.indexOf("function EffortPrisms"), component.indexOf("function BenefitCards"));
+  assert.doesNotMatch(prism + storyCss + readability, /story-prism-cap|scenePrismCap/);
+  assert.match(prism, /data-count=\{quote\.rows\.length\}/);
+  assert.match(prism, /--prism-height":\s*`\$\{row\.days \* 29\}px`/);
+  assert.match(prism, /<small>\{t\(row\.title\)\}<\/small>/);
+  for (const face of ["front", "side", "top"]) assert.equal((prism.match(new RegExp(`className="story-prism-${face}"`, "g")) ?? []).length, 1);
+  assert.doesNotMatch(hook, /data-story-prism/, "The whole panel may reveal, but individual bars must share their baseline throughout entry");
+  assert.match(prism, /className="story-prism-stack"/);
+  assert.match(readability, /\.story-prism-chart\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*auto auto/);
+  assert.match(readability, /\.story-prism-column\s*\{\s*display:\s*contents/);
+  assert.match(readability, /\.story-prism-stack\s*\{[^}]*grid-row:\s*1/);
+  assert.match(readability, /\.story-prism-column > small\s*\{[^}]*grid-row:\s*2/);
+  assert.match(storyCss, /\.story-prism-top\s*\{[^}]*top:\s*0;[^}]*transform:\s*translateY\(-50%\) rotateX\(90deg\)/);
+  assert.match(storyCss, /\.story-prism-front\s*\{[^}]*transform:\s*translateZ\(var\(--prism-half\)\)/);
+  assert.match(storyCss, /\.story-prism-side\s*\{[^}]*transform:\s*rotateY\(90deg\) translateZ\(var\(--prism-half\)\)/);
+  assert.match(readability, /\.story-prism-chart \.spatial-bar-label\s*\{[^}]*font-size:\s*16px/);
+  assert.match(readability, /\.story-prism-column > small\s*\{[^}]*font-size:\s*14px;[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(readability, /\.story-prism-chart\[data-count="4"\] \.spatial-bar\s*\{\s*--prism-width:\s*28px;\s*--prism-half:\s*14px/);
+});
+
+
+test("sample task counts use a truthful semantic list rather than an unrelated effort trend", async () => {
+  const story = await sourceFile("../features/home/components/reference-story.tsx");
+  const sample = story.slice(story.indexOf("function SampleFigures"), story.indexOf("export function ReferenceStory"));
+  assert.match(sample, /StoryCount value=\{quote\.rows\.length\} digits=\{2\}/);
+  assert.match(sample, /<ul className="story-task-markers" aria-label=\{t\("작업 범위"\)\}/);
+  assert.match(sample, /quote\.rows\.map\(\(row, index\) => <li key=\{row\.title\} data-story-task-marker/);
+  assert.match(sample, /<span aria-hidden="true">\{String\(index \+ 1\)\.padStart\(2, "0"\)\}<\/span><span>\{t\(row\.title\)\}<\/span>/);
+  assert.doesNotMatch(sample, /chartPoints|data-story-sparkline|data-story-spark-point|<polyline/);
+});
+
+test("full-page text guards avoid inflated selector specificity and keep explanations and actions readable", async () => {
+  const css = await sourceFile("../app/landing-readability.css");
+  assert.doesNotMatch(css, /\.reference-story\s+:is\([^)]*(?:\.spatial-bar-label|\.spatial-bars small)/, "A maximum-specificity :is list must not override later chart typography");
+  for (const selector of [".story-evidence-meters > div > div > span", ".spatial-quote-total > div > span", ".spatial-scope-estimator .spatial-scope-slider > div", ".spatial-comparison-grid a", ".story-task-markers li"]) {
+    const rule = css.slice(css.lastIndexOf(`${selector} {`));
+    assert.match(rule.slice(0, rule.indexOf("}") + 1), /font-size:\s*14px/, selector);
+  }
+  assert.match(css, /\.spatial-comparison-footnote\s*\{[^}]*font-size:\s*13px/);
+  assert.match(css, /\.spatial-comparison-grid strong > span\s*\{[^}]*font-size:\s*13px/);
+  assert.match(css, /\.spatial-quote-total small,[^}]*\.spatial-effort-number > span\s*\{[^}]*font-size:\s*12px/);
+  assert.match(css, /\.final-cta \.spatial-closing-link\s*\{[^}]*font-size:\s*14px/);
+  assert.match(css, /@media\s*\(max-width:\s*580px\)\s*\{[^}]*\.spatial-closing-link\s*\{[^}]*flex-direction:\s*column/);
 });

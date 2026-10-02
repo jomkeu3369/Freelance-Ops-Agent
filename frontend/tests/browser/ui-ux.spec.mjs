@@ -200,6 +200,50 @@ async function expectCapabilityStrip(page, language, width) {
   }
 }
 
+async function expectLowerLandingTypography(page, width) {
+  const minimums = [
+    [".story-evidence-meters > div > div > span", 14], [".spatial-quote-total > div > span", 14],
+    [".spatial-scope-slider > div > span", 14], [".spatial-comparison-grid strong + p", 14],
+    [".spatial-comparison-grid li", 14], [".spatial-comparison-grid a", 14], [".spatial-comparison-footnote", 13],
+    [".spatial-closing-link, .spatial-closing-link > span", 14], [".story-task-markers li > span:last-child", 14],
+    [".spatial-quote-total small, .story-ring-figure strong small, .spatial-effort-number > span", 12],
+    [".spatial-comparison-grid strong > span", 13], [".story-scope-chips > span", 12]
+  ];
+  const failures = await page.evaluate(rules => {
+    const failures = [];
+    for (const [selector, minimum] of rules) {
+      const elements = document.querySelectorAll(selector);
+      if (!elements.length) failures.push(`Missing readable text family: ${selector}`);
+      for (const element of elements) {
+        const style = getComputedStyle(element);
+        if (Number.parseFloat(style.fontSize) < minimum) failures.push(`${selector}: ${style.fontSize}, expected at least ${minimum}px`);
+        if (element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1) failures.push(`Clipped explanation or action: ${element.textContent}`);
+      }
+    }
+    const link = document.querySelector(".spatial-closing-link");
+    const box = link.getBoundingClientRect();
+    if (box.left < -1 || box.right > document.documentElement.clientWidth + 1) failures.push("Closing CTA escapes the viewport");
+    for (const span of link.children) {
+      const child = span.getBoundingClientRect();
+      if (child.left < box.left - 1 || child.right > box.right + 1 || child.top < box.top - 1 || child.bottom > box.bottom + 1) failures.push("Closing CTA label escapes its button");
+      const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(node);
+        for (const glyph of range.getClientRects()) if (glyph.left < child.left - 1 || glyph.right > child.right + 1 || glyph.top < child.top - 1 || glyph.bottom > child.bottom + 1) failures.push("Closing CTA text is clipped instead of wrapping");
+      }
+    }
+    return failures;
+  }, minimums);
+  expect(failures, "Explanations, units, scope choices and closing actions must keep their readable font sizes and intrinsic wrapping").toEqual([]);
+  if (width <= 580) {
+    await expect(page.locator(".spatial-closing-link")).toHaveCSS("flex-direction", "column");
+    const children = await page.locator(".spatial-closing-link > span").evaluateAll(elements => elements.map(element => ({ top: element.getBoundingClientRect().top, bottom: element.getBoundingClientRect().bottom })));
+    expect(children[1].top).toBeGreaterThanOrEqual(children[0].bottom);
+  }
+}
+
 async function expectReadableLandingText(page) {
   const failures = await page.locator(".spatial-hero-title, .spatial-stage, .spatial-project-card, .spatial-demo-disclaimer, .spatial-review-panel, .spatial-proposal, .spatial-effort-number, .story-section-heading, .spatial-comparison-heading").evaluateAll(elements => elements.flatMap(element => {
     const problems = [];
@@ -305,6 +349,7 @@ for (const language of ["ko", "en"]) {
         await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? "10일" : "10 days");
         await expectFinalMetricCounts(page);
         await expectCapabilityStrip(page, language, width);
+        await expectLowerLandingTypography(page, width);
         for (const scene of await page.locator("[data-story-metric-scene]").all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
         await screenshot(page, `home-${language}-${width}-${theme}`);
         if (language === "ko" && width === 1440 && theme === "light") await page.locator(".spatial-world").screenshot({ path: "outputs/ui-ux/screenshots/landing-desktop-middle.png" });
@@ -649,35 +694,88 @@ for (const width of [390, 820]) {
     for (const path of await page.locator(".scene-travel").all()) await expect(path).toHaveCSS("display", "none");
     await expect(page.locator(".scene-particles")).toHaveCSS("display", "none");
     for (const fog of await page.locator(".scene-fog-drift, .scene-fog-cool").all()) await expect(fog).toHaveCSS("animation-name", "none");
-    for (const cap of await page.locator(".story-prism-cap").all()) await expect(cap).toHaveCSS("animation-name", "none");
+    await expect(page.locator(".story-prism-cap")).toHaveCount(0);
   });
 }
 
 for (const language of ["ko", "en"]) {
-  test(`landing ${language}: every settled prism keeps visible three-dimensional side faces`, async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
-    await page.goto("/");
-    await expect(page.locator("html")).toHaveAttribute("lang", language);
-    const scopes = page.getByRole("group", { name: landingCopy[language].scope });
-    for (const extended of [false, true]) {
-      await scopes.getByRole("button", { name: new RegExp(`^${extended ? landingCopy[language].extended : landingCopy[language].essential}`) }).click();
-      await page.locator(".spatial-effort").scrollIntoViewIfNeeded();
-      await expect(page.locator(".spatial-effort")).toHaveAttribute("data-ambient-visible", "true");
-      const columns = page.locator(".story-prism-column");
-      await expect(columns).toHaveCount(extended ? 4 : 3);
-      for (const column of await columns.all()) await expect(column).toHaveCSS("opacity", "1");
-      for (const prism of await page.locator(".story-prism-chart .spatial-bar").all()) {
-        await expect(prism).toHaveCSS("opacity", "1");
-        await expect(prism).toHaveCSS("transform-style", "preserve-3d");
+  for (const width of [320, 390, 768, 1440, 1920]) {
+    test(`landing ${language} ${width}px: connected prisms keep real task labels, ratios and one baseline across scope changes`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await page.evaluate(() => document.fonts.ready);
+      const scopes = page.getByRole("group", { name: landingCopy[language].scope });
+      const chart = page.locator(".story-prism-chart");
+      const allLabels = language === "ko"
+        ? ["예약 화면 · 시간 선택", "관리자 예약 관리", "반응형 · 검수", "고객 예약 변경"]
+        : ["Booking · time selection", "Admin booking management", "Responsive design · QA", "Customer rescheduling"];
+      for (const extended of [false, true, false, true]) {
+        const days = extended ? [5, 3.5, 1.5, 3] : [5, 3.5, 1.5];
+        await scopes.getByRole("button", { name: new RegExp(`^${extended ? landingCopy[language].extended : landingCopy[language].essential}`) }).click();
+        await page.locator(".spatial-effort").scrollIntoViewIfNeeded();
+        await expect(page.locator(".spatial-effort")).toHaveAttribute("data-ambient-visible", "true");
+        await expect(chart).toHaveAttribute("data-count", String(days.length));
+        const columns = chart.locator(".story-prism-column");
+        await expect(columns).toHaveCount(days.length);
+        await expect(columns.locator(":scope > small")).toHaveText(allLabels.slice(0, days.length));
+        await expect(columns.locator(".spatial-bar-label")).toHaveText(days.map(value => `${value}${language === "ko" ? "일" : " days"}`));
+        await expect(page.locator(".spatial-effort-number")).toHaveText(`${extended ? 13 : 10}${language === "ko" ? "일" : " days"}`);
+        await expect(chart.locator(".story-prism-cap")).toHaveCount(0);
+        for (const column of await columns.all()) {
+          await expect(column).toHaveCSS("opacity", "1");
+          await expect(column).toHaveCSS("transform", "none");
+          await expect(column).toHaveCSS("display", "contents");
+          await expect(column.locator(".story-prism-stack")).toHaveCSS("grid-row-start", "1");
+          await expect(column.locator(":scope > small")).toHaveCSS("grid-row-start", "2");
+          await expect(column.locator(".spatial-bar-label")).toHaveCSS("font-size", width <= 480 ? "14px" : "16px");
+          await expect(column.locator(":scope > small")).toHaveCSS("font-size", width <= 480 ? "12px" : "14px");
+        }
+        for (const prism of await chart.locator(".spatial-bar").all()) {
+          await expect(prism).toHaveCSS("opacity", "1");
+          await expect(prism).toHaveCSS("transform-style", "preserve-3d");
+          await expect(prism.locator(":scope > i")).toHaveCount(3);
+          if (extended && width <= 480) await expect(prism).toHaveCSS("width", "28px");
+        }
+        await expect.poll(() => chart.evaluate((element, effortDays) => {
+          const failures = [];
+          const panel = element.closest(".spatial-effort").getBoundingClientRect();
+          const bars = [...element.querySelectorAll(".spatial-bar")];
+          const bottoms = bars.map(bar => bar.getBoundingClientRect().bottom);
+          if (Math.max(...bottoms) - Math.min(...bottoms) > 1) failures.push("Unequal task-label wrapping shifted the common baseline");
+          const ratios = bars.map((bar, index) => Number.parseFloat(getComputedStyle(bar).height) / effortDays[index]);
+          if (Math.max(...ratios) - Math.min(...ratios) > 0.05) failures.push("Bar heights are not proportional to actual task days");
+          const overlaps = (a, b) => Math.min(a.right, b.right) >= Math.max(a.left, b.left) - 1 && Math.min(a.bottom, b.bottom) >= Math.max(a.top, b.top) - 1;
+          const colors = new Map();
+          for (const bar of bars) {
+            const front = bar.querySelector(".story-prism-front").getBoundingClientRect();
+            const side = bar.querySelector(".story-prism-side").getBoundingClientRect();
+            const top = bar.querySelector(".story-prism-top").getBoundingClientRect();
+            if (!overlaps(top, front) || !overlaps(top, side)) failures.push("A top face detached from its front or side");
+            for (const face of bar.children) {
+              const box = face.getBoundingClientRect();
+              if (box.width <= 0.5 || box.height <= 0.5) failures.push("A prism face has flattened");
+              if (box.left < panel.left - 1 || box.right > panel.right + 1 || box.top < panel.top - 1 || box.bottom > panel.bottom + 1) failures.push("A prism face escaped its panel");
+              const color = getComputedStyle(face).background;
+              if (colors.has(face.className) && colors.get(face.className) !== color) failures.push("Equivalent prism faces use inconsistent palettes");
+              colors.set(face.className, color);
+            }
+          }
+          for (const label of element.querySelectorAll(".spatial-bar-label, .story-prism-column > small")) {
+            const box = label.getBoundingClientRect();
+            const column = label.closest(".story-prism-column").querySelector(".story-prism-stack").getBoundingClientRect();
+            if (label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1) failures.push(`Clipped label: ${label.textContent}`);
+            const range = document.createRange(); range.selectNodeContents(label);
+            for (const glyph of range.getClientRects()) if (glyph.left < column.left - 1 || glyph.right > column.right + 1 || glyph.top < box.top - 1 || glyph.bottom > box.bottom + 1) failures.push(`Escaping text: ${label.textContent}`);
+          }
+          if (document.documentElement.scrollWidth > document.documentElement.clientWidth) failures.push("Page overflow");
+          return failures;
+        }, days), { message: "Prisms must remain attached, proportionate, aligned and readable after every scope change" }).toEqual([]);
       }
-      await expect.poll(() => page.locator(".story-prism-side").evaluateAll(sides => sides.every(side => {
-        const box = side.getBoundingClientRect();
-        return box.width > 0.5 && box.height > 0.5;
-      })), { message: "Every prism side must retain nonzero projected geometry after reveal" }).toBe(true);
-    }
-  });
+    });
+  }
 
   for (const width of [320, 430, 1440]) {
     test(`landing ${language} ${width}px: fallback fonts and longer fictional text preserve intrinsic card layout`, async ({ page }) => {
@@ -981,10 +1079,27 @@ async function expectFinalMetricCounts(page, extended = false) {
   await expect(page.locator("[data-story-count]")).toHaveText(expected);
   await expect(page.locator("[data-story-count] + .sr-only")).toHaveText(expected);
   for (const count of await page.locator("[data-story-count]").all()) await expect(count).toHaveAttribute("aria-hidden", "true");
+  await expectTaskMarkerList(page, extended);
+}
+
+async function expectTaskMarkerList(page, extended = false) {
+  const language = await page.locator("html").getAttribute("lang");
+  const labels = (language === "ko"
+    ? ["예약 화면 · 시간 선택", "관리자 예약 관리", "반응형 · 검수", "고객 예약 변경"]
+    : ["Booking · time selection", "Admin booking management", "Responsive design · QA", "Customer rescheduling"]).slice(0, extended ? 4 : 3);
+  const list = page.locator(".story-task-markers");
+  await expect(list).toHaveJSProperty("tagName", "UL");
+  await expect(list).toHaveAccessibleName(language === "ko" ? "작업 범위" : "Work scope");
+  await expect(list.getByRole("listitem")).toHaveCount(labels.length);
+  await expect(list.locator("li > span:last-child")).toHaveText(labels);
+  await expect(list.locator("li > span:first-child")).toHaveText(labels.map((_, index) => String(index + 1).padStart(2, "0")));
+  for (const chip of await list.locator("li > span:first-child").all()) await expect(chip).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator('.spatial-quote-table [role="rowheader"]')).toHaveText(labels);
+  await expect(page.locator(".story-sample-columns [data-story-sparkline], .story-sample-columns [data-story-spark-point], .story-task-markers svg")).toHaveCount(0);
 }
 
 for (const language of ["ko", "en"]) {
-  test(`metric entry ${language}: intermediate counts, ring, line and stagger settle once and follow changed scope`, async ({ page }) => {
+  test(`metric entry ${language}: intermediate counts, ring and truthful task-list stagger settle once and follow changed scope`, async ({ page }) => {
     await openClockedLanding(page, language);
     const ringScene = page.locator(".story-dashboard-ring[data-story-metric-scene]");
     const ring = ringScene.locator("[data-story-ring]");
@@ -992,7 +1107,11 @@ for (const language of ["ko", "en"]) {
     await expect(ringScene).toHaveAttribute("data-story-entry-state", "waiting");
     await expectFinalMetricCounts(page); // Offscreen content is already semantically correct, without a timer.
     expect(await ring.evaluate(element => element.style.strokeDasharray)).toBe("");
-    expect(await samples.locator("[data-story-sparkline]").evaluate(element => element.style.strokeDashoffset)).toBe("");
+    await expectTaskMarkerList(page);
+    for (const marker of await samples.locator("[data-story-task-marker]").all()) {
+      expect(await marker.evaluate(element => element.style.opacity)).toBe("");
+      expect(await marker.evaluate(element => element.style.transform)).toBe("");
+    }
     await ringScene.scrollIntoViewIfNeeded();
     await expect(ringScene).toHaveAttribute("data-story-entry-state", "running");
     await expect(ringScene.locator("[data-story-count] + .sr-only")).toHaveText("10");
@@ -1028,20 +1147,19 @@ for (const language of ["ko", "en"]) {
       expect(countValues[index]).toBeGreaterThan(0);
       expect(countValues[index]).toBeLessThan(final);
     }
-    const lineOffset = await samples.locator("[data-story-sparkline]").evaluate(element => Number.parseFloat(getComputedStyle(element).strokeDashoffset));
-    expect(lineOffset).toBeGreaterThan(0);
-    expect(lineOffset).toBeLessThan(100);
+    await expectTaskMarkerList(page); // Tasks remain complete and accessible while decoration staggers.
+    const markerOpacity = await samples.locator("[data-story-task-marker]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
+    expect(markerOpacity[0]).toBeGreaterThan(markerOpacity.at(-1));
+    expect(markerOpacity.at(-1)).toBeGreaterThanOrEqual(0.35);
     await page.clock.runFor(400);
-    const pointOpacity = await samples.locator("[data-story-spark-point]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
     const segmentOpacity = await samples.locator("[data-story-segment]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
-    expect(pointOpacity[0]).toBeGreaterThan(pointOpacity.at(-1));
     expect(segmentOpacity[0]).toBeGreaterThan(segmentOpacity.at(-1));
     await expect(samples.locator("[data-story-count] + .sr-only")).toHaveText(["03", "10", "3.0"]);
     await page.clock.runFor(1800);
     for (const scene of await sampleScenes.all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
     await expectFinalMetricCounts(page);
-    expect(await samples.locator("[data-story-sparkline]").evaluate(element => element.style.strokeDashoffset)).toBe("");
-    for (const element of await samples.locator("[data-story-segment], [data-story-spark-point]").all()) {
+    await expectTaskMarkerList(page);
+    for (const element of await samples.locator("[data-story-segment], [data-story-task-marker]").all()) {
       expect(await element.evaluate(node => node.style.opacity)).toBe("");
       expect(await element.evaluate(node => node.style.transform)).toBe("");
     }
@@ -1058,9 +1176,23 @@ for (const language of ["ko", "en"]) {
       await page.clock.runFor(2000);
       await expectFinalMetricCounts(page, extended); // A stale essential-scope tween cannot overwrite new props.
       expect(Number.parseFloat(await ring.getAttribute("stroke-dasharray"))).toBeCloseTo((extended ? 13 : 10) / 13 * 100, 6);
-      await expect(samples.locator("[data-story-spark-point]")).toHaveCount(extended ? 4 : 3);
+      await expectTaskMarkerList(page, extended);
       await expect(samples.locator("[data-story-segment].is-active")).toHaveCount(extended ? 13 : 10);
     }
+  });
+}
+
+for (const width of [580, 581]) {
+  test(`English closing CTA ${width}px: readable labels wrap inside the action at its stacking boundary`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await page.evaluate(() => document.fonts.ready);
+    await page.locator(".spatial-closing-link").scrollIntoViewIfNeeded();
+    await expectLowerLandingTypography(page, width);
+    await expectSpatialLayout(page);
   });
 }
 
