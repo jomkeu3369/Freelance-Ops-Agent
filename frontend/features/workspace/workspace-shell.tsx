@@ -87,6 +87,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const lastEventIdRef = useRef(0);
   const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const runOperation = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   // Drafts stay in this layout across dialog unmounts and route changes, scoped to their owner.
@@ -140,13 +141,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       return;
     let cancelled = false;
     const projectId = selectedProject.id;
+    const operation = runOperation.current;
     Promise.resolve()
       .then(() => {
         if (cancelled) return undefined;
         return getLatestProjectAgentRun(session, projectId);
       })
       .then((latestRun) => {
-        if (cancelled || latestRun === undefined || selectedProjectIdRef.current !== projectId) return;
+        if (cancelled || operation !== runOperation.current || latestRun === undefined || selectedProjectIdRef.current !== projectId) return;
         setRun(latestRun);
         setRunId(latestRun?.runId ?? null);
         setEvents([]);
@@ -154,7 +156,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setStreamRetryCount(0);
       })
       .catch((cause) => {
-        if (!cancelled)
+        if (!cancelled && operation === runOperation.current)
           setError(cause instanceof Error ? cause.message : "최근 AI 분석 상태를 확인하지 못했습니다.");
       });
     return () => {
@@ -189,6 +191,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       setActiveView(location.view as WorkspaceView);
       if (project) {
         if (selectedProjectIdRef.current !== project.id) {
+          runOperation.current += 1;
+          setBusy(false);
           setRun(null);
           setRunId(null);
           setEvents([]);
@@ -220,6 +224,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setSelectedProject(nextProject);
       }
       if (projectChanged) {
+        runOperation.current += 1;
+        setBusy(false);
         setRun(null);
         setRunId(null);
         setEvents([]);
@@ -287,6 +293,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           setSession(recoveredSession);
           return;
         }
+        runOperation.current += 1;
+        setBusy(false);
         setSession(null);
         setIntakeDrafts({});
         setShowNewProject(false);
@@ -321,6 +329,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         })
         .catch(() => {
           clearSession();
+          runOperation.current += 1;
+          setBusy(false);
           setSession(null);
           setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.");
         });
@@ -399,11 +409,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     if (!session || !runId) return;
     let cancelled = false;
     let pollingError: string | null = null;
+    let timer: number | undefined;
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
         if (!cancelled) {
-          setRun(view);
+          setRun((current) => current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status) ? current : view);
           if (pollingError) {
             const recoveredError = pollingError;
             setError((current) => current === recoveredError ? null : current);
@@ -420,13 +431,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         return cause instanceof ApiError && [401, 403, 404].includes(cause.status);
       }
     };
-    const timer = window.setInterval(async () => {
-      if (await poll()) window.clearInterval(timer);
-    }, 2000);
-    void poll();
+    const check = async () => {
+      const finished = await poll();
+      if (!cancelled && !finished) timer = window.setTimeout(() => void check(), 2000);
+    };
+    void check();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer != null) window.clearTimeout(timer);
     };
   }, [executionRevision, runId, session]);
 
@@ -439,6 +451,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
     } catch (cause) {
       clearSession();
+      runOperation.current += 1;
+      setBusy(false);
       setSession(null);
       setLoadedWorkspaceId(null);
       throw cause;
@@ -451,6 +465,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       await revokeAuthSession(session);
     } finally {
       clearSession();
+      runOperation.current += 1;
+      setBusy(false);
       setSession(null);
       setIntakeDrafts({});
       setShowNewProject(false);
@@ -468,6 +484,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string): Promise<boolean> => {
     if (!session || !selectedProject) return false;
+    const operation = ++runOperation.current;
+    const projectId = selectedProject.id;
     setBusy(true);
     setError(null);
     try {
@@ -477,19 +495,22 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         model,
         reasoningEffort: "LOW"
       }, message);
+      if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;
       setEvents([]);
       setRun(null);
       setRunId(accepted.runId);
       return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
+      if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
       return false;
     } finally {
-      setBusy(false);
+      if (operation === runOperation.current) setBusy(false);
     }
   };
 
   const resetRun = () => {
+    runOperation.current += 1;
+    setBusy(false);
     setRun(null);
     setRunId(null);
     setEvents([]);
@@ -515,6 +536,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={t(error)} setError={setError} />;
 
   const handleSwitchWorkspace = async (workspaceId: string) => {
+    runOperation.current += 1;
+    setBusy(false);
     const nextSession = { ...session, workspaceId: workspaceId };
     setPipelinePreferences({
       search: "",
@@ -626,30 +649,37 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           onResetRun: resetRun,
           onCancel: async () => {
             if (!runId) return;
+            const operation = ++runOperation.current;
             setBusy(true);
             setError(null);
             try {
-              setRun(await cancelAgentRun(session, runId));
+              const cancelledRun = await cancelAgentRun(session, runId);
+              if (operation !== runOperation.current) return;
+              setRun(cancelledRun);
+              setExecutionRevision((current) => current + 1);
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "실행을 중단하지 못했습니다.");
+              if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "실행을 중단하지 못했습니다.");
             } finally {
-              setBusy(false);
+              if (operation === runOperation.current) setBusy(false);
             }
           },
           onResume: async (answers) => {
             if (!run?.interruption || !runId) return;
+            const operation = ++runOperation.current;
             setBusy(true);
+            setError(null);
             try {
               await resumeAgentRun(session, runId, run.interruption.interruptionId, answers);
+              if (operation !== runOperation.current) return;
               setRun((current) =>
                 current ? { ...current, status: "RUNNING", interruption: null } : current
               );
               setExecutionRevision((current) => current + 1);
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "답변을 전달하지 못했습니다.");
+              if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "답변을 전달하지 못했습니다.");
               throw cause;
             } finally {
-              setBusy(false);
+              if (operation === runOperation.current) setBusy(false);
             }
           }
         }

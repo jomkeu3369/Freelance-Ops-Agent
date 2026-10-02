@@ -164,6 +164,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             <label>
               {t("AI 제공사")}<select
                 value={provider}
+                disabled={busy}
                 onChange={(event) => {
                   const nextProvider = event.target.value as Provider;
                   setProvider(nextProvider);
@@ -179,7 +180,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             <label>
               {t("AI 모델")}<select
                 value={model}
-                disabled={configuredModelOptions[provider].length === 0}
+                disabled={busy || configuredModelOptions[provider].length === 0}
                 onChange={(event) => setModel(event.target.value)}
               >
                 {configuredModelOptions[provider].length === 0 ? (
@@ -347,6 +348,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
       {activeStep === "agent" && (
         <AnalysisStep
+          key={`${session.userId}:${session.workspaceId}:${project.id}`}
           session={session}
           projectId={project.id}
           run={run}

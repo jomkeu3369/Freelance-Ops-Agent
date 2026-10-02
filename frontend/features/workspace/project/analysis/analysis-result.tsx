@@ -10,7 +10,7 @@ interface AnalysisResultProps {
   run: AgentRunView;
   events: WorkflowEvent[];
   costUsage: AgentRunUsage | null;
-  onCompareQuotes: () => void;
+  onCompareQuotes?: () => void;
 }
 
 export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: AnalysisResultProps) {
@@ -104,9 +104,9 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
             <small>
               {t("각 안의 범위와 공수는 AI가 나누고, 단가와 최종 금액은 등록된 기준으로 계산합니다.")}</small>
           </div>
-          <button type="button" className="secondary-button" onClick={onCompareQuotes}>
+          {onCompareQuotes && <button type="button" className="secondary-button" onClick={onCompareQuotes}>
             {t("견적 비교하기")}<ArrowRight size={16} />
-          </button>
+          </button>}
         </section>
       )}
       <AnalysisDepartments results={run.result.departmentResults} />

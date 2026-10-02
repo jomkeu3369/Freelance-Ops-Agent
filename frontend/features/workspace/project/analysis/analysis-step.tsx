@@ -57,7 +57,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
         draftWorkspaceId={session.workspaceId} draftRunId={runId ?? run.runId} busy={busy} canRespond={canRespond} onSubmit={onResume} /> : <p>{t("사용자 확인을 기다리고 있습니다")}</p>} />
     {resultView?.result && <details ref={resultPanel} className="workspace-disclosure agent-chat-result-panel">
       <summary ref={resultSummary}>{t("분석 결과")}</summary>
-      <AnalysisResult run={resultView} events={resultView.runId === runId ? events : []} costUsage={resultView.runId === runId ? costUsage : null} onCompareQuotes={onCompareQuotes} />
+      <AnalysisResult run={resultView} events={resultView.runId === runId ? events : []} costUsage={resultView.runId === runId ? costUsage : null} onCompareQuotes={resultView.runId === runId ? onCompareQuotes : undefined} />
     </details>}
     {runId && <details className="workspace-disclosure agent-chat-work-details">
       <summary>{t("작업 자세히 보기")}<small>{t("담당 작업 · 진행 기록 · 모델 정보")}</small></summary>

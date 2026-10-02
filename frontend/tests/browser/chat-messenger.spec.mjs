@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { fixture } from "./helpers/chat-fixture.mjs";
+import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 const path = "/workspace/projects/project-one/agent";
 const request = "  고객 원문을 그대로 검토해 주세요.\n두 번째 줄 · 견적은 초안으로만  ";
@@ -55,16 +55,16 @@ test("clarification stays in chat, failed answer and reload retain draft, approv
   await page.goto(path);
   const form = page.locator(".agent-chat .interruption-form");
   await expect(form).toBeVisible();
-  await form.locator("textarea").fill("10월 말\n핵심 기능 먼저");
+  await form.locator("textarea").fill("  10월 말\n핵심 기능 먼저  ");
   await form.getByRole("button", { name: "답변하고 계속" }).click();
   await expect.poll(() => state.resumes.length).toBe(1);
-  await expect(form.locator("textarea")).toHaveValue("10월 말\n핵심 기능 먼저");
+  await expect(form.locator("textarea")).toHaveValue("  10월 말\n핵심 기능 먼저  ");
   await page.reload();
-  await expect(form.locator("textarea")).toHaveValue("10월 말\n핵심 기능 먼저");
+  await expect(form.locator("textarea")).toHaveValue("  10월 말\n핵심 기능 먼저  ");
   await form.evaluate(el => { el.requestSubmit(); el.requestSubmit(); });
   await expect.poll(() => state.resumes.length).toBe(2);
   await expect(form).toHaveCount(0);
-  expect(state.resumes[1].answers[0].answer).toBe("10월 말\n핵심 기능 먼저");
+  expect(state.resumes[1].answers[0].answer).toBe("  10월 말\n핵심 기능 먼저  ");
   expect(state.blocked).toEqual([]);
 });
 
@@ -189,4 +189,187 @@ test("short viewport emulates keyboard space without losing composer or draft", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(input).toHaveValue("모바일 작성 중\n원문 유지");
+});
+
+test("polls are serialized while a prior read is pending and stop at completion", async ({ page }) => {
+  const state = await fixture(page);
+  seedRun(state);
+  await page.clock.install();
+  await page.goto(path);
+  await expect(page.locator('[data-run-id="run-one"]')).toBeVisible();
+  await expect(page.getByText("작업 기록을 불러오는 중입니다.", { exact: true })).toHaveCount(0);
+  const barrier = requestBarrier();
+  state.nextRunRead = barrier;
+  try {
+    await barrier.entered;
+    const readsWhilePending = state.runReads.length;
+    await page.clock.pauseAt(await page.evaluate(() => Date.now()) + 1000);
+    await page.clock.runFor(6000);
+    expect(state.runReads).toHaveLength(readsWhilePending);
+
+    // The held response is a RUNNING snapshot; only the following read sees completion.
+    state.run = { ...state.run, status: "COMPLETED", result: completedResult };
+    const heldResponse = page.waitForResponse(response => response.url().endsWith("/agent-runs/run-one") && response.request().method() === "GET");
+    barrier.release();
+    await (await heldResponse).finished();
+    await page.evaluate(() => Promise.resolve());
+    await page.clock.runFor(2100);
+    await expect(page.getByRole("button", { name: "결과 열기" })).toBeVisible();
+    const completedReads = state.runReads.length;
+    await page.clock.runFor(6000);
+    expect(state.runReads).toHaveLength(completedReads);
+    expect(state.starts).toHaveLength(0);
+  } finally {
+    barrier.release();
+  }
+});
+
+test("a delayed initial latest-null response cannot erase a newly accepted run", async ({ page }) => {
+  const state = await fixture(page);
+  const barrier = requestBarrier();
+  state.nextLatestRead = barrier;
+  try {
+    await page.goto(path);
+    await barrier.entered;
+    await page.locator("#agent-chat-input").fill(request);
+    await page.locator('.agent-chat-composer button[type="submit"]').click();
+    await expect.poll(() => state.starts.length).toBe(1);
+    await expect(page.locator('.agent-chat-actions .danger')).toBeVisible();
+    await expect(page.locator("#agent-chat-input")).toBeEditable();
+    await page.locator("#agent-chat-input").fill("The next request must remain unsent");
+
+    const latestResponse = page.waitForResponse(response => response.url().endsWith("/agent-runs/latest"));
+    barrier.release();
+    await (await latestResponse).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(page.locator('[data-run-id="run-one"]')).toBeVisible();
+    await expect(page.locator('.agent-chat-actions .danger')).toBeVisible();
+    await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeDisabled();
+    await page.locator("#agent-chat-input").press("Control+Enter");
+    expect(state.starts).toHaveLength(1);
+    await expect(page.locator("#agent-chat-input")).toHaveValue("The next request must remain unsent");
+  } finally {
+    barrier.release();
+  }
+});
+
+test("a delayed project-A start cannot replace project B after SPA navigation", async ({ page }) => {
+  const state = await fixture(page);
+  state.projects.push({ ...state.projects[0], id: "project-two", title: "Second project", requirementText: "Project B source stays separate" });
+  const barrier = requestBarrier();
+  state.nextStart = barrier;
+  try {
+    await page.goto(path);
+    await page.locator("#agent-chat-input").fill(request);
+    await page.locator('.agent-chat-composer button[type="submit"]').click();
+    await barrier.entered;
+    await page.getByRole("button", { name: "Freelance Ops", exact: true }).click();
+    await page.locator('[data-project-id="project-two"] button').first().click();
+    await page.locator(".workbench-steps").getByRole("button", { name: "AI 분석" }).click();
+    await expect(page).toHaveURL(/\/projects\/project-two\/agent$/);
+    await expect.poll(() => state.latestReads.includes("project-two")).toBe(true);
+    await page.locator("#agent-chat-input").fill("  Project B unfinished draft\nLeave it here  ");
+    const readsBeforeRelease = state.runReads.length;
+    const acceptedResponse = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/projects/project-one/agent-runs"));
+    barrier.release();
+    await (await acceptedResponse).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+    await expect(page.locator(".project-heading h1")).toHaveText("Second project");
+    await expect(page.locator('[data-run-id="run-one"]')).toHaveCount(0);
+    await expect(page.locator('.agent-chat-actions .danger')).toHaveCount(0);
+    await expect(page.locator("#agent-chat-input")).toHaveValue("  Project B unfinished draft\nLeave it here  ");
+    await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeEnabled();
+    expect(state.runReads.slice(readsBeforeRelease)).not.toContain("run-one");
+    expect(state.startProjects).toEqual(["project-one"]);
+    expect(state.blocked).toEqual([]);
+  } finally {
+    barrier.release();
+  }
+});
+
+test("only the current result offers quote comparison; historical results stay read-only", async ({ page }) => {
+  const state = await fixture(page);
+  seedRun(state, "COMPLETED");
+  state.run.result = { ...completedResult, projectSummary: "Current quote result", quotationDraft: { items: [{ title: "Current quote task" }] } };
+  state.pastRuns["run-older"] = { ...state.run, runId: "run-older", result: { ...completedResult, projectSummary: "Historical quote result", quotationDraft: { items: [{ title: "Historical quote task" }] } } };
+  state.history.unshift({ runId: "run-older", requirementText: "Earlier request", status: "COMPLETED", createdAt: "2026-09-30T00:00:00Z" });
+  await page.goto(path);
+  await page.locator('[data-run-id="run-older"]').getByRole("button", { name: "결과 열기" }).click();
+  const panel = page.locator(".agent-chat-result-panel");
+  await expect(panel).toContainText("Historical quote result");
+  await expect(panel.getByRole("button", { name: "견적 비교하기" })).toHaveCount(0);
+  await page.locator('[data-run-id="run-one"]').getByRole("button", { name: "결과 열기" }).click();
+  await expect(panel).toContainText("Current quote result");
+  await expect(panel.getByRole("button", { name: "견적 비교하기" })).toBeVisible();
+  expect(state.writes).toEqual([]);
+});
+
+for (const locale of ["ko", "en"]) {
+  test(`${locale}: proposal creation and confirmation announce accessible status`, async ({ page }) => {
+    const state = await fixture(page);
+    await page.goto(path);
+    await page.locator(".ui-language-selector select").selectOption(locale);
+    await page.locator("#agent-chat-input").fill("기본 세율 12%로 변경");
+    await page.locator('.agent-chat-composer button[type="submit"]').click();
+    const announcement = page.locator('.agent-chat > .sr-only[role="status"]');
+    await expect(announcement).toHaveText(locale === "ko" ? "견적 기본 설정 변경안" : "Quote default settings proposal");
+    expect(state.confirms).toBe(0);
+    await page.locator(".agent-chat-policy button").click();
+    await expect(announcement).toHaveText(locale === "ko" ? "견적 기본 설정이 변경되었습니다." : "Quote default settings updated.");
+    expect(state.confirms).toBe(1);
+    expect(state.starts).toHaveLength(0);
+  });
+}
+
+test("repeated cancellation submits once while its response is pending", async ({ page }) => {
+  const state = await fixture(page);
+  seedRun(state);
+  const barrier = requestBarrier();
+  state.nextCancel = barrier;
+  try {
+    await page.goto(path);
+    const cancel = page.locator(".agent-chat-actions .danger");
+    await expect(cancel).toBeVisible();
+    await cancel.evaluate(button => { button.click(); button.click(); });
+    await barrier.entered;
+    await expect(cancel).toBeDisabled();
+    expect(state.cancels).toEqual(["run-one"]);
+    barrier.release();
+    await expect(page.locator('[data-run-id="run-one"] .assistant')).toContainText("사용자 중단");
+    await expect(cancel).toHaveCount(0);
+    expect(state.cancels).toEqual(["run-one"]);
+    expect(state.starts).toHaveLength(0);
+  } finally {
+    barrier.release();
+  }
+});
+
+test("AI settings retain provider, model, personal connection and pet customization controls", async ({ page }) => {
+  const state = await fixture(page);
+  state.connections = [{ id: "fixture-connection", provider: "OPENAI", model: "personal-fixture-model", maskedKey: "fixture-...masked", updatedAt: "2026-10-01T00:00:00Z" }];
+  await page.goto(path);
+  const settings = page.locator(".agent-chat-settings");
+  await expect(settings).toBeVisible();
+  await settings.locator(":scope > summary").click();
+  await expect(settings.getByLabel("AI 제공사", { exact: true })).toBeVisible();
+  await expect(settings.getByLabel("AI 모델", { exact: true })).toBeVisible();
+  const connection = settings.getByLabel("AI 연결", { exact: true });
+  await expect(connection).toBeVisible();
+  await expect(connection.locator('option[value="fixture-connection"]')).toHaveCount(1);
+  await connection.selectOption("fixture-connection");
+  await expect(settings.locator(".model-selection-note")).toContainText("내 키로 실행");
+  await expect(settings.getByLabel("AI 제공사", { exact: true })).toHaveCount(0);
+  const customizer = settings.locator(".pet-customizer");
+  await expect(customizer).toBeVisible();
+  await customizer.locator(":scope > summary").click();
+  await expect(customizer.getByRole("button", { name: "AI로 외형·성향 생성" })).toBeVisible();
+  await expect(customizer.getByRole("button", { name: "이 동료 저장" })).toBeVisible();
+  await expect(customizer.locator(".pet-generation")).toContainText("personal-fixture-model");
+  await connection.selectOption("");
+  await expect(settings.getByLabel("AI 제공사", { exact: true })).toBeVisible();
+  await expect(settings.getByLabel("AI 모델", { exact: true })).toBeVisible();
+  expect(state.starts).toHaveLength(0);
+  expect(state.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
 });

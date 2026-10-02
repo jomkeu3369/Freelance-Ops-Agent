@@ -95,7 +95,7 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
     submitLock.current = true;
     setSubmitting(true);
     try {
-      await onSubmit(answers.map((answer) => answer.trim()));
+      await onSubmit(answers);
       try {
         window.sessionStorage.removeItem(draftKey);
       } catch {

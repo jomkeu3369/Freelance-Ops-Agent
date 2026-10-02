@@ -80,6 +80,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const followsLatest = useRef(true);
   const sendLock = useRef(false);
   const confirmLock = useRef(false);
+  const cancelLock = useRef(false);
+  const [cancelling, setCancelling] = useState(false);
   const composing = useRef(false);
   const key = draftKey(session, projectId);
   const pendingKey = proposalKey(session, projectId);
@@ -218,6 +220,14 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     }
   }
 
+  async function cancel() {
+    if (!active || !canCancel || busy || cancelLock.current) return;
+    cancelLock.current = true;
+    setCancelling(true);
+    try { await onCancel(); }
+    finally { cancelLock.current = false; setCancelling(false); }
+  }
+
   async function confirmProposal(item: EstimationPolicyProposal) {
     if (!canEditPolicy || item.status !== "PENDING" || confirmLock.current) return;
     confirmLock.current = true;
@@ -293,7 +303,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       </div>
       </div>
       {unread && <button type="button" className="agent-chat-new quiet-button" onClick={showLatest}>{t("새 메시지 보기")}</button>}
-      <p className="sr-only" role="status">{unread ? t("새 메시지가 있습니다.") : run ? t(runStatusLabels[run.status]) : ""}</p>
+      <p className="sr-only" role="status">{unread ? t("새 메시지가 있습니다.") : [proposal ? proposal.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : proposal.status === "PENDING" ? t("견적 기본 설정 변경안") : t("새 변경안 필요") : "", run ? t(runStatusLabels[run.status]) : ""].filter(Boolean).join(" · ")}</p>
       {active && streamState === "reconnecting" && <p className="agent-chat-connection" role="status">{t("연결을 다시 확인하고 있습니다. 요청을 다시 보내지 않아도 됩니다.")}</p>}
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
@@ -303,7 +313,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
         <div className="agent-chat-actions">
-          {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy} onClick={() => void onCancel()}>{t("작업 취소")}</button>}
+          {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
           <button type="submit" className="primary-button" disabled={!draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? t("요청 중...") : t("보내기")}</button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}

@@ -6,8 +6,18 @@ const project = {
   budgetMin: null, budgetMax: null, status: "LEAD", updatedAt: "2026-10-01T00:00:00Z",
 };
 
+// Hold one response at a known server boundary without relying on wall-clock sleeps.
+export function requestBarrier() {
+  let enter;
+  let release;
+  const entered = new Promise(resolve => { enter = resolve; });
+  const released = new Promise(resolve => { release = resolve; });
+  return { entered, release, async wait() { enter(); await released; } };
+}
+
 export async function fixture(page) {
   const state = { starts: [], history: [], run: null, policy: { workspaceId: "local-space", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 }, proposal: null, confirms: 0, blocked: [], permissions: ["project.read", "agent.run", "agent.cancel", "agent.respond", "quotation.read", "quotation.write"], startFailures: 0, resumeFailures: 0, resumes: [], streamFailures: 0, streamRequests: 0, events: null };
+  Object.assign(state, { projects: [{ ...project }], projectRuns: {}, projectHistory: {}, pastRuns: {}, connections: [], runReads: [], latestReads: [], startProjects: [], cancels: [], writes: [], nextLatestRead: null, nextRunRead: null, nextStart: null, nextCancel: null });
   await page.addInitScript(() => sessionStorage.setItem("freelance-ops-session-v1", JSON.stringify({
     userId: "local-user", workspaceId: "local-space", accessToken: "fixture-token", refreshToken: "fixture-token",
     accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer",
@@ -23,25 +33,48 @@ export async function fixture(page) {
     const url = new URL(req.url());
     const path = url.pathname;
     const method = req.method();
+    const projectId = path.match(/\/projects\/([^/]+)/)?.[1];
     const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
+    if (method !== "GET") state.writes.push({ path, method });
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });
-    if (path.endsWith("/projects") && method === "GET") return json([project]);
+    if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);
-    if (path.endsWith("/ai-connections") && method === "GET") return json({ available: true, models: { OPENAI: ["fixture-model"], GEMINI: [] }, connections: [] });
-    if (path.endsWith("/agent-runs/latest") && method === "GET") return json(state.run);
-    if (path.endsWith("/agent-runs/history") && method === "GET") return json(state.history);
+    if (path.endsWith("/ai-connections") && method === "GET") return json({ available: true, models: { OPENAI: ["fixture-model"], GEMINI: [] }, connections: state.connections });
+    if (path.endsWith("/agent-runs/latest") && method === "GET") {
+      state.latestReads.push(projectId);
+      const snapshot = structuredClone(projectId === project.id ? state.run : state.projectRuns[projectId] ?? null);
+      const barrier = state.nextLatestRead;
+      state.nextLatestRead = null;
+      if (barrier) await barrier.wait();
+      return json(snapshot);
+    }
+    if (path.endsWith("/agent-runs/history") && method === "GET") return json(projectId === project.id ? state.history : state.projectHistory[projectId] ?? []);
     if (path.endsWith("/agent-runs") && method === "POST") {
       const body = req.postDataJSON();
       state.starts.push(body);
+      state.startProjects.push(projectId);
       if (state.startFailures-- > 0) return json({message: "Fixture send failure"}, 503);
-      state.run = { runId: "run-one", status: "RUNNING", activeDepartment: "Requirements", interruption: null, result: null, errorCode: null, metadata: null, usage: null, updatedAt: "2026-10-01T00:01:00Z" };
-      state.history = [{ runId: "run-one", requirementText: body.requirementText, status: "RUNNING", createdAt: "2026-10-01T00:01:00Z" }];
-      return json({ runId: "run-one", status: "RUNNING", acceptedAt: "2026-10-01T00:01:00Z" }, 202);
+      const runId = projectId === project.id ? "run-one" : `run-${projectId}`;
+      const run = { runId, status: "RUNNING", activeDepartment: "Requirements", interruption: null, result: null, errorCode: null, metadata: null, usage: null, updatedAt: "2026-10-01T00:01:00Z" };
+      const history = [{ runId, requirementText: body.requirementText, status: "RUNNING", createdAt: "2026-10-01T00:01:00Z" }];
+      if (projectId === project.id) { state.run = run; state.history = history; }
+      state.projectRuns[projectId] = run;
+      state.projectHistory[projectId] = history;
+      const barrier = state.nextStart;
+      state.nextStart = null;
+      if (barrier) await barrier.wait();
+      return json({ runId, status: "RUNNING", acceptedAt: "2026-10-01T00:01:00Z" }, 202);
     }
     if (/\/agent-runs\/[^/]+$/.test(path) && method === "GET") {
+      const runId = path.split("/").at(-1);
+      state.runReads.push(runId);
       if (state.pollFailures > 0) { state.pollFailures--; return json({message: "Fixture poll failure"}, 503); }
-      return json(state.run?.runId === path.split("/").at(-1) ? state.run : { runId: path.split("/").at(-1), status: "CANCELLED", interruption: null, result: null, updatedAt: "2026-10-01T00:00:00Z" });
+      const snapshot = structuredClone(state.run?.runId === runId ? state.run : state.pastRuns[runId] ?? Object.values(state.projectRuns).find(run => run.runId === runId) ?? { runId, status: "CANCELLED", interruption: null, result: null, updatedAt: "2026-10-01T00:00:00Z" });
+      const barrier = state.nextRunRead;
+      state.nextRunRead = null;
+      if (barrier) await barrier.wait();
+      return json(snapshot);
     }
     if (path.endsWith("/responses") && method === "POST") {
       state.resumes.push(req.postDataJSON());
@@ -50,6 +83,10 @@ export async function fixture(page) {
       return json({runId: state.run.runId, status: "RUNNING", acceptedAt: "2026-10-01T00:02:00Z"}, 202);
     }
     if (path.endsWith("/agent-runs/run-one/cancel") && method === "POST") {
+      state.cancels.push("run-one");
+      const barrier = state.nextCancel;
+      state.nextCancel = null;
+      if (barrier) await barrier.wait();
       state.run = { ...state.run, status: "CANCELLED" };
       state.history[0].status = "CANCELLED";
       return json(state.run);
@@ -61,7 +98,7 @@ export async function fixture(page) {
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'id: 1\ndata: {"eventId":1,"runId":"run-one","type":"task.delegated","occurredAt":"2026-10-01T00:01:00Z","data":{"taskId":"task-one","department":"Requirements"}}\n\n' });
     }
     if (path.endsWith("/estimation-policy") && method === "GET") return json(state.policy);
-    if (path.endsWith("/projects/project-one/estimation-policy/proposals") && method === "GET") return json(state.proposal ? [state.proposal] : []);
+    if (projectId && path.endsWith("/estimation-policy/proposals") && method === "GET") return json(state.proposal?.projectId === projectId ? [state.proposal] : []);
     if (path.endsWith("/estimation-policy/proposals") && method === "POST") {
       const body = req.postDataJSON();
       state.proposal = { proposalId: "proposal-one", projectId: body.projectId, sourceMessage: body.sourceMessage, createdAt: "2026-10-01T00:01:00Z", status: "PENDING", before: { ...state.policy }, after: { ...state.policy, ...body, version: state.policy.version }, confirmationToken: "token-one", expiresAt: "2099-01-01T00:00:00Z", appliedAt: null };
@@ -82,4 +119,3 @@ export async function fixture(page) {
   });
   return state;
 }
-

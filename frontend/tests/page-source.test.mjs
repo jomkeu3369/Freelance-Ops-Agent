@@ -25,7 +25,7 @@ test("pipeline and HITL controls preserve the server truth and unfinished answer
   assert.match(workspace, /<select value=\{project\.status\}/);
   assert.match(workspace, /ACCEPTED: "고객 승인됨"/);
   assert.match(workspace, /interruptionDraftKey\(session\.userId, session\.workspaceId/);
-  assert.match(workspace, /await onSubmit\(answers\.map/);
+  assert.match(workspace, /await onSubmit\(answers\)/);
   assert.match(workspace, /작성 중인 답변은 이 탭에 임시 저장됩니다/);
   assert.match(css, /\.interruption-actions/);
 });
@@ -869,7 +869,7 @@ test("waiting agent runs prioritize inline questions and put work detail behind 
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /status === "WAITING_FOR_USER" && item\.runId === runId \? clarification/);
-  assert.match(workspace, /clarification=\{run\?\.interruption \? <InterruptionForm/);
+  assert.match(workspace, /clarification=\{run\?\.interruption \?\s*<InterruptionForm/);
   assert.match(workspace, /<details className="workspace-disclosure agent-chat-work-details">/);
   assert.match(workspace, /<LiveWorkflow snapshot=\{snapshot\}/);
   assert.match(workspace, /onOpenResult=\{openResult\}/);
