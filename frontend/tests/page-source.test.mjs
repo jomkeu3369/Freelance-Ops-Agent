@@ -166,11 +166,11 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
 
 test("landing page follows the approved product brief without fabricated social proof", async () => {
   const source = await read("../app/page.tsx");
-  assert.match(source, /모호한 고객 문의를/);
-  assert.match(source, /근거 있는 견적으로/);
+  assert.match(source, /문의는 한마디/);
+  assert.match(source, /제안은 명확하게/);
   assert.match(source, /AI 초안은 사용자가 검토하고 확정합니다/);
-  assert.match(source, /한국 소프트웨어 개발/);
-  assert.match(source, /하나의 흐름으로/);
+  assert.match(source, /서비스 이용 요금이 아닙니다/);
+  assert.match(source, /하나의 흐름으로 이어집니다/);
   assert.match(source, /가상의 문의로 보여드리는 제품 예시/);
   assert.match(source, /예시 일단가/);
   assert.match(source, /실제 견적 아님/);
@@ -187,8 +187,8 @@ test("landing typography keeps Korean display copy within the measured line budg
   ]);
   assert.match(layout, /pretendardvariable-dynamic-subset\.css/);
   assert.doesNotMatch(layout, /next\/font\/google/);
-  assert.match(source, /hero-context hero-reveal">모호한 고객 문의를, 근거 있는 견적으로\./);
-  assert.match(source, /src="\/figma\/dashboard-preview.png"/);
+  assert.match(source, /spatial-hero-title/);
+  assert.match(source, /spatial-graph-wires/);
   assert.match(css, /font-synthesis: none/);
   assert.match(css, /word-break: keep-all/);
   assert.match(css, /\.hero-title \{[^}]*clamp\(4\.25rem, 4\.7vw, 5\.65rem\)/);

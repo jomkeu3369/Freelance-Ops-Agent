@@ -1,5 +1,13 @@
 // Original landing scenes and their fictional product examples.
 export const homeEnglish = {
+  "문의는 한마디,": "The first words.", "제안은 명확하게.": "A clearer proposal.", "하나의 문의, 이어지는 다섯 단계": "One inquiry. Five connected stages.", "업무 공간 열기": "Open workspace",
+  "고객의 문의를,": "From the first words,", "근거 있는 제안으로.": "to a grounded proposal.",
+  "요구사항, 확인 질문, 견적, 제안서.": "Requirements, questions, estimates and proposals.", "흩어진 고객 업무가 하나의 흐름으로 이어집니다.": "Your client work, connected in a single flow.",
+  "범위가 달라지면,": "When the scope changes,", "숫자도 명확하게.": "keep the numbers clear.",
+  "같은 예시 문의에 예약 변경 기능을 더해 비교해 보세요.": "Add rescheduling to the same sample inquiry and compare.", "예시 프로젝트 범위": "Sample project scope",
+  "개 항목": "items", "원문에서 정리한 작업 단위": "Tasks drawn from the original inquiry", "문의 흐름 보기": "Explore the inquiry flow",
+  "항목별 공수를 더한 예시": "An illustrative sum of task effort", "일정은 자료 제공과 범위 확인 후 협의합니다.": "Agree the schedule after confirming scope and receiving assets.", "공수의 근거 보기": "Review effort evidence", "예시 견적": "Sample estimate",
+  "제품 설명을 위한 가상 프로젝트입니다. 서비스 이용 요금이 아닙니다.": "A fictional project illustrating the product. These are not service subscription prices.",
   "흩어진 업무를,": "From scattered work", "하나의 흐름으로.": "to a single flow.",
   "고객의 한마디에서 제안서까지.": "From a client's first message to a proposal.", "맥락은 이어지고, 다음 할 일은 선명해집니다.": "Keep the context. See what comes next.",
   "완성될 초안 살펴보기": "Explore the proposal draft", "AI는 준비하고,": "AI prepares the details.", "당신은 중요한 결정에 집중하세요.": "You focus on the decisions that matter.",

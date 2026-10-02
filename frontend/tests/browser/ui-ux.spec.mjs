@@ -93,7 +93,8 @@ function watchLandingApiRequests(page) {
 
 async function expectSpatialLayout(page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total").evaluateAll(elements => elements.flatMap(element => {
+  // The outer glass hero intentionally bleeds right; its meaningful content must still fit.
+  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
     return box.left < -1 || box.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1
@@ -121,12 +122,14 @@ async function openClockedLanding(page, language = "ko") {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
-  // Install before navigation; let hydration finish naturally while the demo is offscreen.
+  // Install before navigation; assert the visible hero starts without a click or scroll.
   await page.clock.install();
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("lang", language);
-  await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "true");
   await expect(page.locator(".spatial-motion-toggle")).toBeEnabled();
+  await expect(page.locator(".spatial-flow")).toBeInViewport({ ratio: 0.2 });
+  await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "false");
+  await expect(page.locator(".spatial-flow")).toHaveAttribute("data-playing", "true");
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
 }
 
@@ -166,7 +169,12 @@ for (const language of ["ko", "en"]) {
         await expect(page.locator("html")).toHaveAttribute("lang", language);
         await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
         await expect(page.locator("main")).toHaveCount(1);
-        await expect(page.locator(".spatial-chapter")).toHaveCount(3);
+        await expect(page.locator("main h1")).toHaveCount(1);
+        await expect(page.locator("#workflow h1")).toBeVisible();
+        await expect(page.locator("#workflow h1")).toHaveText(language === "ko" ? /문의는 한마디,\s*제안은 명확하게\./ : /The first words\.\s*A clearer proposal\./);
+        const sections = page.locator("#workflow, #evidence, #review, #scope-comparison");
+        await expect(sections).toHaveCount(4);
+        expect(await sections.evaluateAll(chapters => chapters.map(chapter => chapter.id))).toEqual(["workflow", "evidence", "review", "scope-comparison"]);
         await expect(page.locator(".product-demo, .demo-layout, .demo-activity")).toHaveCount(0);
         const chapter = page.locator("#workflow");
         const card = page.locator(".spatial-project-card");
@@ -263,6 +271,13 @@ for (const language of ["ko", "en"]) {
       await expect(page.locator("html")).toHaveAttribute("lang", language);
       const scopes = page.getByRole("group", { name: copy.scope });
       const table = page.getByRole("table", { name: copy.table });
+      const slider = page.locator("#scope-comparison").getByRole("slider");
+      await expect(slider).toHaveAccessibleName(/.+/);
+      await expect(slider).toHaveAttribute("min", "0");
+      await expect(slider).toHaveAttribute("max", "1");
+      await expect(slider).toHaveAttribute("step", "1");
+      const comparisons = page.locator(".spatial-comparison-grid > article");
+      await expect(comparisons).toHaveCount(3);
       const card = page.locator(".spatial-project-card");
       const original = await card.elementHandle();
       for (const extended of [false, true, false, true]) {
@@ -272,8 +287,17 @@ for (const language of ["ko", "en"]) {
         await choice.click();
         await expect(choice).toHaveAttribute("aria-pressed", "true");
         await expect(scopes.locator('[aria-pressed="true"]')).toHaveCount(1);
+        await expect(slider).toHaveValue(extended ? "1" : "0");
+        await expect(slider).toHaveAttribute("aria-valuetext", extended ? copy.extended : copy.essential);
+        await expect(comparisons.nth(0).locator("li")).toHaveCount(extended ? 4 : 3);
+        await expect(comparisons.nth(1).locator(".is-filled")).toHaveCount(days);
+        await expect(comparisons.nth(2).locator(".spatial-comparison-price")).toHaveText(`${total}KRW`);
         await expect(table.getByRole("row")).toHaveCount(extended ? 5 : 4);
-        await expect(table.getByRole("columnheader")).toHaveCount(3);
+        // The visual effort breakdown may collapse on phones; the four-column DOM contract remains.
+        await expect(table.getByRole("columnheader", { includeHidden: true })).toHaveCount(4);
+        for (const heading of language === "ko" ? ["작업", "공수", "금액"] : ["Task", "Effort", "Price"]) {
+          await expect(table.getByRole("columnheader", { name: heading, exact: true })).toBeVisible();
+        }
         await expect(table.getByRole("rowheader")).toHaveCount(extended ? 4 : 3);
         await expect(table.getByRole("rowheader", { name: copy.extra, exact: true })).toHaveCount(extended ? 1 : 0);
         await expect(page.locator(".spatial-quote-total")).toContainText(total);
@@ -299,6 +323,30 @@ for (const language of ["ko", "en"]) {
         expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
         await expectSpatialLayout(page);
       }
+      // Both controls drive the same scope. Native keyboard input also clamps at each endpoint.
+      for (const [key, extended] of [["Home", false], ["End", true], ["ArrowLeft", false], ["ArrowRight", true], ["ArrowRight", true], ["Home", false], ["ArrowLeft", false]]) {
+        await slider.focus();
+        await page.keyboard.press(key);
+        const days = extended ? 13 : 10;
+        const total = extended ? "3,900,000" : "3,000,000";
+        await expect(slider).toHaveValue(extended ? "1" : "0");
+        await expect(slider).toHaveAttribute("aria-valuetext", extended ? copy.extended : copy.essential);
+        await expect(scopes.getByRole("button", { name: new RegExp(`^${extended ? copy.extended : copy.essential}`) })).toHaveAttribute("aria-pressed", "true");
+        await expect(scopes.locator('[aria-pressed="true"]')).toHaveCount(1);
+        await expect(table.getByRole("row")).toHaveCount(extended ? 5 : 4);
+        await expect(table.getByRole("rowheader", { name: copy.extra, exact: true })).toHaveCount(extended ? 1 : 0);
+        await expect(page.locator(".spatial-quote-total")).toContainText(total);
+        await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? `${days}일` : `${days} days`);
+        await expect(page.locator(".spatial-bars .spatial-bar")).toHaveCount(extended ? 4 : 3);
+        await expect(comparisons.nth(0).locator("li")).toHaveCount(extended ? 4 : 3);
+        await expect(comparisons.nth(1).locator("strong")).toHaveText(language === "ko" ? `${days}일` : `${days} days`);
+        await expect(comparisons.nth(1).locator(".is-filled")).toHaveCount(days);
+        await expect(comparisons.nth(2).locator(".spatial-comparison-price")).toHaveText(`${total}KRW`);
+        await expect(card.locator(".spatial-card-detail")).toContainText(total);
+        await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "true");
+        expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
+        await expectSpatialLayout(page);
+      }
       await page.locator(".spatial-assumptions summary").click();
       await expect(page.locator(".spatial-assumptions")).toHaveAttribute("open", "");
       await expect(page.locator(".spatial-assumptions")).toContainText("300,000");
@@ -316,9 +364,7 @@ for (const language of ["ko", "en"]) {
     const flow = page.locator(".spatial-flow");
     const card = page.locator(".spatial-project-card");
     const original = await card.elementHandle();
-    await expectAutoplayFrozen(page);
-    await flow.scrollIntoViewIfNeeded();
-    await releaseSpatialInteraction(page);
+    await expect(flow).toBeInViewport({ ratio: 0.2 });
     await expect(chapter).toHaveAttribute("data-paused", "false");
     await expect(flow).toHaveAttribute("data-playing", "true");
     const initial = await card.boundingBox();
@@ -411,17 +457,15 @@ test("landing hover, focus, explicit pause and live reduced motion independently
   await expect(chapter).toHaveAttribute("data-paused", "false");
 });
 
-test("landing leaves and reenters the viewport without advancing while offscreen", async ({ page }) => {
+test("landing starts at entry, pauses at the footer and resumes when the hero reenters", async ({ page }) => {
   await openClockedLanding(page);
   const chapter = page.locator("#workflow");
   const flow = page.locator(".spatial-flow");
-  await expectAutoplayFrozen(page);
-  await flow.scrollIntoViewIfNeeded();
-  await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
   await page.clock.fastForward(1700);
   await expect(chapter).toHaveAttribute("data-phase", "complete");
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.locator("footer").scrollIntoViewIfNeeded();
+  await expect(flow).not.toBeInViewport();
   await expectAutoplayFrozen(page);
   await flow.scrollIntoViewIfNeeded();
   await expect(chapter).toHaveAttribute("data-paused", "false");

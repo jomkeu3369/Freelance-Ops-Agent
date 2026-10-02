@@ -1,7 +1,9 @@
 import { useEffect, useReducer, useRef, useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
+import Link from "next/link";
+import { ReferenceStory } from "./reference-story";
+import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../../../app/lib/ui-language";
-import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoScopes, demoSteps, initialDemoState } from "../product-demo.mjs";
+import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
 
 const stageIcons = [ChatCenteredText, TreeStructure, WarningCircle, GitBranch, FileText];
 const money = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
@@ -53,18 +55,20 @@ export function WorkflowSection() {
   }, [paused, finished, state.phase, state.step]);
 
   return <>
+    <div className="spatial-hero-light" data-playing={!paused} aria-hidden="true"><svg viewBox="0 0 1440 920" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hero-light-gradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#8e63b8" stopOpacity="0" /><stop offset=".35" stopColor="#bd8beb" stopOpacity=".6" /><stop offset=".52" stopColor="#efdaff" /><stop offset=".72" stopColor="#bb83e5" stopOpacity=".5" /><stop offset="1" stopColor="#9570c4" stopOpacity="0" /></linearGradient></defs><path className="spatial-light-haze" d="M1510 -70 C 1190 70 760 400 543 602 C 438 728 1030 800 1510 1150" />{Array.from({ length: 34 }, (_, index) => <path key={index} d={`M1510 ${-160 + index * 16} C ${1190 + index * 4} ${70 + index * 5} ${760 + index * 2} ${350 + index * 6} ${540 + index * .18} ${598 + index * .3} C ${435 + index * .1} ${724 + index * .22} ${980 + index * 5} ${710 + index * 9} 1510 ${1020 + index * 15}`} />)}</svg></div>
     <div className="spatial-atmosphere" aria-hidden="true"><svg viewBox="0 0 1440 2300" preserveAspectRatio="none"><defs><linearGradient id="spatial-ribbon" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#705699" stopOpacity="0" /><stop offset=".45" stopColor="#b5a0e7" stopOpacity=".5" /><stop offset="1" stopColor="#76599d" stopOpacity="0" /></linearGradient></defs><path d="M-240 260 C 220 900 1400 -120 1630 430 S -130 1010 470 1550 S 1470 1650 1550 2260" /><path d="M-240 300 C 220 940 1400 -80 1630 470 S -130 1050 470 1590 S 1470 1690 1550 2300" /></svg></div>
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
-        <p className="spatial-eyebrow"><span /> 01 / ONE CONNECTED FLOW</p>
-        <h2>{t("흩어진 업무를,")}<br /><span>{t("하나의 흐름으로.")}</span></h2>
-        <p>{t("고객의 한마디에서 제안서까지.")}<br />{t("맥락은 이어지고, 다음 할 일은 선명해집니다.")}</p>
-        <a href="#review" className="spatial-text-link">{t("완성될 초안 살펴보기")}<ArrowDown size={16} /></a>
-        <div className="spatial-editorial-note"><span>FREELANCE OPS / WORKFLOW</span><p>{t("AI는 준비하고,")}<br />{t("당신은 중요한 결정에 집중하세요.")}</p></div>
+        <p className="spatial-eyebrow spatial-hero-eyebrow"><span /> FREELANCE OPS / AI WORKFLOW</p>
+        <h1 className="spatial-hero-title">{t("문의는 한마디,")}<br /><span>{t("제안은 명확하게.")}</span></h1>
+        <p>{t("요구사항, 확인 질문, 견적, 제안서.")}<br />{t("흩어진 고객 업무가 하나의 흐름으로 이어집니다.")}</p>
+        <div className="hero-actions spatial-hero-actions"><Link href="/workspace" className="primary-button">{t("요구사항 정리 시작하기")}<ArrowUpRight size={16} /></Link><a href="#review" className="secondary-button">{t("완성될 초안 살펴보기")}<ArrowRight size={15} /></a></div>
+        <p className="spatial-hero-note"><ShieldCheck size={12} />{t("AI 초안은 사용자가 검토하고 확정합니다.")}</p>
       </div>
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
         <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
         <div className="spatial-stages" role="group" aria-label={t("제품 예시 단계 선택")}>
+          <svg className="spatial-graph-wires" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M82 100 C170 100 168 44 280 44 S440 44 520 44" /><path d="M82 100 C170 100 168 156 280 156 S440 156 520 156" /><path d="M310 44 C410 44 416 156 520 156" /></svg>
           {demoSteps.map((label, index) => { const Icon = stageIcons[index]; return <button key={label} type="button" className={`spatial-stage${view.selected === index ? " is-current" : ""}${view.selected > index ? " is-past" : ""}`} aria-pressed={view.selected === index} aria-controls="workflow-example" onClick={() => dispatch({ type: "select", step: index })}><span className="spatial-stage-icon"><Icon size={20} /></span><span>{t(label)}</span><small>0{index + 1}</small></button>; })}
         </div>
         <div className="spatial-connection" aria-hidden="true"><span /><i /></div>
@@ -86,38 +90,17 @@ export function WorkflowSection() {
       <p className="sr-only" role="status">{state.manual ? t("{v0} 예시 결과. {v1}, {v2}일, {v3}원.", { v0: t(demoSteps[view.selected]), v1: t(quote.label), v2: quote.days, v3: money(quote.total) }) : ""}</p>
     </section>
 
-    <section id="review" tabIndex={-1} className="spatial-chapter spatial-review" aria-labelledby="review-title">
-      <div className="spatial-review-intro section-heading"><p className="spatial-eyebrow"><span /> 02 / YOUR CALL, ALWAYS</p><h2 id="review-title">{t("AI가 정리하고,")}<br /><span>{t("결정은 당신이.")}</span></h2><p>{t("감춰진 가정 없이, 설명할 수 있는 견적.")}<br />{t("범위와 근거를 확인한 뒤 고객과 공유하세요.")}</p></div>
-      <div className="spatial-review-stage">
-        <aside className="spatial-review-panel" aria-label={t("초안 검토 예시")}>
-          <div className="spatial-panel-label"><ShieldCheck size={18} /><span>{t("초안 검토")}</span><span>01</span></div>
-          <h3>{t("공유하기 전,")}<br />{t("한 번 더 명확하게.")}</h3>
-          <ul className="spatial-checklist"><li><Check size={15} /><span>{t("원문과 작업 범위 연결")}</span></li><li><Check size={15} /><span>{t("항목별 공수와 금액 확인")}</span></li><li><WarningCircle size={15} /><span>{t("예약 변경 정책 확인 필요")}</span></li></ul>
-          <div className="spatial-scope-switch" role="group" aria-label={t("견적 범위 선택")}><p>{t("범위를 바꿔 비교해 보세요")}</p>{Object.entries(demoScopes).map(([key, option]) => <button type="button" key={key} aria-pressed={state.scope === key} onClick={() => dispatch({ type: "scope", scope: key })}><span className="spatial-radio">{state.scope === key && <span />}</span>{t(option.label)}<span>{option.days}{t("일")}</span></button>)}</div>
-          <p className="spatial-review-note"><ShieldCheck size={16} />{t("확정은 사용자의 몫")}</p>
-        </aside>
-        <article className="spatial-proposal" aria-label={t("예약 웹사이트 개발 제안")}>
-          <div className="spatial-document-header"><span className="spatial-document-brand">Freelance Ops<span>.</span></span><span>{t("검토 전 예시")}</span></div>
-          <p className="spatial-document-eyebrow">PROJECT PROPOSAL / FO-024</p>
-          <h3>{t("예약 웹사이트")}<br /><span>{t("개발 제안서")}</span></h3>
-          <p className="spatial-document-description">{t("예약 · 관리자 화면 · 반응형")}{quote.extra ? t(" · 고객 예약 변경") : ""}</p>
-          <div className="spatial-quote-table" role="table" aria-label={t("작업별 예시 공수와 금액")}><div role="row" className="spatial-quote-head"><span role="columnheader">{t("작업")}</span><span role="columnheader">{t("공수")}</span><span role="columnheader">{t("금액")}</span></div>{quote.rows.map((row: { title: string; days: number }) => <div role="row" key={row.title}><span role="rowheader">{t(row.title)}</span><span role="cell">{row.days}{t("일")}</span><span role="cell">{money(row.days * quote.dailyRate)}</span></div>)}</div>
-          <div className="spatial-quote-total"><div><span>{t("예시 금액")}</span><strong>{money(quote.total)}<small>{t("원")}</small></strong></div><span>{quote.days}{t("일")}<br />{t("부가세 별도")}</span></div>
-          <details className="spatial-assumptions"><summary>{t("계산 가정과 제외 범위")}<ArrowDown size={14} /></summary><p>{t("관리자 1명, 현장 결제, 고객의 디자인 자료 제공. 견적 전에 가정을 확인합니다.")}</p><p>{t("제외 범위 · 온라인 결제, 별도 모바일 앱")}</p><p>{t("예시 일단가")} {money(quote.dailyRate)}{t("원")}</p></details>
-          <div className="spatial-document-footer"><span><i />{t("사용자 검토 필요")}</span><span>{t("실제 견적 아님")}</span></div>
-        </article>
-        <span className="spatial-paper-shadow" aria-hidden="true" />
-      </div>
-    </section>
-
-    <section id="evidence" tabIndex={-1} className="spatial-chapter spatial-evidence" aria-labelledby="evidence-title">
-      <div className="spatial-evidence-intro section-heading"><p className="spatial-eyebrow"><span /> 03 / EVERY NUMBER, A REASON</p><h2 id="evidence-title">{t("숫자 뒤의 근거까지,")}<br /><span>{t("놓치지 않도록.")}</span></h2><p>{t("어디서 나온 범위인지, 왜 이만큼 필요한지.")}<br />{t("질문과 가정을 함께 남겨 다음 대화를 준비합니다.")}</p></div>
-      <div className="spatial-evidence-stage">
-        <div className="spatial-effort" role="img" aria-label={`${t("예시 공수 구성: 예약 5일, 관리자 3.5일, 반응형과 검수 1.5일.")} ${quote.extra ? t("예약 변경 3일 추가. 총 13일.") : t("총 10일.")}`}><div className="spatial-effort-heading"><span>{t("예상 공수")}</span><span>{t("예시")}</span></div><div className="spatial-effort-number">{quote.days}<span>{t("일")}</span><ArrowUpRight size={24} /></div><div className="spatial-bars" aria-hidden="true">{quote.rows.map((row: { title: string; days: number }, index: number) => <div key={row.title}><span className="spatial-bar-label">{row.days}{t("일")}</span><span className="spatial-bar" style={{ height: `${row.days * 28}px` }} /><small>0{index + 1}</small></div>)}</div><p>{t("작업별 공수의 합 · 성과 지표가 아닌 예시 계산")}</p></div>
-        <div className="spatial-source-trace"><div className="spatial-trace-line" aria-hidden="true" /><div><span className="spatial-trace-dot"><ChatCenteredText size={16} /></span><span className="spatial-eyebrow">SOURCE</span><p>{t("“모바일에서도 쓸 수 있어야 해요.”")}</p></div><div><span className="spatial-trace-dot"><GitBranch size={16} /></span><span className="spatial-eyebrow">REQUIREMENT</span><p>{t("반응형 화면")}</p><small>{t("휴대폰에서도 예약을 등록하고 확인할 수 있습니다.")}</small></div><div><span className="spatial-trace-dot"><ShieldCheck size={16} /></span><span className="spatial-eyebrow">ASSUMPTION</span><p>{t("디자인 자료는 고객이 제공합니다.")}</p><small>{t("견적 전에 가정을 확인합니다.")}</small></div></div>
-      </div>
-      <div className="spatial-principles"><div><span>01</span><strong>{t("원문은 그대로")}</strong><p>{t("고객의 요청을 다시 확인할 수 있게.")}</p></div><div><span>02</span><strong>{t("가정은 드러나게")}</strong><p>{t("불확실한 내용은 확인할 질문으로.")}</p></div><div><span>03</span><strong>{t("확정은 직접")}</strong><p>{t("검토한 범위와 금액만 고객에게.")}</p></div></div>
-      <a className="spatial-text-link" href="#review">{t("견적 근거 보기")}<ArrowRight size={16} /></a>
+    <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} />{t(label)}</span>;})}</div></div>
+    <ReferenceStory state={state} quote={quote} onScopeChange={(scope) => dispatch({ type: "scope", scope })} />
+    <div className="spatial-footer-light" aria-hidden="true"><svg viewBox="0 0 1440 1000" preserveAspectRatio="none"><defs><linearGradient id="footer-light-gradient"><stop stopColor="#8096d4" stopOpacity=".25" /><stop offset=".4" stopColor="#c99ae7" stopOpacity=".6" /><stop offset=".68" stopColor="#dfb7f7" stopOpacity=".7" /><stop offset="1" stopColor="#a276cc" stopOpacity=".1" /></linearGradient></defs>{Array.from({length:22},(_,i)=><path key={i} d={`M-90 ${420 + i * 11} C ${380 + i * 6} ${110 + i * 9} ${760 - i * 4} ${650 - i * 10} 1540 ${80 + i * 9}`} />)}</svg></div>
+    <section id="scope-comparison" className="spatial-chapter spatial-comparison" aria-labelledby="comparison-title">
+      <div className="spatial-comparison-heading section-heading"><p className="spatial-eyebrow"><span /> ONE PROJECT / YOUR SCOPE</p><h2 id="comparison-title">{t("범위가 달라지면,")}<br /><span>{t("숫자도 명확하게.")}</span></h2><p>{t("같은 예시 문의에 예약 변경 기능을 더해 비교해 보세요.")}</p></div>
+      <div className="spatial-scope-slider"><label htmlFor="scope-slider">{t("예시 프로젝트 범위")}</label><input id="scope-slider" type="range" min="0" max="1" step="1" value={quote.extra ? 1 : 0} aria-valuetext={t(quote.label)} onChange={(event) => dispatch({ type: "scope", scope: event.target.value === "1" ? "extended" : "essential" })} /><div><span>{t("핵심 범위")}</span><span>{t("예약 변경 추가")}</span></div></div>
+      <div className="spatial-comparison-grid">
+        <article><p className="spatial-comparison-label">01 / SCOPE</p><h3>{t("작업 범위")}</h3><strong>{String(quote.rows.length).padStart(2, "0")}<span>{t("개 항목")}</span></strong><p>{t("원문에서 정리한 작업 단위")}</p><ul>{quote.rows.map((row: { title: string; days: number }) => <li key={row.title}><Check size={13} />{t(row.title)}</li>)}</ul><a href="#workflow">{t("문의 흐름 보기")}<ArrowUpRight size={15} /></a></article>
+        <article className="is-featured"><p className="spatial-comparison-label">02 / EFFORT</p><h3>{t("예상 공수")}</h3><strong>{quote.days}<span>{t("일")}</span></strong><p>{t("항목별 공수를 더한 예시")}</p><div className="spatial-comparison-meter" aria-hidden="true">{Array.from({length:13},(_,i)=><span className={i < quote.days ? "is-filled" : ""} key={i} />)}</div><p className="spatial-comparison-footnote">{t("일정은 자료 제공과 범위 확인 후 협의합니다.")}</p><a href="#evidence">{t("공수의 근거 보기")}<ArrowUpRight size={15} /></a></article>
+        <article><p className="spatial-comparison-label">03 / ESTIMATE</p><h3>{t("예시 견적")}</h3><strong className="spatial-comparison-price">{money(quote.total)}<span>KRW</span></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><div className="spatial-comparison-formula"><span>{quote.days}{t("일")}</span><span>×</span><span>{money(quote.dailyRate)}{t("원")}</span></div><p className="spatial-comparison-footnote">{t("확정 전 사용자 검토가 필요합니다.")}</p><a href="#review">{t("완성될 초안 살펴보기")}<ArrowUpRight size={15} /></a></article>
+      </div><p className="spatial-comparison-disclaimer">{t("제품 설명을 위한 가상 프로젝트입니다. 서비스 이용 요금이 아닙니다.")}</p>
     </section>
   </>;
 }

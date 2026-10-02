@@ -1,9 +1,10 @@
 "use client";
 
 import "@/app/product-demo.css";
+import "@/app/reference-story.css";
 
 import { HomeHeader } from "./components/home-header";
-import { HeroSection, CallToActionSection, HomeFooter } from "./components/home-sections";
+import { CallToActionSection, HomeFooter } from "./components/home-sections";
 import { WorkflowSection } from "./components/product-experience";
 import { useHomeAnimation } from "./use-home-animation";
 
@@ -12,10 +13,10 @@ export default function HomePage() {
   const pageRef = useHomeAnimation();
 
   return (
-    <div ref={pageRef} className="site-shell figma-home overflow-x-hidden w-full max-w-full">
+    <div ref={pageRef} className="site-shell figma-home spatial-site overflow-x-hidden w-full max-w-full">
       <HomeHeader />
       <main id="main-content" tabIndex={-1}>
-        <HeroSection />
+        <span id="top" className="spatial-top-anchor" tabIndex={-1} />
         <div className="spatial-world">
           <WorkflowSection />
           <CallToActionSection />

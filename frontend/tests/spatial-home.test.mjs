@@ -6,13 +6,11 @@ import { translateUi } from "../app/lib/ui-locale.mjs";
 import { englishUi } from "../app/lib/ui-english.mjs";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoScopes, demoSteps, initialDemoState } from "../features/home/product-demo.mjs";
 
-const componentUrl = new URL("../features/home/components/product-experience.tsx", import.meta.url);
+const componentFiles = ["product-experience.tsx", "reference-story.tsx"];
 
-// This includes stageCopy and other indirect t(...) arguments, which the general
-// locale scan cannot discover by checking t("literal") calls alone.
-test("all spatial scene copy, indirect stage copy and sample data have English translations", async () => {
-  const text = await readFile(componentUrl, "utf8");
-  const source = ts.createSourceFile("product-experience.tsx", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+// Include stageCopy, SectionTitle props and other indirect t(...) arguments,
+// which the general locale scan cannot discover through t("literal") calls alone.
+test("all hero and reference story copy, indirect props and sample data have English translations", async () => {
   const keys = new Set([
     ...demoSteps,
     ...demoEvents,
@@ -22,10 +20,14 @@ test("all spatial scene copy, indirect stage copy and sample data have English t
     "협상 중"
   ]);
   function visit(node) {
-    if (ts.isStringLiteral(node) && /[가-힣]/.test(node.text)) keys.add(node.text);
+    if (ts.isStringLiteralLike(node) && /[가-힣]/.test(node.text)) keys.add(node.text);
     ts.forEachChild(node, visit);
   }
-  visit(source);
+  for (const filename of componentFiles) {
+    const text = await readFile(new URL(`../features/home/components/${filename}`, import.meta.url), "utf8");
+    const source = ts.createSourceFile(filename, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    visit(source);
+  }
   const missing = [...keys].filter(key => !Object.hasOwn(englishUi, key));
   assert.deepEqual(missing, [], "Every visible or accessible scene string needs English copy");
   for (const key of keys) {

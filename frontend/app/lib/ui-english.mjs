@@ -5,6 +5,7 @@ import { analysisEnglish } from './ui-analysis-english.mjs';
 import { extraEnglish } from './ui-extra-english.mjs';
 import { chatEnglish } from './ui-chat-english.mjs';
 import { homeEnglish } from './ui-home-english.mjs';
+import { storyEnglish } from './ui-story-english.mjs';
 // Korean source keys are the fallback. Only interface copy and fictional examples belong here.
 export const englishUi = {
   ...workspaceEnglish,
@@ -14,6 +15,7 @@ export const englishUi = {
   ...extraEnglish,
   ...chatEnglish,
   ...homeEnglish,
+  ...storyEnglish,
   "표시 언어": "Interface language", "본문으로 건너뛰기": "Skip to main content",
   "진행 중": "In progress", "협상 중": "Negotiating", "프로젝트 이름": "Project name", "고객 문의": "Client inquiry",
   "문의 등록 예시": "Sample inquiry", "같은 문의의 프로젝트 상태 변화": "Status of the same sample project",
