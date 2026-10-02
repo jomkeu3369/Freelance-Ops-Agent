@@ -326,3 +326,7 @@
   .figma-home .story-brand-plate { width: 100% !important; height: clamp(310px, 28vw, 520px) !important; clip-path: none !important; transform: none !important; }
   .figma-home .story-brand-plate-copy { opacity: 1 !important; }
 }
+
+/* Bounded metric entrances. Final values remain available to assistive tech. */
+.figma-home .reference-story .story-entry-count { display: inline-block; font-variant-numeric: tabular-nums; }
+.figma-home .reference-story [data-story-ring] { transition: none; }

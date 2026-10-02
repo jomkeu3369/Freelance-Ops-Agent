@@ -122,7 +122,14 @@ async function expectSpatialLayout(page) {
     for (const label of document.querySelectorAll(".spatial-lane > span, .spatial-lane > small")) {
       if (intersects(cardBox, label.getBoundingClientRect())) failures.push("Project card overlaps a lane heading");
     }
+    const flowBox = document.querySelector(".spatial-flow").getBoundingClientRect();
     const stages = [...document.querySelectorAll(".spatial-stage")];
+    for (const stage of stages) {
+      const box = stage.getBoundingClientRect();
+      if (box.left < flowBox.left - 1 || box.right > flowBox.right + 1 || box.top < flowBox.top - 1 || box.bottom > flowBox.bottom + 1) {
+        failures.push(`Stage trigger escapes the hero panel: ${stage.textContent.trim()}`);
+      }
+    }
     for (let index = 0; index < stages.length; index++) {
       for (const other of stages.slice(index + 1)) {
         if (intersects(stages[index].getBoundingClientRect(), other.getBoundingClientRect())) failures.push("Stage controls overlap");
@@ -639,6 +646,138 @@ for (const language of ["ko", "en"]) {
         expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
       }
       expect(requests).toEqual([]);
+    });
+  }
+}
+
+async function scrollBrandMerge(page, progress) {
+  return page.evaluate(value => {
+    const scene = document.querySelector("[data-story-brand-scene]").getBoundingClientRect();
+    const target = document.querySelector("[data-story-brand-target]").getBoundingClientRect();
+    // Derive the documented scroll range from current DOM geometry, including translated copy and responsive fonts.
+    const start = scrollY + scene.top + scene.height / 2 - innerHeight * 0.42;
+    const end = scrollY + target.top + target.height / 2 - innerHeight * 0.65;
+    const destination = start + (end - start) * value + (value === 1 ? 2 : value === 0 ? -2 : 0);
+    window.scrollTo({ top: destination, behavior: "instant" });
+    return { start, end };
+  }, progress);
+}
+
+async function brandMergeGeometry(page, progress) {
+  return page.evaluate(value => {
+    const mark = document.querySelector("[data-story-brand-mark]");
+    const target = document.querySelector("[data-story-brand-target]");
+    const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
+    const from = mark.getBoundingClientRect();
+    const to = target.getBoundingClientRect();
+    const expectedX = stage.left + stage.width / 2 + (to.left + to.width / 2 - stage.left - stage.width / 2) * value;
+    const expectedY = stage.top + stage.height * 0.57 + (to.top + to.height / 2 - stage.top - stage.height * 0.57) * value;
+    const expectedWidth = mark.offsetWidth + (to.width - mark.offsetWidth) * value;
+    const visible = [mark, target].filter(element => {
+      let opacity = 1;
+      for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
+        const style = getComputedStyle(ancestor);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        opacity *= Number(style.opacity);
+      }
+      return opacity > 0.01;
+    });
+    return {
+      error: Math.max(Math.abs(from.left + from.width / 2 - expectedX), Math.abs(from.top + from.height / 2 - expectedY), Math.abs(from.width - expectedWidth)),
+      visibleCount: visible.length,
+      active: visible[0] === target ? "target" : "source",
+      left: from.left,
+      right: from.right,
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      targetInsideCard: (() => {
+        const card = document.querySelector("[data-story-merge-card]").getBoundingClientRect();
+        return to.left >= card.left && to.right <= card.right && to.top >= card.top && to.bottom <= card.bottom;
+      })()
+    };
+  }, progress);
+}
+
+for (const language of ["ko", "en"]) {
+  for (const width of [1024, 1440]) {
+    test(`brand merge ${language} ${width}px: one logo travels into the lower hub, reverses and realigns after resize`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await page.evaluate(() => document.fonts.ready);
+      const mark = page.locator("[data-story-brand-mark]");
+      const target = page.locator("[data-story-brand-target]");
+      await expect(mark).toHaveCount(1);
+      await expect(target).toHaveCount(1);
+      for (const progress of [0, 0.25, 0.5, 0.75, 0.99, 1, 0.5, 0]) {
+        const range = await scrollBrandMerge(page, progress);
+        expect(range.end).toBeGreaterThan(range.start);
+        await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
+        await expect.poll(async () => {
+          const geometry = await brandMergeGeometry(page, progress);
+          return `${geometry.visibleCount}:${geometry.active}`;
+        }).toBe(progress === 1 ? "1:target" : "1:source");
+        const geometry = await brandMergeGeometry(page, progress);
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+        expect(geometry.bodyWidth).toBeLessThanOrEqual(geometry.clientWidth);
+        expect(geometry.left).toBeGreaterThanOrEqual(-1);
+        expect(geometry.right).toBeLessThanOrEqual(geometry.clientWidth + 1);
+        expect(geometry.targetInsideCard).toBe(true);
+        if (progress === 0) {
+          await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "0");
+          await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", /inset\(/);
+          await expect.poll(() => page.locator("[data-story-brand-plate]").evaluate(element => {
+            const parts = getComputedStyle(element).clipPath.match(/^inset\((.*?)\s+round/);
+            if (!parts) return false;
+            const values = parts[1].trim().split(/\s+/).map(Number.parseFloat);
+            const [top, right = top, bottom = top, left = right] = values;
+            const mark = document.querySelector("[data-story-brand-mark]");
+            const width = element.clientWidth - right - left;
+            const height = element.clientHeight - top - bottom;
+            return width > 0 && height > 0 && width <= mark.offsetWidth * 1.7 && height <= mark.offsetHeight * 1.7;
+          }), { message: "The full plate must collapse to the source mark before travel begins" }).toBe(true);
+        }
+      }
+      await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await scrollBrandMerge(page, 1);
+      await expect.poll(async () => (await brandMergeGeometry(page, 1)).error).toBeLessThanOrEqual(3);
+      await expect(target).toHaveCSS("visibility", "visible");
+      await expect(mark).toHaveCSS("visibility", "hidden");
+      expect((await brandMergeGeometry(page, 1)).visibleCount).toBe(1);
+    });
+  }
+
+  for (const width of [390, 1440]) {
+    test(`brand merge ${language} ${width}px: reduced motion keeps readable static source and destination`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      const mark = page.locator("[data-story-brand-mark]");
+      const target = page.locator("[data-story-brand-target]");
+      await page.evaluate(() => document.fonts.ready);
+      const original = await mark.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        return { x: box.left, y: box.top + scrollY, width: box.width };
+      });
+      for (const progress of [0, 0.5, 1, 0]) {
+        await scrollBrandMerge(page, progress);
+        await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", "none");
+        await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
+        await expect(target).toHaveCSS("visibility", "visible");
+        const current = await mark.evaluate(element => {
+          const box = element.getBoundingClientRect();
+          return { x: box.left, y: box.top + scrollY, width: box.width };
+        });
+        expect(current.x).toBeCloseTo(original.x, 0);
+        expect(current.y).toBeCloseTo(original.y, 0);
+        expect(current.width).toBeCloseTo(original.width, 0);
+      }
     });
   }
 }

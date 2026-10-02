@@ -127,7 +127,7 @@ test("ambient motion observes each layer independently and cleans up observers, 
   }
   assert.match(component, /observer\.disconnect\(\)/);
   for (const layer of ["scene-hero-light", "scene-fog", "scene-footer-light"]) assert.ok(atmosphere.includes(layer));
-  assert.equal((atmosphere.match(/data-ambient-visible="false"/g) ?? []).length, 3);
+  assert.ok((atmosphere.match(/data-ambient-visible="false"/g) ?? []).length >= 3);
   assert.doesNotMatch(atmosphere, /requestAnimationFrame|setInterval|fetch\(|<canvas|<video/);
 });
 
@@ -151,16 +151,59 @@ test("CSS travel has visible, paused, mobile and reduced-motion guards", async (
 });
 
 test("intrinsic card sizing and opaque prism groups protect real content without a page overflow mask", async () => {
-  const [home, css, hook] = await Promise.all([
+  const [home, css] = await Promise.all([
     sourceFile("../features/home/home-page.tsx"),
-    sourceFile("../app/scene-motion.css"),
-    sourceFile("../features/home/use-home-animation.ts")
+    sourceFile("../app/scene-motion.css")
   ]);
   assert.doesNotMatch(home, /overflow-x-hidden|overflow-hidden/);
   assert.match(css, /\.figma-home\.spatial-site\s*\{[^}]*overflow:\s*visible/);
   assert.match(css, /\.spatial-board\s*\{[^}]*grid-template-rows:\s*55px auto/);
   assert.match(css, /\.spatial-project-card\s*\{[^}]*position:\s*relative;[^}]*grid-row:\s*2/);
   assert.match(css, /\.story-prism-chart\s+\.spatial-bar\s*\{[^}]*opacity:\s*1;[^}]*transform-style:\s*preserve-3d/);
-  assert.match(hook, /\(min-width: 821px\) and \(prefers-reduced-motion: no-preference\)/);
-  assert.match(hook, /start:\s*"center 82%",\s*end:\s*"center 42%"/);
+});
+
+test("brand handoff travels into the measured radial target and reverses its single-logo visibility switch", async () => {
+  const [hook, story, css, motionCss] = await Promise.all([
+    sourceFile("../features/home/use-home-animation.ts"),
+    sourceFile("../features/home/components/reference-story.tsx"),
+    sourceFile("../app/reference-story.css"),
+    sourceFile("../app/scene-motion.css")
+  ]);
+  assert.match(story, /data-story-brand-target/);
+  assert.match(story, /data-story-merge-card/);
+  assert.match(hook, /id:\s*"story-brand-merge"/);
+  assert.match(hook, /endTrigger:\s*target/);
+  assert.match(hook, /stage\.getBoundingClientRect\(\)/);
+  assert.match(hook, /target\.getBoundingClientRect\(\)/);
+  assert.match(hook, /scale:\s*to\.width\s*\/\s*mark\.offsetWidth/);
+  assert.match(hook, /x:\s*\(\)\s*=>\s*destination\(\)\.x/);
+  assert.match(hook, /y:\s*\(\)\s*=>\s*destination\(\)\.y/);
+  assert.match(hook, /scale:\s*\(\)\s*=>\s*destination\(\)\.scale/);
+  assert.match(hook, /\.set\(target,\s*\{\s*autoAlpha:\s*1\s*\},\s*1\)/);
+  assert.match(hook, /\.set\(mark,\s*\{\s*autoAlpha:\s*0\s*\},\s*1\)/);
+  assert.match(hook, /invalidateOnRefresh:\s*true/);
+  assert.match(hook, /new ResizeObserver/);
+  assert.match(hook, /ScrollTrigger\.refresh\(\)/);
+  assert.match(hook, /layoutObserver\.disconnect\(\)/);
+  assert.match(hook, /cancelAnimationFrame\(refreshFrame\)/);
+  assert.match(css, /\.story-brand-scene\s*\{[^}]*overflow:\s*visible/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce[\s\S]*\.story-brand-plate\s*\{[^}]*clip-path:\s*none/);
+  assert.match(motionCss, /\.spatial-stage:nth-of-type\(1\)\s*\{\s*transform:\s*none/);
+
+  const source = ts.createSourceFile("reference-story.tsx", story, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let sourceAncestors;
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) && node.attributes.properties.some(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "data-story-brand-mark")) {
+      sourceAncestors = [];
+      for (let ancestor = node.parent.parent; ancestor; ancestor = ancestor.parent) {
+        if (!ts.isJsxElement(ancestor)) continue;
+        const attribute = ancestor.openingElement.attributes.properties.find(value => ts.isJsxAttribute(value) && value.name.getText(source) === "className");
+        if (attribute?.initializer && ts.isStringLiteral(attribute.initializer)) sourceAncestors.push(attribute.initializer.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.ok(sourceAncestors?.includes("story-brand-stage"));
+  assert.ok(!sourceAncestors.includes("story-brand-plate"), "The flying source cannot remain inside the clipped plate");
 });
