@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { ReferenceStory } from "./reference-story";
+import { HeroAtmosphere, MiddleAtmosphere, FooterAtmosphere } from "./scene-atmosphere";
 import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../../../app/lib/ui-language";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
@@ -54,9 +55,9 @@ export function WorkflowSection() {
     return () => window.clearTimeout(timer);
   }, [paused, finished, state.phase, state.step]);
 
-  return <>
-    <div className="spatial-hero-light" data-playing={!paused} aria-hidden="true"><svg viewBox="0 0 1440 920" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="hero-light-gradient" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#8e63b8" stopOpacity="0" /><stop offset=".35" stopColor="#bd8beb" stopOpacity=".6" /><stop offset=".52" stopColor="#efdaff" /><stop offset=".72" stopColor="#bb83e5" stopOpacity=".5" /><stop offset="1" stopColor="#9570c4" stopOpacity="0" /></linearGradient></defs><path className="spatial-light-haze" d="M1510 -70 C 1190 70 760 400 543 602 C 438 728 1030 800 1510 1150" />{Array.from({ length: 34 }, (_, index) => <path key={index} d={`M1510 ${-160 + index * 16} C ${1190 + index * 4} ${70 + index * 5} ${760 + index * 2} ${350 + index * 6} ${540 + index * .18} ${598 + index * .3} C ${435 + index * .1} ${724 + index * .22} ${980 + index * 5} ${710 + index * 9} 1510 ${1020 + index * 15}`} />)}</svg></div>
-    <div className="spatial-atmosphere" aria-hidden="true"><svg viewBox="0 0 1440 2300" preserveAspectRatio="none"><defs><linearGradient id="spatial-ribbon" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#705699" stopOpacity="0" /><stop offset=".45" stopColor="#b5a0e7" stopOpacity=".5" /><stop offset="1" stopColor="#76599d" stopOpacity="0" /></linearGradient></defs><path d="M-240 260 C 220 900 1400 -120 1630 430 S -130 1010 470 1550 S 1470 1650 1550 2260" /><path d="M-240 300 C 220 940 1400 -80 1630 470 S -130 1050 470 1590 S 1470 1690 1550 2300" />{Array.from({length:15},(_,i)=><path key={i} d={`M-240 ${280 + i * 5} C ${200 + i * 7} ${860 + i * 7} ${1440 - i * 8} ${-130 + i * 8} 1630 ${430 + i * 7} S ${-150 + i * 6} ${1000 + i * 6} ${435 + i * 4} ${1540 + i * 7} S ${1510 - i * 5} ${1620 + i * 4} 1550 ${2260 + i * 5}`} />)}</svg></div>
+  return <div className="spatial-story-run" data-motion-paused={state.paused || reducedMotion || !pageVisible}>
+    <HeroAtmosphere paused={paused} />
+    <MiddleAtmosphere />
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
         <p className="spatial-eyebrow spatial-hero-eyebrow"><span /> FREELANCE OPS / AI WORKFLOW</p>
@@ -68,7 +69,7 @@ export function WorkflowSection() {
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
         <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
         <div className="spatial-stages" role="group" aria-label={t("제품 예시 단계 선택")}>
-          <svg className="spatial-graph-wires" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M40 100 C170 100 168 44 280 44 S440 44 520 44" /><path d="M40 100 C170 100 168 156 280 156 S440 156 520 156" /><path d="M310 44 C410 44 416 156 520 156" /></svg>
+          <svg className="spatial-graph-wires" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M40 100 C170 100 168 44 280 44 S440 44 520 44" /><path d="M40 100 C170 100 168 156 280 156 S440 156 520 156" /><path d="M310 44 C410 44 416 156 520 156" /><path className="spatial-graph-pulse" data-active={view.selected === 1 || view.selected === 3} d="M40 100 C170 100 168 44 280 44 S440 44 520 44" pathLength="1000" /><path className="spatial-graph-pulse" data-active={view.selected === 2 || view.selected === 4} d="M40 100 C170 100 168 156 280 156 S440 156 520 156" pathLength="1000" /></svg>
           {demoSteps.map((label, index) => { const Icon = stageIcons[index]; return <button key={label} type="button" className={`spatial-stage${view.selected === index ? " is-current" : ""}${view.selected > index ? " is-past" : ""}`} aria-pressed={view.selected === index} aria-controls="workflow-example" onClick={() => dispatch({ type: "select", step: index })}><span className="spatial-stage-icon"><Icon size={20} /></span><span>{t(label)}</span><small>0{index + 1}</small></button>; })}
         </div>
         <div className="spatial-connection" aria-hidden="true"><span /><i /></div>
@@ -92,7 +93,7 @@ export function WorkflowSection() {
 
     <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} />{t(label)}</span>;})}</div></div>
     <ReferenceStory state={state} quote={quote} onScopeChange={(scope) => dispatch({ type: "scope", scope })} />
-    <div className="spatial-footer-light" aria-hidden="true"><svg viewBox="0 0 1440 1000" preserveAspectRatio="none"><defs><linearGradient id="footer-light-gradient"><stop stopColor="#8096d4" stopOpacity=".25" /><stop offset=".4" stopColor="#c99ae7" stopOpacity=".6" /><stop offset=".68" stopColor="#dfb7f7" stopOpacity=".7" /><stop offset="1" stopColor="#a276cc" stopOpacity=".1" /></linearGradient></defs>{Array.from({length:22},(_,i)=><path key={i} d={`M-90 ${420 + i * 11} C ${380 + i * 6} ${110 + i * 9} ${760 - i * 4} ${650 - i * 10} 1540 ${80 + i * 9}`} />)}</svg></div>
+    <FooterAtmosphere />
     <section id="scope-comparison" className="spatial-chapter spatial-comparison" aria-labelledby="comparison-title">
       <div className="spatial-comparison-heading section-heading"><p className="spatial-eyebrow"><span /> ONE PROJECT / YOUR SCOPE</p><h2 id="comparison-title">{t("범위가 달라지면,")}<br /><span>{t("숫자도 명확하게.")}</span></h2><p>{t("같은 예시 문의에 예약 변경 기능을 더해 비교해 보세요.")}</p></div>
       <div className="spatial-scope-estimator"><div className="spatial-scope-slider"><label htmlFor="scope-slider">{t("예시 프로젝트 범위")}</label><input id="scope-slider" type="range" min="0" max="1" step="1" value={quote.extra ? 1 : 0} aria-valuetext={t(quote.label)} onChange={(event) => dispatch({ type: "scope", scope: event.target.value === "1" ? "extended" : "essential" })} /><div><span>{t("핵심 범위")}</span><span>{t("예약 변경 추가")}</span></div></div><aside><span>{t("예시 견적")}</span><strong>{money(quote.total)}<small>KRW</small></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><Link href="/workspace">{t("업무 공간 열기")}<ArrowUpRight size={15} /></Link></aside></div>
@@ -102,5 +103,5 @@ export function WorkflowSection() {
         <article><p className="spatial-comparison-label">03 / ESTIMATE</p><h3>{t("예시 견적")}</h3><strong className="spatial-comparison-price">{money(quote.total)}<span>KRW</span></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><div className="spatial-comparison-formula"><span>{quote.days}{t("일")}</span><span>×</span><span>{money(quote.dailyRate)}{t("원")}</span></div><p className="spatial-comparison-footnote">{t("확정 전 사용자 검토가 필요합니다.")}</p><a href="#review">{t("완성될 초안 살펴보기")}<ArrowUpRight size={15} /></a></article>
       </div><p className="spatial-comparison-disclaimer">{t("제품 설명을 위한 가상 프로젝트입니다. 서비스 이용 요금이 아닙니다.")}</p>
     </section>
-  </>;
+  </div>;
 }

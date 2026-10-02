@@ -8,6 +8,10 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 export function useHomeAnimation() {
   const pageRef = useRef<HTMLDivElement>(null);
   useGSAP(() => {
+    const ambientObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) (entry.target as HTMLElement).dataset.ambientVisible = String(entry.isIntersecting);
+    }, { threshold: .08 });
+    pageRef.current?.querySelectorAll<HTMLElement>("[data-ambient]").forEach((element) => ambientObserver.observe(element));
     const motion = gsap.matchMedia();
     motion.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.from(".nav-shell", { y: -12, opacity: 0, duration: .6, ease: "power3.out" });
@@ -15,6 +19,9 @@ export function useHomeAnimation() {
       gsap.from(".spatial-flow", { y: 25, opacity: 0, duration: 1.1, delay: .2, ease: "power3.out" });
       gsap.utils.toArray<HTMLElement>("[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div").forEach((element) => {
         gsap.from(element, { y: 24, opacity: 0, filter: "blur(6px)", duration: .8, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 92%", once: true } });
+      });
+      gsap.utils.toArray<HTMLElement>(".story-review-chat").forEach((element) => {
+        gsap.from(element.querySelectorAll("[data-story-chat]"), { y: 12, opacity: 0, duration: .6, stagger: .3, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 86%", once: true } });
       });
       gsap.utils.toArray<HTMLElement>("[data-story-meter]").forEach((element) => {
         gsap.from(element, { scaleX: 0, transformOrigin: "left center", duration: 1.25, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 90%", once: true } });
@@ -28,14 +35,14 @@ export function useHomeAnimation() {
       const scene = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-scene]");
       const copy = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-copy]");
       if (!plate || !scene || !copy) return;
-      const timeline = gsap.timeline({ scrollTrigger: { trigger: scene, start: "top 83%", end: "bottom 18%", scrub: .7 } });
+      const timeline = gsap.timeline({ scrollTrigger: { trigger: scene, start: "center 82%", end: "center 42%", scrub: .45 } });
       timeline.fromTo(plate, { clipPath: "inset(28% 43% round 28px)" }, { clipPath: "inset(0% 0% round 20px)", duration: 1.4, ease: "power2.inOut" })
         .fromTo(copy, { opacity: 0 }, { opacity: 1, duration: .6 }, .8)
         .to({}, { duration: .7 })
         .to(copy, { opacity: 0, duration: .5 })
         .to(plate, { clipPath: "inset(28% 43% round 28px)", duration: 1.4, ease: "power2.inOut" }, "<");
     });
-    return () => motion.revert();
+    return () => { ambientObserver.disconnect(); motion.revert(); };
   }, { scope: pageRef });
   return pageRef;
 }

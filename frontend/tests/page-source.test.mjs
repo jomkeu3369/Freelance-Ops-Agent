@@ -204,7 +204,7 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /@keyframes workflowCardPulse/);
   assert.match(css, /@keyframes workflowCoreScan/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*?workflow-auto-sequence::after/);
-  assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
+  assert.doesNotMatch(source, /outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
 });
 
