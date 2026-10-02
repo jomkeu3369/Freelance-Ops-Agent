@@ -104,3 +104,63 @@ test("reduced-motion completion and manual previews remain coherent across scope
     assert.deepEqual(state.history, []);
   }
 });
+
+const sourceFile = path => readFile(new URL(path, import.meta.url), "utf8");
+
+test("ambient motion observes each layer independently and cleans up observers, preferences and visibility listeners", async () => {
+  const [hook, component, atmosphere] = await Promise.all([
+    sourceFile("../features/home/use-home-animation.ts"),
+    sourceFile("../features/home/components/product-experience.tsx"),
+    sourceFile("../features/home/components/scene-atmosphere.tsx")
+  ]);
+  assert.match(hook, /new IntersectionObserver/);
+  assert.match(hook, /dataset\.ambientVisible\s*=\s*String\(entry\.isIntersecting\)/);
+  assert.match(hook, /querySelectorAll<HTMLElement>\("\[data-ambient\]"\)/);
+  assert.match(hook, /ambientObserver\.observe\(element\)/);
+  assert.match(hook, /ambientObserver\.disconnect\(\)/);
+  assert.match(hook, /motion\.revert\(\)/);
+  assert.match(component, /data-motion-paused=\{state\.paused\s*\|\|\s*reducedMotion\s*\|\|\s*!pageVisible\}/);
+  assert.match(component, /setPageVisible\(!document\.hidden\)/);
+  for (const action of ["add", "remove"]) {
+    assert.match(component, new RegExp(`document\\.${action}EventListener\\("visibilitychange", syncVisibility\\)`));
+    assert.match(component, new RegExp(`preference\\.${action}EventListener\\("change", syncMotion\\)`));
+  }
+  assert.match(component, /observer\.disconnect\(\)/);
+  for (const layer of ["scene-hero-light", "scene-fog", "scene-footer-light"]) assert.ok(atmosphere.includes(layer));
+  assert.equal((atmosphere.match(/data-ambient-visible="false"/g) ?? []).length, 3);
+  assert.doesNotMatch(atmosphere, /requestAnimationFrame|setInterval|fetch\(|<canvas|<video/);
+});
+
+test("CSS travel has visible, paused, mobile and reduced-motion guards", async () => {
+  const css = await sourceFile("../app/scene-motion.css");
+  assert.match(css, /\[data-ambient\]\s*\{[^}]*--ambient-play-state:\s*paused/);
+  assert.match(css, /\[data-ambient-visible="true"\]\s*\{[^}]*--ambient-play-state:\s*running/);
+  assert.match(css, /\[data-motion-paused="true"\]\s+\[data-ambient\]\s*\{[^}]*--ambient-play-state:\s*paused/);
+  assert.match(css, /scene-hero-light\[data-playing="false"\][^{]*\{[^}]*--ambient-play-state:\s*paused/);
+  assert.match(css, /animation-play-state:\s*var\(--ambient-play-state\)/);
+  assert.match(css, /@keyframes sceneFilamentTravel\s*\{\s*from\s*\{\s*stroke-dashoffset:\s*1000/);
+  const mobile = css.slice(css.indexOf("@media (max-width: 820px)"), css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.match(mobile, /scene-travel\s*\{\s*display:\s*none/);
+  assert.match(mobile, /scene-particles[^}]*display:\s*none/);
+  assert.match(mobile, /scene-fog-cool\s*\{\s*animation:\s*none/);
+  assert.match(mobile, /story-prism-cap\s*\{\s*animation:\s*none/);
+  const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.match(reduced, /\[data-ambient\]\s*\*/);
+  assert.match(reduced, /animation:\s*none\s*!important/);
+  assert.match(reduced, /scene-travel[^}]*display:\s*none/);
+});
+
+test("intrinsic card sizing and opaque prism groups protect real content without a page overflow mask", async () => {
+  const [home, css, hook] = await Promise.all([
+    sourceFile("../features/home/home-page.tsx"),
+    sourceFile("../app/scene-motion.css"),
+    sourceFile("../features/home/use-home-animation.ts")
+  ]);
+  assert.doesNotMatch(home, /overflow-x-hidden|overflow-hidden/);
+  assert.match(css, /\.figma-home\.spatial-site\s*\{[^}]*overflow:\s*visible/);
+  assert.match(css, /\.spatial-board\s*\{[^}]*grid-template-rows:\s*55px auto/);
+  assert.match(css, /\.spatial-project-card\s*\{[^}]*position:\s*relative;[^}]*grid-row:\s*2/);
+  assert.match(css, /\.story-prism-chart\s+\.spatial-bar\s*\{[^}]*opacity:\s*1;[^}]*transform-style:\s*preserve-3d/);
+  assert.match(hook, /\(min-width: 821px\) and \(prefers-reduced-motion: no-preference\)/);
+  assert.match(hook, /start:\s*"center 82%",\s*end:\s*"center 42%"/);
+});

@@ -92,12 +92,14 @@ function watchLandingApiRequests(page) {
 }
 
 async function expectSpatialLayout(page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  const documentSize = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth, body: document.body.scrollWidth }));
+  expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
+  expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
   // The outer glass hero intentionally bleeds right; its meaningful content must still fit.
   const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
-    return box.left < -1 || box.right > innerWidth + 1 || element.scrollWidth > element.clientWidth + 1
+    return box.left < -1 || box.right > document.documentElement.clientWidth + 1 || element.scrollWidth > element.clientWidth + 1
       ? [{ className: element.className, left: box.left, right: box.right, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }]
       : [];
   }));
@@ -110,9 +112,47 @@ async function expectSpatialLayout(page) {
     }).map(cell => cell.textContent);
   });
   expect(coveredAmounts, "The review panel must not cover quotation amounts").toEqual([]);
+  const collisions = await page.evaluate(() => {
+    const failures = [];
+    const intersects = (left, right) => left.left < right.right - 1 && left.right > right.left + 1 && left.top < right.bottom - 1 && left.bottom > right.top + 1;
+    const card = document.querySelector(".spatial-project-card");
+    const cardBox = card.getBoundingClientRect();
+    const bottom = document.querySelector(".spatial-flow-bottom").getBoundingClientRect();
+    if (intersects(cardBox, bottom)) failures.push("Project card overlaps playback controls");
+    for (const label of document.querySelectorAll(".spatial-lane > span, .spatial-lane > small")) {
+      if (intersects(cardBox, label.getBoundingClientRect())) failures.push("Project card overlaps a lane heading");
+    }
+    const stages = [...document.querySelectorAll(".spatial-stage")];
+    for (let index = 0; index < stages.length; index++) {
+      for (const other of stages.slice(index + 1)) {
+        if (intersects(stages[index].getBoundingClientRect(), other.getBoundingClientRect())) failures.push("Stage controls overlap");
+      }
+    }
+    // Check glyph bounds as well as boxes: a fixed-width table cell can fit while its text paints over its neighbour.
+    const textContainers = document.querySelectorAll('.spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
+    for (const container of textContainers) {
+      const box = container.getBoundingClientRect();
+      if (!box.width || !box.height) continue;
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (!node.textContent.trim() || node.parentElement.closest('.sr-only, [aria-hidden="true"]')) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const glyphs of range.getClientRects()) {
+          if (!glyphs.width || !glyphs.height) continue;
+          if (glyphs.left < box.left - 1 || glyphs.right > box.right + 1 || glyphs.top < box.top - 1 || glyphs.bottom > box.bottom + 1) {
+            failures.push(`${container.className || container.getAttribute("role")}: clipped text ${node.textContent.trim()}`);
+          }
+        }
+      }
+    }
+    return failures;
+  });
+  expect(collisions, "Functional text, the intrinsic project card and controls must not overlap or clip").toEqual([]);
   for (const button of await page.locator(".spatial-world button").all()) {
     if (!await button.isVisible()) continue;
-    const box = await button.evaluate(element => ({ height: element.getBoundingClientRect().height, clipped: element.scrollWidth > element.clientWidth + 1 }));
+    const box = await button.evaluate(element => ({ height: element.getBoundingClientRect().height, clipped: element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1 }));
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.clipped).toBe(false);
   }
@@ -156,7 +196,7 @@ const landingCopy = {
 };
 
 for (const language of ["ko", "en"]) {
-  for (const width of [320, 390, 768, 1024, 1100, 1440, 1920]) {
+  for (const width of [320, 360, 390, 430, 768, 1024, 1100, 1440, 1920]) {
     for (const theme of ["light", "dark"]) {
       test(`landing ${language} ${width}px ${theme}: all spatial scenes and five previews fit without overflow`, async ({ page }) => {
         const copy = landingCopy[language];
@@ -472,6 +512,136 @@ test("landing starts at entry, pauses at the footer and resumes when the hero re
   await page.clock.fastForward(1100);
   await expect(chapter).toHaveAttribute("data-run-step", "1");
 });
+
+async function cssTravelOffset(path) {
+  return path.evaluate(element => getComputedStyle(element).strokeDashoffset);
+}
+
+async function expectCssTravelMoving(path) {
+  await expect(path).toHaveCSS("animation-play-state", "running");
+  const first = await cssTravelOffset(path);
+  await expect.poll(() => cssTravelOffset(path), { message: "Visible CSS travel must change its rendered dash offset" }).not.toBe(first);
+}
+
+async function expectCssTravelFrozen(path) {
+  await expect(path).toHaveCSS("animation-play-state", "paused");
+  const first = await cssTravelOffset(path);
+  await path.page().waitForTimeout(350);
+  expect(await cssTravelOffset(path), "Paused CSS travel must retain the rendered dash offset").toBe(first);
+}
+
+test("ambient CSS travel moves on screen and freezes for hover, offscreen, explicit pause and visibility signals", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await page.mouse.move(0, 0);
+  const hero = page.locator(".scene-hero-light");
+  const heroTravel = hero.locator(".scene-travel").first();
+  const footer = page.locator(".scene-footer-light");
+  const footerTravel = footer.locator(".scene-travel").first();
+  await expect(hero).toHaveAttribute("data-ambient-visible", "true");
+  await expectCssTravelMoving(heroTravel);
+  await page.locator(".spatial-stage").first().hover();
+  await expectCssTravelFrozen(heroTravel);
+  await page.mouse.move(0, 0);
+  await expectCssTravelMoving(heroTravel);
+  await page.locator("#audience").scrollIntoViewIfNeeded();
+  await expect(hero).toHaveAttribute("data-ambient-visible", "false");
+  await expectCssTravelFrozen(heroTravel);
+  await expect(footer).toHaveAttribute("data-ambient-visible", "true");
+  await expectCssTravelMoving(footerTravel); // A different visible layer keeps moving independently.
+  await page.locator(".spatial-motion-toggle").click();
+  await releaseSpatialInteraction(page);
+  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
+  await page.locator("#audience").scrollIntoViewIfNeeded();
+  await expect(footer).toHaveAttribute("data-ambient-visible", "true");
+  await expectCssTravelFrozen(footerTravel);
+  await page.locator(".spatial-motion-toggle").click();
+  await releaseSpatialInteraction(page);
+  await page.locator("#audience").scrollIntoViewIfNeeded();
+  await expectCssTravelMoving(footerTravel);
+  // Exercise the visibility listener with a controlled document signal, without depending on headless tab policy.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
+  await expectCssTravelFrozen(footerTravel);
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expectCssTravelMoving(footerTravel);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(footerTravel).toHaveCSS("display", "none");
+  await expect(footerTravel).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".scene-fog-drift").first()).toHaveCSS("animation-name", "none");
+});
+
+for (const width of [390, 820]) {
+  test(`mobile atmosphere ${width}px: travel, particles and fog animation stay disabled`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/");
+    for (const path of await page.locator(".scene-travel").all()) await expect(path).toHaveCSS("display", "none");
+    await expect(page.locator(".scene-particles")).toHaveCSS("display", "none");
+    for (const fog of await page.locator(".scene-fog-drift, .scene-fog-cool").all()) await expect(fog).toHaveCSS("animation-name", "none");
+    for (const cap of await page.locator(".story-prism-cap").all()) await expect(cap).toHaveCSS("animation-name", "none");
+  });
+}
+
+for (const language of ["ko", "en"]) {
+  test(`landing ${language}: every settled prism keeps visible three-dimensional side faces`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    const scopes = page.getByRole("group", { name: landingCopy[language].scope });
+    for (const extended of [false, true]) {
+      await scopes.getByRole("button", { name: new RegExp(`^${extended ? landingCopy[language].extended : landingCopy[language].essential}`) }).click();
+      await page.locator(".spatial-effort").scrollIntoViewIfNeeded();
+      await expect(page.locator(".spatial-effort")).toHaveAttribute("data-ambient-visible", "true");
+      const columns = page.locator(".story-prism-column");
+      await expect(columns).toHaveCount(extended ? 4 : 3);
+      for (const column of await columns.all()) await expect(column).toHaveCSS("opacity", "1");
+      for (const prism of await page.locator(".story-prism-chart .spatial-bar").all()) {
+        await expect(prism).toHaveCSS("opacity", "1");
+        await expect(prism).toHaveCSS("transform-style", "preserve-3d");
+      }
+      await expect.poll(() => page.locator(".story-prism-side").evaluateAll(sides => sides.every(side => {
+        const box = side.getBoundingClientRect();
+        return box.width > 0.5 && box.height > 0.5;
+      })), { message: "Every prism side must retain nonzero projected geometry after reveal" }).toBe(true);
+    }
+  });
+
+  for (const width of [320, 430]) {
+    test(`landing ${language} ${width}px: fallback fonts and longer fictional text preserve intrinsic card layout`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.route(/\.(?:woff2?|ttf|otf)(?:\?.*)?$/, route => route.abort());
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await page.addStyleTag({ content: ".spatial-world, .spatial-world * { font-family: Arial, sans-serif !important; }" });
+      const requests = watchLandingApiRequests(page);
+      for (let stage = 0; stage < 5; stage++) {
+        await page.locator(".spatial-stage").nth(stage).click();
+        await page.locator(".spatial-card-detail p").evaluate((element, locale) => {
+          element.textContent += locale === "ko"
+            ? " 고객이 예약 시간을 확인하고 변경할 수 있도록, 확인할 정책과 상세 작업 범위를 함께 검토하는 가상의 예시입니다."
+            : " This fictional example also reviews booking changes, the cancellation policy, and the detailed work needed before the client approves the proposal.";
+        }, language);
+        await expectSpatialLayout(page);
+        const geometry = await page.locator(".spatial-project-card").evaluate(element => ({ position: getComputedStyle(element).position, scroll: element.scrollHeight, client: element.clientHeight }));
+        expect(geometry.position).not.toBe("absolute");
+        expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
+      }
+      expect(requests).toEqual([]);
+    });
+  }
+}
 
 test("a workspace round trip retains internally coherent spatial example data", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
