@@ -591,3 +591,5 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
  .figma-home.spatial-site .spatial-scope-estimator aside { border-left:0; padding:22px 0 0; border-top:1px solid #b994cd25; }
  .figma-home.spatial-site .spatial-scope-estimator aside strong { font-size:32px; }
 }
+.figma-home.spatial-site .spatial-world .final-cta.spatial-closing { align-items: stretch; }
+.figma-home.spatial-site .spatial-workflow .spatial-heading > p:not(.spatial-eyebrow):not(.spatial-hero-note) { font-size: clamp(14px,1.35vw,24px); line-height: 1.7; }
