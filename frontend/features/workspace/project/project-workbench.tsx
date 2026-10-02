@@ -149,6 +149,62 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }
   }
 
+  const aiSettings = activeStep === "agent" && canRun ? (
+    <details className="workspace-disclosure agent-chat-settings">
+      <summary>{t("AI 설정")}</summary>
+      {!runId ? <>
+          <div className="run-controls">
+            <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
+              <option value="">{t("기본 제공 AI")}</option>
+              {connections.map((item) => <option key={item.id} value={item.id}>{t("내 키 ·")}{item.provider} · {item.model} · {item.maskedKey}</option>)}
+            </select></label>
+            {connectionError && <span role="alert">{t("개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.")}</span>}
+            {credentialId && !connection && <span role="alert">{t("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.")}</span>}
+            {!credentialId && <>
+            <label>
+              {t("AI 제공사")}<select
+                value={provider}
+                onChange={(event) => {
+                  const nextProvider = event.target.value as Provider;
+                  setProvider(nextProvider);
+                  setModel(configuredModelOptions[nextProvider][0] ?? "");
+                }}
+              >
+                <option value="OPENAI">OpenAI</option>
+                <option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>
+                  Gemini{configuredModelOptions.GEMINI.length === 0 ? t(" · 설정 필요") : ""}
+                </option>
+              </select>
+            </label>
+            <label>
+              {t("AI 모델")}<select
+                value={model}
+                disabled={configuredModelOptions[provider].length === 0}
+                onChange={(event) => setModel(event.target.value)}
+              >
+                {configuredModelOptions[provider].length === 0 ? (
+                  <option value="">{t("등록된 모델 없음")}</option>
+                ) : (
+                  configuredModelOptions[provider].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            </>}
+            <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
+          </div>
+        <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={chatModel} />
+      </> : run && terminalStatuses.has(run.status) ? (
+        <button type="button" className="secondary-button" onClick={onResetRun}>
+          <ArrowRight size={18} /> {t("새 분석 준비")}
+        </button>
+      ) : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>}
+    </details>
+  ) : null;
+
   return (
     <>
       <div className={`project-heading${activeStep === "agent" ? " chat-project-heading" : ""}`}>

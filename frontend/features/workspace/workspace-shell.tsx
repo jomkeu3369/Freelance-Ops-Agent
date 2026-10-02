@@ -8,6 +8,7 @@ import { PipelinePreferences } from "./projects/pipeline-preferences";
 import { useTheme } from "next-themes";
 import {
   AuthSession,
+  ApiError,
   Project,
   Client,
   MeProfile,
