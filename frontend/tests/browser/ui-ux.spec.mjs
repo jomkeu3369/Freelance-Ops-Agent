@@ -96,7 +96,7 @@ async function expectSpatialLayout(page) {
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
   // Decorative glass may extend beyond its frame; meaningful content must stay inside usable width.
-  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
+  const clipped = await page.locator(".spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, .spatial-capability-strip, .spatial-capability-strip > div > span, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
     return box.left < -1 || box.right > document.documentElement.clientWidth + 1 || element.scrollWidth > element.clientWidth + 1
@@ -143,7 +143,7 @@ async function expectSpatialLayout(page) {
       }
     }
     // Check glyph bounds as well as boxes: a fixed-width table cell can fit while its text paints over its neighbour.
-    const textContainers = document.querySelectorAll('.spatial-demo-disclaimer, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
+    const textContainers = document.querySelectorAll('.spatial-capability-strip > span, .spatial-capability-strip > div > span, .spatial-demo-disclaimer, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
     for (const container of textContainers) {
       const box = container.getBoundingClientRect();
       if (!box.width || !box.height) continue;
@@ -169,6 +169,34 @@ async function expectSpatialLayout(page) {
     const box = await button.evaluate(element => ({ height: element.getBoundingClientRect().height, clipped: element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1 }));
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.clipped).toBe(false);
+  }
+}
+
+async function expectCapabilityStrip(page, language, width) {
+  const strip = page.locator(".spatial-capability-strip");
+  const caption = strip.locator(":scope > span");
+  const stages = strip.locator(":scope > div > span");
+  await expect(stages).toHaveText(landingCopy[language].stage);
+  await expect(caption).toHaveCSS("font-size", "16px");
+  await expect(caption).toHaveCSS("font-weight", "500");
+  await expect(caption).toHaveCSS("color", "rgb(214, 203, 225)");
+  const columns = await strip.locator(":scope > div").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(/\s+/).length);
+  expect(columns).toBe(width <= 420 ? 2 : width <= 820 ? 3 : 5);
+  for (const stage of await stages.all()) {
+    await expect(stage).toHaveCSS("font-size", width <= 820 ? "16px" : "18px");
+    await expect(stage).toHaveCSS("font-weight", "550");
+    await expect(stage).toHaveCSS("color", "rgb(240, 232, 248)");
+    await expect(stage.locator("svg")).toHaveCSS("width", "48px");
+    await expect(stage.locator("svg")).toHaveCSS("height", "48px");
+  }
+  for (const text of [caption, ...await stages.all()]) {
+    await expect(text).toHaveCSS("font-family", /Noto Sans KR Variable/);
+    await expect(text).toHaveCSS("font-style", "normal");
+    expect(await text.evaluate(element => {
+      let opacity = 1;
+      for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) opacity *= Number(getComputedStyle(ancestor).opacity);
+      return opacity;
+    }), "The stage summary must not be faded through an ancestor").toBe(1);
   }
 }
 
@@ -276,6 +304,7 @@ for (const language of ["ko", "en"]) {
         await expect(page.locator(".spatial-proposal")).toContainText("3,000,000");
         await expect(page.locator(".spatial-effort-number")).toHaveText(language === "ko" ? "10일" : "10 days");
         await expectFinalMetricCounts(page);
+        await expectCapabilityStrip(page, language, width);
         for (const scene of await page.locator("[data-story-metric-scene]").all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
         await screenshot(page, `home-${language}-${width}-${theme}`);
         if (language === "ko" && width === 1440 && theme === "light") await page.locator(".spatial-world").screenshot({ path: "outputs/ui-ux/screenshots/landing-desktop-middle.png" });
@@ -704,6 +733,22 @@ for (const language of ["ko", "en"]) {
   });
 }
 
+for (const language of ["ko", "en"]) {
+  for (const width of [420, 421, 820, 821]) {
+    test(`stage summary ${language} ${width}px: breakpoint labels remain large, sharp and unclipped`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      await page.evaluate(() => document.fonts.ready);
+      await page.locator(".spatial-capability-strip").scrollIntoViewIfNeeded();
+      await expectCapabilityStrip(page, language, width);
+      await expectSpatialLayout(page);
+    });
+  }
+}
+
 for (const width of [320, 1440]) {
   test(`landing to auth ${width}px: default mascot names localize and switch back without clipping`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -764,6 +809,7 @@ async function brandPlateClip(page) {
       height: element.clientHeight - pixels(top, element.clientHeight) - pixels(bottom, element.clientHeight),
       fullWidth: element.clientWidth, fullHeight: element.clientHeight,
       rounding: Number.parseFloat(clipPath.match(/\sround\s+([\d.]+)px/)?.[1] ?? "0"),
+      sideDifference: Math.abs(pixels(left, element.clientWidth) - pixels(right, element.clientWidth)),
       markWidth: mark.offsetWidth, markHeight: mark.offsetHeight
     };
   });
@@ -823,7 +869,23 @@ for (const language of ["ko", "en"]) {
       const target = page.locator("[data-story-brand-target]");
       await expect(mark).toHaveCount(1);
       await expect(target).toHaveCount(1);
-      for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.29, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.29, 0.13, 0.08, 0]) {
+      // Observe every rendered style change, not only settled scroll checkpoints.
+      await page.locator("[data-story-brand-plate]").evaluate(element => {
+        const samples = [];
+        const capture = () => {
+          const clip = getComputedStyle(element).clipPath;
+          const shape = clip.match(/^inset\((.*?)\s+round\s+([\d.]+)px/);
+          if (!shape) { samples.push({ clip, radius: 0, difference: Infinity }); return; }
+          const values = shape[1].trim().split(/\s+/).map(Number.parseFloat);
+          const [top, right = top, , left = right] = values;
+          samples.push({ radius: Number(shape[2]), difference: Math.abs(left - right) });
+        };
+        const observer = new MutationObserver(capture);
+        observer.observe(element, { attributes: true, attributeFilter: ["style"] });
+        capture();
+        window.__brandFoldObservation = { samples, stop: () => observer.disconnect() };
+      });
+      for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.2, 0.29, 0.38, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.38, 0.29, 0.2, 0.13, 0.08, 0]) {
         const range = await scrollBrandMerge(page, progress);
         expect(range.end).toBeGreaterThan(range.start);
         await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
@@ -839,8 +901,9 @@ for (const language of ["ko", "en"]) {
         expect(geometry.targetInsideCard).toBe(true);
         if (progress <= 0.13) await expectBrandCopyClearance(page);
         if (progress >= 0.12 && progress <= 0.46) {
-          // Every numeric inset has the same shape so round 20px must not tween from zero.
-          await expect.poll(async () => (await brandPlateClip(page)).rounding, { message: "Fold corners must retain their initial rounding in both scroll directions" }).toBeGreaterThanOrEqual(19.9);
+          // Scalar CSS variables preserve symmetry even when CSSOM shortens the shape string.
+          await expect.poll(async () => (await brandPlateClip(page)).rounding, { message: "Fold corners must retain their initial rounding in both scroll directions" }).toBeGreaterThanOrEqual(20);
+          await expect.poll(async () => (await brandPlateClip(page)).sideDifference, { message: "Left and right clip insets must remain equal throughout the fold" }).toBeLessThanOrEqual(0.001);
         }
         if (progress <= 0.12) {
           await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
@@ -862,6 +925,12 @@ for (const language of ["ko", "en"]) {
           }, { message: "The full plate must collapse to the source mark before travel begins" }).toBe(true);
         }
       }
+      const frames = await page.evaluate(() => {
+        window.__brandFoldObservation.stop();
+        return window.__brandFoldObservation.samples;
+      });
+      expect(frames.length, "Both scroll directions must produce intermediate rendered fold frames").toBeGreaterThan(10);
+      expect(frames.filter(frame => frame.radius < 20 || frame.radius > 28 || frame.difference > 0.001), "No forward or reverse frame may lose rounding or horizontal symmetry").toEqual([]);
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await scrollBrandMerge(page, 1);

@@ -48,7 +48,7 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 }
 
 /* Quiet labels must still be readable; preserve hierarchy without 7–9px copy. */
-.figma-home.spatial-site :is(.spatial-capability-strip > span, .spatial-capability-strip > div > span, .spatial-comparison-label, .spatial-comparison-disclaimer) { font-size: 12px; line-height: 1.7; color: #bfb0cb; }
+.figma-home.spatial-site :is(.spatial-comparison-label, .spatial-comparison-disclaimer) { font-size: 12px; line-height: 1.7; color: #bfb0cb; }
 .figma-home.spatial-site .reference-story :is(.story-panel-top, .story-panel-footnote, .story-muted, .story-mono-label, .story-row-number, .story-radial-node > small, .story-card-baseline, .story-quote-caption > span, .story-outline-badge) { font-family: inherit; font-size: 12px; line-height: 1.6; color: #bbafc8; }
 .figma-home.spatial-site .reference-story :is(.story-timeline-row, .story-timeline-row > span:last-child, .story-timeline-axis, .story-task-grid, .story-task-grid > .spatial-quote-head, .story-chat-result, .story-chat-reply > span, .story-chat-message > div > span, .story-scope-switch > p, .story-scope-switch button, .spatial-bar-label, .spatial-bars small, .spatial-effort > p, .story-evidence-meters small, .story-evidence-meters > div > span:last-child, .spatial-quote-total > span, .story-dashboard-ring > small, .story-ring-figure > div > span, .story-figure-caption, .story-figure-explanation > small) { font-size: 12px; line-height: 1.65; color: #bbafc8; }
 .figma-home.spatial-site .reference-story :is(.story-feature-copy > p, .story-section-heading > p, .story-benefit-card > p:not(.story-panel-footnote)) { color: #bcb2c7; }
@@ -112,3 +112,4 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
   .figma-home.spatial-site .spatial-capability-strip > div > span { font-size: 16px; }
 }
 @media (max-width: 420px) { .figma-home.spatial-site .spatial-capability-strip > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.figma-home.spatial-site .story-brand-plate { --brand-clip-top: 0px; --brand-clip-side: 0px; --brand-clip-bottom: 0px; --brand-clip-radius: 20px; }

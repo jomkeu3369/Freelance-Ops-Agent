@@ -94,7 +94,9 @@ export function useHomeAnimation() {
       } });
       transfer.to(plate, { y: drift, duration: .46, ease: "none" }, 0)
         .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { y: drift, duration: .46, ease: "none" }, 0)
-        .to(plate, {
+        .fromTo(plate, {
+          "--brand-clip-top": "0px", "--brand-clip-side": "0px", "--brand-clip-bottom": "0px", "--brand-clip-radius": "20px"
+        }, {
           "--brand-clip-top": () => `${clipInsets().top}px`, "--brand-clip-side": () => `${clipInsets().side}px`,
           "--brand-clip-bottom": () => `${clipInsets().bottom}px`, "--brand-clip-radius": "28px",
           duration: .34, ease: "sine.inOut"

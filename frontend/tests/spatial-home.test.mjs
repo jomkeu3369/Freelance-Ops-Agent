@@ -177,11 +177,18 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /trigger:\s*stage,\s*start:\s*"center 70%"/);
   assert.match(hook, /end:\s*"center 65%"/);
   assert.match(hook, /scrub:\s*\.85/);
-  assert.match(hook, /gsap\.set\(plate,\s*\{\s*clipPath:\s*"inset\(0px 0px 0px 0px round 20px\)",\s*autoAlpha:\s*1/);
+  assert.ok(hook.includes('clipPath: "inset(var(--brand-clip-top) var(--brand-clip-side) var(--brand-clip-bottom) var(--brand-clip-side) round var(--brand-clip-radius))"'));
+  for (const part of ["top", "side", "bottom"]) {
+    assert.ok(hook.includes(`"--brand-clip-${part}": "0px"`));
+    assert.ok(hook.includes('"--brand-clip-' + part + '": () => `${clipInsets().' + part + '}px`'));
+  }
+  assert.match(hook, /"--brand-clip-radius":\s*"20px"/);
+  assert.match(hook, /\.fromTo\(plate,\s*\{[^}]*"--brand-clip-radius":\s*"20px"[^}]*\},\s*\{[\s\S]*"--brand-clip-radius":\s*"28px"/, "The tween must explicitly start radius at 20px after every refresh");
+  assert.doesNotMatch(hook, /\.(?:to|fromTo)\(plate,\s*\{\s*clipPath:/, "Never tween CSSOM-normalized clip strings");
   assert.match(hook, /gsap\.set\(copy,\s*\{\s*opacity:\s*1\s*\}\)/);
   assert.match(hook, /const drift\s*=\s*\(\)\s*=>\s*window\.innerHeight\s*\*\s*\.12/);
   assert.match(hook, /\.to\(plate,\s*\{\s*y:\s*drift,\s*duration:\s*\.46,\s*ease:\s*"none"\s*\},\s*0\)/);
-  assert.match(hook, /\.to\(plate,\s*\{\s*clipPath:\s*squareClip,\s*duration:\s*\.34,\s*ease:\s*"sine.inOut"\s*\},\s*\.12\)/);
+  assert.match(hook, /"--brand-clip-radius":\s*"28px",\s*duration:\s*\.34,\s*ease:\s*"sine.inOut"\s*\},\s*\.12\)/);
   assert.match(hook, /\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*\.18,\s*ease:\s*"sine.inOut"\s*\},\s*\.16\)/);
   assert.match(hook, /duration:\s*\.54,\s*ease:\s*"power1.inOut"\s*\},\s*\.46\)/);
   assert.match(hook, /endTrigger:\s*target/);
@@ -190,7 +197,8 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /Math\.max\(stage\.offsetHeight\s*\*\s*\.57\s*\+\s*24,\s*copy\.offsetTop\s*\+\s*copy\.offsetHeight\s*\+\s*24\s*\+\s*mark\.offsetHeight\s*\/\s*2\)/);
   assert.match(hook, /placeMark\(\);\s*ScrollTrigger\.addEventListener\("refreshInit",\s*placeMark\)/);
   assert.match(hook, /ScrollTrigger\.removeEventListener\("refreshInit",\s*placeMark\)/);
-  assert.ok(hook.includes('inset(${top - half}px ${side}px ${stage.offsetHeight - top - half}px ${side}px round 28px)'), "Open and folded clips need four px insets so the radius cannot interpolate from a missing value");
+  assert.match(hook, /return\s*\{\s*top:\s*top - half,\s*side,\s*bottom:\s*stage\.offsetHeight - top - half\s*\}/);
+  assert.match(hook, /layoutObserver\.observe\(copy\)/);
   assert.match(hook, /stage\.getBoundingClientRect\(\)/);
   assert.match(hook, /target\.getBoundingClientRect\(\)/);
   assert.match(hook, /scale:\s*to\.width\s*\/\s*mark\.offsetWidth/);
@@ -366,4 +374,16 @@ test("mobile and reduced brand plates reserve intrinsic space for readable copy 
   assert.match(staticPlate, /\.story-brand-plate\s*\{[^}]*position:\s*relative;[^}]*height:\s*auto\s*!important;[^}]*padding:\s*28px 24px calc\(var\(--brand-mark-size\) \+ 64px\)/);
   assert.match(staticPlate, /\.story-brand-plate-copy\s*\{\s*position:\s*static/);
   assert.match(staticPlate, /\.story-brand-mark\s*\{\s*top:\s*auto;\s*bottom:\s*32px;\s*transform:\s*translateX\(-50%\)/);
+});
+
+
+test("the stage summary uses readable normal typography, larger icons and responsive grid tracks", async () => {
+  const css = await sourceFile("../app/landing-readability.css");
+  assert.match(css, /\.spatial-capability-strip > span\s*\{[^}]*font-family:\s*var\(--landing-font\);[^}]*font-size:\s*16px;[^}]*font-weight:\s*500;[^}]*color:\s*#d6cbe1/);
+  assert.match(css, /\.spatial-capability-strip > div > span\s*\{[^}]*font-family:\s*var\(--landing-font\);[^}]*font-size:\s*18px;[^}]*font-weight:\s*550;[^}]*color:\s*#f0e8f8;[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(css, /\.spatial-capability-strip svg\s*\{[^}]*width:\s*48px;\s*height:\s*48px/);
+  assert.match(css, /\.spatial-capability-strip > div\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)[\s\S]*\.spatial-capability-strip > div > span\s*\{\s*font-size:\s*16px/);
+  assert.match(css, /@media\s*\(max-width:\s*420px\)\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
 });
