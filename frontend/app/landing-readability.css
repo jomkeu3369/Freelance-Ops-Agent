@@ -19,7 +19,7 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .spatial-hero-actions .secondary-button { background: #1b1422; color: #e5d7ef; border-color: #ac88c54d; }
 .figma-home.spatial-site .spatial-hero-actions .secondary-button:hover { background: #281c33; color: #fff2ff; }
 
-/* Keep functional glyphs on a flat plane. Depth belongs to the decorative frame. */
+/* Readable resting geometry; pointer-depth.css applies one restrained shared tilt. */
 .figma-home.spatial-site .spatial-flow, .figma-home.spatial-site .spatial-flow:hover { width: 100%; transform: none; transition: none; backdrop-filter: none; padding-right: 20px; }
 .figma-home.spatial-site .spatial-flow::before { inset: -8px -9px 8px -6px; transform: perspective(1400px) rotateY(2deg); }
 .figma-home.spatial-site .spatial-flow::after { animation: none; opacity: .35; }
@@ -149,7 +149,12 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .reference-story .story-prism-column { display: contents; }
 .figma-home.spatial-site .reference-story .story-prism-stack { grid-column: var(--chart-column); grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: end; align-self: end; min-width: 0; padding-bottom: 22px; }
 .figma-home.spatial-site .reference-story .story-prism-chart .story-prism-column > small { grid-column: var(--chart-column); grid-row: 3; align-self: stretch; justify-self: center; }
+.figma-home.spatial-site .reference-story .story-prism-task-short { display: none; }
 @media (max-width: 480px) { .figma-home.spatial-site .reference-story .story-prism-chart { column-gap: 12px; } }
+@media (max-width: 480px) {
+  .figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] .story-prism-task-full { display: none; }
+  .figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] .story-prism-task-short { display: inline; overflow-wrap: normal; word-break: normal; }
+}
 
 /* Full-page readability audit: explanations and actions are never micro-type. */
 .figma-home.spatial-site .reference-story .story-evidence-meters > div > div > span { font-size: 14px; line-height: 1.65; color: #d0c5dc; }

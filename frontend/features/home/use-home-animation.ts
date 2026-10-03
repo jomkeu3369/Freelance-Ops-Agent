@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { createBrandFlight } from "./brand-flight.mjs";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -69,8 +70,32 @@ export function useHomeAnimation() {
         return { x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + mark.offsetTop), scale: to.width / mark.offsetWidth };
       };
       const placeMark = () => gsap.set(mark, { top: Math.max(stage.offsetHeight * .57 + 24, copy.offsetTop + copy.offsetHeight + 24 + mark.offsetHeight / 2) });
-      placeMark();
-      ScrollTrigger.addEventListener("refreshInit", placeMark);
+      const drift = () => window.innerHeight * .12;
+      let flight = createBrandFlight();
+      const refreshFlight = () => {
+        placeMark();
+        const from = stage.getBoundingClientRect();
+        const origin = { x: from.left + from.width / 2, y: from.top + mark.offsetTop };
+        const cards = [...card.parentElement!.querySelectorAll<HTMLElement>(".story-benefit-card")];
+        const blocks = cards.map(item => {
+          const revealY = Number(gsap.getProperty(item, "y")) || 0;
+          return [...item.querySelectorAll<HTMLElement>(":scope > h3, :scope > p:not(.story-panel-footnote)")].map(block => {
+            const rect = block.getBoundingClientRect();
+            return { left: rect.left, right: rect.right, bottom: rect.bottom - revealY };
+          });
+        });
+        const left = Math.max(...blocks[0].map(rect => rect.right));
+        const right = Math.min(...blocks[1].map(rect => rect.left));
+        const size = Math.min(mark.offsetWidth * .64, Math.max(36, right - left - 20));
+        const copyBottom = Math.max(...blocks.flat().map(rect => rect.bottom));
+        flight = createBrandFlight({
+          start: { x: 0, y: drift(), scale: 1 }, corridorX: (left + right) / 2 - origin.x,
+          clearY: copyBottom - origin.y + size / 2 + 20,
+          destination: destination(), compactScale: size / mark.offsetWidth
+        });
+      };
+      refreshFlight();
+      ScrollTrigger.addEventListener("refreshInit", refreshFlight);
       gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, transformOrigin: "center center" });
       gsap.set(target, { autoAlpha: 0 });
       // The panel is readable from first visibility. One scrubbed playhead
@@ -83,7 +108,10 @@ export function useHomeAnimation() {
         autoAlpha: 1, y: 0
       });
       gsap.set(copy, { opacity: 1 });
-      const drift = () => window.innerHeight * .12;
+      // Measure once per layout refresh. Scrubbing samples only numeric geometry,
+      // staying in the text gutter before turning into the diagram below copy.
+      const flightProgress = { value: 0 };
+      const renderFlight = () => gsap.set(mark, flight.sample(flightProgress.value));
       const transfer = gsap.timeline({ scrollTrigger: {
         id: "story-brand-merge", trigger: stage, start: "center 70%", endTrigger: target, end: "center 65%",
         scrub: .85, invalidateOnRefresh: true
@@ -99,7 +127,7 @@ export function useHomeAnimation() {
         }, .12)
         .to(copy, { opacity: 0, duration: .18, ease: "sine.inOut" }, .16)
         .to(plate, { autoAlpha: 0, duration: .09, ease: "sine.in" }, .44)
-        .to(mark, { x: () => destination().x, y: () => destination().y, scale: () => destination().scale, duration: .54, ease: "power1.inOut" }, .46)
+        .fromTo(flightProgress, { value: 0 }, { value: 1, onUpdate: renderFlight, immediateRender: false, duration: .54, ease: "power1.inOut" }, .46)
         .to(mark, { color: "#24142f", backgroundColor: "#cfacf0", boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521", duration: .24 }, .76)
         .set(target, { autoAlpha: 1 }, 1)
         .set(mark, { autoAlpha: 0 }, 1);
@@ -121,7 +149,7 @@ export function useHomeAnimation() {
       layoutObserver.observe(target);
       return () => {
         layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); opening?.kill();
-        ScrollTrigger.removeEventListener("refreshInit", placeMark);
+        ScrollTrigger.removeEventListener("refreshInit", refreshFlight);
         interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
       };
     });

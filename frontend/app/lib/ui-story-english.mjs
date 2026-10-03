@@ -1,5 +1,9 @@
 // Original fictional examples for the editorial product story.
 export const storyEnglish = {
+  "예약": "Booking",
+  "관리": "Admin",
+  "화면 검수": "Screen QA",
+  "예약 변경": "Changes",
   "이어지는 업무": "A connected workflow",
   "고객의 말에서,": "From the client's words,",
   "설명 가능한 제안까지.": "to a proposal with reasons.",

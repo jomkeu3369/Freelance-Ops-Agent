@@ -1,5 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import { createBrandFlight } from "../../features/home/brand-flight.mjs";
 
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 
@@ -239,7 +240,12 @@ async function expectLowerLandingTypography(page, width) {
     [".spatial-scope-slider > div > span", 14], [".spatial-comparison-grid strong + p", 14],
     [".spatial-comparison-grid li", 14], [".spatial-comparison-grid a", 14], [".spatial-comparison-footnote", 13],
     [".spatial-closing-link, .spatial-closing-link > span", 14], [".story-task-markers li > span:last-child", 14],
-    [".spatial-quote-total small, .story-ring-figure strong small, .spatial-effort-number > span", 12],
+    [".spatial-quote-total small, .story-ring-figure strong small, .spatial-effort-number > span", 13],
+    [".reference-story .story-panel-top > span:first-child", 15],
+    [".reference-story .story-mono-label, .reference-story .story-quote-caption > span", 14],
+    [".reference-story .story-timeline-row, .reference-story .story-scope-switch button", 14],
+    [".reference-story .story-panel-footnote, .reference-story .spatial-effort > p", 13],
+    [".reference-story .story-prism-column > small", 13],
     [".spatial-comparison-grid strong > span", 13], [".story-scope-chips > span", 12]
   ];
   const failures = await page.evaluate(rules => {
@@ -948,20 +954,24 @@ async function brandPlateClip(page) {
 }
 
 async function brandMergeGeometry(page, progress) {
-  return page.evaluate(value => {
+  const measured = await page.evaluate(() => {
     const mark = document.querySelector("[data-story-brand-mark]");
     const target = document.querySelector("[data-story-brand-target]");
     const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
     const from = mark.getBoundingClientRect();
     const to = target.getBoundingClientRect();
-    // One playhead holds/folds with a small shared downward drift, then eases into the target.
-    const flight = Math.max(0, Math.min(1, (value - 0.46) / 0.54));
-    const eased = flight < 0.5 ? 2 * flight * flight : 1 - Math.pow(-2 * flight + 2, 2) / 2;
+    const origin = { x: stage.left + stage.width / 2, y: stage.top + mark.offsetTop };
+    const cards = [...document.querySelector("[data-story-merge-card]").parentElement.querySelectorAll(".story-benefit-card")];
+    const blocks = cards.map(card => [...card.querySelectorAll(":scope > h3, :scope > p:not(.story-panel-footnote)")]);
+    const left = Math.max(...blocks[0].map(block => block.getBoundingClientRect().right));
+    const right = Math.min(...blocks[1].map(block => block.getBoundingClientRect().left));
+    const size = Math.min(mark.offsetWidth * .64, Math.max(36, right - left - 20));
+    const copyBottom = Math.max(...blocks.flatMap((items, index) => {
+      const transform = getComputedStyle(cards[index]).transform;
+      const revealY = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42;
+      return items.map(block => block.getBoundingClientRect().bottom - revealY);
+    }));
     const drift = innerHeight * 0.12;
-    const currentDrift = value <= 0.46 ? drift * Math.max(0, value) / 0.46 : drift * (1 - eased);
-    const expectedX = stage.left + stage.width / 2 + (to.left + to.width / 2 - stage.left - stage.width / 2) * eased;
-    const expectedY = stage.top + mark.offsetTop + currentDrift + (to.top + to.height / 2 - stage.top - mark.offsetTop) * eased;
-    const expectedWidth = mark.offsetWidth + (to.width - mark.offsetWidth) * eased;
     const visible = [mark, target].filter(element => {
       let opacity = 1;
       for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
@@ -971,8 +981,34 @@ async function brandMergeGeometry(page, progress) {
       }
       return opacity > 0.01;
     });
+    // Check the rendered F against actual text line boxes, independently of
+    // the sampled path. Whole paragraphs include empty trailing whitespace.
+    const copyRects = blocks.flat().flatMap(block => {
+      const range = document.createRange();
+      range.selectNodeContents(block);
+      return [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0).map(rect => ({
+        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+        text: block.textContent.trim(),
+      }));
+    });
+    const copyOverlaps = visible.flatMap(element => {
+      const logo = element.getBoundingClientRect();
+      return copyRects.flatMap(rect => {
+        const width = Math.min(logo.right, rect.right) - Math.max(logo.left, rect.left);
+        const height = Math.min(logo.bottom, rect.bottom) - Math.max(logo.top, rect.top);
+        return width > .75 && height > .75 ? [{ text: rect.text, width, height, logo: element === target ? "target" : "source" }] : [];
+      });
+    });
     return {
-      error: Math.max(Math.abs(from.left + from.width / 2 - expectedX), Math.abs(from.top + from.height / 2 - expectedY), Math.abs(from.width - expectedWidth)),
+      origin, drift, markWidth: mark.offsetWidth,
+      actual: { x: from.left + from.width / 2, y: from.top + from.height / 2, width: from.width },
+      flightGeometry: {
+        start: { x: 0, y: drift, scale: 1 }, corridorX: (left + right) / 2 - origin.x,
+        clearY: copyBottom - origin.y + size / 2 + 20,
+        destination: { x: to.left + to.width / 2 - origin.x, y: to.top + to.height / 2 - origin.y, scale: to.width / mark.offsetWidth },
+        compactScale: size / mark.offsetWidth,
+      },
+      copyBlockCount: blocks.flat().length, copyTextRectCount: copyRects.length, copyOverlaps,
       visibleCount: visible.length,
       active: visible[0] === target ? "target" : "source",
       left: from.left,
@@ -985,12 +1021,28 @@ async function brandMergeGeometry(page, progress) {
         return to.left >= card.left && to.right <= card.right && to.top >= card.top && to.bottom <= card.bottom;
       })()
     };
-  }, progress);
+  });
+  // The timeline eases one scalar playhead. Reuse the production sampler so
+  // this test can validate DOM integration without another Bézier implementation.
+  const flightProgress = Math.max(0, Math.min(1, (progress - .46) / .54));
+  const eased = flightProgress < .5 ? 2 * flightProgress * flightProgress : 1 - Math.pow(-2 * flightProgress + 2, 2) / 2;
+  const expected = progress <= .46
+    ? { x: 0, y: measured.drift * Math.max(0, progress) / .46, scale: 1 }
+    : createBrandFlight(measured.flightGeometry).sample(eased);
+  return {
+    ...measured,
+    error: Math.max(
+      Math.abs(measured.actual.x - measured.origin.x - expected.x),
+      Math.abs(measured.actual.y - measured.origin.y - expected.y),
+      Math.abs(measured.actual.width - measured.markWidth * expected.scale),
+    ),
+  };
 }
 
 for (const language of ["ko", "en"]) {
   for (const width of [1024, 1440]) {
     test(`brand merge ${language} ${width}px: full plate holds, folds, merges one logo, reverses and realigns after resize`, async ({ page }) => {
+      test.setTimeout(60_000);
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
@@ -1017,7 +1069,7 @@ for (const language of ["ko", "en"]) {
         capture();
         window.__brandFoldObservation = { samples, stop: () => observer.disconnect() };
       });
-      for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.2, 0.29, 0.38, 0.46, 0.6, 0.8, 0.99, 1, 0.8, 0.46, 0.38, 0.29, 0.2, 0.13, 0.08, 0]) {
+      for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.2, 0.29, 0.38, 0.46, 0.6, 0.7, 0.75, 0.8, 0.9, 0.99, 1, 0.9, 0.8, 0.7, 0.46, 0.38, 0.29, 0.2, 0.13, 0.08, 0]) {
         const range = await scrollBrandMerge(page, progress);
         expect(range.end).toBeGreaterThan(range.start);
         await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
@@ -1031,6 +1083,11 @@ for (const language of ["ko", "en"]) {
         expect(geometry.left).toBeGreaterThanOrEqual(-1);
         expect(geometry.right).toBeLessThanOrEqual(geometry.clientWidth + 1);
         expect(geometry.targetInsideCard).toBe(true);
+        if (progress >= .46) {
+          expect(geometry.copyBlockCount, "Both benefit headings and both introductory paragraphs must be measured").toBe(4);
+          expect(geometry.copyTextRectCount, "The overlap check must include rendered text lines").toBeGreaterThanOrEqual(4);
+          expect(geometry.copyOverlaps, `The visible F must clear both cards' text at progress ${progress}, including on reverse scroll`).toEqual([]);
+        }
         if (progress <= 0.13) await expectBrandCopyClearance(page);
         if (progress >= 0.12 && progress <= 0.46) {
           // Scalar CSS variables preserve symmetry even when CSSOM shortens the shape string.
@@ -1065,6 +1122,9 @@ for (const language of ["ko", "en"]) {
       expect(frames.filter(frame => frame.radius < 20 || frame.radius > 28 || frame.difference > 0.001), "No forward or reverse frame may lose rounding or horizontal symmetry").toEqual([]);
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await scrollBrandMerge(page, .75);
+      await expect.poll(async () => (await brandMergeGeometry(page, .75)).error, { message: "Resize must rebuild the intermediate corridor path, not only its endpoint" }).toBeLessThanOrEqual(3);
+      expect((await brandMergeGeometry(page, .75)).copyOverlaps, "The resized flight must still clear actual benefit text").toEqual([]);
       await scrollBrandMerge(page, 1);
       await expect.poll(async () => (await brandMergeGeometry(page, 1)).error).toBeLessThanOrEqual(3);
       await expect(target).toHaveCSS("visibility", "visible");
