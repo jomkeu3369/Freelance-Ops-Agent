@@ -95,3 +95,17 @@ npm run test:ui -- tests/browser/verified-notices.spec.mjs tests/browser/signup-
 ```
 
 브라우저 검사는 가입·이메일 확인·관리자 변경 요청을 모두 모킹하고 외부 통신을 차단합니다. 실제 가입, 이메일 전송, 공지 게시 또는 운영 관리자 변경을 수행하지 않습니다.
+
+## Professional conversation workspace (2026-10-03)
+
+The workspace now uses a compact navigation rail with real recent-project links, a centered conversation surface, separate activity disclosures and reviewable result cards. The composer remains mounted while work is running and keeps drafts scoped to the user, workspace and project. New-message following remains opt-in when the reader has scrolled into history. Offline status prevents sending and never automatically resubmits the draft.
+
+AI settings can be opened and focused directly from the composer. Settings group personal AI connections and account usage near the top; setup guidance is a native disclosure. Compact usage in a project keeps used, limit, reserved and remaining counts visible, with reset rules behind a disclosure. There are no new provider integrations or backend/API changes.
+
+Visual implementation lives in `features/workspace/professional-workspace.css`, loaded after existing workspace styles. It is scoped away from public pages and authentication. Light/dark tokens, smaller-screen document flow, wrapped long content, reduced-motion treatment and keyboard focus are included.
+
+Validation:
+- Node 22: `npm run preview:check` checks TypeScript, all Node tests, ESLint and production build
+- `tests/chat-presentation.test.mjs` covers real-state presentation, terminal result absence, localization and preserved navigation/approval boundaries
+- `tests/browser/professional-workspace.spec.mjs` adds mock-only draft/navigation, 320/390/640/1280px reflow, focus, offline and English/reduced-motion cases; it does not add a public mock or authentication-bypass route
+- Browser tests were collected but not executed in this environment: Chromium socket/sandbox restrictions were already confirmed, and the authenticated preview remains behind the existing login/CORS gate. The source/build checks are not a rendered accessibility, 200/300/400% zoom, screenshot or end-to-end pass

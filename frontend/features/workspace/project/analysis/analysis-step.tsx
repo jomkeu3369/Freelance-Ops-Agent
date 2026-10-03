@@ -25,6 +25,7 @@ interface AnalysisStepProps {
   canEditPolicy: boolean;
   modelAvailable: boolean;
   streamState: StreamState;
+  onOpenAISettings: () => void;
   onSendMessage: (message: string) => Promise<boolean>;
   costUsage: AgentRunUsage | null;
   onCancel: () => Promise<void>;
@@ -32,7 +33,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, streamState, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const resultPanel = useRef<HTMLDetailsElement>(null);
@@ -49,10 +50,10 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   }
 
   return <>
-    <FreeUsageStatus session={session} revision={`${runId ?? ""}:${run?.status ?? ""}`} />
+    <FreeUsageStatus session={session} revision={`${runId ?? ""}:${run?.status ?? ""}`} compact />
     <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
-      streamState={streamState} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
+      streamState={streamState} onOpenAISettings={onOpenAISettings} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
       clarification={run?.interruption ? <InterruptionForm key={run.interruption.interruptionId}
         interruption={run.interruption}
         draftKey={interruptionDraftKey(session.userId, session.workspaceId, runId ?? run.runId, run.interruption.interruptionId)}

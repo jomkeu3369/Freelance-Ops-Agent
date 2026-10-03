@@ -8,9 +8,7 @@ import {
   listRateCards,
   getEstimationPolicy,
 } from "../../../app/lib/api";
-import { useState, useRef, useEffect } from "react";
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
+import { useState, useEffect } from "react";
 import { CircleNotch, Warning, CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import { accountStatusLabels } from "../shared/constants";
 import { RateCardManager } from "./rate-card-manager";
@@ -19,8 +17,6 @@ import { EstimationPolicyForm } from "./estimation-policy-form";
 import { FreeUsageStatus } from "../usage/free-usage-status";
 import { AnalysisReturnLink } from "./analysis-return-link";
 import { AIConnectionSettings } from "./ai-connection-settings";
-
-gsap.registerPlugin(useGSAP);
 
 interface SettingsPanelProps {
   session: AuthSession;
@@ -43,7 +39,6 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const onboardingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,44 +75,19 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
   const onboardingComplete = completedSetupCount === setupStates.length;
   const setupProgress = Math.round((completedSetupCount / setupStates.length) * 100);
 
-  useGSAP(
-    () => {
-      if (loading || !onboardingRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-        return;
-      gsap.fromTo(
-        ".onboarding-step",
-        { y: 18, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.55, stagger: 0.08, ease: "power3.out" }
-      );
-      gsap.fromTo(
-        ".onboarding-progress-value",
-        { scaleX: 0 },
-        { scaleX: 1, duration: 0.8, ease: "power3.out", transformOrigin: "left center" }
-      );
-    },
-    { scope: onboardingRef, dependencies: [loading, setupProgress], revertOnUpdate: true }
-  );
-
   if (loading)
     return (
-      <div className="section-loading">
+      <div className="section-loading" role="status" aria-busy="true">
         <CircleNotch className="spin" /> {t("작업 공간 설정을 확인하고 있습니다.")}</div>
     );
 
   return (
     <section className="settings-page">
       <AnalysisReturnLink />
-      <FreeUsageStatus session={session} />
       <div className="settings-heading">
         <span>{t("작업 공간 설정")}</span>
-        <h1>
-          {onboardingComplete
-            ? t("견적 기준을 관리하세요.")
-            : hasActiveRateCard && policy
-              ? t("첫 고객 문의를 등록하세요.")
-              : t("먼저 견적 기준을 정해볼까요?")}
-        </h1>
-        <p>{t("자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다.")}</p>
+        <h1>{t("설정")}</h1>
+        <p>{t("계정, AI 연결, 사용량과 견적 기준을 관리합니다.")}</p>
       </div>
       {error && (
         <div className="inline-error" role="alert">
@@ -131,7 +101,13 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           {t(saved)}
         </div>
       )}
-      <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`} ref={onboardingRef}>
+      <div className="settings-essentials settings-content">
+        <FreeUsageStatus session={session} />
+        {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}
+      </div>
+      {canReadQuotation && !error && <details className="workspace-disclosure settings-quick-start">
+        <summary>{t("빠른 시작")}<small>{t("온보딩 {v0}/{v1} 완료", { v0: completedSetupCount, v1: setupStates.length })}</small></summary>
+      <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`}>
         <header>
           <div>
             <span>{t("빠른 시작")}</span>
@@ -232,6 +208,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
           </button>
         )}
       </div>
+      </details>}
       <div className="settings-grid">
         <aside className="settings-index" aria-label={t("작업 공간 설정 목차")}>
           <a href="#workspace-profile">
@@ -286,15 +263,15 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               <span>02</span>
               <div>
                 <h2>{t("서비스 단가")}</h2>
-                <p>{t("견적 계산에 사용할 시간·일·고정 금액 기준을 등록합니다.")}</p>
+                <p>{t("자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다.")}</p>
               </div>
             </header>
-            <RateCardManager
+            {canReadQuotation ? <RateCardManager
               session={session}
               rateCards={rateCards}
               canWrite={canWriteQuotation}
               onChange={setRateCards}
-            />
+            /> : <p>{t("서비스 단가를 볼 권한이 없습니다.")}</p>}
           </section>
           <section id="estimation-policy">
             <header>
@@ -332,10 +309,9 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
                 </dl>
               )
             ) : (
-              <p>{t("계산 기준을 확인할 수 없는 계정입니다.")}</p>
+              <p>{canReadQuotation ? t("계산 기준을 불러오지 못했습니다. 설정을 다시 열어 주세요.") : t("계산 기준을 볼 권한이 없습니다.")}</p>
             )}
           </section>
-          {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}
         </div>
       </div>
     </section>

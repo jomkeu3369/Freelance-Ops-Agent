@@ -68,6 +68,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const aiSettingsPanel = useRef<HTMLDetailsElement>(null);
+  const aiSettingsSummary = useRef<HTMLElement>(null);
   const deleteDialog = useRef<HTMLElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingProject, setDeletingProject] = useState(false);
@@ -149,9 +151,16 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }
   }
 
+  function openAISettings() {
+    if (!aiSettingsPanel.current) return;
+    aiSettingsPanel.current.open = true;
+    aiSettingsSummary.current?.focus({ preventScroll: true });
+    aiSettingsPanel.current.scrollIntoView({ block: "start", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+  }
+
   const aiSettings = activeStep === "agent" && canRun ? (
-    <details className="workspace-disclosure agent-chat-settings">
-      <summary>{t("AI 설정")}</summary>
+    <details ref={aiSettingsPanel} className="workspace-disclosure agent-chat-settings">
+      <summary ref={aiSettingsSummary}>{t("AI 설정")}</summary>
       {!runId ? <>
           <div className="run-controls">
             <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
@@ -359,6 +368,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canRun={canRun}
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
+          onOpenAISettings={openAISettings}
           onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
           costUsage={costUsage}
           onCancel={onCancel}

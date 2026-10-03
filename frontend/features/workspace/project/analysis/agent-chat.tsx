@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import {
   AgentRunHistoryItem,
@@ -17,6 +17,8 @@ import {
   listProjectEstimationPolicyProposals,
   proposeEstimationPolicy,
 } from "../../../../app/lib/api";
+import { ChatCircleText, ArrowUp, ArrowDown, ArrowUpRight, CheckCircle, CircleNotch, WarningCircle, WifiSlash, ListChecks, SlidersHorizontal } from "@phosphor-icons/react";
+import { chatState, resultPendingMessage } from "../../../../app/lib/chat-presentation.mjs";
 import { parseChatPolicyIntent } from "../../../../app/lib/chat-policy-intent.mjs";
 import { departmentLabels, runStatusLabels } from "../../shared/constants";
 import { eventActivityLabels, runFailureMessage } from "../../shared/activity-presentation";
@@ -35,6 +37,7 @@ interface AgentChatProps {
   modelAvailable: boolean;
   streamState: StreamState;
   clarification: ReactNode;
+  onOpenAISettings: () => void;
   onOpenResult: (view: AgentRunView) => void;
   onSend: (message: string) => Promise<boolean>;
   onCancel: () => Promise<void>;
@@ -48,6 +51,12 @@ function proposalKey(session: AuthSession, projectId: string) {
   return `freelance-ops-policy-proposal-v1:${session.userId}:${session.workspaceId}:${projectId}`;
 }
 
+const subscribeToConnection = (notify: () => void) => {
+  window.addEventListener("online", notify);
+  window.addEventListener("offline", notify);
+  return () => { window.removeEventListener("online", notify); window.removeEventListener("offline", notify); };
+};
+
 const activeStatuses = new Set(["QUEUED", "RUNNING", "WAITING_FOR_USER"]);
 
 function eventText(event: WorkflowEvent, t: (source: string) => string): string {
@@ -59,8 +68,9 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, onOpenResult, onSend, onCancel }: AgentChatProps) {
+export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
+  const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState<AgentRunHistoryItem[]>([]);
   const [policyHistory, setPolicyHistory] = useState<EstimationPolicyProposal[]>([]);
@@ -144,6 +154,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     ...[...new Map([...policyHistory, ...(proposal ? [proposal] : [])].map((value) => [value.proposalId, value])).values()].map((value) => ({ kind: "policy" as const, value, createdAt: value.createdAt })),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [turns, policyHistory, proposal]);
   const active = !!runId && (!run || activeStatuses.has(run.status));
+  const presentation = chatState(run?.status ?? (runId ? "QUEUED" : null), { online, reconnecting: active && streamState === "reconnecting" });
   const updateSignature = `${timeline.map((entry) => entry.kind === "policy" ? `${entry.value.proposalId}:${entry.value.status}` : entry.value.runId).join("|")}:${run?.status}:${run?.interruption?.interruptionId}:${events.at(-1)?.eventId}:${run?.result?.projectSummary}`;
 
   useLayoutEffect(() => {
@@ -184,7 +195,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = draft;
-    if (!message.trim() || sendLock.current || busy || active || composing.current) return;
+    if (!online || !message.trim() || sendLock.current || busy || active || composing.current) return;
     sendLock.current = true;
     setSending(true);
     setPolicyError(null);
@@ -208,7 +219,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         try { sessionStorage.setItem(pendingKey, next.proposalId); } catch { /* Keep it in memory. */ }
         updateDraft("");
       } else {
-        if (!canRun || !modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
+        if (!canRun) throw new Error(t("분석을 실행할 권한이 없습니다."));
+        if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
         if (await onSend(message)) { setAcceptedMessage(message); updateDraft(""); showLatest(); }
         else setPolicyError(t("요청을 보내지 못했습니다. 입력은 보존되었습니다. 다시 보내 주세요."));
       }
@@ -253,8 +265,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   return (
     <section className="agent-chat" aria-label={t("에이전트 대화")}>
       <header className="agent-chat-heading">
-        <div><span>{t("프로젝트 에이전트")}</span><h2>{t("프로젝트 대화")}</h2></div>
-        <p>{t("요청하고, 확인하고, 결과를 열어보세요.")}</p>
+        <div className="agent-chat-identity"><span className="agent-chat-avatar" aria-hidden="true"><ChatCircleText size={23} weight="duotone" /></span><div><h2>{t("프로젝트 대화")}</h2><p>{t("프로젝트 에이전트")}</p></div></div>
+        <span className={`agent-chat-state ${presentation.tone}`} role="status"><i aria-hidden="true" />{t(presentation.label)}</span>
       </header>
       {/* A scrollable log needs focus so keyboard users can read older messages with arrow keys. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
@@ -267,13 +279,13 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       <div ref={content} className="agent-chat-content">
         {loading && <p className="agent-chat-muted">{t("작업 기록을 불러오는 중입니다.")}</p>}
         {error && <div role="alert"><p>{error}</p><button type="button" className="quiet-button" onClick={() => setHistoryRevision((value) => value + 1)}>{t("기록 다시 불러오기")}</button></div>}
-        {!loading && !error && timeline.length === 0 && <div className="agent-chat-empty"><strong>{t("무엇을 도와드릴까요?")}</strong><p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p><small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small></div>}
+        {!loading && !error && timeline.length === 0 && <div className="agent-chat-empty"><span className="agent-chat-empty-icon" aria-hidden="true"><ChatCircleText size={30} weight="duotone" /></span><strong>{t("무엇을 도와드릴까요?")}</strong><p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p><small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small>{!draft && canRun && <div className="agent-chat-starters">{["이 프로젝트의 요구사항과 확인할 질문을 정리해 줘", "이 프로젝트의 작업 범위와 견적 초안을 만들어 줘"].map(message => <button type="button" key={message} disabled={!online} onClick={() => { updateDraft(t(message)); input.current?.focus(); }}>{t(message)}<ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>}</div>}
         {timeline.map((entry) => {
           if (entry.kind === "policy") {
             const item = entry.value;
             return <div className="agent-chat-turn" key={`policy-${item.proposalId}`} data-proposal-id={item.proposalId}>
               <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.sourceMessage}</p></div>
-              <div className="agent-chat-message assistant agent-chat-policy"><span>{t("견적 기본 설정")} · {item.status === "APPLIED" ? t("적용됨") : item.status === "PENDING" ? t("확인 대기") : t("새 변경안 필요")}</span>
+              <div className="agent-chat-message assistant agent-chat-policy" data-state={item.status === "APPLIED" ? "success" : "attention"}><span>{t("견적 기본 설정")} · {item.status === "APPLIED" ? t("적용됨") : item.status === "PENDING" ? t("확인 대기") : t("새 변경안 필요")}</span>
                 <strong>{item.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : t("견적 기본 설정 변경안")}</strong>
                 {item.status === "PENDING" && <p className="agent-chat-muted">{t("현재 값과 변경 값을 확인해 주세요. 확인 전에는 적용되지 않습니다.")}</p>}
                 <dl>{([ ["defaultTaxRate", "기본 세율"], ["defaultRiskBufferRate", "위험 버퍼"], ["maximumDiscountRate", "최대 할인"] ] as const).map(([field, label]) => <div key={field}><dt>{t(label)}</dt><dd>{(item.before[field] * 100).toLocaleString()}% → {(item.after[field] * 100).toLocaleString()}%</dd></div>)}</dl>
@@ -286,25 +298,30 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           const view = item.runId === runId ? run : pastRuns[item.runId];
           const status = view?.status ?? item.status;
           const liveEvents = item.runId === runId ? events : [];
+          const state = chatState(status, item.runId === runId ? { online, reconnecting: active && streamState === "reconnecting" } : {});
+          const missingHistory = item.runId !== runId && !view && !loading;
+          const needsResultRetry = missingHistory;
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
             {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.requirementText}</p></div>}
-            <div className="agent-chat-message assistant">
-              <span>{t("작업 상태")} · {t(runStatusLabels[status] ?? "확인 중")}</span>
+            <div className="agent-chat-message assistant" data-state={missingHistory ? "offline" : state.tone}>
+              <span className="agent-chat-message-label">{missingHistory ? <WarningCircle size={17} aria-hidden="true" /> : state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {missingHistory ? t("기록 확인 필요") : t(runStatusLabels[status] ?? "확인 중")}</span>
               {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}>{eventText(entry, t)}</li>)}</ol></details>}
               {view?.result ? <div className="agent-chat-result">
-                <strong>{t("결과")}</strong>
+                <strong>{t("검토할 결과")}</strong>
                 <p>{view.result.projectSummary}</p>
-                <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}</button>
-              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : status === "WAITING_FOR_USER" ? t("사용자 확인을 기다리고 있습니다") : t("작업 결과를 기다리는 중입니다.")}</p>}
+                <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}<ArrowUpRight size={17} aria-hidden="true" /></button>
+              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t(resultPendingMessage(status))}</p>}
+              {needsResultRetry && <button type="button" className="quiet-button" disabled={loading} onClick={() => setHistoryRevision(value => value + 1)}>{t("기록 다시 불러오기")}</button>}
               {status === "CANCELLED" && <p className="agent-chat-muted">{t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")}</p>}
             </div>
           </div>;
         })}
       </div>
       </div>
-      {unread && <button type="button" className="agent-chat-new quiet-button" onClick={showLatest}>{t("새 메시지 보기")}</button>}
+      {unread && <button type="button" className="agent-chat-new quiet-button" onClick={showLatest}><ArrowDown size={17} aria-hidden="true" />{t("새 메시지 보기")}</button>}
       <p className="sr-only" role="status">{unread ? t("새 메시지가 있습니다.") : [proposal ? proposal.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : proposal.status === "PENDING" ? t("견적 기본 설정 변경안") : t("새 변경안 필요") : "", run ? t(runStatusLabels[run.status]) : ""].filter(Boolean).join(" · ")}</p>
-      {active && streamState === "reconnecting" && <p className="agent-chat-connection" role="status">{t("연결을 다시 확인하고 있습니다. 요청을 다시 보내지 않아도 됩니다.")}</p>}
+      {!online && <p className="agent-chat-connection offline" role="status"><WifiSlash size={18} aria-hidden="true" />{t("인터넷 연결을 확인해 주세요. 입력한 내용은 보존되며 자동으로 전송되지 않습니다.")}</p>}
+      {online && active && streamState === "reconnecting" && <p className="agent-chat-connection" role="status">{t("연결을 다시 확인하고 있습니다. 요청을 다시 보내지 않아도 됩니다.")}</p>}
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
@@ -313,8 +330,9 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
         <div className="agent-chat-actions">
+          {canRun && <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings}><SlidersHorizontal size={17} aria-hidden="true" />{t("AI 설정 열기")}</button>}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
-          <button type="submit" className="primary-button" disabled={!draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? t("요청 중...") : t("보내기")}</button>
+          <button type="submit" className="primary-button" disabled={!online || !draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}{sending ? t("요청 중...") : t("보내기")}</button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}
       </form>

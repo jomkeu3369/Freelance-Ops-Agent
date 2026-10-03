@@ -64,7 +64,7 @@ export function AIConnectionSettings({ session }: { session: AuthSession }) {
         <label>{t("API 키")}<input type="password" autoComplete="off" spellCheck={false} value={apiKey} minLength={16} maxLength={512} required disabled={busy} onChange={(event) => setApiKey(event.target.value)} placeholder={t("새 키를 입력하세요")} /></label>
         <button className="primary-button" disabled={busy || !model || !apiKey}>{busy ? t("연결 확인 중…") : data.connections.some((item) => item.provider === provider) ? t("확인 후 연결 교체") : t("확인 후 연결")}</button>
         <small>{t("모델 접근만 확인합니다. 잔여 크레딧이나 생성 성공을 보장하지 않습니다. 같은 제공사에 등록하면 기존 키와 모델을 교체합니다.")}</small>
-      </form> : <p role="status">{t("개인 키 연결을 준비하고 있습니다. 현재는 기본 제공 AI를 이용해 주세요.")}</p>}
+      </form> : <p role="status">{t("현재 개인 키 연결을 사용할 수 없습니다. 기본 제공 AI를 이용해 주세요.")}</p>}
     </>}
   </section>;
 }

@@ -52,6 +52,7 @@ import { createProjectIntakeDraft, projectIntakeDraftScope } from "@/app/lib/pro
 import "../../app/workspace/figma-workspace.css";
 import "../../app/workspace/quick-intake.css";
 import "./project/analysis/agent-chat.css";
+import "./professional-workspace.css";
 
 export const subscribeToThemeHydration = () => () => undefined;
 
@@ -710,7 +711,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   return (
     <div
-      className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
+      className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}${activeView === "project" && projectStep === "agent" ? " conversation-workspace" : ""}`}
     >
       <WorkspaceChrome
         session={session}
@@ -725,6 +726,10 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         runId={runId}
         run={run}
         activePermissions={activePermissions}
+        projects={projects}
+        selectedProjectId={selectedProject?.id ?? null}
+        onSelectProject={(project) => navigateWorkspace("project", project, "agent")}
+        onCreateProject={() => setShowNewProject(true)}
         navigateWorkspace={navigateWorkspace}
         logout={logout}
         onSwitchWorkspace={handleSwitchWorkspace}
