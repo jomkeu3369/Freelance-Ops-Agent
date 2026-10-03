@@ -27,10 +27,11 @@
     transform: perspective(1000px) translate3d(var(--pointer-shift-x), var(--pointer-shift-y), var(--pointer-lift)) rotateX(var(--pointer-rx)) rotateY(var(--pointer-ry)) rotate(-90deg);
   }
   /* Bodies project in front of the tilted shell; their labels stay on the reading plane. */
-  .figma-home.spatial-site .reference-story .story-prism-stack { perspective: 900px; perspective-origin: 50% 100%; }
-  .figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar[data-story-prism] {
+  .figma-home.spatial-site .reference-story .story-prism-stack { position: relative; perspective: 900px; perspective-origin: 50% 100%; }
+  .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-chart .spatial-bar[data-story-prism] {
     transform: translate3d(var(--pointer-shift-x), var(--pointer-shift-y), var(--pointer-lift)) rotateX(calc(-18deg + var(--pointer-rx))) rotateY(calc(-35deg + var(--pointer-ry))) scaleY(var(--story-prism-grow, 1));
   }
+  .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-stack::after { content: ""; position: absolute; bottom: -12px; left: calc(50% - 48px); width: 96px; height: 19px; pointer-events: none; background: radial-gradient(ellipse, #04020788, transparent 70%); transform: translateX(calc(var(--pointer-shift-x) * -.7)); opacity: calc(.45 + var(--pointer-strength) * .35); }
   .figma-home.spatial-site .spatial-flow[data-pointer-depth] .spatial-stage-icon {
     transform: perspective(900px) translate3d(var(--pointer-shift-x), var(--pointer-shift-y), var(--pointer-lift)) rotateX(var(--pointer-rx)) rotateY(var(--pointer-ry));
     box-shadow: 0 10px 22px -12px #08030fe0, inset 0 1px #e5c7ff26;
