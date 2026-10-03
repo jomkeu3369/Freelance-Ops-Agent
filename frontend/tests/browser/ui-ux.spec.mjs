@@ -1042,6 +1042,22 @@ async function brandMergeGeometry(page, progress) {
 }
 
 for (const language of ["ko", "en"]) {
+  test(`header home ${language}: an unchanged top hash still returns a manually scrolled page to the hero`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+    await page.goto("/#top");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await page.evaluate(() => document.fonts.ready);
+    const home = page.locator(".nav-shell .brand");
+    for (const y of [377, 720]) {
+      await page.evaluate(top => window.scrollTo({ top, behavior: "instant" }), y);
+      await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(300);
+      await expect(page).toHaveURL(/#top$/);
+      await home.click();
+      await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+      await expect(page).toHaveURL(/#top$/);
+    }
+  });
+
   for (const width of [1024, 1440]) {
     test(`brand merge ${language} ${width}px: full plate holds, folds, merges one logo, reverses and realigns after resize`, async ({ page }) => {
       test.setTimeout(60_000);
@@ -1097,6 +1113,10 @@ for (const language of ["ko", "en"]) {
           await expect.poll(async () => (await brandPlateClip(page)).sideDifference, { message: "Left and right clip insets must remain equal throughout the fold" }).toBeLessThanOrEqual(0.001);
         }
         if (progress <= 0.12) {
+          const fullStage = await page.locator(".story-brand-stage").evaluate(element => ({ width: element.clientWidth, height: element.clientHeight, page: document.documentElement.clientWidth, left: element.getBoundingClientRect().left }));
+          expect(fullStage.left).toBeCloseTo(0, 0);
+          expect(fullStage.width).toBe(fullStage.page);
+          expect(fullStage.width / fullStage.height).toBeCloseTo(2.6, 1);
           await expect(page.locator("[data-story-brand-copy]")).toHaveCSS("opacity", "1");
           await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("opacity", "1");
           await expect.poll(async () => {

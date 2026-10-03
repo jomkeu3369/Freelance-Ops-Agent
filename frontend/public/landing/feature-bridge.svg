@@ -1,0 +1,36 @@
+<!-- Original Freelance Ops continuity light. Prerender at 1440x920; normalize
+     RGB to #dec4f4 while retaining rendered alpha before lossless WebP encoding.
+     The broad returning arc connects the hero fan to feature-glow's upper inlet.
+     Edge feathering and all softness are baked into the raster, never live CSS. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920">
+  <defs>
+    <linearGradient id="bridge-edge-x">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset=".045" stop-color="white" stop-opacity=".22"/>
+      <stop offset=".13" stop-color="white"/>
+      <stop offset=".86" stop-color="white"/>
+      <stop offset=".97" stop-color="white" stop-opacity=".2"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="bridge-edge-y" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset=".006" stop-color="white" stop-opacity="0"/>
+      <stop offset=".1" stop-color="white" stop-opacity=".8"/>
+      <stop offset=".21" stop-color="white"/>
+      <stop offset=".73" stop-color="white"/>
+      <stop offset=".91" stop-color="white" stop-opacity=".3"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="bridge-fade-x"><rect width="1440" height="920" fill="url(#bridge-edge-x)"/></mask>
+    <mask id="bridge-fade-y"><rect width="1440" height="920" fill="url(#bridge-edge-y)"/></mask>
+    <filter id="bridge-atmosphere" x="-240" y="-240" width="1920" height="1400" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="49"/></filter>
+    <filter id="bridge-ribbon" x="-160" y="-160" width="1760" height="1240" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="23"/></filter>
+    <filter id="bridge-inner" x="-100" y="-100" width="1640" height="1120" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="13"/></filter>
+  </defs>
+  <g mask="url(#bridge-fade-x)"><g mask="url(#bridge-fade-y)" fill="none" stroke="#dec4f4">
+    <path d="M1150 -160 C1500 97 1490 473 1194 675 C1009 801 727 813 424 995" stroke-width="190" opacity=".15" filter="url(#bridge-atmosphere)"/>
+    <path d="M1170 -160 C1480 97 1460 485 1175 683 C988 805 724 807 417 1008" stroke-width="82" opacity=".23" filter="url(#bridge-ribbon)"/>
+    <path d="M1110 -175 C1410 108 1402 476 1135 666 C942 803 679 827 391 988" stroke-width="40" opacity=".12" filter="url(#bridge-inner)"/>
+    <path d="M1231 -149 C1537 137 1518 499 1227 706 C1010 860 812 849 504 1058" stroke-width="47" opacity=".1" filter="url(#bridge-ribbon)"/>
+  </g></g>
+</svg>

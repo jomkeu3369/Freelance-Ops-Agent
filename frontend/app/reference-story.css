@@ -75,6 +75,13 @@
 .figma-home .story-brand-scene { position: relative; width: min(1720px, 89%); margin-inline: auto; display: grid; place-items: center; min-height: clamp(450px, 47vw, 900px); padding-block: 70px; overflow: visible; z-index: 2; pointer-events: none; }
 .figma-home .story-brand-stage { position: relative; width: 100%; height: clamp(310px, 28vw, 520px); }
 .figma-home .story-brand-plate { position: absolute; inset: 0; display: grid; place-items: center; width: 100%; height: clamp(310px, 28vw, 520px); min-width: 142px; border-radius: 28px; background: radial-gradient(circle, #5c327d35 1px, transparent 1.8px) 0 0 / 42px 42px, #d5b4ff; box-shadow: inset 0 1px #f3e7ff70; overflow: hidden; }
+/* This is the full-page transition surface; its fold still measures the actual
+   stage and lower hub. Use the containing width, not 100vw plus the scrollbar. */
+@media (min-width: 821px) {
+  .figma-home .story-brand-scene { width: 100%; }
+  .figma-home .story-brand-stage { height: auto; min-height: 340px; aspect-ratio: 2.6; }
+  .figma-home .story-brand-plate { height: 100%; }
+}
 .figma-home .story-brand-mark { position: absolute; left: 50%; top: 57%; transform: translate(-50%, -50%); z-index: 1; display: grid; place-items: center; width: clamp(92px, 7.8vw, 150px); height: clamp(92px, 7.8vw, 150px); border-radius: 26%; color: #d7baff; background: #171021; }
 .figma-home .story-brand-mark svg { width: 66%; height: 66%; }
 .figma-home .story-brand-plate-copy { position: absolute; inset: 8% 8% auto; color: #281533; text-align: center; opacity: 1; }

@@ -32,6 +32,19 @@ function graph() {
   return { scene, count, prisms, meters, dayRows, dayCells };
 }
 
+function evidenceColumns() {
+  return [
+    { value: "3", decimals: "0", digits: "2", selector: "[data-story-task-marker]", size: 3 },
+    { value: "10", decimals: "0", digits: "1", selector: "[data-story-segment]", size: 13 },
+    { value: "3", decimals: "1", digits: "1", selector: "[data-story-meter]", size: 1 },
+  ].map(({ value, decimals, digits, selector, size }, index) => {
+    const count = element({ storyCount: value, countDecimals: decimals, countDigits: digits });
+    const fills = Array.from({ length: size }, () => element());
+    const scene = element({ storyEntryOrder: String(index) }, { "[data-story-count]": [count], [selector]: fills });
+    return { scene, count, fills };
+  });
+}
+
 function mount(scenes, { reduced = false, paused = false, ready = true, hidden = false } = {}) {
   const refs = [];
   let refIndex = 0;
@@ -63,7 +76,10 @@ function mount(scenes, { reduced = false, paused = false, ready = true, hidden =
         fromTo(target, from, vars, at) {
           this.calls.push({ kind: "fromTo", target, from, vars, at });
           for (const item of Array.from(target)) {
-            for (const [key, value] of Object.entries(from)) item.style.setProperty(key, String(value));
+            for (const [key, value] of Object.entries(from)) {
+              const property = key === "transformOrigin" ? "transform-origin" : ["scaleX", "scaleY", "y"].includes(key) ? "transform" : key;
+              item.style.setProperty(property, String(value));
+            }
           }
           return this;
         },
@@ -140,6 +156,87 @@ test("graphs wait for a visible plot, then fan only decorative bodies in one coo
     assert.equal(cells.at, .06 + index * .1);
   });
   assert.equal(timeline.played, true);
+  harness.cleanup();
+});
+
+test("evidence columns offset each counter and its fills left to right within one bounded entry", () => {
+  const columns = evidenceColumns();
+  const harness = mount(columns.map(column => column.scene));
+  assert.equal(harness.timelines.length, 0);
+  columns.forEach(({ scene }) => harness.intersect(scene));
+  assert.equal(harness.timelines.length, 3);
+
+  const counters = harness.timelines.map(timeline => timeline.calls.find(call => call.kind === "to"));
+  assert.deepEqual(counters.map(call => call.at), [0, .12, .24]);
+  const localFillStarts = [.1, .08, .06];
+  harness.timelines.forEach((timeline, index) => {
+    const fill = timeline.calls.find(call => call.target[0] === columns[index].fills[0]);
+    assert.equal(fill.at, counters[index].at + localFillStarts[index], "Each graphic shares its own counter's column offset");
+    const finish = Math.max(...timeline.calls.map(call => call.at + call.vars.duration + (call.vars.stagger ?? 0) * ((call.target.length ?? 1) - 1)));
+    assert.ok(finish <= 1.7, "All three columns finish within 1.7 seconds of entry");
+  });
+
+  // A running first column cannot advance the other columns' count state.
+  counters[0].target.progress = .5;
+  counters[0].vars.onUpdate();
+  assert.deepEqual(columns.map(column => column.count.textContent), ["02", "0", "0.0"]);
+  counters[1].target.progress = .4;
+  counters[1].vars.onUpdate();
+  assert.deepEqual(columns.map(column => column.count.textContent), ["02", "4", "0.0"]);
+  harness.timelines.forEach(timeline => timeline.options.onComplete());
+  assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"]);
+  columns.forEach(({ scene }) => harness.intersect(scene));
+  assert.equal(harness.timelines.length, 3, "Completed evidence does not replay");
+  harness.cleanup();
+});
+
+test("interrupting an evidence entry restores all final counts and fills, including delayed columns", () => {
+  for (const interrupt of [
+    (harness, columns) => columns.forEach(({ scene }) => harness.intersect(scene, 0)),
+    harness => harness.pause(true),
+    harness => harness.hide(true),
+    harness => harness.reduce(true),
+    harness => harness.cleanup(),
+  ]) {
+    const columns = evidenceColumns();
+    const harness = mount(columns.map(column => column.scene));
+    columns.forEach(({ scene }) => harness.intersect(scene));
+    const firstCount = harness.timelines[0].calls.find(call => call.kind === "to");
+    firstCount.target.progress = .2;
+    firstCount.vars.onUpdate();
+    assert.deepEqual(columns.map(column => column.count.textContent), ["01", "0", "0.0"]);
+    interrupt(harness, columns);
+    assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"]);
+    assert.ok(harness.timelines.every(timeline => timeline.killed));
+    for (const { scene, fills } of columns) {
+      assert.equal(scene.dataset.storyEntryState, "complete");
+      for (const fill of fills) {
+        for (const property of ["transform", "transform-origin", "opacity"]) assert.equal(fill.style.getPropertyValue(property), "");
+      }
+    }
+    harness.pause(false);
+    harness.hide(false);
+    harness.reduce(false);
+    columns.forEach(({ scene }) => harness.intersect(scene));
+    assert.equal(harness.timelines.length, 3, "An interrupted delayed entry remains one-shot");
+    harness.cleanup();
+  }
+});
+
+test("scope revision during an evidence stagger restores the newly rendered values in every column", () => {
+  const columns = evidenceColumns();
+  const harness = mount(columns.map(column => column.scene));
+  columns.forEach(({ scene }) => harness.intersect(scene));
+  ["4", "13", "3.9"].forEach((value, index) => { columns[index].count.dataset.storyCount = value; });
+  harness.render("4:13:3900000");
+  assert.deepEqual(columns.map(column => column.count.textContent), ["04", "13", "3.9"]);
+  assert.ok(harness.timelines.every(timeline => timeline.killed));
+  columns.forEach(({ scene, fills }) => {
+    harness.intersect(scene);
+    assert.equal(scene.dataset.storyEntryState, "complete");
+    assert.ok(fills.every(fill => fill.style.getPropertyValue("transform") === ""));
+  });
+  assert.equal(harness.timelines.length, 3);
   harness.cleanup();
 });
 

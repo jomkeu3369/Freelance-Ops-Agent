@@ -61,33 +61,36 @@ export function useStoryMetricEntry(revision: string) {
       if (!motionReady() || motionPaused()) return;
       entered.current.add(scene);
       scene.dataset.storyEntryState = "running";
+      // Open evidence columns enter left to right, with the count and its
+      // graphic sharing the same bounded offset. Other plots start immediately.
+      const entryOffset = Math.min(2, Math.max(0, Number(scene.dataset.storyEntryOrder) || 0)) * .12;
       const counter = { progress: 0 };
       const timeline = gsap.timeline({ paused: true, onComplete: () => restore(scene) });
       active.set(scene, timeline);
       if (scene.querySelector("[data-story-count]")) {
         renderCount(scene, 0);
-        timeline.to(counter, { progress: 1, duration: 1.45, ease: "power2.out", onUpdate: () => renderCount(scene, counter.progress) }, 0);
+        timeline.to(counter, { progress: 1, duration: 1.45, ease: "power2.out", onUpdate: () => renderCount(scene, counter.progress) }, entryOffset);
       }
 
       // Scale the bodies in their local vertical axis, before their 3D rotation.
       // Their connected caps keep full depth; labels and grid baselines stay put.
       const prisms = scene.querySelectorAll("[data-story-prism]");
-      if (prisms.length) timeline.fromTo(prisms, { "--story-prism-grow": .025 }, { "--story-prism-grow": 1, duration: .74, stagger: .1, ease: "power3.out" }, .06);
+      if (prisms.length) timeline.fromTo(prisms, { "--story-prism-grow": .025 }, { "--story-prism-grow": 1, duration: .74, stagger: .1, ease: "power3.out" }, entryOffset + .06);
       const meters = scene.querySelectorAll("[data-story-meter]");
-      if (meters.length) timeline.fromTo(meters, { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: .68, stagger: .1, ease: "power3.out" }, .06);
+      if (meters.length) timeline.fromTo(meters, { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: .68, stagger: .1, ease: "power3.out" }, entryOffset + .06);
       // A half-day cell represents the same value throughout entry. Row starts
       // are coordinated, with a short left-to-right wave inside each row.
       scene.querySelectorAll<HTMLElement>("[data-story-day-row]").forEach((row, index) => {
         const cells = row.querySelectorAll("[data-story-day-cell].is-active");
-        if (cells.length) timeline.fromTo(cells, { scaleX: 0, opacity: .3, transformOrigin: "left center" }, { scaleX: 1, opacity: 1, duration: .32, stagger: .035, ease: "power2.out" }, .06 + index * .1);
+        if (cells.length) timeline.fromTo(cells, { scaleX: 0, opacity: .3, transformOrigin: "left center" }, { scaleX: 1, opacity: 1, duration: .32, stagger: .035, ease: "power2.out" }, entryOffset + .06 + index * .1);
       });
 
       const ring = scene.querySelector<SVGCircleElement>("[data-story-ring]");
-      if (ring) timeline.fromTo(ring, { strokeDasharray: "0 100", opacity: 0 }, { strokeDasharray: ring.getAttribute("stroke-dasharray") ?? "0 100", opacity: 1, duration: 1.45, ease: "power2.out" }, 0);
+      if (ring) timeline.fromTo(ring, { strokeDasharray: "0 100", opacity: 0 }, { strokeDasharray: ring.getAttribute("stroke-dasharray") ?? "0 100", opacity: 1, duration: 1.45, ease: "power2.out" }, entryOffset);
       const taskMarkers = scene.querySelectorAll("[data-story-task-marker]");
-      if (taskMarkers.length) timeline.fromTo(taskMarkers, { opacity: .35, y: 4 }, { opacity: 1, y: 0, duration: .45, stagger: .1, ease: "power2.out" }, .1);
+      if (taskMarkers.length) timeline.fromTo(taskMarkers, { opacity: .35, y: 4 }, { opacity: 1, y: 0, duration: .45, stagger: .1, ease: "power2.out" }, entryOffset + .1);
       const segments = scene.querySelectorAll("[data-story-segment]");
-      if (segments.length) timeline.fromTo(segments, { scaleY: .14, opacity: .15, transformOrigin: "center bottom" }, { scaleY: 1, opacity: 1, duration: .5, stagger: .055, ease: "power2.out" }, .08);
+      if (segments.length) timeline.fromTo(segments, { scaleY: .14, opacity: .15, transformOrigin: "center bottom" }, { scaleY: 1, opacity: 1, duration: .5, stagger: .055, ease: "power2.out" }, entryOffset + .08);
       timeline.play();
     };
     const observer = new IntersectionObserver((entries) => {

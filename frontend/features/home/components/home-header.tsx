@@ -32,10 +32,10 @@ export function HomeHeader() {
     <header className="nav-shell" aria-label={t("주요 탐색")} onBlur={(event) => {
       if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
     }}>
-      <Link className="brand" href="#top" aria-label={t("Freelance Ops 홈")}>
+      <a className="brand" href="#top" aria-label={t("Freelance Ops 홈")}>
         <StoryMark className="brand-mark" />
         <span className="brand-wordmark">Freelance Ops</span>
-      </Link>
+      </a>
       <button ref={menuButton} type="button" className="icon-button home-menu-toggle" aria-label={menuOpen ? t("페이지 메뉴 닫기") : t("페이지 메뉴 열기")} aria-expanded={menuOpen} aria-controls="home-navigation" onClick={() => setMenuOpen((open) => !open)}>
         {menuOpen ? <X size={20} /> : <List size={20} />}
       </button>
