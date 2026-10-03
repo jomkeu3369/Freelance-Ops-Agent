@@ -45,9 +45,11 @@
 .figma-home.spatial-site .scene-fog { position: absolute; z-index: -1; width: 100%; height: 1550px; left: 0; overflow: hidden; pointer-events: none; }
 .figma-home.spatial-site .scene-fog-1 { top: 1000px; }
 .figma-home.spatial-site .scene-fog-2 { top: 3100px; height: 2350px; }
-.figma-home.spatial-site .scene-fog-drift, .figma-home.spatial-site .scene-fog-cool { position: absolute; width: 110%; height: 104%; top: -2%; left: -5%; background: radial-gradient(ellipse 49% 14% at 37% 44%, #bc98df52, transparent 80%), radial-gradient(ellipse 30% 37% at 54% 56%, #8963a52e, transparent 76%), linear-gradient(125deg, transparent 23%, #b49ac51d 39%, transparent 52%); opacity: .55; transform-origin: 50% 50%; animation: sceneFogDrift 12s ease-in-out infinite; animation-play-state: var(--ambient-play-state); }
-.figma-home.spatial-site .scene-fog-cool { background: radial-gradient(ellipse 34% 13% at 57% 44%, #97acd52e, transparent 75%), linear-gradient(132deg, transparent 25%, #a097c71c 46%, transparent 61%); animation-duration: 14s; animation-delay: -4.4s; }
-.figma-home.spatial-site .scene-fog-2 .scene-fog-drift { transform-origin: 36% 70%; animation-delay: -3.2s; background: radial-gradient(ellipse 46% 12% at 30% 74%, #bc98df52, transparent 78%), radial-gradient(ellipse 30% 28% at 52% 52%, #8963a52e, transparent 76%), linear-gradient(132deg, transparent 32%, #b49ac520 57%, transparent 68%); }
+/* Bounded radial lobes reach transparency before the fog box edges.
+   A diagonal linear wash would expose a horizontal rectangle at section entry. */
+.figma-home.spatial-site .scene-fog-drift, .figma-home.spatial-site .scene-fog-cool { position: absolute; width: 110%; height: 104%; top: -2%; left: -5%; background: radial-gradient(ellipse 49% 14% at 37% 44%, #bc98df52, transparent 80%), radial-gradient(ellipse 30% 37% at 54% 56%, #8963a52e, transparent 76%); opacity: .55; transform-origin: 50% 50%; animation: sceneFogDrift 12s ease-in-out infinite; animation-play-state: var(--ambient-play-state); }
+.figma-home.spatial-site .scene-fog-cool { background: radial-gradient(ellipse 34% 13% at 57% 44%, #97acd52e, transparent 75%); animation-duration: 14s; animation-delay: -4.4s; }
+.figma-home.spatial-site .scene-fog-2 .scene-fog-drift { transform-origin: 36% 70%; animation-delay: -3.2s; background: radial-gradient(ellipse 46% 12% at 30% 74%, #bc98df52, transparent 78%), radial-gradient(ellipse 30% 28% at 52% 52%, #8963a52e, transparent 76%); }
 .figma-home.spatial-site .scene-footer-light { position: absolute; left: 0; bottom: 190px; width: 100%; height: 1150px; z-index: -1; opacity: 1; overflow: hidden; pointer-events: none; }
 .figma-home.spatial-site .spatial-comparison > .scene-footer-light { top: -340px; bottom: auto; height: 1450px; width: 112.36%; left: -6.18%; }
 .figma-home.spatial-site .scene-footer-light svg { width: 100%; height: 100%; }

@@ -45,12 +45,12 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .spatial-card-detail strong { font-size: 22px; }
 .figma-home.spatial-site .spatial-card-detail small, .figma-home.spatial-site .spatial-avatar { font-size: 12px; }
 .figma-home.spatial-site .spatial-card-footer { gap: 5px; flex-wrap: wrap; }
-.figma-home.spatial-site .spatial-flow-bottom { align-items: center; gap: 12px; padding-block: 10px; flex-wrap: wrap; }
+.figma-home.spatial-site .spatial-flow-bottom { align-items: center; gap: 12px; padding: 10px; flex-wrap: wrap; background: #1b1422; border-radius: 8px 8px 0 0; }
 .figma-home.spatial-site .spatial-flow-bottom > span, .figma-home.spatial-site .spatial-motion-toggle { font-size: 12px; line-height: 1.6; color: #d2bedf; }
 .figma-home.spatial-site .spatial-motion-toggle { padding-inline: 8px; }
 .figma-home.spatial-site .spatial-flow .spatial-demo-disclaimer {
   position: static; width: 100%; max-width: 100%; min-width: 0; margin: 0;
-  padding: 16px 0 20px; border-top: 1px solid #c6a8e32b;
+  padding: 16px 10px 20px; border-top: 1px solid #c6a8e32b; background: #1b1422; border-radius: 0 0 8px 8px;
   font-size: 12px; line-height: 1.75; color: #c2b2ce; opacity: 1;
   white-space: normal; word-break: normal; overflow-wrap: anywhere; text-align: left;
 }
