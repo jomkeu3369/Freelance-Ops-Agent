@@ -3,6 +3,8 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { createBrandFlight } from "./brand-flight.mjs";
+import { createBrandFlightRenderer } from "./brand-flight-renderer.mjs";
+import { createOwnedMediaContexts } from "./owned-media-contexts.mjs";
 import { restoreInitialAnchor } from "./initial-anchor.mjs";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
@@ -14,7 +16,7 @@ export function useHomeAnimation() {
       for (const entry of entries) (entry.target as HTMLElement).dataset.ambientVisible = String(entry.isIntersecting);
     }, { threshold: .08 });
     pageRef.current?.querySelectorAll<HTMLElement>("[data-ambient]").forEach((element) => ambientObserver.observe(element));
-    const motion = gsap.matchMedia();
+    const motion = createOwnedMediaContexts(gsap, window, pageRef.current);
     motion.add("(prefers-reduced-motion: no-preference)", () => {
       // CSS owns percentage-based centering. A GSAP transform would cache its
       // horizontal pixel offset and move the header offscreen after zoom/resize.
@@ -112,7 +114,8 @@ export function useHomeAnimation() {
       // Measure once per layout refresh. Scrubbing samples only numeric geometry,
       // staying in the text gutter before turning into the diagram below copy.
       const flightProgress = { value: 0 };
-      const renderFlight = () => gsap.set(mark, flight.sample(flightProgress.value));
+      const setFlightPose = createBrandFlightRenderer(gsap, mark);
+      const renderFlight = () => setFlightPose(flight.sample(flightProgress.value));
       let poseFrame = 0;
       const syncRefreshedPose = () => {
         cancelAnimationFrame(poseFrame);

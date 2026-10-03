@@ -246,7 +246,8 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /scale:\s*to\.width\s*\/\s*mark\.offsetWidth/);
   assert.match(hook, /destination:\s*destination\(\),\s*compactScale:/);
   assert.match(hook, /clearY:\s*copyBottom - origin\.y \+ size \/ 2 \+ 20/);
-  assert.match(hook, /const renderFlight = \(\) => gsap\.set\(mark, flight\.sample\(flightProgress\.value\)\)/);
+  assert.match(hook, /createBrandFlightRenderer\(gsap, mark\)/);
+  assert.doesNotMatch(hook, /gsap\.set\(mark, flight\.sample/, "Per-frame set tweens must not accumulate in the GSAP context");
   assert.match(hook, /\.set\(target,\s*\{\s*autoAlpha:\s*1\s*\},\s*1\)/);
   assert.match(hook, /\.set\(mark,\s*\{\s*autoAlpha:\s*0\s*\},\s*1\)/);
   assert.match(hook, /invalidateOnRefresh:\s*true/);
