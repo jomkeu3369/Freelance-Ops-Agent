@@ -27,7 +27,7 @@ export function HeroAtmosphere({ paused }: { paused: boolean }) {
     <radialGradient id="scene-pinch-glow"><stop stopColor="#fff6ff" /><stop offset=".12" stopColor="#eed8ff" stopOpacity=".87" /><stop offset=".4" stopColor="#c6a0e7" stopOpacity=".36" /><stop offset="1" stopColor="#9670b6" stopOpacity="0" /></radialGradient>
     <radialGradient id="scene-pinch-hotspot"><stop stopColor="#fffaff" stopOpacity=".94" /><stop offset=".3" stopColor="#f0ddff" stopOpacity=".62" /><stop offset="1" stopColor="#cda2ed" stopOpacity="0" /></radialGradient>
     <radialGradient id="scene-hero-aura"><stop stopColor="#debef7" stopOpacity=".45" /><stop offset=".42" stopColor="#b58bdd" stopOpacity=".19" /><stop offset="1" stopColor="#86629e" stopOpacity="0" /></radialGradient>
-  </defs><g className="scene-hero-arrival">
+  </defs><g className="scene-hero-position" transform="translate(0 140)"><g className="scene-hero-arrival">
     <ellipse className="scene-local-aura" cx="1060" cy="330" rx="390" ry="230" fill="url(#scene-hero-aura)" />
     <path className="scene-haze" d="M1510 -70 C 1180 80 750 400 543 607 C 442 738 1030 825 1510 1150" />
     <g className="scene-pinch-arrival"><ellipse className="scene-pinch-bloom" cx="522" cy="660" rx="205" ry="182" fill="url(#scene-pinch-glow)" /><path className="scene-bend-halo" d={heroBendCore} /><ellipse className="scene-pinch-hotspot" cx="531" cy="642" rx="76" ry="70" fill="url(#scene-pinch-hotspot)" /></g>
@@ -35,7 +35,7 @@ export function HeroAtmosphere({ paused }: { paused: boolean }) {
     <g className="scene-pinch-arrival"><path className="scene-bend-core" d={heroBendCore} /><path className="scene-travel scene-bend-travel" d={heroBendCore} pathLength="1000" style={{ animationDuration: "3.6s", animationDelay: "-1.3s" }} /></g>
     {heroThreads.filter((_,index)=>index % 6 === 0).map((thread,index)=><path className={`scene-travel${thread.cool ? " is-cool" : ""}`} key={index} d={thread.path} pathLength="1000" style={{animationDuration:`${8 + index * .7}s`,animationDelay:`${-index * 1.45}s`}} />)}
     <g className="scene-particles">{Array.from({length:18},(_,index)=><circle className={index % 4 === 0 ? "is-cool" : ""} key={index} cx={570 + index * 53 % 720} cy={70 + index * 137 % 720} r={index % 5 === 0 ? 3 : 1.2} style={{animationDuration:`${6 + index % 5}s`,animationDelay:`${-index * .63}s`}} />)}</g>
-  </g></svg></div>;
+  </g></g></svg></div>;
 }
 
 export function MiddleAtmosphere() {
