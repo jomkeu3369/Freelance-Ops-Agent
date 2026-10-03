@@ -15,6 +15,9 @@ import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningSe
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -87,7 +90,8 @@ class AuthServiceTest {
             " Member@Example.com ",
             "correct horse battery staple",
             "Member",
-            "Member Workspace"
+            "Member Workspace",
+            true
         ));
 
         ArgumentCaptor<UserAccountEntity> userCaptor = ArgumentCaptor.forClass(UserAccountEntity.class);
@@ -97,6 +101,26 @@ class AuthServiceTest {
         assertThat(passwordEncoder.matches("correct horse battery staple", userCaptor.getValue().passwordHash())).isTrue();
         assertThat(response.workspaceId()).isEqualTo(workspaceId);
         assertThat(response.tokenType()).isEqualTo("Bearer");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(booleans = false)
+    void registrationRejectsUnconfirmedAgeBeforeAnyAccountWorkspaceOrSessionWork(Boolean ageAtLeast14) {
+        RegisterRequest request = new RegisterRequest(
+            "member@example.com", "correct horse battery staple", "Member", "Member Workspace", ageAtLeast14
+        );
+
+        assertThatThrownBy(() -> service.register(request))
+            .isInstanceOfSatisfying(IdentityException.class, error -> {
+                assertThat(error.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+                assertThat(error.code()).isEqualTo("AGE_CONFIRMATION_REQUIRED");
+            });
+
+        verifyNoInteractions(
+            userRepository, refreshTokenRepository, workspaceMemberRepository,
+            workspaceRepository, permissionReader, provisioningService, tokenService
+        );
     }
 
     @Test

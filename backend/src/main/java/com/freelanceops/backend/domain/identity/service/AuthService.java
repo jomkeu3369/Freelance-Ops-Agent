@@ -68,6 +68,9 @@ public class AuthService {
 
     @Transactional
     public AuthTokenResponse register(RegisterRequest request) {
+        if (!Boolean.TRUE.equals(request.ageAtLeast14())) {
+            throw new IdentityException(HttpStatus.BAD_REQUEST, "AGE_CONFIRMATION_REQUIRED");
+        }
         String email = normalizeEmail(request.email());
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new IdentityException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED");

@@ -23,6 +23,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [ageConfirmationError, setAgeConfirmationError] = useState(false);
   const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = themeMounted && resolvedTheme === "dark";
@@ -31,6 +32,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
     if (busy) return;
     setMode(nextMode);
     setShowPassword(false);
+    setAgeConfirmationError(false);
     setError(null);
   };
 
@@ -47,6 +49,12 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
     if (busy) return;
     const data = new FormData(event.currentTarget);
     const password = String(data.get("password"));
+    const ageAtLeast14 = data.get("ageAtLeast14") === "true";
+    if (mode === "register" && !ageAtLeast14) {
+      setAgeConfirmationError(true);
+      (event.currentTarget.elements.namedItem("ageAtLeast14") as HTMLInputElement | null)?.focus();
+      return;
+    }
     if (mode === "register" && password !== String(data.get("passwordConfirm"))) {
       setError("비밀번호 확인이 일치하지 않습니다.");
       (event.currentTarget.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.focus();
@@ -63,7 +71,8 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               email: String(data.get("email")),
               password,
               displayName: String(data.get("displayName")),
-              workspaceName: String(data.get("workspaceName"))
+              workspaceName: String(data.get("workspaceName")),
+              ageAtLeast14
             });
       accountCreated = mode === "register";
       await onAuthenticated(session, mode === "register");
@@ -190,6 +199,30 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
                   maxLength={72}
                   autoComplete="new-password"
                 />
+              </div>
+            )}
+            {mode === "register" && (
+              <div className="auth-age-confirmation">
+                <label htmlFor="auth-age-at-least-14">
+                  <input
+                    id="auth-age-at-least-14"
+                    name="ageAtLeast14"
+                    type="checkbox"
+                    value="true"
+                    required
+                    aria-invalid={ageConfirmationError || undefined}
+                    aria-describedby={ageConfirmationError ? "auth-age-hint auth-age-error" : "auth-age-hint"}
+                    onInvalid={() => setAgeConfirmationError(true)}
+                    onChange={() => setAgeConfirmationError(false)}
+                  />
+                  <span>{t("만 14세 이상인가요?")} <span className="auth-required">{t("(필수)")}</span></span>
+                </label>
+                <p id="auth-age-hint">{t("만 14세 이상만 가입하고 이용할 수 있습니다.")}</p>
+                {ageConfirmationError && (
+                  <p id="auth-age-error" className="form-error" role="alert">
+                    {t("만 14세 이상임을 확인해 주세요. 만 14세 미만은 가입할 수 없습니다.")}
+                  </p>
+                )}
               </div>
             )}
             {error && (

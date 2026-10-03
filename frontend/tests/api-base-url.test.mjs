@@ -73,3 +73,23 @@ test("a whitespace-padded origin produces a valid request URL without external n
   assert.equal(requests[0].url, "https://api.example.invalid/api/v2/proposals/fixture%20%2F%20share");
   assert.equal(requests[0].method, "GET");
 });
+
+test("registration sends the age attestation as a JSON boolean and never assumes consent", async () => {
+  process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.example.invalid";
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push(new Request(url, init));
+    return new Response("{}", { status: 201, headers: { "Content-Type": "application/json" } });
+  };
+  const input = { email: "fixture@example.invalid", password: "local-fixture-only", displayName: "Fixture", workspaceName: "Fixture workspace" };
+  for (const ageAtLeast14 of [true, false]) {
+    await api.register({ ...input, ageAtLeast14 });
+    const request = requests.at(-1);
+    assert.equal(request.url, "https://api.example.invalid/api/v2/auth/register");
+    assert.equal(request.method, "POST");
+    assert.deepEqual(await request.json(), { ...input, ageAtLeast14 });
+  }
+  // A stale JavaScript caller is not silently opted in; the server rejects the missing field.
+  await api.register(input);
+  assert.deepEqual(await requests.at(-1).json(), input);
+});

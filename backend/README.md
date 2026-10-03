@@ -73,6 +73,12 @@ Spring이 사용자 계정, BCrypt 비밀번호 검증, access JWT와 refresh to
 - `POST /api/v2/auth/logout`: 전달된 refresh token을 폐기한다.
 - `GET /api/v2/me`: Bearer access token의 UUID subject로 현재 사용자와 workspace 권한을 조회한다.
 
+회원가입 요청에는 만 14세 이상 자기확인을 나타내는 JSON boolean `ageAtLeast14: true`가 필수다.
+누락, `null`, `false`, 문자열 및 숫자는 계정·workspace·token 생성 전에 `400 Bad Request`로 거부한다.
+생년월일이나 본인인증 정보는 수집하지 않으며, 이 확인 값을 DB 또는 동의 이력으로 저장하지 않는다.
+기존 사용자 로그인에는 영향을 주지 않는다. 이전 클라이언트의 가입 요청은 필드가 없어 거부되므로
+프런트엔드와 백엔드의 가입 계약 변경을 함께 반영해야 한다.
+
 refresh token 원문은 DB에 저장하지 않고 SHA-256 hash만 보존한다. 운영 환경에서는 32바이트 이상의 무작위 `APP_AUTH_JWT_SECRET`을 secret manager로 주입해야 하며 기본 개발 secret으로는 시작을 거부한다. 자세한 결정은 [`ADR-0018`](../docs/adr/0018-local-user-authentication.md)을 따른다.
 
 ## Workspace RBAC
