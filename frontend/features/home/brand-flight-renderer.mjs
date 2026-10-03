@@ -4,10 +4,14 @@
 export function createBrandFlightRenderer(animation, target) {
   const setX = animation.quickSetter(target, "x", "px");
   const setY = animation.quickSetter(target, "y", "px");
-  const setScale = animation.quickSetter(target, "scale");
+  // CSSPlugin's combined "scale" alias is not a quickSetter property; own
+  // both actual transform axes so the rendered mark shrinks uniformly.
+  const setScaleX = animation.quickSetter(target, "scaleX");
+  const setScaleY = animation.quickSetter(target, "scaleY");
   return ({ x, y, scale }) => {
     setX(x);
     setY(y);
-    setScale(scale);
+    setScaleX(scale);
+    setScaleY(scale);
   };
 }
