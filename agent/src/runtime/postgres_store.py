@@ -131,7 +131,11 @@ class PostgresAgentRunStore:
     async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if model.status == AgentRunStatus.CANCELLED.value:
+            # Completed/partial output remains final even if a later checkpoint or observer fails.
+            if model.status in {
+                AgentRunStatus.COMPLETED.value, AgentRunStatus.PARTIAL.value,
+                AgentRunStatus.FAILED.value, AgentRunStatus.CANCELLED.value,
+            }:
                 return
             model.status = AgentRunStatus.FAILED.value
             model.error_code = error_code

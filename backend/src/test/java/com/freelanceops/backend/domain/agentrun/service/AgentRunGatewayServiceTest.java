@@ -72,6 +72,8 @@ class AgentRunGatewayServiceTest {
     private AIConnectionService connections;
     @Mock
     private PetProfileService pets;
+    @Mock
+    private FreeUsageService freeUsage;
 
     private AgentRunGatewayService service;
 
@@ -87,7 +89,8 @@ class AgentRunGatewayServiceTest {
             commandQueue,
             budgetPolicy,
             connections,
-            pets
+            pets,
+            freeUsage
         );
     }
 
@@ -172,11 +175,53 @@ class AgentRunGatewayServiceTest {
         verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
             eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
+        verify(freeUsage).reserve(userId, response.runId());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
         assertThat(captor.getValue().input().requirementText()).isEqualTo("쇼핑몰 요구사항을 분석해 주세요.");
+    }
+
+    @Test
+    void idempotentReplayDoesNotReserveOrEnqueueAgain() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        var accepted = new StartAgentRunResponse(UUID.randomUUID(), AgentRunStatus.QUEUED, Instant.now());
+        when(freeUsage.replay(user, "same-request-key", workspace, project, request())).thenReturn(Optional.of(accepted));
+        assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key")).isEqualTo(accepted);
+        verify(freeUsage, never()).reserve(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, agentRunRepository);
+    }
+
+    @Test
+    void exhaustedQuotaPreventsRunAndOutboxPersistence() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        org.mockito.Mockito.doThrow(new FreeUsageExhaustedException(new FreeUsageService.Usage(5, 4, 1, 0,
+            Instant.now(), "2026-10", "Asia/Seoul", 0, false))).when(freeUsage).reserve(eq(user), any());
+        assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace"))
+            .isInstanceOf(FreeUsageExhaustedException.class);
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, pets, agentRunRepository);
+    }
+
+    @Test
+    void personalCredentialDoesNotReserveMonthlyAllowance() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        var source = request();
+        var personal = new StartAgentRunRequest(source.requirementText(), source.locale(), source.jurisdictionCode(),
+            new ModelSelection(Provider.OPENAI, source.modelSelection().model(), source.modelSelection().reasoningEffort(), UUID.randomUUID()),
+            source.budget(), source.safetyContext());
+        service.start(user, workspace, project, personal, "trace");
+        verify(freeUsage, never()).reserve(any(), any());
+        verify(commandQueue).enqueueStart(any(), any(), eq(user), anyList(), eq("trace"));
     }
 
     @Test

@@ -107,7 +107,7 @@ public class AgentRunCommandDispatcher {
         StartAgentRunResponse response = client.start(request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
         if (compensateForProjectDeletion(command, run, token)) return;
-        projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
+        projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
 
@@ -116,7 +116,7 @@ public class AgentRunCommandDispatcher {
         StartAgentRunResponse response = client.resume(run.id(), request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
         if (compensateForProjectDeletion(command, run, token)) return;
-        projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
+        projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
 

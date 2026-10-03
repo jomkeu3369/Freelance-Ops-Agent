@@ -9,6 +9,8 @@ import { useTheme } from "next-themes";
 import {
   AuthSession,
   ApiError,
+  isFreeUsageExhausted,
+  subscribeToFreeUsageExhausted,
   Project,
   Client,
   MeProfile,
@@ -33,6 +35,9 @@ import {
   resumeAgentRun,
   createProject
 } from "../../app/lib/api";
+import { FreeUsageDialog } from "./usage/free-usage-dialog";
+import { freeUsageReturnPath } from "../../app/lib/free-usage.mjs";
+import "./usage/free-usage.css";
 import { StreamState, WorkspaceView, WorkbenchStep } from "./shared/types";
 import { parseWorkspacePath, buildWorkspacePath } from "../../app/lib/workspace-navigation.mjs";
 import { sessionRefreshDelay } from "../../app/lib/session-timing.mjs";
@@ -88,6 +93,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const runOperation = useRef(0);
+  const pendingStart = useRef<{ signature: string; key: string } | null>(null);
+  const [quotaError, setQuotaError] = useState<ApiError | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   // Drafts stay in this layout across dialog unmounts and route changes, scoped to their owner.
@@ -112,6 +119,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     [profile, session?.workspaceId]
   );
   const canWriteProject = activePermissions.has("project.write");
+
+  useEffect(() => {
+    if (!session) return;
+    return subscribeToFreeUsageExhausted(setQuotaError);
+  }, [session]);
+
 
   const restorePipelinePosition = useCallback(() => {
     const { projectId, scrollY } = pipelineReturn.current;
@@ -468,6 +481,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       runOperation.current += 1;
       setBusy(false);
       setSession(null);
+      pendingStart.current = null;
+      setQuotaError(null);
       setIntakeDrafts({});
       setShowNewProject(false);
       setLoadedWorkspaceId(null);
@@ -486,6 +501,9 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
     const projectId = selectedProject.id;
+    const signature = JSON.stringify([session.userId, session.workspaceId, projectId, provider, model, credentialId ?? null, message ?? selectedProject.requirementText]);
+    if (pendingStart.current?.signature !== signature) pendingStart.current = { signature, key: crypto.randomUUID() };
+    const idempotencyKey = pendingStart.current.key;
     setBusy(true);
     setError(null);
     try {
@@ -494,14 +512,17 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         provider,
         model,
         reasoningEffort: "LOW"
-      }, message);
+      }, message, idempotencyKey);
+      if (pendingStart.current?.key === idempotencyKey) pendingStart.current = null;
       if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;
       setEvents([]);
       setRun(null);
       setRunId(accepted.runId);
       return true;
     } catch (cause) {
-      if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
+      // An ambiguous network/server failure may have created the run; an explicit retry reuses its key.
+      if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && pendingStart.current?.key === idempotencyKey) pendingStart.current = null;
+      if (operation === runOperation.current && !isFreeUsageExhausted(cause)) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
       return false;
     } finally {
       if (operation === runOperation.current) setBusy(false);
@@ -548,6 +569,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     pipelineReturn.current = { element: null, scrollY: 0 };
     setLoadedWorkspaceId(null);
     setShowNewProject(false);
+    setQuotaError(null);
     saveSession(nextSession);
     setSession(nextSession);
     setSelectedProject(null);
@@ -724,6 +746,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           )}
         </WorkspaceContext.Provider>
       </main>
+
+      {quotaError && <FreeUsageDialog error={quotaError} onClose={() => setQuotaError(null)} onRegister={() => {
+        const returnTo = freeUsageReturnPath(window.location.pathname);
+        setQuotaError(null);
+        router.push(`/workspace/settings${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}#ai-connections`);
+      }} />}
 
       {showNewProject && canWriteProject && (
         <ProjectDialog

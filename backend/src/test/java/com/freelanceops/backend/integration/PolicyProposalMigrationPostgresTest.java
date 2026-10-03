@@ -40,7 +40,7 @@ class PolicyProposalMigrationPostgresTest {
             insertProject(connection, workspace, project, owner);
             insertProject(connection, foreignWorkspace, foreignProject, owner);
         }
-        var latest = configure().load();
+        var latest = configure().target("36").load();
         assertThat(latest.migrate().migrationsExecuted).isEqualTo(1);
         latest.validate();
         assertThat(latest.info().current().getVersion().toString()).isEqualTo("36");

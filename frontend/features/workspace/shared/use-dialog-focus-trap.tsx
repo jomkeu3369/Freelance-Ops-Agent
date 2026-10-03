@@ -4,7 +4,8 @@ export function useDialogFocusTrap(
   dialogRef: RefObject<HTMLElement | null>,
   onClose: () => void,
   closeDisabled = false,
-  enabled = true
+  enabled = true,
+  inertBackground = false
 ) {
   const closeRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
@@ -18,6 +19,21 @@ export function useDialogFocusTrap(
     if (!enabled) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
+    const backgroundElements: { element: HTMLElement; inert: boolean }[] = [];
+    if (inertBackground) {
+      let current: HTMLElement | null = dialogRef.current;
+      while (current && current !== document.body) {
+        const parent: HTMLElement | null = current.parentElement;
+        if (!parent) break;
+        for (const sibling of parent.children) {
+          if (sibling !== current && sibling instanceof HTMLElement && !["SCRIPT", "STYLE"].includes(sibling.tagName)) {
+            backgroundElements.push({ element: sibling, inert: sibling.inert });
+            sibling.setAttribute("inert", "");
+          }
+        }
+        current = parent;
+      }
+    }
     document.body.style.overflow = "hidden";
     const getFocusable = () =>
       [
@@ -72,7 +88,8 @@ export function useDialogFocusTrap(
     return () => {
       window.removeEventListener("keydown", handleKey);
       document.body.style.overflow = previousOverflow;
+      for (const { element, inert } of backgroundElements) element.toggleAttribute("inert", inert);
       previouslyFocused?.focus();
     };
-  }, [dialogRef, enabled]);
+  }, [dialogRef, enabled, inertBackground]);
 }

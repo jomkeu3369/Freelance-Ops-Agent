@@ -8,6 +8,7 @@ import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
 import { PetWorkspace } from "../../pets/pet-workspace";
+import { FreeUsageStatus } from "../../usage/free-usage-status";
 import { AgentChat } from "./agent-chat";
 
 interface AnalysisStepProps {
@@ -48,6 +49,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   }
 
   return <>
+    <FreeUsageStatus session={session} revision={`${runId ?? ""}:${run?.status ?? ""}`} />
     <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
       streamState={streamState} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}

@@ -1,3 +1,4 @@
+import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
 export type Provider = "OPENAI" | "GEMINI";
@@ -423,10 +424,61 @@ const SESSION_RECOVERY_EVENT = "freelance-ops-session-recovery";
 let refreshPromise: Promise<AuthSession> | null = null;
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code: string | null = null, readonly metadata: Readonly<Record<string, unknown>> = {}) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export function isFreeUsageExhausted(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code === FREE_USAGE_EXHAUSTED;
+}
+
+const FREE_USAGE_EVENT = "freelance-ops-free-usage-exhausted";
+export function subscribeToFreeUsageExhausted(listener: (error: ApiError) => void): () => void {
+  const handler = (event: Event) => listener((event as CustomEvent<ApiError>).detail);
+  window.addEventListener(FREE_USAGE_EVENT, handler);
+  return () => window.removeEventListener(FREE_USAGE_EVENT, handler);
+}
+
+export interface FreeUsage {
+  limit: number;
+  used: number;
+  reserved: number;
+  remaining: number;
+  resetAt: string;
+  period: string;
+  timezone: string;
+  epoch: number;
+  canManage: boolean;
+}
+
+export interface FreeUsageSettings {
+  limit: number;
+  maxLimit: number;
+  epoch: number;
+  updatedAt: string;
+  lastResetAt: string | null;
+}
+
+export function getFreeUsage(session: AuthSession): Promise<FreeUsage> {
+  return request("/api/v2/usage/free", { cache: "no-store" }, session.accessToken);
+}
+
+export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", { cache: "no-store" }, session.accessToken);
+}
+
+export function updateFreeUsageLimit(session: AuthSession, settings: FreeUsageSettings, limit: number): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", {
+    method: "PATCH", body: JSON.stringify({ limit, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
+export function resetAllFreeUsage(session: AuthSession, settings: FreeUsageSettings): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage/reset", {
+    method: "POST", body: JSON.stringify({ confirmation: "RESET_ALL_FREE_USAGE", expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
 }
 
 export function apiBaseUrl(): string {
@@ -516,13 +568,22 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string, 
   }
   if (!response.ok) {
     let message = `요청을 완료하지 못했습니다. (${response.status})`;
+    let metadata: Record<string, unknown> = {};
     try {
-      const problem = (await response.json()) as { detail?: string; title?: string };
-      message = problem.detail ?? problem.title ?? message;
+      const problem: unknown = await response.json();
+      if (problem && typeof problem === "object" && !Array.isArray(problem)) {
+        metadata = problem as Record<string, unknown>;
+        const publicMessage = metadata.detail ?? metadata.message ?? metadata.title;
+        if (typeof publicMessage === "string") message = publicMessage;
+      }
     } catch {
       // Keep the public-safe fallback message.
     }
-    throw new ApiError(message, response.status);
+    const error = new ApiError(message, response.status, typeof metadata.code === "string" ? metadata.code : null, metadata);
+    if (isFreeUsageExhausted(error) && typeof window !== "undefined" && loadSession()?.accessToken === token) {
+      window.dispatchEvent(new CustomEvent<ApiError>(FREE_USAGE_EVENT, { detail: error }));
+    }
+    throw error;
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -902,11 +963,14 @@ export function startAgentRun(
   project: Project,
   input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
   message?: string,
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
     {
       method: "POST",
+      // Generated once per submission; request() preserves this header during auth recovery.
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
         requirementText: message ?? project.requirementText,
         locale: "ko-KR",

@@ -239,7 +239,10 @@ class InMemoryAgentRunStore:
     async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._lock:
             record = self._record(run_id)
-            if record.status is AgentRunStatus.CANCELLED:
+            # Terminal results are final: a later checkpoint/logging failure must not refund completed work.
+            if record.status in {
+                AgentRunStatus.COMPLETED, AgentRunStatus.PARTIAL, AgentRunStatus.FAILED, AgentRunStatus.CANCELLED,
+            }:
                 return
             record.status = AgentRunStatus.FAILED
             record.error_code = error_code
@@ -477,13 +480,19 @@ class RunCoordinator:
                 if outcome.partial_error_code is not None
                 else "execution_completed"
             )
-            await self._checkpoint_journal.record(
-                request,
-                status,
-                phase,
-                active_department=outcome.active_department,
-                error_code=outcome.partial_error_code,
-            )
+            try:
+                await self._checkpoint_journal.record(
+                    request,
+                    status,
+                    phase,
+                    active_department=outcome.active_department,
+                    error_code=outcome.partial_error_code,
+                )
+            except Exception:
+                if outcome.interruption is not None:
+                    raise
+                # The durable run result already committed. Keep terminal accounting and task observation final.
+                logger.error("Terminal checkpoint journal failed after result commit: run_id=%s", run_id)
             if outcome.interruption is None:
                 research_completed = outcome.result is not None and any(result.department is DepartmentName.RESEARCH for result in outcome.result.department_results)  # noqa: E501
                 target = AttemptStatus.COMPLETED if outcome.partial_error_code is None or research_completed else AttemptStatus.FAILED  # noqa: E501

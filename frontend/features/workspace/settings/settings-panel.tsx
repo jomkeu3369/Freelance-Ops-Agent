@@ -16,6 +16,8 @@ import { accountStatusLabels } from "../shared/constants";
 import { RateCardManager } from "./rate-card-manager";
 import { EstimationPolicyForm } from "./estimation-policy-form";
 
+import { FreeUsageStatus } from "../usage/free-usage-status";
+import { AnalysisReturnLink } from "./analysis-return-link";
 import { AIConnectionSettings } from "./ai-connection-settings";
 
 gsap.registerPlugin(useGSAP);
@@ -104,6 +106,8 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
 
   return (
     <section className="settings-page">
+      <AnalysisReturnLink />
+      <FreeUsageStatus session={session} />
       <div className="settings-heading">
         <span>{t("작업 공간 설정")}</span>
         <h1>

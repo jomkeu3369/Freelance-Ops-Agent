@@ -50,9 +50,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final AgentRunCommandQueue commandQueue;
     private final AgentBudgetPolicy budgetPolicy;
     private final PetProfileService pets;
+    private final FreeUsageService freeUsage;
     private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets, FreeUsageService freeUsage) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
@@ -63,10 +64,16 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         this.budgetPolicy = budgetPolicy;
         this.connections = connections;
         this.pets = pets;
+        this.freeUsage = freeUsage;
     }
 
     @Transactional
     public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent) {
+        return start(userId, workspaceId, projectId, request, traceparent, null);
+    }
+
+    @Transactional
+    public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent, String idempotencyKey) {
         budgetPolicy.enforce(request.budget());
         if (request.modelSelection().credentialId() != null && request.budget().maxDurationSeconds() > 270) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Personal AI runs support a maximum duration of 270 seconds");
@@ -81,8 +88,12 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "project deletion is in progress");
         }
 
+        Optional<StartAgentRunResponse> replay = freeUsage.replay(userId, idempotencyKey, workspaceId, projectId, request);
+        if (replay.isPresent()) return replay.get();
+
         connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
+        if (request.modelSelection().credentialId() == null) freeUsage.reserve(userId, runId);
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
             .map(PermissionCode::code)
@@ -126,7 +137,9 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         run.useCredential(request.modelSelection().credentialId());
         agentRunRepository.saveAndFlush(run);
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
-        return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
+        StartAgentRunResponse accepted = new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
+        freeUsage.rememberStart(userId, idempotencyKey, workspaceId, projectId, request, accepted);
+        return accepted;
     }
 
     public AgentRunView get(UUID userId, UUID workspaceId, UUID runId, String traceparent) {

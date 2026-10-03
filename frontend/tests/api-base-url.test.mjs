@@ -9,6 +9,7 @@ import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 
 const originalOrigin = process.env.NEXT_PUBLIC_API_BASE_URL;
 const originalFetch = globalThis.fetch;
+const originalWindow = globalThis.window;
 let temporaryRoot;
 let api;
 
@@ -22,6 +23,7 @@ before(async () => {
     });
     await writeFile(join(temporaryRoot, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
   }
+  await writeFile(join(temporaryRoot, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
   api = await import(pathToFileURL(join(temporaryRoot, "api.mjs")));
 });
 
@@ -29,6 +31,7 @@ afterEach(() => {
   if (originalOrigin === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
   else process.env.NEXT_PUBLIC_API_BASE_URL = originalOrigin;
   globalThis.fetch = originalFetch;
+  if (originalWindow === undefined) delete globalThis.window; else globalThis.window = originalWindow;
 });
 
 after(async () => {
@@ -72,4 +75,66 @@ test("a whitespace-padded origin produces a valid request URL without external n
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, "https://api.example.invalid/api/v2/proposals/fixture%20%2F%20share");
   assert.equal(requests[0].method, "GET");
+});
+
+function browserSession() {
+  const values = new Map();
+  const window = new EventTarget();
+  window.sessionStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+  globalThis.window = window;
+  const session = { userId: "user", workspaceId: "workspace", accessToken: "old-token", refreshToken: "refresh", refreshTokenExpiresAt: "2099-01-01T00:00:00Z" };
+  api.saveSession(session);
+  return session;
+}
+
+test("API preserves typed quota metadata and publishes only exact quota errors, never generic 429", async () => {
+  const session = browserSession();
+  const events = [];
+  const unsubscribe = api.subscribeToFreeUsageExhausted(error => events.push(error));
+  for (const code of [undefined, "RATE_LIMITED", "free_usage_exhausted", "FREE_USAGE_EXHAUSTED"]) {
+    globalThis.fetch = async () => Response.json({ message: "public-safe error", code, limit: 5, used: 4, reserved: 1, resetAt: "2026-10-31T15:00:00Z" }, {status: 429});
+    await assert.rejects(api.getFreeUsage(session), error => {
+      assert.equal(error.message, "public-safe error");
+      assert.equal(error.status, 429);
+      assert.equal(error.code, code ?? null);
+      assert.equal(error.metadata.reserved, 1);
+      assert.equal(api.isFreeUsageExhausted(error), code === "FREE_USAGE_EXHAUSTED");
+      return true;
+    });
+  }
+  assert.equal(events.length, 1);
+  assert.equal(events[0].metadata.used, 4);
+  unsubscribe();
+});
+
+test("analysis idempotency key survives automatic token refresh and differs for a new submission", async () => {
+  const session = browserSession();
+  const requests = [];
+  let starts = 0;
+  globalThis.fetch = async (url, init) => {
+    requests.push(new Request(url, init));
+    if (String(url).endsWith("/auth/refresh")) return Response.json({...session, accessToken: "new-token"});
+    starts++;
+    return starts === 1 ? Response.json({}, {status: 401}) : Response.json({runId: "one"}, {status: 202});
+  };
+  const project = {id: "project", requirementText: "unchanged draft"};
+  await api.startAgentRun(session, project, {provider: "OPENAI", model: "fixture", reasoningEffort: "LOW"});
+  const attempts = requests.filter(req => req.url.endsWith("/agent-runs"));
+  assert.equal(attempts.length, 2);
+  const key = attempts[0].headers.get("Idempotency-Key");
+  assert.match(key, /^[A-Za-z0-9_-]{8,128}$/);
+  assert.equal(attempts[1].headers.get("Idempotency-Key"), key);
+  assert.equal(attempts[1].headers.get("Authorization"), "Bearer new-token");
+  await api.startAgentRun(api.loadSession(), project, {provider: "OPENAI", model: "fixture", reasoningEffort: "LOW"});
+  assert.notEqual(requests.at(-1).headers.get("Idempotency-Key"), key);
+});
+
+test("admin reset and limit changes send both optimistic concurrency preconditions", async () => {
+  const session = browserSession();
+  const settings = {limit: 5, maxLimit: 100, epoch: 7, updatedAt: "2026-10-03T00:00:00Z", lastResetAt: null};
+  const bodies = [];
+  globalThis.fetch = async (_url, init) => { bodies.push(JSON.parse(init.body)); return Response.json(settings); };
+  await api.updateFreeUsageLimit(session, settings, 0);
+  await api.resetAllFreeUsage(session, settings);
+  assert.deepEqual(bodies, [{limit: 0, expectedEpoch: 7, expectedUpdatedAt: settings.updatedAt}, {confirmation: "RESET_ALL_FREE_USAGE", expectedEpoch: 7, expectedUpdatedAt: settings.updatedAt}]);
 });
