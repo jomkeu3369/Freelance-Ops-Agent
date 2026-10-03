@@ -29,22 +29,29 @@ jobs:
         with:
           version: "0.11.26"
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
-      - run: docker compose -f docker-compose-infra.yaml config
-      - run: docker compose -f docker-compose.yaml config
+      - name: Prepare temporary configuration-test values
+        run: |
+          python - <<'PYTHON'
+          import os, secrets
+          with open(os.environ["GITHUB_ENV"], "a") as output:
+              for name in ("POSTGRES_PASSWORD", "APP_DB_PASSWORD", "AGENT_DB_PASSWORD", "APP_AUTH_JWT_SECRET"):
+                  output.write(name + "=" + secrets.token_urlsafe(24) + "\n")
+          PYTHON
+      - name: Check required local database variables
+        run: python3 infra/tests/test_local_password_config.py
+      - run: docker compose -f docker-compose-infra.yaml config --quiet
+      - run: docker compose -f docker-compose.yaml config --quiet
       - name: Verify backup ownership and service-role recovery
         run: sh infra/tests/test-backup-restore.sh
       - name: Verify persistent personal-key encryption configuration
         run: sh infra/tests/test-byok-key.sh
-      - run: docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
+      - run: docker compose -f docker-compose.yaml -f docker-compose.production.yaml config --quiet
         env:
           APP_DOMAIN: example.com
           BACKEND_IMAGE: example/backend
           AGENT_IMAGE: example/agent
           BACKEND_IMAGE_TAG: backend-ci
           AGENT_IMAGE_TAG: agent-ci
-          APP_DB_PASSWORD: ci-app-password
-          AGENT_DB_PASSWORD: ci-agent-password
-          APP_AUTH_JWT_SECRET: ci-only-auth-secret-with-at-least-32-bytes
           AGENT_DELEGATION_TOKEN_PRIVATE_KEY: ci-private-key-placeholder
           AGENT_DELEGATION_TOKEN_PUBLIC_KEY: ci-public-key-placeholder
           AGENT_ROUTE_EVALUATOR_SYSTEM_PROMPT: ci-private-prompt-placeholder

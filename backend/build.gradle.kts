@@ -1,3 +1,6 @@
+import java.security.SecureRandom
+import java.util.Base64
+
 plugins {
     java
     id("org.springframework.boot") version "4.1.0"
@@ -43,4 +46,10 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    val testTask = this
+    doFirst {
+        // Test-only, fresh per execution, never a default for bootRun or a deployed service.
+        val ephemeralKey = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        testTask.environment("APP_AUTH_JWT_SECRET", Base64.getUrlEncoder().withoutPadding().encodeToString(ephemeralKey))
+    }
 }

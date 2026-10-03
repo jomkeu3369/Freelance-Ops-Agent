@@ -26,7 +26,6 @@ dependencies = [
     "uvicorn[standard]>=0.35,<1",
     "rank-bm25>=0.2.2",
     "deepagents>=0.7.5",
-    "google-genai>=1.64,<2",
     "langgraph-checkpoint-postgres>=3.0,<4",
     "tavily>=1.1.0",
 ]

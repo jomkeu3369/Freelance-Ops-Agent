@@ -11,6 +11,9 @@ import org.springframework.security.oauth2.jwt.JwtException;
 
 import javax.crypto.SecretKey;
 import java.time.Instant;
+import java.security.SecureRandom;
+import java.util.Base64;
+import com.freelanceops.backend.global.security.AuthSecretPolicy;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,16 +24,17 @@ class AuthSecurityConfigTest {
     private final AuthSecurityConfig config = new AuthSecurityConfig();
 
     @Test
-    void refusesWeakOrDefaultProductionSecrets() {
+    void refusesMissingWeakAndRetiredSigningKeys() {
         assertThatThrownBy(() -> config.authJwtSecretKey("too-short", "development"))
             .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> config.authJwtSecretKey(AuthSecurityConfig.DEVELOPMENT_SECRET, "production"))
-            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.authJwtSecretKey("", "development")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> config.authJwtSecretKey(null, "production")).isInstanceOf(IllegalStateException.class);
+        assertThat(AuthSecretPolicy.isRetiredFingerprint("fe959bbd551ac6f61e733e893ef91dbbfaa2563b4b6f8ad27c5e94f745923c5f")) .isTrue();
     }
 
     @Test
     void decoderRequiresIssuerAudienceAndAccessTokenType() {
-        SecretKey key = config.authJwtSecretKey("production-grade-auth-secret-value-12345", "test");
+        SecretKey key = config.authJwtSecretKey(freshTestSecret(), "test");
         JwtEncoder encoder = config.authJwtEncoder(key);
         JwtDecoder decoder = config.authJwtDecoder(key, "expected-issuer", "web-client");
 
@@ -41,6 +45,11 @@ class AuthSecurityConfigTest {
             .isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> decoder.decode(encode(encoder, "expected-issuer", "web-client", "refresh")))
             .isInstanceOf(JwtException.class);
+    }
+
+    private static String freshTestSecret() {
+        byte[] bytes = new byte[32]; new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private static String encode(JwtEncoder encoder, String issuer, String audience, String tokenType) {

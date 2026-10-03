@@ -1,4 +1,4 @@
-"""Provider-neutral structured generation for OpenAI and Gemini."""
+"""Structured generation through the supported OpenAI provider."""
 
 from __future__ import annotations
 
@@ -285,103 +285,16 @@ class OpenAIModelProvider(ResilientProvider):
         raise AssertionError("unreachable structured generation retry state")
 
 
-class GeminiModelProvider(ResilientProvider):
-    """Google Gen AI async adapter with the same structured output contract."""
-
-    def __init__(self, client: Any | None = None, *, timeout_seconds: float = 60.0, max_attempts: int = 2) -> None:
-        super().__init__(timeout_seconds=timeout_seconds, max_attempts=max_attempts)
-        self._client = client
-
-    async def generate_structured(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._generate(
-            selection,
-            prompt,
-            DepartmentWorkProduct,
-            _SYSTEM_INSTRUCTION,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
-
-    async def generate_react_step(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._generate(
-            selection,
-            prompt,
-            ReActStep,
-            _REACT_SYSTEM_INSTRUCTION,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
-
-    async def generate_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._generate(
-            selection,
-            prompt,
-            PetProfile,
-            _PET_SYSTEM_INSTRUCTION,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
-
-    async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
-        return await self._generate(
-            selection,
-            prompt,
-            AssumptionSuggestion,
-            _ASSUMPTION_SYSTEM_INSTRUCTION,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
-        )
-
-    @traceable(name="agent-gemini-model-call", run_type="llm", metadata={"component": "model-provider"})
-    async def _generate(self, selection: ModelSelection, prompt: str, schema: type[BaseModel], system_instruction: str, *, max_output_tokens: int, max_attempts: int | None) -> ModelGeneration:  # noqa: E501
-        if selection.provider is not Provider.GEMINI:
-            raise ProviderNotConfiguredError(f"provider is not configured: {selection.provider.value}")
-        if self._client is None:
-            from google import genai
-
-            self._client = genai.Client().aio
-        client: Any = self._client
-        config = {
-            "http_options": {"retry_options": {"attempts": 1}},
-            "system_instruction": system_instruction,
-            "response_mime_type": "application/json",
-            "response_json_schema": _strict_json_schema(schema.model_json_schema()),
-            "max_output_tokens": max_output_tokens,
-        }
-
-        async def call() -> Any:
-            return await client.models.generate_content(model=selection.model, contents=prompt, config=config)
-
-        response, model_calls = await self._invoke(call, max_attempts)
-        usage = getattr(response, "usage_metadata", None)
-        input_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)
-        output_tokens = int(getattr(usage, "candidates_token_count", 0) or 0)
-        try:
-            payload = schema.model_validate_json(str(response.text))
-        except ValidationError:
-            raise ProviderCallError(
-                "model provider returned invalid structured output",
-                model_calls=model_calls,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens
-            ) from None
-
-        return ModelGeneration(
-            payload=payload.model_dump(),
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            model_calls=model_calls
-        )
-
-
 class CompositeModelProvider:
     """Dispatch each run to its explicitly selected provider without fallback."""
 
-    def __init__(self, openai: ModelProvider, gemini: ModelProvider) -> None:
-        self._providers = {Provider.OPENAI: openai, Provider.GEMINI: gemini}
+    def __init__(self, openai: ModelProvider) -> None:
+        self._providers = {Provider.OPENAI: openai}
 
     @asynccontextmanager
     async def _selected_provider(self, selection: ModelSelection) -> AsyncIterator[ModelProvider]:
+        if not selection.provider.supported:
+            raise ProviderNotConfiguredError("Unsupported AI provider")
         if selection.credential_id is None:
             yield self._providers[selection.provider]
             return
@@ -391,21 +304,12 @@ class CompositeModelProvider:
             key = await resolve_credential(
                 selection, settings.backend_internal_url, settings.backend_tool_timeout_seconds
             )
-            provider: ModelProvider
-            if selection.provider is Provider.OPENAI:
-                from openai import AsyncOpenAI
+            from openai import AsyncOpenAI
 
-                client = AsyncOpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0)
-                provider = OpenAIModelProvider(
-                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
-                )
-            else:
-                from google import genai
-
-                client = genai.Client(api_key=key, vertexai=False).aio
-                provider = GeminiModelProvider(
-                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
-                )
+            client = AsyncOpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0)
+            provider = OpenAIModelProvider(
+                client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
+            )
             del key
             with tracing_context(enabled=False):
                 yield provider
@@ -421,10 +325,7 @@ class CompositeModelProvider:
         finally:
             if client is not None:
                 try:
-                    if selection.provider is Provider.OPENAI:
-                        await client.close()
-                    else:
-                        await client.aclose()
+                    await client.close()
                 except Exception:
                     logger.warning("Personal AI client cleanup failed")
 

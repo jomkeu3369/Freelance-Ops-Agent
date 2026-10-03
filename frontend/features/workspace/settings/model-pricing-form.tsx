@@ -59,7 +59,6 @@ export function ModelPricingForm({ session, busy, setBusy, setError, setSaved, o
           <label>
             {t("AI 제공사")}<select name="provider" defaultValue="OPENAI">
               <option value="OPENAI">OpenAI</option>
-              <option value="GEMINI">Gemini</option>
             </select>
           </label>
           <label>

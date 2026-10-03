@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from api.pets.router import router
 from contracts import ModelSelection, PetProfile, Provider
 from gateway import AIGateway, GatewayPolicy
-from providers import GeminiModelProvider, ModelGeneration, OpenAIModelProvider, ProviderCallError
+from providers import ModelGeneration, OpenAIModelProvider, ProviderCallError
 from security import DelegationPrincipal
 
 PROFILE = {
@@ -80,28 +80,30 @@ def test_closed_profile_rejects_code_and_unbounded_instructions(changes: dict) -
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("provider", [Provider.OPENAI, Provider.GEMINI])
-async def test_both_providers_use_profile_schema_and_no_tools(provider: Provider, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: E501
+async def test_openai_uses_profile_schema_and_no_tools(monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: E501
     call = AsyncMock(return_value=SimpleNamespace(
         output_text=json.dumps(PROFILE), text=json.dumps(PROFILE), usage=SimpleNamespace(input_tokens=8, output_tokens=10),  # noqa: E501
         usage_metadata=SimpleNamespace(prompt_token_count=8, candidates_token_count=10)
     ))
     constructor = Mock(return_value=SimpleNamespace(responses=SimpleNamespace(create=call)))
     monkeypatch.setattr("openai.AsyncOpenAI", constructor)
-    adapter = (
-        OpenAIModelProvider() if provider == Provider.OPENAI
-        else GeminiModelProvider(SimpleNamespace(models=SimpleNamespace(generate_content=call)))
-    )
-    result = await adapter.generate_pet(ModelSelection(provider=provider, model="test"), "cat", max_output_tokens=1000, max_attempts=1)  # noqa: E501
+    adapter = OpenAIModelProvider()
+    result = await adapter.generate_pet(ModelSelection(provider=Provider.OPENAI, model="test"), "cat", max_output_tokens=1000, max_attempts=1)  # noqa: E501
     assert result.payload["animal"] == "cat"
     assert result.output_tokens == 10
     kwargs = call.call_args.kwargs
-    schema = kwargs["text"]["format"]["schema"] if provider == Provider.OPENAI else kwargs["config"]["response_json_schema"]  # noqa: E501
+    schema = kwargs["text"]["format"]["schema"]  # noqa: E501
     assert schema["additionalProperties"] is False
     assert "animal" in schema["required"]
-    if provider == Provider.OPENAI:
-        assert kwargs["tools"] == []
-        assert kwargs["store"] is False
-        constructor.assert_called_once_with(max_retries=0)
-    else:
-        assert kwargs["config"]["http_options"]["retry_options"]["attempts"] == 1
+    assert kwargs["tools"] == []
+    assert kwargs["store"] is False
+    constructor.assert_called_once_with(max_retries=0)
+
+
+def test_retired_provider_is_rejected_before_pet_generation() -> None:
+    client, body, provider = client_fixture()
+    body["modelSelection"]["provider"] = "GEMINI"
+    response = client.post("/internal/v1/pets/generate", json=body, headers={"Authorization": "Bearer synthetic"})
+    assert response.status_code == 400
+    assert response.json()["code"] == "AI_PROVIDER_UNSUPPORTED"
+    provider.generate_pet.assert_not_awaited()

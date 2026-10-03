@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
+import com.freelanceops.backend.domain.agentrun.service.ProviderPolicy;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
@@ -62,6 +63,7 @@ public class AgentTaskGuard {
         Set<String> currentPermissions = membership.permissions().stream().map(PermissionCode::code)
             .collect(java.util.stream.Collectors.toUnmodifiableSet());
         requirePermissions(profile.permissions(), currentPermissions, principal.permissions());
+        ProviderPolicy.requireSupported(profile.provider());
         requireProfile(profile, run);
         budgetPolicy.enforce(profile.budget());
         requireWithinRunBudget(profile.budget(), run.budget());

@@ -1,26 +1,14 @@
-"""Provider-neutral OpenAI/Gemini adapters for storage-neutral RAPTOR builds."""
+"""OpenAI adapters for storage-neutral RAPTOR builds."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import Any, Protocol
+from typing import Any
 
 from contracts import Provider, RaptorBuildRequest, RaptorBuildResponse, RaptorNodeOutput
 
 from .raptor import EmbeddingProvider, RaptorBuildConfig, RaptorTreeBuilder, SourceChunk, SummaryProvider
-
-
-class RaptorProviderService(Protocol):
-    async def build(self, request: RaptorBuildRequest) -> RaptorBuildResponse: ...
-
-
-class CompositeRaptorBuildService:
-    def __init__(self, openai: RaptorProviderService, gemini: RaptorProviderService) -> None:
-        self._services = {Provider.OPENAI: openai, Provider.GEMINI: gemini}
-
-    async def build(self, request: RaptorBuildRequest) -> RaptorBuildResponse:
-        return await self._services[request.provider].build(request)
 
 
 class OpenAIRaptorBuildService:
@@ -40,26 +28,6 @@ class OpenAIRaptorBuildService:
             request,
             _OpenAIEmbedder(client, request.embedding_model),
             _OpenAISummarizer(client, request.summary_model),
-        )
-
-
-class GeminiRaptorBuildService:
-    def __init__(self, client: Any | None = None) -> None:
-        self._client = client
-
-    async def build(self, request: RaptorBuildRequest) -> RaptorBuildResponse:
-        if request.provider is not Provider.GEMINI:
-            raise ValueError("RAPTOR request does not select Gemini")
-        client = self._client
-        if client is None:
-            from google import genai
-
-            client = genai.Client().aio
-            self._client = client
-        return await _build_response(
-            request,
-            _GeminiEmbedder(client, request.embedding_model),
-            _GeminiSummarizer(client, request.summary_model),
         )
 
 
@@ -141,43 +109,6 @@ class _OpenAISummarizer:
             max_output_tokens=800,
         )
         return str(response.output_text).strip()
-
-
-class _GeminiEmbedder:
-    def __init__(self, client: Any, model: str) -> None:
-        self._client = client
-        self._model = model
-
-    async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
-        response = await self._client.models.embed_content(
-            model=self._model,
-            contents=list(texts),
-            config={"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
-        )
-        embeddings = getattr(response, "embeddings", None)
-        if embeddings is None:
-            raise ValueError("Gemini embedding response is empty")
-        return [list(embedding.values) for embedding in embeddings]
-
-
-class _GeminiSummarizer:
-    def __init__(self, client: Any, model: str) -> None:
-        self._client = client
-        self._model = model
-
-    async def summarize(self, texts: Sequence[str]) -> str:
-        response = await self._client.models.generate_content(
-            model=self._model,
-            contents=json.dumps({"untrusted_source_passages": list(texts)}, ensure_ascii=False),
-            config={
-                "system_instruction": _SUMMARY_INSTRUCTION,
-                "max_output_tokens": 800,
-            },
-        )
-        value = str(response.text).strip()
-        if not value:
-            raise ValueError("Gemini summary response is empty")
-        return value
 
 
 _SUMMARY_INSTRUCTION = (

@@ -9,7 +9,7 @@ import providers
 from contracts import ModelSelection, Provider
 from gateway import AIGateway, GatewayPolicy
 from personal_credentials import credential_scope, resolve_credential
-from providers import CompositeModelProvider, ModelGeneration, ProviderCallError
+from providers import CompositeModelProvider, ModelGeneration, ProviderCallError, ProviderNotConfiguredError
 
 
 def selection() -> ModelSelection:
@@ -42,7 +42,7 @@ async def test_credential_scope_is_reset_and_resolution_never_redirects(monkeypa
 async def test_deleted_connection_fails_without_platform_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     platform = AsyncMock()
     monkeypatch.setattr(providers, "resolve_credential", AsyncMock(side_effect=ValueError("secret-provider-detail")))
-    composite = CompositeModelProvider(platform, platform)
+    composite = CompositeModelProvider(platform)
     with pytest.raises(ProviderCallError, match="Personal AI connection unavailable") as caught:
         await composite.generate_structured(selection(), "test", max_output_tokens=10)
     assert caught.value.__suppress_context__
@@ -67,7 +67,7 @@ async def test_personal_calls_use_fresh_clients_and_preserve_usage(monkeypatch: 
     monkeypatch.setattr(providers.OpenAIModelProvider, "generate_assumption", AsyncMock(
         return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
     ))
-    composite = CompositeModelProvider(AsyncMock(), AsyncMock())
+    composite = CompositeModelProvider(AsyncMock())
     for _ in range(2):
         result = await composite.generate_assumption(selection(), "test", max_output_tokens=10)
         assert result.input_tokens == 2
@@ -92,30 +92,15 @@ async def test_personal_failures_do_not_open_platform_circuit() -> None:
     assert provider.generate_structured.await_count == 2
 
 
-async def test_gemini_personal_client_closes_without_using_platform_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    from types import SimpleNamespace
-
-    from google import genai
-
-    client = AsyncMock()
-    keys = []
-
-    def create_client(**kwargs: object) -> SimpleNamespace:
-        keys.append(kwargs["api_key"])
-        assert kwargs["vertexai"] is False
-        return SimpleNamespace(aio=client)
-
-    monkeypatch.setattr(genai, "Client", create_client)
-    monkeypatch.setattr(providers, "resolve_credential", AsyncMock(return_value="synthetic-gemini-key"))
-    monkeypatch.setattr(providers.GeminiModelProvider, "generate_assumption", AsyncMock(
-        return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
-    ))
+async def test_retired_personal_connection_rejects_before_key_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    resolver = AsyncMock()
+    monkeypatch.setattr(providers, "resolve_credential", resolver)
     platform = AsyncMock()
-    composite = CompositeModelProvider(platform, platform)
-    await composite.generate_assumption(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-2.5-flash", credential_id=uuid4()),
-        "test", max_output_tokens=10
-    )
-    assert keys == ["synthetic-gemini-key"]
-    client.aclose.assert_awaited_once()
+    composite = CompositeModelProvider(platform)
+    retired = ModelSelection(provider=Provider.GEMINI, model="gemini-test", credential_id=uuid4())
+    with pytest.raises(ProviderNotConfiguredError, match="Unsupported AI provider"):
+        await composite.generate_assumption(retired, "test", max_output_tokens=10)
+    resolver.assert_not_awaited()
     platform.generate_assumption.assert_not_awaited()
+    with credential_scope("delegated-test", uuid4()), pytest.raises(ValueError, match="Unsupported AI provider"):
+        await resolve_credential(retired, "http://backend:8080", 1)

@@ -4,9 +4,12 @@ V2의 운영 데이터베이스는 PostgreSQL 17 + pgvector 하나이며 `app`�
 
 ## 로컬 실행
 
+`.env.example`을 `.env`로 복사한 뒤 `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `AGENT_DB_PASSWORD`를 각각 비어 있지 않은 값으로 지정한다. 로컬 Compose에도 기본 비밀번호가 없으며, 누락되거나 비어 있으면 구성 확인 단계에서 중지한다. 값은 비공개로 보관하고 커밋하지 않는다. `AGENT_DB_PASSWORD`는 URL-safe 문자를 사용한다. 기존 볼륨에서는 현재 DB 계정과 일치하는 값을 유지해야 한다. 이 설정 변경은 기존 계정의 비밀번호를 변경하지 않는다. 로컬 Backend 인증에도 `APP_AUTH_JWT_SECRET`을 별도로 명시해야 하며, 32바이트 이상의 충분히 무작위인 값이 필요하다. 운영 서버의 현재 키는 이 로컬 설정 작업에서 변경하지 않는다.
+
+
 ```powershell
-docker compose -f docker-compose-infra.yaml config
-docker compose -f docker-compose.yaml config
+docker compose -f docker-compose-infra.yaml config --quiet
+docker compose -f docker-compose.yaml config --quiet
 docker compose -f docker-compose-infra.yaml up -d --wait
 docker compose -f docker-compose.yaml up --build -d --wait
 ```
@@ -82,3 +85,7 @@ Restore drill은 63자 이하의 소문자·숫자·밑줄로 구성되고 `_res
 `sh infra/tests/test-backup-restore.sh`는 격리된 PostgreSQL에서 위 절차와 잘못된 소유권·격리·checksum·대상 거부를 검증하며 Contracts & Compose CI에서도 실행한다. remote 전송만 로컬 복사로 대체하므로 이 테스트는 실제 off-host 복구·credential 인증·RPO/RTO 증거를 대신하지 않는다.
 
 실제 domain, registry, firewall, rclone crypt remote와 secret 주입이 확정되기 전에는 production 배포 완료로 간주하지 않는다.
+
+## Local credential configuration checks
+
+`python3 infra/tests/test_local_password_config.py` checks required DB password variables and empty example fields. When Docker is installed, it also verifies Compose rejects missing and empty values and accepts temporary test-only values without displaying the resolved configuration.

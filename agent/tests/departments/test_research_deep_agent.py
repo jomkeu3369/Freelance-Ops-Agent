@@ -34,7 +34,7 @@ def test_research_file_permissions_deny_everything_outside_run_namespace() -> No
     assert rules[1].paths == ["/**"]
 
 
-@pytest.mark.parametrize("model", ["gpt-5.4-mini", "anthropic:claude", ":broken"])
+@pytest.mark.parametrize("model", ["gpt-5.4-mini", "anthropic:claude", "google_genai:gemini-test", ":broken"])
 def test_research_deep_agent_rejects_implicit_or_unsupported_provider(model: str) -> None:
     with pytest.raises(ValueError):
         build_research_deep_agent(model=model, run_id=uuid4())

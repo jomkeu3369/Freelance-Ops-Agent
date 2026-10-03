@@ -49,6 +49,8 @@ subst R: /D
 
 애플리케이션 실행에는 PostgreSQL의 `app` schema와 app 전용 credential이 필요하다. Python Agent는 이 schema를 직접 읽거나 수정하지 않는다.
 
+Compose 없이 Backend를 직접 실행할 때는 `DB_PASSWORD` 환경변수를 app 계정의 현재 비밀번호로 지정해야 한다. 기본 비밀번호로 대체하지 않는다. 로컬 Compose는 `.env`의 `APP_DB_PASSWORD`를 이 값으로 전달한다.
+
 ## Swagger UI
 
 Swagger는 Spring 공개 API만 문서화하며 기본 설정에서는 비활성화된다. 로컬 개발에서는 `development` profile로 실행한다.
@@ -73,7 +75,13 @@ Spring이 사용자 계정, BCrypt 비밀번호 검증, access JWT와 refresh to
 - `POST /api/v2/auth/logout`: 전달된 refresh token을 폐기한다.
 - `GET /api/v2/me`: Bearer access token의 UUID subject로 현재 사용자와 workspace 권한을 조회한다.
 
-refresh token 원문은 DB에 저장하지 않고 SHA-256 hash만 보존한다. 운영 환경에서는 32바이트 이상의 무작위 `APP_AUTH_JWT_SECRET`을 secret manager로 주입해야 하며 기본 개발 secret으로는 시작을 거부한다. 자세한 결정은 [`ADR-0018`](../docs/adr/0018-local-user-authentication.md)을 따른다.
+회원가입 요청에는 만 14세 이상 자기확인을 나타내는 JSON boolean `ageAtLeast14: true`가 필수다.
+누락, `null`, `false`, 문자열 및 숫자는 계정·workspace·token 생성 전에 `400 Bad Request`로 거부한다.
+생년월일이나 본인인증 정보는 수집하지 않으며, 이 확인 값을 DB 또는 동의 이력으로 저장하지 않는다.
+기존 사용자 로그인에는 영향을 주지 않는다. 이전 클라이언트의 가입 요청은 필드가 없어 거부되므로
+프런트엔드와 백엔드의 가입 계약 변경을 함께 반영해야 한다.
+
+refresh token 원문은 DB에 저장하지 않고 SHA-256 hash만 보존한다. 모든 실행 환경에서 32바이트 이상의 무작위 `APP_AUTH_JWT_SECRET`을 명시해야 한다. 기본 개발 서명키는 없으며, 이전에 공개된 개발용 키의 재사용도 거부한다. 운영 값은 secret manager로 주입한다. 자세한 결정은 [`ADR-0018`](../docs/adr/0018-local-user-authentication.md)을 따른다.
 
 ## Workspace RBAC
 
@@ -95,3 +103,5 @@ PostgreSQL 격리 검증은 Docker가 실행 중일 때 Testcontainers로 자동
 - Outcome: 실제 매출·원가·공수와 WBS 회고를 저장해 견적 calibration 근거로 사용
 
 발행된 견적은 직접 수정하지 않는다. 변경은 `/quotations/{quotationId}/revisions`에서 새로운 immutable version으로 생성한다. 세부 결정은 [`ADR-0019`](../docs/adr/0019-immutable-grounded-quotation.md)와 [`ADR-0020`](../docs/adr/0020-hibernate-vector-hybrid-retrieval.md)을 따른다.
+
+Gradle `test`는 실행마다 메모리에서 만든 임시 JWT 키를 테스트 프로세스에만 전달한다. 이 값은 `bootRun`이나 운영 서버 설정에 적용되지 않는다. IDE에서 Spring 통합 테스트를 직접 실행할 때도 실제 서비스 키 대신 별도의 일회용 테스트 키를 환경변수로 지정해야 한다.

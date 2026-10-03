@@ -10,7 +10,7 @@ import {
   getAgentRunUsage,
   ApiError
 } from "../../../app/lib/api";
-import { AIConnection, listAIConnections } from "../../../app/lib/api";
+import { AIConnection, isSupportedProvider, listAIConnections } from "../../../app/lib/api";
 import { snapshotFromEvents } from "../../../app/components/live-workflow";
 import { StreamState, WorkbenchStep } from "../shared/types";
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -74,17 +74,17 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const canRun = permissions.has("agent.run");
-  const canRespond = permissions.has("agent.respond");
+  const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
   const chatModel = credentialId
-    ? connection && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
+    ? connection && isSupportedProvider(connection.provider) && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
     : model.trim() ? { provider, model: model.trim(), credentialId: undefined } : null;
 
   useEffect(() => {
     if (!canRun) return;
     let cancelled = false;
     listAIConnections(session).then((value) => {
-      if (!cancelled) { setConnections(value.connections); setConnectionError(false); }
+      if (!cancelled) { setConnections(value.connections.filter((item) => isSupportedProvider(item.provider))); setConnectionError(false); }
     }).catch(() => { if (!cancelled) setConnectionError(true); });
     return () => { cancelled = true; };
   }, [canRun, session, runId]);
@@ -108,7 +108,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     setShowDeleteConfirmation(false);
     setDeleteConfirmation("");
     setDeleteError(null);
-  }, [deletingProject]);
+  }, [deletingProject, setShowDeleteConfirmation, setDeleteConfirmation, setDeleteError]);
 
   useDialogFocusTrap(deleteDialog, closeDeleteConfirmation, deletingProject, showDeleteConfirmation);
 
@@ -172,9 +172,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 }}
               >
                 <option value="OPENAI">OpenAI</option>
-                <option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>
-                  Gemini{configuredModelOptions.GEMINI.length === 0 ? t(" · 설정 필요") : ""}
-                </option>
               </select>
             </label>
             <label>
@@ -370,6 +367,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         />
       )}
 
+      {run?.metadata && !isSupportedProvider(run.metadata.provider) && <p role="status">{t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.")}</p>}
       {aiSettings}
 
       {activeStep === "quote" && (
@@ -383,7 +381,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           petProfiles={run?.metadata?.petProfiles}
           modelSelection={
             run?.metadata
-              ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+              ? isSupportedProvider(run.metadata.provider)
+                ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+                : null
               : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }
           }
         />

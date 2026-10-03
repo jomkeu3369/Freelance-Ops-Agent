@@ -477,7 +477,7 @@ components:
           description: Personal connection identifier; absent means platform credentials. Never an API key.
         provider:
           type: string
-          enum: [OPENAI, GEMINI]
+          enum: [OPENAI]
         model:
           type: string
           minLength: 1

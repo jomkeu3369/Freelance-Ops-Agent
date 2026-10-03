@@ -1,6 +1,6 @@
 # Agent
 
-FastAPI + LangGraph 서비스가 prompt, Supervisor graph, ReAct loop, HITL checkpoint, OpenAI/Gemini 호출과 AI 평가를 소유한다.
+FastAPI + LangGraph 서비스가 prompt, Supervisor graph, ReAct loop, HITL checkpoint, OpenAI 호출과 AI 평가를 소유한다.
 
 ## Local verification
 
@@ -52,7 +52,7 @@ run-scoped 파일 권한을 사용하고 general-purpose subagent·host shell을
 동일 frozen dataset의 단일 ReAct baseline보다 품질·비용·latency가 개선되기 전에는
 운영 run executor에 연결하지 않는다.
 
-부서 structured generation과 RAPTOR build는 요청에 기록된 `OPENAI` 또는 `GEMINI` provider를
+부서 structured generation과 RAPTOR build는 요청에 기록된 `OPENAI` provider를
 명시적으로 사용한다. provider 간 조용한 fallback은 없으며 일시적인 timeout·429·5xx만 제한적으로
 재시도한다. Spring Tool client는 versioned OpenAPI의 project context, domain pack,
 requirements validation과 deterministic quote calculation을 지원한다.

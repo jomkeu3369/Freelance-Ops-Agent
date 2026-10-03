@@ -79,6 +79,7 @@ export function setup() {
     password: `Readiness-${nonce}-${suffix}!`,
     displayName: `Synthetic readiness ${suffix}`,
     workspaceName: `Synthetic readiness ${suffix}`,
+    ageAtLeast14: true,
   }, null, "fixture-register"));
   const fixtures = users.map((user, index) => {
     const fixtureMarker = `private-fixture-${nonce}-${index}`;

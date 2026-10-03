@@ -97,6 +97,9 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         or not set(body.context.effective_permissions).issubset(principal.permissions)
     ):
         return _problem(403, "Run context exceeds delegated authority", "RUN_CONTEXT_FORBIDDEN")
+    if not body.model_selection.provider.supported:
+        return _problem(400, "Unsupported AI provider", "AI_PROVIDER_UNSUPPORTED")
+
     try:
         accepted = await coordinator.accept(body)
     except AgentRunStateError:
@@ -202,6 +205,9 @@ async def resume_agent_run(run_id: UUID, body: ResumeAgentRunRequest, background
     if authorization_error is not None:
         return authorization_error
     try:
+        view = await coordinator.view(run_id)
+        if view.metadata is not None and not view.metadata.provider.supported:
+            return _problem(400, "Unsupported AI provider", "AI_PROVIDER_UNSUPPORTED")
         accepted, request = await coordinator.accept_resume(run_id, body)
 
     except AgentRunNotFoundError:

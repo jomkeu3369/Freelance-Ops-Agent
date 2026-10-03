@@ -10,11 +10,10 @@ services:
       AGENT_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       AGENT_KNOWLEDGE_EMBEDDING_MODEL: ${KNOWLEDGE_EMBEDDING_MODEL:-text-embedding-3-small}
       AGENT_BACKEND_INTERNAL_URL: http://backend:8080
-      AGENT_DATABASE_URL: postgresql://agent_user:${AGENT_DB_PASSWORD:-local_agent_password}@postgres:5432/freelance_ops
+      AGENT_DATABASE_URL: postgresql://agent_user:${AGENT_DB_PASSWORD:?Set AGENT_DB_PASSWORD in .env before starting local services}@postgres:5432/freelance_ops
       AGENT_RUN_STORE_BACKEND: postgres
       AGENT_CHECKPOINT_BACKEND: postgres
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
@@ -74,7 +73,6 @@ services:
       APP_ENVIRONMENT: ${APP_ENVIRONMENT:-development}
       APP_BYOK_ENCRYPTION_KEY: ${APP_BYOK_ENCRYPTION_KEY:-}
       APP_BYOK_OPENAI_MODELS: ${APP_BYOK_OPENAI_MODELS:-gpt-5.6-luna,gpt-5.6-terra}
-      APP_BYOK_GEMINI_MODELS: ${APP_BYOK_GEMINI_MODELS:-gemini-2.5-flash}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
       APP_RATE_LIMIT_ENABLED: ${APP_RATE_LIMIT_ENABLED:-true}
       APP_RATE_LIMIT_AUTH_PER_MINUTE: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:-20}
@@ -84,7 +82,8 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-development}
       DB_URL: jdbc:postgresql://postgres:5432/freelance_ops
       DB_USERNAME: app_user
-      DB_PASSWORD: ${APP_DB_PASSWORD:-local_app_password}
+      DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env before starting local services}
+      APP_AUTH_JWT_SECRET: ${APP_AUTH_JWT_SECRET:?Set APP_AUTH_JWT_SECRET privately before starting local services}
       DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-2000}
       DB_POOL_VALIDATION_TIMEOUT_MS: ${DB_POOL_VALIDATION_TIMEOUT_MS:-1000}
       DB_SOCKET_TIMEOUT_SECONDS: ${DB_SOCKET_TIMEOUT_SECONDS:-10}

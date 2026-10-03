@@ -1,7 +1,9 @@
 import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
-export type Provider = "OPENAI" | "GEMINI";
+export type Provider = "OPENAI";
+export type RecordedProvider = Provider | "GEMINI";
+export function isSupportedProvider(provider: RecordedProvider): provider is Provider { return provider === "OPENAI"; }
 export type ReasoningEffort = "NONE" | "LOW" | "MEDIUM" | "HIGH";
 export type AgentRunStatus =
   | "QUEUED"
@@ -218,7 +220,7 @@ export interface AgentRunView {
   metadata: {
     petProfiles?: PetProfile[];
     credentialId?: string | null;
-    provider: Provider;
+    provider: RecordedProvider;
     model: string;
     promptVersion: string;
     toolSchemaVersion: string;
@@ -261,7 +263,7 @@ export interface AgentRunUsage {
 
 export interface ModelPricing {
   id: string;
-  provider: Provider;
+  provider: RecordedProvider;
   model: string;
   versionLabel: string;
   currency: string;
@@ -594,6 +596,7 @@ export function register(input: {
   password: string;
   displayName: string;
   workspaceName: string;
+  ageAtLeast14: boolean;
 }): Promise<AuthSession> {
   return request("/api/v2/auth/register", { method: "POST", body: JSON.stringify(input) });
 }
@@ -1175,7 +1178,7 @@ export async function streamRunEvents(
   }
 }
 
-export interface AIConnection { id: string; provider: Provider; model: string; maskedKey: string; updatedAt: string }
+export interface AIConnection { id: string; provider: RecordedProvider; model: string; maskedKey: string; updatedAt: string }
 export interface AIConnections { available: boolean; models: Record<Provider, string[]>; connections: AIConnection[] }
 export function listAIConnections(session: AuthSession): Promise<AIConnections> {
   return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections`, { cache: "no-store" }, session.accessToken);

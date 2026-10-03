@@ -22,7 +22,11 @@ class StrictModel(BaseModel):
 
 class Provider(StrEnum):
     OPENAI = "OPENAI"
-    GEMINI = "GEMINI"
+    GEMINI = "GEMINI"  # Historical records only; never a selectable execution provider.
+
+    @property
+    def supported(self) -> bool:
+        return self is Provider.OPENAI
 
 
 class ReasoningEffort(StrEnum):
@@ -82,7 +86,8 @@ class RunBudget(StrictModel):
 
 
 class ModelSelection(StrictModel):
-    provider: Provider
+    # Runtime decoding retains historical providers; new HTTP selections are gated before use.
+    provider: Provider = Field(json_schema_extra={"enum": ["OPENAI"]})
     model: str = Field(min_length=1, max_length=100)
     reasoning_effort: ReasoningEffort = ReasoningEffort.LOW
     credential_id: UUID | None = None
@@ -460,7 +465,7 @@ class RaptorBuildOptions(StrictModel):
 
 class RaptorBuildRequest(StrictModel):
     context: RaptorBuildContext
-    provider: Provider = Provider.OPENAI
+    provider: Provider = Field(default=Provider.OPENAI, json_schema_extra={"enum": ["OPENAI"]})
     embedding_model: str = Field(min_length=1, max_length=100)
     summary_model: str = Field(min_length=1, max_length=100)
     chunks: list[RaptorSourceChunkInput] = Field(min_length=1, max_length=500)

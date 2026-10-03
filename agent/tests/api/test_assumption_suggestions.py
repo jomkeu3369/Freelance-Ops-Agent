@@ -127,3 +127,13 @@ def test_rejects_suggestion_without_quotation_permission() -> None:
     )
 
     assert response.status_code == 403
+
+
+def test_retired_provider_is_rejected_before_assumption_generation() -> None:
+    client, token, body, provider = _client()
+    body["modelSelection"]["provider"] = "GEMINI"
+    response = client.post("/internal/v1/quotation-assumptions/suggest", json=body,
+                           headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 400
+    assert response.json()["code"] == "AI_PROVIDER_UNSUPPORTED"
+    assert provider.prompt == ""

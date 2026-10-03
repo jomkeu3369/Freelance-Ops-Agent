@@ -53,6 +53,9 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
             return _problem(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
     except TokenVerificationError:
         return _problem(403, "Invalid delegation", "DELEGATION_FORBIDDEN")
+    if not body.model_selection.provider.supported:
+        return _problem(400, "Unsupported AI provider", "AI_PROVIDER_UNSUPPORTED")
+
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
         return _problem(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")

@@ -224,6 +224,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     @Transactional
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+        ProviderPolicy.requireSupported(authorized.run().provider());
         if (authorized.run().credentialId() != null) {
             if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             connections.validate(userId, workspaceId, authorized.run().credentialId(), authorized.run().provider(), authorized.run().model());

@@ -19,8 +19,8 @@ from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfi
 from infrastructure.readiness import DatabaseReadinessProbe
 from integrations import SpringTaskEventClient, SpringTaskRegistrationClient, SpringToolClient, TaskEventPublisher
 from observability import configure_langsmith_privacy, trace_context_middleware
-from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
-from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from providers import CompositeModelProvider, OpenAIModelProvider
+from retrieval import OpenAIRaptorBuildService
 from retrieval.knowledge_context import KnowledgeContextLoader, OpenAIQueryEmbedder
 from routing import build_operational_route_gateway
 from runtime import (
@@ -126,7 +126,7 @@ class FreelanceOpsAgentAiServer:
             async_runtime_services.task_command_inbox if async_runtime_services is not None else None
         )
         self.app.state.ai_gateway = ai_gateway
-        self.app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(OpenAIRaptorBuildService(), GeminiRaptorBuildService())  # noqa: E501
+        self.app.state.raptor_build_service = raptor_build_service or OpenAIRaptorBuildService()  # noqa: E501
         self.app.state.delegation_token_verifier = (delegation_token_verifier or _build_delegation_token_verifier())
         self._register_routes()
 
@@ -174,10 +174,6 @@ def _build_run_runtime() -> RuntimeComponents:
     model_gateway = AIGateway(
         CompositeModelProvider(
             OpenAIModelProvider(
-                timeout_seconds=settings.model_timeout_seconds,
-                max_attempts=settings.model_max_attempts
-            ),
-            GeminiModelProvider(
                 timeout_seconds=settings.model_timeout_seconds,
                 max_attempts=settings.model_max_attempts
             )

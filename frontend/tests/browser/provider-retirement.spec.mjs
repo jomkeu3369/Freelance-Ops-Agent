@@ -1,0 +1,51 @@
+import { test, expect } from "@playwright/test";
+import { fixture } from "./helpers/chat-fixture.mjs";
+const path = "/workspace/projects/project-one/agent";
+const legacy = { id: "retired-connection", provider: "GEMINI", model: "retired-model", maskedKey: "••••0000", updatedAt: "2026-10-01T00:00:00Z" };
+const current = { ...legacy, id: "current-connection", provider: "OPENAI", model: "supported-model" };
+
+test("retired connection cannot be selected while OpenAI survives reopen and back navigation", async ({ page }) => {
+  const state = await fixture(page);
+  state.connections = [legacy, current];
+  await page.goto(path);
+  const settings = page.locator(".agent-chat-settings");
+  await settings.locator(":scope > summary").click();
+  const provider = settings.getByLabel("AI 제공사", { exact: true });
+  await expect(provider.locator("option")).toHaveText(["OpenAI"]);
+  const connection = settings.getByLabel("AI 연결", { exact: true });
+  await expect(connection.locator('option[value="retired-connection"]')).toHaveCount(0);
+  await connection.selectOption(current.id);
+  await expect(settings.locator(".model-selection-note")).toContainText("내 키로 실행");
+  await settings.locator(":scope > summary").click();
+  await settings.locator(":scope > summary").click();
+  await expect(connection).toHaveValue(current.id);
+  await connection.selectOption("");
+  await expect(provider.locator("option")).toHaveText(["OpenAI"]);
+  await page.goto("/workspace/settings");
+  const saved = page.locator("#ai-connections");
+  await expect(saved).toContainText("GEMINI · retired-model");
+  await expect(saved).toContainText("지원이 종료된 연결입니다");
+  await expect(saved.getByLabel("제공사", { exact: true }).locator("option")).toHaveText(["OpenAI"]);
+  const row = saved.locator("article").filter({ hasText: "GEMINI" });
+  await row.getByRole("button", { name: "삭제", exact: true }).click();
+  await row.getByRole("button", { name: "취소", exact: true }).click();
+  await expect(row).toContainText("retired-model");
+  await page.goBack();
+  await settings.locator(":scope > summary").click();
+  await expect(connection.locator('option[value="retired-connection"]')).toHaveCount(0);
+  expect(state.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("historical Gemini run remains visible but cannot resume", async ({ page }) => {
+  const state = await fixture(page);
+  state.run = { runId: "run-one", status: "WAITING_FOR_USER", activeDepartment: null, interruption: { interruptionId: "retired-question", kind: "CLARIFICATION", questions: ["기존 질문"] }, result: null, errorCode: null, metadata: { provider: "GEMINI", model: "retired-model", promptVersion: "old", toolSchemaVersion: "old", traceId: "synthetic" }, usage: null, updatedAt: legacy.updatedAt };
+  state.history = [{ runId: "run-one", requirementText: "Historical requirements", status: "WAITING_FOR_USER", createdAt: legacy.updatedAt }];
+  await page.goto(path);
+  await expect(page.getByText("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "답변하고 계속", exact: true })).toHaveCount(0);
+  await expect(page.locator(".agent-chat-actions .danger")).toBeVisible();
+  expect(state.resumes).toEqual([]);
+  expect(state.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from contracts import ModelSelection, Provider
-from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider, ProviderCallError
+from providers import CompositeModelProvider, OpenAIModelProvider, ProviderCallError, ProviderNotConfiguredError
 
 
 class FakeOpenAIResponses:
@@ -21,24 +21,11 @@ class FakeOpenAIResponses:
         )
 
 
-class FakeGeminiModels:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, object]] = []
-
-    async def generate_content(self, **kwargs: object) -> object:
-        self.calls.append(kwargs)
-        return SimpleNamespace(
-            text=json.dumps({"summary": "Gemini 결과", "open_questions": ["확인할까요?"]}),
-            usage_metadata=SimpleNamespace(prompt_token_count=13, candidates_token_count=5),
-        )
-
-
 @pytest.mark.asyncio
 async def test_composite_dispatches_openai_with_strict_non_stored_output() -> None:
     responses = FakeOpenAIResponses()
     openai = OpenAIModelProvider(SimpleNamespace(responses=responses))
-    gemini = GeminiModelProvider(SimpleNamespace(models=FakeGeminiModels()))
-    provider = CompositeModelProvider(openai, gemini)
+    provider = CompositeModelProvider(openai)
 
     generation = await provider.generate_structured(
         ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
@@ -58,24 +45,17 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
 
 
 @pytest.mark.asyncio
-async def test_composite_dispatches_gemini_with_same_schema() -> None:
-    models = FakeGeminiModels()
-    provider = CompositeModelProvider(
-        OpenAIModelProvider(SimpleNamespace(responses=FakeOpenAIResponses())),
-        GeminiModelProvider(SimpleNamespace(models=models)),
-    )
-
-    generation = await provider.generate_structured(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"),
-        "untrusted request",
-        max_output_tokens=100,
-    )
-
-    assert generation.payload["summary"] == "Gemini 결과"
-    assert generation.output_tokens == 5
-    config = models.calls[0]["config"]
-    assert isinstance(config, dict)
-    assert config["response_mime_type"] == "application/json"
+@pytest.mark.parametrize(
+    "method", ["generate_structured", "generate_react_step", "generate_pet", "generate_assumption"]
+)
+async def test_retired_provider_is_rejected_without_openai_fallback(method: str) -> None:
+    responses = FakeOpenAIResponses()
+    provider = CompositeModelProvider(OpenAIModelProvider(SimpleNamespace(responses=responses)))
+    with pytest.raises(ProviderNotConfiguredError, match="Unsupported AI provider"):
+        await getattr(provider, method)(
+            ModelSelection(provider=Provider.GEMINI, model="gemini-test"), "test", max_output_tokens=100
+        )
+    assert responses.calls == []
 
 
 @pytest.mark.asyncio
@@ -119,31 +99,6 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
     assert arguments_schema["required"] == ["query"]
     assert arguments_schema["additionalProperties"] is False
     assert "default" not in arguments_schema["properties"]["query"]
-
-
-@pytest.mark.asyncio
-async def test_gemini_react_step_uses_same_provider_neutral_contract() -> None:
-    class ReActModels(FakeGeminiModels):
-        async def generate_content(self, **kwargs: object) -> object:
-            self.calls.append(kwargs)
-            return SimpleNamespace(
-                text=json.dumps({"action": "FINAL", "summary": "완료", "arguments": {}}),
-                usage_metadata=SimpleNamespace(prompt_token_count=8, candidates_token_count=3),
-            )
-
-    models = ReActModels()
-    provider = GeminiModelProvider(SimpleNamespace(models=models))
-
-    generation = await provider.generate_react_step(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"),
-        "bounded step",
-        max_output_tokens=100,
-    )
-
-    assert generation.payload["action"] == "FINAL"
-    config = models.calls[0]["config"]
-    assert isinstance(config, dict)
-    assert config["response_json_schema"]["title"] == "ReActStep"
 
 
 @pytest.mark.asyncio
@@ -304,3 +259,10 @@ async def test_openai_invalid_structured_output_is_regenerated_once() -> None:
     assert generation.input_tokens == 20
     assert generation.output_tokens == 10
     assert responses.calls == 2
+
+
+def test_selection_schema_advertises_only_supported_provider_but_decodes_history() -> None:
+    assert ModelSelection.model_json_schema()["properties"]["provider"]["enum"] == ["OPENAI"]
+    historical = ModelSelection.model_validate({"provider": "GEMINI", "model": "retired"})
+    assert historical.provider is Provider.GEMINI
+    assert not historical.provider.supported

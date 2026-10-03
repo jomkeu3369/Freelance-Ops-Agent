@@ -1,6 +1,6 @@
 import { useT } from "../../../app/lib/ui-language";
 import { useEffect, useState } from "react";
-import { AIConnections, AuthSession, Provider, deleteAIConnection, listAIConnections, saveAIConnection } from "../../../app/lib/api";
+import { AIConnections, AuthSession, Provider, isSupportedProvider, deleteAIConnection, listAIConnections, saveAIConnection } from "../../../app/lib/api";
 
 export function AIConnectionSettings({ session }: { session: AuthSession }) {
   const t = useT();
@@ -55,11 +55,11 @@ export function AIConnectionSettings({ session }: { session: AuthSession }) {
     {!data && !error && <p role="status">{t("연결 확인 중…")}</p>}
     {data && <>
       <div className="ai-connection-list">{data.connections.length === 0 ? <p>{t("아직 연결한 키가 없습니다. 기본 제공 AI로도 시작할 수 있습니다.")}</p> : data.connections.map((connection) => <article key={connection.id}>
-        <div><strong>{connection.provider} · {connection.model}</strong><p>{connection.maskedKey} · {new Date(connection.updatedAt).toLocaleDateString("ko-KR")} {t("확인")}</p></div>
+        <div><strong>{connection.provider} · {connection.model}</strong>{!isSupportedProvider(connection.provider) && <p>{t("지원이 종료된 연결입니다. 새 실행에 사용할 수 없습니다.")}</p>}<p>{connection.maskedKey} · {new Date(connection.updatedAt).toLocaleDateString("ko-KR")} {t("확인")}</p></div>
         {confirmDelete === connection.id ? <div><p>{t("이 연결을 삭제할까요? 진행 중인 호출은 취소되지 않습니다.")}</p><button className="danger-button" disabled={busy} onClick={() => remove(connection.id)}>{t("연결 삭제")}</button><button className="quiet-button" disabled={busy} onClick={() => setConfirmDelete(null)}>{t("취소")}</button></div> : <button className="quiet-button" disabled={busy} onClick={() => setConfirmDelete(connection.id)}>{t("삭제")}</button>}
       </article>)}</div>
       {data.available ? <form className="ai-connection-form" onSubmit={save}>
-        <label>{t("제공사")}<select value={provider} disabled={busy} onChange={(event) => { const next = event.target.value as Provider; setProvider(next); setModel(data.models[next][0] ?? ""); setApiKey(""); }}><option value="OPENAI">OpenAI</option><option value="GEMINI" disabled={!data.models.GEMINI.length}>Gemini{!data.models.GEMINI.length ? t(" · 준비 중") : ""}</option></select></label>
+        <label>{t("제공사")}<select value={provider} disabled={busy} onChange={(event) => { const next = event.target.value as Provider; setProvider(next); setModel(data.models[next][0] ?? ""); setApiKey(""); }}><option value="OPENAI">OpenAI</option></select></label>
         <label>{t("모델")}<select value={model} disabled={busy} onChange={(event) => setModel(event.target.value)}>{data.models[provider].map((item) => <option key={item}>{item}</option>)}</select></label>
         <label>{t("API 키")}<input type="password" autoComplete="off" spellCheck={false} value={apiKey} minLength={16} maxLength={512} required disabled={busy} onChange={(event) => setApiKey(event.target.value)} placeholder={t("새 키를 입력하세요")} /></label>
         <button className="primary-button" disabled={busy || !model || !apiKey}>{busy ? t("연결 확인 중…") : data.connections.some((item) => item.provider === provider) ? t("확인 후 연결 교체") : t("확인 후 연결")}</button>

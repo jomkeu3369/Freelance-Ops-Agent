@@ -53,6 +53,9 @@ async def suggest_assumption(body: AssumptionSuggestionRequest, request: Request
     if not _matches_context(principal, body) or "quotation.write" not in principal.permissions:
         return _problem(403, "Suggestion context exceeds delegated authority", "SUGGESTION_CONTEXT_FORBIDDEN")
 
+    if not body.model_selection.provider.supported:
+        return _problem(400, "Unsupported AI provider", "AI_PROVIDER_UNSUPPORTED")
+
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
         return _problem(503, "AI gateway is unavailable", "AI_GATEWAY_UNAVAILABLE")

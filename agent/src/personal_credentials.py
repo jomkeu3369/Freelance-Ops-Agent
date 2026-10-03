@@ -24,6 +24,8 @@ def credential_scope(token: str | None, run_id: UUID) -> Iterator[None]:
 
 
 async def resolve_credential(selection: ModelSelection, backend_url: str, timeout: float) -> str:
+    if not selection.provider.supported:
+        raise ValueError("Unsupported AI provider")
     authorization = _authorization.get()
     if authorization is None or selection.credential_id is None:
         raise ValueError("Personal credential authorization unavailable")

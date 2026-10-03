@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Synthetic PostgreSQL transactions only; no Agent calls or external databases. */
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(properties = {"app.environment=test", "agent.command-dispatch-enabled=false", "agent.reconciliation-enabled=false"})
+@SpringBootTest(properties = {"app.environment=test", "spring.flyway.create-schemas=true", "agent.command-dispatch-enabled=false", "agent.reconciliation-enabled=false"})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Timeout(60)
 class FreeUsageConcurrencyPostgresTest {

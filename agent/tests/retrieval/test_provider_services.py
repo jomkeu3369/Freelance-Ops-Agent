@@ -12,7 +12,7 @@ from contracts import (
     RaptorBuildRequest,
     RaptorSourceChunkInput,
 )
-from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from retrieval import OpenAIRaptorBuildService
 from retrieval.openai_service import _OpenAIEmbedder
 
 
@@ -35,25 +35,6 @@ def _request(provider: Provider) -> RaptorBuildRequest:
     )
 
 
-class FakeGeminiModels:
-    def __init__(self) -> None:
-        self.embed_calls = 0
-        self.summary_calls = 0
-
-    async def embed_content(self, **kwargs: object) -> object:
-        contents = kwargs["contents"]
-        assert isinstance(contents, list)
-        assert kwargs["config"] == {"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
-        self.embed_calls += 1
-        values = [[1.0, 0.0], [0.0, 1.0]] if len(contents) == 2 else [[0.7, 0.7]]
-        return SimpleNamespace(embeddings=[SimpleNamespace(values=value) for value in values])
-
-    async def generate_content(self, **kwargs: object) -> object:
-        del kwargs
-        self.summary_calls += 1
-        return SimpleNamespace(text="두 근거의 제한된 요약")
-
-
 class FakeOpenAIEmbeddings:
     async def create(self, **kwargs: object) -> object:
         assert kwargs["dimensions"] == 1536
@@ -61,23 +42,11 @@ class FakeOpenAIEmbeddings:
 
 
 @pytest.mark.asyncio
-async def test_gemini_raptor_build_preserves_leaf_provenance() -> None:
-    models = FakeGeminiModels()
-    request = _request(Provider.GEMINI)
-    service = CompositeRaptorBuildService(
-        OpenAIRaptorBuildService(SimpleNamespace()),
-        GeminiRaptorBuildService(SimpleNamespace(models=models)),
-    )
-
-    response = await service.build(request)
-
-    leaves = [node for node in response.nodes if node.kind == "LEAF"]
-    summaries = [node for node in response.nodes if node.kind == "SUMMARY"]
-    assert len(leaves) == 2
-    assert len(summaries) == 1
-    assert {node.source_chunk_id for node in leaves} == {chunk.chunk_id for chunk in request.chunks}
-    assert models.embed_calls == 2
-    assert models.summary_calls == 1
+async def test_retired_raptor_provider_is_rejected_without_creating_client() -> None:
+    service = OpenAIRaptorBuildService()
+    with pytest.raises(ValueError, match="does not select OpenAI"):
+        await service.build(_request(Provider.GEMINI))
+    assert service._client is None
 
 
 @pytest.mark.asyncio

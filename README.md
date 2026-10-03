@@ -29,7 +29,7 @@
 | 세 관점의 AI 동료 | 핵심·권장·확장 견적의 범위와 제안을 비교 |
 | 동료 개인화 | 이름·외형·말투·판단 성향을 설정 |
 | 견적 검토·공유 | 항목과 근거를 검토하고 견적 발행·고객용 링크 공유 |
-| 개인 AI 연결 | OpenAI/Gemini API 키 연결(BYOK) |
+| 개인 AI 연결 | OpenAI API 키 연결(BYOK) |
 | 결과 기록 | 실제 매출·비용·공수를 기록하고 견적과 비교 |
 
 ## 문의부터 결과까지
@@ -79,13 +79,15 @@ AI 동료가 요구사항과 근거를 정리합니다. 확인이 필요한 내�
 | --- | --- |
 | Web | Next.js 16, React 19, TypeScript |
 | Business API | Java 21, Spring Boot 4, Spring Security, JPA |
-| AI Runtime | Python 3.12, FastAPI, LangGraph, OpenAI/Gemini |
+| AI Runtime | Python 3.12, FastAPI, LangGraph, OpenAI |
 | Data | PostgreSQL 17, pgvector |
 | Delivery | GitHub Actions, Docker Compose, GHCR, Caddy, Vultr, Vercel |
 
 ## 로컬 실행
 
 Docker Compose와 Node.js 22가 필요합니다. [.env.example](.env.example)과 [frontend/.env.example](frontend/.env.example)을 각각 `.env`, `frontend/.env.local`로 복사하고 환경 변수를 설정합니다.
+
+로컬 실행 전 `.env`의 `POSTGRES_PASSWORD`, `APP_DB_PASSWORD`, `AGENT_DB_PASSWORD`를 서로 다른 비어 있지 않은 값으로 설정해야 합니다. 기본 비밀번호는 제공하지 않습니다. `AGENT_DB_PASSWORD`는 연결 URL에 들어가므로 URL-safe 문자를 사용하세요. 실제 값은 저장소에 커밋하지 마세요. 로컬 인증에도 `APP_AUTH_JWT_SECRET`을 반드시 지정해야 하며, 32바이트 이상의 충분히 무작위인 값으로 준비하세요. 개발용 기본 서명키는 제공하지 않습니다. 기존 DB 볼륨을 사용한다면 해당 계정의 현재 값과 일치해야 하며, 환경변수 변경만으로 DB 비밀번호가 변경되지는 않습니다.
 
 ```bash
 docker compose -f docker-compose-infra.yaml up -d --wait

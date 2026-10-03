@@ -21,7 +21,7 @@ paths:
         - name: provider
           in: query
           required: true
-          schema: {type: string, enum: [OPENAI, GEMINI]}
+          schema: {type: string, enum: [OPENAI]}
         - name: model
           in: query
           required: true

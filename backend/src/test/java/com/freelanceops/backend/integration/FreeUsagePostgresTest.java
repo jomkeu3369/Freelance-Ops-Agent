@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Actual service transactions on PostgreSQL, never a production database or real model call. */
 @Testcontainers(disabledWithoutDocker = true)
-@SpringBootTest(properties = {"app.environment=test", "agent.command-dispatch-enabled=false", "agent.reconciliation-enabled=false"})
+@SpringBootTest(properties = {"app.environment=test", "spring.flyway.create-schemas=true", "agent.command-dispatch-enabled=false", "agent.reconciliation-enabled=false"})
 @AutoConfigureMockMvc
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Timeout(60)

@@ -100,8 +100,9 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
               type="button"
               className="ai-assumption-button"
               disabled={
-                assumptionBusyIndex !== null || !item.title.trim() || !modelSelection.model.trim()
+                assumptionBusyIndex !== null || !item.title.trim() || !modelSelection?.model.trim()
               }
+              title={!modelSelection ? t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.") : undefined}
               onClick={() => void suggestAssumption(index)}
             >
               {assumptionBusyIndex === index ? (

@@ -60,6 +60,7 @@ public class AgentCostService {
 
     public ModelPricingResponse createPricing(UUID userId, UUID workspaceId, CreateModelPricingRequest request) {
         authorize(userId, workspaceId, PermissionCode.WORKSPACE_UPDATE);
+        ProviderPolicy.requireSupported(request.provider());
         if (request.validUntil() != null && !request.validUntil().isAfter(request.validFrom())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "validUntil must be after validFrom");
         }

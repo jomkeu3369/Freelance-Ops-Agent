@@ -72,7 +72,7 @@ def research_filesystem_permissions(run_id: UUID) -> list[FilesystemPermission]:
 def _register_secure_profile(provider: str) -> None:
     """허용된 provider의 보안 profile을 한 번만 등록한다."""
 
-    if provider not in {"openai", "google_genai"}:
+    if provider != "openai":
         raise ValueError(f"unsupported Deep Agent provider: {provider}")
 
     # 코드 실행 도구와 범용 하위 Agent를 provider profile에서도 비활성화한다.

@@ -28,7 +28,7 @@ try {
   const email = `integration-${nonce}@example.invalid`;
   const password = `Integration-${nonce}!`;
   const marker = `Integration-${nonce.slice(0, 8)}`;
-  session = await api.register({ email, password, displayName: "통합 검수", workspaceName: marker });
+  session = await api.register({ email, password, displayName: "통합 검수", workspaceName: marker, ageAtLeast14: true });
   assert.equal((await api.getMe(session)).id, session.userId);
   console.log("PASS registration and authenticated workspace");
 

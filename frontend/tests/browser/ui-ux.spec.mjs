@@ -48,6 +48,7 @@ async function workspaceFixture(page, { projects = [], delay = 0, failLoad = nul
     if (method === "GET" && path.split("/").at(-1) === state.failLoad) return json({ detail: "로컬 검증용 불러오기 실패" }, 503);
     if (path === "/api/v2/auth/login" && method === "POST") return json({ userId: "local-user", workspaceId: "local-space", accessToken: "local-test-only", refreshToken: "local-test-only", accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer" });
     if (path === "/api/v2/auth/register" && method === "POST") {
+      expect(request.postDataJSON().ageAtLeast14).toBe(true);
       state.registerCalls += 1;
       if (state.registerCalls > 1) return json({ detail: "이미 생성된 계정입니다." }, 409);
       return json({ userId: "local-user", workspaceId: "local-space", accessToken: "local-test-only", refreshToken: "local-test-only", accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer" });
@@ -1607,6 +1608,7 @@ test("successful registration with failed workspace loading switches to login wi
   await page.locator('input[name="email"]').fill("fixture@example.invalid");
   await page.locator('input[name="password"]').fill("local-fixture-only");
   await page.locator('input[name="passwordConfirm"]').fill("local-fixture-only");
+  await page.getByRole("checkbox", { name: "만 14세 이상인가요? (필수)" }).check();
   await page.locator('button[type="submit"]').click();
   await expect(page.getByRole("tab", { name: "로그인", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".auth-page").getByRole("alert")).toContainText("계정은 생성되었습니다.");

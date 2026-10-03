@@ -454,3 +454,55 @@ def test_raptor_build_is_scoped_to_delegated_workspace() -> None:
     assert response.status_code == 200
     assert response.json()["snapshotId"] == str(snapshot_id)
     assert service.request is not None
+
+
+def test_retired_provider_start_rejects_before_persisting_run() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    request.model_selection.provider = Provider.GEMINI
+    client, token = _client_and_token(request)
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post("/internal/v1/agent-runs", headers=headers,
+                           json=request.model_dump(mode="json", by_alias=True))
+    assert response.status_code == 400
+    assert response.json()["code"] == "AI_PROVIDER_UNSUPPORTED"
+    assert client.get(f"/internal/v1/agent-runs/{request.context.run_id}", headers=headers).status_code == 404
+
+
+def test_retired_provider_raptor_rejects_before_service_call() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    service = RecordingRaptorService()
+    client, token = _client_and_token(request, raptor_service=service)
+    response = client.post("/internal/v1/raptor/build", headers={"Authorization": f"Bearer {token}"}, json={
+        "context": {"runId": str(request.context.run_id), "workspaceId": str(request.context.workspace_id),
+                    "projectId": str(request.context.project_id), "snapshotId": str(uuid4())},
+        "provider": "GEMINI", "embeddingModel": "test", "summaryModel": "test",
+        "chunks": [{"chunkId": str(uuid4()), "documentId": str(uuid4()), "text": "synthetic source"}]
+    })
+    assert response.status_code == 400
+    assert response.json()["code"] == "AI_PROVIDER_UNSUPPORTED"
+    assert service.request is None
+
+
+def test_historical_retired_run_remains_readable_and_cancellable_but_not_resumable() -> None:
+    import asyncio
+
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    request.model_selection.provider = Provider.GEMINI
+    # Persist a synthetic historical record without going through the now-closed creation endpoint.
+    client, token = _client_and_token(request, InterruptThenCompleteExecutor())
+    coordinator = client.app.state.run_coordinator
+    asyncio.run(coordinator.accept(request))
+    asyncio.run(coordinator.execute(request))
+    headers = {"Authorization": f"Bearer {token}"}
+    url = f"/internal/v1/agent-runs/{request.context.run_id}"
+    view = client.get(url, headers=headers)
+    assert view.status_code == 200
+    assert view.json()["metadata"]["provider"] == "GEMINI"
+    response = client.post(url + "/resume", headers=headers, json={
+        "interruptionId": view.json()["interruption"]["interruptionId"], "idempotencyKey": "retired-resume",
+        "answers": [{"questionIndex": 0, "answer": "다음 주"}]
+    })
+    assert response.status_code == 400
+    assert response.json()["code"] == "AI_PROVIDER_UNSUPPORTED"
+    assert client.get(url, headers=headers).json()["status"] == "WAITING_FOR_USER"
+    assert client.post(url + "/cancel", headers=headers).status_code == 200

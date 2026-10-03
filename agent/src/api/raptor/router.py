@@ -44,6 +44,8 @@ async def build_raptor_index(body: RaptorBuildRequest, principal: RaptorPrincipa
         or principal.project_id != body.context.project_id
     ):
         return _problem(403, "RAPTOR context exceeds delegated authority", "RAPTOR_CONTEXT_FORBIDDEN")
+    if not body.provider.supported:
+        return _problem(400, "Unsupported AI provider", "AI_PROVIDER_UNSUPPORTED")
     try:
         return await asyncio.wait_for(
             service.build(body),
