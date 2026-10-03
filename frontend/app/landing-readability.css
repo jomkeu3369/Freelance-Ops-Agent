@@ -9,6 +9,10 @@
 .figma-home.spatial-site :is(button, input, select, summary) { font-family: inherit; }
 .figma-home.spatial-site :is(h1, h2, h3) { letter-spacing: -.035em; }
 .figma-home.spatial-site .spatial-hero-title { font-weight: 560; line-height: 1.22; letter-spacing: -.042em; }
+/* Bright light is allowed around the copy; a local reading surface protects
+   only the heading instead of dimming the entire ribbon. */
+.figma-home.spatial-site .spatial-hero-title { position: relative; isolation: isolate; width: fit-content; max-width: 100%; }
+.figma-home.spatial-site .spatial-hero-title::before { content: ""; position: absolute; inset: -15px -20px -14px -18px; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 52%, #0b0911fa 38%, #0b0911eb 66%, #0b091188 83%, transparent 100%); }
 html[lang="en"] .figma-home.spatial-site .spatial-hero-title { font-size: clamp(43px, 4.7vw, 88px); letter-spacing: -.035em; }
 html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-family: inherit; font-style: normal; font-weight: 560; letter-spacing: inherit; }
 .figma-home.spatial-site .spatial-heading > .spatial-hero-note { font-size: 12px !important; line-height: 1.7; color: #c6b6d2 !important; align-items: flex-start; }

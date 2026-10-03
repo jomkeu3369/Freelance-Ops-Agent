@@ -1,4 +1,4 @@
-/** Original vector atmosphere. No images, video, canvas loop, or external assets. */
+/** Original atmosphere: live hero vectors and bundled, prerendered lower glows. */
 const heroThreads = Array.from({ length: 46 }, (_, index) => {
   const fan = index * 8.4 + Math.sin(index * 1.73) * 18;
   return {
