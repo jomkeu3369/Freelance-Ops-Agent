@@ -112,9 +112,22 @@ export function useHomeAnimation() {
       // staying in the text gutter before turning into the diagram below copy.
       const flightProgress = { value: 0 };
       const renderFlight = () => gsap.set(mark, flight.sample(flightProgress.value));
+      let poseFrame = 0;
+      const syncRefreshedPose = () => {
+        cancelAnimationFrame(poseFrame);
+        poseFrame = requestAnimationFrame(() => {
+          const trigger = transfer.scrollTrigger;
+          if (!trigger) return;
+          // Refresh restores the timeline with callbacks suppressed. Finish any
+          // old scrub and explicitly paint its numeric flight at the new layout.
+          trigger.getTween()?.progress(1);
+          transfer.progress(trigger.progress, true);
+          if (trigger.progress >= .46) renderFlight();
+        });
+      };
       const transfer = gsap.timeline({ scrollTrigger: {
         id: "story-brand-merge", trigger: stage, start: "center 70%", endTrigger: target, end: "center 65%",
-        scrub: .85, invalidateOnRefresh: true
+        scrub: .85, invalidateOnRefresh: true, onRefresh: syncRefreshedPose
       } });
       transfer.to(plate, { y: drift, duration: .46, ease: "none" }, 0)
         .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { y: drift, duration: .46, ease: "none" }, 0)
@@ -148,7 +161,7 @@ export function useHomeAnimation() {
       if (targetFrame) layoutObserver.observe(targetFrame);
       layoutObserver.observe(target);
       return () => {
-        layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); opening?.kill();
+        layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); cancelAnimationFrame(poseFrame); opening?.kill();
         ScrollTrigger.removeEventListener("refreshInit", refreshFlight);
         interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
       };

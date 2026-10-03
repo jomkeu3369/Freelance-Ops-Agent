@@ -1000,6 +1000,7 @@ async function brandMergeGeometry(page, progress) {
       });
     });
     return {
+      scrollProgress: (innerHeight * .70 - stage.top - stage.height / 2) / (to.top + to.height / 2 - innerHeight * .65 - stage.top - stage.height / 2 + innerHeight * .70),
       origin, drift, markWidth: mark.offsetWidth,
       actual: { x: from.left + from.width / 2, y: from.top + from.height / 2, width: from.width },
       flightGeometry: {
@@ -1024,10 +1025,11 @@ async function brandMergeGeometry(page, progress) {
   });
   // The timeline eases one scalar playhead. Reuse the production sampler so
   // this test can validate DOM integration without another Bézier implementation.
-  const flightProgress = Math.max(0, Math.min(1, (progress - .46) / .54));
+  const currentProgress = progress ?? measured.scrollProgress;
+  const flightProgress = Math.max(0, Math.min(1, (currentProgress - .46) / .54));
   const eased = flightProgress < .5 ? 2 * flightProgress * flightProgress : 1 - Math.pow(-2 * flightProgress + 2, 2) / 2;
-  const expected = progress <= .46
-    ? { x: 0, y: measured.drift * Math.max(0, progress) / .46, scale: 1 }
+  const expected = currentProgress <= .46
+    ? { x: 0, y: measured.drift * Math.max(0, currentProgress) / .46, scale: 1 }
     : createBrandFlight(measured.flightGeometry).sample(eased);
   return {
     ...measured,
@@ -1125,6 +1127,15 @@ for (const language of ["ko", "en"]) {
       await scrollBrandMerge(page, .75);
       await expect.poll(async () => (await brandMergeGeometry(page, .75)).error, { message: "Resize must rebuild the intermediate corridor path, not only its endpoint" }).toBeLessThanOrEqual(3);
       expect((await brandMergeGeometry(page, .75)).copyOverlaps, "The resized flight must still clear actual benefit text").toEqual([]);
+      await page.setViewportSize({ width: 390, height: 900 });
+      await expect(mark).not.toHaveAttribute("style", /translate/);
+      await page.setViewportSize({ width: width + 200, height: 900 });
+      // Do not scroll after restoring the desktop breakpoint: a refresh must
+      // repaint the numeric flight even when GSAP suppresses timeline callbacks.
+      await expect.poll(async () => (await brandMergeGeometry(page)).error, { message: "Breakpoint restoration must paint the current F pose without another scroll" }).toBeLessThanOrEqual(3);
+      const restoredFlight = await brandMergeGeometry(page);
+      expect(restoredFlight.visibleCount).toBe(1);
+      expect(restoredFlight.copyOverlaps).toEqual([]);
       await scrollBrandMerge(page, 1);
       await expect.poll(async () => (await brandMergeGeometry(page, 1)).error).toBeLessThanOrEqual(3);
       await expect(target).toHaveCSS("visibility", "visible");
