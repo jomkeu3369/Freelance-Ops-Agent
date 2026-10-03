@@ -69,6 +69,7 @@ export function WorkflowSection() {
         <div className="hero-actions spatial-hero-actions"><Link href="/workspace" className="primary-button">{t("요구사항 정리 시작하기")}<ArrowUpRight size={16} /></Link><a href="#review" className="secondary-button">{t("완성될 초안 살펴보기")}<ArrowRight size={15} /></a></div>
         <p className="spatial-hero-note"><ShieldCheck size={12} />{t("AI 초안은 사용자가 검토하고 확정합니다.")}</p>
       </div>
+      <div className="pointer-depth-anchor pointer-depth-hero">
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
         <span className="scene-panel-reflection" aria-hidden="true" />
         <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
@@ -94,6 +95,7 @@ export function WorkflowSection() {
         </div>
         <div className="spatial-flow-bottom"><span><Check size={13} />{t(demoEvents[view.selected])}</span><button type="button" className="spatial-motion-toggle" disabled={reducedMotion} aria-pressed={state.paused} aria-label={reducedMotion ? t("동작 줄이기 적용 중") : state.paused ? t("예시 자동 진행 재개") : t("자동 진행 일시 정지")} onClick={() => dispatch({ type: "pause" })}>{state.paused ? <ArrowRight size={15} /> : <Pause size={15} />}<span>{state.paused ? t("동작 계속") : t("동작 멈추기")}</span></button></div>
         <p className="spatial-demo-disclaimer">{t("가상의 문의로 보여드리는 제품 예시입니다. 실제 분석·저장·발송은 실행되지 않습니다.")}</p>
+      </div>
       </div>
       <p className="sr-only" role="status">{state.manual ? t("{v0} 예시 결과. {v1}, {v2}일, {v3}원.", { v0: t(demoSteps[view.selected]), v1: t(quote.label), v2: quote.days, v3: money(quote.total) }) : ""}</p>
     </section>

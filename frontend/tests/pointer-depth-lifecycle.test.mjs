@@ -30,9 +30,11 @@ function mount() {
     ...events(), dataset: {}, focused: false,
     rect: { left: 100, top: 200, width: 400, height: 200 },
     matches() { return this.focused; },
-    getBoundingClientRect() { measurements++; return { ...this.rect }; },
+    closest() { return anchor; },
+    getBoundingClientRect() { throw new Error("Rotating surface must never feed its own pointer coordinates"); },
     style: { removeProperty: key => values.delete(key) },
   };
+  const anchor = { ...events(), getBoundingClientRect() { measurements++; return { ...host.rect }; } };
   const motion = { dataset: { motionPaused: "false" } };
   const root = { querySelectorAll: () => [host], querySelector: () => motion };
   const media = { ...events(), matches: true };
@@ -77,9 +79,9 @@ function mount() {
   exports.usePointerDepth({ current: root });
   const show = (isIntersecting = true) => observers.intersection[0].callback([{ target: host, isIntersecting }]);
   return {
-    host, media, motion, document, window, values, channels, observers, frames, show,
+    host, anchor, media, motion, document, window, values, channels, observers, frames, show,
     get measurements() { return measurements; },
-    move(x = 300, y = 300) { host.dispatch("pointermove", { pointerType: "mouse", clientX: x, clientY: y }); },
+    move(x = 300, y = 300) { anchor.dispatch("pointermove", { pointerType: "mouse", clientX: x, clientY: y }); },
     flush() { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback()); },
     unmount() { cleanup(); },
   };
@@ -89,21 +91,23 @@ test("pointer bursts reuse tweens and one cached box; scroll and resize invalida
   const scene = mount();
   scene.show();
   assert.equal(scene.channels.length, 0, "Unvisited hosts have no tweens");
-  scene.host.dispatch("pointerenter");
+  scene.anchor.dispatch("pointerenter");
   scene.move(100, 200); scene.move(500, 400); scene.move(300, 300);
   assert.equal(scene.frames.size, 1, "A burst has a single pending frame");
   scene.flush();
   assert.equal(scene.measurements, 1);
-  assert.equal(scene.channels.length, 8);
+  assert.equal(scene.channels.length, 5);
   assert.equal(scene.values.get("--pointer-x"), 50, "The newest event wins");
   for (let index = 0; index < 50; index++) { scene.move(500, 400); scene.flush(); }
   assert.equal(scene.measurements, 1, "No per-frame layout reads");
-  assert.equal(scene.channels.length, 8, "No per-frame tween allocation");
-  assert.equal(scene.values.get("--pointer-rx"), -4);
-  assert.equal(scene.values.get("--pointer-ry"), 5);
+  assert.equal(scene.channels.length, 5, "No per-frame tween allocation");
+  assert.equal(scene.values.get("--pointer-rx"), -1.8);
+  assert.equal(scene.values.get("--pointer-ry"), 2.2);
   scene.host.rect.top = 100;
   scene.window.dispatch("scroll");
   assert.equal(scene.measurements, 1, "Scroll itself does not force layout");
+  assert.equal(scene.host.dataset.pointerActive, "false", "Scroll clears a stale hover pose");
+  assert.equal(scene.values.get("--pointer-rx"), 0);
   scene.move(300, 200); scene.flush();
   assert.equal(scene.measurements, 2);
   assert.equal(Math.abs(scene.values.get("--pointer-rx")), 0, "Scrolled geometry is current");
@@ -133,7 +137,7 @@ test("queued motion cannot survive focus, pause, backgrounding or leaving the vi
   scene.move(500, 400); scene.flush();
   scene.document.hidden = true;
   scene.document.dispatch("visibilitychange");
-  assert.equal(scene.values.get("--pointer-lift"), 0);
+  assert.equal(scene.values.get("--pointer-strength"), 0);
   scene.document.hidden = false;
   scene.move(500, 400); scene.flush();
   scene.show(false);
@@ -145,6 +149,7 @@ test("queued motion cannot survive focus, pause, backgrounding or leaving the vi
   assert.ok(scene.channels.every(channel => channel.tween.killed));
   assert.ok(Object.values(scene.observers).flat().every(observer => observer.disconnected));
   assert.equal(scene.host.listeners.size, 0);
+  assert.equal(scene.anchor.listeners.size, 0);
   assert.equal(scene.window.listeners.size, 0);
   assert.equal(scene.document.listeners.size, 0);
   assert.equal(scene.media.listeners.size, 0);

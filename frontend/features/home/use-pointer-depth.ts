@@ -2,7 +2,7 @@ import { useEffect, type RefObject } from "react";
 import gsap from "gsap";
 import { pointerDepth } from "./pointer-depth.mjs";
 
-/** A pointer moves only a decorative shell. Text, focus and hit targets stay flat. */
+/** One stable anchor drives the whole panel; content and its shell share a pivot. */
 export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const root = pageRef.current;
@@ -12,17 +12,18 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
     const visible = new Set<Element>();
     const motionRoot = root.querySelector<HTMLElement>("[data-motion-paused]");
     const enabled = () => media.matches && !document.hidden && motionRoot?.dataset.motionPaused !== "true";
-    const neutral = { "--pointer-rx": 0, "--pointer-ry": 0, "--pointer-x": 50, "--pointer-y": 50, "--pointer-strength": 0, "--pointer-shift-x": 0, "--pointer-shift-y": 0, "--pointer-lift": 0 };
+    const neutral = { "--pointer-rx": 0, "--pointer-ry": 0, "--pointer-x": 50, "--pointer-y": 50, "--pointer-strength": 0 };
     type Values = typeof neutral;
     const controls = new Map<HTMLElement, { reset: (immediate?: boolean) => void; invalidate: () => void }>();
     const cleanups = hosts.map(host => {
       host.dataset.pointerDepth = "true";
+      const anchor = host.closest<HTMLElement>(".pointer-depth-anchor") ?? host;
       let bounds: DOMRect | undefined;
       let frame = 0;
       let clientX = 0;
       let clientY = 0;
       // Allocate once, only for an interacted-with host. quickTo reuses its
-      // existing tween instead of creating eight-property tweens every frame.
+      // existing tween instead of creating independent layer tweens every frame.
       const channels = new Map<string, ReturnType<typeof gsap.quickTo>>();
       const steer = (values: Values, options = { duration: .24 }, immediate = false) => {
         for (const [property, value] of Object.entries(values)) {
@@ -46,7 +47,7 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
       };
       const invalidate = () => { bounds = undefined; };
       controls.set(host, { reset, invalidate });
-      const enter = () => { if (enabled() && visible.has(host)) bounds = host.getBoundingClientRect(); };
+      const enter = () => { if (enabled() && visible.has(host)) bounds = anchor.getBoundingClientRect(); };
       const move = (event: PointerEvent) => {
         if (event.pointerType === "touch" || !enabled() || !visible.has(host) || host.matches(":focus-within")) return;
         clientX = event.clientX;
@@ -56,24 +57,24 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
           frame = 0;
           // Preferences or focus may change between the event and this frame.
           if (!enabled() || !visible.has(host) || host.matches(":focus-within")) { reset(true); return; }
-          bounds ??= host.getBoundingClientRect();
+          bounds ??= anchor.getBoundingClientRect();
           const point = pointerDepth(clientX, clientY, bounds);
           host.dataset.pointerActive = "true";
-          steer({ "--pointer-rx": point.rx, "--pointer-ry": point.ry, "--pointer-x": point.x, "--pointer-y": point.y, "--pointer-strength": 1, "--pointer-shift-x": point.ry * 1.3, "--pointer-shift-y": -point.rx, "--pointer-lift": 22 });
+          steer({ "--pointer-rx": point.rx, "--pointer-ry": point.ry, "--pointer-x": point.x, "--pointer-y": point.y, "--pointer-strength": 1 });
         });
       };
       const leave = () => reset();
-      host.addEventListener("pointerenter", enter, { passive: true });
-      host.addEventListener("pointermove", move, { passive: true });
-      host.addEventListener("pointerleave", leave);
-      host.addEventListener("pointercancel", leave);
-      host.addEventListener("focusin", leave);
+      anchor.addEventListener("pointerenter", enter, { passive: true });
+      anchor.addEventListener("pointermove", move, { passive: true });
+      anchor.addEventListener("pointerleave", leave);
+      anchor.addEventListener("pointercancel", leave);
+      anchor.addEventListener("focusin", leave);
       return () => {
-        host.removeEventListener("pointerenter", enter);
-        host.removeEventListener("pointermove", move);
-        host.removeEventListener("pointerleave", leave);
-        host.removeEventListener("pointercancel", leave);
-        host.removeEventListener("focusin", leave);
+        anchor.removeEventListener("pointerenter", enter);
+        anchor.removeEventListener("pointermove", move);
+        anchor.removeEventListener("pointerleave", leave);
+        anchor.removeEventListener("pointercancel", leave);
+        anchor.removeEventListener("focusin", leave);
         cancelAnimationFrame(frame);
         channels.forEach(channel => channel.tween.kill());
         Object.keys(neutral).forEach(property => host.style.removeProperty(property));
@@ -94,7 +95,13 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
     sizeObserver.observe(root);
     hosts.forEach(host => sizeObserver.observe(host));
     window.addEventListener("resize", invalidateBounds, { passive: true });
-    window.addEventListener("scroll", invalidateBounds, { passive: true, capture: true });
+    // Scrolling changes the panel under a stationary pointer. Reset once,
+    // rather than retaining a stale corner tilt or forcing scroll-time layout.
+    const resetOnScroll = () => controls.forEach((control, host) => {
+      control.invalidate();
+      if (host.dataset.pointerActive === "true") control.reset();
+    });
+    window.addEventListener("scroll", resetOnScroll, { passive: true, capture: true });
     const sync = () => { if (!enabled()) controls.forEach(control => control.reset(true)); };
     const pauseObserver = new MutationObserver(sync);
     if (motionRoot) pauseObserver.observe(motionRoot, { attributes: true, attributeFilter: ["data-motion-paused"] });
@@ -103,7 +110,7 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
     return () => {
       observer.disconnect(); pauseObserver.disconnect(); sizeObserver.disconnect();
       window.removeEventListener("resize", invalidateBounds);
-      window.removeEventListener("scroll", invalidateBounds, true);
+      window.removeEventListener("scroll", resetOnScroll, true);
       media.removeEventListener("change", sync);
       document.removeEventListener("visibilitychange", sync);
       cleanups.forEach(cleanup => cleanup());

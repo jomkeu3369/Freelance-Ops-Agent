@@ -39,65 +39,122 @@ async function openLanding(page, { clock = false, reducedMotion = "no-preference
   if (clock) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
 }
 
-async function expectFlatText(page) {
+async function expectCohesiveText(page) {
   const failures = await page.locator(depthHosts).evaluateAll(hosts => {
     const failures = new Set();
     for (const host of hosts) {
       const text = [host, ...host.querySelectorAll("*")].filter(element =>
-        !element.closest('[aria-hidden="true"], .sr-only') &&
+        !element.closest(".sr-only, svg") &&
         [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim())
       );
-      for (const element of [host, ...text]) {
-        for (let ancestor = element; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+      for (const element of text) {
+        for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
           const style = getComputedStyle(ancestor);
-          if (style.perspective !== "none" || (style.transform !== "none" && !new DOMMatrixReadOnly(style.transform).is2D)) failures.add(`Tilted text or hit target: ${ancestor.className}`);
           if (/blur\((?!0(?:px)?\))/.test(style.filter)) failures.add(`Blurred text: ${ancestor.className}`);
+          if (ancestor === host) break;
+          const matrix = new DOMMatrixReadOnly(style.transform);
+          // Glyphs inherit the scene's one tilt. Local card travel and small,
+          // fixed Z offsets are allowed, but a second rotation/scale is not.
+          const distorted = [matrix.m11 - 1, matrix.m22 - 1, matrix.m33 - 1, matrix.m44 - 1,
+            matrix.m12, matrix.m13, matrix.m14, matrix.m21, matrix.m23, matrix.m24,
+            matrix.m31, matrix.m32, matrix.m34].some(value => Math.abs(value) > .001);
+          if (style.perspective !== "none" || distorted || Math.abs(matrix.m43) > 12) failures.add(`Independent glyph distortion: ${ancestor.className}`);
+          if (style.rotate !== "none" || (style.scale !== "none" && style.scale !== "1")) failures.add(`Independent glyph rotation/scale: ${ancestor.className}`);
         }
       }
     }
     return [...failures];
   });
-  expect(failures, "Only decoration may tilt; text and its ancestors stay planar").toEqual([]);
+  expect(failures, "Glyphs stay undistorted in the common scene coordinate system").toEqual([]);
 }
 
-async function shellState(host) {
+async function sceneState(host) {
   return host.evaluate(element => {
     const style = getComputedStyle(element);
     const shell = getComputedStyle(element, "::before");
-    const matrix = new DOMMatrixReadOnly(shell.transform);
+    const matrix = new DOMMatrixReadOnly(style.transform);
     return {
-      transform: shell.transform,
-      // These rendered off-plane components must reverse at opposite corners.
+      transform: style.transform,
+      shellTransform: shell.transform,
+      // The common root's rendered off-plane components reverse at corners.
       x: matrix.m23,
       y: matrix.m13,
+      perspective: matrix.m34,
+      rx: Number.parseFloat(style.getPropertyValue("--pointer-rx")) || 0,
+      ry: Number.parseFloat(style.getPropertyValue("--pointer-ry")) || 0,
       strength: Number.parseFloat(style.getPropertyValue("--pointer-strength")) || 0
     };
   });
 }
 
+function pointerAnchor(host) {
+  return host.locator("xpath=..");
+}
+
 async function pointAtCorner(page, host, corner) {
-  const box = await host.boundingBox();
+  const anchor = pointerAnchor(host);
+  await expect(anchor).toHaveClass(/\bpointer-depth-anchor\b/);
+  await expect.poll(() => anchor.evaluate(element => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+    return Math.max(Math.abs(matrix.m41), Math.abs(matrix.m42), Math.abs(matrix.m43));
+  }), { message: "Wait for the anchor's entry reveal before measuring pointer geometry" }).toBeLessThan(.001);
+  const box = await anchor.boundingBox();
   expect(box).not.toBeNull();
   await page.mouse.move(box.x + box.width * corner, box.y + box.height * corner);
   await expect(host).toHaveAttribute("data-pointer-active", "true");
-  await expect.poll(async () => (await shellState(host)).strength).toBeGreaterThan(.98);
+  await expect.poll(async () => (await sceneState(host)).strength).toBeGreaterThan(.98);
   await expect.poll(async () => {
-    const state = await shellState(host);
+    const state = await sceneState(host);
     const direction = corner < .5 ? 1 : -1;
-    return state.x * direction > .01 && state.y * direction > .01;
-  }, { message: "The actual glass transform, not only custom properties, must tilt" }).toBe(true);
-  return shellState(host);
+    return state.x * direction > .005 && state.y * direction > .005;
+  }, { message: "The scene root's rendered matrix must tilt with the pointer" }).toBe(true);
+  const state = await sceneState(host);
+  expect(Math.abs(state.rx)).toBeLessThanOrEqual(1.801);
+  expect(Math.abs(state.ry)).toBeLessThanOrEqual(2.201);
+  expect(state.perspective).toBeCloseTo(-1 / 1200, 5);
+  expect(state.shellTransform, "The shell inherits its host's tilt without another transform").toBe("none");
+  return state;
 }
 
 async function expectReset(host) {
   await expect(host).toHaveAttribute("data-pointer-active", "false");
   await expect.poll(async () => {
-    const state = await shellState(host);
+    const state = await sceneState(host);
     return Math.max(Math.abs(state.x), Math.abs(state.y), state.strength);
   }, { message: "Reset must remove the rendered tilt and highlight" }).toBeLessThan(.001);
 }
 
-test("pointer depth reverses the rendered glass at opposite corners while all four hosts keep flat text", async ({ page }) => {
+async function localLayers(host) {
+  return host.evaluate(element => {
+    const selectors = [".spatial-stages", ".spatial-board", ".spatial-stage-icon", ".inquiry-card-content", ".story-panel-top", ".story-prism-chart", ".story-prism-stack",
+      ".spatial-bar-label", "[data-story-prism]", ".story-prism-column > small", ".story-ring-figure",
+      ".story-ring-figure > svg", ".story-ring-figure > div"];
+    return selectors.flatMap(selector => [...element.querySelectorAll(selector)].map((layer, index) => {
+      const style = getComputedStyle(layer);
+      return { selector, index, transform: style.transform, translate: style.translate, rotate: style.rotate, scale: style.scale, perspective: style.perspective };
+    }));
+  });
+}
+
+async function pairedGeometry(host) {
+  return host.evaluate(element => {
+    const relative = (first, second) => {
+      const a = first.getBoundingClientRect();
+      const b = second.getBoundingClientRect();
+      return { x: (a.left + a.right - b.left - b.right) / 2, y: (a.top + a.bottom - b.top - b.bottom) / 2 };
+    };
+    return {
+      prisms: [...element.querySelectorAll(".story-prism-stack")].map(stack => {
+        const label = stack.querySelector(".spatial-bar-label");
+        const body = stack.querySelector("[data-story-prism]");
+        return { ...relative(label, body), gap: body.getBoundingClientRect().top - label.getBoundingClientRect().bottom };
+      }),
+      ring: element.querySelector(".story-ring-figure") ? relative(element.querySelector(".story-ring-figure > svg"), element.querySelector(".story-ring-figure > div")) : null
+    };
+  });
+}
+
+test("all four scenes reverse one shared root tilt while their local layers and labels remain connected", async ({ page }) => {
   await openLanding(page);
   for (const host of await page.locator(depthHosts).all()) {
     await host.scrollIntoViewIfNeeded();
@@ -105,33 +162,44 @@ test("pointer depth reverses the rendered glass at opposite corners while all fo
     const chart = host.locator(".story-prism-chart");
     const hasPrisms = await chart.count() > 0;
     if (hasPrisms) await expect(chart).toHaveAttribute("data-story-entry-state", "complete");
-    const bodyDepth = () => chart.locator("[data-story-prism]").first().evaluate(element => {
-      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
-      return { x: matrix.m41, y: matrix.m42, z: matrix.m43 };
-    });
-    const labelPositions = () => chart.locator(".spatial-bar-label, .story-prism-column > small").evaluateAll(labels => labels.map(label => {
-      const box = label.getBoundingClientRect();
-      return [box.left, box.top, box.width, box.height];
-    }));
-    const labels = hasPrisms ? await labelPositions() : [];
     const first = await pointAtCorner(page, host, .2);
-    const firstBody = hasPrisms ? await bodyDepth() : null;
+    const firstLayers = await localLayers(host);
+    const firstPairs = await pairedGeometry(host);
+    const firstAnchor = await pointerAnchor(host).boundingBox();
     if (hasPrisms) expect((await prismGeometry(chart)).every(bar => bar.connected && bar.solid)).toBe(true);
-    await expectFlatText(page);
+    await expectCohesiveText(page);
     const opposite = await pointAtCorner(page, host, .8);
+    expect(await localLayers(host), "Pointer motion must not steer any child layer independently").toEqual(firstLayers);
+    const oppositeAnchor = await pointerAnchor(host).boundingBox();
+    for (const key of ["x", "y", "width", "height"]) expect(oppositeAnchor[key], `The event anchor's ${key} must not follow the visual tilt`).toBeCloseTo(firstAnchor[key], 2);
+    const oppositePairs = await pairedGeometry(host);
     if (hasPrisms) {
-      const oppositeBody = await bodyDepth();
-      expect(firstBody.x * oppositeBody.x, "The prism body must move, independently of the glass shell").toBeLessThan(0);
-      expect(firstBody.y * oppositeBody.y).toBeLessThan(0);
-      expect(Math.min(firstBody.z, oppositeBody.z), "The real prism projects in front of the reading plane").toBeGreaterThan(20);
+      const localDepth = await chart.locator(".story-prism-stack").evaluateAll(stacks => stacks.map(stack => {
+        const group = new DOMMatrixReadOnly(getComputedStyle(stack.closest(".story-prism-chart")).transform);
+        const body = new DOMMatrixReadOnly(getComputedStyle(stack.querySelector("[data-story-prism]")).transform);
+        return { x: group.m41, y: group.m42, z: group.m43, bodyTranslation: [body.m41, body.m42, body.m43] };
+      }));
+      for (const layer of localDepth) {
+        expect(Math.abs(layer.x) + Math.abs(layer.y)).toBeLessThan(.001);
+        expect(layer.z).toBeGreaterThan(0);
+        expect(layer.z).toBeLessThanOrEqual(12);
+        expect(layer.bodyTranslation.every(value => Math.abs(value) < .001), "The prism keeps its fixed local rotation without pointer translation").toBe(true);
+      }
       expect((await prismGeometry(chart)).every(bar => bar.connected && bar.solid)).toBe(true);
-      const currentLabels = await labelPositions();
-      for (const [index, label] of labels.entries()) for (const [axis, value] of label.entries()) expect(currentLabels[index][axis]).toBeCloseTo(value, 1);
+      for (const [index, pair] of firstPairs.prisms.entries()) {
+        const oppositePair = oppositePairs.prisms[index];
+        expect(pair.gap, "The value remains above its own bar").toBeGreaterThan(-2);
+        expect(oppositePair.gap).toBeGreaterThan(-2);
+        expect(Math.hypot(oppositePair.x - pair.x, oppositePair.y - pair.y), "Projected label/bar spacing changes gently with the shared plane").toBeLessThan(10);
+      }
     }
+    for (const pairs of [firstPairs, oppositePairs]) if (pairs.ring) expect(Math.hypot(pairs.ring.x, pairs.ring.y), "Ring and numeric overlay share the same projected center").toBeLessThan(1.5);
+    const channels = await host.evaluate(element => [...element.style].filter(property => property.startsWith("--pointer-")).sort());
+    expect(channels, "A scene has one shared five-channel pointer state").toEqual(["--pointer-rx", "--pointer-ry", "--pointer-strength", "--pointer-x", "--pointer-y"]);
     expect(first.transform).not.toBe(opposite.transform);
     expect(first.x * opposite.x, "Vertical tilt reverses").toBeLessThan(0);
     expect(first.y * opposite.y, "Horizontal tilt reverses").toBeLessThan(0);
-    await expectFlatText(page);
+    await expectCohesiveText(page);
     await page.mouse.move(0, 0);
     await expectReset(host);
   }
@@ -143,36 +211,65 @@ test("focus resets pointer depth, suppresses pointer moves, and live reduced mot
   await pointAtCorner(page, host, .2);
   await host.locator("button").first().focus();
   await expectReset(host);
-  const box = await host.boundingBox();
+  const box = await pointerAnchor(host).boundingBox();
   await page.mouse.move(box.x + box.width * .8, box.y + box.height * .8);
   await expectReset(host);
-  await expectFlatText(page);
+  await expectCohesiveText(page);
   await page.locator("#main-content").evaluate(element => element.focus({ preventScroll: true }));
   await pointAtCorner(page, host, .2);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expectReset(host);
-  expect((await shellState(host)).transform).toBe("none");
-  await expectFlatText(page);
+  expect((await sceneState(host)).transform).toBe("none");
+  await expectCohesiveText(page);
+});
+
+test("pointer cancellation, manual pause, and page visibility reset the common scene tilt", async ({ page }) => {
+  await openLanding(page);
+  const host = page.locator(".spatial-flow");
+  await pointAtCorner(page, host, .2);
+  await pointerAnchor(host).dispatchEvent("pointercancel", { pointerType: "mouse" });
+  await expectReset(host);
+  await pointAtCorner(page, host, .8);
+  await page.locator(".spatial-motion-toggle").evaluate(button => button.click());
+  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
+  await expectReset(host);
+  const box = await pointerAnchor(host).boundingBox();
+  await page.mouse.move(box.x + box.width * .2, box.y + box.height * .2);
+  await expectReset(host);
+  await page.locator(".spatial-motion-toggle").evaluate(button => button.click());
+  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "false");
+  await pointAtCorner(page, host, .8);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expectReset(host);
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await pointAtCorner(page, host, .2);
+  await expectCohesiveText(page);
 });
 
 for (const mode of ["reduced-motion", "coarse-pointer"]) {
   test.describe(mode, () => {
     test.use({ hasTouch: mode === "coarse-pointer" });
-    test(`initial ${mode} has no glass tilt even with pointer events`, async ({ page }) => {
+    test(`initial ${mode} has no scene tilt even with pointer events`, async ({ page }) => {
       await openLanding(page, { reducedMotion: mode === "reduced-motion" ? "reduce" : "no-preference" });
       if (mode === "coarse-pointer") expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
       for (const host of await page.locator(depthHosts).all()) {
         await host.scrollIntoViewIfNeeded();
-        const before = await shellState(host);
+        const before = await sceneState(host);
         // A desktop-sized touch context tests the media gate independently of the mobile breakpoint.
-        await host.dispatchEvent("pointermove", { pointerType: "mouse", clientX: 100, clientY: 100 });
+        await pointerAnchor(host).dispatchEvent("pointermove", { pointerType: "mouse", clientX: 100, clientY: 100 });
         await page.waitForTimeout(80);
-        const after = await shellState(host);
+        const after = await sceneState(host);
         expect(after.transform).toBe("none");
         expect(after.strength).toBe(0);
         expect(after).toEqual(before);
       }
-      await expectFlatText(page);
+      await expectCohesiveText(page);
     });
   });
 }
@@ -231,7 +328,7 @@ test("fresh hydration preserves the first plot entry and prisms grow sequentiall
   expect(growing[0].grow).toBeLessThan(1);
   expect(growing[2].grow).toBeGreaterThan(0);
   expect(Math.max(...growing.map(bar => bar.bottom)) - Math.min(...growing.map(bar => bar.bottom))).toBeLessThan(1);
-  await expectFlatText(page);
+  await expectCohesiveText(page);
   await page.clock.runFor(1400);
   await expectFinalPrisms(chart, [5, 3.5, 1.5]);
   await page.getByRole("button", { name: /^예약 변경 추가/ }).evaluate(button => button.click());
@@ -284,7 +381,7 @@ for (const interruption of ["pause-before-entry", "hidden-during-entry"]) {
   });
 }
 
-test("live Korean/English changes and desktop/mobile resize keep text planar and reset narrow-screen depth", async ({ page }) => {
+test("live Korean/English changes and desktop/mobile resize preserve cohesive text and reset narrow-screen depth", async ({ page }) => {
   await openLanding(page);
   for (const language of ["en", "ko"]) {
     await page.getByRole("combobox", { name: /표시 언어|Interface language/ }).selectOption(language);
@@ -297,9 +394,9 @@ test("live Korean/English changes and desktop/mobile resize keep text planar and
         await pointAtCorner(page, host, .2);
       } else {
         await expectReset(host);
-        expect((await shellState(host)).transform).toBe("none");
+        expect((await sceneState(host)).transform).toBe("none");
       }
-      await expectFlatText(page);
+      await expectCohesiveText(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
   }
@@ -317,7 +414,7 @@ async function transferGeometry(card) {
       x: matrix.m41,
       textOpacity: Number(getComputedStyle(content).opacity),
       // Translation is allowed; glyphs must never inherit the droplet's scaling.
-      textFlat: matrix.is2D && Math.abs(matrix.m11 - 1) < .001 && Math.abs(matrix.m22 - 1) < .001 && Math.abs(matrix.m12) < .001 && Math.abs(matrix.m21) < .001 && getComputedStyle(content).transform === "none"
+      textFlat: Math.abs(matrix.m43) <= 12 && Math.abs(matrix.m13) < .001 && Math.abs(matrix.m23) < .001 && Math.abs(matrix.m31) < .001 && Math.abs(matrix.m32) < .001 && Math.abs(matrix.m33 - 1) < .001 && Math.abs(matrix.m11 - 1) < .001 && Math.abs(matrix.m22 - 1) < .001 && Math.abs(matrix.m12) < .001 && Math.abs(matrix.m21) < .001 && getComputedStyle(content).transform === "none"
     };
   });
 }
@@ -340,7 +437,7 @@ async function expectSettledTransfer(page, column) {
   });
   expect(geometry.x).toBeCloseTo(column ? geometry.distance : 0, 0);
   expect(geometry.sameNode, "Every transfer must preserve the same semantic project card").toBe(true);
-  await expectFlatText(page);
+  await expectCohesiveText(page);
 }
 
 test("manual proposal transfer condenses into a droplet, stretches in flight, and settles without scaling text", async ({ page }) => {

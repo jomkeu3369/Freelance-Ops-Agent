@@ -8,8 +8,8 @@ test("pointer depth is neutral at center and clamps outside all edges", () => {
   const center = pointerDepth(300, 300, rect);
   assert.equal(Math.abs(center.rx), 0); assert.equal(center.ry, 0);
   assert.equal(center.x, 50); assert.equal(center.y, 50);
-  assert.deepEqual(pointerDepth(-1000, -1000, rect), { rx: 4, ry: -5, x: 0, y: 0 });
-  assert.deepEqual(pointerDepth(10000, 10000, rect), { rx: -4, ry: 5, x: 100, y: 100 });
+  assert.deepEqual(pointerDepth(-1000, -1000, rect), { rx: 1.8, ry: -2.2, x: 0, y: 0 });
+  assert.deepEqual(pointerDepth(10000, 10000, rect), { rx: -1.8, ry: 2.2, x: 100, y: 100 });
   assert.ok(Object.values(pointerDepth(0, 0, { left: 0, top: 0, width: 0, height: 0 })).every(Number.isFinite));
 });
 
