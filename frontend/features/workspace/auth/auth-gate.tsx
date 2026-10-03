@@ -1,12 +1,15 @@
 import { useT, LanguageSelector } from "../../../app/lib/ui-language";
-import { AuthSession, login, register } from "../../../app/lib/api";
-import { useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
+import { AuthSession, isEmailVerificationRequired, login, register } from "../../../app/lib/api";
+import { useRef, useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight, Moon, Sun, ShieldCheck } from "@phosphor-icons/react";
 import { PetArt } from "../pets/pet-art";
 import { petAdvisors } from "../pets/pet-state.mjs";
+
+import { EmailVerificationRequest } from "./email-verification-request";
+import "../../notices/notices.css";
 
 const subscribeToHydration = () => () => undefined;
 
@@ -22,8 +25,11 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const t = useT();
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
+  const submitPending = useRef(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [ageConfirmationError, setAgeConfirmationError] = useState(false);
+  const emailVerified = useSyncExternalStore(subscribeToHydration, () => new URLSearchParams(window.location.search).get("emailVerified") === "1", () => false);
   const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = themeMounted && resolvedTheme === "dark";
@@ -31,6 +37,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const selectMode = (nextMode: AuthMode) => {
     if (busy) return;
     setMode(nextMode);
+    setPendingEmail(null);
     setShowPassword(false);
     setAgeConfirmationError(false);
     setError(null);
@@ -46,7 +53,8 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busy) return;
+    if (submitPending.current) return;
+    const form = event.currentTarget;
     const data = new FormData(event.currentTarget);
     const password = String(data.get("password"));
     const ageAtLeast14 = data.get("ageAtLeast14") === "true";
@@ -60,6 +68,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
       (event.currentTarget.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.focus();
       return;
     }
+    submitPending.current = true;
     setBusy(true);
     setError(null);
     let accountCreated = false;
@@ -74,6 +83,15 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               workspaceName: String(data.get("workspaceName")),
               ageAtLeast14
             });
+      if (isEmailVerificationRequired(session)) {
+        form.reset();
+        setAgeConfirmationError(false);
+        setPendingEmail(String(data.get("email")));
+        return;
+      }
+      if (!session.accessToken || !session.refreshToken || !session.userId || !session.workspaceId) {
+        throw new Error("인증 요청을 완료하지 못했습니다.");
+      }
       accountCreated = mode === "register";
       await onAuthenticated(session, mode === "register");
     } catch (cause) {
@@ -84,6 +102,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
         setError(cause instanceof Error ? cause.message : "인증 요청을 완료하지 못했습니다.");
       }
     } finally {
+      submitPending.current = false;
       setBusy(false);
     }
   };
@@ -114,6 +133,14 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
         <div className="auth-message-footer"><span>{t("다른 관점을 모아, 내게 맞는 선택으로.")}</span><p>{t("AI가 초안을 준비하고, 최종 결정은 내가 합니다.")}</p></div>
       </section>
       <section className="auth-panel">
+        {emailVerified && mode === "login" && <p role="status">{t("이메일 확인을 완료했습니다. 로그인해 주세요.")}</p>}
+        {pendingEmail !== null ? <section className="auth-verification-pending" aria-labelledby="auth-verification-title">
+          <h1 id="auth-verification-title">{t("이메일을 확인해 주세요")}</h1>
+          <p role="status">{t("가입할 수 있는 이메일 주소라면 확인 링크를 보냈습니다. 이메일을 확인해 주세요.")}</p>
+          <p>{t("이메일 확인 단계에서 비밀번호를 설정합니다.")}</p>
+          <EmailVerificationRequest initialEmail={pendingEmail} />
+          <button type="button" className="secondary-button" onClick={() => selectMode("login")}>{t("로그인으로 돌아가기")}</button>
+        </section> : <>
         <div className="auth-intro"><span>{t("나의 업무 공간")}</span><h1>{mode === "login" ? t("다시 만나 반가워요.") : t("함께할 준비가 됐나요?")}</h1><p>{mode === "login" ? t("작은 동료들과 하던 일을 이어가세요.") : t("계정을 만들고 첫 고객 문의를 정리해 보세요.")}</p></div>
         <div className="auth-tabs" role="tablist" aria-label={t("인증 방식")}>
           <button
@@ -236,10 +263,11 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
             </button>
           </fieldset>
         </form>
+        </>}
         <small className="auth-assurance"><ShieldCheck size={17} aria-hidden="true"/> {t("AI 결과는 내 검토 후에 확정됩니다.")}</small>
       </section>
       </div>
-      <p className="auth-footer">{t("내 일을 더 선명하게. Freelance Ops")}</p>
+      <p className="auth-footer">{t("내 일을 더 선명하게. Freelance Ops")} · <Link href="/notices">{t("운영 공지")}</Link></p>
     </main>
   );
 }

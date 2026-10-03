@@ -26,6 +26,7 @@ export function HomeFooter() {
         <a href="#workflow">{t("작동 방식")}</a>
         <a href="#evidence">{t("검증 원칙")}</a>
         <Link href="/workspace">{t("로그인")}</Link>
+        <Link href="/notices">{t("운영 공지")}</Link>
       </nav>
       <span>© 2026 Freelance Ops Agent</span>
     </footer>

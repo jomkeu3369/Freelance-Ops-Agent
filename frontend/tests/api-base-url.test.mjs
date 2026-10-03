@@ -158,3 +158,51 @@ test("registration sends the age attestation as a JSON boolean and never assumes
   await api.register(input);
   assert.deepEqual(await requests.at(-1).json(), input);
 });
+
+test("email verification requests never authenticate and send secrets in POST bodies only", async () => {
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push(new Request(url, init));
+    return Response.json({ status: "VERIFIED" });
+  };
+  await api.requestEmailVerification("fixture@example.invalid");
+  await api.confirmEmailVerification("fixture-token-only", "new-owner-password");
+  assert.equal(requests[0].url.endsWith("/auth/email-verification/request"), true);
+  assert.deepEqual(await requests[0].json(), { email: "fixture@example.invalid" });
+  assert.equal(requests[1].url.endsWith("/auth/email-verification/confirm"), true);
+  assert.deepEqual(await requests[1].json(), { token: "fixture-token-only", password: "new-owner-password" });
+  for (const request of requests) {
+    assert.equal(request.method, "POST");
+    assert.equal(request.headers.has("Authorization"), false);
+    assert.equal(new URL(request.url).search, "");
+    assert.equal(request.cache, "no-store");
+  }
+});
+
+test("registration preserves the unauthenticated pending result", async () => {
+  const result = { userId: null, workspaceId: null, accessToken: null, accessTokenExpiresAt: null, refreshToken: null, refreshTokenExpiresAt: null, tokenType: "EmailVerificationRequired" };
+  globalThis.fetch = async () => Response.json(result);
+  const response = await api.register({ email: "fixture@example.invalid", password: "unused-signup-password", displayName: "Fixture", workspaceName: "Fixture", ageAtLeast14: true });
+  assert.deepEqual(response, result);
+  assert.equal(api.isEmailVerificationRequired(response), true);
+  assert.equal(api.isEmailVerificationRequired({ tokenType: "Bearer" }), false);
+});
+
+test("notices admin sends optimistic revision and immutable content/audience approval", async () => {
+  const requests = [];
+  const session = browserSession();
+  globalThis.fetch = async (url, init) => { requests.push(new Request(url, init)); return Response.json({}); };
+  const notice = { id: "notice-fixture", revision: 7 };
+  const campaign = { id: "campaign-fixture", contentHash: "a".repeat(64), recipientHash: "b".repeat(64), recipientCount: 17 };
+  await api.reviewNotice(session, notice);
+  await api.publishNotice(session, notice, "2099-01-01T00:00:00Z");
+  await api.testNoticeCampaign(session, campaign.id);
+  await api.confirmNoticeCampaign(session, campaign);
+  await api.cancelNoticeCampaign(session, campaign.id);
+  assert.deepEqual(await requests[0].json(), { expectedRevision: 7 });
+  assert.deepEqual(await requests[1].json(), { expectedRevision: 7, publishAt: "2099-01-01T00:00:00Z", confirmation: "PUBLISH_NOTICE" });
+  assert.equal(await requests[2].text(), "");
+  assert.deepEqual(await requests[3].json(), { contentHash: campaign.contentHash, recipientHash: campaign.recipientHash, recipientCount: 17, confirmation: "QUEUE_OPERATIONAL_NOTICE" });
+  assert.deepEqual(await requests[4].json(), {});
+  for (const request of requests) assert.equal(request.headers.get("Authorization"), "Bearer old-token");
+});

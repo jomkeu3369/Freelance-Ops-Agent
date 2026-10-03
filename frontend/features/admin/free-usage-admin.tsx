@@ -86,6 +86,7 @@ export function FreeUsageAdmin() {
   return <main id="main-content" className="free-usage-admin">
     <header className="free-usage-admin-header"><Link href="/workspace/settings">{t("작업 공간으로 돌아가기")}</Link><LanguageSelector /></header>
     <h1>{t("사이트 관리자")}</h1>
+    <p><Link href="/admin/notices">{t("운영 공지 및 메일 관리")}</Link></p>
     {forbidden ? <section role="alert"><h2>{t("접근 권한이 없습니다.")}</h2><p>{t("사이트 관리자 권한이 필요합니다. 작업 공간 관리자 권한으로는 접근할 수 없습니다.")}</p></section> : <>
       {loading && <p role="status">{t("관리자 권한 확인 중…")}</p>}
       {error && <p className="free-usage-warning" role="alert">{t(error)}</p>}

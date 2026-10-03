@@ -24,6 +24,54 @@ export interface AuthSession {
   tokenType: string;
 }
 
+// A pending registration is deliberately not an authenticated session.
+export interface EmailVerificationRequired {
+  userId: null;
+  workspaceId: null;
+  accessToken: null;
+  accessTokenExpiresAt: null;
+  refreshToken: null;
+  refreshTokenExpiresAt: null;
+  tokenType: "EmailVerificationRequired";
+}
+export type RegistrationResult = AuthSession | EmailVerificationRequired;
+export function isEmailVerificationRequired(result: RegistrationResult): result is EmailVerificationRequired {
+  return result.tokenType === "EmailVerificationRequired";
+}
+
+export interface ServiceNotice {
+  id: string;
+  kind: "OPERATIONAL" | "TERMS_VERSION" | "PRIVACY_VERSION";
+  title: string;
+  body: string;
+  versionLabel: string;
+  effectiveAt: string | null;
+  publishAt: string | null;
+  status: "DRAFT" | "REVIEWED" | "PUBLISHED";
+  contentHash: string;
+  revision: number;
+}
+export interface NoticeCampaign {
+  id: string;
+  noticeId: string;
+  status: "DRAFT" | "QUEUED" | "CANCELLED" | "COMPLETED";
+  contentHash: string;
+  recipientHash: string;
+  recipientCount: number;
+  snapshotTitle: string;
+  snapshotVersionLabel: string;
+  snapshotBody?: string;
+  testStatus: null | "BLOCKED_TRANSPORT" | "ACCEPTED" | "RETRYABLE_FAILED" | "PERMANENT_FAILED" | "UNKNOWN" | "BOUNCED";
+  createdAt: string;
+  deliveries: Record<string, number>;
+}
+export interface NoticeAdministration {
+  notices: ServiceNotice[];
+  campaigns: NoticeCampaign[];
+  transportReady: boolean;
+}
+export type NoticeInput = Pick<ServiceNotice, "kind" | "title" | "body" | "versionLabel" | "effectiveAt">;
+
 export interface Project {
   id: string;
   workspaceId: string;
@@ -597,8 +645,42 @@ export function register(input: {
   displayName: string;
   workspaceName: string;
   ageAtLeast14: boolean;
-}): Promise<AuthSession> {
+}): Promise<RegistrationResult> {
   return request("/api/v2/auth/register", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function requestEmailVerification(email: string): Promise<{ status: "IF_ELIGIBLE_CHECK_EMAIL" }> {
+  return request("/api/v2/auth/email-verification/request", { method: "POST", body: JSON.stringify({ email }), cache: "no-store" }, undefined, false);
+}
+export function confirmEmailVerification(token: string, password: string): Promise<{ status: "VERIFIED" }> {
+  return request("/api/v2/auth/email-verification/confirm", { method: "POST", body: JSON.stringify({ token, password }), cache: "no-store" }, undefined, false);
+}
+export function listPublicNotices(): Promise<ServiceNotice[]> {
+  return request("/api/v2/notices", { cache: "no-store" });
+}
+export function getNoticeAdministration(session: AuthSession): Promise<NoticeAdministration> {
+  return request("/api/v2/admin/notices", { cache: "no-store" }, session.accessToken);
+}
+export function createNotice(session: AuthSession, input: NoticeInput): Promise<ServiceNotice> {
+  return request("/api/v2/admin/notices", { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+export function reviewNotice(session: AuthSession, notice: ServiceNotice): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/review`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision }) }, session.accessToken);
+}
+export function publishNotice(session: AuthSession, notice: ServiceNotice, publishAt: string): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/publish`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision, publishAt, confirmation: "PUBLISH_NOTICE" }) }, session.accessToken);
+}
+export function prepareNoticeCampaign(session: AuthSession, noticeId: string): Promise<NoticeCampaign> {
+  return request("/api/v2/admin/notice-campaigns", { method: "POST", body: JSON.stringify({ noticeId }) }, session.accessToken);
+}
+export function testNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/test`, { method: "POST" }, session.accessToken);
+}
+export function confirmNoticeCampaign(session: AuthSession, campaign: NoticeCampaign): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(campaign.id)}/confirm`, { method: "POST", body: JSON.stringify({ contentHash: campaign.contentHash, recipientHash: campaign.recipientHash, recipientCount: campaign.recipientCount, confirmation: "QUEUE_OPERATIONAL_NOTICE" }) }, session.accessToken);
+}
+export function cancelNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({}) }, session.accessToken);
 }
 
 export function login(email: string, password: string): Promise<AuthSession> {

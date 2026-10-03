@@ -1,3 +1,4 @@
+import { noticeEnglish } from "./ui-notice-english.mjs";
 import { freeUsageEnglish } from './ui-free-usage-english.mjs';
 import { workspaceEnglish } from './ui-workspace-english.mjs';
 import { projectEnglish } from './ui-project-english.mjs';
@@ -11,6 +12,7 @@ import { petEnglish } from './ui-pet-english.mjs';
 // Korean source keys are the fallback. Only interface copy and fictional examples belong here.
 export const englishUi = {
   "Freelance Ops | 근거 있는 견적 운영": "Freelance Ops | Evidence-based estimates",
+  ...noticeEnglish,
   ...freeUsageEnglish,
   ...workspaceEnglish,
   ...projectEnglish,
