@@ -12,7 +12,8 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
     const visible = new Set<Element>();
     const motionRoot = root.querySelector<HTMLElement>("[data-motion-paused]");
     const enabled = () => media.matches && !document.hidden && motionRoot?.dataset.motionPaused !== "true";
-    const neutral = { "--pointer-rx": 0, "--pointer-ry": 0, "--pointer-x": 50, "--pointer-y": 50, "--pointer-strength": 0 };
+    const neutral = { rx: 0, ry: 0, x: 50, y: 50, strength: 0 };
+    const cssProperties = { rx: ["--pointer-rx", "deg"], ry: ["--pointer-ry", "deg"], x: ["--pointer-x", "%"], y: ["--pointer-y", "%"], strength: ["--pointer-strength", ""] } as const;
     type Values = typeof neutral;
     const controls = new Map<HTMLElement, { reset: (immediate?: boolean) => void; invalidate: () => void }>();
     const cleanups = hosts.map(host => {
@@ -24,17 +25,30 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
       let clientY = 0;
       // Allocate once, only for an interacted-with host. quickTo reuses its
       // existing tween instead of creating independent layer tweens every frame.
-      const channels = new Map<string, ReturnType<typeof gsap.quickTo>>();
-      const steer = (values: Values, options = { duration: .24 }, immediate = false) => {
-        for (const [property, value] of Object.entries(values)) {
+      const channels = new Map<keyof Values, ReturnType<typeof gsap.quickTo>>();
+      const values: Values = { ...neutral };
+      const render = (property: keyof Values) => {
+        const [name, unit] = cssProperties[property];
+        host.style.setProperty(name, `${values[property]}${unit}`);
+      };
+      const steer = (target: Values, options = { duration: .24 }, immediate = false) => {
+        for (const property of Object.keys(target) as (keyof Values)[]) {
+          const value = target[property];
           let channel = channels.get(property);
           if (!channel) {
-            channel = gsap.quickTo(host, property, { duration: .24, ease: "power2.out" });
+            // CSS unit strings can become NaN when a quickTo is interrupted.
+            // Tween numbers only; serialize units at the rendering boundary.
+            channel = gsap.quickTo(values, property, { duration: .24, ease: "power2.out", onUpdate: () => render(property) });
             channels.set(property, channel);
           }
-          channel.tween.duration(options.duration);
-          channel(value);
-          if (immediate) channel.tween.progress(1).pause();
+          if (immediate) {
+            channel.tween.pause();
+            values[property] = value;
+            render(property);
+          } else {
+            channel.tween.duration(options.duration);
+            channel(value);
+          }
         }
       };
       const reset = (immediate = false) => {
@@ -60,7 +74,7 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
           bounds ??= anchor.getBoundingClientRect();
           const point = pointerDepth(clientX, clientY, bounds);
           host.dataset.pointerActive = "true";
-          steer({ "--pointer-rx": point.rx, "--pointer-ry": point.ry, "--pointer-x": point.x, "--pointer-y": point.y, "--pointer-strength": 1 });
+          steer({ rx: point.rx, ry: point.ry, x: point.x, y: point.y, strength: 1 });
         });
       };
       const leave = () => reset();
@@ -77,7 +91,7 @@ export function usePointerDepth(pageRef: RefObject<HTMLDivElement | null>) {
         anchor.removeEventListener("focusin", leave);
         cancelAnimationFrame(frame);
         channels.forEach(channel => channel.tween.kill());
-        Object.keys(neutral).forEach(property => host.style.removeProperty(property));
+        Object.values(cssProperties).forEach(([property]) => host.style.removeProperty(property));
         delete host.dataset.pointerDepth;
         delete host.dataset.pointerActive;
       };

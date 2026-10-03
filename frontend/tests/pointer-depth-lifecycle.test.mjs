@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import gsapPackage from "gsap/dist/gsap.js";
 import { pointerDepth } from "../features/home/pointer-depth.mjs";
 
 const source = await readFile(new URL("../features/home/use-pointer-depth.ts", import.meta.url), "utf8");
@@ -18,7 +19,7 @@ function events() {
   };
 }
 
-function mount() {
+function mount({ realTween = false } = {}) {
   const frames = new Map();
   const observers = { intersection: [], mutation: [], resize: [] };
   const channels = [];
@@ -32,7 +33,10 @@ function mount() {
     matches() { return this.focused; },
     closest() { return anchor; },
     getBoundingClientRect() { throw new Error("Rotating surface must never feed its own pointer coordinates"); },
-    style: { removeProperty: key => values.delete(key) },
+    style: { setProperty: (key, value) => {
+      assert.ok(Number.isFinite(Number.parseFloat(value)), `Finite serialized ${key}`);
+      values.set(key, Number.parseFloat(value));
+    }, removeProperty: key => values.delete(key) },
   };
   const anchor = { ...events(), getBoundingClientRect() { measurements++; return { ...host.rect }; } };
   const motion = { dataset: { motionPaused: "false" } };
@@ -58,7 +62,13 @@ function mount() {
       if (name === "./pointer-depth.mjs") return { pointerDepth };
       if (name === "gsap") return { default: {
         quickTo(target, property, options) {
-          const channel = value => { channel.calls++; values.set(property, value); };
+          if (realTween) {
+            const channel = gsapPackage.gsap.quickTo(target, property, options);
+            channels.push(channel);
+            return channel;
+          }
+          assert.equal(typeof target[property], "number", "Tween state must never be a CSS unit string");
+          const channel = value => { channel.calls++; target[property] = value; options.onUpdate?.(); };
           channel.calls = 0;
           channel.target = target;
           channel.options = options;
@@ -154,4 +164,33 @@ test("queued motion cannot survive focus, pause, backgrounding or leaving the vi
   assert.equal(scene.document.listeners.size, 0);
   assert.equal(scene.media.listeners.size, 0);
   assert.equal(scene.values.size, 0);
+});
+
+
+test("real GSAP numeric channels stay finite through rapid reversals and interrupted resets", () => {
+  const scene = mount({ realTween: true });
+  try {
+    scene.show();
+    for (let index = 0; index < 40; index++) {
+      scene.move(index % 2 ? 100 : 500, index % 2 ? 200 : 400); scene.flush();
+      scene.channels.forEach(channel => channel.tween.progress(.27).pause());
+      scene.anchor.dispatch("pointerleave");
+      scene.channels.forEach(channel => channel.tween.progress(.13).pause());
+      if (index % 3 === 0) {
+        scene.motion.dataset.motionPaused = "true"; scene.observers.mutation[0].callback();
+        scene.motion.dataset.motionPaused = "false";
+      }
+      scene.anchor.dispatch("pointerenter");
+      assert.ok([...scene.values.values()].every(Number.isFinite));
+      assert.ok(Math.abs(scene.values.get("--pointer-rx")) <= 1.8);
+      assert.ok(Math.abs(scene.values.get("--pointer-ry")) <= 2.2);
+    }
+    assert.equal(scene.channels.length, 5, "Reversals keep the same numeric tween channels");
+    scene.document.hidden = true; scene.document.dispatch("visibilitychange");
+    assert.equal(scene.values.get("--pointer-rx"), 0);
+    assert.equal(scene.values.get("--pointer-strength"), 0);
+  } finally {
+    scene.unmount();
+    gsapPackage.gsap.ticker.sleep();
+  }
 });
