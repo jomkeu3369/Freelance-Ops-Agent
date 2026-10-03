@@ -449,10 +449,10 @@ test("effort prisms keep attached faces and static translated labels while their
   assert.match(motionCss, /rotateX\(-18deg\) rotateY\(-35deg\) scaleY\(var\(--story-prism-grow, 1\)\)/);
   assert.match(motionCss, /transform-origin:\s*center bottom;\s*opacity:\s*1;\s*transform-style:\s*preserve-3d/);
   assert.match(prism, /className="story-prism-stack"/);
-  assert.match(readability, /\.story-prism-chart\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*auto auto/);
+  assert.match(readability, /\.story-prism-chart\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*auto 1px auto/);
   assert.match(readability, /\.story-prism-column\s*\{\s*display:\s*contents/);
   assert.match(readability, /\.story-prism-stack\s*\{[^}]*grid-row:\s*1/);
-  assert.match(readability, /\.story-prism-column > small\s*\{[^}]*grid-row:\s*2/);
+  assert.match(readability, /\.story-prism-column > small\s*\{[^}]*grid-row:\s*3/);
   assert.match(storyCss, /\.story-prism-top\s*\{[^}]*top:\s*0;[^}]*transform:\s*translateY\(-50%\) rotateX\(90deg\)/);
   assert.match(storyCss, /\.story-prism-front\s*\{[^}]*transform:\s*translateZ\(var\(--prism-half\)\)/);
   assert.match(storyCss, /\.story-prism-side\s*\{[^}]*transform:\s*rotateY\(90deg\) translateZ\(var\(--prism-half\)\)/);

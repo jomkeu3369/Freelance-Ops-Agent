@@ -280,10 +280,12 @@ async function prismGeometry(chart) {
     const matrix = new DOMMatrixReadOnly(style.transform);
     const faces = [...bar.children].map(face => face.getBoundingClientRect());
     const overlap = (a, b) => Math.min(a.right, b.right) >= Math.max(a.left, b.left) - 1 && Math.min(a.bottom, b.bottom) >= Math.max(a.top, b.top) - 1;
+    const name = bar.closest(".story-prism-column").querySelector("small");
     return {
       grow: Math.hypot(matrix.m21, matrix.m22, matrix.m23),
       height: Number.parseFloat(style.height),
       bottom: bar.getBoundingClientRect().bottom,
+      labelClearance: name.getBoundingClientRect().top - Math.max(...faces.map(face => face.bottom)),
       connected: faces.length === 3 && overlap(faces[2], faces[0]) && overlap(faces[2], faces[1]),
       solid: faces.every(face => face.width > .5 && face.height > .5),
       opacity: style.opacity,
@@ -294,6 +296,13 @@ async function prismGeometry(chart) {
 
 async function expectFinalPrisms(chart, days) {
   await expect(chart).toHaveAttribute("data-story-entry-state", "complete");
+  const panelPlacement = await chart.evaluate(element => {
+    const panel = element.closest(".story-effort-prisms");
+    const anchor = panel.closest(".pointer-depth-anchor");
+    return { inset: panel.offsetLeft, unusedWidth: anchor.clientWidth - panel.offsetWidth };
+  });
+  expect(Math.abs(panelPlacement.inset), "The prism panel must not inherit an implicit second grid column inside its anchor").toBeLessThanOrEqual(1);
+  expect(Math.abs(panelPlacement.unusedWidth)).toBeLessThanOrEqual(1);
   const bars = await prismGeometry(chart);
   expect(bars).toHaveLength(days.length);
   expect(Math.max(...bars.map(bar => bar.bottom)) - Math.min(...bars.map(bar => bar.bottom))).toBeLessThan(1);
@@ -304,6 +313,7 @@ async function expectFinalPrisms(chart, days) {
     expect(bar.solid).toBe(true);
     expect(bar.opacity).toBe("1");
     expect(bar.transformStyle).toBe("preserve-3d");
+    expect(bar.labelClearance, "Task names need a real gutter below the projected solid, not just its untransformed box").toBeGreaterThanOrEqual(18);
   }
 }
 

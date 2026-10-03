@@ -1,6 +1,7 @@
 /* A stable hit box surrounds one coherent panel. Content, glass and chart
    share its center and easing; shallow fixed depth never chases separately. */
 .figma-home.spatial-site .pointer-depth-anchor { position: relative; display: grid; min-width: 0; }
+.figma-home.spatial-site .reference-story .pointer-depth-anchor > .story-effort-prisms { grid-area: 1 / 1; min-width: 0; }
 .figma-home.spatial-site .pointer-depth-ring { grid-column: span 2; }
 .figma-home.spatial-site .pointer-depth-ring > .story-dashboard-ring { height: 100%; }
 @media (max-width: 820px) { .figma-home.spatial-site .pointer-depth-ring { grid-column: 1; } }
@@ -38,11 +39,13 @@
   /* The ring and its count move together. The SVG retains only its dial rotation. */
   .figma-home.spatial-site .story-dashboard-ring[data-pointer-depth] .story-ring-figure > svg { transform: rotate(-90deg); }
   .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-chart { transform: translateZ(8px); transform-style: preserve-3d; }
-  .figma-home.spatial-site .reference-story .story-prism-stack { position: relative; transform-style: preserve-3d; }
+  /* Project each solid locally before the shared panel perspective. Otherwise
+     its height changes depth in the outer camera and makes outer bars lean. */
+  .figma-home.spatial-site .reference-story .story-prism-stack { position: relative; transform-style: flat; }
   .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-chart .spatial-bar[data-story-prism] {
     transform: rotateX(-18deg) rotateY(-35deg) scaleY(var(--story-prism-grow, 1));
   }
-  .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-stack::after { content: ""; position: absolute; bottom: -9px; left: calc(50% - 44px); width: 88px; height: 16px; pointer-events: none; background: radial-gradient(ellipse, #04020788, transparent 70%); transform: translateZ(-1px); opacity: .5; }
+  .figma-home.spatial-site .reference-story .story-effort-prisms[data-pointer-depth] .story-prism-stack::after { content: ""; position: absolute; bottom: 4px; left: calc(50% - 44px); width: 88px; height: 16px; pointer-events: none; background: radial-gradient(ellipse, #04020788, transparent 70%); transform: none; opacity: .5; z-index: -1; }
   .figma-home.spatial-site .spatial-flow[data-pointer-depth] :is(.spatial-stages, .spatial-board) { transform: translateZ(4px); }
   .figma-home.spatial-site .spatial-flow[data-pointer-depth] .spatial-stage-icon {
     box-shadow: 0 7px 14px -12px #08030fe0, inset 0 1px #e5c7ff26;
