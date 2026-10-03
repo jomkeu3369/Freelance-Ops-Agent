@@ -90,6 +90,7 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v2/auth/**").permitAll()
                 .requestMatchers("/api/v2/proposals/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v2/notices").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterAfter(rateLimitFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)

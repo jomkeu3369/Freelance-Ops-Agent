@@ -105,3 +105,7 @@ PostgreSQL 격리 검증은 Docker가 실행 중일 때 Testcontainers로 자동
 발행된 견적은 직접 수정하지 않는다. 변경은 `/quotations/{quotationId}/revisions`에서 새로운 immutable version으로 생성한다. 세부 결정은 [`ADR-0019`](../docs/adr/0019-immutable-grounded-quotation.md)와 [`ADR-0020`](../docs/adr/0020-hibernate-vector-hybrid-retrieval.md)을 따른다.
 
 Gradle `test`는 실행마다 메모리에서 만든 임시 JWT 키를 테스트 프로세스에만 전달한다. 이 값은 `bootRun`이나 운영 서버 설정에 적용되지 않는다. IDE에서 Spring 통합 테스트를 직접 실행할 때도 실제 서비스 키 대신 별도의 일회용 테스트 키를 환경변수로 지정해야 한다.
+
+## Verified email and operational notices
+
+The verification and notice-mail foundation is release-gated and ships with a disabled transport. Existing accounts retain access without a fabricated verification timestamp. See [rollout gates, privacy boundaries, and test commands](../docs/operations/verified-notices.md) before enabling any provider or signup requirement.

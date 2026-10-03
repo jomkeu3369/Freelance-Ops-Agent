@@ -59,6 +59,9 @@ class AuthServiceTest {
     @Mock
     private AuthTokenService tokenService;
 
+    @Mock
+    private EmailVerificationService verification;
+
     private PasswordEncoder passwordEncoder;
     private AuthService service;
 
@@ -73,8 +76,18 @@ class AuthServiceTest {
             permissionReader,
             provisioningService,
             passwordEncoder,
-            tokenService
+            tokenService,
+            verification
         );
+    }
+
+    @Test
+    void nullPasswordCannotAuthenticateUsingTheDummyTimingPassword() {
+        UserAccountEntity user = UserAccountEntity.registerLocal(UUID.randomUUID(), "external@example.invalid", "External", null, NOW);
+        when(userRepository.findByEmailIgnoreCase("external@example.invalid")).thenReturn(Optional.of(user));
+        assertThatThrownBy(() -> service.login(new LoginRequest("external@example.invalid", "timing-only-password-value")))
+            .isInstanceOf(IdentityException.class);
+        verifyNoInteractions(tokenService, refreshTokenRepository);
     }
 
     @Test
