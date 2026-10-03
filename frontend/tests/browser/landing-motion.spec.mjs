@@ -487,3 +487,27 @@ test("rapid forward/reverse proposal selection interrupts one coherent card and 
   await page.clock.runFor(1400);
   await expectSettledTransfer(page, 1);
 });
+
+test("hero returning light keeps room beyond its original viewport and fades before the paint edge", async ({ page }) => {
+  await openLanding(page);
+  for (const width of [1180, 1857, 2560]) {
+    await page.setViewportSize({ width, height: 829 });
+    const light = await page.locator('.scene-hero-light').evaluate(element => {
+      const canvas = element.querySelector('svg');
+      const core = element.querySelector('.scene-bend-core');
+      const surface = element.getBoundingClientRect();
+      const originalViewport = canvas.getBoundingClientRect();
+      const brightArc = core.getBoundingClientRect();
+      return { headroom: surface.bottom - brightArc.bottom, extension: surface.height - originalViewport.height,
+        svgOverflow: getComputedStyle(canvas).overflow, outerOverflow: getComputedStyle(element).overflow,
+        mask: getComputedStyle(element).maskImage, pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+    });
+    expect(light.headroom, 'The full bright bend ends before the feathered paint boundary').toBeGreaterThan(260);
+    expect(light.extension, 'The returning arc is not cut at the original cover viewport').toBeGreaterThanOrEqual(340);
+    expect(light.svgOverflow).toBe('visible');
+    expect(light.outerOverflow).toBe('hidden');
+    expect(light.mask).toContain('linear-gradient');
+    expect(light.mask).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+    expect(light.pageOverflow).toBe(0);
+  }
+});
