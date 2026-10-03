@@ -18,6 +18,9 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .spatial-hero-actions :is(.primary-button, .secondary-button) { font-size: 13px; min-height: 46px; }
 .figma-home.spatial-site .spatial-hero-actions .secondary-button { background: #1b1422; color: #e5d7ef; border-color: #ac88c54d; }
 .figma-home.spatial-site .spatial-hero-actions .secondary-button:hover { background: #281c33; color: #fff2ff; }
+@media (max-width: 1000px) {
+  .figma-home.spatial-site .nav-links.is-open { max-height: calc(100dvh - 92px); overflow-y: auto; overscroll-behavior: contain; }
+}
 
 /* Readable resting geometry; pointer-depth.css applies one restrained shared tilt. */
 .figma-home.spatial-site .spatial-flow, .figma-home.spatial-site .spatial-flow:hover { width: 100%; transform: none; transition: none; backdrop-filter: none; padding-right: 20px; }
@@ -154,6 +157,15 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 @media (max-width: 480px) {
   .figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] .story-prism-task-full { display: none; }
   .figma-home.spatial-site .reference-story .story-prism-chart[data-count="4"] .story-prism-task-short { display: inline; overflow-wrap: normal; word-break: normal; }
+}
+@media (max-width: 350px) {
+  .figma-home.spatial-site .reference-story .story-effort-prisms { padding-inline: 14px; }
+  .figma-home.spatial-site .reference-story .story-effort-prisms .story-panel-top > span:first-child { flex: 1 1 130px; }
+  .figma-home.spatial-site .reference-story .story-effort-prisms .spatial-effort-number { flex: 0 0 auto; margin-left: auto; }
+  .figma-home.spatial-site .reference-story .story-prism-chart { column-gap: 4px; padding-inline: 0; }
+  .figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar-label { max-width: 100%; text-align: center; }
+  .figma-home.spatial-site .spatial-stage { padding-inline: 4px; }
+  .figma-home.spatial-site .spatial-stage > span:last-of-type { word-break: normal; hyphens: auto; }
 }
 
 /* Full-page readability audit: explanations and actions are never micro-type. */

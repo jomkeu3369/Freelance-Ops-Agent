@@ -251,7 +251,7 @@
 .figma-home.spatial-site::before, .figma-home.spatial-site::after { display: none; }
 .figma-home.spatial-site .nav-shell { position: fixed; top: 0; width: min(calc(100% - 80px), 1220px); min-height: 76px; padding: 18px 0; border: 0; border-radius: 0; background: linear-gradient(#100d16ee, #100d16b3); backdrop-filter: blur(16px); box-shadow: none; }
 .figma-home.spatial-site .brand-wordmark { font-size: 16px; color: #e7dbee; }
-.figma-home.spatial-site .brand img { width: 26px; height: 26px; border-radius: 7px; }
+.figma-home.spatial-site .brand > .brand-mark { display: block; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 7px; color: #4f46e5; }
 .figma-home.spatial-site .nav-links { gap: 28px; font-size: 11px; color: #ac9db8; }
 .figma-home.spatial-site .nav-actions { gap: 7px; }
 .figma-home.spatial-site .nav-actions .text-link { border: 0; padding-inline: 10px; background: transparent; font-size: 11px; color: #cab9d5; }

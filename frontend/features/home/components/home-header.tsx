@@ -1,7 +1,7 @@
 import { useT, LanguageSelector } from "../../../app/lib/ui-language";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { StoryMark } from "./reference-story";
 import { List, Moon, Sun, X } from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
 
@@ -33,7 +33,7 @@ export function HomeHeader() {
       if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
     }}>
       <Link className="brand" href="#top" aria-label={t("Freelance Ops 홈")}>
-        <Image src="/figma/logo.svg" alt="" width={32} height={32} />
+        <StoryMark className="brand-mark" />
         <span className="brand-wordmark">Freelance Ops</span>
       </Link>
       <button ref={menuButton} type="button" className="icon-button home-menu-toggle" aria-label={menuOpen ? t("페이지 메뉴 닫기") : t("페이지 메뉴 열기")} aria-expanded={menuOpen} aria-controls="home-navigation" onClick={() => setMenuOpen((open) => !open)}>

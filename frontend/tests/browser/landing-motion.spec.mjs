@@ -553,3 +553,50 @@ for (const language of ["ko", "en"]) {
     });
   }
 }
+
+for (const language of ["ko", "en"]) {
+  test(`compact ${language} chart keeps four task names legible and a resource-independent home mark`, async ({ page }) => {
+    await page.setViewportSize({ width: 295, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", language);
+    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole("button", { name: language === "ko" ? /예약 변경 추가/ : /Add rescheduling/ }).click();
+    const chart = page.locator(".story-prism-chart");
+    await expect(chart).toHaveAttribute("data-count", "4");
+    for (const width of [295, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      await chart.scrollIntoViewIfNeeded();
+      const failures = await chart.evaluate(element => [...element.querySelectorAll(".story-prism-column > small")].flatMap(label => {
+        const box = label.getBoundingClientRect();
+        const text = label.querySelector(".story-prism-task-short");
+        const range = document.createRange(); range.selectNodeContents(text);
+        const fits = [...range.getClientRects()].every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1);
+        return fits && Number.parseFloat(getComputedStyle(label).fontSize) >= 13 ? [] : [label.innerText];
+      }));
+      expect(failures, "Meaningful names must fit their columns without shrinking or clipping").toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+      const brand = page.locator(".nav-shell .brand");
+      await expect(brand.locator("img")).toHaveCount(0);
+      await expect(brand.locator("svg.brand-mark")).toHaveCSS("width", "26px");
+      await expect(brand.locator("svg.brand-mark")).toHaveCSS("height", "26px");
+    }
+    await page.setViewportSize({ width: 295, height: 189 });
+    const menuButton = page.getByRole("button", { name: language === "ko" ? "페이지 메뉴 열기" : "Open page menu", exact: true });
+    await menuButton.click();
+    const menu = page.locator("#home-navigation");
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveCSS("overflow-y", "auto");
+    for (let i = 0; i < 4; i++) await page.keyboard.press("Tab");
+    const lastLink = menu.locator("a").last();
+    await expect(lastLink).toBeFocused();
+    expect(await lastLink.evaluate(element => {
+      const box = element.getBoundingClientRect();
+      return box.top >= 70 && box.bottom <= innerHeight - 8;
+    }), "The last menu item must remain visibly reachable in a short zoomed viewport").toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(menu).not.toBeVisible();
+    await expect(menuButton).toBeFocused();
+  });
+}
