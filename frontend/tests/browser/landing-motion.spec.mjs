@@ -521,3 +521,35 @@ test("hero returning light keeps room beyond its original viewport and fades bef
     expect(light.pageOverflow).toBe(0);
   }
 });
+
+for (const language of ["ko", "en"]) {
+  for (const hash of ["review", "evidence"]) {
+    test(`initial ${language} #${hash} lands after fonts and animation setup, including reload`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto(`/#${hash}`);
+      await expect(page.locator("html")).toHaveAttribute("lang", language);
+      const assertDestination = async destination => {
+        await page.evaluate(() => document.fonts.ready);
+        await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-ready", "true");
+        await expect.poll(() => page.locator(`#${destination}-title`).evaluate(element => {
+          const heading = element.getBoundingClientRect();
+          const nav = document.querySelector(".nav-shell").getBoundingClientRect();
+          return heading.top >= nav.bottom + 8 && heading.bottom <= innerHeight;
+        }), { message: "A direct anchor must remain visible after ScrollTrigger's initial refreshes" }).toBe(true);
+        await expect(page).toHaveURL(new RegExp(`#${destination}$`));
+        await expect(page.locator("[data-story-brand-mark]")).toHaveCSS("visibility", destination === "review" ? "hidden" : "visible");
+        await expect(page.locator("[data-story-brand-target]")).toHaveCSS("visibility", destination === "review" ? "visible" : "hidden");
+      };
+      await assertDestination(hash);
+      await page.reload();
+      await assertDestination(hash);
+      if (hash === "review") {
+        await page.locator(".nav-shell").getByRole("link", { name: language === "ko" ? "검증 원칙" : "Review principles", exact: true }).click();
+        await assertDestination("evidence");
+        await page.goBack();
+        await assertDestination("review");
+      }
+    });
+  }
+}

@@ -3,6 +3,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { createBrandFlight } from "./brand-flight.mjs";
+import { restoreInitialAnchor } from "./initial-anchor.mjs";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -166,7 +167,8 @@ export function useHomeAnimation() {
         interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
       };
     });
-    return () => { ambientObserver.disconnect(); motion.revert(); };
+    const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());
+    return () => { cancelInitialAnchor(); ambientObserver.disconnect(); motion.revert(); };
   }, { scope: pageRef });
   return pageRef;
 }
