@@ -16,6 +16,8 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .nav-links, .figma-home.spatial-site .nav-actions .text-link { font-size: 12px; color: #c8bdd2; }
 .figma-home.spatial-site .nav-actions .primary-button, .figma-home.spatial-site .ui-language-selector select { font-size: 12px; }
 .figma-home.spatial-site .spatial-hero-actions :is(.primary-button, .secondary-button) { font-size: 13px; min-height: 46px; }
+.figma-home.spatial-site .spatial-hero-actions .secondary-button { background: #1b1422; color: #e5d7ef; border-color: #ac88c54d; }
+.figma-home.spatial-site .spatial-hero-actions .secondary-button:hover { background: #281c33; color: #fff2ff; }
 
 /* Keep functional glyphs on a flat plane. Depth belongs to the decorative frame. */
 .figma-home.spatial-site .spatial-flow, .figma-home.spatial-site .spatial-flow:hover { width: 100%; transform: none; transition: none; backdrop-filter: none; padding-right: 20px; }
