@@ -100,7 +100,7 @@ export function WorkflowSection() {
       <p className="sr-only" role="status">{state.manual ? t("{v0} 예시 결과. {v1}, {v2}일, {v3}원.", { v0: t(demoSteps[view.selected]), v1: t(quote.label), v2: quote.days, v3: money(quote.total) }) : ""}</p>
     </section>
 
-    <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} />{t(label)}</span>;})}</div></div>
+    <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} /><span className="spatial-capability-name">{t(label)}</span></span>;})}</div></div>
     <ReferenceStory state={state} quote={quote} onScopeChange={(scope) => dispatch({ type: "scope", scope })} />
     <section id="scope-comparison" className="spatial-chapter spatial-comparison" aria-labelledby="comparison-title">
       <FooterAtmosphere />
