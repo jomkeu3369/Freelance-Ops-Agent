@@ -12,7 +12,8 @@
 /* Bright light is allowed around the copy; a local reading surface protects
    only the heading instead of dimming the entire ribbon. */
 .figma-home.spatial-site .spatial-hero-title { position: relative; isolation: isolate; width: fit-content; max-width: 100%; }
-.figma-home.spatial-site .spatial-hero-title::before { content: ""; position: absolute; inset: -15px -20px -14px -18px; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 52%, #0b0911fa 38%, #0b0911eb 66%, #0b091188 83%, transparent 100%); }
+.figma-home.spatial-site .spatial-hero-title::before { content: ""; position: absolute; inset: -32px -52px -26px -32px; z-index: -1; pointer-events: none; background: radial-gradient(ellipse closest-side at 50% 50%, #0b0911fa 38%, #0b0911f2 68%, #0b09117a 86%, transparent 100%); }
+@media (max-width: 820px) { .figma-home.spatial-site .spatial-hero-title::before { inset: -16px -12px; } }
 html[lang="en"] .figma-home.spatial-site .spatial-hero-title { font-size: clamp(43px, 4.7vw, 88px); letter-spacing: -.035em; }
 html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-family: inherit; font-style: normal; font-weight: 560; letter-spacing: inherit; }
 .figma-home.spatial-site .spatial-heading > .spatial-hero-note { font-size: 12px !important; line-height: 1.7; color: #c6b6d2 !important; align-items: flex-start; }
