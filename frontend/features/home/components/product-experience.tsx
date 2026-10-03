@@ -5,6 +5,7 @@ import { HeroAtmosphere, MiddleAtmosphere, FooterAtmosphere } from "./scene-atmo
 import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../../../app/lib/ui-language";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
+import { useInquiryTransfer } from "../use-inquiry-transfer";
 
 const stageIcons = [ChatCenteredText, TreeStructure, WarningCircle, GitBranch, FileText];
 const money = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
@@ -23,6 +24,7 @@ export function WorkflowSection() {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(true);
+  const [motionReady, setMotionReady] = useState(false);
   const [visible, setVisible] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const sceneRef = useRef<HTMLDivElement>(null);
@@ -32,10 +34,11 @@ export function WorkflowSection() {
   const view = reducedMotion && !state.manual ? { ...state, selected: 4, phase: "complete" } : state;
   const project = demoProjectSnapshot(view, reducedMotion);
   const quote = demoQuote(state.scope);
+  useInquiryTransfer(sceneRef, project.column, motionReady && !reducedMotion && visible && pageVisible && (!paused || state.manual), motionReady);
 
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncMotion = () => setReducedMotion(preference.matches);
+    const syncMotion = () => { setReducedMotion(preference.matches); setMotionReady(true); };
     const syncVisibility = () => setPageVisible(!document.hidden);
     syncMotion(); syncVisibility();
     preference.addEventListener("change", syncMotion);
@@ -55,7 +58,7 @@ export function WorkflowSection() {
     return () => window.clearTimeout(timer);
   }, [paused, finished, state.phase, state.step]);
 
-  return <div className="spatial-story-run" data-motion-paused={state.paused || reducedMotion || !pageVisible}>
+  return <div className="spatial-story-run" data-motion-ready={motionReady} data-motion-paused={state.paused || reducedMotion || !pageVisible}>
     <HeroAtmosphere paused={paused} />
     <MiddleAtmosphere />
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
@@ -67,6 +70,7 @@ export function WorkflowSection() {
         <p className="spatial-hero-note"><ShieldCheck size={12} />{t("AI 초안은 사용자가 검토하고 확정합니다.")}</p>
       </div>
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+        <span className="scene-panel-reflection" aria-hidden="true" />
         <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
         <div className="spatial-stages" role="group" aria-label={t("제품 예시 단계 선택")}>
           <svg className="spatial-graph-wires" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M40 100 C170 100 168 44 280 44 S440 44 520 44" /><path d="M40 100 C170 100 168 156 280 156 S440 156 520 156" /><path d="M310 44 C410 44 416 156 520 156" /><path className="spatial-graph-pulse" data-active={view.selected === 1 || view.selected === 3} d="M40 100 C170 100 168 44 280 44 S440 44 520 44" pathLength="1000" /><path className="spatial-graph-pulse" data-active={view.selected === 2 || view.selected === 4} d="M40 100 C170 100 168 156 280 156 S440 156 520 156" pathLength="1000" /></svg>
@@ -77,12 +81,15 @@ export function WorkflowSection() {
           <div className="spatial-lane"><span><i />{t("진행 중")}</span><small>{t("요구사항 · 견적 검토")}</small></div>
           <div className="spatial-lane"><span><i />{t("협상 중")}</span><small>{t("제안서 · 범위 협의")}</small></div>
           <article id="workflow-example" className="spatial-project-card" data-project-id={project.id} aria-label={t("{v0} 예시 결과", { v0: t(demoSteps[view.selected]) })}>
+            <span className="inquiry-liquid-shell" aria-hidden="true" />
+            <div className="inquiry-card-content">
             <div className="spatial-card-meta"><span>{project.id}</span><span className="spatial-status">{t(project.status)}</span></div>
             <span className="spatial-project-icon"><TreeStructure size={22} /></span>
             <h3>{t("예약 웹사이트")}</h3>
             <p className="spatial-card-caption">{t(stageCopy[view.selected][0])}</p>
             <div className="spatial-card-detail" key={view.selected}><span>{t(demoSteps[view.selected])} / 0{view.selected + 1}</span><p>{t(stageCopy[view.selected][1])}</p>{view.selected >= 3 && <strong>{money(quote.total)}<small>{t("원")}</small></strong>}{view.selected === 1 && quote.extra && <small>{t("고객 예약 변경")}</small>}</div>
             <div className="spatial-card-footer"><span className="spatial-avatar">fo</span><span>{t("가상의 프로젝트")}</span><span>{view.selected + 1} / 5</span></div>
+            </div>
           </article>
         </div>
         <div className="spatial-flow-bottom"><span><Check size={13} />{t(demoEvents[view.selected])}</span><button type="button" className="spatial-motion-toggle" disabled={reducedMotion} aria-pressed={state.paused} aria-label={reducedMotion ? t("동작 줄이기 적용 중") : state.paused ? t("예시 자동 진행 재개") : t("자동 진행 일시 정지")} onClick={() => dispatch({ type: "pause" })}>{state.paused ? <ArrowRight size={15} /> : <Pause size={15} />}<span>{state.paused ? t("동작 계속") : t("동작 멈추기")}</span></button></div>

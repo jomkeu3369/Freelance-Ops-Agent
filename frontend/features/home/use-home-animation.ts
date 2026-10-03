@@ -25,10 +25,6 @@ export function useHomeAnimation() {
       gsap.utils.toArray<HTMLElement>(".story-review-chat").forEach((element) => {
         gsap.from(element.querySelectorAll("[data-story-chat]"), { y: 12, opacity: 0, duration: .6, stagger: .3, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 86%", once: true } });
       });
-      gsap.utils.toArray<HTMLElement>("[data-story-meter]").forEach((element) => {
-        gsap.from(element, { scaleX: 0, transformOrigin: "left center", duration: 1.25, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 90%", once: true } });
-      });
-
     });
     motion.add("(min-width: 821px) and (prefers-reduced-motion: no-preference)", () => {
       const intro = pageRef.current?.querySelector<HTMLElement>("[data-story-intro]");
@@ -113,7 +109,9 @@ export function useHomeAnimation() {
         cancelAnimationFrame(refreshFrame);
         refreshFrame = requestAnimationFrame(() => ScrollTrigger.refresh());
       });
-      layoutObserver.observe(pageRef.current!);
+      // Changes below this handoff (for example estimator scope rows) cannot
+      // move its target. Avoid refreshing every ScrollTrigger for those edits.
+      pageRef.current!.querySelectorAll<HTMLElement>(".spatial-workflow, .spatial-capability-strip, .story-features, .story-brand-scene, .story-benefits").forEach(element => layoutObserver.observe(element));
       layoutObserver.observe(card);
       layoutObserver.observe(copy);
       // A flexed diagram can change internally while its outer card keeps the

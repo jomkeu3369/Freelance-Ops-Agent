@@ -1,0 +1,10 @@
+/* The card keeps intrinsic layout space; its surface morphs without distorting glyphs. */
+.figma-home.spatial-site .spatial-flow .spatial-project-card { background: transparent; border-color: transparent; box-shadow: none; transition: none; }
+.figma-home.spatial-site .spatial-flow[data-playing="false"] .spatial-project-card { transition: none; }
+.figma-home.spatial-site .inquiry-liquid-shell { position: absolute; inset: -1px; pointer-events: none; border: 1px solid #bb94d477; border-radius: 12px; background: radial-gradient(ellipse at 25% 10%, #b483d640, transparent 65%), linear-gradient(130deg, #483057, #271b34 80%); box-shadow: 0 12px 26px #08040e50, inset 0 1px #edccff38; transform-origin: center; }
+.figma-home.spatial-site .inquiry-card-content { position: relative; }
+.figma-home.spatial-site .spatial-project-card[data-transfer-state="travelling"] .inquiry-liquid-shell { box-shadow: 0 9px 24px #c38af235, inset 0 1px #fff7; }
+@media (prefers-reduced-motion: reduce) {
+  .figma-home.spatial-site .inquiry-liquid-shell { transform: none !important; }
+  .figma-home.spatial-site .inquiry-card-content { opacity: 1 !important; }
+}

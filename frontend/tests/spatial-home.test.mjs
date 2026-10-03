@@ -299,7 +299,7 @@ test("metric entry runs once in view and restores current final values on every 
   assert.match(helper, /if\s*\(entered\.current\.has\(scene\)\s*\|\|\s*document\.hidden\s*\|\|\s*preference\.matches\)\s*return/);
   assert.match(helper, /entered\.current\.add\(scene\)/);
   assert.match(helper, /new IntersectionObserver/);
-  assert.match(helper, /if\s*\(entry\.isIntersecting\)\s*\{\s*visible\.add\(scene\);\s*enter\(scene\)/);
+  assert.match(helper, /if\s*\(entry\.isIntersecting\s*&&\s*entry\.intersectionRatio\s*>=\s*\.35\)\s*\{\s*visible\.add\(scene\);\s*enter\(scene\)/);
   assert.match(helper, /if\s*\(active\.has\(scene\)\)\s*restore\(scene\)/);
   assert.match(helper, /if\s*\(document\.hidden\)\s*\{\s*for\s*\(const scene of active\.keys\(\)\)\s*restore\(scene\)/);
   assert.match(helper, /active\.get\(scene\)\?\.kill\(\)/);
@@ -427,12 +427,14 @@ test("the stage summary uses readable normal typography, larger icons and respon
 });
 
 
-test("effort prisms use three attached faces, actual translated tasks and no independent stagger", async () => {
-  const [component, hook, storyCss, readability] = await Promise.all([
+test("effort prisms keep attached faces and static translated labels while their bodies fan open", async () => {
+  const [component, hook, storyCss, readability, entry, motionCss] = await Promise.all([
     sourceFile("../features/home/components/reference-story.tsx"),
     sourceFile("../features/home/use-home-animation.ts"),
     sourceFile("../app/reference-story.css"),
-    sourceFile("../app/landing-readability.css")
+    sourceFile("../app/landing-readability.css"),
+    sourceFile("../features/home/components/story-metric-entry.tsx"),
+    sourceFile("../app/graph-motion.css")
   ]);
   const prism = component.slice(component.indexOf("function EffortPrisms"), component.indexOf("function BenefitCards"));
   assert.doesNotMatch(prism + storyCss + readability, /story-prism-cap|scenePrismCap/);
@@ -440,7 +442,12 @@ test("effort prisms use three attached faces, actual translated tasks and no ind
   assert.match(prism, /--prism-height":\s*`\$\{row\.days \* 29\}px`/);
   assert.match(prism, /<small>\{t\(row\.title\)\}<\/small>/);
   for (const face of ["front", "side", "top"]) assert.equal((prism.match(new RegExp(`className="story-prism-${face}"`, "g")) ?? []).length, 1);
-  assert.doesNotMatch(hook, /data-story-prism/, "The whole panel may reveal, but individual bars must share their baseline throughout entry");
+  assert.doesNotMatch(hook, /data-story-prism/, "One scoped metric timeline owns prism entry");
+  assert.match(prism, /className="spatial-bar" data-story-prism/, "Only the decorative body animates");
+  assert.doesNotMatch(prism, /className="story-prism-column"[^>]*data-story-prism/);
+  assert.match(entry, /data-story-prism[\s\S]*duration:\s*\.74,\s*stagger:\s*\.1/);
+  assert.match(motionCss, /rotateX\(-18deg\) rotateY\(-35deg\) scaleY\(var\(--story-prism-grow, 1\)\)/);
+  assert.match(motionCss, /transform-origin:\s*center bottom;\s*opacity:\s*1;\s*transform-style:\s*preserve-3d/);
   assert.match(prism, /className="story-prism-stack"/);
   assert.match(readability, /\.story-prism-chart\s*\{[^}]*display:\s*grid;[^}]*grid-template-rows:\s*auto auto/);
   assert.match(readability, /\.story-prism-column\s*\{\s*display:\s*contents/);

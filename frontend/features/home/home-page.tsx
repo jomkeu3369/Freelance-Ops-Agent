@@ -5,16 +5,20 @@ import "@/app/reference-story.css";
 import "@/app/scene-motion.css";
 import "@fontsource-variable/noto-sans-kr";
 import "@/app/landing-readability.css";
+import "@/app/pointer-depth.css";
+import "@/app/inquiry-motion.css";
 
 import { HomeHeader } from "./components/home-header";
 import { CallToActionSection, HomeFooter } from "./components/home-sections";
 import { WorkflowSection } from "./components/product-experience";
 import { StoryMark } from "./components/reference-story";
 import { useHomeAnimation } from "./use-home-animation";
+import { usePointerDepth } from "./use-pointer-depth";
 
 // 페이지 구성 순서입니다. 각 영역의 문구와 상호작용은 components에서 수정합니다.
 export default function HomePage() {
   const pageRef = useHomeAnimation();
+  usePointerDepth(pageRef);
 
   return (
     <div ref={pageRef} className="site-shell figma-home spatial-site w-full max-w-full">
