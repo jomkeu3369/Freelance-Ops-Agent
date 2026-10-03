@@ -228,7 +228,10 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /const drift\s*=\s*\(\)\s*=>\s*window\.innerHeight\s*\*\s*\.12/);
   assert.match(hook, /\.to\(plate,\s*\{\s*y:\s*drift,\s*duration:\s*\.46,\s*ease:\s*"none"\s*\},\s*0\)/);
   assert.match(hook, /"--brand-clip-radius":\s*"28px",\s*duration:\s*\.34,\s*ease:\s*"sine.inOut"\s*\},\s*\.12\)/);
-  assert.match(hook, /\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*\.18,\s*ease:\s*"sine.inOut"\s*\},\s*\.16\)/);
+  const copyFade = hook.match(/\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*([.\d]+),\s*ease:\s*"[^"]+"\s*\},\s*([.\d]+)\)/);
+  assert.ok(copyFade, "The copy has one coordinated fade inside the fold timeline");
+  assert.ok(Number(copyFade[2]) >= .12, "Copy stays fully readable through the initial hold");
+  assert.ok(Number(copyFade[1]) + Number(copyFade[2]) <= .2, "Copy disappears before the collapsing edge clips its first line");
   assert.match(hook, /duration:\s*\.54,\s*ease:\s*"power1.inOut"\s*\},\s*\.46\)/);
   assert.match(hook, /endTrigger:\s*target/);
   assert.match(hook, /const top\s*=\s*mark\.offsetTop/);

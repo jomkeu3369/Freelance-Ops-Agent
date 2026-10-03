@@ -1079,8 +1079,13 @@ for (const language of ["ko", "en"]) {
           const shape = clip.match(/^inset\((.*?)\s+round\s+([\d.]+)px/);
           if (!shape) { samples.push({ clip, radius: 0, difference: Infinity }); return; }
           const values = shape[1].trim().split(/\s+/).map(Number.parseFloat);
-          const [top, right = top, , left = right] = values;
-          samples.push({ radius: Number(shape[2]), difference: Math.abs(left - right) });
+          const [top, right = top, bottom = top, left = right] = values;
+          const plate = element.getBoundingClientRect();
+          const copy = document.querySelector("[data-story-brand-copy]");
+          const text = copy.getBoundingClientRect();
+          const visibleText = Number(getComputedStyle(copy).opacity) > .025;
+          const textClear = !visibleText || (text.top >= plate.top + top - .75 && text.bottom <= plate.bottom - bottom + .75 && text.left >= plate.left + left - .75 && text.right <= plate.right - right + .75);
+          samples.push({ radius: Number(shape[2]), difference: Math.abs(left - right), textClear });
         };
         const observer = new MutationObserver(capture);
         observer.observe(element, { attributes: true, attributeFilter: ["style"] });
@@ -1141,6 +1146,7 @@ for (const language of ["ko", "en"]) {
         return window.__brandFoldObservation.samples;
       });
       expect(frames.length, "Both scroll directions must produce intermediate rendered fold frames").toBeGreaterThan(10);
+      expect(frames.every(frame => frame.textClear), "Readable text must fade before the collapsing edge reaches it, including intermediate scrub frames").toBe(true);
       expect(frames.filter(frame => frame.radius < 20 || frame.radius > 28 || frame.difference > 0.001), "No forward or reverse frame may lose rounding or horizontal symmetry").toEqual([]);
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));

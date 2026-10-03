@@ -335,3 +335,11 @@
 /* Bounded metric entrances. Final values remain available to assistive tech. */
 .figma-home .reference-story .story-entry-count { display: inline-block; font-variant-numeric: tabular-nums; }
 .figma-home .reference-story [data-story-ring] { transition: none; }
+/* A scene can fade into view before its plot reaches the entry threshold.
+   Prepare the same first pose immediately, so final graphs never flash and
+   empty again. No waiting attribute means the static/SSR result stays readable. */
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-ring] { stroke-dasharray: 0 100; opacity: 0; }
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-prism] { --story-prism-grow: .025; }
+.figma-home .reference-story [data-story-entry-state="waiting"] :is([data-story-meter], [data-story-day-cell].is-active) { transform: scaleX(0); transform-origin: left center; }
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-segment] { transform: scaleY(.14); transform-origin: center bottom; opacity: .15; }
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-task-marker] { transform: translateY(4px); opacity: .35; }

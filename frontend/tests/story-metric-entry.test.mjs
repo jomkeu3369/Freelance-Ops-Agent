@@ -21,6 +21,7 @@ function element(dataset = {}, children = {}) {
 
 function graph() {
   const count = element({ storyCount: "10", countDecimals: "0", countDigits: "1" });
+  count.textContent = "10";
   const prisms = Array.from({ length: 4 }, () => element());
   const meters = Array.from({ length: 4 }, () => element());
   const dayRows = [10, 7, 3, 6].map(length => element({}, { "[data-story-day-cell].is-active": Array.from({ length }, () => element()) }));
@@ -39,9 +40,11 @@ function evidenceColumns() {
     { value: "3", decimals: "1", digits: "1", selector: "[data-story-meter]", size: 1 },
   ].map(({ value, decimals, digits, selector, size }, index) => {
     const count = element({ storyCount: value, countDecimals: decimals, countDigits: digits });
+    const accessibleCount = element();
+    count.textContent = accessibleCount.textContent = Number(value).toFixed(Number(decimals)).padStart(Number(digits), "0");
     const fills = Array.from({ length: size }, () => element());
-    const scene = element({ storyEntryOrder: String(index) }, { "[data-story-count]": [count], [selector]: fills });
-    return { scene, count, fills };
+    const scene = element({ storyEntryOrder: String(index) }, { "[data-story-count]": [count], ".sr-only": [accessibleCount], [selector]: fills });
+    return { scene, count, accessibleCount, fills };
   });
 }
 
@@ -161,10 +164,18 @@ test("graphs wait for a visible plot, then fan only decorative bodies in one coo
 
 test("evidence columns offset each counter and its fills left to right within one bounded entry", () => {
   const columns = evidenceColumns();
+  assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"], "The server-rendered values start truthful");
   const harness = mount(columns.map(column => column.scene));
   assert.equal(harness.timelines.length, 0);
+  assert.deepEqual(columns.map(column => column.count.textContent), ["00", "0", "0.0"], "Waiting decorative counters are prepared before the scene is revealed");
+  columns.forEach(({ scene }) => harness.intersect(scene, .34));
+  assert.equal(harness.timelines.length, 0, "The existing 35% plot threshold still controls entry");
+  assert.ok(columns.every(column => column.scene.dataset.storyEntryState === "waiting"));
+  assert.deepEqual(columns.map(column => column.count.textContent), ["00", "0", "0.0"], "A partially visible column never flashes its final count");
+  assert.deepEqual(columns.map(column => column.accessibleCount.textContent), ["03", "10", "3.0"], "Screen readers retain the final values while decorative counts wait");
   columns.forEach(({ scene }) => harness.intersect(scene));
   assert.equal(harness.timelines.length, 3);
+  assert.ok(columns.every(column => column.scene.dataset.storyEntryState === "running"));
 
   const counters = harness.timelines.map(timeline => timeline.calls.find(call => call.kind === "to"));
   assert.deepEqual(counters.map(call => call.at), [0, .12, .24]);
@@ -183,6 +194,7 @@ test("evidence columns offset each counter and its fills left to right within on
   counters[1].target.progress = .4;
   counters[1].vars.onUpdate();
   assert.deepEqual(columns.map(column => column.count.textContent), ["02", "4", "0.0"]);
+  assert.deepEqual(columns.map(column => column.accessibleCount.textContent), ["03", "10", "3.0"]);
   harness.timelines.forEach(timeline => timeline.options.onComplete());
   assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"]);
   columns.forEach(({ scene }) => harness.intersect(scene));
@@ -283,6 +295,7 @@ test("global pause completes active graphs while unvisited graphs remain eligibl
   harness.intersect(current.scene);
   assert.equal(harness.timelines.length, 1, "The interrupted graph does not replay");
   assert.equal(later.scene.dataset.storyEntryState, "waiting");
+  assert.equal(later.count.textContent, "0", "Resume prepares unvisited counts before they enter view");
   harness.intersect(later.scene);
   assert.equal(harness.timelines.length, 2, "The unvisited graph still gets its one entry");
   harness.cleanup();
@@ -295,10 +308,13 @@ test("the hydration pause fallback waits for readiness without consuming current
   harness.intersect(current.scene);
   assert.equal(harness.timelines.length, 0);
   assert.equal(current.scene.dataset.storyEntryState, "waiting");
+  assert.equal(current.count.textContent, "0");
+  assert.equal(later.count.textContent, "0");
   harness.ready(true, false);
   assert.equal(harness.timelines.length, 1, "An already visible graph enters as soon as preferences are ready");
   assert.equal(current.scene.dataset.storyEntryState, "running");
   assert.equal(later.scene.dataset.storyEntryState, "waiting");
+  assert.equal(later.count.textContent, "0", "Readiness keeps offscreen counters at their entry start");
   harness.intersect(later.scene);
   assert.equal(harness.timelines.length, 2, "Offscreen graphs were not consumed during hydration");
   harness.cleanup();
@@ -313,7 +329,33 @@ test("a real initial user pause remains final until resume and then permits a fi
   assert.equal(count.textContent, "10");
   harness.pause(false);
   assert.equal(harness.timelines.length, 1);
+  assert.equal(count.textContent, "0");
   harness.cleanup();
+});
+
+test("initial paused evidence resumes through waiting zero while initial reduced motion remains final", () => {
+  for (const option of [{ paused: true }, { reduced: true }]) {
+    const columns = evidenceColumns();
+    const harness = mount(columns.map(column => column.scene), option);
+    assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"]);
+    assert.ok(columns.every(column => column.scene.dataset.storyEntryState === "complete"));
+    assert.equal(harness.timelines.length, 0);
+    harness.pause(false);
+    harness.reduce(false);
+    if (option.paused) {
+      assert.deepEqual(columns.map(column => column.count.textContent), ["00", "0", "0.0"]);
+      assert.ok(columns.every(column => column.scene.dataset.storyEntryState === "waiting"));
+      assert.equal(harness.timelines.length, 0, "Resume only prepares columns that are still offscreen");
+      columns.forEach(({ scene }) => harness.intersect(scene));
+      assert.equal(harness.timelines.length, 3);
+    } else {
+      columns.forEach(({ scene }) => harness.intersect(scene));
+      assert.deepEqual(columns.map(column => column.count.textContent), ["03", "10", "3.0"]);
+      assert.equal(harness.timelines.length, 0, "A scene completed under reduced motion never replays");
+    }
+    assert.deepEqual(columns.map(column => column.accessibleCount.textContent), ["03", "10", "3.0"]);
+    harness.cleanup();
+  }
 });
 
 test("initial reduced motion or global pause leaves every graph static at its final values", () => {

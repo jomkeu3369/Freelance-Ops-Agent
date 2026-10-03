@@ -139,7 +139,9 @@ export function useHomeAnimation() {
           "--brand-clip-bottom": () => `${clipInsets().bottom}px`, "--brand-clip-radius": "28px",
           duration: .34, ease: "sine.inOut"
         }, .12)
-        .to(copy, { opacity: 0, duration: .18, ease: "sine.inOut" }, .16)
+        // Finish fading before the closing edge reaches the first text line.
+        // This keeps the full-open reading hold, without clipping live glyphs.
+        .to(copy, { opacity: 0, duration: .08, ease: "sine.out" }, .12)
         .to(plate, { autoAlpha: 0, duration: .09, ease: "sine.in" }, .44)
         .fromTo(flightProgress, { value: 0 }, { value: 1, onUpdate: renderFlight, immediateRender: false, duration: .54, ease: "power1.inOut" }, .46)
         .to(mark, { color: "#24142f", backgroundColor: "#cfacf0", boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521", duration: .24 }, .76)

@@ -106,7 +106,7 @@ html[lang="en"] .figma-home.spatial-site .spatial-hero-title > span { font-famil
 .figma-home.spatial-site .story-brand-scene { --brand-mark-size: clamp(92px, 7.8vw, 150px); }
 .figma-home.spatial-site .story-brand-mark { top: calc(57% + 24px); }
 @media (max-width: 820px), (prefers-reduced-motion: reduce) {
-  .figma-home.spatial-site .story-brand-stage { height: auto; }
+  .figma-home.spatial-site .story-brand-stage { height: auto; min-height: 0; aspect-ratio: auto; }
   .figma-home.spatial-site .story-brand-plate { position: relative; inset: auto; height: auto !important; min-height: 350px; padding: 28px 24px calc(var(--brand-mark-size) + 64px); }
   .figma-home.spatial-site .story-brand-plate-copy { position: static; }
   .figma-home.spatial-site .story-brand-mark { top: auto; bottom: 32px; transform: translateX(-50%); }

@@ -37,6 +37,12 @@ export function useStoryMetricEntry(revision: string) {
         element.textContent = formatCount(value * progress, decimals, digits);
       });
     };
+    const prepareWaiting = (scene: HTMLElement) => {
+      // A scene can fade into view before its plot reaches the entry threshold.
+      // Keep decorative counts at their starting value throughout that wait.
+      renderCount(scene, 0);
+      scene.dataset.storyEntryState = "waiting";
+    };
     const restore = (scene: HTMLElement) => {
       active.get(scene)?.kill();
       active.delete(scene);
@@ -121,7 +127,7 @@ export function useStoryMetricEntry(revision: string) {
         for (const scene of scenes) restore(scene);
         return;
       }
-      for (const scene of scenes) if (!entered.current.has(scene)) scene.dataset.storyEntryState = "waiting";
+      for (const scene of scenes) if (!entered.current.has(scene)) prepareWaiting(scene);
       for (const scene of visible) enter(scene);
     };
     const syncVisibility = () => {
@@ -138,7 +144,7 @@ export function useStoryMetricEntry(revision: string) {
       } else if (motionReady() && motionPaused()) {
         restore(scene);
       } else {
-        scene.dataset.storyEntryState = "waiting";
+        prepareWaiting(scene);
       }
       observer.observe(scene);
     }

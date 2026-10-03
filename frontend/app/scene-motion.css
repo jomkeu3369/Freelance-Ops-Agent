@@ -84,7 +84,8 @@
   background: url("/landing/footer-continuation.webp") center / 100% 100% no-repeat;
   opacity: .85;
 }
-.figma-home.spatial-site .spatial-comparison-grid article { background-color: #0b0911; }
+.figma-home.spatial-site .spatial-comparison-grid article,
+.figma-home.spatial-site .spatial-comparison-grid article.is-featured { background-color: #0b0911; }
 .figma-home.spatial-site .scene-footer-light svg { width: 100%; height: 100%; }
 .figma-home.spatial-site .scene-footer-material { position: absolute; inset: 0; background: url("/landing/footer-glow.webp") center / 100% 100% no-repeat; opacity: .8; animation: sceneFilamentSwell 10.8s ease-in-out infinite; animation-play-state: var(--ambient-play-state); }
 .figma-home.spatial-site .scene-footer-light .scene-footer-haze { fill: none; stroke: #b78ccf; stroke-width: 90px; filter: blur(25px); opacity: .18; }
