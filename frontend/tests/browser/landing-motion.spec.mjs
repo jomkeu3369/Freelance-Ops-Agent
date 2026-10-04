@@ -23,20 +23,95 @@ const test = base.extend({
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-async function openLanding(page, { clock = false, reducedMotion = "no-preference" } = {}) {
+async function openLanding(page, { clock = false, reducedMotion = "no-preference", language = "ko" } = {}) {
   await page.emulateMedia({ reducedMotion });
-  await page.addInitScript(() => {
+  await page.addInitScript(value => {
     localStorage.setItem("theme", "dark");
-    localStorage.setItem("freelance-ops-ui-locale-v1", "ko");
-  });
+    localStorage.setItem("freelance-ops-ui-locale-v1", value);
+  }, language);
   if (clock) await page.clock.install();
   await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("lang", "ko");
+  await expect(page.locator("html")).toHaveAttribute("lang", language);
   await expect(page.locator("[data-pointer-depth]")).toHaveCount(4);
   await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-ready", "true");
   await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", String(reducedMotion === "reduce"));
   await page.evaluate(() => document.fonts.ready);
   if (clock) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+}
+
+for (const language of ["ko", "en"]) {
+  for (const firstControl of ["buttons", "range"]) {
+    test(`reduced-motion ${language} keeps the proposal after ${firstControl}-first scope edits and respects explicit previews`, async ({ page }) => {
+      await openLanding(page, { reducedMotion: "reduce", language });
+      const workflow = page.locator("#workflow");
+      const stages = workflow.locator(".spatial-stage");
+      const card = workflow.locator(".spatial-project-card");
+      const status = workflow.getByRole("status");
+      const slider = page.locator("#scope-slider");
+      const names = language === "ko"
+        ? { essential: "핵심 범위", extended: "예약 변경 추가", inquiry: "문의", proposal: "제안" }
+        : { essential: "Core scope", extended: "Add rescheduling", inquiry: "Inquiry", proposal: "Proposal" };
+      const scopeButton = scope => page.locator(".spatial-scope-switch").getByRole("button", { name: new RegExp(`^${names[scope]}`) });
+      async function changeScope(control, scope) {
+        if (control === "buttons") await scopeButton(scope).click();
+        else await slider.press(scope === "extended" ? "End" : "Home");
+      }
+      async function expectView(stage, scope, announced = true) {
+        const total = scope === "extended" ? "3,900,000" : "3,000,000";
+        const days = scope === "extended" ? 13 : 10;
+        const name = stage === 4 ? names.proposal : names.inquiry;
+        await expect(workflow).toHaveAttribute("data-step", String(stage));
+        await expect(workflow).toHaveAttribute("data-run-step", "0");
+        await expect(workflow).toHaveAttribute("data-phase", "running");
+        await expect(stages.nth(stage)).toHaveAttribute("aria-pressed", "true");
+        await expect(workflow.locator(".spatial-flow")).toHaveAttribute("data-column", stage === 4 ? "1" : "0");
+        await expect(card).toHaveAttribute("data-project-id", "FO-024");
+        await expect(card).toHaveAccessibleName(language === "ko" ? `${name} 예시 결과` : `${name} sample results`);
+        await expect(card.locator(".spatial-status")).toHaveText(language === "ko"
+          ? stage === 4 ? "협상 중" : "진행 중"
+          : stage === 4 ? "Negotiating" : "In progress");
+        if (stage === 4) await expect(card.locator(".spatial-card-detail strong")).toContainText(total);
+        await expect(page.locator(".spatial-quote-total strong")).toContainText(total);
+        await expect(page.locator(".spatial-scope-estimator aside > strong")).toContainText(total);
+        await expect(scopeButton(scope)).toHaveAttribute("aria-pressed", "true");
+        await expect(slider).toHaveValue(scope === "extended" ? "1" : "0");
+        await expect(slider).toHaveAttribute("aria-valuetext", names[scope]);
+        await expect(status).toHaveText(!announced ? "" : language === "ko"
+          ? `${name} 예시 결과. ${names[scope]}, ${days}일, ${total}원.`
+          : `${name} sample. ${names[scope]}, ${days} days, ${total} KRW.`);
+      }
+
+      await expectView(4, "essential", false);
+      // Do not select a stage before these edits: that hid the original regression.
+      const otherControl = firstControl === "buttons" ? "range" : "buttons";
+      for (const control of [firstControl, otherControl, firstControl]) {
+        for (const scope of ["extended", "essential"]) {
+          await changeScope(control, scope);
+          await expectView(4, scope);
+        }
+      }
+      await scopeButton("essential").click(); // Repeated selection must also retain the proposal.
+      await expectView(4, "essential");
+      await expect(workflow.locator(".spatial-motion-toggle")).toBeDisabled();
+
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await expect(workflow.locator(".spatial-motion-toggle")).toBeEnabled();
+      await expectView(0, "essential"); // The paused execution cursor was never overwritten.
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expectView(4, "essential");
+
+      await stages.nth(0).click();
+      await changeScope("buttons", "extended");
+      await expectView(0, "extended");
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await expectView(0, "extended");
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await expectView(0, "extended");
+      await stages.nth(4).click();
+      await changeScope("range", "essential");
+      await expectView(4, "essential");
+    });
+  }
 }
 
 async function expectCohesiveText(page) {
