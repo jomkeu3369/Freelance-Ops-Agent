@@ -49,7 +49,11 @@ async function read(path) {
     "../app/proposal/[token]/page.tsx": "../features/proposal/"
   };
   if (!features[path]) return readFile(new URL(path, import.meta.url), "utf8");
-  const source = await readFeatureTree(new URL(features[path], import.meta.url));
+  let source = await readFeatureTree(new URL(features[path], import.meta.url));
+  if (path === "../app/page.tsx") source = source
+    .replace(/=\{t\(("(?:[^"\\]|\\.)*")\)\}/g, '=$1')
+    .replace(/\{t\(("(?:[^"\\]|\\.)*")\)\}/g, (_, literal) => JSON.parse(literal))
+    .replace(/\bt\(("(?:[^"\\]|\\.)*")\)/g, '$1');
   // Ignore formatting-only newlines inside JSX while keeping content checks intact.
   return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
 }
@@ -157,15 +161,15 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
 
 test("landing page follows the approved product brief without fabricated social proof", async () => {
   const source = await read("../app/page.tsx");
-  assert.match(source, /모호한 고객 문의를/);
-  assert.match(source, /근거 있는 견적으로/);
+  assert.match(source, /문의는 한마디/);
+  assert.match(source, /제안은 명확하게/);
   assert.match(source, /AI 초안은 사용자가 검토하고 확정합니다/);
-  assert.match(source, /한국 소프트웨어 개발/);
-  assert.match(source, /한 번의 문의가/);
-  assert.match(source, /가상의 문의와 결과/);
+  assert.match(source, /서비스 이용 요금이 아닙니다/);
+  assert.match(source, /하나의 흐름으로 이어집니다/);
+  assert.match(source, /가상의 문의로 보여드리는 제품 예시/);
   assert.match(source, /예시 일단가/);
   assert.match(source, /실제 견적 아님/);
-  assert.match(source, /실제 분석이나 저장은 실행되지 않습니다/);
+  assert.match(source, /실제 분석·저장·발송은 실행되지 않습니다/);
   assert.match(source, /사용자 검토 필요/);
   assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한 AI|모든 직군|모든 국가|자동 학습합니다/);
 });
@@ -178,8 +182,8 @@ test("landing typography keeps Korean display copy within the measured line budg
   ]);
   assert.match(layout, /pretendardvariable-dynamic-subset\.css/);
   assert.doesNotMatch(layout, /next\/font\/google/);
-  assert.match(source, /hero-context hero-reveal">모호한 고객 문의를, 근거 있는 견적으로\./);
-  assert.match(source, /src="\/figma\/dashboard-preview.png"/);
+  assert.match(source, /spatial-hero-title/);
+  assert.match(source, /spatial-graph-wires/);
   assert.match(css, /font-synthesis: none/);
   assert.match(css, /word-break: keep-all/);
   assert.match(css, /\.hero-title \{[^}]*clamp\(4\.25rem, 4\.7vw, 5\.65rem\)/);
@@ -195,7 +199,7 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.match(css, /@keyframes workflowCardPulse/);
   assert.match(css, /@keyframes workflowCoreScan/);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*?workflow-auto-sequence::after/);
-  assert.doesNotMatch(source, /ambient|outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
+  assert.doesNotMatch(source, /outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
 });
 

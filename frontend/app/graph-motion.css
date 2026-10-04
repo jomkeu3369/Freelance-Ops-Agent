@@ -1,0 +1,29 @@
+/* The local Y scale grows each connected prism from the shared grid baseline.
+   Keep the 3D group's opacity at 1 so its three faces never flatten. */
+.figma-home.spatial-site .reference-story .story-prism-chart .spatial-bar[data-story-prism] {
+  transform: rotateX(-18deg) rotateY(-35deg) scaleY(var(--story-prism-grow, 1));
+  transform-origin: center bottom;
+  opacity: 1;
+  transform-style: preserve-3d;
+}
+
+/* Reserve the finished layout while waiting; never show full bars and then
+   snap them shut when the plot crosses its entry threshold. */
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-prism] { --story-prism-grow: .025; }
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-meter],
+.figma-home .reference-story [data-story-entry-state="waiting"] [data-story-day-cell].is-active {
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* Immediate final geometry while the observer completes the entry timeline. */
+.figma-home [data-motion-paused="true"]:not([data-motion-ready="false"]) .reference-story [data-story-prism] {
+  --story-prism-grow: 1 !important;
+}
+.figma-home [data-motion-paused="true"]:not([data-motion-ready="false"]) .reference-story [data-story-meter],
+.figma-home [data-motion-paused="true"]:not([data-motion-ready="false"]) .reference-story [data-story-day-cell] { transform: none !important; opacity: 1 !important; }
+@media (prefers-reduced-motion: reduce) {
+  .figma-home .reference-story [data-story-prism] { --story-prism-grow: 1 !important; }
+  .figma-home .reference-story [data-story-meter],
+  .figma-home .reference-story [data-story-day-cell] { transform: none !important; opacity: 1 !important; }
+}
