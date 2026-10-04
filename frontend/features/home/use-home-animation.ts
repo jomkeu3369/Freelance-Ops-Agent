@@ -158,7 +158,7 @@ export function useHomeAnimation() {
       });
       // Changes below this handoff (for example estimator scope rows) cannot
       // move its target. Avoid refreshing every ScrollTrigger for those edits.
-      pageRef.current!.querySelectorAll<HTMLElement>(".spatial-workflow, .spatial-capability-strip, .story-features, .story-brand-scene, .story-benefits").forEach(element => layoutObserver.observe(element));
+      pageRef.current!.querySelectorAll<HTMLElement>(".spatial-workflow, .workflow-unfold, .story-features, .story-brand-scene, .story-benefits").forEach(element => layoutObserver.observe(element));
       layoutObserver.observe(card);
       layoutObserver.observe(copy);
       // A flexed diagram can change internally while its outer card keeps the

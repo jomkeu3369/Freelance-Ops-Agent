@@ -1,0 +1,12 @@
+/* A bounded GPU surface; readable HTML and static geometry survive GPU failure. */
+.figma-home.spatial-site .webgl-scene { position: relative; isolation: isolate; }
+.figma-home.spatial-site .webgl-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.figma-home.spatial-site .webgl-scene[data-webgl-ready="true"] > .webgl-canvas { opacity: 1; }
+.figma-home.spatial-site .webgl-scene[data-webgl-ready="true"] > .webgl-fallback { visibility: hidden; }
+.figma-home.spatial-site .webgl-scene[data-webgl-ready="true"] > .webgl-fallback * { animation: none !important; }
+.figma-home.spatial-site .scene-hero-light > .webgl-hero { height: var(--hero-window); }
+.figma-home.spatial-site .webgl-hero > .webgl-canvas { mask-image: linear-gradient(to bottom, #000 65%, transparent 99%); }
+.figma-home.spatial-site .scene-footer-light > .webgl-footer { height: 100%; }
+.figma-home.spatial-site .webgl-footer .webgl-fallback { position: absolute; inset: 0; }
+/* Keep continuous light in the SVG fallback as well. */
+.figma-home.spatial-site .scene-travel { display: none; }
