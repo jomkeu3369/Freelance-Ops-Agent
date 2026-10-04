@@ -59,8 +59,6 @@
 .figma-workspace .is-chat .agent-chat-message.user { max-width: min(88%, 630px); padding: 13px 18px; border: 0; border-radius: 18px 18px 5px 18px; }
 .figma-workspace .is-chat .agent-chat-message.user > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .figma-workspace .is-chat .agent-chat-message.assistant { width: 100%; max-width: 100%; padding: 6px 0 8px; border: 0; border-radius: 0; background: transparent; }
-.figma-workspace .is-chat .agent-chat-message.assistant[data-state="error"] { padding-left: 14px; border-left: 2px solid #c76d77; }
-.figma-workspace .is-chat .agent-chat-message.assistant[data-state="attention"] { padding-left: 14px; border-left: 2px solid #c3aa73; }
 .figma-workspace .is-chat .agent-chat-message-label { margin-bottom: 13px; }
 .figma-workspace .is-chat .agent-chat-composer {
   flex: 0 0 auto; width: min(var(--conversation-width), calc(100% - 48px)); align-self: center;

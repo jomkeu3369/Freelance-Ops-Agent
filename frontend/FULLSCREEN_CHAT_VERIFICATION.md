@@ -10,13 +10,13 @@
 - Korean/English, light/dark, reduced motion, exact draft text, IME input, and unavailable-server states remain explicit
 - Review also fixed stale-send draft deletion, stacked-modal focus handling, and the icon-only mobile brand's accessible name
 
-Public landing source/styles, WebGL/scroll work, both existing README files, package manifests/lockfile, backend, and deployment/security configuration are unchanged from the base. No production merge or deployment is included.
+Public landing components, WebGL/scroll styles, both existing README files, package manifests/lockfile, backend, and deployment/security configuration are unchanged from the base. The one shared-stylesheet exception is the explicitly requested removal of the decorative left border from `.form-error`; its wording, alert semantics, readable color, and background remain intact. The new conversation error/attention styles also omit left accent bars. No production merge or deployment is included.
 
 ## Verified locally
 
 On the final implementation:
 
-- `npm run ci:check`: passed TypeScript, **210 unit tests**, and ESLint
+- `npm run ci:check`: passed TypeScript, **212 unit tests**, and ESLint
 - `npm run build`: passed optimized Next.js build and page generation
 - `npm run test:ui -- --list`: discovers **265 browser tests** across 14 files
 - `git diff --check`: passed
