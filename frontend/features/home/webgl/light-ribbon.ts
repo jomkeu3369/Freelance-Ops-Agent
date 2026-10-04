@@ -28,7 +28,7 @@ const fragmentShader = `
     float wave = 0.86 + 0.14 * sin(u * 17.0 - time * 0.7 + seed * 20.0);
     float taper = smoothstep(0.0, 0.06, u) * smoothstep(0.0, 0.08, 1.0 - u);
     float pinch = exp(-pow((u - 0.52) / 0.11, 2.0));
-    float intensity = (0.26 + pulse * 1.25 + pinch * 0.55) * wave * strength;
+    float intensity = (0.26 + pulse * .95 + pinch * .28) * wave * strength * (1.0 - pinch * .36);
     vec3 color = mix(tint, vec3(1.0, 0.94, 1.0), core * 0.86);
     gl_FragColor = vec4(color * intensity, (core + halo + scatter) * taper);
   }
@@ -76,7 +76,7 @@ export function createLightRibbon(scene: THREE.Scene, compact: boolean, footer =
     const material = new THREE.ShaderMaterial({
       vertexShader, fragmentShader, transparent: true, depthWrite: false,
       blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      uniforms: { time: { value: 3 }, seed: { value: strand * .173 }, strength: { value: strand % 9 === 0 ? 1.3 : .8 }, tint: { value: new THREE.Color(strand % 11 === 3 ? "#8aaaff" : "#c59aef") } }
+      uniforms: { time: { value: 3 }, seed: { value: strand * .173 }, strength: { value: strand % 9 === 0 ? 1.1 : .58 }, tint: { value: new THREE.Color(strand % 11 === 3 ? "#8aaaff" : "#c59aef") } }
     });
     group.add(new THREE.Mesh(geometry, material));
     materials.push(material); geometries.push(geometry);

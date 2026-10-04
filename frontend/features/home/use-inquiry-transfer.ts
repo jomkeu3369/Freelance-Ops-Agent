@@ -2,10 +2,11 @@ import { useLayoutEffect, useRef, type RefObject } from "react";
 import gsap from "gsap";
 
 /** One semantic card. Only its decorative surface changes shape during transfer. */
-export function useInquiryTransfer(sceneRef: RefObject<HTMLDivElement | null>, column: number, enabled: boolean, ready = true) {
+export function useInquiryTransfer(sceneRef: RefObject<HTMLDivElement | null>, column: number, enabled: boolean, ready = true, webglOwned = false) {
   const previous = useRef<{ scene: HTMLDivElement; column: number } | null>(null);
   const position = useRef(0);
   useLayoutEffect(() => {
+    if (webglOwned) return;
     const scene = sceneRef.current;
     const card = scene?.querySelector<HTMLElement>(".spatial-project-card");
     const shell = card?.querySelector<HTMLElement>(".inquiry-liquid-shell");
@@ -57,5 +58,5 @@ export function useInquiryTransfer(sceneRef: RefObject<HTMLDivElement | null>, c
     });
     observer.observe(board); observer.observe(card);
     return () => { observer.disconnect(); timeline?.kill(); };
-  }, [sceneRef, column, enabled, ready]);
+  }, [sceneRef, column, enabled, ready, webglOwned]);
 }

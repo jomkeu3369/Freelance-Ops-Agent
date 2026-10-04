@@ -6,6 +6,7 @@ import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch,
 import { useT } from "../ui-language";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
 import { useInquiryTransfer } from "../use-inquiry-transfer";
+import { useWorkflowDepth } from "../use-workflow-depth";
 
 const stageIcons = [ChatCenteredText, TreeStructure, WarningCircle, GitBranch, FileText];
 const money = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
@@ -34,7 +35,8 @@ export function WorkflowSection() {
   const view = reducedMotion && !state.manual ? { ...state, selected: 4, phase: "complete" } : state;
   const project = demoProjectSnapshot(view, reducedMotion);
   const quote = demoQuote(state.scope);
-  useInquiryTransfer(sceneRef, project.column, motionReady && !reducedMotion && visible && pageVisible && (!paused || state.manual), motionReady);
+  const workflowReady = useWorkflowDepth(sceneRef, view.selected, project.column);
+  useInquiryTransfer(sceneRef, project.column, motionReady && !reducedMotion && visible && pageVisible && (!paused || state.manual), motionReady, workflowReady);
 
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -71,6 +73,7 @@ export function WorkflowSection() {
       </div>
       <div className="pointer-depth-anchor pointer-depth-hero">
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+        <canvas className="workflow-canvas" aria-hidden="true" />
         <span className="scene-panel-reflection" aria-hidden="true" />
         <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
         <div className="spatial-stages" role="group" aria-label={t("제품 예시 단계 선택")}>

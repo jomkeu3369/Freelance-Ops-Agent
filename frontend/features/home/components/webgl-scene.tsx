@@ -1,22 +1,14 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import type { SceneController, SceneKind, SceneRow } from "../webgl/scene-renderer";
+import type { SceneController, SceneKind } from "../webgl/scene-renderer";
 
-type Props = { kind: SceneKind; children: ReactNode; rows?: SceneRow[]; paused?: boolean };
+type Props = { kind: SceneKind; children: ReactNode; paused?: boolean };
 
 /** Keep the readable, server-rendered example until the first successful GPU frame. */
-export function WebGLScene({ kind, children, rows, paused = false }: Props) {
+export function WebGLScene({ kind, children, paused = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<SceneController | null>(null);
-  const rowsRef = useRef(rows);
-  const invalidateRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    rowsRef.current = rows;
-    controllerRef.current?.setRows(rows ?? []);
-    invalidateRef.current?.();
-  }, [rows]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -77,15 +69,13 @@ export function WebGLScene({ kind, children, rows, paused = false }: Props) {
       stop();
       if (controllerRef.current && visible && !document.hidden && !disposed) frame = requestAnimationFrame(draw);
     };
-    invalidateRef.current = invalidate;
     const start = async () => {
       if (loading || failed || disposed || controllerRef.current) return;
       loading = true;
       try {
         const { createScene } = await import("../webgl/scene-renderer");
         if (disposed) return;
-        controllerRef.current = createScene(canvas, kind, host, mobile.matches);
-        controllerRef.current.setRows(rowsRef.current ?? []);
+        controllerRef.current = createScene(canvas, kind, mobile.matches);
         controllerRef.current.resize(host.clientWidth, host.clientHeight);
         invalidate();
       } catch {
@@ -109,7 +99,7 @@ export function WebGLScene({ kind, children, rows, paused = false }: Props) {
     resize.observe(host);
     const mutation = new MutationObserver(invalidate);
     if (root) mutation.observe(root, { attributes: true, attributeFilter: ["data-motion-paused"] });
-    mutation.observe(host, { attributes: true, attributeFilter: ["data-webgl-paused", "data-webgl-values"] });
+    mutation.observe(host, { attributes: true, attributeFilter: ["data-webgl-paused"] });
     const onPointer = (event: PointerEvent) => {
       if (event.pointerType === "touch" || !canMove()) return;
       const bounds = host.getBoundingClientRect();
@@ -117,7 +107,7 @@ export function WebGLScene({ kind, children, rows, paused = false }: Props) {
       pointer.y = Math.max(-1, Math.min(1, (event.clientY - bounds.top) / bounds.height * 2 - 1));
     };
     const resetPointer = () => { pointer.x = 0; pointer.y = 0; };
-    const pointerHost = kind === "chart" ? host : host.closest(".spatial-world");
+    const pointerHost = host.closest(".spatial-world");
     pointerHost?.addEventListener("pointermove", onPointer as EventListener, { passive: true });
     pointerHost?.addEventListener("pointerleave", resetPointer);
     const onContextLost = (event: Event) => { event.preventDefault(); fail(); };
@@ -137,16 +127,11 @@ export function WebGLScene({ kind, children, rows, paused = false }: Props) {
       pointerHost?.removeEventListener("pointerleave", resetPointer);
       controllerRef.current?.dispose();
       controllerRef.current = null;
-      invalidateRef.current = null;
     };
   }, [kind]);
 
-  return <div ref={hostRef} className={`webgl-scene webgl-${kind}`} data-webgl-kind={kind} data-webgl-ready="false" data-webgl-paused={paused} data-webgl-values={rows?.map(row => row.days).join(",")} aria-hidden="true">
+  return <div ref={hostRef} className={`webgl-scene webgl-${kind}`} data-webgl-kind={kind} data-webgl-ready="false" data-webgl-paused={paused} aria-hidden="true">
     <div className="webgl-fallback">{children}</div>
     <canvas className="webgl-canvas" />
-    {kind === "chart" && <div className="webgl-labels">{rows?.map((row, index) => <div key={row.title}>
-      <span className="webgl-value" data-webgl-value={index}>{row.value}</span>
-      <span className="webgl-label" data-webgl-label={index}><i /><span className="webgl-task-full">{row.title}</span><span className="webgl-task-short">{row.shortTitle ?? row.title}</span></span>
-    </div>)}</div>}
   </div>;
 }

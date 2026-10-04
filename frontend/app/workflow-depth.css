@@ -1,0 +1,22 @@
+/* Interactive HTML and the plate faces share one real perspective camera. */
+.figma-home.spatial-site .workflow-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; border-radius: inherit; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] { transform: none !important; background: radial-gradient(ellipse at 60% 35%, #2c1e3833, transparent 75%), #110c1699; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] > .workflow-canvas { opacity: 1; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"]::before,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"]::after,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .scene-panel-reflection,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-graph-wires,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-connection,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-board::before,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-board::after,
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .inquiry-liquid-shell { visibility: hidden; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-stages, .spatial-board) { transform: none; transform-style: flat; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stages { column-gap: 28px; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-stage, .spatial-lane, .spatial-project-card) {
+  transform: var(--workflow-projection) !important; transform-origin: 0 0; transition: none; background: transparent; border-color: transparent; box-shadow: none;
+}
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage { color: #ecdef4; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage-icon { background: transparent; box-shadow: none; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage:focus-visible { outline: 2px solid #edd6ff; outline-offset: 4px; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .inquiry-card-content { opacity: 1 !important; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-flow-top, .spatial-flow-bottom, .spatial-demo-disclaimer) { position: relative; z-index: 2; }

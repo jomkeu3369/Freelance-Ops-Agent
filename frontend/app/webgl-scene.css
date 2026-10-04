@@ -8,27 +8,5 @@
 .figma-home.spatial-site .webgl-hero > .webgl-canvas { mask-image: linear-gradient(to bottom, #000 65%, transparent 99%); }
 .figma-home.spatial-site .scene-footer-light > .webgl-footer { height: 100%; }
 .figma-home.spatial-site .webgl-footer .webgl-fallback { position: absolute; inset: 0; }
-.figma-home.spatial-site .webgl-chart { height: clamp(320px, 29vw, 470px); margin: 6px -20px 0; }
-.figma-home.spatial-site .webgl-chart > .webgl-canvas { mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 75%, transparent); mask-composite: intersect; }
-.figma-home.spatial-site .webgl-labels { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
-.figma-home.spatial-site [data-webgl-ready="true"] > .webgl-labels { visibility: visible; }
-.figma-home.spatial-site .webgl-value, .figma-home.spatial-site .webgl-label { position: absolute; transform: translateX(-50%); text-align: center; font-family: var(--landing-font); line-height: 1.55; }
-.figma-home.spatial-site .webgl-value { color: #f3e5ff; font-size: clamp(15px, 1.25vw, 21px); font-weight: 650; white-space: nowrap; text-shadow: 0 2px 14px #180725; }
-.figma-home.spatial-site .webgl-label { color: #ded0e9; font-size: 12px; font-weight: 450; width: 150px; word-break: keep-all; overflow-wrap: anywhere; text-shadow: 0 2px 8px #09060e; }
-.figma-home.spatial-site .webgl-task-short { display: none; }
-.figma-home.spatial-site .webgl-label i { display: block; width: 1px; height: 10px; background: linear-gradient(#d4afff80, #d4afff20); margin: -12px auto 7px; }
-.figma-home.spatial-site .story-effort-prisms:has([data-webgl-ready="true"]) { transform: none !important; background: radial-gradient(ellipse at 45% 58%, #20132988, transparent 72%), linear-gradient(135deg, #17121ed9, #0c0912e8); box-shadow: inset 0 1px #e4bfff18, 0 28px 70px -35px #000c; }
-.figma-home.spatial-site .story-effort-prisms:has([data-webgl-ready="true"])::after { display: none; }
-/* Stop solid dash packets even in the fallback; retain a continuous soft field. */
+/* Keep continuous light in the SVG fallback as well. */
 .figma-home.spatial-site .scene-travel { display: none; }
-@media (max-width: 820px) {
-  .figma-home.spatial-site .webgl-chart { height: 330px; margin-inline: -12px; }
-  .figma-home.spatial-site .webgl-label { width: 110px; }
-  .figma-home.spatial-site .webgl-task-full { display: none; }
-  .figma-home.spatial-site .webgl-task-short { display: inline; }
-  .figma-home.spatial-site .webgl-value { font-size: 15px; }
-}
-@media (max-width: 480px) {
-  .figma-home.spatial-site .webgl-chart { height: 290px; margin-inline: -8px; }
-  .figma-home.spatial-site .webgl-label { width: 90px; }
-}

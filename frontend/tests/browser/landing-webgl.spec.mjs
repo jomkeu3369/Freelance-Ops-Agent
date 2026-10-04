@@ -2,81 +2,110 @@ import { test, expect } from "@playwright/test";
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 
-async function openScene(page, options = {}) {
+async function openScene(page, reduced = false) {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error" && /THREE|WebGL|hydrated/.test(message.text())) errors.push(message.text()); });
-  await page.emulateMedia({ reducedMotion: options.reduced ? "reduce" : "no-preference" });
+  await page.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
   await page.goto("/");
   await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-ready", "true");
+  await page.evaluate(() => document.fonts.ready);
   return errors;
 }
 
-async function chartReady(page) {
-  const chart = page.locator('[data-webgl-kind="chart"]');
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toHaveAttribute("data-webgl-state", "ready", { timeout: 20_000 });
-  return chart;
+async function workflowReady(page) {
+  const flow = page.locator(".spatial-flow");
+  await flow.scrollIntoViewIfNeeded();
+  await expect(flow).toHaveAttribute("data-workflow-state", "ready", { timeout: 20_000 });
+  return flow;
 }
 
-test("real GPU surfaces render and scope changes keep accessible totals and projected labels in sync", async ({ page }) => {
-  const errors = await openScene(page);
-  const hero = page.locator('[data-webgl-kind="hero"]');
-  await expect(hero).toHaveAttribute("data-webgl-state", "ready", { timeout: 20_000 });
-  const chart = await chartReady(page);
-  await expect(chart.locator(".webgl-value")).toHaveText(["5일", "3.5일", "1.5일"]);
-  await page.getByRole("button", { name: "예약 변경 추가 13일", exact: true }).click();
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toHaveAttribute("data-webgl-values", "5,3.5,1.5,3");
-  await expect(chart.locator(".webgl-value")).toHaveText(["5일", "3.5일", "1.5일", "3일"]);
-  await expect(page.locator(".story-effort-prisms")).toHaveAttribute("aria-label", /총 13일/);
-  const labels = await chart.locator(".webgl-label").evaluateAll(elements => elements.map(element => {
-    const rect = element.getBoundingClientRect();
-    const parent = element.closest(".webgl-chart").getBoundingClientRect();
-    return { positioned: Number.isFinite(parseFloat(element.style.left)), inside: rect.left >= parent.left && rect.right <= parent.right && rect.bottom <= parent.bottom };
-  }));
-  expect(labels.every(label => label.positioned && label.inside)).toBe(true);
-  await page.locator('[data-story-scene="effort"]').screenshot({ path: "outputs/webgl/desktop-chart.png" });
-  expect(errors).toEqual([]);
-});
-
-test("offscreen rendering stops and the global pause freezes every scene", async ({ page }) => {
-  const errors = await openScene(page);
-  const chart = await chartReady(page);
-  const hero = page.locator('[data-webgl-kind="hero"]');
-  await expect(hero).toHaveAttribute("data-webgl-running", "false");
-  const frames = await hero.getAttribute("data-webgl-frames");
-  await page.waitForTimeout(200);
-  expect(await hero.getAttribute("data-webgl-frames")).toBe(frames);
-  await page.getByRole("button", { name: "자동 진행 일시 정지", exact: true }).click();
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toHaveAttribute("data-webgl-running", "false");
-  // Returning to a paused scene paints one final frame; wait for that redraw
-  // before asserting that its continuous loop has stopped.
+async function expectStopped(flow) {
+  await expect(flow).toHaveAttribute("data-workflow-running", "false");
   await expect.poll(async () => {
-    const stopped = await chart.getAttribute("data-webgl-frames");
-    await page.waitForTimeout(200);
-    return await chart.getAttribute("data-webgl-frames") === stopped;
+    const frames = await flow.getAttribute("data-workflow-frames");
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return await flow.getAttribute("data-workflow-frames") === frames;
   }).toBe(true);
+}
+
+test("real workflow meshes retain native stage controls and move one project to its actual lane", async ({ page }) => {
+  const errors = await openScene(page, true);
+  const flow = await workflowReady(page);
+  for (const name of ["문의", "요구사항", "리스크", "견적", "제안"]) {
+    const stage = page.getByRole("button", { name, exact: true });
+    await stage.click();
+    await expect(stage).toHaveAttribute("aria-pressed", "true");
+    await expect(flow.locator(".spatial-project-card")).toHaveCount(1);
+    await expect(flow.locator(".spatial-project-card")).toHaveAttribute("aria-label", `${name} 예시 결과`);
+  }
+  await expect(flow).toHaveAttribute("data-column", "1");
+  const location = await flow.evaluate(host => {
+    const card = host.querySelector(".spatial-project-card").getBoundingClientRect();
+    const lane = host.querySelectorAll(".spatial-lane")[1].getBoundingClientRect();
+    const center = (card.left + card.right) / 2;
+    return center > lane.left && center < lane.right;
+  });
+  expect(location).toBe(true);
+  const projections = await flow.locator(".spatial-stage, .spatial-project-card").evaluateAll(elements => elements.map(element => {
+    const m = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+    return Number.isFinite(m.m41) && Math.abs(m.m14) > .000001;
+  }));
+  expect(projections.every(Boolean)).toBe(true);
+  await flow.screenshot({ path: "outputs/webgl/workflow-desktop.png" });
   expect(errors).toEqual([]);
 });
 
-test("reduced motion renders one complete 3D frame and explicit scope changes still redraw", async ({ page }) => {
-  const errors = await openScene(page, { reduced: true });
-  const chart = await chartReady(page);
-  await expect(chart).toHaveAttribute("data-webgl-running", "false");
-  const frames = await chart.getAttribute("data-webgl-frames");
-  await page.waitForTimeout(200);
-  expect(await chart.getAttribute("data-webgl-frames")).toBe(frames);
-  await page.getByRole("button", { name: "예약 변경 추가 13일", exact: true }).click();
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart.locator(".webgl-value")).toHaveCount(4);
-  await expect(chart).toHaveAttribute("data-webgl-running", "false");
-  expect(Number(await chart.getAttribute("data-webgl-frames"))).toBeGreaterThan(Number(frames));
+test("automatic transfer lifts the same project through the 3D scene", async ({ page }) => {
+  const errors = await openScene(page);
+  const flow = await workflowReady(page);
+  await page.mouse.move(10, 10);
+  const card = flow.locator(".spatial-project-card");
+  await expect(flow).toHaveAttribute("data-column", "1", { timeout: 20_000 });
+  await expect(card).toHaveAttribute("data-transfer-state", "travelling");
+  await expect(card).toHaveAttribute("data-transfer-state", "settled");
+  await expect(card).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 
-test("unavailable WebGL preserves the readable CSS chart and working scope controls", async ({ page }) => {
+test("projected stage buttons retain keyboard order and activation", async ({ page }) => {
+  const errors = await openScene(page, true);
+  await workflowReady(page);
+  await page.getByRole("button", { name: "문의", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  const next = page.getByRole("button", { name: "요구사항", exact: true });
+  await expect(next).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(next).toHaveAttribute("aria-pressed", "true");
+  expect(errors).toEqual([]);
+});
+
+test("offscreen and global pause stop rendering, then resume restores it", async ({ page }) => {
+  const errors = await openScene(page);
+  const flow = await workflowReady(page);
+  await page.getByRole("button", { name: "자동 진행 일시 정지", exact: true }).click();
+  await expectStopped(flow);
+  await page.getByRole("button", { name: "예시 자동 진행 재개", exact: true }).click();
+  await expect(flow).toHaveAttribute("data-workflow-running", "true");
+  await page.locator("#scope-comparison").scrollIntoViewIfNeeded();
+  await expectStopped(flow);
+  expect(errors).toEqual([]);
+});
+
+test("reduced motion keeps a static 3D scene and redraws explicit stage/locale changes", async ({ page }) => {
+  const errors = await openScene(page, true);
+  const flow = await workflowReady(page);
+  await expectStopped(flow);
+  await page.locator(".home-language-trigger").click();
+  await page.getByRole("option", { name: "English", exact: true }).click();
+  await page.getByRole("button", { name: "Inquiry", exact: true }).click();
+  await expect(flow).toHaveAttribute("data-column", "0");
+  await expect(flow.locator(".spatial-project-card")).toHaveAttribute("aria-label", "Inquiry sample results");
+  await expectStopped(flow);
+  expect(errors).toEqual([]);
+});
+
+test("unavailable GPU preserves all readable controls and the original card movement", async ({ page }) => {
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function(type, ...args) {
@@ -84,70 +113,54 @@ test("unavailable WebGL preserves the readable CSS chart and working scope contr
       return original.call(this, type, ...args);
     };
   });
-  await openScene(page);
-  const chart = page.locator('[data-webgl-kind="chart"]');
-  await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toHaveAttribute("data-webgl-state", "fallback");
-  await expect(chart.locator(".webgl-fallback")).toBeVisible();
-  await page.getByRole("button", { name: "예약 변경 추가 13일", exact: true }).click();
-  await expect(chart.locator(".spatial-bar-label")).toHaveText(["5일", "3.5일", "1.5일", "3일"]);
+  await openScene(page, true);
+  const flow = page.locator(".spatial-flow");
+  await expect(flow).toHaveAttribute("data-workflow-state", "fallback");
+  await expect(flow.locator(".spatial-graph-wires")).toBeVisible();
+  await page.getByRole("button", { name: "문의", exact: true }).click();
+  await page.getByRole("button", { name: "제안", exact: true }).click();
+  await expect(flow).toHaveAttribute("data-column", "1");
+  await expect(flow.locator(".inquiry-liquid-shell")).toBeVisible();
 });
 
-test("context loss returns to the complete fallback without leaving a blank chart", async ({ page }) => {
-  await openScene(page);
-  const chart = await chartReady(page);
-  await chart.locator("canvas").evaluate(canvas => canvas.getContext("webgl2").getExtension("WEBGL_lose_context").loseContext());
-  await expect(chart).toHaveAttribute("data-webgl-state", "fallback");
-  await expect(chart.locator(".webgl-fallback")).toBeVisible();
-  await expect(chart.locator(".spatial-bar-label")).toHaveText(["5일", "3.5일", "1.5일"]);
+test("context loss restores CSS controls and releases their camera projection", async ({ page }) => {
+  await openScene(page, true);
+  const flow = await workflowReady(page);
+  await flow.locator("canvas").evaluate(canvas => canvas.getContext("webgl2").getExtension("WEBGL_lose_context").loseContext());
+  await expect(flow).toHaveAttribute("data-workflow-state", "fallback");
+  await expect(flow.locator(".spatial-graph-wires")).toBeVisible();
+  expect(await flow.locator(".spatial-stage").evaluateAll(elements => elements.every(element => !element.style.getPropertyValue("--workflow-projection")))).toBe(true);
+  await page.getByRole("button", { name: "문의", exact: true }).click();
+  await expect(flow).toHaveAttribute("data-column", "0");
 });
 
-for (const width of [390, 768]) {
-  test(`mobile ${width}px keeps labels in the chart and disables continuous GPU motion`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 900 });
-    const errors = await openScene(page);
-    await page.getByRole("button", { name: "예약 변경 추가 13일", exact: true }).click();
-    const chart = await chartReady(page);
-    await expect(chart).toHaveAttribute("data-webgl-running", "false");
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const bounds = await chart.locator(".webgl-label").evaluateAll(elements => elements.map(element => {
-      const r = element.getBoundingClientRect();
-      const parent = element.closest(".webgl-chart").getBoundingClientRect();
-      return r.left >= parent.left && r.right <= parent.right && r.bottom <= parent.bottom;
-    }));
-    expect(bounds.every(Boolean)).toBe(true);
-    await page.screenshot({ path: `outputs/webgl/mobile-${width}.png` });
-    expect(errors).toEqual([]);
-  });
+for (const width of [390, 768, 1024, 1440, 1920]) {
+  for (const locale of ["ko", "en"]) {
+    test(`${width}px ${locale} keeps every projected node and project card inside the scene`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1080 });
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), locale);
+      const errors = await openScene(page, true);
+      const flow = await workflowReady(page);
+      await expect(flow).toHaveAttribute("data-column", "1");
+      const bounds = await flow.evaluate(host => {
+        const container = host.getBoundingClientRect();
+        const footer = host.querySelector(".spatial-flow-bottom").getBoundingClientRect();
+        return [...host.querySelectorAll(".spatial-stage, .spatial-project-card")].map(element => {
+          const r = element.getBoundingClientRect();
+          return { name: element.getAttribute("aria-label"), fits: r.left >= container.left && r.right <= container.right && r.top >= container.top && r.bottom <= footer.top };
+        });
+      });
+      expect(bounds.filter(item => !item.fits)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await flow.screenshot({ path: `outputs/webgl/workflow-${locale}-${width}.png` });
+      expect(errors).toEqual([]);
+    });
+  }
 }
 
-for (const width of [1024, 1920]) {
-  test(`desktop ${width}px retains the four-column 3D composition`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 1080 });
-    const errors = await openScene(page, { reduced: true });
-    await page.getByRole("button", { name: "예약 변경 추가 13일", exact: true }).click();
-    const chart = await chartReady(page);
-    const bounds = await chart.locator(".webgl-value, .webgl-label").evaluateAll(elements => elements.map(element => {
-      const r = element.getBoundingClientRect();
-      const parent = element.closest(".webgl-chart").getBoundingClientRect();
-      return r.left >= parent.left && r.right <= parent.right && r.top >= parent.top && r.bottom <= parent.bottom;
-    }));
-    expect(bounds.every(Boolean)).toBe(true);
-    expect(errors).toEqual([]);
-  });
-}
-
-test("hero and footer light fields render, and paused translated chart labels remain projected", async ({ page }) => {
-  const errors = await openScene(page, { reduced: true });
+test("hero and footer retain continuous shader light fields", async ({ page }) => {
+  const errors = await openScene(page, true);
   await expect(page.locator('[data-webgl-kind="hero"]')).toHaveAttribute("data-webgl-state", "ready", { timeout: 20_000 });
-  await page.screenshot({ path: "outputs/webgl/desktop-hero.png" });
-  await chartReady(page);
-  await page.locator(".home-language-trigger").click();
-  await page.getByRole("option", { name: "English", exact: true }).click();
-  const chart = await chartReady(page);
-  await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(chart.locator(".webgl-task-full")).not.toContainText(["예약 화면 · 시간 선택", "관리자 예약 관리", "반응형 · 검수"]);
-  await expect.poll(() => chart.locator(".webgl-label").evaluateAll(labels => labels.every(label => !!label.style.left))).toBe(true);
   const footer = page.locator('[data-webgl-kind="footer"]');
   await footer.scrollIntoViewIfNeeded();
   await expect(footer).toHaveAttribute("data-webgl-state", "ready", { timeout: 20_000 });
