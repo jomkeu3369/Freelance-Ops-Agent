@@ -1,12 +1,9 @@
 package com.freelanceops.backend.domain.quotation.service;
 
-import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.quotation.client.QuotationAssumptionClient;
-import com.freelanceops.backend.domain.quotation.client.dto.request.InternalAssumptionSuggestionRequest;
-import com.freelanceops.backend.domain.quotation.client.dto.response.InternalAssumptionSuggestionResponse;
 import com.freelanceops.backend.domain.quotation.dto.request.SuggestQuotationAssumptionRequest;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationAssumptionSuggestionResponse;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
@@ -16,8 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -46,34 +41,9 @@ public class QuotationAssumptionService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         project.requireNotDeleting();
-        connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
-        UUID requestId = UUID.randomUUID();
-        List<String> permissions = membership.permissions().stream()
-            .map(PermissionCode::code)
-            .sorted(Comparator.naturalOrder())
-            .toList();
-        String token = tokenIssuer.issue(requestId, workspaceId, projectId, userId, permissions);
-        InternalAssumptionSuggestionResponse response = client.suggest(
-            new InternalAssumptionSuggestionRequest(
-                new TrustedRunContext(requestId, UUID.randomUUID(), traceparent, workspaceId, projectId, userId, permissions),
-                request.modelSelection(),
-                project.requirementText(),
-                request.itemTitle().trim(),
-                request.itemDescription() == null ? "" : request.itemDescription().trim(),
-                request.quantity(),
-                request.unit().name(),
-                request.currentAssumption() == null ? "" : request.currentAssumption().trim()
-            ),
-            token,
-            traceparent
-        );
-        if (response == null || !requestId.equals(response.runId())) {
-            throw new IllegalStateException("assumption response id does not match the issued request id");
-        }
-        if (response.provider() != request.modelSelection().provider() || !response.model().equals(request.modelSelection().model())) {
-            throw new IllegalStateException("assumption response model does not match the selected model");
-        }
-        return new QuotationAssumptionSuggestionResponse(requestId, response.content(), response.provider(), response.model());
+        // This synchronous side endpoint has no durable admission + terminal outcome protocol.
+        // Fail before issuing a token/provider call instead of bypassing weekly and monetary limits.
+        throw new QuotationAssumptionUnavailableException();
     }
 
     private static void requirePermission(MembershipPermissions membership, PermissionCode permission) {

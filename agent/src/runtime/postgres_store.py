@@ -31,6 +31,8 @@ from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, a
 class PostgresAgentRunStore:
     """Persist private runtime state through ORM in the Agent-owned schema only."""
 
+    supports_platform_reservations = True
+
     def __init__(self, database: PgVectorConnectionManager) -> None:
         self._database = database
 
@@ -73,15 +75,17 @@ class PostgresAgentRunStore:
                 raise AgentRunNotFoundError("agent run was not found")
             return AgentRunRequest.model_validate(model.request_json)
 
-    async def mark_running(self, run_id: UUID) -> None:
+    async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if model.status not in {AgentRunStatus.QUEUED.value, AgentRunStatus.WAITING_FOR_USER.value}:
+            if (model.status != AgentRunStatus.QUEUED.value
+                    or (request is not None and AgentRunRequest.model_validate(model.request_json) != request)):
                 raise AgentRunStateError("agent run cannot enter RUNNING")
             model.status = AgentRunStatus.RUNNING.value
             model.interruption_json = None
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.started")
+            return self._view(model)
 
     async def complete(self, run_id: UUID, outcome: ExecutionOutcome) -> None:
         async with self._database.session() as session:
@@ -124,7 +128,11 @@ class PostgresAgentRunStore:
     async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if model.status == AgentRunStatus.CANCELLED.value:
+            # Completed/partial output remains final even if a later checkpoint or observer fails.
+            if model.status in {
+                AgentRunStatus.COMPLETED.value, AgentRunStatus.PARTIAL.value,
+                AgentRunStatus.FAILED.value, AgentRunStatus.CANCELLED.value,
+            }:
                 return
             model.status = AgentRunStatus.FAILED.value
             model.error_code = error_code
@@ -133,7 +141,7 @@ class PostgresAgentRunStore:
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.failed", {"errorCode": error_code})
 
-    async def cancel(self, run_id: UUID) -> None:
+    async def cancel(self, run_id: UUID, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
             if model.status in {
@@ -144,6 +152,8 @@ class PostgresAgentRunStore:
             }:
                 raise AgentRunStateError("terminal Agent run cannot be cancelled")
             model.status = AgentRunStatus.CANCELLED.value
+            current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current_usage, usage))
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.cancelled")
 

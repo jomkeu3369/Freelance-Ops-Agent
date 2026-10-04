@@ -24,5 +24,9 @@ public record AgentRunUsageResponse(
     String costCurrency,
     CostStatus costStatus,
     boolean billableOutcome,
-    Instant recordedAt
+    Instant recordedAt,
+    java.util.List<AgentRunView.ProviderCallUsage> providerCalls,
+    BigDecimal platformCostUsd,
+    UUID platformReservationId,
+    String tariffVersion
 ) { }

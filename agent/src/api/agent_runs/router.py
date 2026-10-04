@@ -22,6 +22,7 @@ from contracts import (
     ResumeAgentRunRequest,
     RouteObservationBatch,
 )
+from platform_budget import PlatformBudgetError
 from runtime import (
     AgentRunNotFoundError,
     AgentRunStateError,
@@ -99,6 +100,8 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         return _problem(403, "Run context exceeds delegated authority", "RUN_CONTEXT_FORBIDDEN")
     try:
         accepted = await coordinator.accept(body)
+    except PlatformBudgetError as error:
+        return _problem(409, "Platform budget is unavailable", error.code)
     except AgentRunStateError:
         return _problem(409, "Agent run already exists", "AGENT_RUN_CONFLICT")
 

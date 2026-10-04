@@ -24,12 +24,14 @@ public class AgentRunProjectionService {
     private final AgentInterruptionService interruptionService;
     private final AgentCostService costService;
     private final ApplicationEventPublisher events;
+    private final FreeUsageService freeUsage;
 
-    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events) {
+    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events, FreeUsageService freeUsage) {
         this.runRepository = runRepository;
         this.interruptionService = interruptionService;
         this.costService = costService;
         this.events = events;
+        this.freeUsage = freeUsage;
     }
 
     @Transactional
@@ -37,6 +39,7 @@ public class AgentRunProjectionService {
         AgentRunEntity run = lock(runId, workspaceId);
         interruptionService.synchronize(run, view);
         costService.synchronize(run, view);
+        freeUsage.settleConfirmed(run.id(), view.status());
         if (view.status() == AgentRunStatus.COMPLETED && view.result() != null) {
             view.result().departmentResults().stream()
                 .filter(result -> result.department() == DepartmentName.REQUIREMENTS && "COMPLETED".equals(result.status()))
@@ -65,6 +68,15 @@ public class AgentRunProjectionService {
     @Transactional
     public void synchronizeStatus(UUID runId, UUID workspaceId, AgentRunStatus status) {
         lock(runId, workspaceId).synchronizeStatus(status, Instant.now());
+    }
+
+    /** Use only for status acknowledged by the Agent, never a locally inferred delivery failure. */
+    @Transactional
+    public void synchronizeAcknowledgedStatus(UUID runId, UUID workspaceId, AgentRunStatus status) {
+        if (status == null) throw new IllegalStateException("Agent did not acknowledge a run status");
+        AgentRunEntity run = lock(runId, workspaceId);
+        freeUsage.settleConfirmed(run.id(), status);
+        run.synchronizeStatus(status, Instant.now());
     }
 
     @Transactional

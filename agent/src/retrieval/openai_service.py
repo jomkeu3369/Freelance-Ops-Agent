@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import Any, Protocol
 
 from contracts import Provider, RaptorBuildRequest, RaptorBuildResponse, RaptorNodeOutput
+from platform_budget import reject_unbounded_operation
 
 from .raptor import EmbeddingProvider, RaptorBuildConfig, RaptorTreeBuilder, SourceChunk, SummaryProvider
 
@@ -28,6 +29,7 @@ class OpenAIRaptorBuildService:
         self._client = client
 
     async def build(self, request: RaptorBuildRequest) -> RaptorBuildResponse:
+        reject_unbounded_operation("RAPTOR")
         if request.provider is not Provider.OPENAI:
             raise ValueError("RAPTOR request does not select OpenAI")
         client = self._client
@@ -48,6 +50,7 @@ class GeminiRaptorBuildService:
         self._client = client
 
     async def build(self, request: RaptorBuildRequest) -> RaptorBuildResponse:
+        reject_unbounded_operation("RAPTOR")
         if request.provider is not Provider.GEMINI:
             raise ValueError("RAPTOR request does not select Gemini")
         client = self._client
@@ -117,6 +120,7 @@ class _OpenAIEmbedder:
         self._model = model
 
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        reject_unbounded_operation("RAPTOR_EMBEDDING")
         options: dict[str, object] = {"model": self._model, "input": list(texts)}
         if self._model.startswith("text-embedding-3-"):
             options["dimensions"] = 1536
@@ -131,6 +135,7 @@ class _OpenAISummarizer:
         self._model = model
 
     async def summarize(self, texts: Sequence[str]) -> str:
+        reject_unbounded_operation("RAPTOR_SUMMARY")
         response = await self._client.responses.create(
             model=self._model,
             reasoning={"effort": "low"},
@@ -149,6 +154,7 @@ class _GeminiEmbedder:
         self._model = model
 
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]:
+        reject_unbounded_operation("RAPTOR_EMBEDDING")
         response = await self._client.models.embed_content(
             model=self._model,
             contents=list(texts),
@@ -166,6 +172,7 @@ class _GeminiSummarizer:
         self._model = model
 
     async def summarize(self, texts: Sequence[str]) -> str:
+        reject_unbounded_operation("RAPTOR_SUMMARY")
         response = await self._client.models.generate_content(
             model=self._model,
             contents=json.dumps({"untrusted_source_passages": list(texts)}, ensure_ascii=False),

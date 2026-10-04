@@ -12,8 +12,23 @@ public record InternalAgentRunRequest(
     RunBudget budget,
     ModelSelection modelSelection,
     SafetyContext safetyContext,
-    AgentInput input
+    AgentInput input,
+    PlatformBudget platformBudget
 ) {
+
+    public InternalAgentRunRequest(TrustedRunContext context, RunBudget budget, ModelSelection modelSelection,
+                                   SafetyContext safetyContext, AgentInput input) {
+        this(context, budget, modelSelection, safetyContext, input, null);
+    }
+
+    public record PlatformBudget(UUID reservationId, java.math.BigDecimal maxCostUsd,
+                                 String tariffVersion, java.time.Instant validUntil) {
+        public PlatformBudget {
+            if (reservationId == null || maxCostUsd == null || maxCostUsd.signum() <= 0
+                || maxCostUsd.compareTo(new java.math.BigDecimal("100")) > 0
+                || tariffVersion == null || validUntil == null) throw new IllegalArgumentException("Platform budget is invalid");
+        }
+    }
 
     public record TrustedRunContext(
         UUID runId,

@@ -17,6 +17,7 @@ from contracts import (
 )
 from gateway import AIGateway
 from personal_credentials import credential_scope
+from platform_budget import PlatformBudgetError, reject_unbounded_operation
 from providers import ProviderCallError
 from security import DelegationPrincipal, DelegationTokenVerifier, TokenVerificationError
 
@@ -53,6 +54,10 @@ async def suggest_assumption(body: AssumptionSuggestionRequest, request: Request
     if not _matches_context(principal, body) or "quotation.write" not in principal.permissions:
         return _problem(403, "Suggestion context exceeds delegated authority", "SUGGESTION_CONTEXT_FORBIDDEN")
 
+    try:
+        reject_unbounded_operation("ASSUMPTIONS")
+    except PlatformBudgetError as error:
+        return _problem(409, "Platform budget is required for this operation", error.code)
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
         return _problem(503, "AI gateway is unavailable", "AI_GATEWAY_UNAVAILABLE")

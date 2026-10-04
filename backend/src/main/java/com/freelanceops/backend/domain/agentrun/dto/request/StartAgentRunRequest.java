@@ -15,8 +15,16 @@ public record StartAgentRunRequest(
     @Size(max = 32) String jurisdictionCode,
     @NotNull @Valid ModelSelection modelSelection,
     @NotNull @Valid RunBudget budget,
-    @NotNull @Valid SafetyContext safetyContext
+    @NotNull @Valid SafetyContext safetyContext,
+    @Valid CreditQuote creditQuote
 ) {
+
+    public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode, ModelSelection modelSelection,
+                                RunBudget budget, SafetyContext safetyContext) {
+        this(requirementText, locale, jurisdictionCode, modelSelection, budget, safetyContext, null);
+    }
+
+    public record CreditQuote(@Min(1) @Max(100000) int credits, @NotNull java.time.Instant pricingUpdatedAt) { }
 
     public record ModelSelection(
         @NotNull Provider provider,

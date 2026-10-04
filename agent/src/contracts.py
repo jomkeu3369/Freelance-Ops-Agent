@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Literal
 from unicodedata import category
@@ -260,6 +261,23 @@ class AgentRunRequest(StrictModel):
     safety_context: "SafetyContextInput"
     input: AgentInput
     clarification_history: list[ClarificationAnswer] = Field(default_factory=list, max_length=30)
+    platform_budget: "PlatformBudget | None" = None
+
+
+class PlatformBudget(StrictModel):
+    """A backend-issued monetary reservation, never copied from public input."""
+
+    reservation_id: UUID
+    max_cost_usd: Decimal = Field(gt=0, le=100, allow_inf_nan=False)
+    tariff_version: str = Field(min_length=1, max_length=100)
+    valid_until: datetime
+
+    @field_validator("valid_until")
+    @classmethod
+    def require_aware_expiry(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("platform budget expiry must include a timezone")
+        return value
 
 
 class HealthResponse(StrictModel):
@@ -385,6 +403,21 @@ class AgentRunMetadata(StrictModel):
     trace_id: str = Field(min_length=1, max_length=128)
 
 
+class ProviderCallUsage(StrictModel):
+    call_id: UUID
+    funding_source: Literal["PLATFORM", "BYOK"] = "PLATFORM"
+    provider: Provider
+    model: str = Field(min_length=1, max_length=100)
+    operation: str = Field(min_length=1, max_length=100)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cached_read_tokens: int = Field(default=0, ge=0)
+    cache_write_tokens: int = Field(default=0, ge=0)
+    cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    reserved_cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    usage_known: bool
+
+
 class AgentRunUsage(StrictModel):
     request_tier: RequestTier
     model_calls: int = Field(ge=0)
@@ -396,6 +429,10 @@ class AgentRunUsage(StrictModel):
     crawled_pages: int = Field(default=0, ge=0)
     retry_count: int = Field(default=0, ge=0)
     duration_ms: int = Field(ge=0)
+    provider_calls: list[ProviderCallUsage] = Field(default_factory=list)
+    platform_cost_usd: Decimal = Field(default=Decimal("0"), ge=0, allow_inf_nan=False)
+    platform_reservation_id: UUID | None = None
+    tariff_version: str | None = None
 
 
 class AgentRunView(StrictModel):

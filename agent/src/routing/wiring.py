@@ -34,7 +34,7 @@ def build_openai_route_evaluator(
     if client is None:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI()
+        client = AsyncOpenAI(max_retries=0)
 
     prompt = SecretSystemPrompt(
         content=secret.get_secret_value(),
