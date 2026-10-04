@@ -17,9 +17,9 @@ Public landing components, WebGL/scroll styles, both existing README files, pack
 
 On the final implementation:
 
-- `npm run ci:check`: passed TypeScript, **216 unit tests**, and ESLint
+- `npm run ci:check`: passed TypeScript, **218 unit tests**, and ESLint
 - `npm run build`: passed optimized Next.js build and page generation
-- `npm run test:ui -- --list`: discovers **271 browser tests** across 15 files
+- `npm run test:ui -- --list`: discovers **274 browser tests** across 16 files
 - `git diff --check`: passed
 
 The available runtime was Node 24.19.0. The repository declares Node 22.x and its existing CI uses Node 22; npm emitted the corresponding engine warning. No package dependency version was changed.
@@ -59,3 +59,7 @@ In an authorized environment with a working Chrome/Chromium installation:
 `PLAYWRIGHT_BROWSER_CHANNEL` can select an already-installed supported browser channel; it defaults to `chrome`. `PLAYWRIGHT_BASE_URL` retains the existing local preview configuration.
 
 Frontend CI currently runs for pull requests and pushes to main, not work-branch pushes. A backed-up branch alone does not imply CI or browser tests ran.
+
+## Short-height accessibility correction
+
+Native 300% zoom exposed a 393×252 CSS viewport where the prior conversation padding and composer minima placed toolbar buttons below the clipped viewport. At heights up to 320px, the workspace now uses compact chrome, a 40px scrolling textarea, a smaller history minimum, and an internally scrollable main surface. The model menu is bounded to the viewport and has an explicit Close action. Normal-height sizing is unchanged. Regression cases cover 393×252, 472×303, and 320×180 including long drafts/offline notices. Updated deployed-browser verification is separate from the local unit/build results.

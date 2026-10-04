@@ -163,7 +163,9 @@
 .chat-model-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .figma-workspace .is-chat :is(.chat-model-trigger, .agent-chat-model-button):hover:not(:disabled), .figma-workspace .is-chat .chat-model-trigger[aria-expanded="true"] { border-color: var(--line); background: var(--surface-2); }
 .chat-model-popover { position: absolute; z-index: 50; bottom: calc(100% + 10px); left: 0; width: min(340px, calc(100vw - 48px)); max-height: min(420px, calc(100dvh - 240px)); overflow: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface-solid); box-shadow: 0 12px 40px #21182f20; }
-.chat-model-popover > strong { display: block; margin-bottom: 16px; font-size: .8125rem; }
+.chat-model-popover-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.chat-model-popover-heading > strong { font-size: .8125rem; }
+.figma-workspace .is-chat .chat-model-popover .chat-model-close { flex: 0 0 32px; width: 32px; min-height: 32px; padding: 7px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
 .figma-workspace .chat-model-popover .run-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 0; }
 .figma-workspace .chat-model-popover .run-controls label { display: grid; gap: 6px; min-width: 0; font-size: .75rem; }
 .figma-workspace .chat-model-popover select { width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: .8125rem; }
@@ -180,3 +182,21 @@
 }
 
 @media (max-width: 820px) { .figma-workspace .chat-model-popover select { font-size: 1rem; } }
+
+
+/* Native zoom / very short windows: preserve a reachable composer, with a
+   scrollable main fallback if alerts or the viewport exceed these minima. */
+@media (max-height: 320px) {
+  .figma-workspace.conversation-workspace { --workspace-header-height: 48px; }
+  .figma-workspace.conversation-workspace .workspace-main { overflow-y: auto; overscroll-behavior-y: contain; scroll-padding-block: 8px; }
+  .figma-workspace .project-workbench.is-chat { min-height: 210px; }
+  .figma-workspace .is-chat .workbench-steps { padding-block: 0; }
+  .figma-workspace .is-chat .workbench-steps button { min-height: 32px; padding-block: 4px; }
+  .figma-workspace .is-chat .agent-chat-heading { min-height: 26px; }
+  .figma-workspace .is-chat .agent-chat-state { padding-block: 2px; }
+  .figma-workspace .is-chat .agent-chat-turns { min-height: 36px; padding-block: 0; overscroll-behavior-y: auto; }
+  .figma-workspace .is-chat .agent-chat-composer textarea { height: 40px; min-height: 40px; max-height: 40px; padding-block: 6px; }
+  .figma-workspace .is-chat .agent-chat-composer { margin-bottom: max(6px, env(safe-area-inset-bottom)); }
+  .figma-workspace .chat-model-popover { position: fixed; top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 16px); scroll-padding-block: 52px 8px; }
+  .chat-model-popover-heading { position: sticky; z-index: 1; top: 0; padding-bottom: 8px; background: var(--surface-solid); }
+}
