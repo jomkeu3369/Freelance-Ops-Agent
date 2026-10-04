@@ -18,7 +18,7 @@
 
 [![Freelance Ops 서비스 소개](docs/assets/readme/landing-production-2026-10-04.jpg)](https://www.freelance-ops.site)
 
-<sub>서비스 소개 화면 · 2026-10-04 · 화면 속 문의와 금액은 가상 예시입니다.</sub>
+<sub>서비스 소개 화면 · 2026-10-04</sub>
 
 ## 왜 만들었나요?
 
@@ -40,7 +40,7 @@
 
 ## 문의부터 결과까지
 
-<sub>업무 화면 · 2026-09-12 버전 · 합성 데이터 UI 시연</sub>
+<sub>업무 화면 · 2026-09-12</sub>
 
 ### 1. 고객과 문의 등록
 
@@ -76,7 +76,7 @@ AI 동료가 요구사항과 근거를 정리합니다. 확인이 필요한 내�
 
 **[▶ 문의 등록부터 견적·결과 기록까지 영상으로 보기](https://d2ol7oe51mr4n9.cloudfront.net/user_3JEFpmzdSjsTLcCF7FlZFREgfCP/720495dd-0b55-4aa9-b73b-35eddfd54a3c.mp4)**
 
-<sub>2026-09-12 · 합성 데이터로 구성한 제품 UI 시연</sub>
+<sub>2026-09-12</sub>
 
 ## 작동 방식과 기술 파이프라인
 
