@@ -6,6 +6,9 @@ import { LocaleProvider, useT, useUiLocale } from "../../app/lib/ui-language";
 import type { Project } from "../../app/lib/api";
 import { chatState } from "../../app/lib/chat-presentation.mjs";
 import { AgentChatSurface, type AgentChatSurfaceProps } from "../workspace/project/analysis/agent-chat";
+import { ChatModelMenu } from "../workspace/project/analysis/chat-model-menu";
+import { ChatModelControls } from "../workspace/project/analysis/chat-model-controls";
+import { configuredModelOptions } from "../workspace/shared/constants";
 import { ProjectStepNavigation } from "../workspace/project/project-workbench";
 import { WorkspaceChrome } from "../workspace/workspace-chrome";
 import { WorkspacePanel } from "../workspace/shared/workspace-panel";
@@ -43,6 +46,7 @@ function FixtureSurface() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selected, setSelected] = useState(projects[0].id);
   const [draft, setDraft] = useState("");
+  const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [notice, setNotice] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const compact = useSyncExternalStore(subscribeCompact, () => window.matchMedia("(max-width: 820px)").matches, () => false);
@@ -54,8 +58,11 @@ function FixtureSurface() {
   const label = locale === "en" ? "UI preview · sample data · no API connection" : "화면 미리보기 · 샘플 데이터 · API 연결 없음";
   const explanation = locale === "en" ? "This screen renders the actual workspace components with fixed sample data. It does not sign in, call an AI, or save changes." : "실제 업무 화면 컴포넌트를 고정된 샘플 데이터로 보여줍니다. 로그인하거나 AI를 호출하거나 변경사항을 저장하지 않습니다.";
   const showPreviewNotice = () => setPanel(locale === "en" ? "UI preview" : "화면 미리보기");
+  const modelControls = <ChatModelControls connections={[]} credentialId="" provider="OPENAI" model={model}
+    busy={false} connectionError={false} onCredentialChange={noop} onProviderChange={() => setModel(configuredModelOptions.OPENAI[0] ?? "")} onModelChange={setModel} />;
   const surface: AgentChatSurfaceProps = {
     t, presentation: chatState(null), headerTools: <span data-ui-fixture-label style={{ color: "var(--muted)", fontSize: ".6875rem", lineHeight: 1.5 }}>{label}</span>,
+    composerTools: <ChatModelMenu label={model || t("AI 모델 선택")} locked={false} contextKey={selected}>{modelControls}</ChatModelMenu>,
     viewport, content, input, followsLatest, setUnread: noop,
     loading: false, error: null, setHistoryRevision: noop, timeline: [], draft,
     canRun: true, online: true, updateDraft: setDraft, canEditPolicy: false, policyBusy: false, busy: false,
@@ -81,6 +88,6 @@ function FixtureSurface() {
         <AgentChatSurface {...surface} />
       </section>
     </main>
-    {panel && <WorkspacePanel title={panel} onClose={() => setPanel(null)}><p>{explanation}</p></WorkspacePanel>}
+    {panel && <WorkspacePanel title={panel} onClose={() => setPanel(null)}><p>{explanation}</p>{panel === t("AI 설정") && modelControls}</WorkspacePanel>}
   </div>;
 }

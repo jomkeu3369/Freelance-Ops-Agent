@@ -8,6 +8,7 @@
 - Desktop project navigation can be fully collapsed. Small screens use a keyboard-contained project drawer
 - Results, execution details, AI settings, and detailed usage open on demand. They do not occupy a permanent right column
 - Korean/English, light/dark, reduced motion, exact draft text, IME input, and unavailable-server states remain explicit
+- The composer toolbar exposes the existing model/key choice and advanced AI settings. Selection alone sends no request; active and clarification runs lock changes, while idle selections accurately label the next explicit Send
 - Review also fixed stale-send draft deletion, stacked-modal focus handling, and the icon-only mobile brand's accessible name
 
 Public landing components, WebGL/scroll styles, both existing README files, package manifests/lockfile, backend, and deployment/security configuration are unchanged from the base. The one shared-stylesheet exception is the explicitly requested removal of the decorative left border from `.form-error`; its wording, alert semantics, readable color, and background remain intact. The new conversation error/attention styles also omit left accent bars. No production merge or deployment is included.
@@ -16,9 +17,9 @@ Public landing components, WebGL/scroll styles, both existing README files, pack
 
 On the final implementation:
 
-- `npm run ci:check`: passed TypeScript, **212 unit tests**, and ESLint
+- `npm run ci:check`: passed TypeScript, **216 unit tests**, and ESLint
 - `npm run build`: passed optimized Next.js build and page generation
-- `npm run test:ui -- --list`: discovers **265 browser tests** across 14 files
+- `npm run test:ui -- --list`: discovers **271 browser tests** across 15 files
 - `git diff --check`: passed
 
 The available runtime was Node 24.19.0. The repository declares Node 22.x and its existing CI uses Node 22; npm emitted the corresponding engine warning. No package dependency version was changed.

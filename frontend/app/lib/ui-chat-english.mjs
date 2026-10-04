@@ -1,4 +1,7 @@
 export const chatEnglish = {
+  "AI 모델 선택": "Choose AI model",
+  "AI 연결 확인 필요": "Check AI connection",
+  "모델을 바꾸려면 새 분석을 준비해 주세요.": "Prepare a new analysis to change the model.",
   "사용량 확인 필요": "Check usage",
   "사용량 확인 중": "Checking usage",
   "프로젝트": "Project",

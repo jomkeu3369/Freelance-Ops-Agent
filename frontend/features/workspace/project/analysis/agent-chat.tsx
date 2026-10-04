@@ -38,6 +38,7 @@ interface AgentChatProps {
   streamState: StreamState;
   clarification: ReactNode;
   headerTools?: ReactNode;
+  composerTools?: ReactNode;
   onOpenAISettings: () => void;
   onOpenResult: (view: AgentRunView) => void;
   onSend: (message: string) => Promise<boolean>;
@@ -69,7 +70,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-function useAgentChatController({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
+function useAgentChatController({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
   const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
@@ -274,7 +275,7 @@ function useAgentChatController({ session, projectId, run, runId, events, busy, 
     } finally { confirmLock.current = false; setPolicyBusy(false); }
   }
 
-  return { t, presentation, headerTools, viewport, content, input, followsLatest, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable };
+  return { t, presentation, headerTools, composerTools, viewport, content, input, followsLatest, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable };
 }
 
 export function AgentChat(props: AgentChatProps) {
@@ -284,7 +285,7 @@ export function AgentChat(props: AgentChatProps) {
 export type AgentChatSurfaceProps = ReturnType<typeof useAgentChatController>;
 
 /** Pure conversation presentation; the authenticated controller remains separate. */
-export function AgentChatSurface({ t, presentation, headerTools, viewport: viewportRef, content: contentRef, input: inputRef, followsLatest: followsLatestRef, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing: composingRef, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable }: AgentChatSurfaceProps) {
+export function AgentChatSurface({ t, presentation, headerTools, composerTools, viewport: viewportRef, content: contentRef, input: inputRef, followsLatest: followsLatestRef, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing: composingRef, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable }: AgentChatSurfaceProps) {
   return (
     <section className="agent-chat" aria-label={t("에이전트 대화")}>
       <header className="agent-chat-heading">
@@ -354,9 +355,12 @@ export function AgentChatSurface({ t, presentation, headerTools, viewport: viewp
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
         <div className="agent-chat-actions">
-          {canRun && <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings}><SlidersHorizontal size={17} aria-hidden="true" />{t("AI 설정 열기")}</button>}
+          {canRun && <fieldset className="agent-chat-tools" disabled={sending} aria-label={t("AI 설정")}>
+            {composerTools}
+            <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings} aria-label={t("AI 설정 열기")} title={t("AI 설정 열기")}><SlidersHorizontal size={17} aria-hidden="true" /><span className="agent-chat-settings-label">{t("AI 설정")}</span></button>
+          </fieldset>}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
-          <button type="submit" className="primary-button" disabled={!online || !draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}{sending ? t("요청 중...") : t("보내기")}</button>
+          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : t("보내기")} disabled={!online || !draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : t("보내기")}</span></button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}
       </form>
