@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
 import { LiveWorkflow, snapshotFromEvents } from "../../../../app/components/live-workflow";
@@ -25,6 +25,7 @@ interface AnalysisStepProps {
   canRun: boolean;
   canEditPolicy: boolean;
   modelAvailable: boolean;
+  composerTools?: ReactNode;
   streamState: StreamState;
   onOpenAISettings: () => void;
   onSendMessage: (message: string) => Promise<boolean>;
@@ -34,7 +35,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -47,6 +48,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   return <>
     <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
+      composerTools={composerTools}
       headerTools={<>
         <FreeUsageStatus session={session} revision={`${runId ?? ""}:${run?.status ?? ""}`} compact />
         {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}>{t("작업 자세히 보기")}</button>}

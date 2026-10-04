@@ -153,3 +153,30 @@
 @media (prefers-reduced-motion: reduce) {
   .figma-workspace *, .figma-workspace *::before, .figma-workspace *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Familiar bottom-composer tools: explicit local model choice, then advanced settings. */
+.figma-workspace .is-chat .agent-chat-tools { display: flex; flex: 1 1 auto; align-items: center; gap: 4px; min-width: 0; padding: 0; margin: 0 auto 0 0; border: 0; }
+.figma-workspace .is-chat .agent-chat-tools .agent-chat-model-button { flex: 0 0 auto; gap: 6px; margin: 0; border-radius: 10px; }
+.chat-model-menu { position: relative; min-width: 0; max-width: 220px; }
+.figma-workspace .is-chat .chat-model-trigger { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; border: 1px solid transparent; border-radius: 10px; color: var(--ink); font-size: .75rem; font-weight: 600; background: transparent; }
+.chat-model-trigger > svg { flex: 0 0 auto; }
+.chat-model-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.figma-workspace .is-chat :is(.chat-model-trigger, .agent-chat-model-button):hover:not(:disabled), .figma-workspace .is-chat .chat-model-trigger[aria-expanded="true"] { border-color: var(--line); background: var(--surface-2); }
+.chat-model-popover { position: absolute; z-index: 50; bottom: calc(100% + 10px); left: 0; width: min(340px, calc(100vw - 48px)); max-height: min(420px, calc(100dvh - 240px)); overflow: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: var(--surface-solid); box-shadow: 0 12px 40px #21182f20; }
+.chat-model-popover > strong { display: block; margin-bottom: 16px; font-size: .8125rem; }
+.figma-workspace .chat-model-popover .run-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding: 0; }
+.figma-workspace .chat-model-popover .run-controls label { display: grid; gap: 6px; min-width: 0; font-size: .75rem; }
+.figma-workspace .chat-model-popover select { width: 100%; min-width: 0; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: .8125rem; }
+.chat-model-popover :is(.model-selection-note, [role="alert"]) { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.6; }
+@media (max-width: 480px) {
+  .figma-workspace .is-chat .agent-chat-tools { gap: 2px; }
+  .chat-model-menu { flex: 0 1 auto; max-width: 150px; }
+  .figma-workspace .is-chat .chat-model-trigger { padding-inline: 6px; }
+  .figma-workspace .is-chat .agent-chat-tools .agent-chat-model-button { width: 40px; min-width: 40px; justify-content: center; padding-inline: 7px; }
+  .agent-chat-settings-label, .agent-chat-send-label { display: none; }
+  .figma-workspace .is-chat .agent-chat-actions > .primary-button { flex: 0 0 40px; min-width: 40px; width: 40px; padding: 9px; }
+  .figma-workspace .is-chat .agent-chat-actions > .danger { flex: 0 0 auto; }
+  .chat-model-popover { max-height: min(380px, calc(100dvh - 220px)); padding: 15px; }
+}
+
+@media (max-width: 820px) { .figma-workspace .chat-model-popover select { font-size: 1rem; } }

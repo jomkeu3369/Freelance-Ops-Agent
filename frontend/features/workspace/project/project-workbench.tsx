@@ -31,6 +31,8 @@ import {
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
+import { ChatModelControls } from "./analysis/chat-model-controls";
+import { ChatModelMenu } from "./analysis/chat-model-menu";
 import { AnalysisStep } from "./analysis/analysis-step";
 import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
@@ -71,6 +73,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
   const deleteDialog = useRef<HTMLElement>(null);
+  const aiSettingsContent = useRef<HTMLDivElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingProject, setDeletingProject] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -155,56 +158,30 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
   function openAISettings() { setShowAISettings(true); }
 
+  const runInProgress = !!runId && (!run || projectDeletionBlockingStatuses.has(run.status));
+  const selectionLocked = busy || runInProgress;
+  const selectedModelName = runInProgress ? run?.metadata?.model || t("AI 모델")
+    : credentialId ? chatModel?.model ?? t("AI 연결 확인 필요") : model || t("AI 모델 선택");
+  const selectedUsesPersonalKey = runInProgress ? !!run?.metadata?.credentialId : !!credentialId && !!chatModel;
+  const selectedModelLabel = `${selectedUsesPersonalKey ? `${t("내 키 ·")} ` : ""}${selectedModelName}`;
+  const modelControls = !selectionLocked ? <ChatModelControls
+    connections={connections} credentialId={credentialId} provider={provider} model={model}
+    busy={busy} connectionError={connectionError} onCredentialChange={setCredentialId}
+    onProviderChange={value => { setProvider(value); setModel(configuredModelOptions[value][0] ?? ""); }} onModelChange={setModel} />
+    : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>;
+
+  function prepareNextAnalysis() {
+    onResetRun();
+    requestAnimationFrame(() => aiSettingsContent.current?.querySelector<HTMLSelectElement>("select")?.focus());
+  }
+
   const aiSettings = activeStep === "agent" && canRun && showAISettings ? (
     <WorkspacePanel title={t("AI 설정")} className="agent-chat-settings" onClose={() => setShowAISettings(false)}>
-      {!runId ? <>
-          <div className="run-controls">
-            <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
-              <option value="">{t("기본 제공 AI")}</option>
-              {connections.map((item) => <option key={item.id} value={item.id}>{t("내 키 ·")}{item.provider} · {item.model} · {item.maskedKey}</option>)}
-            </select></label>
-            {connectionError && <span role="alert">{t("개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.")}</span>}
-            {credentialId && !connection && <span role="alert">{t("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.")}</span>}
-            {!credentialId && <>
-            <label>
-              {t("AI 제공사")}<select
-                value={provider}
-                disabled={busy}
-                onChange={(event) => {
-                  const nextProvider = event.target.value as Provider;
-                  setProvider(nextProvider);
-                  setModel(configuredModelOptions[nextProvider][0] ?? "");
-                }}
-              >
-                <option value="OPENAI">OpenAI</option>
-              </select>
-            </label>
-            <label>
-              {t("AI 모델")}<select
-                value={model}
-                disabled={busy || configuredModelOptions[provider].length === 0}
-                onChange={(event) => setModel(event.target.value)}
-              >
-                {configuredModelOptions[provider].length === 0 ? (
-                  <option value="">{t("등록된 모델 없음")}</option>
-                ) : (
-                  configuredModelOptions[provider].map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-            </>}
-            <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
-          </div>
-        <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={chatModel} />
-      </> : run && terminalStatuses.has(run.status) ? (
-        <button type="button" className="secondary-button" onClick={onResetRun}>
-          <ArrowRight size={18} /> {t("새 분석 준비")}
-        </button>
-      ) : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>}
+      <div ref={aiSettingsContent}>
+      {modelControls}
+      {!runId && <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={chatModel} />}
+      {runId && !selectionLocked && <button type="button" className="secondary-button" onClick={prepareNextAnalysis}><ArrowRight size={18} />{t("새 분석 준비")}</button>}
+      </div>
     </WorkspacePanel>
   ) : null;
 
@@ -364,6 +341,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canRun={canRun}
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
+          composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}
           onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
           costUsage={costUsage}
