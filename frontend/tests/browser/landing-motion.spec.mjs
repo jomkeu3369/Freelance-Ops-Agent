@@ -6,6 +6,15 @@ const depthHosts = ".spatial-flow, .story-execution, .story-effort-prisms, .stor
 // Landing examples must remain local, without a Business API or external request.
 const test = base.extend({
   page: async ({ page }, runTest) => {
+    // This suite validates the retained CSS fallback and its existing motion
+    // contracts. Real GPU rendering is exercised in landing-webgl.spec.mjs.
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+        if (/webgl/.test(type)) return null;
+        return original.call(this, type, ...args);
+      };
+    });
     const unexpected = [];
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));

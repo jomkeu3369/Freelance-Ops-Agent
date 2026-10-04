@@ -7,6 +7,7 @@ import "@fontsource-variable/noto-sans-kr";
 import "@/app/landing-readability.css";
 import "@/app/pointer-depth.css";
 import "@/app/inquiry-motion.css";
+import "@/app/webgl-scene.css";
 
 import { LocaleProvider } from "./ui-language";
 

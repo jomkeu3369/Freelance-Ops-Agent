@@ -5,6 +5,7 @@ import { useT } from "../ui-language";
 import { demoQuote, demoScopes, initialDemoState } from "../product-demo.mjs";
 import { StoryCount, useStoryMetricEntry } from "./story-metric-entry";
 import { EvidenceAtmosphere } from "./scene-atmosphere";
+import { WebGLScene } from "./webgl-scene";
 
 type Quote = {
   label: string;
@@ -49,7 +50,7 @@ function ReviewConversation({ state, quote, onScopeChange, t }: StoryProps & { t
 
 function EffortPrisms({ quote, t }: { quote: Quote; t: Translate }) {
   const shortLabels = ["예약", "관리", "화면 검수", "예약 변경"];
-  return <div className="pointer-depth-anchor" data-story-reveal="visual"><div className="story-panel spatial-effort story-effort-prisms" data-ambient data-ambient-visible="false" role="img" aria-label={`${t("예시 공수 구성: 예약 5일, 관리자 3.5일, 반응형과 검수 1.5일.")} ${quote.extra ? t("예약 변경 3일 추가. 총 13일.") : t("총 10일.")}`}><div className="story-panel-top"><span>{t("예상 공수")} · {t("예시")}</span><span className="spatial-effort-number">{quote.days}<span>{t("일")}</span></span></div><div className="spatial-bars story-prism-chart" data-story-metric-scene data-count={quote.rows.length} aria-hidden="true">{quote.rows.map((row, index) => <div className="story-prism-column" key={row.title} style={{ "--chart-column": index + 1 } as CSSProperties}><div className="story-prism-stack"><span className="spatial-bar-label">{row.days}{t("일")}</span><span className="spatial-bar" data-story-prism style={{ "--prism-height": `${row.days * 29}px` } as CSSProperties}><i className="story-prism-front" /><i className="story-prism-side" /><i className="story-prism-top" /></span></div><small><span className="story-prism-task-full">{t(row.title)}</span><span className="story-prism-task-short">{t(shortLabels[index])}</span></small></div>)}</div><p>{t("작업별 공수의 합 · 성과 지표가 아닌 예시 계산")}</p></div></div>;
+  return <div className="pointer-depth-anchor" data-story-reveal="visual"><div className="story-panel spatial-effort story-effort-prisms" data-ambient data-ambient-visible="false" role="img" aria-label={`${t("예시 공수 구성: 예약 5일, 관리자 3.5일, 반응형과 검수 1.5일.")} ${quote.extra ? t("예약 변경 3일 추가. 총 13일.") : t("총 10일.")}`}><div className="story-panel-top"><span>{t("예상 공수")} · {t("예시")}</span><span className="spatial-effort-number">{quote.days}<span>{t("일")}</span></span></div><WebGLScene kind="chart" rows={quote.rows.map((row, index) => ({ title: t(row.title), shortTitle: t(shortLabels[index]), days: row.days, value: `${row.days}${t("일")}` }))}><div className="spatial-bars story-prism-chart" data-story-metric-scene data-count={quote.rows.length} aria-hidden="true">{quote.rows.map((row, index) => <div className="story-prism-column" key={row.title} style={{ "--chart-column": index + 1 } as CSSProperties}><div className="story-prism-stack"><span className="spatial-bar-label">{row.days}{t("일")}</span><span className="spatial-bar" data-story-prism style={{ "--prism-height": `${row.days * 29}px` } as CSSProperties}><i className="story-prism-front" /><i className="story-prism-side" /><i className="story-prism-top" /></span></div><small><span className="story-prism-task-full">{t(row.title)}</span><span className="story-prism-task-short">{t(shortLabels[index])}</span></small></div>)}</div></WebGLScene><p>{t("작업별 공수의 합 · 성과 지표가 아닌 예시 계산")}</p></div></div>;
 }
 
 function BenefitCards({ quote, t }: { quote: Quote; t: Translate }) {
