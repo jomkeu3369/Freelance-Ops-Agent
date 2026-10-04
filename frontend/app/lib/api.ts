@@ -1,6 +1,9 @@
+import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
-export type Provider = "OPENAI" | "GEMINI";
+export type Provider = "OPENAI";
+export type RecordedProvider = Provider | "GEMINI";
+export function isSupportedProvider(provider: RecordedProvider): provider is Provider { return provider === "OPENAI"; }
 export type ReasoningEffort = "NONE" | "LOW" | "MEDIUM" | "HIGH";
 export type AgentRunStatus =
   | "QUEUED"
@@ -20,6 +23,54 @@ export interface AuthSession {
   refreshTokenExpiresAt: string;
   tokenType: string;
 }
+
+// A pending registration is deliberately not an authenticated session.
+export interface EmailVerificationRequired {
+  userId: null;
+  workspaceId: null;
+  accessToken: null;
+  accessTokenExpiresAt: null;
+  refreshToken: null;
+  refreshTokenExpiresAt: null;
+  tokenType: "EmailVerificationRequired";
+}
+export type RegistrationResult = AuthSession | EmailVerificationRequired;
+export function isEmailVerificationRequired(result: RegistrationResult): result is EmailVerificationRequired {
+  return result.tokenType === "EmailVerificationRequired";
+}
+
+export interface ServiceNotice {
+  id: string;
+  kind: "OPERATIONAL" | "TERMS_VERSION" | "PRIVACY_VERSION";
+  title: string;
+  body: string;
+  versionLabel: string;
+  effectiveAt: string | null;
+  publishAt: string | null;
+  status: "DRAFT" | "REVIEWED" | "PUBLISHED";
+  contentHash: string;
+  revision: number;
+}
+export interface NoticeCampaign {
+  id: string;
+  noticeId: string;
+  status: "DRAFT" | "QUEUED" | "CANCELLED" | "COMPLETED";
+  contentHash: string;
+  recipientHash: string;
+  recipientCount: number;
+  snapshotTitle: string;
+  snapshotVersionLabel: string;
+  snapshotBody?: string;
+  testStatus: null | "BLOCKED_TRANSPORT" | "ACCEPTED" | "RETRYABLE_FAILED" | "PERMANENT_FAILED" | "UNKNOWN" | "BOUNCED";
+  createdAt: string;
+  deliveries: Record<string, number>;
+}
+export interface NoticeAdministration {
+  notices: ServiceNotice[];
+  campaigns: NoticeCampaign[];
+  transportReady: boolean;
+}
+export type NoticeInput = Pick<ServiceNotice, "kind" | "title" | "body" | "versionLabel" | "effectiveAt">;
 
 export interface Project {
   id: string;
@@ -217,7 +268,7 @@ export interface AgentRunView {
   metadata: {
     petProfiles?: PetProfile[];
     credentialId?: string | null;
-    provider: Provider;
+    provider: RecordedProvider;
     model: string;
     promptVersion: string;
     toolSchemaVersion: string;
@@ -260,7 +311,7 @@ export interface AgentRunUsage {
 
 export interface ModelPricing {
   id: string;
-  provider: Provider;
+  provider: RecordedProvider;
   model: string;
   versionLabel: string;
   currency: string;
@@ -287,6 +338,26 @@ export interface RunAccepted {
   runId: string;
   status: AgentRunStatus;
   acceptedAt: string;
+}
+
+export interface EstimationPolicyProposal {
+  proposalId: string;
+  projectId: string;
+  sourceMessage: string;
+  status: "PENDING" | "APPLIED" | "EXPIRED";
+  before: EstimationPolicy;
+  after: EstimationPolicy;
+  confirmationToken: string;
+  expiresAt: string;
+  appliedAt: string | null;
+  createdAt: string;
+}
+
+export interface AgentRunHistoryItem {
+  runId: string;
+  requirementText: string;
+  status: AgentRunStatus;
+  createdAt: string;
 }
 
 export interface WorkflowEvent {
@@ -403,14 +474,65 @@ const SESSION_RECOVERY_EVENT = "freelance-ops-session-recovery";
 let refreshPromise: Promise<AuthSession> | null = null;
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code: string | null = null, readonly metadata: Readonly<Record<string, unknown>> = {}) {
     super(message);
     this.name = "ApiError";
   }
 }
 
+export function isFreeUsageExhausted(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code === FREE_USAGE_EXHAUSTED;
+}
+
+const FREE_USAGE_EVENT = "freelance-ops-free-usage-exhausted";
+export function subscribeToFreeUsageExhausted(listener: (error: ApiError) => void): () => void {
+  const handler = (event: Event) => listener((event as CustomEvent<ApiError>).detail);
+  window.addEventListener(FREE_USAGE_EVENT, handler);
+  return () => window.removeEventListener(FREE_USAGE_EVENT, handler);
+}
+
+export interface FreeUsage {
+  limit: number;
+  used: number;
+  reserved: number;
+  remaining: number;
+  resetAt: string;
+  period: string;
+  timezone: string;
+  epoch: number;
+  canManage: boolean;
+}
+
+export interface FreeUsageSettings {
+  limit: number;
+  maxLimit: number;
+  epoch: number;
+  updatedAt: string;
+  lastResetAt: string | null;
+}
+
+export function getFreeUsage(session: AuthSession): Promise<FreeUsage> {
+  return request("/api/v2/usage/free", { cache: "no-store" }, session.accessToken);
+}
+
+export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", { cache: "no-store" }, session.accessToken);
+}
+
+export function updateFreeUsageLimit(session: AuthSession, settings: FreeUsageSettings, limit: number): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", {
+    method: "PATCH", body: JSON.stringify({ limit, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
+export function resetAllFreeUsage(session: AuthSession, settings: FreeUsageSettings): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage/reset", {
+    method: "POST", body: JSON.stringify({ confirmation: "RESET_ALL_FREE_USAGE", expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
 export function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").trim().replace(/\/$/, "");
 }
 
 export function loadSession(): AuthSession | null {
@@ -496,13 +618,22 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string, 
   }
   if (!response.ok) {
     let message = `요청을 완료하지 못했습니다. (${response.status})`;
+    let metadata: Record<string, unknown> = {};
     try {
-      const problem = (await response.json()) as { detail?: string; title?: string };
-      message = problem.detail ?? problem.title ?? message;
+      const problem: unknown = await response.json();
+      if (problem && typeof problem === "object" && !Array.isArray(problem)) {
+        metadata = problem as Record<string, unknown>;
+        const publicMessage = metadata.detail ?? metadata.message ?? metadata.title;
+        if (typeof publicMessage === "string") message = publicMessage;
+      }
     } catch {
       // Keep the public-safe fallback message.
     }
-    throw new ApiError(message, response.status);
+    const error = new ApiError(message, response.status, typeof metadata.code === "string" ? metadata.code : null, metadata);
+    if (isFreeUsageExhausted(error) && typeof window !== "undefined" && loadSession()?.accessToken === token) {
+      window.dispatchEvent(new CustomEvent<ApiError>(FREE_USAGE_EVENT, { detail: error }));
+    }
+    throw error;
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -513,8 +644,43 @@ export function register(input: {
   password: string;
   displayName: string;
   workspaceName: string;
-}): Promise<AuthSession> {
+  ageAtLeast14: boolean;
+}): Promise<RegistrationResult> {
   return request("/api/v2/auth/register", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function requestEmailVerification(email: string): Promise<{ status: "IF_ELIGIBLE_CHECK_EMAIL" }> {
+  return request("/api/v2/auth/email-verification/request", { method: "POST", body: JSON.stringify({ email }), cache: "no-store" }, undefined, false);
+}
+export function confirmEmailVerification(token: string, password: string): Promise<{ status: "VERIFIED" }> {
+  return request("/api/v2/auth/email-verification/confirm", { method: "POST", body: JSON.stringify({ token, password }), cache: "no-store" }, undefined, false);
+}
+export function listPublicNotices(): Promise<ServiceNotice[]> {
+  return request("/api/v2/notices", { cache: "no-store" });
+}
+export function getNoticeAdministration(session: AuthSession): Promise<NoticeAdministration> {
+  return request("/api/v2/admin/notices", { cache: "no-store" }, session.accessToken);
+}
+export function createNotice(session: AuthSession, input: NoticeInput): Promise<ServiceNotice> {
+  return request("/api/v2/admin/notices", { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+export function reviewNotice(session: AuthSession, notice: ServiceNotice): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/review`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision }) }, session.accessToken);
+}
+export function publishNotice(session: AuthSession, notice: ServiceNotice, publishAt: string): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/publish`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision, publishAt, confirmation: "PUBLISH_NOTICE" }) }, session.accessToken);
+}
+export function prepareNoticeCampaign(session: AuthSession, noticeId: string): Promise<NoticeCampaign> {
+  return request("/api/v2/admin/notice-campaigns", { method: "POST", body: JSON.stringify({ noticeId }) }, session.accessToken);
+}
+export function testNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/test`, { method: "POST" }, session.accessToken);
+}
+export function confirmNoticeCampaign(session: AuthSession, campaign: NoticeCampaign): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(campaign.id)}/confirm`, { method: "POST", body: JSON.stringify({ contentHash: campaign.contentHash, recipientHash: campaign.recipientHash, recipientCount: campaign.recipientCount, confirmation: "QUEUE_OPERATIONAL_NOTICE" }) }, session.accessToken);
+}
+export function cancelNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({}) }, session.accessToken);
 }
 
 export function login(email: string, password: string): Promise<AuthSession> {
@@ -589,6 +755,15 @@ export function createProject(
   ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); return project; });
 }
 
+// Bypass cached lists when a failed write may still have reached the server.
+export function readProject(session: AuthSession, projectId: string): Promise<Project> {
+  return request<Project>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}`,
+    { cache: "no-store" },
+    session.accessToken
+  ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return project; });
+}
+
 export function updateProject(session: AuthSession, project: Project, status: ProjectStatus): Promise<Project> {
   return request<Project>(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/status`,
@@ -658,6 +833,10 @@ export function saveRateCard(
 
 export function getEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {
   return queryCached(`estimation-policy:${session.workspaceId}`, () => request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, {}, session.accessToken));
+}
+
+export function getCurrentEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, { cache: "no-store" }, session.accessToken);
 }
 
 export function saveEstimationPolicy(
@@ -877,13 +1056,17 @@ export function startAgentRun(
   session: AuthSession,
   project: Project,
   input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
+  message?: string,
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
     {
       method: "POST",
+      // Generated once per submission; request() preserves this header during auth recovery.
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
-        requirementText: project.requirementText,
+        requirementText: message ?? project.requirementText,
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
@@ -912,6 +1095,43 @@ export function startAgentRun(
     },
     session.accessToken,
   );
+}
+
+export function listProjectAgentRunHistory(session: AuthSession, projectId: string): Promise<AgentRunHistoryItem[]> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/history?limit=20`,
+    { cache: "no-store" },
+    session.accessToken,
+  );
+}
+
+export function proposeEstimationPolicy(session: AuthSession, input: {
+  projectId: string;
+  sourceMessage: string;
+  defaultTaxRate: number;
+  defaultRiskBufferRate: number;
+  maximumDiscountRate: number;
+  expectedVersion: number;
+  idempotencyKey: string;
+}): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals`,
+    { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+
+export function listProjectEstimationPolicyProposals(session: AuthSession, projectId: string): Promise<EstimationPolicyProposal[]> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/estimation-policy/proposals`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function getEstimationPolicyProposal(session: AuthSession, proposalId: string): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function confirmEstimationPolicyProposal(session: AuthSession, proposalId: string, confirmationToken: string): Promise<EstimationPolicyProposal> {
+  return request<EstimationPolicyProposal>(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}/confirm`,
+    { method: "POST", body: JSON.stringify({ confirmationToken }) }, session.accessToken)
+    .then((proposal: EstimationPolicyProposal) => { invalidateQueries(`estimation-policy:${session.workspaceId}`); return proposal; });
 }
 
 export async function getAgentRun(session: AuthSession, runId: string): Promise<AgentRunView> {
@@ -1049,7 +1269,7 @@ export async function streamRunEvents(
   }
 }
 
-export interface AIConnection { id: string; provider: Provider; model: string; maskedKey: string; updatedAt: string }
+export interface AIConnection { id: string; provider: RecordedProvider; model: string; maskedKey: string; updatedAt: string }
 export interface AIConnections { available: boolean; models: Record<Provider, string[]>; connections: AIConnection[] }
 export function listAIConnections(session: AuthSession): Promise<AIConnections> {
   return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections`, { cache: "no-store" }, session.accessToken);

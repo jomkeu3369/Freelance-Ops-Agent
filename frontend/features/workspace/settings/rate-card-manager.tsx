@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent } from "react";
 import { AuthSession, RateCard, saveRateCard } from "../../../app/lib/api";
 import { useState } from "react";
@@ -12,6 +13,7 @@ interface RateCardManagerProps {
 }
 
 export function RateCardManager({ session, rateCards, canWrite, onChange }: RateCardManagerProps) {
+  const t = useT();
   const [editorId, setEditorId] = useState<string>("new");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,8 +97,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       <div className="rate-card-toolbar">
         <p>
           {rateCards.length === 0
-            ? "등록된 단가가 없습니다. 첫 단가를 추가하세요."
-            : `${rateCards.filter((card) => card.active).length}개 사용 중 · ${rateCards.length}개 전체`}
+            ? t("등록된 단가가 없습니다. 첫 단가를 추가하세요.")
+            : t("{v0}개 사용 중 · {v1}개 전체", { v0: rateCards.filter((card) => card.active).length, v1: rateCards.length })}
         </p>
         {canWrite && (
           <button
@@ -109,12 +111,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               setConfirmDeactivate(false);
             }}
           >
-            <Plus size={17} /> 새 단가
-          </button>
+            <Plus size={17} /> {t("새 단가")}</button>
         )}
       </div>
       {rateCards.length > 0 && (
-        <div className="rate-card-list" aria-label="등록된 서비스 단가">
+        <div className="rate-card-list" aria-label={t("등록된 서비스 단가")}>
           {rateCards.map((card) => (
             <button
               type="button"
@@ -130,12 +131,12 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             >
               <div>
                 <strong>{card.name}</strong>
-                <small>{card.active ? "사용 중" : "비활성 · 기존 견적에는 유지"}</small>
+                <small>{card.active ? t("사용 중") : t("비활성 · 기존 견적에는 유지")}</small>
               </div>
               <span>
                 {formatMoney(card.rate, card.currency)} /{" "}
-                {card.unit === "HOUR" ? "시간" : card.unit === "DAY" ? "일" : "건"}
-                <small>최소 {formatMoney(card.minimumAmount, card.currency)}</small>
+                {card.unit === "HOUR" ? t("시간") : card.unit === "DAY" ? t("일") : t("건")}
+                <small>{t("최소")}{formatMoney(card.minimumAmount, card.currency)}</small>
               </span>
             </button>
           ))}
@@ -151,52 +152,49 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         >
           <div className="rate-card-form-heading">
             <div>
-              <strong>{selected ? "단가 편집" : "새 단가 등록"}</strong>
+              <strong>{selected ? t("단가 편집") : t("새 단가 등록")}</strong>
               <span>
-                {selected ? `수정 이력 ${selected.version}` : "견적에 사용할 서비스와 금액을 입력하세요."}
+                {selected ? t("수정 이력 {v0}", { v0: selected.version }) : t("견적에 사용할 서비스와 금액을 입력하세요.")}
               </span>
             </div>
             {selected && (
               <span className={selected.active ? "active" : "inactive"}>
-                {selected.active ? "사용 중" : "비활성"}
+                {selected.active ? t("사용 중") : t("비활성")}
               </span>
             )}
           </div>
           {error && (
             <div className="inline-error" role="alert">
               <Warning size={17} />
-              {error}
+              {t(error)}
             </div>
           )}
           {notice && (
             <div className="settings-saved" role="status">
               <CheckCircle size={17} />
-              {notice}
+              {t(notice)}
             </div>
           )}
           <fieldset disabled={busy}>
             <div className="form-row">
               <label>
-                서비스 이름
-                <input
+                {t("서비스 이름")}<input
                   name="name"
                   required
                   maxLength={120}
-                  placeholder="예: 개발 작업"
+                  placeholder={t("예: 개발 작업")}
                   defaultValue={selected?.name ?? ""}
                 />
               </label>
               <label>
-                단위
-                <select name="unit" defaultValue={selected?.unit ?? "HOUR"}>
-                  <option value="HOUR">시간</option>
-                  <option value="DAY">일</option>
-                  <option value="FIXED">고정</option>
+                {t("단위")}<select name="unit" defaultValue={selected?.unit ?? "HOUR"}>
+                  <option value="HOUR">{t("시간")}</option>
+                  <option value="DAY">{t("일")}</option>
+                  <option value="FIXED">{t("고정")}</option>
                 </select>
               </label>
               <label>
-                통화
-                <select name="currency" defaultValue={selected?.currency ?? "KRW"}>
+                {t("통화")}<select name="currency" defaultValue={selected?.currency ?? "KRW"}>
                   <option value="KRW">KRW</option>
                   <option value="USD">USD</option>
                   <option value="JPY">JPY</option>
@@ -205,8 +203,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             </div>
             <div className="form-row">
               <label>
-                기본 단가
-                <input
+                {t("기본 단가")}<input
                   name="rate"
                   type="number"
                   min="0"
@@ -216,8 +213,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                 />
               </label>
               <label>
-                최소 금액
-                <input
+                {t("최소 금액")}<input
                   name="minimumAmount"
                   type="number"
                   min="0"
@@ -230,19 +226,17 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             <div className="rate-card-form-actions">
               <button type="submit" className="primary-button">
                 {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />}{" "}
-                {selected ? "변경 저장" : "단가 등록"}
+                {selected ? t("변경 저장") : t("단가 등록")}
               </button>
               {selected &&
                 (selected.active ? (
                   confirmDeactivate ? (
                     <div className="archive-confirm">
-                      <span>새 견적에서 이 단가를 숨길까요?</span>
+                      <span>{t("새 견적에서 이 단가를 숨길까요?")}</span>
                       <button type="button" onClick={() => void toggleActive()}>
-                        비활성화
-                      </button>
+                        {t("비활성화")}</button>
                       <button type="button" onClick={() => setConfirmDeactivate(false)}>
-                        취소
-                      </button>
+                        {t("취소")}</button>
                     </div>
                   ) : (
                     <button
@@ -250,21 +244,18 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                       className="quiet-button danger"
                       onClick={() => setConfirmDeactivate(true)}
                     >
-                      <Archive size={17} /> 비활성화
-                    </button>
+                      <Archive size={17} /> {t("비활성화")}</button>
                   )
                 ) : (
                   <button type="button" className="quiet-button" onClick={() => void toggleActive()}>
-                    <ArrowRight size={17} /> 다시 사용
-                  </button>
+                    <ArrowRight size={17} /> {t("다시 사용")}</button>
                 ))}
             </div>
           </fieldset>
         </form>
       ) : (
         <p className="permission-note">
-          단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.
-        </p>
+          {t("단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.")}</p>
       )}
     </div>
   );

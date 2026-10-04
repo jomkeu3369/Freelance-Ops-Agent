@@ -17,7 +17,7 @@ export interface QuoteBuilderProps {
   permissions: Set<string>;
   quotationDraft: AgentQuotationDraft | null;
   quotationDrafts: AgentQuotationDraft[];
-  modelSelection: { provider: Provider; model: string; credentialId?: string | null };
+  modelSelection: { provider: Provider; model: string; credentialId?: string | null } | null;
 }
 
 // API 상태, 수정 충돌 및 탭 임시 저장은 같은 순서로 처리합니다.
@@ -198,7 +198,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
 
   const suggestAssumption = async (index: number) => {
     const item = items[index];
-    if (!item || !item.title.trim() || !modelSelection.model.trim()) return;
+    if (!item || !item.title.trim() || !modelSelection?.model.trim()) return;
     setAssumptionBusyIndex(index);
     setError(null);
     try {

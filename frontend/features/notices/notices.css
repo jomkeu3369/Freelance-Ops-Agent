@@ -1,0 +1,31 @@
+.notice-page { max-width: 980px; margin: 0 auto; padding: 28px 24px 70px; color: var(--ink); overflow-wrap: anywhere; }
+.notice-header { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+.notice-header nav { display: flex; gap: 18px; flex-wrap: wrap; }
+.notice-page a { color: var(--accent, #4f46e5); text-decoration: underline; text-underline-offset: 3px; }
+.notice-page p, .notice-body { line-height: 1.75; }
+.notice-page h1 { font-size: clamp(26px, 5vw, 36px); margin-bottom: 16px; }
+.notice-page h2 { font-size: 22px; line-height: 1.45; }
+.notice-card { background: var(--surface-solid); border: 1px solid var(--line); border-radius: 18px; padding: 26px; margin: 24px 0; }
+.notice-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.notice-meta { font-size: 13px; }
+.notice-warning { color: #714210; background: #fff4dd; border: 1px solid #e9bf73; padding: 14px; border-radius: 10px; }
+.notice-page button, .verification-request button, .auth-verification-pending > button { min-height: 44px; border-radius: 9px; border: 1px solid #949daf; padding: 10px 16px; font: inherit; font-weight: 600; background: var(--surface-solid); color: inherit; cursor: pointer; }
+.notice-page button.primary-button { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.notice-page button:disabled, .verification-request button:disabled { opacity: .55; cursor: not-allowed; }
+.notice-page :focus-visible, .verification-request :focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+.notice-form, .verification-request { display: grid; gap: 18px; margin: 24px 0; }
+.notice-form label, .verification-request label { display: grid; gap: 8px; font-weight: 600; }
+.notice-form input, .notice-form select, .notice-form textarea, .verification-request input { width: 100%; min-width: 0; padding: 12px; border: 1px solid #949daf; border-radius: 8px; background: var(--surface-solid); color: inherit; font: inherit; box-sizing: border-box; }
+.notice-form textarea { min-height: 140px; resize: vertical; }
+.notice-form fieldset { border: 0; padding: 0; display: grid; gap: 18px; min-width: 0; }
+.notice-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.notice-page dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; line-height: 1.6; }
+.notice-page dd { margin: 0; }
+.notice-page hr { margin: 28px 0; border: 0; border-top: 1px solid var(--line); }
+.verification-page { max-width: 640px; }
+.auth-verification-pending p { line-height: 1.7; }
+.notice-confirmation .notice-form { margin: 12px 0; }
+.notice-confirmation .notice-body { max-height: 200px; overflow: auto; border: 1px solid var(--line); padding: 12px; }
+[data-theme="dark"] .notice-page, [data-theme="dark"] .notice-card { color: #e5eaf3; }
+[data-theme="dark"] .notice-card, [data-theme="dark"] .notice-form input, [data-theme="dark"] .notice-form textarea, [data-theme="dark"] .notice-form select, [data-theme="dark"] .verification-request input, [data-theme="dark"] .notice-page button.secondary-button { background: #1b2330; border-color: #566277; }
+@media (max-width: 480px) { .notice-page { padding: 20px 16px 50px; } .notice-card { padding: 20px 16px; } .notice-page dl { grid-template-columns: 1fr; gap: 3px; } .notice-page dd { margin-bottom: 10px; } .notice-actions > button { flex: 1 1 auto; } }

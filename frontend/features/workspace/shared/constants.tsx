@@ -29,12 +29,11 @@ export const configuredModelOptions: Record<Provider, string[]> = {
       ? parseModelOptions(process.env.NEXT_PUBLIC_OPENAI_MODELS)
       : [defaultOpenAIModel || "gpt-5.6-luna", "gpt-5.6-terra"].filter(
           (model, index, models) => models.indexOf(model) === index
-        ),
-  GEMINI: parseModelOptions(process.env.NEXT_PUBLIC_GEMINI_MODELS)
+        )
 };
 
 export const suggestedModelOptions = [
-  ...new Set([...configuredModelOptions.OPENAI, ...configuredModelOptions.GEMINI])
+  ...new Set([...configuredModelOptions.OPENAI])
 ];
 
 export const pipelineColumns: Array<{

@@ -1,0 +1,271 @@
+/* Working surfaces deliberately use restrained color and a clear reading hierarchy.
+   Kept after legacy workspace sheets so public/auth screens are unaffected. */
+.figma-workspace {
+  --bg: #f8f9fc; --bg-deep: #f8f9fc; --surface: #f3f2f8; --surface-solid: #fff;
+  --surface-2: #eae7f4; --ink: #242332; --muted: #686575; --line: #e3e2eb;
+  --accent: #6650b7; --accent-bright: #7460c4; --accent-ink: #fff;
+  --control-border: #8c859a; --sidebar-width: 244px; --workspace-radius-sm: 8px;
+  --workspace-radius-lg: 14px; grid-template-rows: 64px minmax(0, 1fr);
+  background: var(--bg); font-size: 14px;
+}
+[data-theme="dark"] .figma-workspace {
+  --bg: #19191f; --bg-deep: #19191f; --surface: #202028; --surface-solid: #24242d;
+  --surface-2: #343041; --ink: #efedf5; --muted: #b4afc3; --line: #3b3847;
+  --accent: #bda8ff; --accent-bright: #cbbbff; --accent-ink: #21182f; --control-border: #837c93;
+}
+.figma-workspace :where(button, input, textarea, select, a) { -webkit-tap-highlight-color: transparent; }
+.figma-workspace :where(button, a, input, textarea, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.figma-workspace :where(h1, h2, h3, p, dd, strong, small, button, a) { overflow-wrap: anywhere; }
+.figma-workspace :where(.primary-button, .secondary-button, .quiet-button) { min-height: 42px; font-size: .875rem; line-height: 1.45; box-shadow: none; }
+.figma-workspace .primary-button { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.figma-workspace .secondary-button { background: var(--surface-solid); border-color: var(--line); color: var(--ink); }
+.figma-workspace .workspace-topbar {
+  height: 64px; background: var(--surface-solid); grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+  box-shadow: none; backdrop-filter: none; border-bottom: 1px solid var(--line);
+}
+.figma-workspace .workspace-brand-group { padding: 0 12px 0 16px; gap: 4px; background: var(--surface); }
+.figma-workspace .workspace-brand { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 14px; font-weight: 750; letter-spacing: -.035em; }
+.workspace-brand-mark { display: grid; place-items: center; flex: 0 0 29px; width: 29px; height: 29px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); }
+.figma-workspace .sidebar-toggle { flex: 0 0 38px; width: 38px; min-height: 44px; padding: 9px; color: var(--muted); }
+.figma-workspace .workspace-live-status { min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 0 24px; font-size: .75rem; }
+.figma-workspace .workspace-page-label { display: block; border: 0; margin: 0; padding: 0; color: var(--ink); font-size: .875rem; font-weight: 650; }
+.workspace-connection-label { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+.figma-workspace .workspace-connection-label > span { width: auto; height: auto; border-radius: 0; background: transparent; }
+.workspace-connection-label i { flex: 0 0 6px; height: 6px; border-radius: 50%; background: #aaa4b5; }
+.workspace-connection-label i.connected { background: #39856a; }
+.workspace-connection-label i.reconnecting { background: #ac7d28; }
+.figma-workspace .workspace-account-actions { padding: 0 18px 0 8px; gap: 8px; }
+.figma-workspace .workspace-theme-toggle { font-size: 0; min-height: 44px; width: 40px; padding: 10px; color: var(--muted); background: transparent; border: 0; }
+.figma-workspace .workspace-account-actions .ui-language-selector { position: static; width: auto; height: auto; padding: 0; }
+.figma-workspace .workspace-account-actions .ui-language-selector select { width: auto; max-width: 98px; min-height: 40px; padding: 8px; background: var(--surface-solid); border-color: var(--line); }
+.figma-workspace .workspace-sidebar { top: 64px; height: calc(100svh - 64px); padding: 20px 12px 12px; gap: 0; background: var(--surface); overflow-y: auto; scrollbar-width: thin; }
+.workspace-identity { display: flex; gap: 10px; align-items: center; margin: 0 5px 18px; min-width: 0; }
+.workspace-identity-icon { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border: 1px solid var(--line); background: var(--surface-solid); border-radius: 9px; color: var(--muted); }
+.workspace-identity > div { display: grid; gap: 3px; min-width: 0; }
+.workspace-identity small { color: var(--muted); font-size: .75rem; }
+.workspace-identity strong { font-size: .8125rem; line-height: 1.45; }
+.workspace-switcher { display: block; margin-bottom: 14px; }
+.workspace-switcher select, .workspace-project-select select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; color: var(--ink); background: var(--surface-solid); border: 1px solid var(--control-border); border-radius: 8px; }
+.figma-workspace .workspace-sidebar .workspace-nav { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; border: 0; margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.figma-workspace .workspace-nav::before { display: none; }
+.figma-workspace .workspace-sidebar .workspace-nav > button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-height: 42px; padding: 10px 12px; color: var(--muted); font-size: .8125rem; border: 0; border-radius: 8px; background: transparent; }
+.figma-workspace .workspace-sidebar .workspace-nav > button.active { color: var(--accent); background: var(--surface-2); box-shadow: none; }
+.figma-workspace .workspace-sidebar .workspace-nav > button:hover { color: var(--ink); background: var(--surface-2); }
+.figma-workspace .workspace-nav button svg { flex: 0 0 20px; color: inherit; }
+.figma-workspace .workspace-nav .nav-label-desktop { display: inline; font-size: inherit; white-space: normal; }
+.figma-workspace .workspace-nav .nav-label-mobile { display: none; }
+.workspace-projects { min-width: 0; }
+.workspace-projects-heading { display: flex; align-items: center; justify-content: space-between; padding-left: 12px; min-height: 38px; color: var(--muted); font-size: .75rem; font-weight: 650; }
+.workspace-projects-heading .icon-button { width: 38px; min-height: 38px; padding: 9px; color: var(--muted); border: 0; }
+.figma-workspace .workspace-sidebar .workspace-project-list { display: grid; gap: 3px; }
+.figma-workspace .workspace-sidebar .workspace-project-list > button { display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; }
+.figma-workspace .workspace-project-list > button > svg { flex: 0 0 18px; margin-top: 2px; }
+.figma-workspace .workspace-project-list > button > span { display: grid; gap: 5px; min-width: 0; white-space: normal; overflow: visible; }
+.figma-workspace .workspace-project-list strong { font-size: .8125rem; font-weight: 550; line-height: 1.5; }
+.figma-workspace .workspace-project-list small { font-size: .75rem; font-weight: 400; color: var(--muted); }
+.figma-workspace .workspace-sidebar .workspace-project-list > button.active { background: var(--surface-solid); color: var(--ink); border-color: var(--line); box-shadow: 0 1px 3px #24233205; }
+.figma-workspace .workspace-sidebar .workspace-project-list > button:hover { background: var(--surface-solid); }
+.workspace-projects-empty { margin: 8px 12px; color: var(--muted); font-size: .75rem; line-height: 1.7; }
+.workspace-all-projects { display: block; margin: 8px 12px 20px; min-height: 36px; padding: 0; border: 0; color: var(--muted); background: transparent; font-size: .75rem; text-align: left; cursor: pointer; }
+.workspace-all-projects:hover { color: var(--accent); }
+.workspace-project-select { display: none; }
+.figma-workspace .sidebar-foot { padding: 14px 3px 0; margin-top: auto; border-top: 1px solid var(--line); gap: 9px; grid-template-columns: 30px minmax(0, 1fr) 36px; }
+.figma-workspace .sidebar-avatar { width: 30px; height: 30px; border-radius: 9px; background: var(--surface-2); color: var(--accent); font-size: .8125rem; }
+.figma-workspace .sidebar-foot strong { font-size: .75rem; font-weight: 650; }
+.figma-workspace .sidebar-foot small { font-size: .75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.figma-workspace .sidebar-foot .icon-button { width: 36px; }
+.figma-workspace.sidebar-collapsed { --sidebar-width: 72px; }
+.figma-workspace.sidebar-collapsed .workspace-brand, .figma-workspace.sidebar-collapsed .workspace-identity, .figma-workspace.sidebar-collapsed .workspace-projects, .figma-workspace.sidebar-collapsed .workspace-switcher { display: none; }
+.figma-workspace.sidebar-collapsed .workspace-brand-group { padding: 0; justify-content: center; }
+.figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button { justify-content: center; padding: 10px; }
+.figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button span { display: none; }
+.figma-workspace .workspace-main { width: 100%; max-width: 1560px; padding: 32px clamp(20px, 3vw, 44px) 64px; }
+.figma-workspace.conversation-workspace .workspace-main { max-width: 1160px; padding-top: 25px; }
+.figma-workspace .project-heading, .figma-workspace .project-heading.chat-project-heading { margin-bottom: 18px; padding-bottom: 0; border: 0; }
+.figma-workspace .project-heading h1, .figma-workspace .chat-project-heading h1 { margin: 8px 0; font-size: clamp(1.25rem, 2vw, 1.625rem); font-weight: 700; line-height: 1.4; }
+.figma-workspace .project-client, .figma-workspace .project-status { font-size: .75rem; }
+.figma-workspace .workbench-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-solid); }
+.figma-workspace .workbench-steps button { flex: 1 1 110px; justify-content: center; min-height: 42px; padding: 8px 12px; gap: 8px; border: 0; border-radius: 7px; color: var(--muted); font-size: .8125rem; font-weight: 550; }
+.figma-workspace .workbench-steps button span { color: var(--muted); font-size: .75rem; }
+.figma-workspace .workbench-steps button.active { background: var(--surface-2); color: var(--accent); box-shadow: none; font-weight: 700; }
+.figma-workspace .workbench-steps button.active span { color: var(--accent); }
+/* Conversation is the primary working surface; activity stays inside disclosures. */
+.figma-workspace .agent-chat { position: relative; width: 100%; margin: 16px 0; padding: 0; gap: 0; border-radius: 14px; overflow: clip; box-shadow: 0 3px 14px #25213804; }
+.figma-workspace .agent-chat-heading { align-items: center; padding: 18px 22px; gap: 12px; border-bottom: 1px solid var(--line); }
+.agent-chat-identity { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.figma-workspace .agent-chat-avatar { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; color: var(--accent); background: var(--surface-2); }
+.figma-workspace .agent-chat-heading h2 { margin: 0 0 3px; font-size: .9375rem; font-weight: 700; letter-spacing: -.025em; }
+.figma-workspace .agent-chat-heading p { font-size: .75rem; line-height: 1.4; }
+.figma-workspace .agent-chat-heading .agent-chat-state { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 20px; color: var(--muted); background: var(--bg); font-size: .75rem; font-weight: 550; }
+.agent-chat-state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.figma-workspace .agent-chat-state.working { color: var(--accent); }
+.figma-workspace .agent-chat-state.success { color: #2e775b; background: #f0f8f3; border-color: #d2e7d9; }
+.figma-workspace .agent-chat-state.attention { color: #89601b; background: #fff8e9; border-color: #edddba; }
+.figma-workspace .agent-chat-state.error { color: #ad3d42; background: #fff3f3; border-color: #efd5d7; }
+.figma-workspace .agent-chat-turns { min-height: 280px; height: clamp(280px, 48dvh, 580px); max-height: none; padding: 26px clamp(16px, 3vw, 36px); background: var(--surface-solid); border-radius: 0; scrollbar-width: thin; }
+.figma-workspace .agent-chat-turns:focus-visible { outline-offset: -3px; }
+.figma-workspace .agent-chat-content { gap: 28px; max-width: 850px; margin-inline: auto; }
+.figma-workspace .agent-chat-empty { display: grid; justify-items: center; text-align: center; padding: 15px 0; max-width: 590px; margin: auto; }
+.agent-chat-empty-icon { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 18px; color: var(--accent); background: var(--bg); }
+.figma-workspace .agent-chat-empty strong { font-size: 1.25rem; font-weight: 680; }
+.figma-workspace .agent-chat-empty p { color: var(--muted); font-size: .875rem; }
+.figma-workspace .agent-chat-empty small { font-size: .75rem; }
+.agent-chat-starters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; width: 100%; }
+.agent-chat-starters button { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-height: 64px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--surface-solid); font: inherit; font-size: .8125rem; text-align: left; line-height: 1.6; cursor: pointer; }
+.agent-chat-starters svg { flex-shrink: 0; color: var(--muted); }
+.agent-chat-starters button:hover { background: var(--bg); border-color: var(--control-border); }
+.figma-workspace .agent-chat-message { max-width: min(92%, 720px); padding: 16px 18px; border-radius: 12px; font-size: .875rem; }
+.figma-workspace .agent-chat-message.user { border-color: #e3dbf5; background: #f0ebf9; border-bottom-right-radius: 4px; color: var(--ink); }
+.figma-workspace .agent-chat-message.assistant { width: min(100%, 720px); border-color: var(--line); border-bottom-left-radius: 4px; }
+.figma-workspace .agent-chat-message > span { font-size: .75rem; margin-bottom: 10px; color: var(--muted); }
+.figma-workspace .agent-chat-message > .agent-chat-message-label { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-weight: 650; }
+.agent-chat-message-label svg { flex-shrink: 0; color: var(--accent); }
+.figma-workspace .agent-chat-message[data-state="attention"] { border-color: #cdb984; }
+.figma-workspace .agent-chat-message[data-state="error"] { border-color: #d8a8ad; }
+.figma-workspace .agent-chat-message[data-state="offline"] { border-style: dashed; }
+.figma-workspace .agent-chat-message[data-state="success"] > .agent-chat-message-label svg { color: #2e775b; }
+.figma-workspace .agent-chat-activity { margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.figma-workspace .agent-chat-activity summary { margin: 0; font-size: .75rem; color: var(--muted); }
+.figma-workspace .agent-chat-events { font-size: .75rem; }
+.figma-workspace .agent-chat-result { gap: 12px; }
+.figma-workspace .agent-chat-result > strong { font-size: .8125rem; }
+.figma-workspace .agent-chat-result > button { justify-self: start; }
+.figma-workspace .agent-chat-policy dl { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); font-size: .8125rem; }
+.figma-workspace .agent-chat-policy dl > div { gap: 6px 14px; }
+.figma-workspace .agent-chat-policy dd { font-variant-numeric: tabular-nums; }
+.figma-workspace .agent-chat-new { position: absolute; z-index: 2; top: 76px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); min-height: 38px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface-solid); color: var(--accent); box-shadow: 0 3px 12px #24233212; }
+.figma-workspace .agent-chat-composer { padding: 16px 22px 18px; gap: 8px; background: var(--bg); border-top: 1px solid var(--line); }
+.figma-workspace .agent-chat-composer label { font-size: .75rem; }
+.figma-workspace .agent-chat-composer textarea { min-height: 82px; padding: 13px 15px; border-color: var(--control-border); border-radius: 10px; font-size: 1rem; }
+.figma-workspace .agent-chat-composer .agent-chat-muted { font-size: .75rem; line-height: 1.65; }
+.figma-workspace .agent-chat-actions { align-items: center; }
+.figma-workspace .agent-chat-actions .primary-button { min-width: 100px; }
+.figma-workspace .agent-chat > .form-error, .figma-workspace .agent-chat-connection { margin: 0; padding: 12px 22px; font-size: .8125rem; border-top: 1px solid var(--line); background: var(--bg); }
+.figma-workspace .agent-chat-connection.offline { display: flex; gap: 9px; align-items: flex-start; }
+.figma-workspace .agent-chat-connection.offline svg { flex-shrink: 0; margin-top: 2px; }
+.figma-workspace .agent-chat-work-details, .figma-workspace .agent-chat-result-panel, .figma-workspace .agent-chat-settings { width: 100%; margin: 12px 0; border-radius: 10px; scroll-margin-top: 85px; }
+.figma-workspace .workspace-disclosure > summary { font-size: .8125rem; line-height: 1.6; }
+.figma-workspace .workspace-disclosure > summary small { font-size: .75rem; }
+.figma-workspace .free-usage-status { background: var(--surface-solid); color: var(--ink); border-color: var(--line); }
+.figma-workspace .free-usage-status.compact { margin: 0; padding: 12px 16px; border-radius: 10px; }
+.figma-workspace .free-usage-status.compact > strong { font-size: .75rem; }
+.figma-workspace .free-usage-status.compact p { font-size: .75rem; }
+.figma-workspace .free-usage-status.compact details > summary { font-size: .75rem; color: var(--muted); cursor: pointer; }
+/* Overview and administration share the same calmer density. */
+.figma-workspace .pipeline-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 28px; margin-bottom: 30px; }
+.figma-workspace .pipeline-heading h1 { margin: 0 0 12px; font-size: clamp(1.3rem, 2vw, 1.8rem); font-weight: 650; line-height: 1.5; }
+.figma-workspace .pipeline-heading p { font-size: .875rem; color: var(--muted); line-height: 1.7; }
+.figma-workspace .pipeline-summary { gap: 10px; box-shadow: none; border: 0; }
+.figma-workspace .pipeline-summary > button { padding: 16px 22px; min-height: 94px; gap: 9px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-solid); }
+.figma-workspace .pipeline-summary span { font-size: .75rem; color: var(--muted); }
+.figma-workspace .pipeline-summary strong { font-size: 1.25rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.figma-workspace .pipeline-toolbar { margin-bottom: 20px; gap: 18px; }
+.figma-workspace .pipeline-view-tabs { gap: 18px; }
+.figma-workspace .pipeline-view-tabs button { font-size: .875rem; }
+.figma-workspace .pipeline-board { box-shadow: none; }
+.figma-workspace .pipeline-column { border-color: var(--line); background: var(--surface); }
+.figma-workspace .pipeline-cards article, .figma-workspace .pipeline-list > article { border-color: var(--line); border-radius: 11px; background: var(--surface-solid); box-shadow: 0 1px 3px #24233204; }
+.figma-workspace .pipeline-card-open h2, .figma-workspace .pipeline-list-open h2 { font-size: 1rem; font-weight: 650; line-height: 1.55; }
+.figma-workspace .settings-page { max-width: 1100px; margin: 0 auto; }
+.figma-workspace .settings-heading { margin-bottom: 26px; }
+.figma-workspace .settings-heading > span { font-size: .75rem; color: var(--muted); }
+.figma-workspace .settings-heading h1 { font-size: clamp(1.4rem, 2.5vw, 2rem); margin: 9px 0 12px; font-weight: 650; line-height: 1.35; }
+.figma-workspace .settings-heading p { color: var(--muted); line-height: 1.7; font-size: .875rem; }
+.figma-workspace .settings-essentials { margin-bottom: 18px; }
+.figma-workspace .settings-quick-start { margin: 18px 0 28px; }
+.figma-workspace .workspace-onboarding { padding: 22px; margin: 0; border: 0; background: var(--surface-solid); box-shadow: none; }
+.figma-workspace .workspace-onboarding h2 { font-size: 1.125rem; }
+.figma-workspace .onboarding-steps { gap: 12px; }
+.figma-workspace .onboarding-step { padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.figma-workspace .settings-grid { grid-template-columns: 190px minmax(0, 1fr); gap: 22px; }
+.figma-workspace .settings-index { top: 85px; padding: 5px; border: 1px solid var(--line); background: var(--surface-solid); box-shadow: none; border-radius: 10px; }
+.figma-workspace .settings-index::before { display: none; }
+.figma-workspace .settings-index a { min-height: 60px; padding: 12px; }
+.figma-workspace .settings-index a > strong { font-size: .8125rem; }
+.figma-workspace .settings-index a > small { font-size: .75rem; }
+.figma-workspace .settings-content > section { padding: clamp(20px, 2.5vw, 30px); border: 1px solid var(--line); border-radius: 12px; box-shadow: none; scroll-margin-top: 85px; }
+.figma-workspace .settings-content > section > header { margin-bottom: 22px; }
+.figma-workspace .settings-content h2 { font-size: 1.0625rem; font-weight: 650; }
+.figma-workspace .settings-content :is(header p, dt, dd), .figma-workspace .settings-content > section > p { font-size: .8125rem; line-height: 1.65; }
+.figma-workspace .settings-content dl { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 8px 18px; }
+.figma-workspace .rate-card-list article { flex-wrap: wrap; gap: 12px; border-radius: 9px; }
+.figma-workspace .workspace-empty { min-height: 440px; padding: 42px 28px; background: var(--surface-solid); }
+.figma-workspace .workspace-empty h1 { font-size: clamp(1.6rem, 3vw, 2rem); }
+[data-theme="dark"] .figma-workspace .agent-chat-message.user { background: #342d46; border-color: #4e4166; }
+[data-theme="dark"] .figma-workspace .agent-chat-state.success { background: #22382f; border-color: #3c5e4c; color: #a3d7b9; }
+[data-theme="dark"] .figma-workspace .agent-chat-state.attention { background: #382f20; border-color: #615036; color: #e5cb90; }
+[data-theme="dark"] .figma-workspace .agent-chat-state.error { background: #3b262d; border-color: #674149; color: #efb6bd; }
+[data-theme="dark"] .figma-workspace .agent-chat-message[data-state="success"] > .agent-chat-message-label svg { color: #a3d7b9; }
+@media (max-width: 1180px) {
+  .figma-workspace .pipeline-hero { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .figma-workspace .pipeline-summary { max-width: 520px; }
+  .figma-workspace .workspace-connection-label { display: none; }
+  .figma-workspace .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .figma-workspace .settings-index { position: static; display: flex; flex-wrap: wrap; overflow: visible; }
+  .figma-workspace .settings-index a { flex: 1 1 150px; min-width: 0; }
+}
+@media (max-width: 820px) {
+  /* No fixed top row or selector-specific absolute positioning: language/workspace
+     selectors must coexist at 200–400% zoom without overlapping other controls. */
+  .figma-workspace, .figma-workspace.sidebar-collapsed, .figma-workspace:has(.workspace-account-actions select) { display: block; padding-top: 0; }
+  .figma-workspace .workspace-topbar, .figma-workspace:has(.workspace-account-actions select) .workspace-topbar { position: relative; inset: auto; height: auto; min-height: 62px; display: flex; flex-wrap: wrap; gap: 0 8px; padding: 4px 12px; grid-template-rows: none; }
+  .figma-workspace .workspace-brand-group, .figma-workspace.sidebar-collapsed .workspace-brand-group { flex: 1 1 150px; padding: 0; background: transparent; border: 0; justify-content: flex-start; }
+  .figma-workspace .workspace-brand, .figma-workspace.sidebar-collapsed .workspace-brand { display: flex; font-size: .875rem; }
+  .figma-workspace .sidebar-toggle, .figma-workspace .workspace-live-status { display: none; }
+  .figma-workspace .workspace-account-actions { padding: 0; gap: 2px; flex: 0 0 auto; }
+  .figma-workspace .workspace-account-actions > label { position: static; width: auto; height: auto; padding: 0; }
+  .figma-workspace .workspace-account-actions .ui-language-selector select { max-width: 85px; font-size: .8125rem; }
+  .figma-workspace .workspace-mobile-logout { display: inline-flex; width: 40px; }
+  .figma-workspace .workspace-sidebar, .figma-workspace:has(.workspace-account-actions select) .workspace-sidebar { display: flex; position: relative; inset: auto; height: auto; padding: 8px 12px 10px; overflow: visible; background: var(--surface-solid); backdrop-filter: none; border-bottom: 1px solid var(--line); }
+  .figma-workspace .workspace-identity, .figma-workspace .workspace-sidebar .sidebar-foot { display: none; }
+  .figma-workspace .workspace-switcher, .figma-workspace.sidebar-collapsed .workspace-switcher { display: block; margin: 2px 0 10px; }
+  .figma-workspace .workspace-sidebar .workspace-nav { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; border: 0; }
+  .figma-workspace .workspace-sidebar .workspace-nav > button, .figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button { flex: 1 1 70px; justify-content: center; min-height: 46px; padding: 6px; flex-direction: row; gap: 6px; font-size: .75rem; }
+  .figma-workspace .workspace-sidebar .workspace-nav > button .nav-label-desktop, .figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button .nav-label-desktop { display: none; }
+  .figma-workspace .workspace-sidebar .workspace-nav > button .nav-label-mobile, .figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button .nav-label-mobile { display: inline; white-space: normal; font-size: inherit; }
+  .figma-workspace .workspace-projects, .figma-workspace.sidebar-collapsed .workspace-projects { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .figma-workspace .workspace-sidebar .workspace-project-list, .workspace-projects-empty, .workspace-all-projects, .workspace-projects-heading > span { display: none; }
+  .workspace-projects-heading { padding: 0; min-height: 0; order: 2; }
+  .workspace-projects-heading .icon-button { width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 8px; }
+  .workspace-project-select { display: block; flex: 1; min-width: 0; }
+  .workspace-project-select select, .workspace-switcher select { font-size: 1rem; }
+  .figma-workspace .workspace-main, .figma-workspace.conversation-workspace .workspace-main { padding: 24px 16px 48px; }
+  .figma-workspace .project-heading, .figma-workspace .project-heading.chat-project-heading { margin-bottom: 16px; }
+  .figma-workspace .workbench-steps button { flex: 1 1 90px; min-height: 44px; }
+  .figma-workspace .agent-chat-turns { height: clamp(270px, 45dvh, 480px); min-height: 270px; padding: 20px 16px; }
+  .figma-workspace .agent-chat-heading { padding: 16px; }
+  .figma-workspace .agent-chat-message { max-width: 96%; padding: 13px 15px; }
+  .figma-workspace .agent-chat-composer { padding: 14px 16px 16px; }
+  .figma-workspace .settings-content > section, .figma-workspace .agent-chat-result-panel, .figma-workspace .agent-chat-settings { scroll-margin-top: 16px; }
+  .figma-workspace .settings-content > section { padding: 20px; }
+}
+@media (max-width: 480px) {
+  .figma-workspace .workspace-main, .figma-workspace.conversation-workspace .workspace-main { padding: 20px 12px 40px; }
+  .figma-workspace .workspace-brand-group { min-height: 44px; }
+  .figma-workspace .agent-chat-starters { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .figma-workspace .agent-chat-starters button { min-height: 48px; padding: 10px 12px; }
+  .figma-workspace .agent-chat-empty { padding-block: 8px; }
+  .figma-workspace .agent-chat-empty-icon { width: 44px; height: 44px; margin-bottom: 12px; }
+  .figma-workspace .agent-chat-heading { gap: 10px; }
+  .figma-workspace .agent-chat-state { margin-left: 51px; }
+  .figma-workspace .agent-chat-message { max-width: 100%; }
+  .figma-workspace .agent-chat-new { top: 112px; }
+  .figma-workspace .agent-chat-policy dl > div { flex-direction: column; }
+  .figma-workspace .agent-chat-policy button { width: 100%; }
+  .figma-workspace .workbench-steps button { flex-basis: calc(50% - 4px); }
+  .figma-workspace .workbench-steps button span { display: inline; }
+  .figma-workspace .pipeline-summary { gap: 8px; }
+  .figma-workspace .pipeline-summary > button { min-height: 82px; padding: 12px; }
+  .figma-workspace .pipeline-summary span { font-size: .75rem; }
+  .figma-workspace .settings-index a { flex-basis: calc(50% - 10px); }
+  .figma-workspace .settings-content > section { padding: 18px 16px; }
+  .figma-workspace .settings-form .form-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .figma-workspace *, .figma-workspace *::before, .figma-workspace *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+.figma-workspace .agent-chat-actions .agent-chat-model-button { margin-right: auto; padding-inline: 8px; color: var(--muted); font-size: .75rem; }
+@media (max-width: 380px) { .figma-workspace .agent-chat-actions .agent-chat-model-button { flex-basis: 100%; } }
+@media (max-height: 560px) { .figma-workspace .agent-chat-turns { min-height: 200px; height: 240px; } }
+.figma-workspace .settings-index a { grid-template-columns: minmax(0, 1fr); }
+.figma-workspace .settings-index a > span, .figma-workspace .settings-content > section > header > span { display: none; }

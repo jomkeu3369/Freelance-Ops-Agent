@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
   Project,
@@ -9,9 +10,9 @@ import {
   getAgentRunUsage,
   ApiError
 } from "../../../app/lib/api";
-import { AIConnection, listAIConnections } from "../../../app/lib/api";
+import { AIConnection, isSupportedProvider, listAIConnections } from "../../../app/lib/api";
 import { snapshotFromEvents } from "../../../app/components/live-workflow";
-import { WorkbenchStep } from "../shared/types";
+import { StreamState, WorkbenchStep } from "../shared/types";
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   configuredModelOptions,
@@ -25,7 +26,6 @@ import {
   PencilSimple,
   Trash,
   CircleNotch,
-  Waveform,
   ArrowRight
 } from "@phosphor-icons/react";
 import { projectClientLabel } from "../shared/formatters";
@@ -34,6 +34,7 @@ import { PetCustomizer } from "../pets/pet-customizer";
 import { AnalysisStep } from "./analysis/analysis-step";
 import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
+import { WorkspacePanel } from "../shared/workspace-panel";
 import { ProjectEditDialog } from "./dialogs/project-edit-dialog";
 
 interface ProjectWorkbenchProps {
@@ -44,19 +45,21 @@ interface ProjectWorkbenchProps {
   runId: string | null;
   events: WorkflowEvent[];
   busy: boolean;
+  streamState: StreamState;
   snapshot: ReturnType<typeof snapshotFromEvents>;
   permissions: Set<string>;
   initialStep: WorkbenchStep;
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string, credentialId?: string) => Promise<void>;
+  onRun: (provider: Provider, model: string, credentialId?: string, message?: string) => Promise<boolean>;
   onResetRun: () => void;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
 }
 
-export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+  const t = useT();
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [connections, setConnections] = useState<AIConnection[]>([]);
   const [credentialId, setCredentialId] = useState("");
@@ -66,21 +69,24 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
   const deleteDialog = useRef<HTMLElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deletingProject, setDeletingProject] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
-  const [reviewFocused, setReviewFocused] = useState(run?.status === "WAITING_FOR_USER");
   const canRun = permissions.has("agent.run");
-  const canRespond = permissions.has("agent.respond");
+  const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
+  const chatModel = credentialId
+    ? connection && isSupportedProvider(connection.provider) && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
+    : model.trim() ? { provider, model: model.trim(), credentialId: undefined } : null;
 
   useEffect(() => {
     if (!canRun) return;
     let cancelled = false;
     listAIConnections(session).then((value) => {
-      if (!cancelled) { setConnections(value.connections); setConnectionError(false); }
+      if (!cancelled) { setConnections(value.connections.filter((item) => isSupportedProvider(item.provider))); setConnectionError(false); }
     }).catch(() => { if (!cancelled) setConnectionError(true); });
     return () => { cancelled = true; };
   }, [canRun, session, runId]);
@@ -88,18 +94,16 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   useEffect(() => {
     Promise.resolve().then(() => {
       setActiveStep(initialStep);
+      setShowAISettings(false);
       setShowDeleteConfirmation(false);
       setDeleteConfirmation("");
       setDeleteError(null);
     });
   }, [initialStep, project.id]);
 
-  useEffect(() => {
-    Promise.resolve().then(() => setReviewFocused(run?.status === "WAITING_FOR_USER"));
-  }, [project.id, run?.status]);
-
   const selectStep = (step: WorkbenchStep) => {
     setActiveStep(step);
+    setShowAISettings(false);
     onStepChange(step);
   };
 
@@ -108,7 +112,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     setShowDeleteConfirmation(false);
     setDeleteConfirmation("");
     setDeleteError(null);
-  }, [deletingProject]);
+  }, [deletingProject, setShowDeleteConfirmation, setDeleteConfirmation, setDeleteError]);
 
   useDialogFocusTrap(deleteDialog, closeDeleteConfirmation, deletingProject, showDeleteConfirmation);
 
@@ -130,10 +134,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     };
   }, [permissions, run, runId, session]);
 
-  function toggleReviewFocus() {
-    setReviewFocused((current) => !current);
-  }
-
   function openQuotations() {
     selectStep("quote");
   }
@@ -153,53 +153,23 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }
   }
 
-  return (
-    <>
-      <div className="project-heading">
-        <div>
-          <div className="project-context-line">
-            <span className="project-status">
-              <i /> {pipelineStatusLabels[project.status] ?? project.status}
-            </span>
-          </div>
-          <h1>{project.title}</h1>
-          <span className="project-client">
-            <AddressBook size={15} />
-            {projectClientLabel(project, clients)}
-          </span>
-        </div>
-        {activeStep !== "agent" &&
-          (permissions.has("project.write") || permissions.has("project.delete")) && (
-            <div className="project-heading-actions">
-              {permissions.has("project.write") && (
-                <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}>
-                  <PencilSimple size={18} /> 프로젝트 정보 수정
-                </button>
-              )}
-              {permissions.has("project.delete") && (
-                <button
-                  type="button"
-                  className="quiet-button danger"
-                  onClick={() => setShowDeleteConfirmation(true)}
-                >
-                  <Trash size={18} /> 프로젝트 삭제
-                </button>
-              )}
-            </div>
-          )}
-        {!runId && activeStep === "agent" && canRun ? (
+  function openAISettings() { setShowAISettings(true); }
+
+  const aiSettings = activeStep === "agent" && canRun && showAISettings ? (
+    <WorkspacePanel title={t("AI 설정")} className="agent-chat-settings" onClose={() => setShowAISettings(false)}>
+      {!runId ? <>
           <div className="run-controls">
-            <label>AI 연결<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
-              <option value="">기본 제공 AI</option>
-              {connections.map((item) => <option key={item.id} value={item.id}>내 키 · {item.provider} · {item.model} · {item.maskedKey}</option>)}
+            <label>{t("AI 연결")}<select value={credentialId} disabled={busy} onChange={(event) => setCredentialId(event.target.value)}>
+              <option value="">{t("기본 제공 AI")}</option>
+              {connections.map((item) => <option key={item.id} value={item.id}>{t("내 키 ·")}{item.provider} · {item.model} · {item.maskedKey}</option>)}
             </select></label>
-            {connectionError && <span role="alert">개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.</span>}
-            {credentialId && !connection && <span role="alert">선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.</span>}
+            {connectionError && <span role="alert">{t("개인 연결을 확인하지 못했습니다. 설정에서 다시 확인해 주세요.")}</span>}
+            {credentialId && !connection && <span role="alert">{t("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.")}</span>}
             {!credentialId && <>
             <label>
-              AI 제공사
-              <select
+              {t("AI 제공사")}<select
                 value={provider}
+                disabled={busy}
                 onChange={(event) => {
                   const nextProvider = event.target.value as Provider;
                   setProvider(nextProvider);
@@ -207,20 +177,16 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 }}
               >
                 <option value="OPENAI">OpenAI</option>
-                <option value="GEMINI" disabled={configuredModelOptions.GEMINI.length === 0}>
-                  Gemini{configuredModelOptions.GEMINI.length === 0 ? " · 설정 필요" : ""}
-                </option>
               </select>
             </label>
             <label>
-              AI 모델
-              <select
+              {t("AI 모델")}<select
                 value={model}
-                disabled={configuredModelOptions[provider].length === 0}
+                disabled={busy || configuredModelOptions[provider].length === 0}
                 onChange={(event) => setModel(event.target.value)}
               >
                 {configuredModelOptions[provider].length === 0 ? (
-                  <option value="">등록된 모델 없음</option>
+                  <option value="">{t("등록된 모델 없음")}</option>
                 ) : (
                   configuredModelOptions[provider].map((option) => (
                     <option key={option} value={option}>
@@ -231,24 +197,52 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               </select>
             </label>
             </>}
-            <span className="model-selection-note">{credentialId ? "내 키로 실행 · 제공사 계정에 청구" : "기본 제공 AI로 실행"} · 자동 전환 없음</span>
-            <button
-              type="button"
-              className="primary-button"
-              disabled={busy || (credentialId ? !connection || connectionError : !model.trim())}
-              onClick={() => connection ? onRun(connection.provider, connection.model, connection.id) : !credentialId && onRun(provider, model.trim())}
-            >
-              {busy ? <CircleNotch className="spin" /> : <Waveform size={19} />} 분석 시작
-            </button>
+            <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
           </div>
-        ) : activeStep === "agent" && run && terminalStatuses.has(run.status) && canRun ? (
-          <button type="button" className="secondary-button" onClick={onResetRun}>
-            <ArrowRight size={18} /> 새 분석 준비
-          </button>
-        ) : null}
+        <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={chatModel} />
+      </> : run && terminalStatuses.has(run.status) ? (
+        <button type="button" className="secondary-button" onClick={onResetRun}>
+          <ArrowRight size={18} /> {t("새 분석 준비")}
+        </button>
+      ) : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>}
+    </WorkspacePanel>
+  ) : null;
+
+  return (
+    <section className={`project-workbench${activeStep === "agent" ? " is-chat" : ""}`}>
+      <div className={`project-heading${activeStep === "agent" ? " chat-project-heading" : ""}`}>
+        <div>
+          <div className="project-context-line">
+            <span className="project-status">
+              <i /> {t(pipelineStatusLabels[project.status]) ?? project.status}
+            </span>
+          </div>
+          <h1>{project.title}</h1>
+          <span className="project-client">
+            <AddressBook size={15} />
+            {projectClientLabel(project, clients, t)}
+          </span>
+        </div>
+        {activeStep !== "agent" &&
+          (permissions.has("project.write") || permissions.has("project.delete")) && (
+            <div className="project-heading-actions">
+              {permissions.has("project.write") && (
+                <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}>
+                  <PencilSimple size={18} /> {t("프로젝트 정보 수정")}</button>
+              )}
+              {permissions.has("project.delete") && (
+                <button
+                  type="button"
+                  className="quiet-button danger"
+                  onClick={() => setShowDeleteConfirmation(true)}
+                >
+                  <Trash size={18} /> {t("프로젝트 삭제")}</button>
+              )}
+            </div>
+          )}
       </div>
 
-      {activeStep === "agent" && canRun && !runId && <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={credentialId ? (connection && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null) : model.trim() ? { provider, model: model.trim() } : null} />}
+
       {showDeleteConfirmation && (
         <div className="project-delete-backdrop">
           <section
@@ -264,13 +258,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 <Trash size={22} />
               </span>
               <div>
-                <span>프로젝트 삭제</span>
-                <h2 id="project-delete-title">정말 삭제하시겠어요?</h2>
+                <span>{t("프로젝트 삭제")}</span>
+                <h2 id="project-delete-title">{t("정말 삭제하시겠어요?")}</h2>
               </div>
               <button
                 type="button"
                 className="project-delete-close"
-                aria-label="삭제 창 닫기"
+                aria-label={t("삭제 창 닫기")}
                 disabled={deletingProject}
                 onClick={closeDeleteConfirmation}
               >
@@ -278,24 +272,24 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
               </button>
             </header>
             <div className="project-delete-copy" id="project-delete-description">
-              <p>삭제하면 다음 자료를 다시 복구할 수 없습니다.</p>
+              <p>{t("삭제하면 다음 자료를 다시 복구할 수 없습니다.")}</p>
               <ul>
-                <li>정리된 요구사항</li>
-                <li>AI 분석 기록</li>
-                <li>견적과 결과 기록</li>
+                <li>{t("정리된 요구사항")}</li>
+                <li>{t("AI 분석 기록")}</li>
+                <li>{t("견적과 결과 기록")}</li>
               </ul>
               {run && projectDeletionBlockingStatuses.has(run.status) && (
-                <p>진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다.</p>
+                <p>{t("진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다.")}</p>
               )}
             </div>
             <label>
-              <span>확인을 위해 프로젝트명을 입력해 주세요.</span>
+              <span>{t("확인을 위해 프로젝트명을 입력해 주세요.")}</span>
               <strong>{project.title}</strong>
               <input
                 autoComplete="off"
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
-                placeholder="프로젝트명 입력"
+                placeholder={t("프로젝트명 입력")}
               />
             </label>
             {deleteError && (
@@ -310,22 +304,20 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 disabled={deletingProject}
                 onClick={closeDeleteConfirmation}
               >
-                취소
-              </button>
+                {t("취소")}</button>
               <button
                 type="button"
                 className="danger-button"
                 disabled={deletingProject || deleteConfirmation !== project.title}
                 onClick={deleteProject}
               >
-                {deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} 영구 삭제
-              </button>
+                {deletingProject ? <CircleNotch size={17} className="spin" /> : <Trash size={17} />} {t("영구 삭제")}</button>
             </div>
           </section>
         </div>
       )}
 
-      <nav className="workbench-steps" aria-label="프로젝트 진행 단계">
+      <nav className="workbench-steps" aria-label={t("프로젝트 진행 단계")}>
         {(
           [
             ["intake", "01", "문의"],
@@ -342,7 +334,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             onClick={() => selectStep(id)}
           >
             <span>{number}</span>
-            {label}
+            {t(label)}
           </button>
         ))}
       </nav>
@@ -358,22 +350,31 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
       {activeStep === "agent" && (
         <AnalysisStep
+          key={`${session.userId}:${session.workspaceId}:${project.id}`}
           session={session}
+          projectId={project.id}
           run={run}
           runId={runId}
           events={events}
           busy={busy}
+          streamState={streamState}
           snapshot={snapshot}
           canCancel={canCancel}
           canRespond={canRespond}
-          reviewFocused={reviewFocused}
+          canRun={canRun}
+          canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
+          modelAvailable={!!chatModel}
+          onOpenAISettings={openAISettings}
+          onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
           costUsage={costUsage}
-          onToggleFocus={toggleReviewFocus}
           onCancel={onCancel}
           onResume={onResume}
           onCompareQuotes={openQuotations}
         />
       )}
+
+      {run?.metadata && !isSupportedProvider(run.metadata.provider) && <p role="status">{t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.")}</p>}
+      {aiSettings}
 
       {activeStep === "quote" && (
         <QuoteBuilder
@@ -386,7 +387,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           petProfiles={run?.metadata?.petProfiles}
           modelSelection={
             run?.metadata
-              ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+              ? isSupportedProvider(run.metadata.provider)
+                ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+                : null
               : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }
           }
         />
@@ -406,6 +409,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           }}
         />
       )}
-    </>
+    </section>
   );
 }
