@@ -80,6 +80,19 @@ for (const width of [320, 390, 768, 1440]) {
   }
 }
 
+test("resizing while the folded sequence is offscreen keeps the page within the viewport", async ({ page }) => {
+  const section = await openUnfold(page, { width: 1920 });
+  await expect(section).toHaveAttribute("data-unfold-visible", "false");
+  for (const width of [390, 1440, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(section).toHaveAttribute("data-unfold-state", "folded");
+    const inquiry = (await cardPoses(section))[0];
+    expect(inquiry.x).toBeGreaterThanOrEqual(0);
+    expect(inquiry.x + inquiry.width).toBeLessThanOrEqual(width);
+  }
+});
+
 test.describe("without JavaScript", () => {
   test.use({ javaScriptEnabled: false, viewport: { width: 390, height: 900 } });
   test("all five workflow steps remain readable in document order", async ({ page }) => {

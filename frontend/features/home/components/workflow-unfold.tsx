@@ -84,7 +84,9 @@ export function WorkflowUnfold() {
       geometry = cards.map(card => ({ x: card.offsetLeft + card.offsetWidth / 2, y: card.offsetTop + card.offsetHeight / 2, width: card.offsetWidth, height: card.offsetHeight }));
       origin = { x: deck.offsetWidth / 2, y: geometry[0].y };
       previousProgress = -1;
-      requestPaint();
+      // A layout change must replace the old transforms even below the viewport.
+      // Keeping a desktop folded pose on mobile can widen the entire document.
+      if (!frame && !disposed) frame = requestAnimationFrame(paint);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(deck);

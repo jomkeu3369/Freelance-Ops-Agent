@@ -157,7 +157,7 @@ for (const width of [390, 768, 1024, 1440, 1920]) {
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), locale);
       const errors = await openScene(page, true);
       const flow = await workflowReady(page);
-      await expect(flow.locator(".spatial-motion-toggle, .spatial-demo-disclaimer")).toHaveCount(0);
+      await expect(flow.locator(".spatial-motion-toggle, .spatial-demo-disclaimer, .spatial-auto")).toHaveCount(0);
       await expect(flow).not.toContainText(/가상의 문의|가상의 프로젝트|fictional project|fictional inquiry/i);
       await expect(flow).toHaveAttribute("data-column", "1");
       const bounds = await flow.evaluate(host => {
@@ -186,7 +186,7 @@ for (const width of [390, 768, 1024, 1440, 1920]) {
       await flow.screenshot({ path: `outputs/webgl/workflow-${locale}-${width}.png` });
       if (width === 1920 && locale === "ko") {
         await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
-        await page.screenshot({ path: "outputs/webgl/landing-polish-1920.png" });
+        await page.screenshot({ path: "outputs/webgl/landing-refined-1920.png" });
       }
       expect(errors).toEqual([]);
     });
