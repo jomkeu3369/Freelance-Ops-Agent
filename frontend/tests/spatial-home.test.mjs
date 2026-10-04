@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import ts from "typescript";
 import { translateUi } from "../features/home/ui-locale.mjs";
 import { englishUi } from "../features/home/ui-english.mjs";
-import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoScopes, demoSteps, initialDemoState } from "../features/home/product-demo.mjs";
+import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoScopes, demoSteps, demoView, initialDemoState } from "../features/home/product-demo.mjs";
 
 const componentFiles = ["product-experience.tsx", "reference-story.tsx", "home-header.tsx", "home-sections.tsx"];
 
@@ -88,21 +88,78 @@ test("repeated spatial autoplay keeps FO-024 in progress until proposal completi
   }
 });
 
-test("reduced-motion completion and manual previews remain coherent across scope changes", () => {
+test("reduced-motion view keeps its completed proposal on the first and repeated scope edits", async () => {
+  const component = await readFile(new URL("../features/home/components/product-experience.tsx", import.meta.url), "utf8");
+  assert.match(component, /const view = demoView\(state, reducedMotion\)/, "Exercise the same derivation used by the rendered workflow");
   let state = initialDemoState();
-  for (const scope of ["extended", "essential", "extended"]) {
+  assert.equal(demoView(state, true).selected, 4);
+  for (const scope of ["extended", "essential", "extended", "extended", "essential"]) {
     state = demoReducer(state, { type: "scope", scope });
-    state = demoReducer(state, { type: "select", step: 4 });
-    const final = demoProjectSnapshot(state, true);
+    const view = demoView(state, true);
+    const final = demoProjectSnapshot(view, true);
+    assert.equal(view.selected, 4, "Scope changes must not silently select the inquiry stage");
+    assert.equal(view.phase, "complete");
     assert.equal(final.id, "FO-024");
     assert.equal(final.column, 1);
+    assert.equal(final.status, "협상 중");
+    assert.equal(final.detail, demoEvents[4]);
     assert.equal(final.quote.total, scope === "extended" ? 3900000 : 3000000);
     assert.equal(final.quote.days, scope === "extended" ? 13 : 10);
+    assert.equal(state.manual, true, "Scope updates still enable the accessible result announcement");
+    assert.equal(state.manualStage, false);
+    assert.equal(state.paused, true);
     assert.equal(demoReducer(state, { type: "tick" }), state);
-    state = demoReducer(state, { type: "select", step: 0 });
-    assert.equal(demoProjectSnapshot(state, true).column, 0);
+    assert.equal(state.selected, 0, "The static view must not overwrite the autoplay cursor");
+    assert.equal(state.step, 0);
+    assert.equal(state.phase, "running");
     assert.deepEqual(state.history, []);
   }
+});
+
+test("explicit stage previews survive scope edits and live motion preference changes", () => {
+  for (let stage = 0; stage < demoSteps.length; stage++) {
+    let state = demoReducer(initialDemoState(), { type: "select", step: stage });
+    for (const scope of ["extended", "essential", "extended"]) {
+      state = demoReducer(state, { type: "scope", scope });
+      for (const reducedMotion of [true, false, true]) {
+        const view = demoView(state, reducedMotion);
+        assert.equal(view.selected, stage);
+        assert.equal(demoProjectSnapshot(view, reducedMotion).column, stage === 4 ? 1 : 0);
+        assert.equal(state.manualStage, true);
+        assert.deepEqual(state.history, []);
+      }
+    }
+  }
+  const next = demoReducer(initialDemoState(), { type: "next" });
+  assert.equal(demoView(next, true).selected, 1, "Next is also an explicit stage preview");
+});
+
+test("scope-only interaction preserves autoplay pause/resume and live reduced-motion projection", () => {
+  let state = demoReducer(initialDemoState(), { type: "tick" });
+  state = demoReducer(state, { type: "tick" });
+  state = demoReducer(state, { type: "scope", scope: "extended" });
+  for (const reducedMotion of [false, true, false, true]) {
+    const view = demoView(state, reducedMotion);
+    assert.equal(view.selected, reducedMotion ? 4 : 1);
+    assert.equal(view.phase, reducedMotion ? "complete" : "running");
+    assert.equal(state.paused, true);
+    assert.deepEqual(state.history, [0]);
+  }
+  state = demoReducer(state, { type: "select", step: 3 });
+  state = demoReducer(state, { type: "pause" });
+  assert.equal(state.paused, false);
+  assert.equal(state.manual, false);
+  assert.equal(state.manualStage, false);
+  assert.equal(demoView(state, false).selected, 1, "Resume returns to the original execution cursor");
+  assert.equal(demoView(state, true).selected, 4, "Resume clears an explicit preview for future motion preference changes");
+  state = demoReducer(state, { type: "tick" });
+  assert.deepEqual(state.history, [0, 1]);
+  state = demoReducer(state, { type: "select", step: 2 });
+  state = demoReducer(state, { type: "replay" });
+  assert.equal(state.manualStage, false);
+  assert.equal(state.scope, "extended");
+  assert.equal(demoView(state, true).selected, 4);
+  assert.equal(demoView(state, false).selected, 0);
 });
 
 const sourceFile = path => readFile(new URL(path, import.meta.url), "utf8");

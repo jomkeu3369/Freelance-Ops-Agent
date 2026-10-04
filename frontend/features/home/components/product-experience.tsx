@@ -4,7 +4,7 @@ import { ReferenceStory } from "./reference-story";
 import { HeroAtmosphere, MiddleAtmosphere, FooterAtmosphere } from "./scene-atmosphere";
 import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../ui-language";
-import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
+import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, demoView, initialDemoState } from "../product-demo.mjs";
 import { useInquiryTransfer } from "../use-inquiry-transfer";
 
 const stageIcons = [ChatCenteredText, TreeStructure, WarningCircle, GitBranch, FileText];
@@ -31,7 +31,7 @@ export function WorkflowSection() {
   const paused = state.paused || hovered || focused || reducedMotion || !visible || !pageVisible;
   const finished = state.step === 4 && state.phase === "complete";
   // Reduced motion opens a complete, readable sample. Manual stage selection still works.
-  const view = reducedMotion && !state.manual ? { ...state, selected: 4, phase: "complete" } : state;
+  const view = demoView(state, reducedMotion);
   const project = demoProjectSnapshot(view, reducedMotion);
   const quote = demoQuote(state.scope);
   useInquiryTransfer(sceneRef, project.column, motionReady && !reducedMotion && visible && pageVisible && (!paused || state.manual), motionReady);
