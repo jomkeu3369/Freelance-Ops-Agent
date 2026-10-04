@@ -7,12 +7,15 @@ import {
   Client,
   ProjectStatus,
   listProjects,
+  readProject,
   updateProject
 } from "../../../app/lib/api";
 import { useState, useRef, useSyncExternalStore, useCallback, useEffect, FormEvent } from "react";
 import { pipelineColumns, pipelineStatusLabels } from "../shared/constants";
-import { CaretDown, CircleNotch, MagnifyingGlass, Plus, Warning, FolderOpen } from "@phosphor-icons/react";
+import { CaretDown, CircleNotch, MagnifyingGlass, Plus, Warning, FolderOpen, DotsSixVertical } from "@phosphor-icons/react";
 import { projectClientLabel, formatMoney } from "../shared/formatters";
+import { usePipelineMoveState } from "./pipeline-move-store";
+import { usePipelineDrag } from "./use-pipeline-drag";
 import { EmptyWorkspace } from "../project/empty-workspace";
 
 export const subscribeToCompactWorkspace = (onChange: () => void) => {
@@ -54,7 +57,11 @@ interface PipelineBoardProps {
 
 export function PipelineBoard({ session, projects, clients, displayName, canWrite, onCreate, onSelect, onProjectUpdated, preferences, onPreferencesChange }: PipelineBoardProps) {
   const t = useT();
-  const [movingId, setMovingId] = useState<string | null>(null);
+  const stageMove = usePipelineMoveState(`${session.userId}:${session.workspaceId}`);
+  const pendingMove = stageMove.pending;
+  const movingId = pendingMove?.id ?? null;
+  const moveNotice = stageMove.notice;
+  const boardPage = useRef<HTMLElement>(null);
   const [error, setError] = useState<string | null>(null);
   const { search, activeColumn, preferredView, sort } = preferences;
   const setSearch = (search: string) => onPreferencesChange((current) => ({ ...current, search }));
@@ -83,7 +90,8 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
     () => false
   );
   const view = preferredView ?? (compact ? "list" : "board");
-  const activeProjects = projects.filter(
+  const displayedProjects = projects.map(project => pendingMove?.id === project.id ? { ...project, status: pendingMove.status } : project);
+  const activeProjects = displayedProjects.filter(
     (project) =>
       project.status !== "CANCELLED" &&
       (!searchResults || searchResults.some((result) => result.id === project.id))
@@ -150,32 +158,60 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
   };
 
   const move = async (project: Project, status: ProjectStatus) => {
-    if (!canWrite || movingId || project.status === status) return;
-    setMovingId(project.id);
+    const current = projects.find(item => item.id === project.id);
+    if (!canWrite || !current || current.status === status) return;
+    const operation = stageMove.begin(project.id, status);
+    if (!operation) return;
+    let moveError: string | null = null;
+    let notice: { title: string; status: string } | null = null;
+    const focusedSelect = document.activeElement instanceof HTMLSelectElement
+      && document.activeElement.closest("[data-project-id]")?.getAttribute("data-project-id") === project.id;
+    const restoreFocus = () => {
+      if (focusedSelect) requestAnimationFrame(() => {
+        if (document.activeElement === document.body) {
+          boardPage.current?.querySelector<HTMLSelectElement>(`[data-project-id="${CSS.escape(project.id)}"] select`)?.focus();
+        }
+      });
+    };
     setError(null);
-    try {
-      const updated = await updateProject(session, project, status);
+    restoreFocus();
+    const accept = (updated: Project) => {
       onProjectUpdated(updated);
-      setSearchResults(
-        (current) => current?.map((item) => (item.id === updated.id ? updated : item)) ?? null
-      );
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? `상태 변경이 저장되지 않았습니다. 서버 상태를 다시 확인해 주세요. ${cause.message}`
-          : "상태 변경이 저장되지 않았습니다."
-      );
+      setSearchResults(current => current?.map(item => item.id === updated.id ? updated : item) ?? null);
+    };
+    try {
+      const updated = await updateProject(session, current, status);
+      accept(updated);
+      notice = { title: updated.title, status: updated.status };
+    } catch {
+      // A lost response is ambiguous: never blindly retry a write or overwrite fresh server state.
+      try {
+        const latest = await readProject(session, project.id);
+        accept(latest);
+        if (latest.status === status) notice = { title: latest.title, status: latest.status };
+        else moveError = "상태 변경이 저장되지 않았습니다. 최신 상태를 불러왔습니다. 다시 시도해 주세요.";
+      } catch {
+        moveError = "상태 변경을 확인하지 못해 화면을 이전 상태로 되돌렸습니다. 새로고침 후 다시 시도해 주세요.";
+      }
     } finally {
-      setMovingId(null);
+      stageMove.finish(operation, moveError, notice);
+      restoreFocus();
     }
   };
+
+  const drag = usePipelineDrag({
+    projects: visibleProjects,
+    enabled: canWrite && view === "board" && movingId === null,
+    onMove: (project, status) => { void move(project, status); }
+  });
+
 
   if (projects.length === 0 && !search.trim() && searchResults === null && !searching) {
     return <EmptyWorkspace canCreate={canWrite} onCreate={onCreate} />;
   }
 
   return (
-    <section className="pipeline-page">
+    <section className="pipeline-page" ref={boardPage}>
       <div className="pipeline-hero">
         <div className="pipeline-heading">
           <div>
@@ -206,14 +242,14 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             type="button"
             aria-pressed={view === "board"}
             className={view === "board" ? "active" : ""}
-            onClick={() => setView("board")}
+            onClick={() => { drag.cancel(); setView("board"); }}
           >
             {t("한눈에 보기")}</button>
           <button
             type="button"
             aria-pressed={view === "list"}
             className={view === "list" ? "active" : ""}
-            onClick={() => setView("list")}
+            onClick={() => { drag.cancel(); setView("list"); }}
           >
             {t("목록 보기")}</button>
         </div>
@@ -244,10 +280,10 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
           )}
         </div>
       </div>
-      {error && (
+      {(error || stageMove.error) && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {t(error)}
+          {t(error || stageMove.error)}
         </div>
       )}
       <div className="pipeline-results">
@@ -269,6 +305,17 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             {t("검색·필터 초기화")}</button>
         )}
       </div>
+      <p className={movingId || moveNotice ? "pipeline-move-feedback" : "sr-only"} role="status" aria-live="polite" aria-atomic="true">
+        {movingId ? t("프로젝트 상태를 저장하고 있습니다.") : moveNotice
+          ? t("{v0} 상태를 {v1}(으)로 변경했습니다.", { v0: moveNotice.title, v1: t(pipelineStatusLabels[moveNotice.status]) })
+          : drag.draggingId ? t("다른 단계에 놓아 상태를 변경하세요. Esc 키로 취소할 수 있습니다.") : ""}
+      </p>
+      {view === "board" && canWrite && (
+        <p id="pipeline-drag-help" className="pipeline-drag-help">
+          <DotsSixVertical size={16} aria-hidden="true" />
+          {t("카드를 다른 단계로 끌어 놓거나 카드의 단계 메뉴로 변경하세요.")}
+        </p>
+      )}
       {view === "list" && (
         <label className="pipeline-mobile-stage">
           <span>{t("진행 단계")}</span>
@@ -330,7 +377,10 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             return (
               <section
                 key={column.key}
-                className={`pipeline-column stage-${column.key}`}
+                className={`pipeline-column stage-${column.key}${drag.targetKey === column.key ? " drop-target" : ""}`}
+                onDragOver={(event) => drag.over(event, column)}
+                onDragLeave={drag.leave}
+                onDrop={(event) => drag.drop(event, column)}
                 aria-label={t(column.title)}
               >
                 <header>
@@ -344,6 +394,11 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                   </div>
                 </header>
                 <div className="pipeline-cards">
+                  {drag.targetKey === column.key && (
+                    <div className="pipeline-drop-indicator" aria-hidden="true">
+                      {t("여기에 놓아 {v0}(으)로 변경", { v0: t(column.title) })}
+                    </div>
+                  )}
                   {columnProjects.length === 0 && (
                     <p className="column-empty">
                       {searchResults ? t("검색 결과가 없습니다") : t("현재 프로젝트가 없습니다")}
@@ -353,9 +408,17 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                     <article
                       data-project-id={project.id}
                       key={project.id}
-                      className={movingId === project.id ? "saving" : ""}
+                      className={`${movingId === project.id ? "saving" : ""}${drag.draggingId === project.id ? " dragging" : ""}`}
+                      draggable={canWrite && movingId === null}
+                      onDragStart={(event) => drag.start(event, project)}
+                      onDragEnd={drag.cancel}
+                      aria-busy={movingId === project.id}
                     >
-                      <button type="button" className="pipeline-card-open" onClick={() => onSelect(project)}>
+                      <button type="button" className="pipeline-card-open"
+                        aria-describedby={canWrite ? "pipeline-drag-help" : undefined}
+                        disabled={movingId === project.id}
+                        onClick={() => { if (drag.canOpen()) onSelect(project); }}>
+                        {canWrite && <DotsSixVertical className="pipeline-drag-grip" size={16} aria-hidden="true" />}
                         <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                         <h3>{project.title}</h3>
                         <span className="pipeline-deadline">
@@ -422,7 +485,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
               key={project.id}
               className={movingId === project.id ? "saving" : ""}
             >
-              <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)}>
+              <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)} disabled={movingId === project.id}>
                 <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                 <span className="pipeline-list-divider">·</span>
                 <span className="pipeline-status-text">

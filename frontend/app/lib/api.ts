@@ -755,6 +755,15 @@ export function createProject(
   ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); return project; });
 }
 
+// Bypass cached lists when a failed write may still have reached the server.
+export function readProject(session: AuthSession, projectId: string): Promise<Project> {
+  return request<Project>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}`,
+    { cache: "no-store" },
+    session.accessToken
+  ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return project; });
+}
+
 export function updateProject(session: AuthSession, project: Project, status: ProjectStatus): Promise<Project> {
   return request<Project>(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/status`,

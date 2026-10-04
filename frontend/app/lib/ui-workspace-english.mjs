@@ -1,4 +1,12 @@
 export const workspaceEnglish = {
+  "프로젝트 상태를 저장하고 있습니다.": "Saving the project stage.",
+  "{v0} 상태를 {v1}(으)로 변경했습니다.": "Changed {v0} to {v1}.",
+  "다른 단계에 놓아 상태를 변경하세요. Esc 키로 취소할 수 있습니다.": "Drop in another stage to change the status. Press Escape to cancel.",
+  "카드를 다른 단계로 끌어 놓거나 카드의 단계 메뉴로 변경하세요.": "Drag a card to another stage, or use its stage menu.",
+  "여기에 놓아 {v0}(으)로 변경": "Drop here to move to {v0}",
+  "상태 변경이 저장되지 않았습니다. 최신 상태를 불러왔습니다. 다시 시도해 주세요.": "The stage change was not saved. The latest status was restored. Please try again.",
+  "상태 변경을 확인하지 못해 화면을 이전 상태로 되돌렸습니다. 새로고침 후 다시 시도해 주세요.": "Could not confirm the stage change, so the previous status is shown. Refresh before trying again.",
+
   "로그인하지 못했습니다. 이메일과 비밀번호를 확인해 주세요.": "Could not log in. Check your email and password.",
   "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.": "Too many requests. Please try again later.",
   "지금은 인증 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.": "Authentication is temporarily unavailable. Please try again later.",

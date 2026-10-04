@@ -4,6 +4,7 @@ import { useT } from "../../app/lib/ui-language";
 import { ReactNode, useSyncExternalStore, useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { WorkspaceContext, WorkspaceScreens } from "./workspace-context";
+import { reconcileProject } from "./projects/reconcile-project";
 import { PipelinePreferences } from "./projects/pipeline-preferences";
 import { useTheme } from "next-themes";
 import {
@@ -617,8 +618,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         navigateWorkspace("project", project);
       },
       onProjectUpdated: (project) => {
-        setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
-        setSelectedProject((current) => (current?.id === project.id ? project : current));
+        setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
+        setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
       }
     },
     clients: {
@@ -656,8 +657,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           initialStep: projectStep,
           onStepChange: (step) => navigateWorkspace("project", selectedProject, step),
           onProjectUpdated: (project) => {
-            setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
-            setSelectedProject(project);
+            setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
+            setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
             resetRun();
           },
           onDelete: async () => {
