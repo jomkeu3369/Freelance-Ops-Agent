@@ -200,3 +200,7 @@
   .figma-workspace .chat-model-popover { position: fixed; top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 16px); scroll-padding-block: 52px 8px; }
   .chat-model-popover-heading { position: sticky; z-index: 1; top: 0; padding-bottom: 8px; background: var(--surface-solid); }
 }
+
+.figma-workspace .is-chat .agent-chat-credit-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-inline: 7px; color: var(--muted); font-size: .75rem; line-height: 1.5; }
+.figma-workspace .is-chat .agent-chat-credit-note .quiet-button { min-height: 28px; padding: 2px 4px; color: var(--accent); font-size: inherit; }
+.figma-workspace .is-chat .agent-chat-credit-note.insufficient { color: var(--ink); }

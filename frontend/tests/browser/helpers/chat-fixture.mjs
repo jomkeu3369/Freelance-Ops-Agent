@@ -16,7 +16,9 @@ export function requestBarrier() {
 }
 
 export async function fixture(page) {
-  const state = { starts: [], history: [], run: null, policy: { workspaceId: "local-space", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 }, proposal: null, confirms: 0, blocked: [], permissions: ["project.read", "agent.run", "agent.cancel", "agent.respond", "quotation.read", "quotation.write"], startFailures: 0, resumeFailures: 0, resumes: [], streamFailures: 0, streamRequests: 0, events: null };
+  const fixtureModels = [...new Set([process.env.NEXT_PUBLIC_DEFAULT_MODEL || "gpt-5.6-luna", ...(process.env.NEXT_PUBLIC_OPENAI_MODELS || "gpt-5.6-luna,gpt-5.6-terra").split(",").map(value => value.trim()).filter(Boolean)])];
+  const usage = { unit: "CREDITS", periodType: "WEEKLY", limit: 100, used: 0, reserved: 0, remaining: 100, resetAt: "2026-10-11T15:00:00Z", period: "2026-10-05", timezone: "Asia/Seoul", epoch: 1, canManage: false, modelRates: fixtureModels.map(model => ({ provider: "OPENAI", model, credits: model.includes("terra") ? 100 : 10, enabled: true })), pricingUpdatedAt: "2026-10-04T12:00:00.123456Z" };
+  const state = { usage, usageStatus: 200, starts: [], history: [], run: null, policy: { workspaceId: "local-space", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 }, proposal: null, confirms: 0, blocked: [], permissions: ["project.read", "agent.run", "agent.cancel", "agent.respond", "quotation.read", "quotation.write"], startFailures: 0, resumeFailures: 0, resumes: [], streamFailures: 0, streamRequests: 0, events: null };
   Object.assign(state, { projects: [{ ...project }], projectRuns: {}, projectHistory: {}, pastRuns: {}, connections: [], runReads: [], latestReads: [], startProjects: [], cancels: [], writes: [], nextLatestRead: null, nextRunRead: null, nextStart: null, nextCancel: null });
   await page.addInitScript(() => sessionStorage.setItem("freelance-ops-session-v1", JSON.stringify({
     userId: "local-user", workspaceId: "local-space", accessToken: "fixture-token", refreshToken: "fixture-token",
@@ -35,7 +37,7 @@ export async function fixture(page) {
     const method = req.method();
     const projectId = path.match(/\/projects\/([^/]+)/)?.[1];
     const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-    if (path === "/api/v2/usage/free" && method === "GET") return json({ used: 3, reserved: 0, remaining: 7, limit: 10, resetAt: "2026-11-01T00:00:00+09:00", canManage: false });
+    if (path === "/api/v2/usage/free" && method === "GET") return json(state.usage, state.usageStatus);
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
     if (method !== "GET") state.writes.push({ path, method });
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });

@@ -26,5 +26,5 @@ test("retired connections stay reviewable but cannot start calls or silently fal
   assert.match(workbench, /connection && isSupportedProvider\(connection\.provider\) && !connectionError/);
   assert.match(workbench, /isSupportedProvider\(run\.metadata\.provider\)[\s\S]*?: null/);
   assert.match(await read("../features/workspace/settings/ai-connection-settings.tsx"), /지원이 종료된 연결입니다/);
-  assert.match(await read("../features/workspace/project/quotation/use-quote-builder.ts"), /!modelSelection\?\.model\.trim\(\)/);
+  assert.doesNotMatch(await read("../features/workspace/project/quotation/use-quote-builder.ts"), /suggestQuotationAssumption/); // Standalone generation is disabled for every provider until budget integration.
 });

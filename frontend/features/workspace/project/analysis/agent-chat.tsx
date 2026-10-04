@@ -39,6 +39,9 @@ interface AgentChatProps {
   clarification: ReactNode;
   headerTools?: ReactNode;
   composerTools?: ReactNode;
+  composerInfo?: ReactNode | ((draft: string) => ReactNode);
+  retryMessages: string[];
+  canSendAI: boolean;
   onOpenAISettings: () => void;
   onOpenResult: (view: AgentRunView) => void;
   onSend: (message: string) => Promise<boolean>;
@@ -70,7 +73,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
+export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryMessages, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
   const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
@@ -96,6 +99,9 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const cancelLock = useRef(false);
   const [cancelling, setCancelling] = useState(false);
   const composing = useRef(false);
+  const policyDraft = useMemo(() => parseChatPolicyIntent(draft), [draft]);
+  const retryingDraft = retryMessages.includes(draft);
+  const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const key = draftKey(session, projectId);
   const pendingKey = proposalKey(session, projectId);
 
@@ -229,6 +235,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         updateDraft("");
       } else {
         if (!canRun) throw new Error(t("분석을 실행할 권한이 없습니다."));
+        if (!canSendAI && !retryingDraft) throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
         const accepted = await onSend(message);
         if (!mounted.current) return;
@@ -343,13 +350,14 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composing.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
+        {typeof composerInfo === "function" ? composerInfo(draft) : composerInfo}
         <div className="agent-chat-actions">
           {canRun && <fieldset className="agent-chat-tools" disabled={sending} aria-label={t("AI 설정")}>
             {composerTools}
             <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings} aria-label={t("AI 설정 열기")} title={t("AI 설정 열기")}><SlidersHorizontal size={17} aria-hidden="true" /><span className="agent-chat-settings-label">{t("AI 설정")}</span></button>
           </fieldset>}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
-          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : t("보내기")} disabled={!online || !draft.trim() || active || busy || sending || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : t("보내기")}</span></button>
+          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : t("보내기")} disabled={!online || !draft.trim() || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : t("보내기")}</span></button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}
       </form>
