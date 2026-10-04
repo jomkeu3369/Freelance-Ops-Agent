@@ -108,7 +108,7 @@ test("confirmed signup sends true once and busy state blocks repeated submission
   await expect(page.getByRole("checkbox")).toBeDisabled();
   await expect(page.locator('button[type="submit"]')).toBeDisabled();
   await page.locator("form").dispatchEvent("submit");
-  await expect(page.getByText("Local fixture response", { exact: true })).toBeVisible();
+  await expect(page.getByText("지금은 인증 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.", { exact: true })).toBeVisible();
   expect(auth.requests).toEqual([{ path: "/api/v2/auth/register", body: {
     email: "fixture@example.invalid", password: "local-fixture-only", displayName: "Local fixture", workspaceName: "Local fixture workspace", ageAtLeast14: true
   } }]);
@@ -121,7 +121,7 @@ test("switching modes resets age confirmation and existing login needs no attest
   await page.getByRole("tab", { name: "로그인", exact: true }).click();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await page.locator('button[type="submit"]').click();
-  await expect(page.getByText("Local fixture response", { exact: true })).toBeVisible();
+  await expect(page.getByText("지금은 인증 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.", { exact: true })).toBeVisible();
   expect(auth.requests).toEqual([{ path: "/api/v2/auth/login", body: { email: "fixture@example.invalid", password: "local-fixture-only" } }]);
   await page.getByRole("tab", { name: "처음 시작하기", exact: true }).click();
   await expect(page.getByRole("checkbox")).not.toBeChecked();

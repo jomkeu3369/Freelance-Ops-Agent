@@ -1,4 +1,8 @@
 export const workspaceEnglish = {
+  "로그인하지 못했습니다. 이메일과 비밀번호를 확인해 주세요.": "Could not log in. Check your email and password.",
+  "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.": "Too many requests. Please try again later.",
+  "지금은 인증 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해 주세요.": "Authentication is temporarily unavailable. Please try again later.",
+  "인증 요청을 완료하지 못했습니다. 입력 내용을 확인하고 다시 시도해 주세요.": "Could not complete authentication. Check your details and try again.",
   "만 14세 이상인가요?": "Are you at least 14 years old?",
   "(필수)": "(required)",
   "만 14세 이상만 가입하고 이용할 수 있습니다.": "You must be at least 14 years old to sign up and use this service.",

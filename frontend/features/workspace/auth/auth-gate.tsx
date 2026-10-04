@@ -9,6 +9,7 @@ import { PetArt } from "../pets/pet-art";
 import { petAdvisors } from "../pets/pet-state.mjs";
 
 import { EmailVerificationRequest } from "./email-verification-request";
+import { authErrorMessage } from "./auth-error.mjs";
 import "../../notices/notices.css";
 
 const subscribeToHydration = () => () => undefined;
@@ -99,7 +100,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
         setMode("login");
         setError("계정은 생성되었습니다. 업무 공간을 불러오지 못했습니다. 로그인으로 다시 시도해 주세요.");
       } else {
-        setError(cause instanceof Error ? cause.message : "인증 요청을 완료하지 못했습니다.");
+        setError(authErrorMessage(cause));
       }
     } finally {
       submitPending.current = false;
@@ -172,6 +173,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
           id={`auth-panel-${mode}`}
           role="tabpanel"
           aria-labelledby={`auth-tab-${mode}`}
+          aria-describedby={error ? "auth-form-error" : undefined}
           aria-busy={busy}
           onSubmit={submit}
         >
@@ -253,7 +255,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               </div>
             )}
             {error && (
-              <p className="form-error" role="alert">
+              <p id="auth-form-error" className="auth-form-error" role="alert" aria-atomic="true">
                 {t(error)}
               </p>
             )}

@@ -28,6 +28,19 @@ function contrast(foreground, background) {
   return (values[1] + .05) / (values[0] + .05);
 }
 
+test("auth failure is readable inline text without a decorated alert box in either theme", () => {
+  const inline = rules(".auth-page .auth-form-error")[0];
+  for (const property of ["padding", "border", "border-radius"]) assert.equal(declaration(inline, property), "0");
+  assert.equal(declaration(inline, "background"), "transparent");
+  assert.equal(declaration(inline, "box-shadow"), "none");
+  assert.equal(declaration(inline, "font-size"), "14px");
+  assert.equal(declaration(inline, "overflow-wrap"), "anywhere");
+  for (const [foreground, background] of [
+    [declaration(inline, "color"), "#ffffff"],
+    [declaration(rules('[data-theme="dark"] .auth-page .auth-form-error')[0], "color"), "#221e30"]
+  ]) assert.ok(contrast(foreground, background) >= 4.5);
+});
+
 test("auth placeholders preserve full-opacity normal-text contrast in both themes", () => {
   const placeholder = rules(".auth-page .auth-panel input::placeholder");
   assert.equal(placeholder.length, 1);
