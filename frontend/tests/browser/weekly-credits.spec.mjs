@@ -97,6 +97,7 @@ test("model price and remaining credits govern included AI, while deterministic 
   await expect(page.locator(".agent-chat-credit-note")).toContainText("100 크레딧 필요 · 70 크레딧 남음");
   await expect(send(page)).toBeDisabled();
   await page.locator("#agent-chat-input").fill("기본 세율 12%로 변경");
+  await expect(page.locator(".agent-chat-credit-note")).toContainText("AI 크레딧 차감 없음");
   await send(page).click(); await expect(page.locator(".agent-chat-policy")).toBeVisible();
   expect(state.confirms).toBe(0); expect(state.starts).toEqual([]);
 });

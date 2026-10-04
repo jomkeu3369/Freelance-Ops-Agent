@@ -52,4 +52,5 @@ export const creditEnglish = {
   "{remaining} 크레딧 남음": "{remaining} credits left",
   "별도 AI 생성은 예산 연결 전 사용할 수 없습니다. 외형과 성향은 직접 편집하고 저장할 수 있습니다.": "Standalone AI generation is unavailable until its budget is connected. You can still edit and save appearance and preferences manually.",
   "별도 AI 가정 생성은 예산 연결 전 사용할 수 없습니다. 가정은 직접 입력하고 수정할 수 있습니다.": "Standalone AI assumption generation is unavailable until its budget is connected. You can still write and edit assumptions manually.",
+  "견적 기본 설정 변경안 · AI 크레딧 차감 없음 · 확인 후 적용": "Estimate settings proposal · no AI credits · applied only after confirmation",
 };

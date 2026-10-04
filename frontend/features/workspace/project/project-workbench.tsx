@@ -35,6 +35,7 @@ import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
 import type { PendingRunRetry } from "../../../app/lib/pending-run-store";
+import { parseChatPolicyIntent } from "../../../app/lib/chat-policy-intent.mjs";
 import { creditDecision, isWeeklyCreditUsage } from "../../../app/lib/credit-policy";
 import { useCreditUsage } from "../usage/use-credit-usage";
 import { CreditCostNote } from "../usage/credit-cost-note";
@@ -376,7 +377,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canSendAI={canSendAI}
           retryMessages={retryCandidates.map(item => item.message)}
           usageState={usage}
-          composerInfo={(draft) => <CreditCostNote active={runInProgress} decision={credit} retry={retryCandidates.find(item => item.message === draft)} loading={usage.loading && credit.kind !== "byok"} onRetry={() => void usage.refresh()} />}
+          composerInfo={(draft) => <CreditCostNote policy={!!parseChatPolicyIntent(draft)} active={runInProgress} decision={credit} retry={retryCandidates.find(item => item.message === draft)} loading={usage.loading && credit.kind !== "byok"} onRetry={() => void usage.refresh()} />}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}
           onSendMessage={sendMessage}
