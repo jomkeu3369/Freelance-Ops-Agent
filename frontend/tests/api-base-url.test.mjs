@@ -206,3 +206,39 @@ test("notices admin sends optimistic revision and immutable content/audience app
   assert.deepEqual(await requests[4].json(), {});
   for (const request of requests) assert.equal(request.headers.get("Authorization"), "Bearer old-token");
 });
+
+test("START sends the exact server quote at top level and excludes it for explicit BYOK", async () => {
+  const session = browserSession(); const bodies = [];
+  globalThis.fetch = async (_url, init) => { bodies.push(JSON.parse(init.body)); return Response.json({runId: "synthetic"}, {status: 202}); };
+  const quote = {credits: 10, pricingUpdatedAt: "2026-10-04T12:00:00.123456Z"};
+  const project = {id: "project", requirementText: "exact message"};
+  await api.startAgentRun(session, project, {provider: "OPENAI", model: "luna", reasoningEffort: "LOW"}, undefined, "quote-test-key", quote);
+  await api.startAgentRun(session, project, {provider: "OPENAI", model: "personal", reasoningEffort: "LOW", credentialId: "own-key-id"}, undefined, "byok-test-key", quote);
+  assert.deepEqual(bodies[0].creditQuote, quote);
+  assert.equal(bodies[0].modelSelection.creditQuote, undefined);
+  assert.equal(bodies[1].creditQuote, undefined);
+});
+
+test("model price mutations preserve exact administrator concurrency versions", async () => {
+  const session = browserSession(); const requests = [];
+  const settings = {epoch: 7, updatedAt: "2026-10-04T12:00:00.987654Z"};
+  globalThis.fetch = async (url, init) => { requests.push({url, body: JSON.parse(init.body)}); return Response.json(settings); };
+  const rate = {provider: "OPENAI", model: "luna", credits: 20, enabled: false};
+  await api.updateFreeModelRate(session, settings, rate);
+  assert.equal(requests[0].url.endsWith("/api/v2/admin/free-usage/models"), true);
+  assert.deepEqual(requests[0].body, {...rate, expectedEpoch: 7, expectedUpdatedAt: settings.updatedAt});
+});
+
+test("quote and operating-spend failures are separate from user credit exhaustion", () => {
+  for (const code of ["CREDIT_QUOTE_REQUIRED", "CREDIT_QUOTE_STALE", "PLATFORM_MODEL_UNAVAILABLE"]) {
+    const error = new api.ApiError("synthetic", 409, code);
+    assert.equal(api.isCreditQuoteRefreshRequired(error), true);
+    assert.equal(api.isFreeUsageExhausted(error), false);
+  }
+  for (const code of ["PLATFORM_SPEND_EXHAUSTED", "PLATFORM_SPEND_DISABLED"]) {
+    const error = new api.ApiError("synthetic", 429, code);
+    assert.equal(api.isPlatformSpendUnavailable(error), true);
+    assert.equal(api.isFreeUsageExhausted(error), false);
+    assert.equal(api.isCreditQuoteRefreshRequired(error), false);
+  }
+});

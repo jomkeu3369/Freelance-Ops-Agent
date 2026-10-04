@@ -491,7 +491,21 @@ export function subscribeToFreeUsageExhausted(listener: (error: ApiError) => voi
   return () => window.removeEventListener(FREE_USAGE_EVENT, handler);
 }
 
+export interface CreditModelRate { provider: string; model: string; credits: number; enabled: boolean; }
+export interface CreditQuote { credits: number; pricingUpdatedAt: string; }
+export function isCreditQuoteRefreshRequired(error: unknown): error is ApiError {
+  return error instanceof ApiError && ["CREDIT_QUOTE_REQUIRED", "CREDIT_QUOTE_STALE", "PLATFORM_MODEL_UNAVAILABLE"].includes(error.code ?? "");
+}
+
+export function isPlatformSpendUnavailable(error: unknown): error is ApiError {
+  return error instanceof ApiError && ["PLATFORM_SPEND_EXHAUSTED", "PLATFORM_SPEND_DISABLED"].includes(error.code ?? "");
+}
+
 export interface FreeUsage {
+  unit?: "CREDITS";
+  periodType?: "WEEKLY";
+  modelRates?: CreditModelRate[];
+  pricingUpdatedAt?: string;
   limit: number;
   used: number;
   reserved: number;
@@ -504,6 +518,9 @@ export interface FreeUsage {
 }
 
 export interface FreeUsageSettings {
+  unit?: "CREDITS";
+  periodType?: "WEEKLY";
+  modelRates?: CreditModelRate[];
   limit: number;
   maxLimit: number;
   epoch: number;
@@ -522,6 +539,12 @@ export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSet
 export function updateFreeUsageLimit(session: AuthSession, settings: FreeUsageSettings, limit: number): Promise<FreeUsageSettings> {
   return request("/api/v2/admin/free-usage", {
     method: "PATCH", body: JSON.stringify({ limit, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
+export function updateFreeModelRate(session: AuthSession, settings: FreeUsageSettings, rate: CreditModelRate): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage/models", {
+    method: "PATCH", body: JSON.stringify({ ...rate, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
   }, session.accessToken);
 }
 
@@ -1058,6 +1081,7 @@ export function startAgentRun(
   input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
   message?: string,
   idempotencyKey: string = crypto.randomUUID(),
+  creditQuote?: CreditQuote,
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
@@ -1070,6 +1094,7 @@ export function startAgentRun(
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
+        ...(!input.credentialId && creditQuote ? { creditQuote } : {}),
         budget: {
           maxDurationSeconds: 180,
           maxModelCalls: 50,

@@ -1,6 +1,9 @@
 import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
+  CreditQuote,
+  isCreditQuoteRefreshRequired,
+  isPlatformSpendUnavailable,
   Project,
   Client,
   AgentRunView,
@@ -31,6 +34,11 @@ import {
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
+import type { PendingRunRetry } from "../../../app/lib/pending-run-store";
+import { parseChatPolicyIntent } from "../../../app/lib/chat-policy-intent.mjs";
+import { creditDecision, isWeeklyCreditUsage } from "../../../app/lib/credit-policy";
+import { useCreditUsage } from "../usage/use-credit-usage";
+import { CreditCostNote } from "../usage/credit-cost-note";
 import { ChatModelControls } from "./analysis/chat-model-controls";
 import { ChatModelMenu } from "./analysis/chat-model-menu";
 import { AnalysisStep } from "./analysis/analysis-step";
@@ -81,13 +89,14 @@ interface ProjectWorkbenchProps {
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string, credentialId?: string, message?: string) => Promise<boolean>;
+  onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote) => Promise<boolean>;
+  pendingRetries: PendingRunRetry[];
   onResetRun: () => void;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
 }
 
-export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, pendingRetries, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
   const t = useT();
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [connections, setConnections] = useState<AIConnection[]>([]);
@@ -106,11 +115,35 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const canRun = permissions.has("agent.run");
+  const usage = useCreditUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
+  const weeklyUsage = isWeeklyCreditUsage(usage.data) ? usage.data : null;
   const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
   const chatModel = credentialId
     ? connection && isSupportedProvider(connection.provider) && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
     : model.trim() ? { provider, model: model.trim(), credentialId: undefined } : null;
+
+  const credit = creditDecision(usage.loading ? null : usage.data, chatModel?.provider ?? provider, chatModel?.model ?? model, chatModel?.credentialId);
+  const retryCandidates = pendingRetries.filter(item => !!chatModel && item.provider === chatModel.provider && item.model === chatModel.model && (item.credentialId ?? "") === (chatModel.credentialId ?? ""));
+  const canSendAI = !!chatModel && (credit.kind === "byok" || credit.kind === "ready");
+
+  async function sendMessage(message: string) {
+    if (!chatModel) return false;
+    const retry = retryCandidates.find(item => item.message === message);
+    if (!retry && credit.kind !== "ready" && credit.kind !== "byok") throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
+    try {
+      return await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry ? retry.creditQuote : credit.kind === "ready" ? credit.quote : undefined);
+    } catch (cause) {
+      if (isCreditQuoteRefreshRequired(cause)) {
+        await usage.refresh();
+        throw new Error(cause.code === "PLATFORM_MODEL_UNAVAILABLE"
+          ? t("이 모델은 기본 제공 AI에서 사용할 수 없습니다. 다른 모델이나 개인 API 키를 선택해 주세요.")
+          : t("크레딧 가격을 다시 확인했습니다. 새 차감량을 검토하고 직접 다시 보내 주세요."));
+      }
+      if (isPlatformSpendUnavailable(cause)) throw new Error(t("기본 제공 AI의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다."));
+      throw cause;
+    }
+  }
 
   useEffect(() => {
     if (!canRun) return;
@@ -192,7 +225,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const selectedUsesPersonalKey = runInProgress ? !!run?.metadata?.credentialId : !!credentialId && !!chatModel;
   const selectedModelLabel = `${selectedUsesPersonalKey ? `${t("내 키 ·")} ` : ""}${selectedModelName}`;
   const modelControls = !selectionLocked ? <ChatModelControls
-    connections={connections} credentialId={credentialId} provider={provider} model={model}
+    modelRates={weeklyUsage?.modelRates ?? null} connections={connections} credentialId={credentialId} provider={provider} model={model}
     busy={busy} connectionError={connectionError} onCredentialChange={setCredentialId}
     onProviderChange={value => { setProvider(value); setModel(configuredModelOptions[value][0] ?? ""); }} onModelChange={setModel} />
     : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>;
@@ -348,9 +381,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canRun={canRun}
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
+          canSendAI={canSendAI}
+          retryMessages={retryCandidates.map(item => item.message)}
+          usageState={usage}
+          composerInfo={(draft) => <CreditCostNote policy={!!parseChatPolicyIntent(draft)} active={runInProgress} decision={credit} retry={retryCandidates.find(item => item.message === draft)} loading={usage.loading && credit.kind !== "byok"} onRetry={() => void usage.refresh()} />}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}
-          onSendMessage={(message) => chatModel ? onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message) : Promise.resolve(false)}
+          onSendMessage={sendMessage}
           costUsage={costUsage}
           onCancel={onCancel}
           onResume={onResume}

@@ -1,4 +1,4 @@
-import { AgentQuotationDraft, ApiError, AuthSession, Project, ProposalShare, Provider, Quotation, QuotationItemInput, QuotationScenario, RateCard, createProposalShare, createQuotation, listQuotations, listRateCards, publishQuotation, reloadQuotations, reviseQuotation, revokeProposalShare, suggestQuotationAssumption } from "@/app/lib/api";
+import { AgentQuotationDraft, ApiError, AuthSession, Project, ProposalShare, Provider, Quotation, QuotationItemInput, QuotationScenario, RateCard, createProposalShare, createQuotation, listQuotations, listRateCards, publishQuotation, reloadQuotations, reviseQuotation, revokeProposalShare } from "@/app/lib/api";
 import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "@/app/lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates } from "@/app/lib/rate-card-match.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -37,7 +37,6 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const [shareCopyState, setShareCopyState] = useState<"copied" | "manual" | null>(null);
   const [conflictLatest, setConflictLatest] = useState<Quotation | null>(null);
   const [busy, setBusy] = useState(false);
-  const [assumptionBusyIndex, setAssumptionBusyIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<QuoteDraftStatus | null>(null);
   const [draftBaseline, setDraftBaseline] = useState<string | null>(null);
@@ -194,39 +193,6 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
 
   const updateItem = (index: number, update: (item: QuotationItemInput) => QuotationItemInput) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
-  };
-
-  const suggestAssumption = async (index: number) => {
-    const item = items[index];
-    if (!item || !item.title.trim() || !modelSelection?.model.trim()) return;
-    setAssumptionBusyIndex(index);
-    setError(null);
-    try {
-      const suggestion = await suggestQuotationAssumption(session, project.id, {
-        itemTitle: item.title.trim(),
-        itemDescription: item.description.trim(),
-        quantity: item.quantity,
-        unit: item.unit,
-        currentAssumption: item.basis.type === "ASSUMPTION" ? item.basis.content : "",
-        modelSelection: { ...modelSelection, reasoningEffort: "LOW" }
-      });
-      updateItem(index, (current) => ({
-        ...current,
-        basis: {
-          type: "ASSUMPTION",
-          content: suggestion.content,
-          sourceType: null,
-          sourceReference: null,
-          sourceTitle: null,
-          retrievedAt: null
-        }
-      }));
-      setSelectedBasisIndex(index);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "AI 가정 제안을 불러오지 못했습니다.");
-    } finally {
-      setAssumptionBusyIndex(null);
-    }
   };
 
   const clearStoredDraft = () => {
@@ -468,10 +434,8 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setSelectedBasisIndex,
     updateItem,
     setItems,
-    assumptionBusyIndex,
     modelSelection,
     petProfiles,
-    suggestAssumption,
     estimatedSubtotal,
     setTaxRate,
     validUntil,

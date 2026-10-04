@@ -28,3 +28,7 @@
 [data-theme="dark"] .free-usage-admin { color: #e5eaf3; }
 [data-theme="dark"] .free-usage-admin input, [data-theme="dark"] .free-usage-admin button.secondary-button, [data-theme="dark"] .free-usage-dialog button.secondary-button { background: #222d3d; color: #e5eaf3; }
 @media (max-width: 480px) { .free-usage-dialog { padding: 22px 18px; } .free-usage-admin { padding: 20px 16px; } .free-usage-admin-card { padding: 20px 16px; } .free-usage-actions > button { flex: 1 1 auto; } }
+.admin-model-rate { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; }
+.admin-model-rate > strong { overflow-wrap: anywhere; }
+.free-usage-admin .admin-model-rate .free-usage-checkbox { display: flex; align-items: center; margin: 0; }
+.free-usage-admin .admin-model-rate .free-usage-checkbox input { width: 18px; }

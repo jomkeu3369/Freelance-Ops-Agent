@@ -45,10 +45,12 @@ test("small-screen navigation is a named modal, with an accessible icon-only bra
 
 test("unknown usage stays an explicit check state and details are opened by the user", async () => {
   const usage = await read("../features/workspace/usage/free-usage-status.tsx");
-  assert.match(usage, /setData\(null\); setFailed\(true\)/);
-  assert.match(usage, /failed \? t\("사용량 확인 필요"\)/);
+  const hook = await read("../features/workspace/usage/use-credit-usage.ts");
+  assert.match(hook, /setData\(null\); setFailed\(true\)/);
+  assert.match(usage, /isWeeklyCreditUsage\(data\)/);
+  assert.match(usage, /t\("사용량 확인 필요"\)/);
   assert.match(usage, /showDetails && <WorkspacePanel/);
-  assert.match(usage, /onClick=\{\(\) => setRetry/);
+  assert.match(usage, /onClick=\{\(\) => void refresh/);
 });
 
 

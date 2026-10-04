@@ -75,7 +75,7 @@ test("results, settings and usage open only on demand and return focus without c
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const input = page.locator("#agent-chat-input");
   await input.fill("Keep this draft while reviewing");
-  for (const name of ["결과 열기", "AI 설정 열기", "월간 무료 분석"]) {
+  for (const name of ["결과 열기", "AI 설정 열기", "주간 크레딧"]) {
     const trigger = page.getByRole("button", { name, exact: true });
     await trigger.focus();
     await trigger.press("Enter");
@@ -163,18 +163,18 @@ test("an async quota notice owns focus above an open usage panel", async ({ page
   await page.route("**/agent-runs", async route => {
     if (route.request().method() !== "POST") return route.fallback();
     await barrier.wait();
-    return route.fulfill({ status: 429, json: { code: "FREE_USAGE_EXHAUSTED", message: "Synthetic quota boundary", limit: 5, used: 5, reserved: 0, remaining: 0, resetAt: "2026-10-31T15:00:00Z", period: "2026-10", timezone: "Asia/Seoul", epoch: 1 } });
+    return route.fulfill({ status: 429, json: { code: "FREE_USAGE_EXHAUSTED", unit: "CREDITS", requiredCredits: 10, message: "Synthetic quota boundary", limit: 5, used: 5, reserved: 0, remaining: 0, resetAt: "2026-10-31T15:00:00Z", period: "2026-10", timezone: "Asia/Seoul", epoch: 1 } });
   });
   try {
     await page.goto(path);
     await page.locator("#agent-chat-input").fill("Preserve this request");
     await page.locator('.agent-chat-composer button[type="submit"]').click();
     await barrier.entered;
-    await page.getByRole("button", { name: "월간 무료 분석", exact: true }).click();
-    const usage = page.getByRole("dialog", { name: "월간 무료 분석", exact: true });
+    await page.getByRole("button", { name: "주간 크레딧", exact: true }).click();
+    const usage = page.getByRole("dialog", { name: "주간 크레딧", exact: true });
     await expect(usage).toBeVisible();
     barrier.release();
-    const quota = page.getByRole("dialog", { name: "더 이용하려면 API를 등록하세요!" });
+    const quota = page.getByRole("dialog", { name: "기본 AI 크레딧이 부족합니다" });
     await expect(quota).toBeVisible();
     await expect(quota.getByRole("button", { name: "닫기", exact: true })).toBeFocused();
     await page.keyboard.press("Shift+Tab");

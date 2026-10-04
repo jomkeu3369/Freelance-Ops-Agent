@@ -9,6 +9,9 @@ import { PipelinePreferences } from "./projects/pipeline-preferences";
 import { useTheme } from "next-themes";
 import {
   AuthSession,
+  CreditQuote,
+  isCreditQuoteRefreshRequired,
+  isPlatformSpendUnavailable,
   ApiError,
   isFreeUsageExhausted,
   subscribeToFreeUsageExhausted,
@@ -36,6 +39,7 @@ import {
   resumeAgentRun,
   createProject
 } from "../../app/lib/api";
+import { PendingRunStore, PendingRunRetry } from "../../app/lib/pending-run-store";
 import { FreeUsageDialog } from "./usage/free-usage-dialog";
 import { freeUsageReturnPath } from "../../app/lib/free-usage.mjs";
 import "./usage/free-usage.css";
@@ -103,7 +107,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const runOperation = useRef(0);
-  const pendingStart = useRef<{ signature: string; key: string } | null>(null);
+  const pendingStart = useRef(new PendingRunStore());
+  const [pendingRetries, setPendingRetries] = useState<PendingRunRetry[]>([]);
   const [quotaError, setQuotaError] = useState<ApiError | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
@@ -322,6 +327,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         runOperation.current += 1;
         setBusy(false);
         setSession(null);
+        pendingStart.current.clear(); setPendingRetries([]);
         setIntakeDrafts({});
         setShowNewProject(false);
         setProjects([]);
@@ -494,7 +500,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       runOperation.current += 1;
       setBusy(false);
       setSession(null);
-      pendingStart.current = null;
+      pendingStart.current.clear();
+      setPendingRetries([]);
       setQuotaError(null);
       setIntakeDrafts({});
       setShowNewProject(false);
@@ -510,13 +517,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string): Promise<boolean> => {
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote): Promise<boolean> => {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
     const projectId = selectedProject.id;
-    const signature = JSON.stringify([session.userId, session.workspaceId, projectId, provider, model, credentialId ?? null, message ?? selectedProject.requirementText]);
-    if (pendingStart.current?.signature !== signature) pendingStart.current = { signature, key: crypto.randomUUID() };
-    const idempotencyKey = pendingStart.current.key;
+    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote });
+    const idempotencyKey = pending.id;
     setBusy(true);
     setError(null);
     try {
@@ -525,8 +531,9 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         provider,
         model,
         reasoningEffort: "LOW"
-      }, message, idempotencyKey);
-      if (pendingStart.current?.key === idempotencyKey) pendingStart.current = null;
+      }, pending.message, idempotencyKey, pending.creditQuote);
+      pendingStart.current.settle(idempotencyKey, "accepted");
+      setPendingRetries(pendingStart.current.retries());
       if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;
       setEvents([]);
       setRun(null);
@@ -534,7 +541,10 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       return true;
     } catch (cause) {
       // An ambiguous network/server failure may have created the run; an explicit retry reuses its key.
-      if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && pendingStart.current?.key === idempotencyKey) pendingStart.current = null;
+      const explicitRejection = cause instanceof ApiError && cause.status >= 400 && cause.status < 500 || isPlatformSpendUnavailable(cause);
+      pendingStart.current.settle(idempotencyKey, explicitRejection ? "rejected" : "uncertain");
+      setPendingRetries(pendingStart.current.retries());
+      if (isCreditQuoteRefreshRequired(cause) || isPlatformSpendUnavailable(cause)) throw cause;
       if (operation === runOperation.current && !isFreeUsageExhausted(cause)) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
       return false;
     } finally {
@@ -681,6 +691,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             navigateWorkspace("pipeline", null, "intake", true);
           },
           onRun: beginRun,
+          pendingRetries: pendingRetries.filter(item => item.userId === session.userId && item.workspaceId === session.workspaceId && item.projectId === selectedProject.id),
           onResetRun: resetRun,
           onCancel: async () => {
             if (!runId) return;

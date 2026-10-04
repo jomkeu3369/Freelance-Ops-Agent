@@ -4,7 +4,6 @@ import {
 } from "@/app/lib/api";
 import {
   CaretDown,
-  CircleNotch,
   Waveform
 } from "@phosphor-icons/react";
 import { formatMoney, toDateTimeLocal } from "../../shared/formatters";
@@ -15,7 +14,7 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 // 단가와 산정 근거를 하나의 작업 항목에 적용합니다.
 export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderModel; item: QuotationItemInput; index: number }) {
   const t = useT();
-  const { rateCards, canWrite, updateItem, project, assumptionBusyIndex, modelSelection, suggestAssumption } = model;
+  const { rateCards, canWrite, updateItem, project } = model;
 
   const selectRateCard = (rateCardId: string) => {
     const card = rateCards.find((candidate) => candidate.id === rateCardId);
@@ -99,21 +98,15 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
             <button
               type="button"
               className="ai-assumption-button"
-              disabled={
-                assumptionBusyIndex !== null || !item.title.trim() || !modelSelection?.model.trim()
-              }
-              title={!modelSelection ? t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.") : undefined}
-              onClick={() => void suggestAssumption(index)}
+              disabled
+              aria-describedby={`quotation-assumption-unavailable-${index}`}
             >
-              {assumptionBusyIndex === index ? (
-                <CircleNotch className="spin" size={15} />
-              ) : (
-                <Waveform size={15} />
-              )}{" "}
+              <Waveform size={15} aria-hidden="true" />{" "}
               {item.basis.content.trim() ? t("AI로 다듬기") : t("AI로 제안받기")}
             </button>
           )}
         </div>
+        {canWrite && item.basis.type === "ASSUMPTION" && <small id={`quotation-assumption-unavailable-${index}`}>{t("별도 AI 가정 생성은 예산 연결 전 사용할 수 없습니다. 가정은 직접 입력하고 수정할 수 있습니다.")}</small>}
         <textarea
           id={`quotation-basis-${index}`}
           rows={3}

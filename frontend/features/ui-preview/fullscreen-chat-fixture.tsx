@@ -4,11 +4,13 @@ import { useRef, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { LocaleProvider, useT, useUiLocale } from "../../app/lib/ui-language";
 import type { Project } from "../../app/lib/api";
+import { parseChatPolicyIntent } from "../../app/lib/chat-policy-intent.mjs";
 import { chatState } from "../../app/lib/chat-presentation.mjs";
 import { AgentChatSurface, type AgentChatSurfaceProps } from "../workspace/project/analysis/agent-chat";
 import { ChatModelMenu } from "../workspace/project/analysis/chat-model-menu";
 import { ChatModelControls } from "../workspace/project/analysis/chat-model-controls";
-import { configuredModelOptions } from "../workspace/shared/constants";
+import { creditDecision, type WeeklyCreditUsage } from "../../app/lib/credit-policy";
+import { CreditCostNote } from "../workspace/usage/credit-cost-note";
 import { ProjectStepNavigation } from "../workspace/project/project-workbench";
 import { WorkspaceChrome } from "../workspace/workspace-chrome";
 import { WorkspacePanel } from "../workspace/shared/workspace-panel";
@@ -23,6 +25,13 @@ const projects: Project[] = [
   { id: "sample-booking", workspaceId: "ui-story", clientId: null, title: "예약 서비스 리뉴얼", requirementText: "Synthetic layout example", currency: "KRW", deadline: null, budgetMin: null, budgetMax: null, status: "NEGOTIATING", updatedAt: "2026-10-03T00:00:00Z" },
   { id: "sample-portfolio", workspaceId: "ui-story", clientId: null, title: "포트폴리오 디자인", requirementText: "Synthetic layout example", currency: "KRW", deadline: null, budgetMin: null, budgetMax: null, status: "IN_PROGRESS", updatedAt: "2026-10-02T00:00:00Z" },
 ];
+// Explicit synthetic pricing for this isolated story; never a fallback in the app.
+const sampleUsage: WeeklyCreditUsage = {
+  unit: "CREDITS", periodType: "WEEKLY", limit: 100, used: 0, reserved: 0, remaining: 100,
+  resetAt: "2026-10-11T15:00:00Z", period: "2026-10-05", timezone: "Asia/Seoul", epoch: 1,
+  canManage: false, pricingUpdatedAt: "2026-10-04T12:00:00.123456Z",
+  modelRates: [{ provider: "OPENAI", model: "gpt-5.6-luna", credits: 10, enabled: true }, { provider: "OPENAI", model: "gpt-5.6-terra", credits: 100, enabled: true }],
+};
 const permissions = new Set(["project.read", "project.write", "client.read", "document.read"]);
 const noop = () => {};
 const asyncNoop = async () => {};
@@ -46,7 +55,7 @@ function FixtureSurface() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selected, setSelected] = useState(projects[0].id);
   const [draft, setDraft] = useState("");
-  const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
+  const [model, setModel] = useState(sampleUsage.modelRates[0].model);
   const [notice, setNotice] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const compact = useSyncExternalStore(subscribeCompact, () => window.matchMedia("(max-width: 820px)").matches, () => false);
@@ -58,10 +67,12 @@ function FixtureSurface() {
   const label = locale === "en" ? "UI preview · sample data · no API connection" : "화면 미리보기 · 샘플 데이터 · API 연결 없음";
   const explanation = locale === "en" ? "This screen renders the actual workspace components with fixed sample data. It does not sign in, call an AI, or save changes." : "실제 업무 화면 컴포넌트를 고정된 샘플 데이터로 보여줍니다. 로그인하거나 AI를 호출하거나 변경사항을 저장하지 않습니다.";
   const showPreviewNotice = () => setPanel(locale === "en" ? "UI preview" : "화면 미리보기");
-  const modelControls = <ChatModelControls connections={[]} credentialId="" provider="OPENAI" model={model}
-    busy={false} connectionError={false} onCredentialChange={noop} onProviderChange={() => setModel(configuredModelOptions.OPENAI[0] ?? "")} onModelChange={setModel} />;
+  const decision = creditDecision(sampleUsage, "OPENAI", model);
+  const modelControls = <ChatModelControls modelRates={sampleUsage.modelRates} connections={[]} credentialId="" provider="OPENAI" model={model}
+    busy={false} connectionError={false} onCredentialChange={noop} onProviderChange={() => setModel(sampleUsage.modelRates[0].model)} onModelChange={setModel} />;
   const surface: AgentChatSurfaceProps = {
     t, presentation: chatState(null), headerTools: <span data-ui-fixture-label style={{ color: "var(--muted)", fontSize: ".6875rem", lineHeight: 1.5 }}>{label}</span>,
+    composerInfo: <CreditCostNote policy={!!parseChatPolicyIntent(draft)} decision={decision} loading={false} onRetry={noop} />, maySendDraft: decision.kind === "ready",
     composerTools: <ChatModelMenu label={model || t("AI 모델 선택")} locked={false} contextKey={selected}>{modelControls}</ChatModelMenu>,
     viewport, content, input, followsLatest, setUnread: noop,
     loading: false, error: null, setHistoryRevision: noop, timeline: [], draft,
