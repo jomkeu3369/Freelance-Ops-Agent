@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
       - "main"
     paths:
       - "frontend/**"
+      - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 

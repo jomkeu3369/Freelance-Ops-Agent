@@ -31,7 +31,7 @@ export const creditEnglish = {
   "주간 크레딧과 모델 가격을 확인하지 못했습니다.": "Weekly credits and model prices could not be verified.",
   "이 모델은 기본 제공 AI에서 사용할 수 없습니다. 다른 모델이나 개인 API 키를 선택해 주세요.": "This model is unavailable for included AI. Choose another model or a personal API key.",
   "크레딧 가격을 다시 확인했습니다. 새 차감량을 검토하고 직접 다시 보내 주세요.": "Credit prices were refreshed. Review the new amount and send again yourself.",
-  "기본 제공 AI의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다.": "The included AI operating guard blocked this request. This is separate from your credit balance. It will not be resent automatically.",
+  "AI 분석의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다.": "The AI analysis operating guard blocked this request. This is separate from your credit balance. It will not be resent automatically.",
   "접수 여부가 불확실한 이전 요청을 확인합니다. 원래 확인한 {credits} 크레딧과 요청 내용을 그대로 사용합니다.": "Checking the previous request after an uncertain response. Its original {credits}-credit quote and exact request are retained.",
   "접수 여부가 불확실한 이전 요청을 같은 내용으로 확인합니다. 개인 API 키 설정은 그대로 유지됩니다.": "Checking the previous request after an uncertain response. Its exact request and personal API key selection are retained.",
   "개인 API 키 사용 · 제공사 계정에 사용 요금이 청구됩니다.": "Personal API key · usage is billed to your provider account.",
@@ -53,4 +53,6 @@ export const creditEnglish = {
   "별도 AI 생성은 예산 연결 전 사용할 수 없습니다. 외형과 성향은 직접 편집하고 저장할 수 있습니다.": "Standalone AI generation is unavailable until its budget is connected. You can still edit and save appearance and preferences manually.",
   "별도 AI 가정 생성은 예산 연결 전 사용할 수 없습니다. 가정은 직접 입력하고 수정할 수 있습니다.": "Standalone AI assumption generation is unavailable until its budget is connected. You can still write and edit assumptions manually.",
   "견적 기본 설정 변경안 · AI 크레딧 차감 없음 · 확인 후 적용": "Estimate settings proposal · no AI credits · applied only after confirmation",
+  "개인 API 키 사용 · 제공사 계정에 사용 요금이 청구됩니다. 운영 보호한도가 적용됩니다.": "Personal API key · usage is billed to your provider account. Operating limits still apply.",
+  "개인 키는 주간 크레딧을 차감하지 않지만 운영 보호한도와 지원 모델 제한은 적용됩니다.": "Personal keys do not consume weekly credits, but operating limits and supported-model restrictions still apply.",
 };

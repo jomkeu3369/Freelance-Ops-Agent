@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.knowledge.service;
 
+import com.freelanceops.backend.domain.agentrun.service.ProviderPolicy;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.knowledge.client.RaptorBuildClient;
 import com.freelanceops.backend.domain.knowledge.client.dto.request.RaptorBuildRequest;
@@ -32,6 +33,7 @@ public class RaptorIndexService {
         require(membership, PermissionCode.DOCUMENT_WRITE); require(membership, PermissionCode.AGENT_RUN);
         projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
+        ProviderPolicy.requireSupported(request.provider());
         UUID runId = UUID.randomUUID(); UUID snapshotId = UUID.randomUUID();
         RaptorIndexTransactions.PreparedBuild prepared = transactions.begin(snapshotId, workspaceId, userId, request.embeddingModel().trim(), request.summaryModel().trim());
         try {

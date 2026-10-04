@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.identity.controller;
 
+import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
 import com.freelanceops.backend.domain.identity.dto.response.AuthTokenResponse;
 import com.freelanceops.backend.domain.identity.dto.response.MeResponse;
 import com.freelanceops.backend.domain.identity.service.AuthService;
@@ -11,6 +12,8 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.RequestDispatcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -32,6 +35,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -68,6 +72,48 @@ class IdentitySecurityWebTest {
             chain.doFilter(invocation.getArgument(0), invocation.getArgument(1));
             return null;
         }).when(delegationTokenFilter).doFilter(any(), any(), any());
+    }
+
+    @Test
+    void registrationAcceptsExplicitBooleanAgeConfirmation() throws Exception {
+        when(authService.register(any())).thenReturn(new AuthTokenResponse(
+            UUID.randomUUID(), UUID.randomUUID(), "access", Instant.now().plusSeconds(900),
+            "refresh", Instant.now().plusSeconds(3600), "Bearer"
+        ));
+
+        mockMvc.perform(post("/api/v2/auth/register")
+                .contentType("application/json")
+                .content(registrationJson(",\"ageAtLeast14\":true")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.tokenType").value("Bearer"));
+
+        verify(authService).register(new RegisterRequest(
+            "member@example.com", "valid-password", "Member", "Member Workspace", true
+        ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "",
+        ",\"ageAtLeast14\":null",
+        ",\"ageAtLeast14\":false",
+        ",\"ageAtLeast14\":\"true\"",
+        ",\"ageAtLeast14\":\"false\"",
+        ",\"ageAtLeast14\":\"\"",
+        ",\"ageAtLeast14\":1",
+        ",\"ageAtLeast14\":0",
+        ",\"ageAtLeast14\":1.0",
+        ",\"ageAtLeast14\":[]",
+        ",\"ageAtLeast14\":[true]",
+        ",\"ageAtLeast14\":{}"
+    })
+    void registrationRejectsMissingFalseOrNonBooleanAgeConfirmation(String ageField) throws Exception {
+        mockMvc.perform(post("/api/v2/auth/register")
+                .contentType("application/json")
+                .content(registrationJson(ageField)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(authService);
     }
 
     @Test
@@ -154,6 +200,13 @@ class IdentitySecurityWebTest {
             .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v2/me"))
             .andExpect(status().isUnauthorized());
+    }
+
+    private static String registrationJson(String ageField) {
+        return """
+            {"email":"member@example.com","password":"valid-password",
+             "displayName":"Member","workspaceName":"Member Workspace"%s}
+            """.formatted(ageField);
     }
 
     private String accessToken(UUID userId) {

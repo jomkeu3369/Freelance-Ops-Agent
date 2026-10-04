@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from contracts import ModelSelection
+from platform_budget import PlatformBudgetError
 from providers import ModelGeneration, ModelProvider, ProviderCallError
 
 from .telemetry import GatewayTelemetry
@@ -130,6 +131,12 @@ class AIGateway:
         except asyncio.CancelledError:
             latency_ms = (time.monotonic() - started) * 1000
             self._telemetry.failed(latency_ms=latency_ms, code="CALL_CANCELLED")
+            raise
+        except PlatformBudgetError as error:
+            # A user's exhausted/invalid reservation is not a provider outage.
+            # Keep the shared circuit unchanged and balance the started metric.
+            latency_ms = (time.monotonic() - started) * 1000
+            self._telemetry.rejected(code=error.code, latency_ms=latency_ms)
             raise
         except Exception:
             latency_ms = (time.monotonic() - started) * 1000

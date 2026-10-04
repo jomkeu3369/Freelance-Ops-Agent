@@ -31,6 +31,7 @@ export function ChatModelControls({ modelRates, connections, credentialId, provi
       </select></label>
       {modelRates === null && <span role="status">{t("주간 크레딧과 모델 가격을 확인하지 못했습니다.")}</span>}
     </>}
+    {credentialId && <span className="model-selection-note">{t("개인 키는 주간 크레딧을 차감하지 않지만 운영 보호한도와 지원 모델 제한은 적용됩니다.")}</span>}
     <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>
   </div>;
 }

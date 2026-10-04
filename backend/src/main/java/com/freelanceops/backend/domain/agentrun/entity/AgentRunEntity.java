@@ -189,6 +189,10 @@ public class AgentRunEntity {
         return status;
     }
 
+    public Instant createdAt() {
+        return createdAt;
+    }
+
     private static RunBudget defaultBudget() {
         return new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3);
     }

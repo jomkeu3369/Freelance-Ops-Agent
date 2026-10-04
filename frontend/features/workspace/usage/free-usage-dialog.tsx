@@ -28,6 +28,7 @@ export function FreeUsageDialog({ error, onClose, onRegister }: { error: ApiErro
       {resetLabel && <p>{t("다음 초기화: {date} (한국 시간)", { date: resetLabel })}</p>}
       <p>{t("작성한 내용과 프로젝트는 그대로 보존됩니다. API 키를 등록해도 분석은 자동으로 시작되지 않습니다.")}</p>
       <p className="free-usage-warning">{t("개인 API 키로 실행하면 제공사 계정에 사용 요금이 청구됩니다. 연결 후 사용할 키를 선택하고 직접 분석을 시작하세요.")}</p>
+      <p>{t("개인 키는 주간 크레딧을 차감하지 않지만 운영 보호한도와 지원 모델 제한은 적용됩니다.")}</p>
       <div className="free-usage-actions">
         <button type="button" className="secondary-button" data-autofocus onClick={close}>{t("닫기")}</button>
         <button type="button" className="primary-button" onClick={onRegister}>{t("API 등록하기")}</button>

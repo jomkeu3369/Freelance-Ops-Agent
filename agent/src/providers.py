@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
+from uuid import UUID
 
 from langsmith import traceable, tracing_context
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -15,6 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from config import get_settings
 from contracts import ModelSelection, PetProfile, Provider, QuotationDraft
 from personal_credentials import resolve_credential
+from platform_budget import (
+    PlatformBudgetError,
+    budgeted_openai_attempt,
+    reject_unbounded_operation,
+    require_platform_ledger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +137,8 @@ class ResilientProvider:
         for attempt in range(1, attempt_limit + 1):
             try:
                 return await asyncio.wait_for(operation(), timeout=self._timeout_seconds), attempt
+            except PlatformBudgetError:
+                raise
             except Exception as error:
                 if attempt >= attempt_limit or not self._retryable(error):
                     logger.warning(
@@ -154,9 +163,12 @@ class ResilientProvider:
 class OpenAIModelProvider(ResilientProvider):
     """OpenAI Responses API adapter with strict JSON output and no storage."""
 
-    def __init__(self, client: Any | None = None, *, timeout_seconds: float = 60.0, max_attempts: int = 2) -> None:
+    def __init__(self, client: Any | None = None, *, timeout_seconds: float = 60.0, max_attempts: int = 2, credential_id: UUID | None = None) -> None:  # noqa: E501
         super().__init__(timeout_seconds=timeout_seconds, max_attempts=max_attempts)
+        if credential_id is not None and client is None:
+            raise ValueError("BYOK provider requires an explicitly resolved personal client")
         self._client = client
+        self._credential_id = credential_id
 
     async def generate_structured(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         return await self._generate(
@@ -204,6 +216,7 @@ class OpenAIModelProvider(ResilientProvider):
 
     @traceable(name="agent-openai-model-call", run_type="llm", metadata={"component": "model-provider"})
     async def _generate(self, selection: ModelSelection, prompt: str, schema: type[BaseModel], schema_name: str, system_instruction: str, *, max_output_tokens: int, max_attempts: int | None) -> ModelGeneration:  # noqa: E501
+        require_platform_ledger()
         if selection.provider is not Provider.OPENAI:
             raise ProviderNotConfiguredError(f"provider is not configured: {selection.provider.value}")
 
@@ -215,8 +228,9 @@ class OpenAIModelProvider(ResilientProvider):
         client: Any = self._client
 
         async def call() -> Any:
-            return await client.responses.create(
+            return await budgeted_openai_attempt(client, selection, schema_name, dict(
                 model=selection.model,
+                service_tier="default",
                 reasoning={"effort": selection.reasoning_effort.value.lower()},
                 input=[
                     {"role": "system", "content": system_instruction},
@@ -234,7 +248,7 @@ class OpenAIModelProvider(ResilientProvider):
                         "schema": _strict_json_schema(schema.model_json_schema()),
                     }
                 }
-            )
+            ), client_credential_id=self._credential_id)
 
         attempt_limit = min(self._max_attempts, max_attempts) if max_attempts is not None else self._max_attempts
         if attempt_limit < 1:
@@ -334,6 +348,7 @@ class GeminiModelProvider(ResilientProvider):
 
     @traceable(name="agent-gemini-model-call", run_type="llm", metadata={"component": "model-provider"})
     async def _generate(self, selection: ModelSelection, prompt: str, schema: type[BaseModel], system_instruction: str, *, max_output_tokens: int, max_attempts: int | None) -> ModelGeneration:  # noqa: E501
+        reject_unbounded_operation("GEMINI")
         if selection.provider is not Provider.GEMINI:
             raise ProviderNotConfiguredError(f"provider is not configured: {selection.provider.value}")
         if self._client is None:
@@ -382,6 +397,7 @@ class CompositeModelProvider:
 
     @asynccontextmanager
     async def _selected_provider(self, selection: ModelSelection) -> AsyncIterator[ModelProvider]:
+        require_platform_ledger()
         if selection.credential_id is None:
             yield self._providers[selection.provider]
             return
@@ -397,7 +413,8 @@ class CompositeModelProvider:
 
                 client = AsyncOpenAI(api_key=key, base_url="https://api.openai.com/v1", max_retries=0)
                 provider = OpenAIModelProvider(
-                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
+                    client, timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts,
+                    credential_id=selection.credential_id,
                 )
             else:
                 from google import genai
@@ -409,6 +426,8 @@ class CompositeModelProvider:
             del key
             with tracing_context(enabled=False):
                 yield provider
+        except PlatformBudgetError:
+            raise
         except ProviderCallError as error:
             raise ProviderCallError(
                 "Personal AI connection call failed",

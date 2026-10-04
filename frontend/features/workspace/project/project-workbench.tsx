@@ -113,7 +113,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           ? t("이 모델은 기본 제공 AI에서 사용할 수 없습니다. 다른 모델이나 개인 API 키를 선택해 주세요.")
           : t("크레딧 가격을 다시 확인했습니다. 새 차감량을 검토하고 직접 다시 보내 주세요."));
       }
-      if (isPlatformSpendUnavailable(cause)) throw new Error(t("기본 제공 AI의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다."));
+      if (isPlatformSpendUnavailable(cause)) throw new Error(t("AI 분석의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다."));
       throw cause;
     }
   }

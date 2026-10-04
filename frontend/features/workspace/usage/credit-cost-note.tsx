@@ -4,7 +4,7 @@ import { useT } from "../../../app/lib/ui-language";
 
 export function CreditCostNote({ decision, retry, active = false, policy = false, loading, onRetry }: { active?: boolean; policy?: boolean; decision: CreditDecision; retry?: PendingRunRetry; loading: boolean; onRetry: () => void }) {
   const t = useT();
-  const message = active ? t("진행 중인 요청이 끝나면 다음 요청의 차감량을 확인할 수 있습니다.") : policy ? t("견적 기본 설정 변경안 · AI 크레딧 차감 없음 · 확인 후 적용") : retry ? retry.creditQuote ? t("접수 여부가 불확실한 이전 요청을 확인합니다. 원래 확인한 {credits} 크레딧과 요청 내용을 그대로 사용합니다.", { credits: retry.creditQuote.credits }) : t("접수 여부가 불확실한 이전 요청을 같은 내용으로 확인합니다. 개인 API 키 설정은 그대로 유지됩니다.") : decision.kind === "byok" ? t("개인 API 키 사용 · 제공사 계정에 사용 요금이 청구됩니다.")
+  const message = active ? t("진행 중인 요청이 끝나면 다음 요청의 차감량을 확인할 수 있습니다.") : policy ? t("견적 기본 설정 변경안 · AI 크레딧 차감 없음 · 확인 후 적용") : retry ? retry.creditQuote ? t("접수 여부가 불확실한 이전 요청을 확인합니다. 원래 확인한 {credits} 크레딧과 요청 내용을 그대로 사용합니다.", { credits: retry.creditQuote.credits }) : t("접수 여부가 불확실한 이전 요청을 같은 내용으로 확인합니다. 개인 API 키 설정은 그대로 유지됩니다.") : decision.kind === "byok" ? t("개인 API 키 사용 · 제공사 계정에 사용 요금이 청구됩니다. 운영 보호한도가 적용됩니다.")
     : loading ? t("보내기 전 크레딧 가격을 확인하고 있습니다.")
       : decision.kind === "ready" ? t("이번 요청 {credits} 크레딧 · {remaining} 크레딧 남음", { credits: decision.quote.credits, remaining: decision.remaining })
         : decision.kind === "insufficient" ? t("{credits} 크레딧 필요 · {remaining} 크레딧 남음", { credits: decision.quote.credits, remaining: decision.remaining })

@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass
 
 from contracts import SourceReference
+from platform_budget import reject_unbounded_operation
 
 from .contracts import AuthorityLevel, FetchProvider, FetchRequest, SearchProvider, SearchRequest
 
@@ -41,6 +42,7 @@ class BoundedWebResearchService:
         self._timeout_seconds = timeout_seconds
 
     async def collect(self, query: str, jurisdiction: str | None, max_search_credits: int, max_tool_calls: int) -> ResearchCollection:  # noqa: E501
+        reject_unbounded_operation("WEB_RESEARCH")
         if max_search_credits < 1:
             raise WebResearchBudgetError("SEARCH_CREDIT_BUDGET_EXCEEDED")
         

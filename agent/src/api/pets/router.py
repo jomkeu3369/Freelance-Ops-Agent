@@ -14,6 +14,7 @@ from api.assumptions.router import BearerDependency, VerifierDependency, _proble
 from contracts import ModelSelection, PetProfile, Provider, StrictModel, TrustedRunContext
 from gateway import AIGateway
 from personal_credentials import credential_scope
+from platform_budget import PlatformBudgetError, reject_unbounded_operation
 from providers import ProviderCallError
 from security import DelegationTokenVerifier, TokenVerificationError
 
@@ -53,6 +54,10 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
             return _problem(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
     except TokenVerificationError:
         return _problem(403, "Invalid delegation", "DELEGATION_FORBIDDEN")
+    try:
+        reject_unbounded_operation("PETS")
+    except PlatformBudgetError as error:
+        return _problem(409, "Platform budget is required for this operation", error.code)
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
         return _problem(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")

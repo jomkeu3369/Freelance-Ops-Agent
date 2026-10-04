@@ -195,7 +195,7 @@ def _build_run_runtime() -> RuntimeComponents:
     knowledge_loader = KnowledgeContextLoader(project_context_tool, OpenAIQueryEmbedder(settings.knowledge_embedding_model, settings.knowledge_embedding_timeout_seconds), settings.knowledge_embedding_model)  # noqa: E501
     if settings.run_store_backend == "memory":
         executor = OperationalAgentExecutor(gateway, model_gateway, project_context_tool, research_tool, knowledge_loader=knowledge_loader)  # noqa: E501
-        return RunCoordinator(InMemoryAgentRunStore(), executor), None, None, None, model_gateway, None, None
+        return RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True), None, None, None, model_gateway, None, None  # noqa: E501
 
     database = PgVectorConnectionManager(
         PgVectorPoolConfig(
@@ -247,7 +247,7 @@ def _build_run_runtime() -> RuntimeComponents:
         else None
     )
 
-    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
+    return RunCoordinator(store, executor, checkpoint, task_shadow_registrar, require_platform_budget=True), database, store, checkpoint, model_gateway, services, research_worker_sink  # noqa: E501
 
 def _build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:
     if not settings.web_research_enabled:

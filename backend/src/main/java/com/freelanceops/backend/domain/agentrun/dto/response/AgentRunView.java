@@ -121,14 +121,55 @@ public record AgentRunView(
         long searchCredits,
         long crawledPages,
         long retryCount,
-        long durationMs
+        long durationMs,
+        List<ProviderCallUsage> providerCalls,
+        java.math.BigDecimal platformCostUsd,
+        UUID platformReservationId,
+        String tariffVersion
     ) {
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, List.of(), null, null, null);
+        }
         public AgentRunUsage {
+            providerCalls = providerCalls == null ? List.of() : List.copyOf(providerCalls);
+            if ((platformReservationId == null) != (tariffVersion == null)) {
+                throw new IllegalArgumentException("Platform usage provenance must be complete");
+            }
+            if (platformCostUsd != null && platformCostUsd.signum() < 0) throw new IllegalArgumentException("Negative platform cost");
+            if (providerCalls.stream().map(ProviderCallUsage::callId).distinct().count() != providerCalls.size()) {
+                throw new IllegalArgumentException("Duplicate provider attempt identity");
+            }
             if (requestTier == null || modelCalls < 0 || toolCalls < 0 || inputTokens < 0 || outputTokens < 0
                 || cachedTokens < 0 || searchCredits < 0 || crawledPages < 0 || retryCount < 0 || durationMs < 0) {
                 throw new IllegalArgumentException("Agent run usage values must not be negative");
             }
             if (cachedTokens > inputTokens) throw new IllegalArgumentException("cached tokens exceed input tokens");
+        }
+    }
+
+    public record ProviderCallUsage(UUID callId, Provider provider, String model, String operation,
+                                   long inputTokens, long outputTokens, long cachedReadTokens, long cacheWriteTokens,
+                                   java.math.BigDecimal costUsd, java.math.BigDecimal reservedCostUsd, boolean usageKnown,
+                                   String fundingSource) {
+        public ProviderCallUsage(UUID callId, Provider provider, String model, String operation,
+                                 long inputTokens, long outputTokens, long cachedReadTokens, long cacheWriteTokens,
+                                 java.math.BigDecimal costUsd, java.math.BigDecimal reservedCostUsd, boolean usageKnown) {
+            this(callId, provider, model, operation, inputTokens, outputTokens, cachedReadTokens, cacheWriteTokens,
+                costUsd, reservedCostUsd, usageKnown, "PLATFORM");
+        }
+        public ProviderCallUsage {
+            if (!("PLATFORM".equals(fundingSource) || "BYOK".equals(fundingSource))) {
+                throw new IllegalArgumentException("Provider funding source must be explicit");
+            }
+            if (callId == null || provider == null || model == null || operation == null
+                || inputTokens < 0 || outputTokens < 0 || cachedReadTokens < 0 || cacheWriteTokens < 0
+                || cachedReadTokens > inputTokens || cacheWriteTokens > inputTokens - cachedReadTokens
+                || costUsd == null || costUsd.signum() < 0 || reservedCostUsd == null || reservedCostUsd.signum() < 0) {
+                throw new IllegalArgumentException("Invalid per-attempt provider usage");
+            }
         }
     }
 }

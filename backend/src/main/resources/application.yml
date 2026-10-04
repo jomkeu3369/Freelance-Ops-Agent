@@ -57,6 +57,9 @@ server:
   shutdown: graceful
   forward-headers-strategy: framework
 app:
+  notices:
+    dispatch-enabled: ${APP_NOTICES_DISPATCH_ENABLED:false}
+    max-campaign-recipients: ${APP_NOTICES_MAX_CAMPAIGN_RECIPIENTS:200}
   knowledge:
     embedding-model: ${KNOWLEDGE_EMBEDDING_MODEL:text-embedding-3-small}
     summary-model: ${KNOWLEDGE_SUMMARY_MODEL:gpt-5.6-luna}
@@ -67,6 +70,12 @@ app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   auth:
+    email-verification:
+      required: ${APP_AUTH_EMAIL_VERIFICATION_REQUIRED:false}
+      ttl-seconds: ${APP_AUTH_EMAIL_VERIFICATION_TTL_SECONDS:1800}
+      cooldown-seconds: ${APP_AUTH_EMAIL_VERIFICATION_COOLDOWN_SECONDS:60}
+      daily-limit: ${APP_AUTH_EMAIL_VERIFICATION_DAILY_LIMIT:5}
+      public-origin: ${APP_PUBLIC_ORIGIN:http://localhost:3000}
     issuer: ${APP_AUTH_ISSUER:freelance-ops-backend}
     audience: ${APP_AUTH_AUDIENCE:freelance-ops-web}
     jwt-secret: ${APP_AUTH_JWT_SECRET:development-only-auth-secret-change-me}
