@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useId, useRef, useState } from "react";
-import { CaretDown, Sparkle } from "@phosphor-icons/react";
+import { CaretDown, Sparkle, X } from "@phosphor-icons/react";
 import { useT } from "../../../../app/lib/ui-language";
 
 /** Local selection only. The explicit Send action remains the execution boundary. */
@@ -37,7 +37,7 @@ export function ChatModelMenu({ label, locked, contextKey, children }: { label: 
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
-    if (!locked) panel.current?.querySelector<HTMLElement>("select:not(:disabled), button:not(:disabled)")?.focus();
+    if (!locked) (panel.current?.querySelector<HTMLElement>("select:not(:disabled)") ?? panel.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, [open, locked]);
   return <div ref={root} className="chat-model-menu" onBlur={event => {
@@ -52,7 +52,9 @@ export function ChatModelMenu({ label, locked, contextKey, children }: { label: 
       <Sparkle size={16} aria-hidden="true" /><span>{label}</span><CaretDown size={12} aria-hidden="true" />
     </button>
     {visible && <div ref={panel} id={panelId} className="chat-model-popover" role="dialog" aria-label={t("AI 모델 선택")}>
-      <strong>{t("AI 모델 선택")}</strong>
+      <div className="chat-model-popover-heading"><strong>{t("AI 모델 선택")}</strong>
+        <button type="button" className="icon-button chat-model-close" aria-label={t("닫기")} onClick={() => { setOpen(false); trigger.current?.focus(); }}><X size={18} aria-hidden="true" /></button>
+      </div>
       {children}
     </div>}
   </div>;
