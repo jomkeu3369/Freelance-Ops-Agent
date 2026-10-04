@@ -37,6 +37,33 @@ import { OutcomeReview } from "./outcome/outcome-review";
 import { WorkspacePanel } from "../shared/workspace-panel";
 import { ProjectEditDialog } from "./dialogs/project-edit-dialog";
 
+export function ProjectStepNavigation({ activeStep, onStepChange }: { activeStep: WorkbenchStep; onStepChange: (step: WorkbenchStep) => void }) {
+  const t = useT();
+  return (
+      <nav className="workbench-steps" aria-label={t("프로젝트 진행 단계")}>
+        {(
+          [
+            ["intake", "01", "문의"],
+            ["agent", "02", "AI 분석"],
+            ["quote", "03", "견적"],
+            ["outcome", "04", "결과"]
+          ] as const
+        ).map(([id, number, label]) => (
+          <button
+            type="button"
+            key={id}
+            aria-current={activeStep === id ? "step" : undefined}
+            className={activeStep === id ? "active" : ""}
+            onClick={() => onStepChange(id)}
+          >
+            <span>{number}</span>
+            {t(label)}
+          </button>
+        ))}
+      </nav>
+  );
+}
+
 interface ProjectWorkbenchProps {
   session: AuthSession;
   project: Project;
@@ -317,27 +344,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         </div>
       )}
 
-      <nav className="workbench-steps" aria-label={t("프로젝트 진행 단계")}>
-        {(
-          [
-            ["intake", "01", "문의"],
-            ["agent", "02", "AI 분석"],
-            ["quote", "03", "견적"],
-            ["outcome", "04", "결과"]
-          ] as const
-        ).map(([id, number, label]) => (
-          <button
-            type="button"
-            key={id}
-            aria-current={activeStep === id ? "step" : undefined}
-            className={activeStep === id ? "active" : ""}
-            onClick={() => selectStep(id)}
-          >
-            <span>{number}</span>
-            {t(label)}
-          </button>
-        ))}
-      </nav>
+      <ProjectStepNavigation activeStep={activeStep} onStepChange={selectStep} />
 
       {activeStep === "intake" && (
         <IntakeReview

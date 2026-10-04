@@ -69,7 +69,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
+function useAgentChatController({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
   const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
@@ -274,6 +274,17 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     } finally { confirmLock.current = false; setPolicyBusy(false); }
   }
 
+  return { t, presentation, headerTools, viewport, content, input, followsLatest, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable };
+}
+
+export function AgentChat(props: AgentChatProps) {
+  return <AgentChatSurface {...useAgentChatController(props)} />;
+}
+
+export type AgentChatSurfaceProps = ReturnType<typeof useAgentChatController>;
+
+/** Pure conversation presentation; the authenticated controller remains separate. */
+export function AgentChatSurface({ t, presentation, headerTools, viewport: viewportRef, content: contentRef, input: inputRef, followsLatest: followsLatestRef, setUnread, loading, error, setHistoryRevision, timeline, draft, canRun, online, updateDraft, canEditPolicy, policyBusy, busy, confirmProposal, runId, run, pastRuns, events, active, streamState, clarification, onOpenResult, unread, showLatest, proposal, policyError, submit, sending, composing: composingRef, onOpenAISettings, canCancel, cancelling, cancel, modelAvailable }: AgentChatSurfaceProps) {
   return (
     <section className="agent-chat" aria-label={t("에이전트 대화")}>
       <header className="agent-chat-heading">
@@ -283,16 +294,16 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       </header>
       {/* A scrollable log needs focus so keyboard users can read older messages with arrow keys. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex */}
-      <div ref={viewport} className="agent-chat-turns" role="log" aria-label={t("대화 기록")} aria-live="off" tabIndex={0} onScroll={() => {
-        const box = viewport.current;
+      <div ref={viewportRef} className="agent-chat-turns" role="log" aria-label={t("대화 기록")} aria-live="off" tabIndex={0} onScroll={() => {
+        const box = viewportRef.current;
         if (!box) return;
-        followsLatest.current = box.scrollHeight - box.scrollTop - box.clientHeight < 70;
-        if (followsLatest.current) setUnread(false);
+        followsLatestRef.current = box.scrollHeight - box.scrollTop - box.clientHeight < 70;
+        if (followsLatestRef.current) setUnread(false);
       }}>
-      <div ref={content} className="agent-chat-content">
+      <div ref={contentRef} className="agent-chat-content">
         {loading && <p className="agent-chat-muted">{t("작업 기록을 불러오는 중입니다.")}</p>}
         {error && <div role="alert"><p>{error}</p><button type="button" className="quiet-button" onClick={() => setHistoryRevision((value) => value + 1)}>{t("기록 다시 불러오기")}</button></div>}
-        {!loading && !error && timeline.length === 0 && <div className="agent-chat-empty"><span className="agent-chat-empty-icon" aria-hidden="true"><ChatCircleText size={30} weight="duotone" /></span><strong>{t("무엇을 도와드릴까요?")}</strong><p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p><small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small>{!draft && canRun && <div className="agent-chat-starters">{["이 프로젝트의 요구사항과 확인할 질문을 정리해 줘", "이 프로젝트의 작업 범위와 견적 초안을 만들어 줘"].map(message => <button type="button" key={message} disabled={!online} onClick={() => { updateDraft(t(message)); input.current?.focus(); }}>{t(message)}<ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>}</div>}
+        {!loading && !error && timeline.length === 0 && <div className="agent-chat-empty"><span className="agent-chat-empty-icon" aria-hidden="true"><ChatCircleText size={30} weight="duotone" /></span><strong>{t("무엇을 도와드릴까요?")}</strong><p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p><small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small>{!draft && canRun && <div className="agent-chat-starters">{["이 프로젝트의 요구사항과 확인할 질문을 정리해 줘", "이 프로젝트의 작업 범위와 견적 초안을 만들어 줘"].map(message => <button type="button" key={message} disabled={!online} onClick={() => { updateDraft(t(message)); inputRef.current?.focus(); }}>{t(message)}<ArrowUpRight size={17} aria-hidden="true" /></button>)}</div>}</div>}
         {timeline.map((entry) => {
           if (entry.kind === "policy") {
             const item = entry.value;
@@ -338,8 +349,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
-        <textarea ref={input} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composing.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
+        <textarea ref={inputRef} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composingRef.current = true; }} onCompositionEnd={() => { composingRef.current = false; }} onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composingRef.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
         <div className="agent-chat-actions">

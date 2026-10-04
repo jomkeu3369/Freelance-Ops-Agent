@@ -7,7 +7,7 @@ import { StreamState, WorkspaceView } from "./shared/types";
 import { pipelineStatusLabels, runStatusLabels } from "./shared/constants";
 
 interface WorkspaceChromeProps {
-  session: AuthSession;
+  session: Pick<AuthSession, "workspaceId">;
   profile: MeProfile | null;
   sidebarCollapsed: boolean;
   compactNavigation: boolean;
