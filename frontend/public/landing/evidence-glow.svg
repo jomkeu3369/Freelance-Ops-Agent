@@ -1,0 +1,13 @@
+<!-- Original Freelance Ops glow geometry. Raster source for one inexpensive composited material. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="800" viewBox="0 0 1440 800">
+  <defs>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a784c3" stop-opacity=".08"/><stop offset=".38" stop-color="#c4a2e0" stop-opacity=".55"/><stop offset=".61" stop-color="#eddbff" stop-opacity=".94"/><stop offset="1" stop-color="#a18abe" stop-opacity=".12"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#e4c6ff" stop-opacity=".46"/><stop offset=".4" stop-color="#b18bd0" stop-opacity=".18"/><stop offset="1" stop-color="#9971ba" stop-opacity="0"/></radialGradient>
+    <filter id="wide" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="35"/></filter>
+    <filter id="core" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="15"/></filter>
+    <filter id="cool" x="-35%" y="-35%" width="170%" height="170%"><feGaussianBlur stdDeviation="24"/></filter>
+  </defs>
+  <ellipse cx="125" cy="350" rx="255" ry="240" fill="url(#glow)" opacity=".62"/>
+  <g fill="none" stroke="url(#ribbon)"><path d="M1310 -170 C950 15 250 90 102 340 C-80 620 395 610 950 800" stroke-width="135" filter="url(#wide)" opacity=".36"/><path d="M1310 -170 C950 15 250 90 102 340 C-80 620 395 610 950 800" stroke-width="29" filter="url(#core)" opacity=".66"/></g>
+  <path d="M1400 -100 C930 40 260 135 114 345 C-25 540 470 665 1050 850" fill="none" stroke="#8aa6ce" stroke-width="60" filter="url(#cool)" opacity=".13"/>
+</svg>

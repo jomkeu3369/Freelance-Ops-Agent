@@ -1,0 +1,61 @@
+<!-- Original Freelance Ops feature light. Rendered once as feature-glow.webp. All light layers use the same lavender; normalize RGB to #dec4f4 after render to remove premultiplied-color rounding before WebP encoding, preserving the rendered alpha channel. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1000" viewBox="0 0 1440 1000">
+  <defs>
+    <linearGradient id="edge-x" x1="0" x2="1">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset=".025" stop-color="white" stop-opacity=".18"/>
+      <stop offset=".075" stop-color="white" stop-opacity=".86"/>
+      <stop offset=".13" stop-color="white"/>
+      <stop offset=".84" stop-color="white"/>
+      <stop offset=".96" stop-color="white" stop-opacity=".16"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="edge-y" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="white" stop-opacity="0"/>
+      <stop offset=".045" stop-color="white" stop-opacity=".18"/>
+      <stop offset=".14" stop-color="white"/>
+      <stop offset=".82" stop-color="white"/>
+      <stop offset=".95" stop-color="white" stop-opacity=".2"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="fade-x"><rect width="1440" height="1000" fill="url(#edge-x)"/></mask>
+    <mask id="fade-y"><rect width="1440" height="1000" fill="url(#edge-y)"/></mask>
+    <linearGradient id="incoming" gradientUnits="userSpaceOnUse" x1="1270" y1="40" x2="145" y2="485">
+      <stop stop-color="#dec4f4" stop-opacity=".06"/>
+      <stop offset=".3" stop-color="#dec4f4" stop-opacity=".18"/>
+      <stop offset=".68" stop-color="#dec4f4" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#dec4f4" stop-opacity=".5"/>
+    </linearGradient>
+    <linearGradient id="outgoing" gradientUnits="userSpaceOnUse" x1="155" y1="478" x2="850" y2="1000">
+      <stop stop-color="#dec4f4" stop-opacity=".7"/>
+      <stop offset=".3" stop-color="#dec4f4" stop-opacity=".36"/>
+      <stop offset=".66" stop-color="#dec4f4" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#dec4f4" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="spine" gradientUnits="userSpaceOnUse" cx="145" cy="490" r="202">
+      <stop stop-color="#dec4f4" stop-opacity=".98"/>
+      <stop offset=".23" stop-color="#dec4f4" stop-opacity=".86"/>
+      <stop offset=".58" stop-color="#dec4f4" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#dec4f4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bend">
+      <stop stop-color="#dec4f4" stop-opacity=".35"/>
+      <stop offset=".42" stop-color="#dec4f4" stop-opacity=".14"/>
+      <stop offset="1" stop-color="#dec4f4" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="atmosphere" x="-300" y="-300" width="2040" height="1600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="58"/></filter>
+    <filter id="ribbon" x="-300" y="-300" width="2040" height="1600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="28"/></filter>
+    <filter id="inner" x="-300" y="-300" width="2040" height="1600" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="13"/></filter>
+  </defs>
+  <g mask="url(#fade-x)">
+    <g mask="url(#fade-y)">
+      <ellipse cx="175" cy="488" rx="310" ry="337" fill="url(#bend)" opacity=".82"/>
+      <path d="M1385 -85 C1040 58 579 150 283 308 C152 378 91 454 153 551 C232 675 506 704 1054 1058" fill="none" stroke="#dec4f4" stroke-width="185" opacity=".2" filter="url(#atmosphere)"/>
+      <path d="M1410 -90 C1025 12 536 156 245 336 C164 386 134 432 145 483 C192 395 306 373 504 304 C876 175 1235 159 1516 26 Z" fill="url(#incoming)" filter="url(#ribbon)"/>
+      <path d="M146 476 C80 595 225 683 431 765 C663 857 812 960 1000 1130 L1145 992 C849 824 658 735 432 676 C239 626 128 566 146 476 Z" fill="url(#outgoing)" filter="url(#ribbon)"/>
+      <path d="M1308 -10 C948 138 487 228 261 367 C167 425 137 465 150 517 C180 636 366 683 596 764 C785 831 934 920 1055 1018" fill="none" stroke="#dec4f4" stroke-width="57" opacity=".18" filter="url(#ribbon)"/>
+      <path d="M1030 66 C716 193 370 282 208 414 C152 460 127 516 162 566 C203 626 343 667 505 727" fill="none" stroke="url(#spine)" stroke-width="25" stroke-linecap="round" filter="url(#inner)"/>
+      <path d="M1018 80 C677 247 298 330 179 485 C112 573 272 688 609 781" fill="none" stroke="#dec4f4" stroke-width="40" opacity=".12" filter="url(#ribbon)"/>
+    </g>
+  </g>
+</svg>
