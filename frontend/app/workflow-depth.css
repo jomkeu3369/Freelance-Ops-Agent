@@ -1,6 +1,6 @@
 /* Interactive HTML and the plate faces share one real perspective camera. */
 .figma-home.spatial-site .workflow-canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; border-radius: inherit; }
-.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] { transform: none !important; background: radial-gradient(ellipse at 60% 35%, #2c1e3833, transparent 75%), #110c1699; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] { transform: none !important; background: radial-gradient(ellipse at 60% 35%, #38234a24, transparent 75%), #100b1673; }
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] > .workflow-canvas { opacity: 1; }
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"]::before,
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"]::after,
@@ -15,8 +15,41 @@
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-stage, .spatial-lane, .spatial-project-card) {
   transform: var(--workflow-projection) !important; transform-origin: 0 0; transition: none; background: transparent; border-color: transparent; box-shadow: none;
 }
-.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage { color: #ecdef4; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage { color: #f2eaff; }
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage-icon { background: transparent; box-shadow: none; }
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stage:focus-visible { outline: 2px solid #edd6ff; outline-offset: 4px; }
 .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .inquiry-card-content { opacity: 1 !important; }
-.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-flow-top, .spatial-flow-bottom, .spatial-demo-disclaimer) { position: relative; z-index: 2; }
+.figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] :is(.spatial-flow-top, .spatial-flow-bottom) { position: relative; z-index: 2; }
+
+/* Typography is sized for the projected result, not just the untransformed DOM. */
+.figma-home.spatial-site .spatial-flow { padding: 24px 24px 20px; border-radius: 18px; border-color: #c0a3e12e; }
+.figma-home.spatial-site .spatial-flow-top { gap: 12px; font-size: 14px; color: #d9cce6; }
+.figma-home.spatial-site .spatial-auto { font-size: 13px; color: #c8b8db; }
+.figma-home.spatial-site .spatial-stages { grid-template-rows: minmax(76px, auto) minmax(76px, auto); gap: 24px 20px; margin-block: 34px 16px; }
+.figma-home.spatial-site .spatial-stage { min-height: 76px; padding: 12px 10px; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; font-size: 16px; line-height: 1.5; font-weight: 550; }
+.figma-home.spatial-site .spatial-stage-icon, .figma-home.spatial-site .spatial-stage-icon svg { width: 20px; height: 20px; }
+.figma-home.spatial-site .spatial-lane > span { font-size: 15px; line-height: 1.6; font-weight: 500; color: #e1d4ef; }
+.figma-home.spatial-site .spatial-lane small { font-size: 14px; line-height: 1.7; color: #cbb9dc; }
+.figma-home.spatial-site .spatial-project-card { padding: 17px; min-height: 276px; }
+.figma-home.spatial-site :is(.spatial-card-meta, .spatial-status, .spatial-card-footer, .spatial-card-detail > span, .spatial-card-detail small) { font-size: 14px; line-height: 1.65; color: #dacbea; }
+.figma-home.spatial-site .spatial-project-card h3 { font-size: 21px; line-height: 1.5; font-weight: 600; }
+.figma-home.spatial-site .spatial-card-detail { min-height: 116px; }
+.figma-home.spatial-site .spatial-card-detail p { font-size: 16px; line-height: 1.7; color: #f3eafa; word-break: keep-all; text-wrap: pretty; }
+.figma-home.spatial-site .spatial-card-detail strong { font-size: 26px; font-weight: 550; }
+.figma-home.spatial-site .spatial-flow-bottom { min-height: 52px; margin-top: 18px; padding: 16px 0 0; border-top: 1px solid #b59bc82b; border-radius: 0; background: transparent; }
+.figma-home.spatial-site .spatial-flow-bottom > span { font-size: 14px; line-height: 1.65; color: #dacce8; }
+.figma-home.spatial-site .spatial-flow-bottom svg { flex-shrink: 0; color: #c9b1f3; }
+@media (max-width: 1100px) {
+  .figma-home.spatial-site .spatial-workflow { display: block; min-height: 0; padding-top: 130px; }
+  .figma-home.spatial-site .pointer-depth-hero { width: min(100%, 780px); margin-inline: auto; }
+  .figma-home.spatial-site .spatial-flow { margin-top: 44px; }
+}
+@media (max-width: 580px) {
+  .figma-home.spatial-site .spatial-flow { padding: 20px 14px 20px; }
+  .figma-home.spatial-site .spatial-flow-top { font-size: 14px; gap: 8px; }
+  .figma-home.spatial-site .spatial-stages { margin-top: 24px; }
+  .figma-home.spatial-site .spatial-flow[data-workflow-ready="true"] .spatial-stages { column-gap: 14px; }
+  .figma-home.spatial-site .spatial-stage { grid-template-columns: 1fr; justify-items: start; row-gap: 4px; font-size: 15px; padding: 10px 7px; }
+  .figma-home.spatial-site .spatial-lane { padding-inline: 7px; }
+  .figma-home.spatial-site .spatial-project-card { padding: 16px; }
+}

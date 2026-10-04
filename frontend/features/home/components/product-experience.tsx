@@ -2,11 +2,12 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { ReferenceStory } from "./reference-story";
 import { HeroAtmosphere, MiddleAtmosphere, FooterAtmosphere } from "./scene-atmosphere";
-import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, Pause, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, Check, ChatCenteredText, FileText, GitBranch, ShieldCheck, Sparkle, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../ui-language";
 import { demoEvents, demoProjectSnapshot, demoQuote, demoReducer, demoSteps, initialDemoState } from "../product-demo.mjs";
 import { useInquiryTransfer } from "../use-inquiry-transfer";
 import { useWorkflowDepth } from "../use-workflow-depth";
+import { WorkflowUnfold } from "./workflow-unfold";
 
 const stageIcons = [ChatCenteredText, TreeStructure, WarningCircle, GitBranch, FileText];
 const money = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
@@ -60,8 +61,8 @@ export function WorkflowSection() {
     return () => window.clearTimeout(timer);
   }, [paused, finished, state.phase, state.step]);
 
-  return <div className="spatial-story-run" data-motion-ready={motionReady} data-motion-paused={state.paused || reducedMotion || !pageVisible}>
-    <HeroAtmosphere paused={paused} />
+  return <div className="spatial-story-run" data-motion-ready={motionReady} data-motion-paused={reducedMotion || !pageVisible}>
+    <HeroAtmosphere paused={reducedMotion || !visible || !pageVisible} />
     <MiddleAtmosphere />
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
@@ -92,28 +93,27 @@ export function WorkflowSection() {
             <h3>{t("예약 웹사이트")}</h3>
             <p className="spatial-card-caption">{t(stageCopy[view.selected][0])}</p>
             <div className="spatial-card-detail" key={view.selected}><span>{t(demoSteps[view.selected])} / 0{view.selected + 1}</span><p>{t(stageCopy[view.selected][1])}</p>{view.selected >= 3 && <strong>{money(quote.total)}<small>{t("원")}</small></strong>}{view.selected === 1 && quote.extra && <small>{t("고객 예약 변경")}</small>}</div>
-            <div className="spatial-card-footer"><span className="spatial-avatar">fo</span><span>{t("가상의 프로젝트")}</span><span>{view.selected + 1} / 5</span></div>
+            <div className="spatial-card-footer"><span className="spatial-avatar">fo</span><span>{t("프로젝트 진행")}</span><span>{view.selected + 1} / 5</span></div>
             </div>
           </article>
         </div>
-        <div className="spatial-flow-bottom"><span><Check size={13} />{t(demoEvents[view.selected])}</span><button type="button" className="spatial-motion-toggle" disabled={reducedMotion} aria-pressed={state.paused} aria-label={reducedMotion ? t("동작 줄이기 적용 중") : state.paused ? t("예시 자동 진행 재개") : t("자동 진행 일시 정지")} onClick={() => dispatch({ type: "pause" })}>{state.paused ? <ArrowRight size={15} /> : <Pause size={15} />}<span>{state.paused ? t("동작 계속") : t("동작 멈추기")}</span></button></div>
-        <p className="spatial-demo-disclaimer">{t("가상의 문의로 보여드리는 제품 예시입니다. 실제 분석·저장·발송은 실행되지 않습니다.")}</p>
+        <div className="spatial-flow-bottom"><span><Check size={16} />{t(demoEvents[view.selected])}</span></div>
       </div>
       </div>
       <p className="sr-only" role="status">{state.manual ? t("{v0} 예시 결과. {v1}, {v2}일, {v3}원.", { v0: t(demoSteps[view.selected]), v1: t(quote.label), v2: quote.days, v3: money(quote.total) }) : ""}</p>
     </section>
 
-    <div className="spatial-capability-strip" aria-label={t("문의에서 제안까지")}><span>{t("하나의 문의, 이어지는 다섯 단계")}</span><div>{demoSteps.map((label,index)=>{const Icon=stageIcons[index]; return <span key={label}><Icon size={18} /><span className="spatial-capability-name">{t(label)}</span></span>;})}</div></div>
+    <WorkflowUnfold />
     <ReferenceStory state={state} quote={quote} onScopeChange={(scope) => dispatch({ type: "scope", scope })} />
     <section id="scope-comparison" className="spatial-chapter spatial-comparison" aria-labelledby="comparison-title">
       <FooterAtmosphere />
       <div className="spatial-comparison-heading section-heading"><p className="spatial-eyebrow"><span /> ONE PROJECT / YOUR SCOPE</p><h2 id="comparison-title">{t("범위가 달라지면,")}<br /><span>{t("숫자도 명확하게.")}</span></h2><p>{t("같은 예시 문의에 예약 변경 기능을 더해 비교해 보세요.")}</p></div>
-      <div className="spatial-scope-estimator"><div className="spatial-scope-slider"><label htmlFor="scope-slider">{t("예시 프로젝트 범위")}</label><input id="scope-slider" type="range" min="0" max="1" step="1" value={quote.extra ? 1 : 0} aria-valuetext={t(quote.label)} onChange={(event) => dispatch({ type: "scope", scope: event.target.value === "1" ? "extended" : "essential" })} /><div><span>{t("핵심 범위")}</span><span>{t("예약 변경 추가")}</span></div></div><aside><span>{t("예시 견적")}</span><strong>{money(quote.total)}<small>KRW</small></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><Link href="/workspace">{t("업무 공간 열기")}<ArrowUpRight size={15} /></Link></aside></div>
+      <div className="spatial-scope-estimator"><div className="spatial-scope-slider"><label htmlFor="scope-slider">{t("예시 프로젝트 범위")}</label><input id="scope-slider" type="range" min="0" max="1" step="1" value={quote.extra ? 1 : 0} aria-valuetext={t(quote.label)} onChange={(event) => dispatch({ type: "scope", scope: event.target.value === "1" ? "extended" : "essential" })} /><div><span>{t("핵심 범위")}</span><span>{t("예약 변경 추가")}</span></div></div><aside><span>{t("예시 견적")}</span><strong>{money(quote.total)}<small>KRW</small></strong><p>{t("부가세 별도")}</p><Link href="/workspace">{t("업무 공간 열기")}<ArrowUpRight size={15} /></Link></aside></div>
       <div className="spatial-comparison-grid">
         <article><p className="spatial-comparison-label">01 / SCOPE</p><h3>{t("작업 범위")}</h3><strong>{String(quote.rows.length).padStart(2, "0")}<span>{t("개 항목")}</span></strong><p>{t("원문에서 정리한 작업 단위")}</p><ul>{quote.rows.map((row: { title: string; days: number }) => <li key={row.title}><Check size={13} />{t(row.title)}</li>)}</ul><a href="#workflow">{t("문의 흐름 보기")}<ArrowUpRight size={15} /></a></article>
         <article className="is-featured"><p className="spatial-comparison-label">02 / EFFORT</p><h3>{t("예상 공수")}</h3><strong>{quote.days}<span>{t("일")}</span></strong><p>{t("항목별 공수를 더한 예시")}</p><div className="spatial-comparison-meter" aria-hidden="true">{Array.from({length:13},(_,i)=><span className={i < quote.days ? "is-filled" : ""} key={i} />)}</div><p className="spatial-comparison-footnote">{t("일정은 자료 제공과 범위 확인 후 협의합니다.")}</p><a href="#evidence">{t("공수의 근거 보기")}<ArrowUpRight size={15} /></a></article>
-        <article><p className="spatial-comparison-label">03 / ESTIMATE</p><h3>{t("예시 견적")}</h3><strong className="spatial-comparison-price">{money(quote.total)}<span>KRW</span></strong><p>{t("부가세 별도 · 실제 견적 아님")}</p><div className="spatial-comparison-formula"><span>{quote.days}{t("일")}</span><span>×</span><span>{money(quote.dailyRate)}{t("원")}</span></div><p className="spatial-comparison-footnote">{t("확정 전 사용자 검토가 필요합니다.")}</p><a href="#review">{t("완성될 초안 살펴보기")}<ArrowUpRight size={15} /></a></article>
-      </div><p className="spatial-comparison-disclaimer">{t("제품 설명을 위한 가상 프로젝트입니다. 서비스 이용 요금이 아닙니다.")}</p>
+        <article><p className="spatial-comparison-label">03 / ESTIMATE</p><h3>{t("예시 견적")}</h3><strong className="spatial-comparison-price">{money(quote.total)}<span>KRW</span></strong><p>{t("부가세 별도")}</p><div className="spatial-comparison-formula"><span>{quote.days}{t("일")}</span><span>×</span><span>{money(quote.dailyRate)}{t("원")}</span></div><p className="spatial-comparison-footnote">{t("확정 전 사용자 검토가 필요합니다.")}</p><a href="#review">{t("완성될 초안 살펴보기")}<ArrowUpRight size={15} /></a></article>
+      </div>
     </section>
   </div>;
 }

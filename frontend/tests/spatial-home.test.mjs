@@ -136,7 +136,7 @@ test("mixed-content action text remains readable and the handoff observes its in
   ]);
   for (const selector of [".spatial-assumptions summary", ".spatial-scope-estimator aside > a", "> footer > div > p"]) {
     const rule = css.slice(css.lastIndexOf(selector)).split("}")[0];
-    assert.match(rule, /font-size:\s*(?:13|14)px/);
+    assert.ok(Number(rule.match(/font-size:\s*(\d+)px/)?.[1]) >= 13, selector);
   }
   assert.match(hook, /target\.closest<HTMLElement>\("\.story-radial"\)/);
   assert.match(hook, /if \(targetFrame\) layoutObserver\.observe\(targetFrame\)/);
@@ -158,7 +158,7 @@ test("ambient motion observes each layer independently and cleans up observers, 
   assert.match(hook, /ambientObserver\.observe\(element\)/);
   assert.match(hook, /ambientObserver\.disconnect\(\)/);
   assert.match(hook, /motion\.revert\(\)/);
-  assert.match(component, /data-motion-paused=\{state\.paused\s*\|\|\s*reducedMotion\s*\|\|\s*!pageVisible\}/);
+  assert.match(component, /data-motion-paused=\{reducedMotion\s*\|\|\s*!pageVisible\}/);
   assert.match(component, /setPageVisible\(!document\.hidden\)/);
   for (const action of ["add", "remove"]) {
     assert.match(component, new RegExp(`document\\.${action}EventListener\\("visibilitychange", syncVisibility\\)`));
@@ -369,27 +369,6 @@ test("landing typography is bundled with readable fallbacks and text reveals do 
   assert.match(css, /html\[lang="en"\][^{]*\.spatial-hero-title > span\s*\{[^}]*font-family:\s*inherit;[^}]*font-style:\s*normal/);
 });
 
-test("the translated demo disclaimer is an intrinsic wrapping footer inside the hero glass", async () => {
-  const [component, css] = await Promise.all([
-    sourceFile("../features/home/components/product-experience.tsx"),
-    sourceFile("../app/landing-readability.css")
-  ]);
-  const source = ts.createSourceFile("product-experience.tsx", component, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const className = element => element.openingElement.attributes.properties.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className")?.initializer?.text;
-  const disclaimers = [];
-  function visit(node) {
-    if (ts.isJsxElement(node) && className(node) === "spatial-demo-disclaimer") disclaimers.push(node);
-    ts.forEachChild(node, visit);
-  }
-  visit(source);
-  assert.equal(disclaimers.length, 1);
-  assert.equal(disclaimers[0].openingElement.tagName.getText(source), "p");
-  assert.ok(ts.isJsxElement(disclaimers[0].parent));
-  assert.equal(className(disclaimers[0].parent), "spatial-flow");
-  assert.match(css, /\.spatial-flow \.spatial-demo-disclaimer\s*\{[^}]*position:\s*static;[^}]*width:\s*100%;[^}]*min-width:\s*0;[^}]*margin:\s*0;/);
-  assert.match(css, /\.spatial-flow \.spatial-demo-disclaimer\s*\{[^}]*font-size:\s*12px;[^}]*line-height:\s*1\.75;[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere/);
-});
-
 test("mobile and reduced brand plates reserve intrinsic space for readable copy above the source logo", async () => {
   const css = await sourceFile("../app/landing-readability.css");
   const staticPlate = css.slice(css.indexOf('@media (max-width: 820px), (prefers-reduced-motion: reduce)'));
@@ -397,18 +376,6 @@ test("mobile and reduced brand plates reserve intrinsic space for readable copy 
   assert.match(staticPlate, /\.story-brand-plate\s*\{[^}]*position:\s*relative;[^}]*height:\s*auto\s*!important;[^}]*padding:\s*28px 24px calc\(var\(--brand-mark-size\) \+ 64px\)/);
   assert.match(staticPlate, /\.story-brand-plate-copy\s*\{\s*position:\s*static/);
   assert.match(staticPlate, /\.story-brand-mark\s*\{\s*top:\s*auto;\s*bottom:\s*32px;\s*transform:\s*translateX\(-50%\)/);
-});
-
-
-test("the stage summary uses readable normal typography, larger icons and responsive grid tracks", async () => {
-  const css = await sourceFile("../app/landing-readability.css");
-  assert.match(css, /\.spatial-capability-strip > span\s*\{[^}]*font-family:\s*var\(--landing-font\);[^}]*font-size:\s*16px;[^}]*font-weight:\s*500;[^}]*color:\s*#d6cbe1/);
-  assert.match(css, /\.spatial-capability-strip > div > span\s*\{[^}]*font-family:\s*var\(--landing-font\);[^}]*font-size:\s*18px;[^}]*font-weight:\s*550;[^}]*color:\s*#f0e8f8;[^}]*overflow-wrap:\s*anywhere/);
-  assert.match(css, /\.spatial-capability-strip svg\s*\{[^}]*width:\s*48px;\s*height:\s*48px/);
-  assert.match(css, /\.spatial-capability-strip > div\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(css, /@media\s*\(max-width:\s*820px\)\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(css, /@media\s*\(max-width:\s*820px\)[\s\S]*\.spatial-capability-strip > div > span\s*\{\s*font-size:\s*16px/);
-  assert.match(css, /@media\s*\(max-width:\s*420px\)\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
 });
 
 
@@ -463,11 +430,11 @@ test("full-page text guards avoid inflated selector specificity and keep explana
   assert.doesNotMatch(css, /\.reference-story\s+:is\([^)]*(?:\.spatial-bar-label|\.spatial-bars small)/, "A maximum-specificity :is list must not override later chart typography");
   for (const selector of [".story-evidence-meters > div > div > span", ".spatial-quote-total > div > span", ".spatial-scope-estimator .spatial-scope-slider > div", ".spatial-comparison-grid a", ".story-task-markers li"]) {
     const rule = css.slice(css.lastIndexOf(`${selector} {`));
-    assert.match(rule.slice(0, rule.indexOf("}") + 1), /font-size:\s*14px/, selector);
+    assert.ok(Number(rule.slice(0, rule.indexOf("}") + 1).match(/font-size:\s*(\d+)px/)?.[1]) >= 14, selector);
   }
-  assert.match(css, /\.spatial-comparison-footnote\s*\{[^}]*font-size:\s*13px/);
-  assert.match(css, /\.spatial-comparison-grid strong > span\s*\{[^}]*font-size:\s*13px/);
-  assert.match(css, /\.spatial-quote-total small,[^}]*\.spatial-effort-number > span\s*\{[^}]*font-size:\s*12px/);
-  assert.match(css, /\.final-cta \.spatial-closing-link\s*\{[^}]*font-size:\s*14px/);
+  assert.ok(Number(css.match(/\.spatial-comparison-footnote\s*\{[^}]*font-size:\s*(\d+)px/)?.[1]) >= 13);
+  assert.ok(Number(css.match(/\.spatial-comparison-grid strong > span\s*\{[^}]*font-size:\s*(\d+)px/)?.[1]) >= 13);
+  assert.ok(Number(css.match(/\.spatial-quote-total small,[^}]*\.spatial-effort-number > span\s*\{[^}]*font-size:\s*(\d+)px/)?.[1]) >= 12);
+  assert.ok(Number(css.match(/\.final-cta \.spatial-closing-link\s*\{[^}]*font-size:\s*(\d+)px/)?.[1]) >= 14);
   assert.match(css, /@media\s*\(max-width:\s*580px\)\s*\{[^}]*\.spatial-closing-link\s*\{[^}]*flex-direction:\s*column/);
 });

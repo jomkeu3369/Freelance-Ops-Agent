@@ -130,7 +130,7 @@ async function expectSpatialLayout(page) {
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
   // Decorative glass may extend beyond its frame; meaningful content must stay inside usable width.
-  const clipped = await page.locator(".nav-shell, .nav-shell .brand, .nav-actions, .spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .spatial-demo-disclaimer, .spatial-capability-strip, .spatial-capability-strip > div > span, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
+  const clipped = await page.locator(".nav-shell, .nav-shell .brand, .nav-actions, .spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .workflow-unfold, .workflow-unfold-card, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
     return box.left < -1 || box.right > document.documentElement.clientWidth + 1 || element.scrollWidth > element.clientWidth + 1
@@ -152,18 +152,15 @@ async function expectSpatialLayout(page) {
     const card = document.querySelector(".spatial-project-card");
     const cardBox = card.getBoundingClientRect();
     const bottom = document.querySelector(".spatial-flow-bottom").getBoundingClientRect();
-    if (intersects(cardBox, bottom)) failures.push("Project card overlaps playback controls");
+    if (intersects(cardBox, bottom)) failures.push("Project card overlaps the status row");
     for (const label of document.querySelectorAll(".spatial-lane > span, .spatial-lane > small")) {
-      if (intersects(cardBox, label.getBoundingClientRect())) failures.push("Project card overlaps a lane heading");
+      const text = document.createRange();
+      text.selectNodeContents(label);
+      if (intersects(cardBox, text.getBoundingClientRect())) failures.push(`Project card overlaps lane text: ${label.textContent.trim()}`);
     }
     const flowBox = document.querySelector(".spatial-flow").getBoundingClientRect();
-    const disclaimer = document.querySelector(".spatial-demo-disclaimer");
-    const disclaimerBox = disclaimer.getBoundingClientRect();
-    if (disclaimer.parentElement !== document.querySelector(".spatial-flow")) failures.push("Demo disclaimer is not an intrinsic glass-panel footer");
-    if (["absolute", "fixed"].includes(getComputedStyle(disclaimer).position)) failures.push("Demo disclaimer is removed from content flow");
-    if (disclaimerBox.left < flowBox.left - 1 || disclaimerBox.right > flowBox.right + 1 || disclaimerBox.top < flowBox.top - 1 || disclaimerBox.bottom > flowBox.bottom + 1) failures.push("Demo disclaimer escapes the glass panel");
-    if (intersects(disclaimerBox, bottom) || intersects(disclaimerBox, cardBox)) failures.push("Demo disclaimer overlaps card or playback controls");
-    if (disclaimer.scrollHeight > disclaimer.clientHeight + 1) failures.push("Demo disclaimer wraps into clipped height");
+    if (document.querySelector(".spatial-demo-disclaimer, .spatial-motion-toggle")) failures.push("Removed demo copy or playback control is still rendered");
+    if (flowBox.bottom - bottom.bottom < 12) failures.push("Status row touches the outer glass-panel edge");
     const stages = [...document.querySelectorAll(".spatial-stage")];
     for (const stage of stages) {
       const box = stage.getBoundingClientRect();
@@ -177,7 +174,7 @@ async function expectSpatialLayout(page) {
       }
     }
     // Check glyph bounds as well as boxes: a fixed-width table cell can fit while its text paints over its neighbour.
-    const textContainers = document.querySelectorAll('.spatial-capability-strip > span, .spatial-capability-strip > div > span, .spatial-demo-disclaimer, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
+    const textContainers = document.querySelectorAll('.workflow-unfold h2, .workflow-unfold-card, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
     for (const container of textContainers) {
       const box = container.getBoundingClientRect();
       if (!box.width || !box.height) continue;
@@ -207,21 +204,17 @@ async function expectSpatialLayout(page) {
 }
 
 async function expectCapabilityStrip(page, language, width) {
-  const strip = page.locator(".spatial-capability-strip");
-  const caption = strip.locator(":scope > span");
-  const stages = strip.locator(":scope > div > span");
-  await expect(stages).toHaveText(landingCopy[language].stage);
-  await expect(caption).toHaveCSS("font-size", "16px");
-  await expect(caption).toHaveCSS("font-weight", "500");
-  await expect(caption).toHaveCSS("color", "rgb(214, 203, 225)");
-  const columns = await strip.locator(":scope > div").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(/\s+/).length);
-  expect(columns).toBe(width <= 420 ? 2 : width <= 820 ? 3 : 5);
+  const strip = page.locator(".workflow-unfold");
+  const caption = strip.locator("h2");
+  const stages = strip.locator(".workflow-unfold-card");
+  await expect(stages.locator("h3")).toHaveText(landingCopy[language].stage);
+  expect(await caption.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(23);
+  const columns = await strip.locator(".workflow-unfold-deck").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(/\s+/).length);
+  expect(columns).toBe(width <= 700 ? 2 : 5);
   for (const stage of await stages.all()) {
-    await expect(stage).toHaveCSS("font-size", width <= 820 ? "16px" : "18px");
-    await expect(stage).toHaveCSS("font-weight", "550");
-    await expect(stage).toHaveCSS("color", "rgb(240, 232, 248)");
-    await expect(stage.locator("svg")).toHaveCSS("width", "48px");
-    await expect(stage.locator("svg")).toHaveCSS("height", "48px");
+    expect(await stage.locator("h3").evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(18);
+    expect(await stage.locator("p").evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(14);
+    await expect(stage).toHaveCSS("opacity", "1");
   }
   for (const text of [caption, ...await stages.all()]) {
     await expect(text).toHaveCSS("font-family", /Noto Sans KR Variable/);
@@ -284,21 +277,18 @@ async function expectLowerLandingTypography(page, width) {
 }
 
 async function expectReadableLandingText(page) {
-  const failures = await page.locator(".spatial-hero-title, .spatial-stage, .spatial-project-card, .spatial-demo-disclaimer, .spatial-review-panel, .spatial-proposal, .spatial-effort-number, .story-section-heading, .spatial-comparison-heading").evaluateAll(elements => elements.flatMap(element => {
+  const failures = await page.locator(".spatial-hero-title, .spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort-number, .story-section-heading, .spatial-comparison-heading").evaluateAll(elements => elements.flatMap(element => {
     const problems = [];
     for (let ancestor = element; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
       const style = getComputedStyle(ancestor);
       if ([...style.filter.matchAll(/blur\(([-\d.]+)px\)/g)].some(match => Number(match[1]) > 0)) problems.push(`blurred text in ${ancestor.className}`);
-      if (style.perspective !== "none" || (style.transform !== "none" && !new DOMMatrixReadOnly(style.transform).is2D)) problems.push(`perspective text in ${ancestor.className}`);
-    }
-    if (element.matches(".spatial-demo-disclaimer")) {
-      const style = getComputedStyle(element);
-      if (Number.parseFloat(style.fontSize) < 12 || Number.parseFloat(style.lineHeight) < 18) problems.push("Disclaimer text is too small or tightly spaced");
-      if (style.whiteSpace === "nowrap") problems.push("Disclaimer cannot wrap");
+      const workflowFace = ancestor.matches(".spatial-stage, .spatial-project-card") && ancestor.closest('[data-workflow-ready="true"]');
+      const sceneRoot = ancestor.matches("[data-pointer-depth]");
+      if (!workflowFace && !sceneRoot && (style.perspective !== "none" || (style.transform !== "none" && !new DOMMatrixReadOnly(style.transform).is2D))) problems.push(`independent perspective text in ${ancestor.className}`);
     }
     return problems;
   }));
-  expect([...new Set(failures)], "Functional text must stay sharp and planar while decorative glass can remain dimensional").toEqual([]);
+  expect([...new Set(failures)], "Functional text must stay sharp and share its card's projection").toEqual([]);
 }
 
 async function openClockedLanding(page, language = "ko") {
@@ -309,7 +299,7 @@ async function openClockedLanding(page, language = "ko") {
   await page.clock.install();
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("lang", language);
-  await expect(page.locator(".spatial-motion-toggle")).toBeEnabled();
+  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-ready", "true");
   await expect(page.locator(".spatial-flow")).toBeInViewport({ ratio: 0.2 });
   await expect(page.locator("#workflow")).toHaveAttribute("data-paused", "false");
   await expect(page.locator(".spatial-flow")).toHaveAttribute("data-playing", "true");
@@ -678,7 +668,7 @@ async function expectCssTravelFrozen(path) {
   expect(await cssTravelOffset(path), "Paused CSS travel must retain the rendered dash offset").toBe(first);
 }
 
-test("ambient CSS travel moves on screen and freezes for hover, offscreen, explicit pause and visibility signals", async ({ page }) => {
+test("ambient CSS travel moves on screen and freezes for hover, offscreen and visibility signals", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
@@ -698,16 +688,6 @@ test("ambient CSS travel moves on screen and freezes for hover, offscreen, expli
   await expectCssTravelFrozen(heroTravel);
   await expect(footer).toHaveAttribute("data-ambient-visible", "true");
   await expectCssTravelMoving(footerTravel); // A different visible layer keeps moving independently.
-  await page.locator(".spatial-motion-toggle").click();
-  await releaseSpatialInteraction(page);
-  await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
-  await page.locator("#audience").scrollIntoViewIfNeeded();
-  await expect(footer).toHaveAttribute("data-ambient-visible", "true");
-  await expectCssTravelFrozen(footerTravel);
-  await page.locator(".spatial-motion-toggle").click();
-  await releaseSpatialInteraction(page);
-  await page.locator("#audience").scrollIntoViewIfNeeded();
-  await expectCssTravelMoving(footerTravel);
   // Exercise the visibility listener with a controlled document signal, without depending on headless tab policy.
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", { configurable: true, value: true });
@@ -818,7 +798,7 @@ for (const language of ["ko", "en"]) {
   }
 
   for (const width of [320, 430, 1440]) {
-    test(`landing ${language} ${width}px: fallback fonts and longer fictional text preserve intrinsic card layout`, async ({ page }) => {
+    test(`landing ${language} ${width}px: fallback fonts and longer details preserve intrinsic card layout`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
@@ -827,11 +807,6 @@ for (const language of ["ko", "en"]) {
       await expect(page.locator("html")).toHaveAttribute("lang", language);
       await page.addStyleTag({ content: ".spatial-world, .spatial-world * { font-family: Arial, sans-serif !important; }" });
       const requests = watchLandingApiRequests(page);
-      await page.locator(".spatial-demo-disclaimer").evaluate((element, locale) => {
-        element.textContent += locale === "ko"
-          ? " 실제 고객의 개인정보나 저장된 프로젝트를 사용하지 않는 검토용 가상의 예시입니다."
-          : " This readable fictional demonstration does not use any real client information or saved project data.";
-      }, language);
       for (let stage = 0; stage < 5; stage++) {
         await page.locator(".spatial-stage").nth(stage).click();
         await page.locator(".spatial-card-detail p").evaluate((element, locale) => {
@@ -851,7 +826,7 @@ for (const language of ["ko", "en"]) {
 }
 
 for (const language of ["ko", "en"]) {
-  test(`landing ${language} desktop: animated content stays sharp and the disclaimer remains inside the glass`, async ({ page }) => {
+  test(`landing ${language} desktop: animated content stays sharp and the status row clears the glass edge`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
@@ -880,7 +855,7 @@ for (const language of ["ko", "en"]) {
       await page.goto("/");
       await expect(page.locator("html")).toHaveAttribute("lang", language);
       await page.evaluate(() => document.fonts.ready);
-      await page.locator(".spatial-capability-strip").scrollIntoViewIfNeeded();
+      await page.locator(".workflow-unfold").scrollIntoViewIfNeeded();
       await expectCapabilityStrip(page, language, width);
       await expectSpatialLayout(page);
     });

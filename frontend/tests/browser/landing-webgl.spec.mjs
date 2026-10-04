@@ -61,9 +61,15 @@ test("automatic transfer lifts the same project through the 3D scene", async ({ 
   const flow = await workflowReady(page);
   await page.mouse.move(10, 10);
   const card = flow.locator(".spatial-project-card");
+  await card.evaluate(element => {
+    window.__workflowTransfers = [];
+    window.__workflowCard = element;
+    new MutationObserver(() => window.__workflowTransfers.push(element.dataset.transferState)).observe(element, { attributes: true, attributeFilter: ["data-transfer-state"] });
+  });
   await expect(flow).toHaveAttribute("data-column", "1", { timeout: 20_000 });
-  await expect(card).toHaveAttribute("data-transfer-state", "travelling");
+  await expect.poll(() => page.evaluate(() => window.__workflowTransfers.includes("travelling"))).toBe(true);
   await expect(card).toHaveAttribute("data-transfer-state", "settled");
+  expect(await card.evaluate(element => window.__workflowCard === element)).toBe(true);
   await expect(card).toHaveCount(1);
   expect(errors).toEqual([]);
 });
@@ -80,15 +86,25 @@ test("projected stage buttons retain keyboard order and activation", async ({ pa
   expect(errors).toEqual([]);
 });
 
-test("offscreen and global pause stop rendering, then resume restores it", async ({ page }) => {
+test("offscreen and hidden tabs stop rendering, then returning resumes it", async ({ page }) => {
   const errors = await openScene(page);
   const flow = await workflowReady(page);
-  await page.getByRole("button", { name: "자동 진행 일시 정지", exact: true }).click();
+  await page.mouse.move(10, 10);
+  await expect(flow).toHaveAttribute("data-workflow-running", "true");
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   await expectStopped(flow);
-  await page.getByRole("button", { name: "예시 자동 진행 재개", exact: true }).click();
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   await expect(flow).toHaveAttribute("data-workflow-running", "true");
   await page.locator("#scope-comparison").scrollIntoViewIfNeeded();
   await expectStopped(flow);
+  await flow.scrollIntoViewIfNeeded();
+  await expect(flow).toHaveAttribute("data-workflow-running", "true");
   expect(errors).toEqual([]);
 });
 
@@ -141,6 +157,8 @@ for (const width of [390, 768, 1024, 1440, 1920]) {
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), locale);
       const errors = await openScene(page, true);
       const flow = await workflowReady(page);
+      await expect(flow.locator(".spatial-motion-toggle, .spatial-demo-disclaimer")).toHaveCount(0);
+      await expect(flow).not.toContainText(/가상의 문의|가상의 프로젝트|fictional project|fictional inquiry/i);
       await expect(flow).toHaveAttribute("data-column", "1");
       const bounds = await flow.evaluate(host => {
         const container = host.getBoundingClientRect();
@@ -151,8 +169,25 @@ for (const width of [390, 768, 1024, 1440, 1920]) {
         });
       });
       expect(bounds.filter(item => !item.fits)).toEqual([]);
+      const readability = await flow.evaluate(host => {
+        const footer = host.querySelector(".spatial-flow-bottom").getBoundingClientRect();
+        const container = host.getBoundingClientRect();
+        const labels = [...host.querySelectorAll(".spatial-stage > span:last-of-type, .spatial-lane > span, .spatial-lane > small, .spatial-card-detail > p, .spatial-flow-bottom > span")];
+        return {
+          smallLabels: labels.filter(element => parseFloat(getComputedStyle(element).fontSize) < 13).map(element => element.textContent),
+          footerInset: container.bottom - footer.bottom,
+          footerFits: footer.left >= container.left && footer.right <= container.right
+        };
+      });
+      expect(readability.smallLabels, "Functional labels must remain readable at every viewport").toEqual([]);
+      expect(readability.footerInset, "The status row needs a visible inset from the rounded frame").toBeGreaterThanOrEqual(12);
+      expect(readability.footerFits).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await flow.screenshot({ path: `outputs/webgl/workflow-${locale}-${width}.png` });
+      if (width === 1920 && locale === "ko") {
+        await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+        await page.screenshot({ path: "outputs/webgl/landing-polish-1920.png" });
+      }
       expect(errors).toEqual([]);
     });
   }
@@ -164,5 +199,25 @@ test("hero and footer retain continuous shader light fields", async ({ page }) =
   const footer = page.locator('[data-webgl-kind="footer"]');
   await footer.scrollIntoViewIfNeeded();
   await expect(footer).toHaveAttribute("data-webgl-state", "ready", { timeout: 20_000 });
+  expect(errors).toEqual([]);
+});
+
+test("offscreen resize refreshes the workflow projection without restarting its render loop", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+  const errors = await openScene(page, true);
+  const flow = await workflowReady(page);
+  await page.locator("#review").scrollIntoViewIfNeeded();
+  for (const width of [390, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect.poll(() => flow.evaluate(host => {
+      const box = host.getBoundingClientRect();
+      const contained = [...host.querySelectorAll(".spatial-stage, .spatial-project-card")].every(element => {
+        const face = element.getBoundingClientRect();
+        return face.left >= box.left - 1 && face.right <= box.right + 1;
+      });
+      return contained && document.documentElement.scrollWidth <= document.documentElement.clientWidth;
+    }), { message: "An offscreen graph must already fit the new layout before scrolling back to it" }).toBe(true);
+    await expectStopped(flow);
+  }
   expect(errors).toEqual([]);
 });

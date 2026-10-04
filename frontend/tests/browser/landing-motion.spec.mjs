@@ -232,20 +232,20 @@ test("focus resets pointer depth, suppresses pointer moves, and live reduced mot
   await expectCohesiveText(page);
 });
 
-test("pointer cancellation, manual pause, and page visibility reset the common scene tilt", async ({ page }) => {
+test("pointer cancellation, reduced motion, and page visibility reset the common scene tilt", async ({ page }) => {
   await openLanding(page);
   const host = page.locator(".spatial-flow");
   await pointAtCorner(page, host, .2);
   await pointerAnchor(host).dispatchEvent("pointercancel", { pointerType: "mouse" });
   await expectReset(host);
   await pointAtCorner(page, host, .8);
-  await page.locator(".spatial-motion-toggle").evaluate(button => button.click());
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
   await expectReset(host);
   const box = await pointerAnchor(host).boundingBox();
   await page.mouse.move(box.x + box.width * .2, box.y + box.height * .2);
   await expectReset(host);
-  await page.locator(".spatial-motion-toggle").evaluate(button => button.click());
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "false");
   await pointAtCorner(page, host, .8);
   await page.evaluate(() => {
@@ -356,22 +356,20 @@ test("fresh hydration preserves the first plot entry and prisms grow sequentiall
   await expect(chart.locator(".spatial-bar-label")).toHaveText(["5일", "3.5일", "1.5일", "3일"]);
 });
 
-for (const interruption of ["pause-before-entry", "hidden-during-entry"]) {
+for (const interruption of ["hidden-before-entry", "hidden-during-entry"]) {
   test(`${interruption} keeps accurate fallback metrics and preserves the correct first-entry lifecycle`, async ({ page }) => {
     await openLanding(page, { clock: true });
     const chart = page.locator(".story-prism-chart");
     await expect(chart).toHaveAttribute("data-story-entry-state", "waiting");
-    if (interruption === "pause-before-entry") {
-      await page.locator(".spatial-motion-toggle").click();
-    } else {
+    if (interruption === "hidden-during-entry") {
       await chart.scrollIntoViewIfNeeded();
       await expect(chart).toHaveAttribute("data-story-entry-state", "running");
       await page.clock.runFor(180);
-      await page.evaluate(() => {
-        Object.defineProperty(document, "hidden", { configurable: true, value: true });
-        document.dispatchEvent(new Event("visibilitychange"));
-      });
     }
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", { configurable: true, value: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
     await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "true");
     await expectFinalPrisms(chart, [5, 3.5, 1.5]);
     await page.getByRole("button", { name: /^예약 변경 추가/ }).evaluate(button => button.click());
@@ -380,23 +378,21 @@ for (const interruption of ["pause-before-entry", "hidden-during-entry"]) {
     const finalCounts = ["13", "04", "13", "3.9"];
     await expect(page.locator("[data-story-count]")).toHaveText(finalCounts);
     await expect(page.locator("[data-story-count] + .sr-only")).toHaveText(finalCounts);
-    if (interruption === "hidden-during-entry") await page.evaluate(() => {
+    await page.evaluate(() => {
       delete document.hidden;
       document.dispatchEvent(new Event("visibilitychange"));
     });
-    // Changing scope explicitly pauses the demo in both cases.
-    await page.locator(".spatial-motion-toggle").evaluate(button => button.click());
     await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-paused", "false");
-    if (interruption === "pause-before-entry") await expect(chart).toHaveAttribute("data-story-entry-state", "waiting");
+    if (interruption === "hidden-before-entry") await expect(chart).toHaveAttribute("data-story-entry-state", "waiting");
     await chart.scrollIntoViewIfNeeded();
-    if (interruption === "pause-before-entry") {
+    if (interruption === "hidden-before-entry") {
       await expect(chart).toHaveAttribute("data-story-entry-state", "running");
       await page.clock.runFor(1400);
     } else {
       await page.clock.runFor(250);
     }
     await expectFinalPrisms(chart, [5, 3.5, 1.5, 3]);
-    await expect(page.locator("[data-story-count]")).toHaveText(finalCounts);
+    await expect(page.locator("[data-story-count] + .sr-only")).toHaveText(finalCounts);
   });
 }
 

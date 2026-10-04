@@ -71,7 +71,13 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
     intersection.observe(host);
     const resize = new ResizeObserver(() => {
       pointerBounds = undefined;
-      try { controller.current?.resize(); invalidate(); } catch { fail(); }
+      try {
+        controller.current?.resize();
+        // The projected DOM must fit the new layout even while its canvas is offscreen.
+        // Otherwise a desktop matrix can widen the mobile document until re-entry.
+        if (!visible && !document.hidden) controller.current?.render(time, 0, false, { x: 0, y: 0 });
+        invalidate();
+      } catch { fail(); }
     });
     resize.observe(host);
     host.querySelectorAll(".spatial-stage, .spatial-board, .spatial-project-card").forEach(element => resize.observe(element));

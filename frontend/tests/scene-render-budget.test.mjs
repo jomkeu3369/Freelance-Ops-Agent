@@ -22,5 +22,5 @@ test("inactive graph pulses stop and lower scope changes do not observe the whol
   assert.match(css, /spatial-graph-pulse\[data-active="false"\][^}]*animation-play-state:\s*paused/);
   assert.match(css, /\.scene-fog-drift,\s*\.figma-home\.spatial-site \.scene-fog-cool\s*\{\s*animation:\s*none;\s*transform:\s*none/);
   assert.doesNotMatch(hook, /layoutObserver\.observe\(pageRef\.current/);
-  assert.match(hook, /\.spatial-workflow, \.spatial-capability-strip, \.story-features, \.story-brand-scene, \.story-benefits/);
+  assert.match(hook, /\.spatial-workflow, \.workflow-unfold, \.story-features, \.story-brand-scene, \.story-benefits/);
 });

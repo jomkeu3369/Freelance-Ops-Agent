@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 type Box = { x: number; y: number; width: number; height: number };
-type Plate = { element?: HTMLElement; mesh: THREE.Mesh; face: THREE.MeshPhysicalMaterial; box: Box; depth: number; z: number };
+type Plate = { element?: HTMLElement; mesh: THREE.Mesh; face: THREE.MeshPhysicalMaterial; edges: THREE.LineSegments; hologram: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>; box: Box; depth: number; z: number };
 export type WorkflowRenderer = ReturnType<typeof createWorkflowRenderer>;
 
 /** Real meshes and interactive HTML use exactly the same camera projection. */
@@ -40,8 +40,8 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
   const materials = new Set<THREE.Material>();
   const geometries = new Set<THREE.BufferGeometry>();
   const own = <T extends THREE.Material>(value: T) => { materials.add(value); return value; };
-  const side = own(new THREE.MeshPhysicalMaterial({ color: "#483055", metalness: .62, roughness: .38, clearcoat: .5, envMapIntensity: .35 }));
-  const back = own(new THREE.MeshStandardMaterial({ color: "#130d1d", metalness: .4, roughness: .4 }));
+  const side = own(new THREE.MeshPhysicalMaterial({ color: "#8c6cba", metalness: .05, roughness: .6, transparent: true, opacity: .16, depthWrite: false, envMapIntensity: .12 }));
+  const back = own(new THREE.MeshBasicMaterial({ color: "#594276", transparent: true, opacity: .08, depthWrite: false }));
   const plates: Plate[] = [];
   const labelBounds = new Map<Plate, Box>();
   const stageElements = [...host.querySelectorAll<HTMLElement>(".spatial-stage")];
@@ -76,24 +76,62 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
     return { x, y, width: element.offsetWidth, height: element.offsetHeight };
   };
   const makePlate = (element: HTMLElement | undefined, z: number, depth: number, color: string) => {
-    const face = own(new THREE.MeshPhysicalMaterial({ color, metalness: .38, roughness: .32, clearcoat: .85, clearcoatRoughness: .25, envMapIntensity: .65 }));
+    const face = own(new THREE.MeshPhysicalMaterial({ color, metalness: .02, roughness: .65, transparent: true, opacity: element === cardElement ? .84 : .62, depthWrite: false, envMapIntensity: .1 }));
     const mesh = new THREE.Mesh(new THREE.BufferGeometry(), [side, side, side, side, face, back]);
-    mesh.castShadow = true; mesh.receiveShadow = true;
+    const edgeMaterial = own(new THREE.LineBasicMaterial({ color: "#c4b0ff", transparent: true, opacity: z === 0 ? .22 : .64, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const edges = new THREE.LineSegments(new THREE.BufferGeometry(), edgeMaterial);
+    const scan = own(new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { time: { value: 0 }, energy: { value: .3 }, size: { value: new THREE.Vector2(1, 1) } },
+      vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader: `varying vec2 vUv; uniform float time; uniform float energy; uniform vec2 size;
+        void main(){
+          float lines=pow(.5+.5*cos(vUv.y*size.y*1.28),18.);
+          float sweep=exp(-pow((vUv.y-fract(time*.07))*9.,2.));
+          float edge=pow(abs(vUv.x-.5)*2.,14.)+pow(abs(vUv.y-.5)*2.,14.);
+          float vignette=smoothstep(0.,.12,vUv.x)*smoothstep(0.,.12,1.-vUv.x);
+          gl_FragColor=vec4(mix(vec3(.63,.47,1.),vec3(.66,.86,1.),vUv.y), (lines*.025+sweep*.055*energy+edge*.045)*vignette);
+        }`
+    }));
+    const hologram = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), scan);
+    geometries.add(hologram.geometry);
+    hologram.position.z = depth / 2 + .15;
+    mesh.add(edges, hologram);
     group.add(mesh);
-    const plate: Plate = { element, mesh, face, z, depth, box: { x: 0, y: 0, width: 0, height: 0 } };
+    const plate: Plate = { element, mesh, face, edges, hologram, z, depth, box: { x: 0, y: 0, width: 0, height: 0 } };
     plates.push(plate);
     return plate;
   };
-  const nodes = stageElements.map((element, index) => makePlate(element, [42, 78, 40, 54, 94][index], 20, "#191120"));
-  const lanes = laneElements.map(element => makePlate(element, 0, 9, "#15101d"));
-  const card = makePlate(cardElement, 64, 26, "#3b264d");
+  const nodes = stageElements.map((element, index) => makePlate(element, [42, 78, 40, 54, 94][index], 7, "#1c142b"));
+  const lanes = laneElements.map(element => makePlate(element, 0, 3, "#15101d"));
+  lanes.forEach(lane => { lane.face.opacity = .2; });
+  const card = makePlate(cardElement, 64, 9, "#281b3b");
   const graphBase = makePlate(undefined, -10, 10, "#17111f");
+  graphBase.mesh.visible = false;
 
   const place = (plate: Plate, box: Box) => {
     if (plate.box.width !== box.width || plate.box.height !== box.height) {
       geometries.delete(plate.mesh.geometry); plate.mesh.geometry.dispose();
       const geometry = new RoundedBoxGeometry(Math.max(1, box.width), Math.max(1, box.height), plate.depth, 3, Math.min(7, plate.depth / 3));
       plate.mesh.geometry = geometry; geometries.add(geometry);
+      const w = box.width / 2, h = box.height / 2, r = 6;
+      const contour = new THREE.Shape();
+      contour.moveTo(-w + r, -h); contour.lineTo(w - r, -h); contour.quadraticCurveTo(w, -h, w, -h + r);
+      contour.lineTo(w, h - r); contour.quadraticCurveTo(w, h, w - r, h);
+      contour.lineTo(-w + r, h); contour.quadraticCurveTo(-w, h, -w, h - r);
+      contour.lineTo(-w, -h + r); contour.quadraticCurveTo(-w, -h, -w + r, -h);
+      const points = contour.getPoints(6);
+      const vertices: number[] = [];
+      for (let index = 1; index < points.length; index++) {
+        for (const z of [plate.depth / 2 + .2, -plate.depth / 2]) {
+          vertices.push(points[index - 1].x, points[index - 1].y, z, points[index].x, points[index].y, z);
+        }
+      }
+      geometries.delete(plate.edges.geometry); plate.edges.geometry.dispose();
+      plate.edges.geometry = new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+      geometries.add(plate.edges.geometry);
+      plate.hologram.scale.set(box.width - 4, box.height - 4, 1);
+      plate.hologram.material.uniforms.size.value.set(box.width, box.height);
     }
     plate.box = box;
     plate.mesh.position.set(box.x + box.width / 2 - width / 2, height / 2 - box.y - box.height / 2, plate.z);
@@ -201,10 +239,12 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
       card.mesh.rotation.y = lift * -.08;
       cardElement.dataset.transferState = transfer < 1 ? "travelling" : "settled";
       nodes.forEach((node, index) => {
-        node.face.color.set(index === selected ? "#382446" : index < selected ? "#20162a" : "#17111f");
-        node.face.emissive.set(index === selected ? "#8e52af" : "#000000");
-        node.face.emissiveIntensity = index === selected ? .12 : 0;
+        node.face.color.set(index === selected ? "#332348" : index < selected ? "#21182e" : "#191122");
+        node.face.emissive.set(index === selected ? "#744fb1" : "#271239");
+        node.face.emissiveIntensity = index === selected ? .2 : .08;
+        node.hologram.material.uniforms.energy.value = index === selected ? 1 : .3;
       });
+      plates.forEach(plate => { plate.hologram.material.uniforms.time.value = time; });
       beamMaterials.forEach(material => {
         material.uniforms.time.value = time;
         material.uniforms.energy.value = material.userData.target === selected ? 1 : material.userData.target < selected ? .4 : .05;

@@ -1,5 +1,15 @@
 // Original landing scenes and their fictional product examples.
 export const homeEnglish = {
+  "고객의 한마디": "A client's first words",
+  "작업 범위 정리": "A clear scope",
+  "공수와 근거": "Effort with evidence",
+  "검토 가능한 초안": "A draft to review",
+  "스크롤하며 흐름을 펼쳐보세요.": "Scroll to unfold the workflow.",
+  "프로젝트 진행": "Project progress",
+  "선택한 작업 범위에 맞춰 공수를 계산합니다.": "Effort follows the scope you select.",
+  "선택한 범위가 작업과 계산에 그대로 반영됩니다.": "Your selected scope flows into every task and calculation.",
+  "작업 범위부터 공수와 금액까지, 하나의 기준으로 연결됩니다.": "Scope, effort and price, connected by one shared basis.",
+  "예상 공수에 일단가를 곱해 금액의 근거를 확인합니다.": "Multiply estimated effort by the daily rate to see how the price is built.",
   "문의는 한마디,": "The first words.", "제안은 명확하게.": "A clearer proposal.", "하나의 문의, 이어지는 다섯 단계": "One inquiry. Five connected stages.", "업무 공간 열기": "Open workspace",
   "고객의 문의를,": "From the first words,", "근거 있는 제안으로.": "to a grounded proposal.",
   "요구사항, 확인 질문, 견적, 제안서.": "Requirements, questions, estimates and proposals.", "흩어진 고객 업무가 하나의 흐름으로 이어집니다.": "Your client work, connected in a single flow.",
