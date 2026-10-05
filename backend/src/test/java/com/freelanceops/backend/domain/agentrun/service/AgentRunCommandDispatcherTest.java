@@ -51,7 +51,7 @@ class AgentRunCommandDispatcherTest {
     void setUp() {
         objectMapper = JsonMapper.builder().findAndAddModules().build();
         dispatcher = new AgentRunCommandDispatcher(
-            queue, runRepository, projectRepository, client, tokenIssuer, projectionService, objectMapper
+            queue, runRepository, projectRepository, client, tokenIssuer, projectionService, objectMapper, org.mockito.Mockito.mock(ByokExecutionService.class)
         );
     }
 

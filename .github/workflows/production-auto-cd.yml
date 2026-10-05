@@ -103,11 +103,13 @@ jobs:
     needs:
       - changes
       - agent-ci
+      - backend-ci
       - contracts-ci
     if: >-
       always() &&
       needs.changes.outputs.agent == 'true' &&
       needs.agent-ci.result == 'success' &&
+      (needs.changes.outputs.backend != 'true' || needs.backend-ci.result == 'success') &&
       (needs.contracts-ci.result == 'success' || needs.contracts-ci.result == 'skipped')
     uses: ./.github/workflows/agent-cd.yml
     with:

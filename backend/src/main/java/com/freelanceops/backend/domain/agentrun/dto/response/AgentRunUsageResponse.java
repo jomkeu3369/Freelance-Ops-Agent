@@ -28,5 +28,6 @@ public record AgentRunUsageResponse(
     java.util.List<AgentRunView.ProviderCallUsage> providerCalls,
     BigDecimal platformCostUsd,
     UUID platformReservationId,
-    String tariffVersion
+    String tariffVersion,
+    UUID byokScopeId
 ) { }

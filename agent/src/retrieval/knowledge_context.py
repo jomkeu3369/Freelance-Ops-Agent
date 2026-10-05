@@ -63,7 +63,11 @@ class KnowledgeContextLoader:
         query = request.input.requirement_text[:2000]
         mode = "hybrid"
         try:
-            embedding = await self._embedder.embed(query)
+            if request.byok_budget is not None:
+                embedding = None
+                mode = "keyword_only"
+            else:
+                embedding = await self._embedder.embed(query)
         except Exception:
             # Source lookup remains authoritative even when the embedding provider is unavailable.
             embedding = None
@@ -91,4 +95,8 @@ class KnowledgeContextLoader:
             references.append(serialized)
             size += length
         payload["confirmed_reference_documents"] = references
+        if request.byok_budget is not None and not context.source_messages and not references:
+            # No source data exists to repeat. The department prompt still owns
+            # the same grounding/safety rules, and retrieval usage remains visible.
+            return KnowledgeContext("", 3, (), mode)
         return KnowledgeContext(json.dumps(payload, ensure_ascii=False), 3, tuple(str(hit["document_id"]) for hit in references), mode)  # noqa: E501

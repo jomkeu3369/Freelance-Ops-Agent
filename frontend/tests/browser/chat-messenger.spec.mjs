@@ -350,7 +350,7 @@ test("repeated cancellation submits once while its response is pending", async (
 
 test("AI settings retain provider, model, personal connection and pet customization controls", async ({ page }) => {
   const state = await fixture(page);
-  state.connections = [{ id: "fixture-connection", provider: "OPENAI", model: "personal-fixture-model", maskedKey: "fixture-...masked", updatedAt: "2026-10-01T00:00:00Z" }];
+  state.connections = [{ id: "fixture-connection", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "fixture-...masked", updatedAt: "2026-10-01T00:00:00Z" }];
   await page.goto(path);
   const settings = page.locator(".agent-chat-settings");
   await page.getByRole("button", { name: "AI 설정 열기" }).click();

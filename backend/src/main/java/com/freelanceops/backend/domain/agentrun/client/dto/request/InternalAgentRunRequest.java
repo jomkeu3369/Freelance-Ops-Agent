@@ -13,12 +13,35 @@ public record InternalAgentRunRequest(
     ModelSelection modelSelection,
     SafetyContext safetyContext,
     AgentInput input,
-    PlatformBudget platformBudget
+    PlatformBudget platformBudget,
+    ByokBudget byokBudget
 ) {
+
+    public InternalAgentRunRequest(TrustedRunContext context, RunBudget budget, ModelSelection modelSelection,
+                                   SafetyContext safetyContext, AgentInput input, PlatformBudget platformBudget) {
+        this(context, budget, modelSelection, safetyContext, input, platformBudget, null);
+    }
 
     public InternalAgentRunRequest(TrustedRunContext context, RunBudget budget, ModelSelection modelSelection,
                                    SafetyContext safetyContext, AgentInput input) {
         this(context, budget, modelSelection, safetyContext, input, null);
+    }
+
+    /** Issued only by Spring. A scope is not a credential or a reusable call permit. */
+    public record ByokBudget(UUID scopeId, UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy,
+                             UUID credentialId, com.freelanceops.backend.domain.agentrun.model.Provider provider,
+                             String model, com.freelanceops.backend.domain.agentrun.model.ReasoningEffort reasoningEffort,
+                             String fundingSource, String serviceTier, java.time.Instant validUntil,
+                             int maxModelCalls, int maxInputTokens, int maxOutputTokens, RunBudget budget) {
+        public ByokBudget {
+            if (scopeId == null || runId == null || workspaceId == null || projectId == null || initiatedBy == null
+                || credentialId == null || provider == null || model == null || reasoningEffort == null || validUntil == null
+                || !"BYOK".equals(fundingSource) || !"default".equals(serviceTier) || budget == null
+                || maxModelCalls != budget.maxModelCalls() || maxInputTokens != budget.maxInputTokens()
+                || maxOutputTokens != budget.maxOutputTokens() || maxModelCalls < 1 || maxInputTokens < 1 || maxOutputTokens < 1) {
+                throw new IllegalArgumentException("Personal execution scope is invalid");
+            }
+        }
     }
 
     public record PlatformBudget(UUID reservationId, java.math.BigDecimal maxCostUsd,

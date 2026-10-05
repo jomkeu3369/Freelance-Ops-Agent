@@ -1,4 +1,5 @@
-import { byokFailureMessage } from "../../../app/lib/byok-presentation.mjs";
+import { ByokCostNotice } from "./analysis/byok-cost-notice";
+import { byokCostEstimate, byokFailureMessage } from "../../../app/lib/byok-presentation.mjs";
 import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
@@ -102,10 +103,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const retryCandidates = pendingRetries.filter(item => !!chatModel && (item.workflowMode ?? "PROJECT_ANALYSIS") === "AD_HOC" && item.provider === chatModel.provider && item.model === chatModel.model && (item.credentialId ?? "") === (chatModel.credentialId ?? ""));
   const ledgerBlocker = includedUsageBlocker(ledger.data, chatModel?.provider ?? provider, chatModel?.model ?? model);
   const ledgerMessage = ledger.loading ? t("사용량 확인 중…") : ledgerBlocker === "paused" ? t("기본 제공 AI 실행이 현재 중지되어 있습니다.") : ledgerBlocker === "model" ? t("선택한 모델의 지원 여부와 예약 상한을 확인해 주세요.") : ledgerBlocker === "insufficient" ? t("기본 제공 AI의 주간 잔여 예산이 없습니다.") : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
-  const canSendAI = !!chatModel && (!!chatModel.credentialId || !ledgerBlocker && !ledger.loading);
+  const personalCostKnown = !!chatModel?.credentialId && byokCostEstimate(chatModel.provider, chatModel.model) !== null;
+  const canSendAI = !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
 
   async function sendMessage(message: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
     if (!chatModel) return false;
+    if (chatModel.credentialId && !personalCostKnown) throw new Error(t("이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다."));
     const retry = retryCandidates.find(item => item.message === message && JSON.stringify(item.attachmentIds ?? []) === JSON.stringify(attachmentIds) && skillSelectionSignature(item.skillSelection) === skillSelectionSignature(skillSelection));
     if (!retry && !chatModel.credentialId && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
     try {
@@ -391,6 +394,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           retryMessages={retryCandidates.map(item => item.message)}
           composerInfo={(draft) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={!!parseChatPolicyIntent(draft)} active={runInProgress} retry={retryCandidates.find(item => item.message === draft)} />
             {!runInProgress && !parseChatPolicyIntent(draft) && !retryCandidates.some(item => item.message === draft) && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
+            {!runInProgress && !parseChatPolicyIntent(draft) && chatModel?.credentialId && <ByokCostNotice provider={chatModel.provider} model={chatModel.model} />}
             <AiUsageMeter session={session} state={ledger} /></>}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}

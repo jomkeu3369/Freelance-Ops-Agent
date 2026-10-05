@@ -5,7 +5,7 @@ import {byokFailureMessage, byokFailureMessages} from '../app/lib/byok-presentat
 import {creditEnglish} from '../app/lib/ui-credit-english.mjs';
 
 test('BYOK denials are stable, localizable and do not interpolate credential data', () => {
-  assert.equal(Object.keys(byokFailureMessages).length, 6);
+  assert.equal(Object.keys(byokFailureMessages).length, 7);
   for (const [code, message] of Object.entries(byokFailureMessages)) {
     assert.equal(byokFailureMessage(code), message);
     assert.ok(creditEnglish[message]);
@@ -34,5 +34,33 @@ test('typed BYOK admission errors reach the preserved-draft chat and terminal pr
   assert.match(shell,/cause instanceof ApiError && byokFailureMessage\(cause.code\)\) throw cause/);
   assert.match(workbench,/if \(byokMessage\) throw new Error\(t\(byokMessage\)\)/);
   assert.match(activity,/byokFailureMessage\(errorCode\) \?\?/);
-  assert.match(workbench,/const canSendAI = !!chatModel && \(!!chatModel.credentialId \|\| !ledgerBlocker && !ledger.loading\)/);
+  assert.match(workbench,/chatModel.credentialId \? personalCostKnown : !ledgerBlocker && !ledger.loading/);
+});
+
+test('per-run personal cost estimates use exact conservative Standard arithmetic, never free unknown prices', async () => {
+  const {byokCostEstimate}=await import('../app/lib/byok-presentation.mjs');
+  const now=Date.parse('2026-10-05T13:00:00Z');
+  const expected={'gpt-6-luna':'0.04275','gpt-6-sol':'0.855','gpt-6.1-sol':'0.855','gpt-6-astra':'4.275','gpt-5.6-luna':'0.0951','gpt-5.6-terra':'0.951','gpt-5.6-sol':'1.71'};
+  for(const [model,maxUsd] of Object.entries(expected)){
+    const estimate=byokCostEstimate('OPENAI',model,now);
+    assert.equal(estimate.maxUsd,maxUsd);
+    assert.equal(estimate.inputTokens,150000);
+    assert.equal(estimate.outputTokens,48000);
+    assert.equal(estimate.maxAttempts,50);
+    assert.equal(estimate.durationSeconds,180);
+    assert.equal(estimate.sourceUrl,`https://developers.openai.com/api/docs/models/${model}`);
+  }
+  for(const model of ['unknown','gpt-6-luna-extended','gpt-6.1-sol:fast','__proto__','toString',''])assert.equal(byokCostEstimate('OPENAI',model,now),null);
+  assert.equal(byokCostEstimate('GEMINI','gpt-6-luna',now),null);
+  assert.equal(byokCostEstimate('OPENAI','gpt-6-luna',NaN),null);
+  assert.equal(byokCostEstimate('OPENAI','gpt-5.6-sol',Date.parse('2026-11-22T00:00:00Z')),null);
+});
+
+test('actual START caps differ only for explicitly selected personal credentials', async () => {
+  const contract=JSON.parse(await readFile(new URL('../../contracts/fixtures/workspace-credit-contract.json',import.meta.url),'utf8'));
+  assert.equal(contract.start.budget.maxInputTokens,50000);
+  assert.equal(contract.byokStart.budget.maxInputTokens,150000);
+  assert.deepEqual({...contract.start.budget,maxInputTokens:150000},contract.byokStart.budget);
+  const source=await readFile(new URL('../app/lib/api.ts',import.meta.url),'utf8');
+  assert.match(source,/maxInputTokens: input.credentialId \? 150000 : 50000/);
 });

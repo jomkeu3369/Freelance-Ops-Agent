@@ -72,3 +72,7 @@
   .agent-chat-policy { padding: 12px; }
   .agent-chat-message .interruption-actions > span, .agent-chat-message .interruption-actions button { width: 100%; }
 }
+
+.byok-cost-notice { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.byok-cost-notice small { font-size: 0.75rem; line-height: 1.5; }
+.byok-cost-notice a { color: inherit; text-decoration: underline; }

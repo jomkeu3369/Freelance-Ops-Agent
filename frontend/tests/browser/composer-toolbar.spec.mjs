@@ -4,7 +4,7 @@ const path = "/workspace/projects/project-one/agent";
 
 for (const width of [320, 390, 1440]) test(`${width}px model choice is local, keeps the draft and is used only on explicit send`, async ({ page }) => {
   const state = await fixture(page);
-  state.connections = [{ id: "personal-example", provider: "OPENAI", model: "personal-test-model", maskedKey: "synthetic-...mask", updatedAt: "2026-10-01T00:00:00Z" }];
+  state.connections = [{ id: "personal-example", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-...mask", updatedAt: "2026-10-01T00:00:00Z" }];
   await page.setViewportSize({ width, height: 844 });
   await page.goto(path);
   await page.locator("#agent-chat-input").fill("Keep my exact draft\nStill unsent");
@@ -15,7 +15,7 @@ for (const width of [320, 390, 1440]) test(`${width}px model choice is local, ke
   await expect(popover.getByLabel("AI 연결", { exact: true })).toBeFocused();
   await popover.getByLabel("AI 연결", { exact: true }).selectOption("personal-example");
   await expect(popover).toContainText("제공사 계정에 청구");
-  await expect(trigger).toContainText("personal-test-model");
+  await expect(trigger).toContainText("gpt-6-luna");
   await page.keyboard.press("Escape");
   await expect(popover).toHaveCount(0);
   await expect(trigger).toBeFocused();

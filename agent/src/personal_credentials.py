@@ -28,7 +28,7 @@ async def resolve_credential(selection: ModelSelection, backend_url: str, timeou
     if authorization is None or selection.credential_id is None:
         raise ValueError("Personal credential authorization unavailable")
     token, run_id = authorization
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False) as client:
         response = await client.get(
             f"{backend_url.rstrip('/')}/internal/v1/ai-connections/{selection.credential_id}/credential",
             params={"provider": selection.provider.value, "model": selection.model},

@@ -10,7 +10,7 @@ async function prepare(page,locale){
   const state=await fixture(page);
   state.aiUsage.spendingEnabled=false;
   state.aiUsage.models=state.aiUsage.models.map(model=>({...model,available:false,unavailableReason:'SPENDING_DISABLED'}));
-  state.connections=[{id:'personal-bounded',provider:'OPENAI',model:'personal-synthetic-model',maskedKey:'synthetic-only',updatedAt:'2026-10-05T00:00:00Z'}];
+  state.connections=[{id:'personal-bounded',provider:'OPENAI',model:'gpt-6-luna',maskedKey:'synthetic-only',updatedAt:'2026-10-05T00:00:00Z'}];
   if(locale==='en')await page.addInitScript(()=>localStorage.setItem('freelance-ops-ui-locale-v1','en'));
   await page.goto(path);
   await page.locator('#agent-chat-input').fill(draft);
@@ -41,7 +41,7 @@ for(const locale of ['ko','en']){
   for(const code of ['BYOK_SCOPE_EXPIRED','BYOK_LIMIT_EXHAUSTED'])test(`${locale}: ${code} preserves the draft and never falls back or retries`,async({page})=>{
     const state=await fixture(page);
     state.aiUsage.spendingEnabled=false;
-    state.connections=[{id:'personal-bounded',provider:'OPENAI',model:'personal-synthetic-model',maskedKey:'synthetic-only',updatedAt:'2026-10-05T00:00:00Z'}];
+    state.connections=[{id:'personal-bounded',provider:'OPENAI',model:'gpt-6-luna',maskedKey:'synthetic-only',updatedAt:'2026-10-05T00:00:00Z'}];
     if(locale==='en')await page.addInitScript(()=>localStorage.setItem('freelance-ops-ui-locale-v1','en'));
     const attempts=[];
     await page.route('**/agent-runs',route=>{
@@ -58,7 +58,7 @@ for(const locale of ['ko','en']){
     const message=byokFailureMessages[code];
     await expect(page.locator('.agent-chat .form-error')).toContainText(locale==='ko'?message:creditEnglish[message]);
     await expect(page.locator('#agent-chat-input')).toHaveValue(draft);
-    await expect(page.locator('.chat-model-trigger')).toContainText('personal-synthetic-model');
+    await expect(page.locator('.chat-model-trigger')).toContainText('gpt-6-luna');
     await expect(page.locator('body')).not.toContainText('Raw synthetic response must not be shown');
     expect(attempts).toHaveLength(1);
     expect(attempts[0].modelSelection.credentialId).toBe('personal-bounded');
@@ -66,3 +66,33 @@ for(const locale of ['ko','en']){
     expect(state.blocked).toEqual([]);
   });
 }
+
+test('selected key/model changes the visible per-run amount before Send; unknown pricing cannot execute',async({page})=>{
+  const state=await fixture(page);
+  state.aiUsage.spendingEnabled=false;
+  state.connections=[
+    {id:'luna-key',provider:'OPENAI',model:'gpt-6-luna',maskedKey:'synthetic-luna',updatedAt:'2026-10-05T00:00:00Z'},
+    {id:'astra-key',provider:'OPENAI',model:'gpt-6-astra',maskedKey:'synthetic-astra',updatedAt:'2026-10-05T00:00:00Z'},
+    {id:'unknown-key',provider:'OPENAI',model:'unpriced-future-model',maskedKey:'synthetic-unknown',updatedAt:'2026-10-05T00:00:00Z'},
+  ];
+  await page.goto(path);
+  await page.locator('#agent-chat-input').fill(draft);
+  for(const [key,price] of [['luna-key','$0.04275'],['astra-key','$4.275']]){
+    await page.locator('.chat-model-trigger').click();
+    await page.getByRole('dialog',{name:'AI 모델 선택',exact:true}).getByLabel('AI 연결',{exact:true}).selectOption(key);
+    await page.keyboard.press('Escape');
+    const notice=page.locator('.agent-chat-composer .byok-cost-notice');
+    await expect(notice).toContainText(price);
+    await expect(notice).toContainText('입력 15만·출력 4.8만');
+    await expect(notice).toContainText('요금 변경·계정 조건·세금·환율');
+    await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeEnabled();
+    expect(state.starts).toEqual([]);
+  }
+  await page.locator('.chat-model-trigger').click();
+  await page.getByRole('dialog',{name:'AI 모델 선택',exact:true}).getByLabel('AI 연결',{exact:true}).selectOption('unknown-key');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.agent-chat-composer .byok-cost-notice')).toContainText('비용 기준을 확인하지 못했습니다');
+  await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeDisabled();
+  await expect(page.locator('#agent-chat-input')).toHaveValue(draft);
+  expect(state.starts).toEqual([]);
+});

@@ -1,3 +1,4 @@
+import { ByokCostNotice } from "./byok-cost-notice";
 import type { AIConnection, Provider } from "../../../../app/lib/api";
 import { useT } from "../../../../app/lib/ui-language";
 import type { AiUsageModel } from "../../../../app/lib/ai-usage-presentation";
@@ -39,6 +40,7 @@ export function ChatModelControls({ catalogModels, connections, credentialId, pr
       </div>}
       {catalogModels === null && <span role="status">{t("사용량과 모델 지원 상태를 확인하지 못했습니다.")}</span>}
     </>}
+    {credentialId && connection && <ByokCostNotice provider={connection.provider} model={connection.model} />}
     {credentialId && <span className="model-selection-note">{t("선택한 OpenAI 키로만 모델을 호출하며 제공사 계정에 청구됩니다. 라우팅과 자료 조회에는 플랫폼 AI를 사용하지 않습니다.")}</span>}
     {credentialId && <span className="model-selection-note">{t("유료 웹 검색·임베딩·별도 AI 생성은 지원하지 않습니다. 실행 시간은 대기 중에도 연장되지 않고, 실패·재시도도 실행 한도에 포함됩니다.")}</span>}
     <span className="model-selection-note">{credentialId ? t("내 키로 실행 · 제공사 계정에 청구") : t("기본 제공 AI로 실행")} {t("· 자동 전환 없음")}</span>

@@ -16,7 +16,7 @@ test("new included AI ignores legacy credits and sends no fixed-price quote", as
 
 test("missing actual usage blocks included AI while explicit BYOK stays distinct", async ({ page }) => {
   const state = await fixture(page); state.aiUsageStatus = 503;
-  state.connections = [{ id: "personal-key", provider: "OPENAI", model: "personal-model", maskedKey: "synthetic…key", updatedAt: "2026-10-01T00:00:00Z" }];
+  state.connections = [{ id: "personal-key", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic…key", updatedAt: "2026-10-01T00:00:00Z" }];
   await page.goto(path); await page.locator("#agent-chat-input").fill("Keep this exact request");
   await expect(send(page)).toBeDisabled();
   await page.locator(".chat-model-trigger").click();

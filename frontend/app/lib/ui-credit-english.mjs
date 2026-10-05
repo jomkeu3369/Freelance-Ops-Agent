@@ -107,4 +107,10 @@ export const creditEnglish = {
   "이 개인 키 실행은 종료되었습니다. 기존 요청은 자동으로 다시 실행하지 않습니다.": "This personal-key run is closed. The previous request will not restart automatically.",
   "개인 키 실행 한도에 도달했습니다. 실패·재시도도 한도에 포함되며 자동으로 다시 보내지 않습니다.": "The personal-key run limit has been reached. Failed attempts and retries count toward the limit; this request will not retry automatically.",
   "이미 접수된 개인 키 호출을 다시 실행하지 않았습니다. 실행 상태를 확인해 주세요.": "An already admitted personal-key call was not repeated. Check the run status.",
+  "이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다.": "Pricing for this personal-key model could not be verified. Execution is paused until you explicitly select another supported model.",
+  "개인 키 · {model} · 표준 요금 기준 계산상 최대 ${amount}/실행 (USD)": "Personal key · {model} · calculated maximum ${amount}/run (USD) at Standard rates",
+  "모든 시도 합계: 입력 15만·출력 4.8만 토큰, 최대 50회·180초. 완주를 보장하지 않으며 한도는 자동 증가하지 않습니다.": "Across all attempts: 150,000 input and 48,000 output tokens, at most 50 attempts and 180 seconds. Completion is not guaranteed and limits never increase automatically.",
+  "2026-10-05 표준 단가·입력 캐시 쓰기 요금 기준 추정입니다. 실제 사용량은 제공사 계정에 청구되며, 요금 변경·계정 조건·세금·환율에 따라 달라질 수 있습니다.": "Estimated using Standard rates and cache-write input pricing verified on 2026-10-05. Your provider bills actual usage; price changes, account terms, taxes and exchange rates may differ.",
+  "공식 요금 기준": "Official pricing",
+  "입력과 필요한 분석 단계가 실행 한도를 넘어 AI 호출 전에 중단했습니다. 요청이나 첨부 자료를 줄여 주세요.": "The input and required analysis steps exceed the run limit, so execution stopped before an AI call. Shorten the request or attachments.",
 };
