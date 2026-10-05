@@ -53,6 +53,76 @@ async function expectNaturalPanel(page) {
     expect(await area.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
   }
 }
+
+async function expectCenteredFooter(page, { locale, fitsViewport = false } = {}) {
+  const footer = page.locator(".auth-footer");
+  const notices = footer.getByRole("link", { name: locale === "en" ? "Operational notices" : "운영 공지", exact: true });
+  await expect(footer).toHaveCount(1);
+  await expect(footer).toHaveText(locale === "en"
+    ? "A clearer view of your work. Freelance Ops · Operational notices"
+    : "내 일을 더 선명하게. Freelance Ops · 운영 공지");
+  await expect(footer).toHaveCSS("text-align", "center");
+  await expect(footer).toHaveCSS("position", "static");
+  await expect(notices).toHaveAttribute("href", "/notices");
+  await page.evaluate(() => document.fonts.ready);
+
+  const geometry = await footer.evaluate(element => {
+    // Measure the visible text, not just the paragraph box: a centered wide box
+    // with right-aligned text would otherwise pass a bounding-box-only check.
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const fragments = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const text = node.textContent ?? "";
+      const start = text.search(/\S/u);
+      if (start < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, text.trimEnd().length);
+      fragments.push(...Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0));
+    }
+    const root = element.closest(".auth-page");
+    const scroll = document.scrollingElement;
+    const toggle = document.querySelector(".auth-backdrop__toggle");
+    return {
+      footer: element.getBoundingClientRect().toJSON(),
+      panel: document.querySelector(".auth-panel").getBoundingClientRect().toJSON(),
+      toggle: toggle?.getBoundingClientRect().toJSON() ?? null,
+      textLeft: Math.min(...fragments.map(rect => rect.left)),
+      textRight: Math.max(...fragments.map(rect => rect.right)),
+      fragmentCount: fragments.length,
+      paddingBottom: Number.parseFloat(getComputedStyle(root).paddingBottom),
+      viewportWidth: document.documentElement.clientWidth,
+      viewportHeight: innerHeight,
+      scrollWidth: scroll.scrollWidth,
+      scrollHeight: scroll.scrollHeight,
+      scrollY,
+    };
+  });
+
+  expect(geometry.fragmentCount).toBeGreaterThan(0);
+  const center = geometry.viewportWidth / 2;
+  expect(Math.abs((geometry.footer.left + geometry.footer.right) / 2 - center), "footer box is centered in the screen").toBeLessThanOrEqual(1);
+  expect(Math.abs((geometry.textLeft + geometry.textRight) / 2 - center), "rendered footer copy is visually centered").toBeLessThanOrEqual(3);
+  expect(geometry.footer.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.footer.right).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.textLeft).toBeGreaterThanOrEqual(geometry.footer.left - 1);
+  expect(geometry.textRight).toBeLessThanOrEqual(geometry.footer.right + 1);
+  expect(geometry.scrollWidth - geometry.viewportWidth, "the document has no horizontal crop").toBeLessThanOrEqual(1);
+  expect(geometry.footer.top - geometry.panel.bottom, "footer follows the form without overlap").toBeGreaterThanOrEqual(7);
+  expect(geometry.paddingBottom, "footer has comfortable bottom safe-area spacing").toBeGreaterThanOrEqual(24);
+  expect(Math.abs(geometry.scrollHeight - (geometry.footer.bottom + geometry.scrollY) - geometry.paddingBottom), "footer stays at the document bottom").toBeLessThanOrEqual(2);
+  if (geometry.toggle) {
+    expect(geometry.footer.left - geometry.toggle.right, "centered footer leaves clearance beside the motion control").toBeGreaterThanOrEqual(7);
+  }
+  if (fitsViewport) {
+    expect(geometry.scrollHeight - geometry.viewportHeight, "a fitting login screen needs no page scroll").toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.viewportHeight - geometry.footer.bottom - geometry.paddingBottom), "fitting footer sits near the screen bottom").toBeLessThanOrEqual(2);
+    await expect(footer).toBeInViewport({ ratio: 1 });
+  }
+  return notices;
+}
+
 async function openAuth(page, { locale = "ko", theme = "light", reduced = false, invalidVideo = false } = {}) {
   const blocked = [];
   page.on("pageerror", error => blocked.push(error.message));
@@ -126,6 +196,65 @@ for (const locale of ["ko", "en"]) {
       await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
       await expectPoster(page, staticPoster);
       await page.screenshot({ path: `outputs/ui-ux/login-cinematic-${locale}-${width}x${height}.png`, fullPage: true });
+      expect(blocked).toEqual([]);
+    });
+  }
+}
+
+for (const locale of ["ko", "en"]) {
+  for (const [width, height] of [[1440, 900], [320, 568], [390, 844], [844, 390], [390, 420]]) {
+    test(`centered footer ${locale} ${width}x${height}: bottom placement and signup scrolling preserve both controls`, async ({ page }) => {
+      await page.setViewportSize({ width, height });
+      const blocked = await openAuth(page, { locale });
+      const backdrop = page.locator(".auth-backdrop");
+      await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+      const control = await expectMotionControl(page);
+      await control.click();
+      await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+      await expectPoster(page, staticPoster);
+      await expectNaturalPanel(page);
+      await expectCenteredFooter(page, { locale, fitsViewport: height >= 844 });
+      await page.screenshot({ path: `outputs/ui-ux/login-footer-centered-${locale}-${width}x${height}.png`, fullPage: true });
+
+      await page.getByRole("tab", { name: locale === "en" ? "Sign up" : "처음 시작하기", exact: true }).click();
+      await expect(page.locator('input[name="ageAtLeast14"]')).not.toBeChecked();
+      await expectNaturalPanel(page);
+      if (width <= 900) {
+        expect(await page.evaluate(() => document.scrollingElement.scrollHeight - innerHeight), "tall signup content scrolls at document level").toBeGreaterThan(0);
+      }
+      const confirmPassword = page.locator('input[name="passwordConfirm"]');
+      await confirmPassword.scrollIntoViewIfNeeded();
+      await confirmPassword.focus();
+      await expect(confirmPassword).toBeFocused();
+      await expect(confirmPassword).toBeInViewport();
+      const submit = page.locator('button[type="submit"]');
+      await submit.scrollIntoViewIfNeeded();
+      await expect(submit).toBeInViewport();
+      const submitBounds = await submit.boundingBox();
+      const toggleBounds = await control.boundingBox();
+      expect(submitBounds.y + submitBounds.height <= toggleBounds.y || toggleBounds.y + toggleBounds.height <= submitBounds.y
+        || submitBounds.x + submitBounds.width <= toggleBounds.x || toggleBounds.x + toggleBounds.width <= submitBounds.x,
+      "signup submit is not covered by the motion control").toBe(true);
+
+      const notices = await expectCenteredFooter(page, { locale });
+      await notices.scrollIntoViewIfNeeded();
+      await expect(notices).toBeInViewport({ ratio: 1 });
+      await notices.click({ trial: true });
+      await notices.focus();
+      await expect(notices).toBeFocused();
+      await expectCenteredFooter(page, { locale });
+      await expectMotionControl(page, { paused: true });
+      await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+      if (width <= 900) {
+        expect(await page.evaluate(() => scrollY), "footer is reached by scrolling the document").toBeGreaterThan(0);
+      }
+
+      await page.getByRole("tab", { name: locale === "en" ? "Log in" : "로그인", exact: true }).click();
+      await page.evaluate(() => scrollTo({ top: 0, left: 0, behavior: "instant" }));
+      await expectNaturalPanel(page);
+      await expectCenteredFooter(page, { locale, fitsViewport: height >= 844 });
+      await expectPoster(page, staticPoster);
+      await expectMotionControl(page, { paused: true });
       expect(blocked).toEqual([]);
     });
   }

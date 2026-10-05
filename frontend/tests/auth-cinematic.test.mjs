@@ -67,3 +67,31 @@ test("the quiet bottom-left motion control retains a 44px touch target and visib
   }
   assert.match(css, /\.auth-backdrop__toggle:focus-visible\s*\{[^}]*outline:/);
 });
+
+test("the existing localized footer and notices link remain after the form in document order", () => {
+  assert.equal((gate.match(/className="auth-footer"/g) ?? []).length, 1);
+  assert.match(gate, /<\/section>\s*<\/div>\s*<p className="auth-footer">\{t\("내 일을 더 선명하게\. Freelance Ops"\)\} · <Link href="\/notices">\{t\("운영 공지"\)\}<\/Link><\/p>\s*<\/main>/);
+});
+
+test("the footer uses a centered flow layout with symmetric control clearance and safe-area padding", () => {
+  const root = css.match(/\.auth-page\.auth-cinematic\s*\{([^}]+)\}/)?.[1];
+  const header = css.match(/\.auth-page\.auth-cinematic \.auth-header\s*\{([^}]+)\}/)?.[1];
+  const layout = css.match(/\.auth-page\.auth-cinematic \.auth-layout\s*\{([^}]+)\}/)?.[1];
+  const footerRules = [...css.matchAll(/\.auth-page\.auth-cinematic \.auth-footer\s*\{([^}]+)\}/g)].map(match => match[1]);
+  assert.ok(root && header && layout && footerRules.length);
+  assert.match(root, /display:\s*flex/);
+  assert.match(root, /flex-direction:\s*column/);
+  assert.match(root, /min-height:\s*100svh/);
+  assert.match(root, /padding:[^;]*env\(safe-area-inset-bottom\)/);
+  assert.doesNotMatch(root, /(?:^|;)\s*(?:height:\s*100(?:s|d)?vh|overflow(?:-y)?:\s*(?:hidden|clip))/);
+  assert.match(header, /width:\s*100%/);
+  assert.match(header, /margin:\s*0 auto/);
+  assert.match(layout, /flex:\s*1 0 auto/);
+  assert.match(layout, /width:\s*100%/);
+  assert.match(footerRules[0], /text-align:\s*center/);
+  assert.match(footerRules[0], /margin:\s*\S+ auto 0/);
+  assert.match(footerRules[0], /max-width:\s*calc\(100% - 112px\)/);
+  for (const footer of footerRules) {
+    assert.doesNotMatch(footer, /position:\s*(?:fixed|absolute)|text-align:\s*(?:left|right|end)|padding-(?:left|right):/);
+  }
+});
