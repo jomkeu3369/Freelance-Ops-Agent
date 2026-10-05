@@ -41,7 +41,16 @@ class InternalCredentialServiceTest {
         verifyNoInteractions(connections);
     }
 
-    @Test void resolvesAuthenticatedAssumptionRequestWithoutPersistingTheKey() {
+    @Test void missingOrDeletedRunCannotResolveEvenAnOwnedCredential() {
+        when(auth.authorize(user, workspace, PermissionCode.PROJECT_READ)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(new ProjectEntity(project, workspace, "Test", "Requirement", "KRW", null, null, null)));
+        when(runs.findById(runId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.resolve(credential, Provider.OPENAI, "test-model", principal))
+            .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(connections);
+    }
+
+    @Test void resolvesAuthenticatedBoundedRunWithoutPersistingTheKey() {
         when(auth.authorize(user, workspace, PermissionCode.PROJECT_READ)).thenReturn(AuthorizationDecision.ALLOWED);
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(new ProjectEntity(project, workspace, "Test", "Requirement", "KRW", null, null, null)));
         var run = new AgentRunEntity(runId, workspace, project, UUID.randomUUID(), user, Provider.OPENAI, "test-model", AgentRunStatus.RUNNING, Instant.now());
