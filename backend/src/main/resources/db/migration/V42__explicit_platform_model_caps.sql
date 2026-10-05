@@ -14,3 +14,6 @@ FROM app.platform_spend_settings CROSS JOIN (VALUES
     ('gpt-6-luna'), ('gpt-6-sol'), ('gpt-6.1-sol'), ('gpt-6-astra'),
     ('gpt-5.6-luna'), ('gpt-5.6-terra'), ('gpt-5.6-sol')) AS models(model)
 WHERE id = 1;
+-- Preserve an operator's existing model-disable decision during migration.
+UPDATE app.platform_spend_model_cap cap SET enabled=rate.enabled
+FROM app.weekly_credit_model_rate rate WHERE cap.provider=rate.provider AND cap.model=rate.model;

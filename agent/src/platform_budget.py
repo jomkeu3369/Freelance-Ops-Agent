@@ -9,7 +9,7 @@ is available. No user request or environment flag can turn admission off.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -19,7 +19,14 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from contracts import (
-    AgentRunUsage, ModelSelection, PlatformBudget, Provider, ProviderCallUsage, ReasoningEffort, RequestTier, RunBudget,
+    AgentRunUsage,
+    ModelSelection,
+    PlatformBudget,
+    Provider,
+    ProviderCallUsage,
+    ReasoningEffort,
+    RequestTier,
+    RunBudget,
 )
 
 LEGACY_TARIFF_VERSION = "platform-ai-2026-10-04-v1"
@@ -76,8 +83,10 @@ class PlatformSpendLedger:
         self.calls: list[ProviderCallUsage] = []
         self.blocked = False
         self.closed = False
+        self.unpriced_exposure = previous.unpriced_exposure if previous is not None else False
         self.run_budget = run_budget
         self.previous = previous
+        self.persist_usage: Callable[[AgentRunUsage], Awaitable[None]] | None = None
         self.previous_cost = previous.platform_cost_usd if previous is not None else Decimal("0")
         if previous is not None and previous.platform_reservation_id not in {None, budget.reservation_id}:
             raise PlatformBudgetError("PLATFORM_RESERVATION_MISMATCH")
@@ -146,10 +155,12 @@ class PlatformSpendLedger:
         call = self.calls[index]
         if getattr(response, "service_tier", "default") != "default":
             self.blocked = True
+            self.unpriced_exposure = True
             raise PlatformBudgetError("PLATFORM_RESPONSE_TIER_MISMATCH")
         returned_model = getattr(response, "model", call.model)
         if returned_model != call.model:
             self.blocked = True
+            self.unpriced_exposure = True
             raise PlatformBudgetError("PLATFORM_RESPONSE_MODEL_MISMATCH")
         usage = getattr(response, "usage", None)
         input_tokens = _token_count(usage, "input_tokens")
@@ -162,6 +173,7 @@ class PlatformSpendLedger:
         assert input_tokens is not None and output_tokens is not None and cached is not None and written is not None
         if cached + written > input_tokens:
             self.blocked = True
+            self.unpriced_exposure = True
             raise PlatformBudgetError("PLATFORM_USAGE_INVALID")
         cost = Decimal("0")
         if call.funding_source == "PLATFORM":
@@ -179,6 +191,7 @@ class PlatformSpendLedger:
         })
         if drift:
             self.blocked = True
+            self.unpriced_exposure = True
             raise PlatformBudgetError("PLATFORM_USAGE_BOUND_EXCEEDED")
 
     def report(self, usage: AgentRunUsage | None) -> AgentRunUsage:
@@ -188,6 +201,8 @@ class PlatformSpendLedger:
         return usage.model_copy(update={
             "provider_calls": list(self.calls), "platform_cost_usd": self.cost,
             "platform_reservation_id": self.budget.reservation_id, "tariff_version": self.budget.tariff_version,
+            "execution_closed": self.closed,
+            "unpriced_exposure": self.unpriced_exposure,
             "model_calls": len(self.calls), "input_tokens": sum(call.input_tokens for call in self.calls),
             "output_tokens": sum(call.output_tokens for call in self.calls),
             "cached_tokens": sum(call.cached_read_tokens for call in self.calls),
@@ -264,8 +279,16 @@ async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operat
     if effort != selection.reasoning_effort.value.lower():
         raise PlatformBudgetError("MODEL_REASONING_MISMATCH")
     index = ledger.reserve(selection, operation, payload, int(payload["max_output_tokens"]))
+    # Persist the conservative attempt before provider I/O. A crash cannot turn
+    # an unreported billable attempt into free usage.
+    if ledger.persist_usage is not None:
+        await ledger.persist_usage(ledger.report(None))
     # SDK retries are disabled at every production client construction; this call
     # represents exactly one billable attempt. Cancellation retains its bound.
     response = await client.responses.create(**payload)
-    ledger.settle_openai(index, response)
+    try:
+        ledger.settle_openai(index, response)
+    finally:
+        if ledger.persist_usage is not None:
+            await ledger.persist_usage(ledger.report(None))
     return response

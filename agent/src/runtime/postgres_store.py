@@ -89,6 +89,9 @@ class PostgresAgentRunStore:
                     or (request is not None and AgentRunRequest.model_validate(model.request_json) != request)):
                 raise AgentRunStateError("agent run cannot enter RUNNING")
             model.status = AgentRunStatus.RUNNING.value
+            if model.usage_json is not None:
+                model.usage_json = self._json(AgentRunUsage.model_validate(model.usage_json).model_copy(
+                    update={"execution_closed": False}))
             model.interruption_json = None
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.started")
@@ -158,6 +161,14 @@ class PostgresAgentRunStore:
                 AgentRunStatus.CANCELLED.value,
             }:
                 raise AgentRunStateError("terminal Agent run cannot be cancelled")
+            if model.status == AgentRunStatus.QUEUED.value:
+                request = AgentRunRequest.model_validate(model.request_json)
+                if request.platform_budget is not None:
+                    from platform_budget import PlatformSpendLedger
+                    previous = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+                    idle = PlatformSpendLedger(request.platform_budget, previous)
+                    idle.closed = True
+                    usage = idle.report(None)
             model.status = AgentRunStatus.CANCELLED.value
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, usage))
@@ -185,6 +196,13 @@ class PostgresAgentRunStore:
             if model.status != AgentRunStatus.RUNNING.value:
                 raise AgentRunStateError("only a running Agent run can publish progress")
             await self._append_event(session, run_id, event.type, event.data)
+
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
+        async with self._database.session() as session:
+            model = await self._locked(session, run_id)
+            current = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current, usage))
+            model.updated_at = datetime.now(UTC)
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
         if not 1 <= limit <= 101:

@@ -125,8 +125,26 @@ public record AgentRunView(
         List<ProviderCallUsage> providerCalls,
         java.math.BigDecimal platformCostUsd,
         UUID platformReservationId,
-        String tariffVersion
+        String tariffVersion,
+        boolean executionClosed,
+        boolean unpricedExposure
     ) {
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
+                             java.math.BigDecimal platformCostUsd, UUID platformReservationId, String tariffVersion,
+                             boolean executionClosed) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId,
+                tariffVersion, executionClosed, false);
+        }
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
+                             java.math.BigDecimal platformCostUsd, UUID platformReservationId, String tariffVersion) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId, tariffVersion, false);
+        }
         public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
                              long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
                              long retryCount, long durationMs) {

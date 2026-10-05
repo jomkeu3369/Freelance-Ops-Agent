@@ -1087,6 +1087,14 @@ components:
           format: uuid
         tariffVersion:
           type: [string, "null"]
+        executionClosed:
+          type: boolean
+          default: false
+          description: Worker has closed its monetary scope; only terminal runs with this evidence can release unused exposure.
+        unpricedExposure:
+          type: boolean
+          default: false
+          description: Unexpected model, tier or usage drift requires retaining the full run cap even after worker closure.
         requestTier:
           type: string
           enum: [DIRECT_TOOL, SINGLE_AGENT, DEPARTMENT, MULTI_DEPARTMENT, HUMAN_REQUIRED]

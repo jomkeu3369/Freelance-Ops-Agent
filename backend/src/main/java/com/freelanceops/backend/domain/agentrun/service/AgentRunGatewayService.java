@@ -96,8 +96,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         PlatformSpendTariff.validateSelection(request.modelSelection());
         connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
-        if (request.modelSelection().credentialId() == null) freeUsage.reserveQuoted(userId, runId,
-            request.modelSelection().provider(), request.modelSelection().model(), request.creditQuote());
+        // New starts consume actual platform USD. Fixed product-credit quotes are
+        // historical metadata only; BYOK still reserves platform routing overhead.
         var platformBudget = platformSpend.reserve(userId, runId, request.modelSelection());
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()

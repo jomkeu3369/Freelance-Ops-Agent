@@ -433,6 +433,8 @@ class AgentRunUsage(StrictModel):
     platform_cost_usd: Decimal = Field(default=Decimal("0"), ge=0, allow_inf_nan=False)
     platform_reservation_id: UUID | None = None
     tariff_version: str | None = None
+    execution_closed: bool = False
+    unpriced_exposure: bool = False
 
 
 class AgentRunView(StrictModel):

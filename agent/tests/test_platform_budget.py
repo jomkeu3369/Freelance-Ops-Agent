@@ -61,7 +61,8 @@ def response(input_tokens=100, output_tokens=10, cached=0, written=0, **updates)
 
 
 def client(*responses):
-    return SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0, responses=SimpleNamespace(create=AsyncMock(side_effect=list(responses))))
+    return SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0,
+                           responses=SimpleNamespace(create=AsyncMock(side_effect=list(responses))))
 
 
 def payload():
@@ -161,6 +162,73 @@ async def test_reasoning_tokens_are_already_in_output_and_not_double_charged():
     assert ledger.cost == Decimal(".000032")
 
 
+async def test_sdk_serialization_uses_exact_id_reasoning_and_standard_endpoint():
+    import httpx
+    from openai import AsyncOpenAI
+    observed = []
+
+    async def transport(request):
+        observed.append((str(request.url), json.loads(request.content)))
+        return httpx.Response(200, json={"id": "resp_offline", "object": "response", "created_at": 0,
+            "model": "gpt-6.1-sol", "service_tier": "default", "status": "completed", "output": [],
+            "usage": {"input_tokens": 100, "output_tokens": 10, "total_tokens": 110,
+                      "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
+                      "output_tokens_details": {"reasoning_tokens": 10}}})
+
+    async with AsyncOpenAI(api_key="offline-placeholder", max_retries=0,
+                           http_client=httpx.AsyncClient(transport=httpx.MockTransport(transport))) as sdk:
+        ledger = PlatformSpendLedger(budget("1"))
+        body = {**payload(), "model": "gpt-6.1-sol", "reasoning": {"effort": "low"}}
+        with platform_budget_scope(ledger):
+            await budgeted_openai_attempt(sdk, selection("gpt-6.1-sol"), "test", body)
+    assert observed == [("https://api.openai.com/v1/responses", body)]
+    assert ledger.calls[0].usage_known and ledger.cost == Decimal(".00030")
+
+
+async def test_attempt_bound_is_durable_before_io_and_settlement_and_close_are_recorded():
+    request = incoming()
+    store = InMemoryAgentRunStore()
+
+    async def provider(**kwargs):
+        running = await store.get(request.context.run_id)
+        assert len(running.usage.provider_calls) == 1
+        assert not running.usage.provider_calls[0].usage_known
+        assert not running.usage.execution_closed
+        return response()
+
+    fake = client()
+    fake.responses.create.side_effect = provider
+
+    class Executor:
+        async def execute(self, *args):
+            await budgeted_openai_attempt(fake, selection(), "test", payload())
+            settled = await store.get(request.context.run_id)
+            assert settled.usage.provider_calls[0].usage_known
+            assert not settled.usage.execution_closed
+            return ExecutionOutcome(result=AgentRunResult(project_summary="offline"))
+
+    coordinator = RunCoordinator(store, Executor(), require_platform_budget=True,
+                                 allow_memory_platform_budget_for_tests=True)
+    await coordinator.accept(request)
+    await coordinator.execute(request)
+    final = await store.get(request.context.run_id)
+    assert final.usage.execution_closed and final.usage.model_calls == 1
+    assert final.usage.platform_cost_usd == Decimal(".000032")
+
+
+async def test_queued_cancellation_is_closed_zero_usage_without_provider_call():
+    request = incoming()
+    store = InMemoryAgentRunStore()
+    executor = MagicMock(execute=AsyncMock())
+    coordinator = RunCoordinator(store, executor, require_platform_budget=True,
+                                 allow_memory_platform_budget_for_tests=True)
+    await coordinator.accept(request)
+    await coordinator.cancel(request.context.run_id)
+    final = await store.get(request.context.run_id)
+    assert final.usage.execution_closed and final.usage.model_calls == 0
+    executor.execute.assert_not_awaited()
+
+
 async def test_no_budget_fails_before_provider_io():
     fake = client(response())
     with pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_REQUIRED"):
@@ -229,7 +297,8 @@ async def test_budget_exhaustion_prevents_retry_after_lost_response():
         ledger.budget = ledger.budget.model_copy(update={"max_cost_usd": ledger.cost})
         raise TimeoutError()
 
-    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0, responses=SimpleNamespace(create=AsyncMock(side_effect=lose_response)))
+    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0,
+                           responses=SimpleNamespace(create=AsyncMock(side_effect=lose_response)))
     with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_EXCEEDED"):
         await OpenAIModelProvider(fake).generate_structured(selection(), "text", max_output_tokens=100)
     assert fake.responses.create.await_count == len(ledger.calls) == 1
@@ -263,7 +332,8 @@ async def test_concurrent_attempts_and_cancellation_keep_one_root_reservation():
         entered.set()
         await asyncio.Future()
 
-    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0, responses=SimpleNamespace(create=pending))
+    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0,
+                           responses=SimpleNamespace(create=pending))
     with platform_budget_scope(ledger):
         first = asyncio.create_task(budgeted_openai_attempt(fake, selection(), "child1", payload()))
         await entered.wait()
@@ -411,7 +481,8 @@ async def test_cancel_persists_upper_bound_before_terminal_state():
             async def pending(**kwargs):
                 entered.set()
                 await asyncio.Future()
-            fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0, responses=SimpleNamespace(create=pending))
+            fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0,
+                           responses=SimpleNamespace(create=pending))
             await budgeted_openai_attempt(fake, selection(), "test", payload())
 
     coordinator = RunCoordinator(InMemoryAgentRunStore(), Executor(), require_platform_budget=True,
@@ -558,7 +629,7 @@ async def test_crash_after_paid_attempt_leaves_unresumable_running_orphan():
     class CrashedExecutor:
         async def execute(self, *args):
             await budgeted_openai_attempt(fake, selection(), "test", payload())
-            raise asyncio.CancelledError()  # Process disappears before result/usage persistence.
+            raise asyncio.CancelledError()  # Interrupted before terminal status persistence.
 
     store = InMemoryAgentRunStore()
     first = RunCoordinator(store, CrashedExecutor(), require_platform_budget=True,
@@ -567,7 +638,8 @@ async def test_crash_after_paid_attempt_leaves_unresumable_running_orphan():
     with pytest.raises(asyncio.CancelledError):
         await first.execute(request)
     lost = await store.get(request.context.run_id)
-    assert lost.status is AgentRunStatus.RUNNING and lost.usage is None
+    assert lost.status is AgentRunStatus.RUNNING
+    assert lost.usage.model_calls == 1 and lost.usage.execution_closed
     second_executor = MagicMock(execute=AsyncMock())
     replacement = RunCoordinator(store, second_executor, require_platform_budget=True,
                                  allow_memory_platform_budget_for_tests=True)
@@ -658,7 +730,8 @@ async def test_expiry_is_rechecked_between_http_attempts():
         ledger.budget.valid_until = datetime.now(UTC) - timedelta(seconds=1)
         raise TimeoutError()
 
-    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0, responses=SimpleNamespace(create=AsyncMock(side_effect=lost_response)))
+    fake = SimpleNamespace(base_url="https://api.openai.com/v1/", max_retries=0,
+                           responses=SimpleNamespace(create=AsyncMock(side_effect=lost_response)))
     with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_EXPIRED"):
         await OpenAIModelProvider(fake).generate_structured(selection(), "text", max_output_tokens=100)
     assert fake.responses.create.await_count == 1

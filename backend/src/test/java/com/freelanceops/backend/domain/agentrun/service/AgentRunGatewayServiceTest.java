@@ -114,7 +114,7 @@ class AgentRunGatewayServiceTest {
         verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
             eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
-        verify(freeUsage).reserveQuoted(userId, response.runId(), Provider.OPENAI, request().modelSelection().model(), request().creditQuote());
+        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(platformSpend).reserve(userId, response.runId(), request().modelSelection());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
@@ -134,19 +134,6 @@ class AgentRunGatewayServiceTest {
         assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key")).isEqualTo(accepted);
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, agentRunRepository, platformSpend);
-    }
-
-    @Test
-    void exhaustedQuotaPreventsRunAndOutboxPersistence() {
-        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
-        org.mockito.Mockito.doThrow(new FreeUsageExhaustedException(new FreeUsageService.Usage(5, 4, 1, 0,
-            Instant.now(), "2026-10", "Asia/Seoul", 0, false))).when(freeUsage).reserveQuoted(eq(user), any(), any(), any(), any());
-        assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace"))
-            .isInstanceOf(FreeUsageExhaustedException.class);
-        org.mockito.Mockito.verifyNoInteractions(commandQueue, pets, agentRunRepository, platformSpend);
     }
 
     @Test
