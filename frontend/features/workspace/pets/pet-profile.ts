@@ -7,10 +7,11 @@ export const petDefaults: PetProfile[] = [
   { slot: "EXPANDED", name: "든든", animal: "cat", color: "peach", accessory: "none", tone: "DIRECT", valuePriority: "PROFIT", deliveryPriority: "BALANCED", scopePriority: "EXPLORATORY" }
 ];
 export const petColors = { sage: "세이지", lavender: "라벤더", peach: "살구", sky: "하늘", rose: "장미", ink: "먹색" };
+export const petDutyLabels = { GENERAL: "일반 업무", SCHEDULE: "일정 관리", RESEARCH: "자료 조사", WRITING: "글쓰기", DEVELOPMENT: "개발", DESIGN: "디자인" };
 export const preferenceLabels: Record<string, string> = { PROFIT: "수익 우선", RELATIONSHIP: "관계 우선", BALANCED: "균형", SPEED: "빠른 납품", QUALITY: "완성도 우선", CAUTIOUS: "보수적 범위", EXPLORATORY: "도전적 제안" };
 export function advisorsWithProfiles(profiles?: PetProfile[], translate: (source: string) => string = source => source) {
   return petAdvisors.map(advisor => {
-    const profile = profiles?.find(pet => pet.slot === advisor.scenario) ?? petDefaults.find(pet => pet.slot === advisor.scenario)!;
+    const profile = profiles?.find(pet => pet.petId) ?? profiles?.find(pet => pet.slot === advisor.scenario) ?? petDefaults.find(pet => pet.slot === advisor.scenario)!;
     return { ...advisor, name: petDisplayName(profile, translate), profile, priority: [profile.valuePriority, profile.deliveryPriority, profile.scopePriority].map(value => translate(preferenceLabels[value])).join(" · ") };
   });
 }

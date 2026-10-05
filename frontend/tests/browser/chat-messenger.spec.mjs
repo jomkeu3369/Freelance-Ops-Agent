@@ -363,10 +363,9 @@ test("AI settings retain provider, model, personal connection and pet customizat
   await expect(settings.getByLabel("AI 제공사", { exact: true })).toHaveCount(0);
   const customizer = settings.locator(".pet-customizer");
   await expect(customizer).toBeVisible();
-  await customizer.locator(":scope > summary").click();
-  await expect(customizer.getByRole("button", { name: "AI로 외형·성향 생성" })).toBeVisible();
-  await expect(customizer.getByRole("button", { name: "이 동료 저장" })).toBeVisible();
-  await expect(customizer.locator(".pet-generation")).toContainText("personal-fixture-model");
+  await expect(customizer.getByRole("button", { name: "펫 미리보기" })).toBeVisible();
+  await expect(customizer.getByLabel("어떤 펫을 만들까요?")).toBeVisible();
+  await expect(customizer).toContainText("비활성");
   await connection.selectOption("");
   await expect(settings.getByLabel("AI 제공사", { exact: true })).toBeVisible();
   await expect(settings.getByLabel("AI 모델", { exact: true })).toBeVisible();

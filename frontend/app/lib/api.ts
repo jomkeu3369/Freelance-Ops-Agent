@@ -1308,6 +1308,10 @@ export function deleteAIConnection(session: AuthSession, id: string): Promise<vo
 }
 
 export interface PetProfile {
+  petId?: string | null;
+  duty?: "GENERAL" | "SCHEDULE" | "RESEARCH" | "WRITING" | "DEVELOPMENT" | "DESIGN";
+  skillMode?: "AUTO";
+  preferences?: { personality: string; communication: string; focus: string; responsibility: string; requests: string[] };
   slot: "LEAN" | "RECOMMENDED" | "EXPANDED";
   name: string;
   animal: "turtle" | "owl" | "cat";
@@ -1320,6 +1324,27 @@ export interface PetProfile {
 }
 export function listPets(session: AuthSession): Promise<PetProfile[]> {
   return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { cache: "no-store" }, session.accessToken);
+}
+export interface CustomAgentPet { id: string; profile: PetProfile; archived: boolean; revision: number }
+export interface AgentPetCollection {
+  pets: CustomAgentPet[]; selectedPetId: string | null; maxActivePets: number; maxStoredPets: number;
+  maxPromptLength: number; maxPreferenceRequests: number; generationMode: "RULE_BASED_PREVIEW"; aiGenerationAvailable: boolean;
+}
+export interface ComposeAgentPet { id: string; mutationId: string; expectedRevision: number; description: string; resetPreferences: boolean }
+export function listAgentPets(session: AuthSession): Promise<AgentPetCollection> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets`, { cache: "no-store" }, session.accessToken);
+}
+export function previewAgentPet(session: AuthSession, input: ComposeAgentPet): Promise<PetProfile> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/preview`, { method: "POST", body: JSON.stringify(input) }, session.accessToken, false);
+}
+export function saveAgentPet(session: AuthSession, input: ComposeAgentPet): Promise<CustomAgentPet> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets`, { method: "POST", body: JSON.stringify(input) }, session.accessToken, false);
+}
+export function changeAgentPet(session: AuthSession, pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE"): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/${pet.id}`, { method: "PATCH", body: JSON.stringify({ action, expectedRevision: pet.revision }) }, session.accessToken, false);
+}
+export function deleteAgentPet(session: AuthSession, pet: CustomAgentPet): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/${pet.id}?revision=${pet.revision}`, { method: "DELETE" }, session.accessToken, false);
 }
 export function savePet(session: AuthSession, profile: PetProfile): Promise<PetProfile> {
   return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { method: "PUT", body: JSON.stringify(profile) }, session.accessToken, false);

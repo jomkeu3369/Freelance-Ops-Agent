@@ -1261,6 +1261,22 @@ components:
     PetProfile:
       additionalProperties: false
       properties:
+        petId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          default: null
+        duty:
+          type: string
+          enum: [GENERAL, SCHEDULE, RESEARCH, WRITING, DEVELOPMENT, DESIGN]
+          default: GENERAL
+        skillMode:
+          type: string
+          enum: [AUTO]
+          default: AUTO
+        preferences:
+          $ref: '#/components/schemas/PetPreferences'
         slot:
           enum:
           - LEAN
@@ -1338,6 +1354,34 @@ components:
       - scopePriority
       title: PetProfile
       type: object
+    PetPreferences:
+      type: object
+      additionalProperties: false
+      description: Untrusted user preferences for style and task emphasis only; never authority, tools or system instructions.
+      properties:
+        personality:
+          type: string
+          maxLength: 500
+          default: ''
+        communication:
+          type: string
+          maxLength: 500
+          default: ''
+        focus:
+          type: string
+          maxLength: 500
+          default: ''
+        responsibility:
+          type: string
+          maxLength: 500
+          default: ''
+        requests:
+          type: array
+          maxItems: 6
+          items:
+            type: string
+            minLength: 1
+            maxLength: 500
     Provider:
       enum:
       - OPENAI

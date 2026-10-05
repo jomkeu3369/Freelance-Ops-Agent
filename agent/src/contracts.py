@@ -89,7 +89,26 @@ class ModelSelection(StrictModel):
     credential_id: UUID | None = None
 
 
+class PetPreferences(StrictModel):
+    personality: str = Field(default="", max_length=500)
+    communication: str = Field(default="", max_length=500)
+    focus: str = Field(default="", max_length=500)
+    responsibility: str = Field(default="", max_length=500)
+    requests: list[str] = Field(default_factory=list, max_length=6)
+
+    @field_validator("requests")
+    @classmethod
+    def validate_requests(cls, value: list[str]) -> list[str]:
+        if any(not text.strip() or len(text) > 500 for text in value):
+            raise ValueError("Pet preference requests must be between 1 and 500 characters")
+        return value
+
+
 class PetProfile(StrictModel):
+    pet_id: UUID | None = None
+    duty: Literal["GENERAL", "SCHEDULE", "RESEARCH", "WRITING", "DEVELOPMENT", "DESIGN"] = "GENERAL"
+    skill_mode: Literal["AUTO"] = "AUTO"
+    preferences: PetPreferences = Field(default_factory=PetPreferences)
     slot: Literal["LEAN", "RECOMMENDED", "EXPANDED"]
     name: str = Field(min_length=1, max_length=20)
     animal: Literal["turtle", "owl", "cat"]
