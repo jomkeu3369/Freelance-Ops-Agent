@@ -628,14 +628,64 @@ components:
           type: string
           format: date-time
           description: Timezone-aware expiry at the next Seoul midnight; checked before every paid attempt and resume.
+    ByokBudget:
+      type: object
+      additionalProperties: false
+      description: >-
+        Immutable backend-issued personal-key execution scope. Scope data alone never authorizes provider I/O.
+        Every attempt requires atomic durable backend admission using the existing run-bound delegation token.
+        The initial wall-clock deadline and conservative call/token reservations are never renewed or refunded.
+      required: [scopeId, runId, workspaceId, projectId, initiatedBy, credentialId, provider, model,
+                 reasoningEffort, fundingSource, serviceTier, validUntil, maxModelCalls, maxInputTokens,
+                 maxOutputTokens, budget]
+      properties:
+        scopeId: {type: string, format: uuid}
+        runId: {type: string, format: uuid}
+        workspaceId: {type: string, format: uuid}
+        projectId: {type: string, format: uuid}
+        initiatedBy: {type: string, format: uuid}
+        credentialId: {type: string, format: uuid}
+        provider: {type: string, enum: [OPENAI]}
+        model: {type: string, minLength: 1, maxLength: 100}
+        reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
+        fundingSource: {type: string, const: BYOK}
+        serviceTier: {type: string, const: default}
+        validUntil:
+          type: string
+          format: date-time
+          description: Initial admission plus maxDurationSeconds; timezone required, pause and resume do not extend it.
+        maxModelCalls: {type: integer, minimum: 1, maximum: 50}
+        maxInputTokens: {type: integer, minimum: 1}
+        maxOutputTokens: {type: integer, minimum: 1}
+        budget:
+          $ref: "#/components/schemas/RunBudget"
     AgentRunRequest:
       type: object
       additionalProperties: false
-      required: [context, budget, modelSelection, safetyContext, input, platformBudget]
-      description: Live executions require a Spring-issued monetary reservation. Legacy persisted records may omit it but cannot make new provider calls.
+      required: [context, budget, modelSelection, safetyContext, input]
+      description: >-
+        Live executions require exactly one trusted funding scope: platformBudget for ambient platform
+        generation, or byokBudget for the exact selected personal credential. All context/selection/budget
+        fields must match the backend scope. Legacy persisted records cannot gain a scope on resume.
+        BYOK uses local routing and keyword-only retrieval; paid extras and Gemini remain unsupported.
+      oneOf:
+        - required: [platformBudget]
+          properties:
+            platformBudget: {$ref: "#/components/schemas/PlatformBudget"}
+            byokBudget: {type: 'null'}
+        - required: [byokBudget]
+          properties:
+            byokBudget: {$ref: "#/components/schemas/ByokBudget"}
+            platformBudget: {type: 'null'}
       properties:
         platformBudget:
-          $ref: "#/components/schemas/PlatformBudget"
+          oneOf:
+            - $ref: "#/components/schemas/PlatformBudget"
+            - type: 'null'
+        byokBudget:
+          oneOf:
+            - $ref: "#/components/schemas/ByokBudget"
+            - type: 'null'
         context:
           $ref: "#/components/schemas/TrustedRunContext"
         budget:
@@ -1185,6 +1235,10 @@ components:
         platformReservationId:
           type: [string, "null"]
           format: uuid
+        byokScopeId:
+          type: [string, "null"]
+          format: uuid
+          description: Durable BYOK attempt identity for idempotent usage merge; never a platform reservation.
         tariffVersion:
           type: [string, "null"]
         executionClosed:

@@ -113,7 +113,9 @@ class PlatformSpendLedger:
     def reserve(self, selection: ModelSelection, operation: str, payload: Mapping[str, Any], output_limit: int) -> int:
         self.validate()
         validate_reasoning(selection)
-        byok = selection.credential_id is not None
+        if selection.credential_id is not None:
+            raise PlatformBudgetError("BYOK_BUDGET_REQUIRED")
+        byok = False
         tariff = TARIFF_VERSIONS[self.budget.tariff_version].get((selection.provider, selection.model))
         if tariff is None and not byok:
             raise PlatformBudgetError("PLATFORM_MODEL_UNPRICED")
@@ -255,12 +257,18 @@ def require_platform_ledger() -> PlatformSpendLedger | None:
 
 
 def reject_unbounded_operation(operation: str) -> None:
+    from byok_budget import current_byok_ledger
+    if current_byok_ledger() is not None:
+        raise PlatformBudgetError(f"BYOK_{operation}_UNSUPPORTED")
     if require_platform_ledger() is not None:
         raise PlatformBudgetError(f"PLATFORM_{operation}_UNPRICED")
 
 
 async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operation: str,
                                   payload: dict[str, Any], *, client_credential_id: UUID | None = None) -> Any:
+    from byok_budget import current_byok_ledger
+    if current_byok_ledger() is not None:
+        raise PlatformBudgetError("BYOK_AMBIENT_CLIENT_FORBIDDEN")
     ledger = require_platform_ledger()
     if ledger is None:
         return await client.responses.create(**payload)

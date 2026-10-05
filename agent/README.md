@@ -57,3 +57,51 @@ run-scoped 파일 권한을 사용하고 general-purpose subagent·host shell을
 재시도한다. Spring Tool client는 versioned OpenAPI의 project context, domain pack,
 requirements validation과 deterministic quote calculation을 지원한다.
 
+
+## Bounded personal-key execution
+
+New personal-key runs require `byokBudget`, issued and persisted by Spring for the exact
+run, workspace, project, initiating user, credential, OpenAI model, reasoning effort and
+full run budget. `platformBudget` cannot be combined with it, and merely supplying a
+credential ID never bypasses admission. Gemini and retired models remain unavailable.
+Existing personal-key runs without this scope cannot be silently upgraded on resume.
+
+Each generation attempt (including explicit transport and invalid-JSON retries) first
+atomically consumes a backend call and conservative input/output reservation, then
+persists an Agent attempt record, then re-resolves the selected credential. Reservations
+are never refunded, even for cancellation, failed credential resolution, lost responses
+or process death. BYOK reports zero platform cost, not an estimate of the user's provider
+bill. Actual usage does not replenish the reserved token allowance. Every attempt's
+output ceiling divides the run allowance across the planned departments and retries
+(one AD_HOC department or four project departments, capped by maxModelCalls), so
+earlier work cannot reserve the whole output allowance. For example, 48000 tokens
+and one retry per department permit 6000 tokens per project attempt. Runs can stop early when conservative limits bind.
+
+Provider I/O uses one explicit HTTPS Responses request with the selected bearer key,
+no SDK/environment key or billing-header inheritance, no redirects/proxy environment,
+no SDK retries, default service tier, text-only input, no built-in tools and `store=false`.
+Scope validity is rechecked after admission, persistence and credential I/O and just
+before the provider request. A fixed initial wall-clock expiry bounds the whole run,
+including HITL waiting; resume never creates a new deadline or resets counters. Worker
+scope closure blocks detached late calls. Durable PostgreSQL run storage is required.
+
+BYOK AD_HOC routing is deterministic and local; safety/direct-tool/project-analysis
+policy gates remain in place. Project knowledge uses read-only keyword retrieval and
+never invokes query embeddings. Paid web research, RAPTOR, pets, assumptions, detached
+A2A and experimental Deep Agent paths remain fail-closed. Internal project departments
+can still generate through the same selected-key, durably admitted path.
+
+Offline regressions are in `tests/test_byok_budget.py`; they intercept every backend and
+provider HTTP request and exercise production guards without actual keys/provider I/O.
+
+### Current project-analysis limit
+
+The full four-department PROJECT_ANALYSIS path performs a minimum-plan preflight
+before its first attempt. With the current frontend/backend default 50000-input-token
+cap, conservative full-schema plus 8192-per-attempt protocol reservations do not fit
+the normal four-department plan. Such a request returns
+`BYOK_PLAN_INPUT_BUDGET_EXCEEDED` with zero provider calls instead of paying for a
+partial run. The release remains blocked for default full project analysis; AD_HOC is
+the validated usable new-run path. No quotas, framing allowance, or platform pricing
+were weakened to make a test pass. Larger user-authorized scopes are still bounded,
+but this change does not create them or increase any public/default budget.

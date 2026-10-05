@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "fix/bounded-byok-agent-runtime"
       - "codex/cloud-feature-integration-20261005"
       - "codex/login-pet-motion-20261005"
   pull_request:
