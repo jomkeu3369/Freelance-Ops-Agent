@@ -31,6 +31,7 @@ from contracts import (
 )
 from integrations import SpringToolError
 from personal_credentials import credential_scope
+from platform_budget import PlatformBudgetError
 from providers import ModelGeneration, ModelProvider, ProviderCallError, preflight_byok_react_plan
 from retrieval.knowledge_context import KNOWLEDGE_RULES, KnowledgeContext, KnowledgeContextLoader
 from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
@@ -577,6 +578,19 @@ class OperationalAgentExecutor:
                     started_ns
                 )
                 raise AgentExecutionError("MODEL_PROVIDER_FAILED", usage) from error
+            except PlatformBudgetError as error:
+                # A bounded BYOK run may exhaust its aggregate reservation after
+                # earlier departments completed. Preserve only those completed
+                # products; the coordinator still reports every durable attempt
+                # and closes the scope. Binding/expiry/security failures stay fatal.
+                if (request.byok_budget is None or not results
+                        or error.code not in _RECOVERABLE_PARTIAL_CODES):
+                    raise
+                return self._partial_react_outcome(
+                    request, decision, departments, department_index, results, questions,
+                    quotation_drafts, tool_events, research_usage, error.code, model_calls,
+                    tool_calls, input_tokens, output_tokens, started_ns,
+                )
             except ReActLoopError as error:
                 model_calls += error.model_calls
                 tool_calls += error.tool_calls

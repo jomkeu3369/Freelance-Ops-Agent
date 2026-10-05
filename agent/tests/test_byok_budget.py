@@ -54,15 +54,22 @@ def incoming(**budget_overrides):
                            input=AgentInput(requirement_text="Offline only", workflow_mode=AgentWorkflowMode.AD_HOC))
 
 
-def frontend_default_budget():
-    """Read the committed client budget, so this regression cannot relax its caps."""
+def frontend_default_budget(*, personal=True):
+    """Require both the committed client selection and the shared wire fixture to agree."""
     import re
     from pathlib import Path
-    source = (Path(__file__).resolve().parents[2] / "frontend/app/lib/api.ts").read_text()
+    root = Path(__file__).resolve().parents[2]
+    source = (root / "frontend/app/lib/api.ts").read_text()
     block = re.search(r"budget: \{\s*maxDurationSeconds: 180,(.*?)\n\s*\},", source, re.S)
     assert block is not None
     values = dict((key, int(value)) for key, value in re.findall(r"(max\w+): (\d+)", block.group(0)))
+    selected_input = re.search(r"maxInputTokens: input\.credentialId \? (\d+) : (\d+)", block.group(0))
+    assert selected_input is not None
+    values["maxInputTokens"] = int(selected_input.group(1 if personal else 2))
     assert len(values) == 10
+    fixtures = json.loads((root / "contracts/fixtures/workspace-credit-contract.json").read_text())
+    assert values == fixtures["byokStart" if personal else "start"]["budget"]
+    assert values["maxInputTokens"] == (150000 if personal else 50000)
     return RunBudget.model_validate(values)
 
 
@@ -441,7 +448,7 @@ async def test_safety_route_remains_local_and_has_no_paid_io(monkeypatch):
     assert not http.events
 
 
-def test_default_project_output_share_uses_plan_not_fifty_call_ceiling():
+def test_project_output_share_uses_plan_not_fifty_call_ceiling():
     request = incoming(max_model_calls=50, max_output_tokens=48000)
     request.input.workflow_mode = AgentWorkflowMode.PROJECT_ANALYSIS
     ledger = scoped(request)
@@ -490,12 +497,17 @@ async def test_small_input_budget_rejects_before_http(monkeypatch):
     assert not http.events
 
 
-@pytest.mark.parametrize("workflow", [AgentWorkflowMode.AD_HOC, AgentWorkflowMode.PROJECT_ANALYSIS])
-async def test_actual_frontend_defaults_complete_ad_hoc_or_reject_project_before_paid_io(monkeypatch, workflow):
+@pytest.mark.parametrize("workflow,legacy", [(AgentWorkflowMode.AD_HOC, False),
+    (AgentWorkflowMode.PROJECT_ANALYSIS, False), (AgentWorkflowMode.PROJECT_ANALYSIS, True)])
+async def test_actual_frontend_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
     from contracts import ProjectContext
     from retrieval.knowledge_context import KnowledgeContextLoader
 
-    request = incoming(**frontend_default_budget().model_dump())
+    limits = frontend_default_budget().model_dump()
+    assert frontend_default_budget(personal=False).max_input_tokens == 50000
+    if legacy:
+        limits["max_input_tokens"] = 50000
+    request = incoming(**limits)
     request.input.workflow_mode = workflow
     request.context.effective_permissions += ["project.read", "document.read"]
     http = OfflineHTTP(request)
@@ -521,7 +533,7 @@ async def test_actual_frontend_defaults_complete_ad_hoc_or_reject_project_before
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     final = await coordinator.view(request.context.run_id)
-    if workflow is AgentWorkflowMode.PROJECT_ANALYSIS:
+    if legacy:
         assert final.status is AgentRunStatus.FAILED
         assert final.error_code == "BYOK_PLAN_INPUT_BUDGET_EXCEEDED"
         assert final.usage.model_calls == 0 and final.usage.execution_closed
@@ -534,7 +546,7 @@ async def test_actual_frontend_defaults_complete_ad_hoc_or_reject_project_before
     assert final.status is AgentRunStatus.COMPLETED
     expected = 4 if workflow is AgentWorkflowMode.PROJECT_ANALYSIS else 1
     assert final.usage.model_calls == expected and len(http.provider_requests) == expected
-    assert final.usage.input_tokens <= 50000 and final.usage.output_tokens <= 48000
+    assert final.usage.input_tokens <= request.budget.max_input_tokens and final.usage.output_tokens <= 48000
     assert final.usage.execution_closed and final.usage.platform_cost_usd == 0
     if workflow is AgentWorkflowMode.PROJECT_ANALYSIS:
         assert len(final.result.department_results) == 4
@@ -612,3 +624,162 @@ async def test_unicode_escaping_admission_matches_exact_transmitted_bytes(monkey
     with byok_budget_scope(ledger), credential_scope("delegated-offline", request.context.run_id):
         await byok_openai_attempt(request.model_selection, "department_work_product", body)
     assert http.attempts[0]["inputTokens"] == len(encode_payload(http.provider_requests[0])) + 8192
+
+
+REALISTIC_KOREAN_REQUIREMENT = (
+    "지역 소상공인을 위한 반응형 예약 웹사이트를 만들고 싶습니다. 고객은 날짜와 시간을 선택하고 예약 내용을 "
+    "수정하거나 취소할 수 있어야 합니다. 관리자는 영업시간, 휴무일, 서비스 가격과 예약 현황을 관리합니다. "
+    "초기에는 온라인 결제를 넣지 않고 현장 결제만 지원합니다. 모바일 접근성과 개인정보 최소 수집을 우선하고, "
+    "6주 안에 시범 운영할 수 있도록 필수 기능과 후속 기능을 나눠 주세요. 현재 자료에 근거해 화면 목록, "
+    "개발 범위, 검수 기준, 일정 위험과 세 가지 견적안을 정리해 주세요."
+)
+REALISTIC_PROJECT_SOURCE = (
+    "확정된 요구사항: 초기 출시에는 회원가입 없이 이름, 연락처, 서비스와 예약 시간만 받습니다. "
+    "문자 발송 서비스 계약은 아직 없으므로 자동 알림은 후속 단계로 표시해야 합니다. 운영자는 한 명이며 "
+    "노트북과 휴대전화에서 예약을 확인합니다. 외부 결제, 자동 환불, 쿠폰, 다국어는 이번 계약 범위에 포함하지 "
+    "않습니다. 고객 제공 이미지와 로고를 사용하고 기존 도메인을 연결합니다. 접근 권한과 개인정보 보관 "
+    "기간은 작업 시작 전 고객의 확인이 필요합니다."
+)
+REALISTIC_REFERENCE = (
+    "기존 업무 메모: 매장 영업시간은 화요일부터 일요일 오전 10시부터 오후 7시까지입니다. 서비스별 "
+    "소요시간이 다르므로 예약 간격은 관리자가 설정할 수 있어야 합니다. 동시 예약은 한 건만 처리합니다. "
+    "변경·취소 마감은 전날 오후 6시라는 운영 규칙을 화면에 안내합니다. 담당자가 확정하기 전에는 "
+    "이 규칙을 계약상 의무나 법적 판단으로 단정하지 않습니다."
+)
+
+
+def three_quotation_drafts():
+    return [
+        {"scenario": scenario, "items": [{
+            "title": title, "description": description, "quantity": hours, "unit": "HOUR", "rateCardHint": None,
+            "basis": {"type": "ASSUMPTION", "content": "고객 확인과 상세 검수 기준 합의를 전제로 한 추정",
+                      "sourceReference": None, "sourceTitle": None}}],
+         "petPerspective": {"proposal": title, "rationale": "제공된 프로젝트 범위에 근거한 단계적 제안",
+                            "tradeoff": "추가 기능은 고객 승인 후 별도 범위로 합의"}}
+        for scenario, title, description, hours in (
+            ("LEAN", "핵심 예약 화면", "예약 등록과 기본 관리자 확인", 40),
+            ("RECOMMENDED", "예약 변경·취소와 관리자", "기본 예약과 변경·취소, 영업시간 관리", 72),
+            ("EXPANDED", "확장 검수와 운영 가이드", "권장 범위와 접근성 검수 및 운영 문서", 96),
+        )
+    ]
+
+
+def react_reply(*, quotations=False, tool=False):
+    return {"action": "TOOL" if tool else "FINAL", "tool_name": "get_project_context" if tool else None,
+            "arguments": {"query": None}, "summary": None if tool else "제공된 자료에 근거한 단계별 분석",
+            "open_questions": [], "quotation_drafts": three_quotation_drafts() if quotations else []}
+
+
+def realistic_tools(request):
+    from contracts import KnowledgeSearchResult, MemorySourceMessage, ProjectContext, SkillSelection
+
+    request.context.effective_permissions = ["agent.run", "project.read", "document.read"]
+    request.input.requirement_text = REALISTIC_KOREAN_REQUIREMENT
+    request.input.workflow_mode = AgentWorkflowMode.PROJECT_ANALYSIS
+    request.input.skill_selection = SkillSelection(mode="MANUAL", manual_ids=[
+        "writing-proposal", "dev-requirements-acceptance", "ops-milestone-plan"])
+    tools = AsyncMock()
+    source = MemorySourceMessage(id=uuid4(), event_order=1, kind="PROJECT_INPUT", content=REALISTIC_PROJECT_SOURCE,
+                                 created_at=datetime.now(UTC))
+    tools.get_project_context.return_value = ProjectContext(project_id=request.context.project_id,
+        workspace_id=request.context.workspace_id, title="예약 웹사이트",
+        requirement_text=request.input.requirement_text,
+        currency="KRW", source_messages=[source])
+    tools.search_knowledge.return_value = [KnowledgeSearchResult(chunk_id=uuid4(), document_id=uuid4(),
+        document_title="확정 운영 메모", source_type="PROJECT", content=REALISTIC_REFERENCE,
+        confirmation_status="confirmed", project_id=request.context.project_id, origin="user", memory_type="reference",
+        rrf_score=.1, keyword_rank=1)]
+    return tools
+
+
+async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=False, integrity_fault=False):
+    from retrieval.knowledge_context import KnowledgeContextLoader
+
+    request = incoming(**frontend_default_budget().model_dump())
+    request.byok_budget = request.byok_budget.model_copy(update={
+        "valid_until": datetime.now(UTC) + timedelta(seconds=request.budget.max_duration_seconds)})
+    tools = realistic_tools(request)
+    if oversized:
+        request.input.requirement_text += " 추가 확인이 필요한 상세 요구사항입니다." * 300
+    http = OfflineHTTP(request)
+    replies = []
+    for index in range(4):
+        if needs_tools:
+            replies.append(react_reply(tool=True))
+        replies.append(react_reply(quotations=index in {0, 2}))
+    http.provider_results = [provider_body(request, json.dumps(reply, ensure_ascii=False)) for reply in replies]
+    if integrity_fault:
+        http.provider_results[1] = provider_body(request, json.dumps(replies[1]), model="unexpected-provider-model")
+    http.install(monkeypatch)
+    embedder, router, platform, research, shadow = [AsyncMock() for _ in range(5)]
+    executor = OperationalAgentExecutor(router, CompositeModelProvider(platform, platform), tools, research, shadow,
+        KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden"))
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True,
+                                 allow_memory_platform_budget_for_tests=True)
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
+    final = await coordinator.view(request.context.run_id)
+    for dependency, method in ((router, "route"), (embedder, "embed"), (research, "collect"),
+                               (shadow, "register"), (platform, "generate_react_step")):
+        getattr(dependency, method).assert_not_awaited()
+    assert final.usage.byok_scope_id == request.byok_budget.scope_id and final.usage.execution_closed
+    assert final.usage.platform_cost_usd == 0 and final.usage.platform_reservation_id is None
+    assert final.usage.model_calls == len(http.provider_requests) == len(http.attempts)
+    assert final.usage.input_tokens == sum(attempt["inputTokens"] for attempt in http.attempts) <= 150000
+    assert final.usage.output_tokens == sum(attempt["maxOutputTokens"] for attempt in http.attempts) <= 48000
+    assert all(attempt["fundingSource"] == "BYOK" and attempt["serviceTier"] == "default"
+               for attempt in http.attempts)
+    assert all(attempt["maxOutputTokens"] == 4000 for attempt in http.attempts)
+    return request, final, http, replies
+
+
+async def test_approved_150k_realistic_three_skill_four_stage_quote_completes(monkeypatch):
+    from jsonschema import Draft202012Validator
+
+    request, final, http, replies = await run_realistic_project(monkeypatch)
+    assert final.status is AgentRunStatus.COMPLETED
+    assert final.usage.model_calls == 4 and 95000 < final.usage.input_tokens < 110000
+    assert len(final.result.department_results) == 4
+    assert all(department.status == "COMPLETED" for department in final.result.department_results)
+    assert [draft.scenario for draft in final.result.quotation_drafts] == ["LEAN", "RECOMMENDED", "EXPANDED"]
+    assert [draft.items[0].quantity for draft in final.result.quotation_drafts] == [40, 72, 96]
+    for body, reply in zip(http.provider_requests, replies, strict=True):
+        Draft202012Validator(body["text"]["format"]["schema"]).validate(reply)
+        assert body["model"] == request.model_selection.model and body["service_tier"] == "default"
+        assert body["tools"] == [] and body["store"] is False
+        assert "web_research" not in json.dumps(body)
+        assert all(skill in body["input"][1]["content"] for skill in request.input.skill_selection.manual_ids)
+        assert REALISTIC_KOREAN_REQUIREMENT in body["input"][1]["content"]
+    assert http.events == ["admission", "credential", "provider"] * 4
+
+
+async def test_approved_150k_oversized_plan_stops_before_admission_key_or_provider(monkeypatch):
+    _, final, http, _ = await run_realistic_project(monkeypatch, oversized=True)
+    assert final.status is AgentRunStatus.FAILED
+    assert final.error_code == "BYOK_PLAN_INPUT_BUDGET_EXCEEDED"
+    assert final.usage.model_calls == 0 and not http.events
+
+
+async def test_approved_150k_extra_tool_steps_stop_without_scope_refill(monkeypatch):
+    _, final, http, _ = await run_realistic_project(monkeypatch, needs_tools=True)
+    assert final.status is AgentRunStatus.PARTIAL
+    assert final.result is not None
+    completed = [result for result in final.result.department_results if result.status == "COMPLETED"]
+    unfinished = [result for result in final.result.department_results if result.status in {"FAILED", "SKIPPED"}]
+    assert completed and unfinished and len(completed) + len(unfinished) == 4
+    assert sum(result.status == "FAILED" for result in unfinished) == 1
+    assert all(result.summary == "제공된 자료에 근거한 단계별 분석" for result in completed)
+    assert all(result.summary != "제공된 자료에 근거한 단계별 분석" for result in unfinished)
+    assert final.result.quotation_drafts == []  # Incomplete deal-design work cannot publish a full quote.
+    assert final.error_code == "INPUT_TOKEN_BUDGET_EXCEEDED"
+    assert 4 <= final.usage.model_calls < 8
+    assert all(not call.usage_known for call in final.usage.provider_calls)
+    assert http.events == ["admission", "credential", "provider"] * final.usage.model_calls
+
+
+async def test_approved_150k_response_integrity_fault_stays_fatal_after_completed_department(monkeypatch):
+    _, final, http, _ = await run_realistic_project(monkeypatch, integrity_fault=True)
+    assert final.status is AgentRunStatus.FAILED
+    assert final.error_code == "BYOK_RESPONSE_BINDING_MISMATCH"
+    assert final.result is None and final.usage.model_calls == 2
+    assert http.events == ["admission", "credential", "provider"] * 2

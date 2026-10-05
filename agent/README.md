@@ -94,14 +94,26 @@ can still generate through the same selected-key, durably admitted path.
 Offline regressions are in `tests/test_byok_budget.py`; they intercept every backend and
 provider HTTP request and exercise production guards without actual keys/provider I/O.
 
-### Current project-analysis limit
+### Approved personal-key limits
+
+The approved BYOK input ceiling is **150000 tokens in aggregate per run**, including
+all departments, retries and resumed execution. Platform-funded input remains 50000.
+All other ceilings are unchanged: 48000 aggregate output tokens, 50 model calls,
+180 seconds, 12 tool calls, 4 departments, hierarchy depth 2, 2 search credits,
+2 retries and 3 handoffs. This does not enable paid search or detached task execution.
+The backend issues the exact scope; the Agent never increases or replenishes it.
 
 The full four-department PROJECT_ANALYSIS path performs a minimum-plan preflight
-before its first attempt. With the current frontend/backend default 50000-input-token
-cap, conservative full-schema plus 8192-per-attempt protocol reservations do not fit
-the normal four-department plan. Such a request returns
-`BYOK_PLAN_INPUT_BUDGET_EXCEEDED` with zero provider calls instead of paying for a
-partial run. The release remains blocked for default full project analysis; AD_HOC is
-the validated usable new-run path. No quotas, framing allowance, or platform pricing
-were weakened to make a test pass. Larger user-authorized scopes are still bounded,
-but this change does not create them or increase any public/default budget.
+before its first attempt. A realistic Korean request with three selected skills and
+modest confirmed project context fits within 150000 under mocked transport tests,
+including three distinct quotation scenarios. This is an orchestration/guard test,
+not live provider-quality or price verification. The unchanged 8192-per-attempt
+protocol allowance and exact UTF-8 request bytes remain conservatively reserved.
+An oversized plan returns `BYOK_PLAN_INPUT_BUDGET_EXCEEDED` before any provider call.
+
+150000 is not a promise that every tool/retry plan finishes: further observations
+and retries also consume the aggregate cap. If a later model/token cap is exhausted,
+completed departments are preserved as a partial result and all attempts remain
+accounted for; the scope closes without replenishment. Security/expiry failures stay
+fatal. Existing 50000-token scopes keep their original bound on resume, and legacy
+records without a scope cannot be upgraded into the new path.

@@ -318,6 +318,34 @@ class ByokSecurityReview(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.provider_requests[0]["headers"], {
             "Authorization": "Bearer synthetic-personal-key", "Content-Type": "application/json"})
 
+    async def test_approved_150k_is_aggregate_across_all_attempts_and_resume(self):
+        budget = self.request.budget.model_copy(update={"max_input_tokens": 150000,
+            "max_model_calls": 50, "max_output_tokens": 48000, "max_duration_seconds": 180, "max_retries": 2})
+        scope = self.request.byok_budget.model_copy(update={"budget": budget, "max_input_tokens": 150000,
+            "max_model_calls": 50, "max_output_tokens": 48000})
+        self.request = self.request.model_copy(update={"budget": budget, "byok_budget": scope})
+        self.ledger = ByokExecutionLedger(self.request, delegation_token="synthetic-delegation")
+        self.ledger.persist_usage = self.persist
+        value = payload(self.request.model_selection)
+        value["input"][0]["content"] = ""
+        overhead = len(byok_budget.encode_payload(value)) + 8192
+        value["input"][0]["content"] = "a" * (30000 - overhead)
+        with byok_budget_scope(self.ledger):
+            for _ in range(5):
+                await self.invoke(value)
+            with self.assertRaisesRegex(PlatformBudgetError, "INPUT_TOKEN_BUDGET_EXCEEDED"):
+                await self.invoke(value)
+        previous = self.ledger.report(None)
+        self.assertEqual(previous.input_tokens, 150000)
+        self.assertEqual(previous.model_calls, 5)
+        self.assertEqual(sum(item["body"]["inputTokens"] for item in self.admissions), 150000)
+        resumed = ByokExecutionLedger(self.request, previous, "synthetic-delegation")
+        resumed.persist_usage = self.persist
+        with byok_budget_scope(resumed), self.assertRaisesRegex(PlatformBudgetError, "INPUT_TOKEN_BUDGET_EXCEEDED"):
+            await self.invoke(value)
+        self.assertEqual(len(self.admissions), 5)
+        self.assertEqual(len(self.provider_requests), 5)
+
     async def test_usage_records_contain_no_keys_or_bearer(self):
         with byok_budget_scope(self.ledger):
             await self.invoke()
