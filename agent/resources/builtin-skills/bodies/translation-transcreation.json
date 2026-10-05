@@ -1,0 +1,81 @@
+{
+  "id": "translation-transcreation",
+  "version": "1.0.0",
+  "category": "translation",
+  "name": {
+    "ko": "마케팅 현지화·트랜스크리에이션",
+    "en": "Marketing Transcreation"
+  },
+  "summary": {
+    "ko": "광고·브랜드 메시지의 의도와 사실을 유지하며 문화·매체에 맞게 재작성합니다.",
+    "en": "Adapt marketing language for a locale while preserving intent, substantiated claims, and brand constraints."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "광고 카피 현지화",
+    "트랜스크리에이션",
+    "transcreate marketing copy",
+    "localize campaign message"
+  ],
+  "exclusions": [
+    "Literal document translation",
+    "Full campaign strategy without language adaptation"
+  ],
+  "required_inputs": [
+    {
+      "key": "source",
+      "description": "Original copy, intended effect, and immutable product claims",
+      "required": true
+    },
+    {
+      "key": "locale",
+      "description": "Target locale, audience, channel, and brand voice",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Separate the message’s essential promise and facts from idioms, wordplay, and culture-specific references."
+    },
+    {
+      "step": 2,
+      "instruction": "Identify local comprehension or connotation risks without relying on stereotypes."
+    },
+    {
+      "step": 3,
+      "instruction": "Create a small set of adapted variants with rationale and a plain back-translation for review."
+    },
+    {
+      "step": 4,
+      "instruction": "Check factual equivalence, tone, character or layout constraints, and phrases needing native-market review."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Transcreation options",
+      "format": "json",
+      "acceptance_criteria": "Each variant includes target copy, back-translation, rationale, and constraint checks"
+    }
+  ],
+  "limitations": [
+    "Do not invent local legal approval or guarantee cultural acceptance.",
+    "Adaptation must not change product capabilities, price, or substantiation."
+  ],
+  "permission_boundaries": [
+    "Do not publish campaigns or add unapproved guarantees and regulated claims.",
+    "Do not use demeaning cultural stereotypes or unauthorized customer endorsements."
+  ],
+  "routing_tags": [
+    "translation",
+    "transcreation",
+    "marketing",
+    "localization"
+  ],
+  "optional_capabilities": []
+}

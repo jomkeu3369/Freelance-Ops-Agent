@@ -1,0 +1,81 @@
+{
+  "id": "marketing-social-calendar",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "소셜 콘텐츠 캘린더",
+    "en": "Social Content Calendar"
+  },
+  "summary": {
+    "ko": "목표·대상·제작 여건에 맞춘 채널별 콘텐츠 계획과 제작 요구사항을 만듭니다.",
+    "en": "Plan channel-specific content around business goals, audience value, and realistic production capacity."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "SNS 콘텐츠 일정",
+    "소셜 콘텐츠 캘린더",
+    "create social content calendar",
+    "plan a month of social posts"
+  ],
+  "exclusions": [
+    "Repurposing specific long-form video clips",
+    "Writing a single social caption"
+  ],
+  "required_inputs": [
+    {
+      "key": "brand",
+      "description": "Audience, goals, channels, content pillars, and approved claims",
+      "required": true
+    },
+    {
+      "key": "schedule",
+      "description": "Planning period, cadence, known dates, and production capacity",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define a limited set of content pillars and the audience value each should provide."
+    },
+    {
+      "step": 2,
+      "instruction": "Distribute formats and topics across the requested period using real deadlines and available production capacity."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify the angle, intended action, asset needs, owner assumptions, and draft copy direction for each slot."
+    },
+    {
+      "step": 4,
+      "instruction": "Check repetition, factual claims, approval lead time, and workload; mark tentative dates and missing assets."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Content calendar",
+      "format": "csv",
+      "acceptance_criteria": "Each item has date, channel, pillar, topic, format, asset needs, CTA, and status"
+    }
+  ],
+  "limitations": [
+    "Do not invent holidays, launches, or claimed platform performance.",
+    "Posting times are assumptions unless supported by the account’s data."
+  ],
+  "permission_boundaries": [
+    "Do not schedule or publish posts, buy engagement, or import audience data.",
+    "Do not use private customer stories or unapproved personal images."
+  ],
+  "routing_tags": [
+    "marketing",
+    "social",
+    "calendar",
+    "content-planning"
+  ],
+  "optional_capabilities": []
+}

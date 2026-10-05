@@ -1,0 +1,81 @@
+{
+  "id": "design-presentation-storyboard",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "프레젠테이션 스토리보드",
+    "en": "Presentation Storyboard"
+  },
+  "summary": {
+    "ko": "청중·결론·근거를 슬라이드별 메시지와 시각 구성으로 설계합니다.",
+    "en": "Shape an audience-focused presentation into slide messages, evidence, and visual layouts."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "발표 슬라이드 구성",
+    "프레젠테이션 스토리보드",
+    "storyboard a slide deck",
+    "plan presentation visuals"
+  ],
+  "exclusions": [
+    "Direct editing of an existing deck with precise changes",
+    "Standalone long-form article writing"
+  ],
+  "required_inputs": [
+    {
+      "key": "message",
+      "description": "Audience, desired decision, and core message",
+      "required": true
+    },
+    {
+      "key": "evidence",
+      "description": "Source material and presentation length or time limit",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Choose a narrative suited to the audience’s starting knowledge and the decision they need to make."
+    },
+    {
+      "step": 2,
+      "instruction": "Assign one clear takeaway to each slide and connect claims to supplied evidence."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify an appropriate visual, layout, and speaker support for each slide; avoid decorative charts without data."
+    },
+    {
+      "step": 4,
+      "instruction": "Check pacing, transitions, legibility, and the final ask; mark evidence or asset gaps before production."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Slide storyboard",
+      "format": "json",
+      "acceptance_criteria": "Each slide has title, takeaway, evidence, visual specification, and speaker notes"
+    }
+  ],
+  "limitations": [
+    "This skill produces a storyboard, not a rendered presentation file by itself.",
+    "Do not invent metrics, endorsements, or audience reactions."
+  ],
+  "permission_boundaries": [
+    "Do not upload client content to design services or publish the deck.",
+    "Use original layouts and rights-cleared visuals; external deck creation requires the relevant permission."
+  ],
+  "routing_tags": [
+    "design",
+    "presentation",
+    "storyboard",
+    "visual-storytelling"
+  ],
+  "optional_capabilities": []
+}

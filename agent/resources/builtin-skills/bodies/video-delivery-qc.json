@@ -1,0 +1,83 @@
+{
+  "id": "video-delivery-qc",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "영상 납품 품질 점검",
+    "en": "Video Delivery Quality Check"
+  },
+  "summary": {
+    "ko": "플랫폼·고객 사양에 맞춰 영상·오디오·자막·파일 상태를 검증합니다.",
+    "en": "Check a final video against supplied technical and editorial delivery requirements."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "영상 납품 검수",
+    "최종 영상 QC",
+    "quality check video delivery",
+    "check export specifications"
+  ],
+  "exclusions": [
+    "Planning an edit before rendering",
+    "Print-production preflight"
+  ],
+  "required_inputs": [
+    {
+      "key": "deliverable",
+      "description": "Rendered video or inspectable metadata and preview",
+      "required": true
+    },
+    {
+      "key": "requirements",
+      "description": "Client or platform delivery specifications and approved content checklist",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Create a checklist from the actual delivery requirements, including dimensions, frame rate, codec, duration, audio, and captions."
+    },
+    {
+      "step": 2,
+      "instruction": "Inspect available technical metadata and sample beginning, middle, end, transitions, and high-risk scenes."
+    },
+    {
+      "step": 3,
+      "instruction": "Check missing frames, spelling, clipping, sync, safe areas, credits, and required inclusions when the media is inspectable."
+    },
+    {
+      "step": 4,
+      "instruction": "Return pass, fail, or unverified for each check with timestamped evidence and a correction list."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Video QC report",
+      "format": "json",
+      "acceptance_criteria": "Every check has requirement, observed value, evidence, status, and corrective action"
+    }
+  ],
+  "limitations": [
+    "Do not mark the whole file reviewed from only a thumbnail or metadata.",
+    "Playback on one device cannot guarantee all platform encodings."
+  ],
+  "permission_boundaries": [
+    "Do not upload, publish, replace, or approve the final deliverable for the client.",
+    "Do not remove rights notices or infer licensing from file availability."
+  ],
+  "routing_tags": [
+    "video",
+    "delivery",
+    "export",
+    "quality"
+  ],
+  "optional_capabilities": [
+    "media.inspect"
+  ]
+}

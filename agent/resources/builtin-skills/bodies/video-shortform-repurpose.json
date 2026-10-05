@@ -1,0 +1,83 @@
+{
+  "id": "video-shortform-repurpose",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "숏폼 재구성",
+    "en": "Short-Form Video Repurposing"
+  },
+  "summary": {
+    "ko": "원본의 의미를 유지하면서 독립적으로 이해되는 짧은 클립과 구성안을 만듭니다.",
+    "en": "Find self-contained short clips that preserve the source’s meaning and context."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "긴 영상 쇼츠 변환",
+    "릴스 클립 구성",
+    "repurpose long video into shorts",
+    "find short-form clips"
+  ],
+  "exclusions": [
+    "Writing a new video from scratch",
+    "General social calendar planning"
+  ],
+  "required_inputs": [
+    {
+      "key": "source",
+      "description": "Source transcript with timing or inspectable video",
+      "required": true
+    },
+    {
+      "key": "channel",
+      "description": "Target platform, audience, duration range, and crop constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify source moments with a clear setup, useful payoff, and enough context to stand alone."
+    },
+    {
+      "step": 2,
+      "instruction": "Select segment boundaries and preserve qualifiers, attribution, and causal meaning rather than manufacturing a claim."
+    },
+    {
+      "step": 3,
+      "instruction": "Propose a hook, pacing, caption emphasis, crop guidance, and ending appropriate to each clip."
+    },
+    {
+      "step": 4,
+      "instruction": "Check length estimates, on-screen legibility, and source fidelity; rank clips by fit rather than promising reach."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Short-form clip selection plan",
+      "format": "json",
+      "acceptance_criteria": "Each clip includes source range, context, hook, structure, crop notes, and estimated duration"
+    }
+  ],
+  "limitations": [
+    "Do not claim virality or exact retention outcomes.",
+    "This skill does not render clips; without source video, visual and timing judgments remain provisional."
+  ],
+  "permission_boundaries": [
+    "Do not publish clips, change speaker meaning, or redistribute content without rights.",
+    "Sensitive speaker details should not be amplified beyond the authorized brief."
+  ],
+  "routing_tags": [
+    "video",
+    "shortform",
+    "repurposing",
+    "clips"
+  ],
+  "optional_capabilities": [
+    "media.inspect"
+  ]
+}

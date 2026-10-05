@@ -1,0 +1,86 @@
+{
+  "id": "translation-subtitles",
+  "version": "1.0.0",
+  "category": "translation",
+  "name": {
+    "ko": "자막 번역·현지화",
+    "en": "Subtitle Translation and Localization"
+  },
+  "summary": {
+    "ko": "원문·타임코드·읽기 속도를 함께 고려해 자연스러운 번역 자막을 만듭니다.",
+    "en": "Translate subtitles with attention to source meaning, timing, readability, and locale conventions."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "자막 번역",
+    "다국어 영상 자막",
+    "translate subtitles",
+    "localize SRT captions"
+  ],
+  "exclusions": [
+    "Same-language subtitle quality checks only",
+    "Generating a finished captioned video"
+  ],
+  "required_inputs": [
+    {
+      "key": "subtitles",
+      "description": "Source subtitle file and transcript or audio if available",
+      "required": true
+    },
+    {
+      "key": "locale",
+      "description": "Target language, locale, and supplied subtitle limits",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Validate source cue structure and preserve timecodes unless retiming is explicitly in scope."
+    },
+    {
+      "step": 2,
+      "instruction": "Translate speech, speaker labels, and relevant sound descriptions while preserving plot, tone, and terminology."
+    },
+    {
+      "step": 3,
+      "instruction": "Condense phrasing only as needed for readable timing and line breaks, without omitting consequential meaning."
+    },
+    {
+      "step": 4,
+      "instruction": "Compare source and target cues for omissions, placeholders, names, and readable length; flag cues that need retiming."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Localized subtitle file",
+      "format": "srt_or_vtt",
+      "acceptance_criteria": "Maintains valid syntax, source alignment, and documented timing decisions"
+    },
+    {
+      "name": "Localization QC notes",
+      "format": "markdown",
+      "acceptance_criteria": "Lists difficult terminology, timing pressure, and uncertain source speech"
+    }
+  ],
+  "limitations": [
+    "Without audio, delivery and ambiguous speech cannot be fully checked.",
+    "Subtitle shortening may require the user to choose between strict timing and full wording."
+  ],
+  "permission_boundaries": [
+    "Do not burn in, render, upload, or publish subtitles without authorization.",
+    "Do not rewrite a speaker’s views or fabricate inaudible words."
+  ],
+  "routing_tags": [
+    "translation",
+    "subtitles",
+    "localization",
+    "timing"
+  ],
+  "optional_capabilities": []
+}

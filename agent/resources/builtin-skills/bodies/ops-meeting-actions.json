@@ -1,0 +1,86 @@
+{
+  "id": "ops-meeting-actions",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "회의 결정·실행 항목",
+    "en": "Meeting Decisions and Action Items"
+  },
+  "summary": {
+    "ko": "회의 기록에서 결정·담당·기한·미해결 쟁점을 근거와 함께 추출합니다.",
+    "en": "Extract decisions, action items, owners, dates, and unresolved questions from meeting evidence."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "회의록 액션 아이템",
+    "회의 결정 정리",
+    "extract meeting action items",
+    "summarize decisions from transcript"
+  ],
+  "exclusions": [
+    "Live meeting transcription without a recording",
+    "Changing project commitments based on an unapproved proposal"
+  ],
+  "required_inputs": [
+    {
+      "key": "record",
+      "description": "Meeting notes or transcript",
+      "required": true
+    },
+    {
+      "key": "context",
+      "description": "Meeting date, timezone, and known participant identities",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Separate discussion, proposed ideas, explicit decisions, and commitments using the actual wording."
+    },
+    {
+      "step": 2,
+      "instruction": "Extract action items with owner, due date, dependency, and supporting quote or source location."
+    },
+    {
+      "step": 3,
+      "instruction": "Resolve relative dates against the meeting date and flag ambiguous owners or deadlines instead of inventing them."
+    },
+    {
+      "step": 4,
+      "instruction": "Produce a concise decision log, action list, and open questions with conflicts or reversals reconciled."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Meeting summary",
+      "format": "markdown",
+      "acceptance_criteria": "Clearly separates decisions, discussion, and unresolved questions"
+    },
+    {
+      "name": "Action register",
+      "format": "json",
+      "acceptance_criteria": "Each action has description, owner or unknown, due date or unknown, source, and status"
+    }
+  ],
+  "limitations": [
+    "Speaker diarization or incomplete notes may make attribution uncertain.",
+    "Mentioning an action does not necessarily establish a commitment."
+  ],
+  "permission_boundaries": [
+    "Do not send recaps, assign tasks externally, create calendar events, or contact participants.",
+    "Do not expose confidential transcript content beyond the intended deliverable."
+  ],
+  "routing_tags": [
+    "operations",
+    "meetings",
+    "decisions",
+    "actions"
+  ],
+  "optional_capabilities": []
+}

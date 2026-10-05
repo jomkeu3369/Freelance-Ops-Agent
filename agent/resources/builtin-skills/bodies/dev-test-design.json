@@ -1,0 +1,90 @@
+{
+  "id": "dev-test-design",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "테스트 설계·작성",
+    "en": "Test Design and Authoring"
+  },
+  "summary": {
+    "ko": "동작 계약과 위험을 바탕으로 회귀·경계·실패 테스트를 구성합니다.",
+    "en": "Create behavior-focused tests covering regressions, boundaries, and meaningful failure modes."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "회귀 테스트 작성",
+    "테스트 케이스 설계",
+    "write unit and integration tests",
+    "design test coverage"
+  ],
+  "exclusions": [
+    "Bug diagnosis without a request or need to add tests",
+    "Load testing against external production targets"
+  ],
+  "required_inputs": [
+    {
+      "key": "behavior",
+      "description": "Expected behavior, relevant code, and existing tests if available",
+      "required": true
+    },
+    {
+      "key": "test_stack",
+      "description": "Test framework and available execution environment",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify externally observable behavior and high-risk branches; inspect existing fixtures and test conventions."
+    },
+    {
+      "step": 2,
+      "instruction": "Build a matrix covering normal, boundary, invalid, empty, permission, and failure scenarios that actually apply."
+    },
+    {
+      "step": 3,
+      "instruction": "Author deterministic tests with isolated fixtures and explicit assertions; avoid snapshot-only checks for consequential logic."
+    },
+    {
+      "step": 4,
+      "instruction": "Run available checks, distinguish passing, failing, and not-run tests, and connect each failure to the expected behavior."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Test suite or cases",
+      "format": "code",
+      "acceptance_criteria": "Covers specified behavior using the existing framework or clearly labeled pseudocode"
+    },
+    {
+      "name": "Coverage rationale",
+      "format": "markdown",
+      "acceptance_criteria": "Maps risks and requirements to tests without inventing a coverage percentage"
+    }
+  ],
+  "limitations": [
+    "Passing tests do not prove absence of defects.",
+    "Do not claim tests executed when only authored or reviewed."
+  ],
+  "permission_boundaries": [
+    "Use synthetic fixtures; do not exercise payments, email sends, or destructive production operations.",
+    "Changing CI configuration or installing packages requires the existing authorization path."
+  ],
+  "routing_tags": [
+    "development",
+    "testing",
+    "regression",
+    "quality"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "workspace.edit",
+    "test.run"
+  ]
+}

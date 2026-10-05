@@ -1,0 +1,81 @@
+{
+  "id": "writing-landing-copy",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "랜딩 페이지 카피",
+    "en": "Landing Page Copy"
+  },
+  "summary": {
+    "ko": "제품 근거와 고객 의문을 중심으로 가치 제안·섹션·CTA 문구를 작성합니다.",
+    "en": "Write a landing page around a substantiated value proposition and the reader’s decision process."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "랜딩 페이지 문구",
+    "서비스 소개 카피",
+    "write landing page copy",
+    "develop website value proposition"
+  ],
+  "exclusions": [
+    "Implementation of the page layout or code",
+    "Auditing a whole marketing funnel"
+  ],
+  "required_inputs": [
+    {
+      "key": "offer",
+      "description": "Actual product or service, audience, proof, and limitations",
+      "required": true
+    },
+    {
+      "key": "conversion",
+      "description": "Desired action, page context, and brand voice",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify the user’s problem, the actual offer, the differentiating evidence, and likely objections."
+    },
+    {
+      "step": 2,
+      "instruction": "Define the page’s message hierarchy from promise through explanation, proof, objections, and action."
+    },
+    {
+      "step": 3,
+      "instruction": "Write headlines, section copy, calls to action, and essential microcopy with internally consistent terminology."
+    },
+    {
+      "step": 4,
+      "instruction": "Check claims, pricing references, guarantees, and CTA expectations against the supplied facts; label alternatives as variants."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Landing-page copy deck",
+      "format": "markdown",
+      "acceptance_criteria": "Contains section-by-section text, CTA labels, and limited alternative headlines"
+    }
+  ],
+  "limitations": [
+    "Do not invent testimonials, scarcity, certifications, results, or guarantees.",
+    "Copy alone cannot predict conversion lift."
+  ],
+  "permission_boundaries": [
+    "Do not publish the page, change pricing, or create misleading subscription or consent wording.",
+    "Use only authorized customer quotes and approved claims."
+  ],
+  "routing_tags": [
+    "writing",
+    "landing-page",
+    "copywriting",
+    "conversion"
+  ],
+  "optional_capabilities": []
+}

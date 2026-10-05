@@ -1,0 +1,81 @@
+{
+  "id": "writing-proposal",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "프리랜서 제안서",
+    "en": "Freelance Proposal Drafting"
+  },
+  "summary": {
+    "ko": "고객 문제·접근법·범위·근거를 연결한 검토용 제안서를 작성합니다.",
+    "en": "Draft a client proposal that connects the problem, approach, scope, proof, and next decision."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "프리랜서 제안서 작성",
+    "프로젝트 제안 문서",
+    "write freelance proposal",
+    "draft client project pitch"
+  ],
+  "exclusions": [
+    "Detailed statement-of-work definition",
+    "Estimating effort from a work breakdown"
+  ],
+  "required_inputs": [
+    {
+      "key": "client_need",
+      "description": "Client brief, desired outcomes, and decision context",
+      "required": true
+    },
+    {
+      "key": "offer",
+      "description": "Authorized services, credentials, proposed scope, and any approved commercial figures",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Restate the client’s problem and success criteria using source-backed specifics."
+    },
+    {
+      "step": 2,
+      "instruction": "Explain the approach, phases, deliverables, collaboration model, and credible relevant experience."
+    },
+    {
+      "step": 3,
+      "instruction": "Use approved estimates and terms; clearly mark undecided price, schedule, exclusions, and dependencies."
+    },
+    {
+      "step": 4,
+      "instruction": "End with a practical next decision and check consistency with the actual scope and capacity."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Proposal draft",
+      "format": "markdown",
+      "acceptance_criteria": "Includes problem, approach, scope, evidence, assumptions, and next step"
+    }
+  ],
+  "limitations": [
+    "Do not invent credentials, client history, discounts, or delivery guarantees.",
+    "Commercial and legal language remains a draft for user review."
+  ],
+  "permission_boundaries": [
+    "Do not send, sign, accept a contract, commit capacity, or quote an unapproved binding price.",
+    "Do not reveal another client’s confidential work as proof."
+  ],
+  "routing_tags": [
+    "writing",
+    "proposal",
+    "sales-document",
+    "freelance"
+  ],
+  "optional_capabilities": []
+}

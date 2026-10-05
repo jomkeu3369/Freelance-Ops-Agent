@@ -1,0 +1,83 @@
+{
+  "id": "video-audio-cleanup-plan",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "오디오 정리 계획",
+    "en": "Audio Cleanup and Mix Plan"
+  },
+  "summary": {
+    "ko": "대사 명료도·노이즈·음량 문제를 진단해 편집자가 적용할 처리 순서를 만듭니다.",
+    "en": "Diagnose dialogue and mix issues and propose a restrained, reproducible cleanup chain."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "영상 소리 정리",
+    "대사 노이즈 개선",
+    "plan dialogue audio cleanup",
+    "diagnose uneven audio levels"
+  ],
+  "exclusions": [
+    "Music composition",
+    "General subtitle correction"
+  ],
+  "required_inputs": [
+    {
+      "key": "audio",
+      "description": "Inspectable audio or concrete measurements and problem samples",
+      "required": true
+    },
+    {
+      "key": "delivery",
+      "description": "Target listening context and any supplied loudness requirements",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify clipping, hum, noise, room echo, abrupt edits, level inconsistency, and competing music where evidence permits."
+    },
+    {
+      "step": 2,
+      "instruction": "Separate recoverable problems from missing or irreversibly distorted signal."
+    },
+    {
+      "step": 3,
+      "instruction": "Propose an ordered cleanup and mixing chain with conservative starting settings and listening checkpoints."
+    },
+    {
+      "step": 4,
+      "instruction": "Define before-and-after checks for intelligibility, artifacts, loudness, peaks, and transitions; avoid claiming improvement without listening."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Audio treatment plan",
+      "format": "markdown",
+      "acceptance_criteria": "Lists observed issues, proposed processing order, starting points, and validation checks"
+    }
+  ],
+  "limitations": [
+    "Do not infer technical defects from a transcript alone.",
+    "Irreversible clipping and missing speech may require a new recording."
+  ],
+  "permission_boundaries": [
+    "Do not clone voices, generate replacement speech, or upload private audio externally.",
+    "Do not install paid plugins or purchase sound libraries."
+  ],
+  "routing_tags": [
+    "video",
+    "audio",
+    "mixing",
+    "dialogue"
+  ],
+  "optional_capabilities": [
+    "media.inspect"
+  ]
+}

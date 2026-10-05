@@ -1,0 +1,88 @@
+{
+  "id": "marketing-analytics-readout",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "마케팅 성과 해석",
+    "en": "Marketing Analytics Readout"
+  },
+  "summary": {
+    "ko": "지표 정의와 비교 조건을 확인해 실적·변화·불확실성을 설명합니다.",
+    "en": "Explain campaign performance using consistent metric definitions and defensible comparisons."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "마케팅 성과 보고",
+    "광고 데이터 해석",
+    "summarize campaign analytics",
+    "analyze marketing performance"
+  ],
+  "exclusions": [
+    "Cleaning a dataset before any analysis",
+    "Designing a new experiment"
+  ],
+  "required_inputs": [
+    {
+      "key": "data",
+      "description": "Aggregate campaign data with dates, units, and metric definitions",
+      "required": true
+    },
+    {
+      "key": "question",
+      "description": "Business question, comparison period, and decisions the readout should support",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Validate date ranges, currencies, units, attribution windows, missing values, and metric definitions."
+    },
+    {
+      "step": 2,
+      "instruction": "Calculate meaningful totals and rates with explicit denominators, avoiding averages of incompatible rates."
+    },
+    {
+      "step": 3,
+      "instruction": "Compare like-for-like segments and explain changes with evidence while separating plausible causes from established facts."
+    },
+    {
+      "step": 4,
+      "instruction": "Write a decision-focused readout with caveats, follow-up questions, and reproducible calculations."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Performance readout",
+      "format": "markdown",
+      "acceptance_criteria": "Includes verified metrics, comparisons, uncertainty, and decision implications"
+    },
+    {
+      "name": "Calculation table",
+      "format": "csv",
+      "acceptance_criteria": "Shows inputs, formulas or definitions, and resulting values"
+    }
+  ],
+  "limitations": [
+    "Do not infer incremental lift or causality from observational reports alone.",
+    "Missing attribution or refund data may distort return calculations."
+  ],
+  "permission_boundaries": [
+    "Do not alter campaigns, spending, billing, or attribution settings.",
+    "Use de-identified aggregate data and do not export raw customer records."
+  ],
+  "routing_tags": [
+    "marketing",
+    "analytics",
+    "reporting",
+    "metrics"
+  ],
+  "optional_capabilities": [
+    "data.compute"
+  ]
+}

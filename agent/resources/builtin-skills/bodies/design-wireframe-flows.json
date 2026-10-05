@@ -1,0 +1,86 @@
+{
+  "id": "design-wireframe-flows",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "사용자 흐름·와이어프레임",
+    "en": "User Flows and Wireframes"
+  },
+  "summary": {
+    "ko": "핵심 과업의 화면 흐름과 상태를 저해상도 설계 명세로 만듭니다.",
+    "en": "Map key user tasks into screen flows and low-fidelity layout specifications."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "와이어프레임 설계",
+    "사용자 화면 흐름",
+    "create wireframe flows",
+    "map screens for user journey"
+  ],
+  "exclusions": [
+    "High-fidelity styling with approved flows",
+    "Frontend coding from an existing design"
+  ],
+  "required_inputs": [
+    {
+      "key": "tasks",
+      "description": "Primary user tasks and success conditions",
+      "required": true
+    },
+    {
+      "key": "platform",
+      "description": "Target device, content needs, and navigation constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Map the primary path and meaningful alternate, empty, failure, and recovery paths."
+    },
+    {
+      "step": 2,
+      "instruction": "List each screen’s purpose, content hierarchy, actions, and entry and exit conditions."
+    },
+    {
+      "step": 3,
+      "instruction": "Describe low-fidelity layouts and responsive priorities without prematurely choosing decorative styling."
+    },
+    {
+      "step": 4,
+      "instruction": "Walk through the flow against acceptance criteria and flag missing data, decisions, or dead ends."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "User-flow specification",
+      "format": "json",
+      "acceptance_criteria": "Contains screens, transitions, triggers, and recovery paths"
+    },
+    {
+      "name": "Wireframe specification",
+      "format": "markdown",
+      "acceptance_criteria": "Defines content hierarchy and interactions for each requested screen"
+    }
+  ],
+  "limitations": [
+    "A text specification is not a finished interactive prototype.",
+    "Do not infer unprovided user research or hidden backend capabilities."
+  ],
+  "permission_boundaries": [
+    "Creating or editing external design files needs the applicable authorized tool workflow.",
+    "Do not add tracking, signup requirements, or personal-data collection without product approval."
+  ],
+  "routing_tags": [
+    "design",
+    "wireframe",
+    "user-flow",
+    "information-architecture"
+  ],
+  "optional_capabilities": []
+}
