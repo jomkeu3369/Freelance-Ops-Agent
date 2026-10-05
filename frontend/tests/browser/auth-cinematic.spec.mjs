@@ -2,6 +2,49 @@ import { test, expect } from "@playwright/test";
 import { localeStorageKey } from "../../app/lib/ui-locale.mjs";
 
 const origin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
+const motionSource = "/login/pet-path-motion-v1.mp4";
+const motionPoster = "/login/pet-path-motion-poster-v1.webp";
+const staticPoster = "/login/pet-path-poster-v1.webp";
+
+async function expectPoster(page, source) {
+  const poster = page.locator(".auth-backdrop__poster");
+  await expect(poster).toHaveAttribute("src", source);
+  await expect(poster).toBeVisible();
+  await expect.poll(() => poster.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
+}
+
+async function expectMotionControl(page, { paused = false } = {}) {
+  const control = page.locator(".auth-backdrop__toggle");
+  await expect(control).toHaveCount(1);
+  await expect(control).toBeVisible();
+  await expect(control).toBeEnabled();
+  await expect(control).toHaveAttribute("type", "button");
+  await expect(control).toHaveText(paused ? /^▶\uFE0F?$/u : /^⏸\uFE0F?$/u);
+  const label = await control.getAttribute("aria-label");
+  expect(label?.trim().length).toBeGreaterThan(0);
+  await expect(control).toHaveAccessibleName(label);
+  await expect(control).toHaveAttribute("title", label);
+  await expect(control).toHaveCSS("position", "fixed");
+  const bounds = await control.boundingBox();
+  const viewport = page.viewportSize();
+  expect(bounds).not.toBeNull();
+  expect(bounds.width).toBeGreaterThanOrEqual(44);
+  expect(bounds.height).toBeGreaterThanOrEqual(44);
+  expect(bounds.width).toBeLessThanOrEqual(64);
+  expect(bounds.height).toBeLessThanOrEqual(64);
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x).toBeLessThan(80);
+  expect(bounds.y).toBeGreaterThanOrEqual(viewport.height - 100);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+  return control;
+}
+
+async function setDocumentHidden(page, hidden) {
+  await page.evaluate(value => {
+    Object.defineProperty(document, "hidden", { configurable: true, value });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
 async function expectNaturalPanel(page) {
   for (const selector of [".auth-panel", ".auth-panel form", ".auth-fields"]) {
     const area = page.locator(selector);
@@ -10,11 +53,12 @@ async function expectNaturalPanel(page) {
     expect(await area.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
   }
 }
-async function openAuth(page, { locale = "ko", theme = "light", reduced = false } = {}) {
+async function openAuth(page, { locale = "ko", theme = "light", reduced = false, invalidVideo = false } = {}) {
   const blocked = [];
   page.on("pageerror", error => blocked.push(error.message));
   await page.route("**/*", route => {
     const url = new URL(route.request().url());
+    if (invalidVideo && url.origin === origin && url.pathname === "/login/pet-path-motion-v1.mp4") return route.fulfill({ status: 200, contentType: "video/mp4", body: "synthetic invalid media" });
     if (url.origin === origin && !url.pathname.startsWith("/api/")) return route.continue();
     blocked.push(url.pathname); return route.abort();
   });
@@ -44,9 +88,12 @@ for (const theme of ["light", "dark"]) {
     expect(panel.x + panel.width).toBeLessThanOrEqual(1440);
     expect(panel.y + panel.height).toBeLessThanOrEqual(900);
     await expectNaturalPanel(page);
-    await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "absent");
-    await expect(page.locator(".auth-backdrop video")).toBeHidden();
-    await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+    await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "playing");
+    await expect(page.locator(".auth-backdrop video")).toBeVisible();
+    await expect(page.locator(".auth-backdrop video source")).toHaveCount(1);
+    await expect(page.locator(".auth-backdrop video source")).toHaveAttribute("src", motionSource);
+    await expect(page.locator(".auth-backdrop video")).toHaveAttribute("poster", motionPoster);
+    await expectMotionControl(page);
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.getByRole("button", { name: "업무 공간 열기", exact: true })).toBeVisible();
     await page.screenshot({ path: `outputs/ui-ux/login-cinematic-${theme}-desktop.png`, fullPage: true });
@@ -77,6 +124,7 @@ for (const locale of ["ko", "en"]) {
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       await expect(page.locator(".auth-backdrop video")).toBeHidden();
       await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+      await expectPoster(page, staticPoster);
       await page.screenshot({ path: `outputs/ui-ux/login-cinematic-${locale}-${width}x${height}.png`, fullPage: true });
       expect(blocked).toEqual([]);
     });
@@ -87,5 +135,198 @@ test("project brand returns to home without submitting the login form", async ({
   const blocked = await openAuth(page);
   await page.locator(".auth-brand").click();
   await expect(page).toHaveURL(`${origin}/`);
+  expect(blocked).toEqual([]);
+});
+
+test("one muted inline decoder plays, pauses across form changes, resumes, and wraps", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const blocked = await openAuth(page);
+  const video = page.locator(".auth-backdrop video");
+  const backdrop = page.locator(".auth-backdrop");
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  expect(await video.evaluate(element => ({ muted: element.muted, inline: element.playsInline, loop: element.loop, width: element.videoWidth, height: element.videoHeight })))
+    .toEqual({ muted: true, inline: true, loop: true, width: 1280, height: 720 });
+  await expect.poll(() => video.evaluate(element => element.currentTime)).toBeGreaterThan(.15);
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expect(video).toBeHidden();
+  await expectPoster(page, staticPoster);
+  await expectMotionControl(page, { paused: true });
+  await page.screenshot({ path: "outputs/ui-ux/login-motion-manually-paused-original-still.png", fullPage: true });
+  await page.locator('input[name="email"]').fill("fixture@example.invalid");
+  await page.getByRole("tab", { name: "처음 시작하기", exact: true }).click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expectPoster(page, staticPoster);
+  await page.getByRole("tab", { name: "로그인", exact: true }).click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expectMotionControl(page, { paused: true });
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await expect(video.locator("source")).toHaveAttribute("src", motionSource);
+  await expectMotionControl(page);
+  await video.evaluate(element => { element.currentTime = element.duration - .12; });
+  await expect.poll(() => video.evaluate(element => element.currentTime)).toBeLessThan(1);
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await expect(video).toHaveCount(1);
+  await expect(video.locator("source")).toHaveCount(1);
+  expect(blocked).toEqual([]);
+});
+
+test("reduced motion avoids video bytes and changing the preference unloads the decoder", async ({ page }) => {
+  const downloads = [];
+  page.on("request", request => { if (request.url().endsWith(".mp4")) downloads.push(request.url()); });
+  const blocked = await openAuth(page, { reduced: true });
+  const backdrop = page.locator(".auth-backdrop");
+  await expect(backdrop).toHaveAttribute("data-media-state", "disabled");
+  await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+  await expect(page.locator(".auth-backdrop__toggle")).toHaveCount(0);
+  await expectPoster(page, staticPoster);
+  expect(downloads).toEqual([]);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(backdrop).toHaveAttribute("data-media-state", "disabled");
+  await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+  await expectPoster(page, staticPoster);
+  expect(blocked).toEqual([]);
+});
+
+test("data saving keeps the original approved still and performs no video request", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "connection", { configurable: true, value: Object.assign(new EventTarget(), { saveData: true }) });
+  });
+  const downloads = [];
+  page.on("request", request => { if (request.url().endsWith(".mp4")) downloads.push(request.url()); });
+  const blocked = await openAuth(page);
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "disabled");
+  await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+  await expect(page.locator(".auth-backdrop__toggle")).toHaveCount(0);
+  await expectPoster(page, staticPoster);
+  expect(downloads).toEqual([]);
+  expect(blocked).toEqual([]);
+});
+
+test("autoplay refusal keeps the original approved still and permits one explicit user retry", async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativePlay = HTMLMediaElement.prototype.play;
+    let refused = false;
+    HTMLMediaElement.prototype.play = function () {
+      if (!refused) { refused = true; return Promise.reject(new DOMException("Synthetic autoplay refusal", "NotAllowedError")); }
+      return nativePlay.call(this);
+    };
+  });
+  const blocked = await openAuth(page);
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "blocked");
+  await expect(page.locator(".auth-backdrop video")).toBeHidden();
+  await expectPoster(page, staticPoster);
+  await expectMotionControl(page, { paused: true });
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "playing");
+  expect(blocked).toEqual([]);
+});
+
+test("unreadable video retains the poster and working login controls", async ({ page }) => {
+  const blocked = await openAuth(page, { invalidVideo: true });
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "error");
+  await expect(page.locator(".auth-backdrop__toggle")).toHaveCount(0);
+  await expect(page.locator(".auth-backdrop video")).toBeHidden();
+  await expectPoster(page, staticPoster);
+  await page.locator('input[name="email"]').fill("fixture@example.invalid");
+  await expect(page.locator('input[name="email"]')).toHaveValue("fixture@example.invalid");
+  expect(blocked).toEqual([]);
+});
+
+test("offscreen decorative video pauses and resumes when visible again", async ({ page }) => {
+  const blocked = await openAuth(page);
+  const backdrop = page.locator(".auth-backdrop");
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await page.locator(".auth-backdrop__visual").evaluate(element => { element.style.transform = "translateY(200vh)"; });
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expect(page.locator(".auth-backdrop__poster")).toHaveAttribute("src", motionPoster);
+  await expectMotionControl(page);
+  await page.locator(".auth-backdrop__visual").evaluate(element => { element.style.transform = ""; });
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  expect(blocked).toEqual([]);
+});
+
+test("mobile motion control stays reachable without obscuring the signup submit", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 420 });
+  const blocked = await openAuth(page);
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "playing");
+  await page.getByRole("tab", { name: "처음 시작하기", exact: true }).click();
+  const submit = page.locator('button[type="submit"]');
+  await submit.scrollIntoViewIfNeeded();
+  const formBounds = await submit.boundingBox();
+  const control = await expectMotionControl(page);
+  const toggleBounds = await control.boundingBox();
+  expect(formBounds.y + formBounds.height <= toggleBounds.y || toggleBounds.y + toggleBounds.height <= formBounds.y).toBe(true);
+  await expectNaturalPanel(page);
+  await expect(submit).toBeInViewport();
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "paused");
+  await expectPoster(page, staticPoster);
+  await expectMotionControl(page, { paused: true });
+  await page.screenshot({ path: "outputs/ui-ux/login-motion-mobile-short-height.png", fullPage: true });
+  expect(blocked).toEqual([]);
+});
+
+for (const locale of ["ko", "en"]) {
+  test(`one emoji-only ${locale} control has a tooltip, touch target and keyboard pause/play`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const blocked = await openAuth(page, { locale });
+    const backdrop = page.locator(".auth-backdrop");
+    await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+    const control = await expectMotionControl(page);
+    const pauseLabel = await control.getAttribute("aria-label");
+    await control.focus();
+    await expect(control).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+    await expectPoster(page, staticPoster);
+    await expectMotionControl(page, { paused: true });
+    expect(await control.getAttribute("aria-label")).not.toBe(pauseLabel);
+    await page.keyboard.press("Enter");
+    await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+    await expectMotionControl(page);
+    await expect(control).toHaveAttribute("aria-label", pauseLabel);
+    await expect(page.locator(".auth-backdrop video source")).toHaveAttribute("src", motionSource);
+    expect(blocked).toEqual([]);
+  });
+}
+
+test("explicit still mode survives visibility and offscreen pauses until play is requested", async ({ page }) => {
+  const blocked = await openAuth(page);
+  const backdrop = page.locator(".auth-backdrop");
+  const visual = page.locator(".auth-backdrop__visual");
+  const video = page.locator(".auth-backdrop video");
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  // An automatic suspension retains the matching video poster and pause action.
+  await setDocumentHidden(page, true);
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expectPoster(page, motionPoster);
+  await expectMotionControl(page);
+  await setDocumentHidden(page, false);
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expectPoster(page, staticPoster);
+  await visual.evaluate(element => new Promise(resolve => {
+    const observer = new IntersectionObserver(entries => {
+      if (!entries[0].isIntersecting) { observer.disconnect(); resolve(); }
+    });
+    observer.observe(element);
+    element.style.transform = "translateY(200vh)";
+  }));
+  await setDocumentHidden(page, true);
+  await setDocumentHidden(page, false);
+  await visual.evaluate(element => { element.style.transform = ""; });
+  await expect(visual).toBeInViewport();
+  await expectPoster(page, staticPoster);
+  await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+  await expect.poll(() => video.evaluate(element => element.paused)).toBe(true);
+  await expectMotionControl(page, { paused: true });
+  await page.locator(".auth-backdrop__toggle").click();
+  await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+  await expect(video.locator("source")).toHaveAttribute("src", motionSource);
   expect(blocked).toEqual([]);
 });

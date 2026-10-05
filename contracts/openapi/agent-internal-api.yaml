@@ -53,7 +53,7 @@ paths:
         '401': {description: Delegation token required}
         '403': {description: Delegation or project scope mismatch}
         '413': {description: Input or output limits exceeded}
-        '422': {description: Invalid file, extraction failure, timeout or parser resource limit}
+        '422': {description: 'Invalid file, extraction failure, timeout or parser resource limit'}
         '429': {description: Reader busy}
   /internal/v1/pets/generate:
     post:

@@ -124,7 +124,9 @@ test("hidden and offscreen pause playback and resume without reattaching or relo
   page.video.dispatch("playing");
   page.visibility(true);
   assert.equal(page.state.status, "paused");
+  assert.equal(page.state.paused, false, "automatic suspension must not select the user's still mode");
   page.show(false);
+  assert.equal(page.state.paused, false);
   page.visibility(false);
   assert.equal(page.video.playCalls, 1);
   page.video.dispatch("playing");
@@ -149,6 +151,10 @@ test("explicit user pause survives viewport and document changes until the user 
   page.visibility(false);
   page.show();
   assert.equal(page.video.playCalls, 1);
+  assert.equal(page.state.paused, true);
+  page.video.dispatch("playing");
+  assert.equal(page.state.status, "paused", "late native playback cannot override explicit still mode");
+  assert.equal(page.state.paused, true);
   page.controller.toggle();
   assert.equal(page.state.paused, false);
   assert.equal(page.video.playCalls, 2);
@@ -279,5 +285,61 @@ test("component SSR has no video src, preserves poster/fallback, and exposes a k
   assert.match(source, /className="auth-backdrop__visual" ref=\{host\}/, "observe the nonzero visual, not the layout wrapper");
   assert.match(source, /<button\s+type="button"/);
   assert.match(source, /aria-label=\{state.paused \? resumeLabel : pauseLabel\}/);
+  assert.match(source, /title=\{state.paused \? resumeLabel : pauseLabel\}/);
+  const toggle = source.match(/<button\b[\s\S]*?<\/button>/)?.[0];
+  assert.ok(toggle);
+  assert.match(toggle, /<span aria-hidden="true">\{state.paused \? "▶️" : "⏸️"\}<\/span>/);
+  assert.equal((toggle.match(/<span\b/g) || []).length, 1, "no visible text label beside the emoji");
+  assert.match(source, /staticPoster\?:\s*string/);
+  assert.match(source, /isAuthMediaPath\(staticPoster\)/, "the original still obeys same-origin media policy too");
+  assert.match(video, /poster=\{safePoster\}/, "native video retains its matching loading poster");
   assert.match(source, /\}, \[sourceKey\]\)/, "equivalent source arrays do not reset explicit user pause");
+});
+
+for (const [target, property] of [["motion", "matches"], ["connection", "saveData"]]) {
+  test(`explicit pause survives a temporary ${target} preference change without a silent restart`, async () => {
+    const page = mount();
+    page.show();
+    await flush();
+    page.video.dispatch("playing");
+    page.controller.toggle();
+    page[target][property] = true;
+    page[target].dispatch("change");
+    assert.equal(page.state.status, "disabled");
+    assert.equal(page.state.paused, true);
+    assert.equal(page.nodes.length, 0);
+    page.controller.toggle();
+    page[target][property] = false;
+    page[target].dispatch("change");
+    assert.equal(page.state.status, "paused");
+    assert.equal(page.state.paused, true);
+    assert.equal(page.video.playCalls, 1);
+    page.controller.toggle();
+    assert.equal(page.state.paused, false);
+    assert.equal(page.video.playCalls, 2);
+    assert.equal(page.nodes.length, sources.length);
+    page.controller.dispose();
+  });
+}
+
+test("a pending play refusal cannot replace the user's explicit pause or block a newer resume", async () => {
+  const attempts = [];
+  const page = mount({ play: () => { const attempt = Promise.withResolvers(); attempts.push(attempt); return attempt.promise; } });
+  page.show();
+  page.controller.toggle();
+  assert.equal(page.state.status, "paused");
+  assert.equal(page.state.paused, true);
+  attempts[0].reject(new Error("NotAllowedError"));
+  await flush();
+  assert.equal(page.state.status, "paused");
+  assert.equal(page.state.paused, true);
+  page.controller.toggle();
+  assert.equal(page.state.status, "loading");
+  assert.equal(page.state.paused, false);
+  attempts[1].resolve();
+  await flush();
+  page.video.dispatch("playing");
+  assert.equal(page.state.status, "playing");
+  assert.equal(page.video.playCalls, 2);
+  page.controller.dispose();
 });

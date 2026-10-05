@@ -10,12 +10,17 @@ const [gate, css, media, demo, translations] = await Promise.all([
   read("app/lib/ui-pet-english.mjs")
 ]);
 
-test("login prepares optional media without inventing a generated clip or external URL", () => {
-  assert.match(gate, /<AuthBackdrop sources=\{loginMedia.sources\} poster=\{loginMedia.poster\}/);
+test("login wires inspected same-origin motion, matching loading poster and the original approved still", () => {
+  const backdrop = gate.match(/<AuthBackdrop\b[\s\S]*?>/)?.[0];
+  assert.ok(backdrop);
+  for (const property of ["sources", "poster", "staticPoster"]) {
+    assert.ok(backdrop.includes(`${property}={loginMedia.${property}}`), `${property} is passed to AuthBackdrop`);
+  }
   assert.match(gate, /className="auth-ambient-fallback"/);
-  assert.match(media, /sources: \[\]/);
-  assert.doesNotMatch(media, /https?:\/\/|\/[^\s"']+\.(?:mp4|webm)/);
-  assert.match(media, /poster: "\/login\/pet-path-poster-v1\.webp"/);
+  assert.match(media, /sources: \[{ src: "\/login\/pet-path-motion-v1\.mp4", type: "video\/mp4" }\]/);
+  assert.doesNotMatch(media, /https?:\/\//);
+  assert.match(media, /poster: "\/login\/pet-path-motion-poster-v1\.webp"/);
+  assert.match(media, /staticPoster: "\/login\/pet-path-poster-v1\.webp"/);
   assert.doesNotMatch(gate, /PetLoginDemo/);
 });
 
@@ -52,4 +57,13 @@ test("cinematic selectors outrank the base auth stylesheet regardless of chunk o
   assert.match(css, /\.auth-page\.auth-cinematic \.auth-layout \{[^}]*background: transparent;[^}]*box-shadow: none/);
   assert.match(css, /\.auth-page\.auth-cinematic \.auth-panel \{/);
   assert.doesNotMatch(css, /(^|\n)\.auth-cinematic(?:\s|\.)/);
+});
+
+test("the quiet bottom-left motion control retains a 44px touch target and visible keyboard focus", () => {
+  const control = css.match(/\.auth-page\.auth-cinematic \.auth-backdrop__toggle\s*\{([^}]+)\}/)?.[1];
+  assert.ok(control);
+  for (const declaration of [/position:\s*fixed/, /left:/, /bottom:/, /min-width:\s*44px/, /min-height:\s*44px/, /justify-content:\s*center/]) {
+    assert.match(control, declaration);
+  }
+  assert.match(css, /\.auth-backdrop__toggle:focus-visible\s*\{[^}]*outline:/);
 });

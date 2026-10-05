@@ -107,7 +107,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
 
   return (
     <main id="main-content" className="auth-page auth-cinematic">
-      <AuthBackdrop sources={loginMedia.sources} poster={loginMedia.poster} pauseLabel={t("배경 영상 일시정지")} resumeLabel={t("배경 영상 재생")}>
+      <AuthBackdrop sources={loginMedia.sources} poster={loginMedia.poster} staticPoster={loginMedia.staticPoster} pauseLabel={t("배경 영상 일시정지")} resumeLabel={t("배경 영상 재생")}>
         <div className="auth-ambient-fallback" />
       </AuthBackdrop>
       <header className="auth-header">

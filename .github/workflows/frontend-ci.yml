@@ -11,6 +11,7 @@ on:
       - "main"
       - "codex/cloud-feature-integration-20261005"
       - "codex/login-pet-road-20261005"
+      - "codex/login-pet-motion-20261005"
     paths:
       - "frontend/**"
       - "contracts/fixtures/workspace-credit-contract.json"
@@ -44,7 +45,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch verification only. This job never deploys or calls providers.
-    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005'
+    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:

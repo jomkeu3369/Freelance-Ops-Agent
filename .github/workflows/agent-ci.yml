@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "codex/cloud-feature-integration-20261005"
+      - "codex/login-pet-motion-20261005"
   pull_request:
     paths:
       - "agent/**"

@@ -92,7 +92,7 @@ test("cancelled preview never saves, draft is protected and mobile fits", async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test("login uses the cinematic shell without the removed demo note or generated-media requests", async ({ page }) => {
+test("login honors reduced motion without the removed demo note or generation requests", async ({ page }) => {
   const unexpected = [];
   const origin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
   await page.route("**/*", route => {
@@ -100,12 +100,13 @@ test("login uses the cinematic shell without the removed demo note or generated-
     if (url.origin === origin && !url.pathname.startsWith("/api/")) return route.continue();
     unexpected.push(url.pathname); return route.abort();
   });
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/workspace");
   await expect(page.locator(".auth-cinematic")).toBeVisible();
   await expect(page.locator(".pet-login-demo")).toHaveCount(0);
   await expect(page.getByText("예시 미리보기입니다. 로그인 후 나만의 펫을 추가하고 대화로 수정할 수 있어요.", { exact: true })).toHaveCount(0);
-  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "absent");
+  await expect(page.locator(".auth-backdrop")).toHaveAttribute("data-media-state", "disabled");
   await expect(page.locator(".auth-backdrop video")).toBeHidden();
-    await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
+  await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
   expect(unexpected).toEqual([]);
 });
