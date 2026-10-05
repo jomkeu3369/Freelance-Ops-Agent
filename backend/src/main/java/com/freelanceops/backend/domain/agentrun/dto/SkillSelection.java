@@ -17,5 +17,6 @@ public record SkillSelection(String mode, List<String> manualIds, List<String> e
             throw new IllegalArgumentException("Invalid built-in skill selection");
         }
     }
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public boolean isDefault() { return mode.equals("AUTO") && manualIds.isEmpty() && excludedIds.isEmpty(); }
 }

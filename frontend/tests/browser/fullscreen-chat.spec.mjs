@@ -63,9 +63,21 @@ test("shrinking viewport keeps a long draft, offline notice and send controls in
     await page.setViewportSize({ width, height });
     await expectViewportLayout(page);
     await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
+    const title = await page.locator(".workspace-page-label").boundingBox();
+    const controls = await page.locator(".workspace-account-actions").boundingBox();
+    expect(title.x + title.width).toBeLessThanOrEqual(controls.x);
   }
+  // Expanding either new feature must not steal space from the primary controls.
+  await page.setViewportSize({ width: 390, height: 420 });
+  await page.locator(".skill-selector summary").click();
+  await page.getByLabel("첨부파일 선택").setInputFiles({ name: "short-height-fixture.txt", mimeType: "text/plain", buffer: Buffer.from("Unsent synthetic attachment") });
+  await expect(page.locator(".chat-attachments")).toContainText("short-height-fixture.txt");
+  await expectViewportLayout(page);
+  await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
+  await page.locator(".skill-selector summary").click();
   await context.setOffline(false);
   expect(state.starts).toEqual([]);
+  expect(state.writes).toEqual([]);
 });
 
 test("results, settings and usage open only on demand and return focus without changing the draft", async ({ page }) => {

@@ -50,7 +50,14 @@ jobs:
           version: "0.11.26"
           enable-cache: true
       - name: Install bounded local OCR test dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr-eng tesseract-ocr-kor fonts-noto-cjk
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor fonts-noto-cjk
+      - name: Require native OCR executables and language data
+        run: |
+          command -v pdftoppm
+          command -v pdftotext
+          command -v tesseract
+          tesseract --list-langs | grep -Fx eng
+          tesseract --list-langs | grep -Fx kor
       - run: uv sync --locked
       - name: Initialize Agent integration database
         run: |

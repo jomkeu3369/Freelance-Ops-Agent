@@ -37,6 +37,7 @@ class AdminMemberPostgresTest {
     @Container static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
         DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"));
     @DynamicPropertySource static void datasource(DynamicPropertyRegistry registry) {
+        registry.add("spring.flyway.create-schemas", () -> true);
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);

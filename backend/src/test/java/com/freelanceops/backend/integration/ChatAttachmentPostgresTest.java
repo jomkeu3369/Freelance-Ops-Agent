@@ -58,7 +58,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 /** V45 and real transaction boundaries; synthetic inputs, no provider/network calls. */
 @Testcontainers(disabledWithoutDocker = true)
@@ -104,10 +104,10 @@ class ChatAttachmentPostgresTest {
     void setup() {
         tx = new TransactionTemplate(transactionManager);
         scope = workspace(account());
-        when(reader.read(any(), anyString())).thenAnswer(invocation -> {
+        doAnswer(invocation -> {
             AttachmentReaderClient.Input input = invocation.getArgument(0);
             return extraction(input.file().name(), ORIGINAL.length, EXTRACTED);
-        });
+        }).when(reader).read(any(), anyString());
     }
 
     @Test
@@ -162,7 +162,7 @@ class ChatAttachmentPostgresTest {
 
     @Test
     void failedExtractionNeverLeavesStagingOrLeaksReaderError() {
-        when(reader.read(any(), anyString())).thenThrow(new RestClientException("synthetic private parser response"));
+        doThrow(new RestClientException("synthetic private parser response")).when(reader).read(any(), anyString());
         assertThatThrownBy(() -> upload(scope)).isInstanceOfSatisfying(ResponseStatusException.class, error -> {
             assertThat(error.getStatusCode().value()).isEqualTo(422);
             assertThat(error.getReason()).doesNotContain("synthetic private parser response");

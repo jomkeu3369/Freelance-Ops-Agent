@@ -2,6 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+test("short windows reclaim inflexible log padding and cap supplementary controls without hiding them", async () => {
+  const css = await readFile(new URL("../features/workspace/fullscreen-chat.css", import.meta.url), "utf8");
+  const short = css.slice(css.indexOf("@media (max-height: 560px)"), css.indexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.match(short, /agent-chat-turns \{ padding-block: 0; \}/);
+  assert.match(short, /agent-chat-extras \{ max-height: min\(160px, 20dvh\); \}/);
+  assert.doesNotMatch(short, /agent-chat-extras[^}]*display: none/);
+  assert.match(css, /workspace-page-label \{ min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis/);
+  assert.match(css, /workspace-live-status \{ min-width: 0; max-width: 100%; justify-self: stretch/);
+});
+
 test("short-height conversation removes padding minima and provides an internal scroll recovery", async () => {
   const css = await readFile(new URL("../features/workspace/fullscreen-chat.css", import.meta.url), "utf8");
   const emergency = css.slice(css.indexOf("@media (max-height: 320px)"));

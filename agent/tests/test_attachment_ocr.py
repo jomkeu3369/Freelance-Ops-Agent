@@ -224,6 +224,36 @@ async def test_cancellation_kills_entire_reader_process_group(monkeypatch):
     assert process.returncode == -9
 
 
+def native_descendant_is_running(status):
+    try:
+        return status.read_text().split()[2] != "Z"
+    except (FileNotFoundError, ProcessLookupError):
+        # The process can be reaped before opening or while reading /proc/<pid>/stat.
+        return False
+
+
+@pytest.mark.parametrize("error", [FileNotFoundError, ProcessLookupError])
+def test_native_descendant_check_accepts_already_reaped_process(error):
+    def read_text():
+        raise error("Synthetic process already reaped")
+
+    assert not native_descendant_is_running(SimpleNamespace(read_text=read_text))
+
+
+def test_native_descendant_check_preserves_permission_failure():
+    def read_text():
+        raise PermissionError("Synthetic access denied")
+
+    with pytest.raises(PermissionError, match="access denied"):
+        native_descendant_is_running(SimpleNamespace(read_text=read_text))
+
+
+@pytest.mark.parametrize("state,running", [("S", True), ("Z", False)])
+def test_native_descendant_check_distinguishes_live_and_zombie_processes(state, running):
+    status = SimpleNamespace(read_text=lambda: f"42 (python) {state} 1")
+    assert native_descendant_is_running(status) is running
+
+
 @pytest.mark.skipif(os.name != "posix", reason="Process groups are POSIX only")
 async def test_real_cancellation_leaves_no_running_native_descendant(monkeypatch, tmp_path):
     marker = tmp_path / "child.pid"
@@ -252,7 +282,7 @@ async def test_real_cancellation_leaves_no_running_native_descendant(monkeypatch
         # A killed child can briefly be a zombie until its new parent reaps it.
         status = Path(f"/proc/{pid}/stat")
         async with asyncio.timeout(3):
-            while status.exists() and status.read_text().split()[2] != "Z":
+            while native_descendant_is_running(status):
                 await asyncio.sleep(0.01)
     finally:
         if not task.done():

@@ -23,4 +23,19 @@ class BuiltinSkillSelectionTest {
         assertThrows(IllegalArgumentException.class, () -> new SkillSelection("AUTO", List.of(), List.of(), "latest"));
         assertThrows(IllegalArgumentException.class, () -> new SkillSelection("MANUAL", List.of("writing-proposal", "writing-case-study", "writing-article-draft", "writing-email-sequence"), List.of(), "1.0.0"));
     }
+    @Test void helperPropertyNeverLeaksIntoDurableCommandAndStrictJsonRoundTrips() {
+        var mapper = new ObjectMapper();
+        for (var selection : List.of(new SkillSelection(null, null, null, null),
+                new SkillSelection("MANUAL", List.of("writing-proposal"), List.of(), "1.0.0"),
+                new SkillSelection("MANUAL", List.of(), List.of(), "1.0.0"))) {
+            String json = mapper.writeValueAsString(selection);
+            assertFalse(json.contains("\"default\""));
+            assertEquals(selection, mapper.readValue(json, SkillSelection.class));
+            var input = new com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.AgentInput(
+                "Write a proposal", "en-US", null, null, List.of(), List.of(), selection, "AD_HOC");
+            assertEquals(input, mapper.readValue(mapper.writeValueAsString(input),
+                com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.AgentInput.class));
+        }
+    }
+
 }

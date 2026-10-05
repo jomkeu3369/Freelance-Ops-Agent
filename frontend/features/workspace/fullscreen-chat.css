@@ -2,8 +2,8 @@
 .figma-workspace { --workspace-header-height: 56px; --conversation-width: 780px; grid-template-rows: var(--workspace-header-height) minmax(0, 1fr); }
 .figma-workspace .workspace-topbar { height: var(--workspace-header-height); }
 .figma-workspace .workspace-sidebar { top: var(--workspace-header-height); height: calc(100dvh - var(--workspace-header-height)); }
-.figma-workspace .workspace-page-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.figma-workspace .workspace-live-status { flex-wrap: nowrap; }
+.figma-workspace .workspace-page-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.figma-workspace .workspace-live-status { min-width: 0; max-width: 100%; justify-self: stretch; flex-wrap: nowrap; overflow: hidden; }
 .figma-workspace .workspace-brand { white-space: nowrap; }
 .figma-workspace .workspace-project-list strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .figma-workspace.sidebar-collapsed { --sidebar-width: 0px; }
@@ -143,6 +143,10 @@
   .workspace-panel-content { padding: 18px; }
 }
 @media (max-height: 560px) {
+  /* Block padding cannot flex-shrink. Reserve short-window space for the
+     offline banner and Send row; supplementary controls scroll independently. */
+  .figma-workspace .is-chat .agent-chat-turns { padding-block: 0; }
+  .figma-workspace .is-chat .agent-chat-extras { max-height: min(160px, 20dvh); }
   .figma-workspace .is-chat .agent-chat-composer { padding-block: 6px; margin-bottom: 8px; gap: 3px; }
   .figma-workspace .is-chat .agent-chat-composer textarea { min-height: 40px; max-height: 64px; }
   .figma-workspace .is-chat .agent-chat-composer #agent-chat-input-help { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

@@ -116,3 +116,42 @@ V47 table or migration is needed.
 5. Provider access, paid output quality and full natural-image understanding were
    not tested. Spending stays disabled by default, and standalone paid generation
    remains fail-closed.
+
+## First GitHub Actions run and corrections
+
+Candidate `b44363b8148cc096fa4341700ed98c1a779759a6` started Backend run
+`37268299662`, Agent run `37268299648`, and Frontend run `37268299647`.
+These are genuine remote test executions, distinct from local skipped suites.
+
+- Both Docker images built successfully; no image was pushed or deployed
+- All eight Agent PostgreSQL integration tests executed and passed
+- Browser execution reached 40 passes and one short-height viewport failure
+- Backend execution exposed a real durable-command JSON error: the `isDefault`
+  convenience method on SkillSelection serialized as an unsupported `default`
+  property. It is now explicitly ignored; strict selection/internal-input JSON
+  roundtrip tests cover Auto, manual and manual-empty cases
+- Five disposable PostgreSQL test classes lacked schema creation in their fresh
+  container configuration. They now opt in inside the tests, while production
+  retains `spring.flyway.create-schemas=false`
+- One attachment Mockito restub invoked the existing answer with matcher nulls.
+  The fixture now uses doAnswer/doThrow without changing assertions
+- An OCR cancellation test raced a reaped process between `/proc` existence and
+  read. The probe now treats only missing/reaped processes as exited, and still
+  propagates permission failures, with deterministic regressions
+- The Agent CI language packages did not provide the Tesseract executable itself.
+  CI now installs it explicitly and requires Tesseract, Poppler and both English/
+  Korean language packs before tests. The zero-skip guard correctly rejected the
+  incomplete initial native-OCR run
+
+The initial remote run failed; corrected candidate verification is still pending.
+A local full backend rerun after the JSON/schema/fixture fixes passed. Neither the
+initial failures nor the pending corrected run are represented as a release pass.
+
+The short-height correction preserves the original strict viewport assertion,
+removes non-shrinkable conversation padding below 560px, keeps supplementary
+controls scrollable within 20dvh, and constrains the project title to its grid cell.
+The regression additionally covers expanded skill controls and an unsent attachment
+while offline. Local Node 22 typecheck, 294 tests and lint passed after that change.
+After the backend/OCR fixes, local checks passed again: Java 343 executed with 99
+Docker-dependent skips; Python 516 executed with 8 PostgreSQL skips; Ruff passed.
+The next remote run must confirm the complete corrected database and browser flows.
