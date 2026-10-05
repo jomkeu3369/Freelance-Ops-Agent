@@ -9,7 +9,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "outputs/ui-ux/report", open: "never" }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100",
-    channel: "chrome",
+    channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome",
     headless: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure"
