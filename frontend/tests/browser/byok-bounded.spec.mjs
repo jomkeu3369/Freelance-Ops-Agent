@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 import {fixture} from './helpers/chat-fixture.mjs';
-import {byokFailureMessages} from '../../app/lib/byok-presentation.mjs';
+import {byokFailureMessages, byokCostNoticeVersion} from '../../app/lib/byok-presentation.mjs';
 import {creditEnglish} from '../../app/lib/ui-credit-english.mjs';
 
 const path='/workspace/projects/project-one/agent';
@@ -33,12 +33,14 @@ for(const locale of ['ko','en']){
     await expect.poll(()=>state.starts.length).toBe(1);
     expect(state.starts[0].modelSelection.credentialId).toBe('personal-bounded');
     expect(state.starts[0].requirementText).toBe(draft);
+    expect(state.starts[0].byokCostNoticeVersion).toBe(byokCostNoticeVersion);
+    expect(state.starts[0].budget.maxInputTokens).toBe(150000);
     expect(state.starts[0]).not.toHaveProperty('byokBudget');
     expect(state.starts[0]).not.toHaveProperty('platformBudget');
     expect(state.starts[0]).not.toHaveProperty('creditQuote');
     expect(state.blocked).toEqual([]);
   });
-  for(const code of ['BYOK_SCOPE_EXPIRED','BYOK_LIMIT_EXHAUSTED'])test(`${locale}: ${code} preserves the draft and never falls back or retries`,async({page})=>{
+  for(const code of ['BYOK_SCOPE_EXPIRED','BYOK_LIMIT_EXHAUSTED','BYOK_COST_NOTICE_REFRESH_REQUIRED'])test(`${locale}: ${code} preserves the draft and never falls back or retries`,async({page})=>{
     const state=await fixture(page);
     state.aiUsage.spendingEnabled=false;
     state.connections=[{id:'personal-bounded',provider:'OPENAI',model:'gpt-6-luna',maskedKey:'synthetic-only',updatedAt:'2026-10-05T00:00:00Z'}];
@@ -94,5 +96,20 @@ test('selected key/model changes the visible per-run amount before Send; unknown
   await expect(page.locator('.agent-chat-composer .byok-cost-notice')).toContainText('비용 기준을 확인하지 못했습니다');
   await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeDisabled();
   await expect(page.locator('#agent-chat-input')).toHaveValue(draft);
+  expect(state.starts).toEqual([]);
+});
+
+for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]])test(`${device}: personal cost notice stays readable before execution`,async({page})=>{
+  await page.setViewportSize({width,height});
+  const state=await prepare(page,'ko');
+  const notice=page.locator('.agent-chat-composer .byok-cost-notice');
+  await notice.scrollIntoViewIfNeeded();
+  await expect(notice).toContainText('$0.04275');
+  const bounds=await notice.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x+bounds.width).toBeLessThanOrEqual(width+1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:test.info().outputPath(`byok-cost-notice-${device}.png`),fullPage:true});
   expect(state.starts).toEqual([]);
 });

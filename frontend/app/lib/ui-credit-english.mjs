@@ -1,4 +1,5 @@
 export const creditEnglish = {
+  "개인 키 비용 안내가 변경되었습니다. 페이지를 새로고침하고 비용 한도를 확인한 뒤 직접 다시 보내 주세요. 입력은 보존되며 자동 재실행하지 않습니다.": "The personal-key cost notice has changed. Refresh the page, review the limits, then send again yourself. Your draft is preserved; there is no automatic retry.",
   "크레딧 상세": "Credit details",
   "주간 사용량": "Weekly usage",
   "사용량 확인 중…": "Checking usage…",

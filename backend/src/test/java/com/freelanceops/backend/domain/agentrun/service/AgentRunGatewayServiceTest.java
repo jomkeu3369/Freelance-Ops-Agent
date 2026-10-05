@@ -212,7 +212,7 @@ class AgentRunGatewayServiceTest {
         var personal = new StartAgentRunRequest(source.requirementText(), source.locale(), source.jurisdictionCode(),
             new ModelSelection(Provider.OPENAI, source.modelSelection().model(), source.modelSelection().reasoningEffort(), UUID.randomUUID()),
             source.budget(), source.safetyContext());
-        when(byok.issue(any(), eq(user), eq(workspace), eq(project), eq(personal.modelSelection()), eq(personal.budget())))
+        when(byok.issue(any(), eq(user), eq(workspace), eq(project), eq(personal.modelSelection()), eq(personal.budget()), eq(personal.byokCostNoticeVersion())))
             .thenAnswer(inv -> new InternalAgentRunRequest.ByokBudget(UUID.randomUUID(), inv.getArgument(0), workspace, project,
                 user, personal.modelSelection().credentialId(), Provider.OPENAI, personal.modelSelection().model(),
                 personal.modelSelection().reasoningEffort(), "BYOK", "default", Instant.now().plusSeconds(180),

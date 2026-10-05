@@ -5,7 +5,7 @@ import {byokFailureMessage, byokFailureMessages} from '../app/lib/byok-presentat
 import {creditEnglish} from '../app/lib/ui-credit-english.mjs';
 
 test('BYOK denials are stable, localizable and do not interpolate credential data', () => {
-  assert.equal(Object.keys(byokFailureMessages).length, 7);
+  assert.equal(Object.keys(byokFailureMessages).length, 8);
   for (const [code, message] of Object.entries(byokFailureMessages)) {
     assert.equal(byokFailureMessage(code), message);
     assert.ok(creditEnglish[message]);
@@ -63,4 +63,12 @@ test('actual START caps differ only for explicitly selected personal credentials
   assert.deepEqual({...contract.start.budget,maxInputTokens:150000},contract.byokStart.budget);
   const source=await readFile(new URL('../app/lib/api.ts',import.meta.url),'utf8');
   assert.match(source,/maxInputTokens: input.credentialId \? 150000 : 50000/);
+  const block=source.match(/budget: \{\s*maxDurationSeconds: 180,(.*?)\n\s*\},/s)?.[0];
+  assert.ok(block);
+  const values=Object.fromEntries([...block.matchAll(/(max\w+): (\d+)/g)].map(([,key,value])=>[key,Number(value)]));
+  for(const [personal,key] of [[false,'start'],[true,'byokStart']]){
+    assert.deepEqual({...values,maxInputTokens:personal?150000:50000},contract[key].budget);
+  }
+  assert.match(source,/input.credentialId && !byokCostEstimate\(input.provider, input.model\)/);
+  assert.match(source,/input.credentialId \? \{ byokCostNoticeVersion \} : \{\}/);
 });

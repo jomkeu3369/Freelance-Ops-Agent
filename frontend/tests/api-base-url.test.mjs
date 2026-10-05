@@ -24,6 +24,7 @@ before(async () => {
     await writeFile(join(temporaryRoot, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
   }
   await writeFile(join(temporaryRoot, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
+  await writeFile(join(temporaryRoot, "byok-presentation.mjs"), await readFile(new URL("../app/lib/byok-presentation.mjs", import.meta.url)));
   api = await import(pathToFileURL(join(temporaryRoot, "api.mjs")));
 });
 
@@ -213,7 +214,7 @@ test("START sends the exact server quote at top level and excludes it for explic
   const quote = {credits: 10, pricingUpdatedAt: "2026-10-04T12:00:00.123456Z"};
   const project = {id: "project", requirementText: "exact message"};
   await api.startAgentRun(session, project, {provider: "OPENAI", model: "luna", reasoningEffort: "LOW"}, undefined, "quote-test-key", quote);
-  await api.startAgentRun(session, project, {provider: "OPENAI", model: "personal", reasoningEffort: "LOW", credentialId: "own-key-id"}, undefined, "byok-test-key", quote);
+  await api.startAgentRun(session, project, {provider: "OPENAI", model: "gpt-6-luna", reasoningEffort: "LOW", credentialId: "own-key-id"}, undefined, "byok-test-key", quote);
   assert.deepEqual(bodies[0].creditQuote, quote);
   assert.equal(bodies[0].modelSelection.creditQuote, undefined);
   assert.equal(bodies[1].creditQuote, undefined);

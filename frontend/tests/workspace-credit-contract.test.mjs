@@ -21,6 +21,7 @@ before(async () => {
     await writeFile(join(directory, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
   }
   await writeFile(join(directory, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
+  await writeFile(join(directory, "byok-presentation.mjs"), await readFile(new URL("../app/lib/byok-presentation.mjs", import.meta.url)));
   api = await import(pathToFileURL(join(directory, "api.mjs")));
   policy = await import(pathToFileURL(join(directory, "credit-policy.mjs")));
   ({ PendingRunStore } = await import(pathToFileURL(join(directory, "pending-run-store.mjs"))));
@@ -125,4 +126,13 @@ test("START client retains reviewed attachments, manual-empty skill choice and A
   assert.equal(requests[0].body.workflowMode, "AD_HOC");
   assert.equal(requests[0].body.requirementText, "Read the attached text only");
   assert.equal(new Headers(requests[0].headers).get("Idempotency-Key"), "exact-skill-key");
+});
+
+// Synthetic fetch capture only; no request leaves this process.
+test("unknown personal pricing blocks before transport while platform requests omit personal acknowledgement", async () => {
+  const requests=capture({runId:"synthetic",status:"QUEUED"},202);
+  await assert.rejects(api.startAgentRun(session,project,{...contract.byokStart.modelSelection,model:"unpriced-future-model"}),error=>error.code==="BYOK_COST_NOTICE_REFRESH_REQUIRED");
+  assert.equal(requests.length,0);
+  await api.startAgentRun(session,project,contract.start.modelSelection,contract.start.requirementText,"platform-marker-check",contract.start.creditQuote);
+  assert.equal(requests[0].body.byokCostNoticeVersion,undefined);
 });

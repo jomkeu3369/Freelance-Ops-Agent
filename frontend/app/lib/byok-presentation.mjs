@@ -1,5 +1,6 @@
 // Stable public-safe messages. Never interpolate credentials, provider errors or request payloads.
 export const byokFailureMessages = Object.freeze({
+  "BYOK_COST_NOTICE_REFRESH_REQUIRED": "개인 키 비용 안내가 변경되었습니다. 페이지를 새로고침하고 비용 한도를 확인한 뒤 직접 다시 보내 주세요. 입력은 보존되며 자동 재실행하지 않습니다.",
   "BYOK_SCOPE_REQUIRED": "개인 키 실행 권한을 확인하지 못했습니다. 연결을 다시 확인해 주세요. 다른 AI로 자동 전환하지 않습니다.",
   "BYOK_SCOPE_INVALID": "개인 키 실행 조건이 일치하지 않습니다. 연결과 선택한 모델을 확인해 주세요. 자동으로 다시 보내지 않습니다.",
   "BYOK_SCOPE_EXPIRED": "개인 키 실행 시간이 만료되었습니다. 기존 요청은 자동으로 다시 실행하지 않습니다.",
@@ -17,6 +18,7 @@ export function byokFailureMessage(errorCode) {
 // per-model documentation. Input uses the higher cache-write rate conservatively.
 // This is a token-based estimate, not a provider invoice or a guaranteed dollar cap.
 export const byokEstimateAsOf = '2026-10-05';
+export const byokCostNoticeVersion = 'byok-standard-150k-48k-2026-10-05-v1';
 const rates = Object.freeze({
   'gpt-6-luna': {input:12500000n, output:50000000n},
   'gpt-6-sol': {input:250000000n, output:1000000000n},

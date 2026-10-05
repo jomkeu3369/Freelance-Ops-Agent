@@ -1,5 +1,6 @@
 import type { SkillSelection } from "../../features/workspace/skills/skill-selection";
 import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
+import { byokCostEstimate, byokCostNoticeVersion, byokFailureMessage } from "./byok-presentation.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
 export type Provider = "OPENAI";
@@ -1115,6 +1116,9 @@ export function startAgentRun(
   skillSelection?: SkillSelection,
   workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC",
 ): Promise<RunAccepted> {
+  if (input.credentialId && !byokCostEstimate(input.provider, input.model)) {
+    return Promise.reject(new ApiError(byokFailureMessage("BYOK_COST_NOTICE_REFRESH_REQUIRED")!, 409, "BYOK_COST_NOTICE_REFRESH_REQUIRED"));
+  }
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
     {
@@ -1129,6 +1133,7 @@ export function startAgentRun(
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
+        ...(input.credentialId ? { byokCostNoticeVersion } : {}),
         ...(!input.credentialId && creditQuote ? { creditQuote } : {}),
         budget: {
           maxDurationSeconds: 180,

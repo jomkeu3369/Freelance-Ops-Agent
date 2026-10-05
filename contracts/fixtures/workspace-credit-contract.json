@@ -36,6 +36,7 @@
     }
   },
   "byokStart": {
+    "byokCostNoticeVersion": "byok-standard-150k-48k-2026-10-05-v1",
     "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
     "locale": "ko-KR",
     "jurisdictionCode": "KR",

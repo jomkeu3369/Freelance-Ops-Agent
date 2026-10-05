@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_INTERRUPTION_QUESTIONS = 3
+BYOK_COST_NOTICE_VERSION = "byok-standard-150k-48k-2026-10-05-v1"
 
 
 class StrictModel(BaseModel):
@@ -336,6 +337,9 @@ class ByokBudget(StrictModel):
     reasoning_effort: ReasoningEffort
     funding_source: Literal["BYOK"]
     service_tier: Literal["default"]
+    # Null/absent is only an already-issued legacy scope representation. The
+    # backend exclusively validates notice consent before admitting new scopes.
+    cost_notice_version: Literal["byok-standard-150k-48k-2026-10-05-v1"] | None = None
     valid_until: datetime
     max_model_calls: int = Field(ge=1, le=50)
     max_input_tokens: int = Field(ge=1)

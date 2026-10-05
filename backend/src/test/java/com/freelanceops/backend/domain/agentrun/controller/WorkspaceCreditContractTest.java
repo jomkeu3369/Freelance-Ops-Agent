@@ -44,7 +44,7 @@ class WorkspaceCreditContractTest {
         fixture = mapper.readTree(Files.readString(Path.of("..", "contracts", "fixtures", "workspace-credit-contract.json")));
         mvc = MockMvcBuilders.standaloneSetup(new AgentRunController(gateway, mock(AgentEventRelay.class)),
                 new FreeUsageController(usage))
-            .setControllerAdvice(new FreeUsageExceptionHandler(), new PlatformSpendExceptionHandler()).build();
+            .setControllerAdvice(new FreeUsageExceptionHandler(), new PlatformSpendExceptionHandler(), new ByokExecutionExceptionHandler()).build();
     }
     private TestingAuthenticationToken user() {
         return new TestingAuthenticationToken(USER.toString(), "unused", "ROLE_USER");
@@ -133,4 +133,12 @@ class WorkspaceCreditContractTest {
                 .andExpect(content().json(error.get("body").toString(), org.springframework.test.json.JsonCompareMode.STRICT));
         }
     }
+    @Test void stalePersonalCostNoticeReturnsExplicitRefreshNeededCode() throws Exception {
+        when(gateway.start(eq(USER),eq(WORKSPACE),eq(PROJECT),any(),anyString(),any()))
+            .thenThrow(new ByokExecutionException(HttpStatus.CONFLICT,"BYOK_COST_NOTICE_REFRESH_REQUIRED","Refresh the page and review the current personal AI cost notice"));
+        mvc.perform(post(START_PATH).principal(user()).contentType(MediaType.APPLICATION_JSON)
+            .header("Idempotency-Key","stale-notice-key").content(fixture.get("byokStart").toString()))
+            .andExpect(status().isConflict()).andExpect(jsonPath("code").value("BYOK_COST_NOTICE_REFRESH_REQUIRED"));
+    }
+
 }

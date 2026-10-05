@@ -102,7 +102,19 @@ async def test_byok_attempt_survives_real_postgres_restart_and_expired_resume_pr
         await first.create_runtime_tables()
         try:
             coordinator = RunCoordinator(PostgresAgentRunStore(first), Executor(), require_platform_budget=True)
-            await coordinator.accept(request)
+            accepted = await coordinator.accept(request)
+            # Emulate pre-notice durable JSON. The original scope is not renewed
+            # and explicit null in a modern retry must compare identically.
+            async with first.session() as session:
+                row = await session.get(AgentRunStateModel, request.context.run_id)
+                legacy_request = dict(row.request_json)
+                legacy_scope = dict(legacy_request["byok_budget"])
+                legacy_scope.pop("cost_notice_version", None)
+                legacy_request["byok_budget"] = legacy_scope
+                row.request_json = legacy_request
+            replay = await coordinator.accept(request)
+            assert replay.run_id == accepted.run_id
+            assert (await PostgresAgentRunStore(first).get_request(request.context.run_id)).byok_budget == request.byok_budget
             await coordinator.execute(request, auth)
             waiting = await coordinator.view(request.context.run_id)
             assert waiting.status is AgentRunStatus.WAITING_FOR_USER

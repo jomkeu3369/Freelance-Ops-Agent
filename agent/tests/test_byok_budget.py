@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from byok_budget import ByokExecutionLedger, byok_budget_scope, byok_openai_attempt, encode_payload
 from contracts import (
+    BYOK_COST_NOTICE_VERSION,
     AgentInput,
     AgentRunRequest,
     AgentRunResult,
@@ -46,6 +47,7 @@ def incoming(**budget_overrides):
                        project_id=context.project_id, initiated_by=context.initiated_by,
                        credential_id=selected.credential_id, provider=selected.provider, model=selected.model,
                        reasoning_effort=selected.reasoning_effort, funding_source="BYOK", service_tier="default",
+                       cost_notice_version=BYOK_COST_NOTICE_VERSION,
                        valid_until=datetime.now(UTC) + timedelta(seconds=90),
                        max_model_calls=budget.max_model_calls, max_input_tokens=budget.max_input_tokens,
                        max_output_tokens=budget.max_output_tokens, budget=budget)
@@ -54,22 +56,18 @@ def incoming(**budget_overrides):
                            input=AgentInput(requirement_text="Offline only", workflow_mode=AgentWorkflowMode.AD_HOC))
 
 
-def frontend_default_budget(*, personal=True):
-    """Require both the committed client selection and the shared wire fixture to agree."""
-    import re
+def shared_default_budget(*, personal=True):
+    """Use the shared server contract; client-to-fixture matching belongs in frontend CI."""
     from pathlib import Path
     root = Path(__file__).resolve().parents[2]
-    source = (root / "frontend/app/lib/api.ts").read_text()
-    block = re.search(r"budget: \{\s*maxDurationSeconds: 180,(.*?)\n\s*\},", source, re.S)
-    assert block is not None
-    values = dict((key, int(value)) for key, value in re.findall(r"(max\w+): (\d+)", block.group(0)))
-    selected_input = re.search(r"maxInputTokens: input\.credentialId \? (\d+) : (\d+)", block.group(0))
-    assert selected_input is not None
-    values["maxInputTokens"] = int(selected_input.group(1 if personal else 2))
-    assert len(values) == 10
     fixtures = json.loads((root / "contracts/fixtures/workspace-credit-contract.json").read_text())
-    assert values == fixtures["byokStart" if personal else "start"]["budget"]
-    assert values["maxInputTokens"] == (150000 if personal else 50000)
+    values = fixtures["byokStart" if personal else "start"]["budget"]
+    assert values == {
+        "maxDurationSeconds": 180, "maxModelCalls": 50, "maxToolCalls": 12,
+        "maxInputTokens": 150000 if personal else 50000, "maxOutputTokens": 48000,
+        "maxDepartments": 4, "maxHierarchyDepth": 2, "maxSearchCredits": 2,
+        "maxRetries": 2, "maxHandoffs": 3,
+    }
     return RunBudget.model_validate(values)
 
 
@@ -499,12 +497,12 @@ async def test_small_input_budget_rejects_before_http(monkeypatch):
 
 @pytest.mark.parametrize("workflow,legacy", [(AgentWorkflowMode.AD_HOC, False),
     (AgentWorkflowMode.PROJECT_ANALYSIS, False), (AgentWorkflowMode.PROJECT_ANALYSIS, True)])
-async def test_actual_frontend_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
+async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
     from contracts import ProjectContext
     from retrieval.knowledge_context import KnowledgeContextLoader
 
-    limits = frontend_default_budget().model_dump()
-    assert frontend_default_budget(personal=False).max_input_tokens == 50000
+    limits = shared_default_budget().model_dump()
+    assert shared_default_budget(personal=False).max_input_tokens == 50000
     if legacy:
         limits["max_input_tokens"] = 50000
     request = incoming(**limits)
@@ -695,7 +693,7 @@ def realistic_tools(request):
 async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=False, integrity_fault=False):
     from retrieval.knowledge_context import KnowledgeContextLoader
 
-    request = incoming(**frontend_default_budget().model_dump())
+    request = incoming(**shared_default_budget().model_dump())
     request.byok_budget = request.byok_budget.model_copy(update={
         "valid_until": datetime.now(UTC) + timedelta(seconds=request.budget.max_duration_seconds)})
     tools = realistic_tools(request)
@@ -783,3 +781,49 @@ async def test_approved_150k_response_integrity_fault_stays_fatal_after_complete
     assert final.error_code == "BYOK_RESPONSE_BINDING_MISMATCH"
     assert final.result is None and final.usage.model_calls == 2
     assert http.events == ["admission", "credential", "provider"] * 2
+
+
+def test_supported_cost_notice_marker_roundtrips_in_exact_scope_without_authority_change():
+    request = incoming()
+    original = request.byok_budget
+    wire = original.model_dump(mode="json", by_alias=True)
+    assert wire["costNoticeVersion"] == BYOK_COST_NOTICE_VERSION
+    restored = ByokBudget.model_validate(wire)
+    assert restored == original
+    assert restored.scope_id == original.scope_id and restored.budget == original.budget
+    assert restored.valid_until == original.valid_until
+    with pytest.raises(ValidationError):
+        ByokBudget.model_validate({**wire, "costNoticeVersion": "unknown-or-future-version"})
+
+
+@pytest.mark.parametrize("absent", [True, False])
+async def test_legacy_null_or_absent_notice_retains_original_limits_deadline_and_admission(monkeypatch, absent):
+    request = incoming(max_input_tokens=50000)
+    wire = request.byok_budget.model_dump(mode="json", by_alias=True)
+    if absent:
+        wire.pop("costNoticeVersion")
+    else:
+        wire["costNoticeVersion"] = None
+    legacy = ByokBudget.model_validate(wire)
+    request.byok_budget = legacy
+    assert legacy.cost_notice_version is None and legacy.max_input_tokens == 50000
+    http = OfflineHTTP(request)
+    http.admission_status = 409  # Missing/closed backend scope cannot be granted by a null marker.
+    http.install(monkeypatch)
+    ledger = scoped(request)
+    with byok_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="BYOK_ADMISSION_FAILED"):
+        await call(request)
+    assert http.events == ["admission"] and not ledger.calls
+    assert request.byok_budget == legacy
+    assert request.byok_budget.valid_until == datetime.fromisoformat(wire["validUntil"].replace("Z", "+00:00"))
+    assert request.byok_budget.budget.max_input_tokens == 50000
+
+
+async def test_unknown_notice_marker_is_rejected_before_backend_or_provider_io(monkeypatch):
+    request = incoming()
+    http = OfflineHTTP(request)
+    http.install(monkeypatch)
+    request.byok_budget = request.byok_budget.model_copy(update={"cost_notice_version": "unknown-version"})
+    with pytest.raises(PlatformBudgetError, match="BYOK_COST_NOTICE_VERSION_UNSUPPORTED"):
+        scoped(request)
+    assert not http.events

@@ -22,6 +22,7 @@ import httpx
 
 from config import get_settings
 from contracts import (
+    BYOK_COST_NOTICE_VERSION,
     AgentRunRequest,
     AgentRunUsage,
     AgentWorkflowMode,
@@ -78,6 +79,8 @@ class ByokExecutionLedger:
             raise PlatformBudgetError("BYOK_SCOPE_CLOSED")
         if scope is None:
             raise PlatformBudgetError("BYOK_BUDGET_REQUIRED")
+        if scope.cost_notice_version not in (None, BYOK_COST_NOTICE_VERSION):
+            raise PlatformBudgetError("BYOK_COST_NOTICE_VERSION_UNSUPPORTED")
         if request.platform_budget is not None or current_ledger() is not None:
             raise PlatformBudgetError("BYOK_FUNDING_MISMATCH")
         context = request.context
