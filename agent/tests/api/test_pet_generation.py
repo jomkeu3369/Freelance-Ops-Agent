@@ -102,6 +102,6 @@ async def test_both_providers_use_profile_schema_and_no_tools(provider: Provider
     if provider == Provider.OPENAI:
         assert kwargs["tools"] == []
         assert kwargs["store"] is False
-        constructor.assert_called_once_with(max_retries=0)
+        constructor.assert_called_once_with(base_url="https://api.openai.com/v1", max_retries=0)
     else:
         assert kwargs["config"]["http_options"]["retry_options"]["attempts"] == 1

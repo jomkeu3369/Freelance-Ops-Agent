@@ -1,9 +1,9 @@
 """Run-scoped monetary admission and attempt accounting for platform providers.
 
-The backend permanently retains the full reservation in its admission period. Unknown outcomes stay
-charged at their pre-call upper bound. This in-process ledger is shared by child
-coroutines; detached workers are deliberately unsupported until durable admission
-is available. No user request or environment flag can turn admission off.
+The backend retains active reservations in their admission period and releases unused
+capacity only after worker closure. Unknown outcomes retain their pre-call upper bound.
+This in-process ledger is shared by child coroutines; detached workers are deliberately
+unsupported until durable admission is available. No user request or environment flag can turn admission off.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -32,6 +32,7 @@ from contracts import (
 LEGACY_TARIFF_VERSION = "platform-ai-2026-10-04-v1"
 TARIFF_VERSION = "platform-ai-2026-10-05-v2"
 _MILLION = Decimal("1000000")
+_USD_PRECISION = Decimal("0.00000001")
 _PROTOCOL_TOKEN_ALLOWANCE = 8192
 _MAX_STANDARD_INPUT_TOKENS = 272000
 
@@ -141,6 +142,7 @@ class PlatformSpendLedger:
             assert tariff is not None
             reserved = (Decimal(input_limit) * max(tariff.input, tariff.cache_write)
                         + Decimal(output_limit) * tariff.output) / _MILLION
+            reserved = reserved.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
         if self.previous_cost + self.cost + reserved > self.budget.max_cost_usd:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXCEEDED")
         self.calls.append(ProviderCallUsage(
@@ -180,6 +182,7 @@ class PlatformSpendLedger:
             tariff = TARIFF_VERSIONS[self.budget.tariff_version][(call.provider, call.model)]
             cost = (Decimal(input_tokens - cached - written) * tariff.input + Decimal(cached) * tariff.cached_read
                     + Decimal(written) * tariff.cache_write + Decimal(output_tokens) * tariff.output) / _MILLION
+            cost = cost.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
         # Output tokens already include reasoning; never add reasoning_tokens again.
         drift = (input_tokens > call.input_tokens or input_tokens > _MAX_STANDARD_INPUT_TOKENS
                  or output_tokens > call.output_tokens or cost > call.reserved_cost_usd)

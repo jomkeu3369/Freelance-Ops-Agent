@@ -126,8 +126,8 @@ public record AgentRunView(
         java.math.BigDecimal platformCostUsd,
         UUID platformReservationId,
         String tariffVersion,
-        boolean executionClosed,
-        boolean unpricedExposure
+        Boolean executionClosed,
+        Boolean unpricedExposure
     ) {
         public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
                              long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
@@ -152,6 +152,9 @@ public record AgentRunView(
                 crawledPages, retryCount, durationMs, List.of(), null, null, null);
         }
         public AgentRunUsage {
+            // Old durable Agent snapshots omit these fields. Missing closure never releases a hold.
+            executionClosed = Boolean.TRUE.equals(executionClosed);
+            unpricedExposure = Boolean.TRUE.equals(unpricedExposure);
             providerCalls = providerCalls == null ? List.of() : List.copyOf(providerCalls);
             if ((platformReservationId == null) != (tariffVersion == null)) {
                 throw new IllegalArgumentException("Platform usage provenance must be complete");

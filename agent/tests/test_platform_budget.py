@@ -855,3 +855,24 @@ async def test_internal_chat_progress_keeps_root_monetary_ledger_and_stops_after
     assert view.usage.platform_cost_usd > 0 and ledger_used[0].closed
     await publish_progress(ExecutionEvent("task.completed", {"taskId": "late"}))
     assert await store.list_events(request.context.run_id) == events
+
+
+async def test_fractional_cache_write_cost_rounds_up_like_backend_ledger():
+    ledger = PlatformSpendLedger(budget("1"))
+    with platform_budget_scope(ledger):
+        await OpenAIModelProvider(client(response(input_tokens=1, output_tokens=0, written=1))).generate_structured(
+            selection("gpt-6-luna"), "text", max_output_tokens=100)
+    assert ledger.calls[0].usage_known
+    assert ledger.calls[0].cost_usd == Decimal("0.00000013")
+    assert ledger.calls[0].reserved_cost_usd.as_tuple().exponent == -8
+
+
+def test_per_attempt_rounding_cannot_exceed_backend_reservation():
+    # Raw cost is .001025625 per call. Two raw costs fit .00205125,
+    # but the backend charges each attempt at eight-decimal USD precision.
+    ledger = PlatformSpendLedger(budget(".00205125"))
+    ledger.reserve(selection("gpt-6-luna"), "test", {"a": ""}, 1)
+    assert ledger.cost == Decimal(".00102563")
+    with pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_EXCEEDED"):
+        ledger.reserve(selection("gpt-6-luna"), "test", {"a": ""}, 1)
+    assert len(ledger.calls) == 1
