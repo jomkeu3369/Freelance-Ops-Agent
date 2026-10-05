@@ -346,6 +346,19 @@ class ByokSecurityReview(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.admissions), 5)
         self.assertEqual(len(self.provider_requests), 5)
 
+    async def test_legacy_null_and_omitted_notice_are_equal_for_replay_and_claim(self):
+        wire = self.request.model_dump(mode="json", by_alias=True)
+        wire["byokBudget"]["costNoticeVersion"] = None
+        explicit = AgentRunRequest.model_validate(wire)
+        wire["byokBudget"].pop("costNoticeVersion")
+        omitted = AgentRunRequest.model_validate(wire)
+        # Postgres create/claim compares validated models, not raw JSON spelling.
+        self.assertEqual(omitted, explicit)
+        self.assertEqual(omitted.model_dump(mode="json"), explicit.model_dump(mode="json"))
+        self.assertEqual(omitted.byok_budget.valid_until, self.request.byok_budget.valid_until)
+        self.assertEqual(omitted.byok_budget.budget, self.request.byok_budget.budget)
+        self.assertIsNone(omitted.byok_budget.cost_notice_version)
+
     async def test_usage_records_contain_no_keys_or_bearer(self):
         with byok_budget_scope(self.ledger):
             await self.invoke()
