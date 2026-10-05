@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record StartAgentRunRequest(
     @NotBlank @Size(max = 50000) String requirementText,
@@ -16,8 +17,19 @@ public record StartAgentRunRequest(
     @NotNull @Valid ModelSelection modelSelection,
     @NotNull @Valid RunBudget budget,
     @NotNull @Valid SafetyContext safetyContext,
-    @Valid CreditQuote creditQuote
+    @Valid CreditQuote creditQuote,
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+    @Size(max = 6) java.util.List<@NotNull UUID> attachmentIds
 ) {
+
+    public StartAgentRunRequest {
+        attachmentIds = attachmentIds == null ? java.util.List.of() : java.util.List.copyOf(attachmentIds);
+    }
+
+    public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode, ModelSelection modelSelection,
+                                RunBudget budget, SafetyContext safetyContext, CreditQuote creditQuote) {
+        this(requirementText, locale, jurisdictionCode, modelSelection, budget, safetyContext, creditQuote, java.util.List.of());
+    }
 
     public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode, ModelSelection modelSelection,
                                 RunBudget budget, SafetyContext safetyContext) {

@@ -1,5 +1,5 @@
 import type { CreditQuote, Provider } from "./api";
-export interface PendingRunInput { userId: string; workspaceId: string; projectId: string; provider: Provider; model: string; credentialId?: string; message: string; creditQuote?: CreditQuote; }
+export interface PendingRunInput { userId: string; workspaceId: string; projectId: string; provider: Provider; model: string; credentialId?: string; message: string; creditQuote?: CreditQuote; attachmentIds?: string[]; }
 export interface PendingRunRetry extends PendingRunInput { id: string; }
 interface Entry { signature: string; request: PendingRunRetry; uncertain: boolean; }
 
@@ -7,10 +7,10 @@ interface Entry { signature: string; request: PendingRunRetry; uncertain: boolea
 export class PendingRunStore {
   private entries = new Map<string, Entry>();
   getOrCreate(input: PendingRunInput): PendingRunRetry {
-    const signature = JSON.stringify([input.userId, input.workspaceId, input.projectId, input.provider, input.model, input.credentialId ?? null, input.message]);
+    const signature = JSON.stringify([input.userId, input.workspaceId, input.projectId, input.provider, input.model, input.credentialId ?? null, input.message, input.attachmentIds ?? []]);
     const previous = this.entries.get(signature);
     if (previous) return previous.request;
-    const request = { ...input, id: crypto.randomUUID(), creditQuote: input.credentialId ? undefined : input.creditQuote ? { ...input.creditQuote } : undefined };
+    const request = { ...input, attachmentIds: [...(input.attachmentIds ?? [])], id: crypto.randomUUID(), creditQuote: input.credentialId ? undefined : input.creditQuote ? { ...input.creditQuote } : undefined };
     this.entries.set(signature, { signature, request, uncertain: false });
     return request;
   }

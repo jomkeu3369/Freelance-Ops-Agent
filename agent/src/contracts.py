@@ -108,7 +108,29 @@ class PetProfile(StrictModel):
         return value
 
 
+class AttachmentText(StrictModel):
+    name: str = Field(min_length=1, max_length=180)
+    media_type: str = Field(max_length=100)
+    size: int = Field(ge=1, le=2097152)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["COMPLETE", "PARTIAL", "UNSUPPORTED"]
+    text: str = Field(max_length=40000)
+    notice: str = Field(max_length=1000)
+    encoding: str | None = None
+    delimiter: str | None = None
+    units: int = Field(ge=1, le=5000)
+
+
 class AgentInput(StrictModel):
+    attachments: list[AttachmentText] = Field(default_factory=list, max_length=6)
+
+    @field_validator("attachments")
+    @classmethod
+    def bound_attachments(cls, items: list[AttachmentText]) -> list[AttachmentText]:
+        if sum(len(item.text) for item in items) > 40000 or sum(item.size for item in items) > 8388608:
+            raise ValueError("Total attachment limit exceeded")
+        return items
+
     pet_profiles: list[PetProfile] = Field(default_factory=list, max_length=3)
     requirement_text: str = Field(min_length=1, max_length=50000)
     locale: str = "ko-KR"

@@ -46,8 +46,16 @@ public record InternalAgentRunRequest(
         String locale,
         String jurisdictionCode,
         String directToolOperation,
-        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles
+        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+        List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments
     ) {
+        public AgentInput {
+            attachments = attachments == null ? List.of() : List.copyOf(attachments);
+        }
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation,
+                          List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, petProfiles, List.of());
+        }
         public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation) {
             this(requirementText, locale, jurisdictionCode, directToolOperation, List.of());
         }

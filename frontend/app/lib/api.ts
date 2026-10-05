@@ -353,7 +353,21 @@ export interface EstimationPolicyProposal {
   createdAt: string;
 }
 
+export interface AttachmentText {
+  name: string; mediaType: string; size: number; sha256: string;
+  status: "COMPLETE" | "PARTIAL" | "UNSUPPORTED"; text: string; notice: string;
+  encoding: string | null; delimiter: string | null; units: number;
+}
+export interface AttachmentPreview { id: string; expiresAt: string; extraction: AttachmentText; }
+export function readChatAttachment(session: AuthSession, projectId: string, file: File, encoding: string, delimiter: string, signal?: AbortSignal): Promise<AttachmentPreview> {
+  const body = new FormData(); body.append("file", file); body.append("encoding", encoding); body.append("delimiter", delimiter);
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments`, { method: "POST", body, signal }, session.accessToken);
+}
+export function removeChatAttachment(session: AuthSession, projectId: string, id: string): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments/${id}`, { method: "DELETE" }, session.accessToken);
+}
 export interface AgentRunHistoryItem {
+  attachments?: Array<Pick<AttachmentText, "name" | "status" | "notice">>;
   runId: string;
   requirementText: string;
   status: AgentRunStatus;
@@ -577,6 +591,7 @@ export function saveSession(session: AuthSession): void {
 export function clearSession(): void {
   window.sessionStorage.removeItem(SESSION_KEY);
   clearQueryCache();
+  window.dispatchEvent(new Event("freelance-ops-session-cleared"));
 }
 
 export function subscribeToSessionRecovery(listener: (session: AuthSession | null) => void): () => void {
@@ -626,7 +641,7 @@ async function recoverSession(failedToken: string): Promise<AuthSession | null> 
 async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let response: Response;
@@ -1082,6 +1097,7 @@ export function startAgentRun(
   message?: string,
   idempotencyKey: string = crypto.randomUUID(),
   creditQuote?: CreditQuote,
+  attachmentIds?: string[],
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
@@ -1091,6 +1107,7 @@ export function startAgentRun(
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
         requirementText: message ?? project.requirementText,
+        ...(attachmentIds?.length ? { attachmentIds } : {}),
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,

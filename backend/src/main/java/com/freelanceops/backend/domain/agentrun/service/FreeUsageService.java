@@ -327,7 +327,7 @@ public class FreeUsageService {
     }
     private String requestHash(UUID workspace, UUID project, StartAgentRunRequest request) {
         try {
-            Object payload = request.creditQuote() == null
+            Object payload = request.creditQuote() == null && request.attachmentIds().isEmpty()
                 ? new LegacyStartRequest(request.requirementText(), request.locale(), request.jurisdictionCode(),
                     request.modelSelection(), request.budget(), request.safetyContext())
                 : request;

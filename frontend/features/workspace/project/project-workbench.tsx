@@ -62,7 +62,7 @@ interface ProjectWorkbenchProps {
   onStepChange: (step: WorkbenchStep) => void;
   onProjectUpdated: (project: Project) => void;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote) => Promise<boolean>;
+  onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[]) => Promise<boolean>;
   pendingRetries: PendingRunRetry[];
   onResetRun: () => void;
   onCancel: () => Promise<void>;
@@ -100,12 +100,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const retryCandidates = pendingRetries.filter(item => !!chatModel && item.provider === chatModel.provider && item.model === chatModel.model && (item.credentialId ?? "") === (chatModel.credentialId ?? ""));
   const canSendAI = !!chatModel && (credit.kind === "byok" || credit.kind === "ready");
 
-  async function sendMessage(message: string) {
+  async function sendMessage(message: string, attachmentIds: string[] = []) {
     if (!chatModel) return false;
-    const retry = retryCandidates.find(item => item.message === message);
+    const retry = retryCandidates.find(item => item.message === message && JSON.stringify(item.attachmentIds ?? []) === JSON.stringify(attachmentIds));
     if (!retry && credit.kind !== "ready" && credit.kind !== "byok") throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
     try {
-      return await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry ? retry.creditQuote : credit.kind === "ready" ? credit.quote : undefined);
+      return await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry ? retry.creditQuote : credit.kind === "ready" ? credit.quote : undefined, attachmentIds);
     } catch (cause) {
       if (isCreditQuoteRefreshRequired(cause)) {
         await usage.refresh();

@@ -11,6 +11,7 @@ from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
 from api.raptor.router import router as raptor_router
 from api.task_commands.router import router as task_commands_router
+from attachments.router import router as attachments_router
 from config import Settings, get_settings
 from contracts import HealthResponse
 from gateway import AIGateway, GatewayPolicy
@@ -156,6 +157,7 @@ class FreelanceOpsAgentAiServer:
         self.app.include_router(agent_runs_router)
         self.app.include_router(assumptions_router)
         self.app.include_router(pets_router)
+        self.app.include_router(attachments_router)
         self.app.include_router(raptor_router)
         self.app.include_router(platform_router)
         self.app.include_router(task_commands_router)

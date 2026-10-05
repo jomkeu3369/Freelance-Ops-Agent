@@ -24,6 +24,8 @@ import { departmentLabels, runStatusLabels } from "../../shared/constants";
 import { eventActivityLabels, runFailureMessage } from "../../shared/activity-presentation";
 import { StreamState } from "../../shared/types";
 
+import { ChatAttachments, useChatAttachments } from "./chat-attachments";
+
 interface AgentChatProps {
   session: AuthSession;
   projectId: string;
@@ -44,7 +46,7 @@ interface AgentChatProps {
   canSendAI: boolean;
   onOpenAISettings: () => void;
   onOpenResult: (view: AgentRunView) => void;
-  onSend: (message: string) => Promise<boolean>;
+  onSend: (message: string, attachmentIds?: string[]) => Promise<boolean>;
   onCancel: () => Promise<void>;
 }
 
@@ -75,6 +77,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
 
 export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryMessages, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
+  const attachments = useChatAttachments(session, projectId);
   const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState<AgentRunHistoryItem[]>([]);
@@ -99,7 +102,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const cancelLock = useRef(false);
   const [cancelling, setCancelling] = useState(false);
   const composing = useRef(false);
-  const policyDraft = useMemo(() => parseChatPolicyIntent(draft), [draft]);
+  const policyDraft = useMemo(() => attachments.items.length ? null : parseChatPolicyIntent(draft), [draft, attachments.items.length]);
   const retryingDraft = retryMessages.includes(draft);
   const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const key = draftKey(session, projectId);
@@ -208,13 +211,13 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = draft;
+    const message = draft.trim() ? draft : attachments.items.length ? "첨부 자료의 읽기 범위와 내용을 확인해 주세요." : draft;
     if (!online || !message.trim() || sendLock.current || busy || active || composing.current) return;
     sendLock.current = true;
     setSending(true);
     setPolicyError(null);
     try {
-      const policyIntent = parseChatPolicyIntent(message);
+      const policyIntent = attachments.items.length ? null : parseChatPolicyIntent(message);
       if (policyIntent) {
         if (!canEditPolicy) throw new Error(t("견적 설정 변경 권한이 없습니다."));
         if (!policyIntent.valid) throw new Error(t("예: 기본 세율 10%, 위험 버퍼 15%, 최대 할인 20%로 변경"));
@@ -237,9 +240,10 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         if (!canRun) throw new Error(t("분석을 실행할 권한이 없습니다."));
         if (!canSendAI && !retryingDraft) throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
-        const accepted = await onSend(message);
+        if (attachments.tooLarge || !await attachments.prepare()) return;
+        const accepted = await onSend(message, attachments.ids);
         if (!mounted.current) return;
-        if (accepted) { setAcceptedMessage(message); updateDraft(""); showLatest(); }
+        if (accepted) { setAcceptedMessage(message); updateDraft(""); attachments.clear(); showLatest(); }
         else setPolicyError(t("요청을 보내지 못했습니다. 입력은 보존되었습니다. 다시 보내 주세요."));
       }
     } catch (cause) {
@@ -324,6 +328,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           const needsResultRetry = missingHistory;
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
             {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.requirementText}</p></div>}
+            {item.attachments?.map((file, index) => <p className="agent-chat-muted" key={index}>{file.name} · {file.status} {file.notice}</p>)}
             <div className="agent-chat-message assistant" data-state={missingHistory ? "offline" : state.tone}>
               <span className="agent-chat-message-label">{missingHistory ? <WarningCircle size={17} aria-hidden="true" /> : state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {missingHistory ? t("기록 확인 필요") : t(runStatusLabels[status] ?? "확인 중")}</span>
               {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}>{eventText(entry, t)}</li>)}</ol></details>}
@@ -346,7 +351,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
-        <textarea ref={input} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+        {canRun && <ChatAttachments state={attachments} disabled={sending && !attachments.reading} />}
+        <textarea onPaste={event => attachments.paste(event, composing.current, sending || !canRun)} ref={input} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
           if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composing.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
         }} />
         <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
@@ -357,7 +363,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
             <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings} aria-label={t("AI 설정 열기")} title={t("AI 설정 열기")}><SlidersHorizontal size={17} aria-hidden="true" /><span className="agent-chat-settings-label">{t("AI 설정")}</span></button>
           </fieldset>}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
-          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : t("보내기")} disabled={!online || !draft.trim() || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : t("보내기")}</span></button>
+          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? "파일 읽고 확인" : t("보내기")} disabled={!online || (!draft.trim() && !attachments.items.length) || attachments.tooLarge || (attachments.items.length > 0 && attachments.ready && !attachments.confirmed) || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? "파일 읽고 확인" : t("보내기")}</span></button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}
       </form>
