@@ -30,6 +30,19 @@ class ByokScopeContractTest {
             "BYOK","default",original.validUntil(),2,budget.maxInputTokens(),budget.maxOutputTokens(),budget);
         assertThat(mapper.writeValueAsString(legacy)).doesNotContain("costNoticeVersion");
         assertThat(mapper.readValue(mapper.writeValueAsString(legacy),ByokBudget.class)).isEqualTo(legacy);
+        String omitted=mapper.writeValueAsString(legacy);
+        String explicitNull=omitted.substring(0,omitted.length()-1)+",\"costNoticeVersion\":null}";
+        assertThat(mapper.readValue(explicitNull,ByokBudget.class)).isEqualTo(legacy);
+        var context=new com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext(id,id,"trace",id,id,id,java.util.List.of("agent.run","project.read"));
+        var selection=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(Provider.OPENAI,"gpt-6-luna",ReasoningEffort.LOW,id);
+        var safety=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
+        var input=new com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.AgentInput("Synthetic","en",null,null);
+        var request=new com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest(context,budget,selection,safety,input,null,legacy);
+        String requestOmitted=mapper.writeValueAsString(request);
+        String requestNull=requestOmitted.replace("\"byokBudget\":{","\"byokBudget\":{\"costNoticeVersion\":null,");
+        assertThat(requestNull).isNotEqualTo(requestOmitted);
+        assertThat(mapper.readValue(requestOmitted,com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.class))
+            .isEqualTo(mapper.readValue(requestNull,com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.class));
     }
     @Test void zeroAndMismatchedCapsOrPlatformFundingCannotFormPersonalScope() {
         assertThatThrownBy(() -> scope("PLATFORM","default",2,budget)).isInstanceOf(IllegalArgumentException.class);

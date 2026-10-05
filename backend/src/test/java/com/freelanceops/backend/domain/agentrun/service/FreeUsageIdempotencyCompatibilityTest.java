@@ -80,4 +80,24 @@ class FreeUsageIdempotencyCompatibilityTest {
         org.junit.jupiter.api.Assertions.assertFalse(mapper.writeValueAsString(legacy).contains("byokCostNoticeVersion"));
     }
 
+    @Test void fullLegacyAdHocRequestsWithAbsentOrNullNoticeKeepSameCanonicalHash() throws Exception {
+        var jdbc=mock(JdbcTemplate.class);
+        var mapper=new ObjectMapper();
+        var service=new FreeUsageService(jdbc,mapper);
+        UUID user=UUID.randomUUID(),workspace=UUID.randomUUID(),project=UUID.randomUUID(),run=UUID.randomUUID();
+        var original=new StartAgentRunRequest("Synthetic input","ko","KR",null,null,null,null,java.util.List.of(),null,"AD_HOC");
+        String omitted=mapper.writeValueAsString(original);
+        String explicitNull=omitted.substring(0,omitted.length()-1)+",\"byokCostNoticeVersion\":null}";
+        var parsedOmitted=mapper.readValue(omitted,StartAgentRunRequest.class);
+        var parsedNull=mapper.readValue(explicitNull,StartAgentRunRequest.class);
+        org.junit.jupiter.api.Assertions.assertEquals(parsedOmitted,parsedNull);
+        org.junit.jupiter.api.Assertions.assertEquals(omitted,mapper.writeValueAsString(parsedNull));
+        String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((workspace+":"+project+":"+omitted).getBytes(StandardCharsets.UTF_8)));
+        var now=Instant.parse("2026-10-05T00:00:00Z");
+        var response=new StartAgentRunResponse(run,AgentRunStatus.QUEUED,now);
+        service.rememberStart(user,"legacy-adhoc-notice",workspace,project,parsedOmitted,response);
+        service.rememberStart(user,"legacy-adhoc-notice",workspace,project,parsedNull,response);
+        verify(jdbc,times(2)).update(contains("INSERT INTO app.agent_start_idempotency"),eq(user),eq("legacy-adhoc-notice"),eq(hash),eq(run),eq(Timestamp.from(now)));
+    }
+
 }
