@@ -1,3 +1,4 @@
+import { byokFailureMessage } from "../../../app/lib/byok-presentation.mjs";
 import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
@@ -119,6 +120,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           ? t("이 모델은 기본 제공 AI에서 사용할 수 없습니다. 다른 모델이나 개인 API 키를 선택해 주세요.")
           : t("서버의 사용량 계약을 다시 확인해야 합니다. 입력은 보존되었습니다. 자동으로 다시 보내지 않습니다."));
       }
+      const byokMessage = cause instanceof ApiError ? byokFailureMessage(cause.code) : null;
+      if (byokMessage) throw new Error(t(byokMessage));
       if (isPlatformSpendUnavailable(cause)) {
         void ledger.refresh();
         throw new Error(t("AI 실행이 중지되었거나 계정·운영 예산이 부족해 요청을 시작하지 못했습니다. 자동으로 다시 보내지 않습니다."));

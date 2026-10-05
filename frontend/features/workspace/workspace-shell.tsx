@@ -1,4 +1,5 @@
 "use client";
+import { byokFailureMessage } from "../../app/lib/byok-presentation.mjs";
 import type { SkillSelection } from "./skills/skill-selection";
 
 import { useT } from "../../app/lib/ui-language";
@@ -545,7 +546,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       const explicitRejection = cause instanceof ApiError && cause.status >= 400 && cause.status < 500 || isPlatformSpendUnavailable(cause);
       pendingStart.current.settle(idempotencyKey, explicitRejection ? "rejected" : "uncertain");
       setPendingRetries(pendingStart.current.retries());
-      if (isCreditQuoteRefreshRequired(cause) || isPlatformSpendUnavailable(cause)) throw cause;
+      if (isCreditQuoteRefreshRequired(cause) || isPlatformSpendUnavailable(cause) || cause instanceof ApiError && byokFailureMessage(cause.code)) throw cause;
       if (operation === runOperation.current && !isFreeUsageExhausted(cause)) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
       return false;
     } finally {

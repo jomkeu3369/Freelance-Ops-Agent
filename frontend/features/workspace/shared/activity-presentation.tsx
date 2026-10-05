@@ -1,3 +1,4 @@
+import { byokFailureMessage } from "../../../app/lib/byok-presentation.mjs";
 import { WorkflowEvent, AgentRunView } from "../../../app/lib/api";
 import { providerLabels, departmentLabels } from "./constants";
 import { translateUi } from "../../../app/lib/ui-locale.mjs";
@@ -13,7 +14,7 @@ export const runFailureMessages: Record<string, string> = {
 export function runFailureMessage(errorCode: string | null): string {
   if (!errorCode) return "분석을 완료하지 못했습니다. 새 분석으로 다시 시도해 주세요.";
   return (
-    runFailureMessages[errorCode] ?? "분석을 완료하지 못했습니다. 저장된 프로젝트 정보는 변경되지 않았습니다."
+    byokFailureMessage(errorCode) ?? runFailureMessages[errorCode] ?? "분석을 완료하지 못했습니다. 저장된 프로젝트 정보는 변경되지 않았습니다."
   );
 }
 
