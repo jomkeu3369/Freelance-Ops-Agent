@@ -2,6 +2,9 @@ name: Agent CI
 
 on:
   workflow_call:
+  push:
+    branches:
+      - "codex/cloud-feature-integration-20261005"
   pull_request:
     paths:
       - "agent/**"
@@ -9,6 +12,7 @@ on:
       - "contracts/**"
       - "infra/postgres/init/**"
       - ".github/workflows/agent-ci.yml"
+      - ".github/scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -45,6 +49,8 @@ jobs:
         with:
           version: "0.11.26"
           enable-cache: true
+      - name: Install bounded local OCR test dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr-eng tesseract-ocr-kor fonts-noto-cjk
       - run: uv sync --locked
       - name: Initialize Agent integration database
         run: |
@@ -54,9 +60,21 @@ jobs:
         run: uv run --locked alembic upgrade head
         env:
           AGENT_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
-      - run: uv run --locked pytest
+      - name: Run unit, PostgreSQL and native attachment tests
+        run: uv run --locked pytest -ra --junitxml=test-results/pytest.xml
         env:
           AGENT_INTEGRATION_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
+      - name: Require executed PostgreSQL and attachment suites without skips
+        if: always()
+        run: python3 ../.github/scripts/verify_database_test_reports.py agent
+      - name: Preserve Agent test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-test-reports-${{ github.sha }}
+          path: agent/test-results/
+          if-no-files-found: error
+          retention-days: 7
       - name: Enforce pinned model release policy
         working-directory: ${{ github.workspace }}
         run: uv run --project agent --locked python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json

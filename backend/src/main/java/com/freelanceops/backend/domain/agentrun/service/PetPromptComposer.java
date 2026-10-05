@@ -42,7 +42,7 @@ public class PetPromptComposer {
     }
 
     private static String labelled(String text, String label, String fallback) {
-        var match = Pattern.compile("(?:^|[;\\n])\\s*(?:" + label + ")\\s*[:：]\\s*([^;\\n]+)", Pattern.CASE_INSENSITIVE).matcher(text);
+        var match = Pattern.compile("(?:^|[.;!?。；\\n])\\s*(?:" + label + ")\\s*[:：]\\s*([^;\\n]+)", Pattern.CASE_INSENSITIVE).matcher(text);
         String result = fallback;
         while (match.find()) result = match.group(1).strip();
         return result;

@@ -15,7 +15,7 @@ export function PetLoginDemo() {
   const example = examples[selected];
   return <div className="pet-login-demo" aria-label={t("커스텀 펫 예시")}>
     <p>{t("한 문장으로, 나에게 맞는 동료를.")}</p>
-    <div className="pet-demo-result"><PetArt kind={example.profile.animal} profile={example.profile}/><div><strong>{example.profile.name}</strong><p>{t(example.prompt)}</p></div></div>
+    <div className="pet-demo-result"><PetArt kind={example.profile.animal} profile={example.profile}/><div><strong>{t(example.profile.name)}</strong><p>{t(example.prompt)}</p></div></div>
     <div className="pet-demo-options">{examples.map((item, index) => <button key={item.profile.name} type="button" aria-pressed={selected === index} onClick={() => setSelected(index)}>{t(["일정", "글쓰기", "근거"][index])}</button>)}</div>
     <small>{t("예시 미리보기입니다. 로그인 후 나만의 펫을 추가하고 대화로 수정할 수 있어요.")}</small>
   </div>;

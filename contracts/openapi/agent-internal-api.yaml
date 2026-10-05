@@ -14,6 +14,47 @@ tags:
   - name: Raptor
   - name: AIPlatform
 paths:
+  /internal/v1/attachments/extract:
+    post:
+      tags: [Attachments]
+      operationId: extractChatAttachment
+      security:
+        - delegationToken: []
+      description: Authenticated local extraction only. At most 2 MiB source bytes, 15 seconds, two readers. OCR is bounded and PARTIAL; no external model call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [context, file]
+              properties:
+                context:
+                  $ref: '#/components/schemas/TrustedRunContext'
+                file:
+                  type: object
+                  additionalProperties: false
+                  required: [name, mediaType, base64]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 180}
+                    mediaType: {type: string, maxLength: 100}
+                    base64: {type: string, minLength: 1, maxLength: 2796204}
+                    encoding: {type: string, maxLength: 10, default: auto}
+                    delimiter: {type: string, maxLength: 4, default: auto}
+      responses:
+        '200':
+          description: Bounded text with explicit extraction coverage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentText'
+        '400': {description: Invalid context or file request}
+        '401': {description: Delegation token required}
+        '403': {description: Delegation or project scope mismatch}
+        '413': {description: Input or output limits exceeded}
+        '422': {description: Invalid file, extraction failure, timeout or parser resource limit}
+        '429': {description: Reader busy}
   /internal/v1/pets/generate:
     post:
       tags:
@@ -614,6 +655,17 @@ components:
           additionalProperties: false
           required: [requirementText]
           properties:
+            skillSelection:
+              oneOf:
+                - $ref: '#/components/schemas/SkillSelection'
+                - type: 'null'
+            attachments:
+              type: array
+              maxItems: 6
+              default: []
+              description: Untrusted reference data only, at most 40000 aggregate text characters and 8 MiB source bytes.
+              items:
+                $ref: '#/components/schemas/AttachmentText'
             petProfiles:
               type: array
               maxItems: 3
@@ -637,7 +689,7 @@ components:
               type: string
               enum: [PROJECT_ANALYSIS, AD_HOC]
               default: PROJECT_ANALYSIS
-              description: Full project analysis is the default; AD_HOC is reserved for bounded internal tasks.
+              description: Full project analysis is the default; AD_HOC is used for ordinary project chat and selected skill tasks without mandatory quotation analysis.
     ClarificationAnswer:
       type: object
       additionalProperties: false
@@ -993,11 +1045,59 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AttachmentText:
+      type: object
+      additionalProperties: false
+      required: [name, mediaType, size, sha256, status, text, notice, units]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 180}
+        mediaType: {type: string, maxLength: 100}
+        size: {type: integer, minimum: 1, maximum: 2097152}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        status: {type: string, enum: [COMPLETE, PARTIAL, UNSUPPORTED]}
+        text: {type: string, maxLength: 40000}
+        notice: {type: string, maxLength: 1000}
+        encoding: {type: [string, 'null']}
+        delimiter: {type: [string, 'null']}
+        units: {type: integer, minimum: 1, maximum: 5000}
+    SkillSelection:
+      type: object
+      additionalProperties: false
+      description: Version-pinned prompt composition only; never authorizes tools, data access or spending. IDs must belong to the pinned catalog.
+      properties:
+        mode: {type: string, enum: [AUTO, MANUAL], default: AUTO}
+        catalogVersion: {type: string, enum: ['1.0.0'], default: '1.0.0'}
+        manualIds:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          default: []
+          items: {type: string}
+        excludedIds:
+          type: array
+          maxItems: 60
+          uniqueItems: true
+          default: []
+          items: {type: string}
     AgentRunMetadata:
       type: object
       additionalProperties: false
       required: [provider, model, promptVersion, toolSchemaVersion, traceId]
       properties:
+        skillSelection:
+          oneOf:
+            - $ref: '#/components/schemas/SkillSelection'
+            - type: 'null'
+        resolvedSkillIds:
+          type: array
+          maxItems: 3
+          default: []
+          items: {type: string}
+        deferredSkillIds:
+          type: array
+          maxItems: 60
+          default: []
+          items: {type: string}
         petProfiles:
           type: array
           maxItems: 3

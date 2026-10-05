@@ -1,4 +1,5 @@
 "use client";
+import type { SkillSelection } from "./skills/skill-selection";
 
 import { useT } from "../../app/lib/ui-language";
 import { ReactNode, useSyncExternalStore, useState, useRef, useMemo, useEffect, useCallback } from "react";
@@ -517,11 +518,11 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[]): Promise<boolean> => {
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection): Promise<boolean> => {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
     const projectId = selectedProject.id;
-    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds });
+    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds, skillSelection, workflowMode: message === undefined ? undefined : "AD_HOC" });
     const idempotencyKey = pending.id;
     setBusy(true);
     setError(null);
@@ -531,7 +532,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         provider,
         model,
         reasoningEffort: "LOW"
-      }, pending.message, idempotencyKey, pending.creditQuote, pending.attachmentIds);
+      }, pending.message, idempotencyKey, pending.creditQuote, pending.attachmentIds, pending.skillSelection, pending.workflowMode);
       pendingStart.current.settle(idempotencyKey, "accepted");
       setPendingRetries(pendingStart.current.retries());
       if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;

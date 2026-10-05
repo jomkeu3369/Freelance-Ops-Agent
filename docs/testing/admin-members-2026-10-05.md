@@ -82,3 +82,21 @@ Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한
 - 브라우저 fixture는 GET 전용 가상 API이며 외부 요청을 차단한다. 소액 USD, 확정/예약 분리, BYOK, 삭제된 실행, 커서 전후 이동, 새로고침, 원장 403, 늦은 응답·세션 해제, 390px 화면을 검사한다.
 - 프론트 단위 검사는 회원 ID 인코딩, opaque cursor 전달, no-store/취소 신호, 8자리 USD 표시를 검사한다.
 - 실행 결과는 클라우드 검증이 끝난 뒤 아래에 추가한다. 위 Windows 결과를 현재 통합 코드의 검증으로 간주하지 않는다.
+
+### 클라우드 프론트 실행 결과
+
+- 전체 TypeScript 검사 통과: `npm run typecheck`.
+- 변경한 관리자 TS/TSX와 단위/브라우저 테스트 파일의 ESLint 검사 통과. 가로 스크롤 표 영역은 키보드 사용자가 접근할 수 있도록 `role=region`, 접근성 이름과 `tabIndex=0`을 유지하고 해당 줄에 근거를 명시했다.
+- `node --test tests/admin-members-api.test.mjs`: 3개 통과, 실패/skip 0.
+- 브라우저 fixture 파일 구문 검사 통과. 실제 브라우저 테스트 10개는 실행되지 않았다.
+- 설치된 `/usr/bin/chromium`을 Playwright로 여는 사전 검사에서 앱 접속 전에 `process_singleton_posix.cc:297` / `socket() failed: Operation not permitted (1)`로 SIGABRT가 발생했다. Crash Reports 경로도 읽기 전용이었다. 클라우드 sandbox의 소켓 제한을 우회하거나 사용자의 컴퓨터를 사용하지 않았다.
+- 백엔드 서비스/컨트롤러/PostgreSQL 검사는 예산 원장 의존성을 병합한 통합 브랜치에서 별도 수행한다. 이 프론트 실행 결과가 실제 DB/브라우저 검증 완료를 뜻하지 않는다.
+
+### 통합 브랜치 백엔드 확인 결과
+
+2026-10-05 05:11 UTC에 생성된 통합 작업 트리의 Gradle XML 결과를 확인했다.
+
+- `AdminMemberControllerTest`: 2개 실행, 2개 통과, 실패/오류 0.
+- `AdminMemberServiceTest`: 4개 실행, 4개 통과, 실패/오류 0.
+- `AdminMemberPostgresTest`: 8개 모두 skipped. 실제 PostgreSQL 권한·잠금·조회 검증은 아직 완료되지 않았다.
+- 위 결과는 예산 원장 의존성을 포함한 통합 브랜치의 컴파일/단위 검증이다. 브라우저와 실제 DB 검증의 제한은 그대로 남는다.

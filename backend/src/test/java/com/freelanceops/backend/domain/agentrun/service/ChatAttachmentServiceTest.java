@@ -78,4 +78,11 @@ class ChatAttachmentServiceTest {
         service.consume(user, workspace, project, List.of(id));
         verify(jdbc, times(2)).update(contains("id = ? AND workspace_id = ? AND project_id = ? AND owner_id = ?"), eq(id), eq(workspace), eq(project), eq(user));
     }
+    @Test void extractionContractCountsUnicodeCodePointsAndRejectsOversizeFields() {
+        assertDoesNotThrow(() -> text("😀".repeat(40000)));
+        assertThrows(IllegalArgumentException.class, () -> text("a".repeat(40001)));
+        assertThrows(IllegalArgumentException.class, () -> new AttachmentText("data.txt", "x".repeat(101), 9,
+            "a".repeat(64), "COMPLETE", "text", "", null, null, 1));
+    }
+
 }

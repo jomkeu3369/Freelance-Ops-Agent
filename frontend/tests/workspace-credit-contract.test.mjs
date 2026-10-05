@@ -115,3 +115,14 @@ test("shared contract changes trigger frontend CI as well as backend contract ch
   const workflow = await readFile(new URL("../../.github/workflows/frontend-ci.yml", import.meta.url), "utf8");
   assert.equal(workflow.match(/contracts\/fixtures\/workspace-credit-contract\.json/g)?.length, 2);
 });
+
+test("START client retains reviewed attachments, manual-empty skill choice and AD_HOC workflow", async () => {
+  const requests = capture({ runId: "synthetic", status: "QUEUED" }, 202);
+  const selection = { mode: "MANUAL", manualIds: [], excludedIds: ["writing-proposal"], catalogVersion: "1.0.0" };
+  await api.startAgentRun(session, project, contract.start.modelSelection, "Read the attached text only", "exact-skill-key", undefined, ["attachment-one"], selection, "AD_HOC");
+  assert.deepEqual(requests[0].body.skillSelection, selection);
+  assert.deepEqual(requests[0].body.attachmentIds, ["attachment-one"]);
+  assert.equal(requests[0].body.workflowMode, "AD_HOC");
+  assert.equal(requests[0].body.requirementText, "Read the attached text only");
+  assert.equal(new Headers(requests[0].headers).get("Idempotency-Key"), "exact-skill-key");
+});

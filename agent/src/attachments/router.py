@@ -1,8 +1,10 @@
 """Authenticated, bounded extraction. No originals are written to disk or logs."""
 
 import asyncio
+import contextlib
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 
@@ -42,6 +44,7 @@ async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
         stderr=asyncio.subprocess.DEVNULL,
         env=environment,
         creationflags=0x08000000 if os.name == "nt" else 0,
+        start_new_session=os.name == "posix",
     )
     try:
         async with asyncio.timeout(15):
@@ -50,8 +53,13 @@ async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
             raise ValueError("PARSER_RESOURCE_LIMIT")
         return json.loads(stdout)  # type: ignore[no-any-return]
     finally:
-        if process.returncode is None:
+        # Include native OCR/rasterizer descendants on timeout, cancellation and worker failure.
+        if os.name == "posix":
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        elif process.returncode is None:
             process.kill()
+        if process.returncode is None:
             await process.wait()
 
 

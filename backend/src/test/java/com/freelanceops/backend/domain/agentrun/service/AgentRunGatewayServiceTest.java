@@ -119,6 +119,8 @@ class AgentRunGatewayServiceTest {
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(platformSpend).reserve(userId, response.runId(), request().modelSelection());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
+        assertThat(captor.getValue().input().skillSelection().mode()).isEqualTo("AUTO");
+        assertThat(captor.getValue().input().workflowMode()).isEqualTo("PROJECT_ANALYSIS");
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
         assertThat(captor.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
@@ -164,6 +166,26 @@ class AgentRunGatewayServiceTest {
         assertThat(captured.getValue().input().requirementText()).isEqualTo(original.requirementText());
         assertThat(captured.getValue().input().attachments()).containsExactly(data);
         verify(attachments).consume(user, workspace, projectId, List.of(attachment));
+    }
+
+    @Test
+    void manualEmptySkillsAndGeneralChatAreSnapshottedWithoutChangingAuthorizationOrSpend() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), projectId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace)).thenReturn(Optional.of(project(projectId, workspace)));
+        var original = request();
+        var selection = new com.freelanceops.backend.domain.agentrun.dto.SkillSelection("MANUAL", List.of(), List.of(), "1.0.0");
+        var chat = new StartAgentRunRequest("Write an article", "en", null, original.modelSelection(), original.budget(),
+            original.safetyContext(), null, List.of(), selection, "AD_HOC");
+        var accepted = service.start(user, workspace, projectId, chat, "trace");
+        ArgumentCaptor<InternalAgentRunRequest> captured = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(commandQueue).enqueueStart(eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
+        assertThat(captured.getValue().input().skillSelection()).isEqualTo(selection);
+        assertThat(captured.getValue().input().workflowMode()).isEqualTo("AD_HOC");
+        assertThat(captured.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
+        verify(platformSpend).reserve(user, accepted.runId(), original.modelSelection());
+        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
     }
 
     @Test

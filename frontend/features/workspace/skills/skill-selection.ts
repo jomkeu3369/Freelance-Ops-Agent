@@ -5,7 +5,9 @@ export interface SkillSelection { mode: "AUTO" | "MANUAL"; manualIds: string[]; 
 export const defaultSkillSelection: SkillSelection = { mode: "AUTO", manualIds: [], excludedIds: [], catalogVersion: "1.0.0" };
 export const skills = catalog.skills;
 export function normalizeSkillSelection(value: unknown): SkillSelection {
-  if (!value || typeof value !== "object") return { ...defaultSkillSelection, manualIds: [], excludedIds: [] };
+  if (value == null) return { ...defaultSkillSelection, manualIds: [], excludedIds: [] };
+  if (typeof value !== "object" || Array.isArray(value)
+      || Object.keys(value).some(key => !["mode", "manualIds", "excludedIds", "catalogVersion"].includes(key))) throw new Error("Invalid skill selection");
   const x = value as SkillSelection;
   const known = new Set(skills.map(skill => skill.id));
   if (!["AUTO", "MANUAL"].includes(x.mode) || x.catalogVersion !== "1.0.0" || !Array.isArray(x.manualIds) || !Array.isArray(x.excludedIds)
@@ -21,5 +23,6 @@ export function resolveSkills(text: string, selection: SkillSelection): { select
   return { selected: matched.slice(0, 3), deferred: matched.slice(3) };
 }
 export function skillSelectionSignature(value?: SkillSelection): string {
-  return JSON.stringify(normalizeSkillSelection(value));
+  // Legacy requests without a choice must not reuse an Auto request's authorization.
+  return JSON.stringify(value == null ? null : normalizeSkillSelection(value));
 }

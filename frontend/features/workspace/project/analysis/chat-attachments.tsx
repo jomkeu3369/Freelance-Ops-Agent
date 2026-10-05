@@ -1,6 +1,7 @@
 "use client";
 
 import { ClipboardEvent, useEffect, useRef, useState } from "react";
+import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AttachmentPreview, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
 import "./chat-attachments.css";
@@ -92,31 +93,32 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
 }
 
 export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof useChatAttachments>; disabled: boolean }) {
+  const t = useT();
   const picker = useRef<HTMLInputElement>(null);
   const [previewText, setPreviewText] = useState<string | null>(null);
   return <div className="chat-attachments">
-    <input ref={picker} type="file" multiple accept=".txt,.csv,.pdf,.jpg,.jpeg,.png,.gif" aria-label="첨부파일 선택" hidden
+    <input ref={picker} type="file" multiple accept=".txt,.csv,.pdf,.jpg,.jpeg,.png,.gif" aria-label={t("첨부파일 선택")} hidden
       onChange={event => { state.add(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
-    <button type="button" className="quiet-button" disabled={disabled || state.reading} onClick={() => picker.current?.click()}>파일 첨부</button>
-    <small> TXT·CSV·PDF 텍스트 지원 · 이미지·GIF·스캔 OCR/그림 해석 미지원</small>
+    <button type="button" className="quiet-button" disabled={disabled || state.reading} onClick={() => picker.current?.click()}>{t("파일 첨부")}</button>
+    <small>{t("TXT·CSV·PDF · JPG·PNG·GIF·스캔은 무료 문자 인식(OCR), 그림·움직임 해석 미지원")}</small>
     {state.items.length > 0 && <>
-      <p className="agent-chat-muted">원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.</p>
+      <p className="agent-chat-muted">{t("원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
       <ul>{state.items.map(item => <li key={item.key}>
         <strong>{item.file.name}</strong> <small>{item.file.size.toLocaleString()} B</small>
-        <span>{!item.preview ? "아직 읽지 않음" : item.preview.extraction.status === "COMPLETE" ? "텍스트 추출 완료" : item.preview.extraction.status === "PARTIAL" ? "일부만 읽음 · PDF 텍스트 층" : "내용 읽기 미지원"}</span>
-        <button type="button" disabled={disabled || state.reading} onClick={() => state.remove(item)} aria-label={`${item.file.name} 제거`}>제거</button>
+        <span>{t(!item.preview ? "아직 읽지 않음" : item.preview.extraction.status === "COMPLETE" ? "텍스트 추출 완료" : item.preview.extraction.status === "PARTIAL" ? "일부 읽음 · 문자 인식 결과 확인 필요" : "내용 읽기 미지원")}</span>
+        <button type="button" disabled={disabled || state.reading} onClick={() => state.remove(item)} aria-label={t("{v0} 제거", { v0: item.file.name })}>{t("제거")}</button>
         {/\.(txt|csv)$/i.test(item.file.name) && <>
-          <label>인코딩<select disabled={disabled || state.reading} value={item.encoding} onChange={event => state.options(item, event.target.value, item.delimiter)}>{["auto", "utf-8", "utf-16", "cp949"].map(value => <option key={value}>{value}</option>)}</select></label>
-          <button type="button" onClick={() => void item.file.text().then(value => setPreviewText(value.length > 40000 ? `${value.slice(0,40000)}\n[미리보기만 40,000자로 제한됨. 원본은 유지됩니다.]` : value))}>로컬 TXT 확인</button>
+          <label>{t("인코딩")}<select disabled={disabled || state.reading} value={item.encoding} onChange={event => state.options(item, event.target.value, item.delimiter)}>{["auto", "utf-8", "utf-16", "cp949"].map(value => <option key={value} value={value}>{value === "auto" ? t("자동") : value}</option>)}</select></label>
+          <button type="button" onClick={() => void item.file.text().then(value => setPreviewText(value.length > 40000 ? `${value.slice(0,40000)}\n${t("[미리보기만 40,000자로 제한됨. 원본은 유지됩니다.]")}` : value))}>{t("로컬 TXT 확인")}</button>
         </>}
-        {/\.csv$/i.test(item.file.name) && <label>구분자<select disabled={disabled || state.reading} value={item.delimiter} onChange={event => state.options(item, item.encoding, event.target.value)}>{[["auto", "자동"], [",", "쉼표"], [";", "세미콜론"], ["\t", "탭"], ["|", "파이프"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>}
-        {item.preview && <details><summary>읽기 결과 확인</summary><p>{item.preview.extraction.notice || "텍스트를 잘라내지 않고 추출했습니다."}</p><p>{item.preview.extraction.encoding} · {item.preview.extraction.units} 페이지/행/프레임 · {Array.from(item.preview.extraction.text).length.toLocaleString()}자</p><pre>{item.preview.extraction.text || "추출한 텍스트 없음"}</pre></details>}
+        {/\.csv$/i.test(item.file.name) && <label>{t("구분자")}<select disabled={disabled || state.reading} value={item.delimiter} onChange={event => state.options(item, item.encoding, event.target.value)}>{[["auto", "자동"], [",", "쉼표"], [";", "세미콜론"], ["\t", "탭"], ["|", "파이프"]].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>}
+        {item.preview && <details><summary>{t("읽기 결과 확인")}</summary><p>{item.preview.extraction.notice || t(item.preview.extraction.status === "COMPLETE" ? "텍스트를 잘라내지 않고 추출했습니다." : "일부 읽음 · 문자 인식 결과 확인 필요")}</p><p>{item.preview.extraction.encoding} · {t("{v0} 페이지/행/프레임 · {v1}자", { v0: item.preview.extraction.units, v1: Array.from(item.preview.extraction.text).length.toLocaleString() })}</p><pre>{item.preview.extraction.text || t("추출한 텍스트 없음")}</pre></details>}
       </li>)}</ul>
-      {state.ready && <label><input type="checkbox" checked={state.confirmed} disabled={disabled || state.tooLarge} onChange={event => state.setConfirmed(event.target.checked)} />읽은 범위와 누락·미지원 내용을 확인했습니다. 첨부 텍스트가 대화 기록에 저장됩니다.</label>}
-      {state.ready && <p className="agent-chat-muted">임시 결과는 30분 후 만료됩니다. 만료 오류가 나면 제거 후 다시 첨부해 주세요. 보낸 내용은 프로젝트 대화의 보존·삭제 정책을 따릅니다.</p>}
+      {state.ready && <label><input type="checkbox" checked={state.confirmed} disabled={disabled || state.tooLarge} onChange={event => state.setConfirmed(event.target.checked)} />{t("읽은 범위와 누락·미지원 내용을 확인했습니다. 첨부 텍스트가 대화 기록에 저장됩니다.")}</label>}
+      {state.ready && <p className="agent-chat-muted">{t("임시 결과는 30분 후 만료됩니다. 만료 오류가 나면 제거 후 다시 첨부해 주세요. 보낸 내용은 프로젝트 대화의 보존·삭제 정책을 따릅니다.")}</p>}
     </>}
-    {state.reading && <button type="button" onClick={state.cancel}>파일 읽기 취소</button>}
-    {state.error && <p role="alert">{state.error}</p>}
-    {previewText !== null && <div><button type="button" onClick={() => setPreviewText(null)}>미리보기 닫기</button><pre>{previewText}</pre></div>}
+    {state.reading && <button type="button" onClick={state.cancel}>{t("파일 읽기 취소")}</button>}
+    {state.error && <p role="alert">{t(state.error)}</p>}
+    {previewText !== null && <div><button type="button" onClick={() => setPreviewText(null)}>{t("미리보기 닫기")}</button><pre>{previewText}</pre></div>}
   </div>;
 }

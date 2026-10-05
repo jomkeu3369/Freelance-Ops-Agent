@@ -1021,7 +1021,9 @@ async def test_builtin_skill_body_reaches_actual_react_objective() -> None:
         {"action": "FINAL", "summary": "Requirements review", "arguments": {}},
         {"action": "FINAL", "summary": "Evidence review", "arguments": {}},
     ])
-    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.REACT_AGENT), provider, FixedProjectContextTool(request))
+    executor = OperationalAgentExecutor(
+        FixedGateway(RouteLabel.REACT_AGENT), provider, FixedProjectContextTool(request)
+    )
     outcome = await executor.execute(request, authorization=ExecutionAuthorization("delegation-token"))
     assert outcome.result is not None
     for raw in provider.prompts:

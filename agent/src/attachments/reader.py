@@ -6,6 +6,8 @@ import hashlib
 import io
 import warnings
 
+from attachments.ocr import LocalOcr, OcrUnavailable, sample_indices
+
 MAX_BYTES = 2 * 1024 * 1024
 MAX_CHARS = 40_000
 TYPES = {
@@ -93,22 +95,46 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
         count = len(reader.pages)
         if not 0 < count <= 30:
             raise ValueError("PDF_PAGE_LIMIT")
-        parts, length, empty = [], 0, 0
-        for page in reader.pages:
+        parts, length, empty = [], 0, []
+        for index, page in enumerate(reader.pages):
             part = page.extract_text() or ""
-            empty += not bool(part.strip())
+            if not part.strip():
+                empty.append(index)
             length += len(part) + 2
             if length > MAX_CHARS:
                 raise ValueError("EXTRACTED_TEXT_LIMIT")
             parts.append(part)
+        attempted, recognized = [], []
+        detail = ""
+        if empty:
+            try:
+                ocr = LocalOcr()
+                detail = ocr.notice
+                for sample in sample_indices(len(empty)):
+                    index = empty[sample]
+                    attempted.append(index + 1)
+                    part = ocr.read_pdf_page(payload, index + 1)
+                    if part:
+                        recognized.append(index + 1)
+                        parts[index] = part
+            except OcrUnavailable as error:
+                detail += " " + str(error)
+        text = "\n\n".join(f"[Page {index + 1}]\n{part}" for index, part in enumerate(parts) if part.strip())
+        if len(text) > MAX_CHARS:
+            raise ValueError("EXTRACTED_TEXT_LIMIT")
         result.update(
-            text="\n\n".join(parts),
+            text=text,
             units=count,
-            status="UNSUPPORTED" if empty == count else "PARTIAL",
-            notice=(f"Text layer only; {empty}/{count} pages have no text. "
-                    "Images, scans and layout were not read. OCR is unavailable. "
-                    "Supply TXT/CSV for missing content."),
-        )  # noqa: E501
+            status="PARTIAL" if text else "UNSUPPORTED",
+            notice=(
+                f"Text layer read on {count - len(empty)}/{count} pages. "
+                f"Scan OCR attempted on {len(attempted)}/{len(empty)} text-empty pages"
+                f" (page numbers: {', '.join(map(str, attempted)) or 'none'}); "
+                f"text found on {len(recognized)} OCR page(s). "
+                "Unsampled pages and images on pages with a text layer were not OCR-read. "
+                "Visual content and layout are not fully read. " + detail
+            ).strip(),
+        )
     else:
         from PIL import Image
 
@@ -132,12 +158,35 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
                         picture.seek(count)
                     except EOFError:
                         break
+        parts, attempted, recognized = [], [], []
+        detail = ""
+        try:
+            ocr = LocalOcr()
+            detail = ocr.notice
+            with Image.open(io.BytesIO(payload)) as picture:
+                for index in sample_indices(count):
+                    picture.seek(index)
+                    attempted.append(index + 1)
+                    text = ocr.read_image(picture)
+                    if text:
+                        recognized.append(index + 1)
+                        parts.append(f"[Frame {index + 1}]\n{text}")
+        except OcrUnavailable as error:
+            detail += " " + str(error)
+        text = "\n\n".join(parts)
+        if len(text) > MAX_CHARS:
+            raise ValueError("EXTRACTED_TEXT_LIMIT")
         result.update(
-            status="UNSUPPORTED",
+            status="PARTIAL" if text else "UNSUPPORTED",
+            text=text,
             units=count,
-            notice=(f"Validated {count} frame(s). Image/GIF content was not read: "
-                    "OCR and visual understanding are unavailable. Supply a text description."),
-        )  # noqa: E501
+            notice=(
+                f"Validated {count} frame(s). Text OCR attempted on {len(attempted)}/{count} frames"
+                f" (frame numbers: {', '.join(map(str, attempted)) or 'none'}); "
+                f"text found in {len(recognized)} frame(s). "
+                "Unsampled frames were not read. No visual or animation understanding. " + detail
+            ).strip(),
+        )
     return result
 
 

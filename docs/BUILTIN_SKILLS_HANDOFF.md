@@ -1,6 +1,33 @@
 # Built-in skills integration handoff (2026-10-05)
 
-Status: **content import and investigation only; feature implementation is incomplete**.
+## Cloud integration continuation (2026-10-05)
+
+The interruption report below is retained as historical context. The integration
+branch `codex/cloud-feature-integration-20261005` now implements these pieces:
+
+- Bounded, offline KO/EN Auto routing, exact manual override/empty selection,
+  exclusions, version/ID validation, at most three loaded workflow bodies
+- Request selection and chat mode flow through frontend draft/retry, public Java
+  DTO, durable internal command, Python runtime and saved result metadata
+- Both real structured-provider and ReAct objective paths receive selected bodies
+  and shared/skill-specific boundaries; no extra routing provider call
+- Ordinary chat uses AD_HOC rather than mandatory four-department quote analysis;
+  explicit legacy project-analysis calls retain the full quotation workflow
+- Auto resolutions appear in the composer and result metadata. Requests matching
+  more than three workflows explicitly expose deferred IDs and a follow-up stage;
+  deferred workflows are not secretly loaded or claimed as applied
+- New default Auto inputs are frozen in the durable command. Legacy runs without
+  a skill-selection field keep empty skill metadata rather than retroactively
+  claiming that workflows were used
+- The full catalog/discovery index stays outside ordinary model context. Selection
+  cannot change tools, effective permissions, models, budgets or execution prices
+
+Cloud Python runtime and routing checks pass; frontend localization/build and
+Docker-capable migration/browser verification are recorded in the combined
+integration report. These are deterministic prompt-guidance skills, not installed
+plugins or guarantees that media rendering, external writes or paid tools exist.
+
+Status at laptop interruption: **content import and investigation only; feature implementation was incomplete**.
 Laptop execution was paused at the user's request. Continue builds, runtime tests,
 browser verification and Docker work in an authorized cloud environment.
 

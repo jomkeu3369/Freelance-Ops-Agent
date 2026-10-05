@@ -239,7 +239,7 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);
   assert.match(css, /\.requirement-editor textarea \{[^}]*min-height: 92px/);
   assert.match(workspace, /const configuredModelOptions: Record<Provider, string\[]>/);
-  assert.match(workspace, /<label>\s*AI 모델<select value=\{model\}/);
+  assert.match(workspace, /<label>\s*AI 모델<select[^>]*value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
   assert.match(workspace, /name="currency" value=\{draft.currency\}/);
   assert.match(workspace, /list="suggested-models"/);

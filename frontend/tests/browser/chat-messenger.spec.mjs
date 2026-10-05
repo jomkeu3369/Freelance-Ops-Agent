@@ -129,11 +129,11 @@ test("temporary run-read failure recovers to a completed result without resendin
   seedRun(state);
   state.pollFailures = 1;
   await page.goto(path);
-  await expect(page.getByRole("alert").filter({ hasText: "Fixture poll failure" })).toBeVisible();
+  await expect(page.locator(".agent-chat-connection")).toBeVisible();
   state.run.status = "COMPLETED";
   state.run.result = completedResult;
   await expect(page.getByRole("button", { name: "결과 열기" })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: "Fixture poll failure" })).toHaveCount(0);
+  await expect(page.locator(".agent-chat-connection")).toHaveCount(0);
   expect(state.starts).toHaveLength(0);
 });
 
@@ -149,7 +149,8 @@ for (const width of [320, 390, 1440]) {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.addInitScript(value => { localStorage.setItem("freelance-ops-ui-locale-v1", value); localStorage.setItem("theme", value === "en" ? "dark" : "light"); }, locale);
       await page.goto(path);
-      await page.locator(".ui-language-selector select").selectOption(locale);
+      await page.locator(".workspace-language-trigger").click();
+      await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
       const open = page.getByRole("button", { name: locale === "ko" ? "결과 열기" : "Open result" });
       await open.focus();
       await page.keyboard.press("Enter");
@@ -310,7 +311,8 @@ for (const locale of ["ko", "en"]) {
   test(`${locale}: proposal creation and confirmation announce accessible status`, async ({ page }) => {
     const state = await fixture(page);
     await page.goto(path);
-    await page.locator(".ui-language-selector select").selectOption(locale);
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
     await page.locator("#agent-chat-input").fill("기본 세율 12%로 변경");
     await page.locator('.agent-chat-composer button[type="submit"]').click();
     const announcement = page.locator('.agent-chat > .sr-only[role="status"]');
@@ -359,7 +361,7 @@ test("AI settings retain provider, model, personal connection and pet customizat
   await expect(connection).toBeVisible();
   await expect(connection.locator('option[value="fixture-connection"]')).toHaveCount(1);
   await connection.selectOption("fixture-connection");
-  await expect(settings.locator(".model-selection-note")).toContainText("내 키로 실행");
+  await expect(settings.locator(".model-selection-note").filter({ hasText: "내 키로 실행" })).toBeVisible();
   await expect(settings.getByLabel("AI 제공사", { exact: true })).toHaveCount(0);
   const customizer = settings.locator(".pet-customizer");
   await expect(customizer).toBeVisible();

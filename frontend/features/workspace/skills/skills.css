@@ -1,18 +1,18 @@
-.skill-selector { min-width: 0; font-size: .78rem; color: var(--text-muted); }
+.skill-selector { min-width: 0; font-size: .78rem; color: var(--muted); }
 .skill-selector summary { cursor: pointer; width: fit-content; padding: 5px 8px; border-radius: 10px; }
-.skill-panel { padding: 12px; margin: 6px 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); max-height: min(440px, 50dvh); overflow-y: auto; }
+.skill-panel { padding: 12px; margin: 6px 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); max-height: min(440px, 50dvh); overflow-y: auto; }
 .skill-panel p { margin: 4px 0 9px; }
 .skill-panel label { display: grid; gap: 4px; margin: 8px 0; }
-.skill-panel input, .skill-panel select { min-width: 0; width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px; background: var(--surface); color: var(--text); }
+.skill-panel input, .skill-panel select { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 7px; background: var(--surface); color: var(--ink); }
 .skill-modes { display: flex; flex-wrap: wrap; gap: 6px; }
-.skill-panel button { border: 1px solid var(--border); border-radius: 8px; padding: 7px; background: var(--surface); color: var(--text); text-align: left; }
-.skill-panel button[aria-pressed=true] { border-color: var(--accent); background: var(--surface-hover); }
+.skill-panel button { border: 1px solid var(--line); border-radius: 8px; padding: 7px; background: var(--surface); color: var(--ink); text-align: left; }
+.skill-panel button[aria-pressed=true] { border-color: var(--accent); background: var(--surface-2); }
 .skill-panel button:disabled { opacity: .45; }
 .skill-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .skill-results button { display: grid; gap: 5px; overflow-wrap: anywhere; }
 .skill-results small { color: var(--accent); font-size: .63rem; }
 .skill-active { display: flex; flex-wrap: wrap; gap: 4px; }
-.skill-active > span { border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; }
+.skill-active > span { border: 1px solid var(--line); border-radius: 20px; padding: 2px 8px; }
 .skill-active button { border: 0; background: transparent; color: inherit; padding: 2px 4px; cursor: pointer; }
 .skill-names { font-size: .72rem; opacity: .8; overflow-wrap: anywhere; }
 .skill-deferred { margin: 4px 0; }

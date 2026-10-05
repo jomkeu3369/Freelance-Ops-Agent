@@ -65,6 +65,6 @@ test("stacked server notices let only the top dialog own keyboard and background
 test("unmounted chat send continuations cannot clear a remounted project draft", async () => {
   const chat = await read("../features/workspace/project/analysis/agent-chat.tsx");
   assert.match(chat, /return \(\) => \{ mounted.current = false; \}/);
-  assert.match(chat, /const accepted = await onSend\(message, attachments.ids\);\s*if \(!mounted.current\) return;/);
+  assert.match(chat, /const accepted = await onSend\(message, attachments.ids, skillSelection\);\s*if \(!mounted.current\) return;/);
   assert.match(chat, /if \(!mounted.current\) return;\s*setProposal\(next\)/);
 });

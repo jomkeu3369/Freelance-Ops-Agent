@@ -107,7 +107,7 @@ class WorkspaceRbacPostgresTest {
         registry.add("agent.command-dispatch-enabled", () -> false);
         registry.add("agent.reconciliation-enabled", () -> false);
         registry.add("APP_BYOK_ENCRYPTION_KEY", () -> java.util.Base64.getEncoder().encodeToString(new byte[32]));
-        registry.add("APP_BYOK_OPENAI_MODELS", () -> "test-model");
+        registry.add("APP_BYOK_OPENAI_MODELS", () -> "gpt-6-luna");
     }
 
 
@@ -210,7 +210,7 @@ class WorkspaceRbacPostgresTest {
         jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
             .param("id", project).param("workspace", workspace).param("user", owner).update();
         org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
         org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
             com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Input input = call.getArgument(0);
             return new com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Output(input.context().runId(), com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst(), model.provider(), model.model(), 15, 20);
@@ -235,7 +235,7 @@ class WorkspaceRbacPostgresTest {
         var original = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst();
         pets.save(owner, workspace, original);
         org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
         org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenThrow(new IllegalStateException("sensitive provider error"));
         assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "different", "LEAN")).hasMessageNotContaining("sensitive");
         org.mockito.Mockito.verify(petClient).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
@@ -271,24 +271,24 @@ class WorkspaceRbacPostgresTest {
         UUID workspace = provisioningService.create(owner, "BYOK", "byok-test").workspaceId();
         addRole(workspace, other, owner, "OWNER");
         UUID secondWorkspace = provisioningService.create(owner, "BYOK Second", "byok-second").workspaceId();
-        var connection = connections.save(owner, workspace, provider, "test-model", "synthetic-first-1234");
+        var connection = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-first-1234");
         String stored = jdbcClient.sql("SELECT ciphertext FROM app.ai_connection WHERE id = :id").param("id", connection.id()).query(String.class).single();
         assertThat(stored).doesNotContain("synthetic-first");
         assertThat(connection.maskedKey()).isEqualTo("••••1234");
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-first-1234");
-        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-first-1234");
+        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThat(connections.list(other, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        var replacement = connections.save(owner, workspace, provider, "test-model", "synthetic-second-5678");
+        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var replacement = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-second-5678");
         assertThat(replacement.id()).isEqualTo(connection.id());
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
         org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST))
-            .when(credentialVerifier).verify(provider, "test-model", "synthetic-invalid-0000");
-        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "test-model", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+            .when(credentialVerifier).verify(provider, "gpt-6-luna", "synthetic-invalid-0000");
+        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
         connections.delete(owner, workspace, connection.id());
         assertThat(connections.list(owner, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test

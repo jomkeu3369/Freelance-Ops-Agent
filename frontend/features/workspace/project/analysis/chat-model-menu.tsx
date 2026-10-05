@@ -11,6 +11,7 @@ export function ChatModelMenu({ label, locked, contextKey, children }: { label: 
   const panel = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const contextRef = useRef(contextKey);
+  const focusOnOpen = useRef(false);
   const visible = open && !locked;
   useEffect(() => {
     const changed = contextRef.current !== contextKey;
@@ -37,7 +38,7 @@ export function ChatModelMenu({ label, locked, contextKey, children }: { label: 
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
-    if (!locked) (panel.current?.querySelector<HTMLElement>("select:not(:disabled)") ?? panel.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
+    if (!locked && focusOnOpen.current) (panel.current?.querySelector<HTMLElement>("select:not(:disabled)") ?? panel.current?.querySelector<HTMLElement>("button:not(:disabled)"))?.focus();
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, [open, locked]);
   return <div ref={root} className="chat-model-menu" onBlur={event => {
@@ -46,8 +47,8 @@ export function ChatModelMenu({ label, locked, contextKey, children }: { label: 
     <button ref={trigger} type="button" className="quiet-button chat-model-trigger" disabled={locked}
       aria-label={`${t("AI 모델 선택")}: ${label}`} title={locked ? t("작업 중에는 AI 설정을 바꿀 수 없습니다.") : label}
       aria-haspopup="dialog" aria-expanded={visible} aria-controls={visible ? panelId : undefined}
-      onClick={() => setOpen(value => !value)} onKeyDown={event => {
-        if (event.key === "ArrowDown" && !locked) { event.preventDefault(); setOpen(true); }
+      onClick={event => { focusOnOpen.current = event.detail === 0; setOpen(value => !value); }} onKeyDown={event => {
+        if (event.key === "ArrowDown" && !locked) { event.preventDefault(); focusOnOpen.current = true; setOpen(true); }
       }}>
       <Sparkle size={16} aria-hidden="true" /><span>{label}</span><CaretDown size={12} aria-hidden="true" />
     </button>

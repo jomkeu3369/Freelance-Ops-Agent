@@ -86,7 +86,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
         <button type="button" disabled={locked || hasDraft} onClick={() => change(pet, "ARCHIVE")}>{t("보관")}</button>
       </article>)}
     </div>
-    {collection && <p className="pet-customizer-intro">{t("사용 가능")} {active.length}/{collection.maxActivePets} · {t("보관 포함")} {collection.pets.length}/{collection.maxStoredPets} · {t("스킬")} Auto<br/>{t("보관하면 사용 가능 수가 줄고, 보관함에서 삭제하면 저장 공간이 늘어납니다.")}</p>}
+    {collection && <p className="pet-customizer-intro">{t("사용 가능")} {active.length}/{collection.maxActivePets} · {t("보관 포함")} {collection.pets.length}/{collection.maxStoredPets}<br/>{t("보관하면 사용 가능 수가 줄고, 보관함에서 삭제하면 저장 공간이 늘어납니다.")}</p>}
     <button type="button" className="quiet-button" disabled={locked || atLimit || hasDraft} onClick={() => edit(null)}>{t("새 펫 추가")}</button>
     {hasDraft && !preview && <button type="button" className="quiet-button" disabled={locked} onClick={() => edit(editing)}>{t("입력 취소")}</button>}
     {editing && <details><summary>{t("저장된 선호 보기")}</summary><ol>{editing.profile.preferences?.requests.map((value, index) => <li key={index}>{value}</li>)}</ol></details>}

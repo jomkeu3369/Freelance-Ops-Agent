@@ -16,10 +16,12 @@ export function requestBarrier() {
 }
 
 export async function fixture(page) {
-  const fixtureModels = [...new Set([process.env.NEXT_PUBLIC_DEFAULT_MODEL || "gpt-5.6-luna", ...(process.env.NEXT_PUBLIC_OPENAI_MODELS || "gpt-5.6-luna,gpt-5.6-terra").split(",").map(value => value.trim()).filter(Boolean)])];
+  const fixtureModels = [...new Set([process.env.NEXT_PUBLIC_DEFAULT_MODEL || "gpt-5.6-luna", ...(process.env.NEXT_PUBLIC_OPENAI_MODELS || "gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-6-astra,gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol").split(",").map(value => value.trim()).filter(Boolean)])];
   const usage = { unit: "CREDITS", periodType: "WEEKLY", limit: 100, used: 0, reserved: 0, remaining: 100, resetAt: "2026-10-11T15:00:00Z", period: "2026-10-05", timezone: "Asia/Seoul", epoch: 1, canManage: false, modelRates: fixtureModels.map(model => ({ provider: "OPENAI", model, credits: model.includes("terra") ? 100 : 10, enabled: true })), pricingUpdatedAt: "2026-10-04T12:00:00.123456Z" };
   const state = { usage, usageStatus: 200, starts: [], history: [], run: null, policy: { workspaceId: "local-space", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 }, proposal: null, confirms: 0, blocked: [], permissions: ["project.read", "agent.run", "agent.cancel", "agent.respond", "quotation.read", "quotation.write"], startFailures: 0, resumeFailures: 0, resumes: [], streamFailures: 0, streamRequests: 0, events: null };
   Object.assign(state, { projects: [{ ...project }], projectRuns: {}, projectHistory: {}, pastRuns: {}, connections: [], runReads: [], latestReads: [], startProjects: [], cancels: [], writes: [], nextLatestRead: null, nextRunRead: null, nextStart: null, nextCancel: null });
+  Object.assign(state, { aiUsage: { currency: "USD", limitUsd: "1.25", settledUsd: "0.125", reservedUsd: "0.125", remainingUsd: "1", remainingPercent: "80", reservedPercent: "10", periodStart: "2026-10-04T15:00:00Z", resetAt: "2026-10-11T15:00:00Z", timezone: "Asia/Seoul" }, aiUsageStatus: 200, aiHistory: { items: [], nextCursor: null }, aiHistoryStatus: 200 });
+  Object.assign(state.aiUsage, { spendingEnabled: true, models: fixtureModels.map(model => ({ provider: "OPENAI", model, catalogued: true, enabled: true, available: true, unavailableReason: null, providerAccessVerified: false, reasoningEfforts: ["LOW", "MEDIUM", "HIGH"], maxRunUsd: "0.25" })) });
   await page.addInitScript(() => sessionStorage.setItem("freelance-ops-session-v1", JSON.stringify({
     userId: "local-user", workspaceId: "local-space", accessToken: "fixture-token", refreshToken: "fixture-token",
     accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer",
@@ -38,11 +40,14 @@ export async function fixture(page) {
     const projectId = path.match(/\/projects\/([^/]+)/)?.[1];
     const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "/api/v2/usage/free" && method === "GET") return json(state.usage, state.usageStatus);
+    if (path === "/api/v2/me/ai-usage" && method === "GET") return json(state.aiUsage, state.aiUsageStatus);
+    if (path === "/api/v2/me/ai-usage/history" && method === "GET") return json(state.aiHistory, state.aiHistoryStatus);
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
     if (method !== "GET") state.writes.push({ path, method });
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });
     if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);
+    if (path.endsWith("/agent-pets") && method === "GET") return json({ pets: [], selectedPetId: null, maxActivePets: 2, maxStoredPets: 3, maxPromptLength: 500, maxPreferenceRequests: 6, generationMode: "RULE_BASED_PREVIEW", aiGenerationAvailable: false });
     if (path.endsWith("/ai-connections") && method === "GET") return json({ available: true, models: { OPENAI: ["fixture-model"], GEMINI: [] }, connections: state.connections });
     if (path.endsWith("/agent-runs/latest") && method === "GET") {
       state.latestReads.push(projectId);

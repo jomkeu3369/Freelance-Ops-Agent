@@ -13,7 +13,7 @@ export function PetWorkspace({ run }: { run: AgentRunView | null }) {
   const personal = profiles?.filter(pet => pet.petId) ?? [];
   const petAdvisors = personal.length ? personal.map(profile => ({
     id: profile.petId!, name: profile.name, profile,
-    role: petDutyLabels[profile.duty ?? "GENERAL"], priority: profile.preferences?.focus || petDutyLabels[profile.duty ?? "GENERAL"],
+    role: petDutyLabels[profile.duty ?? "GENERAL"], priority: profile.preferences?.focus || t(petDutyLabels[profile.duty ?? "GENERAL"]),
     departments: ["REQUIREMENTS", "RESEARCH", "VERIFICATION", "DEAL_DESIGN"]
   })) : profiles?.length === 0 ? [] : advisorsWithProfiles(profiles, t);
   const advisor = petAdvisors.find(pet => pet.id === selected);

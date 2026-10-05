@@ -1,3 +1,4 @@
+import type { SkillSelection } from "../../features/workspace/skills/skill-selection";
 import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
@@ -267,6 +268,9 @@ export interface AgentRunView {
   errorCode: string | null;
   metadata: {
     petProfiles?: PetProfile[];
+    skillSelection?: SkillSelection | null;
+    resolvedSkillIds?: string[];
+    deferredSkillIds?: string[];
     credentialId?: string | null;
     provider: RecordedProvider;
     model: string;
@@ -544,6 +548,16 @@ export interface FreeUsageSettings {
 
 export function getFreeUsage(session: AuthSession): Promise<FreeUsage> {
   return request("/api/v2/usage/free", { cache: "no-store" }, session.accessToken);
+}
+
+// Account usage contract is validated by the display adapter before rendering.
+export function getAiUsage(session: AuthSession): Promise<unknown> {
+  return request("/api/v2/me/ai-usage", { cache: "no-store" }, session.accessToken);
+}
+export function getAiUsageHistory(session: AuthSession, cursor?: string): Promise<unknown> {
+  const query = new URLSearchParams({ limit: "20" });
+  if (cursor) query.set("cursor", cursor);
+  return request(`/api/v2/me/ai-usage/history?${query}`, { cache: "no-store" }, session.accessToken);
 }
 
 export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSettings> {
@@ -1098,6 +1112,8 @@ export function startAgentRun(
   idempotencyKey: string = crypto.randomUUID(),
   creditQuote?: CreditQuote,
   attachmentIds?: string[],
+  skillSelection?: SkillSelection,
+  workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC",
 ): Promise<RunAccepted> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
@@ -1108,6 +1124,8 @@ export function startAgentRun(
       body: JSON.stringify({
         requirementText: message ?? project.requirementText,
         ...(attachmentIds?.length ? { attachmentIds } : {}),
+        ...(skillSelection ? { skillSelection } : {}),
+        ...(workflowMode ? { workflowMode } : {}),
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,

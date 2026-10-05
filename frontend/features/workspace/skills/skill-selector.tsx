@@ -60,7 +60,7 @@ export function SkillSelector({ draft, value, onChange, disabled }: { draft: str
         <div className="skill-results">{visible.map(skill => {
           const selected = value.mode === "MANUAL" && value.manualIds.includes(skill.id);
           return <button key={skill.id} type="button" disabled={disabled || !selected && value.mode === "MANUAL" && value.manualIds.length >= 3} aria-pressed={selected} onClick={() => onChange({ ...value, mode: "MANUAL", manualIds: selected ? value.manualIds.filter(id => id !== skill.id) : [...(value.mode === "MANUAL" ? value.manualIds : []), skill.id] })}>
-            <strong>{skill.name[locale]} <small>FREE</small></strong><span>{skill.summary[locale]}</span>
+            <strong>{skill.name[locale]} <small>{en ? "FREE" : "무료"}</small></strong><span>{skill.summary[locale]}</span>
           </button>;
         })}{!visible.length && <p>{en ? "No matching skills" : "검색 결과가 없어요"}</p>}</div>
         {!!value.excludedIds.length && <button type="button" disabled={disabled} onClick={() => onChange({ ...value, excludedIds: [] })}>{en ? "Restore excluded Auto skills" : "자동 선택 제외 초기화"}</button>}

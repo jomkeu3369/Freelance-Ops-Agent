@@ -19,6 +19,7 @@ export function MemberUsage({ usage, history }: { usage: AdminMemberUsage; histo
     <p className="member-note">예약 금액은 공급자의 확정 청구액이 아닙니다. 사용량이 확인되지 않은 실행은 보수적으로 예약을 유지합니다. 이전 크레딧을 USD로 환산하지 않습니다.</p>
     <h3>실행별 실제 비용 기록</h3>
     <p className="member-note">전체 기간의 기록입니다. BYOK 호출은 플랫폼 비용에서 제외되며, 같은 실행의 플랫폼 호출은 포함됩니다. BYOK 토큰은 미확정 실행에서 상한 추정치를 포함할 수 있습니다.</p>
+    {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- Labeled overflow regions need keyboard focus for horizontal table scrolling. */}
     {history.items.length === 0 ? <p className="member-empty">기록된 USD 사용량이 없습니다.</p> : <div className="member-table-scroll" tabIndex={0} role="region" aria-label="회원 비용 기록">
       <table><caption className="member-sr-only">실행별 플랫폼 비용</caption><thead><tr><th>시작 / 실행 ID</th><th>모델 / 상태</th><th>확정 비용</th><th>예약 금액</th><th>사용량 확인</th><th>BYOK 토큰 (입력 / 출력)</th></tr></thead><tbody>
         {history.items.map(entry => <tr key={entry.runId}>

@@ -3,7 +3,6 @@
 import json
 import os
 import sys
-from typing import TYPE_CHECKING
 
 if sys.platform != "win32":
     import resource
@@ -12,12 +11,9 @@ if sys.platform != "win32":
     resource.setrlimit(resource.RLIMIT_CPU, (12, 12))
     resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
 
-# -I excludes caller-controlled PYTHONPATH; only this trusted reader directory is added.
-sys.path.insert(0, os.path.dirname(__file__))
-if TYPE_CHECKING:
-    from attachments.reader import extract
-else:
-    from reader import extract
+# -I excludes caller-controlled PYTHONPATH; only this trusted source directory is added.
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from attachments.reader import extract  # noqa: E402
 
 try:
     body = sys.stdin.buffer.read(2_800_001)
@@ -28,6 +24,6 @@ except Exception as error:
     safe_codes = {"INVALID_FILENAME", "UNSUPPORTED_TYPE_OR_MIME", "INVALID_BASE64", "FILE_SIZE_LIMIT",
                   "EXTRACTED_TEXT_LIMIT", "NOT_PLAIN_TEXT", "FORMAT_MISMATCH", "CSV_DELIMITER_REQUIRED",
                   "CSV_DIMENSION_LIMIT", "ENCRYPTED_PDF_UNSUPPORTED", "PDF_PAGE_LIMIT",
-                  "IMAGE_FRAME_OR_PIXEL_LIMIT", "TEXT_ENCODING_UNSUPPORTED"}
+                  "IMAGE_FRAME_OR_PIXEL_LIMIT", "TEXT_ENCODING_UNSUPPORTED", "PARSER_RESOURCE_LIMIT"}
     code = str(error) if isinstance(error, ValueError) and str(error) in safe_codes else "UNREADABLE_FILE"
     print(json.dumps({"error": code}))

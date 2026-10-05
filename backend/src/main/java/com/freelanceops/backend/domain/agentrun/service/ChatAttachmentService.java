@@ -65,8 +65,8 @@ public class ChatAttachmentService {
         UUID id = UUID.randomUUID();
         var context = new TrustedRunContext(id, id, id.toString(), workspace, project, user, allowed);
         AttachmentText extraction;
-        try {
-            byte[] bytes = file.getInputStream().readNBytes(2097153);
+        try (var source = file.getInputStream()) {
+            byte[] bytes = source.readNBytes(2097153);
             if (bytes.length != file.getSize()) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
             extraction = reader.read(new AttachmentReaderClient.Input(context, new AttachmentReaderClient.FileInput(
                 name, file.getContentType() == null ? "" : file.getContentType(), Base64.getEncoder().encodeToString(bytes), encoding, delimiter)),

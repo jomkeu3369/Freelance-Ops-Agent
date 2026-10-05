@@ -7,12 +7,12 @@ export const petAdvisors = [
 /**
  * Localize only the product's default name in its matching slot.
  * Custom names stay verbatim, and the stored profile is never changed.
- * @param {{ slot: string, name: string }} profile
+ * @param {{ slot: string, name: string, petId?: string | null }} profile
  * @param {(source: string) => string} translate
  */
 export function petDisplayName(profile, translate = source => source) {
   const advisor = petAdvisors.find(pet => pet.scenario === profile.slot);
-  return advisor && profile.name === advisor.name ? translate(advisor.name) : profile.name;
+  return !profile.petId && advisor && profile.name === advisor.name ? translate(advisor.name) : profile.name;
 }
 
 /** @param {import('@/app/lib/api').AgentRunView | null} run @param {string[]} departments */

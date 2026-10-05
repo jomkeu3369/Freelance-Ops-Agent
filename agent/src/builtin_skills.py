@@ -1,4 +1,5 @@
 """Offline, version-pinned skill resolution. Selection never changes tools or budgets."""
+
 from __future__ import annotations
 
 import json
@@ -38,8 +39,19 @@ def _body(skill_id: str) -> dict[str, Any]:
     if skill_id not in SKILL_IDS:
         raise ValueError("Unknown built-in skill")
     body = json.loads((ROOT / "bodies" / f"{skill_id}.json").read_text())
-    return {key: body[key] for key in ("id", "version", "name", "required_inputs", "workflow",
-                                       "deliverables", "limitations", "permission_boundaries")}
+    return {
+        key: body[key]
+        for key in (
+            "id",
+            "version",
+            "name",
+            "required_inputs",
+            "workflow",
+            "deliverables",
+            "limitations",
+            "permission_boundaries",
+        )
+    }
 
 
 def skill_prompt_data(request: Any) -> dict[str, Any]:
@@ -52,9 +64,13 @@ def skill_prompt_data(request: Any) -> dict[str, Any]:
         "workflows": [_body(skill_id) for skill_id in selected],
         "boundaries": POLICY["global_boundaries"] if selected else [],
         "deferred_ids": deferred,
-        "stage_notice": ("Only the selected workflows are loaded in this run. Explicitly identify deferred "
-                         "workflows and a next stage; do not claim they were applied. Preserve every requested "
-                         "deliverable in the plan, and ask to continue when a further stage is needed.") if deferred else None,
+        "stage_notice": (
+            "Only the selected workflows are loaded in this run. Explicitly identify deferred "
+            "workflows and a next stage; do not claim they were applied. Preserve every requested "
+            "deliverable in the plan, and ask to continue when a further stage is needed."
+        )
+        if deferred
+        else None,
         "selection_rules": "Workflow guidance only; no tool, permission, model or budget changes. "
-                           "Manual choices remain fixed, including empty choices. Explain mismatches without overriding.",
+        "Manual choices remain fixed, including empty choices. Explain mismatches without overriding.",
     }

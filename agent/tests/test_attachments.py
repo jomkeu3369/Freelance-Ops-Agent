@@ -10,9 +10,14 @@ from PIL import Image
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
+from attachments.ocr import OcrUnavailable
 from attachments.reader import extract
 from attachments.router import FileInput, router, run_reader
 from contracts import AgentInput
+
+
+def unavailable_ocr():
+    raise OcrUnavailable("Local OCR is unavailable.")
 
 
 def file(name, payload, mime="", **options):
@@ -70,7 +75,8 @@ def test_utf8_text_exact_whitespace_unicode_no_truncation():
     assert extract(file("paste.txt", source.encode()))["text"] == source
 
 
-def test_pdf_text_and_scan_do_not_claim_complete_reading():
+def test_pdf_text_and_scan_do_not_claim_complete_reading(monkeypatch):
+    monkeypatch.setattr("attachments.reader.LocalOcr", unavailable_ocr)
     result = extract(file("text.pdf", pdf(), "application/pdf"))
     assert "Invoice total 120" in result["text"]
     assert result["status"] == "PARTIAL"
@@ -83,7 +89,8 @@ def test_pdf_text_and_scan_do_not_claim_complete_reading():
 @pytest.mark.parametrize(
     "extension,kind,frames", [("jpg", "JPEG", 1), ("png", "PNG", 1), ("gif", "GIF", 1), ("gif", "GIF", 3)]
 )
-def test_actual_image_and_gif_frames_validated_without_vision_claim(extension, kind, frames):
+def test_actual_image_and_gif_frames_validated_without_vision_claim(extension, kind, frames, monkeypatch):
+    monkeypatch.setattr("attachments.reader.LocalOcr", unavailable_ocr)
     result = extract(file(f"image.{extension}", picture(kind, frames)))
     assert result["units"] == frames
     assert result["status"] == "UNSUPPORTED"

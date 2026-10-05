@@ -98,13 +98,36 @@ test("account changes invalidate settings mutations and cannot restore old accou
   requests.finishMutation(mutation);
   assert.equal(requests.acceptsMutation(next), true);
 });
-test("standalone AI generation stays disabled while manual editors remain", async () => {
+test("paid generation stays absent while rule-based pet previews and manual quote editors remain", async () => {
   const pet = await readFile(new URL("../features/workspace/pets/pet-customizer.tsx", import.meta.url), "utf8");
   const basis = await readFile(new URL("../features/workspace/project/quotation/quote-item-basis.tsx", import.meta.url), "utf8");
   const builder = await readFile(new URL("../features/workspace/project/quotation/use-quote-builder.ts", import.meta.url), "utf8");
   assert.doesNotMatch(pet, /generatePet|onClick=.*generate\(/);
-  assert.match(pet, /disabled aria-describedby/); assert.match(pet, /savePet\(session, draft\)/);
+  assert.match(pet, /previewAgentPet\(session, input\)/);
+  assert.match(pet, /saveAgentPet\(session, preview.input\)/);
+  assert.match(pet, /유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성/);
   assert.match(basis, /className="ai-assumption-button"\s+disabled/);
   assert.doesNotMatch(builder, /suggestQuotationAssumption/);
   assert.match(basis, /readOnly=\{!canWrite\}/);
+});
+
+test("ambiguous START retains independent skill, attachment and workflow snapshots", () => {
+  const store = new PendingRunStore();
+  const choice = { mode: "MANUAL", manualIds: ["writing-proposal"], excludedIds: ["dev-bug-triage"], catalogVersion: "1.0.0" };
+  const original = { ...input, attachmentIds: ["attachment-one"], skillSelection: structuredClone(choice), workflowMode: "AD_HOC" };
+  const snapshot = structuredClone(original);
+  const first = store.getOrCreate(original);
+  store.settle(first.id, "uncertain");
+  original.skillSelection.manualIds.push("dev-api-contract");
+  original.attachmentIds.push("attachment-two");
+  first.skillSelection.excludedIds.length = 0;
+  first.workflowMode = "PROJECT_ANALYSIS";
+  const retry = store.getOrCreate({ ...snapshot, creditQuote: { credits: 100, pricingUpdatedAt: "new" } });
+  assert.deepEqual(retry, { ...snapshot, id: first.id });
+  const displayed = store.retries(); displayed[0].skillSelection.manualIds.length = 0;
+  assert.deepEqual(store.retries()[0], retry);
+  for (const change of [{ workflowMode: "PROJECT_ANALYSIS" }, { skillSelection: undefined }, { skillSelection: { ...choice, mode: "MANUAL", manualIds: [] } }, { skillSelection: { ...choice, mode: "AUTO" } }]) {
+    assert.notEqual(store.getOrCreate({ ...snapshot, ...change }).id, first.id);
+  }
+  assert.equal(store.getOrCreate(snapshot).id, first.id);
 });
