@@ -623,7 +623,7 @@ async function recoverSession(failedToken: string): Promise<AuthSession | null> 
   return rotateSession(current);
 }
 
-async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body) headers.set("Content-Type", "application/json");
