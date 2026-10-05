@@ -394,7 +394,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           retryMessages={retryCandidates.map(item => item.message)}
           composerInfo={(draft) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={!!parseChatPolicyIntent(draft)} active={runInProgress} retry={retryCandidates.find(item => item.message === draft)} />
             {!runInProgress && !parseChatPolicyIntent(draft) && !retryCandidates.some(item => item.message === draft) && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
-            {!runInProgress && !parseChatPolicyIntent(draft) && chatModel?.credentialId && <ByokCostNotice provider={chatModel.provider} model={chatModel.model} />}
+            {!runInProgress && !parseChatPolicyIntent(draft) && chatModel?.credentialId && <div className="agent-chat-credit-note"><ByokCostNotice provider={chatModel.provider} model={chatModel.model} /></div>}
             <AiUsageMeter session={session} state={ledger} /></>}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}

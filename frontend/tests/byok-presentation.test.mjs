@@ -34,6 +34,7 @@ test('typed BYOK admission errors reach the preserved-draft chat and terminal pr
   assert.match(shell,/cause instanceof ApiError && byokFailureMessage\(cause.code\)\) throw cause/);
   assert.match(workbench,/if \(byokMessage\) throw new Error\(t\(byokMessage\)\)/);
   assert.match(activity,/byokFailureMessage\(errorCode\) \?\?/);
+  assert.match(workbench,/<div className="agent-chat-credit-note"><ByokCostNotice/);
   assert.match(workbench,/chatModel.credentialId \? personalCostKnown : !ledgerBlocker && !ledger.loading/);
 });
 

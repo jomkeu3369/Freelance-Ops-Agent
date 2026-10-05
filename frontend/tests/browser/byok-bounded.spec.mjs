@@ -107,6 +107,8 @@ for(const [device,width,height] of [['desktop',1440,1000],['mobile',390,844]])te
   await expect(notice).toContainText('$0.04275');
   const bounds=await notice.boundingBox();
   expect(bounds).not.toBeNull();
+  expect(bounds.width).toBeGreaterThanOrEqual(device==='mobile'?280:600);
+  expect(bounds.height).toBeLessThanOrEqual(device==='mobile'?320:200);
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x+bounds.width).toBeLessThanOrEqual(width+1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
