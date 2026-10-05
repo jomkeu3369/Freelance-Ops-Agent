@@ -33,12 +33,11 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
-          # Reviewed predeploy baseline; no release is deployed by this workflow.
-          # For postdeploy, review both actual server build SHAs, schema 47 and mode postdeploy together.
-          EXPECTED_BACKEND_SHA: 98efb8b0bd4576cccab8c69217f450a4da88ad9b
-          EXPECTED_SCHEMA: 35
-          EXPECTED_AGENT_SHA: bb20df86836ce8787095677180bb0a885a897a9a
-          VERIFY_MODE: predeploy
+          # Exact server-stage main merge builds both images; this workflow only verifies.
+          EXPECTED_BACKEND_SHA: 00ba39b14fe6fd05aea9b011514bb70d17cbf79e
+          EXPECTED_SCHEMA: 47
+          EXPECTED_AGENT_SHA: 00ba39b14fe6fd05aea9b011514bb70d17cbf79e
+          VERIFY_MODE: postdeploy
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
           test "$DEPLOY_USER" = "root"
