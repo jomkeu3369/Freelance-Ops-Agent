@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only post-release health, immutable image and schema verification.
+"""Read-only pre/post-release health, immutable image, schema and inventory verification.
 
 Never deploys, changes configuration, writes or restores database data, creates
 credentials, or sends production data off-host. Only allowlisted metadata is printed.
@@ -7,6 +7,7 @@ credentials, or sends production data off-host. Only allowlisted metadata is pri
 from __future__ import annotations
 
 import json
+import hmac
 from pathlib import Path
 import re
 import subprocess
@@ -16,6 +17,94 @@ DEPLOY_ROOT = Path('/opt/freelance-ops')
 PROJECT = 'freelance-ops-v2-production'
 SHA = re.compile(r'[0-9a-f]{40}')
 DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
+PREDEPLOY_BACKEND_SHA = '98efb8b0bd4576cccab8c69217f450a4da88ad9b'
+PREDEPLOY_AGENT_SHA = 'bb20df86836ce8787095677180bb0a885a897a9a'
+
+# Exact aggregate boundary reviewed before the schema 35 -> 47 server stage.
+# One inaccessible legacy runtime interruption is preserved, not failed or deleted.
+EXPECTED_PREDEPLOY_INVENTORY = {
+    "app_active": 0,
+    "app_pending_commands": 0,
+    "runtime_queued": 0,
+    "runtime_running": 0,
+    "runtime_waiting": 1,
+    "runtime_legacy_platform_waiting_with_interruption": 1,
+    "runtime_scoped_byok_active": 0,
+    "runtime_conflicting_funding_active": 0,
+    "runtime_missing_app_active": 1,
+    "app_missing_runtime_active": 0,
+    "unfinished_tasks": 0,
+    "unfinished_attempts": 0,
+    "pending_scheduler_entries": 0,
+    "checkpoints_table_present": True,
+    "checkpoint_writes_table_present": True,
+}
+
+INVENTORY_QUERY = """
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SET LOCAL lock_timeout = '1s';
+WITH active_runtime AS (
+    SELECT run_id, status,
+           coalesce(request_json#>>'{model_selection,credential_id}',
+                    request_json#>>'{modelSelection,credentialId}') IS NOT NULL AS byok,
+           coalesce(jsonb_typeof(coalesce(nullif(request_json->'platform_budget', 'null'::jsonb),
+                                          request_json->'platformBudget')) = 'object', false) AS has_platform_budget,
+           coalesce(jsonb_typeof(coalesce(nullif(request_json->'byok_budget', 'null'::jsonb),
+                                          request_json->'byokBudget')) = 'object', false) AS has_byok_budget,
+           interruption_json IS NOT NULL AND interruption_json <> 'null'::jsonb AS has_interruption
+    FROM agent_runtime.agent_run_state WHERE status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')
+)
+SELECT json_build_object(
+    'app_active', (SELECT count(*) FROM app.agent_run WHERE status IN ('QUEUED','RUNNING','WAITING_FOR_USER')),
+    'app_pending_commands', (SELECT count(*) FROM app.agent_run_command WHERE status IN ('PENDING','PROCESSING')),
+    'runtime_queued', (SELECT count(*) FROM active_runtime WHERE status='QUEUED'),
+    'runtime_running', (SELECT count(*) FROM active_runtime WHERE status='RUNNING'),
+    'runtime_waiting', (SELECT count(*) FROM active_runtime WHERE status='WAITING_FOR_USER'),
+    'runtime_legacy_platform_waiting_with_interruption',
+        (SELECT count(*) FROM active_runtime WHERE status='WAITING_FOR_USER' AND NOT byok
+         AND NOT has_platform_budget AND NOT has_byok_budget AND has_interruption),
+    'runtime_scoped_byok_active', (SELECT count(*) FROM active_runtime WHERE has_byok_budget),
+    'runtime_conflicting_funding_active',
+        (SELECT count(*) FROM active_runtime WHERE has_platform_budget AND has_byok_budget),
+    'runtime_missing_app_active', (SELECT count(*) FROM active_runtime r
+                                   WHERE NOT EXISTS (SELECT 1 FROM app.agent_run a WHERE a.id=r.run_id)),
+    'app_missing_runtime_active', (SELECT count(*) FROM app.agent_run a
+        WHERE a.status IN ('QUEUED','RUNNING','WAITING_FOR_USER')
+          AND NOT EXISTS (SELECT 1 FROM agent_runtime.agent_run_state r WHERE r.run_id=a.id)),
+    'unfinished_tasks', (SELECT count(*) FROM agent_runtime.agent_task
+        WHERE status IN ('SUBMITTED','ADMITTED','DEFERRED','QUEUED','RUNNING','CHECKPOINTED',
+                         'PAUSED','RETRY_WAIT','WAITING_FOR_CAPACITY')),
+    'unfinished_attempts', (SELECT count(*) FROM agent_runtime.agent_task_attempt
+        WHERE status IN ('PREDICTED','QUEUED','RUNNING','CHECKPOINTED')),
+    'pending_scheduler_entries', (SELECT count(*) FROM agent_runtime.agent_scheduler_entry
+        WHERE entry_status IN ('PENDING','CLAIMED')),
+    'checkpoints_table_present', to_regclass('agent_runtime.checkpoints') IS NOT NULL,
+    'checkpoint_writes_table_present', to_regclass('agent_runtime.checkpoint_writes') IS NOT NULL
+);
+COMMIT;
+"""
+
+
+def validate_inventory_shape(inventory: object) -> None:
+    if not isinstance(inventory, dict) or set(inventory) != set(EXPECTED_PREDEPLOY_INVENTORY):
+        raise RuntimeError('Unexpected aggregate inventory shape')
+    for key, expected in EXPECTED_PREDEPLOY_INVENTORY.items():
+        actual = inventory[key]
+        if type(actual) is not type(expected) or isinstance(actual, int) and not isinstance(actual, bool) and actual < 0:
+            raise RuntimeError('Unexpected aggregate inventory value type')
+
+
+def validate_inventory(inventory: object, mode: str) -> None:
+    validate_inventory_shape(inventory)
+    if mode == 'predeploy' and inventory != EXPECTED_PREDEPLOY_INVENTORY:
+        # Values are printed as aggregate-only evidence by main; never echo raw rows.
+        changed = sorted(key for key, expected in EXPECTED_PREDEPLOY_INVENTORY.items() if inventory[key] != expected)
+        raise RuntimeError('Predeploy inventory changed; review required: ' + ', '.join(changed))
+    if not inventory['checkpoints_table_present'] or not inventory['checkpoint_writes_table_present']:
+        raise RuntimeError('Required checkpoint tables are missing')
+    if inventory['runtime_conflicting_funding_active'] != 0:
+        raise RuntimeError('An active runtime request has conflicting platform and BYOK funding')
 
 
 def command(args: list[str], *, input_file=None, output_file=None, timeout=30) -> str:
@@ -54,11 +143,52 @@ def safe_configuration(env: dict[str, str]) -> dict[str, bool]:
     }
 
 
-def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: str) -> None:
+
+def persisted_byok_key_checks(path: Path, running_key: str) -> dict[str, bool]:
+    """Check the exact ensure-byok-key.sh format without exposing secret material."""
+    checks = {
+        'persisted_byok_key_readable': False,
+        'persisted_byok_key_present': False,
+        'persisted_byok_key_unique': False,
+        'persisted_byok_key_valid': False,
+        'persisted_byok_key_matches_running': False,
+    }
+    values = []
+    try:
+        # Split only on LF, like grep/sed; preserve CR/whitespace in each value.
+        # Only retain matching key lines; never return .env content or fingerprints.
+        with path.open('r', encoding='utf-8', newline='\n') as stream:
+            for line in stream:
+                if line.startswith('APP_BYOK_ENCRYPTION_KEY='):
+                    values.append(line.removesuffix('\n').split('=', 1)[1])
+    except (OSError, UnicodeError):
+        return checks
+    checks['persisted_byok_key_readable'] = True
+    checks['persisted_byok_key_present'] = bool(values) and any(bool(value) for value in values)
+    checks['persisted_byok_key_unique'] = len(values) == 1
+    valid = len(values) == 1 and re.fullmatch(r'[A-Za-z0-9+/]{43}=', values[0]) is not None
+    checks['persisted_byok_key_valid'] = valid
+    checks['persisted_byok_key_matches_running'] = valid and hmac.compare_digest(
+        values[0].encode('utf-8'), running_key.encode('utf-8'))
+    return checks
+
+
+def validate_expected_release(expected_backend_sha: str, expected_schema: str, expected_agent_sha: str, mode: str) -> None:
     if not SHA.fullmatch(expected_backend_sha) or not SHA.fullmatch(expected_agent_sha):
         raise ValueError('Expected full image commit SHAs')
-    if expected_schema not in ('35', '46'):
-        raise ValueError('Expected reviewed schema 35 or 46')
+    if expected_schema not in ('35', '46', '47'):
+        raise ValueError('Expected reviewed schema 35, 46 or 47')
+    if mode not in ('predeploy', 'postdeploy'):
+        raise ValueError('Expected explicit predeploy or postdeploy mode')
+    if mode == 'predeploy' and expected_schema != '35':
+        raise ValueError('Reviewed predeploy inventory applies only to schema 35')
+    if mode == 'predeploy' and (expected_backend_sha != PREDEPLOY_BACKEND_SHA
+                                or expected_agent_sha != PREDEPLOY_AGENT_SHA):
+        raise ValueError('Predeploy requires the reviewed backend and agent baseline pins')
+
+
+def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: str, mode: str = "postdeploy") -> None:
+    validate_expected_release(expected_backend_sha, expected_schema, expected_agent_sha, mode)
     postgres = container('freelance-ops-v2-infra', 'postgres')
     images = {}
     config = {}
@@ -79,7 +209,10 @@ def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: st
             raise RuntimeError(f'{service} is not healthy')
         images[service] = {'tag': tag, 'image_id': image['Id'], 'healthy': healthy}
         if service == 'backend':
-            config = safe_configuration(environment(data['Config'].get('Env', [])))
+            backend_env = environment(data['Config'].get('Env', []))
+            config = safe_configuration(backend_env)
+            config.update(persisted_byok_key_checks(DEPLOY_ROOT / '.env',
+                                                  backend_env.get('APP_BYOK_ENCRYPTION_KEY', '')))
     if not all(config.values()):
         print(json.dumps({'configuration_checks': config}, sort_keys=True))
         raise RuntimeError('Safety configuration failed')
@@ -102,22 +235,134 @@ def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: st
     aggregate_psql = ['docker', 'exec', postgres, 'psql', '-X', '-q', '--csv',
                       '--username', 'postgres', '--dbname', 'freelance_ops',
                       '--set', 'ON_ERROR_STOP=1', '--command']
-    aggregate_queries = {"app-active-readonly.sql":"-- Reviewed against app schema V35 (bb20df8). Aggregate-only; do not return payloads or identifiers.\nBEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL statement_timeout = '5s';\nSET LOCAL lock_timeout = '1s';\n\n-- Public projection: a fixed row for each active status, including zero counts.\nSELECT expected.status,\n       count(r.id) AS run_count,\n       count(r.id) FILTER (WHERE r.credential_id IS NOT NULL) AS byok_run_count,\n       count(r.id) FILTER (WHERE r.credential_id IS NULL) AS platform_run_count\nFROM (VALUES ('QUEUED'), ('RUNNING'), ('WAITING_FOR_USER')) AS expected(status)\nLEFT JOIN app.agent_run r ON r.status = expected.status\nGROUP BY expected.status ORDER BY expected.status;\n\n-- Undelivered commands are a separate boundary: queued legacy commands can fail after rollout.\nWITH pending AS (\n    SELECT command_type, status, available_at, lease_until,\n           CASE WHEN payload IS JSON OBJECT THEN payload::jsonb ELSE NULL END AS body\n    FROM app.agent_run_command WHERE status IN ('PENDING', 'PROCESSING')\n)\nSELECT command_type, status, count(*) AS command_count,\n       count(*) FILTER (WHERE status = 'PENDING' AND available_at <= now()) AS ready_count,\n       count(*) FILTER (WHERE status = 'PROCESSING' AND lease_until <= now()) AS expired_lease_count,\n       count(*) FILTER (WHERE command_type = 'START' AND body IS NULL) AS invalid_start_json_count,\n       count(*) FILTER (WHERE command_type = 'START' AND body IS NOT NULL\n           AND NOT coalesce(jsonb_typeof(coalesce(nullif(body->'platformBudget', 'null'::jsonb),\n                                                body->'platform_budget')) = 'object', false)) AS legacy_start_without_budget_count,\n       count(*) FILTER (WHERE command_type = 'START'\n           AND coalesce(body#>>'{modelSelection,credentialId}',\n                        body#>>'{model_selection,credential_id}') IS NOT NULL) AS byok_start_count\nFROM pending GROUP BY command_type, status ORDER BY command_type, status;\nCOMMIT;\n","agent-active-readonly.sql":"-- Reviewed against agent runtime 20260912_0007. No prompt, UUID, credential, or blob output.\nBEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL statement_timeout = '5s';\nSET LOCAL lock_timeout = '1s';\n\nWITH active AS (\n    SELECT run_id, status,\n           coalesce(request_json#>>'{model_selection,credential_id}',\n                    request_json#>>'{modelSelection,credentialId}') IS NOT NULL AS byok,\n           coalesce(jsonb_typeof(coalesce(nullif(request_json->'platform_budget', 'null'::jsonb),\n                                          request_json->'platformBudget')) = 'object', false) AS has_budget,\n           interruption_json IS NOT NULL AND interruption_json <> 'null'::jsonb AS has_interruption\n    FROM agent_runtime.agent_run_state WHERE status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')\n)\nSELECT expected.status, count(a.run_id) AS run_count,\n       count(a.run_id) FILTER (WHERE a.byok) AS byok_run_count,\n       count(a.run_id) FILTER (WHERE NOT a.byok) AS platform_run_count,\n       count(a.run_id) FILTER (WHERE NOT a.has_budget) AS legacy_without_budget_count,\n       count(a.run_id) FILTER (WHERE NOT a.has_budget AND a.byok) AS legacy_byok_without_budget_count,\n       count(a.run_id) FILTER (WHERE a.has_interruption) AS with_interruption_count\nFROM (VALUES ('QUEUED'), ('RUNNING'), ('WAITING_FOR_USER')) AS expected(status)\nLEFT JOIN active a ON a.status = expected.status\nGROUP BY expected.status ORDER BY expected.status;\n\n-- Unfinished async work can remain even if the top-level run projection is terminal.\nSELECT status, count(*) AS task_count\nFROM agent_runtime.agent_task\nWHERE status IN ('SUBMITTED', 'ADMITTED', 'DEFERRED', 'QUEUED', 'RUNNING', 'CHECKPOINTED',\n                 'PAUSED', 'RETRY_WAIT', 'WAITING_FOR_CAPACITY')\nGROUP BY status ORDER BY status;\n\nSELECT status, count(*) AS attempt_count,\n       count(*) FILTER (WHERE checkpoint_id IS NOT NULL) AS with_checkpoint_count\nFROM agent_runtime.agent_task_attempt\nWHERE status IN ('PREDICTED', 'QUEUED', 'RUNNING', 'CHECKPOINTED')\nGROUP BY status ORDER BY status;\n\nSELECT entry_status, queue_kind, count(*) AS scheduler_entry_count,\n       count(*) FILTER (WHERE entry_status = 'CLAIMED' AND lease_until <= now()) AS expired_lease_count\nFROM agent_runtime.agent_scheduler_entry WHERE entry_status IN ('PENDING', 'CLAIMED')\nGROUP BY entry_status, queue_kind ORDER BY entry_status, queue_kind;\n\n-- LangGraph tables are separately maintained by AsyncPostgresSaver, not Alembic revision 0007.\nSELECT to_regclass('agent_runtime.checkpoints') IS NOT NULL AS checkpoints_table_present,\n       to_regclass('agent_runtime.checkpoint_writes') IS NOT NULL AS checkpoint_writes_table_present;\nCOMMIT;\n","cross-schema-boundary-readonly.sql":"-- Optional: only an already-authorized read-only role that can read BOTH schemas.\n-- Do not broaden permissions solely for this query. No identifiers are returned.\nBEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL statement_timeout = '5s';\nSET LOCAL lock_timeout = '1s';\nSELECT coalesce(a.status, 'MISSING') AS app_status,\n       coalesce(r.status, 'MISSING') AS runtime_status, count(*) AS run_count\nFROM app.agent_run a FULL JOIN agent_runtime.agent_run_state r ON r.run_id = a.id\nWHERE a.status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')\n   OR r.status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')\nGROUP BY coalesce(a.status, 'MISSING'), coalesce(r.status, 'MISSING')\nORDER BY app_status, runtime_status;\nCOMMIT;\n"}
+    aggregate_queries = {
+        'app-active-readonly.sql': """-- Shared schema 35/46/47 read-only columns; return aggregates only.
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SET LOCAL lock_timeout = '1s';
+
+-- Public projection: a fixed row for each active status, including zero counts.
+SELECT expected.status,
+       count(r.id) AS run_count,
+       count(r.id) FILTER (WHERE r.credential_id IS NOT NULL) AS byok_run_count,
+       count(r.id) FILTER (WHERE r.credential_id IS NULL) AS platform_run_count
+FROM (VALUES ('QUEUED'), ('RUNNING'), ('WAITING_FOR_USER')) AS expected(status)
+LEFT JOIN app.agent_run r ON r.status = expected.status
+GROUP BY expected.status ORDER BY expected.status;
+
+-- Undelivered commands are a separate boundary: queued legacy commands can fail after rollout.
+WITH pending AS (
+    SELECT command_type, status, available_at, lease_until,
+           CASE WHEN payload IS JSON OBJECT THEN payload::jsonb ELSE NULL END AS body
+    FROM app.agent_run_command WHERE status IN ('PENDING', 'PROCESSING')
+)
+SELECT command_type, status, count(*) AS command_count,
+       count(*) FILTER (WHERE status = 'PENDING' AND available_at <= now()) AS ready_count,
+       count(*) FILTER (WHERE status = 'PROCESSING' AND lease_until <= now()) AS expired_lease_count,
+       count(*) FILTER (WHERE command_type = 'START' AND body IS NULL) AS invalid_start_json_count,
+       count(*) FILTER (WHERE command_type = 'START' AND body IS NOT NULL
+           AND NOT coalesce(jsonb_typeof(coalesce(nullif(body->'platformBudget', 'null'::jsonb),
+                                                body->'platform_budget')) = 'object', false)
+           AND NOT coalesce(jsonb_typeof(coalesce(nullif(body->'byokBudget', 'null'::jsonb),
+                                                body->'byok_budget')) = 'object', false)) AS legacy_start_without_budget_count,
+       count(*) FILTER (WHERE command_type = 'START'
+           AND coalesce(jsonb_typeof(coalesce(nullif(body->'byokBudget', 'null'::jsonb),
+                                             body->'byok_budget')) = 'object', false)) AS scoped_byok_start_count,
+       count(*) FILTER (WHERE command_type = 'START'
+           AND coalesce(body#>>'{modelSelection,credentialId}',
+                        body#>>'{model_selection,credential_id}') IS NOT NULL) AS byok_start_count
+FROM pending GROUP BY command_type, status ORDER BY command_type, status;
+COMMIT;
+""",
+        'agent-active-readonly.sql': """-- Reviewed against agent runtime 20260912_0007. No prompt, UUID, credential, or blob output.
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SET LOCAL lock_timeout = '1s';
+
+WITH active AS (
+    SELECT run_id, status,
+           coalesce(request_json#>>'{model_selection,credential_id}',
+                    request_json#>>'{modelSelection,credentialId}') IS NOT NULL AS byok,
+           coalesce(jsonb_typeof(coalesce(nullif(request_json->'platform_budget', 'null'::jsonb),
+                                          request_json->'platformBudget')) = 'object', false) AS has_platform_budget,
+           coalesce(jsonb_typeof(coalesce(nullif(request_json->'byok_budget', 'null'::jsonb),
+                                          request_json->'byokBudget')) = 'object', false) AS has_byok_budget,
+           interruption_json IS NOT NULL AND interruption_json <> 'null'::jsonb AS has_interruption
+    FROM agent_runtime.agent_run_state WHERE status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')
+)
+SELECT expected.status, count(a.run_id) AS run_count,
+       count(a.run_id) FILTER (WHERE a.byok) AS byok_run_count,
+       count(a.run_id) FILTER (WHERE NOT a.byok) AS platform_run_count,
+       count(a.run_id) FILTER (WHERE NOT a.has_platform_budget AND NOT a.has_byok_budget) AS legacy_without_budget_count,
+       count(a.run_id) FILTER (WHERE NOT a.has_platform_budget AND NOT a.has_byok_budget AND a.byok) AS legacy_byok_without_budget_count,
+       count(a.run_id) FILTER (WHERE a.has_byok_budget) AS scoped_byok_run_count,
+       count(a.run_id) FILTER (WHERE a.has_platform_budget) AS scoped_platform_run_count,
+       count(a.run_id) FILTER (WHERE a.has_platform_budget AND a.has_byok_budget) AS conflicting_funding_count,
+       count(a.run_id) FILTER (WHERE a.has_interruption) AS with_interruption_count
+FROM (VALUES ('QUEUED'), ('RUNNING'), ('WAITING_FOR_USER')) AS expected(status)
+LEFT JOIN active a ON a.status = expected.status
+GROUP BY expected.status ORDER BY expected.status;
+
+-- Unfinished async work can remain even if the top-level run projection is terminal.
+SELECT status, count(*) AS task_count
+FROM agent_runtime.agent_task
+WHERE status IN ('SUBMITTED', 'ADMITTED', 'DEFERRED', 'QUEUED', 'RUNNING', 'CHECKPOINTED',
+                 'PAUSED', 'RETRY_WAIT', 'WAITING_FOR_CAPACITY')
+GROUP BY status ORDER BY status;
+
+SELECT status, count(*) AS attempt_count,
+       count(*) FILTER (WHERE checkpoint_id IS NOT NULL) AS with_checkpoint_count
+FROM agent_runtime.agent_task_attempt
+WHERE status IN ('PREDICTED', 'QUEUED', 'RUNNING', 'CHECKPOINTED')
+GROUP BY status ORDER BY status;
+
+SELECT entry_status, queue_kind, count(*) AS scheduler_entry_count,
+       count(*) FILTER (WHERE entry_status = 'CLAIMED' AND lease_until <= now()) AS expired_lease_count
+FROM agent_runtime.agent_scheduler_entry WHERE entry_status IN ('PENDING', 'CLAIMED')
+GROUP BY entry_status, queue_kind ORDER BY entry_status, queue_kind;
+
+-- LangGraph tables are separately maintained by AsyncPostgresSaver, not Alembic revision 0007.
+SELECT to_regclass('agent_runtime.checkpoints') IS NOT NULL AS checkpoints_table_present,
+       to_regclass('agent_runtime.checkpoint_writes') IS NOT NULL AS checkpoint_writes_table_present;
+COMMIT;
+""",
+        'cross-schema-boundary-readonly.sql': """-- Optional: only an already-authorized read-only role that can read BOTH schemas.
+-- Do not broaden permissions solely for this query. No identifiers are returned.
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout = '5s';
+SET LOCAL lock_timeout = '1s';
+SELECT coalesce(a.status, 'MISSING') AS app_status,
+       coalesce(r.status, 'MISSING') AS runtime_status, count(*) AS run_count
+FROM app.agent_run a FULL JOIN agent_runtime.agent_run_state r ON r.run_id = a.id
+WHERE a.status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')
+   OR r.status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')
+GROUP BY coalesce(a.status, 'MISSING'), coalesce(r.status, 'MISSING')
+ORDER BY app_status, runtime_status;
+COMMIT;
+""",
+    }
     aggregate_results = {name: command(aggregate_psql + [query], timeout=20)
                          for name, query in aggregate_queries.items()}
     print(json.dumps({'active_work_aggregate_counts': aggregate_results},
                      indent=2, sort_keys=True))
 
+    inventory = json.loads(command(psql + [INVENTORY_QUERY], timeout=20))
+    validate_inventory_shape(inventory)  # Validate allowlisted shape before printing.
+    print(json.dumps({'verification_mode': mode, 'active_inventory': inventory}, indent=2, sort_keys=True))
+    validate_inventory(inventory, mode)
+
     print(json.dumps({'images': images, 'configuration_checks': config,
                       'flyway_version': int(schema), 'failed_migrations': int(failed),
                       'alembic_version': alembic, 'backend_readiness': 'UP',
+                      'verification_mode': mode,
+                      'predeploy_inventory_matches_reviewed_boundary': True if mode == 'predeploy' else None,
                       'read_only_verification': True}, indent=2, sort_keys=True))
 
 
 if __name__ == '__main__':
     try:
-        if len(sys.argv) != 4:
-            raise ValueError('Usage: production-release-verify.py <backend-sha> <schema> <agent-sha>')
+        if len(sys.argv) not in (4, 5):
+            raise ValueError('Usage: production-release-verify.py <backend-sha> <schema> <agent-sha> [predeploy|postdeploy]')
         main(*sys.argv[1:])
     except Exception as exc:
         print(f'Verification stopped: {type(exc).__name__}: {exc}', file=sys.stderr)

@@ -33,16 +33,20 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
+          # Reviewed predeploy baseline; no release is deployed by this workflow.
+          # For postdeploy, review both actual server build SHAs, schema 47 and mode postdeploy together.
           EXPECTED_BACKEND_SHA: 98efb8b0bd4576cccab8c69217f450a4da88ad9b
           EXPECTED_SCHEMA: 35
           EXPECTED_AGENT_SHA: bb20df86836ce8787095677180bb0a885a897a9a
+          VERIFY_MODE: predeploy
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
           test "$DEPLOY_USER" = "root"
           printf '%s' "$EXPECTED_BACKEND_SHA" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "$EXPECTED_AGENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          case "$EXPECTED_SCHEMA" in 35|46) ;; *) exit 2;; esac
+          case "$EXPECTED_SCHEMA" in 35|46|47) ;; *) exit 2;; esac
+          case "$VERIFY_MODE" in predeploy|postdeploy) ;; *) exit 2;; esac
           ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
             "$DEPLOY_USER@$DEPLOY_HOST" \
-            "python3 - '$EXPECTED_BACKEND_SHA' '$EXPECTED_SCHEMA' '$EXPECTED_AGENT_SHA'" \
+            "python3 - '$EXPECTED_BACKEND_SHA' '$EXPECTED_SCHEMA' '$EXPECTED_AGENT_SHA' '$VERIFY_MODE'" \
             < infra/scripts/production-release-verify.py
