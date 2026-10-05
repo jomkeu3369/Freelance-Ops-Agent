@@ -14,6 +14,8 @@ on:
       - "codex/login-pet-motion-20261005"
       - "codex/login-footer-center-20261005"
       - "codex/byok-release-integration-20261005"
+      - "codex/chat-markdown-20261005"
+      - "codex/markdown-release-20261005"
     paths:
       - "frontend/**"
       - "contracts/fixtures/workspace-credit-contract.json"
@@ -47,7 +49,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch and same-repository PR verification. No deployment or provider calls.
-    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -104,7 +106,8 @@ jobs:
             tests/browser/fullscreen-chat.spec.mjs \
             tests/browser/auth-error.spec.mjs \
             tests/browser/auth-cinematic.spec.mjs \
-            tests/browser/byok-bounded.spec.mjs
+            tests/browser/byok-bounded.spec.mjs \
+            tests/browser/chat-markdown.spec.mjs
       - name: Preserve synthetic browser evidence
         if: always()
         uses: actions/upload-artifact@v4
