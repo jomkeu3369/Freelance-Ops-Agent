@@ -19,6 +19,7 @@ docker-compose-local.yaml
 faiss_index/
 
 # Local IDE settings
+.vscode/
 .idea/
 *.iml
 backend/.metadata/
@@ -35,6 +36,14 @@ docs/operations/ai-server-pc-handoff-2026-08-13.md
 docs/operations/local-compose-and-swagger-handoff.md
 
 # Local application and test artifacts
+.DS_Store
+Thumbs.db
+*.log
+*.log.*
+*.tmp
+*.swp
+*.swo
+*~
 output/
 tmp/
 agent/.tmp-pytest-*/
@@ -79,3 +88,6 @@ __pycache__/
 # Local infrastructure state and secrets
 infra/**/*.local
 infra/**/*.secret
+
+# Removed README demo; keep any local copy untracked
+docs/assets/readme/product-walkthrough-1080p60.mp4
