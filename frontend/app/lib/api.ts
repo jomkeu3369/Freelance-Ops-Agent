@@ -532,6 +532,16 @@ export function getFreeUsage(session: AuthSession): Promise<FreeUsage> {
   return request("/api/v2/usage/free", { cache: "no-store" }, session.accessToken);
 }
 
+// Account usage contract is validated by the display adapter before rendering.
+export function getAiUsage(session: AuthSession): Promise<unknown> {
+  return request("/api/v2/me/ai-usage", { cache: "no-store" }, session.accessToken);
+}
+export function getAiUsageHistory(session: AuthSession, cursor?: string): Promise<unknown> {
+  const query = new URLSearchParams({ limit: "20" });
+  if (cursor) query.set("cursor", cursor);
+  return request(`/api/v2/me/ai-usage/history?${query}`, { cache: "no-store" }, session.accessToken);
+}
+
 export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSettings> {
   return request("/api/v2/admin/free-usage", { cache: "no-store" }, session.accessToken);
 }

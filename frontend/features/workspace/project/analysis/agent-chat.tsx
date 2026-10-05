@@ -17,7 +17,8 @@ import {
   listProjectEstimationPolicyProposals,
   proposeEstimationPolicy,
 } from "../../../../app/lib/api";
-import { ChatCircleText, ArrowUp, ArrowDown, ArrowUpRight, CheckCircle, CircleNotch, WarningCircle, WifiSlash, ListChecks, SlidersHorizontal } from "@phosphor-icons/react";
+import { ChatCircleText, ArrowUp, ArrowDown, ArrowUpRight, CheckCircle, CircleNotch, WarningCircle, WifiSlash, ListChecks } from "@phosphor-icons/react";
+import { ChatSettingsButton } from "./chat-settings-button";
 import { chatState, resultPendingMessage } from "../../../../app/lib/chat-presentation.mjs";
 import { parseChatPolicyIntent } from "../../../../app/lib/chat-policy-intent.mjs";
 import { departmentLabels, runStatusLabels } from "../../shared/constants";
@@ -346,16 +347,16 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
-        <textarea ref={input} id="agent-chat-input" aria-describedby="agent-chat-input-help" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
+        <textarea ref={input} id="agent-chat-input" aria-describedby={active ? "agent-chat-input-help" : undefined} aria-keyshortcuts="Control+Enter Meta+Enter" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
           if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing && event.keyCode !== 229 && !composing.current) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
         }} />
-        <p id="agent-chat-input-help" className="agent-chat-muted">{active ? t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.") : t("Enter로 줄바꿈 · Ctrl/⌘ + Enter로 보내기. 초안은 이 탭에 저장됩니다.")}</p>
-        {typeof composerInfo === "function" ? composerInfo(draft) : composerInfo}
+        {active && <p id="agent-chat-input-help" className="agent-chat-muted">{t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.")}</p>}
         <div className="agent-chat-actions">
           {canRun && <fieldset className="agent-chat-tools" disabled={sending} aria-label={t("AI 설정")}>
             {composerTools}
-            <button type="button" className="quiet-button agent-chat-model-button" onClick={onOpenAISettings} aria-label={t("AI 설정 열기")} title={t("AI 설정 열기")}><SlidersHorizontal size={17} aria-hidden="true" /><span className="agent-chat-settings-label">{t("AI 설정")}</span></button>
+            <ChatSettingsButton onClick={onOpenAISettings} />
           </fieldset>}
+          {typeof composerInfo === "function" ? composerInfo(draft) : composerInfo}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
           <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : t("보내기")} disabled={!online || !draft.trim() || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : t("보내기")}</span></button>
         </div>

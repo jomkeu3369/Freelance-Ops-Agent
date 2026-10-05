@@ -17,9 +17,10 @@ test("chat sends the exact user text, displays real task events, cancels, and pr
   await page.locator(".agent-chat-actions .danger").click();
   await expect(page.locator(".agent-chat-message.assistant")).toContainText("사용자 중단");
   await input.fill("Unsent draft stays mine");
-  await page.locator(".ui-language-selector select").selectOption("en");
+  await page.locator(".workspace-language-trigger").click();
+  await page.getByRole("menuitemradio", { name: "EN English" }).click();
   await page.reload();
-  await expect(page.locator(".ui-language-selector select")).toHaveValue("en");
+  await expect(page.locator(".workspace-language-trigger")).toHaveText("EN");
   await expect(page.getByRole("region", { name: "Agent conversation" })).toBeVisible();
   await expect(input).toHaveValue("Unsent draft stays mine");
   await expect(page.locator(".agent-chat-message.user")).toContainText("Review the exact customer wording");

@@ -8,13 +8,13 @@ test("legacy usage blocks included AI while explicit BYOK remains available with
   state.usage = { limit: 5, used: 1, reserved: 0, remaining: 4, resetAt: "2026-11-01T00:00:00Z" };
   state.connections = [{ id: "personal-key", provider: "OPENAI", model: "personal-model", maskedKey: "synthetic…key", updatedAt: "2026-10-01T00:00:00Z" }];
   await page.goto(path); await page.locator("#agent-chat-input").fill("Keep this exact request");
-  await expect(page.locator(".agent-chat-credit-note")).toContainText("크레딧 가격을 확인한 뒤");
+  await expect(page.locator(".agent-chat-credit-note")).toContainText("요청 가격을 확인한 뒤");
   await expect(send(page)).toBeDisabled();
   expect(state.starts).toEqual([]);
   await page.locator(".chat-model-trigger").click();
   await page.getByRole("dialog", { name: "AI 모델 선택", exact: true }).getByLabel("AI 연결", { exact: true }).selectOption("personal-key");
   await page.keyboard.press("Escape");
-  await expect(page.locator(".agent-chat-credit-note")).toContainText("제공사 계정에 사용 요금");
+  await expect(page.locator(".agent-chat-credit-note")).toHaveCount(0);
   await send(page).click(); await expect.poll(() => state.starts.length).toBe(1);
   expect(state.starts[0].creditQuote).toBeUndefined();
   expect(state.starts[0].modelSelection.credentialId).toBe("personal-key");
@@ -34,7 +34,7 @@ for (const [status, code] of [[428, "CREDIT_QUOTE_REQUIRED"], [409, "CREDIT_QUOT
     await page.goto(path); await page.locator("#agent-chat-input").fill("Price needs confirmation");
     await send(page).click();
     await expect(page.locator(".agent-chat .form-error")).toContainText("새 차감량을 검토");
-    await expect(page.locator(".agent-chat-credit-note")).toContainText("20 크레딧");
+    await expect(page.locator(".agent-chat-credit-note")).toContainText("새 가격을 확인");
     await expect(page.locator("#agent-chat-input")).toHaveValue("Price needs confirmation");
     expect(attempts).toHaveLength(1); expect(state.starts).toHaveLength(0);
     await send(page).click(); await expect.poll(() => attempts.length).toBe(2);
@@ -65,7 +65,7 @@ test("ambiguous retry retains its original body and key after a newer price and 
   const usage = page.getByRole("dialog", { name: "주간 크레딧", exact: true });
   await usage.getByRole("button", { name: "다시 확인", exact: true }).click();
   await expect(usage).toContainText("0 / 100 크레딧"); await page.keyboard.press("Escape");
-  await expect(page.locator(".agent-chat-credit-note")).toContainText("원래 확인한 10 크레딧");
+  await expect(page.locator(".agent-chat-credit-note")).toContainText("원래 확인한 조건");
   await expect(send(page)).toBeEnabled(); await send(page).click();
   await expect.poll(() => attempts.length).toBe(2);
   expect(attempts[1]).toEqual(attempts[0]); expect(created).toBe(1);
@@ -84,7 +84,7 @@ for (const [status, code] of [[429, "PLATFORM_SPEND_EXHAUSTED"], [503, "PLATFORM
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.locator("#agent-chat-input")).toHaveValue("Preserved behind the operating guard");
     expect(attempts).toHaveLength(1);
-    await expect(page.locator(".agent-chat-credit-note")).not.toContainText("접수 여부가 불확실");
+    await expect(page.locator(".agent-chat-credit-note")).toHaveCount(0);
   });
 }
 
@@ -94,10 +94,10 @@ test("model price and remaining credits govern included AI, while deterministic 
   await page.locator(".chat-model-trigger").click();
   const menu = page.getByRole("dialog", { name: "AI 모델 선택", exact: true });
   await menu.getByLabel("AI 모델", { exact: true }).selectOption("gpt-5.6-terra"); await page.keyboard.press("Escape");
-  await expect(page.locator(".agent-chat-credit-note")).toContainText("100 크레딧 필요 · 70 크레딧 남음");
+  await expect(page.locator(".agent-chat-credit-note")).toContainText("잔여 한도가 부족");
   await expect(send(page)).toBeDisabled();
   await page.locator("#agent-chat-input").fill("기본 세율 12%로 변경");
-  await expect(page.locator(".agent-chat-credit-note")).toContainText("AI 크레딧 차감 없음");
+  await expect(page.locator(".agent-chat-credit-note")).toContainText("주간 한도 차감 없음");
   await send(page).click(); await expect(page.locator(".agent-chat-policy")).toBeVisible();
   expect(state.confirms).toBe(0); expect(state.starts).toEqual([]);
 });

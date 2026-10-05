@@ -7,7 +7,8 @@ test("composer exposes real model selection and advanced settings beside an expl
   const chat = await read("../features/workspace/project/analysis/agent-chat.tsx");
   assert.match(chat, /canRun && <fieldset className="agent-chat-tools" disabled=\{sending\}/);
   assert.match(chat, /\{composerTools\}/);
-  assert.match(chat, /aria-label=\{t\("AI 설정 열기"\)\}/);
+  const settings = await read("../features/workspace/project/analysis/chat-settings-button.tsx");
+  assert.match(settings, /aria-label=\{t\("AI 설정 열기"\)\}/);
   assert.match(chat, /type="submit" className="primary-button" aria-label=/);
 });
 

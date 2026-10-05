@@ -149,7 +149,8 @@ for (const width of [320, 390, 1440]) {
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.addInitScript(value => { localStorage.setItem("freelance-ops-ui-locale-v1", value); localStorage.setItem("theme", value === "en" ? "dark" : "light"); }, locale);
       await page.goto(path);
-      await page.locator(".ui-language-selector select").selectOption(locale);
+      await page.locator(".workspace-language-trigger").click();
+      await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
       const open = page.getByRole("button", { name: locale === "ko" ? "결과 열기" : "Open result" });
       await open.focus();
       await page.keyboard.press("Enter");
@@ -310,7 +311,8 @@ for (const locale of ["ko", "en"]) {
   test(`${locale}: proposal creation and confirmation announce accessible status`, async ({ page }) => {
     const state = await fixture(page);
     await page.goto(path);
-    await page.locator(".ui-language-selector select").selectOption(locale);
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
     await page.locator("#agent-chat-input").fill("기본 세율 12%로 변경");
     await page.locator('.agent-chat-composer button[type="submit"]').click();
     const announcement = page.locator('.agent-chat > .sr-only[role="status"]');

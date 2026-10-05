@@ -56,6 +56,11 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;
 }
 export function useUiLocale() { return useContext(LocaleContext); }
+export function setUiLocale(value: string) {
+  memoryLocale = normalizeLocale(value) as Locale;
+  try { localStorage.setItem(localeStorageKey, memoryLocale); memoryOverride = false; } catch { memoryOverride = true; }
+  window.dispatchEvent(new Event(eventName));
+}
 export function useT() {
   const locale = useUiLocale();
   return useCallback((source: string | null | undefined, values: Record<string, string | number> = {}) => translateUi(source ?? "", locale, values), [locale]);
@@ -64,9 +69,7 @@ export function LanguageSelector() {
   const locale = useUiLocale();
   const t = useT();
   return <label className="ui-language-selector"><span className="sr-only">{t("표시 언어")}</span><select aria-label={t("표시 언어")} value={locale} onChange={event => {
-    memoryLocale = normalizeLocale(event.target.value) as Locale;
-    try { localStorage.setItem(localeStorageKey, memoryLocale); memoryOverride = false; } catch { memoryOverride = true; }
-    window.dispatchEvent(new Event(eventName));
+    setUiLocale(event.target.value);
   }}><option value="ko" lang="ko">한국어</option><option value="en" lang="en">English</option></select></label>;
 }
 export function SkipLink() { const t = useT(); return <a className="skip-link" href="#main-content">{t("본문으로 건너뛰기")}</a>; }

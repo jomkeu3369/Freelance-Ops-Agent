@@ -20,6 +20,8 @@ export async function fixture(page) {
   const usage = { unit: "CREDITS", periodType: "WEEKLY", limit: 100, used: 0, reserved: 0, remaining: 100, resetAt: "2026-10-11T15:00:00Z", period: "2026-10-05", timezone: "Asia/Seoul", epoch: 1, canManage: false, modelRates: fixtureModels.map(model => ({ provider: "OPENAI", model, credits: model.includes("terra") ? 100 : 10, enabled: true })), pricingUpdatedAt: "2026-10-04T12:00:00.123456Z" };
   const state = { usage, usageStatus: 200, starts: [], history: [], run: null, policy: { workspaceId: "local-space", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 }, proposal: null, confirms: 0, blocked: [], permissions: ["project.read", "agent.run", "agent.cancel", "agent.respond", "quotation.read", "quotation.write"], startFailures: 0, resumeFailures: 0, resumes: [], streamFailures: 0, streamRequests: 0, events: null };
   Object.assign(state, { projects: [{ ...project }], projectRuns: {}, projectHistory: {}, pastRuns: {}, connections: [], runReads: [], latestReads: [], startProjects: [], cancels: [], writes: [], nextLatestRead: null, nextRunRead: null, nextStart: null, nextCancel: null });
+  Object.assign(state, { aiUsage: { currency: "USD", limitUsd: "1.25", settledUsd: "0.125", reservedUsd: "0.125", remainingUsd: "1", remainingPercent: "80", reservedPercent: "10", periodStart: "2026-10-04T15:00:00Z", resetAt: "2026-10-11T15:00:00Z", timezone: "Asia/Seoul" }, aiUsageStatus: 200, aiHistory: { items: [], nextCursor: null }, aiHistoryStatus: 200 });
+  Object.assign(state.aiUsage, { spendingEnabled: true, models: fixtureModels.map(model => ({ provider: "OPENAI", model, catalogued: true, enabled: true, available: true, unavailableReason: null, reasoningEfforts: ["low", "medium", "high"], maxRunUsd: "0.25" })) });
   await page.addInitScript(() => sessionStorage.setItem("freelance-ops-session-v1", JSON.stringify({
     userId: "local-user", workspaceId: "local-space", accessToken: "fixture-token", refreshToken: "fixture-token",
     accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer",
@@ -38,6 +40,8 @@ export async function fixture(page) {
     const projectId = path.match(/\/projects\/([^/]+)/)?.[1];
     const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
     if (path === "/api/v2/usage/free" && method === "GET") return json(state.usage, state.usageStatus);
+    if (path === "/api/v2/me/ai-usage" && method === "GET") return json(state.aiUsage, state.aiUsageStatus);
+    if (path === "/api/v2/me/ai-usage/history" && method === "GET") return json(state.aiHistory, state.aiHistoryStatus);
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
     if (method !== "GET") state.writes.push({ path, method });
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });

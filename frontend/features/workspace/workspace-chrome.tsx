@@ -1,4 +1,5 @@
-import { useT, LanguageSelector } from "../../app/lib/ui-language";
+import { useT } from "../../app/lib/ui-language";
+import { WorkspaceLanguageMenu } from "./workspace-language-menu";
 import { useMemo, useRef } from "react";
 import { useDialogFocusTrap } from "./shared/use-dialog-focus-trap";
 import { X, ChatCircleText, SquaresFour, FolderOpen, Files, GearSix, SignOut, SidebarSimple, Plus, Moon, Sun, Users } from "@phosphor-icons/react";
@@ -68,7 +69,7 @@ export function WorkspaceChrome({ session, profile, sidebarCollapsed, compactNav
         </div>
       </div>
       <div className="workspace-account-actions">
-        <LanguageSelector />
+        <WorkspaceLanguageMenu />
         <button type="button" className="workspace-theme-toggle icon-button" role="switch" aria-checked={isDarkTheme} aria-label={t("다크 모드")} onClick={() => setTheme(isDarkTheme ? "light" : "dark")}>
           {isDarkTheme ? <Moon size={20} /> : <Sun size={20} />}
         </button>
