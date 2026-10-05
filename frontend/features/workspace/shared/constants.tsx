@@ -27,7 +27,7 @@ export const configuredModelOptions: Record<Provider, string[]> = {
   OPENAI:
     parseModelOptions(process.env.NEXT_PUBLIC_OPENAI_MODELS).length > 0
       ? parseModelOptions(process.env.NEXT_PUBLIC_OPENAI_MODELS)
-      : [defaultOpenAIModel || "gpt-5.6-luna", "gpt-5.6-terra"].filter(
+      : [defaultOpenAIModel || "gpt-6-luna", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol", "gpt-6-astra", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"].filter(
           (model, index, models) => models.indexOf(model) === index
         )
 };

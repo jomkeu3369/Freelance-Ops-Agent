@@ -223,7 +223,7 @@ class OpenAIModelProvider(ResilientProvider):
         if self._client is None:
             from openai import AsyncOpenAI
 
-            self._client = AsyncOpenAI(max_retries=0)
+            self._client = AsyncOpenAI(base_url="https://api.openai.com/v1", max_retries=0)
 
         client: Any = self._client
 

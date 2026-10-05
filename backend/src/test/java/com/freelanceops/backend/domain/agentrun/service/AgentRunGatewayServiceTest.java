@@ -428,7 +428,7 @@ class AgentRunGatewayServiceTest {
         run.useCredential(credential);
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
         when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
-        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-test");
+        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-6-luna");
         var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
         assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue);
@@ -446,7 +446,7 @@ class AgentRunGatewayServiceTest {
             UUID.randomUUID(),
             userId,
             Provider.OPENAI,
-            "gpt-test",
+            "gpt-6-luna",
             AgentRunStatus.QUEUED,
             Instant.now()
         );
@@ -460,7 +460,7 @@ class AgentRunGatewayServiceTest {
             null,
             null,
             null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-test", "v1", "v1", "trace"),
+            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
             null,
             Instant.now()
         );
@@ -474,7 +474,7 @@ class AgentRunGatewayServiceTest {
             new AgentRunView.AgentInterruption(interruptionId, InterruptionKind.CLARIFICATION, List.of("예산은 얼마인가요?")),
             null,
             null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-test", "v1", "v1", "trace"),
+            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
             null,
             Instant.now()
         );
@@ -485,7 +485,7 @@ class AgentRunGatewayServiceTest {
             "쇼핑몰 요구사항을 분석해 주세요.",
             "ko-KR",
             "KR",
-            new ModelSelection(Provider.OPENAI, "gpt-test", ReasoningEffort.LOW),
+            new ModelSelection(Provider.OPENAI, "gpt-6-luna", ReasoningEffort.LOW),
             new RunBudget(120, 5, 10, 10000, 5000, 2, 2, 5, 1, 2),
             new SafetyContext(false, false, false, false, false, false, true)
         );

@@ -23,7 +23,7 @@ public class AIConnectionService {
     private final Map<Provider, List<String>> models;
 
     public AIConnectionService(JdbcTemplate jdbc, CredentialCipher cipher, WorkspaceAuthorizationService authorization,
-        ProviderCredentialVerifier verifier, @Value("${APP_BYOK_OPENAI_MODELS:gpt-5.6-luna,gpt-5.6-terra}") String openai) {
+        ProviderCredentialVerifier verifier, @Value("${APP_BYOK_OPENAI_MODELS:gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-6-astra,gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}") String openai) {
         this.jdbc = jdbc;
         this.cipher = cipher;
         this.authorization = authorization;
@@ -102,6 +102,6 @@ public class AIConnectionService {
 
     static String binding(UUID id, UUID workspace, UUID user, Provider provider) { return id + ":" + workspace + ":" + user + ":" + provider; }
     private static List<String> parseModels(String value) {
-        return Arrays.stream(value.split(",")).map(String::trim).filter(model -> model.matches("[a-zA-Z0-9._-]{1,100}")).distinct().toList();
+        return Arrays.stream(value.split(",")).map(String::trim).filter(model -> List.of(PlatformSpendTariff.MODEL_IDS.split(",")).contains(model)).distinct().toList();
     }
 }

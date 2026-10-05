@@ -18,9 +18,12 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-from contracts import AgentRunUsage, ModelSelection, PlatformBudget, Provider, ProviderCallUsage, RequestTier, RunBudget
+from contracts import (
+    AgentRunUsage, ModelSelection, PlatformBudget, Provider, ProviderCallUsage, ReasoningEffort, RequestTier, RunBudget,
+)
 
-TARIFF_VERSION = "platform-ai-2026-10-04-v1"
+LEGACY_TARIFF_VERSION = "platform-ai-2026-10-04-v1"
+TARIFF_VERSION = "platform-ai-2026-10-05-v2"
 _MILLION = Decimal("1000000")
 _PROTOCOL_TOKEN_ALLOWANCE = 8192
 _MAX_STANDARD_INPUT_TOKENS = 272000
@@ -43,10 +46,27 @@ class Tariff:
 
 
 # Exact provider/model pairs only. No alias, prefix matching, or fallback pricing.
-TARIFFS = {
+LEGACY_TARIFFS = {
     (Provider.OPENAI, "gpt-5.6-luna"): Tariff(Decimal("0.20"), Decimal("0.02"), Decimal("0.25"), Decimal("1.20")),
     (Provider.OPENAI, "gpt-5.6-terra"): Tariff(Decimal("2.00"), Decimal("0.20"), Decimal("2.50"), Decimal("12.00")),
 }
+TARIFFS = {
+    **LEGACY_TARIFFS,
+    (Provider.OPENAI, "gpt-6-luna"): Tariff(Decimal(".10"), Decimal(".01"), Decimal(".125"), Decimal(".50")),
+    (Provider.OPENAI, "gpt-6-sol"): Tariff(Decimal("2"), Decimal(".20"), Decimal("2.50"), Decimal("10")),
+    (Provider.OPENAI, "gpt-6.1-sol"): Tariff(Decimal("2"), Decimal(".10"), Decimal("2.50"), Decimal("10")),
+    (Provider.OPENAI, "gpt-6-astra"): Tariff(Decimal("10"), Decimal("1"), Decimal("12.50"), Decimal("50")),
+    (Provider.OPENAI, "gpt-5.6-sol"): Tariff(Decimal("4"), Decimal(".40"), Decimal("5"), Decimal("20")),
+}
+TARIFF_VERSIONS = {LEGACY_TARIFF_VERSION: LEGACY_TARIFFS, TARIFF_VERSION: TARIFFS}
+# Re-review the promotional Sol tariff before admitting calls after this date.
+PROMOTION_REVIEW_AT = datetime(2026, 11, 22, tzinfo=UTC)
+
+
+def validate_reasoning(selection: ModelSelection) -> None:
+    if (selection.provider is Provider.OPENAI and selection.model in {"gpt-6.1-sol", "gpt-6-astra"}
+            and selection.reasoning_effort is ReasoningEffort.NONE):
+        raise PlatformBudgetError("MODEL_REASONING_UNSUPPORTED")
 
 
 class PlatformSpendLedger:
@@ -73,7 +93,7 @@ class PlatformSpendLedger:
     def validate(self) -> None:
         if self.closed:
             raise PlatformBudgetError("PLATFORM_BUDGET_SCOPE_CLOSED")
-        if self.budget.tariff_version != TARIFF_VERSION:
+        if self.budget.tariff_version not in TARIFF_VERSIONS:
             raise PlatformBudgetError("PLATFORM_TARIFF_UNSUPPORTED")
         if datetime.now(UTC) >= self.budget.valid_until:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXPIRED")
@@ -82,10 +102,13 @@ class PlatformSpendLedger:
 
     def reserve(self, selection: ModelSelection, operation: str, payload: Mapping[str, Any], output_limit: int) -> int:
         self.validate()
+        validate_reasoning(selection)
         byok = selection.credential_id is not None
-        tariff = TARIFFS.get((selection.provider, selection.model))
+        tariff = TARIFF_VERSIONS[self.budget.tariff_version].get((selection.provider, selection.model))
         if tariff is None and not byok:
             raise PlatformBudgetError("PLATFORM_MODEL_UNPRICED")
+        if not byok and selection.model == "gpt-5.6-sol" and datetime.now(UTC) >= PROMOTION_REVIEW_AT:
+            raise PlatformBudgetError("PLATFORM_TARIFF_REVIEW_REQUIRED")
         if output_limit < 1:
             raise PlatformBudgetError("PLATFORM_OUTPUT_LIMIT_REQUIRED")
         # Text-only request bytes bound the tokenizer input conservatively, including
@@ -132,8 +155,8 @@ class PlatformSpendLedger:
         input_tokens = _token_count(usage, "input_tokens")
         output_tokens = _token_count(usage, "output_tokens")
         details = getattr(usage, "input_tokens_details", None)
-        cached = _token_count(details, "cached_tokens", default=0)
-        written = _token_count(details, "cache_write_tokens", default=0)
+        cached = _token_count(details, "cached_tokens")
+        written = _token_count(details, "cache_write_tokens")
         if None in (input_tokens, output_tokens, cached, written):
             return  # Missing or malformed usage keeps its original upper bound.
         assert input_tokens is not None and output_tokens is not None and cached is not None and written is not None
@@ -142,10 +165,12 @@ class PlatformSpendLedger:
             raise PlatformBudgetError("PLATFORM_USAGE_INVALID")
         cost = Decimal("0")
         if call.funding_source == "PLATFORM":
-            tariff = TARIFFS[(call.provider, call.model)]
+            tariff = TARIFF_VERSIONS[self.budget.tariff_version][(call.provider, call.model)]
             cost = (Decimal(input_tokens - cached - written) * tariff.input + Decimal(cached) * tariff.cached_read
                     + Decimal(written) * tariff.cache_write + Decimal(output_tokens) * tariff.output) / _MILLION
-        drift = input_tokens > call.input_tokens or output_tokens > call.output_tokens or cost > call.reserved_cost_usd
+        # Output tokens already include reasoning; never add reasoning_tokens again.
+        drift = (input_tokens > call.input_tokens or input_tokens > _MAX_STANDARD_INPUT_TOKENS
+                 or output_tokens > call.output_tokens or cost > call.reserved_cost_usd)
         self.calls[index] = call.model_copy(update={
             "input_tokens": input_tokens, "output_tokens": output_tokens,
             "cached_read_tokens": cached, "cache_write_tokens": written,
@@ -223,15 +248,21 @@ async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operat
         return await client.responses.create(**payload)
     if selection.credential_id != client_credential_id:
         raise PlatformBudgetError("PLATFORM_CREDENTIAL_BINDING_MISMATCH")
+    if str(getattr(client, "base_url", "")).rstrip("/") != "https://api.openai.com/v1":
+        raise PlatformBudgetError("PLATFORM_ENDPOINT_UNPRICED")
     if payload.get("service_tier") != "default":
         raise PlatformBudgetError("PLATFORM_SERVICE_TIER_UNPRICED")
     if getattr(client, "max_retries", 0) != 0:
         raise PlatformBudgetError("PLATFORM_SDK_RETRIES_UNBOUNDED")
     messages = payload.get("input")
-    if (payload.get("tools") != [] or payload.get("model") != selection.model
+    allowed_keys = {"model", "service_tier", "reasoning", "input", "tools", "store", "max_output_tokens", "text"}
+    if (set(payload) - allowed_keys or payload.get("tools") != [] or payload.get("model") != selection.model
             or not isinstance(messages, list)
             or any(not isinstance(item, dict) or not isinstance(item.get("content"), str) for item in messages)):
         raise PlatformBudgetError("PLATFORM_INPUT_UNBOUNDED")
+    effort = payload.get("reasoning", {}).get("effort", selection.reasoning_effort.value.lower())
+    if effort != selection.reasoning_effort.value.lower():
+        raise PlatformBudgetError("MODEL_REASONING_MISMATCH")
     index = ledger.reserve(selection, operation, payload, int(payload["max_output_tokens"]))
     # SDK retries are disabled at every production client construction; this call
     # represents exactly one billable attempt. Cancellation retains its bound.

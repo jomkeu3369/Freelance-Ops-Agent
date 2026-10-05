@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 @Service
 public class PlatformSpendService {
-    public static final String TARIFF_VERSION = "platform-ai-2026-10-04-v1";
+    public static final String TARIFF_VERSION = PlatformSpendTariff.VERSION;
     static final ZoneId TIMEZONE = ZoneId.of("Asia/Seoul");
     private static final UUID GLOBAL = new UUID(0L, 0L);
     private final JdbcTemplate jdbc;
@@ -43,7 +43,7 @@ public class PlatformSpendService {
     public PlatformBudget reserve(UUID userId, UUID runId, ModelSelection selection) {
         if (!enabled) throw new PlatformSpendUnavailableException();
         if (userId == null || runId == null || selection == null) throw new IllegalArgumentException("Admission identity is required");
-        PlatformSpendTariff.requirePriceable(selection.provider(), selection.model());
+        PlatformSpendTariff.validateSelection(selection);
         // One DB-owned settings row serializes admissions across instances, and prevents differing
         // application environment values from creating different monetary limits for the same account.
         Settings settings = jdbc.queryForObject("""
@@ -68,7 +68,12 @@ public class PlatformSpendService {
         Timestamp now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class);
         if (now == null) throw new IllegalStateException("Database clock unavailable");
         Period period = Period.at(now.toInstant());
-        BigDecimal amount = selection.model().equals("gpt-5.6-luna") ? settings.lunaRunUsd() : settings.terraRunUsd();
+        PlatformSpendTariff.requireCurrentPrice(selection.model(), now.toInstant());
+        var caps = jdbc.query("""
+            SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
+            """, (row, n) -> row.getBigDecimal(1), selection.provider().name(), selection.model());
+        if (caps.isEmpty()) throw new PlatformSpendUnavailableException();
+        BigDecimal amount = caps.getFirst();
         // Every selection, including BYOK, must reserve a platform cap: routing overhead is not free.
         hold("GLOBAL_DAY", GLOBAL, period.day(), amount, settings.globalDayUsd());
         hold("GLOBAL_WEEK", GLOBAL, period.week(), amount, settings.globalWeekUsd());

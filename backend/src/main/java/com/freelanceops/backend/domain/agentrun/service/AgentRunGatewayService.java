@@ -93,6 +93,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         Optional<StartAgentRunResponse> replay = freeUsage.replay(userId, idempotencyKey, workspaceId, projectId, request);
         if (replay.isPresent()) return replay.get();
 
+        PlatformSpendTariff.validateSelection(request.modelSelection());
         connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
         if (request.modelSelection().credentialId() == null) freeUsage.reserveQuoted(userId, runId,
