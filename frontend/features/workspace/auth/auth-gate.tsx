@@ -1,13 +1,11 @@
 import { AuthSession, login, register } from "../../../app/lib/api";
-import { useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
+import { useState, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTheme } from "next-themes";
-import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight, Moon, Sun, ShieldCheck } from "@phosphor-icons/react";
-import { PetArt } from "../pets/pet-art";
-import { petAdvisors } from "../pets/pet-state.mjs";
-
-const subscribeToHydration = () => () => undefined;
+import { EyeSlash, Eye, CircleNotch, ArrowRight, ShieldCheck } from "@phosphor-icons/react";
+import { AuthBackdrop } from "./auth-backdrop";
+import { loginMedia } from "./login-media";
+import "./auth-cinematic.css";
 
 export type AuthMode = "login" | "register";
 
@@ -22,9 +20,6 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [ageConfirmationError, setAgeConfirmationError] = useState(false);
-  const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = themeMounted && resolvedTheme === "dark";
 
   const selectMode = (nextMode: AuthMode) => {
     if (busy) return;
@@ -87,29 +82,18 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   };
 
   return (
-    <main id="main-content" className="auth-page">
+    <main id="main-content" className="auth-page auth-cinematic">
+      <AuthBackdrop sources={loginMedia.sources} poster={loginMedia.poster} staticPoster={loginMedia.staticPoster} pauseLabel="배경 영상 일시정지" resumeLabel="배경 영상 재생">
+        <div className="auth-ambient-fallback" />
+      </AuthBackdrop>
       <header className="auth-header">
         <Link href="/" className="auth-brand" aria-label="Freelance Ops 홈">
           <Image src="/figma/logo.svg" alt="" width={32} height={32} />
           <span>Freelance Ops</span>
         </Link>
-        <div className="auth-header-actions">
-          <Link href="/" className="auth-back"><ArrowLeft size={16} /> 제품 소개</Link>
-          <button className="auth-theme-toggle" type="button" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}>
-            {isDark ? <Sun size={19} /> : <Moon size={19} />}
-          </button>
-        </div>
       </header>
       <div className="auth-layout">
-      <section className="auth-message" aria-labelledby="auth-welcome-title">
-        <span className="auth-eyebrow">문의에서 견적까지, 함께</span>
-        <h2 id="auth-welcome-title">혼자 하는 일에,<br/><span>함께할 동료를.</span></h2>
-        <p>흩어진 고객 문의를 정리하고,<br/>근거 있는 견적으로 이어가세요.</p>
-        <div className="auth-companions" aria-label="AI 동료의 기본 모습과 관점">
-          {petAdvisors.map(pet => <div className="auth-companion" key={pet.id}><PetArt kind={pet.id} /><strong>{pet.name}</strong><span>{pet.role}</span></div>)}
-        </div>
-        <div className="auth-message-footer"><span>다른 관점을 모아, 내게 맞는 선택으로.</span><p>AI가 초안을 준비하고, 최종 결정은 내가 합니다.</p></div>
-      </section>
+      <div className="auth-scene-space" aria-hidden="true" />
       <section className="auth-panel">
         <div className="auth-intro"><span>나의 업무 공간</span><h1>{mode === "login" ? "다시 만나 반가워요." : "함께할 준비가 됐나요?"}</h1><p>{mode === "login" ? "작은 동료들과 하던 일을 이어가세요." : "계정을 만들고 첫 고객 문의를 정리해 보세요."}</p></div>
         <div className="auth-tabs" role="tablist" aria-label="인증 방식">

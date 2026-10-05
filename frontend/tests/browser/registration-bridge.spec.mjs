@@ -125,11 +125,14 @@ test("switching modes resets age confirmation and existing login needs no attest
   await expect(page.locator("#auth-age-error")).toHaveCount(0);
 });
 
-test("keyboard navigation reaches confirmation and original login visuals remain", async ({ page, auth }) => {
+test("keyboard navigation reaches confirmation with the cinematic login composition", async ({ page, auth }) => {
   await page.goto("/workspace/projects");
-  await expect(page.locator(".auth-companion")).toHaveCount(3);
-  await expect(page.locator(".auth-message h2")).toContainText("함께할 동료를.");
-  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.locator(".auth-page.auth-cinematic")).toHaveCount(1);
+  await expect(page.locator(".auth-scene-space")).toHaveCount(1);
+  await expect(page.locator(".auth-companion, .auth-message h2")).toHaveCount(0);
+  await expect(page.locator(".auth-backdrop video")).toHaveCount(1);
+  await expect(page.locator(".auth-header a")).toHaveCount(1);
+  await expect(page.locator(".auth-header button")).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await page.getByRole("tab", { name: "로그인", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
