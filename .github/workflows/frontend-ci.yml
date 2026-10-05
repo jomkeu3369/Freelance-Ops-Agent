@@ -10,6 +10,7 @@ on:
     branches:
       - "main"
       - "codex/cloud-feature-integration-20261005"
+      - "codex/login-pet-road-20261005"
     paths:
       - "frontend/**"
       - "contracts/fixtures/workspace-credit-contract.json"
@@ -43,7 +44,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch verification only. This job never deploys or calls providers.
-    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005'
+    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -97,7 +98,9 @@ jobs:
             tests/browser/chat-attachments.spec.mjs \
             tests/browser/admin-members.spec.mjs \
             tests/browser/composer-toolbar.spec.mjs \
-            tests/browser/fullscreen-chat.spec.mjs
+            tests/browser/fullscreen-chat.spec.mjs \
+            tests/browser/auth-error.spec.mjs \
+            tests/browser/auth-cinematic.spec.mjs
       - name: Preserve synthetic browser evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -69,7 +69,6 @@ export const petEnglish = {
   "한 문장으로, 나에게 맞는 동료를.": "A companion that fits you, in one sentence.",
   "일정": "Schedule",
   "글쓰기": "Writing",
-  "예시 미리보기입니다. 로그인 후 나만의 펫을 추가하고 대화로 수정할 수 있어요.": "These are example previews. Log in to add your own pet and edit it with prompts.",
   "일반 업무": "General assistance",
   "일정 관리": "Schedule management",
   "자료 조사": "Research",

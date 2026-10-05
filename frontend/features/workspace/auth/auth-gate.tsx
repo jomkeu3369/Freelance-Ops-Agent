@@ -5,7 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight, Moon, Sun, ShieldCheck } from "@phosphor-icons/react";
-import { PetLoginDemo } from "../pets/pet-login-demo";
+import { AuthBackdrop } from "./auth-backdrop";
+import { loginMedia } from "./login-media";
+import "./auth-cinematic.css";
 
 import { EmailVerificationRequest } from "./email-verification-request";
 import { authErrorMessage } from "./auth-error.mjs";
@@ -108,7 +110,10 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   };
 
   return (
-    <main id="main-content" className="auth-page">
+    <main id="main-content" className="auth-page auth-cinematic">
+      <AuthBackdrop sources={loginMedia.sources} poster={loginMedia.poster} pauseLabel={t("배경 영상 일시정지")} resumeLabel={t("배경 영상 재생")}>
+        <div className="auth-ambient-fallback" />
+      </AuthBackdrop>
       <header className="auth-header">
         <Link href="/" className="auth-brand" aria-label={t("Freelance Ops 홈")}>
           <Image src="/figma/logo.svg" alt="" width={32} height={32} />
@@ -123,13 +128,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
         </div>
       </header>
       <div className="auth-layout">
-      <section className="auth-message" aria-labelledby="auth-welcome-title">
-        <span className="auth-eyebrow">{t("문의에서 견적까지, 함께")}</span>
-        <h2 id="auth-welcome-title">{t("혼자 하는 일에,")}<br/><span>{t("함께할 동료를.")}</span></h2>
-        <p>{t("흩어진 고객 문의를 정리하고,")}<br/>{t("근거 있는 견적으로 이어가세요.")}</p>
-        <PetLoginDemo />
-        <div className="auth-message-footer"><span>{t("다른 관점을 모아, 내게 맞는 선택으로.")}</span><p>{t("AI가 초안을 준비하고, 최종 결정은 내가 합니다.")}</p></div>
-      </section>
+      <div className="auth-scene-space" aria-hidden="true" />
       <section className="auth-panel">
         {emailVerified && mode === "login" && <p role="status">{t("이메일 확인을 완료했습니다. 로그인해 주세요.")}</p>}
         {pendingEmail !== null ? <section className="auth-verification-pending" aria-labelledby="auth-verification-title">
