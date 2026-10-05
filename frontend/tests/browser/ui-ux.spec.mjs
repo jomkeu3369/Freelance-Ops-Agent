@@ -1584,6 +1584,7 @@ test("successful registration with failed workspace loading switches to login wi
   await page.locator('input[name="email"]').fill("fixture@example.invalid");
   await page.locator('input[name="password"]').fill("local-fixture-only");
   await page.locator('input[name="passwordConfirm"]').fill("local-fixture-only");
+  await page.getByRole("checkbox", { name: "만 14세 이상인가요? (필수)" }).check();
   await page.locator('button[type="submit"]').click();
   await expect(page.getByRole("tab", { name: "로그인", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".auth-page").getByRole("alert")).toContainText("계정은 생성되었습니다.");

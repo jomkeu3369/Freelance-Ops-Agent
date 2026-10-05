@@ -1,0 +1,79 @@
+name: Registration bridge browser CI
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/registration-bridge-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registration-bridge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  registration-bridge:
+    name: Registration bridge Chromium checks
+    # This temporary release bridge preserves the current production login UI.
+    # The later full release has its own UI and browser regression checks.
+    if: github.head_ref == 'codex/registration-release-bridge-20261005'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      NEXT_TELEMETRY_DISABLED: "1"
+      VERCEL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+      - name: Build local production application
+        run: npm run build
+      - name: Check mocked registration and unchanged login
+        run: |
+          mkdir -p outputs/ui-ux
+          npm run start -- --hostname 127.0.0.1 --port 3100 > outputs/ui-ux/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3100/ > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat outputs/ui-ux/server.log
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            cat outputs/ui-ux/server.log
+            exit 1
+          fi
+          # Auth is intercepted and every other external request is blocked.
+          # No backend, real account, or provider key is used.
+          npx playwright test --forbid-only tests/browser/registration-bridge.spec.mjs
+      - name: Preserve synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-bridge-${{ github.sha }}
+          path: |
+            frontend/outputs/ui-ux/
+            frontend/outputs/signup-age/
+          if-no-files-found: warn
+          retention-days: 7
