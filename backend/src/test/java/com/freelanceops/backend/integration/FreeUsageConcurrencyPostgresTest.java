@@ -219,8 +219,8 @@ class FreeUsageConcurrencyPostgresTest {
 
     private UUID account() {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO app.user_account(id, external_subject, email, status) VALUES (?, ?, 'synthetic@example.invalid', 'ACTIVE')",
-            id, "quota-concurrency-test:" + id);
+        jdbc.update("INSERT INTO app.user_account(id, external_subject, email, status) VALUES (?, ?, ?, 'ACTIVE')",
+            id, "quota-concurrency-test:" + id, id + "@example.invalid");
         return id;
     }
 

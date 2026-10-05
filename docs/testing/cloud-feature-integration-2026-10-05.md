@@ -155,3 +155,19 @@ while offline. Local Node 22 typecheck, 294 tests and lint passed after that cha
 After the backend/OCR fixes, local checks passed again: Java 343 executed with 99
 Docker-dependent skips; Python 516 executed with 8 PostgreSQL skips; Ruff passed.
 The next remote run must confirm the complete corrected database and browser flows.
+
+## Second GitHub Actions run
+
+Candidate `a5abd1f585bb10f4aa6e8fbbda045f4c4ac40426` passed all Agent tests:
+524 passed, zero skips, including all eight PostgreSQL and 26 OCR tests. Both
+Docker images built. Frontend typecheck, lint, 294 tests and production build
+passed; synthetic browser execution passed all 41 tests, including the corrected
+short-height case. Attachment (19), member administration (8), pet/workspace (22)
+and notice (21) PostgreSQL cases passed.
+
+Backend overall remained failed: 23 cases in four older quota/spend fixture suites
+reused one synthetic email, violating the existing normalized-email uniqueness
+constraint. Fixture account creation now derives a unique @example.invalid email
+from each generated account UUID. The production uniqueness constraint is unchanged.
+The next candidate also captures the expanded offline 390x420 view as a browser
+artifact, while retaining the strict geometry checks and external-network block.

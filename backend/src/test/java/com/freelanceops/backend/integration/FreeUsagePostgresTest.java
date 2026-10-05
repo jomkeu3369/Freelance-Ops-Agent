@@ -264,7 +264,7 @@ class FreeUsagePostgresTest {
     private void reserve(UUID user, UUID run) { tx.executeWithoutResult(s -> usage.reserve(user, run, Provider.OPENAI, "gpt-5.6-luna")); }
     private UUID account() {
         UUID id = UUID.randomUUID();
-        jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,'synthetic@example.invalid','ACTIVE')", id, "quota-test:" + id);
+        jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,?,'ACTIVE')", id, "quota-test:" + id, id + "@example.invalid");
         return id;
     }
 }

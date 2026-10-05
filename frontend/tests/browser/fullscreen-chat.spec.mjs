@@ -74,6 +74,7 @@ test("shrinking viewport keeps a long draft, offline notice and send controls in
   await expect(page.locator(".chat-attachments")).toContainText("short-height-fixture.txt");
   await expectViewportLayout(page);
   await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
+  await page.screenshot({ path: "outputs/ui-ux/fullscreen-short-height-expanded.png", animations: "disabled" });
   await page.locator(".skill-selector summary").click();
   await context.setOffline(false);
   expect(state.starts).toEqual([]);

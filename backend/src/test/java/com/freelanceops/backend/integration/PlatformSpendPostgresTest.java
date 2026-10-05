@@ -117,8 +117,8 @@ class PlatformSpendPostgresTest {
 
     @Test void refundedFailedRunsCannotRepeatedlyAvoidTheMonetaryAccountLimit() {
         UUID user = UUID.randomUUID();
-        jdbc.update("INSERT INTO app.user_account(id, external_subject, email, status) VALUES (?, ?, 'synthetic@example.invalid', 'ACTIVE')",
-            user, "spend-refund-test:" + user);
+        jdbc.update("INSERT INTO app.user_account(id, external_subject, email, status) VALUES (?, ?, ?, 'ACTIVE')",
+            user, "spend-refund-test:" + user, user + "@example.invalid");
         for (int i = 0; i < 13; i++) {
             UUID run = UUID.randomUUID();
             tx.executeWithoutResult(s -> {
@@ -141,8 +141,8 @@ class PlatformSpendPostgresTest {
 
     @Test void knownAndUnknownPlatformUsageSatisfyMigratedCostConstraintsWithoutMutablePricingSnapshot() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
-        jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,'synthetic@example.invalid','ACTIVE')",
-            user, "cost-schema-test:" + user);
+        jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,?,'ACTIVE')",
+            user, "cost-schema-test:" + user, user + "@example.invalid");
         jdbc.update("INSERT INTO app.workspace(id,name,slug,status,created_by) VALUES (?,'Synthetic',?,'ACTIVE',?)",
             workspace, "spend-test-" + workspace, user);
         jdbc.update("INSERT INTO app.project(id,workspace_id,title,requirement_text,currency,created_by) VALUES (?,?,'Synthetic','Synthetic','USD',?)",
