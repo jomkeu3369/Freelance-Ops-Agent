@@ -46,8 +46,8 @@ jobs:
 
   synthetic-browser:
     name: Synthetic Chromium workspace checks
-    # Work-branch verification only. This job never deploys or calls providers.
-    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005'
+    # Work-branch and same-repository PR verification. No deployment or provider calls.
+    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
