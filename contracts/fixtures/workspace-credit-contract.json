@@ -1,0 +1,223 @@
+{
+  "description": "Synthetic cross-language contract only. Never credentials or a live account.",
+  "start": {
+    "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
+    "locale": "ko-KR",
+    "jurisdictionCode": "KR",
+    "modelSelection": {
+      "provider": "OPENAI",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "LOW"
+    },
+    "creditQuote": {
+      "credits": 10,
+      "pricingUpdatedAt": "2026-10-04T12:00:00.123456Z"
+    },
+    "budget": {
+      "maxDurationSeconds": 180,
+      "maxModelCalls": 50,
+      "maxToolCalls": 12,
+      "maxInputTokens": 50000,
+      "maxOutputTokens": 48000,
+      "maxDepartments": 4,
+      "maxHierarchyDepth": 2,
+      "maxSearchCredits": 2,
+      "maxRetries": 2,
+      "maxHandoffs": 3
+    },
+    "safetyContext": {
+      "externalSideEffect": false,
+      "sensitiveData": false,
+      "financialAuthorityRequired": false,
+      "legalAuthorityRequired": false,
+      "irreversibleAction": false,
+      "approvalRequired": false,
+      "authorityVerified": false
+    }
+  },
+  "byokStart": {
+    "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
+    "locale": "ko-KR",
+    "jurisdictionCode": "KR",
+    "modelSelection": {
+      "provider": "OPENAI",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "LOW",
+      "credentialId": "22222222-2222-4222-8222-222222222222"
+    },
+    "budget": {
+      "maxDurationSeconds": 180,
+      "maxModelCalls": 50,
+      "maxToolCalls": 12,
+      "maxInputTokens": 50000,
+      "maxOutputTokens": 48000,
+      "maxDepartments": 4,
+      "maxHierarchyDepth": 2,
+      "maxSearchCredits": 2,
+      "maxRetries": 2,
+      "maxHandoffs": 3
+    },
+    "safetyContext": {
+      "externalSideEffect": false,
+      "sensitiveData": false,
+      "financialAuthorityRequired": false,
+      "legalAuthorityRequired": false,
+      "irreversibleAction": false,
+      "approvalRequired": false,
+      "authorityVerified": false
+    }
+  },
+  "usage": {
+    "limit": 100,
+    "used": 20,
+    "reserved": 10,
+    "remaining": 70,
+    "resetAt": "2026-10-11T15:00:00Z",
+    "period": "2026-10-05",
+    "timezone": "Asia/Seoul",
+    "epoch": 7,
+    "canManage": true,
+    "unit": "CREDITS",
+    "periodType": "WEEKLY",
+    "modelRates": [
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-luna",
+        "credits": 10,
+        "enabled": true
+      },
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-terra",
+        "credits": 100,
+        "enabled": true
+      }
+    ],
+    "pricingUpdatedAt": "2026-10-04T12:00:00.123456Z"
+  },
+  "settings": {
+    "limit": 100,
+    "maxLimit": 100000,
+    "epoch": 7,
+    "updatedAt": "2026-10-04T12:00:00.123456Z",
+    "lastResetAt": null,
+    "modelRates": [
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-luna",
+        "credits": 10,
+        "enabled": true
+      },
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-terra",
+        "credits": 100,
+        "enabled": true
+      }
+    ],
+    "unit": "CREDITS",
+    "periodType": "WEEKLY"
+  },
+  "adminModelChange": {
+    "provider": "OPENAI",
+    "model": "gpt-5.6-luna",
+    "credits": 15,
+    "enabled": false,
+    "expectedEpoch": 7,
+    "expectedUpdatedAt": "2026-10-04T12:00:00.123456Z"
+  },
+  "adminReset": {
+    "confirmation": "RESET_ALL_FREE_USAGE",
+    "expectedEpoch": 7,
+    "expectedUpdatedAt": "2026-10-04T12:00:00.123456Z"
+  },
+  "resume": {
+    "interruptionId": "33333333-3333-4333-8333-333333333333",
+    "idempotencyKey": "synthetic-resume-001",
+    "answers": [
+      {
+        "questionIndex": 0,
+        "answer": "Synthetic answer"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "status": 428,
+      "body": {
+        "code": "CREDIT_QUOTE_REQUIRED",
+        "message": "Synthetic quote required"
+      }
+    },
+    {
+      "status": 409,
+      "body": {
+        "code": "CREDIT_QUOTE_STALE",
+        "message": "Synthetic quote stale"
+      }
+    },
+    {
+      "status": 422,
+      "body": {
+        "code": "PLATFORM_MODEL_UNAVAILABLE",
+        "message": "Synthetic model unavailable"
+      }
+    },
+    {
+      "status": 429,
+      "body": {
+        "code": "PLATFORM_SPEND_EXHAUSTED",
+        "message": "플랫폼 AI 비용 한도에 도달했습니다. 예산 갱신 후 다시 시도해 주세요."
+      }
+    },
+    {
+      "status": 503,
+      "body": {
+        "code": "PLATFORM_SPEND_DISABLED",
+        "message": "플랫폼 AI 비용 예산 승인 전에는 분석을 시작할 수 없습니다."
+      }
+    },
+    {
+      "status": 429,
+      "body": {
+        "code": "FREE_USAGE_EXHAUSTED",
+        "message": "Not enough weekly credits for the selected model",
+        "limit": 100,
+        "used": 20,
+        "reserved": 10,
+        "resetAt": "2026-10-11T15:00:00Z",
+        "requiredCredits": 100,
+        "remaining": 70,
+        "unit": "CREDITS"
+      }
+    }
+  ],
+  "settledFailureUsage": {
+    "limit": 100,
+    "used": 20,
+    "reserved": 0,
+    "remaining": 80,
+    "resetAt": "2026-10-11T15:00:00Z",
+    "period": "2026-10-05",
+    "timezone": "Asia/Seoul",
+    "epoch": 7,
+    "canManage": true,
+    "unit": "CREDITS",
+    "periodType": "WEEKLY",
+    "modelRates": [
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-luna",
+        "credits": 10,
+        "enabled": true
+      },
+      {
+        "provider": "OPENAI",
+        "model": "gpt-5.6-terra",
+        "credits": 100,
+        "enabled": true
+      }
+    ],
+    "pricingUpdatedAt": "2026-10-04T12:00:00.123456Z"
+  }
+}

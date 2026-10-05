@@ -1,0 +1,89 @@
+{
+  "id": "dev-api-contract",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "API 계약 설계·검토",
+    "en": "API Contract Design and Review"
+  },
+  "summary": {
+    "ko": "엔드포인트·스키마·오류·호환성을 검토 가능한 API 계약으로 정리합니다.",
+    "en": "Define or review endpoints, schemas, errors, and compatibility as a coherent API contract."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "API 명세 작성",
+    "엔드포인트 설계",
+    "design an API contract",
+    "review OpenAPI schema"
+  ],
+  "exclusions": [
+    "Debugging an already-defined endpoint without a contract issue",
+    "Generic documentation unrelated to interfaces"
+  ],
+  "required_inputs": [
+    {
+      "key": "use_cases",
+      "description": "Consumers, supported operations, and example data shapes",
+      "required": true
+    },
+    {
+      "key": "existing_contract",
+      "description": "Existing contract or explicit indication this is a new API",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Map each consumer use case to an operation and distinguish identifiers, ownership, and authorization requirements."
+    },
+    {
+      "step": 2,
+      "instruction": "Specify request and response schemas, validation, status codes, pagination, idempotency, and error structure where relevant."
+    },
+    {
+      "step": 3,
+      "instruction": "Check examples against schemas and examine nullability, versioning, breaking changes, and retry behavior."
+    },
+    {
+      "step": 4,
+      "instruction": "Produce contract examples and contract-test cases; list unresolved product or security decisions separately."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "API contract",
+      "format": "json",
+      "acceptance_criteria": "Valid structured endpoint and schema definitions with examples"
+    },
+    {
+      "name": "Compatibility review",
+      "format": "markdown",
+      "acceptance_criteria": "Calls out breaking changes and positive and negative contract tests"
+    }
+  ],
+  "limitations": [
+    "Do not claim a contract is OpenAPI-valid unless validated against the requested version.",
+    "Authentication design needs system context; sample tokens must be obvious placeholders."
+  ],
+  "permission_boundaries": [
+    "Do not call live write endpoints, create credentials, or modify access policies.",
+    "Use synthetic examples rather than client production records."
+  ],
+  "routing_tags": [
+    "development",
+    "api",
+    "schema",
+    "integration"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "schema.validate"
+  ]
+}

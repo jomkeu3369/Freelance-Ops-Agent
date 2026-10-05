@@ -1,0 +1,86 @@
+{
+  "id": "research-interview-synthesis",
+  "version": "1.0.0",
+  "category": "research",
+  "name": {
+    "ko": "인터뷰 인사이트 종합",
+    "en": "Interview Insight Synthesis"
+  },
+  "summary": {
+    "ko": "인터뷰 기록에서 관찰·인용·패턴·반례를 분리해 설계에 쓸 통찰을 만듭니다.",
+    "en": "Synthesize interview evidence into themes, counterexamples, and decision-relevant insights."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "고객 인터뷰 분석",
+    "사용자 인터뷰 종합",
+    "synthesize interview findings",
+    "analyze qualitative interview notes"
+  ],
+  "exclusions": [
+    "Summarizing ordinary project meetings",
+    "Statistical analysis of a representative survey"
+  ],
+  "required_inputs": [
+    {
+      "key": "records",
+      "description": "Authorized interview notes or transcripts with anonymized participant IDs",
+      "required": true
+    },
+    {
+      "key": "question",
+      "description": "Research objective and any recruitment or sample context",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Extract observations and quotations with source locations while minimizing unnecessary identifying details."
+    },
+    {
+      "step": 2,
+      "instruction": "Code recurring needs, behaviors, workarounds, and pain points without treating frequency as statistical prevalence."
+    },
+    {
+      "step": 3,
+      "instruction": "Group themes and actively preserve disagreements, exceptions, and uncertainty."
+    },
+    {
+      "step": 4,
+      "instruction": "Turn supported patterns into implications and follow-up questions, separating participant evidence from analyst interpretation."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Interview synthesis",
+      "format": "markdown",
+      "acceptance_criteria": "Contains evidence-backed themes, counterexamples, implications, and limitations"
+    },
+    {
+      "name": "Evidence map",
+      "format": "json",
+      "acceptance_criteria": "Links each theme to anonymized participants and source locations"
+    }
+  ],
+  "limitations": [
+    "Small or biased samples cannot establish population prevalence.",
+    "Do not infer sensitive traits or diagnoses from interview language."
+  ],
+  "permission_boundaries": [
+    "Do not contact participants, upload recordings, or disclose identities without authorization.",
+    "Do not use sensitive attributes to make high-impact decisions about people."
+  ],
+  "routing_tags": [
+    "research",
+    "interviews",
+    "qualitative",
+    "insights"
+  ],
+  "optional_capabilities": []
+}

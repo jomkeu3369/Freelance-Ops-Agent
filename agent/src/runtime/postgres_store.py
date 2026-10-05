@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from builtin_skills import resolve_skills
 from contracts import (
     MAX_INTERRUPTION_QUESTIONS,
     AgentInterruption,
@@ -25,11 +26,20 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
-from .runs import AgentRunNotFoundError, AgentRunStateError, ExecutionOutcome, append_clarification_history, merge_usage
+from .runs import (
+    AgentRunNotFoundError,
+    AgentRunStateError,
+    ExecutionEvent,
+    ExecutionOutcome,
+    append_clarification_history,
+    merge_usage,
+)
 
 
 class PostgresAgentRunStore:
     """Persist private runtime state through ORM in the Agent-owned schema only."""
+
+    supports_platform_reservations = True
 
     def __init__(self, database: PgVectorConnectionManager) -> None:
         self._database = database
@@ -73,15 +83,20 @@ class PostgresAgentRunStore:
                 raise AgentRunNotFoundError("agent run was not found")
             return AgentRunRequest.model_validate(model.request_json)
 
-    async def mark_running(self, run_id: UUID) -> None:
+    async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if model.status not in {AgentRunStatus.QUEUED.value, AgentRunStatus.WAITING_FOR_USER.value}:
+            if (model.status != AgentRunStatus.QUEUED.value
+                    or (request is not None and AgentRunRequest.model_validate(model.request_json) != request)):
                 raise AgentRunStateError("agent run cannot enter RUNNING")
             model.status = AgentRunStatus.RUNNING.value
+            if model.usage_json is not None:
+                model.usage_json = self._json(AgentRunUsage.model_validate(model.usage_json).model_copy(
+                    update={"execution_closed": False}))
             model.interruption_json = None
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.started")
+            return self._view(model)
 
     async def complete(self, run_id: UUID, outcome: ExecutionOutcome) -> None:
         async with self._database.session() as session:
@@ -124,7 +139,11 @@ class PostgresAgentRunStore:
     async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if model.status == AgentRunStatus.CANCELLED.value:
+            # Completed/partial output remains final even if a later checkpoint or observer fails.
+            if model.status in {
+                AgentRunStatus.COMPLETED.value, AgentRunStatus.PARTIAL.value,
+                AgentRunStatus.FAILED.value, AgentRunStatus.CANCELLED.value,
+            }:
                 return
             model.status = AgentRunStatus.FAILED.value
             model.error_code = error_code
@@ -133,7 +152,7 @@ class PostgresAgentRunStore:
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.failed", {"errorCode": error_code})
 
-    async def cancel(self, run_id: UUID) -> None:
+    async def cancel(self, run_id: UUID, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
             if model.status in {
@@ -143,7 +162,17 @@ class PostgresAgentRunStore:
                 AgentRunStatus.CANCELLED.value,
             }:
                 raise AgentRunStateError("terminal Agent run cannot be cancelled")
+            if model.status == AgentRunStatus.QUEUED.value:
+                request = AgentRunRequest.model_validate(model.request_json)
+                if request.platform_budget is not None:
+                    from platform_budget import PlatformSpendLedger
+                    previous = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+                    idle = PlatformSpendLedger(request.platform_budget, previous)
+                    idle.closed = True
+                    usage = idle.report(None)
             model.status = AgentRunStatus.CANCELLED.value
+            current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current_usage, usage))
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.cancelled")
 
@@ -161,6 +190,20 @@ class PostgresAgentRunStore:
             )
             models = list((await session.scalars(statement)).all())
         return [self._event(model) for model in models]
+
+    async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None:
+        async with self._database.session() as session:
+            model = await self._locked(session, run_id)
+            if model.status != AgentRunStatus.RUNNING.value:
+                raise AgentRunStateError("only a running Agent run can publish progress")
+            await self._append_event(session, run_id, event.type, event.data)
+
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
+        async with self._database.session() as session:
+            model = await self._locked(session, run_id)
+            current = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            model.usage_json = self._json(merge_usage(current, usage))
+            model.updated_at = datetime.now(UTC)
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
         if not 1 <= limit <= 101:
@@ -250,6 +293,9 @@ class PostgresAgentRunStore:
             result=AgentRunResult.model_validate(model.result_json) if model.result_json is not None else None,
             error_code=model.error_code,
             metadata=AgentRunMetadata(
+                skill_selection=request.input.skill_selection,
+                resolved_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[0],
+                deferred_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[1],
                 pet_profiles=request.input.pet_profiles,
                 credential_id=request.model_selection.credential_id,
                 provider=request.model_selection.provider,

@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Literal
 from unicodedata import category
@@ -88,7 +89,26 @@ class ModelSelection(StrictModel):
     credential_id: UUID | None = None
 
 
+class PetPreferences(StrictModel):
+    personality: str = Field(default="", max_length=500)
+    communication: str = Field(default="", max_length=500)
+    focus: str = Field(default="", max_length=500)
+    responsibility: str = Field(default="", max_length=500)
+    requests: list[str] = Field(default_factory=list, max_length=6)
+
+    @field_validator("requests")
+    @classmethod
+    def validate_requests(cls, value: list[str]) -> list[str]:
+        if any(not text.strip() or len(text) > 500 for text in value):
+            raise ValueError("Pet preference requests must be between 1 and 500 characters")
+        return value
+
+
 class PetProfile(StrictModel):
+    pet_id: UUID | None = None
+    duty: Literal["GENERAL", "SCHEDULE", "RESEARCH", "WRITING", "DEVELOPMENT", "DESIGN"] = "GENERAL"
+    skill_mode: Literal["AUTO"] = "AUTO"
+    preferences: PetPreferences = Field(default_factory=PetPreferences)
     slot: Literal["LEAN", "RECOMMENDED", "EXPANDED"]
     name: str = Field(min_length=1, max_length=20)
     animal: Literal["turtle", "owl", "cat"]
@@ -107,7 +127,45 @@ class PetProfile(StrictModel):
         return value
 
 
+class AttachmentText(StrictModel):
+    name: str = Field(min_length=1, max_length=180)
+    media_type: str = Field(max_length=100)
+    size: int = Field(ge=1, le=2097152)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["COMPLETE", "PARTIAL", "UNSUPPORTED"]
+    text: str = Field(max_length=40000)
+    notice: str = Field(max_length=1000)
+    encoding: str | None = None
+    delimiter: str | None = None
+    units: int = Field(ge=1, le=5000)
+
+
+class SkillSelection(StrictModel):
+    mode: Literal["AUTO", "MANUAL"] = "AUTO"
+    manual_ids: list[str] = Field(default_factory=list, max_length=3)
+    excluded_ids: list[str] = Field(default_factory=list, max_length=60)
+    catalog_version: Literal["1.0.0"] = "1.0.0"
+
+    @field_validator("manual_ids", "excluded_ids")
+    @classmethod
+    def known_unique_ids(cls, values: list[str]) -> list[str]:
+        from builtin_skills import SKILL_IDS
+        if len(values) != len(set(values)) or any(value not in SKILL_IDS for value in values):
+            raise ValueError("Unknown or duplicate built-in skill ID")
+        return values
+
+
 class AgentInput(StrictModel):
+    skill_selection: SkillSelection | None = None
+    attachments: list[AttachmentText] = Field(default_factory=list, max_length=6)
+
+    @field_validator("attachments")
+    @classmethod
+    def bound_attachments(cls, items: list[AttachmentText]) -> list[AttachmentText]:
+        if sum(len(item.text) for item in items) > 40000 or sum(item.size for item in items) > 8388608:
+            raise ValueError("Total attachment limit exceeded")
+        return items
+
     pet_profiles: list[PetProfile] = Field(default_factory=list, max_length=3)
     requirement_text: str = Field(min_length=1, max_length=50000)
     locale: str = "ko-KR"
@@ -260,6 +318,23 @@ class AgentRunRequest(StrictModel):
     safety_context: "SafetyContextInput"
     input: AgentInput
     clarification_history: list[ClarificationAnswer] = Field(default_factory=list, max_length=30)
+    platform_budget: "PlatformBudget | None" = None
+
+
+class PlatformBudget(StrictModel):
+    """A backend-issued monetary reservation, never copied from public input."""
+
+    reservation_id: UUID
+    max_cost_usd: Decimal = Field(gt=0, le=100, allow_inf_nan=False)
+    tariff_version: str = Field(min_length=1, max_length=100)
+    valid_until: datetime
+
+    @field_validator("valid_until")
+    @classmethod
+    def require_aware_expiry(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("platform budget expiry must include a timezone")
+        return value
 
 
 class HealthResponse(StrictModel):
@@ -376,6 +451,9 @@ class AgentRunResult(StrictModel):
 
 
 class AgentRunMetadata(StrictModel):
+    skill_selection: SkillSelection | None = None
+    resolved_skill_ids: list[str] = Field(default_factory=list, max_length=3)
+    deferred_skill_ids: list[str] = Field(default_factory=list, max_length=60)
     pet_profiles: list[PetProfile] = Field(default_factory=list, max_length=3)
     credential_id: UUID | None = None
     provider: Provider
@@ -383,6 +461,21 @@ class AgentRunMetadata(StrictModel):
     prompt_version: str = Field(min_length=1, max_length=100)
     tool_schema_version: str = Field(min_length=1, max_length=100)
     trace_id: str = Field(min_length=1, max_length=128)
+
+
+class ProviderCallUsage(StrictModel):
+    call_id: UUID
+    funding_source: Literal["PLATFORM", "BYOK"] = "PLATFORM"
+    provider: Provider
+    model: str = Field(min_length=1, max_length=100)
+    operation: str = Field(min_length=1, max_length=100)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cached_read_tokens: int = Field(default=0, ge=0)
+    cache_write_tokens: int = Field(default=0, ge=0)
+    cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    reserved_cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    usage_known: bool
 
 
 class AgentRunUsage(StrictModel):
@@ -396,6 +489,12 @@ class AgentRunUsage(StrictModel):
     crawled_pages: int = Field(default=0, ge=0)
     retry_count: int = Field(default=0, ge=0)
     duration_ms: int = Field(ge=0)
+    provider_calls: list[ProviderCallUsage] = Field(default_factory=list)
+    platform_cost_usd: Decimal = Field(default=Decimal("0"), ge=0, allow_inf_nan=False)
+    platform_reservation_id: UUID | None = None
+    tariff_version: str | None = None
+    execution_closed: bool = False
+    unpriced_exposure: bool = False
 
 
 class AgentRunView(StrictModel):

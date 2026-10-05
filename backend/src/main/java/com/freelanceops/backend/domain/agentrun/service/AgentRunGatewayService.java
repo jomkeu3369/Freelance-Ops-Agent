@@ -50,9 +50,12 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final AgentRunCommandQueue commandQueue;
     private final AgentBudgetPolicy budgetPolicy;
     private final PetProfileService pets;
+    private final ChatAttachmentService attachments;
+    private final FreeUsageService freeUsage;
+    private final PlatformSpendService platformSpend;
     private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets, FreeUsageService freeUsage, PlatformSpendService platformSpend, ChatAttachmentService attachments) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
@@ -63,10 +66,18 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         this.budgetPolicy = budgetPolicy;
         this.connections = connections;
         this.pets = pets;
+        this.freeUsage = freeUsage;
+        this.platformSpend = platformSpend;
+        this.attachments = attachments;
     }
 
     @Transactional
     public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent) {
+        return start(userId, workspaceId, projectId, request, traceparent, null);
+    }
+
+    @Transactional
+    public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent, String idempotencyKey) {
         budgetPolicy.enforce(request.budget());
         if (request.modelSelection().credentialId() != null && request.budget().maxDurationSeconds() > 270) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Personal AI runs support a maximum duration of 270 seconds");
@@ -81,8 +92,17 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "project deletion is in progress");
         }
 
+        Optional<StartAgentRunResponse> replay = freeUsage.replay(userId, idempotencyKey, workspaceId, projectId, request);
+        if (replay.isPresent()) return replay.get();
+        var attachmentText = request.attachmentIds().isEmpty() ? java.util.List.<com.freelanceops.backend.domain.agentrun.dto.AttachmentText>of()
+            : attachments.resolve(userId, workspaceId, projectId, request.attachmentIds());
+
+        PlatformSpendTariff.validateSelection(request.modelSelection());
         connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
+        // New starts consume actual platform USD. Fixed product-credit quotes are
+        // historical metadata only; BYOK still reserves platform routing overhead.
+        var platformBudget = platformSpend.reserve(userId, runId, request.modelSelection());
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
             .map(PermissionCode::code)
@@ -107,8 +127,12 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                 request.locale(),
                 request.jurisdictionCode(),
                 null,
-                pets.list(userId, workspaceId)
-            )
+                pets.list(userId, workspaceId),
+                attachmentText,
+                request.skillSelection() == null ? new com.freelanceops.backend.domain.agentrun.dto.SkillSelection(null, null, null, null) : request.skillSelection(),
+                request.workflowMode()
+            ),
+            platformBudget
         );
         AgentRunEntity run = new AgentRunEntity(
             runId,
@@ -126,7 +150,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         run.useCredential(request.modelSelection().credentialId());
         agentRunRepository.saveAndFlush(run);
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
-        return new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
+        StartAgentRunResponse accepted = new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
+        freeUsage.rememberStart(userId, idempotencyKey, workspaceId, projectId, request, accepted);
+        attachments.consume(userId, workspaceId, projectId, request.attachmentIds());
+        return accepted;
     }
 
     public AgentRunView get(UUID userId, UUID workspaceId, UUID runId, String traceparent) {

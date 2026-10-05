@@ -1,0 +1,86 @@
+{
+  "id": "research-survey-design",
+  "version": "1.0.0",
+  "category": "research",
+  "name": {
+    "ko": "설문 질문·측정 설계",
+    "en": "Survey and Measurement Design"
+  },
+  "summary": {
+    "ko": "결정에 필요한 변수와 중립적인 질문·응답 선택지·분석 계획을 설계합니다.",
+    "en": "Design a concise survey with neutral questions and a clear plan for interpreting responses."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "고객 설문 설계",
+    "설문 문항 작성",
+    "design customer survey",
+    "write unbiased survey questions"
+  ],
+  "exclusions": [
+    "Client project intake questions",
+    "Sending surveys or collecting live responses"
+  ],
+  "required_inputs": [
+    {
+      "key": "objective",
+      "description": "Decision to support, target population, and research questions",
+      "required": true
+    },
+    {
+      "key": "constraints",
+      "description": "Survey length, distribution context, required measures, and privacy constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Map each research question to a construct and explain how the response will inform a decision."
+    },
+    {
+      "step": 2,
+      "instruction": "Write neutral, single-purpose questions with appropriate answer scales and non-overlapping options."
+    },
+    {
+      "step": 3,
+      "instruction": "Order questions to reduce priming and burden; include skip logic and optional responses only where needed."
+    },
+    {
+      "step": 4,
+      "instruction": "Create an analysis plan and pilot checklist, identifying sampling and nonresponse limitations."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Survey draft",
+      "format": "json",
+      "acceptance_criteria": "Each item includes question, type, options, required status, logic, and purpose"
+    },
+    {
+      "name": "Analysis and pilot plan",
+      "format": "markdown",
+      "acceptance_criteria": "Explains interpretation, quality checks, and sampling limitations"
+    }
+  ],
+  "limitations": [
+    "A well-written survey does not guarantee a representative sample.",
+    "Do not reuse proprietary standardized instruments without checking permission."
+  ],
+  "permission_boundaries": [
+    "Do not publish the form, recruit participants, collect sensitive data, or offer incentives.",
+    "Avoid unnecessary identity fields and disclose intended data use in the draft."
+  ],
+  "routing_tags": [
+    "research",
+    "survey",
+    "questionnaire",
+    "measurement"
+  ],
+  "optional_capabilities": []
+}

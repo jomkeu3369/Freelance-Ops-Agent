@@ -1,0 +1,86 @@
+{
+  "id": "research-insight-report",
+  "version": "1.0.0",
+  "category": "research",
+  "name": {
+    "ko": "분석 인사이트·권고안",
+    "en": "Insight Report and Recommendations"
+  },
+  "summary": {
+    "ko": "확인된 분석을 의사결정 질문에 연결하고 근거·한계·다음 행동을 설명합니다.",
+    "en": "Turn verified analyses into an evidence-led report with practical, qualified recommendations."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "분석 보고서 작성",
+    "데이터 인사이트 정리",
+    "write insight report",
+    "turn findings into recommendations"
+  ],
+  "exclusions": [
+    "Initial source gathering without findings",
+    "Marketing-only periodic performance reporting"
+  ],
+  "required_inputs": [
+    {
+      "key": "findings",
+      "description": "Verified research or analysis outputs with sources and methods",
+      "required": true
+    },
+    {
+      "key": "decision",
+      "description": "Audience, decision to support, constraints, and requested report length",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify the central decision and select findings that materially affect it rather than listing every observation."
+    },
+    {
+      "step": 2,
+      "instruction": "Check that numbers, comparisons, quotations, and causal statements are supported by the source analysis."
+    },
+    {
+      "step": 3,
+      "instruction": "Organize the report into answer, evidence, alternatives, limitations, and recommended next actions."
+    },
+    {
+      "step": 4,
+      "instruction": "Tie each recommendation to evidence, assumptions, expected benefit, and a way to verify whether it worked."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Insight report",
+      "format": "markdown",
+      "acceptance_criteria": "Contains a decision-focused summary, evidence, caveats, alternatives, and actionable recommendations"
+    },
+    {
+      "name": "Evidence-to-action map",
+      "format": "json",
+      "acceptance_criteria": "Links each recommendation to findings, assumptions, and validation"
+    }
+  ],
+  "limitations": [
+    "Do not transform weak evidence into confident causal conclusions.",
+    "Recommendations involving regulated or high-stakes decisions need appropriate expert review."
+  ],
+  "permission_boundaries": [
+    "Do not distribute the report, make commitments, or change operational systems.",
+    "Do not reveal identifiable research participants or confidential client data unnecessarily."
+  ],
+  "routing_tags": [
+    "research",
+    "insights",
+    "report",
+    "recommendations"
+  ],
+  "optional_capabilities": []
+}

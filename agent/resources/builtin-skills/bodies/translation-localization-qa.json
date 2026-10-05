@@ -1,0 +1,87 @@
+{
+  "id": "translation-localization-qa",
+  "version": "1.0.0",
+  "category": "translation",
+  "name": {
+    "ko": "현지화 품질 검수",
+    "en": "Localization Quality Assurance"
+  },
+  "summary": {
+    "ko": "원문·번역·화면 제약을 비교해 누락·용어·변수·레이아웃 위험을 검수합니다.",
+    "en": "Compare source and localized content for meaning, terminology, placeholders, and interface constraints."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "번역 품질 검수",
+    "앱 현지화 QA",
+    "review localization quality",
+    "check translated UI strings"
+  ],
+  "exclusions": [
+    "Creating an entire translation from scratch",
+    "Same-language grammar editing",
+    "Subtitle files requiring cue and timing preservation"
+  ],
+  "required_inputs": [
+    {
+      "key": "pairs",
+      "description": "Aligned source and target content with identifiers",
+      "required": true
+    },
+    {
+      "key": "constraints",
+      "description": "Target locale, glossary, placeholders, and UI limits or screenshots",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Align source and target IDs and detect missing, duplicated, untranslated, or mismatched strings."
+    },
+    {
+      "step": 2,
+      "instruction": "Check meaning, terminology, tone, locale formats, plurals, gender handling, and cultural clarity."
+    },
+    {
+      "step": 3,
+      "instruction": "Validate placeholders, markup, escapes, accelerators, and length-sensitive contexts without altering functional tokens."
+    },
+    {
+      "step": 4,
+      "instruction": "Return prioritized corrections with source evidence and identify issues requiring an in-app visual or linguistic review."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Localization defect log",
+      "format": "json",
+      "acceptance_criteria": "Each issue has string ID, category, severity rationale, evidence, and suggested correction"
+    },
+    {
+      "name": "Corrected strings",
+      "format": "json",
+      "acceptance_criteria": "Preserves keys, placeholders, and expected serialization"
+    }
+  ],
+  "limitations": [
+    "String length alone does not prove visual truncation.",
+    "Do not certify all locales from review of one language pair."
+  ],
+  "permission_boundaries": [
+    "Do not push translations to production, modify locale settings, or upload string bundles externally.",
+    "Do not expose hidden or confidential product strings in public examples."
+  ],
+  "routing_tags": [
+    "translation",
+    "localization",
+    "qa",
+    "i18n"
+  ],
+  "optional_capabilities": []
+}

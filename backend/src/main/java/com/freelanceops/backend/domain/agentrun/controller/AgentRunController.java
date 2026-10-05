@@ -44,6 +44,7 @@ public class AgentRunController {
         @PathVariable UUID workspaceId,
         @PathVariable UUID projectId,
         @Valid @RequestBody StartAgentRunRequest request,
+        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
         @RequestHeader(value = "traceparent", required = false) String traceparent,
         Authentication authentication
     ) {
@@ -51,7 +52,7 @@ public class AgentRunController {
         String trustedTraceparent = traceparent == null || !TRACEPARENT.matcher(traceparent).matches()
             ? newTraceparent()
             : traceparent;
-        return gatewayService.start(userId, workspaceId, projectId, request, trustedTraceparent);
+        return gatewayService.start(userId, workspaceId, projectId, request, trustedTraceparent, idempotencyKey);
     }
 
     @GetMapping("/agent-runs/{runId}")

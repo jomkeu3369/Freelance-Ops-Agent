@@ -1,0 +1,89 @@
+{
+  "id": "research-data-cleaning",
+  "version": "1.0.0",
+  "category": "research",
+  "name": {
+    "ko": "데이터 정리·검증",
+    "en": "Data Cleaning and Validation"
+  },
+  "summary": {
+    "ko": "원본을 보존하며 형식·결측·중복·값 범위를 점검하고 변환 이력을 남깁니다.",
+    "en": "Clean tabular data reproducibly while preserving originals and documenting every transformation."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "CSV 데이터 정리",
+    "중복 결측 검증",
+    "clean dataset",
+    "validate tabular data quality"
+  ],
+  "exclusions": [
+    "Marketing interpretation of already-clean metrics",
+    "Changing source database records"
+  ],
+  "required_inputs": [
+    {
+      "key": "data",
+      "description": "Authorized tabular data and field definitions if available",
+      "required": true
+    },
+    {
+      "key": "rules",
+      "description": "Intended use, known valid ranges, identifiers, and normalization requirements",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Profile types, missing values, duplicates, formats, ranges, and unexpected category values before changing records."
+    },
+    {
+      "step": 2,
+      "instruction": "Define explicit transformation rules and distinguish mechanical normalization from business decisions."
+    },
+    {
+      "step": 3,
+      "instruction": "Apply safe transformations to a separate output, preserving identifiers and flagging ambiguous records rather than deleting them silently."
+    },
+    {
+      "step": 4,
+      "instruction": "Reconcile input and output row counts, calculate validation checks, and produce a transformation log with unresolved exceptions."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Cleaned dataset",
+      "format": "csv",
+      "acceptance_criteria": "Preserves source meaning and identifies unresolved records"
+    },
+    {
+      "name": "Data quality report",
+      "format": "json",
+      "acceptance_criteria": "Includes checks, counts, transformation rules, and unresolved exceptions"
+    }
+  ],
+  "limitations": [
+    "Outliers are not automatically errors.",
+    "Do not infer missing values or deduplicate entities without a defensible rule."
+  ],
+  "permission_boundaries": [
+    "Do not overwrite originals, delete records, query production systems, or upload data externally without authorization.",
+    "Minimize sensitive fields and do not use data to infer protected personal attributes."
+  ],
+  "routing_tags": [
+    "research",
+    "data-cleaning",
+    "validation",
+    "dataset"
+  ],
+  "optional_capabilities": [
+    "data.compute",
+    "file.inspect"
+  ]
+}
