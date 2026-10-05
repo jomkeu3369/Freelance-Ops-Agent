@@ -123,6 +123,28 @@ class ByokExecutionPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
     }
 
+    @Test void gatewayIdempotencyRejectsCrossVersionBudgetUpgradeBeforeAnyNewAdmission() {
+        var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
+        var original = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(50000),safety);
+        var accepted = gateway.start(user,workspace,project,original,null,"pending-personal-start");
+        var run = runs.findById(accepted.runId()).orElseThrow();
+        ByokBudget originalScope = byok.validateRun(run);
+        var upgraded = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150000),safety);
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,upgraded,null,"pending-personal-start"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+            .extracting(error -> ((org.springframework.web.server.ResponseStatusException) error).getStatusCode().value())
+            .isEqualTo(409);
+        assertThat(gateway.start(user,workspace,project,original,null,"pending-personal-start").runId()).isEqualTo(accepted.runId());
+        assertThat(byok.validateRun(run)).isEqualTo(originalScope);
+        assertThat(originalScope.maxInputTokens()).isEqualTo(50000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_execution_scope WHERE payload->>'workspaceId'=?",Integer.class,workspace.toString())).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run_command c JOIN app.agent_run r ON r.id=c.run_id WHERE r.workspace_id=?",Integer.class,workspace)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE user_id=?",Integer.class,user)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_provider_attempt WHERE scope_id=?",Integer.class,originalScope.scopeId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT model_calls+input_tokens+output_tokens FROM app.byok_execution_scope WHERE scope_id=?",Long.class,originalScope.scopeId())).isZero();
+    }
+
     @Test void changingPolicyNeverUpgradesExisting50kScopeOrRenewItsDeadline() {
         var f=create(fullBudget(50000));
         var original=byok.validateRun(f.run());
