@@ -1,0 +1,66 @@
+[
+  {
+    "id": "development",
+    "name": {
+      "ko": "개발",
+      "en": "Development"
+    },
+    "expected_count": 10
+  },
+  {
+    "id": "design",
+    "name": {
+      "ko": "디자인",
+      "en": "Design"
+    },
+    "expected_count": 8
+  },
+  {
+    "id": "video",
+    "name": {
+      "ko": "영상",
+      "en": "Video"
+    },
+    "expected_count": 6
+  },
+  {
+    "id": "writing",
+    "name": {
+      "ko": "글쓰기",
+      "en": "Writing"
+    },
+    "expected_count": 7
+  },
+  {
+    "id": "translation",
+    "name": {
+      "ko": "번역·현지화",
+      "en": "Translation"
+    },
+    "expected_count": 5
+  },
+  {
+    "id": "marketing",
+    "name": {
+      "ko": "마케팅",
+      "en": "Marketing"
+    },
+    "expected_count": 8
+  },
+  {
+    "id": "operations",
+    "name": {
+      "ko": "프리랜서 운영",
+      "en": "Operations"
+    },
+    "expected_count": 10
+  },
+  {
+    "id": "research",
+    "name": {
+      "ko": "리서치·데이터",
+      "en": "Research"
+    },
+    "expected_count": 6
+  }
+]

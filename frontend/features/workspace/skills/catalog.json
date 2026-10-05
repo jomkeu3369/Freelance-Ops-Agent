@@ -1,0 +1,1687 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "freelance-ops-builtin-skills",
+  "catalog_version": "1.0.0",
+  "skills": [
+    {
+      "id": "dev-requirements-acceptance",
+      "category": "development",
+      "name": {
+        "ko": "요구사항·인수 기준",
+        "en": "Requirements and Acceptance Criteria"
+      },
+      "summary": {
+        "ko": "모호한 개발 요청을 검증 가능한 작업 범위와 인수 기준으로 바꿉니다.",
+        "en": "Turn an ambiguous software request into bounded requirements and testable acceptance criteria."
+      },
+      "triggers": [
+        "기능 요구사항 정리",
+        "인수 기준 작성",
+        "turn feature request into acceptance criteria",
+        "define software requirements"
+      ],
+      "exclusions": [
+        "Generic business proposals without a software feature",
+        "Implementation requests whose acceptance criteria are already complete"
+      ],
+      "routing_tags": [
+        "development",
+        "requirements",
+        "acceptance",
+        "planning"
+      ]
+    },
+    {
+      "id": "dev-bug-triage",
+      "category": "development",
+      "name": {
+        "ko": "버그 재현·원인 분석",
+        "en": "Bug Reproduction and Triage"
+      },
+      "summary": {
+        "ko": "재현 조건과 증거를 정리하고 가장 작은 수정·검증 경로를 제안합니다.",
+        "en": "Establish a reproducible failure, narrow likely causes, and propose a minimal fix and verification path."
+      },
+      "triggers": [
+        "버그 원인 분석",
+        "오류 재현",
+        "reproduce and diagnose a bug",
+        "triage failing behavior"
+      ],
+      "exclusions": [
+        "Unrelated feature development",
+        "Broad security auditing without a reported bug"
+      ],
+      "routing_tags": [
+        "development",
+        "debugging",
+        "regression",
+        "errors"
+      ]
+    },
+    {
+      "id": "dev-api-contract",
+      "category": "development",
+      "name": {
+        "ko": "API 계약 설계·검토",
+        "en": "API Contract Design and Review"
+      },
+      "summary": {
+        "ko": "엔드포인트·스키마·오류·호환성을 검토 가능한 API 계약으로 정리합니다.",
+        "en": "Define or review endpoints, schemas, errors, and compatibility as a coherent API contract."
+      },
+      "triggers": [
+        "API 명세 작성",
+        "엔드포인트 설계",
+        "design an API contract",
+        "review OpenAPI schema"
+      ],
+      "exclusions": [
+        "Debugging an already-defined endpoint without a contract issue",
+        "Generic documentation unrelated to interfaces"
+      ],
+      "routing_tags": [
+        "development",
+        "api",
+        "schema",
+        "integration"
+      ]
+    },
+    {
+      "id": "dev-responsive-frontend",
+      "category": "development",
+      "name": {
+        "ko": "반응형 UI 구현",
+        "en": "Responsive Frontend Implementation"
+      },
+      "summary": {
+        "ko": "기존 기술 스택과 디자인을 존중하며 화면·상태·화면 크기별 UI를 구현합니다.",
+        "en": "Implement a responsive interface while preserving the existing stack, design, and state behavior."
+      },
+      "triggers": [
+        "반응형 화면 구현",
+        "프론트엔드 컴포넌트 개발",
+        "implement responsive UI",
+        "build frontend from design"
+      ],
+      "exclusions": [
+        "Design-only wireframes without code",
+        "A site publication request requiring a separate hosting workflow"
+      ],
+      "routing_tags": [
+        "development",
+        "frontend",
+        "responsive",
+        "components"
+      ]
+    },
+    {
+      "id": "dev-accessibility-review",
+      "category": "development",
+      "name": {
+        "ko": "접근성 점검·개선",
+        "en": "Accessibility Review and Remediation"
+      },
+      "summary": {
+        "ko": "키보드·이름·구조·대비 등 검증 가능한 접근성 문제와 개선안을 정리합니다.",
+        "en": "Identify evidence-backed accessibility problems and focused remediation steps."
+      },
+      "triggers": [
+        "웹 접근성 점검",
+        "키보드 접근성 개선",
+        "audit accessibility",
+        "fix accessible names and focus"
+      ],
+      "exclusions": [
+        "General visual polish without an accessibility goal",
+        "Legal accessibility certification"
+      ],
+      "routing_tags": [
+        "development",
+        "accessibility",
+        "a11y",
+        "usability"
+      ]
+    },
+    {
+      "id": "dev-test-design",
+      "category": "development",
+      "name": {
+        "ko": "테스트 설계·작성",
+        "en": "Test Design and Authoring"
+      },
+      "summary": {
+        "ko": "동작 계약과 위험을 바탕으로 회귀·경계·실패 테스트를 구성합니다.",
+        "en": "Create behavior-focused tests covering regressions, boundaries, and meaningful failure modes."
+      },
+      "triggers": [
+        "회귀 테스트 작성",
+        "테스트 케이스 설계",
+        "write unit and integration tests",
+        "design test coverage"
+      ],
+      "exclusions": [
+        "Bug diagnosis without a request or need to add tests",
+        "Load testing against external production targets"
+      ],
+      "routing_tags": [
+        "development",
+        "testing",
+        "regression",
+        "quality"
+      ]
+    },
+    {
+      "id": "dev-refactor-plan",
+      "category": "development",
+      "name": {
+        "ko": "동작 보존 리팩터링",
+        "en": "Behavior-Preserving Refactoring"
+      },
+      "summary": {
+        "ko": "기존 계약과 호환성을 유지하는 작은 리팩터링 단위와 검증법을 만듭니다.",
+        "en": "Reduce code complexity through small changes that preserve behavior and compatibility."
+      },
+      "triggers": [
+        "중복 코드 리팩터링",
+        "동작 유지 구조 개선",
+        "refactor without changing behavior",
+        "simplify existing module"
+      ],
+      "exclusions": [
+        "New feature implementation",
+        "Breaking architecture redesign"
+      ],
+      "routing_tags": [
+        "development",
+        "refactor",
+        "maintainability",
+        "compatibility"
+      ]
+    },
+    {
+      "id": "dev-performance-triage",
+      "category": "development",
+      "name": {
+        "ko": "성능 병목 진단",
+        "en": "Performance Bottleneck Triage"
+      },
+      "summary": {
+        "ko": "측정 기준을 세우고 실제 증거로 병목·개선·재측정 계획을 좁힙니다.",
+        "en": "Find evidence-backed bottlenecks and compare targeted improvements against a measured baseline."
+      },
+      "triggers": [
+        "느린 페이지 원인",
+        "성능 병목 분석",
+        "diagnose slow application",
+        "profile performance bottleneck"
+      ],
+      "exclusions": [
+        "Generic code cleanup with no measured performance issue",
+        "Unauthorized load or denial-of-service testing"
+      ],
+      "routing_tags": [
+        "development",
+        "performance",
+        "profiling",
+        "latency"
+      ]
+    },
+    {
+      "id": "dev-security-review",
+      "category": "development",
+      "name": {
+        "ko": "코드 보안 검토",
+        "en": "Scoped Code Security Review"
+      },
+      "summary": {
+        "ko": "승인된 코드의 데이터 흐름과 신뢰 경계에서 재현 가능한 보안 문제를 찾습니다.",
+        "en": "Review authorized code and trust boundaries for concrete security weaknesses and fixes."
+      },
+      "triggers": [
+        "코드 보안 검토",
+        "인증 권한 취약점 점검",
+        "review code for security issues",
+        "audit application authorization logic"
+      ],
+      "exclusions": [
+        "General implementation merely mentioning login",
+        "Targets without authorization"
+      ],
+      "routing_tags": [
+        "development",
+        "security",
+        "authorization",
+        "trust-boundary"
+      ]
+    },
+    {
+      "id": "dev-release-handoff",
+      "category": "development",
+      "name": {
+        "ko": "개발 릴리스 인계",
+        "en": "Development Release Handoff"
+      },
+      "summary": {
+        "ko": "변경·테스트·설정·되돌리기 정보를 실제 상태에 맞춰 인계합니다.",
+        "en": "Prepare a release handoff grounded in actual changes, test results, configuration, and rollback needs."
+      },
+      "triggers": [
+        "개발 납품 정리",
+        "릴리스 인계 문서",
+        "prepare release handoff",
+        "write developer delivery notes"
+      ],
+      "exclusions": [
+        "Nontechnical client project closeout without code",
+        "Performing production deployment"
+      ],
+      "routing_tags": [
+        "development",
+        "release",
+        "handoff",
+        "documentation"
+      ]
+    },
+    {
+      "id": "design-creative-brief",
+      "category": "design",
+      "name": {
+        "ko": "디자인 크리에이티브 브리프",
+        "en": "Design Creative Brief"
+      },
+      "summary": {
+        "ko": "목표·대상·제약·평가 기준을 정리해 디자인 의사결정의 기준을 만듭니다.",
+        "en": "Turn a client request into a focused creative brief with decision criteria."
+      },
+      "triggers": [
+        "디자인 브리프 작성",
+        "크리에이티브 방향 정리",
+        "create a design brief",
+        "clarify creative direction"
+      ],
+      "exclusions": [
+        "A request for finished design files",
+        "Copy-only advertising briefs"
+      ],
+      "routing_tags": [
+        "design",
+        "brief",
+        "creative-direction",
+        "planning"
+      ]
+    },
+    {
+      "id": "design-brand-direction",
+      "category": "design",
+      "name": {
+        "ko": "브랜드 비주얼 방향",
+        "en": "Brand Visual Direction"
+      },
+      "summary": {
+        "ko": "차별화된 비주얼 방향과 색·글꼴·이미지 사용 원칙을 제안합니다.",
+        "en": "Develop distinct visual directions with rationale and practical color, type, and imagery guidance."
+      },
+      "triggers": [
+        "브랜드 비주얼 제안",
+        "브랜딩 방향 만들기",
+        "develop brand visual direction",
+        "propose visual identity concepts"
+      ],
+      "exclusions": [
+        "Finished logo vector production from an approved concept",
+        "UI component-system implementation"
+      ],
+      "routing_tags": [
+        "design",
+        "branding",
+        "identity",
+        "visual-direction"
+      ]
+    },
+    {
+      "id": "design-wireframe-flows",
+      "category": "design",
+      "name": {
+        "ko": "사용자 흐름·와이어프레임",
+        "en": "User Flows and Wireframes"
+      },
+      "summary": {
+        "ko": "핵심 과업의 화면 흐름과 상태를 저해상도 설계 명세로 만듭니다.",
+        "en": "Map key user tasks into screen flows and low-fidelity layout specifications."
+      },
+      "triggers": [
+        "와이어프레임 설계",
+        "사용자 화면 흐름",
+        "create wireframe flows",
+        "map screens for user journey"
+      ],
+      "exclusions": [
+        "High-fidelity styling with approved flows",
+        "Frontend coding from an existing design"
+      ],
+      "routing_tags": [
+        "design",
+        "wireframe",
+        "user-flow",
+        "information-architecture"
+      ]
+    },
+    {
+      "id": "design-ui-system",
+      "category": "design",
+      "name": {
+        "ko": "UI 토큰·컴포넌트 설계",
+        "en": "UI Tokens and Component Specification"
+      },
+      "summary": {
+        "ko": "기존 디자인에서 토큰·상태·변형 규칙을 추출해 일관된 컴포넌트 명세를 만듭니다.",
+        "en": "Define reusable design tokens and component behavior from an existing interface or approved direction."
+      },
+      "triggers": [
+        "디자인 시스템 정리",
+        "컴포넌트 상태 정의",
+        "specify UI design system",
+        "define tokens and component variants"
+      ],
+      "exclusions": [
+        "Single-screen cosmetic tweaks without reusable rules",
+        "Code Connect or design-tool writes requiring a dedicated integration"
+      ],
+      "routing_tags": [
+        "design",
+        "design-system",
+        "tokens",
+        "components"
+      ]
+    },
+    {
+      "id": "design-usability-review",
+      "category": "design",
+      "name": {
+        "ko": "사용성 검토",
+        "en": "Task-Based Usability Review"
+      },
+      "summary": {
+        "ko": "핵심 과업을 기준으로 혼란·오류·마찰 지점을 증거와 함께 우선순위화합니다.",
+        "en": "Review a user task for confusion, friction, and recoverability using observable evidence."
+      },
+      "triggers": [
+        "UX 리뷰",
+        "사용성 문제 분석",
+        "review interface usability",
+        "find friction in user flow"
+      ],
+      "exclusions": [
+        "Accessibility-only compliance checks",
+        "Marketing funnel analysis across channels"
+      ],
+      "routing_tags": [
+        "design",
+        "ux",
+        "usability",
+        "review"
+      ]
+    },
+    {
+      "id": "design-presentation-storyboard",
+      "category": "design",
+      "name": {
+        "ko": "프레젠테이션 스토리보드",
+        "en": "Presentation Storyboard"
+      },
+      "summary": {
+        "ko": "청중·결론·근거를 슬라이드별 메시지와 시각 구성으로 설계합니다.",
+        "en": "Shape an audience-focused presentation into slide messages, evidence, and visual layouts."
+      },
+      "triggers": [
+        "발표 슬라이드 구성",
+        "프레젠테이션 스토리보드",
+        "storyboard a slide deck",
+        "plan presentation visuals"
+      ],
+      "exclusions": [
+        "Direct editing of an existing deck with precise changes",
+        "Standalone long-form article writing"
+      ],
+      "routing_tags": [
+        "design",
+        "presentation",
+        "storyboard",
+        "visual-storytelling"
+      ]
+    },
+    {
+      "id": "design-print-preflight",
+      "category": "design",
+      "name": {
+        "ko": "인쇄물 제작 사전 점검",
+        "en": "Print Production Preflight"
+      },
+      "summary": {
+        "ko": "인쇄소 사양과 파일 정보를 비교해 여백·해상도·색상·폰트 위험을 확인합니다.",
+        "en": "Compare artwork against printer requirements and identify production risks before handoff."
+      },
+      "triggers": [
+        "인쇄 파일 점검",
+        "출력 전 프리플라이트",
+        "preflight print artwork",
+        "check bleed and print specifications"
+      ],
+      "exclusions": [
+        "General digital image feedback",
+        "Purchasing print services"
+      ],
+      "routing_tags": [
+        "design",
+        "print",
+        "preflight",
+        "production"
+      ]
+    },
+    {
+      "id": "design-asset-handoff",
+      "category": "design",
+      "name": {
+        "ko": "디자인 에셋 인계",
+        "en": "Design Asset Handoff"
+      },
+      "summary": {
+        "ko": "에셋 이름·변형·내보내기 사양·사용 권한을 추적 가능한 인계 목록으로 정리합니다.",
+        "en": "Organize design assets into a traceable handoff with naming, export specifications, and rights notes."
+      },
+      "triggers": [
+        "디자인 파일 납품",
+        "에셋 인계 정리",
+        "prepare design asset handoff",
+        "document export specifications"
+      ],
+      "exclusions": [
+        "Software release notes",
+        "General project closeout without design assets"
+      ],
+      "routing_tags": [
+        "design",
+        "assets",
+        "handoff",
+        "export"
+      ]
+    },
+    {
+      "id": "video-script-shotlist",
+      "category": "video",
+      "name": {
+        "ko": "영상 대본·촬영 목록",
+        "en": "Video Script and Shot List"
+      },
+      "summary": {
+        "ko": "목표 길이와 제작 여건에 맞는 대본·장면·촬영 목록을 만듭니다.",
+        "en": "Turn a video brief into a timed script and feasible shot list."
+      },
+      "triggers": [
+        "영상 대본 작성",
+        "촬영 콘티 구성",
+        "write video script and shot list",
+        "plan scenes for client video"
+      ],
+      "exclusions": [
+        "Editing already-shot footage without a new script",
+        "Standalone article or advertising copy"
+      ],
+      "routing_tags": [
+        "video",
+        "script",
+        "shotlist",
+        "preproduction"
+      ]
+    },
+    {
+      "id": "video-edit-plan",
+      "category": "video",
+      "name": {
+        "ko": "촬영본 편집 설계",
+        "en": "Footage Editing Plan"
+      },
+      "summary": {
+        "ko": "촬영본·타임코드·목적을 바탕으로 실행 가능한 편집 순서와 수정 목록을 만듭니다.",
+        "en": "Create an executable edit plan from footage evidence, timecodes, and the intended story."
+      },
+      "triggers": [
+        "촬영본 편집 구성",
+        "영상 컷 편집 계획",
+        "plan an edit from footage",
+        "create edit decision list"
+      ],
+      "exclusions": [
+        "New video production without source footage",
+        "Caption-only quality checks"
+      ],
+      "routing_tags": [
+        "video",
+        "editing",
+        "footage",
+        "timeline"
+      ]
+    },
+    {
+      "id": "video-shortform-repurpose",
+      "category": "video",
+      "name": {
+        "ko": "숏폼 재구성",
+        "en": "Short-Form Video Repurposing"
+      },
+      "summary": {
+        "ko": "원본의 의미를 유지하면서 독립적으로 이해되는 짧은 클립과 구성안을 만듭니다.",
+        "en": "Find self-contained short clips that preserve the source’s meaning and context."
+      },
+      "triggers": [
+        "긴 영상 쇼츠 변환",
+        "릴스 클립 구성",
+        "repurpose long video into shorts",
+        "find short-form clips"
+      ],
+      "exclusions": [
+        "Writing a new video from scratch",
+        "General social calendar planning"
+      ],
+      "routing_tags": [
+        "video",
+        "shortform",
+        "repurposing",
+        "clips"
+      ]
+    },
+    {
+      "id": "video-subtitle-qc",
+      "category": "video",
+      "name": {
+        "ko": "자막 품질 점검",
+        "en": "Subtitle Quality Control"
+      },
+      "summary": {
+        "ko": "자막의 타이밍·줄바꿈·가독성·원문 일치를 점검하고 수정합니다.",
+        "en": "Check subtitle timing, line breaks, readability, and agreement with the source."
+      },
+      "triggers": [
+        "자막 오류 수정",
+        "SRT 타이밍 점검",
+        "quality check subtitles",
+        "fix caption timing and line breaks"
+      ],
+      "exclusions": [
+        "Translation into a different language",
+        "A request for finished burned-in video captions"
+      ],
+      "routing_tags": [
+        "video",
+        "subtitles",
+        "captions",
+        "quality"
+      ]
+    },
+    {
+      "id": "video-audio-cleanup-plan",
+      "category": "video",
+      "name": {
+        "ko": "오디오 정리 계획",
+        "en": "Audio Cleanup and Mix Plan"
+      },
+      "summary": {
+        "ko": "대사 명료도·노이즈·음량 문제를 진단해 편집자가 적용할 처리 순서를 만듭니다.",
+        "en": "Diagnose dialogue and mix issues and propose a restrained, reproducible cleanup chain."
+      },
+      "triggers": [
+        "영상 소리 정리",
+        "대사 노이즈 개선",
+        "plan dialogue audio cleanup",
+        "diagnose uneven audio levels"
+      ],
+      "exclusions": [
+        "Music composition",
+        "General subtitle correction"
+      ],
+      "routing_tags": [
+        "video",
+        "audio",
+        "mixing",
+        "dialogue"
+      ]
+    },
+    {
+      "id": "video-delivery-qc",
+      "category": "video",
+      "name": {
+        "ko": "영상 납품 품질 점검",
+        "en": "Video Delivery Quality Check"
+      },
+      "summary": {
+        "ko": "플랫폼·고객 사양에 맞춰 영상·오디오·자막·파일 상태를 검증합니다.",
+        "en": "Check a final video against supplied technical and editorial delivery requirements."
+      },
+      "triggers": [
+        "영상 납품 검수",
+        "최종 영상 QC",
+        "quality check video delivery",
+        "check export specifications"
+      ],
+      "exclusions": [
+        "Planning an edit before rendering",
+        "Print-production preflight"
+      ],
+      "routing_tags": [
+        "video",
+        "delivery",
+        "export",
+        "quality"
+      ]
+    },
+    {
+      "id": "writing-article-draft",
+      "category": "writing",
+      "name": {
+        "ko": "글 구성·초안 작성",
+        "en": "Article Outline and Draft"
+      },
+      "summary": {
+        "ko": "독자·목표·근거에 맞는 논리적인 글의 구성과 초안을 작성합니다.",
+        "en": "Build a coherent article from audience needs, a clear angle, and available evidence."
+      },
+      "triggers": [
+        "블로그 글 초안",
+        "아티클 구성 작성",
+        "draft an article",
+        "outline a thought-leadership piece"
+      ],
+      "exclusions": [
+        "SEO brief without a requested draft",
+        "Editing an existing complete article"
+      ],
+      "routing_tags": [
+        "writing",
+        "article",
+        "blog",
+        "longform"
+      ]
+    },
+    {
+      "id": "writing-copyedit-factcheck",
+      "category": "writing",
+      "name": {
+        "ko": "문장 편집·사실 확인",
+        "en": "Copyediting and Claim Review"
+      },
+      "summary": {
+        "ko": "기존 글의 의미·문체를 유지하며 가독성·일관성·주장의 근거를 점검합니다.",
+        "en": "Improve existing prose while preserving meaning and checking support for factual claims."
+      },
+      "triggers": [
+        "원고 교정",
+        "문장 다듬기 사실 확인",
+        "copyedit this draft",
+        "review factual claims in text"
+      ],
+      "exclusions": [
+        "Net-new article creation",
+        "Translation QA between source and target languages"
+      ],
+      "routing_tags": [
+        "writing",
+        "editing",
+        "proofreading",
+        "factcheck"
+      ]
+    },
+    {
+      "id": "writing-landing-copy",
+      "category": "writing",
+      "name": {
+        "ko": "랜딩 페이지 카피",
+        "en": "Landing Page Copy"
+      },
+      "summary": {
+        "ko": "제품 근거와 고객 의문을 중심으로 가치 제안·섹션·CTA 문구를 작성합니다.",
+        "en": "Write a landing page around a substantiated value proposition and the reader’s decision process."
+      },
+      "triggers": [
+        "랜딩 페이지 문구",
+        "서비스 소개 카피",
+        "write landing page copy",
+        "develop website value proposition"
+      ],
+      "exclusions": [
+        "Implementation of the page layout or code",
+        "Auditing a whole marketing funnel"
+      ],
+      "routing_tags": [
+        "writing",
+        "landing-page",
+        "copywriting",
+        "conversion"
+      ]
+    },
+    {
+      "id": "writing-technical-docs",
+      "category": "writing",
+      "name": {
+        "ko": "사용자·개발자 문서",
+        "en": "User and Developer Documentation"
+      },
+      "summary": {
+        "ko": "실제 동작과 독자 과업을 바탕으로 실행 가능한 안내·참조 문서를 작성합니다.",
+        "en": "Create task-oriented documentation grounded in actual product behavior and interfaces."
+      },
+      "triggers": [
+        "사용 설명서 작성",
+        "개발 문서 정리",
+        "write technical documentation",
+        "create setup and troubleshooting guide"
+      ],
+      "exclusions": [
+        "API contract design itself",
+        "Developer release notes without instructional needs"
+      ],
+      "routing_tags": [
+        "writing",
+        "documentation",
+        "technical-writing",
+        "howto"
+      ]
+    },
+    {
+      "id": "writing-case-study",
+      "category": "writing",
+      "name": {
+        "ko": "고객 사례 글",
+        "en": "Client Case Study"
+      },
+      "summary": {
+        "ko": "확인된 문제·접근·결과를 과장 없이 설득력 있는 고객 사례로 구성합니다.",
+        "en": "Turn documented client work into a credible problem, approach, and outcome narrative."
+      },
+      "triggers": [
+        "고객 성공 사례 작성",
+        "포트폴리오 사례 글",
+        "write client case study",
+        "turn project into portfolio story"
+      ],
+      "exclusions": [
+        "Generic project status report",
+        "Competitor comparison"
+      ],
+      "routing_tags": [
+        "writing",
+        "case-study",
+        "portfolio",
+        "proof"
+      ]
+    },
+    {
+      "id": "writing-email-sequence",
+      "category": "writing",
+      "name": {
+        "ko": "이메일 시퀀스 초안",
+        "en": "Email Sequence Drafting"
+      },
+      "summary": {
+        "ko": "관계 단계와 목적에 맞는 이메일 초안을 중복·과장 없이 연결합니다.",
+        "en": "Draft a coherent email sequence for a defined audience and purpose."
+      },
+      "triggers": [
+        "이메일 시퀀스 작성",
+        "후속 이메일 초안",
+        "draft email sequence",
+        "write onboarding emails"
+      ],
+      "exclusions": [
+        "A single routine personal reply",
+        "Campaign segmentation and measurement planning"
+      ],
+      "routing_tags": [
+        "writing",
+        "email",
+        "sequence",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "writing-proposal",
+      "category": "writing",
+      "name": {
+        "ko": "프리랜서 제안서",
+        "en": "Freelance Proposal Drafting"
+      },
+      "summary": {
+        "ko": "고객 문제·접근법·범위·근거를 연결한 검토용 제안서를 작성합니다.",
+        "en": "Draft a client proposal that connects the problem, approach, scope, proof, and next decision."
+      },
+      "triggers": [
+        "프리랜서 제안서 작성",
+        "프로젝트 제안 문서",
+        "write freelance proposal",
+        "draft client project pitch"
+      ],
+      "exclusions": [
+        "Detailed statement-of-work definition",
+        "Estimating effort from a work breakdown"
+      ],
+      "routing_tags": [
+        "writing",
+        "proposal",
+        "sales-document",
+        "freelance"
+      ]
+    },
+    {
+      "id": "translation-faithful",
+      "category": "translation",
+      "name": {
+        "ko": "의미 보존 번역",
+        "en": "Meaning-Preserving Translation"
+      },
+      "summary": {
+        "ko": "원문 의미·구조·용어를 보존하며 대상 언어와 독자에 맞게 번역합니다.",
+        "en": "Translate accurately while preserving meaning, structure, terminology, and intended register."
+      },
+      "triggers": [
+        "문서 번역",
+        "의미 그대로 번역",
+        "translate faithfully",
+        "translate document preserving structure and formatting markers"
+      ],
+      "exclusions": [
+        "Advertising adaptation where wording must be recreated",
+        "Subtitle timing and length adaptation"
+      ],
+      "routing_tags": [
+        "translation",
+        "accuracy",
+        "language"
+      ]
+    },
+    {
+      "id": "translation-transcreation",
+      "category": "translation",
+      "name": {
+        "ko": "마케팅 현지화·트랜스크리에이션",
+        "en": "Marketing Transcreation"
+      },
+      "summary": {
+        "ko": "광고·브랜드 메시지의 의도와 사실을 유지하며 문화·매체에 맞게 재작성합니다.",
+        "en": "Adapt marketing language for a locale while preserving intent, substantiated claims, and brand constraints."
+      },
+      "triggers": [
+        "광고 카피 현지화",
+        "트랜스크리에이션",
+        "transcreate marketing copy",
+        "localize campaign message"
+      ],
+      "exclusions": [
+        "Literal document translation",
+        "Full campaign strategy without language adaptation"
+      ],
+      "routing_tags": [
+        "translation",
+        "transcreation",
+        "marketing",
+        "localization"
+      ]
+    },
+    {
+      "id": "translation-subtitles",
+      "category": "translation",
+      "name": {
+        "ko": "자막 번역·현지화",
+        "en": "Subtitle Translation and Localization"
+      },
+      "summary": {
+        "ko": "원문·타임코드·읽기 속도를 함께 고려해 자연스러운 번역 자막을 만듭니다.",
+        "en": "Translate subtitles with attention to source meaning, timing, readability, and locale conventions."
+      },
+      "triggers": [
+        "자막 번역",
+        "다국어 영상 자막",
+        "translate subtitles",
+        "localize SRT captions"
+      ],
+      "exclusions": [
+        "Same-language subtitle quality checks only",
+        "Generating a finished captioned video"
+      ],
+      "routing_tags": [
+        "translation",
+        "subtitles",
+        "localization",
+        "timing"
+      ]
+    },
+    {
+      "id": "translation-glossary",
+      "category": "translation",
+      "name": {
+        "ko": "용어집·언어 스타일 가이드",
+        "en": "Glossary and Language Style Guide"
+      },
+      "summary": {
+        "ko": "반복되는 용어·고유명사·말투를 일관된 번역 규칙으로 정리합니다.",
+        "en": "Build an evidence-based terminology and language-style reference for recurring translation work."
+      },
+      "triggers": [
+        "번역 용어집 작성",
+        "다국어 스타일 가이드",
+        "build translation glossary",
+        "create localization style guide"
+      ],
+      "exclusions": [
+        "One-off short translation with no terminology problem",
+        "General brand visual direction"
+      ],
+      "routing_tags": [
+        "translation",
+        "glossary",
+        "terminology",
+        "style-guide"
+      ]
+    },
+    {
+      "id": "translation-localization-qa",
+      "category": "translation",
+      "name": {
+        "ko": "현지화 품질 검수",
+        "en": "Localization Quality Assurance"
+      },
+      "summary": {
+        "ko": "원문·번역·화면 제약을 비교해 누락·용어·변수·레이아웃 위험을 검수합니다.",
+        "en": "Compare source and localized content for meaning, terminology, placeholders, and interface constraints."
+      },
+      "triggers": [
+        "번역 품질 검수",
+        "앱 현지화 QA",
+        "review localization quality",
+        "check translated UI strings"
+      ],
+      "exclusions": [
+        "Creating an entire translation from scratch",
+        "Same-language grammar editing",
+        "Subtitle files requiring cue and timing preservation"
+      ],
+      "routing_tags": [
+        "translation",
+        "localization",
+        "qa",
+        "i18n"
+      ]
+    },
+    {
+      "id": "marketing-seo-brief",
+      "category": "marketing",
+      "name": {
+        "ko": "SEO 콘텐츠 브리프",
+        "en": "SEO Content Brief"
+      },
+      "summary": {
+        "ko": "검색 의도와 근거를 중심으로 작성자가 바로 사용할 콘텐츠 브리프를 만듭니다.",
+        "en": "Create a writer-ready search content brief grounded in intent and available evidence."
+      },
+      "triggers": [
+        "SEO 콘텐츠 기획",
+        "검색 의도 브리프",
+        "create SEO content brief",
+        "plan search-focused article"
+      ],
+      "exclusions": [
+        "Writing a completed article without SEO planning needs",
+        "Technical audit of an existing page"
+      ],
+      "routing_tags": [
+        "marketing",
+        "seo",
+        "content-brief",
+        "search-intent"
+      ]
+    },
+    {
+      "id": "marketing-onpage-seo",
+      "category": "marketing",
+      "name": {
+        "ko": "페이지 SEO 점검",
+        "en": "On-Page SEO Review"
+      },
+      "summary": {
+        "ko": "기존 페이지의 제목·구조·링크·색인 신호를 확인 가능한 증거로 점검합니다.",
+        "en": "Review an existing page’s content, metadata, links, and discoverability signals."
+      },
+      "triggers": [
+        "웹페이지 SEO 점검",
+        "메타 태그 개선",
+        "audit on-page SEO",
+        "review page search discoverability"
+      ],
+      "exclusions": [
+        "Search content planning before a page exists",
+        "Performance profiling beyond SEO-relevant observations"
+      ],
+      "routing_tags": [
+        "marketing",
+        "seo",
+        "onpage",
+        "metadata"
+      ]
+    },
+    {
+      "id": "marketing-social-calendar",
+      "category": "marketing",
+      "name": {
+        "ko": "소셜 콘텐츠 캘린더",
+        "en": "Social Content Calendar"
+      },
+      "summary": {
+        "ko": "목표·대상·제작 여건에 맞춘 채널별 콘텐츠 계획과 제작 요구사항을 만듭니다.",
+        "en": "Plan channel-specific content around business goals, audience value, and realistic production capacity."
+      },
+      "triggers": [
+        "SNS 콘텐츠 일정",
+        "소셜 콘텐츠 캘린더",
+        "create social content calendar",
+        "plan a month of social posts"
+      ],
+      "exclusions": [
+        "Repurposing specific long-form video clips",
+        "Writing a single social caption"
+      ],
+      "routing_tags": [
+        "marketing",
+        "social",
+        "calendar",
+        "content-planning"
+      ]
+    },
+    {
+      "id": "marketing-ad-variants",
+      "category": "marketing",
+      "name": {
+        "ko": "광고 카피 실험안",
+        "en": "Ad Copy Experiment Variants"
+      },
+      "summary": {
+        "ko": "검증된 제품 사실을 바탕으로 비교 가능한 광고 메시지 변형을 만듭니다.",
+        "en": "Create meaningfully distinct ad variants tied to explicit messaging hypotheses."
+      },
+      "triggers": [
+        "광고 문구 A/B",
+        "퍼포먼스 광고 카피",
+        "write ad copy variants",
+        "create ad messaging tests"
+      ],
+      "exclusions": [
+        "Full experiment design and statistical planning",
+        "Non-advertising landing-page narrative"
+      ],
+      "routing_tags": [
+        "marketing",
+        "advertising",
+        "copy-variants",
+        "experiments"
+      ]
+    },
+    {
+      "id": "marketing-email-campaign",
+      "category": "marketing",
+      "name": {
+        "ko": "이메일 캠페인 설계",
+        "en": "Email Campaign Planning"
+      },
+      "summary": {
+        "ko": "동의된 대상·세그먼트·발송 흐름·측정 항목을 검토용 캠페인 계획으로 만듭니다.",
+        "en": "Plan audience segmentation, message flow, and measurement for a permission-aware email campaign."
+      },
+      "triggers": [
+        "이메일 마케팅 캠페인",
+        "뉴스레터 캠페인 설계",
+        "plan email marketing campaign",
+        "design newsletter segmentation"
+      ],
+      "exclusions": [
+        "Writing the email copy only",
+        "Individual client correspondence"
+      ],
+      "routing_tags": [
+        "marketing",
+        "email",
+        "campaign",
+        "segmentation"
+      ]
+    },
+    {
+      "id": "marketing-funnel-review",
+      "category": "marketing",
+      "name": {
+        "ko": "고객 전환 흐름 분석",
+        "en": "Conversion Funnel Review"
+      },
+      "summary": {
+        "ko": "유입부터 행동까지의 단계·수치·마찰을 연결해 개선 가설을 우선순위화합니다.",
+        "en": "Connect funnel stages, evidence, and friction points to prioritized improvement hypotheses."
+      },
+      "triggers": [
+        "전환 퍼널 분석",
+        "가입 구매 이탈 분석",
+        "audit conversion funnel",
+        "diagnose funnel drop-off"
+      ],
+      "exclusions": [
+        "Single-screen UX heuristic review",
+        "Campaign reporting without a funnel question"
+      ],
+      "routing_tags": [
+        "marketing",
+        "funnel",
+        "conversion",
+        "diagnostics"
+      ]
+    },
+    {
+      "id": "marketing-analytics-readout",
+      "category": "marketing",
+      "name": {
+        "ko": "마케팅 성과 해석",
+        "en": "Marketing Analytics Readout"
+      },
+      "summary": {
+        "ko": "지표 정의와 비교 조건을 확인해 실적·변화·불확실성을 설명합니다.",
+        "en": "Explain campaign performance using consistent metric definitions and defensible comparisons."
+      },
+      "triggers": [
+        "마케팅 성과 보고",
+        "광고 데이터 해석",
+        "summarize campaign analytics",
+        "analyze marketing performance"
+      ],
+      "exclusions": [
+        "Cleaning a dataset before any analysis",
+        "Designing a new experiment"
+      ],
+      "routing_tags": [
+        "marketing",
+        "analytics",
+        "reporting",
+        "metrics"
+      ]
+    },
+    {
+      "id": "marketing-experiment-plan",
+      "category": "marketing",
+      "name": {
+        "ko": "마케팅 실험 설계",
+        "en": "Marketing Experiment Design"
+      },
+      "summary": {
+        "ko": "가설·비교군·성공 기준·중단 조건을 사전에 정해 해석 가능한 실험을 설계합니다.",
+        "en": "Design an interpretable marketing experiment with a clear hypothesis, comparison, and decision rule."
+      },
+      "triggers": [
+        "마케팅 A/B 테스트 설계",
+        "전환 실험 계획",
+        "design marketing experiment",
+        "plan A/B test methodology"
+      ],
+      "exclusions": [
+        "Generating ad copy variants only",
+        "Post-hoc analysis presented as a pre-registered experiment"
+      ],
+      "routing_tags": [
+        "marketing",
+        "experiment",
+        "ab-test",
+        "measurement"
+      ]
+    },
+    {
+      "id": "ops-scope-statement",
+      "category": "operations",
+      "name": {
+        "ko": "작업 범위·납품 기준",
+        "en": "Scope of Work and Acceptance"
+      },
+      "summary": {
+        "ko": "납품물·제외사항·수정 횟수·검수 기준을 명확한 검토용 작업 범위로 만듭니다.",
+        "en": "Define deliverables, exclusions, revision limits, dependencies, and acceptance criteria for review."
+      },
+      "triggers": [
+        "작업 범위 정의",
+        "외주 납품 기준",
+        "draft scope of work",
+        "define project deliverables and exclusions"
+      ],
+      "exclusions": [
+        "Persuasive proposal copy without detailed scope",
+        "Software feature acceptance criteria only"
+      ],
+      "routing_tags": [
+        "operations",
+        "scope",
+        "acceptance",
+        "client-project"
+      ]
+    },
+    {
+      "id": "ops-estimate-budget",
+      "category": "operations",
+      "name": {
+        "ko": "공수·예산 산정",
+        "en": "Effort and Budget Estimation"
+      },
+      "summary": {
+        "ko": "작업 분해와 가정을 바탕으로 공수·비용 범위와 불확실성을 계산합니다.",
+        "en": "Estimate effort and cost from a work breakdown, explicit assumptions, and uncertainty."
+      },
+      "triggers": [
+        "프리랜서 견적 산정",
+        "작업 공수 계산",
+        "estimate freelance project",
+        "build project budget"
+      ],
+      "exclusions": [
+        "Invoice creation for already-approved work",
+        "Personal financial or investment advice"
+      ],
+      "routing_tags": [
+        "operations",
+        "estimate",
+        "budget",
+        "effort"
+      ]
+    },
+    {
+      "id": "ops-milestone-plan",
+      "category": "operations",
+      "name": {
+        "ko": "일정·마일스톤 계획",
+        "en": "Milestone and Dependency Plan"
+      },
+      "summary": {
+        "ko": "납품물·가용 시간·승인 의존성을 실행 가능한 일정과 위험 목록으로 연결합니다.",
+        "en": "Translate deliverables and capacity into a dependency-aware project schedule."
+      },
+      "triggers": [
+        "프로젝트 일정표",
+        "마일스톤 계획",
+        "create milestone plan",
+        "schedule freelance project work"
+      ],
+      "exclusions": [
+        "Meeting scheduling and invitations",
+        "Ongoing capacity planning across multiple retainers"
+      ],
+      "routing_tags": [
+        "operations",
+        "planning",
+        "milestones",
+        "dependencies"
+      ]
+    },
+    {
+      "id": "ops-client-intake",
+      "category": "operations",
+      "name": {
+        "ko": "고객 온보딩 질문·체크리스트",
+        "en": "Client Intake and Onboarding Checklist"
+      },
+      "summary": {
+        "ko": "작업 시작에 필요한 결정·자료·권한을 최소한의 질문과 체크리스트로 정리합니다.",
+        "en": "Gather the minimum project decisions, materials, and access needs required to begin work."
+      },
+      "triggers": [
+        "클라이언트 온보딩",
+        "외주 시작 질문지",
+        "create client intake checklist",
+        "prepare project kickoff questions"
+      ],
+      "exclusions": [
+        "Generic demographic survey research",
+        "Signing an agreement or granting account access"
+      ],
+      "routing_tags": [
+        "operations",
+        "intake",
+        "onboarding",
+        "kickoff"
+      ]
+    },
+    {
+      "id": "ops-meeting-actions",
+      "category": "operations",
+      "name": {
+        "ko": "회의 결정·실행 항목",
+        "en": "Meeting Decisions and Action Items"
+      },
+      "summary": {
+        "ko": "회의 기록에서 결정·담당·기한·미해결 쟁점을 근거와 함께 추출합니다.",
+        "en": "Extract decisions, action items, owners, dates, and unresolved questions from meeting evidence."
+      },
+      "triggers": [
+        "회의록 액션 아이템",
+        "회의 결정 정리",
+        "extract meeting action items",
+        "summarize decisions from transcript"
+      ],
+      "exclusions": [
+        "Live meeting transcription without a recording",
+        "Changing project commitments based on an unapproved proposal"
+      ],
+      "routing_tags": [
+        "operations",
+        "meetings",
+        "decisions",
+        "actions"
+      ]
+    },
+    {
+      "id": "ops-change-request",
+      "category": "operations",
+      "name": {
+        "ko": "변경 요청 영향 분석",
+        "en": "Change Request Impact Review"
+      },
+      "summary": {
+        "ko": "추가 요청을 기존 범위와 비교해 일정·비용·품질 영향과 선택지를 정리합니다.",
+        "en": "Compare a change request with the approved baseline and explain scope, cost, and schedule trade-offs."
+      },
+      "triggers": [
+        "추가 수정 범위 검토",
+        "변경 요청 영향",
+        "assess scope change",
+        "evaluate client change request"
+      ],
+      "exclusions": [
+        "Initial project estimation without a baseline",
+        "Routine copyediting within approved scope"
+      ],
+      "routing_tags": [
+        "operations",
+        "change-request",
+        "scope",
+        "tradeoffs"
+      ]
+    },
+    {
+      "id": "ops-weekly-status",
+      "category": "operations",
+      "name": {
+        "ko": "주간 프로젝트 보고",
+        "en": "Weekly Project Status Update"
+      },
+      "summary": {
+        "ko": "실제 진행 증거를 바탕으로 완료·다음 단계·위험·필요 결정을 짧게 보고합니다.",
+        "en": "Create a concise status update grounded in actual progress, next steps, risks, and decisions."
+      },
+      "triggers": [
+        "주간 업무 보고",
+        "클라이언트 진행 상황",
+        "draft project status update",
+        "write weekly client report"
+      ],
+      "exclusions": [
+        "Meeting transcript extraction",
+        "Final project closeout"
+      ],
+      "routing_tags": [
+        "operations",
+        "status",
+        "client-communication",
+        "progress"
+      ]
+    },
+    {
+      "id": "ops-invoice-draft",
+      "category": "operations",
+      "name": {
+        "ko": "청구서 초안·대조",
+        "en": "Invoice Draft and Reconciliation"
+      },
+      "summary": {
+        "ko": "승인된 작업·단가·기간을 대조해 계산이 일치하는 청구서 초안을 만듭니다.",
+        "en": "Prepare a mathematically consistent invoice draft from approved work, rates, and billing terms."
+      },
+      "triggers": [
+        "청구서 초안",
+        "작업 내역 청구 대조",
+        "draft freelance invoice",
+        "reconcile invoice line items"
+      ],
+      "exclusions": [
+        "New project price estimation",
+        "Making or collecting a payment"
+      ],
+      "routing_tags": [
+        "operations",
+        "invoice",
+        "billing",
+        "reconciliation"
+      ]
+    },
+    {
+      "id": "ops-project-handover",
+      "category": "operations",
+      "name": {
+        "ko": "프로젝트 종료·인계",
+        "en": "Project Closeout and Handover"
+      },
+      "summary": {
+        "ko": "약속된 결과·파일·운영 지식·미완료 항목을 실제 납품 상태와 대조합니다.",
+        "en": "Close a project with a traceable inventory of deliverables, knowledge, and remaining responsibilities."
+      },
+      "triggers": [
+        "프로젝트 종료 인계",
+        "납품 체크리스트",
+        "prepare project closeout",
+        "create client handover checklist"
+      ],
+      "exclusions": [
+        "Detailed software release handoff",
+        "Design asset export specifications only"
+      ],
+      "routing_tags": [
+        "operations",
+        "handover",
+        "closeout",
+        "delivery"
+      ]
+    },
+    {
+      "id": "ops-retainer-capacity",
+      "category": "operations",
+      "name": {
+        "ko": "리테이너 업무·가용량 계획",
+        "en": "Retainer Workload and Capacity Planning"
+      },
+      "summary": {
+        "ko": "여러 고객의 확정 업무와 가용 시간을 비교해 과부하·우선순위·여유를 계산합니다.",
+        "en": "Balance approved retainer commitments against realistic capacity and identify overload early."
+      },
+      "triggers": [
+        "리테이너 업무 계획",
+        "프리랜서 가용 시간",
+        "plan retainer capacity",
+        "balance multiple client workloads"
+      ],
+      "exclusions": [
+        "Planning one project’s dependency schedule",
+        "Employee scheduling or high-impact personnel decisions"
+      ],
+      "routing_tags": [
+        "operations",
+        "retainer",
+        "capacity",
+        "prioritization"
+      ]
+    },
+    {
+      "id": "research-source-brief",
+      "category": "research",
+      "name": {
+        "ko": "근거 중심 자료 조사",
+        "en": "Source-Grounded Desk Research"
+      },
+      "summary": {
+        "ko": "질문·범위·최신성에 맞는 자료를 비교해 출처와 불확실성이 보이는 요약을 만듭니다.",
+        "en": "Answer a defined research question with traceable sources and explicit uncertainty."
+      },
+      "triggers": [
+        "자료 조사 요약",
+        "출처 있는 리서치",
+        "research a topic with sources",
+        "prepare evidence brief"
+      ],
+      "exclusions": [
+        "A calculation using a complete supplied dataset",
+        "Unbounded research with no decision or question"
+      ],
+      "routing_tags": [
+        "research",
+        "desk-research",
+        "sources",
+        "evidence"
+      ]
+    },
+    {
+      "id": "research-competitor-comparison",
+      "category": "research",
+      "name": {
+        "ko": "경쟁사·대안 비교",
+        "en": "Competitor and Alternative Comparison"
+      },
+      "summary": {
+        "ko": "동일한 기준과 확인 시점으로 제품·서비스 대안을 비교합니다.",
+        "en": "Compare alternatives on consistent criteria with dated, traceable evidence."
+      },
+      "triggers": [
+        "경쟁사 비교 분석",
+        "서비스 대안 비교",
+        "compare competitors",
+        "build product alternative comparison"
+      ],
+      "exclusions": [
+        "Investment recommendations",
+        "Copying a competitor’s design or content"
+      ],
+      "routing_tags": [
+        "research",
+        "comparison",
+        "competitors",
+        "decision-support"
+      ]
+    },
+    {
+      "id": "research-interview-synthesis",
+      "category": "research",
+      "name": {
+        "ko": "인터뷰 인사이트 종합",
+        "en": "Interview Insight Synthesis"
+      },
+      "summary": {
+        "ko": "인터뷰 기록에서 관찰·인용·패턴·반례를 분리해 설계에 쓸 통찰을 만듭니다.",
+        "en": "Synthesize interview evidence into themes, counterexamples, and decision-relevant insights."
+      },
+      "triggers": [
+        "고객 인터뷰 분석",
+        "사용자 인터뷰 종합",
+        "synthesize interview findings",
+        "analyze qualitative interview notes"
+      ],
+      "exclusions": [
+        "Summarizing ordinary project meetings",
+        "Statistical analysis of a representative survey"
+      ],
+      "routing_tags": [
+        "research",
+        "interviews",
+        "qualitative",
+        "insights"
+      ]
+    },
+    {
+      "id": "research-survey-design",
+      "category": "research",
+      "name": {
+        "ko": "설문 질문·측정 설계",
+        "en": "Survey and Measurement Design"
+      },
+      "summary": {
+        "ko": "결정에 필요한 변수와 중립적인 질문·응답 선택지·분석 계획을 설계합니다.",
+        "en": "Design a concise survey with neutral questions and a clear plan for interpreting responses."
+      },
+      "triggers": [
+        "고객 설문 설계",
+        "설문 문항 작성",
+        "design customer survey",
+        "write unbiased survey questions"
+      ],
+      "exclusions": [
+        "Client project intake questions",
+        "Sending surveys or collecting live responses"
+      ],
+      "routing_tags": [
+        "research",
+        "survey",
+        "questionnaire",
+        "measurement"
+      ]
+    },
+    {
+      "id": "research-data-cleaning",
+      "category": "research",
+      "name": {
+        "ko": "데이터 정리·검증",
+        "en": "Data Cleaning and Validation"
+      },
+      "summary": {
+        "ko": "원본을 보존하며 형식·결측·중복·값 범위를 점검하고 변환 이력을 남깁니다.",
+        "en": "Clean tabular data reproducibly while preserving originals and documenting every transformation."
+      },
+      "triggers": [
+        "CSV 데이터 정리",
+        "중복 결측 검증",
+        "clean dataset",
+        "validate tabular data quality"
+      ],
+      "exclusions": [
+        "Marketing interpretation of already-clean metrics",
+        "Changing source database records"
+      ],
+      "routing_tags": [
+        "research",
+        "data-cleaning",
+        "validation",
+        "dataset"
+      ]
+    },
+    {
+      "id": "research-insight-report",
+      "category": "research",
+      "name": {
+        "ko": "분석 인사이트·권고안",
+        "en": "Insight Report and Recommendations"
+      },
+      "summary": {
+        "ko": "확인된 분석을 의사결정 질문에 연결하고 근거·한계·다음 행동을 설명합니다.",
+        "en": "Turn verified analyses into an evidence-led report with practical, qualified recommendations."
+      },
+      "triggers": [
+        "분석 보고서 작성",
+        "데이터 인사이트 정리",
+        "write insight report",
+        "turn findings into recommendations"
+      ],
+      "exclusions": [
+        "Initial source gathering without findings",
+        "Marketing-only periodic performance reporting"
+      ],
+      "routing_tags": [
+        "research",
+        "insights",
+        "report",
+        "recommendations"
+      ]
+    }
+  ]
+}
