@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { localeStorageKey } from "../../app/lib/ui-locale.mjs";
 
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 const copy = {
@@ -31,8 +32,8 @@ const test = base.extend({
 });
 
 async function openLogin(page, locale = "ko") {
+  await page.addInitScript(({ key, locale }) => localStorage.setItem(key, locale), { key: localeStorageKey, locale });
   await page.goto("/workspace/projects");
-  await page.getByRole("combobox").selectOption(locale);
   await page.locator('input[name="email"]').fill("fixture@example.invalid");
   await page.locator('input[name="password"]').fill("fixture-password-only");
 }
@@ -62,11 +63,9 @@ for (const locale of ["ko", "en"]) {
   }
 }
 
-test("retry clears stale error, prevents double submission and supports language/mode changes", async ({ page, auth }) => {
-  await openLogin(page);
+test("retry clears stale error, prevents double submission and supports mode changes", async ({ page, auth }) => {
+  await openLogin(page, "en");
   await page.locator('button[type="submit"]').click();
-  await expect(page.locator("#auth-form-error")).toHaveText(copy.ko);
-  await page.getByRole("combobox").selectOption("en");
   await expect(page.locator("#auth-form-error")).toHaveText(copy.en);
   auth.delay = 500;
   await page.locator('input[name="password"]').fill("corrected-fixture-only");

@@ -1,10 +1,9 @@
-import { useT, LanguageSelector } from "../../../app/lib/ui-language";
+import { useT } from "../../../app/lib/ui-language";
 import { AuthSession, isEmailVerificationRequired, login, register } from "../../../app/lib/api";
 import { useRef, useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTheme } from "next-themes";
-import { ArrowLeft, EyeSlash, Eye, CircleNotch, ArrowRight, Moon, Sun, ShieldCheck } from "@phosphor-icons/react";
+import { EyeSlash, Eye, CircleNotch, ArrowRight, ShieldCheck } from "@phosphor-icons/react";
 import { AuthBackdrop } from "./auth-backdrop";
 import { loginMedia } from "./login-media";
 import "./auth-cinematic.css";
@@ -32,9 +31,6 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [ageConfirmationError, setAgeConfirmationError] = useState(false);
   const emailVerified = useSyncExternalStore(subscribeToHydration, () => new URLSearchParams(window.location.search).get("emailVerified") === "1", () => false);
-  const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = themeMounted && resolvedTheme === "dark";
 
   const selectMode = (nextMode: AuthMode) => {
     if (busy) return;
@@ -119,13 +115,6 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
           <Image src="/figma/logo.svg" alt="" width={32} height={32} />
           <span>Freelance Ops</span>
         </Link>
-        <div className="auth-header-actions">
-          <LanguageSelector />
-          <Link href="/" className="auth-back"><ArrowLeft size={16} /> {t("제품 소개")}</Link>
-          <button className="auth-theme-toggle" type="button" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label={isDark ? t("라이트 모드로 전환") : t("다크 모드로 전환")}>
-            {isDark ? <Sun size={19} /> : <Moon size={19} />}
-          </button>
-        </div>
       </header>
       <div className="auth-layout">
       <div className="auth-scene-space" aria-hidden="true" />

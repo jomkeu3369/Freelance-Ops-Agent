@@ -35,12 +35,13 @@ test("scene is full bleed, right form retains its independent contrast surface a
   assert.match(css, /prefers-reduced-motion: reduce/);
 });
 
-test("header controls share one restrained surface with keyboard focus intact", () => {
-  assert.match(css, /\.auth-cinematic \.auth-header-actions \{[^}]*border-radius: 999px/);
-  assert.match(css, /\.auth-cinematic \.auth-theme-toggle \{[^}]*border: 0;[^}]*background: transparent/);
-  assert.match(css, /\.auth-cinematic \.ui-language-selector select \{[^}]*border: 0;[^}]*background: transparent/);
-  assert.match(css, /:focus-visible \{ outline: 2px solid/);
-  // Existing request/credential behavior stays in AuthGate; presentation cannot send or generate media.
+test("login header contains only the clickable brand and forms never create nested scrolling", () => {
+  const header = gate.slice(gate.indexOf('<header className="auth-header">'), gate.indexOf('</header>'));
+  assert.match(header, /<Link href="\/" className="auth-brand"/);
+  assert.doesNotMatch(header, /<button|LanguageSelector|auth-header-actions|auth-back/);
+  assert.match(css, /\.auth-panel \{[^}]*height: auto; max-height: none; overflow: visible/);
+  assert.match(css, /\.auth-panel :is\(form, \.auth-fields, \.auth-verification-pending\) \{ height: auto; max-height: none; overflow: visible/);
+  assert.doesNotMatch(css, /scrollbar-width:\s*none|::-webkit-scrollbar/);
   assert.match(gate, /submitPending.current/);
   assert.match(gate, /isEmailVerificationRequired\(session\)/);
   assert.match(gate, /ageAtLeast14/);

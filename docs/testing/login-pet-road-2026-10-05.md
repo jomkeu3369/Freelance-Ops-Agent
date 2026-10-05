@@ -48,3 +48,15 @@ could win by CSS chunk order. Cinematic rules now include the two-class page roo
 which reliably outranks the base sheet. The original position assertions remain,
 with added computed checks for transparent/borderless/shadowless outer layout and
 successful poster decoding. This is being rerun before claiming visual completion.
+
+## Latest requested refinement
+
+The user's subsequent reference supersedes the unified control-group design:
+all login header controls are removed except the clickable project brand leading
+to the main home page. Workspace controls and verification-page controls remain
+outside this scope. The login/registration panel, form and fieldset explicitly use
+natural height and visible overflow, with no nested scroll container or hidden
+scrollbar trick. Normal desktop login fits the viewport; registration, short
+screens and on-screen-keyboard sizes may scroll the document to keep every field
+and submit control reachable. Tests read language/theme preferences directly,
+without restoring the removed login selector or theme button.
