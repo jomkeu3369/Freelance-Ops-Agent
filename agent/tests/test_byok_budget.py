@@ -54,22 +54,18 @@ def incoming(**budget_overrides):
                            input=AgentInput(requirement_text="Offline only", workflow_mode=AgentWorkflowMode.AD_HOC))
 
 
-def frontend_default_budget(*, personal=True):
-    """Require both the committed client selection and the shared wire fixture to agree."""
-    import re
+def shared_default_budget(*, personal=True):
+    """Use the shared server contract; client-to-fixture matching belongs in frontend CI."""
     from pathlib import Path
     root = Path(__file__).resolve().parents[2]
-    source = (root / "frontend/app/lib/api.ts").read_text()
-    block = re.search(r"budget: \{\s*maxDurationSeconds: 180,(.*?)\n\s*\},", source, re.S)
-    assert block is not None
-    values = dict((key, int(value)) for key, value in re.findall(r"(max\w+): (\d+)", block.group(0)))
-    selected_input = re.search(r"maxInputTokens: input\.credentialId \? (\d+) : (\d+)", block.group(0))
-    assert selected_input is not None
-    values["maxInputTokens"] = int(selected_input.group(1 if personal else 2))
-    assert len(values) == 10
     fixtures = json.loads((root / "contracts/fixtures/workspace-credit-contract.json").read_text())
-    assert values == fixtures["byokStart" if personal else "start"]["budget"]
-    assert values["maxInputTokens"] == (150000 if personal else 50000)
+    values = fixtures["byokStart" if personal else "start"]["budget"]
+    assert values == {
+        "maxDurationSeconds": 180, "maxModelCalls": 50, "maxToolCalls": 12,
+        "maxInputTokens": 150000 if personal else 50000, "maxOutputTokens": 48000,
+        "maxDepartments": 4, "maxHierarchyDepth": 2, "maxSearchCredits": 2,
+        "maxRetries": 2, "maxHandoffs": 3,
+    }
     return RunBudget.model_validate(values)
 
 
@@ -499,12 +495,12 @@ async def test_small_input_budget_rejects_before_http(monkeypatch):
 
 @pytest.mark.parametrize("workflow,legacy", [(AgentWorkflowMode.AD_HOC, False),
     (AgentWorkflowMode.PROJECT_ANALYSIS, False), (AgentWorkflowMode.PROJECT_ANALYSIS, True)])
-async def test_actual_frontend_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
+async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
     from contracts import ProjectContext
     from retrieval.knowledge_context import KnowledgeContextLoader
 
-    limits = frontend_default_budget().model_dump()
-    assert frontend_default_budget(personal=False).max_input_tokens == 50000
+    limits = shared_default_budget().model_dump()
+    assert shared_default_budget(personal=False).max_input_tokens == 50000
     if legacy:
         limits["max_input_tokens"] = 50000
     request = incoming(**limits)
@@ -695,7 +691,7 @@ def realistic_tools(request):
 async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=False, integrity_fault=False):
     from retrieval.knowledge_context import KnowledgeContextLoader
 
-    request = incoming(**frontend_default_budget().model_dump())
+    request = incoming(**shared_default_budget().model_dump())
     request.byok_budget = request.byok_budget.model_copy(update={
         "valid_until": datetime.now(UTC) + timedelta(seconds=request.budget.max_duration_seconds)})
     tools = realistic_tools(request)
