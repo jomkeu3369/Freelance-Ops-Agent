@@ -53,9 +53,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private final ChatAttachmentService attachments;
     private final FreeUsageService freeUsage;
     private final PlatformSpendService platformSpend;
+    private final ByokExecutionService byok;
     private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
-    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets, FreeUsageService freeUsage, PlatformSpendService platformSpend, ChatAttachmentService attachments) {
+    public AgentRunGatewayService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, AgentRunRepository agentRunRepository, DelegationTokenIssuer tokenIssuer, AgentRunClient agentRunClient, AgentRunProjectionService projectionService, AgentRunCommandQueue commandQueue, AgentBudgetPolicy budgetPolicy, com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections, PetProfileService pets, FreeUsageService freeUsage, PlatformSpendService platformSpend, ChatAttachmentService attachments, ByokExecutionService byok) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
         this.agentRunRepository = agentRunRepository;
@@ -69,6 +70,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         this.freeUsage = freeUsage;
         this.platformSpend = platformSpend;
         this.attachments = attachments;
+        this.byok = byok;
     }
 
     @Transactional
@@ -100,9 +102,12 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         PlatformSpendTariff.validateSelection(request.modelSelection());
         connections.validate(userId, workspaceId, request.modelSelection().credentialId(), request.modelSelection().provider(), request.modelSelection().model());
         UUID runId = UUID.randomUUID();
-        // New starts consume actual platform USD. Fixed product-credit quotes are
-        // historical metadata only; BYOK still reserves platform routing overhead.
-        var platformBudget = platformSpend.reserve(userId, runId, request.modelSelection());
+        // Scope-backed personal execution has no ambient platform calls. Its durable
+        // pre-provider attempt admission is separate from operator monetary reservations.
+        var byokBudget = request.modelSelection().credentialId() == null ? null
+            : byok.issue(runId, userId, workspaceId, projectId, request.modelSelection(), request.budget());
+        if (request.modelSelection().credentialId() != null && byokBudget == null) throw new IllegalStateException("Personal execution admission did not issue a scope");
+        var platformBudget = request.modelSelection().credentialId() == null ? platformSpend.reserve(userId, runId, request.modelSelection()) : null;
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
             .map(PermissionCode::code)
@@ -132,7 +137,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                 request.skillSelection() == null ? new com.freelanceops.backend.domain.agentrun.dto.SkillSelection(null, null, null, null) : request.skillSelection(),
                 request.workflowMode()
             ),
-            platformBudget
+            platformBudget,
+            byokBudget
         );
         AgentRunEntity run = new AgentRunEntity(
             runId,
@@ -225,6 +231,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         if (authorized.run().credentialId() != null) {
             if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             connections.validate(userId, workspaceId, authorized.run().credentialId(), authorized.run().provider(), authorized.run().model());
+            byok.validateRun(authorized.run());
         }
         projectRepository.findByIdAndWorkspaceIdForUpdate(authorized.run().projectId(), workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND))
@@ -237,6 +244,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     public AgentRunView cancel(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_CANCEL);
+        byok.close(runId);
         AgentRunView response = agentRunClient.cancel(
             runId,
             issueToken(authorized.run(), userId, authorized.permissions()),

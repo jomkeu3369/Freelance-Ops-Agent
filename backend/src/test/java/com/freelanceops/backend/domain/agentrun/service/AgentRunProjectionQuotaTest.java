@@ -21,7 +21,7 @@ class AgentRunProjectionQuotaTest {
         when(repository.findByIdAndWorkspaceIdForUpdate(id, workspace)).thenReturn(Optional.of(run));
         when(run.id()).thenReturn(id);
         var service = new AgentRunProjectionService(repository, mock(AgentInterruptionService.class),
-            mock(AgentCostService.class), mock(ApplicationEventPublisher.class), usage);
+            mock(AgentCostService.class), mock(ApplicationEventPublisher.class), usage, mock(ByokExecutionService.class));
         service.synchronizeStatus(id, workspace, AgentRunStatus.FAILED);
         verifyNoInteractions(usage);
         service.synchronizeAcknowledgedStatus(id, workspace, terminal);

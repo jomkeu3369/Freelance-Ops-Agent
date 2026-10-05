@@ -25,13 +25,15 @@ public class AgentRunProjectionService {
     private final AgentCostService costService;
     private final ApplicationEventPublisher events;
     private final FreeUsageService freeUsage;
+    private final ByokExecutionService byok;
 
-    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events, FreeUsageService freeUsage) {
+    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events, FreeUsageService freeUsage, ByokExecutionService byok) {
         this.runRepository = runRepository;
         this.interruptionService = interruptionService;
         this.costService = costService;
         this.events = events;
         this.freeUsage = freeUsage;
+        this.byok = byok;
     }
 
     @Transactional
@@ -47,6 +49,7 @@ public class AgentRunProjectionService {
                     run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), result.summary(), view.result().referencedDocumentIds()
                 )));
         }
+        byok.closeIfTerminal(run.id(), view.status());
         run.synchronizeStatus(view.status(), Instant.now());
         run.scheduleReconciliation(Instant.now().plus(RECONCILIATION_INTERVAL));
     }
@@ -68,6 +71,7 @@ public class AgentRunProjectionService {
     @Transactional
     public void synchronizeStatus(UUID runId, UUID workspaceId, AgentRunStatus status) {
         lock(runId, workspaceId).synchronizeStatus(status, Instant.now());
+        byok.closeIfTerminal(runId, status);
     }
 
     /** Use only for status acknowledged by the Agent, never a locally inferred delivery failure. */
@@ -76,6 +80,7 @@ public class AgentRunProjectionService {
         if (status == null) throw new IllegalStateException("Agent did not acknowledge a run status");
         AgentRunEntity run = lock(runId, workspaceId);
         freeUsage.settleConfirmed(run.id(), status);
+        byok.closeIfTerminal(run.id(), status);
         run.synchronizeStatus(status, Instant.now());
     }
 

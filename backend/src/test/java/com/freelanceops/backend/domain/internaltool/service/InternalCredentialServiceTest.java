@@ -21,7 +21,7 @@ class InternalCredentialServiceTest {
     private final WorkspaceAuthorizationService auth = mock(WorkspaceAuthorizationService.class);
     private final ProjectRepository projects = mock(ProjectRepository.class);
     private final AgentRunRepository runs = mock(AgentRunRepository.class);
-    private final InternalCredentialService service = new InternalCredentialService(connections, auth, projects, runs);
+    private final InternalCredentialService service = new InternalCredentialService(connections, auth, projects, runs, mock(com.freelanceops.backend.domain.agentrun.service.ByokExecutionService.class));
     private final UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID(), credential = UUID.randomUUID();
     private final DelegationPrincipal principal = new DelegationPrincipal(user.toString(), "test", runId, workspace, project, user, Set.of("agent.run", "project.read"));
 
@@ -44,7 +44,9 @@ class InternalCredentialServiceTest {
     @Test void resolvesAuthenticatedAssumptionRequestWithoutPersistingTheKey() {
         when(auth.authorize(user, workspace, PermissionCode.PROJECT_READ)).thenReturn(AuthorizationDecision.ALLOWED);
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(new ProjectEntity(project, workspace, "Test", "Requirement", "KRW", null, null, null)));
-        when(runs.findById(runId)).thenReturn(Optional.empty());
+        var run = new AgentRunEntity(runId, workspace, project, UUID.randomUUID(), user, Provider.OPENAI, "test-model", AgentRunStatus.RUNNING, Instant.now());
+        run.useCredential(credential);
+        when(runs.findById(runId)).thenReturn(Optional.of(run));
         when(connections.resolve(user, workspace, credential, Provider.OPENAI, "test-model")).thenReturn("synthetic-key");
         var result = service.resolve(credential, Provider.OPENAI, "test-model", principal);
         assertThat(result.apiKey()).isEqualTo("synthetic-key");

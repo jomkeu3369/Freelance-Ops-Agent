@@ -19,8 +19,9 @@ public class InternalCredentialService {
     private final WorkspaceAuthorizationService authorization;
     private final ProjectRepository projects;
     private final AgentRunRepository runs;
-    public InternalCredentialService(AIConnectionService service, WorkspaceAuthorizationService authorization, ProjectRepository projects, AgentRunRepository runs) {
-        this.service = service; this.authorization = authorization; this.projects = projects; this.runs = runs;
+    private final com.freelanceops.backend.domain.agentrun.service.ByokExecutionService byok;
+    public InternalCredentialService(AIConnectionService service, WorkspaceAuthorizationService authorization, ProjectRepository projects, AgentRunRepository runs, com.freelanceops.backend.domain.agentrun.service.ByokExecutionService byok) {
+        this.service = service; this.authorization = authorization; this.projects = projects; this.runs = runs; this.byok = byok;
     }
 
     public record Credential(String apiKey) {
@@ -35,12 +36,14 @@ public class InternalCredentialService {
         }
         projects.findByIdAndWorkspaceId(principal.projectId(), principal.workspaceId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)).requireNotDeleting();
-        runs.findById(principal.runId()).ifPresent(run -> {
+        var run = runs.findById(principal.runId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        {
             if (!principal.workspaceId().equals(run.workspaceId()) || !principal.projectId().equals(run.projectId()) ||
                 !principal.initiatedBy().equals(run.initiatedBy()) || !id.equals(run.credentialId()) || provider != run.provider() || !model.equals(run.model())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             }
-        });
+        }
+        byok.validateCredential(run, new com.freelanceops.backend.domain.agentrun.service.ByokExecutionService.ExecutionPrincipal(principal.runId(), principal.workspaceId(), principal.projectId(), principal.initiatedBy(), principal.permissions()));
         return new Credential(service.resolve(principal.initiatedBy(), principal.workspaceId(), id, provider, model));
     }
 }

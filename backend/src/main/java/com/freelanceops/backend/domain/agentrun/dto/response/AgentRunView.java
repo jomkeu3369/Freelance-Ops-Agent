@@ -138,8 +138,18 @@ public record AgentRunView(
         UUID platformReservationId,
         String tariffVersion,
         Boolean executionClosed,
-        Boolean unpricedExposure
+        Boolean unpricedExposure,
+        UUID byokScopeId
     ) {
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
+                             java.math.BigDecimal platformCostUsd, UUID platformReservationId, String tariffVersion,
+                             Boolean executionClosed, Boolean unpricedExposure) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId,
+                tariffVersion, executionClosed, unpricedExposure, null);
+        }
         public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
                              long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
                              long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
@@ -163,6 +173,8 @@ public record AgentRunView(
                 crawledPages, retryCount, durationMs, List.of(), null, null, null);
         }
         public AgentRunUsage {
+            if (byokScopeId != null && (platformReservationId != null || tariffVersion != null))
+                throw new IllegalArgumentException("Personal usage cannot claim platform funding");
             // Old durable Agent snapshots omit these fields. Missing closure never releases a hold.
             executionClosed = Boolean.TRUE.equals(executionClosed);
             unpricedExposure = Boolean.TRUE.equals(unpricedExposure);

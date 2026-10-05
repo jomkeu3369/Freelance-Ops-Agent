@@ -6,6 +6,7 @@ on:
     branches:
       - "codex/cloud-feature-integration-20261005"
       - "codex/login-pet-motion-20261005"
+      - "fix/bounded-byok-backend"
   pull_request:
     paths:
       - "backend/**"

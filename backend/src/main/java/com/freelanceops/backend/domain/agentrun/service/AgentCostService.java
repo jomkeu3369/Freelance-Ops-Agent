@@ -33,23 +33,26 @@ public class AgentCostService {
     private final AgentRunRepository runRepository;
     private final WorkspaceAuthorizationService authorizationService;
     private final PlatformUsageService platformUsage;
+    private final ByokExecutionService byok;
 
     public AgentCostService(ModelPricingRepository pricingRepository, AgentRunUsageRepository usageRepository, AgentRunRepository runRepository, WorkspaceAuthorizationService authorizationService) {
-        this(pricingRepository, usageRepository, runRepository, authorizationService, null);
+        this(pricingRepository, usageRepository, runRepository, authorizationService, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AgentCostService(ModelPricingRepository pricingRepository, AgentRunUsageRepository usageRepository,
                            AgentRunRepository runRepository, WorkspaceAuthorizationService authorizationService,
-                           PlatformUsageService platformUsage) {
+                           PlatformUsageService platformUsage, ByokExecutionService byok) {
         this.pricingRepository = pricingRepository; this.usageRepository = usageRepository;
         this.runRepository = runRepository; this.authorizationService = authorizationService;
         this.platformUsage = platformUsage;
+        this.byok = byok;
     }
 
     public void synchronize(AgentRunEntity run, AgentRunView view) {
         AgentRunView.AgentRunUsage usage = view.usage();
         if (usage == null) return;
+        if (byok != null) byok.validateUsage(run, usage);
         if (usage.platformReservationId() != null && !run.id().equals(usage.platformReservationId())) {
             throw new IllegalArgumentException("Usage monetary reservation does not match the run");
         }
@@ -65,7 +68,8 @@ public class AgentCostService {
         BigDecimal exposure = PlatformSpendTariff.conservativeCost(usage.providerCalls(), usage.modelCalls(), usage.tariffVersion());
         AgentRunUsageEntity entity = usageRepository.findByAgentRunIdAndWorkspaceId(run.id(), run.workspaceId())
             .orElseGet(() -> new AgentRunUsageEntity(run.id(), run.workspaceId()));
-        entity.updatePlatform(usage, cost, exposure, view.status() == AgentRunStatus.COMPLETED, Instant.now());
+        if (usage.byokScopeId() != null) entity.updateByok(usage, view.status() == AgentRunStatus.COMPLETED, Instant.now());
+        else entity.updatePlatform(usage, cost, exposure, view.status() == AgentRunStatus.COMPLETED, Instant.now());
         usageRepository.save(entity);
         if (platformUsage != null) platformUsage.synchronize(run, view);
     }
@@ -145,7 +149,7 @@ public class AgentCostService {
             usage.outputTokens(), usage.cachedTokens(), usage.searchCredits(), usage.crawledPages(), usage.retryCount(),
             usage.durationMs(), usage.pricingSnapshotId(), usage.actualCost(), usage.costCurrency(), usage.costStatus(),
             usage.billableOutcome(), usage.recordedAt(), usage.providerCalls(), usage.platformCostUsd(),
-            usage.platformReservationId(), usage.tariffVersion()
+            usage.platformReservationId(), usage.tariffVersion(), usage.byokScopeId()
         );
     }
 }
