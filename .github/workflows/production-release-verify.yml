@@ -1,0 +1,48 @@
+name: Production Release Verification
+
+on:
+  push:
+    branches:
+      - codex/production-verify-run-20261005
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify exact production images and schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure existing SSH identity and trust
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VULTR_SSH_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+      - name: Read health, image references and migration state
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+          EXPECTED_BACKEND_SHA: UNSET
+          EXPECTED_SCHEMA: UNSET
+          EXPECTED_AGENT_SHA: UNSET
+        run: |
+          test "$DEPLOY_HOST" = "158.247.196.242"
+          test "$DEPLOY_USER" = "root"
+          printf '%s' "$EXPECTED_BACKEND_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "$EXPECTED_AGENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          case "$EXPECTED_SCHEMA" in 35|46) ;; *) exit 2;; esac
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "python3 - '$EXPECTED_BACKEND_SHA' '$EXPECTED_SCHEMA' '$EXPECTED_AGENT_SHA'" \
+            < infra/scripts/production-release-verify.py
