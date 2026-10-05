@@ -23,12 +23,21 @@ public record StartAgentRunRequest(
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     @Valid com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection,
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-    @jakarta.validation.constraints.Pattern(regexp = "PROJECT_ANALYSIS|AD_HOC") String workflowMode
+    @jakarta.validation.constraints.Pattern(regexp = "PROJECT_ANALYSIS|AD_HOC") String workflowMode,
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    @Size(max = 100) String byokCostNoticeVersion
 ) {
 
     public StartAgentRunRequest {
         skillSelection = skillSelection == null || skillSelection.isDefault() ? null : skillSelection;
         attachmentIds = attachmentIds == null ? java.util.List.of() : java.util.List.copyOf(attachmentIds);
+    }
+
+    public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode, ModelSelection modelSelection,
+                                RunBudget budget, SafetyContext safetyContext, CreditQuote creditQuote, java.util.List<UUID> attachmentIds,
+                                com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection, String workflowMode) {
+        this(requirementText, locale, jurisdictionCode, modelSelection, budget, safetyContext, creditQuote, attachmentIds,
+            skillSelection, workflowMode, null);
     }
 
     public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode, ModelSelection modelSelection,

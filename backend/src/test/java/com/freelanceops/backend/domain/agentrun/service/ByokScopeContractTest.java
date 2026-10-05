@@ -17,7 +17,7 @@ class ByokScopeContractTest {
     private final RunBudget budget=new RunBudget(180,2,12,20000,1000,4,2,0,1,3);
     ByokBudget scope(String funding, String tier, int calls, RunBudget bound) {
         return new ByokBudget(id,id,id,id,id,id,Provider.OPENAI,"gpt-6-luna",ReasoningEffort.LOW,
-            funding,tier,Instant.parse("2026-10-05T00:00:00Z"),calls,bound.maxInputTokens(),bound.maxOutputTokens(),bound);
+            funding,tier,Instant.parse("2026-10-05T00:00:00Z"),calls,bound.maxInputTokens(),bound.maxOutputTokens(),bound,ByokCostNoticePolicy.VERSION);
     }
     @Test void contractRoundTripsFullBoundBudgetAndExplicitFunding() {
         var mapper=JsonMapper.builder().findAndAddModules().build();
@@ -25,6 +25,11 @@ class ByokScopeContractTest {
         String payload=mapper.writeValueAsString(original);
         assertThat(payload).contains("\"fundingSource\":\"BYOK\"","\"serviceTier\":\"default\"","\"reasoningEffort\":\"LOW\"");
         assertThat(mapper.readValue(payload,ByokBudget.class)).isEqualTo(original);
+        assertThat(mapper.readValue(payload,ByokBudget.class).costNoticeVersion()).isEqualTo(ByokCostNoticePolicy.VERSION);
+        var legacy=new ByokBudget(id,id,id,id,id,id,Provider.OPENAI,"gpt-6-luna",ReasoningEffort.LOW,
+            "BYOK","default",original.validUntil(),2,budget.maxInputTokens(),budget.maxOutputTokens(),budget);
+        assertThat(mapper.writeValueAsString(legacy)).doesNotContain("costNoticeVersion");
+        assertThat(mapper.readValue(mapper.writeValueAsString(legacy),ByokBudget.class)).isEqualTo(legacy);
     }
     @Test void zeroAndMismatchedCapsOrPlatformFundingCannotFormPersonalScope() {
         assertThatThrownBy(() -> scope("PLATFORM","default",2,budget)).isInstanceOf(IllegalArgumentException.class);
@@ -42,7 +47,7 @@ class ByokScopeContractTest {
             .when(connections).validate(id,id,id,Provider.OPENAI,"gpt-6-luna");
         var selection=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(Provider.OPENAI,"gpt-6-luna",ReasoningEffort.LOW,id);
         var larger=new RunBudget(180,50,12,150000,48000,4,2,2,2,3);
-        assertThatThrownBy(() -> service.issue(id,id,id,id,selection,larger))
+        assertThatThrownBy(() -> service.issue(id,id,id,id,selection,larger, ByokCostNoticePolicy.VERSION))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         verifyNoInteractions(policy,jdbc);
     }

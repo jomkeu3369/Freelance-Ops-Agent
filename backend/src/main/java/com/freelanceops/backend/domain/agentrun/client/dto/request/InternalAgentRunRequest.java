@@ -32,7 +32,18 @@ public record InternalAgentRunRequest(
                              UUID credentialId, com.freelanceops.backend.domain.agentrun.model.Provider provider,
                              String model, com.freelanceops.backend.domain.agentrun.model.ReasoningEffort reasoningEffort,
                              String fundingSource, String serviceTier, java.time.Instant validUntil,
-                             int maxModelCalls, int maxInputTokens, int maxOutputTokens, RunBudget budget) {
+                             int maxModelCalls, int maxInputTokens, int maxOutputTokens, RunBudget budget,
+                             @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                             String costNoticeVersion) {
+        /** Legacy persisted scopes omit notice provenance; reading them never mints or renews one. */
+        public ByokBudget(UUID scopeId, UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy,
+                          UUID credentialId, com.freelanceops.backend.domain.agentrun.model.Provider provider,
+                          String model, com.freelanceops.backend.domain.agentrun.model.ReasoningEffort reasoningEffort,
+                          String fundingSource, String serviceTier, java.time.Instant validUntil,
+                          int maxModelCalls, int maxInputTokens, int maxOutputTokens, RunBudget budget) {
+            this(scopeId, runId, workspaceId, projectId, initiatedBy, credentialId, provider, model, reasoningEffort,
+                fundingSource, serviceTier, validUntil, maxModelCalls, maxInputTokens, maxOutputTokens, budget, null);
+        }
         public ByokBudget {
             if (scopeId == null || runId == null || workspaceId == null || projectId == null || initiatedBy == null
                 || credentialId == null || provider == null || model == null || reasoningEffort == null || validUntil == null

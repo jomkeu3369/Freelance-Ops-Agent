@@ -64,4 +64,20 @@ class FreeUsageIdempotencyCompatibilityTest {
         verify(jdbc).update(contains("INSERT INTO app.agent_start_idempotency"), eq(user), eq("skill-key"), eq(hash), eq(run), eq(Timestamp.from(now)));
     }
 
+    @Test void costNoticeVersionIsHashedEvenWhenAllOtherOptionalFieldsAreAbsent() throws Exception {
+        var jdbc=mock(JdbcTemplate.class);
+        var mapper=new ObjectMapper();
+        var service=new FreeUsageService(jdbc,mapper);
+        UUID user=UUID.randomUUID(),workspace=UUID.randomUUID(),project=UUID.randomUUID(),run=UUID.randomUUID();
+        var request=new StartAgentRunRequest("Synthetic input","ko","KR",null,null,null,null,java.util.List.of(),null,null,ByokCostNoticePolicy.VERSION);
+        var now=Instant.parse("2026-10-05T00:00:00Z");
+        String json=mapper.writeValueAsString(request);
+        org.junit.jupiter.api.Assertions.assertTrue(json.contains("byokCostNoticeVersion"));
+        String hash=HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((workspace+":"+project+":"+json).getBytes(StandardCharsets.UTF_8)));
+        service.rememberStart(user,"notice-hash-key",workspace,project,request,new StartAgentRunResponse(run,AgentRunStatus.QUEUED,now));
+        verify(jdbc).update(contains("INSERT INTO app.agent_start_idempotency"),eq(user),eq("notice-hash-key"),eq(hash),eq(run),eq(Timestamp.from(now)));
+        var legacy=new StartAgentRunRequest("Synthetic input","ko","KR",null,null,null,null,java.util.List.of(),null,"AD_HOC");
+        org.junit.jupiter.api.Assertions.assertFalse(mapper.writeValueAsString(legacy).contains("byokCostNoticeVersion"));
+    }
+
 }

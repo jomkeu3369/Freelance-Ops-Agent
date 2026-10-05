@@ -58,7 +58,7 @@ public class ByokExecutionService {
     private record Scope(ByokBudget budget, boolean closed) { }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public ByokBudget issue(UUID runId, UUID user, UUID workspace, UUID project, ModelSelection selection, RunBudget budget) {
+    public ByokBudget issue(UUID runId, UUID user, UUID workspace, UUID project, ModelSelection selection, RunBudget budget, String costNoticeVersion) {
         if (selection.credentialId() == null) throw rejected("BYOK_SCOPE_REQUIRED", "A personal credential is required");
         PlatformSpendTariff.validateSelection(selection);
         if (budget.maxDurationSeconds() < 1 || budget.maxDurationSeconds() > 270 || budget.maxModelCalls() < 1
@@ -72,13 +72,15 @@ public class ByokExecutionService {
         var existing = find(runId, false);
         if (existing != null) {
             requireBinding(existing.budget(), runId, user, workspace, project, selection, budget);
+            if (!java.util.Objects.equals(existing.budget().costNoticeVersion(), costNoticeVersion))
+                throw rejected("BYOK_SCOPE_INVALID", "Personal execution cost notice binding changed");
             requireOpen(existing);
             return existing.budget();
         }
-        Instant until = now().plusSeconds(budget.maxDurationSeconds());
+        Instant until = ByokCostNoticePolicy.deadline(costNoticeVersion, selection, now(), budget.maxDurationSeconds());
         ByokBudget scope = new ByokBudget(UUID.randomUUID(), runId, workspace, project, user, selection.credentialId(),
             selection.provider(), selection.model(), selection.reasoningEffort(), "BYOK", "default", until,
-            budget.maxModelCalls(), budget.maxInputTokens(), budget.maxOutputTokens(), budget);
+            budget.maxModelCalls(), budget.maxInputTokens(), budget.maxOutputTokens(), budget, costNoticeVersion);
         jdbc.update("""
             INSERT INTO app.byok_execution_scope(scope_id,run_id,payload,valid_until,max_model_calls,max_input_tokens,max_output_tokens)
             VALUES (?,?,?::jsonb,?,?,?,?)

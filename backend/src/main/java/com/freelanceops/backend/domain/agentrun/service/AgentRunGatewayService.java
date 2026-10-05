@@ -107,7 +107,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         // Scope-backed personal execution has no ambient platform calls. Its durable
         // pre-provider attempt admission is separate from operator monetary reservations.
         var byokBudget = request.modelSelection().credentialId() == null ? null
-            : byok.issue(runId, userId, workspaceId, projectId, request.modelSelection(), request.budget());
+            : byok.issue(runId, userId, workspaceId, projectId, request.modelSelection(), request.budget(), request.byokCostNoticeVersion());
         if (request.modelSelection().credentialId() != null && byokBudget == null) throw new IllegalStateException("Personal execution admission did not issue a scope");
         var platformBudget = request.modelSelection().credentialId() == null ? platformSpend.reserve(userId, runId, request.modelSelection()) : null;
         UUID threadId = UUID.randomUUID();

@@ -51,6 +51,8 @@ class ByokExecutionPostgresTest {
     @Autowired AIConnectionService connections;
     @Autowired AgentRunRepository runs;
     @Autowired AgentCostService costs;
+    @Autowired FreeUsageService starts;
+    @Autowired tools.jackson.databind.ObjectMapper mapper;
     @Autowired PlatformTransactionManager manager;
     TransactionTemplate tx;
     UUID user, workspace, project, credential, member;
@@ -77,7 +79,7 @@ class ByokExecutionPostgresTest {
             MODEL,ReasoningEffort.LOW,budget,AgentRunStatus.RUNNING,Instant.now());
         run.useCredential(credential);
         return tx.execute(s -> {
-            var scope=byok.issue(run.id(),user,workspace,project,selection(credential),budget);
+            var scope=byok.issue(run.id(),user,workspace,project,selection(credential),budget, ByokCostNoticePolicy.VERSION);
             runs.saveAndFlush(run);
             return new Fixture(run,scope);
         });
@@ -92,12 +94,96 @@ class ByokExecutionPostgresTest {
     void admit(Fixture f, UUID call) { byok.admit(f.scope().scopeId(), attempt(call), principal(f)); }
     int consumed(Fixture f) { return jdbc.queryForObject("SELECT model_calls FROM app.byok_execution_scope WHERE scope_id=?",Integer.class,f.scope().scopeId()); }
 
+    static com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest notice(
+        com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest request, String version) {
+        return new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest(request.requirementText(),request.locale(),
+            request.jurisdictionCode(),request.modelSelection(),request.budget(),request.safetyContext(),request.creditQuote(),
+            request.attachmentIds(),request.skillSelection(),request.workflowMode(),version);
+    }
+    static com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest noticed(
+        com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest request) {
+        return notice(request,ByokCostNoticePolicy.VERSION);
+    }
+
     static RunBudget fullBudget(int input) { return new RunBudget(180,50,12,input,48000,4,2,2,2,3); }
+
+    com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest personalRequest(int input) {
+        var safety=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
+        return new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(input),safety);
+    }
+    @Test void newPersonalStartsRejectMissingOrStaleCostNoticeBeforeCreatingAnyExecution() {
+        for (int input:new int[]{50000,150000}) {
+            var request=personalRequest(input);
+            int index=0;
+            for (String version:new String[]{null,"","old-notice","byok-standard-150k-48k-2026-10-05-v2"}) {
+                String key="old-tab-notice-"+input+"-"+index++;
+                assertThatThrownBy(() -> gateway.start(user,workspace,project,notice(request,version),null,key))
+                    .isInstanceOf(ByokExecutionException.class)
+                    .extracting(e -> ((ByokExecutionException)e).code()).isEqualTo("BYOK_COST_NOTICE_REFRESH_REQUIRED");
+            }
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_execution_scope WHERE payload->>'workspaceId'=?",Integer.class,workspace.toString())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE user_id=?",Integer.class,user)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run_command WHERE requested_by=?",Integer.class,user)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_start_idempotency WHERE user_id=?",Integer.class,user)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_provider_attempt a JOIN app.byok_execution_scope s USING(scope_id) WHERE s.payload->>'workspaceId'=?",Integer.class,workspace.toString())).isZero();
+    }
+    @Test void currentNoticeIsImmutableAndParticipatesInGatewayIdempotencyWithCredentialModelAndBudget() {
+        var request=noticed(personalRequest(150000));
+        var accepted=gateway.start(user,workspace,project,request,null,"reviewed-personal-start");
+        var run=runs.findById(accepted.runId()).orElseThrow();
+        var scope=byok.validateRun(run);
+        assertThat(scope.costNoticeVersion()).isEqualTo(ByokCostNoticePolicy.VERSION);
+        assertThat(jdbc.queryForObject("SELECT payload->>'costNoticeVersion' FROM app.byok_execution_scope WHERE run_id=?",String.class,run.id())).isEqualTo(ByokCostNoticePolicy.VERSION);
+        assertThat(gateway.start(user,workspace,project,request,null,"reviewed-personal-start").runId()).isEqualTo(run.id());
+        var changedModel=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest(request.requirementText(),request.locale(),null,
+            new ModelSelection(Provider.OPENAI,"gpt-6-sol",ReasoningEffort.LOW,credential),request.budget(),request.safetyContext());
+        var changedCredential=new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest(request.requirementText(),request.locale(),null,
+            selection(UUID.randomUUID()),request.budget(),request.safetyContext());
+        for (var changed:List.of(notice(request,null),notice(request,"old-notice"),noticed(personalRequest(50000)),noticed(changedModel),noticed(changedCredential))) {
+            assertThatThrownBy(() -> gateway.start(user,workspace,project,changed,null,"reviewed-personal-start"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("Idempotency-Key was already used");
+        }
+        assertThat(byok.validateRun(run)).isEqualTo(scope);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_execution_scope WHERE payload->>'workspaceId'=?",Integer.class,workspace.toString())).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run_command WHERE run_id=?",Integer.class,run.id())).isOne();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_provider_attempt WHERE scope_id=?",Integer.class,scope.scopeId())).isZero();
+    }
+    @Test void alreadyAdmittedLegacyStartReplaysWithoutNoticeUpgradeOrDeadlineRenewal() {
+        // Synthetic pre-release state: immutable scope and start hash were admitted before a notice marker existed.
+        var request=personalRequest(50000);
+        var run=new AgentRunEntity(UUID.randomUUID(),workspace,project,UUID.randomUUID(),user,Provider.OPENAI,MODEL,
+            ReasoningEffort.LOW,request.budget(),AgentRunStatus.RUNNING,Instant.now());
+        run.useCredential(credential);
+        var until=Instant.now().plusSeconds(180);
+        var legacy=new ByokBudget(UUID.randomUUID(),run.id(),workspace,project,user,credential,Provider.OPENAI,MODEL,
+            ReasoningEffort.LOW,"BYOK","default",until,50,50000,48000,request.budget());
+        var accepted=new com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse(run.id(),AgentRunStatus.QUEUED,Instant.now());
+        tx.executeWithoutResult(st -> {
+            runs.saveAndFlush(run);
+            jdbc.update("""
+                INSERT INTO app.byok_execution_scope(scope_id,run_id,payload,valid_until,max_model_calls,max_input_tokens,max_output_tokens)
+                VALUES (?,?,?::jsonb,?,50,50000,48000)
+                """,legacy.scopeId(),run.id(),mapper.writeValueAsString(legacy),java.sql.Timestamp.from(until));
+            starts.rememberStart(user,"legacy-pending-notice",workspace,project,request,accepted);
+        });
+        var fixture=new Fixture(run,legacy); admit(fixture,UUID.randomUUID());
+        assertThat(gateway.start(user,workspace,project,request,null,"legacy-pending-notice").runId()).isEqualTo(run.id());
+        assertThat(byok.validateRun(run)).isEqualTo(legacy);
+        assertThat(consumed(fixture)).isOne();
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,noticed(request),null,"legacy-pending-notice"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("Idempotency-Key was already used");
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,request,null,"new-start-needs-notice"))
+            .isInstanceOf(ByokExecutionException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_execution_scope WHERE payload->>'workspaceId'=?",Integer.class,workspace.toString())).isOne();
+    }
 
     @Test void authenticatedPersonalStartGets150kWhilePlatformAndHigherPersonalRequestsRemainDenied() {
         var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
         var personal = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150000),safety);
-        var accepted = gateway.start(user,workspace,project,personal,null,"personal-150k");
+        var accepted = gateway.start(user,workspace,project,noticed(personal),null,"personal-150k");
         var persisted = runs.findById(accepted.runId()).orElseThrow();
         var scope = byok.validateRun(persisted);
         assertThat(scope.maxInputTokens()).isEqualTo(150000);
@@ -105,7 +191,7 @@ class ByokExecutionPostgresTest {
         assertThat(jdbc.queryForObject("SELECT max_input_tokens FROM app.byok_execution_scope WHERE run_id=?",Integer.class,accepted.runId())).isEqualTo(150000);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE run_id=?",Integer.class,accepted.runId())).isZero();
         var tooLarge = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150001),safety);
-        assertThatThrownBy(() -> gateway.start(user,workspace,project,tooLarge,null))
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,noticed(tooLarge),null))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("422");
         var platformRequest = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(null),fullBudget(50001),safety);
         assertThatThrownBy(() -> gateway.start(user,workspace,project,platformRequest,null))
@@ -113,12 +199,12 @@ class ByokExecutionPostgresTest {
         for (var unauthorized : List.of(selection(UUID.randomUUID()),
             new ModelSelection(Provider.OPENAI,"gpt-6-sol",ReasoningEffort.LOW,credential))) {
             var invalid = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,unauthorized,fullBudget(150000),safety);
-            assertThatThrownBy(() -> gateway.start(user,workspace,project,invalid,null))
+            assertThatThrownBy(() -> gateway.start(user,workspace,project,noticed(invalid),null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("404");
         }
         jdbc.update("DELETE FROM app.ai_connection WHERE id=?",credential);
         assertThatThrownBy(() -> byok.validateRun(persisted)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThatThrownBy(() -> gateway.start(user,workspace,project,personal,null,"revoked-150k"))
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,noticed(personal),null,"revoked-150k"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
     }
@@ -126,15 +212,15 @@ class ByokExecutionPostgresTest {
     @Test void gatewayIdempotencyRejectsCrossVersionBudgetUpgradeBeforeAnyNewAdmission() {
         var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
         var original = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(50000),safety);
-        var accepted = gateway.start(user,workspace,project,original,null,"pending-personal-start");
+        var accepted = gateway.start(user,workspace,project,noticed(original),null,"pending-personal-start");
         var run = runs.findById(accepted.runId()).orElseThrow();
         ByokBudget originalScope = byok.validateRun(run);
         var upgraded = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150000),safety);
-        assertThatThrownBy(() -> gateway.start(user,workspace,project,upgraded,null,"pending-personal-start"))
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,noticed(upgraded),null,"pending-personal-start"))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
             .extracting(error -> ((org.springframework.web.server.ResponseStatusException) error).getStatusCode().value())
             .isEqualTo(409);
-        assertThat(gateway.start(user,workspace,project,original,null,"pending-personal-start").runId()).isEqualTo(accepted.runId());
+        assertThat(gateway.start(user,workspace,project,noticed(original),null,"pending-personal-start").runId()).isEqualTo(accepted.runId());
         assertThat(byok.validateRun(run)).isEqualTo(originalScope);
         assertThat(originalScope.maxInputTokens()).isEqualTo(50000);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
@@ -149,10 +235,10 @@ class ByokExecutionPostgresTest {
         var f=create(fullBudget(50000));
         var original=byok.validateRun(f.run());
         assertThat(original.maxInputTokens()).isEqualTo(50000);
-        assertThatThrownBy(() -> tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(150000))))
+        assertThatThrownBy(() -> tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(150000), ByokCostNoticePolicy.VERSION)))
             .isInstanceOf(ByokExecutionException.class).extracting(e -> ((ByokExecutionException)e).code()).isEqualTo("BYOK_SCOPE_INVALID");
         assertThat(byok.validateRun(f.run())).isEqualTo(original);
-        ByokBudget replay = tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(50000)));
+        ByokBudget replay = tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(50000), ByokCostNoticePolicy.VERSION));
         assertThat(replay).isEqualTo(original);
         assertThat(jdbc.queryForObject("SELECT max_input_tokens FROM app.byok_execution_scope WHERE scope_id=?",Integer.class,original.scopeId())).isEqualTo(50000);
     }
@@ -181,8 +267,8 @@ class ByokExecutionPostgresTest {
     @Test void publicGatewayIssuesExactlyOneScopeOnIdempotentStartWithoutPlatformSpend() {
         var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
         var request = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),BUDGET,safety);
-        var accepted = gateway.start(user,workspace,project,request,null,"byok-test-start");
-        var replay = gateway.start(user,workspace,project,request,null,"byok-test-start");
+        var accepted = gateway.start(user,workspace,project,noticed(request),null,"byok-test-start");
+        var replay = gateway.start(user,workspace,project,noticed(request),null,"byok-test-start");
         assertThat(replay.runId()).isEqualTo(accepted.runId());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.byok_execution_scope WHERE run_id=?",Integer.class,accepted.runId())).isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run_command WHERE run_id=?",Integer.class,accepted.runId())).isOne();
@@ -247,7 +333,7 @@ class ByokExecutionPostgresTest {
     }
     @Test void scopeReplayAndRestartKeepOriginalDeadlineAndConsumedLimits() {
         var f=create(BUDGET); UUID first=UUID.randomUUID(); admit(f,first);
-        var replay=tx.execute(s -> byok.issue(f.run().id(),user,workspace,project,selection(credential),BUDGET));
+        var replay=tx.execute(s -> byok.issue(f.run().id(),user,workspace,project,selection(credential),BUDGET, ByokCostNoticePolicy.VERSION));
         assertThat(replay).isEqualTo(f.scope());
         assertThat(byok.validateRun(f.run())).isEqualTo(f.scope());
         assertThatThrownBy(() -> admit(f,first)).isInstanceOf(ByokExecutionException.class)
@@ -298,13 +384,13 @@ class ByokExecutionPostgresTest {
         for (var invalid: List.of(selection(UUID.randomUUID()),
             new ModelSelection(Provider.OPENAI,"gpt-6-sol",ReasoningEffort.LOW,credential),
             new ModelSelection(Provider.GEMINI,MODEL,ReasoningEffort.LOW,credential))) {
-            assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),user,workspace,project,invalid,BUDGET)))
+            assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),user,workspace,project,invalid,BUDGET, ByokCostNoticePolicy.VERSION)))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         }
-        assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),UUID.randomUUID(),workspace,project,selection(credential),BUDGET)))
+        assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),UUID.randomUUID(),workspace,project,selection(credential),BUDGET, ByokCostNoticePolicy.VERSION)))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         jdbc.update("DELETE FROM app.ai_connection WHERE id=?",credential);
-        assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),user,workspace,project,selection(credential),BUDGET)))
+        assertThatThrownBy(() -> tx.execute(s -> byok.issue(UUID.randomUUID(),user,workspace,project,selection(credential),BUDGET, ByokCostNoticePolicy.VERSION)))
             .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
     @Test void deletingConnectionOrMembershipRevocationStopsEachNewAttemptAndResume() {
