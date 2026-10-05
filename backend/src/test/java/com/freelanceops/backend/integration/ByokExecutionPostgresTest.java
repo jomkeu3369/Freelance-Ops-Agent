@@ -130,8 +130,8 @@ class ByokExecutionPostgresTest {
         assertThatThrownBy(() -> tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(150000))))
             .isInstanceOf(ByokExecutionException.class).extracting(e -> ((ByokExecutionException)e).code()).isEqualTo("BYOK_SCOPE_INVALID");
         assertThat(byok.validateRun(f.run())).isEqualTo(original);
-        assertThat(tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(50000))))
-            .isEqualTo(original);
+        ByokBudget replay = tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(50000)));
+        assertThat(replay).isEqualTo(original);
         assertThat(jdbc.queryForObject("SELECT max_input_tokens FROM app.byok_execution_scope WHERE scope_id=?",Integer.class,original.scopeId())).isEqualTo(50000);
     }
 
