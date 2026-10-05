@@ -46,6 +46,13 @@ public class AgentBudgetPolicy {
 
     /** Called only by the personal scope issuer after current credential authorization. */
     void enforcePersonal(RunBudget requested) {
+        // The approved cost notice cannot inherit a larger global/operator override.
+        // The shared policy below still enforces any lower configured non-input limits.
+        if (requested.maxDurationSeconds() > 180 || requested.maxModelCalls() > 50
+            || requested.maxOutputTokens() > 48000) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
+                "Personal execution budget exceeds the approved cost notice policy");
+        }
         enforce(requested, PERSONAL_MAX_INPUT_TOKENS);
     }
 

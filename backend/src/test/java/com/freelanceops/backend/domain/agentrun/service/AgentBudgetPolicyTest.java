@@ -55,4 +55,22 @@ class AgentBudgetPolicyTest {
         }
     }
 
+    @Test
+    void inflatedPlatformConfigurationCannotRaiseNoticeBackedPersonalCaps() {
+        var inflated=new AgentBudgetPolicy(900,100,100,250000,200000,4,2,100,5,10);
+        inflated.enforcePersonal(new RunBudget(180,50,12,150000,48000,4,2,2,2,3));
+        for (var requested:java.util.List.of(
+            new RunBudget(181,50,12,150000,48000,4,2,2,2,3),
+            new RunBudget(180,51,12,150000,48000,4,2,2,2,3),
+            new RunBudget(180,50,12,150000,48001,4,2,2,2,3),
+            new RunBudget(180,50,12,150001,48000,4,2,2,2,3))) {
+            assertThatThrownBy(() -> inflated.enforcePersonal(requested)).isInstanceOf(ResponseStatusException.class);
+            inflated.enforce(requested); // Existing platform configuration semantics remain unchanged.
+        }
+        var lower=new AgentBudgetPolicy(90,10,12,50000,1000,4,2,2,2,3);
+        lower.enforcePersonal(new RunBudget(90,10,12,150000,1000,4,2,2,2,3));
+        assertThatThrownBy(() -> lower.enforcePersonal(new RunBudget(91,10,12,150000,1000,4,2,2,2,3)))
+            .isInstanceOf(ResponseStatusException.class);
+    }
+
 }
