@@ -1,0 +1,43 @@
+name: Production Release Preflight
+
+# Publishing the review branch does not run this workflow. Only the explicitly
+# reviewed, one-time execution branch below may access existing production keys.
+on:
+  push:
+    branches:
+      - codex/production-preflight-run-20261005
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify production and retain local snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure existing SSH identity and trust
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VULTR_SSH_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+      - name: Check state and retain snapshot on the existing server
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+        run: |
+          test "$DEPLOY_HOST" = "158.247.196.242"
+          test "$DEPLOY_USER" = "root"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "python3 - '$GITHUB_SHA'" \
+            < infra/scripts/production-preflight.py
