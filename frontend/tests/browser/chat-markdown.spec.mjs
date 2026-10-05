@@ -52,6 +52,24 @@ for (const width of [320, 390, 1440]) for (const [locale, theme] of [["ko", "lig
     // Capture real application rendering, with the message top visible.
     await page.getByRole("log").evaluate(el => { el.scrollTop = 0; });
     await page.screenshot({ path: `outputs/ui-ux/chat-markdown-${width}-${locale}-${theme}.png` });
+    await table.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `outputs/ui-ux/chat-markdown-table-${width}-${locale}-${theme}.png` });
+    await pre.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `outputs/ui-ux/chat-markdown-code-${width}-${locale}-${theme}.png` });
+    // Measure the actual themed code foreground/background, rather than a fixed palette.
+    const codeContrast = await pre.evaluate(element => {
+      const rgb = color => color.match(/[\d.]+/g).slice(0, 3).map(Number);
+      const luminance = color => rgb(color).map(value => { const v = value / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+      const foreground = luminance(getComputedStyle(element.querySelector("code")).color);
+      const background = luminance(getComputedStyle(element.closest(".chat-markdown-code")).backgroundColor);
+      return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+    });
+    expect(codeContrast).toBeGreaterThanOrEqual(4.5);
+    await page.getByRole("button", { name: locale === "ko" ? "결과 열기" : "Open result", exact: true }).click();
+    await expect(page.locator(".agent-chat-result-panel .run-result .chat-markdown h2")).toHaveText("프로젝트 요약 · Project summary");
+    await expect(page.locator(".agent-chat-result-panel .run-result .chat-markdown pre code")).toContainText("안녕하세요");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     expect(errors).toEqual([]);
     expect(state.starts).toEqual([]);
     expect(state.writes).toEqual([]);
