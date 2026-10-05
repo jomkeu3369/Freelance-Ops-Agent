@@ -80,7 +80,9 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     @Transactional
     public StartAgentRunResponse start(UUID userId, UUID workspaceId, UUID projectId, StartAgentRunRequest request, String traceparent, String idempotencyKey) {
-        budgetPolicy.enforce(request.budget());
+        // Personal budgets are checked by the scope issuer after credential authorization.
+        // The shared 50k platform policy is unchanged.
+        if (request.modelSelection().credentialId() == null) budgetPolicy.enforce(request.budget());
         if (request.modelSelection().credentialId() != null && request.budget().maxDurationSeconds() > 270) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "Personal AI runs support a maximum duration of 270 seconds");
         }

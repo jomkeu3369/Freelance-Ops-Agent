@@ -34,4 +34,25 @@ class AgentBudgetPolicyTest {
             .isInstanceOf(ResponseStatusException.class)
             .hasMessageContaining("422 UNPROCESSABLE_CONTENT");
     }
+    @Test
+    void separatesApprovedPersonalInputCeilingFromUnchangedPlatformCeiling() {
+        policy.enforce(new RunBudget(180,12,12,50000,48000,4,2,2,2,3));
+        assertThatThrownBy(() -> policy.enforce(new RunBudget(180,12,12,50001,48000,4,2,2,2,3)))
+            .isInstanceOf(ResponseStatusException.class);
+        policy.enforcePersonal(new RunBudget(180,12,12,150000,48000,4,2,2,2,3));
+        assertThatThrownBy(() -> policy.enforcePersonal(new RunBudget(180,12,12,150001,48000,4,2,2,2,3)))
+            .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void largerPersonalInputAllowanceDoesNotRaiseOtherDimensions() {
+        for (var requested : java.util.List.of(
+            new RunBudget(181,12,12,150000,48000,4,2,2,2,3),
+            new RunBudget(180,13,12,150000,48000,4,2,2,2,3),
+            new RunBudget(180,12,12,150000,48001,4,2,2,2,3),
+            new RunBudget(180,12,13,150000,48000,4,2,2,2,3))) {
+            assertThatThrownBy(() -> policy.enforcePersonal(requested)).isInstanceOf(ResponseStatusException.class);
+        }
+    }
+
 }

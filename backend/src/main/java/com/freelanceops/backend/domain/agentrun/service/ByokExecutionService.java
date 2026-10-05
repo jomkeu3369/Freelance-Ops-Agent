@@ -41,11 +41,12 @@ public class ByokExecutionService {
     private final WorkspaceAuthorizationService authorization;
     private final AgentRunRepository runs;
     private final ProjectRepository projects;
+    private final AgentBudgetPolicy budgetPolicy;
     public ByokExecutionService(JdbcTemplate jdbc, ObjectMapper mapper, AIConnectionService connections,
                                 WorkspaceAuthorizationService authorization, AgentRunRepository runs,
-                                ProjectRepository projects) {
+                                ProjectRepository projects, AgentBudgetPolicy budgetPolicy) {
         this.jdbc = jdbc; this.mapper = mapper; this.connections = connections;
-        this.authorization = authorization; this.runs = runs; this.projects = projects;
+        this.authorization = authorization; this.runs = runs; this.projects = projects; this.budgetPolicy = budgetPolicy;
     }
 
     public record ExecutionPrincipal(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, Set<String> permissions) { }
@@ -65,6 +66,9 @@ public class ByokExecutionService {
             throw rejected("BYOK_SCOPE_INVALID", "Personal execution limits are invalid");
         }
         connections.validate(user, workspace, selection.credentialId(), selection.provider(), selection.model());
+        // A supplied credential UUID alone never selects a larger allowance. Ownership,
+        // workspace membership, provider and model have now been validated.
+        budgetPolicy.enforcePersonal(budget);
         var existing = find(runId, false);
         if (existing != null) {
             requireBinding(existing.budget(), runId, user, workspace, project, selection, budget);

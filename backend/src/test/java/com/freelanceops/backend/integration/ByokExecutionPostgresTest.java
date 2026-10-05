@@ -92,6 +92,70 @@ class ByokExecutionPostgresTest {
     void admit(Fixture f, UUID call) { byok.admit(f.scope().scopeId(), attempt(call), principal(f)); }
     int consumed(Fixture f) { return jdbc.queryForObject("SELECT model_calls FROM app.byok_execution_scope WHERE scope_id=?",Integer.class,f.scope().scopeId()); }
 
+    static RunBudget fullBudget(int input) { return new RunBudget(180,50,12,input,48000,4,2,2,2,3); }
+
+    @Test void authenticatedPersonalStartGets150kWhilePlatformAndHigherPersonalRequestsRemainDenied() {
+        var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
+        var personal = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150000),safety);
+        var accepted = gateway.start(user,workspace,project,personal,null,"personal-150k");
+        var persisted = runs.findById(accepted.runId()).orElseThrow();
+        var scope = byok.validateRun(persisted);
+        assertThat(scope.maxInputTokens()).isEqualTo(150000);
+        assertThat(scope.budget()).isEqualTo(fullBudget(150000));
+        assertThat(jdbc.queryForObject("SELECT max_input_tokens FROM app.byok_execution_scope WHERE run_id=?",Integer.class,accepted.runId())).isEqualTo(150000);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE run_id=?",Integer.class,accepted.runId())).isZero();
+        var tooLarge = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),fullBudget(150001),safety);
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,tooLarge,null))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("422");
+        var platformRequest = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(null),fullBudget(50001),safety);
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,platformRequest,null))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("422");
+        for (var unauthorized : List.of(selection(UUID.randomUUID()),
+            new ModelSelection(Provider.OPENAI,"gpt-6-sol",ReasoningEffort.LOW,credential))) {
+            var invalid = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,unauthorized,fullBudget(150000),safety);
+            assertThatThrownBy(() -> gateway.start(user,workspace,project,invalid,null))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("404");
+        }
+        jdbc.update("DELETE FROM app.ai_connection WHERE id=?",credential);
+        assertThatThrownBy(() -> byok.validateRun(persisted)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> gateway.start(user,workspace,project,personal,null,"revoked-150k"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE workspace_id=?",Integer.class,workspace)).isOne();
+    }
+
+    @Test void changingPolicyNeverUpgradesExisting50kScopeOrRenewItsDeadline() {
+        var f=create(fullBudget(50000));
+        var original=byok.validateRun(f.run());
+        assertThat(original.maxInputTokens()).isEqualTo(50000);
+        assertThatThrownBy(() -> tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(150000))))
+            .isInstanceOf(ByokExecutionException.class).extracting(e -> ((ByokExecutionException)e).code()).isEqualTo("BYOK_SCOPE_INVALID");
+        assertThat(byok.validateRun(f.run())).isEqualTo(original);
+        assertThat(tx.execute(st -> byok.issue(f.run().id(),user,workspace,project,selection(credential),fullBudget(50000))))
+            .isEqualTo(original);
+        assertThat(jdbc.queryForObject("SELECT max_input_tokens FROM app.byok_execution_scope WHERE scope_id=?",Integer.class,original.scopeId())).isEqualTo(50000);
+    }
+
+    @Test void concurrent150kAdmissionsRemainBoundedAcrossRetryLikeAttempts() throws Exception {
+        var f=create(fullBudget(150000)); var ready=new CountDownLatch(12); var start=new CountDownLatch(1);
+        try (var pool=Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Boolean>> results=new ArrayList<>();
+            for (int i=0;i<12;i++) results.add(pool.submit(() -> {
+                ready.countDown(); if (!start.await(10,TimeUnit.SECONDS)) throw new IllegalStateException("Barrier timeout");
+                var claim=new ByokExecutionService.Attempt(UUID.randomUUID(),credential,Provider.OPENAI,MODEL,ReasoningEffort.LOW,
+                    "BYOK","default","department_work_product",30000,1000);
+                try { byok.admit(f.scope().scopeId(),claim,principal(f)); return true; } catch (ByokExecutionException expected) { return false; }
+            }));
+            assertThat(ready.await(10,TimeUnit.SECONDS)).isTrue(); start.countDown();
+            int accepted=0; for (var result:results) if (result.get(20,TimeUnit.SECONDS)) accepted++;
+            assertThat(accepted).isEqualTo(5);
+        }
+        assertThat(consumed(f)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("SELECT input_tokens FROM app.byok_execution_scope WHERE scope_id=?",Long.class,f.scope().scopeId())).isEqualTo(150000L);
+        assertThat(jdbc.queryForObject("SELECT output_tokens FROM app.byok_execution_scope WHERE scope_id=?",Long.class,f.scope().scopeId())).isEqualTo(5000L);
+        assertThatThrownBy(() -> admit(f,UUID.randomUUID())).isInstanceOf(ByokExecutionException.class);
+        assertThatThrownBy(() -> byok.admit(UUID.randomUUID(),attempt(UUID.randomUUID()),principal(f))).isInstanceOf(ByokExecutionException.class);
+    }
+
     @Test void publicGatewayIssuesExactlyOneScopeOnIdempotentStartWithoutPlatformSpend() {
         var safety = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext(false,false,false,false,false,false,false);
         var request = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest("Synthetic analysis","en",null,selection(credential),BUDGET,safety);
