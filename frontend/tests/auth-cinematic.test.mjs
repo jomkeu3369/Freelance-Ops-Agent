@@ -29,7 +29,7 @@ test("scene is full bleed, right form retains its independent contrast surface a
   assert.match(css, /\.auth-cinematic \.auth-backdrop__visual \{[^}]*position: fixed;[^}]*pointer-events: none/);
   assert.match(css, /\.auth-cinematic \.auth-layout \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(340px, 440px\)/);
   assert.match(css, /\.auth-cinematic \.auth-panel \{[^}]*background: #fffffff2/);
-  assert.match(css, /\[data-theme="dark"\] \.auth-cinematic \.auth-panel \{[^}]*background: #221e30f5/);
+  assert.match(css, /\[data-theme="dark"\] \.auth-page\.auth-cinematic \.auth-panel \{[^}]*background: #221e30f5/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.auth-message \{ display: none/);
   assert.match(css, /\.auth-cinematic \.auth-backdrop__toggle \{[^}]*z-index: 4/);
   assert.match(css, /prefers-reduced-motion: reduce/);
@@ -44,4 +44,11 @@ test("header controls share one restrained surface with keyboard focus intact", 
   assert.match(gate, /submitPending.current/);
   assert.match(gate, /isEmailVerificationRequired\(session\)/);
   assert.match(gate, /ageAtLeast14/);
+});
+
+
+test("cinematic selectors outrank the base auth stylesheet regardless of chunk order", () => {
+  assert.match(css, /\.auth-page\.auth-cinematic \.auth-layout \{[^}]*background: transparent;[^}]*box-shadow: none/);
+  assert.match(css, /\.auth-page\.auth-cinematic \.auth-panel \{/);
+  assert.doesNotMatch(css, /(^|\n)\.auth-cinematic(?:\s|\.)/);
 });

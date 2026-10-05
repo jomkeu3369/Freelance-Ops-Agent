@@ -13,6 +13,9 @@ async function openAuth(page, { locale = "ko", theme = "light", reduced = false 
   await page.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
   await page.goto("/workspace/projects");
   await page.getByRole("combobox").selectOption(locale);
+  await expect(page.locator(".auth-layout")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(page.locator(".auth-layout")).toHaveCSS("border-left-width", "0px");
+  await expect(page.locator(".auth-layout")).toHaveCSS("box-shadow", "none");
   return blocked;
 }
 
@@ -20,6 +23,10 @@ for (const theme of ["light", "dark"]) {
   test(`desktop ${theme}: form is right-aligned and header blends into the scene shell`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const blocked = await openAuth(page, { theme });
+    await expect(page.locator(".auth-layout")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".auth-layout")).toHaveCSS("border-left-width", "0px");
+    await expect(page.locator(".auth-layout")).toHaveCSS("box-shadow", "none");
+    await expect.poll(() => page.locator(".auth-backdrop__poster").evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true);
     const panel = await page.locator(".auth-panel").boundingBox();
     const message = await page.locator(".auth-scene-space").boundingBox();
     const header = await page.locator(".auth-header-actions").boundingBox();

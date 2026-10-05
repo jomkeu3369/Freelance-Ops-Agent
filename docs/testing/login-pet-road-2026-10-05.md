@@ -38,3 +38,13 @@ The frontend CI push trigger is narrowly extended to this task branch, retaining
 the existing main/integration behavior and adding auth error/layout scenarios to
 the synthetic Chromium job. Backend/Agent/CD workflows are not changed. No laptop
 work, main merge, production deployment, admin grant or spending activation occurs.
+
+## First hosted check
+
+Preview commit `378708e` passed all 313 Node checks/typecheck/lint and 57 browser
+cases, but the two desktop position checks failed. Pixel review showed the old
+white split-card covering the approved scene: equal-specificity base auth styles
+could win by CSS chunk order. Cinematic rules now include the two-class page root,
+which reliably outranks the base sheet. The original position assertions remain,
+with added computed checks for transparent/borderless/shadowless outer layout and
+successful poster decoding. This is being rerun before claiming visual completion.
