@@ -33,9 +33,9 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
-          EXPECTED_BACKEND_SHA: UNSET
-          EXPECTED_SCHEMA: UNSET
-          EXPECTED_AGENT_SHA: UNSET
+          EXPECTED_BACKEND_SHA: 98efb8b0bd4576cccab8c69217f450a4da88ad9b
+          EXPECTED_SCHEMA: 35
+          EXPECTED_AGENT_SHA: bb20df86836ce8787095677180bb0a885a897a9a
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
           test "$DEPLOY_USER" = "root"
