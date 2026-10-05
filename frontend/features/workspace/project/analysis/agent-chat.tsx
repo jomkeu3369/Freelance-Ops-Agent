@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useT } from "../../../../app/lib/ui-language";
+import { ChatMarkdown } from "../../shared/chat-markdown";
+import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import {
   AgentRunHistoryItem,
   AgentRunView,
@@ -80,6 +81,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
 
 export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryMessages, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
+  const locale = useUiLocale();
   const attachments = useChatAttachments(session, projectId);
   const online = useSyncExternalStore(subscribeToConnection, () => navigator.onLine, () => true);
   const [draft, setDraft] = useState("");
@@ -313,7 +315,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           if (entry.kind === "policy") {
             const item = entry.value;
             return <div className="agent-chat-turn" key={`policy-${item.proposalId}`} data-proposal-id={item.proposalId}>
-              <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.sourceMessage}</p></div>
+              <div className="agent-chat-message user"><span>{t("내 요청")}</span><ChatMarkdown locale={locale}>{item.sourceMessage}</ChatMarkdown></div>
               <div className="agent-chat-message assistant agent-chat-policy" data-state={item.status === "APPLIED" ? "success" : "attention"}><span>{t("견적 기본 설정")} · {item.status === "APPLIED" ? t("적용됨") : item.status === "PENDING" ? t("확인 대기") : t("새 변경안 필요")}</span>
                 <strong>{item.status === "APPLIED" ? t("견적 기본 설정이 변경되었습니다.") : t("견적 기본 설정 변경안")}</strong>
                 {item.status === "PENDING" && <p className="agent-chat-muted">{t("현재 값과 변경 값을 확인해 주세요. 확인 전에는 적용되지 않습니다.")}</p>}
@@ -331,16 +333,16 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           const missingHistory = item.runId !== runId && !view && !loading;
           const needsResultRetry = missingHistory;
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
-            {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><p>{item.requirementText}</p></div>}
+            {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><ChatMarkdown locale={locale}>{item.requirementText}</ChatMarkdown></div>}
             {view?.metadata?.resolvedSkillIds?.length ? <SkillNames ids={view.metadata.resolvedSkillIds} /> : null}
             {view?.metadata?.deferredSkillIds?.length ? <SkillNames ids={view.metadata.deferredSkillIds} prefix={t("다음 단계 필요: ")} /> : null}
             {item.attachments?.map((file, index) => <p className="agent-chat-muted" key={index}>{file.name} · {file.status} {file.notice}</p>)}
             <div className="agent-chat-message assistant" data-state={missingHistory ? "offline" : state.tone}>
               <span className="agent-chat-message-label">{missingHistory ? <WarningCircle size={17} aria-hidden="true" /> : state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {missingHistory ? t("기록 확인 필요") : t(runStatusLabels[status] ?? "확인 중")}</span>
-              {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}>{eventText(entry, t)}</li>)}</ol></details>}
+              {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}><ChatMarkdown locale={locale}>{eventText(entry, t)}</ChatMarkdown></li>)}</ol></details>}
               {view?.result ? <div className="agent-chat-result">
                 <strong>{t("검토할 결과")}</strong>
-                <p>{view.result.projectSummary}</p>
+                <ChatMarkdown locale={locale}>{view.result.projectSummary}</ChatMarkdown>
                 <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}<ArrowUpRight size={17} aria-hidden="true" /></button>
               </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t(resultPendingMessage(status))}</p>}
               {needsResultRetry && <button type="button" className="quiet-button" disabled={loading} onClick={() => setHistoryRevision(value => value + 1)}>{t("기록 다시 불러오기")}</button>}

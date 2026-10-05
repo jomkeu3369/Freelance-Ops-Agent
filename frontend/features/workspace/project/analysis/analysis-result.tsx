@@ -1,4 +1,5 @@
-import { useT } from "../../../../app/lib/ui-language";
+import { ChatMarkdown } from "../../shared/chat-markdown";
+import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import { AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
 import { ArrowRight, CheckCircle, Receipt, Warning } from "@phosphor-icons/react";
 import { eventDataText, routeActivityLabels } from "../../shared/activity-presentation";
@@ -15,6 +16,7 @@ interface AnalysisResultProps {
 
 export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: AnalysisResultProps) {
   const t = useT();
+  const locale = useUiLocale();
   const latestRouteEvent = [...events].reverse().find((event) => event.type === "route.selected") ?? null;
   const selectedRoute = latestRouteEvent ? eventDataText(latestRouteEvent, "route") : null;
   const routingProvider = latestRouteEvent ? eventDataText(latestRouteEvent, "routingProvider") : null;
@@ -43,7 +45,7 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
         <p>{t("AI 요구사항 문서는 근거 자료에서 검토할 수 있습니다. 사용자 확인 전에는 다음 분석의 근거로 사용되지 않습니다.")}</p>
       )}
       <h3>{t("프로젝트 요약")}</h3>
-      <p>{run.result.projectSummary}</p>
+      <ChatMarkdown locale={locale}>{run.result.projectSummary}</ChatMarkdown>
       {run.metadata && (
         <details className="run-provenance run-technical-details">
           <summary>{t("실행 정보")}</summary>
