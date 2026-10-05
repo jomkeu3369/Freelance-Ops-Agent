@@ -1,5 +1,7 @@
 # Workspace UI handoff — 2026-10-05
 
+Cloud continuation and current verification: [WORKSPACE_UI_CLOUD_VERIFICATION.md](WORKSPACE_UI_CLOUD_VERIFICATION.md). The notes below preserve the earlier laptop checkpoint.
+
 Work is paused at the user's request because the laptop became slow. Continue builds, browser automation, and any Docker work in a cloud execution environment. No Docker commands, container operations, data/volume deletion, deployment, main merge, force push, or permission changes were performed by this task.
 
 ## Branch and scope

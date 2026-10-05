@@ -129,11 +129,11 @@ test("temporary run-read failure recovers to a completed result without resendin
   seedRun(state);
   state.pollFailures = 1;
   await page.goto(path);
-  await expect(page.getByRole("alert").filter({ hasText: "Fixture poll failure" })).toBeVisible();
+  await expect(page.locator(".agent-chat-connection")).toBeVisible();
   state.run.status = "COMPLETED";
   state.run.result = completedResult;
   await expect(page.getByRole("button", { name: "결과 열기" })).toBeVisible();
-  await expect(page.getByRole("alert").filter({ hasText: "Fixture poll failure" })).toHaveCount(0);
+  await expect(page.locator(".agent-chat-connection")).toHaveCount(0);
   expect(state.starts).toHaveLength(0);
 });
 
@@ -361,7 +361,7 @@ test("AI settings retain provider, model, personal connection and pet customizat
   await expect(connection).toBeVisible();
   await expect(connection.locator('option[value="fixture-connection"]')).toHaveCount(1);
   await connection.selectOption("fixture-connection");
-  await expect(settings.locator(".model-selection-note")).toContainText("내 키로 실행");
+  await expect(settings.locator(".model-selection-note").filter({ hasText: "내 키로 실행" })).toBeVisible();
   await expect(settings.getByLabel("AI 제공사", { exact: true })).toHaveCount(0);
   const customizer = settings.locator(".pet-customizer");
   await expect(customizer).toBeVisible();

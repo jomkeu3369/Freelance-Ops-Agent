@@ -8,8 +8,6 @@ import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
 import { PetWorkspace } from "../../pets/pet-workspace";
-import { FreeUsageStatus } from "../../usage/free-usage-status";
-import type { CreditUsageState } from "../../usage/use-credit-usage";
 import { WorkspacePanel } from "../../shared/workspace-panel";
 import { AgentChat } from "./agent-chat";
 
@@ -30,7 +28,6 @@ interface AnalysisStepProps {
   composerInfo?: ReactNode | ((draft: string) => ReactNode);
   retryMessages: string[];
   canSendAI: boolean;
-  usageState: CreditUsageState;
   streamState: StreamState;
   onOpenAISettings: () => void;
   onSendMessage: (message: string) => Promise<boolean>;
@@ -40,7 +37,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryMessages, usageState, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryMessages, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -55,7 +52,6 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
       canSendAI={canSendAI} retryMessages={retryMessages} composerInfo={composerInfo} composerTools={composerTools}
       headerTools={<>
-        <FreeUsageStatus state={usageState} session={session} revision={`${runId ?? ""}:${run?.status ?? ""}`} compact />
         {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}>{t("작업 자세히 보기")}</button>}
       </>}
       streamState={streamState} onOpenAISettings={onOpenAISettings} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}

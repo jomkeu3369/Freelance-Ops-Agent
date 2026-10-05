@@ -87,4 +87,12 @@ export const creditEnglish = {
   "견적 기본 설정 변경안 · AI 크레딧 차감 없음 · 확인 후 적용": "Estimate settings proposal · no AI credits · applied only after confirmation",
   "개인 API 키 사용 · 제공사 계정에 사용 요금이 청구됩니다. 운영 보호한도가 적용됩니다.": "Personal API key · usage is billed to your provider account. Operating limits still apply.",
   "개인 키는 주간 크레딧을 차감하지 않지만 운영 보호한도와 지원 모델 제한은 적용됩니다.": "Personal keys do not consume weekly credits, but operating limits and supported-model restrictions still apply.",
+  "기본 제공 AI의 주간 잔여 예산이 없습니다.": "No weekly budget remains for included AI.",
+  "서버의 사용량 계약을 다시 확인해야 합니다. 입력은 보존되었습니다. 자동으로 다시 보내지 않습니다.": "The server usage contract needs checking. Your draft is preserved. This request will not retry automatically.",
+  "AI 실행이 중지되었거나 계정·운영 예산이 부족해 요청을 시작하지 못했습니다. 자동으로 다시 보내지 않습니다.": "AI is paused or an account or operating budget cannot admit this request. It will not retry automatically.",
+  "사용량과 모델 지원 상태를 확인한 뒤 다시 보내 주세요.": "Check usage and model availability before sending again.",
+  "사용량과 모델 지원 상태를 확인하지 못했습니다.": "Usage and model availability could not be checked.",
+  "제공사 계정의 모델 접근 권한은 아직 확인되지 않았습니다.": "Model access on the provider account has not been verified.",
+  "개인 키의 모델 호출은 제공사 계정에 청구됩니다. 플랫폼이 처리하는 라우팅 비용은 주간 예산에 포함됩니다.": "Calls using your key are billed to your provider account. Platform-funded routing counts toward the weekly budget.",
+  "미확정 호출은 보수적 상한을 포함합니다.": "Unconfirmed calls include conservative upper bounds.",
 };

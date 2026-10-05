@@ -75,7 +75,7 @@ test("results, settings and usage open only on demand and return focus without c
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const input = page.locator("#agent-chat-input");
   await input.fill("Keep this draft while reviewing");
-  for (const name of ["결과 열기", "AI 설정 열기", "주간 크레딧"]) {
+  for (const name of ["결과 열기", "AI 설정 열기"]) {
     const trigger = page.getByRole("button", { name, exact: true });
     await trigger.focus();
     await trigger.press("Enter");
@@ -170,8 +170,9 @@ test("an async quota notice owns focus above an open usage panel", async ({ page
     await page.locator("#agent-chat-input").fill("Preserve this request");
     await page.locator('.agent-chat-composer button[type="submit"]').click();
     await barrier.entered;
-    await page.getByRole("button", { name: "주간 크레딧", exact: true }).click();
-    const usage = page.getByRole("dialog", { name: "주간 크레딧", exact: true });
+    await page.locator(".chat-credit-trigger").click();
+    await page.getByRole("button", { name: "사용 내역", exact: true }).click();
+    const usage = page.getByRole("dialog", { name: "사용 내역", exact: true });
     await expect(usage).toBeVisible();
     barrier.release();
     const quota = page.getByRole("dialog", { name: "기본 AI 크레딧이 부족합니다" });

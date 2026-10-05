@@ -80,7 +80,7 @@ for (const scenario of ["zero", "exhausted", "unknown", "loading", "failure"]) t
 
 test("usage history retains precise costs, unconfirmed reservations, pagination and focus restoration", async ({ page }) => {
   const state = await fixture(page);
-  const entry = { runId: "ledger-one", workspaceId: "local-space", model: "server-model", status: "UNKNOWN", startedAt: "2026-10-05T00:00:00Z", platformCostUsd: null, platformReservedUsd: "0.000123456789", usageKnown: false, byokInputTokens: 25, byokOutputTokens: 10 };
+  const entry = { runId: "ledger-one", model: "server-model", status: "UNKNOWN", startedAt: "2026-10-05T00:00:00Z", platformCostUsd: null, platformReservedUsd: "0.000123456789", usageKnown: false, byokInputTokens: 25, byokOutputTokens: 10 };
   state.aiHistory = { items: [entry], nextCursor: "page-two" };
   await page.goto(path); const trigger = page.locator(".chat-credit-trigger");
   await trigger.hover(); await page.getByRole("button", { name: "사용 내역", exact: true }).click();
@@ -106,6 +106,7 @@ test("server model constraints and spending pause prevent unpriced generation", 
   await expect(page.locator(".chat-model-popover")).toContainText("예약 상한 $0.25");
   await expect(page.locator(".chat-model-popover")).toContainText("예상 실제 비용이 아닙니다");
   await expect(page.locator(".chat-model-popover")).toContainText("medium, high");
+  await expect(page.locator(".chat-model-popover")).toContainText("모델 접근 권한은 아직 확인되지");
   expect(state.starts).toEqual([]);
 });
 

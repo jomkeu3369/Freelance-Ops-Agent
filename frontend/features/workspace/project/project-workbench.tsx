@@ -36,8 +36,6 @@ import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
 import type { PendingRunRetry } from "../../../app/lib/pending-run-store";
 import { parseChatPolicyIntent } from "../../../app/lib/chat-policy-intent.mjs";
-import { creditDecision, isWeeklyCreditUsage } from "../../../app/lib/credit-policy";
-import { useCreditUsage } from "../usage/use-credit-usage";
 import { CreditCostNote } from "../usage/credit-cost-note";
 import { AiUsageMeter } from "../usage/ai-usage-meter";
 import { useAiUsage } from "../usage/use-ai-usage";
@@ -92,39 +90,38 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const [creditReviewRequired, setCreditReviewRequired] = useState(false);
   const canRun = permissions.has("agent.run");
-  const usage = useCreditUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
   const ledger = useAiUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
-  const weeklyUsage = isWeeklyCreditUsage(usage.data) ? usage.data : null;
   const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
   const chatModel = credentialId
     ? connection && isSupportedProvider(connection.provider) && !connectionError ? { provider: connection.provider, model: connection.model, credentialId: connection.id } : null
     : model.trim() ? { provider, model: model.trim(), credentialId: undefined } : null;
 
-  const credit = creditDecision(usage.loading ? null : usage.data, chatModel?.provider ?? provider, chatModel?.model ?? model, chatModel?.credentialId);
   const retryCandidates = pendingRetries.filter(item => !!chatModel && item.provider === chatModel.provider && item.model === chatModel.model && (item.credentialId ?? "") === (chatModel.credentialId ?? ""));
   const ledgerBlocker = includedUsageBlocker(ledger.data, chatModel?.provider ?? provider, chatModel?.model ?? model);
-  const ledgerMessage = ledger.loading ? t("사용량 확인 중…") : ledgerBlocker === "paused" ? t("기본 제공 AI 실행이 현재 중지되어 있습니다.") : ledgerBlocker === "model" ? t("선택한 모델의 지원 여부와 예약 상한을 확인해 주세요.") : ledgerBlocker === "insufficient" ? t("선택한 모델의 예약 상한보다 잔여 예산이 적습니다.") : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
-  const canSendAI = !!chatModel && (credit.kind === "byok" || credit.kind === "ready" && !ledgerBlocker && !ledger.loading);
+  const ledgerMessage = ledger.loading ? t("사용량 확인 중…") : ledgerBlocker === "paused" ? t("기본 제공 AI 실행이 현재 중지되어 있습니다.") : ledgerBlocker === "model" ? t("선택한 모델의 지원 여부와 예약 상한을 확인해 주세요.") : ledgerBlocker === "insufficient" ? t("기본 제공 AI의 주간 잔여 예산이 없습니다.") : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
+  const canSendAI = !!chatModel && (!!chatModel.credentialId || !ledgerBlocker && !ledger.loading);
 
   async function sendMessage(message: string) {
     if (!chatModel) return false;
     const retry = retryCandidates.find(item => item.message === message);
-    if (!retry && credit.kind !== "ready" && credit.kind !== "byok") throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
-    if (!retry && credit.kind !== "byok" && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
+    if (!retry && !chatModel.credentialId && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
     try {
-      const accepted = await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry ? retry.creditQuote : credit.kind === "ready" ? credit.quote : undefined);
+      const accepted = await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry?.creditQuote);
       if (accepted) setCreditReviewRequired(false);
       return accepted;
     } catch (cause) {
       if (isCreditQuoteRefreshRequired(cause)) {
         setCreditReviewRequired(true);
-        await usage.refresh();
+        void ledger.refresh();
         throw new Error(cause.code === "PLATFORM_MODEL_UNAVAILABLE"
           ? t("이 모델은 기본 제공 AI에서 사용할 수 없습니다. 다른 모델이나 개인 API 키를 선택해 주세요.")
-          : t("크레딧 가격을 다시 확인했습니다. 새 차감량을 검토하고 직접 다시 보내 주세요."));
+          : t("서버의 사용량 계약을 다시 확인해야 합니다. 입력은 보존되었습니다. 자동으로 다시 보내지 않습니다."));
       }
-      if (isPlatformSpendUnavailable(cause)) throw new Error(t("AI 분석의 운영 보호한도 때문에 요청을 시작하지 못했습니다. 사용자 크레딧 소진과는 별개입니다. 자동으로 다시 보내지 않습니다."));
+      if (isPlatformSpendUnavailable(cause)) {
+        void ledger.refresh();
+        throw new Error(t("AI 실행이 중지되었거나 계정·운영 예산이 부족해 요청을 시작하지 못했습니다. 자동으로 다시 보내지 않습니다."));
+      }
       throw cause;
     }
   }
@@ -210,7 +207,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const selectedModelLabel = `${selectedUsesPersonalKey ? `${t("내 키 ·")} ` : ""}${selectedModelName}`;
   const modelControls = !selectionLocked ? <ChatModelControls
     catalogModels={ledger.data?.models ?? null}
-    modelRates={weeklyUsage?.modelRates ?? null} connections={connections} credentialId={credentialId} provider={provider} model={model}
+    connections={connections} credentialId={credentialId} provider={provider} model={model}
     busy={busy} connectionError={connectionError} onCredentialChange={setCredentialId}
     onProviderChange={value => { setProvider(value); setModel(configuredModelOptions[value][0] ?? ""); }} onModelChange={setModel} />
     : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>;
@@ -388,9 +385,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           modelAvailable={!!chatModel}
           canSendAI={canSendAI}
           retryMessages={retryCandidates.map(item => item.message)}
-          usageState={usage}
-          composerInfo={(draft) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={!!parseChatPolicyIntent(draft)} active={runInProgress} decision={credit} retry={retryCandidates.find(item => item.message === draft)} loading={usage.loading} onRetry={() => void usage.refresh()} />
-            {!runInProgress && !parseChatPolicyIntent(draft) && !retryCandidates.some(item => item.message === draft) && credit.kind !== "byok" && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
+          composerInfo={(draft) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={!!parseChatPolicyIntent(draft)} active={runInProgress} retry={retryCandidates.find(item => item.message === draft)} />
+            {!runInProgress && !parseChatPolicyIntent(draft) && !retryCandidates.some(item => item.message === draft) && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
             <AiUsageMeter session={session} state={ledger} /></>}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}

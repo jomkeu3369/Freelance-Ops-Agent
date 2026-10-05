@@ -77,7 +77,7 @@ export function AiUsageMeter({ session, state }: { session: AuthSession; state: 
         <strong>{item.model}</strong><time dateTime={item.startedAt}>{freeUsageResetLabel(item.startedAt, locale) ?? item.startedAt}</time>
         <p>{item.status} · {item.usageKnown ? t("사용량 확인됨") : t("사용량 미확정 · 예약 유지")}</p>
         <p>{t("정산 ${settled} · 예약 ${reserved} (USD)", { settled: item.platformCostUsd ?? "—", reserved: item.platformReservedUsd ?? "—" })}</p>
-        {(item.byokInputTokens != null || item.byokOutputTokens != null) && <p>{t("개인 키 토큰: 입력 {input} · 출력 {output}", { input: item.byokInputTokens ?? "—", output: item.byokOutputTokens ?? "—" })}</p>}
+        {(Number(item.byokInputTokens) > 0 || Number(item.byokOutputTokens) > 0) && <p>{t("개인 키 토큰: 입력 {input} · 출력 {output}", { input: item.byokInputTokens ?? "—", output: item.byokOutputTokens ?? "—" })}{(!item.providerCalls || item.providerCalls.some(call => call.fundingSource === "BYOK" && !call.usageKnown)) && <> · {t("미확정 호출은 보수적 상한을 포함합니다.")}</>}</p>}
       </li>)}</ol>
       {historyLoading ? <p role="status">{t("사용 내역 확인 중…")}</p> : !historyFailed && !items.length ? <p>{t("이 기간의 사용 내역이 없습니다.")}</p> : null}
       {cursor && !historyFailed && <button type="button" className="quiet-button" disabled={historyLoading} onClick={() => void loadHistory(cursor)}>{t("더 보기")}</button>}

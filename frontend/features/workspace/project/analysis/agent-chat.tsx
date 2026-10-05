@@ -236,7 +236,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         updateDraft("");
       } else {
         if (!canRun) throw new Error(t("분석을 실행할 권한이 없습니다."));
-        if (!canSendAI && !retryingDraft) throw new Error(t("크레딧 가격과 잔여량을 확인한 뒤 다시 보내 주세요."));
+        if (!canSendAI && !retryingDraft) throw new Error(t("사용량과 모델 지원 상태를 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
         const accepted = await onSend(message);
         if (!mounted.current) return;
