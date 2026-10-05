@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
+from builtin_skills import resolve_skills
 from contracts import (
     AgentInterruption,
     AgentRunAccepted,
@@ -165,6 +166,8 @@ class AgentRunStore(Protocol):
 
     async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None: ...
 
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None: ...
+
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]: ...  # noqa: E501
 
     async def prepare_resume(self, run_id: UUID, command: ResumeAgentRunRequest) -> AgentRunRequest: ...
@@ -207,6 +210,8 @@ class InMemoryAgentRunStore:
             if record.status is not AgentRunStatus.QUEUED or (request is not None and request != record.request):
                 raise AgentRunStateError("agent run cannot enter RUNNING from its current state")
             record.status = AgentRunStatus.RUNNING
+            if record.usage is not None:
+                record.usage = record.usage.model_copy(update={"execution_closed": False})
             record.interruption = None
             record.updated_at = datetime.now(UTC)
             self._append_event(record, "run.started")
@@ -267,6 +272,10 @@ class InMemoryAgentRunStore:
                 AgentRunStatus.CANCELLED,
             }:
                 raise AgentRunStateError("terminal Agent run cannot be cancelled")
+            if record.status is AgentRunStatus.QUEUED and record.request.platform_budget is not None:
+                idle = PlatformSpendLedger(record.request.platform_budget, record.usage)
+                idle.closed = True
+                usage = idle.report(None)
             record.status = AgentRunStatus.CANCELLED
             record.usage = merge_usage(record.usage, usage)
             record.updated_at = datetime.now(UTC)
@@ -283,6 +292,12 @@ class InMemoryAgentRunStore:
             if record.status is not AgentRunStatus.RUNNING:
                 raise AgentRunStateError("only a running Agent run can publish progress")
             self._append_event(record, event.type, event.data)
+
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
+        async with self._lock:
+            record = self._record(run_id)
+            record.usage = merge_usage(record.usage, usage)
+            record.updated_at = datetime.now(UTC)
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]:
         if not 1 <= limit <= 101:
@@ -336,6 +351,9 @@ class InMemoryAgentRunStore:
 
 def _metadata(request: AgentRunRequest) -> AgentRunMetadata:
     return AgentRunMetadata(
+        skill_selection=request.input.skill_selection,
+        resolved_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[0],
+        deferred_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[1],
         pet_profiles=request.input.pet_profiles,
         credential_id=request.model_selection.credential_id,
         provider=request.model_selection.provider,
@@ -374,7 +392,17 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
     # twice. Attempt IDs make monetary settlement idempotent in that path too.
     calls = {call.call_id: call for call in current.provider_calls}
     for call in incoming.provider_calls:
-        calls.setdefault(call.call_id, call)
+        prior = calls.get(call.call_id)
+        if prior is not None:
+            if (prior.provider, prior.model, prior.funding_source, prior.reserved_cost_usd) != (
+                    call.provider, call.model, call.funding_source, call.reserved_cost_usd):
+                raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
+            # A stale pre-call snapshot must never replace settled usage.
+            if prior.usage_known:
+                if call.usage_known and call != prior:
+                    raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
+                continue
+        calls[call.call_id] = call
     protected = current.platform_reservation_id is not None or incoming.platform_reservation_id is not None
     tier_order = {
         RequestTier.DIRECT_TOOL: 0,
@@ -399,6 +427,8 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
         platform_cost_usd=sum((call.cost_usd for call in calls.values()), current.platform_cost_usd * 0) if protected else current.platform_cost_usd + incoming.platform_cost_usd,  # noqa: E501
         platform_reservation_id=incoming.platform_reservation_id or current.platform_reservation_id,
         tariff_version=incoming.tariff_version or current.tariff_version,
+        execution_closed=current.execution_closed or incoming.execution_closed,
+        unpriced_exposure=current.unpriced_exposure or incoming.unpriced_exposure,
     )
 
 
@@ -520,11 +550,18 @@ class RunCoordinator:
                 await self._store.fail(request.context.run_id, error.code)
                 return
             self._active_ledgers[request.context.run_id] = ledger
+            async def persist_usage(usage: AgentRunUsage) -> None:
+                await self._store.record_usage(request.context.run_id, usage)
+            ledger.persist_usage = persist_usage
         try:
             with platform_budget_scope(ledger):
                 await self._run_scoped(request, resume, authorization)
         finally:
             self._active_ledgers.pop(request.context.run_id, None)
+            if ledger is not None:
+                # Scope exit blocks detached/late calls. This evidence, together
+                # with terminal state, lets Spring release only unused exposure.
+                await self._store.record_usage(request.context.run_id, ledger.report(None))
 
     async def _run_scoped(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
         run_id = request.context.run_id

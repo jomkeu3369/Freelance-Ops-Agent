@@ -1,0 +1,83 @@
+{
+  "id": "marketing-seo-brief",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "SEO 콘텐츠 브리프",
+    "en": "SEO Content Brief"
+  },
+  "summary": {
+    "ko": "검색 의도와 근거를 중심으로 작성자가 바로 사용할 콘텐츠 브리프를 만듭니다.",
+    "en": "Create a writer-ready search content brief grounded in intent and available evidence."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "SEO 콘텐츠 기획",
+    "검색 의도 브리프",
+    "create SEO content brief",
+    "plan search-focused article"
+  ],
+  "exclusions": [
+    "Writing a completed article without SEO planning needs",
+    "Technical audit of an existing page"
+  ],
+  "required_inputs": [
+    {
+      "key": "topic",
+      "description": "Topic, audience, business relevance, and target locale",
+      "required": true
+    },
+    {
+      "key": "evidence",
+      "description": "Available keyword data, search observations, or an explicit research scope",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify the likely search task and distinguish informational, comparison, transactional, and navigational intent."
+    },
+    {
+      "step": 2,
+      "instruction": "Use provided or verified current observations to identify coverage gaps and useful questions; label assumptions if browsing is unavailable."
+    },
+    {
+      "step": 3,
+      "instruction": "Create a focused outline, answer requirements, evidence needs, internal-link opportunities, and title and description candidates."
+    },
+    {
+      "step": 4,
+      "instruction": "Check originality, reader value, duplication, and claim support; separate known keyword metrics from estimates."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "SEO content brief",
+      "format": "markdown",
+      "acceptance_criteria": "Includes intent, angle, outline, evidence requirements, metadata, and internal-link suggestions"
+    }
+  ],
+  "limitations": [
+    "Do not invent search volumes, ranking difficulty, or guaranteed rankings.",
+    "Current search results and platform guidance require fresh verification."
+  ],
+  "permission_boundaries": [
+    "Do not publish, buy links, scrape restricted sources, or purchase SEO tools.",
+    "Use competitor material for analysis rather than copying their structure or text wholesale."
+  ],
+  "routing_tags": [
+    "marketing",
+    "seo",
+    "content-brief",
+    "search-intent"
+  ],
+  "optional_capabilities": [
+    "web.read"
+  ]
+}

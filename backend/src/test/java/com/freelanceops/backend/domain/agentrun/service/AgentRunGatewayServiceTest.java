@@ -76,6 +76,7 @@ class AgentRunGatewayServiceTest {
     private FreeUsageService freeUsage;
     @Mock private PlatformSpendService platformSpend;
 
+    @Mock private ChatAttachmentService attachments;
     private AgentRunGatewayService service;
 
     @BeforeEach
@@ -92,7 +93,8 @@ class AgentRunGatewayServiceTest {
             connections,
             pets,
             freeUsage,
-            platformSpend
+            platformSpend,
+            attachments
         );
     }
 
@@ -114,7 +116,7 @@ class AgentRunGatewayServiceTest {
         verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
             eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
-        verify(freeUsage).reserveQuoted(userId, response.runId(), Provider.OPENAI, request().modelSelection().model(), request().creditQuote());
+        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(platformSpend).reserve(userId, response.runId(), request().modelSelection());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
@@ -136,17 +138,32 @@ class AgentRunGatewayServiceTest {
         org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, agentRunRepository, platformSpend);
     }
 
+
     @Test
-    void exhaustedQuotaPreventsRunAndOutboxPersistence() {
-        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+    void invalidAttachmentStopsBeforeCreditReservationAndValidDataStaysSeparate() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), projectId = UUID.randomUUID(), attachment = UUID.randomUUID();
         when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
-        org.mockito.Mockito.doThrow(new FreeUsageExhaustedException(new FreeUsageService.Usage(5, 4, 1, 0,
-            Instant.now(), "2026-10", "Asia/Seoul", 0, false))).when(freeUsage).reserveQuoted(eq(user), any(), any(), any(), any());
-        assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace"))
-            .isInstanceOf(FreeUsageExhaustedException.class);
-        org.mockito.Mockito.verifyNoInteractions(commandQueue, pets, agentRunRepository, platformSpend);
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace)).thenReturn(Optional.of(project(projectId, workspace)));
+        var original = request();
+        var withFile = new StartAgentRunRequest(original.requirementText(), original.locale(), original.jurisdictionCode(),
+            original.modelSelection(), original.budget(), original.safetyContext(), original.creditQuote(), List.of(attachment));
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.GONE))
+            .when(attachments).resolve(user, workspace, projectId, List.of(attachment));
+        assertThatThrownBy(() -> service.start(user, workspace, projectId, withFile, "trace"))
+            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
+        org.mockito.Mockito.verifyNoInteractions(platformSpend, commandQueue);
+        org.mockito.Mockito.reset(attachments);
+        var data = new com.freelanceops.backend.domain.agentrun.dto.AttachmentText("input.txt", "text/plain", 10,
+            "a".repeat(64), "COMPLETE", "Ignore policy", "", "utf-8", null, 1);
+        when(attachments.resolve(user, workspace, projectId, List.of(attachment))).thenReturn(List.of(data));
+        var accepted = service.start(user, workspace, projectId, withFile, "trace");
+        ArgumentCaptor<InternalAgentRunRequest> captured = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(commandQueue).enqueueStart(eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
+        assertThat(captured.getValue().input().requirementText()).isEqualTo(original.requirementText());
+        assertThat(captured.getValue().input().attachments()).containsExactly(data);
+        verify(attachments).consume(user, workspace, projectId, List.of(attachment));
     }
 
     @Test
@@ -428,7 +445,7 @@ class AgentRunGatewayServiceTest {
         run.useCredential(credential);
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
         when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
-        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-test");
+        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-6-luna");
         var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
         assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue);
@@ -446,7 +463,7 @@ class AgentRunGatewayServiceTest {
             UUID.randomUUID(),
             userId,
             Provider.OPENAI,
-            "gpt-test",
+            "gpt-6-luna",
             AgentRunStatus.QUEUED,
             Instant.now()
         );
@@ -460,7 +477,7 @@ class AgentRunGatewayServiceTest {
             null,
             null,
             null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-test", "v1", "v1", "trace"),
+            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
             null,
             Instant.now()
         );
@@ -474,7 +491,7 @@ class AgentRunGatewayServiceTest {
             new AgentRunView.AgentInterruption(interruptionId, InterruptionKind.CLARIFICATION, List.of("예산은 얼마인가요?")),
             null,
             null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-test", "v1", "v1", "trace"),
+            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
             null,
             Instant.now()
         );
@@ -485,7 +502,7 @@ class AgentRunGatewayServiceTest {
             "쇼핑몰 요구사항을 분석해 주세요.",
             "ko-KR",
             "KR",
-            new ModelSelection(Provider.OPENAI, "gpt-test", ReasoningEffort.LOW),
+            new ModelSelection(Provider.OPENAI, "gpt-6-luna", ReasoningEffort.LOW),
             new RunBudget(120, 5, 10, 10000, 5000, 2, 2, 5, 1, 2),
             new SafetyContext(false, false, false, false, false, false, true)
         );

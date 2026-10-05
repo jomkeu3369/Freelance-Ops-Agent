@@ -1,0 +1,81 @@
+{
+  "id": "ops-change-request",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "변경 요청 영향 분석",
+    "en": "Change Request Impact Review"
+  },
+  "summary": {
+    "ko": "추가 요청을 기존 범위와 비교해 일정·비용·품질 영향과 선택지를 정리합니다.",
+    "en": "Compare a change request with the approved baseline and explain scope, cost, and schedule trade-offs."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "추가 수정 범위 검토",
+    "변경 요청 영향",
+    "assess scope change",
+    "evaluate client change request"
+  ],
+  "exclusions": [
+    "Initial project estimation without a baseline",
+    "Routine copyediting within approved scope"
+  ],
+  "required_inputs": [
+    {
+      "key": "baseline",
+      "description": "Current approved scope, schedule, and relevant assumptions",
+      "required": true
+    },
+    {
+      "key": "request",
+      "description": "Exact new request and any priority or deadline constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify what is genuinely new, changed, removed, or already included in the baseline."
+    },
+    {
+      "step": 2,
+      "instruction": "Trace the effect on deliverables, dependencies, completed work, review rounds, and acceptance criteria."
+    },
+    {
+      "step": 3,
+      "instruction": "Estimate impact using available evidence and present bounded options such as swap, extend, or defer."
+    },
+    {
+      "step": 4,
+      "instruction": "Draft a decision note that states what remains unchanged and what needs user or client approval."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Change impact note",
+      "format": "markdown",
+      "acceptance_criteria": "Includes baseline comparison, effects, assumptions, options, and approval questions"
+    }
+  ],
+  "limitations": [
+    "Do not call a request out of scope without checking the baseline.",
+    "Cost and schedule impacts remain estimates until approved."
+  ],
+  "permission_boundaries": [
+    "Do not accept the change, revise a contract, promise dates, or send a client response.",
+    "Do not delete completed work or modify billing based on an unapproved request."
+  ],
+  "routing_tags": [
+    "operations",
+    "change-request",
+    "scope",
+    "tradeoffs"
+  ],
+  "optional_capabilities": []
+}

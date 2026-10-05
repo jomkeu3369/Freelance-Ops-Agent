@@ -1,0 +1,86 @@
+{
+  "id": "ops-milestone-plan",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "일정·마일스톤 계획",
+    "en": "Milestone and Dependency Plan"
+  },
+  "summary": {
+    "ko": "납품물·가용 시간·승인 의존성을 실행 가능한 일정과 위험 목록으로 연결합니다.",
+    "en": "Translate deliverables and capacity into a dependency-aware project schedule."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "프로젝트 일정표",
+    "마일스톤 계획",
+    "create milestone plan",
+    "schedule freelance project work"
+  ],
+  "exclusions": [
+    "Meeting scheduling and invitations",
+    "Ongoing capacity planning across multiple retainers"
+  ],
+  "required_inputs": [
+    {
+      "key": "scope",
+      "description": "Deliverables, dependencies, and required review stages",
+      "required": true
+    },
+    {
+      "key": "timing",
+      "description": "Deadline, timezone, available capacity, and known unavailable dates",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify work packages, dependencies, client-review gates, and externally constrained dates."
+    },
+    {
+      "step": 2,
+      "instruction": "Estimate durations using available capacity and separate work time from waiting time."
+    },
+    {
+      "step": 3,
+      "instruction": "Build a milestone schedule with buffers tied to specific uncertainties and surface deadline conflicts."
+    },
+    {
+      "step": 4,
+      "instruction": "Define completion evidence, decision owners, and recovery options for critical dependencies."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Milestone plan",
+      "format": "csv",
+      "acceptance_criteria": "Each milestone has dates, dependencies, owner assumptions, completion criteria, and risks"
+    },
+    {
+      "name": "Schedule risk notes",
+      "format": "markdown",
+      "acceptance_criteria": "Explains conflicts, assumptions, and available trade-offs"
+    }
+  ],
+  "limitations": [
+    "Do not assume weekend work or unlimited client response speed.",
+    "A plan does not reserve calendar time or confirm stakeholder availability."
+  ],
+  "permission_boundaries": [
+    "Do not create invitations, promise deadlines, or change external project boards without authorization.",
+    "Do not assign commitments to other people as if they agreed."
+  ],
+  "routing_tags": [
+    "operations",
+    "planning",
+    "milestones",
+    "dependencies"
+  ],
+  "optional_capabilities": []
+}

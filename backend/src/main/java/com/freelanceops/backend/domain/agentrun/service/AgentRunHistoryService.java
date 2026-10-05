@@ -57,7 +57,8 @@ public class AgentRunHistoryService {
                     if (request.input() == null || request.input().requirementText() == null) {
                         throw new IllegalStateException("Agent run input is missing");
                     }
-                    return new AgentChatTurn(run.id(), request.input().requirementText(), run.status(), run.createdAt());
+                    return new AgentChatTurn(run.id(), request.input().requirementText(), run.status(), run.createdAt(),
+                        request.input().attachments().stream().map(item -> new AgentChatTurn.AttachmentSummary(item.name(), item.status(), item.notice())).toList());
                 } catch (JacksonException error) {
                     throw new IllegalStateException("Agent run input cannot be decoded", error);
                 }

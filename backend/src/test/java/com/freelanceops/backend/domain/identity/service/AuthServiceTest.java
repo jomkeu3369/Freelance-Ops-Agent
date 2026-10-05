@@ -61,6 +61,8 @@ class AuthServiceTest {
 
     @Mock
     private EmailVerificationService verification;
+    @Mock
+    private LoginActivityService loginActivity;
 
     private PasswordEncoder passwordEncoder;
     private AuthService service;
@@ -77,7 +79,8 @@ class AuthServiceTest {
             provisioningService,
             passwordEncoder,
             tokenService,
-            verification
+            verification,
+            loginActivity
         );
     }
 
@@ -87,7 +90,7 @@ class AuthServiceTest {
         when(userRepository.findByEmailIgnoreCase("external@example.invalid")).thenReturn(Optional.of(user));
         assertThatThrownBy(() -> service.login(new LoginRequest("external@example.invalid", "timing-only-password-value")))
             .isInstanceOf(IdentityException.class);
-        verifyNoInteractions(tokenService, refreshTokenRepository);
+        verifyNoInteractions(tokenService, refreshTokenRepository, loginActivity);
     }
 
     @Test
@@ -114,6 +117,7 @@ class AuthServiceTest {
         assertThat(passwordEncoder.matches("correct horse battery staple", userCaptor.getValue().passwordHash())).isTrue();
         assertThat(response.workspaceId()).isEqualTo(workspaceId);
         assertThat(response.tokenType()).isEqualTo("Bearer");
+        verify(loginActivity).record(response.userId(), LoginActivityService.Method.REGISTRATION, NOW);
     }
 
     @ParameterizedTest
@@ -146,6 +150,7 @@ class AuthServiceTest {
                 assertThat(error.code()).isEqualTo("INVALID_CREDENTIALS");
             });
         verify(refreshTokenRepository, never()).save(any());
+        verifyNoInteractions(loginActivity);
     }
 
     @Test
@@ -177,6 +182,18 @@ class AuthServiceTest {
                 assertThat(error.code()).isEqualTo("INVALID_REFRESH_TOKEN"));
         assertThat(current.reuseDetectedAt()).isEqualTo(NOW);
         assertThat(current.revokeReason()).isEqualTo("REUSE_DETECTED");
+        verifyNoInteractions(loginActivity);
+    }
+
+    @Test
+    void successfulPasswordLoginRecordsOneMinimalEvent() {
+        var user = UserAccountEntity.registerLocal(UUID.randomUUID(), "synthetic@example.invalid", "Synthetic",
+            passwordEncoder.encode("correct horse battery staple"), NOW);
+        when(userRepository.findByEmailIgnoreCase(user.email())).thenReturn(Optional.of(user));
+        when(workspaceMemberRepository.findAllByUserIdAndStatusOrderByJoinedAtAsc(user.id(), "ACTIVE")).thenReturn(List.of());
+        stubTokens();
+        service.login(new LoginRequest(user.email(), "correct horse battery staple"));
+        verify(loginActivity).record(user.id(), LoginActivityService.Method.PASSWORD, NOW);
     }
 
     @Test

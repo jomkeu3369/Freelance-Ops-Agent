@@ -1,0 +1,81 @@
+{
+  "id": "marketing-ad-variants",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "광고 카피 실험안",
+    "en": "Ad Copy Experiment Variants"
+  },
+  "summary": {
+    "ko": "검증된 제품 사실을 바탕으로 비교 가능한 광고 메시지 변형을 만듭니다.",
+    "en": "Create meaningfully distinct ad variants tied to explicit messaging hypotheses."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "광고 문구 A/B",
+    "퍼포먼스 광고 카피",
+    "write ad copy variants",
+    "create ad messaging tests"
+  ],
+  "exclusions": [
+    "Full experiment design and statistical planning",
+    "Non-advertising landing-page narrative"
+  ],
+  "required_inputs": [
+    {
+      "key": "offer",
+      "description": "Audience, offer, approved benefits, evidence, and restrictions",
+      "required": true
+    },
+    {
+      "key": "format",
+      "description": "Channel, placement, character limits, and destination promise",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify testable message angles based on real benefits and audience needs."
+    },
+    {
+      "step": 2,
+      "instruction": "Create variants that change one strategic angle at a time while keeping essential offer facts consistent."
+    },
+    {
+      "step": 3,
+      "instruction": "Write the required headline, body, description, and CTA fields within supplied limits."
+    },
+    {
+      "step": 4,
+      "instruction": "Check claim support, destination consistency, sensitive targeting concerns, and what each variant is meant to test."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Ad variant matrix",
+      "format": "json",
+      "acceptance_criteria": "Each variant has hypothesis, angle, copy fields, claim basis, and format checks"
+    }
+  ],
+  "limitations": [
+    "Do not guarantee ad approval, conversion rates, or revenue.",
+    "Current channel rules must be verified when a compliance judgment is needed."
+  ],
+  "permission_boundaries": [
+    "Do not launch ads, set budgets, upload audiences, or target people using sensitive traits.",
+    "Do not fabricate urgency, endorsements, or before-and-after claims."
+  ],
+  "routing_tags": [
+    "marketing",
+    "advertising",
+    "copy-variants",
+    "experiments"
+  ],
+  "optional_capabilities": []
+}

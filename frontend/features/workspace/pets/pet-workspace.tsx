@@ -2,21 +2,27 @@ import { useT } from "../../../app/lib/ui-language";
 import { useState } from "react";
 import type { AgentRunView } from "@/app/lib/api";
 import { PetArt } from "./pet-art";
-import { advisorsWithProfiles } from "./pet-profile";
+import { advisorsWithProfiles, petDutyLabels } from "./pet-profile";
 import { petStateLabels, petWorkState } from "./pet-state.mjs";
 
 export function PetWorkspace({ run }: { run: AgentRunView | null }) {
   const t = useT();
   const [collapsed, setCollapsed] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const petAdvisors = advisorsWithProfiles(run?.metadata?.petProfiles, t);
+  const profiles = run?.metadata?.petProfiles;
+  const personal = profiles?.filter(pet => pet.petId) ?? [];
+  const petAdvisors = personal.length ? personal.map(profile => ({
+    id: profile.petId!, name: profile.name, profile,
+    role: petDutyLabels[profile.duty ?? "GENERAL"], priority: profile.preferences?.focus || petDutyLabels[profile.duty ?? "GENERAL"],
+    departments: ["REQUIREMENTS", "RESEARCH", "VERIFICATION", "DEAL_DESIGN"]
+  })) : profiles?.length === 0 ? [] : advisorsWithProfiles(profiles, t);
   const advisor = petAdvisors.find(pet => pet.id === selected);
   const heading = !run ? "다음 작업을 함께 준비해요." : run.status === "RUNNING" ? "함께 살펴보고 있어요." : run.status === "WAITING_FOR_USER" ? "확인이 필요한 순간이에요." : run.status === "QUEUED" ? "분석을 시작할 준비 중이에요." : "동료들의 작업 결과를 확인해요.";
   const results = run?.result?.departmentResults.filter(result => advisor?.departments.includes(result.department)) ?? [];
   return (
     <section className="pet-workspace" aria-label={t("AI 펫 동료 작업 공간")}>
       <header><div><span className="pet-eyebrow">{t("작은 동료들, 다른 관점")}</span><h3>{t(heading)}</h3></div><button type="button" className="quiet-button" aria-expanded={!collapsed} aria-controls="pet-workspace-content" onClick={() => setCollapsed(!collapsed)}>{collapsed ? t("동료 펼치기") : t("동료 접기")}</button></header>
-      <p className="pet-workspace-note">{run?.status === "WAITING_FOR_USER" ? t("사용자의 답변을 기다리고 있어요. 확인 질문은 분석 결과에서 답변해 주세요.") : t("하나의 분석에서 일정·근거·수익 관점을 함께 검토합니다.")}</p>
+      <p className="pet-workspace-note">{personal.length ? t("이 실행을 시작할 때 선택한 펫입니다. 선호를 바꾸면 다음 실행부터 적용됩니다.") : profiles?.length === 0 ? t("선택한 펫 없이 기본 업무 흐름으로 실행합니다.") : t("하나의 분석에서 일정·근거·수익 관점을 함께 검토합니다.")}</p>
       <div id="pet-workspace-content" hidden={collapsed}>
         <div className="pet-desk">
           {petAdvisors.map(pet => {

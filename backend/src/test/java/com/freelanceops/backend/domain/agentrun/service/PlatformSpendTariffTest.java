@@ -13,6 +13,31 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
 class PlatformSpendTariffTest {
+    @Test void explicitModelTariffsAndHistoricalVersionsRemainIndependent() {
+        var expected = java.util.Map.of("gpt-6-luna", ".00033450", "gpt-6-sol", ".00669000",
+            "gpt-6.1-sol", ".00667000", "gpt-6-astra", ".03345000", "gpt-5.6-sol", ".01338000");
+        expected.forEach((model, cost) -> assertThat(PlatformSpendTariff.calculate(call(model, 1000, 500, 200, 100, true)))
+            .isEqualByComparingTo(cost));
+        var old = call("gpt-5.6-luna", 1000, 500, 200, 100, true);
+        assertThat(PlatformSpendTariff.actualCost(List.of(old), 1, PlatformSpendTariff.LEGACY_VERSION)).isEqualByComparingTo(".000769");
+        assertThat(PlatformSpendTariff.actualCost(List.of(call("gpt-6-luna", 1000, 500, 0, 0, true)),
+            1, PlatformSpendTariff.LEGACY_VERSION)).isNull();
+        assertThat(PlatformSpendTariff.actualCost(List.of(old, old), 2, PlatformSpendService.TARIFF_VERSION)).isNull();
+    }
+
+    @Test void reasoningAndPromotionalExpiryFailClosed() {
+        for (String model : List.of("gpt-6.1-sol", "gpt-6-astra")) {
+            assertThatThrownBy(() -> PlatformSpendTariff.validateSelection(
+                new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(
+                    Provider.OPENAI, model, com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.NONE)))
+                .isInstanceOf(ResponseStatusException.class);
+        }
+        assertThatThrownBy(() -> PlatformSpendTariff.requireCurrentPrice("gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT))
+            .isInstanceOf(ResponseStatusException.class);
+        PlatformSpendTariff.requireCurrentPrice("gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT.minusSeconds(1));
+        assertThatThrownBy(() -> PlatformSpendTariff.requirePriceable(Provider.OPENAI, "gpt-6"))
+            .isInstanceOf(ResponseStatusException.class);
+    }
     @Test void mixedModelRoutingAndRetriesUsePerAttemptTariffs() {
         var luna = call("gpt-5.6-luna", 1000, 500, 200, 100, true);
         var terra = call("gpt-5.6-terra", 1000, 500, 200, 100, true);

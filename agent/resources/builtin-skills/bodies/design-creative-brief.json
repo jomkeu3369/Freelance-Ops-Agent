@@ -1,0 +1,81 @@
+{
+  "id": "design-creative-brief",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "디자인 크리에이티브 브리프",
+    "en": "Design Creative Brief"
+  },
+  "summary": {
+    "ko": "목표·대상·제약·평가 기준을 정리해 디자인 의사결정의 기준을 만듭니다.",
+    "en": "Turn a client request into a focused creative brief with decision criteria."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "디자인 브리프 작성",
+    "크리에이티브 방향 정리",
+    "create a design brief",
+    "clarify creative direction"
+  ],
+  "exclusions": [
+    "A request for finished design files",
+    "Copy-only advertising briefs"
+  ],
+  "required_inputs": [
+    {
+      "key": "request",
+      "description": "Client request, business goal, and intended audience",
+      "required": true
+    },
+    {
+      "key": "constraints",
+      "description": "Required media, brand assets, deadline, and known restrictions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Extract the intended audience, action, message hierarchy, and measurable purpose from the source request."
+    },
+    {
+      "step": 2,
+      "instruction": "Separate mandatory brand and technical constraints from preferences and unresolved choices."
+    },
+    {
+      "step": 3,
+      "instruction": "Define deliverable types, usable references, and explicit evaluation criteria; explain what each reference contributes."
+    },
+    {
+      "step": 4,
+      "instruction": "Produce a brief with a small set of decision questions and a review checklist that avoids subjective approval traps."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Creative brief",
+      "format": "markdown",
+      "acceptance_criteria": "Includes goal, audience, message, scope, constraints, references, and review criteria"
+    }
+  ],
+  "limitations": [
+    "Do not invent audience research or imply stakeholder consensus.",
+    "A brief does not establish asset licensing or production feasibility."
+  ],
+  "permission_boundaries": [
+    "Do not collect additional customer data or contact the client without authorization.",
+    "Do not copy a reference design or purchase assets."
+  ],
+  "routing_tags": [
+    "design",
+    "brief",
+    "creative-direction",
+    "planning"
+  ],
+  "optional_capabilities": []
+}

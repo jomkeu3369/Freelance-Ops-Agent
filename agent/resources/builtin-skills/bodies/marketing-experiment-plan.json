@@ -1,0 +1,81 @@
+{
+  "id": "marketing-experiment-plan",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "마케팅 실험 설계",
+    "en": "Marketing Experiment Design"
+  },
+  "summary": {
+    "ko": "가설·비교군·성공 기준·중단 조건을 사전에 정해 해석 가능한 실험을 설계합니다.",
+    "en": "Design an interpretable marketing experiment with a clear hypothesis, comparison, and decision rule."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "마케팅 A/B 테스트 설계",
+    "전환 실험 계획",
+    "design marketing experiment",
+    "plan A/B test methodology"
+  ],
+  "exclusions": [
+    "Generating ad copy variants only",
+    "Post-hoc analysis presented as a pre-registered experiment"
+  ],
+  "required_inputs": [
+    {
+      "key": "hypothesis",
+      "description": "Proposed change, causal hypothesis, and target audience",
+      "required": true
+    },
+    {
+      "key": "baseline",
+      "description": "Available baseline rates, traffic, constraints, and risk tolerance",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define the intervention, comparison, unit of randomization or comparison, and primary outcome."
+    },
+    {
+      "step": 2,
+      "instruction": "Specify eligibility, guardrail metrics, measurement windows, and contamination risks."
+    },
+    {
+      "step": 3,
+      "instruction": "Estimate feasibility using supplied baseline data; label power or sample-size assumptions and avoid unsupported precision."
+    },
+    {
+      "step": 4,
+      "instruction": "Set review timing, stopping rules, rollback conditions, and how inconclusive results will be handled before launch."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Experiment protocol",
+      "format": "markdown",
+      "acceptance_criteria": "Contains hypothesis, design, metrics, assumptions, safeguards, and decision rules"
+    }
+  ],
+  "limitations": [
+    "Do not promise a statistically conclusive result without adequate data and design.",
+    "A/B recommendations may not fit low-traffic or non-randomized settings."
+  ],
+  "permission_boundaries": [
+    "Do not launch tests, change prices, spend money, or expose customers to unapproved variants.",
+    "Do not design manipulative or discriminatory targeting using sensitive traits."
+  ],
+  "routing_tags": [
+    "marketing",
+    "experiment",
+    "ab-test",
+    "measurement"
+  ],
+  "optional_capabilities": []
+}

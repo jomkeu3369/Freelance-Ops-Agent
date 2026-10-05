@@ -1,0 +1,90 @@
+{
+  "id": "dev-refactor-plan",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "동작 보존 리팩터링",
+    "en": "Behavior-Preserving Refactoring"
+  },
+  "summary": {
+    "ko": "기존 계약과 호환성을 유지하는 작은 리팩터링 단위와 검증법을 만듭니다.",
+    "en": "Reduce code complexity through small changes that preserve behavior and compatibility."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "중복 코드 리팩터링",
+    "동작 유지 구조 개선",
+    "refactor without changing behavior",
+    "simplify existing module"
+  ],
+  "exclusions": [
+    "New feature implementation",
+    "Breaking architecture redesign"
+  ],
+  "required_inputs": [
+    {
+      "key": "code",
+      "description": "Target code and its call sites or public contracts",
+      "required": true
+    },
+    {
+      "key": "goal",
+      "description": "Specific maintainability problem and allowed change scope",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Document the behavior, public interfaces, persistence formats, and callers that must remain compatible."
+    },
+    {
+      "step": 2,
+      "instruction": "Identify the concrete source of complexity and choose the smallest change that addresses it."
+    },
+    {
+      "step": 3,
+      "instruction": "Add characterization checks where behavior is underspecified, then apply changes in reversible slices when edits are authorized."
+    },
+    {
+      "step": 4,
+      "instruction": "Compare before and after behavior and report any intentional contract change separately for approval."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Refactoring plan or patch",
+      "format": "code",
+      "acceptance_criteria": "Keeps changes scoped and preserves known interfaces"
+    },
+    {
+      "name": "Behavior checks",
+      "format": "markdown",
+      "acceptance_criteria": "Lists preserved contracts, verification results, and remaining uncertainty"
+    }
+  ],
+  "limitations": [
+    "Do not rewrite an entire subsystem merely to normalize style.",
+    "Uncovered behavior may require characterization before safe implementation."
+  ],
+  "permission_boundaries": [
+    "Do not migrate production data, rename external APIs, or add dependencies as hidden refactoring steps.",
+    "Respect unrelated local changes and existing commit and push authorization."
+  ],
+  "routing_tags": [
+    "development",
+    "refactor",
+    "maintainability",
+    "compatibility"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "workspace.edit",
+    "test.run"
+  ]
+}

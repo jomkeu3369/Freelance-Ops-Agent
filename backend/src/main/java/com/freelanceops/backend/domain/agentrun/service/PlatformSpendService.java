@@ -21,13 +21,13 @@ import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
 
-/** Conservative monetary exposure, independent of refundable product credits.
- * Full run caps remain held permanently, even for failed, cancelled and unreported runs.
- * No user/workspace deletion, credit refund or administrator credit reset releases these holds.
+/** Monetary admission independent of historical product credits.
+ * V2 unused exposure is released only after the worker closes its ledger.
+ * Unknown usage and legacy reservations remain held, including after deletion/reset.
  */
 @Service
 public class PlatformSpendService {
-    public static final String TARIFF_VERSION = "platform-ai-2026-10-04-v1";
+    public static final String TARIFF_VERSION = PlatformSpendTariff.VERSION;
     static final ZoneId TIMEZONE = ZoneId.of("Asia/Seoul");
     private static final UUID GLOBAL = new UUID(0L, 0L);
     private final JdbcTemplate jdbc;
@@ -43,7 +43,7 @@ public class PlatformSpendService {
     public PlatformBudget reserve(UUID userId, UUID runId, ModelSelection selection) {
         if (!enabled) throw new PlatformSpendUnavailableException();
         if (userId == null || runId == null || selection == null) throw new IllegalArgumentException("Admission identity is required");
-        PlatformSpendTariff.requirePriceable(selection.provider(), selection.model());
+        PlatformSpendTariff.validateSelection(selection);
         // One DB-owned settings row serializes admissions across instances, and prevents differing
         // application environment values from creating different monetary limits for the same account.
         Settings settings = jdbc.queryForObject("""
@@ -68,7 +68,15 @@ public class PlatformSpendService {
         Timestamp now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class);
         if (now == null) throw new IllegalStateException("Database clock unavailable");
         Period period = Period.at(now.toInstant());
-        BigDecimal amount = selection.model().equals("gpt-5.6-luna") ? settings.lunaRunUsd() : settings.terraRunUsd();
+        if (selection.credentialId() == null) PlatformSpendTariff.requireCurrentPrice(selection.model(), now.toInstant());
+        var caps = jdbc.query("""
+            SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
+            """, (row, n) -> row.getBigDecimal(1), selection.provider().name(), selection.model());
+        if (caps.isEmpty()) throw new PlatformSpendUnavailableException();
+        BigDecimal amount = caps.getFirst()
+            .min(remaining("GLOBAL_DAY", GLOBAL, period.day(), settings.globalDayUsd()))
+            .min(remaining("GLOBAL_WEEK", GLOBAL, period.week(), settings.globalWeekUsd()))
+            .min(remaining("ACCOUNT_WEEK", userId, period.week(), settings.accountWeekUsd()));
         // Every selection, including BYOK, must reserve a platform cap: routing overhead is not free.
         hold("GLOBAL_DAY", GLOBAL, period.day(), amount, settings.globalDayUsd());
         hold("GLOBAL_WEEK", GLOBAL, period.week(), amount, settings.globalWeekUsd());
@@ -79,7 +87,16 @@ public class PlatformSpendService {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, runId, userId, selection.provider().name(), selection.model(), amount, TARIFF_VERSION,
             Date.valueOf(period.day()), Date.valueOf(period.week()), Timestamp.from(period.validUntil()));
+        jdbc.update("INSERT INTO app.platform_spend_settlement(run_id, reserved_usd) VALUES (?, ?)", runId, amount);
         return new PlatformBudget(runId, amount, TARIFF_VERSION, period.validUntil());
+    }
+
+    private BigDecimal remaining(String scope, UUID subject, LocalDate period, BigDecimal limit) {
+        var held = jdbc.query("SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND subject_id=? AND period=?",
+            (row, n) -> row.getBigDecimal(1), scope, subject, Date.valueOf(period));
+        BigDecimal remaining = limit.subtract(held.isEmpty() ? BigDecimal.ZERO : held.getFirst());
+        if (remaining.signum() <= 0) throw new PlatformSpendExhaustedException(scope);
+        return remaining;
     }
 
     private void hold(String scope, UUID subject, LocalDate period, BigDecimal amount, BigDecimal limit) {

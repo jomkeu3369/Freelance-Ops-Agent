@@ -1,0 +1,81 @@
+{
+  "id": "writing-email-sequence",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "이메일 시퀀스 초안",
+    "en": "Email Sequence Drafting"
+  },
+  "summary": {
+    "ko": "관계 단계와 목적에 맞는 이메일 초안을 중복·과장 없이 연결합니다.",
+    "en": "Draft a coherent email sequence for a defined audience and purpose."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "이메일 시퀀스 작성",
+    "후속 이메일 초안",
+    "draft email sequence",
+    "write onboarding emails"
+  ],
+  "exclusions": [
+    "A single routine personal reply",
+    "Campaign segmentation and measurement planning"
+  ],
+  "required_inputs": [
+    {
+      "key": "audience",
+      "description": "Recipient audience, relationship, and consent or contact context",
+      "required": true
+    },
+    {
+      "key": "goal",
+      "description": "Sequence purpose, offer facts, number of messages, and tone",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define the job of each message and the information the recipient is expected to know at that stage."
+    },
+    {
+      "step": 2,
+      "instruction": "Write subjects, preview text where useful, body copy, and a single clear next step."
+    },
+    {
+      "step": 3,
+      "instruction": "Vary the value and rationale across messages instead of repeating pressure or false urgency."
+    },
+    {
+      "step": 4,
+      "instruction": "Check personalization placeholders, factual claims, cadence assumptions, and opt-out language when applicable."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Email sequence drafts",
+      "format": "json",
+      "acceptance_criteria": "Each message has stage, subject, body, CTA, and placeholders needing verification"
+    }
+  ],
+  "limitations": [
+    "Do not imply a personal relationship, prior conversation, or endorsement that did not occur.",
+    "Drafting does not establish consent to send marketing email."
+  ],
+  "permission_boundaries": [
+    "Do not send, schedule, import contacts, or subscribe recipients.",
+    "Do not enrich personal profiles or expose private recipient data."
+  ],
+  "routing_tags": [
+    "writing",
+    "email",
+    "sequence",
+    "onboarding"
+  ],
+  "optional_capabilities": []
+}

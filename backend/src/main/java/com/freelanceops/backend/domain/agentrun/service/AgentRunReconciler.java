@@ -47,6 +47,9 @@ public class AgentRunReconciler {
         Instant now = Instant.now();
         List<AgentRunEntity> due = repository.findDueForReconciliation(ACTIVE, now, PageRequest.of(0, BATCH_SIZE));
         for (AgentRunEntity run : due) reconcile(run, now);
+        for (AgentRunEntity run : repository.findMonetaryRunsAwaitingClosure(now, PageRequest.of(0, BATCH_SIZE))) {
+            reconcile(run, now);
+        }
     }
 
     void reconcile(AgentRunEntity run, Instant attemptedAt) {

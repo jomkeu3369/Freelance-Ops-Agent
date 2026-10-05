@@ -517,11 +517,11 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote): Promise<boolean> => {
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[]): Promise<boolean> => {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
     const projectId = selectedProject.id;
-    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote });
+    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds });
     const idempotencyKey = pending.id;
     setBusy(true);
     setError(null);
@@ -531,7 +531,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         provider,
         model,
         reasoningEffort: "LOW"
-      }, pending.message, idempotencyKey, pending.creditQuote);
+      }, pending.message, idempotencyKey, pending.creditQuote, pending.attachmentIds);
       pendingStart.current.settle(idempotencyKey, "accepted");
       setPendingRetries(pendingStart.current.retries());
       if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;

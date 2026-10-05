@@ -1,0 +1,90 @@
+{
+  "id": "dev-bug-triage",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "버그 재현·원인 분석",
+    "en": "Bug Reproduction and Triage"
+  },
+  "summary": {
+    "ko": "재현 조건과 증거를 정리하고 가장 작은 수정·검증 경로를 제안합니다.",
+    "en": "Establish a reproducible failure, narrow likely causes, and propose a minimal fix and verification path."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "버그 원인 분석",
+    "오류 재현",
+    "reproduce and diagnose a bug",
+    "triage failing behavior"
+  ],
+  "exclusions": [
+    "Unrelated feature development",
+    "Broad security auditing without a reported bug"
+  ],
+  "required_inputs": [
+    {
+      "key": "symptom",
+      "description": "Expected versus actual behavior and available error evidence",
+      "required": true
+    },
+    {
+      "key": "environment",
+      "description": "Application version, relevant platform, and reproduction context",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Record exact reproduction steps, input conditions, and expected versus observed behavior; redact credentials from evidence."
+    },
+    {
+      "step": 2,
+      "instruction": "Check whether the failure is deterministic and identify the smallest failing example or affected boundary."
+    },
+    {
+      "step": 3,
+      "instruction": "Rank hypotheses using observed evidence; inspect relevant code or logs only when available and authorized."
+    },
+    {
+      "step": 4,
+      "instruction": "Propose or implement the smallest in-scope correction when editing is requested, then add a regression check and report what actually ran."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Triage report",
+      "format": "markdown",
+      "acceptance_criteria": "Contains reproduction, evidence, ranked hypotheses, and next diagnostic step"
+    },
+    {
+      "name": "Fix and regression plan",
+      "format": "markdown",
+      "acceptance_criteria": "Maps the proposed change to a test that fails before and passes after, or labels it unverified"
+    }
+  ],
+  "limitations": [
+    "A plausible cause is not a confirmed root cause.",
+    "Missing runtime or logs may limit output to a diagnostic plan."
+  ],
+  "permission_boundaries": [
+    "Do not run destructive repro steps or probe systems outside the approved target.",
+    "Do not send logs to external services or expose secrets; code edits and remote actions retain their existing approval requirements."
+  ],
+  "routing_tags": [
+    "development",
+    "debugging",
+    "regression",
+    "errors"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "workspace.edit",
+    "test.run"
+  ]
+}

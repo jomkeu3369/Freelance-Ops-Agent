@@ -1,0 +1,86 @@
+{
+  "id": "ops-project-handover",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "프로젝트 종료·인계",
+    "en": "Project Closeout and Handover"
+  },
+  "summary": {
+    "ko": "약속된 결과·파일·운영 지식·미완료 항목을 실제 납품 상태와 대조합니다.",
+    "en": "Close a project with a traceable inventory of deliverables, knowledge, and remaining responsibilities."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "프로젝트 종료 인계",
+    "납품 체크리스트",
+    "prepare project closeout",
+    "create client handover checklist"
+  ],
+  "exclusions": [
+    "Detailed software release handoff",
+    "Design asset export specifications only"
+  ],
+  "required_inputs": [
+    {
+      "key": "scope",
+      "description": "Agreed deliverables and acceptance requirements",
+      "required": true
+    },
+    {
+      "key": "outputs",
+      "description": "Actual output inventory, verification evidence, and known outstanding items",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Reconcile every agreed deliverable against actual output and acceptance evidence."
+    },
+    {
+      "step": 2,
+      "instruction": "Organize file locations, versions, usage notes, dependencies, and known limitations."
+    },
+    {
+      "step": 3,
+      "instruction": "Document outstanding decisions, maintenance responsibilities, and any approved support window without adding new commitments."
+    },
+    {
+      "step": 4,
+      "instruction": "Create a recipient-ready checklist that distinguishes prepared, delivered, reviewed, and accepted states."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Handover pack outline",
+      "format": "markdown",
+      "acceptance_criteria": "Explains deliverables, usage, dependencies, support boundaries, and open items"
+    },
+    {
+      "name": "Closeout checklist",
+      "format": "json",
+      "acceptance_criteria": "Tracks output location, verification, delivery, and acceptance separately"
+    }
+  ],
+  "limitations": [
+    "A file’s existence does not prove the recipient can access it or has accepted it.",
+    "Do not assume a project is financially or contractually closed."
+  ],
+  "permission_boundaries": [
+    "Do not share files, transfer ownership, revoke access, or archive/delete project data automatically.",
+    "Do not expose credentials in handover documents."
+  ],
+  "routing_tags": [
+    "operations",
+    "handover",
+    "closeout",
+    "delivery"
+  ],
+  "optional_capabilities": []
+}

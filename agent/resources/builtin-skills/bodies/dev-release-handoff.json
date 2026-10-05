@@ -1,0 +1,89 @@
+{
+  "id": "dev-release-handoff",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "개발 릴리스 인계",
+    "en": "Development Release Handoff"
+  },
+  "summary": {
+    "ko": "변경·테스트·설정·되돌리기 정보를 실제 상태에 맞춰 인계합니다.",
+    "en": "Prepare a release handoff grounded in actual changes, test results, configuration, and rollback needs."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "개발 납품 정리",
+    "릴리스 인계 문서",
+    "prepare release handoff",
+    "write developer delivery notes"
+  ],
+  "exclusions": [
+    "Nontechnical client project closeout without code",
+    "Performing production deployment"
+  ],
+  "required_inputs": [
+    {
+      "key": "changes",
+      "description": "Diff, completed work, and known limitations",
+      "required": true
+    },
+    {
+      "key": "verification",
+      "description": "Actual test results and target release context",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Reconcile requested work with the actual diff and separate complete, partial, and excluded items."
+    },
+    {
+      "step": 2,
+      "instruction": "Summarize behavior changes, compatibility concerns, configuration variables by name only, and setup steps."
+    },
+    {
+      "step": 3,
+      "instruction": "Record tests that ran, failures, unverified paths, rollback considerations, and owner decisions."
+    },
+    {
+      "step": 4,
+      "instruction": "Create a recipient-ready handoff checklist and release notes without implying deployment or acceptance."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Release handoff",
+      "format": "markdown",
+      "acceptance_criteria": "Includes change summary, setup, validation, known issues, and rollback considerations"
+    },
+    {
+      "name": "Acceptance checklist",
+      "format": "json",
+      "acceptance_criteria": "Each item has evidence and a completion state"
+    }
+  ],
+  "limitations": [
+    "Cannot confirm deployment, merge, or client acceptance from local changes alone.",
+    "Never include secret values in setup documentation."
+  ],
+  "permission_boundaries": [
+    "Does not merge, deploy, publish, grant access, or send the handoff.",
+    "Repository commits and pushes follow the user’s separately authorized workflow."
+  ],
+  "routing_tags": [
+    "development",
+    "release",
+    "handoff",
+    "documentation"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "git.read"
+  ]
+}

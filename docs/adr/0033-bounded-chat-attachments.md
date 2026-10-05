@@ -1,0 +1,12 @@
+# ADR-0033: Bounded chat attachment extraction
+
+- Status: Accepted for this implementation branch
+- Date: 2026-10-05
+
+Chat attachments use Spring authentication, workspace permissions and project scope. Originals stay in browser memory until the user requests extraction. Spring relays bounded bytes to an authenticated, local-only Agent parser and stores only its bounded text and coverage metadata in a 30-minute staging record. The user reviews coverage before sending. START resolves owner-scoped staging IDs inside its existing transaction, after idempotent replay and before any credit reservation. The durable START input stores extracted data separately from the user request. Staging is deleted on successful START, explicit removal, expiry or project deletion. Existing run retention governs text already sent to a run; deletion of staging does not erase that conversation.
+
+The parser reuses the existing pypdf dependency. Parsing runs in a killable child process with a 15-second timeout; Linux adds a 512 MiB address-space and CPU limit. At most two parsers run per Agent process. Files are limited to six per message, 2 MiB each, 8 MiB total, 30 PDF pages, 60 GIF frames, 16 million pixels and 40,000 extracted characters per message. Overflow is rejected, never silently truncated. UTF-8/UTF-16 BOM/CP949 text is decoded strictly. CSV delimiters are limited to comma, tab, semicolon and pipe, with CSV treated solely as data (no formula execution). PDF output is text-layer-only and always reports that image, scan and layout content was not read. Image files and GIF frames are validated but OCR/visual understanding is explicitly unsupported. No paid model, OCR service, embedding or multimodal path is invoked.
+
+Attachment content is JSON-encoded as untrusted reference data after routing, with explicit instructions never to obey instructions inside it or infer authority. It is excluded from routing, direct operations and research queries. Model prompt separation reduces injection risk; it is not a guarantee of model compliance. Existing Tool permissions and financial approval boundaries remain authoritative.
+
+Local drafts retain File objects only in memory, scoped to the authenticated user/workspace/project with a one-hour expiry and removal on logout. They survive component navigation, not page reloads. Long clipboard text becomes a UTF-8 TXT File without trimming or newline conversion; configurable threshold defaults to 8,000 characters. New attachment modules isolate UI changes from composer styling work.

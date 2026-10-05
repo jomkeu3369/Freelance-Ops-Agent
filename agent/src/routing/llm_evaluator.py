@@ -13,7 +13,7 @@ from typing import Any, Protocol
 from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from contracts import ModelSelection, Provider
+from contracts import ModelSelection, Provider, ReasoningEffort
 from platform_budget import PlatformBudgetError, budgeted_openai_attempt
 
 from .hybrid import ROUTE_ORDER, HybridRouteModel, RouteDecision, RouteLabel
@@ -147,7 +147,8 @@ class OpenAIRouteEvaluator:
         ordered_routes = _rotated_routes(text)
         payload = _evaluation_payload(text, local_decision, ordered_routes, safety_context)
         response = await budgeted_openai_attempt(
-            self._client, ModelSelection(provider=Provider.OPENAI, model=self._config.model),
+            self._client, ModelSelection(provider=Provider.OPENAI, model=self._config.model,
+                                         reasoning_effort=ReasoningEffort(self._config.reasoning_effort.upper())),
             "route_evaluation", dict(
             model=self._config.model,
             service_tier="default",

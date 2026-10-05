@@ -46,8 +46,31 @@ public record InternalAgentRunRequest(
         String locale,
         String jurisdictionCode,
         String directToolOperation,
-        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles
+        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+        List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments,
+        com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection,
+        String workflowMode
     ) {
+        public AgentInput {
+            workflowMode = workflowMode == null ? "PROJECT_ANALYSIS" : workflowMode;
+            if (!(workflowMode.equals("PROJECT_ANALYSIS") || workflowMode.equals("AD_HOC"))) throw new IllegalArgumentException("Invalid workflow mode");
+            attachments = attachments == null ? List.of() : List.copyOf(attachments);
+        }
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation,
+                          List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+                          List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments,
+                          com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, petProfiles, attachments, skillSelection, null);
+        }
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation,
+                          List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+                          List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, petProfiles, attachments, null);
+        }
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation,
+                          List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, petProfiles, List.of());
+        }
         public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation) {
             this(requirementText, locale, jurisdictionCode, directToolOperation, List.of());
         }

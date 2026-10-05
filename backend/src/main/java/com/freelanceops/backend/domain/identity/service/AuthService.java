@@ -45,6 +45,7 @@ public class AuthService {
     private final AuthTokenService tokenService;
     private final String dummyPasswordHash;
     private final EmailVerificationService verification;
+    private final LoginActivityService loginActivity;
 
     public AuthService(
         UserAccountRepository userRepository,
@@ -55,7 +56,8 @@ public class AuthService {
         WorkspaceProvisioningService provisioningService,
         PasswordEncoder passwordEncoder,
         AuthTokenService tokenService,
-        EmailVerificationService verification
+        EmailVerificationService verification,
+        LoginActivityService loginActivity
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -66,6 +68,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.verification = verification;
+        this.loginActivity = loginActivity;
         this.dummyPasswordHash = passwordEncoder.encode("timing-only-password-value");
     }
 
@@ -95,7 +98,9 @@ public class AuthService {
                 request.workspaceName().trim(),
                 "workspace-" + UUID.randomUUID().toString().substring(0, 12)
             );
-            return issueSession(user, workspace.workspaceId());
+            AuthTokenResponse response = issueSession(user, workspace.workspaceId());
+            loginActivity.record(user.id(), LoginActivityService.Method.REGISTRATION, tokenService.now());
+            return response;
         } catch (DataIntegrityViolationException error) {
             throw new IdentityException(HttpStatus.CONFLICT, "IDENTITY_ALREADY_EXISTS");
         }
@@ -109,7 +114,9 @@ public class AuthService {
         if (user == null || user.passwordHash() == null || !passwordMatches || !user.canAuthenticate()) {
             throw new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
-        return issueSession(user, firstActiveWorkspaceId(user.id()));
+        AuthTokenResponse response = issueSession(user, firstActiveWorkspaceId(user.id()));
+        loginActivity.record(user.id(), LoginActivityService.Method.PASSWORD, tokenService.now());
+        return response;
     }
 
     @Transactional(noRollbackFor = IdentityException.class)

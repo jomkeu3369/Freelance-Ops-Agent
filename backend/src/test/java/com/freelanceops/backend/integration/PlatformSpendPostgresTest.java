@@ -58,7 +58,7 @@ class PlatformSpendPostgresTest {
     @BeforeEach void setup() {
         tx = new TransactionTemplate(manager);
         // Test-fixture cleanup only, in the dedicated disposable container above.
-        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_spend_reservation, app.platform_spend_bucket");
+        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
         jdbc.update("UPDATE app.platform_spend_settings SET luna_run_usd=.10,terra_run_usd=1,account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");
     }
 
@@ -84,10 +84,10 @@ class PlatformSpendPostgresTest {
             start.countDown();
             int accepted = 0;
             for (var result : results) if (result.get(20, TimeUnit.SECONDS)) accepted++;
-            assertThat(accepted).isEqualTo(12);
+            assertThat(accepted).isEqualTo(13);
         }
-        assertThat(held("ACCOUNT_WEEK", user)).isEqualByComparingTo("1.20");
-        assertThat(count(user)).isEqualTo(12);
+        assertThat(held("ACCOUNT_WEEK", user)).isEqualByComparingTo("1.25");
+        assertThat(count(user)).isEqualTo(13);
     }
 
     @Test void globalLimitAppliesAcrossAccountsAndAdmissionFailureRollsBackEarlierBuckets() {
@@ -118,7 +118,7 @@ class PlatformSpendPostgresTest {
         UUID user = UUID.randomUUID();
         jdbc.update("INSERT INTO app.user_account(id, external_subject, email, status) VALUES (?, ?, 'synthetic@example.invalid', 'ACTIVE')",
             user, "spend-refund-test:" + user);
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 13; i++) {
             UUID run = UUID.randomUUID();
             tx.executeWithoutResult(s -> {
                 credits.reserve(user, run, Provider.OPENAI, "gpt-5.6-luna");
@@ -135,7 +135,7 @@ class PlatformSpendPostgresTest {
             spend.reserve(user, run, LUNA);
         })).isInstanceOf(PlatformSpendExhaustedException.class);
         assertThat(credits.current(user).reserved()).isZero();
-        assertThat(held("ACCOUNT_WEEK", user)).isEqualByComparingTo("1.20");
+        assertThat(held("ACCOUNT_WEEK", user)).isEqualByComparingTo("1.25");
     }
 
     @Test void knownAndUnknownPlatformUsageSatisfyMigratedCostConstraintsWithoutMutablePricingSnapshot() {

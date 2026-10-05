@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from contracts import ModelSelection
-from platform_budget import PlatformBudgetError
+from platform_budget import PlatformBudgetError, validate_reasoning
 from providers import ModelGeneration, ModelProvider, ProviderCallError
 
 from .telemetry import GatewayTelemetry
@@ -174,6 +174,7 @@ class AIGateway:
             self._semaphore.release()
 
     def _require_allowed_model(self, selection: ModelSelection) -> None:
+        validate_reasoning(selection)
         if self._policy.allowed_models and selection.model not in self._policy.allowed_models:
             self._telemetry.rejected(code="MODEL_NOT_ALLOWED")
             raise GatewayRejectedError("selected model is not allowed by AI gateway policy")

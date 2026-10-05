@@ -33,7 +33,7 @@ interface AnalysisStepProps {
   usageState: CreditUsageState;
   streamState: StreamState;
   onOpenAISettings: () => void;
-  onSendMessage: (message: string) => Promise<boolean>;
+  onSendMessage: (message: string, attachmentIds?: string[]) => Promise<boolean>;
   costUsage: AgentRunUsage | null;
   onCancel: () => Promise<void>;
   onResume: (answers: string[]) => Promise<void>;
@@ -51,7 +51,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   }
 
   return <>
-    <AgentChat session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
+    <AgentChat key={`${session.userId}:${session.workspaceId}:${projectId}`} session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
       canSendAI={canSendAI} retryMessages={retryMessages} composerInfo={composerInfo} composerTools={composerTools}
       headerTools={<>

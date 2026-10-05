@@ -1,0 +1,503 @@
+{
+  "result": "pass",
+  "schema_version": "1.0.0",
+  "skill_count": 60,
+  "category_counts": {
+    "development": 10,
+    "design": 8,
+    "video": 6,
+    "writing": 7,
+    "translation": 5,
+    "marketing": 8,
+    "operations": 10,
+    "research": 6
+  },
+  "checks_passed": 120,
+  "checks": [
+    {
+      "name": "json_schema_valid",
+      "passed": true
+    },
+    {
+      "name": "exactly_60_skills",
+      "passed": true
+    },
+    {
+      "name": "unique_stable_ids",
+      "passed": true
+    },
+    {
+      "name": "unique_korean_names",
+      "passed": true
+    },
+    {
+      "name": "unique_english_names",
+      "passed": true
+    },
+    {
+      "name": "localized_names_and_summaries",
+      "passed": true
+    },
+    {
+      "name": "unique_category_ids",
+      "passed": true
+    },
+    {
+      "name": "category_counts_match",
+      "passed": true
+    },
+    {
+      "name": "workflow_steps_sequential",
+      "passed": true
+    },
+    {
+      "name": "workflow_bodies_distinct",
+      "passed": true
+    },
+    {
+      "name": "input_keys_unique",
+      "passed": true
+    },
+    {
+      "name": "all_skills_have_concrete_output_checks",
+      "passed": true
+    },
+    {
+      "name": "all_skills_have_boundaries_and_limits",
+      "passed": true
+    },
+    {
+      "name": "builtin_access_free",
+      "passed": true
+    },
+    {
+      "name": "no_additional_paid_api_dependency",
+      "passed": true
+    },
+    {
+      "name": "actual_api_billing_not_fixed_credits",
+      "passed": true
+    },
+    {
+      "name": "auto_default_bounded",
+      "passed": true
+    },
+    {
+      "name": "index_exactly_matches_catalog_metadata",
+      "passed": true
+    },
+    {
+      "name": "index_has_no_workflow_bodies",
+      "passed": true
+    },
+    {
+      "name": "index_version_matches",
+      "passed": true
+    },
+    {
+      "name": "40_unique_acceptance_cases",
+      "passed": true
+    },
+    {
+      "name": "route-ko-bug_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-bug_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-bug_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-bug_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-api_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-api_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-api_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-api_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-wireframe_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-wireframe_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-wireframe_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-wireframe_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-print_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-print_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-print_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-print_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-video-plan_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-video-plan_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-video-plan_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-video-plan_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-caption_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-caption_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-caption_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-caption_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-subtitle-translation_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-subtitle-translation_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-subtitle-translation_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-subtitle-translation_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-transcreation_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-transcreation_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-transcreation_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-transcreation_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-faithful_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-faithful_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-faithful_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-faithful_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-seo-brief_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-seo-brief_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-seo-brief_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-seo-brief_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-onpage_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-onpage_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-onpage_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-onpage_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-email-copy_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-email-copy_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-email-copy_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-email-copy_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-email-strategy_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-email-strategy_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-email-strategy_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-email-strategy_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-funnel_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-funnel_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-funnel_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-funnel_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-metrics_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-metrics_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-metrics_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-metrics_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-change_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-change_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-change_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-change_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-invoice_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-invoice_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-invoice_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-invoice_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-meeting_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-meeting_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-meeting_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-meeting_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-en-interviews_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-en-interviews_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-interviews_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-en-interviews_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-ko-clean_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-ko-clean_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-clean_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-ko-clean_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-no-match_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-no-match_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-no-match_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-role-not-intent_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-role-not-intent_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-role-not-intent_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-translated-srt_expected_primary_exists",
+      "passed": true
+    },
+    {
+      "name": "route-translated-srt_allowed_supporting_exist",
+      "passed": true
+    },
+    {
+      "name": "route-translated-srt_must_not_select_exist",
+      "passed": true
+    },
+    {
+      "name": "route-translated-srt_no_contradictory_expectation",
+      "passed": true
+    },
+    {
+      "name": "route-multistage-proposal_required_across_stages_exist",
+      "passed": true
+    },
+    {
+      "name": "manual-override_manual_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "manual-empty_manual_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "manual-max_manual_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "auto-exclusion_excluded_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "no-tool-grant_selected_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "no-implicit-upload_selected_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "missing-capability_selected_ids_exist",
+      "passed": true
+    },
+    {
+      "name": "fixtures_cover_required_concerns",
+      "passed": true
+    }
+  ],
+  "acceptance_fixture_count": 40,
+  "application_routing_tests_executed": false,
+  "repository_code_changed": false,
+  "scope": "Catalog schema, content structure, uniqueness, billing invariants, index parity, and fixture references only. Application routing, UI, billing integration, and permissions must be tested in the target repository.",
+  "catalog_sha256": "5d95894c558ddaa6765a9f530bf43caf8cfea2162d80276ddb2a664f95dddd50"
+}

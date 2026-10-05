@@ -32,10 +32,19 @@ public class AgentCostService {
     private final AgentRunUsageRepository usageRepository;
     private final AgentRunRepository runRepository;
     private final WorkspaceAuthorizationService authorizationService;
+    private final PlatformUsageService platformUsage;
 
     public AgentCostService(ModelPricingRepository pricingRepository, AgentRunUsageRepository usageRepository, AgentRunRepository runRepository, WorkspaceAuthorizationService authorizationService) {
+        this(pricingRepository, usageRepository, runRepository, authorizationService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgentCostService(ModelPricingRepository pricingRepository, AgentRunUsageRepository usageRepository,
+                           AgentRunRepository runRepository, WorkspaceAuthorizationService authorizationService,
+                           PlatformUsageService platformUsage) {
         this.pricingRepository = pricingRepository; this.usageRepository = usageRepository;
         this.runRepository = runRepository; this.authorizationService = authorizationService;
+        this.platformUsage = platformUsage;
     }
 
     public void synchronize(AgentRunEntity run, AgentRunView view) {
@@ -58,6 +67,7 @@ public class AgentCostService {
             .orElseGet(() -> new AgentRunUsageEntity(run.id(), run.workspaceId()));
         entity.updatePlatform(usage, cost, exposure, view.status() == AgentRunStatus.COMPLETED, Instant.now());
         usageRepository.save(entity);
+        if (platformUsage != null) platformUsage.synchronize(run, view);
     }
 
     public List<ModelPricingResponse> listPricing(UUID userId, UUID workspaceId) {

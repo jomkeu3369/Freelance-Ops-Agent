@@ -1,0 +1,86 @@
+{
+  "id": "translation-glossary",
+  "version": "1.0.0",
+  "category": "translation",
+  "name": {
+    "ko": "용어집·언어 스타일 가이드",
+    "en": "Glossary and Language Style Guide"
+  },
+  "summary": {
+    "ko": "반복되는 용어·고유명사·말투를 일관된 번역 규칙으로 정리합니다.",
+    "en": "Build an evidence-based terminology and language-style reference for recurring translation work."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "번역 용어집 작성",
+    "다국어 스타일 가이드",
+    "build translation glossary",
+    "create localization style guide"
+  ],
+  "exclusions": [
+    "One-off short translation with no terminology problem",
+    "General brand visual direction"
+  ],
+  "required_inputs": [
+    {
+      "key": "corpus",
+      "description": "Representative approved source and target text or source terminology",
+      "required": true
+    },
+    {
+      "key": "scope",
+      "description": "Languages, domain, audience, and existing terminology decisions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Extract recurring domain terms, product names, UI labels, ambiguous phrases, and tone patterns."
+    },
+    {
+      "step": 2,
+      "instruction": "Separate approved usage from proposed translations and preserve evidence for each decision."
+    },
+    {
+      "step": 3,
+      "instruction": "Define preferred and prohibited variants, context notes, capitalization, honorifics, numbers, and locale formatting."
+    },
+    {
+      "step": 4,
+      "instruction": "Test the guide against representative passages and record unresolved terms with an owner or decision question."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Bilingual glossary",
+      "format": "csv",
+      "acceptance_criteria": "Each entry has source term, target term, context, status, and supporting example"
+    },
+    {
+      "name": "Language style guide",
+      "format": "markdown",
+      "acceptance_criteria": "Contains actionable rules and representative examples"
+    }
+  ],
+  "limitations": [
+    "Do not label inferred translations as client-approved.",
+    "A glossary must be revised when product meaning or audience changes."
+  ],
+  "permission_boundaries": [
+    "Do not upload client corpora or overwrite a shared terminology system without approval.",
+    "Do not retain unnecessary personal data from source examples."
+  ],
+  "routing_tags": [
+    "translation",
+    "glossary",
+    "terminology",
+    "style-guide"
+  ],
+  "optional_capabilities": []
+}

@@ -101,8 +101,19 @@ public record AgentRunView(
         String toolSchemaVersion,
         String traceId,
         UUID credentialId,
-        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles
+        List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+        com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection,
+        List<String> resolvedSkillIds,
+        List<String> deferredSkillIds
     ) {
+        public AgentRunMetadata(Provider provider, String model, String promptVersion, String toolSchemaVersion, String traceId,
+                                UUID credentialId, List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles) {
+            this(provider, model, promptVersion, toolSchemaVersion, traceId, credentialId, petProfiles, null, List.of(), List.of());
+        }
+        public AgentRunMetadata {
+            resolvedSkillIds = resolvedSkillIds == null ? List.of() : List.copyOf(resolvedSkillIds);
+            deferredSkillIds = deferredSkillIds == null ? List.of() : List.copyOf(deferredSkillIds);
+        }
         public AgentRunMetadata(Provider provider, String model, String promptVersion, String toolSchemaVersion, String traceId, UUID credentialId) {
             this(provider, model, promptVersion, toolSchemaVersion, traceId, credentialId, List.of());
         }
@@ -125,8 +136,26 @@ public record AgentRunView(
         List<ProviderCallUsage> providerCalls,
         java.math.BigDecimal platformCostUsd,
         UUID platformReservationId,
-        String tariffVersion
+        String tariffVersion,
+        Boolean executionClosed,
+        Boolean unpricedExposure
     ) {
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
+                             java.math.BigDecimal platformCostUsd, UUID platformReservationId, String tariffVersion,
+                             boolean executionClosed) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId,
+                tariffVersion, executionClosed, false);
+        }
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                             long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
+                             long retryCount, long durationMs, List<ProviderCallUsage> providerCalls,
+                             java.math.BigDecimal platformCostUsd, UUID platformReservationId, String tariffVersion) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId, tariffVersion, false);
+        }
         public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
                              long outputTokens, long cachedTokens, long searchCredits, long crawledPages,
                              long retryCount, long durationMs) {
@@ -134,6 +163,9 @@ public record AgentRunView(
                 crawledPages, retryCount, durationMs, List.of(), null, null, null);
         }
         public AgentRunUsage {
+            // Old durable Agent snapshots omit these fields. Missing closure never releases a hold.
+            executionClosed = Boolean.TRUE.equals(executionClosed);
+            unpricedExposure = Boolean.TRUE.equals(unpricedExposure);
             providerCalls = providerCalls == null ? List.of() : List.copyOf(providerCalls);
             if ((platformReservationId == null) != (tariffVersion == null)) {
                 throw new IllegalArgumentException("Platform usage provenance must be complete");
