@@ -513,6 +513,7 @@ export function register(input: {
   password: string;
   displayName: string;
   workspaceName: string;
+  ageAtLeast14: boolean;
 }): Promise<AuthSession> {
   return request("/api/v2/auth/register", { method: "POST", body: JSON.stringify(input) });
 }

@@ -35,6 +35,12 @@
 .auth-page .password-field button { position: absolute; inset: 3px 3px 3px auto; width: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; color: var(--muted); background: transparent; cursor: pointer; }
 .auth-page .password-field button:hover { color: var(--ink); background: var(--surface); }
 .auth-page .auth-field > small { font-size: 12px; color: var(--muted); }
+.auth-page .auth-age-confirmation { display: grid; gap: 6px; min-width: 0; }
+.auth-page .auth-age-confirmation > label { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; line-height: 1.6; cursor: pointer; }
+.auth-page .auth-age-confirmation input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; min-height: 20px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
+.auth-page .auth-required { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.auth-page .auth-age-confirmation > p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.auth-page .auth-age-confirmation > .form-error { color: var(--danger); }
 .auth-page .auth-submit { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; margin-top: 6px; padding: 12px 16px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font-size: 14px; font-weight: 650; }
 .auth-page .auth-submit:hover { background: color-mix(in srgb, var(--accent) 90%, var(--ink)); }
 .auth-page button:disabled, .auth-page .auth-fields:disabled { opacity: .65; cursor: wait; }
