@@ -50,3 +50,13 @@ V46은 capability의 허용 값만 추가하며 어떤 계정에도 권한을 �
 이 Windows 환경은 Docker daemon이 없어 PostgreSQL 통합 검사를 건너뛴다.
 Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한다.
 최종 실행 결과와 원격 SHA는 작업 결과 보고에 기록한다.
+
+### 이 작업의 실행 결과
+
+- 전체 백엔드 Gradle 검사 완료: 97 suites, 381 tests, 실패 0, 오류 0, Docker 의존 검사 69개 skipped. 실행한 312개 통과.
+- 신규 AdminMemberService 단위 검사 2개와 AuthService 검사 8개 통과. 신규 PostgreSQL 검사 6개는 skipped에 포함되므로 실제 DB 검증 완료로 보지 않는다.
+- 프론트 단위 검사 242개 통과.
+- Chrome 6개 중 감사 조회·390px 모바일 레이아웃·세션 해제 뒤 늦은 응답 차단 3개 통과. 모바일 스크린샷을 직접 확인했다.
+- Chrome 나머지 3개는 초기 개발 서버 탐색 timeout 1개, Next의 별도 route announcer와 `role=alert` 선택 충돌 2개로 실패했다. DOMContentLoaded 탐색과 `main [role=alert]` 선택으로 테스트를 수정했으나 재실행하지 않았다.
+- 최종 타입 검사/린트는 완료 전에 중단했다. 성공으로 보고하지 않는다.
+- 사용자의 노트북 부하 중단 요청으로 로컬 Next 개발 서버(3155), 타입 검사 및 브라우저 자동화를 종료했다. 추가 로컬 빌드·Docker 검사는 실행하지 않는다. 이후 DB·브라우저 검증과 비용원장 연결은 클라우드 환경에서 계속해야 한다.
