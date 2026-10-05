@@ -1,6 +1,7 @@
 # Actual-cost weekly usage API
 
-New starts use exact USD admission and settlement. `creditQuote` is accepted only
+New platform-funded starts use exact USD admission and settlement. New V47
+scope-backed BYOK starts use separate personal call/token/time admission. `creditQuote` is accepted only
 as legacy request metadata and no longer charges fixed model credits. Historical
 credit reservations and APIs retain their old settlement semantics. Do not use
 `/api/v2/usage/free` to display new cost-proportional allowances.
@@ -45,12 +46,16 @@ small first request. Reason codes: `SPENDING_DISABLED`, `MODEL_DISABLED`,
 History item fields: `runId`, `model`, `status`, `startedAt`, `platformCostUsd`
 (confirmed platform cost), `platformReservedUsd`, `usageKnown`,
 `byokInputTokens`, `byokOutputTokens`, `providerCalls` (existing attempt DTO).
-Unknown BYOK token counts remain conservative bounds; inspect each attempt's
-`usageKnown`. `fundingSource=BYOK` has no platform USD charge. Platform routing
-inside a BYOK run still consumes the platform budget. No prompt or key is returned.
+V47 scope-backed BYOK token counts are conservative admitted bounds, not an actual
+provider bill; their history attempts retain `usageKnown=false`. These personal
+runs have zero platform USD cost and reservation. They use local routing and
+keyword-only retrieval, without ambient platform routing, embeddings or research
+calls. Historical mixed-funded runs retain their original platform settlement;
+`fundingSource=BYOK` attempts themselves have no platform USD charge. No prompt or
+key is returned.
 Deleted runs keep cost records, with history status `DELETED`.
 
-## Accounting invariants
+## Platform accounting invariants
 
 - V42 has explicit model caps; V43 adds settlement and attempt tables. No account
   or global limit is increased and `platform.ai.spend.enabled` stays false.
@@ -74,9 +79,27 @@ Deleted runs keep cost records, with history status `DELETED`.
 - Legacy v1 reservations retain their previous full conservative exposure.
   Product-credit resets, account/workspace/run deletion do not erase monetary holds.
 
+## Bounded personal execution
+
+- V47 stores the selected credential, model, reasoning effort, user/workspace/project,
+  current cost-notice version and deadline in an immutable run scope. Current limits
+  are at most 150,000 input tokens, 48,000 output tokens, 50 calls and 180 seconds;
+  lower configured non-input limits still apply.
+- Every paid attempt rechecks current access and reserves its conservative input/
+  output bounds in Spring before provider I/O. A call ID cannot be admitted twice.
+  Agent checkpoints record the attempt before the selected-key request is sent.
+- Retries, resume, cancellation, missing usage and deletion cannot replenish the
+  scope or extend its deadline. Closing is irreversible. No platform-key fallback
+  or extra paid routing/embedding/research path is allowed.
+- Provider/model access, real billed cost and output quality require separate
+  verification. Scope admission and UI cost notices do not establish those facts.
+
 ## Integration ownership
 
 Model/default changes overlap only `frontend/features/workspace/shared/constants.tsx`
 and `frontend/.env.example`. The separate UI task should wire its ring, selection,
 and Send eligibility to this API, remove fixed credit labels/quotes from new user
-flows and use `spendingEnabled`/model availability. Main-page design is untouched.
+platform-funded flows and use `spendingEnabled`/model availability for them.
+Personal starts instead require the selected connection and current BYOK cost
+notice; a disabled platform allowance does not grant or deny a personal scope.
+Main-page design is untouched.
