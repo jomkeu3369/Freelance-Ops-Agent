@@ -9,10 +9,68 @@ servers:
 security:
   - delegationToken: []
 paths:
+  /internal/v1/byok-executions/{scopeId}/attempts:
+    post:
+      operationId: admitByokProviderAttempt
+      description: >-
+        Atomically consumes one attempt and conservative input/output tokens from the immutable BYOK run scope
+        before any personal credential/provider I/O. Requires current run-bound delegation and a live selected
+        credential. Run, workspace, project, user, model, reasoning, funding and service tier must match.
+        Every retry has a new callId; duplicate IDs are rejected, never treated as permission to call twice.
+        Reservations are never refunded. Lost/ambiguous responses fail closed and must not be retried blindly.
+        Closed, expired, cancelled, missing, forged or legacy scopes cannot admit new work.
+      parameters:
+        - name: scopeId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ByokAttempt"
+      responses:
+        "200":
+          description: Exactly one attempt durably reserved; Cache-Control no-store
+          headers:
+            Cache-Control:
+              schema: {type: string, const: no-store}
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ByokAdmission"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+        "410":
+          description: Original immutable scope deadline expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ByokAdmissionError"
+        "429":
+          description: Immutable conservative run call/token budget exhausted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ByokAdmissionError"
+        "409":
+          description: Scope binding mismatch, closed/paused scope or duplicate attempt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ByokAdmissionError"
   /internal/v1/ai-connections/{id}/credential:
     get:
       operationId: resolvePersonalCredential
-      description: Current delegated permission, owner, workspace, project and model are revalidated. Response is ephemeral, never audited as a tool observation or persisted.
+      description: Current delegated permission, owner, workspace, project and model are revalidated against an existing active BYOK run scope. Legacy/missing run IDs cannot retrieve a key. Response is ephemeral, never audited as a tool observation or persisted.
       parameters:
         - name: id
           in: path
@@ -196,6 +254,39 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
   schemas:
+    ByokAttempt:
+      type: object
+      additionalProperties: false
+      required: [callId, credentialId, provider, model, reasoningEffort, operation, fundingSource,
+                 serviceTier, inputTokens, maxOutputTokens]
+      properties:
+        callId: {type: string, format: uuid}
+        credentialId: {type: string, format: uuid}
+        provider: {type: string, enum: [OPENAI]}
+        model: {type: string, minLength: 1, maxLength: 100}
+        reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
+        operation: {type: string, enum: [department_work_product, bounded_react_step]}
+        fundingSource: {type: string, const: BYOK}
+        serviceTier: {type: string, const: default}
+        inputTokens: {type: integer, minimum: 1, maximum: 272000}
+        maxOutputTokens: {type: integer, minimum: 1}
+    ByokAdmission:
+      type: object
+      additionalProperties: false
+      required: [callId, admitted, validUntil, fundingSource, serviceTier]
+      properties:
+        callId: {type: string, format: uuid}
+        admitted: {type: boolean, const: true}
+        validUntil: {type: string, format: date-time}
+        fundingSource: {type: string, const: BYOK}
+        serviceTier: {type: string, const: default}
+    ByokAdmissionError:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code: {type: string}
+        message: {type: string}
     ProjectContext:
       type: object
       additionalProperties: false

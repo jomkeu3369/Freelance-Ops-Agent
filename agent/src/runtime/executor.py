@@ -31,7 +31,8 @@ from contracts import (
 )
 from integrations import SpringToolError
 from personal_credentials import credential_scope
-from providers import ModelGeneration, ModelProvider, ProviderCallError
+from platform_budget import PlatformBudgetError
+from providers import ModelGeneration, ModelProvider, ProviderCallError, preflight_byok_react_plan
 from retrieval.knowledge_context import KNOWLEDGE_RULES, KnowledgeContext, KnowledgeContextLoader
 from routing import FinalRouteDecision, RouteLabel, SafetyContext, evaluate_safety
 from routing.llm_evaluator import RouteDecisionSource
@@ -288,7 +289,8 @@ class OperationalAgentExecutor:
         if knowledge.text:
             text += "\n\nGrounded project memory (separate from the current user request):\n" + knowledge.text
         departments = _ROUTE_DEPARTMENTS[decision.route][: request.budget.max_departments]
-        if DepartmentName.RESEARCH in departments and self._task_shadow_registrar is not None and authorization is not None:  # noqa: E501
+        if (request.byok_budget is None and DepartmentName.RESEARCH in departments
+                and self._task_shadow_registrar is not None and authorization is not None):  # noqa: E501
             try:
                 await self._task_shadow_registrar.register(request, decision, safety, authorization.delegation_token)
             except (OSError, RuntimeError, TypeError, ValueError) as error:
@@ -323,7 +325,8 @@ class OperationalAgentExecutor:
 
         tool_calls = 1 if project_context is not None else 0
         research: ResearchCollection | None = None
-        if DepartmentName.RESEARCH in departments and request.budget.max_search_credits > 0:
+        if (request.byok_budget is None and DepartmentName.RESEARCH in departments
+                and request.budget.max_search_credits > 0):
             research = await self._collect_research(request, tool_calls)
             tool_calls += research.tool_calls
             tool_events.append(self._tool_event("web_research", DepartmentName.RESEARCH))
@@ -438,6 +441,31 @@ class OperationalAgentExecutor:
             events=(route_event, *tool_events)
         )
 
+    @staticmethod
+    def _react_objective(request: AgentRunRequest, decision: FinalRouteDecision,
+                         department: DepartmentName, text: str) -> dict[str, object]:
+        return {
+            "department": department.value,
+            "workflow_mode": request.input.workflow_mode.value,
+            "selected_route": decision.route.value,
+            "untrusted_user_request": text,
+            "builtin_skills": skill_prompt_data(request),
+            "untrusted_pet_preferences": pet_preference_data(request),
+            "pet_preference_rules": PET_PREFERENCE_RULES,
+            "grounded_memory_rules": KNOWLEDGE_RULES,
+            "constraints": {
+                "no_price_or_tax_invention": True,
+                "evidence_or_explicit_assumption_required": True,
+                "three_quotation_drafts_required_for_requirements_or_deal_design": request is None or request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS,  # noqa: E501
+                "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"] if request is None or request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS else [],  # noqa: E501
+                "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
+                "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
+                "pet_perspectives": (pet_perspective_instructions(request)
+                                     if request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS
+                                     else {}),
+            },
+        }
+
     async def _execute_react_departments(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], text: str, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None, model_calls: int, input_tokens: int, output_tokens: int, started_ns: int) -> ExecutionOutcome:  # noqa: E501
         results: list[DepartmentResult] = []
         questions: list[str] = []
@@ -445,6 +473,15 @@ class OperationalAgentExecutor:
         tool_calls = 0
         tool_events: list[ExecutionEvent] = []
         research_usage = ResearchCollection(sources=[], search_credits=0, tool_calls=0, fetched_pages=0)
+
+        if request.byok_budget is not None:
+            prompts = []
+            for department in departments:
+                tools, _ = self._react_tools(request, department, authorization, tool_calls)
+                loop = BoundedReActLoop(self._provider, tools)
+                prompts.append(loop.initial_prompt(self._react_objective(request, decision, department, text),
+                                                   request.budget.max_model_calls, request.budget.max_tool_calls))
+            preflight_byok_react_plan(request.model_selection, prompts, request.budget.max_output_tokens)
 
         for department_index, department in enumerate(departments):
             tools, selected_research = self._react_tools(
@@ -496,27 +533,7 @@ class OperationalAgentExecutor:
             ) -> ReActLoopResult:
                 return await specialist.run(
                     request.model_selection,
-                    {
-                        "department": selected.value,
-                        "workflow_mode": request.input.workflow_mode.value,
-                        "selected_route": decision.route.value,
-                        "untrusted_user_request": text,
-                        "builtin_skills": skill_prompt_data(request),
-                        "untrusted_pet_preferences": pet_preference_data(request),
-                        "pet_preference_rules": PET_PREFERENCE_RULES,
-                        "grounded_memory_rules": KNOWLEDGE_RULES,
-                        "constraints": {
-                            "no_price_or_tax_invention": True,
-                            "evidence_or_explicit_assumption_required": True,
-                            "three_quotation_drafts_required_for_requirements_or_deal_design": request is None or request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS,  # noqa: E501
-                            "quotation_draft_scenarios": ["LEAN", "RECOMMENDED", "EXPANDED"] if request is None or request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS else [],  # noqa: E501
-                            "quotation_drafts_must_have_meaningfully_different_scope_and_effort": True,
-                            "quotation_drafts_must_not_include_prices_taxes_or_totals": True,
-                            "pet_perspectives": (pet_perspective_instructions(request)
-                                                 if request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS
-                                                 else {}),
-                        },
-                    },
+                    self._react_objective(request, decision, selected, text),
                     budget,
                 )
 
@@ -561,6 +578,19 @@ class OperationalAgentExecutor:
                     started_ns
                 )
                 raise AgentExecutionError("MODEL_PROVIDER_FAILED", usage) from error
+            except PlatformBudgetError as error:
+                # A bounded BYOK run may exhaust its aggregate reservation after
+                # earlier departments completed. Preserve only those completed
+                # products; the coordinator still reports every durable attempt
+                # and closes the scope. Binding/expiry/security failures stay fatal.
+                if (request.byok_budget is None or not results
+                        or error.code not in _RECOVERABLE_PARTIAL_CODES):
+                    raise
+                return self._partial_react_outcome(
+                    request, decision, departments, department_index, results, questions,
+                    quotation_drafts, tool_events, research_usage, error.code, model_calls,
+                    tool_calls, input_tokens, output_tokens, started_ns,
+                )
             except ReActLoopError as error:
                 model_calls += error.model_calls
                 tool_calls += error.tool_calls
@@ -799,6 +829,14 @@ class OperationalAgentExecutor:
                 safety_decision=safety,
                 policy_code="PROJECT_ANALYSIS_FULL_WORKFLOW"
             )
+        if request.byok_budget is not None:
+            return FinalRouteDecision(
+                route=RouteLabel.SIMPLE_LLM,
+                source=RouteDecisionSource.POLICY_GATE,
+                local_decision=None,
+                safety_decision=safety,
+                policy_code="BYOK_LOCAL_AD_HOC"
+            )
         return None
 
     @staticmethod
@@ -863,7 +901,8 @@ class OperationalAgentExecutor:
             )
 
         if (
-            department is DepartmentName.RESEARCH
+            request.byok_budget is None
+            and department is DepartmentName.RESEARCH
             and research_tool is not None
             and "document.read" in request.context.effective_permissions
             and request.budget.max_search_credits > 0
@@ -917,7 +956,8 @@ class OperationalAgentExecutor:
         ):
             model_calls += 1
         if (
-            department is DepartmentName.RESEARCH
+            request.byok_budget is None
+            and department is DepartmentName.RESEARCH
             and self._research_tool is not None
             and "document.read" in request.context.effective_permissions
             and request.budget.max_search_credits > 0

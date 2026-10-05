@@ -14,6 +14,7 @@ from typing import Protocol
 from uuid import UUID
 
 from builtin_skills import resolve_skills
+from byok_budget import ByokExecutionLedger, byok_budget_scope, current_byok_ledger
 from contracts import (
     AgentInterruption,
     AgentRunAccepted,
@@ -276,6 +277,10 @@ class InMemoryAgentRunStore:
                 idle = PlatformSpendLedger(record.request.platform_budget, record.usage)
                 idle.closed = True
                 usage = idle.report(None)
+            if record.status is AgentRunStatus.QUEUED and record.request.byok_budget is not None:
+                usage = AgentRunUsage(request_tier=RequestTier.SINGLE_AGENT, model_calls=0, tool_calls=0,
+                                      input_tokens=0, output_tokens=0, duration_ms=0, execution_closed=True,
+                                      byok_scope_id=record.request.byok_budget.scope_id)
             record.status = AgentRunStatus.CANCELLED
             record.usage = merge_usage(record.usage, usage)
             record.updated_at = datetime.now(UTC)
@@ -388,6 +393,12 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
     if (current.tariff_version is not None and incoming.tariff_version is not None
             and current.tariff_version != incoming.tariff_version):
         raise PlatformBudgetError("PLATFORM_TARIFF_MISMATCH")
+    if (current.byok_scope_id is not None and incoming.byok_scope_id is not None
+            and current.byok_scope_id != incoming.byok_scope_id):
+        raise PlatformBudgetError("BYOK_SCOPE_MISMATCH")
+    if ((current.byok_scope_id or incoming.byok_scope_id)
+            and (current.platform_reservation_id or incoming.platform_reservation_id)):
+        raise PlatformBudgetError("BYOK_FUNDING_MISMATCH")
     # A journal failure after persisting an interruption can report this segment
     # twice. Attempt IDs make monetary settlement idempotent in that path too.
     calls = {call.call_id: call for call in current.provider_calls}
@@ -403,7 +414,9 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
                     raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
                 continue
         calls[call.call_id] = call
-    protected = current.platform_reservation_id is not None or incoming.platform_reservation_id is not None
+    protected = any(value is not None for value in (
+        current.platform_reservation_id, incoming.platform_reservation_id,
+        current.byok_scope_id, incoming.byok_scope_id))
     tier_order = {
         RequestTier.DIRECT_TOOL: 0,
         RequestTier.SINGLE_AGENT: 1,
@@ -427,6 +440,7 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
         platform_cost_usd=sum((call.cost_usd for call in calls.values()), current.platform_cost_usd * 0) if protected else current.platform_cost_usd + incoming.platform_cost_usd,  # noqa: E501
         platform_reservation_id=incoming.platform_reservation_id or current.platform_reservation_id,
         tariff_version=incoming.tariff_version or current.tariff_version,
+        byok_scope_id=incoming.byok_scope_id or current.byok_scope_id,
         execution_closed=current.execution_closed or incoming.execution_closed,
         unpriced_exposure=current.unpriced_exposure or incoming.unpriced_exposure,
     )
@@ -443,11 +457,10 @@ class RunCoordinator:
         self._require_platform_budget = require_platform_budget
         # Constructor-only offline mock seam. Never expose as a setting or request field.
         self._allow_memory_platform_budget_for_tests = allow_memory_platform_budget_for_tests
-        self._active_ledgers: dict[UUID, PlatformSpendLedger] = {}
+        self._active_ledgers: dict[UUID, PlatformSpendLedger | ByokExecutionLedger] = {}
 
     async def accept(self, request: AgentRunRequest) -> AgentRunAccepted:
-        if request.platform_budget is None and self._require_platform_budget:
-            raise PlatformBudgetError("PLATFORM_BUDGET_REQUIRED")
+        self._validate_funding(request)
         if request.platform_budget is not None:
             self._require_durable_budget_store()
             if request.platform_budget.reservation_id != request.context.run_id:
@@ -460,6 +473,17 @@ class RunCoordinator:
             status=AgentRunStatus.QUEUED,
             accepted_at=view.updated_at,
         )
+
+    def _validate_funding(self, request: AgentRunRequest) -> None:
+        if request.byok_budget is not None:
+            self._require_durable_budget_store()
+            ByokExecutionLedger(request).validate()
+        elif request.model_selection.credential_id is not None and (
+            self._require_platform_budget or request.platform_budget is not None
+        ):
+            raise PlatformBudgetError("BYOK_BUDGET_REQUIRED")
+        elif request.platform_budget is None and self._require_platform_budget:
+            raise PlatformBudgetError("PLATFORM_BUDGET_REQUIRED")
 
     def _require_durable_budget_store(self) -> None:
         if (self._store.supports_platform_reservations is not True
@@ -497,6 +521,7 @@ class RunCoordinator:
         await self._checkpoint_journal.record(request, AgentRunStatus.CANCELLED, "cancelled")
 
     async def accept_resume(self, run_id: UUID, command: ResumeAgentRunRequest) -> tuple[AgentRunAccepted, AgentRunRequest]:  # noqa: E501
+        self._validate_funding(await self._store.get_request(run_id))
         request = await self._store.prepare_resume(run_id, command)
         return (
             AgentRunAccepted(
@@ -529,19 +554,27 @@ class RunCoordinator:
                     self._active_tasks.pop(run_id, None)
 
     async def _run(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
-        if request.platform_budget is not None:
-            try:
+        try:
+            self._validate_funding(request)
+            if request.platform_budget is not None:
                 self._require_durable_budget_store()
-            except PlatformBudgetError as error:
-                await self._store.fail(request.context.run_id, error.code)
-                return
+        except PlatformBudgetError as error:
+            await self._store.fail(request.context.run_id, error.code)
+            return
         try:
             previous = await self._store.mark_running(request.context.run_id, request)
         except AgentRunStateError:
             logger.info("Agent run claim was superseded: run_id=%s", request.context.run_id)
             return
-        ledger = None
-        if request.platform_budget is not None:
+        ledger: PlatformSpendLedger | ByokExecutionLedger | None = None
+        if request.byok_budget is not None:
+            try:
+                ledger = ByokExecutionLedger(request, previous.usage,
+                                             authorization.delegation_token if authorization else None)
+            except PlatformBudgetError as error:
+                await self._store.fail(request.context.run_id, error.code)
+                return
+        elif request.platform_budget is not None:
             try:
                 if request.platform_budget.reservation_id != request.context.run_id:
                     raise PlatformBudgetError("PLATFORM_RESERVATION_MISMATCH")
@@ -549,12 +582,14 @@ class RunCoordinator:
             except PlatformBudgetError as error:
                 await self._store.fail(request.context.run_id, error.code)
                 return
+        if ledger is not None:
             self._active_ledgers[request.context.run_id] = ledger
             async def persist_usage(usage: AgentRunUsage) -> None:
                 await self._store.record_usage(request.context.run_id, usage)
             ledger.persist_usage = persist_usage
         try:
-            with platform_budget_scope(ledger):
+            with platform_budget_scope(ledger if isinstance(ledger, PlatformSpendLedger) else None), \
+                    byok_budget_scope(ledger if isinstance(ledger, ByokExecutionLedger) else None):
                 await self._run_scoped(request, resume, authorization)
         finally:
             self._active_ledgers.pop(request.context.run_id, None)
@@ -565,7 +600,7 @@ class RunCoordinator:
 
     async def _run_scoped(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
         run_id = request.context.run_id
-        ledger = current_ledger()
+        ledger: PlatformSpendLedger | ByokExecutionLedger | None = current_byok_ledger() or current_ledger()
 
         def report(usage: AgentRunUsage | None = None) -> AgentRunUsage | None:
             return ledger.report(usage) if ledger is not None else usage
@@ -583,7 +618,8 @@ class RunCoordinator:
             try:
                 outcome = await asyncio.wait_for(
                     self._checkpoint_journal.execute(self._executor, request, resume, authorization),
-                    timeout=request.budget.max_duration_seconds,
+                    timeout=min(request.budget.max_duration_seconds, ledger.remaining_seconds())
+                    if isinstance(ledger, ByokExecutionLedger) else request.budget.max_duration_seconds,
                 )
             finally:
                 _progress_publisher.reset(progress_token)

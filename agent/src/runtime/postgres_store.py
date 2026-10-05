@@ -21,6 +21,7 @@ from contracts import (
     AgentRunUsage,
     AgentRunView,
     DepartmentName,
+    RequestTier,
     ResumeAgentRunRequest,
 )
 from infrastructure.database import PgVectorConnectionManager
@@ -170,6 +171,10 @@ class PostgresAgentRunStore:
                     idle = PlatformSpendLedger(request.platform_budget, previous)
                     idle.closed = True
                     usage = idle.report(None)
+                if request.byok_budget is not None:
+                    usage = AgentRunUsage(request_tier=RequestTier.SINGLE_AGENT, model_calls=0, tool_calls=0,
+                                          input_tokens=0, output_tokens=0, duration_ms=0, execution_closed=True,
+                                          byok_scope_id=request.byok_budget.scope_id)
             model.status = AgentRunStatus.CANCELLED.value
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, usage))

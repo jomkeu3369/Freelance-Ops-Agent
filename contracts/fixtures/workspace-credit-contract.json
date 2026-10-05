@@ -36,6 +36,7 @@
     }
   },
   "byokStart": {
+    "byokCostNoticeVersion": "byok-standard-150k-48k-2026-10-05-v1",
     "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
     "locale": "ko-KR",
     "jurisdictionCode": "KR",
@@ -49,7 +50,7 @@
       "maxDurationSeconds": 180,
       "maxModelCalls": 50,
       "maxToolCalls": 12,
-      "maxInputTokens": 50000,
+      "maxInputTokens": 150000,
       "maxOutputTokens": 48000,
       "maxDepartments": 4,
       "maxHierarchyDepth": 2,

@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_INTERRUPTION_QUESTIONS = 3
+BYOK_COST_NOTICE_VERSION = "byok-standard-150k-48k-2026-10-05-v1"
 
 
 class StrictModel(BaseModel):
@@ -319,6 +320,38 @@ class AgentRunRequest(StrictModel):
     input: AgentInput
     clarification_history: list[ClarificationAnswer] = Field(default_factory=list, max_length=30)
     platform_budget: "PlatformBudget | None" = None
+    byok_budget: "ByokBudget | None" = None
+
+
+class ByokBudget(StrictModel):
+    """Immutable backend scope; durable admission, never this object alone, permits I/O."""
+
+    scope_id: UUID
+    run_id: UUID
+    workspace_id: UUID
+    project_id: UUID
+    initiated_by: UUID
+    credential_id: UUID
+    provider: Provider
+    model: str = Field(min_length=1, max_length=100)
+    reasoning_effort: ReasoningEffort
+    funding_source: Literal["BYOK"]
+    service_tier: Literal["default"]
+    # Null/absent is only an already-issued legacy scope representation. The
+    # backend exclusively validates notice consent before admitting new scopes.
+    cost_notice_version: Literal["byok-standard-150k-48k-2026-10-05-v1"] | None = None
+    valid_until: datetime
+    max_model_calls: int = Field(ge=1, le=50)
+    max_input_tokens: int = Field(ge=1)
+    max_output_tokens: int = Field(ge=1)
+    budget: RunBudget
+
+    @field_validator("valid_until")
+    @classmethod
+    def require_aware_expiry(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("BYOK budget expiry must include a timezone")
+        return value
 
 
 class PlatformBudget(StrictModel):
@@ -492,6 +525,7 @@ class AgentRunUsage(StrictModel):
     provider_calls: list[ProviderCallUsage] = Field(default_factory=list)
     platform_cost_usd: Decimal = Field(default=Decimal("0"), ge=0, allow_inf_nan=False)
     platform_reservation_id: UUID | None = None
+    byok_scope_id: UUID | None = None
     tariff_version: str | None = None
     execution_closed: bool = False
     unpriced_exposure: bool = False

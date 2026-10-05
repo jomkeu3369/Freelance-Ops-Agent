@@ -212,6 +212,8 @@ async def resume_agent_run(run_id: UUID, body: ResumeAgentRunRequest, background
 
     except AgentRunStateError:
         return _problem(409, "Agent run cannot be resumed", "AGENT_RUN_RESUME_CONFLICT")
+    except PlatformBudgetError as error:
+        return _problem(409, "Execution budget is unavailable", error.code)
 
     assert credentials is not None
     background_tasks.add_task(

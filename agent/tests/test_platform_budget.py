@@ -252,29 +252,27 @@ async def test_invalid_admission_never_calls_provider(amount, model, expiry, ver
     assert ledger.calls == []
 
 
-async def test_byok_uses_no_platform_usd_but_retains_attempt_tokens():
+async def test_legacy_byok_cannot_borrow_platform_reservation():
     credential_id = uuid4()
     ledger = PlatformSpendLedger(budget("0.000001"), run_budget=incoming().budget)
-    with platform_budget_scope(ledger):
-        await OpenAIModelProvider(client(response()), credential_id=credential_id).generate_structured(
+    fake = client(response())
+    with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="BYOK_BUDGET_REQUIRED"):
+        await OpenAIModelProvider(fake, credential_id=credential_id).generate_structured(
             selection(credential_id=credential_id), "text", max_output_tokens=100)
-    assert ledger.cost == 0
-    assert ledger.calls[0].funding_source == "BYOK"
-    assert ledger.calls[0].input_tokens == 100 and ledger.calls[0].usage_known
-    assert ledger.calls[0].reserved_cost_usd == 0
+    assert ledger.cost == 0 and not ledger.calls
+    fake.responses.create.assert_not_awaited()
 
 
 @pytest.mark.parametrize("limit, code", [("max_model_calls", "MODEL_CALL"),
                                          ("max_input_tokens", "INPUT_TOKEN"),
                                          ("max_output_tokens", "OUTPUT_TOKEN")])
-async def test_byok_still_enforces_pre_call_token_and_call_limits(limit, code):
-    credential_id = uuid4()
+async def test_platform_still_enforces_pre_call_token_and_call_limits(limit, code):
     run_budget = incoming().budget.model_copy(update={limit: 0})
     ledger = PlatformSpendLedger(budget(), run_budget=run_budget)
     fake = client(response())
     with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match=f"{code}_BUDGET_EXCEEDED"):
-        await OpenAIModelProvider(fake, credential_id=credential_id).generate_structured(
-            selection(credential_id=credential_id), "text", max_output_tokens=100)
+        await OpenAIModelProvider(fake).generate_structured(
+            selection(), "text", max_output_tokens=100)
     fake.responses.create.assert_not_awaited()
 
 
@@ -345,7 +343,7 @@ async def test_concurrent_attempts_and_cancellation_keep_one_root_reservation():
     assert len(ledger.calls) == 1 and ledger.cost == ledger.calls[0].reserved_cost_usd
 
 
-async def test_router_luna_and_byok_terra_have_distinct_funding_and_model_records():
+async def test_platform_router_cannot_admit_mixed_byok_generation():
     credential_id = uuid4()
     ledger = PlatformSpendLedger(budget("1"))
     verdict = {"route": "SIMPLE_LLM", "abstain": False, "self_reported_confidence": 0.9,
@@ -355,10 +353,10 @@ async def test_router_luna_and_byok_terra_have_distinct_funding_and_model_record
                                  SecretSystemPrompt(secret, "test-v1", hashlib.sha256(secret.encode()).hexdigest()))
     with platform_budget_scope(ledger):
         await router.evaluate("hello", None)
-        await OpenAIModelProvider(client(response()), credential_id=credential_id).generate_structured(
-            selection("gpt-5.6-terra", credential_id=credential_id), "text", max_output_tokens=100)
-    assert [(call.model, call.funding_source) for call in ledger.calls] == [
-        ("gpt-5.6-luna", "PLATFORM"), ("gpt-5.6-terra", "BYOK")]
+        with pytest.raises(PlatformBudgetError, match="BYOK_BUDGET_REQUIRED"):
+            await OpenAIModelProvider(client(response()), credential_id=credential_id).generate_structured(
+                selection("gpt-5.6-terra", credential_id=credential_id), "text", max_output_tokens=100)
+    assert [(call.model, call.funding_source) for call in ledger.calls] == [("gpt-5.6-luna", "PLATFORM")]
     assert ledger.cost == ledger.calls[0].cost_usd
 
 
@@ -547,7 +545,7 @@ async def test_terminal_checkpoint_failure_cannot_erase_provider_ledger():
 async def test_credential_binding_prevents_accidental_platform_key_fallback():
     fake = client(response())
     with platform_budget_scope(PlatformSpendLedger(budget())), pytest.raises(
-            PlatformBudgetError, match="PLATFORM_CREDENTIAL_BINDING_MISMATCH"):
+            PlatformBudgetError, match="BYOK_BUDGET_REQUIRED"):
         await OpenAIModelProvider(fake).generate_structured(
             selection(credential_id=uuid4()), "text", max_output_tokens=100)
     fake.responses.create.assert_not_awaited()
@@ -738,14 +736,13 @@ async def test_expiry_is_rechecked_between_http_attempts():
     assert ledger.cost == ledger.calls[0].reserved_cost_usd
 
 
-async def test_unknown_byok_attempt_retains_token_bound_before_retry():
-    credential_id = uuid4()
+async def test_unknown_platform_attempt_retains_token_bound_before_retry():
     ledger = PlatformSpendLedger(budget(), run_budget=incoming().budget.model_copy(update={"max_output_tokens": 100}))
     fake = client(TimeoutError(), response())
     with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="OUTPUT_TOKEN_BUDGET_EXCEEDED"):
-        await OpenAIModelProvider(fake, credential_id=credential_id).generate_structured(
-            selection(credential_id=credential_id), "text", max_output_tokens=100)
-    assert fake.responses.create.await_count == 1 and ledger.cost == 0
+        await OpenAIModelProvider(fake).generate_structured(
+            selection(), "text", max_output_tokens=100)
+    assert fake.responses.create.await_count == 1 and ledger.cost > 0
     assert ledger.calls[0].output_tokens == 100 and not ledger.calls[0].usage_known
 
 

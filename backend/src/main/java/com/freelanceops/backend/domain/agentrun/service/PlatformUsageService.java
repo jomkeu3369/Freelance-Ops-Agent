@@ -183,6 +183,12 @@ public class PlatformUsageService {
         return limit.signum() == 0 ? BigDecimal.ZERO : amount.multiply(BigDecimal.valueOf(100))
             .divide(limit, 4, RoundingMode.DOWN).min(BigDecimal.valueOf(100)).max(BigDecimal.ZERO);
     }
+    private List<ProviderCallUsage> personalAttempts(UUID scope, String model) {
+        // These are conservative admissions, not an asserted provider bill or a known actual usage total.
+        return jdbc.query("SELECT call_id,operation,input_tokens,output_tokens FROM app.byok_provider_attempt WHERE scope_id=? ORDER BY created_at,call_id",
+            (row,n) -> new ProviderCallUsage(row.getObject(1,UUID.class),Provider.OPENAI,model,row.getString(2),
+                row.getLong(3),row.getLong(4),0,0,ZERO,ZERO,false,"BYOK"),scope);
+    }
     @Transactional(readOnly = true)
     public History history(UUID userId, String cursor, int limit) {
         Objects.requireNonNull(userId);
@@ -197,19 +203,27 @@ public class PlatformUsageService {
             } catch (RuntimeException error) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid usage cursor"); }
         }
         var items = jdbc.query("""
-            SELECT r.run_id,r.model,COALESCE(a.status,'DELETED'),r.created_at,s.settled_usd,s.reserved_usd,s.execution_closed
-            FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
-            LEFT JOIN app.agent_run a ON a.id=r.run_id
-            WHERE r.user_id=? AND (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
+            SELECT r.run_id,r.model,COALESCE(a.status,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
+                   r.execution_closed,r.byok_scope_id,r.byok_input_tokens,r.byok_output_tokens
+            FROM (
+                SELECT p.run_id,p.model,p.created_at,s.settled_usd,s.reserved_usd,s.execution_closed,
+                       NULL::uuid AS byok_scope_id,0::bigint AS byok_input_tokens,0::bigint AS byok_output_tokens
+                FROM app.platform_spend_reservation p JOIN app.platform_spend_settlement s USING(run_id) WHERE p.user_id=?
+                UNION ALL
+                SELECT b.run_id,b.payload->>'model',b.created_at,0::numeric,0::numeric,b.closed,
+                       b.scope_id,b.input_tokens,b.output_tokens
+                FROM app.byok_execution_scope b WHERE b.payload->>'initiatedBy'=?
+            ) r LEFT JOIN app.agent_run a ON a.id=r.run_id
+            WHERE (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
             """, (row, n) -> {
-                UUID run = row.getObject(1,UUID.class);
-                var calls = attempts(run);
+                UUID run = row.getObject(1,UUID.class), byokScope = row.getObject(8,UUID.class);
+                var calls = byokScope == null ? attempts(run) : personalAttempts(byokScope, row.getString(2));
                 return new UsageEntry(run,row.getString(2),row.getString(3),row.getTimestamp(4).toInstant(),
-                    row.getBigDecimal(5),row.getBigDecimal(6),row.getBoolean(7) && row.getBigDecimal(6).signum()==0
-                        && calls.stream().allMatch(ProviderCallUsage::usageKnown),
-                    calls.stream().filter(c -> "BYOK".equals(c.fundingSource())).mapToLong(ProviderCallUsage::inputTokens).sum(),
-                    calls.stream().filter(c -> "BYOK".equals(c.fundingSource())).mapToLong(ProviderCallUsage::outputTokens).sum(),calls);
-            }, userId, Timestamp.from(before), beforeId, limit+1);
+                    row.getBigDecimal(5),row.getBigDecimal(6),byokScope == null && row.getBoolean(7)
+                        && row.getBigDecimal(6).signum()==0 && calls.stream().allMatch(ProviderCallUsage::usageKnown),
+                    byokScope == null ? calls.stream().filter(c -> "BYOK".equals(c.fundingSource())).mapToLong(ProviderCallUsage::inputTokens).sum() : row.getLong(9),
+                    byokScope == null ? calls.stream().filter(c -> "BYOK".equals(c.fundingSource())).mapToLong(ProviderCallUsage::outputTokens).sum() : row.getLong(10),calls);
+            }, userId, userId.toString(), Timestamp.from(before), beforeId, limit+1);
         boolean more = items.size() > limit;
         items = List.copyOf(items.subList(0, Math.min(items.size(), limit)));
         String next = null;

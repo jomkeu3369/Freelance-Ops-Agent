@@ -202,6 +202,9 @@ class BoundedReActLoop:
             output_tokens=output_tokens
         )
 
+    def initial_prompt(self, objective: dict[str, object], max_model_calls: int, max_tool_calls: int) -> str:
+        return self._prompt(objective, [], max_model_calls, max_tool_calls, None)
+
     def _prompt(self, objective: dict[str, object], observations: list[dict[str, object]], remaining_model_calls: int, remaining_tool_calls: int, contract_feedback: dict[str, object] | None) -> str:  # noqa: E501
         return json.dumps(
             {

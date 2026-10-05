@@ -77,6 +77,7 @@ class AgentRunGatewayServiceTest {
     @Mock private PlatformSpendService platformSpend;
 
     @Mock private ChatAttachmentService attachments;
+    @Mock private ByokExecutionService byok;
     private AgentRunGatewayService service;
 
     @BeforeEach
@@ -94,7 +95,8 @@ class AgentRunGatewayServiceTest {
             pets,
             freeUsage,
             platformSpend,
-            attachments
+            attachments,
+            byok
         );
     }
 
@@ -201,7 +203,7 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
-    void personalCredentialDoesNotReserveWeeklyCredits() {
+    void personalCredentialScopeDoesNotReservePlatformOrWeeklyCredits() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
         when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
@@ -210,7 +212,13 @@ class AgentRunGatewayServiceTest {
         var personal = new StartAgentRunRequest(source.requirementText(), source.locale(), source.jurisdictionCode(),
             new ModelSelection(Provider.OPENAI, source.modelSelection().model(), source.modelSelection().reasoningEffort(), UUID.randomUUID()),
             source.budget(), source.safetyContext());
+        when(byok.issue(any(), eq(user), eq(workspace), eq(project), eq(personal.modelSelection()), eq(personal.budget()), eq(personal.byokCostNoticeVersion())))
+            .thenAnswer(inv -> new InternalAgentRunRequest.ByokBudget(UUID.randomUUID(), inv.getArgument(0), workspace, project,
+                user, personal.modelSelection().credentialId(), Provider.OPENAI, personal.modelSelection().model(),
+                personal.modelSelection().reasoningEffort(), "BYOK", "default", Instant.now().plusSeconds(180),
+                personal.budget().maxModelCalls(), personal.budget().maxInputTokens(), personal.budget().maxOutputTokens(), personal.budget()));
         service.start(user, workspace, project, personal, "trace");
+        org.mockito.Mockito.verifyNoInteractions(platformSpend);
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(commandQueue).enqueueStart(any(), any(), eq(user), anyList(), eq("trace"));
     }
