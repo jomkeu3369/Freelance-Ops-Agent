@@ -12,6 +12,7 @@ from uuid import UUID, uuid5
 
 from contracts import AgentRunRequest, DepartmentName
 from integrations.task_registration import SpringTaskRegistration, SpringTaskRegistrationClient
+from platform_budget import PlatformBudgetError
 from routing import FinalRouteDecision, RouteExecutionProfile, SafetyContext, execution_profile
 
 from .task_attempt_events import TaskAttemptEventWrite
@@ -70,6 +71,8 @@ class PostgresResearchTaskShadowRegistrar:
         permissions = _read_only_permissions(request.context.effective_permissions)
         route_profile = execution_profile(decision.route, safety)
         uses_dispatcher = self._uses_dispatcher(request.context.workspace_id)
+        if uses_dispatcher and request.platform_budget is not None:
+            raise PlatformBudgetError("PLATFORM_A2A_UNPRICED")
         prediction = (None, None) if not uses_dispatcher or self._dispatcher is None else self._dispatcher.prediction
         payload = _payload(request, task_id, attempt_id, permissions, route_profile, *prediction)
         registered = await self._spring.register(payload, workload_token)

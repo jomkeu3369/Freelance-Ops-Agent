@@ -1,0 +1,86 @@
+{
+  "id": "design-ui-system",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "UI 토큰·컴포넌트 설계",
+    "en": "UI Tokens and Component Specification"
+  },
+  "summary": {
+    "ko": "기존 디자인에서 토큰·상태·변형 규칙을 추출해 일관된 컴포넌트 명세를 만듭니다.",
+    "en": "Define reusable design tokens and component behavior from an existing interface or approved direction."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "디자인 시스템 정리",
+    "컴포넌트 상태 정의",
+    "specify UI design system",
+    "define tokens and component variants"
+  ],
+  "exclusions": [
+    "Single-screen cosmetic tweaks without reusable rules",
+    "Code Connect or design-tool writes requiring a dedicated integration"
+  ],
+  "required_inputs": [
+    {
+      "key": "reference",
+      "description": "Existing UI or approved visual direction",
+      "required": true
+    },
+    {
+      "key": "components",
+      "description": "In-scope components, platforms, and implementation constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inventory repeated visual values and behaviors, distinguishing foundations from component-specific decisions."
+    },
+    {
+      "step": 2,
+      "instruction": "Define semantic token roles for color, type, spacing, radius, and motion only where the design needs them."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify each component’s anatomy, variants, interaction states, responsive behavior, and accessibility expectations."
+    },
+    {
+      "step": 4,
+      "instruction": "Check consistency across representative screens and document migration gaps rather than silently redesigning them."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Design tokens",
+      "format": "json",
+      "acceptance_criteria": "Uses stable semantic names, values, roles, and theme notes"
+    },
+    {
+      "name": "Component specification",
+      "format": "markdown",
+      "acceptance_criteria": "Covers anatomy, states, variants, behavior, and usage constraints"
+    }
+  ],
+  "limitations": [
+    "Do not create a large speculative component inventory unrelated to the product.",
+    "Existing code and design may diverge; call out discrepancies explicitly."
+  ],
+  "permission_boundaries": [
+    "Do not overwrite shared libraries, publish packages, or change design-file permissions.",
+    "Only use supplied or approved font and icon resources."
+  ],
+  "routing_tags": [
+    "design",
+    "design-system",
+    "tokens",
+    "components"
+  ],
+  "optional_capabilities": []
+}

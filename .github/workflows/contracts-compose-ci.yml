@@ -2,6 +2,10 @@ name: Contracts & Compose CI
 
 on:
   workflow_call:
+  push:
+    branches:
+      - "codex/byok-release-integration-20261005"
+      - "codex/login-pet-motion-20261005"
   pull_request:
     paths:
       - "contracts/**"

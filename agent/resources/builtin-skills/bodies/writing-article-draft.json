@@ -1,0 +1,86 @@
+{
+  "id": "writing-article-draft",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "글 구성·초안 작성",
+    "en": "Article Outline and Draft"
+  },
+  "summary": {
+    "ko": "독자·목표·근거에 맞는 논리적인 글의 구성과 초안을 작성합니다.",
+    "en": "Build a coherent article from audience needs, a clear angle, and available evidence."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "블로그 글 초안",
+    "아티클 구성 작성",
+    "draft an article",
+    "outline a thought-leadership piece"
+  ],
+  "exclusions": [
+    "SEO brief without a requested draft",
+    "Editing an existing complete article"
+  ],
+  "required_inputs": [
+    {
+      "key": "brief",
+      "description": "Topic, audience, purpose, tone, and requested length",
+      "required": true
+    },
+    {
+      "key": "sources",
+      "description": "Supplied evidence or an explicit request for source research",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define the reader’s question and a specific angle without inventing the author’s beliefs or experience."
+    },
+    {
+      "step": 2,
+      "instruction": "Create an outline with a clear progression and assign evidence to factual sections."
+    },
+    {
+      "step": 3,
+      "instruction": "Draft in the requested voice, distinguishing supported facts, analysis, and examples."
+    },
+    {
+      "step": 4,
+      "instruction": "Edit for coherence, repetition, claim support, and requested length; flag missing facts rather than fabricating them."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Article draft",
+      "format": "markdown",
+      "acceptance_criteria": "Includes a purposeful opening, organized body, conclusion, and support for factual claims"
+    },
+    {
+      "name": "Fact gaps",
+      "format": "markdown",
+      "acceptance_criteria": "Lists unresolved claims or placeholders that require user input"
+    }
+  ],
+  "limitations": [
+    "Do not present invented first-person experiences or quotations as real.",
+    "Current facts need verified sources; unsupported claims remain qualified."
+  ],
+  "permission_boundaries": [
+    "Draft only; do not publish or submit to a client.",
+    "Do not reproduce substantial copyrighted passages or expose confidential source material."
+  ],
+  "routing_tags": [
+    "writing",
+    "article",
+    "blog",
+    "longform"
+  ],
+  "optional_capabilities": []
+}

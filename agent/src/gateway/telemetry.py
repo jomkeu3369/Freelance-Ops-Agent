@@ -59,10 +59,14 @@ class GatewayTelemetry:
             self._latencies_ms.append(latency_ms)
             self._outcomes[code] += 1
 
-    def rejected(self, *, code: str) -> None:
+    def rejected(self, *, code: str, latency_ms: float | None = None) -> None:
         with self._lock:
             self._rejected_calls += 1
             self._outcomes[code] += 1
+            if latency_ms is not None:
+                # A rejection discovered after admission already called started().
+                self._inflight_calls -= 1
+                self._latencies_ms.append(latency_ms)
 
     def snapshot(self) -> GatewayMetricSnapshot:
         with self._lock:

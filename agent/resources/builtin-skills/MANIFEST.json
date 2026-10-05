@@ -1,0 +1,41 @@
+{
+  "bundle": "freelance-ops-builtins-v1",
+  "catalog_version": "1.0.0",
+  "files": [
+    {
+      "filename": "builtin-skills.catalog.json",
+      "bytes": 182036,
+      "sha256": "5d95894c558ddaa6765a9f530bf43caf8cfea2162d80276ddb2a664f95dddd50"
+    },
+    {
+      "filename": "builtin-skills.index.json",
+      "bytes": 52577,
+      "sha256": "66ca22a15a188625317395cee5382875017c7eca90cc8631253b023445b5f550"
+    },
+    {
+      "filename": "builtin-skills.schema.json",
+      "bytes": 10364,
+      "sha256": "8494c2af683c664acb0b3a1c30d719e9b85654c1a30a185b55be44ee76879a9a"
+    },
+    {
+      "filename": "INTEGRATION.md",
+      "bytes": 10835,
+      "sha256": "8b6a9e53a74c55f8317e7efb7f2996489ef1a78d6d928db86e1a6a062eb2db7d"
+    },
+    {
+      "filename": "acceptance-cases.json",
+      "bytes": 14524,
+      "sha256": "a5a5b160a3ba26736fef70db288071bc026943159e916df2bc1f5daf39013e99"
+    },
+    {
+      "filename": "validate_catalog.py",
+      "bytes": 5154,
+      "sha256": "5daa9eae8af816c7fac775174997016250ad13a9741232168578a74637646f29"
+    },
+    {
+      "filename": "validation-report.json",
+      "bytes": 11622,
+      "sha256": "110ee4f6c84ec6ec6f2a6bc0268f6e90df88f1a16a5afbd423e2aad1ba0bfcb9"
+    }
+  ]
+}

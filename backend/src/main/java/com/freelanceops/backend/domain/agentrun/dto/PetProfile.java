@@ -12,8 +12,23 @@ public record PetProfile(
     @NotNull @Pattern(regexp = "WARM|DIRECT|FORMAL") String tone,
     @NotNull @Pattern(regexp = "PROFIT|BALANCED|RELATIONSHIP") String valuePriority,
     @NotNull @Pattern(regexp = "SPEED|BALANCED|QUALITY") String deliveryPriority,
-    @NotNull @Pattern(regexp = "CAUTIOUS|BALANCED|EXPLORATORY") String scopePriority
+    @NotNull @Pattern(regexp = "CAUTIOUS|BALANCED|EXPLORATORY") String scopePriority,
+    java.util.UUID petId,
+    @NotNull @Pattern(regexp = "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN") String duty,
+    @NotNull @Pattern(regexp = "AUTO") String skillMode,
+    @NotNull @jakarta.validation.Valid PetPreferences preferences
 ) {
+    public PetProfile {
+        duty = duty == null ? "GENERAL" : duty;
+        skillMode = skillMode == null ? "AUTO" : skillMode;
+        preferences = preferences == null ? PetPreferences.empty() : preferences;
+    }
+
+    public PetProfile(String slot, String name, String animal, String color, String accessory, String tone,
+        String valuePriority, String deliveryPriority, String scopePriority) {
+        this(slot, name, animal, color, accessory, tone, valuePriority, deliveryPriority, scopePriority, null, "GENERAL", "AUTO", PetPreferences.empty());
+    }
+
     public static List<PetProfile> defaults() {
         return List.of(
             new PetProfile("LEAN", "차근", "turtle", "sage", "none", "WARM", "BALANCED", "SPEED", "CAUTIOUS"),

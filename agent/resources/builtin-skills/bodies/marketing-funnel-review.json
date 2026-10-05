@@ -1,0 +1,86 @@
+{
+  "id": "marketing-funnel-review",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "고객 전환 흐름 분석",
+    "en": "Conversion Funnel Review"
+  },
+  "summary": {
+    "ko": "유입부터 행동까지의 단계·수치·마찰을 연결해 개선 가설을 우선순위화합니다.",
+    "en": "Connect funnel stages, evidence, and friction points to prioritized improvement hypotheses."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "전환 퍼널 분석",
+    "가입 구매 이탈 분석",
+    "audit conversion funnel",
+    "diagnose funnel drop-off"
+  ],
+  "exclusions": [
+    "Single-screen UX heuristic review",
+    "Campaign reporting without a funnel question"
+  ],
+  "required_inputs": [
+    {
+      "key": "journey",
+      "description": "Funnel stages, audience, and intended conversion",
+      "required": true
+    },
+    {
+      "key": "evidence",
+      "description": "Available aggregate metrics, page evidence, and known tracking limitations",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define stage entry, completion, units, time window, and denominator before comparing conversion rates."
+    },
+    {
+      "step": 2,
+      "instruction": "Reconcile supplied counts and flag missing events, inconsistent attribution, or non-comparable cohorts."
+    },
+    {
+      "step": 3,
+      "instruction": "Connect measured drop-offs with observed messaging or interaction friction without asserting unproven causation."
+    },
+    {
+      "step": 4,
+      "instruction": "Prioritize hypotheses by evidence, expected impact, and effort, and propose an appropriate validation test."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Funnel review",
+      "format": "markdown",
+      "acceptance_criteria": "Contains stage definitions, verified calculations, evidence gaps, and ranked hypotheses"
+    },
+    {
+      "name": "Improvement backlog",
+      "format": "json",
+      "acceptance_criteria": "Each hypothesis includes supporting evidence, proposed change, and validation method"
+    }
+  ],
+  "limitations": [
+    "Correlation and drop-off do not identify cause by themselves.",
+    "Aggregate counts cannot establish individual journeys or cross-device identity."
+  ],
+  "permission_boundaries": [
+    "Do not change tracking, deploy experiments, or alter checkout and pricing.",
+    "Do not request identifiable customer records when aggregate data suffices."
+  ],
+  "routing_tags": [
+    "marketing",
+    "funnel",
+    "conversion",
+    "diagnostics"
+  ],
+  "optional_capabilities": []
+}

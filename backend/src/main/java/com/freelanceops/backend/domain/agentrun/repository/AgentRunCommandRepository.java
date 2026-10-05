@@ -15,6 +15,10 @@ import java.util.UUID;
 
 public interface AgentRunCommandRepository extends JpaRepository<AgentRunCommandEntity, UUID> {
 
+    Optional<AgentRunCommandEntity> findFirstByRunIdAndCommandTypeOrderByCreatedAtAsc(
+        UUID runId, com.freelanceops.backend.domain.agentrun.model.AgentRunCommandType commandType
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select command from AgentRunCommandEntity command,

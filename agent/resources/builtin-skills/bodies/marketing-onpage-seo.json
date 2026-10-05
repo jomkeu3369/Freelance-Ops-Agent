@@ -1,0 +1,84 @@
+{
+  "id": "marketing-onpage-seo",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "페이지 SEO 점검",
+    "en": "On-Page SEO Review"
+  },
+  "summary": {
+    "ko": "기존 페이지의 제목·구조·링크·색인 신호를 확인 가능한 증거로 점검합니다.",
+    "en": "Review an existing page’s content, metadata, links, and discoverability signals."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "웹페이지 SEO 점검",
+    "메타 태그 개선",
+    "audit on-page SEO",
+    "review page search discoverability"
+  ],
+  "exclusions": [
+    "Search content planning before a page exists",
+    "Performance profiling beyond SEO-relevant observations"
+  ],
+  "required_inputs": [
+    {
+      "key": "page",
+      "description": "Page HTML, rendered content, or an authorized public URL",
+      "required": true
+    },
+    {
+      "key": "intent",
+      "description": "Target reader task, page purpose, and available search context",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inspect title, description, headings, content focus, links, images, canonical and robots signals when available."
+    },
+    {
+      "step": 2,
+      "instruction": "Compare the page’s main answer and information hierarchy with its stated purpose and target intent."
+    },
+    {
+      "step": 3,
+      "instruction": "Identify broken or conflicting signals, thin sections, confusing metadata, and relevant structured-data opportunities."
+    },
+    {
+      "step": 4,
+      "instruction": "Prioritize fixes by evidence and implementation effort; separate page-level observations from site-wide or indexation unknowns."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "On-page SEO findings",
+      "format": "json",
+      "acceptance_criteria": "Each finding includes location, evidence, proposed change, priority, and verification method"
+    }
+  ],
+  "limitations": [
+    "Do not infer actual indexing, traffic, or rankings from page markup alone.",
+    "Structured-data eligibility and current guidance require authoritative verification."
+  ],
+  "permission_boundaries": [
+    "Do not change live metadata, submit indexing requests, or modify site-wide robots settings.",
+    "Do not crawl unrelated private areas or bypass access restrictions."
+  ],
+  "routing_tags": [
+    "marketing",
+    "seo",
+    "onpage",
+    "metadata"
+  ],
+  "optional_capabilities": [
+    "web.read",
+    "file.inspect"
+  ]
+}

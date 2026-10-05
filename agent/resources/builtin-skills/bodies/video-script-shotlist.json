@@ -1,0 +1,86 @@
+{
+  "id": "video-script-shotlist",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "영상 대본·촬영 목록",
+    "en": "Video Script and Shot List"
+  },
+  "summary": {
+    "ko": "목표 길이와 제작 여건에 맞는 대본·장면·촬영 목록을 만듭니다.",
+    "en": "Turn a video brief into a timed script and feasible shot list."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "영상 대본 작성",
+    "촬영 콘티 구성",
+    "write video script and shot list",
+    "plan scenes for client video"
+  ],
+  "exclusions": [
+    "Editing already-shot footage without a new script",
+    "Standalone article or advertising copy"
+  ],
+  "required_inputs": [
+    {
+      "key": "brief",
+      "description": "Audience, message, intended platform, and desired duration",
+      "required": true
+    },
+    {
+      "key": "production",
+      "description": "Available people, locations, product assets, and production constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define the opening promise, main message, and closing action based on the brief."
+    },
+    {
+      "step": 2,
+      "instruction": "Write narration or dialogue with estimated timing and separate spoken text from on-screen text."
+    },
+    {
+      "step": 3,
+      "instruction": "Map each beat to a feasible shot, action, framing, supporting asset, and audio requirement."
+    },
+    {
+      "step": 4,
+      "instruction": "Check continuity, production feasibility, factual claims, and total estimated duration; flag shots needing assets or consent."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Timed script",
+      "format": "markdown",
+      "acceptance_criteria": "Separates narration, on-screen text, visual cues, and timing estimates"
+    },
+    {
+      "name": "Shot list",
+      "format": "json",
+      "acceptance_criteria": "Each shot has purpose, framing, action, assets, audio, and production notes"
+    }
+  ],
+  "limitations": [
+    "Timing is estimated until a real voice take or edit is measured.",
+    "The skill does not itself generate footage, voices, or music."
+  ],
+  "permission_boundaries": [
+    "Do not impersonate people, clone voices, or use likenesses without the required consent.",
+    "Do not book production services, purchase media, or publish the video."
+  ],
+  "routing_tags": [
+    "video",
+    "script",
+    "shotlist",
+    "preproduction"
+  ],
+  "optional_capabilities": []
+}

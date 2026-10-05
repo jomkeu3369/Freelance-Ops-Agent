@@ -1,0 +1,90 @@
+{
+  "id": "dev-security-review",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "코드 보안 검토",
+    "en": "Scoped Code Security Review"
+  },
+  "summary": {
+    "ko": "승인된 코드의 데이터 흐름과 신뢰 경계에서 재현 가능한 보안 문제를 찾습니다.",
+    "en": "Review authorized code and trust boundaries for concrete security weaknesses and fixes."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "코드 보안 검토",
+    "인증 권한 취약점 점검",
+    "review code for security issues",
+    "audit application authorization logic"
+  ],
+  "exclusions": [
+    "General implementation merely mentioning login",
+    "Targets without authorization"
+  ],
+  "required_inputs": [
+    {
+      "key": "target",
+      "description": "Authorized code or architecture and the exact review boundary",
+      "required": true
+    },
+    {
+      "key": "threat_context",
+      "description": "Data sensitivity, trust boundaries, and intended actors",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Map entry points, sensitive operations, untrusted inputs, and trust boundaries for the specified target."
+    },
+    {
+      "step": 2,
+      "instruction": "Inspect authentication, authorization, injection, secret handling, error leakage, and unsafe dependencies where relevant."
+    },
+    {
+      "step": 3,
+      "instruction": "Report only evidence-backed findings with affected paths, realistic preconditions, impact, and remediation; label unconfirmed hypotheses."
+    },
+    {
+      "step": 4,
+      "instruction": "Suggest safe local regression tests and prioritize fixes without performing live exploitation."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Security review",
+      "format": "json",
+      "acceptance_criteria": "Each finding includes evidence, preconditions, impact, remediation, and confidence"
+    },
+    {
+      "name": "Fix verification plan",
+      "format": "markdown",
+      "acceptance_criteria": "Uses safe local tests and separates unknowns from confirmed issues"
+    }
+  ],
+  "limitations": [
+    "A limited code review is not a penetration-test certification.",
+    "Current dependency vulnerability claims require a current authoritative source or must be labeled unverified."
+  ],
+  "permission_boundaries": [
+    "No external scanning, credential attacks, production exploitation, or access expansion.",
+    "Never disclose discovered secrets; identify their location and recommend the authorized rotation path."
+  ],
+  "routing_tags": [
+    "development",
+    "security",
+    "authorization",
+    "trust-boundary"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "static-analysis.run",
+    "test.run"
+  ]
+}

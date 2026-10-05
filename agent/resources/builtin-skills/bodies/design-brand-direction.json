@@ -1,0 +1,86 @@
+{
+  "id": "design-brand-direction",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "브랜드 비주얼 방향",
+    "en": "Brand Visual Direction"
+  },
+  "summary": {
+    "ko": "차별화된 비주얼 방향과 색·글꼴·이미지 사용 원칙을 제안합니다.",
+    "en": "Develop distinct visual directions with rationale and practical color, type, and imagery guidance."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "브랜드 비주얼 제안",
+    "브랜딩 방향 만들기",
+    "develop brand visual direction",
+    "propose visual identity concepts"
+  ],
+  "exclusions": [
+    "Finished logo vector production from an approved concept",
+    "UI component-system implementation"
+  ],
+  "required_inputs": [
+    {
+      "key": "brand",
+      "description": "Brand purpose, audience, positioning, and existing assets",
+      "required": true
+    },
+    {
+      "key": "usage",
+      "description": "Primary applications and explicit constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify the brand attributes and communication tensions that the visual direction must resolve."
+    },
+    {
+      "step": 2,
+      "instruction": "Develop a small number of genuinely different visual concepts with rationale tied to audience and use cases."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify color roles, typography characteristics, image treatment, and layout principles with accessible combinations where possible."
+    },
+    {
+      "step": 4,
+      "instruction": "Show how each direction would behave across the requested touchpoints and record trade-offs and next validation steps."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Visual direction board specification",
+      "format": "markdown",
+      "acceptance_criteria": "Each concept includes rationale, palette roles, typography, imagery, and application examples"
+    },
+    {
+      "name": "Brand decision matrix",
+      "format": "json",
+      "acceptance_criteria": "Compares concepts against the brief’s criteria"
+    }
+  ],
+  "limitations": [
+    "Concept recommendations are not trademark clearance or audience validation.",
+    "Font and asset license availability must be verified before commercial use."
+  ],
+  "permission_boundaries": [
+    "Do not copy protected brand assets or claim originality for copied work.",
+    "Do not purchase fonts, publish identities, or claim legal ownership checks were performed."
+  ],
+  "routing_tags": [
+    "design",
+    "branding",
+    "identity",
+    "visual-direction"
+  ],
+  "optional_capabilities": []
+}

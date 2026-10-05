@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from api.agent_runs.router import _authorize, _principal, _problem
 from config import get_settings
 from contracts import RaptorBuildRequest, RaptorBuildResponse
+from platform_budget import PlatformBudgetError, reject_unbounded_operation
 from security import DelegationPrincipal
 
 
@@ -44,6 +45,10 @@ async def build_raptor_index(body: RaptorBuildRequest, principal: RaptorPrincipa
         or principal.project_id != body.context.project_id
     ):
         return _problem(403, "RAPTOR context exceeds delegated authority", "RAPTOR_CONTEXT_FORBIDDEN")
+    try:
+        reject_unbounded_operation("RAPTOR")
+    except PlatformBudgetError as error:
+        return _problem(409, "Platform budget is required for this operation", error.code)
     try:
         return await asyncio.wait_for(
             service.build(body),

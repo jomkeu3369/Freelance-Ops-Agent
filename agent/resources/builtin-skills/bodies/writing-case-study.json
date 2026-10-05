@@ -1,0 +1,86 @@
+{
+  "id": "writing-case-study",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "고객 사례 글",
+    "en": "Client Case Study"
+  },
+  "summary": {
+    "ko": "확인된 문제·접근·결과를 과장 없이 설득력 있는 고객 사례로 구성합니다.",
+    "en": "Turn documented client work into a credible problem, approach, and outcome narrative."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "고객 성공 사례 작성",
+    "포트폴리오 사례 글",
+    "write client case study",
+    "turn project into portfolio story"
+  ],
+  "exclusions": [
+    "Generic project status report",
+    "Competitor comparison"
+  ],
+  "required_inputs": [
+    {
+      "key": "project",
+      "description": "Verified project context, scope, actions, and outcomes",
+      "required": true
+    },
+    {
+      "key": "permissions",
+      "description": "What client identity, quotes, screenshots, and metrics may be used",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Separate project facts, evidence, attribution rights, and confidentiality restrictions."
+    },
+    {
+      "step": 2,
+      "instruction": "Build a problem, constraints, approach, deliverables, and outcome narrative that reflects the actual contribution."
+    },
+    {
+      "step": 3,
+      "instruction": "Use supported metrics with baselines and time windows; use qualitative outcomes when numeric evidence is unavailable."
+    },
+    {
+      "step": 4,
+      "instruction": "Prepare the draft and a publication-clearance checklist for any client names, logos, quotes, or sensitive details."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Case-study draft",
+      "format": "markdown",
+      "acceptance_criteria": "Accurately attributes work and includes evidence-linked outcomes"
+    },
+    {
+      "name": "Clearance checklist",
+      "format": "json",
+      "acceptance_criteria": "Tracks permission status for identities, quotes, visuals, and metrics"
+    }
+  ],
+  "limitations": [
+    "Do not invent client praise, revenue impact, or causation.",
+    "Anonymization may still leave a client identifiable; disclose that risk."
+  ],
+  "permission_boundaries": [
+    "Do not publish confidential work or seek client approval by sending messages without authorization.",
+    "Uncleared names, logos, and quotes remain excluded or marked for approval."
+  ],
+  "routing_tags": [
+    "writing",
+    "case-study",
+    "portfolio",
+    "proof"
+  ],
+  "optional_capabilities": []
+}

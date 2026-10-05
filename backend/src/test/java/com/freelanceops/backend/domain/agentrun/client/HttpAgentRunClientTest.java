@@ -114,6 +114,8 @@ class HttpAgentRunClientTest {
         assertThat(fetched.usage()).isNotNull();
         assertThat(fetched.usage().modelCalls()).isEqualTo(3);
         assertThat(fetched.usage().inputTokens()).isEqualTo(1200);
+        assertThat(fetched.usage().executionClosed()).isFalse();
+        assertThat(fetched.usage().unpricedExposure()).isFalse();
         assertThat(resumed.status()).isEqualTo(AgentRunStatus.QUEUED);
         assertThat(cancelled.status()).isEqualTo(AgentRunStatus.CANCELLED);
         server.verify();

@@ -1,0 +1,88 @@
+{
+  "id": "video-edit-plan",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "촬영본 편집 설계",
+    "en": "Footage Editing Plan"
+  },
+  "summary": {
+    "ko": "촬영본·타임코드·목적을 바탕으로 실행 가능한 편집 순서와 수정 목록을 만듭니다.",
+    "en": "Create an executable edit plan from footage evidence, timecodes, and the intended story."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "촬영본 편집 구성",
+    "영상 컷 편집 계획",
+    "plan an edit from footage",
+    "create edit decision list"
+  ],
+  "exclusions": [
+    "New video production without source footage",
+    "Caption-only quality checks"
+  ],
+  "required_inputs": [
+    {
+      "key": "footage",
+      "description": "Clip inventory with transcripts, timecodes, or inspectable footage",
+      "required": true
+    },
+    {
+      "key": "brief",
+      "description": "Target story, duration, aspect ratio, and required inclusions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inventory clips and confirm frame rate, timecode basis, audio availability, and missing material."
+    },
+    {
+      "step": 2,
+      "instruction": "Select usable moments supported by footage evidence and arrange a narrative with explicit in and out points."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify cuts, B-roll, graphics, audio transitions, and continuity fixes without inventing unseen shots."
+    },
+    {
+      "step": 4,
+      "instruction": "Check duration arithmetic and mark gaps, alternate takes, and client decisions needed before assembly."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Edit decision plan",
+      "format": "json",
+      "acceptance_criteria": "Each segment names a source, in/out basis, timeline position, purpose, and audio treatment"
+    },
+    {
+      "name": "Editor notes",
+      "format": "markdown",
+      "acceptance_criteria": "Records continuity issues, missing media, and assumptions"
+    }
+  ],
+  "limitations": [
+    "Timecodes cannot be exact without inspectable timing information.",
+    "A plan is not an encoded or rendered video."
+  ],
+  "permission_boundaries": [
+    "Do not modify source media destructively or upload client footage externally.",
+    "This skill produces an edit plan. Requested rendering follows normal capability and permission checks; publishing and paid media usage require their own applicable authorization."
+  ],
+  "routing_tags": [
+    "video",
+    "editing",
+    "footage",
+    "timeline"
+  ],
+  "optional_capabilities": [
+    "media.inspect"
+  ]
+}

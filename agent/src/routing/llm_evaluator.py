@@ -13,6 +13,10 @@ from typing import Any, Protocol
 from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from byok_budget import require_generation_scope
+from contracts import ModelSelection, Provider, ReasoningEffort
+from platform_budget import PlatformBudgetError, budgeted_openai_attempt
+
 from .hybrid import ROUTE_ORDER, HybridRouteModel, RouteDecision, RouteLabel
 from .safety import SafetyContext, SafetyDecision, evaluate_safety
 
@@ -143,8 +147,17 @@ class OpenAIRouteEvaluator:
             raise ValueError("route evaluator input exceeds the configured character limit")
         ordered_routes = _rotated_routes(text)
         payload = _evaluation_payload(text, local_decision, ordered_routes, safety_context)
-        response = await self._client.responses.create(
+        selection = ModelSelection(provider=Provider.OPENAI, model=self._config.model,
+                                   reasoning_effort=ReasoningEffort(self._config.reasoning_effort.upper()))
+        require_generation_scope(selection)
+        if self._client is None:
+            from openai import AsyncOpenAI
+            self._client = AsyncOpenAI(base_url="https://api.openai.com/v1", max_retries=0)
+        response = await budgeted_openai_attempt(
+            self._client, selection,
+            "route_evaluation", dict(
             model=self._config.model,
+            service_tier="default",
             reasoning={"effort": self._config.reasoning_effort},
             input=[
                 {"role": "system", "content": self._system_prompt.content},
@@ -154,7 +167,7 @@ class OpenAIRouteEvaluator:
             store=False,
             max_output_tokens=self._config.max_output_tokens,
             text={"format": _verdict_json_schema(ordered_routes)},
-        )
+        ))
         verdict = LLMRouteVerdict.model_validate_json(str(response.output_text))
         usage = getattr(response, "usage", None)
         return LLMRouteEvaluation(
@@ -205,6 +218,8 @@ class BoundaryAwareRouteGateway:
 
         try:
             evaluation = await self._evaluator.evaluate(text, local)
+        except PlatformBudgetError:
+            raise
         except Exception:
             return FinalRouteDecision(
                 route=RouteLabel.HUMAN_REQUIRED,
@@ -261,6 +276,8 @@ class OperationalRouteGateway:
         try:
             # Shadow output is deliberately excluded from the evaluator input.
             evaluation = await self._evaluator.evaluate(text, None, context)
+        except PlatformBudgetError:
+            raise
         except Exception:
             return FinalRouteDecision(
                 route=RouteLabel.HUMAN_REQUIRED,

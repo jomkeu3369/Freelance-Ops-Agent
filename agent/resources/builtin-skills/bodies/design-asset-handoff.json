@@ -1,0 +1,89 @@
+{
+  "id": "design-asset-handoff",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "디자인 에셋 인계",
+    "en": "Design Asset Handoff"
+  },
+  "summary": {
+    "ko": "에셋 이름·변형·내보내기 사양·사용 권한을 추적 가능한 인계 목록으로 정리합니다.",
+    "en": "Organize design assets into a traceable handoff with naming, export specifications, and rights notes."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "디자인 파일 납품",
+    "에셋 인계 정리",
+    "prepare design asset handoff",
+    "document export specifications"
+  ],
+  "exclusions": [
+    "Software release notes",
+    "General project closeout without design assets"
+  ],
+  "required_inputs": [
+    {
+      "key": "assets",
+      "description": "Asset inventory and source files or metadata",
+      "required": true
+    },
+    {
+      "key": "destinations",
+      "description": "Intended platforms, recipient needs, and required formats",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inventory source and output assets and map each to its destination and intended use."
+    },
+    {
+      "step": 2,
+      "instruction": "Define consistent filenames, scale variants, dimensions, color modes, and transparency requirements."
+    },
+    {
+      "step": 3,
+      "instruction": "Check missing states, duplicate or outdated variants, and licensing or attribution notes against available evidence."
+    },
+    {
+      "step": 4,
+      "instruction": "Prepare an export manifest and recipient checklist; verify actual outputs when export tools are available."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Asset manifest",
+      "format": "json",
+      "acceptance_criteria": "Each asset has source, destination, filename, format, dimensions, variant, and rights status"
+    },
+    {
+      "name": "Handoff instructions",
+      "format": "markdown",
+      "acceptance_criteria": "Explains usage, missing items, and verification status"
+    }
+  ],
+  "limitations": [
+    "A manifest does not mean files were exported or uploaded.",
+    "Unknown rights must remain unknown rather than being labeled free to use."
+  ],
+  "permission_boundaries": [
+    "Do not change sharing permissions, delete originals, or transfer files to clients without authorization.",
+    "Do not redistribute font files or licensed assets beyond their permitted scope."
+  ],
+  "routing_tags": [
+    "design",
+    "assets",
+    "handoff",
+    "export"
+  ],
+  "optional_capabilities": [
+    "file.inspect",
+    "file.export"
+  ]
+}

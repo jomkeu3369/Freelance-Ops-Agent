@@ -1,0 +1,88 @@
+{
+  "id": "video-subtitle-qc",
+  "version": "1.0.0",
+  "category": "video",
+  "name": {
+    "ko": "자막 품질 점검",
+    "en": "Subtitle Quality Control"
+  },
+  "summary": {
+    "ko": "자막의 타이밍·줄바꿈·가독성·원문 일치를 점검하고 수정합니다.",
+    "en": "Check subtitle timing, line breaks, readability, and agreement with the source."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "자막 오류 수정",
+    "SRT 타이밍 점검",
+    "quality check subtitles",
+    "fix caption timing and line breaks"
+  ],
+  "exclusions": [
+    "Translation into a different language",
+    "A request for finished burned-in video captions"
+  ],
+  "required_inputs": [
+    {
+      "key": "subtitles",
+      "description": "SRT, VTT, or timestamped subtitle text",
+      "required": true
+    },
+    {
+      "key": "reference",
+      "description": "Source transcript or audio and requested caption conventions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Parse cue structure and detect invalid ranges, overlaps, ordering errors, and empty cues."
+    },
+    {
+      "step": 2,
+      "instruction": "Compare words against the supplied transcript or accessible audio and preserve speaker meaning."
+    },
+    {
+      "step": 3,
+      "instruction": "Review reading speed, line breaks, punctuation, speaker labels, and relevant sound descriptions against the requested convention."
+    },
+    {
+      "step": 4,
+      "instruction": "Return corrected subtitle text with a change summary and clearly identify timing checks that need audiovisual review."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Corrected subtitle file",
+      "format": "srt_or_vtt",
+      "acceptance_criteria": "Retains valid cue syntax and records any uncertain transcription"
+    },
+    {
+      "name": "Subtitle QC report",
+      "format": "markdown",
+      "acceptance_criteria": "Lists timing, text, readability, and unverified audio issues"
+    }
+  ],
+  "limitations": [
+    "Without audio, transcription correctness cannot be fully verified.",
+    "Platform-specific limits should come from provided or verified specifications."
+  ],
+  "permission_boundaries": [
+    "Do not burn captions into video, upload media, or publish without an explicit request.",
+    "Do not invent inaudible speech or disclose sensitive audio content beyond the task."
+  ],
+  "routing_tags": [
+    "video",
+    "subtitles",
+    "captions",
+    "quality"
+  ],
+  "optional_capabilities": [
+    "media.inspect"
+  ]
+}

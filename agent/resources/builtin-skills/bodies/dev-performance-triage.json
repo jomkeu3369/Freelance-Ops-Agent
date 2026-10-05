@@ -1,0 +1,90 @@
+{
+  "id": "dev-performance-triage",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "성능 병목 진단",
+    "en": "Performance Bottleneck Triage"
+  },
+  "summary": {
+    "ko": "측정 기준을 세우고 실제 증거로 병목·개선·재측정 계획을 좁힙니다.",
+    "en": "Find evidence-backed bottlenecks and compare targeted improvements against a measured baseline."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "느린 페이지 원인",
+    "성능 병목 분석",
+    "diagnose slow application",
+    "profile performance bottleneck"
+  ],
+  "exclusions": [
+    "Generic code cleanup with no measured performance issue",
+    "Unauthorized load or denial-of-service testing"
+  ],
+  "required_inputs": [
+    {
+      "key": "symptom",
+      "description": "Slow operation, representative workload, and user impact",
+      "required": true
+    },
+    {
+      "key": "measurements",
+      "description": "Existing timings or access to an authorized local measurement method",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define the metric, workload, environment, and repeatable baseline before suggesting optimization."
+    },
+    {
+      "step": 2,
+      "instruction": "Separate network, rendering, computation, storage, and third-party costs using available traces or measurements."
+    },
+    {
+      "step": 3,
+      "instruction": "Rank a small set of changes by observed impact and implementation risk, avoiding speculative micro-optimizations."
+    },
+    {
+      "step": 4,
+      "instruction": "Repeat the same measurement after an authorized change and report sample size, variability, and trade-offs."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Performance diagnosis",
+      "format": "markdown",
+      "acceptance_criteria": "Links bottleneck hypotheses to measurements and missing evidence"
+    },
+    {
+      "name": "Optimization experiment",
+      "format": "json",
+      "acceptance_criteria": "Defines baseline, intervention, metric, workload, and success threshold"
+    }
+  ],
+  "limitations": [
+    "Do not claim a speedup from intuition or non-comparable runs.",
+    "Synthetic tests may not represent real client workloads."
+  ],
+  "permission_boundaries": [
+    "Do not stress external systems, increase paid resource use, or disable security controls.",
+    "Use sanitized profiles and avoid recording private production payloads."
+  ],
+  "routing_tags": [
+    "development",
+    "performance",
+    "profiling",
+    "latency"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "benchmark.run",
+    "workspace.edit"
+  ]
+}

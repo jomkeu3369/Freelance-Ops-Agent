@@ -1,0 +1,81 @@
+{
+  "id": "marketing-email-campaign",
+  "version": "1.0.0",
+  "category": "marketing",
+  "name": {
+    "ko": "이메일 캠페인 설계",
+    "en": "Email Campaign Planning"
+  },
+  "summary": {
+    "ko": "동의된 대상·세그먼트·발송 흐름·측정 항목을 검토용 캠페인 계획으로 만듭니다.",
+    "en": "Plan audience segmentation, message flow, and measurement for a permission-aware email campaign."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "이메일 마케팅 캠페인",
+    "뉴스레터 캠페인 설계",
+    "plan email marketing campaign",
+    "design newsletter segmentation"
+  ],
+  "exclusions": [
+    "Writing the email copy only",
+    "Individual client correspondence"
+  ],
+  "required_inputs": [
+    {
+      "key": "goal",
+      "description": "Campaign goal, offer, audience context, and consent constraints",
+      "required": true
+    },
+    {
+      "key": "data",
+      "description": "Available aggregate segment data, campaign history, and sending constraints",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define eligible audience segments using supplied business context and consent status rather than sensitive inference."
+    },
+    {
+      "step": 2,
+      "instruction": "Map message sequence, timing assumptions, suppression conditions, and exit criteria to the campaign goal."
+    },
+    {
+      "step": 3,
+      "instruction": "Specify content requirements, landing-page alignment, and tracking metrics with clear denominators."
+    },
+    {
+      "step": 4,
+      "instruction": "Create launch-readiness and measurement checklists, flagging missing consent, data, or approval evidence."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Email campaign plan",
+      "format": "markdown",
+      "acceptance_criteria": "Includes audience logic, flow, content needs, measurement, and launch checks"
+    }
+  ],
+  "limitations": [
+    "Cannot establish recipient consent or legal compliance from a list name alone.",
+    "Open rates can be affected by privacy mechanisms and should not be overinterpreted."
+  ],
+  "permission_boundaries": [
+    "Do not send, schedule, upload contacts, alter subscriptions, or create tracking credentials.",
+    "Use aggregate audience data; avoid personal-data enrichment."
+  ],
+  "routing_tags": [
+    "marketing",
+    "email",
+    "campaign",
+    "segmentation"
+  ],
+  "optional_capabilities": []
+}

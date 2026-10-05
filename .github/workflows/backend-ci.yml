@@ -2,11 +2,18 @@ name: Backend CI
 
 on:
   workflow_call:
+  push:
+    branches:
+      - "codex/byok-release-integration-20261005"
+      - "codex/cloud-feature-integration-20261005"
+      - "codex/login-pet-motion-20261005"
+      - "fix/bounded-byok-backend"
   pull_request:
     paths:
       - "backend/**"
       - "contracts/**"
       - ".github/workflows/backend-ci.yml"
+      - ".github/scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -30,7 +37,25 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - run: bash ./gradlew test --no-daemon
+      - name: Test CI evidence gate
+        run: python3 -m unittest discover -s ../.github/scripts -p 'test_*.py'
+      - name: Require Docker for PostgreSQL integration tests
+        run: docker info
+      - name: Run all backend tests and Flyway migrations
+        run: bash ./gradlew test --no-daemon --console=plain
+      - name: Require executed PostgreSQL suites without skips
+        if: always()
+        run: python3 ../.github/scripts/verify_database_test_reports.py backend
+      - name: Preserve backend test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports-${{ github.sha }}
+          path: |
+            backend/build/test-results/test/
+            backend/build/reports/tests/test/
+          if-no-files-found: error
+          retention-days: 7
 
   image:
     name: Backend image
