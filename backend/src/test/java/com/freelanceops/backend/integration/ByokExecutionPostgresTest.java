@@ -190,6 +190,12 @@ class ByokExecutionPostgresTest {
         var f=create(BUDGET);
         var bad=new ByokExecutionService.ExecutionPrincipal(f.run().id(),workspace,project,UUID.randomUUID(),Set.of("agent.run","project.read"));
         assertThatThrownBy(() -> byok.admit(f.scope().scopeId(),attempt(UUID.randomUUID()),bad)).isInstanceOf(ByokExecutionException.class);
+        assertThatThrownBy(() -> byok.admit(UUID.randomUUID(),attempt(UUID.randomUUID()),principal(f))).isInstanceOf(ByokExecutionException.class);
+        for (var wrongScope : List.of(
+            new ByokExecutionService.ExecutionPrincipal(f.run().id(),UUID.randomUUID(),project,user,Set.of("agent.run","project.read")),
+            new ByokExecutionService.ExecutionPrincipal(f.run().id(),workspace,UUID.randomUUID(),user,Set.of("agent.run","project.read")),
+            new ByokExecutionService.ExecutionPrincipal(UUID.randomUUID(),workspace,project,user,Set.of("agent.run","project.read"))))
+            assertThatThrownBy(() -> byok.admit(f.scope().scopeId(),attempt(UUID.randomUUID()),wrongScope)).isInstanceOf(ByokExecutionException.class);
         for (var invalid: List.of(
             new ByokExecutionService.Attempt(UUID.randomUUID(),UUID.randomUUID(),Provider.OPENAI,MODEL,ReasoningEffort.LOW,"BYOK","default","department_work_product",10000,500),
             new ByokExecutionService.Attempt(UUID.randomUUID(),credential,Provider.GEMINI,MODEL,ReasoningEffort.LOW,"BYOK","default","department_work_product",10000,500),
@@ -261,5 +267,23 @@ class ByokExecutionPostgresTest {
         assertThat(jdbc.queryForObject("SELECT cost_status FROM app.agent_run_usage WHERE agent_run_id=?",String.class,f.run().id())).isEqualTo("UNPRICED");
         assertThat(jdbc.queryForObject("SELECT actual_cost FROM app.agent_run_usage WHERE agent_run_id=?",java.math.BigDecimal.class,f.run().id())).isNull();
         assertThat(jdbc.queryForObject("SELECT platform_cost_usd FROM app.agent_run_usage WHERE agent_run_id=?",java.math.BigDecimal.class,f.run().id())).isZero();
+        var unadmitted=new AgentRunView.ProviderCallUsage(UUID.randomUUID(),Provider.OPENAI,MODEL,"department_work_product",10000,500,0,0,
+            java.math.BigDecimal.ZERO,java.math.BigDecimal.ZERO,false,"BYOK");
+        var ambient=new AgentRunView.ProviderCallUsage(call,Provider.OPENAI,MODEL,"department_work_product",10000,500,0,0,
+            java.math.BigDecimal.ZERO,java.math.BigDecimal.ZERO,false,"PLATFORM");
+        var charged=new AgentRunView.ProviderCallUsage(call,Provider.OPENAI,MODEL,"department_work_product",10000,500,0,0,
+            java.math.BigDecimal.ONE,java.math.BigDecimal.ZERO,false,"BYOK");
+        for (var invalidCall:List.of(unadmitted,ambient,charged)) {
+            var invalidUsage=new AgentRunView.AgentRunUsage(RequestTier.SINGLE_AGENT,1,0,10000,500,0,0,0,0,10,List.of(invalidCall),
+                java.math.BigDecimal.ZERO,null,null,true,false,f.scope().scopeId());
+            var invalidView=new AgentRunView(f.run().id(),AgentRunStatus.COMPLETED,null,null,null,null,null,invalidUsage,Instant.now());
+            assertThatThrownBy(() -> tx.executeWithoutResult(st -> costs.synchronize(f.run(),invalidView))).isInstanceOf(ByokExecutionException.class);
+        }
+        var invalidScopeUsage=new AgentRunView.AgentRunUsage(RequestTier.SINGLE_AGENT,1,0,10000,500,0,0,0,0,10,List.of(provider),
+            java.math.BigDecimal.ZERO,null,null,true,false,UUID.randomUUID());
+        var invalidScopeView=new AgentRunView(f.run().id(),AgentRunStatus.COMPLETED,null,null,null,null,null,invalidScopeUsage,Instant.now());
+        assertThatThrownBy(() -> tx.executeWithoutResult(st -> costs.synchronize(f.run(),invalidScopeView))).isInstanceOf(ByokExecutionException.class);
+        assertThat(jdbc.queryForObject("SELECT provider_calls->0->>'callId' FROM app.agent_run_usage WHERE agent_run_id=?",String.class,f.run().id())).isEqualTo(call.toString());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE run_id=?",Integer.class,f.run().id())).isZero();
     }
 }
