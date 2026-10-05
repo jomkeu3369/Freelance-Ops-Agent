@@ -26,3 +26,11 @@ Local verification passed on the final edited tree: 322 Node tests, TypeScript,
 ESLint, and the normal production build through `npm run preview:check` using
 Node 22 and a clean lockfile install. Browser results and screenshot inspection
 are required from the exact published SHA before this change is called verified.
+
+The first CI candidate exposed a pre-existing floating-control collision on
+narrow/short forms (80 browser cases passed, three failed). At widths up to
+760px the same 44px button now docks at the document footer's left side; it
+remains at the viewport bottom when the page fits and below the form when it
+needs scrolling. Wider screens retain the fixed bottom-left control. Strict
+rectangle non-overlap assertions remain, and keyboard pause/play is repeated
+after signup scrolling and returning to login.

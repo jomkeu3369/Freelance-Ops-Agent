@@ -95,3 +95,7 @@ test("the footer uses a centered flow layout with symmetric control clearance an
     assert.doesNotMatch(footer, /position:\s*(?:fixed|absolute)|text-align:\s*(?:left|right|end)|padding-(?:left|right):/);
   }
 });
+
+test("narrow screens dock the motion control beside the document footer instead of over fields", () => {
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.auth-backdrop__toggle\s*\{\s*position:\s*absolute;[^}]*safe-area-inset-left[^}]*safe-area-inset-bottom/);
+});

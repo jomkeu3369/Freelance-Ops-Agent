@@ -24,7 +24,6 @@ async function expectMotionControl(page, { paused = false } = {}) {
   expect(label?.trim().length).toBeGreaterThan(0);
   await expect(control).toHaveAccessibleName(label);
   await expect(control).toHaveAttribute("title", label);
-  await expect(control).toHaveCSS("position", "fixed");
   const bounds = await control.boundingBox();
   const viewport = page.viewportSize();
   expect(bounds).not.toBeNull();
@@ -34,8 +33,18 @@ async function expectMotionControl(page, { paused = false } = {}) {
   expect(bounds.height).toBeLessThanOrEqual(64);
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x).toBeLessThan(80);
-  expect(bounds.y).toBeGreaterThanOrEqual(viewport.height - 100);
-  expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+  if (viewport.width <= 760) {
+    // On narrow overflowing forms the control docks beside the document footer,
+    // not over an input. A fitting page still places it at the viewport bottom.
+    await expect(control).toHaveCSS("position", "absolute");
+    const root = await page.locator(".auth-page.auth-cinematic").boundingBox();
+    const bottomInset = await control.evaluate(element => Number.parseFloat(getComputedStyle(element).bottom));
+    expect(Math.abs(root.y + root.height - bounds.y - bounds.height - bottomInset)).toBeLessThanOrEqual(1);
+  } else {
+    await expect(control).toHaveCSS("position", "fixed");
+    expect(bounds.y).toBeGreaterThanOrEqual(viewport.height - 100);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+  }
   return control;
 }
 
@@ -255,6 +264,13 @@ for (const locale of ["ko", "en"]) {
       await expectCenteredFooter(page, { locale, fitsViewport: height >= 844 });
       await expectPoster(page, staticPoster);
       await expectMotionControl(page, { paused: true });
+      await control.focus();
+      await page.keyboard.press("Space");
+      await expect(backdrop).toHaveAttribute("data-media-state", "playing");
+      await page.keyboard.press("Space");
+      await expect(backdrop).toHaveAttribute("data-media-state", "paused");
+      await expectPoster(page, staticPoster);
+      await expectCenteredFooter(page, { locale });
       expect(blocked).toEqual([]);
     });
   }
