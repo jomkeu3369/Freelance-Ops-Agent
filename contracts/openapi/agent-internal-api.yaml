@@ -650,6 +650,15 @@ components:
         reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
         fundingSource: {type: string, const: BYOK}
         serviceTier: {type: string, const: default}
+        costNoticeVersion:
+          type: [string, "null"]
+          enum: [byok-standard-150k-48k-2026-10-05-v1, null]
+          default: null
+          description: >-
+            Immutable backend notice binding. New scopes carry the supported marker after server-side
+            admission checks. Absent/null only represents an already-admitted legacy scope and never
+            grants a new scope, larger limits, a renewed deadline or authority to call a provider.
+            Every attempt still requires the backend's durable scope authorization.
         validUntil:
           type: string
           format: date-time

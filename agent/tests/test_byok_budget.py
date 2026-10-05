@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from byok_budget import ByokExecutionLedger, byok_budget_scope, byok_openai_attempt, encode_payload
 from contracts import (
+    BYOK_COST_NOTICE_VERSION,
     AgentInput,
     AgentRunRequest,
     AgentRunResult,
@@ -46,6 +47,7 @@ def incoming(**budget_overrides):
                        project_id=context.project_id, initiated_by=context.initiated_by,
                        credential_id=selected.credential_id, provider=selected.provider, model=selected.model,
                        reasoning_effort=selected.reasoning_effort, funding_source="BYOK", service_tier="default",
+                       cost_notice_version=BYOK_COST_NOTICE_VERSION,
                        valid_until=datetime.now(UTC) + timedelta(seconds=90),
                        max_model_calls=budget.max_model_calls, max_input_tokens=budget.max_input_tokens,
                        max_output_tokens=budget.max_output_tokens, budget=budget)
@@ -779,3 +781,49 @@ async def test_approved_150k_response_integrity_fault_stays_fatal_after_complete
     assert final.error_code == "BYOK_RESPONSE_BINDING_MISMATCH"
     assert final.result is None and final.usage.model_calls == 2
     assert http.events == ["admission", "credential", "provider"] * 2
+
+
+def test_supported_cost_notice_marker_roundtrips_in_exact_scope_without_authority_change():
+    request = incoming()
+    original = request.byok_budget
+    wire = original.model_dump(mode="json", by_alias=True)
+    assert wire["costNoticeVersion"] == BYOK_COST_NOTICE_VERSION
+    restored = ByokBudget.model_validate(wire)
+    assert restored == original
+    assert restored.scope_id == original.scope_id and restored.budget == original.budget
+    assert restored.valid_until == original.valid_until
+    with pytest.raises(ValidationError):
+        ByokBudget.model_validate({**wire, "costNoticeVersion": "unknown-or-future-version"})
+
+
+@pytest.mark.parametrize("absent", [True, False])
+async def test_legacy_null_or_absent_notice_retains_original_limits_deadline_and_admission(monkeypatch, absent):
+    request = incoming(max_input_tokens=50000)
+    wire = request.byok_budget.model_dump(mode="json", by_alias=True)
+    if absent:
+        wire.pop("costNoticeVersion")
+    else:
+        wire["costNoticeVersion"] = None
+    legacy = ByokBudget.model_validate(wire)
+    request.byok_budget = legacy
+    assert legacy.cost_notice_version is None and legacy.max_input_tokens == 50000
+    http = OfflineHTTP(request)
+    http.admission_status = 409  # Missing/closed backend scope cannot be granted by a null marker.
+    http.install(monkeypatch)
+    ledger = scoped(request)
+    with byok_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="BYOK_ADMISSION_FAILED"):
+        await call(request)
+    assert http.events == ["admission"] and not ledger.calls
+    assert request.byok_budget == legacy
+    assert request.byok_budget.valid_until == datetime.fromisoformat(wire["validUntil"].replace("Z", "+00:00"))
+    assert request.byok_budget.budget.max_input_tokens == 50000
+
+
+async def test_unknown_notice_marker_is_rejected_before_backend_or_provider_io(monkeypatch):
+    request = incoming()
+    http = OfflineHTTP(request)
+    http.install(monkeypatch)
+    request.byok_budget = request.byok_budget.model_copy(update={"cost_notice_version": "unknown-version"})
+    with pytest.raises(PlatformBudgetError, match="BYOK_COST_NOTICE_VERSION_UNSUPPORTED"):
+        scoped(request)
+    assert not http.events
