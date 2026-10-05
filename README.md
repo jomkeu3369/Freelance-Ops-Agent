@@ -72,12 +72,6 @@ AI 동료가 요구사항과 근거를 정리합니다. 확인이 필요한 내�
 
 ![프로젝트 결과 기록](docs/assets/readme/outcome-review-current.gif)
 
-## 데모
-
-**[▶ 문의 등록부터 견적·결과 기록까지 영상으로 보기](https://d2ol7oe51mr4n9.cloudfront.net/user_3JEFpmzdSjsTLcCF7FlZFREgfCP/720495dd-0b55-4aa9-b73b-35eddfd54a3c.mp4)**
-
-<sub>2026-09-12</sub>
-
 ## 작동 방식과 기술 파이프라인
 
 1. **입력과 업무 데이터:** Next.js에서 받은 고객·문의 정보를 Spring이 인증·권한 검사 후 저장합니다.
