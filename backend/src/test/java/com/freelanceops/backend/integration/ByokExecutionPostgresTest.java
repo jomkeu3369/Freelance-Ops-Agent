@@ -47,6 +47,7 @@ class ByokExecutionPostgresTest {
     @Autowired ByokExecutionService byok;
     @Autowired AgentRunGatewayService gateway;
     @Autowired PlatformSpendService platform;
+    @Autowired PlatformUsageService platformUsage;
     @Autowired AIConnectionService connections;
     @Autowired AgentRunRepository runs;
     @Autowired AgentCostService costs;
@@ -121,6 +122,42 @@ class ByokExecutionPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_reservation WHERE run_id=?",Integer.class,f.run().id())).isZero();
         assertThatThrownBy(() -> tx.execute(s -> platform.reserve(user,UUID.randomUUID(),selection(null))))
             .isInstanceOf(PlatformSpendUnavailableException.class);
+    }
+    @Test void historyIncludesUserFundedAdmissionsWithUnknownProviderBillAndIsolation() {
+        var f=create(BUDGET); admit(f,UUID.randomUUID());
+        var item=platformUsage.history(user,null,20).items().getFirst();
+        assertThat(item.runId()).isEqualTo(f.run().id());
+        assertThat(item.platformCostUsd()).isZero();
+        assertThat(item.platformReservedUsd()).isZero();
+        assertThat(item.usageKnown()).isFalse();
+        assertThat(item.byokInputTokens()).isEqualTo(10000);
+        assertThat(item.byokOutputTokens()).isEqualTo(500);
+        assertThat(item.providerCalls()).hasSize(1);
+        assertThat(platformUsage.history(UUID.randomUUID(),null,20).items()).isEmpty();
+        assertThat(platformUsage.snapshot(user).settledUsd()).isZero();
+        assertThat(platformUsage.snapshot(user).reservedUsd()).isZero();
+    }
+    @Test void mixedHistoryPaginationIsStableAtEqualTimestampsAndDeletionCannotEraseAdmissions() {
+        var f=create(BUDGET); admit(f,UUID.randomUUID());
+        UUID platformRun=UUID.randomUUID();
+        var at=jdbc.queryForObject("SELECT created_at FROM app.byok_execution_scope WHERE scope_id=?",java.sql.Timestamp.class,f.scope().scopeId());
+        jdbc.update("""
+            INSERT INTO app.platform_spend_reservation(run_id,user_id,provider,model,max_cost_usd,tariff_version,day_period,week_period,valid_until,created_at)
+            VALUES (?,?,'OPENAI',?,.10,?,CURRENT_DATE,CURRENT_DATE,clock_timestamp()+INTERVAL '1 hour',?)
+            """,platformRun,user,MODEL,PlatformSpendTariff.VERSION,at);
+        jdbc.update("INSERT INTO app.platform_spend_settlement(run_id,reserved_usd) VALUES (?,.10)",platformRun);
+        var first=platformUsage.history(user,null,1);
+        assertThat(first.items()).hasSize(1); assertThat(first.nextCursor()).isNotNull();
+        var second=platformUsage.history(user,first.nextCursor(),1);
+        assertThat(second.items()).hasSize(1); assertThat(second.nextCursor()).isNull();
+        assertThat(List.of(first.items().getFirst().runId(),second.items().getFirst().runId()))
+            .containsExactlyInAnyOrder(f.run().id(),platformRun);
+        assertThat(platformUsage.history(UUID.randomUUID(),first.nextCursor(),1).items()).isEmpty();
+        jdbc.update("DELETE FROM app.workspace WHERE id=?",workspace);
+        jdbc.update("DELETE FROM app.user_account WHERE id=?",user);
+        assertThat(platformUsage.history(user,null,20).items()).hasSize(2).allMatch(item -> "DELETED".equals(item.status()));
+        assertThat(consumed(f)).isOne();
+        assertThatThrownBy(() -> admit(f,UUID.randomUUID())).isInstanceOf(ByokExecutionException.class);
     }
     @Test void scopeReplayAndRestartKeepOriginalDeadlineAndConsumedLimits() {
         var f=create(BUDGET); UUID first=UUID.randomUUID(); admit(f,first);

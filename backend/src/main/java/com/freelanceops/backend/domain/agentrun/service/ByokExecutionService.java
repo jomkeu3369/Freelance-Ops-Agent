@@ -160,7 +160,9 @@ public class ByokExecutionService {
         ByokBudget scope = state.budget();
         if (!scope.scopeId().equals(usage.byokScopeId()) || usage.platformReservationId() != null
             || usage.tariffVersion() != null || usage.platformCostUsd() == null || usage.platformCostUsd().signum() != 0
-            || usage.unpricedExposure()) throw rejected("BYOK_SCOPE_INVALID", "Personal usage must not claim platform funding");
+            || usage.unpricedExposure() || usage.modelCalls() != usage.providerCalls().size()
+            || usage.modelCalls() > scope.maxModelCalls() || usage.inputTokens() > scope.maxInputTokens()
+            || usage.outputTokens() > scope.maxOutputTokens()) throw rejected("BYOK_SCOPE_INVALID", "Personal usage must not claim platform funding");
         for (var call : usage.providerCalls()) {
             if (!"BYOK".equals(call.fundingSource()) || call.provider() != scope.provider() || !call.model().equals(scope.model())
                 || !OPERATIONS.contains(call.operation()) || call.costUsd().signum() != 0 || call.reservedCostUsd().signum() != 0) {
