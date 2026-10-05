@@ -1,70 +1,116 @@
-import { useEffect, useId, useState } from "react";
-import { generatePet, listPets, savePet, type AuthSession, type PetProfile, type Provider } from "@/app/lib/api";
+import { useT } from "../../../app/lib/ui-language";
+import { useEffect, useId, useRef, useState } from "react";
+import { ApiError, listAgentPets, previewAgentPet, saveAgentPet, changeAgentPet, deleteAgentPet, type AuthSession, type AgentPetCollection, type ComposeAgentPet, type CustomAgentPet, type PetProfile, type Provider } from "@/app/lib/api";
 import { PetArt } from "./pet-art";
-import { petColors, petDefaults, preferenceLabels } from "./pet-profile";
+import { preferenceLabels, petDutyLabels } from "./pet-profile";
 
-export function PetCustomizer({ session, projectId, selection, disabled }: { session: AuthSession; projectId: string; selection: { provider: Provider; model: string; credentialId?: string } | null; disabled: boolean }) {
+const tones = { WARM: "친근하게", DIRECT: "간결하게", FORMAL: "정중하게" };
+
+export function PetCustomizer({ session, disabled }: { session: AuthSession; projectId: string; selection: { provider: Provider; model: string; credentialId?: string } | null; disabled: boolean }) {
+  const t = useT();
   const prefix = useId();
-  const [profiles, setProfiles] = useState<PetProfile[] | null>(null);
-  const [draft, setDraft] = useState<PetProfile>(petDefaults[0]);
+  const pending = useRef(false);
+  const [collection, setCollection] = useState<AgentPetCollection | null>(null);
+  const [editing, setEditing] = useState<CustomAgentPet | null>(null);
   const [description, setDescription] = useState("");
+  const [resetPreferences, setResetPreferences] = useState(false);
+  const [preview, setPreview] = useState<{ input: ComposeAgentPet; profile: PetProfile } | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
-  const [preview, setPreview] = useState("idle");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   useEffect(() => {
     let current = true;
-    listPets(session).then(values => { if (current) { setProfiles(values); setDraft(values[0]); setStatus(""); } }).catch(() => { if (current) setStatus("동료 설정을 불러오지 못했습니다. 다시 불러와 주세요."); });
+    listAgentPets(session).then(value => { if (current) setCollection(value); }).catch(() => { if (current) setStatus("펫을 불러오지 못했습니다. 다시 불러와 주세요."); });
     return () => { current = false; };
   }, [session, reload]);
-  const locked = busy || disabled || !profiles;
-  const saved = profiles?.find(pet => pet.slot === draft.slot);
-  const dirty = JSON.stringify(saved) !== JSON.stringify(draft);
-  const validName = /^[\p{L}\p{N} _-]{1,20}$/u.test(draft.name) && !!draft.name.trim();
-  async function save() {
-    setBusy(true); setStatus("");
-    try {
-      const value = await savePet(session, draft);
-      setProfiles(current => current!.map(pet => pet.slot === value.slot ? value : pet));
-      setDraft(value); setStatus("저장했습니다. 다음 분석부터 이 외형과 성향을 사용합니다.");
-    } catch { setStatus("저장하지 못했습니다. 입력 내용은 유지됩니다. 다시 시도해 주세요."); }
-    finally { setBusy(false); }
+  const locked = disabled || busy || !collection;
+  const active = collection?.pets.filter(pet => !pet.archived) ?? [];
+  const archived = collection?.pets.filter(pet => pet.archived) ?? [];
+  const atLimit = !!collection && (active.length >= collection.maxActivePets || collection.pets.length >= collection.maxStoredPets);
+  const fullHistory = !!editing && (editing.profile.preferences?.requests.length ?? 0) >= (collection?.maxPreferenceRequests ?? 6);
+  const hasDraft = !!description.trim() || !!preview;
+
+  async function perform(action: () => Promise<void>) {
+    if (pending.current || locked) return;
+    pending.current = true; setBusy(true); setStatus("");
+    try { await action(); }
+    catch (error) {
+      setStatus(error instanceof ApiError && error.status === 409
+        ? "다른 변경이나 개수 제한을 확인해 주세요. 입력은 유지됩니다. 목록을 다시 불러온 뒤 수정할 펫을 골라 주세요."
+        : "완료하지 못했습니다. 입력은 유지됩니다. 연결과 권한을 확인하고 다시 시도해 주세요.");
+    } finally { pending.current = false; setBusy(false); }
   }
-  async function generate() {
-    if (!selection) return;
-    setBusy(true); setStatus("외형과 성향을 만들고 있어요. 최대 30초 정도 걸립니다.");
-    try {
-      const result = await generatePet(session, projectId, { description: description.trim(), slot: draft.slot, modelSelection: { ...selection, reasoningEffort: "LOW" } });
-      setDraft(result.profile);
-      setStatus(`생성 미리보기입니다. ${result.provider} · ${result.model} · 입력 ${result.inputTokens} / 출력 ${result.outputTokens} 토큰. 검토 후 저장해 주세요.`);
-    } catch { setStatus("생성하지 못했습니다. 기존 설정은 유지됩니다. AI 연결과 하루 생성 한도(20회)를 확인해 주세요."); }
-    finally { setBusy(false); }
+
+  function edit(pet: CustomAgentPet | null) {
+    setEditing(pet); setDescription(""); setPreview(null); setStatus(""); setResetPreferences(false);
   }
-  const fields = [
-    ["tone", "말투", { WARM: "친근하게", DIRECT: "간결하게", FORMAL: "정중하게" }],
-    ["valuePriority", "수익과 관계", { PROFIT: preferenceLabels.PROFIT, BALANCED: "균형", RELATIONSHIP: preferenceLabels.RELATIONSHIP }],
-    ["deliveryPriority", "납품과 완성도", { SPEED: preferenceLabels.SPEED, BALANCED: "균형", QUALITY: preferenceLabels.QUALITY }],
-    ["scopePriority", "제안 범위", { CAUTIOUS: preferenceLabels.CAUTIOUS, BALANCED: "균형", EXPLORATORY: preferenceLabels.EXPLORATORY }]
-  ] as const;
-  return <details className="pet-customizer">
-    <summary><span>나만의 작은 동료 만들기</span><small>외형 · 말투 · 판단 성향</small></summary>
-    <p className="pet-customizer-intro">내 동료의 모습을 꾸미고, 어떤 가치를 먼저 살필지 정해 주세요. 이 워크스페이스의 내 설정으로 저장되며 다음 분석부터 적용됩니다.</p>
-    {!profiles && <button type="button" className="secondary-button" onClick={() => setReload(value => value + 1)}>설정 다시 불러오기</button>}
-    <div className="pet-picker" aria-label="꾸밀 동료 선택">{(profiles ?? petDefaults).map((pet, index) => <button type="button" key={pet.slot} disabled={locked || dirty} aria-pressed={draft.slot === pet.slot} onClick={() => { setDraft(pet); setStatus(""); }}><PetArt kind={pet.animal} profile={pet}/><strong>{pet.name}</strong><small>{["핵심안", "권장안", "확장안"][index]}</small></button>)}</div>
-    <div className="pet-studio">
-      <div className="pet-preview"><span className="pet-eyebrow">LIVE PREVIEW · 미리보기</span><PetArt kind={draft.animal} profile={draft} state={preview}/><h3>{draft.name || "이름을 지어 주세요"}</h3><div className="pet-preview-states">{[["idle", "대기"], ["working", "작업"], ["waiting", "질문"]].map(([value, label]) => <button type="button" key={value} aria-pressed={preview === value} onClick={() => setPreview(value)}>{label}</button>)}</div><p>외형 미리보기용 동작입니다.</p></div>
-      <fieldset className="pet-controls" disabled={locked}><legend>외형과 성향</legend>
-        <label>이름<input maxLength={20} value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })}/></label>
-        <label>동물<select value={draft.animal} onChange={event => setDraft({ ...draft, animal: event.target.value as PetProfile["animal"] })}><option value="turtle">거북이</option><option value="owl">부엉이</option><option value="cat">고양이</option></select></label>
-        <label>색상<select value={draft.color} onChange={event => setDraft({ ...draft, color: event.target.value as PetProfile["color"] })}>{Object.entries(petColors).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>액세서리<select value={draft.accessory} onChange={event => setDraft({ ...draft, accessory: event.target.value as PetProfile["accessory"] })}>{Object.entries({ none: "없음", glasses: "안경", scarf: "스카프", star: "별 장식" }).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        {fields.map(([key, label, options]) => <label key={key}>{label}<select value={draft[key]} onChange={event => setDraft({ ...draft, [key]: event.target.value })}>{Object.entries(options).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>)}
-      </fieldset>
+
+  function makePreview() {
+    void perform(async () => {
+      const input = { id: editing?.id ?? crypto.randomUUID(), mutationId: crypto.randomUUID(), expectedRevision: editing?.revision ?? 0, description, resetPreferences };
+      const profile = await previewAgentPet(session, input);
+      setPreview({ input, profile });
+      setStatus("무료 미리보기입니다. 해석된 설정과 보존된 요청을 확인한 뒤 저장하세요.");
+    });
+  }
+
+  function save() {
+    if (!preview) return;
+    void perform(async () => {
+      // Preserve the mutation ID on failures; a lost response must not create another pet.
+      const pet = await saveAgentPet(session, preview.input);
+      setCollection(await listAgentPets(session));
+      setEditing(pet); setDescription(""); setPreview(null); setResetPreferences(false);
+      setStatus("저장하고 선택했습니다. 다음 실행에 이 펫 하나의 선호를 사용합니다.");
+    });
+  }
+
+  function change(pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE") {
+    void perform(async () => {
+      await changeAgentPet(session, pet, action);
+      setCollection(await listAgentPets(session));
+      if (editing?.id === pet.id) edit(null);
+      setStatus(action === "SELECT" ? "다음 실행에 사용할 펫을 선택했습니다." : action === "ARCHIVE" ? "보관했습니다. 이 펫은 다음 실행에 사용하지 않습니다." : "펫을 복원했습니다. 사용하려면 선택해 주세요.");
+    });
+  }
+
+  return <section className="pet-customizer pet-prompt-studio" aria-label={t("나만의 작은 동료 만들기")}>
+    <header><div><h3>{t("나만의 작은 동료 만들기")}</h3><p>{t("원하는 동료를 한 문장으로 설명해 주세요.")}</p></div><span className="pet-free-badge">{t("무료 미리보기")}</span></header>
+    <p className="pet-customizer-intro">{t("여러 펫을 저장하고 하나를 선택합니다. 펫을 추가해도 AI 실행이 시작되거나 병렬로 과금되지 않습니다.")}</p>
+    <div className="pet-library" aria-label={t("내 펫")}>
+      {active.map(pet => <article key={pet.id} className={collection?.selectedPetId === pet.id ? "is-selected" : ""}>
+        <PetArt kind={pet.profile.animal} profile={pet.profile}/><strong>{pet.profile.name}</strong><small>{t(petDutyLabels[pet.profile.duty ?? "GENERAL"])}</small>
+        <button type="button" disabled={locked || hasDraft} aria-pressed={collection?.selectedPetId === pet.id} onClick={() => change(pet, "SELECT")}>{t(collection?.selectedPetId === pet.id ? "선택됨" : "이 펫 선택")}</button>
+        <button type="button" disabled={locked || hasDraft} onClick={() => edit(pet)}>{t("대화로 수정")}</button>
+        <button type="button" disabled={locked || hasDraft} onClick={() => change(pet, "ARCHIVE")}>{t("보관")}</button>
+      </article>)}
     </div>
-    <div className="pet-generation"><label htmlFor={`${prefix}-description`}>한 문장으로 만들어 보기</label><textarea id={`${prefix}-description`} maxLength={500} disabled={locked} value={description} onChange={event => setDescription(event.target.value)} placeholder="무뚝뚝하지만 내 수익을 챙겨 주는, 별 장식을 단 검은 고양이"/><p>지원하는 동물·색·장식의 조합을 생성합니다. {selection ? `${selection.credentialId ? "내 키" : "기본 제공 AI"} · ${selection.provider} · ${selection.model}` : "위에서 사용할 AI를 선택해 주세요."}<br/>생성 버튼을 누르면 AI를 1회 호출합니다. 최대 1,000 출력 토큰 · 하루 20회(실패 포함), 사용한 모델의 비용이 발생할 수 있습니다.</p><button type="button" className="secondary-button" disabled={locked || !selection || !description.trim()} onClick={() => void generate()}>{busy ? "처리 중…" : "AI로 외형·성향 생성"}</button></div>
-    <div className="pet-save-actions"><button type="button" className="quiet-button" disabled={locked} onClick={() => { setDraft(petDefaults.find(pet => pet.slot === draft.slot)!); setStatus("기본 모습의 미리보기입니다. 저장하면 다음 분석부터 적용됩니다."); }}>기본 모습으로 복원</button><button type="button" className="quiet-button" disabled={locked || !dirty} onClick={() => { setDraft(saved!); setStatus("저장된 설정으로 되돌렸습니다."); }}>수정 취소</button><button type="button" className="primary-button" disabled={locked || !dirty || !validName} onClick={() => void save()}>이 동료 저장</button></div>
-    {dirty && profiles && <p className="pet-customizer-intro">미저장 변경이 있습니다. 저장하거나 수정 취소 후 다른 동료를 선택하세요.</p>}
-    {!validName && <p role="alert">이름은 문자·숫자·공백·밑줄·하이픈으로 1~20자 입력해 주세요.</p>}
-    <p role="status" aria-live="polite">{status}</p>
-  </details>;
+    {collection && <p className="pet-customizer-intro">{t("사용 가능")} {active.length}/{collection.maxActivePets} · {t("보관 포함")} {collection.pets.length}/{collection.maxStoredPets}<br/>{t("보관하면 사용 가능 수가 줄고, 보관함에서 삭제하면 저장 공간이 늘어납니다.")}</p>}
+    <button type="button" className="quiet-button" disabled={locked || atLimit || hasDraft} onClick={() => edit(null)}>{t("새 펫 추가")}</button>
+    {hasDraft && !preview && <button type="button" className="quiet-button" disabled={locked} onClick={() => edit(editing)}>{t("입력 취소")}</button>}
+    {editing && <details><summary>{t("저장된 선호 보기")}</summary><ol>{editing.profile.preferences?.requests.map((value, index) => <li key={index}>{value}</li>)}</ol></details>}
+    {atLimit && !editing && <p role="status">{t("펫 개수 한도에 도달했습니다. 사용 중인 펫을 보관하거나 보관함에서 삭제해 주세요.")}</p>}
+    <div className="pet-generation">
+      <label htmlFor={`${prefix}-prompt`}>{editing ? `${editing.profile.name} · ${t("어떻게 바꿀까요?")}` : t("어떤 펫을 만들까요?")}</label>
+      <textarea id={`${prefix}-prompt`} maxLength={collection?.maxPromptLength ?? 500} disabled={locked || !!preview} value={description} onChange={event => setDescription(event.target.value)} placeholder={t("친근하게 말하고 일정 관리를 꼼꼼히 챙기는 펫 만들어줘")} aria-describedby={`${prefix}-prompt-help`} />
+      <p id={`${prefix}-prompt-help`}>{t("외형은 준비된 동물·색·장식을 조합합니다. 자유로운 요청은 그대로 보존하며, 저장 전에 확인할 수 있습니다.")} {description.length}/{collection?.maxPromptLength ?? 500}</p>
+      {editing && <label className="pet-reset-preferences"><input type="checkbox" disabled={locked || !!preview} checked={resetPreferences} onChange={event => setResetPreferences(event.target.checked)}/>{t("이전 선호 요청 대신 이 설명으로 새로 정리")}</label>}
+      {fullHistory && !resetPreferences && <p role="status">{t("수정 기록 한도에 도달했습니다. 이전 선호를 포함한 새 설명으로 정리해 주세요.")}</p>}
+      <button type="button" className="primary-button" disabled={locked || !!preview || !description.trim() || (!editing && atLimit) || (fullHistory && !resetPreferences)} onClick={makePreview}>{t("펫 미리보기")}</button>
+    </div>
+    {preview && <section className="pet-composed-preview" aria-label={t("저장 전 펫 확인")}>
+      <PetArt kind={preview.profile.animal} profile={preview.profile}/><div><h4>{preview.profile.name}</h4><p>{t(tones[preview.profile.tone])} · {t(petDutyLabels[preview.profile.duty ?? "GENERAL"])} · {t(preferenceLabels[preview.profile.deliveryPriority])}</p>
+      <p>{t("위 설정은 규칙으로 찾은 기본값입니다. 아래 자유 요청을 모두 이해해 분류했다는 뜻은 아닙니다. 실행 시 허용된 말투와 업무 선호로 참고하며 권한을 부여하지 않습니다.")}</p>
+      {Object.entries(preview.profile.preferences ?? {}).filter(([key, value]) => key !== "requests" && value).map(([key, value]) => <p key={key}><strong>{t(({ personality: "성향", communication: "말투", focus: "중점", responsibility: "업무" } as Record<string, string>)[key])}: </strong>{String(value)}</p>)}
+      <ol aria-label={t("보존된 선호 요청")}>{preview.profile.preferences?.requests.map((value, index) => <li key={index}>{value}</li>)}</ol>
+      <p>{t("분류를 바꾸려면 ‘말투: 차분한 선생님처럼; 중점: 빠뜨린 일 찾기’처럼 수정할 수 있습니다.")}</p>
+      <button type="button" className="primary-button" disabled={locked} onClick={save}>{t("저장하고 선택")}</button>
+      <button type="button" className="quiet-button" disabled={locked} onClick={() => setPreview(null)}>{t("입력으로 돌아가기")}</button></div>
+    </section>}
+    {archived.length > 0 && <details className="pet-archive"><summary>{t("보관함")} ({archived.length})</summary>{archived.map(pet => <div key={pet.id}><strong>{pet.profile.name}</strong><button type="button" disabled={locked || !!preview || active.length >= (collection?.maxActivePets ?? 0)} onClick={() => change(pet, "RESTORE")}>{t("복원")}</button><button type="button" disabled={locked || !!preview} onClick={() => setDeleteId(pet.id)}>{t("삭제")}</button>{deleteId === pet.id && <span>{t("이 펫을 영구 삭제할까요? 기존 실행 기록은 유지됩니다.")}<button type="button" disabled={locked} onClick={() => void perform(async () => { await deleteAgentPet(session, pet); setDeleteId(null); setCollection(await listAgentPets(session)); setStatus("펫을 삭제했습니다."); })}>{t("영구 삭제")}</button><button type="button" disabled={locked} onClick={() => setDeleteId(null)}>{t("취소")}</button></span>}</div>)}</details>}
+    <p className="pet-customizer-intro">{t("유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성입니다. 저장한 선호는 다음 업무 실행부터 적용되며 해당 실행의 모델 사용량이 적용됩니다.")}</p>
+    <button type="button" className="quiet-button" disabled={busy || disabled} onClick={() => setReload(value => value + 1)}>{t("목록 다시 불러오기")}</button>
+    <p role="status" aria-live="polite">{t(status)}</p>
+  </section>;
 }

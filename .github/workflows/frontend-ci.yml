@@ -4,12 +4,19 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
       - "main"
+      - "codex/cloud-feature-integration-20261005"
+      - "codex/login-pet-road-20261005"
+      - "codex/login-pet-motion-20261005"
+      - "codex/login-footer-center-20261005"
+      - "codex/byok-release-integration-20261005"
     paths:
       - "frontend/**"
+      - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
 
@@ -36,3 +43,73 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run ci:check
+
+  synthetic-browser:
+    name: Synthetic Chromium workspace checks
+    # Work-branch and same-repository PR verification. No deployment or provider calls.
+    if: github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      NEXT_TELEMETRY_DISABLED: "1"
+      VERCEL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+      - name: Build ephemeral local application
+        run: npm run build
+      - name: Exercise network-blocked synthetic fixtures
+        run: |
+          mkdir -p outputs/ui-ux
+          npm run start -- --hostname 127.0.0.1 --port 3100 > outputs/ui-ux/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3100/ > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat outputs/ui-ux/server.log
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            cat outputs/ui-ux/server.log
+            exit 1
+          fi
+          # Every selected suite uses synthetic session/API fixtures and blocks
+          # non-local requests. No backend, real accounts, or provider keys run.
+          npx playwright test --forbid-only \
+            tests/browser/skills-integrated.spec.mjs \
+            tests/browser/custom-agent-pets.spec.mjs \
+            tests/browser/chat-attachments.spec.mjs \
+            tests/browser/admin-members.spec.mjs \
+            tests/browser/composer-toolbar.spec.mjs \
+            tests/browser/fullscreen-chat.spec.mjs \
+            tests/browser/auth-error.spec.mjs \
+            tests/browser/auth-cinematic.spec.mjs \
+            tests/browser/byok-bounded.spec.mjs
+      - name: Preserve synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-browser-reports-${{ github.sha }}
+          path: frontend/outputs/ui-ux/
+          if-no-files-found: warn
+          retention-days: 7

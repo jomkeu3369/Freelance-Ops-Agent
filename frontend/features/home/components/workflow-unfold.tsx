@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { ArrowDown, ChatCenteredText, FileText, GitBranch, TreeStructure, WarningCircle } from "@phosphor-icons/react";
+import { ChatCenteredText, FileText, GitBranch, TreeStructure, WarningCircle } from "@phosphor-icons/react";
 import { useT } from "../ui-language";
 
 const stages = [
@@ -136,6 +136,5 @@ export function WorkflowUnfold() {
       </svg>
       <span className="workflow-unfold-floor" aria-hidden="true" />
     </div>
-    <p className="workflow-unfold-hint"><ArrowDown size={16} aria-hidden="true" />{t("스크롤하며 흐름을 펼쳐보세요.")}</p>
   </section>;
 }

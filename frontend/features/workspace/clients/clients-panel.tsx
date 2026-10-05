@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import {
   AuthSession,
   Client,
@@ -30,6 +31,7 @@ interface ClientsPanelProps {
 }
 
 export function ClientsPanel({ session, clients, projects, permissions, onCreated, onUpdated, onArchived }: ClientsPanelProps) {
+  const t = useT();
   const canWrite = permissions.has("client.write");
   const canDelete = permissions.has("client.delete");
   const [selected, setSelected] = useState<Client | null>(null);
@@ -103,8 +105,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
       <div className="clients-heading">
         <div>
           <span>CLIENT RELATIONSHIPS</span>
-          <h1>문의의 맥락을 고객과 연결합니다.</h1>
-          <p>연락처와 메모를 한곳에 두고 새 프로젝트를 기존 고객에게 바로 연결하세요.</p>
+          <h1>{t("문의의 맥락을 고객과 연결합니다.")}</h1>
+          <p>{t("연락처와 메모를 한곳에 두고 새 프로젝트를 기존 고객에게 바로 연결하세요.")}</p>
         </div>
         {canWrite && (
           <button
@@ -116,39 +118,38 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               setArchiveTarget(null);
             }}
           >
-            <Plus size={18} /> 새 고객
-          </button>
+            <Plus size={18} /> {t("새 고객")}</button>
         )}
       </div>
       {error && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {error}
+          {t(error)}
         </div>
       )}
       {saved && (
         <div className="settings-saved" role="status">
           <CheckCircle size={18} />
-          {saved}
+          {t(saved)}
         </div>
       )}
       <div className="clients-layout">
-        <section className="client-directory" aria-label="고객 목록">
+        <section className="client-directory" aria-label={t("고객 목록")}>
           <label className="client-search">
             <MagnifyingGlass size={18} />
-            <span className="sr-only">고객 검색</span>
+            <span className="sr-only">{t("고객 검색")}</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="이름, 회사, 이메일 검색"
+              placeholder={t("이름, 회사, 이메일 검색")}
             />
           </label>
           <div className="client-list">
             {filtered.length === 0 ? (
               <div className="client-empty">
                 <AddressBook size={30} />
-                <strong>{clients.length === 0 ? "첫 고객을 등록하세요." : "검색 결과가 없습니다."}</strong>
-                <span>{clients.length === 0 ? "고객을 등록하면 새 문의에 바로 연결할 수 있습니다." : "다른 검색어로 찾아보세요."}</span>
+                <strong>{clients.length === 0 ? t("첫 고객을 등록하세요.") : t("검색 결과가 없습니다.")}</strong>
+                <span>{clients.length === 0 ? t("고객을 등록하면 새 문의에 바로 연결할 수 있습니다.") : t("다른 검색어로 찾아보세요.")}</span>
               </div>
             ) : (
               filtered.map((client) => {
@@ -169,7 +170,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                       <strong>{client.name}</strong>
                       <small>{client.companyName || "개인 고객"}</small>
                     </span>
-                    <em>{linkedCount}개 프로젝트</em>
+                    <em>{linkedCount}{t("개 프로젝트")}</em>
                   </button>
                 );
               })
@@ -179,8 +180,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
         <section className="client-editor" aria-labelledby="client-editor-title">
           <header>
             <div>
-              <span>{selected ? "고객 정보" : "새 고객"}</span>
-              <h2 id="client-editor-title">{selected ? selected.name : "관계를 먼저 기록하세요."}</h2>
+              <span>{selected ? t("고객 정보") : t("새 고객")}</span>
+              <h2 id="client-editor-title">{selected ? selected.name : t("관계를 먼저 기록하세요.")}</h2>
             </div>
             {selected && <PencilSimple size={24} />}
           </header>
@@ -188,8 +189,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
             <fieldset className="client-fields" disabled={busy}>
               <div className="form-row">
                 <label>
-                  담당자 이름
-                  <input
+                  {t("담당자 이름")}<input
                     name="name"
                     required
                     maxLength={120}
@@ -198,8 +198,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                   />
                 </label>
                 <label>
-                  회사명
-                  <input
+                  {t("회사명")}<input
                     name="companyName"
                     maxLength={160}
                     readOnly={!canWrite}
@@ -209,8 +208,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               </div>
               <div className="form-row">
                 <label>
-                  이메일
-                  <input
+                  {t("이메일")}<input
                     name="email"
                     type="email"
                     maxLength={320}
@@ -219,8 +217,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                   />
                 </label>
                 <label>
-                  전화번호
-                  <input
+                  {t("전화번호")}<input
                     name="phone"
                     type="tel"
                     maxLength={40}
@@ -230,34 +227,31 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                 </label>
               </div>
               <label>
-                관계 메모
-                <textarea
+                {t("관계 메모")}<textarea
                   name="notes"
                   rows={7}
                   maxLength={5000}
                   readOnly={!canWrite}
                   defaultValue={selected?.notes ?? ""}
-                  placeholder="선호하는 소통 방식, 의사결정자, 예산 맥락 등을 기록하세요."
+                  placeholder={t("선호하는 소통 방식, 의사결정자, 예산 맥락 등을 기록하세요.")}
                 />
               </label>
               <div className="client-form-actions">
                 {canWrite && (
                   <button className="primary-button" type="submit" disabled={busy}>
                     {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />}
-                    {selected ? "변경 저장" : "고객 등록"}
+                    {selected ? t("변경 저장") : t("고객 등록")}
                   </button>
                 )}
                 {selected &&
                   canDelete &&
                   (archiveTarget === selected.id ? (
                     <div className="archive-confirm">
-                      <span>이 고객을 보관할까요?</span>
+                      <span>{t("이 고객을 보관할까요?")}</span>
                       <button type="button" disabled={busy} onClick={() => void archive(selected)}>
-                        보관
-                      </button>
+                        {t("보관")}</button>
                       <button type="button" onClick={() => setArchiveTarget(null)}>
-                        취소
-                      </button>
+                        {t("취소")}</button>
                     </div>
                   ) : (
                     <button
@@ -265,8 +259,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                       type="button"
                       onClick={() => setArchiveTarget(selected.id)}
                     >
-                      <Archive size={18} /> 고객 보관
-                    </button>
+                      <Archive size={18} /> {t("고객 보관")}</button>
                   ))}
               </div>
             </fieldset>

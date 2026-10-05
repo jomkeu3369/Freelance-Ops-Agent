@@ -10,6 +10,7 @@ import {
   ShareNetwork,
 } from "@phosphor-icons/react";
 import type { AgentRunStatus, WorkflowEvent } from "../lib/api";
+import { useT } from "../lib/ui-language";
 
 export type WorkflowNodeId =
   | "intake"
@@ -153,6 +154,7 @@ function publicEventLabel(type: string): string {
 }
 
 export function LiveWorkflow({ snapshot, preview = false }: { snapshot: WorkflowSnapshot; preview?: boolean }) {
+  const t = useT();
   const activeIndex = nodes.findIndex((node) => node.id === snapshot.activeNode);
   const isMoving = snapshot.status === "PREVIEW" || snapshot.status === "QUEUED" || snapshot.status === "RUNNING";
   const isComplete = snapshot.status === "COMPLETED";
@@ -161,15 +163,15 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
   const trackProgress = isComplete ? 100 : Math.max(0, activeIndex) / (nodes.length - 1) * 100;
 
   return (
-    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={preview ? "제품 흐름 미리보기" : "분석 진행 상황"}>
+    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={t(preview ? "제품 흐름 미리보기" : "분석 진행 상황")}>
       <div className="live-graph-head">
         <div>
           <span className={`live-dot ${isMoving ? "moving" : ""}`} aria-hidden="true" />
-          <strong>{preview ? "제품 흐름 미리보기" : "분석 진행 상황"}</strong>
+          <strong>{t(preview ? "제품 흐름 미리보기" : "분석 진행 상황")}</strong>
         </div>
-        <span>{statusCopy[snapshot.status]}</span>
+        <span>{t(statusCopy[snapshot.status])}</span>
       </div>
-      <div className="workflow-progress" role="progressbar" aria-label="분석 진행률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+      <div className="workflow-progress" role="progressbar" aria-label={t("분석 진행률")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="workflow-rail">
@@ -202,15 +204,15 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
                 <span className="workflow-node-icon">
                   <Icon size={21} weight={state === "active" ? "duotone" : "regular"} />
                 </span>
-                <span className="workflow-node-label">{node.label}</span>
-                <small>{stateLabel}</small>
+                <span className="workflow-node-label">{t(node.label)}</span>
+                <small>{t(stateLabel)}</small>
               </div>
             </div>
           );
         })}
       </div>
       <div className="live-event" aria-live={preview ? "off" : "polite"}>
-        <div><p>{snapshot.eventLabel}</p><small>{nodes[Math.max(activeIndex, 0)].label} · {snapshot.eventCount.toLocaleString("ko-KR")}개 이벤트</small></div>
+        <div><p>{t(snapshot.eventLabel)}</p><small>{t(nodes[Math.max(activeIndex, 0)].label)} · {t("{count}개 이벤트", { count: snapshot.eventCount.toLocaleString() })}</small></div>
       </div>
     </section>
   );

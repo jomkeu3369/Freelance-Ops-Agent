@@ -1,9 +1,9 @@
 import { Project, Client } from "../../../app/lib/api";
 
-export function projectClientLabel(project: Project, clients: Client[]): string {
-  if (!project.clientId) return "고객 미연결";
+export function projectClientLabel(project: Project, clients: Client[], translate: (source: string) => string = source => source): string {
+  if (!project.clientId) return translate("고객 미연결");
   const client = clients.find((candidate) => candidate.id === project.clientId);
-  if (!client) return "연결된 고객";
+  if (!client) return translate("연결된 고객");
   return client.companyName ? `${client.companyName} · ${client.name}` : client.name;
 }
 

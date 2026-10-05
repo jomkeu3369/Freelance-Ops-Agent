@@ -1,0 +1,37 @@
+{
+  "video": {
+    "path": "/login/pet-path-motion-v1.mp4",
+    "sha256": "84efc90028d7aab44481dcc7079823b8607d1fbf078d3e36445f087e6f174cce",
+    "bytes": 1750652,
+    "width": 1280,
+    "height": 720,
+    "fps": 24,
+    "frames": 189,
+    "duration_seconds": 7.875,
+    "codec": "h264",
+    "pixel_format": "yuv420p",
+    "audio": false,
+    "faststart_verified": true
+  },
+  "poster": {
+    "path": "/login/pet-path-motion-poster-v1.webp",
+    "sha256": "45846fc14cbc10b26ee2e32f399a071a421d7137be0c87472959a93e80fe77bd",
+    "bytes": 35266,
+    "source": "Decoded output frame 0, which corresponds to source frame 4"
+  },
+  "loop": {
+    "crossfade_frames": 4,
+    "first_blended_output_frame": 185,
+    "last_blended_output_frame": 188,
+    "geometrically_seamless": false,
+    "description": "4-frame offline wrap dissolve; two intermediate mixed frames. Last decoded frame returns to source frame 3, then native wrapping continues at source frame 4."
+  },
+  "source": {
+    "filename": "pet-path-3d-seedance-v1.mp4",
+    "sha256": "356602fde3c270d28fa6f9a9b50492882a01ca662f142053def4319a50a8b129",
+    "bytes": 6110614,
+    "fps": 24,
+    "frames": 193,
+    "preserved": true
+  }
+}

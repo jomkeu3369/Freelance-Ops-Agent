@@ -1,3 +1,4 @@
+import { LocaleProvider } from "../lib/ui-language";
 import { ReactNode } from "react";
 import { WorkspaceShell } from "../../features/workspace/workspace-shell";
 import "../../features/workspace/pets/pets.css";
@@ -9,5 +10,5 @@ interface WorkspaceLayoutProps {
 }
 
 export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
-  return <WorkspaceShell>{children}</WorkspaceShell>;
+  return <LocaleProvider><WorkspaceShell>{children}</WorkspaceShell></LocaleProvider>;
 }

@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, Project, Client, ProjectInput, updateProjectDetails } from "../../../../app/lib/api";
 import { useRef, useState, FormEvent } from "react";
 import { useDialogFocusTrap } from "../../shared/use-dialog-focus-trap";
@@ -12,6 +13,7 @@ interface ProjectEditDialogProps {
 }
 
 export function ProjectEditDialog({ session, project, clients, onClose, onUpdated }: ProjectEditDialogProps) {
+  const t = useT();
   const dialogRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,28 +65,26 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
         aria-labelledby="project-edit-title"
       >
         <div>
-          <span>프로젝트 정보</span>
-          <button type="button" disabled={busy} onClick={onClose} aria-label="닫기">
+          <span>{t("프로젝트 정보")}</span>
+          <button type="button" disabled={busy} onClick={onClose} aria-label={t("닫기")}>
             ×
           </button>
         </div>
-        <h2 id="project-edit-title">문의 조건을 최신 상태로 맞추세요.</h2>
+        <h2 id="project-edit-title">{t("문의 조건을 최신 상태로 맞추세요.")}</h2>
         <p>
-          변경한 내용은 다음 AI 분석과 새 견적부터 반영됩니다. 이미 고객에게 보낸 견적은 그대로 유지됩니다.
-        </p>
+          {t("변경한 내용은 다음 AI 분석과 새 견적부터 반영됩니다. 이미 고객에게 보낸 견적은 그대로 유지됩니다.")}</p>
         {error && (
           <div className="inline-error" role="alert">
             <Warning size={18} />
-            {error}
+            {t(error)}
           </div>
         )}
         <form aria-busy={busy} onSubmit={submit}>
           <fieldset className="dialog-fields" disabled={busy}>
             <div className="form-row">
               <label>
-                고객 연결
-                <select name="clientId" defaultValue={project.clientId ?? ""}>
-                  <option value="">연결하지 않음</option>
+                {t("고객 연결")}<select name="clientId" defaultValue={project.clientId ?? ""}>
+                  <option value="">{t("연결하지 않음")}</option>
                   {clients.map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.name}
@@ -94,8 +94,7 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
                 </select>
               </label>
               <label>
-                통화
-                <select name="currency" defaultValue={project.currency}>
+                {t("통화")}<select name="currency" defaultValue={project.currency}>
                   <option value="KRW">KRW</option>
                   <option value="USD">USD</option>
                   <option value="JPY">JPY</option>
@@ -103,12 +102,10 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
               </label>
             </div>
             <label>
-              프로젝트 이름
-              <input data-autofocus name="title" required maxLength={200} defaultValue={project.title} />
+              {t("프로젝트 이름")}<input data-autofocus name="title" required maxLength={200} defaultValue={project.title} />
             </label>
             <label>
-              고객 문의 원문
-              <textarea
+              {t("고객 문의 원문")}<textarea
                 name="requirementText"
                 required
                 maxLength={50000}
@@ -118,12 +115,10 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
             </label>
             <div className="form-row">
               <label>
-                희망 완료일
-                <input name="deadline" type="date" defaultValue={project.deadline ?? ""} />
+                {t("희망 완료일")}<input name="deadline" type="date" defaultValue={project.deadline ?? ""} />
               </label>
               <label>
-                최소 예산
-                <input
+                {t("최소 예산")}<input
                   name="budgetMin"
                   type="number"
                   min="0"
@@ -132,8 +127,7 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
                 />
               </label>
               <label>
-                최대 예산
-                <input
+                {t("최대 예산")}<input
                   name="budgetMax"
                   type="number"
                   min="0"
@@ -144,11 +138,9 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
             </div>
             <div className="dialog-actions">
               <button type="button" className="quiet-button" onClick={onClose}>
-                취소
-              </button>
+                {t("취소")}</button>
               <button type="submit" className="primary-button">
-                {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 변경 저장
-              </button>
+                {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("변경 저장")}</button>
             </div>
           </fieldset>
         </form>

@@ -1,0 +1,8 @@
+.chat-attachments { min-width: 0; font-size: .8rem; }
+.chat-attachments ul { list-style: none; margin: .4rem 0; padding: 0; max-height: 220px; overflow: auto; }
+.chat-attachments li { border: 1px solid #aaa5; border-radius: 10px; padding: .55rem; margin: .35rem 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.chat-attachments strong { overflow-wrap: anywhere; }
+.chat-attachments details { width: 100%; }
+.chat-attachments pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .5rem; background: #8881; }
+.chat-attachments label { display: inline-flex; align-items: center; gap: .3rem; }
+.chat-attachments button, .chat-attachments select { border: 1px solid #8885; padding: .3rem .5rem; border-radius: 6px; }

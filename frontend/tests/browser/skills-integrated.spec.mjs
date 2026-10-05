@@ -1,0 +1,78 @@
+import { test, expect } from "@playwright/test";
+import { fixture } from "./helpers/chat-fixture.mjs";
+
+const path = "/workspace/projects/project-one/agent";
+const choice = { mode: "MANUAL", manualIds: [], excludedIds: [], catalogVersion: "1.0.0" };
+
+test("Auto exclusions, max-three and manual-empty persist, with an exact AD_HOC retry", async ({ page }) => {
+  const state = await fixture(page);
+  await page.goto(path);
+  const selector = page.locator(".skill-selector");
+  await page.locator("#agent-chat-input").fill("Prepare a proposal");
+  await expect(selector.locator(".skill-active")).toContainText("제안서");
+  await selector.locator(".skill-active button").click();
+  await expect(selector.locator(".skill-active button")).toHaveCount(0);
+  await selector.locator("summary").click();
+  await selector.getByRole("button", { name: "자동 선택 제외 초기화" }).click();
+  await expect(selector.locator(".skill-active button")).toHaveCount(1);
+  await selector.getByRole("button", { name: "스킬 없이", exact: true }).click();
+  for (let index = 0; index < 3; index++) await selector.locator(".skill-results button").nth(index).click();
+  await expect(selector.locator(".skill-results button:disabled")).toHaveCount(57);
+  await expect(selector.locator(".skill-active button")).toHaveCount(3);
+  await selector.getByRole("button", { name: "스킬 없이", exact: true }).click();
+  await selector.locator("summary").click();
+  await page.reload();
+  await expect(selector).toContainText("스킬 없이 일반 도움으로 진행");
+  await expect(page.locator("#agent-chat-input")).toHaveValue("Prepare a proposal");
+  state.startFailures = 1;
+  await page.locator('.agent-chat-composer button[type="submit"]').click();
+  await expect(page.getByRole("alert").filter({ hasText: "입력은 보존" })).toBeVisible();
+  await page.locator('.agent-chat-composer button[type="submit"]').click();
+  await expect.poll(() => state.starts.length).toBe(2);
+  expect(state.starts[0].workflowMode).toBe("AD_HOC");
+  expect(state.starts[0].skillSelection).toEqual(choice);
+  expect(state.starts[1]).toEqual(state.starts[0]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("history uses saved skill names while the next draft has no skills", async ({ page }) => {
+  const state = await fixture(page);
+  await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+  state.run = { runId: "history-skill-run", status: "COMPLETED", activeDepartment: null, interruption: null, errorCode: null, updatedAt: "2026-10-05T00:00:00Z", result: { projectSummary: "Saved result", openQuestions: [], departmentResults: [], quotationDraft: null, quotationDrafts: [] }, metadata: { provider: "OPENAI", workflowMode: "AD_HOC", skillSelection: { ...choice, manualIds: ["writing-proposal"] }, resolvedSkillIds: ["writing-proposal"], deferredSkillIds: ["ops-milestone-plan"] } };
+  state.history = [{ runId: state.run.runId, requirementText: "Previous request", status: "COMPLETED", createdAt: state.run.updatedAt }];
+  await page.goto(path);
+  const history = page.getByRole("log");
+  await expect(history.locator(".skill-names").first()).toContainText("Proposal");
+  await expect(history.locator(".skill-names").last()).toContainText("Next stage needed:");
+  await page.locator(".skill-selector summary").click();
+  await page.getByRole("button", { name: "Without a skill", exact: true }).click();
+  await expect(page.locator(".skill-selector")).toContainText("General assistance, no skill selected");
+  await expect(history.locator(".skill-names").first()).toContainText("Proposal");
+  expect(state.starts).toHaveLength(0);
+});
+
+test("English partial OCR review and narrow expanded skills keep source text and Send accessible", async ({ page }) => {
+  const state = await fixture(page);
+  await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+  await page.route("**/projects/*/attachments", route => route.fulfill({ status: 201, json: { id: "ocr-fixture", expiresAt: "2099-01-01T00:00:00Z", extraction: { name: "사용자.png", mediaType: "image/png", size: 20, sha256: "0".repeat(64), status: "PARTIAL", text: "그대로 둔 원문", notice: "Only sampled text was read; no visual interpretation.", encoding: null, delimiter: null, units: 1 } } }));
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto(path);
+  await page.locator("#agent-chat-input").fill("Read the text only");
+  await page.getByLabel("Choose attachments").setInputFiles({ name: "사용자.png", mimeType: "image/png", buffer: Buffer.from("Synthetic fixture only") });
+  const send = page.locator('.agent-chat-composer button[type="submit"]');
+  await send.click();
+  await expect(page.locator(".chat-attachments")).toContainText("Partially read");
+  expect(state.starts).toHaveLength(0);
+  await page.getByRole("checkbox").check();
+  await page.locator(".skill-selector summary").click();
+  const box = await send.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(569);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Without a skill", exact: true }).click();
+  await page.locator(".skill-selector summary").click();
+  await send.click();
+  await expect.poll(() => state.starts.length).toBe(1);
+  expect(state.starts[0].attachmentIds).toEqual(["ocr-fixture"]);
+  expect(state.starts[0].skillSelection).toEqual(choice);
+  expect(state.starts[0].workflowMode).toBe("AD_HOC");
+});

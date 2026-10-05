@@ -285,7 +285,7 @@ footer > span { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
 .project-dialog input, .project-dialog textarea, .project-dialog select, .run-controls input, .run-controls select, .interruption-form textarea { width: 100%; padding: 14px 15px; color: var(--ink); border: 1px solid var(--line); border-radius: 0; outline: none; background: var(--surface-solid); }
 .project-dialog input:focus, .project-dialog textarea:focus, .project-dialog select:focus, .run-controls input:focus, .run-controls select:focus, .interruption-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
 .project-dialog label > small { color: var(--muted); font-size: .66rem; line-height: 1.5; }
-.form-error { margin: 0; padding: 12px; color: var(--danger); border-left: 2px solid var(--danger); background: color-mix(in srgb, var(--danger) 7%, transparent); font-size: .8rem; }
+.form-error { margin: 0; padding: 12px; color: var(--danger); border: 0; background: color-mix(in srgb, var(--danger) 7%, transparent); font-size: .8rem; }
 
 .workspace-loading { min-height: 100svh; display: grid; place-content: center; justify-items: center; gap: 15px; color: var(--muted); }
 .spin { animation: spin 1s linear infinite; }
