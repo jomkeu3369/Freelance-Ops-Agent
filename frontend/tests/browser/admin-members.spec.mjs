@@ -221,7 +221,10 @@ test("monetary audits preserve USD values and revision labels while legacy credi
   await expect(model).toContainText(`${previousModel} → ${nextModel}`);
   await expect(model.getByRole("cell").last()).toContainText("설정 버전");
   await expect(model.getByRole("cell").last()).toContainText("8 → 9");
-  const legacyReset = page.getByRole("row").filter({ hasText: "weekly_credits" });
+  // String hasText is case-insensitive: "weekly_credits" also matches both rows
+  // through their WEEKLY_CREDITS source. Select the actual reset action instead.
+  const legacyReset = page.getByRole("row").filter({ has: page.getByRole("cell", { name: "전체 초기화", exact: true }) });
+  await expect(legacyReset).toHaveCount(1);
   await expect(legacyReset.getByRole("cell", { name: "전체 초기화", exact: true })).toBeVisible();
   await expect(legacyReset.getByRole("cell").last()).toContainText("초기화 세대");
   await expect(legacyReset.getByRole("cell").last()).toContainText("2 → 3");
