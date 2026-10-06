@@ -92,10 +92,27 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     clear: () => { update([]); drafts.delete(key); }, cancel: () => abort.current?.abort() };
 }
 
+function LocalTextPreview({ file, onClose }: { file: File; onClose: () => void }) {
+  const t = useT();
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void file.text().then(value => { if (active) setText(value); }).catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [file]);
+  return <div>
+    <button type="button" onClick={onClose}>{t("미리보기 닫기")}</button>
+    {failed && <p role="alert">{t("파일을 읽지 못했습니다.")}</p>}
+    {text !== null && <pre>{text.length > 40000 ? `${text.slice(0, 40000)}\n${t("[미리보기만 40,000자로 제한됨. 원본은 유지됩니다.]")}` : text}</pre>}
+  </div>;
+}
+
 export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof useChatAttachments>; disabled: boolean }) {
   const t = useT();
   const picker = useRef<HTMLInputElement>(null);
-  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const previewItem = state.items.find(item => item.key === previewKey);
   return <div className="chat-attachments">
     <input ref={picker} type="file" multiple accept=".txt,.csv,.pdf,.jpg,.jpeg,.png,.gif" aria-label={t("첨부파일 선택")} hidden
       onChange={event => { state.add(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
@@ -109,7 +126,7 @@ export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof 
         <button type="button" disabled={disabled || state.reading} onClick={() => state.remove(item)} aria-label={t("{v0} 제거", { v0: item.file.name })}>{t("제거")}</button>
         {/\.(txt|csv)$/i.test(item.file.name) && <>
           <label>{t("인코딩")}<select disabled={disabled || state.reading} value={item.encoding} onChange={event => state.options(item, event.target.value, item.delimiter)}>{["auto", "utf-8", "utf-16", "cp949"].map(value => <option key={value} value={value}>{value === "auto" ? t("자동") : value}</option>)}</select></label>
-          <button type="button" onClick={() => void item.file.text().then(value => setPreviewText(value.length > 40000 ? `${value.slice(0,40000)}\n${t("[미리보기만 40,000자로 제한됨. 원본은 유지됩니다.]")}` : value))}>{t("로컬 TXT 확인")}</button>
+          <button type="button" onClick={() => setPreviewKey(item.key)}>{t("로컬 TXT 확인")}</button>
         </>}
         {/\.csv$/i.test(item.file.name) && <label>{t("구분자")}<select disabled={disabled || state.reading} value={item.delimiter} onChange={event => state.options(item, item.encoding, event.target.value)}>{[["auto", "자동"], [",", "쉼표"], [";", "세미콜론"], ["\t", "탭"], ["|", "파이프"]].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>}
         {item.preview && <details><summary>{t("읽기 결과 확인")}</summary><p>{item.preview.extraction.notice || t(item.preview.extraction.status === "COMPLETE" ? "텍스트를 잘라내지 않고 추출했습니다." : "일부 읽음 · 문자 인식 결과 확인 필요")}</p><p>{item.preview.extraction.encoding} · {t("{v0} 페이지/행/프레임 · {v1}자", { v0: item.preview.extraction.units, v1: Array.from(item.preview.extraction.text).length.toLocaleString() })}</p><pre>{item.preview.extraction.text || t("추출한 텍스트 없음")}</pre></details>}
@@ -119,6 +136,6 @@ export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof 
     </>}
     {state.reading && <button type="button" onClick={state.cancel}>{t("파일 읽기 취소")}</button>}
     {state.error && <p role="alert">{t(state.error)}</p>}
-    {previewText !== null && <div><button type="button" onClick={() => setPreviewText(null)}>{t("미리보기 닫기")}</button><pre>{previewText}</pre></div>}
+    {previewItem && <LocalTextPreview key={previewItem.key} file={previewItem.file} onClose={() => setPreviewKey(null)} />}
   </div>;
 }
