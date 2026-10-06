@@ -8,6 +8,7 @@ on:
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
+      - "codex/offline-flow-regressions-20261006"
       - "codex/partial-chat-history-20261006"
       - "main"
       - "codex/cloud-feature-integration-20261005"
@@ -50,7 +51,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch and same-repository PR verification. No deployment or provider calls.
-    if: github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.ref == 'refs/heads/codex/offline-flow-regressions-20261006' || github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:

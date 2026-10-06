@@ -128,6 +128,54 @@ class PlatformUsagePostgresTest {
             .isInstanceOf(IllegalArgumentException.class);
         assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0008");
     }
+    @Test void lateKnownUsageSettlesClosedUnknownAttemptExactlyOnce() {
+        var run=reserve(null); var id=UUID.randomUUID(); var at=Instant.now();
+        sync(run,List.of(call(id,false,"PLATFORM")),true,AgentRunStatus.FAILED,at);
+        assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".01");
+        sync(run,List.of(call(id,true,"PLATFORM")),true,AgentRunStatus.FAILED,at.plusSeconds(1));
+        sync(run,List.of(call(id,true,"PLATFORM")),true,AgentRunStatus.FAILED,at.plusSeconds(1));
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0008");
+        assertThat(usage.snapshot(user).reservedUsd()).isZero();
+        assertThat(usage.snapshot(user).remainingUsd()).isEqualByComparingTo("1.2492");
+        assertThat(usage.history(user,null,20).items().getFirst().usageKnown()).isTrue();
+        assertThat(jdbc.queryForList("SELECT held_usd FROM app.platform_spend_bucket",BigDecimal.class))
+            .hasSize(3).allSatisfy(value -> assertThat(value).isEqualByComparingTo(".0008"));
+    }
+
+    @Test void conflictingAttemptRollsBackEarlierAttemptWritesAndAllowsCleanRetry() {
+        var first=reserve(null); var second=reserve(null); var shared=UUID.randomUUID(); var fresh=UUID.randomUUID();
+        var at=Instant.now();
+        sync(first,List.of(call(shared,true,"PLATFORM")),true,AgentRunStatus.COMPLETED,at);
+        assertThatThrownBy(() -> sync(second,List.of(call(fresh,true,"PLATFORM"),call(shared,true,"PLATFORM")),
+            true,AgentRunStatus.COMPLETED,at.plusSeconds(1)))
+            .isInstanceOf(IllegalArgumentException.class).hasMessage("Attempt belongs to another run");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",Integer.class,second.id())).isZero();
+        assertThat(jdbc.queryForObject("SELECT execution_closed FROM app.platform_spend_settlement WHERE run_id=?",Boolean.class,second.id())).isFalse();
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0008");
+        assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".10");
+        sync(second,List.of(call(fresh,true,"PLATFORM")),true,AgentRunStatus.COMPLETED,at.plusSeconds(2));
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0016");
+        assertThat(usage.snapshot(user).reservedUsd()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt",Integer.class)).isEqualTo(2);
+    }
+
+    @Test void inconsistentBucketRollsBackSettlementAndPreviouslyAdjustedBuckets() {
+        var run=reserve(null); var id=UUID.randomUUID(); var at=Instant.now();
+        var accountPeriod=jdbc.queryForObject("SELECT period FROM app.platform_spend_bucket WHERE scope='ACCOUNT_WEEK' AND subject_id=?",java.sql.Date.class,user);
+        jdbc.update("DELETE FROM app.platform_spend_bucket WHERE scope='ACCOUNT_WEEK' AND subject_id=?",user);
+        assertThatThrownBy(() -> sync(run,List.of(call(id,true,"PLATFORM")),true,AgentRunStatus.COMPLETED,at))
+            .isInstanceOf(IllegalStateException.class).hasMessage("Monetary bucket is inconsistent");
+        assertThat(jdbc.queryForList("SELECT held_usd FROM app.platform_spend_bucket",BigDecimal.class))
+            .hasSize(2).allSatisfy(value -> assertThat(value).isEqualByComparingTo(".10"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",Integer.class,run.id())).isZero();
+        assertThat(jdbc.queryForObject("SELECT execution_closed FROM app.platform_spend_settlement WHERE run_id=?",Boolean.class,run.id())).isFalse();
+        assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".10");
+        jdbc.update("INSERT INTO app.platform_spend_bucket(scope,subject_id,period,held_usd) VALUES ('ACCOUNT_WEEK',?,?,.10)",user,accountPeriod);
+        sync(run,List.of(call(id,true,"PLATFORM")),true,AgentRunStatus.COMPLETED,at);
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0008");
+        assertThat(usage.snapshot(user).reservedUsd()).isZero();
+    }
+
     @Test void catalogueDoesNotClaimProviderAccessOrEnableDisabledSpending() {
         assertThat(usage.snapshot(user).models()).hasSize(7);
         var disabled=new PlatformUsageService(jdbc,new tools.jackson.databind.ObjectMapper(),false);
