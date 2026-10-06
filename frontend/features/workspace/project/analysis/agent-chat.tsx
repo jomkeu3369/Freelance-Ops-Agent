@@ -27,6 +27,8 @@ import { eventActivityLabels, runFailureMessage } from "../../shared/activity-pr
 import { StreamState } from "../../shared/types";
 
 import type { SkillSelection } from "../../skills/skill-selection";
+import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
+import { matchesChatRetry } from "./chat-retry";
 import { SkillNames, useSkillSelection } from "../../skills/skill-selector";
 import { ChatAttachmentButton, ChatAttachments, useChatAttachments } from "./chat-attachments";
 
@@ -45,8 +47,8 @@ interface AgentChatProps {
   clarification: ReactNode;
   headerTools?: ReactNode;
   composerTools?: ReactNode;
-  composerInfo?: ReactNode | ((draft: string) => ReactNode);
-  retryMessages: string[];
+  composerInfo?: ReactNode | ((draft: string, retry: PendingRunRetry | undefined, policy: boolean) => ReactNode);
+  retryCandidates: PendingRunRetry[];
   canSendAI: boolean;
   onOpenAISettings: (draft: string) => void;
   onOpenResult: (view: AgentRunView) => void;
@@ -79,7 +81,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryMessages, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
+export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryCandidates, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
   const t = useT();
   const locale = useUiLocale();
   const attachments = useChatAttachments(session, projectId);
@@ -108,10 +110,12 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const [cancelling, setCancelling] = useState(false);
   const composing = useRef(false);
   const policyDraft = useMemo(() => attachments.items.length ? null : parseChatPolicyIntent(draft), [draft, attachments.items.length]);
-  const retryingDraft = retryMessages.includes(draft);
-  const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const key = draftKey(session, projectId);
   const [skillSelection] = useSkillSelection(`${key}:skills`);
+  const message = draft.trim() ? draft : attachments.items.length ? t("첨부 자료의 읽기 범위와 내용을 확인해 주세요.") : draft;
+  const retry = attachments.ready ? retryCandidates.find(item => matchesChatRetry(item, message, attachments.ids, skillSelection)) : undefined;
+  const retryingDraft = !!retry;
+  const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const pendingKey = proposalKey(session, projectId);
 
   useEffect(() => {
@@ -217,7 +221,6 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = draft.trim() ? draft : attachments.items.length ? t("첨부 자료의 읽기 범위와 내용을 확인해 주세요.") : draft;
     if (!online || !message.trim() || sendLock.current || busy || active || composing.current) return;
     sendLock.current = true;
     setSending(true);
@@ -374,7 +377,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
             <ChatSettingsButton onClick={() => onOpenAISettings(draft)} />
             {composerTools}
           </fieldset>}
-          {typeof composerInfo === "function" ? composerInfo(draft) : composerInfo}
+          {typeof composerInfo === "function" ? composerInfo(draft, retry, !!policyDraft) : composerInfo}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
           <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")} disabled={!online || (!draft.trim() && !attachments.items.length) || attachments.tooLarge || (attachments.items.length > 0 && attachments.ready && !attachments.confirmed) || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")}</span></button>
         </div>

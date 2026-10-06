@@ -355,3 +355,87 @@ test("local preview rejects safely after dismissal and a current read failure ca
   expect(state.uploads).toHaveLength(0);
   expect(state.starts).toHaveLength(0);
 });
+
+test("removing a failed request's attachment clears its retry notice and preserves the draft", async ({ page }) => {
+  const state = await setup(page);
+  await page.locator("#agent-chat-input").fill("Keep attachment retry exact");
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("original.txt", "Original attachment"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  const retryNotice = page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" });
+  await expect(retryNotice).toBeVisible();
+  state.aiUsage.spendingEnabled = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.getByRole("button", { name: "original.txt 제거", exact: true }).click();
+  await expect(retryNotice).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+  await expect(page.locator("#agent-chat-input")).toHaveValue("Keep attachment retry exact");
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("new.txt", "New unsent attachment"));
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  expect(state.uploads).toHaveLength(1);
+  expect(state.blocked).toEqual([]);
+});
+
+test("an exact attachment-only retry stays enabled when platform spending becomes paused", async ({ page }) => {
+  const state = await setup(page);
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("only.txt", "Attachment-only request"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  const retryNotice = page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" });
+  await expect(retryNotice).toBeVisible();
+  state.aiUsage.spendingEnabled = false;
+  const refreshed = page.waitForResponse(response => response.url().endsWith("/me/ai-usage"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await (await refreshed).finished();
+  const send = page.getByRole("button", { name: "보내기", exact: true });
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect.poll(() => state.starts.length).toBe(2);
+  expect(state.starts[1]).toEqual(state.starts[0]);
+  expect(state.starts[0].requirementText).toBe("첨부 자료의 읽기 범위와 내용을 확인해 주세요.");
+  expect(state.uploads).toHaveLength(1);
+  expect(state.blocked).toEqual([]);
+});
+
+for (const personalKey of [false, true]) test(`policy-like text with an attachment shows ${personalKey ? "BYOK pricing" : "paused platform state"} instead of a free settings promise`, async ({ page }) => {
+  const state = await setup(page, state => {
+    state.aiUsage.spendingEnabled = false;
+    state.connections = [{ id: "personal-example", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-only", updatedAt: "2026-10-01T00:00:00Z" }];
+  });
+  const input = page.locator("#agent-chat-input");
+  await input.fill("기본 세율 10%로 변경");
+  const freeNotice = page.getByRole("status").filter({ hasText: "주간 한도 차감 없음" });
+  await expect(freeNotice).toBeVisible();
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("context.txt", "Synthetic supporting text"));
+  await expect(freeNotice).toHaveCount(0);
+  if (personalKey) {
+    await page.locator(".chat-model-trigger").click();
+    await page.getByRole("dialog", { name: "AI 모델 선택", exact: true }).getByLabel("AI 연결", { exact: true }).selectOption("personal-example");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".agent-chat-composer .byok-cost-notice")).toContainText("$0.04275");
+    await page.screenshot({ path: "outputs/ui-ux/attachment-policy-byok-cost.png", fullPage: true });
+    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "보내기", exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(1);
+    expect(state.starts[0].requirementText).toBe("기본 세율 10%로 변경");
+    expect(state.starts[0].attachmentIds).toEqual(["attachment-one"]);
+    expect(state.starts[0].modelSelection.credentialId).toBe("personal-example");
+  } else {
+    await expect(page.getByRole("status").filter({ hasText: "기본 제공 AI 실행이 현재 중지" }).first()).toBeVisible();
+    await page.screenshot({ path: "outputs/ui-ux/attachment-policy-platform-paused.png", fullPage: true });
+    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+    await input.press("Control+Enter");
+    expect(state.starts).toHaveLength(0);
+    expect(state.uploads).toHaveLength(0);
+  }
+  expect(state.proposal).toBeNull();
+  expect(state.blocked).toEqual([]);
+});
