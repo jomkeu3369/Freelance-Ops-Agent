@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "codex/chat-composer-settings-20261006"
       - "codex/offline-flow-regressions-20261006"
       - "codex/partial-chat-history-20261006"
       - "codex/byok-release-integration-20261005"

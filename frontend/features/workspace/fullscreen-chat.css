@@ -257,3 +257,68 @@
   .figma-workspace .workspace-live-status { grid-column: 2; grid-row: 1; }
   .figma-workspace .workspace-account-actions { grid-column: 3; grid-row: 1; }
 }
+
+/* The composer is one quiet surface: draft first, clip/settings left, model/send right. */
+.figma-workspace .is-chat .agent-chat-composer { padding: 10px 12px 8px; gap: 4px; border-radius: 24px; }
+.figma-workspace .is-chat .agent-chat-composer textarea { min-height: 48px; padding: 7px 10px; }
+.figma-workspace .is-chat .agent-chat-tools { gap: 2px; }
+.figma-workspace .is-chat .agent-chat-tools .chat-model-menu { margin-left: auto; }
+.figma-workspace .is-chat .chat-model-popover { left: auto; right: 0; }
+.chat-attachment-control { position: relative; display: inline-flex; flex: 0 0 auto; }
+.figma-workspace .is-chat .chat-attachment-trigger { display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 10px; color: var(--muted); background: transparent; }
+.figma-workspace .is-chat .chat-attachment-trigger:hover:not(:disabled) { color: var(--accent); background: var(--surface-2); }
+.figma-workspace .chat-work-details-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 10px; font-size: .75rem; font-weight: 550; background: transparent; color: var(--muted); }
+.figma-workspace .chat-work-details-trigger:hover { color: var(--ink); background: var(--surface-2); }
+.chat-work-details-trigger svg { flex: 0 0 auto; }
+
+/* Settings get one readable column rather than three squeezed form columns. */
+.figma-workspace .workspace-panel.agent-chat-settings { width: min(620px, 100%); }
+.chat-settings-content { display: grid; gap: 22px; min-width: 0; }
+.chat-settings-intro { margin: 0; color: var(--muted); font-size: .8125rem; line-height: 1.6; }
+.chat-settings-section { min-width: 0; }
+.chat-settings-section h3 { margin: 0 0 14px; font-size: .875rem; font-weight: 650; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .run-controls { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.figma-workspace .agent-chat-settings .run-controls { grid-template-columns: minmax(0, 160px) minmax(0, 1fr); align-items: start; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .run-controls > :not(label),
+.figma-workspace .agent-chat-settings .chat-connection-field { grid-column: 1 / -1; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .run-controls label { gap: 7px; min-width: 0; font-size: .75rem; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .run-controls select { min-width: 0; min-height: 46px; padding: 10px 12px; border-radius: 10px; font-size: .8125rem; text-overflow: ellipsis; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .model-selection-note { grid-column: 1 / -1; margin: 0; font-size: .75rem; line-height: 1.6; overflow-wrap: anywhere; }
+.chat-model-disclosures { display: grid; gap: 8px; padding: 14px; border-radius: 12px; background: var(--bg); }
+.chat-model-disclosures p { margin: 0; }
+.chat-model-availability { padding-left: 10px; border-left: 3px solid var(--accent); color: var(--ink); font-weight: 600; }
+.figma-workspace :is(.agent-chat-settings, .chat-model-popover) .chat-model-billing { padding-top: 2px; }
+.chat-settings-skills { padding-top: 20px; border-top: 1px solid var(--line); }
+.chat-settings-skills .skill-selector { font-size: .8125rem; }
+.chat-settings-skills .skill-selector summary { width: 100%; padding: 10px 12px; color: var(--ink); font-size: .875rem; font-weight: 600; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.chat-settings-skills .skill-panel { padding: 14px 0 0; margin: 0; border: 0; border-radius: 0; max-height: none; overflow: visible; background: transparent; }
+.chat-settings-skills .skill-panel label { margin-block: 12px; }
+.chat-settings-skills .skill-panel :is(input, select) { min-height: 44px; padding: 10px 12px; }
+.chat-settings-skills .skill-panel button { min-height: 40px; padding: 9px 10px; }
+.chat-settings-skills .skill-results { max-height: 300px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; margin-block: 12px; gap: 8px; }
+.chat-settings-skills .skill-active { margin-top: 10px; gap: 6px; }
+.chat-settings-skills .skill-active > span { display: inline-flex; align-items: center; padding: 2px 8px 2px 10px; color: var(--ink); background: var(--bg); }
+.chat-settings-skills .skill-active button { min-width: 32px; min-height: 32px; }
+.figma-workspace .chat-prepare-analysis { justify-self: start; min-height: 44px; }
+@media (max-width: 520px) {
+  .figma-workspace .agent-chat-settings .run-controls { grid-template-columns: minmax(0, 1fr); }
+  .figma-workspace .is-chat .agent-chat-composer { padding: 8px 8px 6px; border-radius: 20px; }
+  .figma-workspace .is-chat .agent-chat-actions { gap: 2px; }
+  .figma-workspace .is-chat .agent-chat-tools { gap: 0; }
+  .figma-workspace .is-chat .chat-model-trigger { padding-inline: 4px; gap: 4px; }
+  .figma-workspace .is-chat .chat-model-trigger > svg:first-child { display: none; }
+  .figma-workspace .chat-work-details-trigger { padding-inline: 8px; }
+  .chat-settings-content { gap: 18px; }
+}
+@media (max-width: 820px) {
+  .figma-workspace .is-chat .chat-model-popover { position: fixed; left: auto; right: 12px; bottom: 84px; width: min(340px, calc(100vw - 24px)); max-height: min(420px, calc(100dvh - 120px)); }
+  .figma-workspace :is(.agent-chat-settings, .chat-model-popover) .run-controls select,
+  .chat-settings-skills .skill-panel :is(input, select) { font-size: 1rem; }
+}
+@media (max-height: 560px) {
+  .figma-workspace .is-chat .agent-chat-composer { padding-block: 6px; gap: 3px; }
+  .figma-workspace .is-chat .agent-chat-composer textarea { min-height: 40px; max-height: 64px; }
+}
+@media (max-height: 460px) {
+  .figma-workspace .is-chat .chat-model-popover { position: fixed; top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 16px); }
+}

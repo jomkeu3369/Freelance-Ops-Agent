@@ -9,6 +9,7 @@ test("Auto exclusions, max-three and manual-empty persist, with an exact AD_HOC 
   await page.goto(path);
   const selector = page.locator(".skill-selector");
   await page.locator("#agent-chat-input").fill("Prepare a proposal");
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
   await expect(selector.locator(".skill-active")).toContainText("제안서");
   await selector.locator(".skill-active button").click();
   await expect(selector.locator(".skill-active button")).toHaveCount(0);
@@ -21,9 +22,12 @@ test("Auto exclusions, max-three and manual-empty persist, with an exact AD_HOC 
   await expect(selector.locator(".skill-active button")).toHaveCount(3);
   await selector.getByRole("button", { name: "스킬 없이", exact: true }).click();
   await selector.locator("summary").click();
+  await page.keyboard.press("Escape");
   await page.reload();
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
   await expect(selector).toContainText("스킬 없이 일반 도움으로 진행");
   await expect(page.locator("#agent-chat-input")).toHaveValue("Prepare a proposal");
+  await page.keyboard.press("Escape");
   state.startFailures = 1;
   await page.locator('.agent-chat-composer button[type="submit"]').click();
   await expect(page.getByRole("alert").filter({ hasText: "입력은 보존" })).toBeVisible();
@@ -44,6 +48,7 @@ test("history uses saved skill names while the next draft has no skills", async 
   const history = page.getByRole("log");
   await expect(history.locator(".skill-names").first()).toContainText("Proposal");
   await expect(history.locator(".skill-names").last()).toContainText("Next stage needed:");
+  await page.getByRole("button", { name: "Open AI settings", exact: true }).click();
   await page.locator(".skill-selector summary").click();
   await page.getByRole("button", { name: "Without a skill", exact: true }).click();
   await expect(page.locator(".skill-selector")).toContainText("General assistance, no skill selected");
@@ -64,12 +69,15 @@ test("English partial OCR review and narrow expanded skills keep source text and
   await expect(page.locator(".chat-attachments")).toContainText("Partially read");
   expect(state.starts).toHaveLength(0);
   await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Open AI settings", exact: true }).click();
   await page.locator(".skill-selector summary").click();
-  const box = await send.boundingBox();
+  const dialog = page.getByRole("dialog", { name: "AI settings", exact: true });
+  const box = await dialog.boundingBox();
   expect(box.y + box.height).toBeLessThanOrEqual(569);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: "Without a skill", exact: true }).click();
-  await page.locator(".skill-selector summary").click();
+  await page.keyboard.press("Escape");
+  await expect(send).toBeInViewport();
   await send.click();
   await expect.poll(() => state.starts.length).toBe(1);
   expect(state.starts[0].attachmentIds).toEqual(["ocr-fixture"]);

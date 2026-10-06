@@ -15,7 +15,7 @@ after(async () => { delete globalThis.__featureControlLocale; await rm(directory
 async function compile(path, name, replace = source => source) {
   const source = replace(await readFile(new URL(path, import.meta.url), "utf8"));
   let { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.ReactJSX } });
-  for (const moduleName of ["react", "react/jsx-runtime"]) outputText = outputText.replaceAll(`from "${moduleName}"`, `from ${JSON.stringify(import.meta.resolve(moduleName))}`);
+  for (const moduleName of ["react", "react/jsx-runtime", "@phosphor-icons/react"]) outputText = outputText.replaceAll(`from "${moduleName}"`, `from ${JSON.stringify(import.meta.resolve(moduleName))}`);
   await writeFile(join(directory, `${name}.mjs`), outputText);
   return import(pathToFileURL(join(directory, `${name}.mjs`)));
 }
@@ -27,7 +27,7 @@ const categories = JSON.parse(await readFile(new URL(`${skillPath}categories.jso
 await compile(`${skillPath}skill-selection.ts`, "selection", source => source.replace('import catalog from "./catalog.json";', `const catalog = ${JSON.stringify(catalog)};`).replace('import rules from "./routing.json";', `const rules = ${JSON.stringify(rules)};`));
 const { SkillSelector, SkillNames } = await compile(`${skillPath}skill-selector.tsx`, "selector", source => source.replace('"../../../app/lib/ui-language"', '"./locale.mjs"').replace('"./skill-selection"', '"./selection.mjs"').replace('import "./skills.css";', "").replace('import categories from "./categories.json";', `const categories = ${JSON.stringify(categories)};`));
 await compile("../features/workspace/project/analysis/attachment-draft.ts", "attachment-draft");
-const { ChatAttachments } = await compile("../features/workspace/project/analysis/chat-attachments.tsx", "attachments", source => source.replace('"../../../../app/lib/ui-language"', '"./locale.mjs"').replace(/import \{[^\n]+\} from "\.\.\/\.\.\/\.\.\/\.\.\/app\/lib\/api";/, 'const readChatAttachment = () => { throw new Error("No network in rendering tests"); }; const removeChatAttachment = readChatAttachment;').replace('"./attachment-draft"', '"./attachment-draft.mjs"').replace('import "./chat-attachments.css";', ""));
+const { ChatAttachmentButton, ChatAttachments } = await compile("../features/workspace/project/analysis/chat-attachments.tsx", "attachments", source => source.replace('"../../../../app/lib/ui-language"', '"./locale.mjs"').replace(/import \{[^\n]+\} from "\.\.\/\.\.\/\.\.\/\.\.\/app\/lib\/api";/, 'const readChatAttachment = () => { throw new Error("No network in rendering tests"); }; const removeChatAttachment = readChatAttachment;').replace('"./attachment-draft"', '"./attachment-draft.mjs"').replace('import "./chat-attachments.css";', ""));
 const selection = (patch = {}) => ({ mode: "AUTO", manualIds: [], excludedIds: [], catalogVersion: "1.0.0", ...patch });
 const render = (component, props, locale = "en") => { globalThis.__featureControlLocale = locale; return renderToStaticMarkup(createElement(component, props)); };
 const noop = () => {};
@@ -63,7 +63,9 @@ test("history names render snapshot IDs independently of an empty new composer c
 test("partial OCR controls localize UI while preserving source text and requiring review", () => {
   const state = { items: [{ key: "file", file: { name: "사용자-원문.png", size: 100 }, encoding: "auto", delimiter: "auto", preview: { id: "attachment-one", extraction: { status: "PARTIAL", text: "로그인 사용자 원문", units: 1, encoding: null, notice: "" } } }], reading: false, error: "", confirmed: false, ready: true, tooLarge: false, add: noop, remove: noop, options: noop, setConfirmed: noop, cancel: noop };
   const markup = render(ChatAttachments, { state, disabled: false });
-  assert.match(markup, /Choose attachments/); assert.match(markup, /Partially read/); assert.match(markup, /image and motion interpretation is unsupported/);
+  const picker = render(ChatAttachmentButton, { state, disabled: false });
+  assert.match(picker, /Choose attachments/); assert.match(picker, /aria-label="Attach files"/);
+  assert.match(markup, /Partially read/); assert.doesNotMatch(markup, /image and motion interpretation is unsupported/);
   assert.match(markup, /I reviewed the coverage, omissions and unsupported content/); assert.match(markup, /사용자-원문.png/); assert.match(markup, /로그인 사용자 원문/);
   assert.doesNotMatch(markup, /Text was extracted without truncation|checked=""/);
   assert.match(render(ChatAttachments, { state: { ...state, error: "파일은 1바이트 이상, 2 MiB 이하여야 합니다." }, disabled: false }), /Each file must be at least 1 byte/);

@@ -54,7 +54,7 @@ test("credit ring uses server capacity and supports hover, focus, Escape and out
   await details.hover(); await expect(details).toBeVisible();
   await page.keyboard.press("Escape"); await expect(details).toHaveCount(0);
   await page.mouse.move(0, 0);
-  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).focus(); await page.keyboard.press("Tab");
+  await page.locator(".chat-model-trigger").focus(); await page.keyboard.press("Tab");
   await expect(credit).toBeFocused(); await expect(details).toBeVisible();
   expect(await outline(credit)).toBe("2px");
   await page.screenshot({ path: "outputs/ui-ux/controls-credit-focus.png" });

@@ -27,8 +27,8 @@ import { eventActivityLabels, runFailureMessage } from "../../shared/activity-pr
 import { StreamState } from "../../shared/types";
 
 import type { SkillSelection } from "../../skills/skill-selection";
-import { SkillSelector, SkillNames, useSkillSelection } from "../../skills/skill-selector";
-import { ChatAttachments, useChatAttachments } from "./chat-attachments";
+import { SkillNames, useSkillSelection } from "../../skills/skill-selector";
+import { ChatAttachmentButton, ChatAttachments, useChatAttachments } from "./chat-attachments";
 
 interface AgentChatProps {
   session: AuthSession;
@@ -48,7 +48,7 @@ interface AgentChatProps {
   composerInfo?: ReactNode | ((draft: string) => ReactNode);
   retryMessages: string[];
   canSendAI: boolean;
-  onOpenAISettings: () => void;
+  onOpenAISettings: (draft: string) => void;
   onOpenResult: (view: AgentRunView) => void;
   onSend: (message: string, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
   onCancel: () => Promise<void>;
@@ -111,7 +111,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const retryingDraft = retryMessages.includes(draft);
   const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const key = draftKey(session, projectId);
-  const [skillSelection, setSkillSelection] = useSkillSelection(`${key}:skills`);
+  const [skillSelection] = useSkillSelection(`${key}:skills`);
   const pendingKey = proposalKey(session, projectId);
 
   useEffect(() => {
@@ -361,8 +361,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       {policyError && <p role="alert" className="form-error">{policyError}</p>}
       <form className="agent-chat-composer" onSubmit={(event) => void submit(event)}>
         <label htmlFor="agent-chat-input">{t("요청 입력")}</label>
-        {canRun && <div className="agent-chat-extras">
-          <SkillSelector draft={draft} value={skillSelection} onChange={setSkillSelection} disabled={sending} />
+        {canRun && (attachments.items.length > 0 || attachments.error) && <div className="agent-chat-extras">
           <ChatAttachments state={attachments} disabled={sending && !attachments.reading} />
         </div>}
         <textarea onPaste={event => attachments.paste(event, composing.current, sending || !canRun)} ref={input} id="agent-chat-input" aria-describedby={active ? "agent-chat-input-help" : undefined} aria-keyshortcuts="Control+Enter Meta+Enter" value={draft} onChange={(event) => updateDraft(event.target.value)} maxLength={50000} rows={2} placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")} disabled={!canRun && !canEditPolicy} readOnly={sending} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={(event) => {
@@ -371,8 +370,9 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         {active && <p id="agent-chat-input-help" className="agent-chat-muted">{t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.")}</p>}
         <div className="agent-chat-actions">
           {canRun && <fieldset className="agent-chat-tools" disabled={sending} aria-label={t("AI 설정")}>
+            <ChatAttachmentButton state={attachments} disabled={sending} />
+            <ChatSettingsButton onClick={() => onOpenAISettings(draft)} />
             {composerTools}
-            <ChatSettingsButton onClick={onOpenAISettings} />
           </fieldset>}
           {typeof composerInfo === "function" ? composerInfo(draft) : composerInfo}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}

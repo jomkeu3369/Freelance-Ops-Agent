@@ -69,13 +69,15 @@ test("shrinking viewport keeps a long draft, offline notice and send controls in
   }
   // Expanding either new feature must not steal space from the primary controls.
   await page.setViewportSize({ width: 390, height: 420 });
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
   await page.locator(".skill-selector summary").click();
+  await expect(page.getByRole("dialog", { name: "AI 설정", exact: true })).toBeInViewport();
+  await page.keyboard.press("Escape");
   await page.getByLabel("첨부파일 선택").setInputFiles({ name: "short-height-fixture.txt", mimeType: "text/plain", buffer: Buffer.from("Unsent synthetic attachment") });
   await expect(page.locator(".chat-attachments")).toContainText("short-height-fixture.txt");
   await expectViewportLayout(page);
   await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
   await page.screenshot({ path: "outputs/ui-ux/fullscreen-short-height-expanded.png", animations: "disabled" });
-  await page.locator(".skill-selector summary").click();
   await context.setOffline(false);
   expect(state.starts).toEqual([]);
   expect(state.writes).toEqual([]);

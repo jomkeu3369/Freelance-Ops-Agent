@@ -1,4 +1,5 @@
 import type { SkillSelection } from "../../skills/skill-selection";
+import { ListChecks, CaretRight } from "@phosphor-icons/react";
 import { ReactNode, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
@@ -30,7 +31,7 @@ interface AnalysisStepProps {
   retryMessages: string[];
   canSendAI: boolean;
   streamState: StreamState;
-  onOpenAISettings: () => void;
+  onOpenAISettings: (draft: string) => void;
   onSendMessage: (message: string, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
   costUsage: AgentRunUsage | null;
   onCancel: () => Promise<void>;
@@ -53,7 +54,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
       canSendAI={canSendAI} retryMessages={retryMessages} composerInfo={composerInfo} composerTools={composerTools}
       headerTools={<>
-        {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}>{t("작업 자세히 보기")}</button>}
+        {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}><ListChecks size={18} aria-hidden="true" /><span>{t("작업 자세히 보기")}</span><CaretRight size={13} aria-hidden="true" /></button>}
       </>}
       streamState={streamState} onOpenAISettings={onOpenAISettings} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
       clarification={run?.interruption ? <InterruptionForm key={run.interruption.interruptionId}

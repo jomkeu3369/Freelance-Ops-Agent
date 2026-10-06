@@ -68,3 +68,15 @@ test("new composer eligibility and header never depend on historical credit bala
   assert.match(workbench, /retry\?\.creditQuote/);
   assert.match(workbench, /includedUsageBlocker/);
 });
+
+test("model options share Send's fail-closed catalog guard without claiming provider access", () => {
+  assert.equal(api.isUsageModelSelectable(usage.models[0]), true);
+  for (const patch of [{ available: false }, { enabled: false }, { catalogued: false }, { maxRunUsd: null }, { maxRunUsd: 0 }, { reasoningEfforts: ["HIGH"] }]) {
+    assert.equal(api.isUsageModelSelectable({ ...usage.models[0], ...patch }), false);
+  }
+  assert.equal(api.modelUnavailableMessage("SPENDING_DISABLED"), "기본 제공 AI 실행이 현재 중지되어 있습니다.");
+  assert.equal(api.modelUnavailableMessage("NEW_UNKNOWN_REASON"), "모델 지원 상태와 예약 상한을 확인해야 합니다.");
+  assert.equal(api.reasoningEffortLabel("NONE"), "없음");
+  assert.equal(api.reasoningEffortLabel("low"), "낮음");
+  assert.equal(api.reasoningEffortLabel("FUTURE_VALUE"), "확인 필요");
+});

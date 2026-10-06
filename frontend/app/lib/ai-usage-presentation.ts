@@ -35,11 +35,28 @@ export function parseAiUsage(value: unknown): AiUsage | null {
   } else if (!percentage(item.remainingPercent) || !percentage(item.reservedPercent)) return null;
   return item;
 }
+/** Presentation follows the same catalog guard as Send; provider access is separate. */
+export function isUsageModelSelectable(model: AiUsageModel): boolean {
+  return model.catalogued && model.enabled && model.available && model.maxRunUsd !== null
+    && Number(model.maxRunUsd) > 0 && model.reasoningEfforts.some(effort => effort.toUpperCase() === "LOW");
+}
+export function modelUnavailableMessage(reason: string | null): string {
+  return ({
+    SPENDING_DISABLED: "기본 제공 AI 실행이 현재 중지되어 있습니다.",
+    MODEL_DISABLED: "이 모델은 현재 기본 제공 AI에서 비활성화되어 있습니다.",
+    TARIFF_REVIEW_REQUIRED: "요금 검토가 끝날 때까지 이 모델을 사용할 수 없습니다.",
+    ACCOUNT_BUDGET_EXHAUSTED: "기본 제공 AI의 주간 잔여 예산이 없습니다.",
+    GLOBAL_BUDGET_EXHAUSTED: "서비스 운영 예산이 소진되어 기본 제공 AI를 사용할 수 없습니다.",
+  } as Record<string, string>)[reason ?? ""] ?? "모델 지원 상태와 예약 상한을 확인해야 합니다.";
+}
+export function reasoningEffortLabel(effort: string): string {
+  return ({ NONE: "없음", MINIMAL: "최소", LOW: "낮음", MEDIUM: "보통", HIGH: "높음", XHIGH: "매우 높음" } as Record<string, string>)[effort.toUpperCase()] ?? "확인 필요";
+}
 export function includedUsageBlocker(usage: AiUsage | null, provider: string, model: string): "unverified" | "paused" | "model" | "insufficient" | null {
   if (!usage) return "unverified";
   if (!usage.spendingEnabled) return "paused";
   const selected = usage.models.find(item => item.provider === provider && item.model === model);
-  if (!selected?.catalogued || !selected.enabled || !selected.available || selected.maxRunUsd === null || Number(selected.maxRunUsd) <= 0 || !selected.reasoningEfforts.some(effort => effort.toUpperCase() === "LOW")) return "model";
+  if (!selected || !isUsageModelSelectable(selected)) return "model";
   return Number(usage.remainingUsd) <= 0 ? "insufficient" : null;
 }
 export function formatUsagePercent(value: Decimal | null, locale: string): string {

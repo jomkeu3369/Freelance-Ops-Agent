@@ -36,6 +36,7 @@ import {
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
+import { SkillSelector, useSkillSelection } from "../skills/skill-selector";
 import { skillSelectionSignature, type SkillSelection } from "../skills/skill-selection";
 import type { PendingRunRetry } from "../../../app/lib/pending-run-store";
 import { parseChatPolicyIntent } from "../../../app/lib/chat-policy-intent.mjs";
@@ -85,6 +86,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [editingProject, setEditingProject] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState("");
+  const [skillSelection, setSkillSelection] = useSkillSelection(`freelance-ops-chat-draft-v1:${session.userId}:${session.workspaceId}:${project.id}:skills`);
   const deleteDialog = useRef<HTMLElement>(null);
   const aiSettingsContent = useRef<HTMLDivElement>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -204,7 +207,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }
   }
 
-  function openAISettings() { setShowAISettings(true); }
+  function openAISettings(draft: string) { setSettingsDraft(draft); setShowAISettings(true); }
 
   const runInProgress = !!runId && (!run || projectDeletionBlockingStatuses.has(run.status));
   const selectionLocked = busy || runInProgress;
@@ -226,10 +229,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
   const aiSettings = activeStep === "agent" && canRun && showAISettings ? (
     <WorkspacePanel title={t("AI 설정")} className="agent-chat-settings" onClose={() => setShowAISettings(false)}>
-      <div ref={aiSettingsContent}>
-      {modelControls}
+      <div ref={aiSettingsContent} className="chat-settings-content">
+      <p className="chat-settings-intro">{t("다음 요청에 사용할 모델과 스킬을 선택하세요. 보내기를 눌러야 실행됩니다.")}</p>
+      <section className="chat-settings-section" aria-label={t("모델과 연결")}><h3>{t("모델과 연결")}</h3>{modelControls}</section>
+      {!selectionLocked && <section className="chat-settings-section chat-settings-skills" aria-label={t("스킬 설정")}><SkillSelector draft={settingsDraft} value={skillSelection} onChange={setSkillSelection} disabled={selectionLocked} /></section>}
       {!runId && <PetCustomizer key={`${session.workspaceId}:${session.userId}:${project.id}`} session={session} projectId={project.id} disabled={busy} selection={chatModel} />}
-      {runId && !selectionLocked && <button type="button" className="secondary-button" onClick={prepareNextAnalysis}><ArrowRight size={18} />{t("새 분석 준비")}</button>}
+      {runId && !selectionLocked && <button type="button" className="secondary-button chat-prepare-analysis" onClick={prepareNextAnalysis}><ArrowRight size={18} />{t("새 분석 준비")}</button>}
       </div>
     </WorkspacePanel>
   ) : null;

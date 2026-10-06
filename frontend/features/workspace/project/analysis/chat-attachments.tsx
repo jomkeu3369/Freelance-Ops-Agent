@@ -1,6 +1,7 @@
 "use client";
 
-import { ClipboardEvent, useEffect, useRef, useState } from "react";
+import { Paperclip } from "@phosphor-icons/react";
+import { ClipboardEvent, useEffect, useId, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AttachmentPreview, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
@@ -108,16 +109,28 @@ function LocalTextPreview({ file, onClose }: { file: File; onClose: () => void }
   </div>;
 }
 
-export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof useChatAttachments>; disabled: boolean }) {
+/** The picker stays in the toolbar; review and extraction remain above the draft. */
+export function ChatAttachmentButton({ state, disabled }: { state: ReturnType<typeof useChatAttachments>; disabled: boolean }) {
   const t = useT();
   const picker = useRef<HTMLInputElement>(null);
+  const id = useId();
+  const [hint, setHint] = useState(false);
+  return <span className="chat-attachment-control" onPointerEnter={event => { if (event.pointerType === "mouse") setHint(true); }} onPointerLeave={() => setHint(false)}>
+    <input ref={picker} type="file" multiple accept=".txt,.csv,.pdf,.jpg,.jpeg,.png,.gif" aria-label={t("첨부파일 선택")} hidden disabled={disabled || state.reading}
+      onChange={event => { state.add(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+    <button type="button" className="quiet-button chat-attachment-trigger" aria-label={t("파일 첨부")} aria-describedby={hint ? id : undefined} disabled={disabled || state.reading}
+      onFocus={event => { if (event.currentTarget.matches(":focus-visible")) setHint(true); }} onBlur={() => setHint(false)}
+      onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); setHint(false); } }}
+      onClick={() => { setHint(false); picker.current?.click(); }}><Paperclip size={20} aria-hidden="true" /></button>
+    {hint && <span id={id} role="tooltip" className="chat-settings-tooltip">{t("파일 첨부")}</span>}
+  </span>;
+}
+
+export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof useChatAttachments>; disabled: boolean }) {
+  const t = useT();
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const previewItem = state.items.find(item => item.key === previewKey);
   return <div className="chat-attachments">
-    <input ref={picker} type="file" multiple accept=".txt,.csv,.pdf,.jpg,.jpeg,.png,.gif" aria-label={t("첨부파일 선택")} hidden
-      onChange={event => { state.add(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
-    <button type="button" className="quiet-button" disabled={disabled || state.reading} onClick={() => picker.current?.click()}>{t("파일 첨부")}</button>
-    <small>{t("TXT·CSV·PDF · JPG·PNG·GIF·스캔은 무료 문자 인식(OCR), 그림·움직임 해석 미지원")}</small>
     {state.items.length > 0 && <>
       <p className="agent-chat-muted">{t("원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
       <ul>{state.items.map(item => <li key={item.key}>

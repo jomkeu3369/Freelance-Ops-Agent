@@ -1,4 +1,13 @@
 export const chatEnglish = {
+  "다음 요청에 사용할 모델과 스킬을 선택하세요. 보내기를 눌러야 실행됩니다.": "Choose the model and skills for your next request. Only Send starts the work.",
+  "모델과 연결": "Model and connection",
+  "스킬 설정": "Skill settings",
+  "이 모델은 현재 기본 제공 AI에서 비활성화되어 있습니다.": "This model is currently disabled for included AI.",
+  "요금 검토가 끝날 때까지 이 모델을 사용할 수 없습니다.": "This model is unavailable until its pricing review is complete.",
+  "서비스 운영 예산이 소진되어 기본 제공 AI를 사용할 수 없습니다.": "Included AI is unavailable because the service budget is exhausted.",
+  "모델 지원 상태와 예약 상한을 확인해야 합니다.": "Model support and the reservation cap need verification.",
+  "없음": "None", "최소": "Minimal", "낮음": "Low", "보통": "Medium", "높음": "High", "매우 높음": "Extra high",
+
   "AI 모델 선택": "Choose AI model",
   "AI 연결 확인 필요": "Check AI connection",
   "모델을 바꾸려면 새 분석을 준비해 주세요.": "Prepare a new analysis to change the model.",
