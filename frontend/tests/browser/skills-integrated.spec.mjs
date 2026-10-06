@@ -84,3 +84,38 @@ test("English partial OCR review and narrow expanded skills keep source text and
   expect(state.starts[0].skillSelection).toEqual(choice);
   expect(state.starts[0].workflowMode).toBe("AD_HOC");
 });
+
+test("changed skills lose retry authorization and restoring the exact choice recovers it", async ({ page }) => {
+  const state = await fixture(page);
+  state.startFailures = 1;
+  await page.goto(path);
+  await page.locator("#agent-chat-input").fill("Keep the retry exact");
+  const send = page.getByRole("button", { name: "보내기", exact: true });
+  await send.click();
+  const retryNotice = page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" });
+  await expect(retryNotice).toBeVisible();
+  state.aiUsage.spendingEnabled = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
+  const selector = page.locator(".skill-selector");
+  await selector.locator("summary").click();
+  await selector.getByRole("button", { name: "스킬 없이", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(send).toBeDisabled();
+  await expect(retryNotice).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "기본 제공 AI 실행이 현재 중지" }).first()).toBeVisible();
+  await expect(page.locator("#agent-chat-input")).toHaveValue("Keep the retry exact");
+  await page.screenshot({ path: "outputs/ui-ux/retry-changed-skills-paused.png", fullPage: true });
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
+  await selector.locator("summary").click();
+  await selector.getByRole("button", { name: "자동", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(retryNotice).toBeVisible();
+  await expect(send).toBeEnabled();
+  await send.click();
+  await expect.poll(() => state.starts.length).toBe(2);
+  expect(state.starts[1]).toEqual(state.starts[0]);
+  expect(state.blocked).toEqual([]);
+});

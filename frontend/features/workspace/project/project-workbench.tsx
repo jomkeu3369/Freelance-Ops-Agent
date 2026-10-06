@@ -37,9 +37,9 @@ import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
 import { SkillSelector, useSkillSelection } from "../skills/skill-selector";
-import { skillSelectionSignature, type SkillSelection } from "../skills/skill-selection";
+import type { SkillSelection } from "../skills/skill-selection";
+import { matchesChatRetry } from "./analysis/chat-retry";
 import type { PendingRunRetry } from "../../../app/lib/pending-run-store";
-import { parseChatPolicyIntent } from "../../../app/lib/chat-policy-intent.mjs";
 import { CreditCostNote } from "../usage/credit-cost-note";
 import { AiUsageMeter } from "../usage/ai-usage-meter";
 import { useAiUsage } from "../usage/use-ai-usage";
@@ -112,7 +112,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   async function sendMessage(message: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
     if (!chatModel) return false;
     if (chatModel.credentialId && !personalCostKnown) throw new Error(t("이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다."));
-    const retry = retryCandidates.find(item => item.message === message && JSON.stringify(item.attachmentIds ?? []) === JSON.stringify(attachmentIds) && skillSelectionSignature(item.skillSelection) === skillSelectionSignature(skillSelection));
+    const retry = retryCandidates.find(item => matchesChatRetry(item, message, attachmentIds, skillSelection));
     if (!retry && !chatModel.credentialId && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
     try {
       const accepted = await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, message, retry?.creditQuote, attachmentIds, skillSelection);
@@ -396,10 +396,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
           canSendAI={canSendAI}
-          retryMessages={retryCandidates.map(item => item.message)}
-          composerInfo={(draft) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={!!parseChatPolicyIntent(draft)} active={runInProgress} retry={retryCandidates.find(item => item.message === draft)} />
-            {!runInProgress && !parseChatPolicyIntent(draft) && !retryCandidates.some(item => item.message === draft) && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
-            {!runInProgress && !parseChatPolicyIntent(draft) && chatModel?.credentialId && <div className="agent-chat-credit-note"><ByokCostNotice provider={chatModel.provider} model={chatModel.model} /></div>}
+          retryCandidates={retryCandidates}
+          composerInfo={(_draft, retry, policy) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={policy} active={runInProgress} retry={retry} />
+            {!runInProgress && !policy && !retry && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
+            {!runInProgress && !policy && chatModel?.credentialId && <div className="agent-chat-credit-note"><ByokCostNotice provider={chatModel.provider} model={chatModel.model} /></div>}
             <AiUsageMeter session={session} state={ledger} /></>}
           composerTools={canRun ? <ChatModelMenu contextKey={`${project.id}:${runId ?? "new"}`} label={selectedModelLabel} locked={selectionLocked}>{modelControls}</ChatModelMenu> : null}
           onOpenAISettings={openAISettings}
