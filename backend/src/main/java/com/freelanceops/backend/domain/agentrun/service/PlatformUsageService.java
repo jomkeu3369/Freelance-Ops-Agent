@@ -163,7 +163,7 @@ public class PlatformUsageService {
             (row, n) -> {
                 String id = row.getString(1);
                 boolean active = row.getBoolean(3);
-                String reason = !enabled ? "SPENDING_DISABLED" : !active ? "MODEL_DISABLED"
+                String reason = !enabled ? "SPENDING_DISABLED" : (!active || row.getBigDecimal(2).signum() <= 0) ? "MODEL_DISABLED"
                     : (id.equals("gpt-5.6-sol") && !now.isBefore(PlatformSpendTariff.PROMOTION_REVIEW_AT)) ? "TARIFF_REVIEW_REQUIRED"
                     : remaining.signum() <= 0 ? "ACCOUNT_BUDGET_EXHAUSTED"
                     : globalRemaining.signum() <= 0 ? "GLOBAL_BUDGET_EXHAUSTED" : null;

@@ -1,3 +1,4 @@
+import { adminSpendingEnglish } from "./ui-admin-spending-english.mjs";
 import { attachmentEnglish } from "./ui-attachment-english.mjs";
 import { creditEnglish } from "./ui-credit-english.mjs";
 import { noticeEnglish } from "./ui-notice-english.mjs";
@@ -15,6 +16,7 @@ import { petEnglish } from './ui-pet-english.mjs';
 export const englishUi = {
   "배경 영상 일시정지": "Pause background video",
   "배경 영상 재생": "Play background video",
+  ...adminSpendingEnglish,
   ...attachmentEnglish,
   ...creditEnglish,
   "Freelance Ops | 근거 있는 견적 운영": "Freelance Ops | Evidence-based estimates",

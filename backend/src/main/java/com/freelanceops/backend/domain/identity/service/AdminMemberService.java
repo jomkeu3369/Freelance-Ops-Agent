@@ -28,6 +28,7 @@ public class AdminMemberService {
         a.id, a.email, a.display_name, a.status, a.email_verification_required, a.email_verified_at, a.created_at,
         (SELECT max(e.occurred_at) FROM app.user_login_event e WHERE e.user_id=a.id) AS last_login_at
         """;
+    // PLATFORM_SPEND uses revisions in the legacy epoch-shaped response fields; it has no reset generation.
     private static final String AUDIT = """
         (SELECT id, 'WEEKLY_CREDITS' AS source, actor_user_id, action, target, previous_value, new_value,
                 previous_epoch, new_epoch, created_at FROM app.weekly_credit_admin_audit
@@ -36,7 +37,11 @@ public class AdminMemberService {
                 CASE WHEN action='RESET_ALL' THEN 'epoch' ELSE 'monthly_limit' END AS target,
                 CASE WHEN action='RESET_ALL' THEN previous_epoch::text ELSE previous_limit::text END AS previous_value,
                 CASE WHEN action='RESET_ALL' THEN new_epoch::text ELSE new_limit::text END AS new_value,
-                previous_epoch, new_epoch, created_at FROM app.free_usage_admin_audit) audit
+                previous_epoch, new_epoch, created_at FROM app.free_usage_admin_audit
+         UNION ALL
+         SELECT id, 'PLATFORM_SPEND' AS source, actor_user_id, action, target, previous_value, new_value,
+                previous_revision AS previous_epoch, new_revision AS new_epoch, created_at
+         FROM app.platform_spend_admin_audit) audit
         """;
 
     @Transactional
