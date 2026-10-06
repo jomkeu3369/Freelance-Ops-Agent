@@ -29,10 +29,12 @@ public class AgentRunHistoryController {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
+        final UUID userId;
         try {
-            return history.list(UUID.fromString(authentication.getName()), workspaceId, projectId, limit);
+            userId = UUID.fromString(authentication.getName());
         } catch (IllegalArgumentException error) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
         }
+        return history.list(userId, workspaceId, projectId, limit);
     }
 }
