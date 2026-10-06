@@ -32,3 +32,5 @@
 .admin-model-rate > strong { overflow-wrap: anywhere; }
 .free-usage-admin .admin-model-rate .free-usage-checkbox { display: flex; align-items: center; margin: 0; }
 .free-usage-admin .admin-model-rate .free-usage-checkbox input { width: 18px; }
+.admin-budget-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 18px; }
+.free-usage-admin-card .admin-budget-fields input { width: 100%; min-width: 0; box-sizing: border-box; }

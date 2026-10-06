@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ApiError, AuthSession, loadSession, saveSession, subscribeToSessionRecovery } from "../../app/lib/api";
 import { AdminAudit, AdminMember, AdminMemberUsage, AdminPage, AdminUsageHistory, LoginEvent, MemberSummary, getLoginEvents, getMemberAudits, getMemberSummary, getMembers, getMemberUsage, getMemberUsageHistory } from "../../app/lib/admin-members-api";
+import { useT } from "../../app/lib/ui-language";
 import { MemberUsage } from "./member-usage";
 import { AuthGate } from "../workspace/auth/auth-gate";
 import "../workspace/auth/auth.css";
@@ -14,6 +15,7 @@ type Data = { tab: "members"; page: AdminPage<AdminMember> } | { tab: "logins"; 
 function date(value: string | null) { return value ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "기록 없음"; }
 
 export function MemberAdmin() {
+  const t = useT();
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [tab, setTab] = useState<Tab>("members");
@@ -93,7 +95,7 @@ export function MemberAdmin() {
         </form>}
         {tab === "logins" && <div><h2>{selected ? `${selected.displayName ?? selected.email}의 로그인 기록` : "전체 로그인 기록"}</h2>{selected && <button type="button" onClick={() => { setSelected(null); setPage(0); setData(null); }}>모든 회원 보기</button>}<p>성공한 비밀번호 로그인과 가입 세션만 표시합니다. 토큰 갱신은 로그인 횟수에 포함하지 않습니다.</p></div>}
         {summary && (tab === "members" || tab === "logins") && <p className="member-note">로그인 기록 시작: {date(summary.recordingStartedAt)}. 이전 기록이 없는 회원은 최근 로그인을 알 수 없습니다.</p>}
-        {tab === "audit" && <div><h2>관리자 변경 기록</h2><p>주간 크레딧·이전 월간 한도 변경과 전체 초기화 기록입니다. 과거 값을 새 API 비용으로 환산하지 않습니다.</p><Link href="/admin">한도 설정 및 초기화 검토</Link></div>}
+        {tab === "audit" && <div><h2>관리자 변경 기록</h2><p>{t("USD 비용 예산·모델 설정과 이전 크레딧 한도·초기화 기록입니다. 과거 값을 새 API 비용으로 환산하지 않습니다.")}</p><Link href="/admin">{t("기본 AI 비용 설정 검토")}</Link></div>}
         {tab === "usage" && selected && <div><h2>{selected.displayName ?? selected.email}의 실제 비용</h2><p>{selected.email}</p><button type="button" onClick={() => chooseTab("members")}>회원 목록으로</button></div>}
         {error && <p role="alert">{error}</p>}
         <button className="member-refresh" type="button" disabled={loading} onClick={() => { setData(null); if (tab === "usage") { setPage(0); setUsageCursors([null]); } setRetry(value => value + 1); }}>새로고침</button>
@@ -115,7 +117,7 @@ export function MemberAdmin() {
           {data.page.items.length === 0 ? <p className="member-empty">조건에 맞는 기록이 없습니다.</p> : <div className="member-table-scroll" tabIndex={0} role="region" aria-label="관리 목록">
             {data.tab === "members" && <table><caption className="member-sr-only">회원 목록</caption><thead><tr><th>회원</th><th>상태</th><th>가입일</th><th>최근 로그인</th><th>활동</th></tr></thead><tbody>{data.page.items.map(member => <tr key={member.id}><td><strong>{member.displayName || "이름 없음"}</strong><span>{member.email}</span><small>{member.id}</small></td><td><span className="member-badge">{member.status === "ACTIVE" ? "활성" : "비활성"}</span>{member.emailVerificationRequired && <small>이메일 인증 대기</small>}</td><td>{date(member.joinedAt)}</td><td>{date(member.lastLoginAt)}</td><td><button type="button" onClick={() => showLogins(member)} aria-label={`${member.email} 로그인 기록`}>로그인 기록</button><button type="button" onClick={() => showUsage(member)} aria-label={`${member.email} 실제 비용`}>실제 비용</button></td></tr>)}</tbody></table>}
             {data.tab === "logins" && <table><caption className="member-sr-only">로그인 기록</caption><thead><tr><th>시각</th><th>회원 ID</th><th>방식</th></tr></thead><tbody>{data.page.items.map(event => <tr key={event.id}><td>{date(event.occurredAt)}</td><td>{event.userId}</td><td>{event.method === "PASSWORD" ? "비밀번호 로그인" : "가입 세션"}</td></tr>)}</tbody></table>}
-            {data.tab === "audit" && <table><caption className="member-sr-only">한도 변경 감사 기록</caption><thead><tr><th>시각 / 관리자 ID</th><th>작업</th><th>대상 / 원장</th><th>이전 → 변경</th><th>초기화 세대</th></tr></thead><tbody>{data.page.items.map(event => <tr key={`${event.source}:${event.id}`}><td>{date(event.createdAt)}<small>{event.actorUserId}</small></td><td>{event.action === "RESET_ALL" ? "전체 초기화" : event.action === "CHANGE_LIMIT" ? "한도 변경" : "모델 가격 변경"}</td><td>{event.target}<small>{event.source}</small></td><td>{event.previousValue} → {event.newValue}</td><td>{event.previousEpoch} → {event.newEpoch}</td></tr>)}</tbody></table>}
+            {data.tab === "audit" && <table><caption className="member-sr-only">한도 변경 감사 기록</caption><thead><tr><th>시각 / 관리자 ID</th><th>작업</th><th>대상 / 원장</th><th>이전 → 변경</th><th>{t("설정 버전 / 이전 초기화 세대")}</th></tr></thead><tbody>{data.page.items.map(event => <tr key={`${event.source}:${event.id}`}><td>{date(event.createdAt)}<small>{event.actorUserId}</small></td><td>{event.action === "RESET_ALL" ? t("전체 초기화") : event.action === "CHANGE_LIMIT" ? t("한도 변경") : event.action === "CHANGE_BUDGETS" ? t("비용 예산 변경") : event.source === "PLATFORM_SPEND" && event.action === "CHANGE_MODEL" ? t("모델 비용 한도·사용 가능 여부 변경") : event.action === "CHANGE_MODEL" ? t("모델 가격 변경") : event.action}</td><td>{event.target}<small>{event.source}</small></td><td>{event.previousValue} → {event.newValue}</td><td><small>{event.source === "PLATFORM_SPEND" ? t("설정 버전") : t("초기화 세대")}</small>{event.previousEpoch} → {event.newEpoch}</td></tr>)}</tbody></table>}
           </div>}
           <nav className="member-pagination" aria-label="페이지 이동"><button type="button" disabled={page === 0} onClick={() => { setPage(value => value - 1); setData(null); }}>이전</button><span>{page + 1} / {Math.max(1, Math.ceil(data.page.total / data.page.size))} 페이지 · 총 {data.page.total.toLocaleString()}건</span><button type="button" disabled={(page + 1) * data.page.size >= data.page.total} onClick={() => { setPage(value => value + 1); setData(null); }}>다음</button></nav>
         </>}
