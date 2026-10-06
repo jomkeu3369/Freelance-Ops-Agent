@@ -3,16 +3,20 @@ package com.freelanceops.backend.integration;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+import com.freelanceops.backend.domain.agentrun.model.RequestTier;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.service.ByokCostNoticePolicy;
 import com.freelanceops.backend.domain.agentrun.service.ByokExecutionService;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendAdminService;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendExhaustedException;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendService;
+import com.freelanceops.backend.domain.agentrun.service.PlatformSpendTariff;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendUnavailableException;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
 import com.freelanceops.backend.domain.identity.service.AdminMemberService;
@@ -140,6 +144,39 @@ class PlatformSpendAdminPostgresTest {
             assertThat(model.enabled()).isTrue();
         });
         assertThat(state()).isEqualTo(before);
+    }
+
+    @Test void preservedLegacyBudgetsAreExactReadableStringsAndCanBeLoweredWithinTheEditCeiling() throws Exception {
+        // Only this synthetic fixture exceeds the new edit ceiling. V48 never rewrites operator budgets.
+        jdbc.update("UPDATE app.platform_spend_settings SET account_week_usd=?,global_day_usd=?,global_week_usd=? WHERE id=1",
+            new BigDecimal("99999999999.99999999"), new BigDecimal("100000.00000001"), new BigDecimal("100001.12345678"));
+        var before = state();
+        var moneyBefore = moneyState();
+        mvc.perform(get("/api/v2/admin/ai-spending").with(jwt().jwt(token -> token.subject(admin.toString()))))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+            .andExpect(jsonPath("accountWeekUsd").isString()).andExpect(jsonPath("accountWeekUsd").value("99999999999.99999999"))
+            .andExpect(jsonPath("globalDayUsd").isString()).andExpect(jsonPath("globalDayUsd").value("100000.00000001"))
+            .andExpect(jsonPath("globalWeekUsd").isString()).andExpect(jsonPath("globalWeekUsd").value("100001.12345678"));
+        assertThat(adminService.settings(admin).accountWeekUsd()).isEqualByComparingTo("99999999999.99999999");
+        // Preserving an old value on read does not authorize writing above the new ceiling.
+        mvc.perform(patch("/api/v2/admin/ai-spending").with(jwt().jwt(token -> token.subject(admin.toString())))
+            .contentType("application/json")
+            .content("{\"accountWeekUsd\":\"100000.00000001\",\"globalDayUsd\":25,\"globalWeekUsd\":100,\"expectedRevision\":0}"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+        status(400, () -> adminService.changeBudgets(admin, new BigDecimal("100000.00000001"), DAY, WEEK, 0L));
+        assertThat(state()).isEqualTo(before);
+        mvc.perform(patch("/api/v2/admin/ai-spending").with(jwt().jwt(token -> token.subject(admin.toString())))
+            .contentType("application/json")
+            .content("{\"accountWeekUsd\":\"100000\",\"globalDayUsd\":\"0.00000001\",\"globalWeekUsd\":\"42.12345678\",\"expectedRevision\":0}"))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+            .andExpect(jsonPath("accountWeekUsd").value("100000.00000000"))
+            .andExpect(jsonPath("globalDayUsd").value("0.00000001"))
+            .andExpect(jsonPath("globalWeekUsd").value("42.12345678"))
+            .andExpect(jsonPath("revision").value(1));
+        assertThat(adminService.settings(admin).accountWeekUsd()).isEqualByComparingTo("100000");
+        assertThat(moneyState()).isEqualTo(moneyBefore);
+        String audit = jdbc.queryForObject("SELECT previous_value FROM app.platform_spend_admin_audit WHERE new_revision=1", String.class);
+        assertThat(audit).contains("99999999999.99999999", "100000.00000001", "100001.12345678");
     }
 
     @Test void apiRejectsRuntimeSwitchAndResetFieldsWithoutMutatingAnything() throws Exception {
@@ -387,6 +424,36 @@ class PlatformSpendAdminPostgresTest {
     @Test void priorReservationsTariffsSettlementsAndHeldMoneySurviveAllAdminEditsAndReplay() {
         UUID user = account(), run = UUID.randomUUID();
         PlatformBudget original = reserve(user, run);
+        var day = jdbc.queryForObject("SELECT day_period FROM app.platform_spend_reservation WHERE run_id=?", java.sql.Date.class, run);
+        var week = jdbc.queryForObject("SELECT week_period FROM app.platform_spend_reservation WHERE run_id=?", java.sql.Date.class, run);
+        var oldDay = java.sql.Date.valueOf(day.toLocalDate().minusWeeks(1));
+        var oldWeek = java.sql.Date.valueOf(week.toLocalDate().minusWeeks(1));
+        UUID oldRun = UUID.randomUUID();
+        Instant observed = jdbc.queryForObject("SELECT clock_timestamp()", java.sql.Timestamp.class).toInstant();
+        tx.executeWithoutResult(transaction -> {
+            // Historical admission is inserted directly because immutable reservations cannot
+            // be moved to an earlier period. Both reports use the real settlement service.
+            jdbc.update("""
+                INSERT INTO app.platform_spend_reservation
+                    (run_id,user_id,provider,model,max_cost_usd,tariff_version,day_period,week_period,valid_until)
+                VALUES (?,?,'OPENAI','gpt-5.6-luna',.10,?,?,?,?)
+                """, oldRun, user, PlatformSpendTariff.LEGACY_VERSION, oldDay, oldWeek,
+                java.sql.Timestamp.from(original.validUntil().minusSeconds(7 * 86400)));
+            jdbc.update("INSERT INTO app.platform_spend_settlement(run_id,reserved_usd) VALUES (?,.10)", oldRun);
+            jdbc.update("INSERT INTO app.platform_spend_bucket VALUES ('ACCOUNT_WEEK',?,?,.10)", user, oldWeek);
+            jdbc.update("INSERT INTO app.platform_spend_bucket VALUES ('GLOBAL_WEEK',?,?,.10)", GLOBAL, oldWeek);
+            jdbc.update("INSERT INTO app.platform_spend_bucket VALUES ('GLOBAL_DAY',?,?,.10)", GLOBAL, oldDay);
+            synchronizeKnownAndUnknownAttempts(run, user, MODEL, original.tariffVersion(), observed);
+            synchronizeKnownAndUnknownAttempts(oldRun, user, "gpt-5.6-luna", PlatformSpendTariff.LEGACY_VERSION,
+                observed.minusSeconds(7 * 86400));
+        });
+        assertThat(jdbc.queryForObject("SELECT settled_usd FROM app.platform_spend_settlement WHERE run_id=?",
+            BigDecimal.class, run)).isEqualByComparingTo(".00035");
+        assertThat(jdbc.queryForObject("SELECT settled_usd FROM app.platform_spend_settlement WHERE run_id=?",
+            BigDecimal.class, oldRun)).isEqualByComparingTo(".0008");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE payload->>'usageKnown'='false'",
+            Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_spend_bucket", Integer.class)).isEqualTo(6);
         var moneyBefore = moneyState();
         var creditBefore = creditState();
         var changed = adminService.changeBudgets(admin, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0L);
@@ -395,12 +462,14 @@ class PlatformSpendAdminPostgresTest {
         assertThat(creditState()).isEqualTo(creditBefore);
         assertThat(reserve(user, run)).isEqualTo(original);
         assertThat(moneyState()).isEqualTo(moneyBefore);
-        assertThat(held("ACCOUNT_WEEK", user)).isEqualByComparingTo(original.maxCostUsd());
-        assertThat(held("GLOBAL_DAY", GLOBAL)).isEqualByComparingTo(original.maxCostUsd());
-        assertThat(held("GLOBAL_WEEK", GLOBAL)).isEqualByComparingTo(original.maxCostUsd());
+        for (var bucket : moneyBefore.get("platform_spend_bucket"))
+            assertThat((BigDecimal) bucket.get("held_usd")).isEqualByComparingTo(original.maxCostUsd());
         assertThat(jdbc.queryForObject("SELECT tariff_version FROM app.platform_spend_reservation WHERE run_id=?",
             String.class, run)).isEqualTo(original.tariffVersion());
-        assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(original.maxCostUsd());
+        assertThat(jdbc.queryForObject("SELECT tariff_version FROM app.platform_spend_reservation WHERE run_id=?",
+            String.class, oldRun)).isEqualTo(PlatformSpendTariff.LEGACY_VERSION);
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".00035");
+        assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".09965");
         assertThat(usage.snapshot(user).remainingUsd()).isZero();
     }
 
@@ -627,6 +696,20 @@ class PlatformSpendAdminPostgresTest {
         return tx.execute(transaction -> spend.reserve(user, run, LUNA));
     }
 
+    private void synchronizeKnownAndUnknownAttempts(UUID runId, UUID user, String model, String tariff, Instant observed) {
+        var run = new AgentRunEntity(runId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), user,
+            Provider.OPENAI, model, AgentRunStatus.RUNNING, observed);
+        var knownCost = new BigDecimal(model.equals("gpt-6-luna") ? ".00035" : ".0008");
+        var calls = List.of(
+            new ProviderCallUsage(UUID.randomUUID(), Provider.OPENAI, model, "responses.create", 1000, 500, 0, 0,
+                knownCost, new BigDecimal(".01"), true, "PLATFORM"),
+            new ProviderCallUsage(UUID.randomUUID(), Provider.OPENAI, model, "responses.create", 1000, 500, 0, 0,
+                BigDecimal.ZERO, new BigDecimal(".01"), false, "PLATFORM"));
+        var report = new AgentRunView.AgentRunUsage(RequestTier.SINGLE_AGENT, 2, 0, 2000, 1000, 0, 0, 0, 0, 1,
+            calls, knownCost, runId, tariff, false);
+        usage.synchronize(run, new AgentRunView(runId, AgentRunStatus.RUNNING, null, null, null, null, null, report, observed));
+    }
+
     private BigDecimal held(String scope, UUID subject) {
         return jdbc.queryForObject("SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND subject_id=?",
             BigDecimal.class, scope, subject);
@@ -661,7 +744,7 @@ class PlatformSpendAdminPostgresTest {
 
     private Map<String, List<Map<String, Object>>> rows(String... tables) {
         Map<String, List<Map<String, Object>>> result = new LinkedHashMap<>();
-        for (String table : tables) result.put(table, jdbc.queryForList("SELECT * FROM app." + table + " ORDER BY 1,2"));
+        for (String table : tables) result.put(table, jdbc.queryForList("SELECT * FROM app." + table + " ORDER BY 1,2,3"));
         return result;
     }
 

@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.controller;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformSpendAdminSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendAdminService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -29,16 +30,18 @@ public class PlatformSpendAdminController {
     public PlatformSpendAdminController(PlatformSpendAdminService service) { this.service = service; }
 
     @GetMapping
-    public PlatformSpendAdminService.Settings settings(Authentication authentication) {
-        return service.settings(user(authentication));
+    public PlatformSpendAdminSettingsResponse settings(Authentication authentication) {
+        return PlatformSpendAdminSettingsResponse.from(service.settings(user(authentication)));
     }
     @PatchMapping
-    public PlatformSpendAdminService.Settings budgets(@Valid @RequestBody ChangeBudgets input, Authentication authentication) {
-        return service.changeBudgets(user(authentication), input.accountWeekUsd(), input.globalDayUsd(), input.globalWeekUsd(), input.expectedRevision().longValueExact());
+    public PlatformSpendAdminSettingsResponse budgets(@Valid @RequestBody ChangeBudgets input, Authentication authentication) {
+        return PlatformSpendAdminSettingsResponse.from(service.changeBudgets(user(authentication), input.accountWeekUsd(),
+            input.globalDayUsd(), input.globalWeekUsd(), input.expectedRevision().longValueExact()));
     }
     @PatchMapping("/models")
-    public PlatformSpendAdminService.Settings model(@Valid @RequestBody ChangeModel input, Authentication authentication) {
-        return service.changeModel(user(authentication), input.provider(), input.model(), input.maxRunUsd(), input.enabled(), input.expectedRevision().longValueExact());
+    public PlatformSpendAdminSettingsResponse model(@Valid @RequestBody ChangeModel input, Authentication authentication) {
+        return PlatformSpendAdminSettingsResponse.from(service.changeModel(user(authentication), input.provider(),
+            input.model(), input.maxRunUsd(), input.enabled(), input.expectedRevision().longValueExact()));
     }
 
     public record ChangeBudgets(

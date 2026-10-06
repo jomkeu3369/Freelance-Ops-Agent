@@ -10,6 +10,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.List;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -84,14 +86,35 @@ class PlatformSpendAdminControllerTest {
     }
 
     @Test void acceptsZeroAndEightPlaceDecimalNumbersOrStrings() throws Exception {
+        var snapshot = snapshot("0", "0.00000001", "100000");
+        when(service.changeBudgets(eq(actor), any(), any(), any(), eq(0L))).thenReturn(snapshot);
+        when(service.changeModel(eq(actor), eq(Provider.OPENAI), eq("gpt-5.6-luna"), any(), eq(false), eq(0L))).thenReturn(snapshot);
         mvc.perform(patch("/api/v2/admin/ai-spending").principal(principal()).contentType(MediaType.APPLICATION_JSON)
             .content("{\"accountWeekUsd\":0,\"globalDayUsd\":\"0.00000001\",\"globalWeekUsd\":100000,\"expectedRevision\":0}"))
-            .andExpect(status().isOk());
+            .andExpect(status().isOk()).andExpect(jsonPath("accountWeekUsd").value("0"))
+            .andExpect(jsonPath("globalDayUsd").value("0.00000001"))
+            .andExpect(jsonPath("globalWeekUsd").value("100000"));
         verify(service).changeBudgets(eq(actor), eq(BigDecimal.ZERO), eq(new BigDecimal("0.00000001")),
             eq(new BigDecimal("100000")), eq(0L));
         mvc.perform(patch("/api/v2/admin/ai-spending/models").principal(principal()).contentType(MediaType.APPLICATION_JSON)
             .content(modelBody("0", "false", "OPENAI", "gpt-5.6-luna"))).andExpect(status().isOk());
         verify(service).changeModel(actor, Provider.OPENAI, "gpt-5.6-luna", BigDecimal.ZERO, false, 0L);
+    }
+
+    @Test void snapshotsPreserveExactLegacyBudgetsAsPlainDecimalStrings() throws Exception {
+        when(service.settings(actor)).thenReturn(snapshot("99999999999.99999999", "100000.00000001", "0.00000001"));
+        mvc.perform(get("/api/v2/admin/ai-spending").principal(principal()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("accountWeekUsd").isString()).andExpect(jsonPath("accountWeekUsd").value("99999999999.99999999"))
+            .andExpect(jsonPath("globalDayUsd").isString()).andExpect(jsonPath("globalDayUsd").value("100000.00000001"))
+            .andExpect(jsonPath("globalWeekUsd").isString()).andExpect(jsonPath("globalWeekUsd").value("0.00000001"))
+            .andExpect(jsonPath("maxBudgetUsd").value(100000));
+    }
+
+    private PlatformSpendAdminService.Settings snapshot(String account, String day, String week) {
+        return new PlatformSpendAdminService.Settings("USD", new BigDecimal(account), new BigDecimal(day), new BigDecimal(week),
+            0L, Instant.parse("2026-10-06T00:00:00Z"), false, List.of(),
+            PlatformSpendAdminService.MAX_BUDGET_USD, PlatformSpendAdminService.MAX_MODEL_RUN_USD);
     }
 
     private String modelBody(String amount, String enabled, String provider, String model) {
