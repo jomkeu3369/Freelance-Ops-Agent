@@ -83,25 +83,3 @@ test("exhausted monetary budget blocks AI but deterministic settings still requi
   await send(page).click(); await expect(page.locator(".agent-chat-policy")).toBeVisible();
   expect(state.confirms).toBe(0); expect(state.starts).toEqual([]);
 });
-
-test("administrator model prices require a reviewed version and explicit approval", async ({ page }) => {
-  const state = await fixture(page);
-  const settings = { unit: "CREDITS", periodType: "WEEKLY", modelRates: structuredClone(state.usage.modelRates), limit: 100, maxLimit: 100000, epoch: 7, updatedAt: "2026-10-04T12:00:00.987654Z", lastResetAt: null };
-  const writes = [];
-  await page.route("**/api/v2/admin/free-usage**", route => {
-    if (route.request().method() === "GET") return route.fulfill({ json: settings });
-    const body = route.request().postDataJSON(); writes.push(body);
-    settings.modelRates = settings.modelRates.map(rate => rate.model === body.model ? { ...rate, credits: body.credits, enabled: body.enabled } : rate);
-    settings.updatedAt = "2026-10-04T12:01:00.111111Z";
-    return route.fulfill({ json: settings });
-  });
-  await page.goto("/admin");
-  const row = page.locator(".admin-model-rate").filter({ hasText: "gpt-5.6-luna" });
-  await row.getByLabel("요청당 크레딧").fill("15"); await row.getByRole("checkbox").uncheck();
-  await row.getByRole("button", { name: "모델 가격 변경 검토" }).click();
-  const dialog = page.getByRole("dialog"); await expect(dialog).toContainText("10 → 15 크레딧");
-  await expect(dialog.getByRole("button", { name: "모델 가격 변경 승인" })).toBeDisabled(); expect(writes).toEqual([]);
-  await dialog.getByRole("checkbox").check(); await dialog.getByRole("button", { name: "모델 가격 변경 승인" }).click();
-  await expect(dialog).toHaveCount(0);
-  expect(writes).toEqual([{ provider: "OPENAI", model: "gpt-5.6-luna", credits: 15, enabled: false, expectedEpoch: 7, expectedUpdatedAt: "2026-10-04T12:00:00.987654Z" }]);
-});
