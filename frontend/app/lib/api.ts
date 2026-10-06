@@ -371,10 +371,17 @@ export function readChatAttachment(session: AuthSession, projectId: string, file
 export function removeChatAttachment(session: AuthSession, projectId: string, id: string): Promise<void> {
   return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments/${id}`, { method: "DELETE" }, session.accessToken);
 }
+export interface AgentRunHistoryAttachment {
+  name: string;
+  status: string;
+  notice: string | null;
+}
 export interface AgentRunHistoryItem {
-  attachments?: Array<Pick<AttachmentText, "name" | "status" | "notice">>;
+  attachments?: AgentRunHistoryAttachment[];
   runId: string;
-  requirementText: string;
+  requirementText: string | null;
+  originalInputStatus?: "AVAILABLE" | "PARTIAL" | "UNAVAILABLE";
+  originalInputIssue?: "MISSING_START" | "MALFORMED_PAYLOAD" | "MISSING_INPUT" | "INVALID_REQUIREMENT_TEXT" | "INVALID_ATTACHMENTS" | null;
   status: AgentRunStatus;
   createdAt: string;
 }

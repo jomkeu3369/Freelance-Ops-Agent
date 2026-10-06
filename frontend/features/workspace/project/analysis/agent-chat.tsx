@@ -20,7 +20,7 @@ import {
 } from "../../../../app/lib/api";
 import { ChatCircleText, ArrowUp, ArrowDown, ArrowUpRight, CheckCircle, CircleNotch, WarningCircle, WifiSlash, ListChecks } from "@phosphor-icons/react";
 import { ChatSettingsButton } from "./chat-settings-button";
-import { chatState, resultPendingMessage } from "../../../../app/lib/chat-presentation.mjs";
+import { chatState, originalInputPresentation, resultPendingMessage } from "../../../../app/lib/chat-presentation.mjs";
 import { parseChatPolicyIntent } from "../../../../app/lib/chat-policy-intent.mjs";
 import { departmentLabels, runStatusLabels } from "../../shared/constants";
 import { eventActivityLabels, runFailureMessage } from "../../shared/activity-presentation";
@@ -332,8 +332,10 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           const state = chatState(status, item.runId === runId ? { online, reconnecting: active && streamState === "reconnecting" } : {});
           const missingHistory = item.runId !== runId && !view && !loading;
           const needsResultRetry = missingHistory;
+          const originalInput = originalInputPresentation(item);
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
-            {item.requirementText && <div className="agent-chat-message user"><span>{t("내 요청")}</span><ChatMarkdown locale={locale}>{item.requirementText}</ChatMarkdown></div>}
+            {originalInput.text && <div className="agent-chat-message user"><span>{t("내 요청")}</span><ChatMarkdown locale={locale}>{originalInput.text}</ChatMarkdown></div>}
+            {originalInput.notices.map(notice => <p className="agent-chat-input-notice" key={notice}><WarningCircle size={17} aria-hidden="true" /><span>{t(notice)}</span></p>)}
             {view?.metadata?.resolvedSkillIds?.length ? <SkillNames ids={view.metadata.resolvedSkillIds} /> : null}
             {view?.metadata?.deferredSkillIds?.length ? <SkillNames ids={view.metadata.deferredSkillIds} prefix={t("다음 단계 필요: ")} /> : null}
             {item.attachments?.map((file, index) => <p className="agent-chat-muted" key={index}>{file.name} · {file.status} {file.notice}</p>)}
