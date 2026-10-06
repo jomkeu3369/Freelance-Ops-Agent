@@ -102,6 +102,8 @@ PostgreSQL 격리 검증은 Docker가 실행 중일 때 Testcontainers로 자동
 `PATCH` on the same path changes `accountWeekUsd`, `globalDayUsd`, and `globalWeekUsd` together;
 `PATCH /api/v2/admin/ai-spending/models` changes one catalogued provider/model's `maxRunUsd` and `enabled`.
 Both writes require the last read `expectedRevision`, return the whole settings snapshot, and reject stale revisions with 409.
+The three budget response fields are exact plain decimal strings, preserving legacy database amounts above the current
+edit ceiling without JavaScript rounding. Existing values remain readable and can be lowered; new writes still obey the ceiling.
 Unknown input fields, invalid amounts, unsupported models, and fractional revisions are rejected.
 
 - Existing `FREE_USAGE_ADMIN` capability is required on each call, with an active account that is not awaiting email verification. Account and grant locks serialize revocation with the transaction.
