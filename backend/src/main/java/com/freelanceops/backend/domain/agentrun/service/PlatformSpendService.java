@@ -72,12 +72,12 @@ public class PlatformSpendService {
         var caps = jdbc.query("""
             SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
             """, (row, n) -> row.getBigDecimal(1), selection.provider().name(), selection.model());
-        if (caps.isEmpty()) throw new PlatformSpendUnavailableException();
+        if (caps.isEmpty() || caps.getFirst().signum() <= 0) throw new PlatformSpendUnavailableException();
         BigDecimal amount = caps.getFirst()
             .min(remaining("GLOBAL_DAY", GLOBAL, period.day(), settings.globalDayUsd()))
             .min(remaining("GLOBAL_WEEK", GLOBAL, period.week(), settings.globalWeekUsd()))
             .min(remaining("ACCOUNT_WEEK", userId, period.week(), settings.accountWeekUsd()));
-        // Every selection, including BYOK, must reserve a platform cap: routing overhead is not free.
+        // Only platform-funded admission calls this service. Personal-key execution uses its own bounded ledger.
         hold("GLOBAL_DAY", GLOBAL, period.day(), amount, settings.globalDayUsd());
         hold("GLOBAL_WEEK", GLOBAL, period.week(), amount, settings.globalWeekUsd());
         hold("ACCOUNT_WEEK", userId, period.week(), amount, settings.accountWeekUsd());

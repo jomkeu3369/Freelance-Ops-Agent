@@ -95,3 +95,21 @@ PostgreSQL 격리 검증은 Docker가 실행 중일 때 Testcontainers로 자동
 - Outcome: 실제 매출·원가·공수와 WBS 회고를 저장해 견적 calibration 근거로 사용
 
 발행된 견적은 직접 수정하지 않는다. 변경은 `/quotations/{quotationId}/revisions`에서 새로운 immutable version으로 생성한다. 세부 결정은 [`ADR-0019`](../docs/adr/0019-immutable-grounded-quotation.md)와 [`ADR-0020`](../docs/adr/0020-hibernate-vector-hybrid-retrieval.md)을 따른다.
+
+## Platform AI spending administration
+
+`GET /api/v2/admin/ai-spending` reads the USD settings used by actual platform-funded admission.
+`PATCH` on the same path changes `accountWeekUsd`, `globalDayUsd`, and `globalWeekUsd` together;
+`PATCH /api/v2/admin/ai-spending/models` changes one catalogued provider/model's `maxRunUsd` and `enabled`.
+Both writes require the last read `expectedRevision`, return the whole settings snapshot, and reject stale revisions with 409.
+Unknown input fields, invalid amounts, unsupported models, and fractional revisions are rejected.
+
+- Existing `FREE_USAGE_ADMIN` capability is required on each call, with an active account that is not awaiting email verification. Account and grant locks serialize revocation with the transaction.
+- USD amounts are nonnegative with at most eight decimal places. Account/global budgets have an API maximum of $100,000; a model cap has a maximum of $100. A zero account/global budget or zero/disabled model cap stops new affected platform-funded admissions.
+- Periods use Asia/Seoul: daily midnight and Monday midnight for weekly budgets.
+- A single monetary settings row serializes changes with admission and settlement. Changed settings affect future admissions only; old reservations retain their cap and tariff, with no reset or refund. Lowering a budget below existing exposure does not erase that exposure.
+- `spendingEnabled` reports the deployment setting and cannot be changed through this API. Defaults and deployment configuration are not modified by the V48 migration.
+- BYOK scope limits and usage remain independent. Historical product-credit endpoints do not control these monetary limits.
+- Every effective edit is recorded in an immutable `PLATFORM_SPEND` audit. Existing member audit responses carry previous/new revision in their backward-compatible `previousEpoch`/`newEpoch` fields for this source; these fields do not represent a monetary reset.
+
+Synthetic PostgreSQL coverage is in `PlatformSpendAdminPostgresTest` and uses only a disposable Testcontainers database, with dispatch/reconciliation disabled. It never calls a provider. Docker is required for that suite; controller, service, and migration invariant tests do not require it.
