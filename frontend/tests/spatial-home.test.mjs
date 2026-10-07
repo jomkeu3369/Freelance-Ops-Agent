@@ -281,8 +281,6 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /\.fromTo\(plate,\s*\{[^}]*"--brand-clip-radius":\s*"20px"[^}]*\},\s*\{[\s\S]*"--brand-clip-radius":\s*"28px"/, "The tween must explicitly start radius at 20px after every refresh");
   assert.doesNotMatch(hook, /\.(?:to|fromTo)\(plate,\s*\{\s*clipPath:/, "Never tween CSSOM-normalized clip strings");
   assert.match(hook, /gsap\.set\(copy,\s*\{\s*opacity:\s*1\s*\}\)/);
-  assert.match(hook, /const drift\s*=\s*\(\)\s*=>\s*window\.innerHeight\s*\*\s*\.12/);
-  assert.match(hook, /\.to\(plate,\s*\{\s*y:\s*drift,\s*duration:\s*\.46,\s*ease:\s*"none"\s*\},\s*0\)/);
   assert.match(hook, /"--brand-clip-radius":\s*"28px",\s*duration:\s*\.34,\s*ease:\s*"sine.inOut"\s*\},\s*\.12\)/);
   const copyFade = hook.match(/\.to\(copy,\s*\{\s*opacity:\s*0,\s*duration:\s*([.\d]+),\s*ease:\s*"[^"]+"\s*\},\s*([.\d]+)\)/);
   assert.ok(copyFade, "The copy has one coordinated fade inside the fold timeline");
@@ -300,8 +298,7 @@ test("brand handoff travels into the measured radial target and reverses its sin
   assert.match(hook, /stage\.getBoundingClientRect\(\)/);
   assert.match(hook, /target\.getBoundingClientRect\(\)/);
   assert.match(hook, /scale:\s*to\.width\s*\/\s*mark\.offsetWidth/);
-  assert.match(hook, /destination:\s*destination\(\),\s*compactScale:/);
-  assert.match(hook, /clearY:\s*copyBottom - origin\.y \+ size \/ 2 \+ 20/);
+  assert.match(hook, /destination:\s*destination\(\)/);
   assert.match(hook, /createBrandFlightRenderer\(gsap, mark\)/);
   assert.doesNotMatch(hook, /gsap\.set\(mark, flight\.sample/, "Per-frame set tweens must not accumulate in the GSAP context");
   assert.match(hook, /\.set\(target,\s*\{\s*autoAlpha:\s*1\s*\},\s*1\)/);

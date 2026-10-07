@@ -11,8 +11,8 @@ test("repeated flight scrubbing retains a bounded GSAP context and reverts its o
   const target = { ...original };
   const driver = { progress: 0 };
   let path = createBrandFlight({
-    start: { x: 0, y: 91, scale: 1 }, corridorX: 0, clearY: 600,
-    destination: { x: -264, y: 740, scale: .88 }, compactScale: .587,
+    start: { x: 0, y: 0, scale: 1 },
+    destination: { x: -264, y: 740, scale: .88 },
   });
   let tween;
   const context = gsap.context(() => {
@@ -40,7 +40,7 @@ test("repeated flight scrubbing retains a bounded GSAP context and reverts its o
     assert.equal(context.data.length, retained, "Scroll frames must not retain new set tweens");
     assert.equal(context.getTweens().length, tracked);
     // Layout refresh replaces geometry, not setter channels or the driver.
-    path = createBrandFlight({ destination: { x: -320, y: 860, scale: .76 }, clearY: 700 });
+    path = createBrandFlight({ destination: { x: -320, y: 860, scale: .76 } });
     tween.progress(1);
     for (const key of ["x", "y"]) assert.equal(Number.parseFloat(target[key]), path.sample(1)[key]);
     for (const key of ["scaleX", "scaleY"]) assert.equal(target[key], path.sample(1).scale);

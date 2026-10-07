@@ -62,7 +62,7 @@ export function WorkflowSection() {
   }, [paused, finished, state.phase, state.step]);
 
   return <div className="spatial-story-run" data-motion-ready={motionReady} data-motion-paused={reducedMotion || !pageVisible}>
-    <HeroAtmosphere paused={reducedMotion || !visible || !pageVisible} />
+    <HeroAtmosphere paused={reducedMotion || !pageVisible} />
     <MiddleAtmosphere />
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
@@ -76,7 +76,7 @@ export function WorkflowSection() {
       <div ref={sceneRef} className="spatial-flow" data-column={project.column} data-playing={!paused} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
         <canvas className="workflow-canvas" aria-hidden="true" />
         <span className="scene-panel-reflection" aria-hidden="true" />
-        <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span><span className="spatial-auto"><i />{reducedMotion ? t("동작 줄이기 적용") : t("자동 진행 예시")}</span></div>
+        <div className="spatial-flow-top"><span><Sparkle size={15} /> {t("제품 예시")}</span></div>
         <div className="spatial-stages" role="group" aria-label={t("제품 예시 단계 선택")}>
           <svg className="spatial-graph-wires" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true"><path d="M40 100 C170 100 168 44 280 44 S440 44 520 44" /><path d="M40 100 C170 100 168 156 280 156 S440 156 520 156" /><path d="M310 44 C410 44 416 156 520 156" /><path className="spatial-graph-pulse" data-active={view.selected === 1 || view.selected === 3} d="M40 100 C170 100 168 44 280 44 S440 44 520 44" pathLength="1000" /><path className="spatial-graph-pulse" data-active={view.selected === 2 || view.selected === 4} d="M40 100 C170 100 168 156 280 156 S440 156 520 156" pathLength="1000" /></svg>
           {demoSteps.map((label, index) => { const Icon = stageIcons[index]; const name = t(label); return <button key={label} type="button" className={`spatial-stage${view.selected === index ? " is-current" : ""}${view.selected > index ? " is-past" : ""}`} aria-label={name} aria-pressed={view.selected === index} aria-controls="workflow-example" onClick={() => dispatch({ type: "select", step: index })}><span className="spatial-stage-icon"><Icon size={20} /></span><span>{name === "Requirements" ? "Require\u00adments" : name}</span><small>0{index + 1}</small></button>; })}

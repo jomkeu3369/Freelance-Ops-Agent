@@ -25,7 +25,8 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     let lastFrame = 0;
     let elapsed = 3;
     let rendered = 0;
-    const pointer = { x: 0, y: 0 };
+    const pointer = { x: 0, y: 0, active: false };
+    let pointerBounds: DOMRect | null = null;
     const canMove = () => visible && !document.hidden && !reduced.matches && !mobile.matches && root?.getAttribute("data-motion-paused") !== "true" && host.dataset.webglPaused !== "true";
     const stop = () => {
       cancelAnimationFrame(frame);
@@ -55,7 +56,7 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
       lastFrame = now;
       if (moving) elapsed += delta;
       try {
-        controller.render(elapsed, delta, moving, moving ? pointer : { x: 0, y: 0 });
+        controller.render(elapsed, delta, moving, moving ? pointer : { x: 0, y: 0, active: false });
         host.dataset.webglReady = "true";
         host.dataset.webglState = "ready";
         host.dataset.webglFrames = String(++rendered);
@@ -75,7 +76,10 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
       try {
         const { createScene } = await import("../webgl/scene-renderer");
         if (disposed) return;
-        controllerRef.current = createScene(canvas, kind, mobile.matches);
+        // Keep the original renderer available for visual comparison and rollback.
+        const variant = kind === "footer" || new URLSearchParams(window.location.search).get("hero-light") === "classic" ? "classic" : "electric";
+        controllerRef.current = createScene(canvas, kind, mobile.matches, variant);
+        host.dataset.webglVariant = variant;
         controllerRef.current.resize(host.clientWidth, host.clientHeight);
         invalidate();
       } catch {
@@ -92,6 +96,8 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     observer.observe(host);
     const resize = new ResizeObserver(() => {
       try {
+        pointerBounds = null;
+        pointer.active = false;
         controllerRef.current?.resize(host.clientWidth, host.clientHeight);
         invalidate();
       } catch { fail(); }
@@ -101,28 +107,37 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     if (root) mutation.observe(root, { attributes: true, attributeFilter: ["data-motion-paused"] });
     mutation.observe(host, { attributes: true, attributeFilter: ["data-webgl-paused"] });
     const onPointer = (event: PointerEvent) => {
-      if (event.pointerType === "touch" || !canMove()) return;
-      const bounds = host.getBoundingClientRect();
+      if (event.pointerType === "touch" || !canMove()) { pointer.active = false; return; }
+      const bounds = pointerBounds ??= canvas.getBoundingClientRect();
+      pointer.active = event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom;
+      if (!pointer.active) return;
       pointer.x = Math.max(-1, Math.min(1, (event.clientX - bounds.left) / bounds.width * 2 - 1));
       pointer.y = Math.max(-1, Math.min(1, (event.clientY - bounds.top) / bounds.height * 2 - 1));
     };
-    const resetPointer = () => { pointer.x = 0; pointer.y = 0; };
+    const resetPointer = () => { pointer.active = false; pointerBounds = null; };
+    const onVisibility = () => { resetPointer(); invalidate(); };
     const pointerHost = host.closest(".spatial-world");
     pointerHost?.addEventListener("pointermove", onPointer as EventListener, { passive: true });
     pointerHost?.addEventListener("pointerleave", resetPointer);
     const onContextLost = (event: Event) => { event.preventDefault(); fail(); };
     canvas.addEventListener("webglcontextlost", onContextLost);
-    document.addEventListener("visibilitychange", invalidate);
-    reduced.addEventListener("change", invalidate);
-    mobile.addEventListener("change", invalidate);
+    window.addEventListener("scroll", resetPointer, { passive: true, capture: true });
+    window.addEventListener("resize", resetPointer, { passive: true });
+    window.addEventListener("blur", resetPointer);
+    document.addEventListener("visibilitychange", onVisibility);
+    reduced.addEventListener("change", onVisibility);
+    mobile.addEventListener("change", onVisibility);
     return () => {
       disposed = true;
       stop();
       observer.disconnect(); resize.disconnect(); mutation.disconnect();
       canvas.removeEventListener("webglcontextlost", onContextLost);
-      document.removeEventListener("visibilitychange", invalidate);
-      reduced.removeEventListener("change", invalidate);
-      mobile.removeEventListener("change", invalidate);
+      window.removeEventListener("scroll", resetPointer, true);
+      window.removeEventListener("resize", resetPointer);
+      window.removeEventListener("blur", resetPointer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      reduced.removeEventListener("change", onVisibility);
+      mobile.removeEventListener("change", onVisibility);
       pointerHost?.removeEventListener("pointermove", onPointer as EventListener);
       pointerHost?.removeEventListener("pointerleave", resetPointer);
       controllerRef.current?.dispose();
