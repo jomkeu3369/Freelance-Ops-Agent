@@ -30,6 +30,7 @@ import {
   refreshAuthSession,
   saveSession,
   clearSession,
+  currentSessionGeneration,
   subscribeToSessionRecovery,
   streamRunEvents,
   getAgentRun,
@@ -109,6 +110,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const runOperation = useRef(0);
+  const workspaceLoadOperation = useRef(0);
   const pendingStart = useRef(new PendingRunStore());
   const [pendingRetries, setPendingRetries] = useState<PendingRunRetry[]>([]);
   const [quotaError, setQuotaError] = useState<ApiError | null>(null);
@@ -271,7 +273,17 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const refreshProjects = useCallback(
     async (activeSession: AuthSession) => {
+      const operation = ++workspaceLoadOperation.current;
+      const generation = currentSessionGeneration();
+      const isCurrent = () => operation === workspaceLoadOperation.current
+        && generation === currentSessionGeneration()
+        && loadSession()?.workspaceId === activeSession.workspaceId;
+      const assertCurrent = () => {
+        if (!isCurrent()) throw new ApiError("로그인 세션이 변경되었습니다. 다시 시도해 주세요.", 409, "SESSION_CHANGED");
+      };
+      assertCurrent();
       const profileResult = await getMe(activeSession);
+      assertCurrent();
       const workspace = profileResult.workspaces.find(
         (item) => item.workspaceId === activeSession.workspaceId
       );
@@ -280,6 +292,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         permissions.has("project.read") ? listProjects(activeSession) : Promise.resolve([]),
         permissions.has("client.read") ? listClients(activeSession) : Promise.resolve([])
       ]);
+      assertCurrent();
       setLoadedWorkspaceId(activeSession.workspaceId);
       setProjects(projectResult);
       setClients(clientResult.filter((client) => client.status === "ACTIVE"));
@@ -290,33 +303,37 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   );
 
   useEffect(() => {
-    Promise.resolve().then(() => {
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    const restore = async () => {
       const stored = loadSession();
-      if (stored) {
-        const restore = async () => {
-          try {
-            const activeSession =
-              new Date(stored.accessTokenExpiresAt).getTime() <= Date.now() + 30_000
-                ? { ...(await refreshAuthSession(stored)), workspaceId: stored.workspaceId }
-                : stored;
-            if (activeSession !== stored) saveSession(activeSession);
-            setSession(activeSession);
-            await refreshProjects(activeSession);
-          } catch (cause) {
-            clearSession();
-            setSession(null);
-            setLoadedWorkspaceId(null);
-            setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
-          } finally {
-            setHydrated(true);
-          }
-        };
-        void restore();
-      } else {
-        setSession(null);
-        setHydrated(true);
+      const generation = currentSessionGeneration();
+      if (!stored) {
+        if (!cancelled) { setSession(null); setHydrated(true); }
+        return;
       }
-    });
+      try {
+        const activeSession = new Date(stored.accessTokenExpiresAt).getTime() <= Date.now() + 30_000
+          ? await refreshAuthSession(stored) : stored;
+        if (cancelled || generation !== currentSessionGeneration()) return;
+        setSession(activeSession);
+        await refreshProjects(activeSession);
+      } catch (cause) {
+        if (cancelled || generation !== currentSessionGeneration() || (cause instanceof ApiError && cause.code === "SESSION_CHANGED")) return;
+        // A failed workspace read or offline refresh does not invalidate credentials.
+        setSession(loadSession());
+        setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
+        retryTimer = window.setTimeout(() => void restore(), 30_000);
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    };
+    void Promise.resolve().then(() => { if (!cancelled) return restore(); });
+    return () => {
+      cancelled = true;
+      workspaceLoadOperation.current += 1;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
   }, [refreshProjects]);
 
   useEffect(
@@ -354,22 +371,20 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   useEffect(() => {
     if (!session) return;
-    const timer = window.setTimeout(() => {
-      refreshAuthSession(session)
-        .then((nextSession) => {
-          const preservedSession = { ...nextSession, workspaceId: session.workspaceId };
-          saveSession(preservedSession);
-          setSession(preservedSession);
-        })
-        .catch(() => {
-          clearSession();
-          runOperation.current += 1;
-          setBusy(false);
-          setSession(null);
-          setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.");
-        });
-    }, sessionRefreshDelay(session.accessTokenExpiresAt));
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    let timer: number;
+    const refresh = async () => {
+      try {
+        // The API publishes the guarded result, including the latest workspace.
+        await refreshAuthSession(session);
+      } catch (cause) {
+        if (cancelled || (cause instanceof ApiError && cause.code === "SESSION_CHANGED") || !loadSession()) return;
+        setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
+        timer = window.setTimeout(() => void refresh(), 30_000);
+      }
+    };
+    timer = window.setTimeout(() => void refresh(), sessionRefreshDelay(session.accessTokenExpiresAt));
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [session]);
 
   useEffect(() => {
@@ -478,16 +493,16 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const onAuthenticated = async (nextSession: AuthSession, isNewWorkspace = false) => {
     setError(null);
+    saveSession(nextSession);
+    const generation = currentSessionGeneration();
     try {
       await refreshProjects(nextSession);
-      saveSession(nextSession);
-      setSession(nextSession);
+      if (generation !== currentSessionGeneration()) return;
+      setSession(loadSession());
       if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
     } catch (cause) {
-      clearSession();
-      runOperation.current += 1;
-      setBusy(false);
-      setSession(null);
+      if (generation !== currentSessionGeneration() || (cause instanceof ApiError && cause.code === "SESSION_CHANGED")) return;
+      // Keep the successful login for a reload/retry after a temporary data error.
       setLoadedWorkspaceId(null);
       throw cause;
     }
@@ -495,27 +510,31 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const logout = async () => {
     if (!session) return;
+    const revokedSession = loadSession() ?? session;
+    // Invalidate pending refreshes before waiting for the server.
+    clearSession();
+    workspaceLoadOperation.current += 1;
+    runOperation.current += 1;
+    setBusy(false);
+    setSession(null);
+    pendingStart.current.clear();
+    setPendingRetries([]);
+    setQuotaError(null);
+    setIntakeDrafts({});
+    setShowNewProject(false);
+    setLoadedWorkspaceId(null);
+    setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
+    setProjects([]);
+    setClients([]);
+    setProfile(null);
+    setSelectedProject(null);
+    setRun(null);
+    setRunId(null);
+    setEvents([]);
     try {
-      await revokeAuthSession(session);
-    } finally {
-      clearSession();
-      runOperation.current += 1;
-      setBusy(false);
-      setSession(null);
-      pendingStart.current.clear();
-      setPendingRetries([]);
-      setQuotaError(null);
-      setIntakeDrafts({});
-      setShowNewProject(false);
-      setLoadedWorkspaceId(null);
-      setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
-      setProjects([]);
-      setClients([]);
-      setProfile(null);
-      setSelectedProject(null);
-      setRun(null);
-      setRunId(null);
-      setEvents([]);
+      await revokeAuthSession(revokedSession);
+    } catch (cause) {
+      if (!loadSession()) setError(cause instanceof Error ? cause.message : "로그아웃 요청을 완료하지 못했습니다.");
     }
   };
 
@@ -584,7 +603,9 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const handleSwitchWorkspace = async (workspaceId: string) => {
     runOperation.current += 1;
     setBusy(false);
-    const nextSession = { ...session, workspaceId: workspaceId };
+    const current = loadSession();
+    if (!current || current.userId !== session.userId) return;
+    const nextSession = { ...current, workspaceId };
     setPipelinePreferences({
       search: "",
       activeColumn: "all",
@@ -606,6 +627,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     try {
       await refreshProjects(nextSession);
     } catch (cause) {
+      if (cause instanceof ApiError && cause.code === "SESSION_CHANGED") return;
       setError(cause instanceof Error ? cause.message : "작업 공간을 전환하지 못했습니다.");
     }
   };

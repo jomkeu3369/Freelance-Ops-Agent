@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "codex/auth-ocr-integration-20261007"
       - "codex/ocr-language-layout-coverage-20261007"
       - "codex/byok-release-integration-20261005"
       - "codex/login-pet-motion-20261005"
