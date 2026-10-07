@@ -21,11 +21,37 @@ validation, with an OCR-unavailable notice.
 - JPG/PNG: local printed-text OCR, with image orientation and transparency handled
 - GIF/animated PNG: validate all frames, then OCR up to three deterministic frames
   (first, middle, last), reporting the exact frame numbers and any omissions
-- PDF: preserve extracted text layers and OCR up to three text-empty pages,
-  reporting the exact page numbers. Images on pages that already contain a text
-  layer are not separately OCR-read
-- Tesseract uses only the installed `eng`/`kor` packs, and names the selected packs
-  in every OCR coverage notice. It does not claim other language coverage
+- PDF: preserve extracted text layers and OCR up to three candidate pages. A page
+  is a candidate when its text is empty, large painted rasters cover at least 25%
+  of its media box, or bounded raster inspection is inconclusive. This includes
+  scanned bodies below native titles and long native introductions
+- Raster inspection reads placement metadata/content operators, not image pixels.
+  Nested painted Forms and inline images are included. Limits are 8 nested levels,
+  64 Form visits, 5,000 visited operators, 256 KiB per content stream and 1 MiB
+  inspected stream data per page. Byte checks follow decompression and operator
+  checks follow parsing, so they are not strict bounds on preprocessing work.
+  A conservative preflight gate stops raster reparsing above 20,000 whitespace
+  tokens; it can reject harmless text/inline data and does not bound prior native
+  text parsing or decompression. Existing worker CPU/address-space/request limits
+  are the final resource boundary. Cycles/limits are `UNKNOWN`, not proof of no scan
+- This area heuristic can miss small scans, annotations and clipping/overlap cases.
+  Those limitations and the unchanged three-unit sampling are explicit. It does
+  not provide full-document or visual coverage
+- Whole-page OCR is labelled separately from native text. Only an exact native
+  prefix is removed once (whitespace may differ); fuzzy matching and numeric-only
+  removal are forbidden. Remaining OCR may overlap native text and is not
+  independent corroboration. Existing native text survives empty/failed OCR
+- `ocrLanguage`: `mixed` (default `eng+kor`), `ko` (`kor`), `en` (`eng`).
+  `ocrLayout`: `general` (default PSM 3), `singleblock` (PSM 6). All arguments are
+  fixed mappings; there is no language detection, arbitrary CLI argument or
+  silent fallback when a requested pack is missing
+- Structured `coverage` has one ordered entry per PDF page/image frame, separating
+  native text/raster status, OCR attempt, completion, empty result, failure and
+  skip reason. An empty successful OCR call is completed; a failed call is only
+  attempted. Initialization failure does not claim any page/frame was attempted
+- A single LocalOcr instance shares its eight-second initialization/raster/OCR
+  deadline across the attachment. Command/tool failures preserve prior output;
+  an exhausted budget marks remaining selected units skipped
 - OCR is always `PARTIAL` when text is found, or `UNSUPPORTED` when no text is
   obtained. OCR does not provide general image, chart, layout, handwriting, or
   animation understanding. The preview must be reviewed before sending
@@ -47,6 +73,24 @@ uv run --locked pytest tests/test_attachments.py tests/test_attachment_ocr.py
 uv run --locked ruff check src/attachments tests/test_attachments.py tests/test_attachment_ocr.py
 uv run --locked mypy --follow-imports=silent src/attachments
 ```
+
+Also run `tests/test_attachment_coverage.py` for hybrid PDF, metadata bounds,
+option mapping, missing packs, partial failure, 30-page/60-frame sampling and
+historical JSON compatibility regressions.
+
+## Contract and rollout compatibility
+
+Missing OCR option/coverage fields in historical extraction JSON default to
+`mixed`, `general`, and `[]` in Python and Java. Empty coverage means unavailable
+historical metadata, not complete reading. New fields are optional in OpenAPI/TS.
+Python still rejects unknown fields (`extra=forbid`). This is an additive stored
+data migration, with no SQL change, but old running Agent processes cannot accept
+new OCR request fields. Coordinate the Agent/backend contract update before
+enabling the new frontend; do not route new requests/runs to old Agent instances.
+The backend rejects a response whose echoed options differ from the request.
+Rollback to old strict readers requires draining new staging entries and avoiding
+replaying new START payloads into old readers, or a compatible rollback build.
+No production rollout is performed by this implementation task.
 
 Native OCR smoke tests require installed Tesseract and Poppler. They generate
 synthetic printed text in memory and cover PNG, JPG, animated GIF, and a scanned PDF

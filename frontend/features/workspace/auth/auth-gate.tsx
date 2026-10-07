@@ -1,6 +1,6 @@
 import { useT } from "../../../app/lib/ui-language";
 import { AuthSession, isEmailVerificationRequired, login, register } from "../../../app/lib/api";
-import { useRef, useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, KeyboardEvent as ReactKeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { EyeSlash, Eye, CircleNotch, ArrowRight, ShieldCheck } from "@phosphor-icons/react";
@@ -27,6 +27,11 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [busy, setBusy] = useState(false);
   const submitPending = useRef(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [ageConfirmationError, setAgeConfirmationError] = useState(false);
@@ -81,6 +86,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
               workspaceName: String(data.get("workspaceName")),
               ageAtLeast14
             });
+      if (!mounted.current) return;
       if (isEmailVerificationRequired(session)) {
         form.reset();
         setAgeConfirmationError(false);
@@ -93,6 +99,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
       accountCreated = mode === "register";
       await onAuthenticated(session, mode === "register");
     } catch (cause) {
+      if (!mounted.current) return;
       if (accountCreated) {
         setMode("login");
         setError("계정은 생성되었습니다. 업무 공간을 불러오지 못했습니다. 로그인으로 다시 시도해 주세요.");
@@ -101,7 +108,7 @@ export function AuthGate({ onAuthenticated, error, setError }: AuthGateProps) {
       }
     } finally {
       submitPending.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   };
 

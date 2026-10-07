@@ -85,4 +85,61 @@ class ChatAttachmentServiceTest {
             "a".repeat(64), "COMPLETE", "text", "", null, null, 1));
     }
 
+    @Test void ocrOptionsAreValidatedBeforeReaderAndStaging() {
+        authorize();
+        for (String language : List.of("eng", "en --psm 6", "auto", ""))
+            assertEquals(400, assertThrows(ResponseStatusException.class,
+                () -> service.upload(user, workspace, project, file, "auto", "auto", language, "general")).getStatusCode().value());
+        assertEquals(400, assertThrows(ResponseStatusException.class,
+            () -> service.upload(user, workspace, project, file, "auto", "auto", "ko", "6")).getStatusCode().value());
+        verifyNoInteractions(reader, jdbc);
+    }
+
+    @Test void explicitOcrOptionsReachReaderAndPersistInExtraction() {
+        authorize();
+        var extracted = new AttachmentText("data.txt", "text/plain", 9, "a".repeat(64), "COMPLETE", "text", "", "utf-8", null, 1,
+            "ko", "singleblock", List.of());
+        when(reader.read(any(), any())).thenReturn(extracted);
+        var preview = service.upload(user, workspace, project, file, "auto", "auto", "ko", "singleblock");
+        var captured = org.mockito.ArgumentCaptor.forClass(AttachmentReaderClient.Input.class);
+        verify(reader).read(captured.capture(), any());
+        assertEquals("ko", captured.getValue().file().ocrLanguage());
+        assertEquals("singleblock", captured.getValue().file().ocrLayout());
+        assertEquals(extracted, preview.extraction());
+        verify(jdbc).update(contains("INSERT INTO app.chat_attachment"), eq(preview.id()), eq(workspace), eq(project), eq(user),
+            eq(mapper.writeValueAsString(extracted)), any(java.sql.Timestamp.class));
+    }
+
+    @Test void mismatchedOcrOptionsAreNotSilentlyStaged() {
+        authorize();
+        when(reader.read(any(), any())).thenReturn(text("text"));
+        assertEquals(502, assertThrows(ResponseStatusException.class,
+            () -> service.upload(user, workspace, project, file, "auto", "auto", "ko", "singleblock")).getStatusCode().value());
+        verify(jdbc, never()).update(contains("INSERT INTO app.chat_attachment"), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test void historicalJsonHasDefaultsAndNewCoverageRoundTripsThroughStaging() {
+        String historical = """
+            {"name":"data.txt","mediaType":"text/plain","size":9,"sha256":"%s","status":"COMPLETE",
+             "text":"text","notice":"","encoding":"utf-8","delimiter":null,"units":1}
+            """.formatted("a".repeat(64));
+        var old = mapper.readValue(historical, AttachmentText.class);
+        assertEquals("mixed", old.ocrLanguage()); assertEquals("general", old.ocrLayout()); assertEquals(List.of(), old.coverage());
+        var unit = new AttachmentText.Coverage(1, "PAGE", "TEXT", "LARGE", true, true, "READ", "TEXT_FOUND");
+        var updated = new AttachmentText("data.txt", "application/pdf", 9, "a".repeat(64), "PARTIAL", "HEADER\nBody", "Partial",
+            null, null, 1, "en", "general", List.of(unit));
+        assertEquals(updated, mapper.readValue(mapper.writeValueAsString(updated), AttachmentText.class));
+        when(jdbc.queryForList(anyString(), eq(String.class), eq(id), eq(workspace), eq(project), eq(user)))
+            .thenReturn(List.of(historical), List.of(mapper.writeValueAsString(updated)));
+        assertEquals(List.of(old), service.resolve(user, workspace, project, List.of(id)));
+        assertEquals(List.of(updated), service.resolve(user, workspace, project, List.of(id)));
+    }
+
+    @Test void coverageFlagsAndOrderingCannotClaimUncompletedReads() {
+        assertThrows(IllegalArgumentException.class, () -> new AttachmentText.Coverage(1, "PAGE", "TEXT", "LARGE", true, true, "FAILED", "TOOL_FAILED"));
+        var second = new AttachmentText.Coverage(2, "FRAME", "NOT_APPLICABLE", "NOT_APPLICABLE", false, false, "SKIPPED", "SAMPLED_OUT");
+        assertThrows(IllegalArgumentException.class, () -> new AttachmentText("data.txt", "image/gif", 9, "a".repeat(64), "PARTIAL",
+            "text", "", null, null, 1, "mixed", "general", List.of(second)));
+    }
+
 }

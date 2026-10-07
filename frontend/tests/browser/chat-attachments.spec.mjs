@@ -1,9 +1,66 @@
 import { test, expect } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
+
+test("OCR options invalidate reviewed extraction and coverage separates attempt from completion", async ({ page }) => {
+  const state = await setup(page, state => {
+    state.coverage = [
+      {index: 1, kind: "PAGE", nativeStatus: "TEXT", rasterStatus: "LARGE", ocrAttempted: true, ocrCompleted: true, ocrStatus: "READ", reason: "TEXT_FOUND"},
+      {index: 2, kind: "PAGE", nativeStatus: "EMPTY", rasterStatus: "NONE", ocrAttempted: true, ocrCompleted: false, ocrStatus: "FAILED", reason: "BUDGET_EXHAUSTED"},
+      {index: 3, kind: "PAGE", nativeStatus: "EMPTY", rasterStatus: "NONE", ocrAttempted: false, ocrCompleted: false, ocrStatus: "SKIPPED", reason: "SAMPLED_OUT"},
+    ];
+  });
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("scan.pdf", "synthetic scan", "application/pdf"));
+  const scan = row(page, "scan.pdf");
+  await expect(scan.getByLabel("문자 인식 언어")).toHaveValue("mixed");
+  await expect(scan.getByLabel("문서 형태")).toHaveValue("general");
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("checkbox")).toBeVisible();
+  expect(state.ocrOptions).toEqual([{language: "mixed", layout: "general"}]);
+  await scan.getByText("읽기 결과 확인", {exact: true}).click();
+  const coverage = scan.getByRole("table");
+  await expect(coverage).toContainText("페이지 1");
+  await expect(coverage.getByRole("row").filter({hasText: "페이지 2"})).toContainText("시도함");
+  await expect(coverage.getByRole("row").filter({hasText: "페이지 2"})).toContainText("미완료");
+  await expect(coverage.getByRole("row").filter({hasText: "페이지 3"})).toContainText("시도 안 함");
+  await page.getByRole("checkbox").check();
+  await scan.getByLabel("문자 인식 언어").selectOption("ko");
+  await scan.getByLabel("문서 형태").selectOption("singleblock");
+  await expect(scan).toContainText("아직 읽지 않음");
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await expect.poll(() => state.removals.length).toBe(1);
+  expect(state.starts).toHaveLength(0);
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  expect(state.ocrOptions[1]).toEqual({language: "ko", layout: "singleblock"});
+  expect(state.starts).toHaveLength(0);
+  await page.screenshot({path: "outputs/ui-ux/ocr-coverage-preview.png", fullPage: true});
+});
+
+test("OCR selection stays disabled during reading and cancellation cannot restore its late preview", async ({ page }) => {
+  const state = await setup(page);
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("image.png", "synthetic image", "image/png"));
+  const image = row(page, "image.png");
+  await image.getByLabel("문자 인식 언어").selectOption("en");
+  const barrier = state.uploadBarrier = requestBarrier();
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await barrier.entered;
+  await expect(image.getByLabel("문자 인식 언어")).toBeDisabled();
+  await expect(image.getByLabel("문서 형태")).toBeDisabled();
+  await page.getByRole("button", {name: "파일 읽기 취소"}).click();
+  await expect(page.getByRole("alert").filter({hasText: "취소"})).toBeVisible();
+  barrier.release();
+  await image.getByLabel("문자 인식 언어").selectOption("ko");
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  expect(state.ocrOptions).toEqual([{language: "en", layout: "general"}, {language: "ko", layout: "general"}]);
+  expect(state.starts).toHaveLength(0);
+});
 
 async function setup(page, configure = () => {}) {
   const state = await fixture(page);
-  state.uploads = []; state.uploadFields = []; state.removals = []; state.attachmentFailure = false;
+  state.uploads = []; state.uploadFields = []; state.ocrOptions = []; state.removals = []; state.attachmentFailure = false;
   configure(state);
   await page.route("**/projects/*/attachments**", async route => {
     if (route.request().method() === "DELETE") { state.removals.push(route.request().url()); return route.fulfill({status: 204}); }
@@ -12,11 +69,12 @@ async function setup(page, configure = () => {}) {
     const fields = await new Response(body, { headers: { "Content-Type": route.request().headers()["content-type"] } }).formData();
     const file = fields.get("file");
     state.uploadFields.push({ name: file.name, encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), bytes: Buffer.from(await file.arrayBuffer()) });
+    state.ocrOptions.push({language: fields.get("ocrLanguage"), layout: fields.get("ocrLayout")});
     const barrier = state.uploadBarrier;
     state.uploadBarrier = null;
     if (barrier) await barrier.wait();
     if (state.attachmentFailure) return route.fulfill({status: 422, contentType: "application/json", body: JSON.stringify({detail: "Invalid attachment"})});
-    return route.fulfill({status: 201, contentType: "application/json", body: JSON.stringify({id: index === 1 ? "attachment-one" : `attachment-${index}`, expiresAt: "2099-01-01T00:00:00Z", extraction: {name: file.name, mediaType: file.type, size: file.size, sha256: "0".repeat(64), status: "COMPLETE", text: state.extractionText ?? "Extracted synthetic contents", notice: "", encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), units: 1}})});
+    return route.fulfill({status: 201, contentType: "application/json", body: JSON.stringify({id: index === 1 ? "attachment-one" : `attachment-${index}`, expiresAt: "2099-01-01T00:00:00Z", extraction: {name: file.name, mediaType: file.type, size: file.size, sha256: "0".repeat(64), status: state.coverage ? "PARTIAL" : "COMPLETE", text: state.extractionText ?? "Extracted synthetic contents", notice: "", encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), units: state.coverage?.length ?? 1, ...(state.coverage ? {coverage: state.coverage} : {})}})});
   });
   await page.goto("/workspace/projects/project-one/agent");
   return state;
@@ -96,9 +154,14 @@ test("read failure and cancellation preserve files without starting AI", async (
   expect(state.starts[0].attachmentIds).toEqual(["attachment-3"]);
   expect(state.uploads).toHaveLength(3);
 });
-test("oversize file rejected locally", async ({page}) => {
+test("oversize file rejected locally", async ({page}, testInfo) => {
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles({name: "big.txt", mimeType: "text/plain", buffer: Buffer.alloc(2097153, "a")});
+  // Use the native picker path; transferring a 2MiB buffer through CDP can
+  // consume the test timeout on a constrained CPU before the application runs.
+  const path = testInfo.outputPath("big.txt");
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, Buffer.alloc(2097153, "a"));
+  await page.getByLabel("첨부파일 선택").setInputFiles(path);
   await expect(page.getByRole("alert").filter({hasText: "2 MiB"})).toBeVisible();
   expect(state.uploads).toHaveLength(0);
 });

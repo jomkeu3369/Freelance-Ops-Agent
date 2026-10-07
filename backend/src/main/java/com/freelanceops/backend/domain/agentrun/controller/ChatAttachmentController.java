@@ -16,8 +16,10 @@ public class ChatAttachmentController {
     @ResponseStatus(HttpStatus.CREATED)
     public ChatAttachmentService.Preview upload(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
         @RequestPart("file") MultipartFile file, @RequestParam(defaultValue = "auto") String encoding,
-        @RequestParam(defaultValue = "auto") String delimiter, Authentication auth) {
-        return service.upload(UUID.fromString(auth.getName()), workspaceId, projectId, file, encoding, delimiter);
+        @RequestParam(defaultValue = "auto") String delimiter,
+        @RequestParam(defaultValue = "mixed") String ocrLanguage,
+        @RequestParam(defaultValue = "general") String ocrLayout, Authentication auth) {
+        return service.upload(UUID.fromString(auth.getName()), workspaceId, projectId, file, encoding, delimiter, ocrLanguage, ocrLayout);
     }
     @DeleteMapping("/{attachmentId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

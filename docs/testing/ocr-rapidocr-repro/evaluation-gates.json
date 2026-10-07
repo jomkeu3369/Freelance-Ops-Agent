@@ -1,0 +1,47 @@
+{
+  "recorded_before_candidate_outputs_utc": "2026-10-07T05:05:00Z",
+  "candidate": {
+    "rapidocr": "3.9.2",
+    "onnxruntime": "1.30.0",
+    "detection": "ch_PP-OCRv5_det_mobile",
+    "classification": "ch_PP-LCNet_x0_25_textline_ori_cls_mobile",
+    "recognition": "korean_PP-OCRv5_rec_mobile",
+    "numeric_threads": 1,
+    "recognition_batch": 1,
+    "classification_batch": 1,
+    "cpu_mem_arena": false,
+    "host_installs": false,
+    "runtime_network": "none",
+    "paid_api": false
+  },
+  "feasibility_gate": {
+    "container_cpu": 1,
+    "container_memory_mib": 640,
+    "worker_address_space_mib": 512,
+    "worker_cpu_seconds": 12,
+    "worker_file_size_bytes": 0,
+    "native_command_wall_seconds": 3,
+    "shared_attachment_wall_seconds": 8,
+    "api_wall_seconds": 15,
+    "cold_import_and_model_loading_included": true,
+    "repeats_per_input": 3,
+    "stop_expansion_after_first_input_gate_failure": true,
+    "must_complete_all_cold_runs_without_error": true
+  },
+  "quality_gate_only_if_feasible": {
+    "independent_new_contents": 60,
+    "contents_per_language": 20,
+    "languages": ["ko", "en", "mixed"],
+    "repeats_per_content": 3,
+    "new_content_manifest_frozen_before_output_inspection": true,
+    "strata": ["singleblock", "table", "multicolumn", "rotation", "lowquality", "hybrid"],
+    "reference_engine": "current improved Tesseract with prespecified appropriate explicit language/layout",
+    "balanced_language_mean_CER_relative_improvement_minimum": 0.20,
+    "each_language_layout_CER_worsening_max_percentage_points": 1.0,
+    "amount_date_identifier_exact_accuracy_must_not_decline": true,
+    "page_body_omissions_must_not_increase": true,
+    "all_cold_resource_gates_still_required": true,
+    "insufficient_time_or_incomplete_data_is_not_a_pass": true
+  },
+  "replacement_action_only_if_all_gates_pass": "Separate implementation/regression/commit/push on work branch. No PR, main merge, production deployment, or authorization/cost-setting change."
+}
