@@ -7,6 +7,7 @@ import os
 import signal
 import sys
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Request
 from pydantic import Field, ValidationError
@@ -25,6 +26,8 @@ class FileInput(StrictModel):
     base64: str = Field(min_length=1, max_length=2_796_204)
     encoding: str = Field(default="auto", max_length=10)
     delimiter: str = Field(default="auto", max_length=4)
+    ocr_language: Literal["mixed", "ko", "en"] = "mixed"
+    ocr_layout: Literal["general", "singleblock"] = "general"
 
 
 class ExtractInput(StrictModel):

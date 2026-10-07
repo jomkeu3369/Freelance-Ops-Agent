@@ -3,11 +3,11 @@
 import { Paperclip } from "@phosphor-icons/react";
 import { ClipboardEvent, useEffect, useId, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
-import { AuthSession, AttachmentPreview, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
+import { AuthSession, AttachmentPreview, OcrOptions, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
 import "./chat-attachments.css";
 
-interface DraftFile { key: string; file: File; encoding: string; delimiter: string; preview?: AttachmentPreview; }
+interface DraftFile extends OcrOptions { key: string; file: File; encoding: string; delimiter: string; preview?: AttachmentPreview; }
 const drafts = new Map<string, { items: DraftFile[]; expires: number }>();
 const ttl = 60 * 60 * 1000;
 function prune() { for (const [key, value] of drafts) if (value.expires <= Date.now()) drafts.delete(key); }
@@ -44,7 +44,7 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
       validateAttachments(current.current.map(item => item.file), files);
       const others = [...drafts].filter(([entry]) => entry !== key).flatMap(([, value]) => value.items);
       if (others.length + current.current.length + files.length > 12) throw new Error("다른 프로젝트의 미전송 첨부를 먼저 제거해 주세요.");
-      update([...current.current, ...files.map(file => ({ key: crypto.randomUUID(), file, encoding: "auto", delimiter: "auto" }))]);
+      update([...current.current, ...files.map(file => ({ key: crypto.randomUUID(), file, encoding: "auto", delimiter: "auto", ocrLanguage: "mixed" as const, ocrLayout: "general" as const }))]);
       setError("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "파일을 추가하지 못했습니다."); }
   }
@@ -61,9 +61,10 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     update(current.current.filter(value => value.key !== item.key));
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => setError("임시 첨부 삭제를 확인하지 못했습니다. 서버 자료는 30분 후 만료됩니다."));
   }
-  function options(item: DraftFile, encoding: string, delimiter: string) {
+  function options(item: DraftFile, encoding: string, delimiter: string, ocrLanguage = item.ocrLanguage, ocrLayout = item.ocrLayout) {
+    if (abort.current) return;
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => {});
-    update(current.current.map(value => value.key === item.key ? { ...value, encoding, delimiter, preview: undefined } : value));
+    update(current.current.map(value => value.key === item.key ? { ...value, encoding, delimiter, ocrLanguage, ocrLayout, preview: undefined } : value));
   }
   async function prepare(): Promise<boolean> {
     if (abort.current) return false;
@@ -74,8 +75,11 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     setReading(true); setError("");
     try {
       for (const item of pending) {
-        const preview = await readChatAttachment(session, projectId, item.file, item.encoding, item.delimiter, controller.signal);
-        if (controller.signal.aborted || !mounted.current) return false;
+        const preview = await readChatAttachment(session, projectId, item.file, item.encoding, item.delimiter, controller.signal, { ocrLanguage: item.ocrLanguage, ocrLayout: item.ocrLayout });
+        if (controller.signal.aborted || !mounted.current || abort.current !== controller) {
+          void removeChatAttachment(session, projectId, preview.id).catch(() => {});
+          return false;
+        }
         update(current.current.map(value => value.key === item.key ? { ...value, preview } : value));
       }
       const characters = current.current.reduce((sum, item) => sum + Array.from(item.preview?.extraction.text ?? "").length, 0);
@@ -142,7 +146,19 @@ export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof 
           <button type="button" onClick={() => setPreviewKey(item.key)}>{t("로컬 TXT 확인")}</button>
         </>}
         {/\.csv$/i.test(item.file.name) && <label>{t("구분자")}<select disabled={disabled || state.reading} value={item.delimiter} onChange={event => state.options(item, item.encoding, event.target.value)}>{[["auto", "자동"], [",", "쉼표"], [";", "세미콜론"], ["\t", "탭"], ["|", "파이프"]].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>}
-        {item.preview && <details><summary>{t("읽기 결과 확인")}</summary><p>{item.preview.extraction.notice || t(item.preview.extraction.status === "COMPLETE" ? "텍스트를 잘라내지 않고 추출했습니다." : "일부 읽음 · 문자 인식 결과 확인 필요")}</p><p>{item.preview.extraction.encoding} · {t("{v0} 페이지/행/프레임 · {v1}자", { v0: item.preview.extraction.units, v1: Array.from(item.preview.extraction.text).length.toLocaleString() })}</p><pre>{item.preview.extraction.text || t("추출한 텍스트 없음")}</pre></details>}
+        {/\.(pdf|jpe?g|png|gif)$/i.test(item.file.name) && <>
+          <label>{t("문자 인식 언어")}<select disabled={disabled || state.reading} value={item.ocrLanguage} onChange={event => state.options(item, item.encoding, item.delimiter, event.target.value as OcrOptions["ocrLanguage"])}>{[["mixed", "한국어 + 영어"], ["ko", "한국어"], ["en", "영어"]].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>
+          <label>{t("문서 형태")}<select disabled={disabled || state.reading} value={item.ocrLayout} onChange={event => state.options(item, item.encoding, item.delimiter, item.ocrLanguage, event.target.value as OcrOptions["ocrLayout"])}>{[["general", "일반 문서"], ["singleblock", "한 덩어리 텍스트"]].map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label>
+          <small>{t("언어를 자동 감지하지 않습니다. 형태에 따라 결과가 달라질 수 있습니다.")}</small>
+        </>}
+        {item.preview && <details><summary>{t("읽기 결과 확인")}</summary><p>{item.preview.extraction.notice || t(item.preview.extraction.status === "COMPLETE" ? "텍스트를 잘라내지 않고 추출했습니다." : "일부 읽음 · 문자 인식 결과 확인 필요")}</p><p>{item.preview.extraction.encoding} · {t("{v0} 페이지/행/프레임 · {v1}자", { v0: item.preview.extraction.units, v1: Array.from(item.preview.extraction.text).length.toLocaleString() })}</p>
+          {!!item.preview.extraction.coverage?.length && <div className="attachment-coverage"><table><caption>{t("페이지·프레임 읽기 범위")}</caption><thead><tr>{["위치", "기존 텍스트", "OCR 시도", "OCR 완료", "결과·사유"].map(label => <th key={label} scope="col">{t(label)}</th>)}</tr></thead><tbody>{item.preview.extraction.coverage.map(unit => <tr key={unit.index}>
+            <th scope="row">{t(unit.kind === "PAGE" ? "페이지 {v0}" : "프레임 {v0}", { v0: unit.index })}</th>
+            <td>{t(unit.nativeStatus === "TEXT" ? "있음" : unit.nativeStatus === "FAILED" ? "읽기 실패" : unit.nativeStatus === "EMPTY" ? "없음" : "해당 없음")}</td>
+            <td>{t(unit.ocrAttempted ? "시도함" : "시도 안 함")}</td><td>{t(unit.ocrCompleted ? "완료" : "미완료")}</td>
+            <td>{t(coverageReasons[unit.reason])}{unit.rasterStatus === "UNKNOWN" && <> · {t("이미지 탐색 한계")}</>}</td>
+          </tr>)}</tbody></table></div>}
+          <pre>{item.preview.extraction.text || t("추출한 텍스트 없음")}</pre></details>}
       </li>)}</ul>
       {state.ready && <label><input type="checkbox" checked={state.confirmed} disabled={disabled || state.tooLarge} onChange={event => state.setConfirmed(event.target.checked)} />{t("읽은 범위와 누락·미지원 내용을 확인했습니다. 첨부 텍스트가 대화 기록에 저장됩니다.")}</label>}
       {state.ready && <p className="agent-chat-muted">{t("임시 결과는 30분 후 만료됩니다. 만료 오류가 나면 제거 후 다시 첨부해 주세요. 보낸 내용은 프로젝트 대화의 보존·삭제 정책을 따릅니다.")}</p>}
@@ -152,3 +168,9 @@ export function ChatAttachments({ state, disabled }: { state: ReturnType<typeof 
     {previewItem && <LocalTextPreview key={previewItem.key} file={previewItem.file} onClose={() => setPreviewKey(null)} />}
   </div>;
 }
+
+const coverageReasons = {
+  TEXT_ONLY: "기존 텍스트만 읽음", SMALL_RASTER: "작은 이미지 OCR 생략", SAMPLED_OUT: "3개 샘플 제한으로 생략",
+  BUDGET_EXHAUSTED: "OCR 시간 한도", TOOL_UNAVAILABLE: "OCR 도구 없음", LANGUAGE_UNAVAILABLE: "요청 언어팩 없음",
+  TOOL_FAILED: "OCR 읽기 실패", EMPTY_RESULT: "OCR 텍스트 없음", TEXT_FOUND: "OCR 텍스트 읽음", DUPLICATE_ONLY: "기존 텍스트와 중복",
+};

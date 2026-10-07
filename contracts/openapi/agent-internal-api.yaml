@@ -42,6 +42,8 @@ paths:
                     base64: {type: string, minLength: 1, maxLength: 2796204}
                     encoding: {type: string, maxLength: 10, default: auto}
                     delimiter: {type: string, maxLength: 4, default: auto}
+                    ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
+                    ocrLayout: {type: string, enum: [general, singleblock], default: general}
       responses:
         '200':
           description: Bounded text with explicit extraction coverage
@@ -1119,6 +1121,30 @@ components:
         encoding: {type: [string, 'null']}
         delimiter: {type: [string, 'null']}
         units: {type: integer, minimum: 1, maximum: 5000}
+        ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
+        ocrLayout: {type: string, enum: [general, singleblock], default: general}
+        coverage:
+          type: array
+          maxItems: 60
+          default: []
+          description: One ordered entry per page/frame. Empty for text/CSV and historical results without structured coverage. OCR attempt includes a failed read; completion requires a returned result, which may be empty.
+          items:
+            $ref: '#/components/schemas/AttachmentCoverage'
+    AttachmentCoverage:
+      type: object
+      additionalProperties: false
+      required: [index, kind, nativeStatus, rasterStatus, ocrAttempted, ocrCompleted, ocrStatus, reason]
+      properties:
+        index: {type: integer, minimum: 1, maximum: 60}
+        kind: {type: string, enum: [PAGE, FRAME]}
+        nativeStatus: {type: string, enum: [TEXT, EMPTY, FAILED, NOT_APPLICABLE]}
+        rasterStatus: {type: string, enum: [NONE, SMALL, LARGE, UNKNOWN, NOT_APPLICABLE]}
+        ocrAttempted: {type: boolean}
+        ocrCompleted: {type: boolean}
+        ocrStatus: {type: string, enum: [READ, EMPTY, FAILED, SKIPPED]}
+        reason:
+          type: string
+          enum: [TEXT_ONLY, SMALL_RASTER, SAMPLED_OUT, BUDGET_EXHAUSTED, TOOL_UNAVAILABLE, LANGUAGE_UNAVAILABLE, TOOL_FAILED, EMPTY_RESULT, TEXT_FOUND, DUPLICATE_ONLY]
     SkillSelection:
       type: object
       additionalProperties: false

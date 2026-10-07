@@ -16,7 +16,7 @@ from attachments.router import FileInput, router, run_reader
 from contracts import AgentInput
 
 
-def unavailable_ocr():
+def unavailable_ocr(*args):
     raise OcrUnavailable("Local OCR is unavailable.")
 
 

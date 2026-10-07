@@ -358,14 +358,24 @@ export interface EstimationPolicyProposal {
   createdAt: string;
 }
 
+export interface OcrOptions { ocrLanguage: "mixed" | "ko" | "en"; ocrLayout: "general" | "singleblock"; }
+export interface AttachmentCoverage {
+  index: number; kind: "PAGE" | "FRAME";
+  nativeStatus: "TEXT" | "EMPTY" | "FAILED" | "NOT_APPLICABLE";
+  rasterStatus: "NONE" | "SMALL" | "LARGE" | "UNKNOWN" | "NOT_APPLICABLE";
+  ocrAttempted: boolean; ocrCompleted: boolean; ocrStatus: "READ" | "EMPTY" | "FAILED" | "SKIPPED";
+  reason: "TEXT_ONLY" | "SMALL_RASTER" | "SAMPLED_OUT" | "BUDGET_EXHAUSTED" | "TOOL_UNAVAILABLE" | "LANGUAGE_UNAVAILABLE" | "TOOL_FAILED" | "EMPTY_RESULT" | "TEXT_FOUND" | "DUPLICATE_ONLY";
+}
 export interface AttachmentText {
   name: string; mediaType: string; size: number; sha256: string;
   status: "COMPLETE" | "PARTIAL" | "UNSUPPORTED"; text: string; notice: string;
   encoding: string | null; delimiter: string | null; units: number;
+  ocrLanguage?: OcrOptions["ocrLanguage"]; ocrLayout?: OcrOptions["ocrLayout"]; coverage?: AttachmentCoverage[];
 }
 export interface AttachmentPreview { id: string; expiresAt: string; extraction: AttachmentText; }
-export function readChatAttachment(session: AuthSession, projectId: string, file: File, encoding: string, delimiter: string, signal?: AbortSignal): Promise<AttachmentPreview> {
+export function readChatAttachment(session: AuthSession, projectId: string, file: File, encoding: string, delimiter: string, signal?: AbortSignal, ocr?: OcrOptions): Promise<AttachmentPreview> {
   const body = new FormData(); body.append("file", file); body.append("encoding", encoding); body.append("delimiter", delimiter);
+  if (ocr) { body.append("ocrLanguage", ocr.ocrLanguage); body.append("ocrLayout", ocr.ocrLayout); }
   return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments`, { method: "POST", body, signal }, session.accessToken);
 }
 export function removeChatAttachment(session: AuthSession, projectId: string, id: string): Promise<void> {

@@ -5,7 +5,7 @@ from typing import Literal
 from unicodedata import category
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_INTERRUPTION_QUESTIONS = 3
 BYOK_COST_NOTICE_VERSION = "byok-standard-150k-48k-2026-10-05-v1"
@@ -15,8 +15,7 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         alias_generator=lambda name: "".join(
-            word if index == 0 else word.capitalize()
-            for index, word in enumerate(name.split("_"))
+            word if index == 0 else word.capitalize() for index, word in enumerate(name.split("_"))
         ),
         populate_by_name=True,
     )
@@ -128,6 +127,36 @@ class PetProfile(StrictModel):
         return value
 
 
+class AttachmentCoverage(StrictModel):
+    index: int = Field(ge=1, le=60)
+    kind: Literal["PAGE", "FRAME"]
+    native_status: Literal["TEXT", "EMPTY", "FAILED", "NOT_APPLICABLE"]
+    raster_status: Literal["NONE", "SMALL", "LARGE", "UNKNOWN", "NOT_APPLICABLE"]
+    ocr_attempted: bool
+    ocr_completed: bool
+    ocr_status: Literal["READ", "EMPTY", "FAILED", "SKIPPED"]
+    reason: Literal[
+        "TEXT_ONLY",
+        "SMALL_RASTER",
+        "SAMPLED_OUT",
+        "BUDGET_EXHAUSTED",
+        "TOOL_UNAVAILABLE",
+        "LANGUAGE_UNAVAILABLE",
+        "TOOL_FAILED",
+        "EMPTY_RESULT",
+        "TEXT_FOUND",
+        "DUPLICATE_ONLY",
+    ]
+
+    @model_validator(mode="after")
+    def consistent_flags(self) -> "AttachmentCoverage":
+        if self.ocr_attempted != (self.ocr_status != "SKIPPED") or self.ocr_completed != (
+            self.ocr_status in {"READ", "EMPTY"}
+        ):
+            raise ValueError("Inconsistent OCR coverage flags")
+        return self
+
+
 class AttachmentText(StrictModel):
     name: str = Field(min_length=1, max_length=180)
     media_type: str = Field(max_length=100)
@@ -139,6 +168,15 @@ class AttachmentText(StrictModel):
     encoding: str | None = None
     delimiter: str | None = None
     units: int = Field(ge=1, le=5000)
+    ocr_language: Literal["mixed", "ko", "en"] = "mixed"
+    ocr_layout: Literal["general", "singleblock"] = "general"
+    coverage: list[AttachmentCoverage] = Field(default_factory=list, max_length=60)
+
+    @model_validator(mode="after")
+    def coverage_matches_units(self) -> "AttachmentText":
+        if self.coverage and [unit.index for unit in self.coverage] != list(range(1, self.units + 1)):
+            raise ValueError("Coverage must identify each page/frame once in order")
+        return self
 
 
 class SkillSelection(StrictModel):
@@ -151,6 +189,7 @@ class SkillSelection(StrictModel):
     @classmethod
     def known_unique_ids(cls, values: list[str]) -> list[str]:
         from builtin_skills import SKILL_IDS
+
         if len(values) != len(set(values)) or any(value not in SKILL_IDS for value in values):
             raise ValueError("Unknown or duplicate built-in skill ID")
         return values

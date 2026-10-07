@@ -11,7 +11,8 @@ import java.time.Duration;
 
 @Component
 public class AttachmentReaderClient {
-    public record FileInput(String name, String mediaType, String base64, String encoding, String delimiter) { }
+    public record FileInput(String name, String mediaType, String base64, String encoding, String delimiter,
+                            String ocrLanguage, String ocrLayout) { }
     public record Input(TrustedRunContext context, FileInput file) { }
     private final RestClient client;
     public AttachmentReaderClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {

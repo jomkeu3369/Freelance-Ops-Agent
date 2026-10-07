@@ -24,6 +24,7 @@ except Exception as error:
     safe_codes = {"INVALID_FILENAME", "UNSUPPORTED_TYPE_OR_MIME", "INVALID_BASE64", "FILE_SIZE_LIMIT",
                   "EXTRACTED_TEXT_LIMIT", "NOT_PLAIN_TEXT", "FORMAT_MISMATCH", "CSV_DELIMITER_REQUIRED",
                   "CSV_DIMENSION_LIMIT", "ENCRYPTED_PDF_UNSUPPORTED", "PDF_PAGE_LIMIT",
-                  "IMAGE_FRAME_OR_PIXEL_LIMIT", "TEXT_ENCODING_UNSUPPORTED", "PARSER_RESOURCE_LIMIT"}
+                  "IMAGE_FRAME_OR_PIXEL_LIMIT", "TEXT_ENCODING_UNSUPPORTED", "PARSER_RESOURCE_LIMIT",
+                  "OCR_OPTIONS_UNSUPPORTED"}
     code = str(error) if isinstance(error, ValueError) and str(error) in safe_codes else "UNREADABLE_FILE"
     print(json.dumps({"error": code}))

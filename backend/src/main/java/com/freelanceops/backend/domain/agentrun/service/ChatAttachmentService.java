@@ -47,6 +47,12 @@ public class ChatAttachmentService {
 
     @Transactional
     public Preview upload(UUID user, UUID workspace, UUID project, MultipartFile file, String encoding, String delimiter) {
+        return upload(user, workspace, project, file, encoding, delimiter, "mixed", "general");
+    }
+
+    @Transactional
+    public Preview upload(UUID user, UUID workspace, UUID project, MultipartFile file, String encoding, String delimiter,
+                          String ocrLanguage, String ocrLayout) {
         List<String> allowed = authorize(user, workspace, project);
         String name = file.getOriginalFilename();
         if (name == null || name.length() > 180 || name.chars().anyMatch(c -> c < 32 || c == 127 || c == 47 || c == 92 || c == 58)
@@ -55,8 +61,9 @@ public class ChatAttachmentService {
         if (file.isEmpty() || file.getSize() > 2097152)
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Files must be 1 byte to 2 MiB");
         if (!Set.of("auto", "utf-8", "utf-16", "cp949").contains(encoding)
-            || !Set.of("auto", ",", ";", "\t", "|").contains(delimiter))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid encoding or delimiter");
+            || !Set.of("auto", ",", ";", "\t", "|").contains(delimiter)
+            || !Set.of("mixed", "ko", "en").contains(ocrLanguage) || !Set.of("general", "singleblock").contains(ocrLayout))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid attachment reading options");
         // Serialize the per-user staging quota across projects and application instances.
         jdbc.queryForList("SELECT id FROM app.user_account WHERE id = ? FOR UPDATE", user);
         jdbc.update("DELETE FROM app.chat_attachment WHERE owner_id = ? AND expires_at <= CURRENT_TIMESTAMP", user);
@@ -69,14 +76,16 @@ public class ChatAttachmentService {
             byte[] bytes = source.readNBytes(2097153);
             if (bytes.length != file.getSize()) throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
             extraction = reader.read(new AttachmentReaderClient.Input(context, new AttachmentReaderClient.FileInput(
-                name, file.getContentType() == null ? "" : file.getContentType(), Base64.getEncoder().encodeToString(bytes), encoding, delimiter)),
+                name, file.getContentType() == null ? "" : file.getContentType(), Base64.getEncoder().encodeToString(bytes), encoding, delimiter,
+                ocrLanguage, ocrLayout)),
                 tokens.issue(id, workspace, project, user, allowed));
         } catch (IOException | RestClientException error) {
             // Never expose parser exceptions, request contents, or internal response bodies.
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
                 "File could not be read safely. Check format, encoding, delimiter, page/frame/size limits or retry later.");
         }
-        if (extraction == null || !name.equals(extraction.name())) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY);
+        if (extraction == null || !name.equals(extraction.name()) || !ocrLanguage.equals(extraction.ocrLanguage())
+            || !ocrLayout.equals(extraction.ocrLayout())) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY);
         Instant expires = Instant.now().plusSeconds(1800);
         jdbc.update("INSERT INTO app.chat_attachment(id, workspace_id, project_id, owner_id, payload, expires_at) VALUES (?, ?, ?, ?, ?::jsonb, ?)",
             id, workspace, project, user, mapper.writeValueAsString(extraction), java.sql.Timestamp.from(expires));

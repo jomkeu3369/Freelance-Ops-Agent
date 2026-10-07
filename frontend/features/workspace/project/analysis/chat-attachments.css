@@ -6,3 +6,6 @@
 .chat-attachments pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .5rem; background: #8881; }
 .chat-attachments label { display: inline-flex; align-items: center; gap: .3rem; }
 .chat-attachments button, .chat-attachments select { border: 1px solid #8885; padding: .3rem .5rem; border-radius: 6px; }
+.attachment-coverage { max-height: 220px; overflow: auto; }
+.attachment-coverage table { border-collapse: collapse; width: 100%; }
+.attachment-coverage th, .attachment-coverage td { text-align: left; padding: .35rem; border-bottom: 1px solid #aaa5; white-space: nowrap; }
