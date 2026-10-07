@@ -19,6 +19,8 @@ import sys
 DEPLOY_ROOT = Path('/opt/freelance-ops')
 BACKUP_ROOT = Path('/var/backups/freelance-ops')
 PROJECT = 'freelance-ops-v2-production'
+EXPECTED_CURRENT_SHA = '00ba39b14fe6fd05aea9b011514bb70d17cbf79e'
+APPROVED_RELEASE_CANDIDATE_SHA = 'bcfcd52526f0783840cdb6b25d773220a924d7de'
 SHA = re.compile(r'[0-9a-f]{40}')
 DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 
@@ -99,6 +101,8 @@ def main(release_sha: str) -> None:
         tag = data['Config']['Image']
         if not re.fullmatch(r'ghcr.io/[a-z0-9_-]+/freelance-ops-' + service + r':'+service+r'-[0-9a-f]{40}', tag):
             raise RuntimeError(f'{service} image is not pinned to an immutable commit tag')
+        if tag.rsplit(':', 1)[1] != f'{service}-{EXPECTED_CURRENT_SHA}':
+            raise RuntimeError(f'{service} is not the reviewed pre-release version; stop and review changed state')
         marker_path = DEPLOY_ROOT / ('.' + service + '-deployed-tag')
         marker = marker_path.read_text().strip()
         if tag.rsplit(':', 1)[1] != marker:
@@ -115,11 +119,11 @@ def main(release_sha: str) -> None:
     psql = ['docker', 'exec', postgres, 'psql', '-X', '-qAt', '--username', 'postgres',
             '--dbname', 'freelance_ops', '--set', 'ON_ERROR_STOP=1', '--command']
     schema = command(psql + ["SELECT COALESCE(MAX(version::int),0) FROM app.flyway_schema_history WHERE success AND version ~ '^[0-9]+$'"])
-    if schema != '35':
-        raise RuntimeError('Expected pre-release Flyway schema 35; stop and review changed state')
+    if schema != '47':
+        raise RuntimeError('Expected pre-release Flyway schema 47; stop and review changed state')
     alembic = command(psql + ['SELECT version_num FROM agent_runtime.alembic_version'])
-    if not re.fullmatch(r'[A-Za-z0-9_]+', alembic):
-        raise RuntimeError('Unexpected Alembic version metadata')
+    if alembic != '20260912_0007':
+        raise RuntimeError('Expected pre-release Alembic 20260912_0007; stop and review changed state')
     db_size = int(command(psql + ["SELECT pg_database_size('freelance_ops')"]))
     if db_size > 4 * 1024**3:
         raise RuntimeError('Database exceeds bounded 4 GiB snapshot window; review backup separately')
@@ -148,7 +152,9 @@ def main(release_sha: str) -> None:
         raise RuntimeError('Snapshot integrity verification failed')
     result = {'snapshot_path': str(dump), 'snapshot_sha256': checksum,
               'snapshot_bytes': dump.stat().st_size, 'created_at_utc': timestamp,
-              'release_preflight_sha': release_sha, 'flyway_version': int(schema),
+              'release_preflight_sha': release_sha,
+              'approved_release_candidate_sha': APPROVED_RELEASE_CANDIDATE_SHA,
+              'flyway_version': int(schema),
               'alembic_version': alembic, 'images': images, 'configuration_checks': config,
               'archive_catalog_verified': True, 'archive_fully_decoded': True,
               'restore_drill_performed': False, 'off_host_backup_verified': False,
