@@ -1,6 +1,5 @@
 import { test as base, expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
-import { createBrandFlight } from "../../features/home/brand-flight.mjs";
 
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 
@@ -934,21 +933,12 @@ async function brandMergeGeometry(page, progress) {
   const measured = await page.evaluate(() => {
     const mark = document.querySelector("[data-story-brand-mark]");
     const target = document.querySelector("[data-story-brand-target]");
+    const plate = document.querySelector("[data-story-brand-plate]");
     const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
     const from = mark.getBoundingClientRect();
     const to = target.getBoundingClientRect();
+    const plateBox = plate.getBoundingClientRect();
     const origin = { x: stage.left + stage.width / 2, y: stage.top + mark.offsetTop };
-    const cards = [...document.querySelector("[data-story-merge-card]").parentElement.querySelectorAll(".story-benefit-card")];
-    const blocks = cards.map(card => [...card.querySelectorAll(":scope > h3, :scope > p:not(.story-panel-footnote)")]);
-    const left = Math.max(...blocks[0].map(block => block.getBoundingClientRect().right));
-    const right = Math.min(...blocks[1].map(block => block.getBoundingClientRect().left));
-    const size = Math.min(mark.offsetWidth * .64, Math.max(36, right - left - 20));
-    const copyBottom = Math.max(...blocks.flatMap((items, index) => {
-      const transform = getComputedStyle(cards[index]).transform;
-      const revealY = transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m42;
-      return items.map(block => block.getBoundingClientRect().bottom - revealY);
-    }));
-    const drift = innerHeight * 0.12;
     const visible = [mark, target].filter(element => {
       let opacity = 1;
       for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
@@ -958,35 +948,12 @@ async function brandMergeGeometry(page, progress) {
       }
       return opacity > 0.01;
     });
-    // Check the rendered F against actual text line boxes, independently of
-    // the sampled path. Whole paragraphs include empty trailing whitespace.
-    const copyRects = blocks.flat().flatMap(block => {
-      const range = document.createRange();
-      range.selectNodeContents(block);
-      return [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0).map(rect => ({
-        left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
-        text: block.textContent.trim(),
-      }));
-    });
-    const copyOverlaps = visible.flatMap(element => {
-      const logo = element.getBoundingClientRect();
-      return copyRects.flatMap(rect => {
-        const width = Math.min(logo.right, rect.right) - Math.max(logo.left, rect.left);
-        const height = Math.min(logo.bottom, rect.bottom) - Math.max(logo.top, rect.top);
-        return width > .75 && height > .75 ? [{ text: rect.text, width, height, logo: element === target ? "target" : "source" }] : [];
-      });
-    });
     return {
       scrollProgress: (innerHeight * .70 - stage.top - stage.height / 2) / (to.top + to.height / 2 - innerHeight * .65 - stage.top - stage.height / 2 + innerHeight * .70),
-      origin, drift, markWidth: mark.offsetWidth,
+      origin, markWidth: mark.offsetWidth,
       actual: { x: from.left + from.width / 2, y: from.top + from.height / 2, width: from.width },
-      flightGeometry: {
-        start: { x: 0, y: drift, scale: 1 }, corridorX: (left + right) / 2 - origin.x,
-        clearY: copyBottom - origin.y + size / 2 + 20,
-        destination: { x: to.left + to.width / 2 - origin.x, y: to.top + to.height / 2 - origin.y, scale: to.width / mark.offsetWidth },
-        compactScale: size / mark.offsetWidth,
-      },
-      copyBlockCount: blocks.flat().length, copyTextRectCount: copyRects.length, copyOverlaps,
+      destination: { x: to.left + to.width / 2 - origin.x, y: to.top + to.height / 2 - origin.y, scale: to.width / mark.offsetWidth },
+      plateShift: { x: plateBox.left - stage.left - plate.offsetLeft, y: plateBox.top - stage.top - plate.offsetTop },
       visibleCount: visible.length,
       active: visible[0] === target ? "target" : "source",
       left: from.left,
@@ -1000,16 +967,16 @@ async function brandMergeGeometry(page, progress) {
       })()
     };
   });
-  // The timeline eases one scalar playhead. Reuse the production sampler so
-  // this test can validate DOM integration without another Bézier implementation.
+  // Independently measure the straight line between DOM endpoints. One eased
+  // progress value must interpolate position and size without a separate detour.
   const currentProgress = progress ?? measured.scrollProgress;
   const flightProgress = Math.max(0, Math.min(1, (currentProgress - .46) / .54));
   const eased = flightProgress < .5 ? 2 * flightProgress * flightProgress : 1 - Math.pow(-2 * flightProgress + 2, 2) / 2;
-  const expected = currentProgress <= .46
-    ? { x: 0, y: measured.drift * Math.max(0, currentProgress) / .46, scale: 1 }
-    : createBrandFlight(measured.flightGeometry).sample(eased);
+  const expected = { x: measured.destination.x * eased, y: measured.destination.y * eased, scale: 1 + (measured.destination.scale - 1) * eased };
+  const offset = { x: measured.actual.x - measured.origin.x, y: measured.actual.y - measured.origin.y };
   return {
     ...measured,
+    lineError: Math.abs(offset.x * measured.destination.y - offset.y * measured.destination.x) / Math.max(1, Math.hypot(measured.destination.x, measured.destination.y)),
     error: Math.max(
       Math.abs(measured.actual.x - measured.origin.x - expected.x),
       Math.abs(measured.actual.y - measured.origin.y - expected.y),
@@ -1036,8 +1003,8 @@ for (const language of ["ko", "en"]) {
   });
 
   for (const width of [1024, 1440]) {
-    test(`brand merge ${language} ${width}px: full plate holds, folds, merges one logo, reverses and realigns after resize`, async ({ page }) => {
-      test.setTimeout(60_000);
+    test(`brand merge ${language} ${width}px: holds in place, travels straight, merges one logo and realigns on reverse or resize`, async ({ page }) => {
+      test.setTimeout(90_000);
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
@@ -1060,9 +1027,10 @@ for (const language of ["ko", "en"]) {
           const plate = element.getBoundingClientRect();
           const copy = document.querySelector("[data-story-brand-copy]");
           const text = copy.getBoundingClientRect();
-          const visibleText = Number(getComputedStyle(copy).opacity) > .025;
+          const opacity = Number(getComputedStyle(copy).opacity);
+          const visibleText = opacity > .025;
           const textClear = !visibleText || (text.top >= plate.top + top - .75 && text.bottom <= plate.bottom - bottom + .75 && text.left >= plate.left + left - .75 && text.right <= plate.right - right + .75);
-          samples.push({ radius: Number(shape[2]), difference: Math.abs(left - right), textClear });
+          samples.push({ radius: Number(shape[2]), difference: Math.abs(left - right), textClear, ...(!textClear ? { opacity, clip, overflow: Math.max(plate.top + top - text.top, text.bottom - plate.bottom + bottom, plate.left + left - text.left, text.right - plate.right + right) } : {}) });
         };
         const observer = new MutationObserver(capture);
         observer.observe(element, { attributes: true, attributeFilter: ["style"] });
@@ -1072,7 +1040,7 @@ for (const language of ["ko", "en"]) {
       for (const progress of [-0.1, 0, 0.08, 0.12, 0.13, 0.2, 0.29, 0.38, 0.46, 0.6, 0.7, 0.75, 0.8, 0.9, 0.99, 1, 0.9, 0.8, 0.7, 0.46, 0.38, 0.29, 0.2, 0.13, 0.08, 0]) {
         const range = await scrollBrandMerge(page, progress);
         expect(range.end).toBeGreaterThan(range.start);
-        await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The source logo must follow a continuous measured path, including reverse scrolling" }).toBeLessThanOrEqual(3);
+        await expect.poll(async () => (await brandMergeGeometry(page, progress)).error, { message: "The F must remain at its origin through the fold, then interpolate directly to its measured destination" }).toBeLessThanOrEqual(3);
         await expect.poll(async () => {
           const geometry = await brandMergeGeometry(page, progress);
           return `${geometry.visibleCount}:${geometry.active}`;
@@ -1083,10 +1051,23 @@ for (const language of ["ko", "en"]) {
         expect(geometry.left).toBeGreaterThanOrEqual(-1);
         expect(geometry.right).toBeLessThanOrEqual(geometry.clientWidth + 1);
         expect(geometry.targetInsideCard).toBe(true);
-        if (progress >= .46) {
-          expect(geometry.copyBlockCount, "Both benefit headings and both introductory paragraphs must be measured").toBe(4);
-          expect(geometry.copyTextRectCount, "The overlap check must include rendered text lines").toBeGreaterThanOrEqual(4);
-          expect(geometry.copyOverlaps, `The visible F must clear both cards' text at progress ${progress}, including on reverse scroll`).toEqual([]);
+        expect(geometry.lineError, `The F must stay on the endpoint-to-endpoint line at ${progress}, without descending first`).toBeLessThanOrEqual(3);
+        expect(Math.max(Math.abs(geometry.plateShift.x), Math.abs(geometry.plateShift.y)), "The folding plate must remain at its layout origin").toBeLessThanOrEqual(1);
+        if (progress === .75 || progress === .8) {
+          const layers = await page.evaluate(() => {
+            const source = getComputedStyle(document.querySelector("[data-story-brand-scene]"));
+            const copy = [...document.querySelectorAll(".story-benefits .story-section-heading, .story-benefit-card > h3, .story-benefit-card > p")];
+            return { source: Number(source.zIndex), copy: copy.map(element => {
+              const style = getComputedStyle(element);
+              return { position: style.position, depth: Number(style.zIndex), shadow: style.textShadow };
+            }) };
+          });
+          expect(layers.copy.length).toBeGreaterThan(2);
+          for (const copy of layers.copy) {
+            expect(copy.position).not.toBe("static");
+            expect(copy.depth, "Benefit text must paint above the straight-moving F when their rectangles cross").toBeGreaterThan(layers.source);
+            expect(copy.shadow).not.toBe("none");
+          }
         }
         if (progress <= 0.13) await expectBrandCopyClearance(page);
         if (progress >= 0.12 && progress <= 0.46) {
@@ -1123,13 +1104,13 @@ for (const language of ["ko", "en"]) {
         return window.__brandFoldObservation.samples;
       });
       expect(frames.length, "Both scroll directions must produce intermediate rendered fold frames").toBeGreaterThan(10);
-      expect(frames.every(frame => frame.textClear), "Readable text must fade before the collapsing edge reaches it, including intermediate scrub frames").toBe(true);
+      expect(frames.filter(frame => !frame.textClear), "Readable text must fade before the collapsing edge reaches it, including intermediate scrub frames").toEqual([]);
       expect(frames.filter(frame => frame.radius < 20 || frame.radius > 28 || frame.difference > 0.001), "No forward or reverse frame may lose rounding or horizontal symmetry").toEqual([]);
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await scrollBrandMerge(page, .75);
-      await expect.poll(async () => (await brandMergeGeometry(page, .75)).error, { message: "Resize must rebuild the intermediate corridor path, not only its endpoint" }).toBeLessThanOrEqual(3);
-      expect((await brandMergeGeometry(page, .75)).copyOverlaps, "The resized flight must still clear actual benefit text").toEqual([]);
+      await expect.poll(async () => (await brandMergeGeometry(page, .75)).error, { message: "Resize must rebuild the intermediate straight path, not only its endpoint" }).toBeLessThanOrEqual(3);
+      expect((await brandMergeGeometry(page, .75)).lineError).toBeLessThanOrEqual(3);
       await page.setViewportSize({ width: 390, height: 900 });
       await expect(mark).not.toHaveAttribute("style", /translate/);
       await page.setViewportSize({ width: width + 200, height: 900 });
@@ -1138,7 +1119,7 @@ for (const language of ["ko", "en"]) {
       await expect.poll(async () => (await brandMergeGeometry(page)).error, { message: "Breakpoint restoration must paint the current F pose without another scroll" }).toBeLessThanOrEqual(3);
       const restoredFlight = await brandMergeGeometry(page);
       expect(restoredFlight.visibleCount).toBe(1);
-      expect(restoredFlight.copyOverlaps).toEqual([]);
+      expect(restoredFlight.lineError).toBeLessThanOrEqual(3);
       await scrollBrandMerge(page, 1);
       await expect.poll(async () => (await brandMergeGeometry(page, 1)).error).toBeLessThanOrEqual(3);
       await expect(target).toHaveCSS("visibility", "visible");
@@ -1162,7 +1143,8 @@ for (const language of ["ko", "en"]) {
       await page.evaluate(() => document.fonts.ready);
       const original = await mark.evaluate(element => {
         const box = element.getBoundingClientRect();
-        return { x: box.left, y: box.top + scrollY, width: box.width };
+        const stage = element.closest(".story-brand-stage").getBoundingClientRect();
+        return { x: box.left - stage.left, y: box.top - stage.top, width: box.width };
       });
       for (const progress of [0, 0.5, 1, 0]) {
         await scrollBrandMerge(page, progress);
@@ -1172,7 +1154,8 @@ for (const language of ["ko", "en"]) {
         await expectBrandCopyClearance(page);
         const current = await mark.evaluate(element => {
           const box = element.getBoundingClientRect();
-          return { x: box.left, y: box.top + scrollY, width: box.width };
+          const stage = element.closest(".story-brand-stage").getBoundingClientRect();
+          return { x: box.left - stage.left, y: box.top - stage.top, width: box.width };
         });
         expect(current.x).toBeCloseTo(original.x, 0);
         expect(current.y).toBeCloseTo(original.y, 0);

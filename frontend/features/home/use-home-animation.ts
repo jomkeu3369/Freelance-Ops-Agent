@@ -58,6 +58,7 @@ export function useHomeAnimation() {
       if (!plate || !scene || !copy || !mark || !target || !card || !stage) return () => {
         finishOpening(); interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
       };
+      const originalMarkStyle = mark.getAttribute("style");
 
       // Read actual layout on refresh, including translated copy and loaded fonts.
       // The source is outside the clipped plate so it can become the lower hub.
@@ -73,33 +74,14 @@ export function useHomeAnimation() {
         return { x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + mark.offsetTop), scale: to.width / mark.offsetWidth };
       };
       const placeMark = () => gsap.set(mark, { top: Math.max(stage.offsetHeight * .57 + 24, copy.offsetTop + copy.offsetHeight + 24 + mark.offsetHeight / 2) });
-      const drift = () => window.innerHeight * .12;
       let flight = createBrandFlight();
       const refreshFlight = () => {
         placeMark();
-        const from = stage.getBoundingClientRect();
-        const origin = { x: from.left + from.width / 2, y: from.top + mark.offsetTop };
-        const cards = [...card.parentElement!.querySelectorAll<HTMLElement>(".story-benefit-card")];
-        const blocks = cards.map(item => {
-          const revealY = Number(gsap.getProperty(item, "y")) || 0;
-          return [...item.querySelectorAll<HTMLElement>(":scope > h3, :scope > p:not(.story-panel-footnote)")].map(block => {
-            const rect = block.getBoundingClientRect();
-            return { left: rect.left, right: rect.right, bottom: rect.bottom - revealY };
-          });
-        });
-        const left = Math.max(...blocks[0].map(rect => rect.right));
-        const right = Math.min(...blocks[1].map(rect => rect.left));
-        const size = Math.min(mark.offsetWidth * .64, Math.max(36, right - left - 20));
-        const copyBottom = Math.max(...blocks.flat().map(rect => rect.bottom));
-        flight = createBrandFlight({
-          start: { x: 0, y: drift(), scale: 1 }, corridorX: (left + right) / 2 - origin.x,
-          clearY: copyBottom - origin.y + size / 2 + 20,
-          destination: destination(), compactScale: size / mark.offsetWidth
-        });
+        flight = createBrandFlight({ destination: destination() });
       };
       refreshFlight();
       ScrollTrigger.addEventListener("refreshInit", refreshFlight);
-      gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, transformOrigin: "center center" });
+      gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021", transformOrigin: "center center" });
       gsap.set(target, { autoAlpha: 0 });
       // The panel is readable from first visibility. One scrubbed playhead
       // owns hold, collapse and travel, preventing conflicting boundary clocks.
@@ -111,8 +93,7 @@ export function useHomeAnimation() {
         autoAlpha: 1, y: 0
       });
       gsap.set(copy, { opacity: 1 });
-      // Measure once per layout refresh. Scrubbing samples only numeric geometry,
-      // staying in the text gutter before turning into the diagram below copy.
+      // Measure once per layout refresh, then scrub a single straight segment.
       const flightProgress = { value: 0 };
       const setFlightPose = createBrandFlightRenderer(gsap, mark);
       const renderFlight = () => setFlightPose(flight.sample(flightProgress.value));
@@ -126,16 +107,14 @@ export function useHomeAnimation() {
           // old scrub and explicitly paint its numeric flight at the new layout.
           trigger.getTween()?.progress(1);
           transfer.progress(trigger.progress, true);
-          if (trigger.progress >= .46) renderFlight();
+          renderFlight();
         });
       };
       const transfer = gsap.timeline({ scrollTrigger: {
         id: "story-brand-merge", trigger: stage, start: "center 70%", endTrigger: target, end: "center 65%",
         scrub: .85, invalidateOnRefresh: true, onRefresh: syncRefreshedPose
       } });
-      transfer.to(plate, { y: drift, duration: .46, ease: "none" }, 0)
-        .fromTo(mark, { x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021" }, { y: drift, duration: .46, ease: "none" }, 0)
-        .fromTo(plate, {
+      transfer.fromTo(plate, {
           "--brand-clip-top": "0px", "--brand-clip-side": "0px", "--brand-clip-bottom": "0px", "--brand-clip-radius": "20px"
         }, {
           "--brand-clip-top": () => `${clipInsets().top}px`, "--brand-clip-side": () => `${clipInsets().side}px`,
@@ -170,6 +149,10 @@ export function useHomeAnimation() {
         layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); cancelAnimationFrame(poseFrame); opening?.kill();
         ScrollTrigger.removeEventListener("refreshInit", refreshFlight);
         interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
+        // quickSetter writes transforms outside a tween's style snapshot. Restore
+        // the exact source style so mobile CSS owns its different Y anchoring.
+        if (originalMarkStyle === null) mark.removeAttribute("style");
+        else mark.setAttribute("style", originalMarkStyle);
       };
     });
     const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());

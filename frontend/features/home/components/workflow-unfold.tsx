@@ -46,7 +46,7 @@ export function WorkflowUnfold() {
       section.style.setProperty("--unfold-hint-opacity", String(1 - clamp((progress - .15) / .55)));
       section.dataset.unfoldState = progress === 0 ? "folded" : progress === 1 ? "open" : "unfolding";
       const positions = geometry.map((box, index) => {
-        const local = index === 0 ? ease(progress / .82) : ease((progress - .04 - (index - 1) * .085) / .66);
+        const local = index === 0 ? 1 : ease((progress - .04 - (index - 1) * .085) / .66);
         const x = (origin.x - box.x) * (1 - local);
         const y = (origin.y - box.y) * (1 - local) - Math.sin(local * Math.PI) * (compact ? 14 : 28);
         const tilt = index === 0 ? 0 : (1 - local) * (index % 2 ? -8 : 8);
@@ -55,18 +55,34 @@ export function WorkflowUnfold() {
         cards[index].style.opacity = String(index === 0 ? 1 : clamp(local * 3));
         // All five semantic steps remain available to screen readers even when folded.
         cards[index].style.zIndex = String(6 - index);
-        return { x: box.x + x, y: box.y + y, width: box.width, height: box.height, local };
+        return { x: box.x + x, y: box.y + y, width: box.width, height: box.height * (.9 + local * .1), local };
+      });
+      positions.forEach((position, index) => {
+        // Faces may overlap while unfolding, but their labels wait for clear space.
+        // Unscaled bounds deliberately reserve a small margin around the live glyphs.
+        const clearance = Math.min(...positions.filter((_, otherIndex) => otherIndex !== index).map(other => Math.max(
+          Math.abs(position.x - other.x) - (position.width + other.width) / 2,
+          Math.abs(position.y - other.y) - (position.height + other.height) / 2
+        )));
+        const contentOpacity = index === 0 ? 1 : clamp((clearance - 4) / 10) * ease((position.local - .35) / .5);
+        cards[index].style.setProperty("--unfold-content-opacity", contentOpacity.toFixed(3));
       });
       positions.slice(1).forEach((position, index) => {
-        const previous = positions[index];
-        const down = geometry[index + 1].y > geometry[index].y + 10;
-        const from = { x: previous.x + (down ? 0 : previous.width / 2), y: previous.y + (down ? previous.height / 2 : 0) };
-        const to = { x: position.x - (down ? 0 : position.width / 2), y: position.y - (down ? position.height / 2 : 0) };
-        const middleX = (from.x + to.x) / 2;
+        // Every branch starts at the inquiry, including the second mobile row.
+        const source = positions[0];
+        const from = { x: source.x, y: source.y + source.height / 2 };
+        const to = { x: position.x, y: position.y - position.height / 2 };
         const middleY = (from.y + to.y) / 2;
-        const path = down
-          ? `M${from.x},${from.y} C${from.x},${middleY} ${to.x},${middleY} ${to.x},${to.y}`
-          : `M${from.x},${from.y} C${middleX},${from.y} ${middleX},${to.y} ${to.x},${to.y}`;
+        let path = `M${from.x},${from.y} C${from.x},${middleY} ${to.x},${middleY} ${to.x},${to.y}`;
+        if (compact && index > 1) {
+          // Route through the gap between the first pair, never through their text.
+          const upperBottom = Math.max(...geometry.slice(1, 3).map(box => box.y + box.height / 2));
+          const lowerTop = geometry[index + 1].y - geometry[index + 1].height / 2;
+          const turnY = from.y + ((upperBottom + lowerTop) / 2 - from.y) * position.local;
+          const laneX = from.x + (index === 2 ? -5 : 5) * position.local;
+          const launchY = from.y + Math.max(0, turnY - from.y) * .2;
+          path = `M${from.x},${from.y} C${from.x},${launchY} ${laneX},${launchY} ${laneX},${launchY} L${laneX},${turnY} C${laneX},${turnY + 12} ${to.x},${turnY} ${to.x},${to.y}`;
+        }
         [beams[index], glows[index]].forEach(beam => {
           beam.setAttribute("d", path);
           beam.style.opacity = String(clamp((position.local - .2) / .8));
@@ -114,13 +130,13 @@ export function WorkflowUnfold() {
       window.removeEventListener("scroll", requestPaint);
       window.removeEventListener("resize", measure);
       preference.removeEventListener("change", measure);
-      cards.forEach(card => { card.style.removeProperty("transform"); card.style.removeProperty("opacity"); card.style.removeProperty("z-index"); });
+      cards.forEach(card => { card.style.removeProperty("transform"); card.style.removeProperty("opacity"); card.style.removeProperty("z-index"); card.style.removeProperty("--unfold-content-opacity"); });
       delete section.dataset.unfoldReady;
       section.style.removeProperty("--unfold-hint-opacity");
     };
   }, [t]);
 
-  return <section ref={sectionRef} className="workflow-unfold" aria-labelledby="workflow-unfold-title">
+  return <section ref={sectionRef} className="workflow-unfold" data-unfold-layout="branch" aria-labelledby="workflow-unfold-title">
     <div className="workflow-unfold-heading">
       <div><p className="workflow-unfold-eyebrow">ONE INQUIRY / FIVE STEPS</p><h2 id="workflow-unfold-title">{t("하나의 문의, 이어지는 다섯 단계")}</h2></div>
       <span className="workflow-unfold-count" aria-hidden="true"><span data-unfold-count>05</span><span> / 05</span></span>
@@ -135,6 +151,10 @@ export function WorkflowUnfold() {
       </ol>
       <svg className="workflow-unfold-wires" aria-hidden="true">
         {Array.from({ length: 4 }, (_, index) => <g key={index}><path className="workflow-unfold-glow" pathLength="1" /><path className="workflow-unfold-beam" pathLength="1" /></g>)}
+      </svg>
+      <svg className="workflow-unfold-static-wires" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+        <g className="workflow-unfold-static-wide">{[125, 375, 625, 875].map(x => <path key={x} d={`M500 250 C500 510 ${x} 510 ${x} 810`} />)}</g>
+        <g className="workflow-unfold-static-compact"><path d="M500 180 C500 330 250 330 250 515" /><path d="M500 180 C500 330 750 330 750 515" /><path d="M500 180 C500 270 485 270 485 310 L485 650 C485 720 250 700 250 835" /><path d="M500 180 C500 270 515 270 515 310 L515 650 C515 720 750 700 750 835" /></g>
       </svg>
       <span className="workflow-unfold-floor" aria-hidden="true" />
     </div>

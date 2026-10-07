@@ -6,15 +6,20 @@
 .figma-home .workflow-unfold-count { flex-shrink: 0; color: #9988aa; font-size: 15px; line-height: 1.5; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .figma-home .workflow-unfold-count > span:first-child { color: #dec5fb; font-size: 22px; }
 .figma-home .workflow-unfold-stage { position: relative; isolation: isolate; overflow: clip; overflow-clip-margin: 16px; }
-.figma-home .workflow-unfold-deck { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(14px, 2.5vw, 46px); margin: 0; padding: 32px 0 36px; list-style: none; perspective: 1100px; }
-.figma-home .workflow-unfold-card { position: relative; min-width: 0; margin: 0; padding: clamp(16px, 1.8vw, 28px); border: 1px solid #d4b8f844; border-radius: 15px; background: linear-gradient(145deg, #382641d9, #1c132ac9 48%, #251930bd); box-shadow: inset 0 1px #ead9ff29, inset 0 -1px #ae7ede14, 0 14px 40px #09050f70; backface-visibility: hidden; transform-origin: 50% 50%; }
+.figma-home .workflow-unfold-deck { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(76px, 7vw, 112px) clamp(20px, 3vw, 54px); margin: 0; padding: 28px 0 36px; list-style: none; perspective: 1100px; }
+.figma-home .workflow-unfold-card { position: relative; min-width: 0; margin: 0; padding: clamp(16px, 1.8vw, 28px); border: 1px solid #d4b8f844; border-radius: 15px; background: linear-gradient(145deg, #302039, #1c1428 48%, #23192e); box-shadow: inset 0 1px #ead9ff29, inset 0 -1px #ae7ede14, 0 14px 40px #09050f70; backface-visibility: hidden; transform-origin: 50% 50%; }
+.figma-home .workflow-unfold-card:first-child { grid-column: 1 / -1; justify-self: center; width: clamp(220px, 24%, 310px); border-color: #dcc2fb70; background: linear-gradient(145deg, #432c50, #281b37 65%, #30203f); }
+.figma-home .workflow-unfold-card > :is(.workflow-unfold-card-top, h3, p) { opacity: var(--unfold-content-opacity, 1); }
 .figma-home .workflow-unfold[data-unfold-visible="true"] .workflow-unfold-card { will-change: transform, opacity; }
 .figma-home .workflow-unfold-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 22px; color: #d5b4fb; }
 .figma-home .workflow-unfold-card-top > span { color: #b29ac8; font-size: 13px; font-variant-numeric: tabular-nums; }
 .figma-home .workflow-unfold-card h3 { margin: 0 0 9px; color: #f5edff; font-size: clamp(18px, 1.5vw, 25px); line-height: 1.4; font-weight: 600; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .figma-home .workflow-unfold-card p { margin: 0; color: #c6b5d6; font-size: clamp(14px, 1.08vw, 17px); line-height: 1.65; word-break: keep-all; }
 .figma-home .workflow-unfold-edge { position: absolute; top: -1px; left: 24%; width: 52%; height: 1px; background: linear-gradient(90deg, transparent, #f3e3ff, transparent); box-shadow: 0 0 10px #cea4fc80; }
-.figma-home .workflow-unfold-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: -1; }
+.figma-home .workflow-unfold-wires, .figma-home .workflow-unfold-static-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: -1; }
+.figma-home .workflow-unfold-static-wires path { fill: none; stroke: #c99bf1; stroke-width: 1.2; vector-effect: non-scaling-stroke; opacity: .7; }
+.figma-home .workflow-unfold-static-compact { display: none; }
+.figma-home .workflow-unfold[data-unfold-ready="true"] .workflow-unfold-static-wires { display: none; }
 .figma-home .workflow-unfold-wires path { fill: none; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 0; }
 .figma-home .workflow-unfold-beam { stroke: #d9b2ff; stroke-width: 1.2; }
 .figma-home .workflow-unfold-glow { stroke: #b578f2; stroke-width: 5; filter: blur(3px); opacity: .7; }
@@ -22,7 +27,7 @@
 .figma-home .workflow-unfold-hint { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 8px 0 0; color: #b5a5c4; font-size: 14px; line-height: 1.6; opacity: var(--unfold-hint-opacity, 1); }
 .figma-home .workflow-unfold[data-unfold-state="open"] .workflow-unfold-hint { visibility: hidden; }
 @media (max-width: 1100px) and (min-width: 701px) {
-  .figma-home .workflow-unfold-deck { gap: 14px; }
+  .figma-home .workflow-unfold-deck { column-gap: 18px; }
   .figma-home .workflow-unfold-card { padding: 18px 12px; }
   .figma-home .workflow-unfold-card-top { margin-bottom: 17px; }
 }
@@ -33,9 +38,11 @@
   .figma-home .workflow-unfold-count { padding-top: 29px; font-size: 13px; }
   .figma-home .workflow-unfold-count > span:first-child { font-size: 18px; }
   .figma-home .workflow-unfold-eyebrow { font-size: 13px; letter-spacing: .025em; }
-  .figma-home .workflow-unfold-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 22px; padding-block: 24px 28px; }
+  .figma-home .workflow-unfold-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 58px 28px; padding-block: 24px 28px; }
   .figma-home .workflow-unfold-card { padding: 16px; border-radius: 13px; }
-  .figma-home .workflow-unfold-card:first-child { grid-column: 1 / -1; justify-self: center; width: calc((100% - 22px) / 2); }
+  .figma-home .workflow-unfold-card:first-child { width: min(220px, 72%); }
+  .figma-home .workflow-unfold-static-wide { display: none; }
+  .figma-home .workflow-unfold-static-compact { display: block; }
   .figma-home .workflow-unfold-card-top { margin-bottom: 12px; }
   .figma-home .workflow-unfold-card-top > svg { width: 23px; height: 23px; }
   .figma-home .workflow-unfold-card h3 { font-size: 19px; margin-bottom: 5px; }
