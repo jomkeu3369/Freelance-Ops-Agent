@@ -62,7 +62,7 @@ export function WorkflowSection() {
   }, [paused, finished, state.phase, state.step]);
 
   return <div className="spatial-story-run" data-motion-ready={motionReady} data-motion-paused={reducedMotion || !pageVisible}>
-    <HeroAtmosphere paused={reducedMotion || !visible || !pageVisible} />
+    <HeroAtmosphere paused={reducedMotion || !pageVisible} />
     <MiddleAtmosphere />
     <section id="workflow" tabIndex={-1} className="spatial-chapter spatial-workflow" data-step={view.selected} data-run-step={state.step} data-run={state.run} data-phase={state.phase} data-paused={paused}>
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
