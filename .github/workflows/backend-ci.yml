@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "codex/ocr-language-layout-coverage-20261007"
       - "codex/chat-composer-settings-20261006"
       - "codex/offline-flow-regressions-20261006"
       - "codex/partial-chat-history-20261006"
