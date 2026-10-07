@@ -19,8 +19,11 @@ import sys
 DEPLOY_ROOT = Path('/opt/freelance-ops')
 BACKUP_ROOT = Path('/var/backups/freelance-ops')
 PROJECT = 'freelance-ops-v2-production'
-EXPECTED_CURRENT_SHA = '00ba39b14fe6fd05aea9b011514bb70d17cbf79e'
-APPROVED_RELEASE_CANDIDATE_SHA = 'bcfcd52526f0783840cdb6b25d773220a924d7de'
+EXPECTED_CURRENT_SHAS = {
+    'backend': '988d7581e857ec74c0415a269939a9681d8c920a',
+    'agent': '00ba39b14fe6fd05aea9b011514bb70d17cbf79e',
+}
+APPROVED_RELEASE_CANDIDATE_SHA = 'dc39937aa9f118e012e6de4f33d3208dcd813921'
 SHA = re.compile(r'[0-9a-f]{40}')
 DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 
@@ -101,7 +104,7 @@ def main(release_sha: str) -> None:
         tag = data['Config']['Image']
         if not re.fullmatch(r'ghcr.io/[a-z0-9_-]+/freelance-ops-' + service + r':'+service+r'-[0-9a-f]{40}', tag):
             raise RuntimeError(f'{service} image is not pinned to an immutable commit tag')
-        if tag.rsplit(':', 1)[1] != f'{service}-{EXPECTED_CURRENT_SHA}':
+        if tag.rsplit(':', 1)[1] != f'{service}-{EXPECTED_CURRENT_SHAS[service]}':
             raise RuntimeError(f'{service} is not the reviewed pre-release version; stop and review changed state')
         marker_path = DEPLOY_ROOT / ('.' + service + '-deployed-tag')
         marker = marker_path.read_text().strip()
