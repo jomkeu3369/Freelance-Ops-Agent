@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.workspace.repository;
 import com.freelanceops.backend.domain.knowledge.service.KnowledgeService;
+import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 import com.freelanceops.backend.domain.knowledge.service.GeneratedMemoryListener;
 import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.knowledge.repository.DocumentChunkRepository;
@@ -192,6 +193,145 @@ class WorkspaceRbacPostgresTest {
         }
         assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum + 1);
         assertThatThrownBy(() -> customPets.change(owner, workspace, first.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("RESTORE", 2))).hasMessageContaining("PET_ACTIVE_LIMIT");
+    }
+
+
+    @Test
+    void customPetMutationCannotBeReusedWithDifferentContentOrAfterLaterChanges() {
+        UUID owner = insertUser("pet-mutation-owner");
+        UUID workspace = provisioningService.create(owner, "Mutation pets", "pet-mutation").workspaceId();
+        var create = petInput("말투: 다정하게");
+        var saved = customPets.save(owner, workspace, create);
+        var before = customPets.list(owner, workspace);
+        assertThatThrownBy(() -> customPets.save(owner, workspace,
+            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, "말투: 간결하게", false)))
+            .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThatThrownBy(() -> customPets.save(owner, workspace,
+            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, create.description(), true)))
+            .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThat(customPets.list(owner, workspace)).isEqualTo(before);
+
+        var edit = new CustomAgentPetService.Compose(saved.id(), UUID.randomUUID(), 1, "중점: 빠뜨린 일 찾기", false);
+        var revised = customPets.save(owner, workspace, edit);
+        // Only the most recent mutation is retained: an older create remains a conflict,
+        // without reviving or overwriting the now-edited pet.
+        assertThatThrownBy(() -> customPets.save(owner, workspace, create)).hasMessageContaining("409");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(revised);
+        customPets.change(owner, workspace, saved.id(), new CustomAgentPetService.Change("ARCHIVE", revised.revision()));
+        assertThatThrownBy(() -> customPets.save(owner, workspace, edit)).hasMessageContaining("PET_REVISION_CHANGED");
+        var archived = customPets.list(owner, workspace);
+        assertThat(archived.selectedPetId()).isNull();
+        assertThat(archived.pets()).singleElement().satisfies(pet -> {
+            assertThat(pet.archived()).isTrue();
+            assertThat(pet.revision()).isEqualTo(3);
+            assertThat(pet.profile()).isEqualTo(revised.profile());
+        });
+    }
+
+    @Test
+    void guessedCustomPetIdNeverReplacesAnotherOwnersPetOrSelection() {
+        UUID owner = insertUser("pet-id-owner");
+        UUID other = insertUser("pet-id-other");
+        UUID workspace = provisioningService.create(owner, "Scoped pets", "pet-scoped-id").workspaceId();
+        addRole(workspace, other, owner, "OWNER");
+        UUID elsewhere = provisioningService.create(other, "Other scope", "pet-other-scope").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var own = customPets.save(other, workspace, petInput("부엉이"));
+        var collision = new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 0, "거북이", false);
+        assertThatThrownBy(() -> customPets.save(other, workspace, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
+        assertThatThrownBy(() -> customPets.save(other, elsewhere, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        assertThat(customPets.list(other, workspace).pets()).containsExactly(own);
+        assertThat(customPets.list(other, workspace).selectedPetId()).isEqualTo(own.id());
+        assertThat(customPets.list(other, elsewhere).pets()).isEmpty();
+        assertThat(customPets.runtimeProfiles(other, elsewhere)).isEmpty();
+    }
+
+    @Test
+    void customPetWritesAndSelectionParticipateInCallerRollback() {
+        UUID owner = insertUser("pet-rollback-owner");
+        UUID workspace = provisioningService.create(owner, "Rollback pets", "pet-rollback").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var input = petInput("부엉이");
+        var transaction = new TransactionTemplate(transactionManager);
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            customPets.save(owner, workspace, input);
+            assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(input.id());
+            throw new IllegalStateException("synthetic save rollback");
+        })).hasMessage("synthetic save rollback");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            customPets.change(owner, workspace, original.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+            assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
+            throw new IllegalStateException("synthetic archive rollback");
+        })).hasMessage("synthetic archive rollback");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        // The rolled-back mutation was not consumed, and retry creates exactly one row.
+        var retried = customPets.save(owner, workspace, input);
+        assertThat(customPets.save(owner, workspace, input)).isEqualTo(retried);
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(2);
+    }
+
+    @Test
+    void archivedCustomPetsCountTowardStorageWhileEditAndRestoreDoNotAddRows() {
+        UUID owner = insertUser("pet-storage-owner");
+        UUID workspace = provisioningService.create(owner, "Stored pets", "pet-storage").workspaceId();
+        int maximum = customPets.list(owner, workspace).maxStoredPets();
+        for (int i = 0; i < maximum; i++) {
+            var pet = customPets.save(owner, workspace, petInput("일정 친구 " + i));
+            customPets.change(owner, workspace, pet.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+        }
+        var full = customPets.list(owner, workspace);
+        assertThat(full.pets()).hasSize(maximum).allSatisfy(pet -> assertThat(pet.archived()).isTrue());
+        assertThatThrownBy(() -> customPets.save(owner, workspace, petInput("새 친구"))).hasMessageContaining("PET_STORAGE_LIMIT");
+        assertThat(customPets.list(owner, workspace)).isEqualTo(full);
+        var first = full.pets().getFirst();
+        customPets.change(owner, workspace, first.id(), new CustomAgentPetService.Change("RESTORE", 2));
+        var edit = new CustomAgentPetService.Compose(first.id(), UUID.randomUUID(), 3, "말투: 천천히", false);
+        var revised = customPets.save(owner, workspace, edit);
+        assertThat(revised.revision()).isEqualTo(4);
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
+        var removed = full.pets().getLast();
+        customPets.delete(owner, workspace, removed.id(), 2);
+        customPets.save(owner, workspace, petInput("새 친구"));
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(60)
+    void concurrentCustomPetEditsCannotLoseAnAcceptedPreference() throws Exception {
+        UUID owner = insertUser("pet-edit-owner");
+        UUID workspace = provisioningService.create(owner, "Concurrent edits", "pet-edit-race").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Callable<CustomAgentPetService.Pet>>();
+            for (String prompt : java.util.List.of("말투: 천천히", "중점: 일정 확인")) jobs.add(() -> {
+                start.await();
+                try {
+                    return customPets.save(owner, workspace,
+                        new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 1, prompt, false));
+                } catch (org.springframework.web.server.ResponseStatusException error) {
+                    assertThat(error.getReason()).isEqualTo("PET_REVISION_CHANGED");
+                    return null;
+                }
+            });
+            var first = pool.submit(jobs.get(0));
+            var second = pool.submit(jobs.get(1));
+            start.countDown();
+            var accepted = Stream.of(first.get(), second.get()).filter(java.util.Objects::nonNull).toList();
+            assertThat(accepted).hasSize(1);
+            assertThat(customPets.list(owner, workspace).pets()).containsExactly(accepted.getFirst());
+            assertThat(accepted.getFirst().revision()).isEqualTo(2);
+            assertThat(accepted.getFirst().profile().preferences().requests()).hasSize(2).startsWith("고양이");
+        }
+    }
+
+    private static CustomAgentPetService.Compose petInput(String prompt) {
+        return new CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
     }
 
 

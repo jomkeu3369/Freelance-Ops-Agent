@@ -1,4 +1,6 @@
+import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
 import type { SkillSelection } from "../../skills/skill-selection";
+import { ListChecks, CaretRight } from "@phosphor-icons/react";
 import { ReactNode, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
@@ -26,11 +28,11 @@ interface AnalysisStepProps {
   canEditPolicy: boolean;
   modelAvailable: boolean;
   composerTools?: ReactNode;
-  composerInfo?: ReactNode | ((draft: string) => ReactNode);
-  retryMessages: string[];
+  composerInfo?: ReactNode | ((draft: string, retry: PendingRunRetry | undefined, policy: boolean) => ReactNode);
+  retryCandidates: PendingRunRetry[];
   canSendAI: boolean;
   streamState: StreamState;
-  onOpenAISettings: () => void;
+  onOpenAISettings: (draft: string) => void;
   onSendMessage: (message: string, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
   costUsage: AgentRunUsage | null;
   onCancel: () => Promise<void>;
@@ -38,7 +40,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryMessages, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -51,9 +53,9 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   return <>
     <AgentChat key={`${session.userId}:${session.workspaceId}:${projectId}`} session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
-      canSendAI={canSendAI} retryMessages={retryMessages} composerInfo={composerInfo} composerTools={composerTools}
+      canSendAI={canSendAI} retryCandidates={retryCandidates} composerInfo={composerInfo} composerTools={composerTools}
       headerTools={<>
-        {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}>{t("작업 자세히 보기")}</button>}
+        {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}><ListChecks size={18} aria-hidden="true" /><span>{t("작업 자세히 보기")}</span><CaretRight size={13} aria-hidden="true" /></button>}
       </>}
       streamState={streamState} onOpenAISettings={onOpenAISettings} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
       clarification={run?.interruption ? <InterruptionForm key={run.interruption.interruptionId}

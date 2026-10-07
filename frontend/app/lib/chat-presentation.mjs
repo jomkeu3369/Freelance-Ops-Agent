@@ -19,3 +19,15 @@ export function resultPendingMessage(status) {
   if (status === "RUNNING") return "실제 작업이 진행 중입니다. 확인할 내용이나 결과가 준비되면 여기에 표시됩니다.";
   return "현재 작업 상태를 확인할 수 없습니다. 기록을 다시 불러와 주세요.";
 }
+
+// Input availability is independent of run/result availability. Never substitute
+// the project's current requirements or a warning for the saved user's words.
+/** @param {{ requirementText: string | null, originalInputStatus?: string, originalInputIssue?: string | null }} item */
+export function originalInputPresentation({ requirementText, originalInputStatus, originalInputIssue }) {
+  const text = originalInputStatus !== "UNAVAILABLE" && typeof requirementText === "string" ? requirementText : null;
+  const notices = [];
+  if (text === null) notices.push("이 요청의 원문을 불러올 수 없습니다.");
+  if (originalInputIssue === "INVALID_ATTACHMENTS") notices.push("일부 첨부 자료 정보를 불러올 수 없습니다.");
+  else if (originalInputStatus && originalInputStatus !== "AVAILABLE" && text !== null) notices.push("이 요청의 원본 입력 일부를 불러올 수 없습니다.");
+  return { text, notices };
+}

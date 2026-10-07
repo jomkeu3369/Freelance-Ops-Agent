@@ -27,6 +27,8 @@
 .agent-chat-message > span { display: block; margin-bottom: 6px; font-size: .875rem; color: var(--accent); font-weight: 760; }
 .agent-chat-message p { margin: 0; white-space: pre-wrap; line-height: 1.65; }
 .agent-chat-muted { color: var(--muted); font-size: .875rem; line-height: 1.6; margin: 0; }
+.agent-chat-input-notice { display: flex; align-items: start; gap: 7px; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: var(--surface-solid); font-size: .875rem; line-height: 1.6; overflow-wrap: anywhere; }
+.agent-chat-input-notice > svg { flex-shrink: 0; margin-top: 3px; }
 .agent-chat-activity summary { cursor: pointer; color: var(--muted); font-size: .875rem; line-height: 1.6; margin-bottom: 8px; }
 .agent-chat-connection { margin: 0; font-size: .875rem; line-height: 1.6; color: var(--muted); }
 .agent-chat-new { justify-self: center; min-height: 44px; }
