@@ -8,6 +8,7 @@ async function openUnfold(page, { width = 1440, locale = "ko", reduced = false }
   await page.evaluate(() => document.fonts.ready);
   const section = page.locator(".workflow-unfold");
   await expect(section).toHaveAttribute("data-unfold-ready", "true");
+  await expect(section.locator(".workflow-unfold-hint")).toHaveCount(0);
   return section;
 }
 

@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.workspace.repository;
 import com.freelanceops.backend.domain.knowledge.service.KnowledgeService;
+import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 import com.freelanceops.backend.domain.knowledge.service.GeneratedMemoryListener;
 import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.knowledge.repository.DocumentChunkRepository;
@@ -107,12 +108,231 @@ class WorkspaceRbacPostgresTest {
         registry.add("agent.command-dispatch-enabled", () -> false);
         registry.add("agent.reconciliation-enabled", () -> false);
         registry.add("APP_BYOK_ENCRYPTION_KEY", () -> java.util.Base64.getEncoder().encodeToString(new byte[32]));
-        registry.add("APP_BYOK_OPENAI_MODELS", () -> "test-model");
+        registry.add("APP_BYOK_OPENAI_MODELS", () -> "gpt-6-luna");
     }
 
 
     @Autowired
     private com.freelanceops.backend.domain.agentrun.service.PetProfileService pets;
+
+    @Autowired
+    private com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService customPets;
+
+    @Test
+    void customPetsAreOwnerScopedRetrySafeSelectableAndArchivedWithoutChangingSnapshots() {
+        UUID owner = insertUser("custom-pet-owner");
+        UUID other = insertUser("custom-pet-other");
+        UUID workspace = provisioningService.create(owner, "Custom Pets", "custom-pets").workspaceId();
+        addRole(workspace, other, owner, "OWNER");
+        UUID otherWorkspace = provisioningService.create(owner, "Other pets", "custom-pets-other").workspaceId();
+        var input = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "친근한 고양이. 일정 관리를 꼼꼼히", false);
+        var preview = customPets.preview(owner, workspace, input);
+        assertThat(customPets.list(owner, workspace).pets()).isEmpty();
+        var pet = customPets.save(owner, workspace, input);
+        assertThat(pet.profile()).isEqualTo(preview);
+        assertThat(customPets.save(owner, workspace, input)).isEqualTo(pet);
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(1);
+        assertThat(customPets.list(other, workspace).pets()).isEmpty();
+        assertThat(customPets.list(owner, otherWorkspace).pets()).isEmpty();
+        var snapshot = pets.list(owner, workspace);
+        assertThat(snapshot).containsExactly(pet.profile());
+        var edit = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(pet.id(), UUID.randomUUID(), 1, "말투: 유쾌한 선장처럼; 업무: 계약 번역", false);
+        assertThatThrownBy(() -> customPets.save(other, workspace, edit)).hasMessageContaining("404");
+        assertThatThrownBy(() -> customPets.save(owner, otherWorkspace, edit)).hasMessageContaining("404");
+        var revised = customPets.save(owner, workspace, edit);
+        assertThat(revised.revision()).isEqualTo(2);
+        assertThat(customPets.save(owner, workspace, edit)).isEqualTo(revised);
+        assertThatThrownBy(() -> customPets.save(owner, workspace, new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(pet.id(), UUID.randomUUID(), 1, "stale", false))).hasMessageContaining("409");
+        assertThat(snapshot.getFirst().preferences().communication()).isEmpty();
+        assertThat(pets.list(owner, workspace).getFirst().preferences().communication()).isEqualTo("유쾌한 선장처럼");
+        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 2));
+        assertThat(pets.list(owner, workspace)).isEmpty();
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
+        assertThatThrownBy(() -> customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("SELECT", 3))).hasMessageContaining("PET_ARCHIVED");
+        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("RESTORE", 3));
+        assertThat(pets.list(owner, workspace)).isEmpty();
+        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("SELECT", 4));
+        assertThat(pets.list(owner, workspace)).hasSize(1);
+        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 4));
+        customPets.delete(owner, workspace, pet.id(), 5);
+        assertThat(customPets.list(owner, workspace).pets()).isEmpty();
+        assertThat(pets.list(owner, workspace)).isEmpty();
+        jdbcClient.sql("UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).update();
+        assertThatThrownBy(() -> customPets.preview(owner, workspace, input)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> customPets.list(owner, workspace)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
+    @Test
+    void concurrentCustomPetCreatesRespectConfiguredLimitAndRetriesDoNotDuplicate() throws Exception {
+        UUID owner = insertUser("pet-concurrent-owner");
+        UUID workspace = provisioningService.create(owner, "Concurrent pets", "custom-pet-concurrency").workspaceId();
+        int maximum = customPets.list(owner, workspace).maxActivePets();
+        try (var pool = Executors.newFixedThreadPool(4)) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Callable<Boolean>>();
+            for (int i = 0; i < maximum + 4; i++) jobs.add(() -> {
+                try {
+                    customPets.save(owner, workspace, new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "일정 펫", false));
+                    return true;
+                } catch (org.springframework.web.server.ResponseStatusException error) {
+                    assertThat(error.getReason()).isEqualTo("PET_ACTIVE_LIMIT");
+                    return false;
+                }
+            });
+            int successes = 0;
+            for (var result : pool.invokeAll(jobs)) if (result.get()) successes++;
+            assertThat(successes).isEqualTo(maximum);
+        }
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
+        assertThat(pets.list(owner, workspace)).hasSize(1);
+        var first = customPets.list(owner, workspace).pets().getFirst();
+        customPets.change(owner, workspace, first.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 1));
+        var input = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "새 펫", false);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var results = pool.invokeAll(java.util.List.of(() -> customPets.save(owner, workspace, input), () -> customPets.save(owner, workspace, input)));
+            assertThat(results.get(0).get()).isEqualTo(results.get(1).get());
+        }
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum + 1);
+        assertThatThrownBy(() -> customPets.change(owner, workspace, first.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("RESTORE", 2))).hasMessageContaining("PET_ACTIVE_LIMIT");
+    }
+
+
+    @Test
+    void customPetMutationCannotBeReusedWithDifferentContentOrAfterLaterChanges() {
+        UUID owner = insertUser("pet-mutation-owner");
+        UUID workspace = provisioningService.create(owner, "Mutation pets", "pet-mutation").workspaceId();
+        var create = petInput("말투: 다정하게");
+        var saved = customPets.save(owner, workspace, create);
+        var before = customPets.list(owner, workspace);
+        assertThatThrownBy(() -> customPets.save(owner, workspace,
+            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, "말투: 간결하게", false)))
+            .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThatThrownBy(() -> customPets.save(owner, workspace,
+            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, create.description(), true)))
+            .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThat(customPets.list(owner, workspace)).isEqualTo(before);
+
+        var edit = new CustomAgentPetService.Compose(saved.id(), UUID.randomUUID(), 1, "중점: 빠뜨린 일 찾기", false);
+        var revised = customPets.save(owner, workspace, edit);
+        // Only the most recent mutation is retained: an older create remains a conflict,
+        // without reviving or overwriting the now-edited pet.
+        assertThatThrownBy(() -> customPets.save(owner, workspace, create)).hasMessageContaining("409");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(revised);
+        customPets.change(owner, workspace, saved.id(), new CustomAgentPetService.Change("ARCHIVE", revised.revision()));
+        assertThatThrownBy(() -> customPets.save(owner, workspace, edit)).hasMessageContaining("PET_REVISION_CHANGED");
+        var archived = customPets.list(owner, workspace);
+        assertThat(archived.selectedPetId()).isNull();
+        assertThat(archived.pets()).singleElement().satisfies(pet -> {
+            assertThat(pet.archived()).isTrue();
+            assertThat(pet.revision()).isEqualTo(3);
+            assertThat(pet.profile()).isEqualTo(revised.profile());
+        });
+    }
+
+    @Test
+    void guessedCustomPetIdNeverReplacesAnotherOwnersPetOrSelection() {
+        UUID owner = insertUser("pet-id-owner");
+        UUID other = insertUser("pet-id-other");
+        UUID workspace = provisioningService.create(owner, "Scoped pets", "pet-scoped-id").workspaceId();
+        addRole(workspace, other, owner, "OWNER");
+        UUID elsewhere = provisioningService.create(other, "Other scope", "pet-other-scope").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var own = customPets.save(other, workspace, petInput("부엉이"));
+        var collision = new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 0, "거북이", false);
+        assertThatThrownBy(() -> customPets.save(other, workspace, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
+        assertThatThrownBy(() -> customPets.save(other, elsewhere, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        assertThat(customPets.list(other, workspace).pets()).containsExactly(own);
+        assertThat(customPets.list(other, workspace).selectedPetId()).isEqualTo(own.id());
+        assertThat(customPets.list(other, elsewhere).pets()).isEmpty();
+        assertThat(customPets.runtimeProfiles(other, elsewhere)).isEmpty();
+    }
+
+    @Test
+    void customPetWritesAndSelectionParticipateInCallerRollback() {
+        UUID owner = insertUser("pet-rollback-owner");
+        UUID workspace = provisioningService.create(owner, "Rollback pets", "pet-rollback").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var input = petInput("부엉이");
+        var transaction = new TransactionTemplate(transactionManager);
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            customPets.save(owner, workspace, input);
+            assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(input.id());
+            throw new IllegalStateException("synthetic save rollback");
+        })).hasMessage("synthetic save rollback");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
+            customPets.change(owner, workspace, original.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+            assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
+            throw new IllegalStateException("synthetic archive rollback");
+        })).hasMessage("synthetic archive rollback");
+        assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
+        assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
+        // The rolled-back mutation was not consumed, and retry creates exactly one row.
+        var retried = customPets.save(owner, workspace, input);
+        assertThat(customPets.save(owner, workspace, input)).isEqualTo(retried);
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(2);
+    }
+
+    @Test
+    void archivedCustomPetsCountTowardStorageWhileEditAndRestoreDoNotAddRows() {
+        UUID owner = insertUser("pet-storage-owner");
+        UUID workspace = provisioningService.create(owner, "Stored pets", "pet-storage").workspaceId();
+        int maximum = customPets.list(owner, workspace).maxStoredPets();
+        for (int i = 0; i < maximum; i++) {
+            var pet = customPets.save(owner, workspace, petInput("일정 친구 " + i));
+            customPets.change(owner, workspace, pet.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+        }
+        var full = customPets.list(owner, workspace);
+        assertThat(full.pets()).hasSize(maximum).allSatisfy(pet -> assertThat(pet.archived()).isTrue());
+        assertThatThrownBy(() -> customPets.save(owner, workspace, petInput("새 친구"))).hasMessageContaining("PET_STORAGE_LIMIT");
+        assertThat(customPets.list(owner, workspace)).isEqualTo(full);
+        var first = full.pets().getFirst();
+        customPets.change(owner, workspace, first.id(), new CustomAgentPetService.Change("RESTORE", 2));
+        var edit = new CustomAgentPetService.Compose(first.id(), UUID.randomUUID(), 3, "말투: 천천히", false);
+        var revised = customPets.save(owner, workspace, edit);
+        assertThat(revised.revision()).isEqualTo(4);
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
+        var removed = full.pets().getLast();
+        customPets.delete(owner, workspace, removed.id(), 2);
+        customPets.save(owner, workspace, petInput("새 친구"));
+        assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
+    }
+
+    @Test
+    @org.junit.jupiter.api.Timeout(60)
+    void concurrentCustomPetEditsCannotLoseAnAcceptedPreference() throws Exception {
+        UUID owner = insertUser("pet-edit-owner");
+        UUID workspace = provisioningService.create(owner, "Concurrent edits", "pet-edit-race").workspaceId();
+        var original = customPets.save(owner, workspace, petInput("고양이"));
+        var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Callable<CustomAgentPetService.Pet>>();
+            for (String prompt : java.util.List.of("말투: 천천히", "중점: 일정 확인")) jobs.add(() -> {
+                start.await();
+                try {
+                    return customPets.save(owner, workspace,
+                        new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 1, prompt, false));
+                } catch (org.springframework.web.server.ResponseStatusException error) {
+                    assertThat(error.getReason()).isEqualTo("PET_REVISION_CHANGED");
+                    return null;
+                }
+            });
+            var first = pool.submit(jobs.get(0));
+            var second = pool.submit(jobs.get(1));
+            start.countDown();
+            var accepted = Stream.of(first.get(), second.get()).filter(java.util.Objects::nonNull).toList();
+            assertThat(accepted).hasSize(1);
+            assertThat(customPets.list(owner, workspace).pets()).containsExactly(accepted.getFirst());
+            assertThat(accepted.getFirst().revision()).isEqualTo(2);
+            assertThat(accepted.getFirst().profile().preferences().requests()).hasSize(2).startsWith("고양이");
+        }
+    }
+
+    private static CustomAgentPetService.Compose petInput(String prompt) {
+        return new CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
+    }
 
 
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
@@ -130,7 +350,7 @@ class WorkspaceRbacPostgresTest {
         jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
             .param("id", project).param("workspace", workspace).param("user", owner).update();
         org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
         org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
             com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Input input = call.getArgument(0);
             return new com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Output(input.context().runId(), com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst(), model.provider(), model.model(), 15, 20);
@@ -155,7 +375,7 @@ class WorkspaceRbacPostgresTest {
         var original = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst();
         pets.save(owner, workspace, original);
         org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "test-model", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
         org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenThrow(new IllegalStateException("sensitive provider error"));
         assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "different", "LEAN")).hasMessageNotContaining("sensitive");
         org.mockito.Mockito.verify(petClient).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
@@ -191,24 +411,24 @@ class WorkspaceRbacPostgresTest {
         UUID workspace = provisioningService.create(owner, "BYOK", "byok-test").workspaceId();
         addRole(workspace, other, owner, "OWNER");
         UUID secondWorkspace = provisioningService.create(owner, "BYOK Second", "byok-second").workspaceId();
-        var connection = connections.save(owner, workspace, provider, "test-model", "synthetic-first-1234");
+        var connection = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-first-1234");
         String stored = jdbcClient.sql("SELECT ciphertext FROM app.ai_connection WHERE id = :id").param("id", connection.id()).query(String.class).single();
         assertThat(stored).doesNotContain("synthetic-first");
         assertThat(connection.maskedKey()).isEqualTo("••••1234");
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-first-1234");
-        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-first-1234");
+        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThat(connections.list(other, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        var replacement = connections.save(owner, workspace, provider, "test-model", "synthetic-second-5678");
+        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var replacement = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-second-5678");
         assertThat(replacement.id()).isEqualTo(connection.id());
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
         org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST))
-            .when(credentialVerifier).verify(provider, "test-model", "synthetic-invalid-0000");
-        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "test-model", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isEqualTo("synthetic-second-5678");
+            .when(credentialVerifier).verify(provider, "gpt-6-luna", "synthetic-invalid-0000");
+        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
         connections.delete(owner, workspace, connection.id());
         assertThat(connections.list(owner, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "test-model")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test

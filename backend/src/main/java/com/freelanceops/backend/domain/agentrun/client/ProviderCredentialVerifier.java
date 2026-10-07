@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.client;
 
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.service.ProviderPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,9 +14,10 @@ public class ProviderCredentialVerifier {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build();
 
     public void verify(Provider provider, String model, String key) {
-        String base = provider == Provider.OPENAI ? "https://api.openai.com/v1/models/" : "https://generativelanguage.googleapis.com/v1beta/models/";
+        ProviderPolicy.requireSupported(provider);
+        String base = "https://api.openai.com/v1/models/";
         HttpRequest request = HttpRequest.newBuilder(URI.create(base + model)).timeout(Duration.ofSeconds(10))
-            .header(provider == Provider.OPENAI ? "Authorization" : "x-goog-api-key", provider == Provider.OPENAI ? "Bearer " + key : key).GET().build();
+            .header("Authorization", "Bearer " + key).GET().build();
         try {
             int status = client.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
             if (status != 200) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not verify API key and model access");

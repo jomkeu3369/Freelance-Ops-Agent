@@ -1,0 +1,88 @@
+{
+  "id": "research-competitor-comparison",
+  "version": "1.0.0",
+  "category": "research",
+  "name": {
+    "ko": "경쟁사·대안 비교",
+    "en": "Competitor and Alternative Comparison"
+  },
+  "summary": {
+    "ko": "동일한 기준과 확인 시점으로 제품·서비스 대안을 비교합니다.",
+    "en": "Compare alternatives on consistent criteria with dated, traceable evidence."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "경쟁사 비교 분석",
+    "서비스 대안 비교",
+    "compare competitors",
+    "build product alternative comparison"
+  ],
+  "exclusions": [
+    "Investment recommendations",
+    "Copying a competitor’s design or content"
+  ],
+  "required_inputs": [
+    {
+      "key": "alternatives",
+      "description": "Named alternatives or a bounded category and market",
+      "required": true
+    },
+    {
+      "key": "criteria",
+      "description": "User needs, comparison dimensions, constraints, and decision context",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Define comparable criteria and separate must-have requirements from weighted preferences."
+    },
+    {
+      "step": 2,
+      "instruction": "Collect evidence from official or supplied sources for each alternative using a consistent time and scope basis."
+    },
+    {
+      "step": 3,
+      "instruction": "Normalize price units, plan limitations, feature scope, and implementation requirements; mark unknowns rather than filling them by inference."
+    },
+    {
+      "step": 4,
+      "instruction": "Summarize trade-offs and explain how the recommendation changes under different priorities."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Comparison matrix",
+      "format": "csv",
+      "acceptance_criteria": "Each criterion records comparable values, source, checked date, and unknowns"
+    },
+    {
+      "name": "Decision summary",
+      "format": "markdown",
+      "acceptance_criteria": "Explains fit, trade-offs, uncertainty, and conditional recommendations"
+    }
+  ],
+  "limitations": [
+    "Prices, features, and terms can change and require current verification.",
+    "Do not treat marketing claims as independently validated results."
+  ],
+  "permission_boundaries": [
+    "Do not create accounts, request demos, buy products, or contact competitors.",
+    "Do not obtain nonpublic competitor information or misrepresent identity."
+  ],
+  "routing_tags": [
+    "research",
+    "comparison",
+    "competitors",
+    "decision-support"
+  ],
+  "optional_capabilities": [
+    "web.read"
+  ]
+}

@@ -3,6 +3,10 @@ FROM ghcr.io/astral-sh/uv:0.11.26 AS uv
 FROM python:3.12-slim
 
 WORKDIR /app
+# Free local attachment OCR; no hosted vision/OCR service is called.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=uv /uv /uvx /bin/
 COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev --no-install-project

@@ -1,0 +1,81 @@
+{
+  "id": "ops-scope-statement",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "작업 범위·납품 기준",
+    "en": "Scope of Work and Acceptance"
+  },
+  "summary": {
+    "ko": "납품물·제외사항·수정 횟수·검수 기준을 명확한 검토용 작업 범위로 만듭니다.",
+    "en": "Define deliverables, exclusions, revision limits, dependencies, and acceptance criteria for review."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "작업 범위 정의",
+    "외주 납품 기준",
+    "draft scope of work",
+    "define project deliverables and exclusions"
+  ],
+  "exclusions": [
+    "Persuasive proposal copy without detailed scope",
+    "Software feature acceptance criteria only"
+  ],
+  "required_inputs": [
+    {
+      "key": "brief",
+      "description": "Client request, desired outcomes, and agreed context",
+      "required": true
+    },
+    {
+      "key": "constraints",
+      "description": "Known deliverables, responsibilities, timeline, and approved commercial assumptions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Break the engagement into concrete deliverables with format, quantity, and completion criteria."
+    },
+    {
+      "step": 2,
+      "instruction": "Define included work, exclusions, client inputs, dependencies, revision boundaries, and review windows."
+    },
+    {
+      "step": 3,
+      "instruction": "Resolve ambiguous words such as complete or unlimited into observable conditions or open decisions."
+    },
+    {
+      "step": 4,
+      "instruction": "Prepare a reviewable scope and change-control mechanism; keep unapproved terms visibly provisional."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Scope-of-work draft",
+      "format": "markdown",
+      "acceptance_criteria": "Defines deliverables, exclusions, responsibilities, revisions, acceptance, and assumptions"
+    }
+  ],
+  "limitations": [
+    "This is a business drafting aid, not legal advice or an executed contract.",
+    "Do not turn unconfirmed dates or budgets into commitments."
+  ],
+  "permission_boundaries": [
+    "Do not sign, accept, send, or amend a contract without explicit authorization.",
+    "Do not add penalties, rights transfers, or warranties as default terms."
+  ],
+  "routing_tags": [
+    "operations",
+    "scope",
+    "acceptance",
+    "client-project"
+  ],
+  "optional_capabilities": []
+}

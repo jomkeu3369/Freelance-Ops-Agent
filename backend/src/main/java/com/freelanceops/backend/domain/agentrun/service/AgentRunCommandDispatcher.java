@@ -37,11 +37,12 @@ public class AgentRunCommandDispatcher {
     private final DelegationTokenIssuer tokenIssuer;
     private final AgentRunProjectionService projectionService;
     private final ObjectMapper objectMapper;
+    private final ByokExecutionService byok;
 
     public AgentRunCommandDispatcher(AgentRunCommandQueue queue, AgentRunRepository runRepository,
                                      ProjectRepository projectRepository,
                                      AgentRunClient client, DelegationTokenIssuer tokenIssuer,
-                                     AgentRunProjectionService projectionService, ObjectMapper objectMapper) {
+                                     AgentRunProjectionService projectionService, ObjectMapper objectMapper, ByokExecutionService byok) {
         this.queue = queue;
         this.runRepository = runRepository;
         this.projectRepository = projectRepository;
@@ -49,6 +50,7 @@ public class AgentRunCommandDispatcher {
         this.tokenIssuer = tokenIssuer;
         this.projectionService = projectionService;
         this.objectMapper = objectMapper;
+        this.byok = byok;
     }
 
     @Scheduled(fixedDelayString = "${agent.command-dispatch-delay-ms:250}")
@@ -81,6 +83,15 @@ public class AgentRunCommandDispatcher {
             run.id(), run.workspaceId(), run.projectId(), command.requestedBy(), command.permissions()
         );
         try {
+            if (run.credentialId() != null) {
+                var scope = byok.validateRun(run);
+                if (!run.initiatedBy().equals(command.requestedBy())) throw new IllegalStateException("Personal dispatch principal mismatch");
+                if (command.type() == AgentRunCommandType.START) {
+                    var start = read(command.payload(), InternalAgentRunRequest.class);
+                    if (!scope.equals(start.byokBudget()) || start.platformBudget() != null)
+                        throw new IllegalStateException("Personal dispatch scope mismatch");
+                }
+            }
             if (command.type() == AgentRunCommandType.START) {
                 dispatchStart(command, run, token);
             } else {
@@ -107,7 +118,7 @@ public class AgentRunCommandDispatcher {
         StartAgentRunResponse response = client.start(request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
         if (compensateForProjectDeletion(command, run, token)) return;
-        projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
+        projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
 
@@ -116,7 +127,7 @@ public class AgentRunCommandDispatcher {
         StartAgentRunResponse response = client.resume(run.id(), request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
         if (compensateForProjectDeletion(command, run, token)) return;
-        projectionService.synchronizeStatus(run.id(), run.workspaceId(), response.status());
+        projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
 
@@ -164,7 +175,7 @@ public class AgentRunCommandDispatcher {
     }
 
     private static boolean isPermanent(RuntimeException error) {
-        if (error instanceof IllegalStateException) return true;
+        if (error instanceof IllegalStateException || error instanceof org.springframework.web.server.ResponseStatusException) return true;
         if (error instanceof RestClientResponseException response) {
             int status = response.getStatusCode().value();
             return status >= 400 && status < 500 && status != 408 && status != 429;

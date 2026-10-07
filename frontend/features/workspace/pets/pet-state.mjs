@@ -4,6 +4,17 @@ export const petAdvisors = [
   { id: "cat", name: "든든", role: "수익 담당", scenario: "EXPANDED", priority: "제공 가치와 명확한 계약 범위", departments: ["DEAL_DESIGN"] }
 ];
 
+/**
+ * Localize only the product's default name in its matching slot.
+ * Custom names stay verbatim, and the stored profile is never changed.
+ * @param {{ slot: string, name: string, petId?: string | null }} profile
+ * @param {(source: string) => string} translate
+ */
+export function petDisplayName(profile, translate = source => source) {
+  const advisor = petAdvisors.find(pet => pet.scenario === profile.slot);
+  return !profile.petId && advisor && profile.name === advisor.name ? translate(advisor.name) : profile.name;
+}
+
 /** @param {import('@/app/lib/api').AgentRunView | null} run @param {string[]} departments */
 export function petWorkState(run, departments) {
   if (!run) return "idle";

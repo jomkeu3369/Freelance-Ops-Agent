@@ -46,7 +46,7 @@ def test_generation_returns_reviewable_closed_profile_and_bounded_usage() -> Non
     provider.generate_pet.side_effect = generate_without_prompt_tracing
     response = client.post("/internal/v1/pets/generate", json=body, headers={"Authorization": "Bearer synthetic"})
     assert response.status_code == 200
-    assert response.json()["profile"] == PROFILE
+    assert response.json()["profile"] == PetProfile.model_validate(PROFILE).model_dump(mode="json", by_alias=True)
     assert response.json()["inputTokens"] == 15
     provider.generate_pet.assert_awaited_once()
     assert provider.generate_pet.call_args.kwargs == {"max_output_tokens": 1000, "max_attempts": 1}
@@ -102,6 +102,6 @@ async def test_both_providers_use_profile_schema_and_no_tools(provider: Provider
     if provider == Provider.OPENAI:
         assert kwargs["tools"] == []
         assert kwargs["store"] is False
-        constructor.assert_called_once_with(max_retries=0)
+        constructor.assert_called_once_with(base_url="https://api.openai.com/v1", max_retries=0)
     else:
         assert kwargs["config"]["http_options"]["retry_options"]["attempts"] == 1

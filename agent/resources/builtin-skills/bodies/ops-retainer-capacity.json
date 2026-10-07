@@ -1,0 +1,88 @@
+{
+  "id": "ops-retainer-capacity",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "리테이너 업무·가용량 계획",
+    "en": "Retainer Workload and Capacity Planning"
+  },
+  "summary": {
+    "ko": "여러 고객의 확정 업무와 가용 시간을 비교해 과부하·우선순위·여유를 계산합니다.",
+    "en": "Balance approved retainer commitments against realistic capacity and identify overload early."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "리테이너 업무 계획",
+    "프리랜서 가용 시간",
+    "plan retainer capacity",
+    "balance multiple client workloads"
+  ],
+  "exclusions": [
+    "Planning one project’s dependency schedule",
+    "Employee scheduling or high-impact personnel decisions"
+  ],
+  "required_inputs": [
+    {
+      "key": "commitments",
+      "description": "Approved recurring work, deadlines, estimated effort, and rollover rules",
+      "required": true
+    },
+    {
+      "key": "capacity",
+      "description": "Available hours, non-client work, leave, and planning period",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Normalize commitments by period and distinguish fixed obligations, optional backlog, and unapproved requests."
+    },
+    {
+      "step": 2,
+      "instruction": "Account for coordination, review, revisions, and non-client work instead of allocating every hour to production."
+    },
+    {
+      "step": 3,
+      "instruction": "Compare demand with capacity and highlight bottlenecks, expiry or rollover rules, and deadline collisions."
+    },
+    {
+      "step": 4,
+      "instruction": "Propose a prioritized plan and explicit trade-offs; leave client reprioritization and additional commitments for approval."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Capacity plan",
+      "format": "csv",
+      "acceptance_criteria": "Shows period, client, committed work, effort, available capacity, and gaps"
+    },
+    {
+      "name": "Priority decisions",
+      "format": "markdown",
+      "acceptance_criteria": "Explains overload risks and feasible options"
+    }
+  ],
+  "limitations": [
+    "Do not infer availability from calendar gaps alone.",
+    "Effort estimates and client response times remain uncertain."
+  ],
+  "permission_boundaries": [
+    "Do not reschedule client commitments, change retainers, or promise additional hours.",
+    "Keep clients’ commercially sensitive terms separated in recipient-facing drafts."
+  ],
+  "routing_tags": [
+    "operations",
+    "retainer",
+    "capacity",
+    "prioritization"
+  ],
+  "optional_capabilities": [
+    "data.compute"
+  ]
+}

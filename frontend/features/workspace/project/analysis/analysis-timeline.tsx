@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import { AgentRunView, WorkflowEvent } from "../../../../app/lib/api";
 import { activityPresentation } from "../../shared/activity-presentation";
 
@@ -7,21 +8,22 @@ interface AnalysisTimelineProps {
 }
 
 export function AnalysisTimeline({ events, run }: AnalysisTimelineProps) {
+  const t = useT();
   return (
     <div className="event-timeline">
       <div className="panel-title">
-        <span>최근 활동</span>
-        <small>{events.length ? `${events.length}개 기록` : "기록 없음"}</small>
+        <span>{t("최근 활동")}</span>
+        <small>{events.length ? t("{v0}개 기록", { v0: events.length }) : t("기록 없음")}</small>
       </div>
       {events.length === 0 ? (
-        <p className="empty-copy">분석을 시작하면 진행 상황이 이곳에 표시됩니다.</p>
+        <p className="empty-copy">{t("분석을 시작하면 진행 상황이 이곳에 표시됩니다.")}</p>
       ) : (
         <ol>
           {events
             .slice(-8)
             .reverse()
             .map((event) => {
-              const activity = activityPresentation(event, run);
+              const activity = activityPresentation(event, run, t);
               return (
                 <li key={event.eventId} className={`event-activity event-activity-${activity.tone}`}>
                   <span className="event-activity-marker" aria-hidden="true" />
@@ -39,7 +41,7 @@ export function AnalysisTimeline({ events, run }: AnalysisTimelineProps) {
                   <time>
                     {event.occurredAt
                       ? new Date(event.occurredAt).toLocaleTimeString("ko-KR")
-                      : "방금"}
+                      : t("방금")}
                   </time>
                 </li>
               );

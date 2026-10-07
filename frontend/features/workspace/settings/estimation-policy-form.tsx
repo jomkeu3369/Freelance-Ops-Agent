@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent } from "react";
 import { AuthSession, EstimationPolicy, saveEstimationPolicy } from "../../../app/lib/api";
 import { CircleNotch, CheckCircle } from "@phosphor-icons/react";
@@ -13,6 +14,7 @@ interface EstimationPolicyFormProps {
 }
 
 export function EstimationPolicyForm({ session, policy, busy, setBusy, setError, setSaved, onSaved }: EstimationPolicyFormProps) {
+  const t = useT();
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -40,8 +42,7 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
       <fieldset className="settings-fields" disabled={busy}>
         <div className="form-row">
           <label>
-            기본 세율 (%)
-            <input
+            {t("기본 세율 (%)")}<input
               name="taxRate"
               type="number"
               min="0"
@@ -51,8 +52,7 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
             />
           </label>
           <label>
-            위험 대비율 (%)
-            <input
+            {t("위험 대비율 (%)")}<input
               name="bufferRate"
               type="number"
               min="0"
@@ -62,8 +62,7 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
             />
           </label>
           <label>
-            최대 할인율 (%)
-            <input
+            {t("최대 할인율 (%)")}<input
               name="discountRate"
               type="number"
               min="0"
@@ -74,8 +73,7 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
           </label>
         </div>
         <button type="submit" className="primary-button" disabled={busy}>
-          {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} 계산 기준 저장
-        </button>
+          {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("계산 기준 저장")}</button>
       </fieldset>
     </form>
   );

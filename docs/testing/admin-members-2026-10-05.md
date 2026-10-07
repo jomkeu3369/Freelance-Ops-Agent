@@ -1,0 +1,102 @@
+# 관리자 회원·로그인 조회
+
+기준: `cfcaeb939129e290e7fbd8ae115414d44f361e5f`.
+관리자 화면은 `/admin/members`에 있으며 기존 `/admin` 한도 검토와 `/admin/notices`로 연결된다.
+
+## API와 권한
+
+모든 API는 인증된 UUID 사용자와 DB의 활성 `MEMBERS_READ` 권한을 매 요청마다 확인한다.
+workspace OWNER/ADMIN, JWT 역할, FREE_USAGE_ADMIN 또는 NOTICES_ADMIN만으로는 회원을 조회할 수 없다.
+계정 비활성화·인증 대기·권한 회수는 즉시 거부한다. 검증한 계정/권한 행을 트랜잭션 종료까지 잠근다.
+V46은 capability의 허용 값만 추가하며 어떤 계정에도 권한을 부여하지 않는다.
+
+| API | 내용 |
+| --- | --- |
+| `GET /api/v2/admin/members?q=&status=&page=0&size=25` | 이메일/이름의 문자 그대로 검색, UUID 일치, 상태 필터, 신규 가입 순 목록 |
+| `GET /api/v2/admin/members/summary` | 전체·로그인 가능·인증 대기·최근 7일 가입·최근 7일 로그인한 고유 회원 수 |
+| `GET /api/v2/admin/members/{id}` | 계정 메타데이터와 기록된 최근 로그인 |
+| `GET /api/v2/admin/members/{id}/ai-usage` | 회원별 실제 USD 주간 스냅샷 |
+| `GET /api/v2/admin/members/{id}/ai-usage/history?cursor=&limit=20` | 회원별 실제 비용 원장, 1~100건의 커서 페이지 |
+| `GET /api/v2/admin/login-events?userId=&page=0&size=25` | 전체 또는 회원별 성공한 인증 기록 |
+| `GET /api/v2/admin/member-audit-events?page=0&size=25` | 기존 주간 크레딧·이전 월간 한도의 변경/초기화 원본 감사 기록 |
+
+목록은 0부터 시작하는 페이지, 1~100건 크기, 최대 100자 검색을 받는다.
+상태는 `ACTIVE`, `DISABLED`, `PENDING_VERIFICATION` 또는 전체다.
+동일 시각 항목은 UUID로 순서를 확정한다. 화면은 25건 단위이며 갱신 시 서버를 재조회한다.
+
+## 수집 범위
+
+- 성공한 비밀번호 로그인과 인증 없이 가입 세션이 발급되는 개발 경로를 세션 발급과 같은 트랜잭션으로 기록한다.
+- 이벤트는 임의 UUID, 사용자 UUID, 방식(`PASSWORD`/`REGISTRATION`), 시각만 보관한다.
+- 실패한 로그인, 토큰 갱신, 이메일 확인만 한 행위는 로그인 이벤트를 만들지 않는다.
+- 기록 시작 시각을 V46에서 남긴다. 과거 세션이나 가입 시각으로 로그인 기록을 추정하지 않는다.
+- IP, User-Agent, 비밀번호/해시, API 키, 세션 토큰, 개인 채팅, 프로젝트 내용은 관리자 응답에 포함하지 않는다.
+- 성공 로그인 이벤트 보존 기간의 운영 정책은 아직 정해지지 않았다. 자동 삭제 작업은 포함하지 않는다.
+- 회원 삭제·정지·권한 부여 API는 제공하지 않는다. 현재 페이지의 동작은 모두 GET이다.
+
+## 과금 경계
+
+기존 `/admin`의 FREE_USAGE_ADMIN 인가, 변경 전 확인, 낙관적 버전 검사와 원자적 감사 기록을 유지한다.
+이 작업에서 실제 한도 수정·일괄 초기화·운영 데이터 변경은 실행하지 않는다.
+과거 정수 크레딧과 월간 횟수를 USD 또는 새 비율로 환산하지 않는다.
+회원별 신규 USD 사용량은 `PlatformUsageService.snapshot(userId)` / `history(userId,cursor,limit)`와 연결한다.
+두 관리자 경로 모두 현재 활성·이메일 인증 완료 요청자의 `MEMBERS_READ`를 먼저 DB에서 확인하고, 권한·요청자 행의 SHARE 잠금을 조회 트랜잭션 종료까지 유지한다.
+대상 회원 행도 SHARE 잠금으로 존재를 확인한다. 없는 회원은 404이며, 비활성·인증 대기 회원의 과거 비용은 관리자 감사 목적상 조회할 수 있다.
+잘못된 커서, 256자를 넘는 커서, 1~100 범위를 벗어난 limit은 400이다. 커서의 값은 해석하거나 페이지 번호로 변환하지 않고 원장 서비스에 전달한다.
+
+UI의 회원 목록에서 “실제 비용”을 열면 USD 한도·확정 비용·예약 금액·차감 후 잔액과 전체 기간 실행 기록을 표시한다.
+8자리 소수의 소액 비용을 보존하고, 진행 중/미확정 예약이 공급자의 확정 청구가 아님을 안내한다.
+BYOK 토큰은 플랫폼 USD와 분리하여 표시하고, 미확정 토큰에는 보수적 상한 가능성을 안내한다.
+삭제된 실행의 비용 기록도 유지하며, 새로고침은 첫 커서로 돌아간다.
+권한 오류 시 통계·회원 선택·비용 기록을 모두 비우며, 회원 목록 복귀·로그아웃 뒤의 늦은 응답은 반영하지 않는다.
+한도 수정, 권한 부여, 크레딧 초기화 또는 유료 API 호출은 이 읽기 화면에서 실행하지 않는다.
+
+## 검증
+
+- AuthService 단위 검사: 가입/로그인 기록, 실패/refresh 제외.
+- AdminMemberService 단위 검사: 모든 조회의 우선 인가, 권한 없는 경우 데이터 조회 금지, 페이지/검색/상태 제한.
+- AdminMemberPostgresTest: 임시 PostgreSQL에 생성한 가상 회원만 사용. 권한·검색·페이지·통계·롤백·비밀정보 제외·감사 불변성 검사.
+- Chrome Playwright: 가상 API 응답으로 검색·페이지·회원별 로그인·403·권한 회수·감사·모바일·세션 만료 후 늦은 응답 검증.
+- 실제 외부 API, 운영 데이터, 이메일, 운영 배포는 사용하지 않는다.
+
+이 Windows 환경은 Docker daemon이 없어 PostgreSQL 통합 검사를 건너뛴다.
+Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한다.
+최종 실행 결과와 원격 SHA는 작업 결과 보고에 기록한다.
+
+### 이 작업의 실행 결과
+
+- 전체 백엔드 Gradle 검사 완료: 97 suites, 381 tests, 실패 0, 오류 0, Docker 의존 검사 69개 skipped. 실행한 312개 통과.
+- 신규 AdminMemberService 단위 검사 2개와 AuthService 검사 8개 통과. 신규 PostgreSQL 검사 6개는 skipped에 포함되므로 실제 DB 검증 완료로 보지 않는다.
+- 프론트 단위 검사 242개 통과.
+- Chrome 6개 중 감사 조회·390px 모바일 레이아웃·세션 해제 뒤 늦은 응답 차단 3개 통과. 모바일 스크린샷을 직접 확인했다.
+- Chrome 나머지 3개는 초기 개발 서버 탐색 timeout 1개, Next의 별도 route announcer와 `role=alert` 선택 충돌 2개로 실패했다. DOMContentLoaded 탐색과 `main [role=alert]` 선택으로 테스트를 수정했으나 재실행하지 않았다.
+- 최종 타입 검사/린트는 완료 전에 중단했다. 성공으로 보고하지 않는다.
+- 사용자의 노트북 부하 중단 요청으로 로컬 Next 개발 서버(3155), 타입 검사 및 브라우저 자동화를 종료했다. 추가 로컬 빌드·Docker 검사는 실행하지 않는다. 이후 DB·브라우저 검증과 비용원장 연결은 클라우드 환경에서 계속해야 한다.
+
+
+## 클라우드 비용 원장 통합 검증 (2026-10-05)
+
+- 의존 계약: `codex/model-catalog-budget-20261005`의 `PlatformUsageService`와 V42/V43 마이그레이션. 이 관리 기능 브랜치만으로 백엔드 컴파일을 완료할 수 없으며 통합 브랜치에서 함께 검증해야 한다.
+- 백엔드 단위 검사는 모든 조회의 우선 인가, 없는 대상에서 원장 접근 금지, 잠금/호출 순서, 커서/limit 제한, 조회 간 권한 회수를 검사한다.
+- PostgreSQL 검사는 USD 읽기의 무변경성, 비활성 대상 조회, 활성 요청자 요구, 없는 대상, 커서 오류와 트랜잭션 중 동시 권한 회수 차단을 추가한다.
+- 브라우저 fixture는 GET 전용 가상 API이며 외부 요청을 차단한다. 소액 USD, 확정/예약 분리, BYOK, 삭제된 실행, 커서 전후 이동, 새로고침, 원장 403, 늦은 응답·세션 해제, 390px 화면을 검사한다.
+- 프론트 단위 검사는 회원 ID 인코딩, opaque cursor 전달, no-store/취소 신호, 8자리 USD 표시를 검사한다.
+- 실행 결과는 클라우드 검증이 끝난 뒤 아래에 추가한다. 위 Windows 결과를 현재 통합 코드의 검증으로 간주하지 않는다.
+
+### 클라우드 프론트 실행 결과
+
+- 전체 TypeScript 검사 통과: `npm run typecheck`.
+- 변경한 관리자 TS/TSX와 단위/브라우저 테스트 파일의 ESLint 검사 통과. 가로 스크롤 표 영역은 키보드 사용자가 접근할 수 있도록 `role=region`, 접근성 이름과 `tabIndex=0`을 유지하고 해당 줄에 근거를 명시했다.
+- `node --test tests/admin-members-api.test.mjs`: 3개 통과, 실패/skip 0.
+- 브라우저 fixture 파일 구문 검사 통과. 실제 브라우저 테스트 10개는 실행되지 않았다.
+- 설치된 `/usr/bin/chromium`을 Playwright로 여는 사전 검사에서 앱 접속 전에 `process_singleton_posix.cc:297` / `socket() failed: Operation not permitted (1)`로 SIGABRT가 발생했다. Crash Reports 경로도 읽기 전용이었다. 클라우드 sandbox의 소켓 제한을 우회하거나 사용자의 컴퓨터를 사용하지 않았다.
+- 백엔드 서비스/컨트롤러/PostgreSQL 검사는 예산 원장 의존성을 병합한 통합 브랜치에서 별도 수행한다. 이 프론트 실행 결과가 실제 DB/브라우저 검증 완료를 뜻하지 않는다.
+
+### 통합 브랜치 백엔드 확인 결과
+
+2026-10-05 05:11 UTC에 생성된 통합 작업 트리의 Gradle XML 결과를 확인했다.
+
+- `AdminMemberControllerTest`: 2개 실행, 2개 통과, 실패/오류 0.
+- `AdminMemberServiceTest`: 4개 실행, 4개 통과, 실패/오류 0.
+- `AdminMemberPostgresTest`: 8개 모두 skipped. 실제 PostgreSQL 권한·잠금·조회 검증은 아직 완료되지 않았다.
+- 위 결과는 예산 원장 의존성을 포함한 통합 브랜치의 컴파일/단위 검증이다. 브라우저와 실제 DB 검증의 제한은 그대로 남는다.

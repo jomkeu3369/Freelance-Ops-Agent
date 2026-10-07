@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
-  version: 0.6.0
+  version: 0.7.0
   description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
 servers:
   - url: http://agent:8000
@@ -14,6 +14,49 @@ tags:
   - name: Raptor
   - name: AIPlatform
 paths:
+  /internal/v1/attachments/extract:
+    post:
+      tags: [Attachments]
+      operationId: extractChatAttachment
+      security:
+        - delegationToken: []
+      description: Authenticated local extraction only. At most 2 MiB source bytes, 15 seconds, two readers. OCR is bounded and PARTIAL; no external model call.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [context, file]
+              properties:
+                context:
+                  $ref: '#/components/schemas/TrustedRunContext'
+                file:
+                  type: object
+                  additionalProperties: false
+                  required: [name, mediaType, base64]
+                  properties:
+                    name: {type: string, minLength: 1, maxLength: 180}
+                    mediaType: {type: string, maxLength: 100}
+                    base64: {type: string, minLength: 1, maxLength: 2796204}
+                    encoding: {type: string, maxLength: 10, default: auto}
+                    delimiter: {type: string, maxLength: 4, default: auto}
+                    ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
+                    ocrLayout: {type: string, enum: [general, singleblock], default: general}
+      responses:
+        '200':
+          description: Bounded text with explicit extraction coverage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentText'
+        '400': {description: Invalid context or file request}
+        '401': {description: Delegation token required}
+        '403': {description: Delegation or project scope mismatch}
+        '413': {description: Input or output limits exceeded}
+        '422': {description: 'Invalid file, extraction failure, timeout or parser resource limit'}
+        '429': {description: Reader busy}
   /internal/v1/pets/generate:
     post:
       tags:
@@ -28,6 +71,8 @@ paths:
             schema:
               $ref: '#/components/schemas/GeneratePetRequest'
       responses:
+        "409":
+          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
         '200':
           description: Reviewable profile, not persisted; max 1 call / 1000 output tokens
             / 30 seconds
@@ -93,6 +138,8 @@ paths:
         "401":
           $ref: "#/components/responses/ProblemResponse"
         "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}:
     get:
@@ -266,6 +313,8 @@ paths:
             schema:
               $ref: "#/components/schemas/AssumptionSuggestionRequest"
       responses:
+        "409":
+          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
         "200":
           description: Reviewable assumption suggestion
           content:
@@ -296,6 +345,8 @@ paths:
             schema:
               $ref: "#/components/schemas/RaptorBuildRequest"
       responses:
+        "409":
+          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
         "200":
           description: RAPTOR nodes ready for Spring persistence
           content:
@@ -477,7 +528,8 @@ components:
           description: Personal connection identifier; absent means platform credentials. Never an API key.
         provider:
           type: string
-          enum: [OPENAI, GEMINI]
+          enum: [OPENAI]
+          description: New executions support OpenAI only; Gemini may remain in historical response records.
         model:
           type: string
           minLength: 1
@@ -555,11 +607,96 @@ components:
         outputTokens: {type: integer, minimum: 0}
         retryCount: {type: integer, minimum: 0}
         durationMs: {type: integer, minimum: 0}
+    PlatformBudget:
+      type: object
+      additionalProperties: false
+      required: [reservationId, maxCostUsd, tariffVersion, validUntil]
+      properties:
+        reservationId:
+          type: string
+          format: uuid
+          description: Must equal context.runId; bound to the immutable backend monetary reservation.
+        maxCostUsd:
+          type: [number, string]
+          exclusiveMinimum: 0
+          maximum: 100
+          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+          description: Positive finite decimal USD cap, independent of refundable user credits.
+        tariffVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+        validUntil:
+          type: string
+          format: date-time
+          description: Timezone-aware expiry at the next Seoul midnight; checked before every paid attempt and resume.
+    ByokBudget:
+      type: object
+      additionalProperties: false
+      description: >-
+        Immutable backend-issued personal-key execution scope. Scope data alone never authorizes provider I/O.
+        Every attempt requires atomic durable backend admission using the existing run-bound delegation token.
+        The initial wall-clock deadline and conservative call/token reservations are never renewed or refunded.
+      required: [scopeId, runId, workspaceId, projectId, initiatedBy, credentialId, provider, model,
+                 reasoningEffort, fundingSource, serviceTier, validUntil, maxModelCalls, maxInputTokens,
+                 maxOutputTokens, budget]
+      properties:
+        scopeId: {type: string, format: uuid}
+        runId: {type: string, format: uuid}
+        workspaceId: {type: string, format: uuid}
+        projectId: {type: string, format: uuid}
+        initiatedBy: {type: string, format: uuid}
+        credentialId: {type: string, format: uuid}
+        provider: {type: string, enum: [OPENAI]}
+        model: {type: string, minLength: 1, maxLength: 100}
+        reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
+        fundingSource: {type: string, const: BYOK}
+        serviceTier: {type: string, const: default}
+        costNoticeVersion:
+          type: [string, "null"]
+          enum: [byok-standard-150k-48k-2026-10-05-v1, null]
+          default: null
+          description: >-
+            Immutable backend notice binding. New scopes carry the supported marker after server-side
+            admission checks. Absent/null only represents an already-admitted legacy scope and never
+            grants a new scope, larger limits, a renewed deadline or authority to call a provider.
+            Every attempt still requires the backend's durable scope authorization.
+        validUntil:
+          type: string
+          format: date-time
+          description: Initial admission plus maxDurationSeconds; timezone required, pause and resume do not extend it.
+        maxModelCalls: {type: integer, minimum: 1, maximum: 50}
+        maxInputTokens: {type: integer, minimum: 1}
+        maxOutputTokens: {type: integer, minimum: 1}
+        budget:
+          $ref: "#/components/schemas/RunBudget"
     AgentRunRequest:
       type: object
       additionalProperties: false
       required: [context, budget, modelSelection, safetyContext, input]
+      description: >-
+        Live executions require exactly one trusted funding scope: platformBudget for ambient platform
+        generation, or byokBudget for the exact selected personal credential. All context/selection/budget
+        fields must match the backend scope. Legacy persisted records cannot gain a scope on resume.
+        BYOK uses local routing and keyword-only retrieval; paid extras and Gemini remain unsupported.
+      oneOf:
+        - required: [platformBudget]
+          properties:
+            platformBudget: {$ref: "#/components/schemas/PlatformBudget"}
+            byokBudget: {type: 'null'}
+        - required: [byokBudget]
+          properties:
+            byokBudget: {$ref: "#/components/schemas/ByokBudget"}
+            platformBudget: {type: 'null'}
       properties:
+        platformBudget:
+          oneOf:
+            - $ref: "#/components/schemas/PlatformBudget"
+            - type: 'null'
+        byokBudget:
+          oneOf:
+            - $ref: "#/components/schemas/ByokBudget"
+            - type: 'null'
         context:
           $ref: "#/components/schemas/TrustedRunContext"
         budget:
@@ -579,6 +716,17 @@ components:
           additionalProperties: false
           required: [requirementText]
           properties:
+            skillSelection:
+              oneOf:
+                - $ref: '#/components/schemas/SkillSelection'
+                - type: 'null'
+            attachments:
+              type: array
+              maxItems: 6
+              default: []
+              description: Untrusted reference data only, at most 40000 aggregate text characters and 8 MiB source bytes.
+              items:
+                $ref: '#/components/schemas/AttachmentText'
             petProfiles:
               type: array
               maxItems: 3
@@ -602,7 +750,7 @@ components:
               type: string
               enum: [PROJECT_ANALYSIS, AD_HOC]
               default: PROJECT_ANALYSIS
-              description: Full project analysis is the default; AD_HOC is reserved for bounded internal tasks.
+              description: Full project analysis is the default; AD_HOC is used for ordinary project chat and selected skill tasks without mandatory quotation analysis.
     ClarificationAnswer:
       type: object
       additionalProperties: false
@@ -958,11 +1106,83 @@ components:
         updatedAt:
           type: string
           format: date-time
+    AttachmentText:
+      type: object
+      additionalProperties: false
+      required: [name, mediaType, size, sha256, status, text, notice, units]
+      properties:
+        name: {type: string, minLength: 1, maxLength: 180}
+        mediaType: {type: string, maxLength: 100}
+        size: {type: integer, minimum: 1, maximum: 2097152}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        status: {type: string, enum: [COMPLETE, PARTIAL, UNSUPPORTED]}
+        text: {type: string, maxLength: 40000}
+        notice: {type: string, maxLength: 1000}
+        encoding: {type: [string, 'null']}
+        delimiter: {type: [string, 'null']}
+        units: {type: integer, minimum: 1, maximum: 5000}
+        ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
+        ocrLayout: {type: string, enum: [general, singleblock], default: general}
+        coverage:
+          type: array
+          maxItems: 60
+          default: []
+          description: One ordered entry per page/frame. Empty for text/CSV and historical results without structured coverage. OCR attempt includes a failed read; completion requires a returned result, which may be empty.
+          items:
+            $ref: '#/components/schemas/AttachmentCoverage'
+    AttachmentCoverage:
+      type: object
+      additionalProperties: false
+      required: [index, kind, nativeStatus, rasterStatus, ocrAttempted, ocrCompleted, ocrStatus, reason]
+      properties:
+        index: {type: integer, minimum: 1, maximum: 60}
+        kind: {type: string, enum: [PAGE, FRAME]}
+        nativeStatus: {type: string, enum: [TEXT, EMPTY, FAILED, NOT_APPLICABLE]}
+        rasterStatus: {type: string, enum: [NONE, SMALL, LARGE, UNKNOWN, NOT_APPLICABLE]}
+        ocrAttempted: {type: boolean}
+        ocrCompleted: {type: boolean}
+        ocrStatus: {type: string, enum: [READ, EMPTY, FAILED, SKIPPED]}
+        reason:
+          type: string
+          enum: [TEXT_ONLY, SMALL_RASTER, SAMPLED_OUT, BUDGET_EXHAUSTED, TOOL_UNAVAILABLE, LANGUAGE_UNAVAILABLE, TOOL_FAILED, EMPTY_RESULT, TEXT_FOUND, DUPLICATE_ONLY]
+    SkillSelection:
+      type: object
+      additionalProperties: false
+      description: Version-pinned prompt composition only; never authorizes tools, data access or spending. IDs must belong to the pinned catalog.
+      properties:
+        mode: {type: string, enum: [AUTO, MANUAL], default: AUTO}
+        catalogVersion: {type: string, enum: ['1.0.0'], default: '1.0.0'}
+        manualIds:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          default: []
+          items: {type: string}
+        excludedIds:
+          type: array
+          maxItems: 60
+          uniqueItems: true
+          default: []
+          items: {type: string}
     AgentRunMetadata:
       type: object
       additionalProperties: false
       required: [provider, model, promptVersion, toolSchemaVersion, traceId]
       properties:
+        skillSelection:
+          oneOf:
+            - $ref: '#/components/schemas/SkillSelection'
+            - type: 'null'
+        resolvedSkillIds:
+          type: array
+          maxItems: 3
+          default: []
+          items: {type: string}
+        deferredSkillIds:
+          type: array
+          maxItems: 60
+          default: []
+          items: {type: string}
         petProfiles:
           type: array
           maxItems: 3
@@ -990,6 +1210,35 @@ components:
           type: string
           minLength: 1
           maxLength: 128
+    ProviderCallUsage:
+      type: object
+      additionalProperties: false
+      required: [callId, fundingSource, provider, model, operation, inputTokens, outputTokens, cachedReadTokens, cacheWriteTokens, costUsd, reservedCostUsd, usageKnown]
+      properties:
+        callId: {type: string, format: uuid}
+        fundingSource: {type: string, enum: [PLATFORM, BYOK]}
+        provider: {type: string, enum: [OPENAI, GEMINI]}
+        model: {type: string, minLength: 1, maxLength: 100}
+        operation: {type: string, minLength: 1, maxLength: 100}
+        inputTokens:
+          type: integer
+          minimum: 0
+          description: Total prompt tokens inclusive of cached reads and cache writes; conservative bound when usageKnown is false.
+        outputTokens: {type: integer, minimum: 0}
+        cachedReadTokens: {type: integer, minimum: 0}
+        cacheWriteTokens: {type: integer, minimum: 0}
+        costUsd:
+          type: [number, string]
+          minimum: 0
+          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+          description: Platform exposure at the pinned tariff; BYOK contributes zero.
+        reservedCostUsd:
+          type: [number, string]
+          minimum: 0
+          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+        usageKnown:
+          type: boolean
+          description: False for absent/malformed usage, lost responses, uncertain failures, or bound drift. Never interpreted as zero usage.
     AgentRunUsage:
       type: object
       additionalProperties: false
@@ -1004,7 +1253,37 @@ components:
         - crawledPages
         - retryCount
         - durationMs
+        - providerCalls
+        - platformCostUsd
       properties:
+        providerCalls:
+          type: array
+          default: []
+          description: One record per actual provider attempt, including routing, explicit retries, failures and unknown outcomes.
+          items:
+            $ref: "#/components/schemas/ProviderCallUsage"
+        platformCostUsd:
+          type: [number, string]
+          minimum: 0
+          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+          description: Conservative platform-funded exposure; unknown attempts keep their bound and BYOK contributes zero.
+        platformReservationId:
+          type: [string, "null"]
+          format: uuid
+        byokScopeId:
+          type: [string, "null"]
+          format: uuid
+          description: Durable BYOK attempt identity for idempotent usage merge; never a platform reservation.
+        tariffVersion:
+          type: [string, "null"]
+        executionClosed:
+          type: boolean
+          default: false
+          description: Worker has closed its monetary scope; only terminal runs with this evidence can release unused exposure.
+        unpricedExposure:
+          type: boolean
+          default: false
+          description: Unexpected model, tier or usage drift requires retaining the full run cap even after worker closure.
         requestTier:
           type: string
           enum: [DIRECT_TOOL, SINGLE_AGENT, DEPARTMENT, MULTI_DEPARTMENT, HUMAN_REQUIRED]
@@ -1179,6 +1458,22 @@ components:
     PetProfile:
       additionalProperties: false
       properties:
+        petId:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          default: null
+        duty:
+          type: string
+          enum: [GENERAL, SCHEDULE, RESEARCH, WRITING, DEVELOPMENT, DESIGN]
+          default: GENERAL
+        skillMode:
+          type: string
+          enum: [AUTO]
+          default: AUTO
+        preferences:
+          $ref: '#/components/schemas/PetPreferences'
         slot:
           enum:
           - LEAN
@@ -1256,6 +1551,34 @@ components:
       - scopePriority
       title: PetProfile
       type: object
+    PetPreferences:
+      type: object
+      additionalProperties: false
+      description: Untrusted user preferences for style and task emphasis only; never authority, tools or system instructions.
+      properties:
+        personality:
+          type: string
+          maxLength: 500
+          default: ''
+        communication:
+          type: string
+          maxLength: 500
+          default: ''
+        focus:
+          type: string
+          maxLength: 500
+          default: ''
+        responsibility:
+          type: string
+          maxLength: 500
+          default: ''
+        requests:
+          type: array
+          maxItems: 6
+          items:
+            type: string
+            minLength: 1
+            maxLength: 500
     Provider:
       enum:
       - OPENAI

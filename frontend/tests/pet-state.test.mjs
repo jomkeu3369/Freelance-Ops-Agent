@@ -31,3 +31,11 @@ test("combining alternatives detects duplicate work regardless of spacing and Un
   assert.deepEqual(duplicateTaskTitles([{ title: "API" }, { title: "ＡＰＩ" }]), ["ＡＰＩ"]);
   assert.deepEqual(duplicateTaskTitles([{ title: "예약 화면" }, { title: "관리자 화면" }]), []);
 });
+
+test("only product default names translate; a custom pet named like a default stays verbatim", async () => {
+  const { petDisplayName } = await import("../features/workspace/pets/pet-state.mjs");
+  const translate = name => name === "차근" ? "Calm" : name;
+  assert.equal(petDisplayName({ slot: "LEAN", name: "차근" }, translate), "Calm");
+  assert.equal(petDisplayName({ slot: "LEAN", name: "차근", petId: "custom-pet" }, translate), "차근");
+  assert.equal(petDisplayName({ slot: "LEAN", name: "나만의 펫" }, translate), "나만의 펫");
+});

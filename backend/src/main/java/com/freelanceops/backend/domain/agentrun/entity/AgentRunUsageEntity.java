@@ -38,6 +38,12 @@ public class AgentRunUsageEntity {
     @Enumerated(EnumType.STRING) @Column(name = "cost_status", nullable = false, length = 20) private CostStatus costStatus;
     @Column(name = "billable_outcome", nullable = false) private boolean billableOutcome;
     @Column(name = "recorded_at", nullable = false) private Instant recordedAt;
+    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "provider_calls", nullable = false, columnDefinition = "jsonb")
+    private java.util.List<com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage> providerCalls = java.util.List.of();
+    @Column(name = "platform_cost_usd", precision = 19, scale = 8) private BigDecimal platformCostUsd;
+    @Column(name = "platform_reservation_id") private UUID platformReservationId;
+    @Column(name = "tariff_version", length = 100) private String tariffVersion;
+    @Column(name = "byok_scope_id") private UUID byokScopeId;
     @Version private long version;
 
     protected AgentRunUsageEntity() { }
@@ -56,6 +62,32 @@ public class AgentRunUsageEntity {
         this.costCurrency = pricing == null ? null : pricing.currency(); this.costStatus = pricing == null ? CostStatus.UNPRICED : CostStatus.PRICED;
     }
 
+    public void updatePlatform(AgentRunUsage usage, BigDecimal actualCost, BigDecimal conservativeCost,
+                               boolean billableOutcome, Instant recordedAt) {
+        update(usage, null, actualCost, billableOutcome, recordedAt);
+        this.providerCalls = java.util.List.copyOf(usage.providerCalls());
+        this.platformCostUsd = conservativeCost;
+        this.platformReservationId = usage.platformReservationId();
+        this.tariffVersion = usage.tariffVersion();
+        this.byokScopeId = usage.byokScopeId();
+        this.costCurrency = usage.platformReservationId() == null ? null : "USD";
+        this.costStatus = actualCost == null ? CostStatus.UNPRICED : CostStatus.PRICED;
+    }
+
+    public void updateByok(AgentRunUsage usage, boolean billableOutcome, Instant recordedAt) {
+        update(usage, null, null, billableOutcome, recordedAt);
+        this.providerCalls = java.util.List.copyOf(usage.providerCalls());
+        this.byokScopeId = usage.byokScopeId();
+        this.platformCostUsd = BigDecimal.ZERO;
+        this.platformReservationId = null;
+        this.tariffVersion = null;
+    }
+    public UUID byokScopeId() { return byokScopeId; }
+
+    public java.util.List<com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage> providerCalls() { return providerCalls; }
+    public BigDecimal platformCostUsd() { return platformCostUsd; }
+    public UUID platformReservationId() { return platformReservationId; }
+    public String tariffVersion() { return tariffVersion; }
     public UUID agentRunId() { return agentRunId; }
     public UUID workspaceId() { return workspaceId; }
     public UUID pricingSnapshotId() { return pricingSnapshotId; }

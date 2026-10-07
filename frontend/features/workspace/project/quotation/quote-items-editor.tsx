@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import {
   QuotationItemInput
 } from "@/app/lib/api";
@@ -14,6 +15,7 @@ import { QuoteItemBasis } from "./quote-item-basis";
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
+  const t = useT();
   const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems } = model;
 
   const removeItem = (index: number) => {
@@ -23,33 +25,33 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
 
   return (
     <>
-      <div className="quote-sheet" aria-label="견적 항목">
+      <div className="quote-sheet" aria-label={t("견적 항목")}>
         {items.map((item, index) => (
           <details
             className={`quote-item-block${selectedBasisIndex === index ? " selected" : ""}`}
             key={index}
             onFocusCapture={() => setSelectedBasisIndex(index)}
-            aria-label={`${index + 1}번 견적 항목`}
+            aria-label={t("{v0}번 견적 항목", { v0: index + 1 })}
           >
             <summary className="quote-item-disclosure">
-              <span><small>항목 {String(index + 1).padStart(2, "0")}</small><strong>{item.title || "새 작업 항목"}</strong></span>
-              <span>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}<small>상세·근거</small></span>
+              <span><small>{t("항목")}{String(index + 1).padStart(2, "0")}</small><strong>{item.title || "새 작업 항목"}</strong></span>
+              <span>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}<small>{t("상세·근거")}</small></span>
             </summary>
             <div className="quote-row">
               <label className="quote-title-field">
-                <span className="quote-field-label">작업 항목</span>
+                <span className="quote-field-label">{t("작업 항목")}</span>
                 <input
                   value={item.title}
                   readOnly={!canWrite}
                   maxLength={200}
-                  placeholder="예: 결제 플로우 구현"
+                  placeholder={t("예: 결제 플로우 구현")}
                   onChange={(event) =>
                     updateItem(index, (current) => ({ ...current, title: event.target.value }))
                   }
                 />
               </label>
               <label>
-                <span className="quote-field-label">수량</span>
+                <span className="quote-field-label">{t("수량")}</span>
                 <input
                   type="number"
                   min="0.1"
@@ -62,7 +64,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                 />
               </label>
               <label>
-                <span className="quote-field-label">단위</span>
+                <span className="quote-field-label">{t("단위")}</span>
                 <select
                   value={item.unit}
                   disabled={!canWrite || Boolean(item.rateCardId)}
@@ -73,13 +75,13 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                     }))
                   }
                 >
-                  <option value="HOUR">시간</option>
-                  <option value="DAY">일</option>
-                  <option value="FIXED">고정</option>
+                  <option value="HOUR">{t("시간")}</option>
+                  <option value="DAY">{t("일")}</option>
+                  <option value="FIXED">{t("고정")}</option>
                 </select>
               </label>
               <label>
-                <span className="quote-field-label">단가</span>
+                <span className="quote-field-label">{t("단가")}</span>
                 <input
                   type="number"
                   min="0"
@@ -92,7 +94,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                 />
               </label>
               <label>
-                <span className="quote-field-label">할인율 (%)</span>
+                <span className="quote-field-label">{t("할인율 (%)")}</span>
                 <input
                   type="number"
                   min="0"
@@ -109,7 +111,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                 />
               </label>
               <div className="quote-amount-field">
-                <span className="quote-field-label">예상 금액</span>
+                <span className="quote-field-label">{t("예상 금액")}</span>
                 <div className="quote-amount">
                   <strong>
                     {formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}
@@ -119,7 +121,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
               <button
                 type="button"
                 className="remove-item"
-                aria-label={`${index + 1}번 항목 삭제`}
+                aria-label={t("{v0}번 항목 삭제", { v0: index + 1 })}
                 disabled={!canWrite || items.length === 1}
                 onClick={() => removeItem(index)}
               >
@@ -135,8 +137,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
             className="add-row"
             onClick={() => setItems((current) => [...current, emptyQuoteItem()])}
           >
-            <Plus size={17} /> 작업 항목 추가
-          </button>
+            <Plus size={17} /> {t("작업 항목 추가")}</button>
         )}
       </div>
     </>

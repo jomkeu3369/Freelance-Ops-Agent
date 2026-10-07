@@ -1,6 +1,11 @@
+import type { SkillSelection } from "../../features/workspace/skills/skill-selection";
+import { FREE_USAGE_EXHAUSTED } from "./free-usage.mjs";
+import { byokCostEstimate, byokCostNoticeVersion, byokFailureMessage } from "./byok-presentation.mjs";
 import { clearQueryCache, invalidateQueries, queryCached } from "./query-cache";
 
-export type Provider = "OPENAI" | "GEMINI";
+export type Provider = "OPENAI";
+export type RecordedProvider = Provider | "GEMINI";
+export function isSupportedProvider(provider: RecordedProvider): provider is Provider { return provider === "OPENAI"; }
 export type ReasoningEffort = "NONE" | "LOW" | "MEDIUM" | "HIGH";
 export type AgentRunStatus =
   | "QUEUED"
@@ -20,6 +25,54 @@ export interface AuthSession {
   refreshTokenExpiresAt: string;
   tokenType: string;
 }
+
+// A pending registration is deliberately not an authenticated session.
+export interface EmailVerificationRequired {
+  userId: null;
+  workspaceId: null;
+  accessToken: null;
+  accessTokenExpiresAt: null;
+  refreshToken: null;
+  refreshTokenExpiresAt: null;
+  tokenType: "EmailVerificationRequired";
+}
+export type RegistrationResult = AuthSession | EmailVerificationRequired;
+export function isEmailVerificationRequired(result: RegistrationResult): result is EmailVerificationRequired {
+  return result.tokenType === "EmailVerificationRequired";
+}
+
+export interface ServiceNotice {
+  id: string;
+  kind: "OPERATIONAL" | "TERMS_VERSION" | "PRIVACY_VERSION";
+  title: string;
+  body: string;
+  versionLabel: string;
+  effectiveAt: string | null;
+  publishAt: string | null;
+  status: "DRAFT" | "REVIEWED" | "PUBLISHED";
+  contentHash: string;
+  revision: number;
+}
+export interface NoticeCampaign {
+  id: string;
+  noticeId: string;
+  status: "DRAFT" | "QUEUED" | "CANCELLED" | "COMPLETED";
+  contentHash: string;
+  recipientHash: string;
+  recipientCount: number;
+  snapshotTitle: string;
+  snapshotVersionLabel: string;
+  snapshotBody?: string;
+  testStatus: null | "BLOCKED_TRANSPORT" | "ACCEPTED" | "RETRYABLE_FAILED" | "PERMANENT_FAILED" | "UNKNOWN" | "BOUNCED";
+  createdAt: string;
+  deliveries: Record<string, number>;
+}
+export interface NoticeAdministration {
+  notices: ServiceNotice[];
+  campaigns: NoticeCampaign[];
+  transportReady: boolean;
+}
+export type NoticeInput = Pick<ServiceNotice, "kind" | "title" | "body" | "versionLabel" | "effectiveAt">;
 
 export interface Project {
   id: string;
@@ -216,8 +269,11 @@ export interface AgentRunView {
   errorCode: string | null;
   metadata: {
     petProfiles?: PetProfile[];
+    skillSelection?: SkillSelection | null;
+    resolvedSkillIds?: string[];
+    deferredSkillIds?: string[];
     credentialId?: string | null;
-    provider: Provider;
+    provider: RecordedProvider;
     model: string;
     promptVersion: string;
     toolSchemaVersion: string;
@@ -260,7 +316,7 @@ export interface AgentRunUsage {
 
 export interface ModelPricing {
   id: string;
-  provider: Provider;
+  provider: RecordedProvider;
   model: string;
   versionLabel: string;
   currency: string;
@@ -287,6 +343,57 @@ export interface RunAccepted {
   runId: string;
   status: AgentRunStatus;
   acceptedAt: string;
+}
+
+export interface EstimationPolicyProposal {
+  proposalId: string;
+  projectId: string;
+  sourceMessage: string;
+  status: "PENDING" | "APPLIED" | "EXPIRED";
+  before: EstimationPolicy;
+  after: EstimationPolicy;
+  confirmationToken: string;
+  expiresAt: string;
+  appliedAt: string | null;
+  createdAt: string;
+}
+
+export interface OcrOptions { ocrLanguage: "mixed" | "ko" | "en"; ocrLayout: "general" | "singleblock"; }
+export interface AttachmentCoverage {
+  index: number; kind: "PAGE" | "FRAME";
+  nativeStatus: "TEXT" | "EMPTY" | "FAILED" | "NOT_APPLICABLE";
+  rasterStatus: "NONE" | "SMALL" | "LARGE" | "UNKNOWN" | "NOT_APPLICABLE";
+  ocrAttempted: boolean; ocrCompleted: boolean; ocrStatus: "READ" | "EMPTY" | "FAILED" | "SKIPPED";
+  reason: "TEXT_ONLY" | "SMALL_RASTER" | "SAMPLED_OUT" | "BUDGET_EXHAUSTED" | "TOOL_UNAVAILABLE" | "LANGUAGE_UNAVAILABLE" | "TOOL_FAILED" | "EMPTY_RESULT" | "TEXT_FOUND" | "DUPLICATE_ONLY";
+}
+export interface AttachmentText {
+  name: string; mediaType: string; size: number; sha256: string;
+  status: "COMPLETE" | "PARTIAL" | "UNSUPPORTED"; text: string; notice: string;
+  encoding: string | null; delimiter: string | null; units: number;
+  ocrLanguage?: OcrOptions["ocrLanguage"]; ocrLayout?: OcrOptions["ocrLayout"]; coverage?: AttachmentCoverage[];
+}
+export interface AttachmentPreview { id: string; expiresAt: string; extraction: AttachmentText; }
+export function readChatAttachment(session: AuthSession, projectId: string, file: File, encoding: string, delimiter: string, signal?: AbortSignal, ocr?: OcrOptions): Promise<AttachmentPreview> {
+  const body = new FormData(); body.append("file", file); body.append("encoding", encoding); body.append("delimiter", delimiter);
+  if (ocr) { body.append("ocrLanguage", ocr.ocrLanguage); body.append("ocrLayout", ocr.ocrLayout); }
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments`, { method: "POST", body, signal }, session.accessToken);
+}
+export function removeChatAttachment(session: AuthSession, projectId: string, id: string): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/attachments/${id}`, { method: "DELETE" }, session.accessToken);
+}
+export interface AgentRunHistoryAttachment {
+  name: string;
+  status: string;
+  notice: string | null;
+}
+export interface AgentRunHistoryItem {
+  attachments?: AgentRunHistoryAttachment[];
+  runId: string;
+  requirementText: string | null;
+  originalInputStatus?: "AVAILABLE" | "PARTIAL" | "UNAVAILABLE";
+  originalInputIssue?: "MISSING_START" | "MALFORMED_PAYLOAD" | "MISSING_INPUT" | "INVALID_REQUIREMENT_TEXT" | "INVALID_ATTACHMENTS" | null;
+  status: AgentRunStatus;
+  createdAt: string;
 }
 
 export interface WorkflowEvent {
@@ -401,16 +508,102 @@ export interface SharedProposal {
 const SESSION_KEY = "freelance-ops-session-v1";
 const SESSION_RECOVERY_EVENT = "freelance-ops-session-recovery";
 let refreshPromise: Promise<AuthSession> | null = null;
+let sessionGeneration = 0;
+const sessionAccessTokens = new Set<string>();
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code: string | null = null, readonly metadata: Readonly<Record<string, unknown>> = {}) {
     super(message);
     this.name = "ApiError";
   }
 }
 
+export function isFreeUsageExhausted(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code === FREE_USAGE_EXHAUSTED;
+}
+
+const FREE_USAGE_EVENT = "freelance-ops-free-usage-exhausted";
+export function subscribeToFreeUsageExhausted(listener: (error: ApiError) => void): () => void {
+  const handler = (event: Event) => listener((event as CustomEvent<ApiError>).detail);
+  window.addEventListener(FREE_USAGE_EVENT, handler);
+  return () => window.removeEventListener(FREE_USAGE_EVENT, handler);
+}
+
+export interface CreditModelRate { provider: string; model: string; credits: number; enabled: boolean; }
+export interface CreditQuote { credits: number; pricingUpdatedAt: string; }
+export function isCreditQuoteRefreshRequired(error: unknown): error is ApiError {
+  return error instanceof ApiError && ["CREDIT_QUOTE_REQUIRED", "CREDIT_QUOTE_STALE", "PLATFORM_MODEL_UNAVAILABLE"].includes(error.code ?? "");
+}
+
+export function isPlatformSpendUnavailable(error: unknown): error is ApiError {
+  return error instanceof ApiError && ["PLATFORM_SPEND_EXHAUSTED", "PLATFORM_SPEND_DISABLED"].includes(error.code ?? "");
+}
+
+export interface FreeUsage {
+  unit?: "CREDITS";
+  periodType?: "WEEKLY";
+  modelRates?: CreditModelRate[];
+  pricingUpdatedAt?: string;
+  limit: number;
+  used: number;
+  reserved: number;
+  remaining: number;
+  resetAt: string;
+  period: string;
+  timezone: string;
+  epoch: number;
+  canManage: boolean;
+}
+
+export interface FreeUsageSettings {
+  unit?: "CREDITS";
+  periodType?: "WEEKLY";
+  modelRates?: CreditModelRate[];
+  limit: number;
+  maxLimit: number;
+  epoch: number;
+  updatedAt: string;
+  lastResetAt: string | null;
+}
+
+export function getFreeUsage(session: AuthSession): Promise<FreeUsage> {
+  return request("/api/v2/usage/free", { cache: "no-store" }, session.accessToken);
+}
+
+// Account usage contract is validated by the display adapter before rendering.
+export function getAiUsage(session: AuthSession): Promise<unknown> {
+  return request("/api/v2/me/ai-usage", { cache: "no-store" }, session.accessToken);
+}
+export function getAiUsageHistory(session: AuthSession, cursor?: string): Promise<unknown> {
+  const query = new URLSearchParams({ limit: "20" });
+  if (cursor) query.set("cursor", cursor);
+  return request(`/api/v2/me/ai-usage/history?${query}`, { cache: "no-store" }, session.accessToken);
+}
+
+export function getFreeUsageSettings(session: AuthSession): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", { cache: "no-store" }, session.accessToken);
+}
+
+export function updateFreeUsageLimit(session: AuthSession, settings: FreeUsageSettings, limit: number): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage", {
+    method: "PATCH", body: JSON.stringify({ limit, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
+export function updateFreeModelRate(session: AuthSession, settings: FreeUsageSettings, rate: CreditModelRate): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage/models", {
+    method: "PATCH", body: JSON.stringify({ ...rate, expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
+export function resetAllFreeUsage(session: AuthSession, settings: FreeUsageSettings): Promise<FreeUsageSettings> {
+  return request("/api/v2/admin/free-usage/reset", {
+    method: "POST", body: JSON.stringify({ confirmation: "RESET_ALL_FREE_USAGE", expectedEpoch: settings.epoch, expectedUpdatedAt: settings.updatedAt })
+  }, session.accessToken);
+}
+
 export function apiBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").trim().replace(/\/$/, "");
 }
 
 export function loadSession(): AuthSession | null {
@@ -426,12 +619,24 @@ export function loadSession(): AuthSession | null {
 }
 
 export function saveSession(session: AuthSession): void {
+  const current = loadSession();
+  if (!current || current.userId !== session.userId || current.refreshToken !== session.refreshToken) {
+    sessionGeneration += 1;
+    sessionAccessTokens.clear();
+    refreshPromise = null;
+    clearQueryCache();
+  }
+  sessionAccessTokens.add(session.accessToken);
   window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
 export function clearSession(): void {
+  sessionGeneration += 1;
+  sessionAccessTokens.clear();
+  refreshPromise = null;
   window.sessionStorage.removeItem(SESSION_KEY);
   clearQueryCache();
+  window.dispatchEvent(new Event("freelance-ops-session-cleared"));
 }
 
 export function subscribeToSessionRecovery(listener: (session: AuthSession | null) => void): () => void {
@@ -444,29 +649,51 @@ function publishRecoveredSession(session: AuthSession | null): void {
   window.dispatchEvent(new CustomEvent<AuthSession | null>(SESSION_RECOVERY_EVENT, { detail: session }));
 }
 
+// A login/logout boundary invalidates old work; rotating tokens does not.
+export function currentSessionGeneration(): number { return sessionGeneration; }
+
+function sessionChangedError(): ApiError {
+  return new ApiError("로그인 세션이 변경되었습니다. 다시 시도해 주세요.", 409, "SESSION_CHANGED");
+}
+
 async function rotateSession(session: AuthSession): Promise<AuthSession> {
+  const generation = sessionGeneration;
+  const matchesCurrent = () => {
+    const current = loadSession();
+    return generation === sessionGeneration && current?.userId === session.userId && current.refreshToken === session.refreshToken;
+  };
+  if (!matchesCurrent()) throw sessionChangedError();
   if (refreshPromise) return refreshPromise;
-  refreshPromise = request<AuthSession>(
+  const pending = request<AuthSession>(
     "/api/v2/auth/refresh",
     { method: "POST", body: JSON.stringify({ refreshToken: session.refreshToken }) },
     undefined,
     false,
   ).then((nextSession) => {
-    const preservedSession = { ...nextSession, workspaceId: session.workspaceId };
-    saveSession(preservedSession);
+    if (!matchesCurrent()) throw sessionChangedError();
+    const preservedSession = { ...nextSession, workspaceId: loadSession()!.workspaceId };
+    // Keep the generation so delayed 401s from this same login can use the new token.
+    sessionAccessTokens.add(session.accessToken);
+    sessionAccessTokens.add(preservedSession.accessToken);
+    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(preservedSession));
     publishRecoveredSession(preservedSession);
     return preservedSession;
   }).catch((error) => {
-    clearSession();
-    publishRecoveredSession(null);
+    // Network/rate-limit/server errors are not evidence that authentication expired.
+    if (matchesCurrent() && error instanceof ApiError && [401, 403].includes(error.status)) {
+      clearSession();
+      publishRecoveredSession(null);
+    }
     throw error;
   }).finally(() => {
-    refreshPromise = null;
+    if (refreshPromise === pending) refreshPromise = null;
   });
-  return refreshPromise;
+  refreshPromise = pending;
+  return pending;
 }
 
-async function recoverSession(failedToken: string): Promise<AuthSession | null> {
+async function recoverSession(failedToken: string, generation: number): Promise<AuthSession | null> {
+  if (generation !== sessionGeneration) return null;
   const current = loadSession();
   if (!current) return null;
   if (current.accessToken !== failedToken) return current;
@@ -478,10 +705,13 @@ async function recoverSession(failedToken: string): Promise<AuthSession | null> 
   return rotateSession(current);
 }
 
-async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
+  const generation = sessionGeneration;
+  const recoveryAllowed = token && (loadSession()?.accessToken === token || sessionAccessTokens.has(token));
+  if (token && typeof window !== "undefined" && !recoveryAllowed) throw sessionChangedError();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let response: Response;
@@ -490,22 +720,35 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string, 
   } catch {
     throw new ApiError("서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.", 0);
   }
-  if (response.status === 401 && token && allowSessionRecovery) {
-    const recovered = await recoverSession(token);
+  if (token && generation !== sessionGeneration) throw sessionChangedError();
+  if (response.status === 401 && token && allowSessionRecovery && recoveryAllowed) {
+    const recovered = await recoverSession(token, generation);
+    if (generation !== sessionGeneration) throw sessionChangedError();
     if (recovered) return request<T>(path, init, recovered.accessToken, false);
   }
   if (!response.ok) {
     let message = `요청을 완료하지 못했습니다. (${response.status})`;
+    let metadata: Record<string, unknown> = {};
     try {
-      const problem = (await response.json()) as { detail?: string; title?: string };
-      message = problem.detail ?? problem.title ?? message;
+      const problem: unknown = await response.json();
+      if (problem && typeof problem === "object" && !Array.isArray(problem)) {
+        metadata = problem as Record<string, unknown>;
+        const publicMessage = metadata.detail ?? metadata.message ?? metadata.title;
+        if (typeof publicMessage === "string") message = publicMessage;
+      }
     } catch {
       // Keep the public-safe fallback message.
     }
-    throw new ApiError(message, response.status);
+    const error = new ApiError(message, response.status, typeof metadata.code === "string" ? metadata.code : null, metadata);
+    if (isFreeUsageExhausted(error) && typeof window !== "undefined" && loadSession()?.accessToken === token) {
+      window.dispatchEvent(new CustomEvent<ApiError>(FREE_USAGE_EVENT, { detail: error }));
+    }
+    throw error;
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const result = await response.json() as T;
+  if (token && generation !== sessionGeneration) throw sessionChangedError();
+  return result;
 }
 
 export function register(input: {
@@ -513,8 +756,43 @@ export function register(input: {
   password: string;
   displayName: string;
   workspaceName: string;
-}): Promise<AuthSession> {
+  ageAtLeast14: boolean;
+}): Promise<RegistrationResult> {
   return request("/api/v2/auth/register", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function requestEmailVerification(email: string): Promise<{ status: "IF_ELIGIBLE_CHECK_EMAIL" }> {
+  return request("/api/v2/auth/email-verification/request", { method: "POST", body: JSON.stringify({ email }), cache: "no-store" }, undefined, false);
+}
+export function confirmEmailVerification(token: string, password: string): Promise<{ status: "VERIFIED" }> {
+  return request("/api/v2/auth/email-verification/confirm", { method: "POST", body: JSON.stringify({ token, password }), cache: "no-store" }, undefined, false);
+}
+export function listPublicNotices(): Promise<ServiceNotice[]> {
+  return request("/api/v2/notices", { cache: "no-store" });
+}
+export function getNoticeAdministration(session: AuthSession): Promise<NoticeAdministration> {
+  return request("/api/v2/admin/notices", { cache: "no-store" }, session.accessToken);
+}
+export function createNotice(session: AuthSession, input: NoticeInput): Promise<ServiceNotice> {
+  return request("/api/v2/admin/notices", { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+export function reviewNotice(session: AuthSession, notice: ServiceNotice): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/review`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision }) }, session.accessToken);
+}
+export function publishNotice(session: AuthSession, notice: ServiceNotice, publishAt: string): Promise<ServiceNotice> {
+  return request(`/api/v2/admin/notices/${encodeURIComponent(notice.id)}/publish`, { method: "POST", body: JSON.stringify({ expectedRevision: notice.revision, publishAt, confirmation: "PUBLISH_NOTICE" }) }, session.accessToken);
+}
+export function prepareNoticeCampaign(session: AuthSession, noticeId: string): Promise<NoticeCampaign> {
+  return request("/api/v2/admin/notice-campaigns", { method: "POST", body: JSON.stringify({ noticeId }) }, session.accessToken);
+}
+export function testNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/test`, { method: "POST" }, session.accessToken);
+}
+export function confirmNoticeCampaign(session: AuthSession, campaign: NoticeCampaign): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(campaign.id)}/confirm`, { method: "POST", body: JSON.stringify({ contentHash: campaign.contentHash, recipientHash: campaign.recipientHash, recipientCount: campaign.recipientCount, confirmation: "QUEUE_OPERATIONAL_NOTICE" }) }, session.accessToken);
+}
+export function cancelNoticeCampaign(session: AuthSession, id: string): Promise<NoticeCampaign> {
+  return request(`/api/v2/admin/notice-campaigns/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({}) }, session.accessToken);
 }
 
 export function login(email: string, password: string): Promise<AuthSession> {
@@ -526,8 +804,9 @@ export function login(email: string, password: string): Promise<AuthSession> {
 
 export function refreshAuthSession(session: AuthSession): Promise<AuthSession> {
   const current = loadSession();
-  if (current && current.accessToken !== session.accessToken) return Promise.resolve(current);
-  return rotateSession(current ?? session);
+  if (!current || current.userId !== session.userId) return Promise.reject(sessionChangedError());
+  if (current.accessToken !== session.accessToken) return Promise.resolve(current);
+  return rotateSession(current);
 }
 
 export function revokeAuthSession(session: AuthSession): Promise<void> {
@@ -587,6 +866,15 @@ export function createProject(
     { method: "POST", body: JSON.stringify(input) },
     session.accessToken,
   ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); return project; });
+}
+
+// Bypass cached lists when a failed write may still have reached the server.
+export function readProject(session: AuthSession, projectId: string): Promise<Project> {
+  return request<Project>(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}`,
+    { cache: "no-store" },
+    session.accessToken
+  ).then((project) => { invalidateQueries(`projects:${session.workspaceId}`); invalidateQueries(`documents:${session.workspaceId}`); invalidateQueries(`document:${session.workspaceId}:`); return project; });
 }
 
 export function updateProject(session: AuthSession, project: Project, status: ProjectStatus): Promise<Project> {
@@ -658,6 +946,10 @@ export function saveRateCard(
 
 export function getEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {
   return queryCached(`estimation-policy:${session.workspaceId}`, () => request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, {}, session.accessToken));
+}
+
+export function getCurrentEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy`, { cache: "no-store" }, session.accessToken);
 }
 
 export function saveEstimationPolicy(
@@ -877,21 +1169,37 @@ export function startAgentRun(
   session: AuthSession,
   project: Project,
   input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null },
+  message?: string,
+  idempotencyKey: string = crypto.randomUUID(),
+  creditQuote?: CreditQuote,
+  attachmentIds?: string[],
+  skillSelection?: SkillSelection,
+  workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC",
 ): Promise<RunAccepted> {
+  if (input.credentialId && !byokCostEstimate(input.provider, input.model)) {
+    return Promise.reject(new ApiError(byokFailureMessage("BYOK_COST_NOTICE_REFRESH_REQUIRED")!, 409, "BYOK_COST_NOTICE_REFRESH_REQUIRED"));
+  }
   return request(
     `/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`,
     {
       method: "POST",
+      // Generated once per submission; request() preserves this header during auth recovery.
+      headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({
-        requirementText: project.requirementText,
+        requirementText: message ?? project.requirementText,
+        ...(attachmentIds?.length ? { attachmentIds } : {}),
+        ...(skillSelection ? { skillSelection } : {}),
+        ...(workflowMode ? { workflowMode } : {}),
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
+        ...(input.credentialId ? { byokCostNoticeVersion } : {}),
+        ...(!input.credentialId && creditQuote ? { creditQuote } : {}),
         budget: {
           maxDurationSeconds: 180,
           maxModelCalls: 50,
           maxToolCalls: 12,
-          maxInputTokens: 50000,
+          maxInputTokens: input.credentialId ? 150000 : 50000,
           maxOutputTokens: 48000,
           maxDepartments: 4,
           maxHierarchyDepth: 2,
@@ -912,6 +1220,43 @@ export function startAgentRun(
     },
     session.accessToken,
   );
+}
+
+export function listProjectAgentRunHistory(session: AuthSession, projectId: string): Promise<AgentRunHistoryItem[]> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/agent-runs/history?limit=20`,
+    { cache: "no-store" },
+    session.accessToken,
+  );
+}
+
+export function proposeEstimationPolicy(session: AuthSession, input: {
+  projectId: string;
+  sourceMessage: string;
+  defaultTaxRate: number;
+  defaultRiskBufferRate: number;
+  maximumDiscountRate: number;
+  expectedVersion: number;
+  idempotencyKey: string;
+}): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals`,
+    { method: "POST", body: JSON.stringify(input) }, session.accessToken);
+}
+
+export function listProjectEstimationPolicyProposals(session: AuthSession, projectId: string): Promise<EstimationPolicyProposal[]> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/estimation-policy/proposals`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function getEstimationPolicyProposal(session: AuthSession, proposalId: string): Promise<EstimationPolicyProposal> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}`,
+    { cache: "no-store" }, session.accessToken);
+}
+
+export function confirmEstimationPolicyProposal(session: AuthSession, proposalId: string, confirmationToken: string): Promise<EstimationPolicyProposal> {
+  return request<EstimationPolicyProposal>(`/api/v2/workspaces/${session.workspaceId}/estimation-policy/proposals/${proposalId}/confirm`,
+    { method: "POST", body: JSON.stringify({ confirmationToken }) }, session.accessToken)
+    .then((proposal: EstimationPolicyProposal) => { invalidateQueries(`estimation-policy:${session.workspaceId}`); return proposal; });
 }
 
 export async function getAgentRun(session: AuthSession, runId: string): Promise<AgentRunView> {
@@ -1049,7 +1394,7 @@ export async function streamRunEvents(
   }
 }
 
-export interface AIConnection { id: string; provider: Provider; model: string; maskedKey: string; updatedAt: string }
+export interface AIConnection { id: string; provider: RecordedProvider; model: string; maskedKey: string; updatedAt: string }
 export interface AIConnections { available: boolean; models: Record<Provider, string[]>; connections: AIConnection[] }
 export function listAIConnections(session: AuthSession): Promise<AIConnections> {
   return request(`/api/v2/workspaces/${session.workspaceId}/ai-connections`, { cache: "no-store" }, session.accessToken);
@@ -1063,6 +1408,10 @@ export function deleteAIConnection(session: AuthSession, id: string): Promise<vo
 }
 
 export interface PetProfile {
+  petId?: string | null;
+  duty?: "GENERAL" | "SCHEDULE" | "RESEARCH" | "WRITING" | "DEVELOPMENT" | "DESIGN";
+  skillMode?: "AUTO";
+  preferences?: { personality: string; communication: string; focus: string; responsibility: string; requests: string[] };
   slot: "LEAN" | "RECOMMENDED" | "EXPANDED";
   name: string;
   animal: "turtle" | "owl" | "cat";
@@ -1075,6 +1424,27 @@ export interface PetProfile {
 }
 export function listPets(session: AuthSession): Promise<PetProfile[]> {
   return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { cache: "no-store" }, session.accessToken);
+}
+export interface CustomAgentPet { id: string; profile: PetProfile; archived: boolean; revision: number }
+export interface AgentPetCollection {
+  pets: CustomAgentPet[]; selectedPetId: string | null; maxActivePets: number; maxStoredPets: number;
+  maxPromptLength: number; maxPreferenceRequests: number; generationMode: "RULE_BASED_PREVIEW"; aiGenerationAvailable: boolean;
+}
+export interface ComposeAgentPet { id: string; mutationId: string; expectedRevision: number; description: string; resetPreferences: boolean }
+export function listAgentPets(session: AuthSession): Promise<AgentPetCollection> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets`, { cache: "no-store" }, session.accessToken);
+}
+export function previewAgentPet(session: AuthSession, input: ComposeAgentPet): Promise<PetProfile> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/preview`, { method: "POST", body: JSON.stringify(input) }, session.accessToken, false);
+}
+export function saveAgentPet(session: AuthSession, input: ComposeAgentPet): Promise<CustomAgentPet> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets`, { method: "POST", body: JSON.stringify(input) }, session.accessToken, false);
+}
+export function changeAgentPet(session: AuthSession, pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE"): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/${pet.id}`, { method: "PATCH", body: JSON.stringify({ action, expectedRevision: pet.revision }) }, session.accessToken, false);
+}
+export function deleteAgentPet(session: AuthSession, pet: CustomAgentPet): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/agent-pets/${pet.id}?revision=${pet.revision}`, { method: "DELETE" }, session.accessToken, false);
 }
 export function savePet(session: AuthSession, profile: PetProfile): Promise<PetProfile> {
   return request(`/api/v2/workspaces/${session.workspaceId}/pets`, { method: "PUT", body: JSON.stringify(profile) }, session.accessToken, false);

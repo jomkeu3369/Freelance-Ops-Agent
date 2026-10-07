@@ -1,0 +1,90 @@
+{
+  "id": "writing-technical-docs",
+  "version": "1.0.0",
+  "category": "writing",
+  "name": {
+    "ko": "사용자·개발자 문서",
+    "en": "User and Developer Documentation"
+  },
+  "summary": {
+    "ko": "실제 동작과 독자 과업을 바탕으로 실행 가능한 안내·참조 문서를 작성합니다.",
+    "en": "Create task-oriented documentation grounded in actual product behavior and interfaces."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "사용 설명서 작성",
+    "개발 문서 정리",
+    "write technical documentation",
+    "create setup and troubleshooting guide"
+  ],
+  "exclusions": [
+    "API contract design itself",
+    "Developer release notes without instructional needs"
+  ],
+  "required_inputs": [
+    {
+      "key": "product",
+      "description": "Actual behavior, interfaces, source material, and version",
+      "required": true
+    },
+    {
+      "key": "reader",
+      "description": "Reader expertise and tasks the document must support",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Choose a task guide, tutorial, reference, or explanation based on the reader’s need rather than mixing them indiscriminately."
+    },
+    {
+      "step": 2,
+      "instruction": "Extract prerequisites, ordered steps, expected results, and failure recovery from verified behavior."
+    },
+    {
+      "step": 3,
+      "instruction": "Write accurate examples with safe placeholder data and make version or environment assumptions explicit."
+    },
+    {
+      "step": 4,
+      "instruction": "Check commands and links when possible; mark untested examples and align terminology across sections."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Technical document",
+      "format": "markdown",
+      "acceptance_criteria": "Includes prerequisites, steps or reference structure, expected results, and recovery guidance"
+    },
+    {
+      "name": "Verification notes",
+      "format": "markdown",
+      "acceptance_criteria": "Distinguishes tested examples from unverified assumptions"
+    }
+  ],
+  "limitations": [
+    "Do not invent product capabilities, command flags, or API behavior.",
+    "A document is only current for the inspected version."
+  ],
+  "permission_boundaries": [
+    "Do not run destructive examples, expose credentials, or grant system access.",
+    "Publishing to an external documentation site is a separate action."
+  ],
+  "routing_tags": [
+    "writing",
+    "documentation",
+    "technical-writing",
+    "howto"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "web.read",
+    "test.run"
+  ]
+}

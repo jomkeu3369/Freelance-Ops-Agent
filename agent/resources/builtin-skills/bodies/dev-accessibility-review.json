@@ -1,0 +1,91 @@
+{
+  "id": "dev-accessibility-review",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "접근성 점검·개선",
+    "en": "Accessibility Review and Remediation"
+  },
+  "summary": {
+    "ko": "키보드·이름·구조·대비 등 검증 가능한 접근성 문제와 개선안을 정리합니다.",
+    "en": "Identify evidence-backed accessibility problems and focused remediation steps."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "웹 접근성 점검",
+    "키보드 접근성 개선",
+    "audit accessibility",
+    "fix accessible names and focus"
+  ],
+  "exclusions": [
+    "General visual polish without an accessibility goal",
+    "Legal accessibility certification"
+  ],
+  "required_inputs": [
+    {
+      "key": "target",
+      "description": "Relevant markup, interface, or screenshots and user flows",
+      "required": true
+    },
+    {
+      "key": "review_scope",
+      "description": "Target pages, devices, and available inspection methods",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inventory semantic structure, accessible names, focus order, keyboard interaction, labels, errors, and motion behavior."
+    },
+    {
+      "step": 2,
+      "instruction": "Check concrete elements against the applicable accessibility criteria and record evidence, affected users, and reproduction steps."
+    },
+    {
+      "step": 3,
+      "instruction": "Prioritize blockers in core tasks; propose minimal markup, interaction, or content fixes with verification instructions."
+    },
+    {
+      "step": 4,
+      "instruction": "Retest available fixes and separate automated findings, manual checks, and checks that still require assistive technology."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Accessibility findings",
+      "format": "json",
+      "acceptance_criteria": "Each finding has evidence, impact, affected location, and a reproducible check"
+    },
+    {
+      "name": "Remediation checklist",
+      "format": "markdown",
+      "acceptance_criteria": "Contains prioritized fixes and verification status"
+    }
+  ],
+  "limitations": [
+    "Do not certify legal compliance or full conformance from a partial inspection.",
+    "Screenshots cannot establish keyboard or screen-reader behavior."
+  ],
+  "permission_boundaries": [
+    "Only inspect or edit the authorized target; do not change product-wide settings without approval.",
+    "Do not send user interaction recordings to third parties."
+  ],
+  "routing_tags": [
+    "development",
+    "accessibility",
+    "a11y",
+    "usability"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "ui.inspect",
+    "workspace.edit",
+    "test.run"
+  ]
+}

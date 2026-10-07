@@ -1,3 +1,4 @@
+import { useT } from "../../../app/lib/ui-language";
 import { prepareDocumentUpload, sourceTypeLabel } from "../shared/documents";
 import {
   KnowledgeDocument,
@@ -29,6 +30,7 @@ interface KnowledgePanelProps {
 }
 
 export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
+  const t = useT();
   const canWrite = permissions.has("document.write");
   const canDelete = permissions.has("document.delete");
   const canIndex = permissions.has("agent.run");
@@ -162,14 +164,13 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
     <section className="knowledge-page">
       <div className="knowledge-heading">
         <div>
-          <span>근거 자료</span>
-          <h1>분석에 사용할 자료를 모아두세요.</h1>
-          <p>AI가 정리한 요구사항과 업로드 자료를 원문과 비교하세요. 확인한 문서만 다음 분석에서 참고합니다.</p>
+          <span>{t("근거 자료")}</span>
+          <h1>{t("분석에 사용할 자료를 모아두세요.")}</h1>
+          <p>{t("AI가 정리한 요구사항과 업로드 자료를 원문과 비교하세요. 확인한 문서만 다음 분석에서 참고합니다.")}</p>
         </div>
         {canWrite && (
           <label className="primary-button">
-            {uploading ? <CircleNotch className="spin" /> : <Plus size={18} />} 자료 업로드
-            <input
+            {uploading ? <CircleNotch className="spin" /> : <Plus size={18} />} {t("자료 업로드")}<input
               type="file"
               accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/json"
               disabled={uploading || busy}
@@ -185,31 +186,31 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
       {error && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {error}
+          {t(error)}
         </div>
       )}
       {notice && (
         <div className="settings-saved" role="status">
           <CheckCircle size={18} />
-          {notice}
+          {t(notice)}
         </div>
       )}
       <div className="knowledge-toolbar">
         <label>
           <MagnifyingGlass size={18} />
-          <span className="sr-only">근거 자료 검색</span>
+          <span className="sr-only">{t("근거 자료 검색")}</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="제목, 관할권, 버전 검색"
+            placeholder={t("제목, 관할권, 버전 검색")}
           />
         </label>
         <select
-          aria-label="자료 유형 필터"
+          aria-label={t("자료 유형 필터")}
           value={sourceType}
           onChange={(event) => setSourceType(event.target.value as typeof sourceType)}
         >
-          <option value="ALL">모든 자료 유형</option>
+          <option value="ALL">{t("모든 자료 유형")}</option>
           {Object.entries(sourceTypeLabel).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
@@ -217,22 +218,20 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
           ))}
         </select>
         <span>
-          {filtered.length} / {documents.length}개 자료
-        </span>
+          {filtered.length} / {documents.length}{t("개 자료")}</span>
       </div>
       <div className="knowledge-layout">
-        <section className="knowledge-list" aria-label="근거 자료 목록">
+        <section className="knowledge-list" aria-label={t("근거 자료 목록")}>
           {loading ? (
             <div className="section-loading">
-              <CircleNotch className="spin" /> 자료를 확인하고 있습니다.
-            </div>
+              <CircleNotch className="spin" /> {t("자료를 확인하고 있습니다.")}</div>
           ) : filtered.length === 0 ? (
             <div className="client-empty">
               <FileText size={30} />
               <strong>
-                {documents.length === 0 ? "저장된 자료가 없습니다." : "조건에 맞는 자료가 없습니다."}
+                {documents.length === 0 ? t("저장된 자료가 없습니다.") : t("조건에 맞는 자료가 없습니다.")}
               </strong>
-              <span>텍스트 자료를 추가하면 AI 분석에서 필요한 내용을 찾아 활용할 수 있습니다.</span>
+              <span>{t("텍스트 자료를 추가하면 AI 분석에서 필요한 내용을 찾아 활용할 수 있습니다.")}</span>
             </div>
           ) : (
             filtered.map((document) => (
@@ -247,10 +246,10 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                   setNotice(null);
                 }}
               >
-                <span className="document-type">{document.origin === "agent" ? "AI 생성" : sourceTypeLabel[document.sourceType]} · {document.confirmationStatus === "confirmed" ? "확인됨" : document.confirmationStatus === "superseded" ? "이전 버전" : "검토 필요"}</span>
+                <span className="document-type">{document.origin === "agent" ? t("AI 생성") : sourceTypeLabel[document.sourceType]} · {document.confirmationStatus === "confirmed" ? t("확인됨") : document.confirmationStatus === "superseded" ? t("이전 버전") : t("검토 필요")}</span>
                 <strong>{document.title}</strong>
                 <small>
-                  {document.jurisdiction ?? "관할권 미지정"} ·{" "}
+                  {document.jurisdiction ?? t("관할권 미지정")} ·{" "}
                   {new Date(document.createdAt).toLocaleDateString("ko-KR")}
                 </small>
               </button>
@@ -261,13 +260,12 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
           {!selectedId ? (
             <div className="knowledge-empty">
               <FileText size={34} />
-              <h2>검토할 자료를 선택하세요.</h2>
-              <p>자료의 출처와 견적에 참고할 내용을 확인할 수 있습니다.</p>
+              <h2>{t("검토할 자료를 선택하세요.")}</h2>
+              <p>{t("자료의 출처와 견적에 참고할 내용을 확인할 수 있습니다.")}</p>
             </div>
           ) : !detail ? (
             <div className="section-loading">
-              <CircleNotch className="spin" /> 문서 내용을 불러오고 있습니다.
-            </div>
+              <CircleNotch className="spin" /> {t("문서 내용을 불러오고 있습니다.")}</div>
           ) : (
             <>
               <header>
@@ -279,39 +277,39 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               </header>
               <dl>
                 <div>
-                  <dt>상태</dt>
-                  <dd>{detail.confirmationStatus === "confirmed" ? "사용자 확인됨" : detail.confirmationStatus === "superseded" ? "원문 변경 또는 새 버전으로 대체됨" : "미확인 · 검색 제외"}</dd>
+                  <dt>{t("상태")}</dt>
+                  <dd>{detail.confirmationStatus === "confirmed" ? t("사용자 확인됨") : detail.confirmationStatus === "superseded" ? t("원문 변경 또는 새 버전으로 대체됨") : t("미확인 · 검색 제외")}</dd>
                 </div>
                 <div>
-                  <dt>관할권</dt>
-                  <dd>{detail.jurisdiction ?? "미지정"}</dd>
+                  <dt>{t("관할권")}</dt>
+                  <dd>{detail.jurisdiction ?? t("미지정")}</dd>
                 </div>
                 <div>
-                  <dt>버전</dt>
-                  <dd>{detail.sourceVersion ?? "미지정"}</dd>
+                  <dt>{t("버전")}</dt>
+                  <dd>{detail.sourceVersion ?? t("미지정")}</dd>
                 </div>
                 <div>
-                  <dt>유효 기간</dt>
+                  <dt>{t("유효 기간")}</dt>
                   <dd>
                     {detail.effectiveFrom || detail.effectiveUntil
-                      ? `${detail.effectiveFrom ?? "시작 미정"} – ${detail.effectiveUntil ?? "종료 미정"}`
-                      : "미지정"}
+                      ? t("{v0} – {v1}", { v0: detail.effectiveFrom ?? t("시작 미정"), v1: detail.effectiveUntil ?? t("종료 미정") })
+                      : t("미지정")}
                   </dd>
                 </div>
               </dl>
               {detail.sourceUri && (
                 <p className="document-origin">
-                  <span>출처 위치</span>
+                  <span>{t("출처 위치")}</span>
                   <code>{detail.sourceUri}</code>
                 </p>
               )}
               {detail.sourceMessages.length > 0 && (
                 <section className="document-chunks">
-                  <h3>근거가 된 사용자 원문</h3>
+                  <h3>{t("근거가 된 사용자 원문")}</h3>
                   {detail.sourceMessages.map((source) => (
                     <article key={source.id}>
                       <small>{source.kind} · {source.id}</small>
-                      {source.prompt && <p>AI 질문: {source.prompt}</p>}
+                      {source.prompt && <p>{t("AI 질문:")}{source.prompt}</p>}
                       <p style={{ whiteSpace: "pre-wrap" }}>{source.content}</p>
                     </article>
                   ))}
@@ -319,15 +317,15 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               )}
               <section className="document-chunks">
                 <div>
-                  <h3>저장된 내용</h3>
-                  <span>{detail.chunks.length}개 내용 구간</span>
+                  <h3>{t("저장된 내용")}</h3>
+                  <span>{detail.chunks.length}{t("개 내용 구간")}</span>
                 </div>
                 {detail.chunks.length === 0 ? (
-                  <p>표시할 자료 내용이 없습니다.</p>
+                  <p>{t("표시할 자료 내용이 없습니다.")}</p>
                 ) : (
                   detail.chunks.map((chunk) => (
                     <article key={chunk.id}>
-                      <span>내용 {chunk.chunkIndex + 1}</span>
+                      <span>{t("내용")}{chunk.chunkIndex + 1}</span>
                       <p style={{ whiteSpace: "pre-wrap" }}>{chunk.content}</p>
                     </article>
                   ))
@@ -335,13 +333,12 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
               </section>
               {canWrite && (!detail.projectId || canIndex) && detail.confirmationStatus !== "superseded" && (
                 <section className="document-chunks">
-                  <p>원문에 없는 가정과 미결 질문은 확인된 요구사항으로 취급하지 않습니다. 원문과 다른 내용은 요구사항을 수정한 뒤 다시 분석하세요.</p>
+                  <p>{t("원문에 없는 가정과 미결 질문은 확인된 요구사항으로 취급하지 않습니다. 원문과 다른 내용은 요구사항을 수정한 뒤 다시 분석하세요.")}</p>
                   <label>
                     <input type="checkbox" checked={reviewed} disabled={busy} onChange={(event) => setReviewed(event.target.checked)} />
-                    원문과 문서 전체를 검토했으며 다음 분석의 참고 자료로 사용하는 데 동의합니다.
-                  </label>
+                    {t("원문과 문서 전체를 검토했으며 다음 분석의 참고 자료로 사용하는 데 동의합니다.")}</label>
                   <button type="button" className="primary-button" disabled={busy || !reviewed} onClick={() => void confirm()}>
-                    {busy ? "반영 중…" : detail.retrievalEligible ? "확인 및 색인 재시도" : "확인하고 참고 자료로 사용"}
+                    {busy ? t("반영 중…") : detail.retrievalEligible ? t("확인 및 색인 재시도") : t("확인하고 참고 자료로 사용")}
                   </button>
                 </section>
               )}
@@ -349,13 +346,11 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                 <footer>
                   {archiveTarget === detail.id ? (
                     <div className="archive-confirm">
-                      <span>이 자료를 검색 범위에서 제외할까요?</span>
+                      <span>{t("이 자료를 검색 범위에서 제외할까요?")}</span>
                       <button type="button" disabled={busy} onClick={() => void archive(detail.id)}>
-                        보관
-                      </button>
+                        {t("보관")}</button>
                       <button type="button" onClick={() => setArchiveTarget(null)}>
-                        취소
-                      </button>
+                        {t("취소")}</button>
                     </div>
                   ) : (
                     <button
@@ -363,8 +358,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                       className="quiet-button danger"
                       onClick={() => setArchiveTarget(detail.id)}
                     >
-                      <Archive size={18} /> 자료 보관
-                    </button>
+                      <Archive size={18} /> {t("자료 보관")}</button>
                   )}
                 </footer>
               )}

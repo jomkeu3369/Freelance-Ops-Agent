@@ -44,6 +44,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthTokenService tokenService;
     private final String dummyPasswordHash;
+    private final EmailVerificationService verification;
+    private final LoginActivityService loginActivity;
 
     public AuthService(
         UserAccountRepository userRepository,
@@ -53,7 +55,9 @@ public class AuthService {
         WorkspacePermissionReader permissionReader,
         WorkspaceProvisioningService provisioningService,
         PasswordEncoder passwordEncoder,
-        AuthTokenService tokenService
+        AuthTokenService tokenService,
+        EmailVerificationService verification,
+        LoginActivityService loginActivity
     ) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -63,11 +67,17 @@ public class AuthService {
         this.provisioningService = provisioningService;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
+        this.verification = verification;
+        this.loginActivity = loginActivity;
         this.dummyPasswordHash = passwordEncoder.encode("timing-only-password-value");
     }
 
     @Transactional
     public AuthTokenResponse register(RegisterRequest request) {
+        if (!Boolean.TRUE.equals(request.ageAtLeast14())) {
+            throw new IdentityException(HttpStatus.BAD_REQUEST, "AGE_CONFIRMATION_REQUIRED");
+        }
+        if (verification.required()) return verification.registerPending(request);
         String email = normalizeEmail(request.email());
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new IdentityException(HttpStatus.CONFLICT, "EMAIL_ALREADY_REGISTERED");
@@ -88,7 +98,9 @@ public class AuthService {
                 request.workspaceName().trim(),
                 "workspace-" + UUID.randomUUID().toString().substring(0, 12)
             );
-            return issueSession(user, workspace.workspaceId());
+            AuthTokenResponse response = issueSession(user, workspace.workspaceId());
+            loginActivity.record(user.id(), LoginActivityService.Method.REGISTRATION, tokenService.now());
+            return response;
         } catch (DataIntegrityViolationException error) {
             throw new IdentityException(HttpStatus.CONFLICT, "IDENTITY_ALREADY_EXISTS");
         }
@@ -99,10 +111,12 @@ public class AuthService {
         UserAccountEntity user = userRepository.findByEmailIgnoreCase(normalizeEmail(request.email())).orElse(null);
         String storedHash = user == null || user.passwordHash() == null ? dummyPasswordHash : user.passwordHash();
         boolean passwordMatches = passwordEncoder.matches(request.password(), storedHash);
-        if (user == null || !passwordMatches || !"ACTIVE".equals(user.status())) {
+        if (user == null || user.passwordHash() == null || !passwordMatches || !user.canAuthenticate()) {
             throw new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
-        return issueSession(user, firstActiveWorkspaceId(user.id()));
+        AuthTokenResponse response = issueSession(user, firstActiveWorkspaceId(user.id()));
+        loginActivity.record(user.id(), LoginActivityService.Method.PASSWORD, tokenService.now());
+        return response;
     }
 
     @Transactional(noRollbackFor = IdentityException.class)
@@ -118,7 +132,7 @@ public class AuthService {
             throw new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
         UserAccountEntity user = userRepository.findById(current.userId())
-            .filter(candidate -> "ACTIVE".equals(candidate.status()))
+            .filter(UserAccountEntity::canAuthenticate)
             .orElseThrow(() -> new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
         UUID replacementId = UUID.randomUUID();
         AuthTokenResponse response = issueSession(

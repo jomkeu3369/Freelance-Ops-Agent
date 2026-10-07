@@ -57,3 +57,63 @@ run-scoped 파일 권한을 사용하고 general-purpose subagent·host shell을
 재시도한다. Spring Tool client는 versioned OpenAPI의 project context, domain pack,
 requirements validation과 deterministic quote calculation을 지원한다.
 
+
+## Bounded personal-key execution
+
+New personal-key runs require `byokBudget`, issued and persisted by Spring for the exact
+run, workspace, project, initiating user, credential, OpenAI model, reasoning effort and
+full run budget. `platformBudget` cannot be combined with it, and merely supplying a
+credential ID never bypasses admission. Gemini and retired models remain unavailable.
+Existing personal-key runs without this scope cannot be silently upgraded on resume.
+
+Each generation attempt (including explicit transport and invalid-JSON retries) first
+atomically consumes a backend call and conservative input/output reservation, then
+persists an Agent attempt record, then re-resolves the selected credential. Reservations
+are never refunded, even for cancellation, failed credential resolution, lost responses
+or process death. BYOK reports zero platform cost, not an estimate of the user's provider
+bill. Actual usage does not replenish the reserved token allowance. Every attempt's
+output ceiling divides the run allowance across the planned departments and retries
+(one AD_HOC department or four project departments, capped by maxModelCalls), so
+earlier work cannot reserve the whole output allowance. For example, 48000 tokens
+and one retry per department permit 6000 tokens per project attempt. Runs can stop early when conservative limits bind.
+
+Provider I/O uses one explicit HTTPS Responses request with the selected bearer key,
+no SDK/environment key or billing-header inheritance, no redirects/proxy environment,
+no SDK retries, default service tier, text-only input, no built-in tools and `store=false`.
+Scope validity is rechecked after admission, persistence and credential I/O and just
+before the provider request. A fixed initial wall-clock expiry bounds the whole run,
+including HITL waiting; resume never creates a new deadline or resets counters. Worker
+scope closure blocks detached late calls. Durable PostgreSQL run storage is required.
+
+BYOK AD_HOC routing is deterministic and local; safety/direct-tool/project-analysis
+policy gates remain in place. Project knowledge uses read-only keyword retrieval and
+never invokes query embeddings. Paid web research, RAPTOR, pets, assumptions, detached
+A2A and experimental Deep Agent paths remain fail-closed. Internal project departments
+can still generate through the same selected-key, durably admitted path.
+
+Offline regressions are in `tests/test_byok_budget.py`; they intercept every backend and
+provider HTTP request and exercise production guards without actual keys/provider I/O.
+
+### Approved personal-key limits
+
+The approved BYOK input ceiling is **150000 tokens in aggregate per run**, including
+all departments, retries and resumed execution. Platform-funded input remains 50000.
+All other ceilings are unchanged: 48000 aggregate output tokens, 50 model calls,
+180 seconds, 12 tool calls, 4 departments, hierarchy depth 2, 2 search credits,
+2 retries and 3 handoffs. This does not enable paid search or detached task execution.
+The backend issues the exact scope; the Agent never increases or replenishes it.
+
+The full four-department PROJECT_ANALYSIS path performs a minimum-plan preflight
+before its first attempt. A realistic Korean request with three selected skills and
+modest confirmed project context fits within 150000 under mocked transport tests,
+including three distinct quotation scenarios. This is an orchestration/guard test,
+not live provider-quality or price verification. The unchanged 8192-per-attempt
+protocol allowance and exact UTF-8 request bytes remain conservatively reserved.
+An oversized plan returns `BYOK_PLAN_INPUT_BUDGET_EXCEEDED` before any provider call.
+
+150000 is not a promise that every tool/retry plan finishes: further observations
+and retries also consume the aggregate cap. If a later model/token cap is exhausted,
+completed departments are preserved as a partial result and all attempts remain
+accounted for; the scope closes without replenishment. Security/expiry failures stay
+fatal. Existing 50000-token scopes keep their original bound on resume, and legacy
+records without a scope cannot be upgraded into the new path.

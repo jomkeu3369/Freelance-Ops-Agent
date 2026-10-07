@@ -17,6 +17,8 @@ from deepagents.backends import StateBackend
 from deepagents.middleware.filesystem import FilesystemPermission
 from pydantic import BaseModel, ConfigDict, Field
 
+from platform_budget import reject_unbounded_operation
+
 
 class ResearchOutput(BaseModel):
     """Research Agent가 반환하는 구조화된 조사 결과."""
@@ -31,6 +33,7 @@ class ResearchOutput(BaseModel):
 def build_research_deep_agent(*, model: str | Any, run_id: UUID, tools: Sequence[Callable[..., Any] | dict[str, Any]] = ()) -> Any:  # noqa: E501
     """호출자가 전달한 모델과 읽기 전용 도구로 Research Agent를 구성한다."""
 
+    reject_unbounded_operation("DEEP_AGENT")
     # 문자열 모델은 provider:model 형식만 허용하여 암묵적인 provider 선택을 막는다.
     if isinstance(model, str):
         provider, separator, model_name = model.partition(":")

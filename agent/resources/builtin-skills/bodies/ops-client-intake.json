@@ -1,0 +1,86 @@
+{
+  "id": "ops-client-intake",
+  "version": "1.0.0",
+  "category": "operations",
+  "name": {
+    "ko": "고객 온보딩 질문·체크리스트",
+    "en": "Client Intake and Onboarding Checklist"
+  },
+  "summary": {
+    "ko": "작업 시작에 필요한 결정·자료·권한을 최소한의 질문과 체크리스트로 정리합니다.",
+    "en": "Gather the minimum project decisions, materials, and access needs required to begin work."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "클라이언트 온보딩",
+    "외주 시작 질문지",
+    "create client intake checklist",
+    "prepare project kickoff questions"
+  ],
+  "exclusions": [
+    "Generic demographic survey research",
+    "Signing an agreement or granting account access"
+  ],
+  "required_inputs": [
+    {
+      "key": "service",
+      "description": "Service type, intended deliverables, and known client context",
+      "required": true
+    },
+    {
+      "key": "known_inputs",
+      "description": "Information already supplied and remaining uncertainties",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Compare the requested service with the information already available and avoid asking duplicate questions."
+    },
+    {
+      "step": 2,
+      "instruction": "Group missing inputs into goals, audience, source assets, constraints, approvals, and delivery expectations."
+    },
+    {
+      "step": 3,
+      "instruction": "Prioritize blockers and write answerable questions with examples or bounded choices where helpful."
+    },
+    {
+      "step": 4,
+      "instruction": "Create a kickoff checklist with responsible party and completion evidence, using secure access routes rather than credential collection."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Intake questionnaire",
+      "format": "markdown",
+      "acceptance_criteria": "Contains only relevant unanswered questions, with blocking items first"
+    },
+    {
+      "name": "Kickoff checklist",
+      "format": "json",
+      "acceptance_criteria": "Tracks inputs, decisions, responsible-party assumptions, and readiness"
+    }
+  ],
+  "limitations": [
+    "Do not request unnecessary personal data or credentials.",
+    "Do not infer client approval from form completion."
+  ],
+  "permission_boundaries": [
+    "Do not send the questionnaire, create accounts, request persistent access, or upload client assets automatically.",
+    "Passwords, payment details, and secret tokens must never be collected in the intake form."
+  ],
+  "routing_tags": [
+    "operations",
+    "intake",
+    "onboarding",
+    "kickoff"
+  ],
+  "optional_capabilities": []
+}

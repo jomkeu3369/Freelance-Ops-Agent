@@ -15,16 +15,20 @@ public class PetProfileService {
     private final AIConnectionService authorization;
     private final ObjectMapper mapper;
     private final Validator validator;
+    private final CustomAgentPetService customPets;
 
-    public PetProfileService(JdbcTemplate jdbc, AIConnectionService authorization, ObjectMapper mapper, Validator validator) {
+    public PetProfileService(JdbcTemplate jdbc, AIConnectionService authorization, ObjectMapper mapper, Validator validator, CustomAgentPetService customPets) {
         this.jdbc = jdbc;
         this.authorization = authorization;
         this.mapper = mapper;
         this.validator = validator;
+        this.customPets = customPets;
     }
 
     public List<PetProfile> list(UUID user, UUID workspace) {
         authorization.authorize(user, workspace);
+        var custom = customPets.runtimeProfiles(user, workspace);
+        if (custom.isPresent()) return custom.get();
         var saved = jdbc.query("SELECT profile_json FROM app.pet_profile WHERE workspace_id = ? AND user_id = ?",
             (row, n) -> mapper.readValue(row.getString(1), PetProfile.class), workspace, user);
         return PetProfile.defaults().stream().map(base -> saved.stream().filter(pet -> pet.slot().equals(base.slot())).findFirst().orElse(base)).toList();

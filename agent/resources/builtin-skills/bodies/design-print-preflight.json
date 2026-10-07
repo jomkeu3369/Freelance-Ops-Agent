@@ -1,0 +1,83 @@
+{
+  "id": "design-print-preflight",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "인쇄물 제작 사전 점검",
+    "en": "Print Production Preflight"
+  },
+  "summary": {
+    "ko": "인쇄소 사양과 파일 정보를 비교해 여백·해상도·색상·폰트 위험을 확인합니다.",
+    "en": "Compare artwork against printer requirements and identify production risks before handoff."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "인쇄 파일 점검",
+    "출력 전 프리플라이트",
+    "preflight print artwork",
+    "check bleed and print specifications"
+  ],
+  "exclusions": [
+    "General digital image feedback",
+    "Purchasing print services"
+  ],
+  "required_inputs": [
+    {
+      "key": "specifications",
+      "description": "Printer-provided trim size, bleed, color, resolution, and file requirements",
+      "required": true
+    },
+    {
+      "key": "artwork",
+      "description": "Artwork files or inspectable metadata and previews",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Treat the printer’s supplied specifications as authoritative and identify any missing production requirements."
+    },
+    {
+      "step": 2,
+      "instruction": "Check page dimensions, trim and bleed, safe areas, image resolution, color space, overprint, and font embedding when inspectable."
+    },
+    {
+      "step": 3,
+      "instruction": "Record observed mismatches separately from items that cannot be verified with available tools."
+    },
+    {
+      "step": 4,
+      "instruction": "Produce a correction checklist and final handoff notes using exact dimensions and units."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Preflight report",
+      "format": "json",
+      "acceptance_criteria": "Each check records expected value, observed value, status, and corrective action"
+    }
+  ],
+  "limitations": [
+    "Do not guarantee color accuracy without printer proofing and calibrated output.",
+    "A preview alone cannot verify embedded fonts, separation, or effective image resolution."
+  ],
+  "permission_boundaries": [
+    "Do not order prints, approve proofs, or alter original artwork destructively.",
+    "Do not upload confidential artwork to third-party preflight services."
+  ],
+  "routing_tags": [
+    "design",
+    "print",
+    "preflight",
+    "production"
+  ],
+  "optional_capabilities": [
+    "file.inspect"
+  ]
+}

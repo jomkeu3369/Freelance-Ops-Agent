@@ -1,0 +1,85 @@
+{
+  "id": "translation-faithful",
+  "version": "1.0.0",
+  "category": "translation",
+  "name": {
+    "ko": "의미 보존 번역",
+    "en": "Meaning-Preserving Translation"
+  },
+  "summary": {
+    "ko": "원문 의미·구조·용어를 보존하며 대상 언어와 독자에 맞게 번역합니다.",
+    "en": "Translate accurately while preserving meaning, structure, terminology, and intended register."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "문서 번역",
+    "의미 그대로 번역",
+    "translate faithfully",
+    "translate document preserving structure and formatting markers"
+  ],
+  "exclusions": [
+    "Advertising adaptation where wording must be recreated",
+    "Subtitle timing and length adaptation"
+  ],
+  "required_inputs": [
+    {
+      "key": "source",
+      "description": "Source text and source language if ambiguous",
+      "required": true
+    },
+    {
+      "key": "target",
+      "description": "Target language, locale, audience, and any required terminology",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Identify the document’s purpose, register, structural constraints, terminology, and content that should remain unchanged."
+    },
+    {
+      "step": 2,
+      "instruction": "Translate complete meaning units while preserving numbers, names, placeholders, links, and formatting markers."
+    },
+    {
+      "step": 3,
+      "instruction": "Resolve terms consistently using a supplied glossary and flag consequential ambiguity instead of guessing."
+    },
+    {
+      "step": 4,
+      "instruction": "Compare source and target for omissions, additions, tone shifts, and numeric or entity errors."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Translation",
+      "format": "text",
+      "acceptance_criteria": "Preserves meaning, structure, names, numbers, and placeholders"
+    },
+    {
+      "name": "Translator notes",
+      "format": "markdown",
+      "acceptance_criteria": "Lists material ambiguities and terminology choices when needed"
+    }
+  ],
+  "limitations": [
+    "Do not certify a translation or imply professional legal or medical validation.",
+    "Language-specific ambiguity may require context; native document layout preservation requires file-editing and export support."
+  ],
+  "permission_boundaries": [
+    "Do not send confidential source text to external translation services.",
+    "Do not submit or publish the translation; preserve sensitive data only as needed for the authorized task."
+  ],
+  "routing_tags": [
+    "translation",
+    "accuracy",
+    "language"
+  ],
+  "optional_capabilities": []
+}

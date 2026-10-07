@@ -4,7 +4,6 @@ export const homeEnglish = {
   "작업 범위 정리": "A clear scope",
   "공수와 근거": "Effort with evidence",
   "검토 가능한 초안": "A draft to review",
-  "스크롤하며 흐름을 펼쳐보세요.": "Scroll to unfold the workflow.",
   "프로젝트 진행": "Project progress",
   "선택한 작업 범위에 맞춰 공수를 계산합니다.": "Effort follows the scope you select.",
   "선택한 범위가 작업과 계산에 그대로 반영됩니다.": "Your selected scope flows into every task and calculation.",

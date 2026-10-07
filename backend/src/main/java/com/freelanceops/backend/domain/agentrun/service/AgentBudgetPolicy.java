@@ -9,6 +9,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class AgentBudgetPolicy {
 
+    // User-approved ceiling for selected personal credentials only. Do not raise the
+    // shared/platform quota or use this value for detached task execution profiles.
+    private static final int PERSONAL_MAX_INPUT_TOKENS = 150000;
     private final RunBudget maximum;
 
     public AgentBudgetPolicy(
@@ -38,10 +41,26 @@ public class AgentBudgetPolicy {
     }
 
     public void enforce(RunBudget requested) {
+        enforce(requested, maximum.maxInputTokens());
+    }
+
+    /** Called only by the personal scope issuer after current credential authorization. */
+    void enforcePersonal(RunBudget requested) {
+        // The approved cost notice cannot inherit a larger global/operator override.
+        // The shared policy below still enforces any lower configured non-input limits.
+        if (requested.maxDurationSeconds() > 180 || requested.maxModelCalls() > 50
+            || requested.maxOutputTokens() > 48000) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
+                "Personal execution budget exceeds the approved cost notice policy");
+        }
+        enforce(requested, PERSONAL_MAX_INPUT_TOKENS);
+    }
+
+    private void enforce(RunBudget requested, int maxInputTokens) {
         if (requested.maxDurationSeconds() > maximum.maxDurationSeconds()
             || requested.maxModelCalls() > maximum.maxModelCalls()
             || requested.maxToolCalls() > maximum.maxToolCalls()
-            || requested.maxInputTokens() > maximum.maxInputTokens()
+            || requested.maxInputTokens() > maxInputTokens
             || requested.maxOutputTokens() > maximum.maxOutputTokens()
             || requested.maxDepartments() > maximum.maxDepartments()
             || requested.maxHierarchyDepth() > maximum.maxHierarchyDepth()

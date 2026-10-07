@@ -1,12 +1,22 @@
 "use client";
+import { byokFailureMessage } from "../../app/lib/byok-presentation.mjs";
+import type { SkillSelection } from "./skills/skill-selection";
 
+import { useT } from "../../app/lib/ui-language";
 import { ReactNode, useSyncExternalStore, useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { WorkspaceContext, WorkspaceScreens } from "./workspace-context";
+import { reconcileProject } from "./projects/reconcile-project";
 import { PipelinePreferences } from "./projects/pipeline-preferences";
 import { useTheme } from "next-themes";
 import {
   AuthSession,
+  CreditQuote,
+  isCreditQuoteRefreshRequired,
+  isPlatformSpendUnavailable,
+  ApiError,
+  isFreeUsageExhausted,
+  subscribeToFreeUsageExhausted,
   Project,
   Client,
   MeProfile,
@@ -20,6 +30,7 @@ import {
   refreshAuthSession,
   saveSession,
   clearSession,
+  currentSessionGeneration,
   subscribeToSessionRecovery,
   streamRunEvents,
   getAgentRun,
@@ -31,6 +42,10 @@ import {
   resumeAgentRun,
   createProject
 } from "../../app/lib/api";
+import { PendingRunStore, PendingRunRetry } from "../../app/lib/pending-run-store";
+import { FreeUsageDialog } from "./usage/free-usage-dialog";
+import { freeUsageReturnPath } from "../../app/lib/free-usage.mjs";
+import "./usage/free-usage.css";
 import { StreamState, WorkspaceView, WorkbenchStep } from "./shared/types";
 import { parseWorkspacePath, buildWorkspacePath } from "../../app/lib/workspace-navigation.mjs";
 import { sessionRefreshDelay } from "../../app/lib/session-timing.mjs";
@@ -44,6 +59,16 @@ import { ProjectDialog } from "./project/dialogs/project-dialog";
 import { createProjectIntakeDraft, projectIntakeDraftScope } from "@/app/lib/project-intake-draft.mjs";
 import "../../app/workspace/figma-workspace.css";
 import "../../app/workspace/quick-intake.css";
+import "./project/analysis/agent-chat.css";
+import "./professional-workspace.css";
+import "./fullscreen-chat.css";
+
+const compactNavigationQuery = "(max-width: 820px)";
+function subscribeToCompactNavigation(onChange: () => void) {
+  const query = window.matchMedia(compactNavigationQuery);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
 
 export const subscribeToThemeHydration = () => () => undefined;
 
@@ -52,6 +77,7 @@ interface WorkspaceShellProps {
 }
 
 export function WorkspaceShell({ children }: WorkspaceShellProps) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const [pipelinePreferences, setPipelinePreferences] = useState<PipelinePreferences>({
@@ -83,6 +109,11 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const lastEventIdRef = useRef(0);
   const previousRunIdRef = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const runOperation = useRef(0);
+  const workspaceLoadOperation = useRef(0);
+  const pendingStart = useRef(new PendingRunStore());
+  const [pendingRetries, setPendingRetries] = useState<PendingRunRetry[]>([]);
+  const [quotaError, setQuotaError] = useState<ApiError | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   // Drafts stay in this layout across dialog unmounts and route changes, scoped to their owner.
@@ -90,6 +121,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [executionRevision, setExecutionRevision] = useState(0);
   const [activeView, setActiveView] = useState<WorkspaceView>("pipeline");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const compactNavigation = useSyncExternalStore(subscribeToCompactNavigation, () => window.matchMedia(compactNavigationQuery).matches, () => false);
   const [projectStep, setProjectStep] = useState<WorkbenchStep>("intake");
   const workspaceContent = useRef<HTMLElement>(null);
   const pipelineReturn = useRef<{ element: HTMLElement | null; scrollY: number; projectId?: string }>({
@@ -107,6 +140,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     [profile, session?.workspaceId]
   );
   const canWriteProject = activePermissions.has("project.write");
+
+  useEffect(() => {
+    if (!session) return;
+    return subscribeToFreeUsageExhausted(setQuotaError);
+  }, [session]);
+
 
   const restorePipelinePosition = useCallback(() => {
     const { projectId, scrollY } = pipelineReturn.current;
@@ -136,13 +175,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       return;
     let cancelled = false;
     const projectId = selectedProject.id;
+    const operation = runOperation.current;
     Promise.resolve()
       .then(() => {
         if (cancelled) return undefined;
         return getLatestProjectAgentRun(session, projectId);
       })
       .then((latestRun) => {
-        if (cancelled || latestRun === undefined || selectedProjectIdRef.current !== projectId) return;
+        if (cancelled || operation !== runOperation.current || latestRun === undefined || selectedProjectIdRef.current !== projectId) return;
         setRun(latestRun);
         setRunId(latestRun?.runId ?? null);
         setEvents([]);
@@ -150,7 +190,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setStreamRetryCount(0);
       })
       .catch((cause) => {
-        if (!cancelled)
+        if (!cancelled && operation === runOperation.current)
           setError(cause instanceof Error ? cause.message : "최근 AI 분석 상태를 확인하지 못했습니다.");
       });
     return () => {
@@ -185,6 +225,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       setActiveView(location.view as WorkspaceView);
       if (project) {
         if (selectedProjectIdRef.current !== project.id) {
+          runOperation.current += 1;
+          setBusy(false);
           setRun(null);
           setRunId(null);
           setEvents([]);
@@ -204,6 +246,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const navigateWorkspace = useCallback(
     (view: WorkspaceView, project?: Project | null, step: WorkbenchStep = "intake", replace = false) => {
+      setMobileMenuOpen(false);
       const nextProject = view === "project" ? (project ?? selectedProject) : null;
       const nextView = view === "project" && !nextProject ? "pipeline" : view;
       const projectChanged = nextView === "project" && nextProject?.id !== selectedProject?.id;
@@ -216,6 +259,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setSelectedProject(nextProject);
       }
       if (projectChanged) {
+        runOperation.current += 1;
+        setBusy(false);
         setRun(null);
         setRunId(null);
         setEvents([]);
@@ -228,7 +273,17 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const refreshProjects = useCallback(
     async (activeSession: AuthSession) => {
+      const operation = ++workspaceLoadOperation.current;
+      const generation = currentSessionGeneration();
+      const isCurrent = () => operation === workspaceLoadOperation.current
+        && generation === currentSessionGeneration()
+        && loadSession()?.workspaceId === activeSession.workspaceId;
+      const assertCurrent = () => {
+        if (!isCurrent()) throw new ApiError("로그인 세션이 변경되었습니다. 다시 시도해 주세요.", 409, "SESSION_CHANGED");
+      };
+      assertCurrent();
       const profileResult = await getMe(activeSession);
+      assertCurrent();
       const workspace = profileResult.workspaces.find(
         (item) => item.workspaceId === activeSession.workspaceId
       );
@@ -237,6 +292,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         permissions.has("project.read") ? listProjects(activeSession) : Promise.resolve([]),
         permissions.has("client.read") ? listClients(activeSession) : Promise.resolve([])
       ]);
+      assertCurrent();
       setLoadedWorkspaceId(activeSession.workspaceId);
       setProjects(projectResult);
       setClients(clientResult.filter((client) => client.status === "ACTIVE"));
@@ -247,33 +303,37 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   );
 
   useEffect(() => {
-    Promise.resolve().then(() => {
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    const restore = async () => {
       const stored = loadSession();
-      if (stored) {
-        const restore = async () => {
-          try {
-            const activeSession =
-              new Date(stored.accessTokenExpiresAt).getTime() <= Date.now() + 30_000
-                ? { ...(await refreshAuthSession(stored)), workspaceId: stored.workspaceId }
-                : stored;
-            if (activeSession !== stored) saveSession(activeSession);
-            setSession(activeSession);
-            await refreshProjects(activeSession);
-          } catch (cause) {
-            clearSession();
-            setSession(null);
-            setLoadedWorkspaceId(null);
-            setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
-          } finally {
-            setHydrated(true);
-          }
-        };
-        void restore();
-      } else {
-        setSession(null);
-        setHydrated(true);
+      const generation = currentSessionGeneration();
+      if (!stored) {
+        if (!cancelled) { setSession(null); setHydrated(true); }
+        return;
       }
-    });
+      try {
+        const activeSession = new Date(stored.accessTokenExpiresAt).getTime() <= Date.now() + 30_000
+          ? await refreshAuthSession(stored) : stored;
+        if (cancelled || generation !== currentSessionGeneration()) return;
+        setSession(activeSession);
+        await refreshProjects(activeSession);
+      } catch (cause) {
+        if (cancelled || generation !== currentSessionGeneration() || (cause instanceof ApiError && cause.code === "SESSION_CHANGED")) return;
+        // A failed workspace read or offline refresh does not invalidate credentials.
+        setSession(loadSession());
+        setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
+        retryTimer = window.setTimeout(() => void restore(), 30_000);
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    };
+    void Promise.resolve().then(() => { if (!cancelled) return restore(); });
+    return () => {
+      cancelled = true;
+      workspaceLoadOperation.current += 1;
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+    };
   }, [refreshProjects]);
 
   useEffect(
@@ -283,7 +343,10 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           setSession(recoveredSession);
           return;
         }
+        runOperation.current += 1;
+        setBusy(false);
         setSession(null);
+        pendingStart.current.clear(); setPendingRetries([]);
         setIntakeDrafts({});
         setShowNewProject(false);
         setProjects([]);
@@ -308,20 +371,20 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   useEffect(() => {
     if (!session) return;
-    const timer = window.setTimeout(() => {
-      refreshAuthSession(session)
-        .then((nextSession) => {
-          const preservedSession = { ...nextSession, workspaceId: session.workspaceId };
-          saveSession(preservedSession);
-          setSession(preservedSession);
-        })
-        .catch(() => {
-          clearSession();
-          setSession(null);
-          setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.");
-        });
-    }, sessionRefreshDelay(session.accessTokenExpiresAt));
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    let timer: number;
+    const refresh = async () => {
+      try {
+        // The API publishes the guarded result, including the latest workspace.
+        await refreshAuthSession(session);
+      } catch (cause) {
+        if (cancelled || (cause instanceof ApiError && cause.code === "SESSION_CHANGED") || !loadSession()) return;
+        setError(cause instanceof Error ? cause.message : "로그인 세션을 복구하지 못했습니다.");
+        timer = window.setTimeout(() => void refresh(), 30_000);
+      }
+    };
+    timer = window.setTimeout(() => void refresh(), sessionRefreshDelay(session.accessTokenExpiresAt));
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [session]);
 
   useEffect(() => {
@@ -394,36 +457,52 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   useEffect(() => {
     if (!session || !runId) return;
     let cancelled = false;
+    let pollingError: string | null = null;
+    let timer: number | undefined;
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
-        if (!cancelled) setRun(view);
+        if (!cancelled) {
+          setRun((current) => current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status) ? current : view);
+          if (pollingError) {
+            const recoveredError = pollingError;
+            setError((current) => current === recoveredError ? null : current);
+            pollingError = null;
+          }
+        }
         return terminalStatuses.has(view.status);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.");
-        return true;
+        if (!cancelled) {
+          pollingError = cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.";
+          setError(pollingError);
+        }
+        // Keep reading after a temporary network error; never retry a denied or missing run.
+        return cause instanceof ApiError && [401, 403, 404].includes(cause.status);
       }
     };
-    const timer = window.setInterval(async () => {
-      if (await poll()) window.clearInterval(timer);
-    }, 2000);
-    void poll();
+    const check = async () => {
+      const finished = await poll();
+      if (!cancelled && !finished) timer = window.setTimeout(() => void check(), 2000);
+    };
+    void check();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer != null) window.clearTimeout(timer);
     };
   }, [executionRevision, runId, session]);
 
   const onAuthenticated = async (nextSession: AuthSession, isNewWorkspace = false) => {
     setError(null);
+    saveSession(nextSession);
+    const generation = currentSessionGeneration();
     try {
       await refreshProjects(nextSession);
-      saveSession(nextSession);
-      setSession(nextSession);
+      if (generation !== currentSessionGeneration()) return;
+      setSession(loadSession());
       if (isNewWorkspace) navigateWorkspace("settings", null, "intake", true);
     } catch (cause) {
-      clearSession();
-      setSession(null);
+      if (generation !== currentSessionGeneration() || (cause instanceof ApiError && cause.code === "SESSION_CHANGED")) return;
+      // Keep the successful login for a reload/retry after a temporary data error.
       setLoadedWorkspaceId(null);
       throw cause;
     }
@@ -431,47 +510,72 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   const logout = async () => {
     if (!session) return;
+    const revokedSession = loadSession() ?? session;
+    // Invalidate pending refreshes before waiting for the server.
+    clearSession();
+    workspaceLoadOperation.current += 1;
+    runOperation.current += 1;
+    setBusy(false);
+    setSession(null);
+    pendingStart.current.clear();
+    setPendingRetries([]);
+    setQuotaError(null);
+    setIntakeDrafts({});
+    setShowNewProject(false);
+    setLoadedWorkspaceId(null);
+    setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
+    setProjects([]);
+    setClients([]);
+    setProfile(null);
+    setSelectedProject(null);
+    setRun(null);
+    setRunId(null);
+    setEvents([]);
     try {
-      await revokeAuthSession(session);
-    } finally {
-      clearSession();
-      setSession(null);
-      setIntakeDrafts({});
-      setShowNewProject(false);
-      setLoadedWorkspaceId(null);
-      setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
-      setProjects([]);
-      setClients([]);
-      setProfile(null);
-      setSelectedProject(null);
-      setRun(null);
-      setRunId(null);
-      setEvents([]);
+      await revokeAuthSession(revokedSession);
+    } catch (cause) {
+      if (!loadSession()) setError(cause instanceof Error ? cause.message : "로그아웃 요청을 완료하지 못했습니다.");
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string) => {
-    if (!session || !selectedProject) return;
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection): Promise<boolean> => {
+    if (!session || !selectedProject) return false;
+    const operation = ++runOperation.current;
+    const projectId = selectedProject.id;
+    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds, skillSelection, workflowMode: message === undefined ? undefined : "AD_HOC" });
+    const idempotencyKey = pending.id;
     setBusy(true);
     setError(null);
-    setEvents([]);
-    setRun(null);
     try {
       const accepted = await startAgentRun(session, selectedProject, {
         credentialId,
         provider,
         model,
         reasoningEffort: "LOW"
-      });
+      }, pending.message, idempotencyKey, pending.creditQuote, pending.attachmentIds, pending.skillSelection, pending.workflowMode);
+      pendingStart.current.settle(idempotencyKey, "accepted");
+      setPendingRetries(pendingStart.current.retries());
+      if (operation !== runOperation.current || selectedProjectIdRef.current !== projectId) return true;
+      setEvents([]);
+      setRun(null);
       setRunId(accepted.runId);
+      return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
+      // An ambiguous network/server failure may have created the run; an explicit retry reuses its key.
+      const explicitRejection = cause instanceof ApiError && cause.status >= 400 && cause.status < 500 || isPlatformSpendUnavailable(cause);
+      pendingStart.current.settle(idempotencyKey, explicitRejection ? "rejected" : "uncertain");
+      setPendingRetries(pendingStart.current.retries());
+      if (isCreditQuoteRefreshRequired(cause) || isPlatformSpendUnavailable(cause) || cause instanceof ApiError && byokFailureMessage(cause.code)) throw cause;
+      if (operation === runOperation.current && !isFreeUsageExhausted(cause)) setError(cause instanceof Error ? cause.message : "Agent 실행을 시작하지 못했습니다.");
+      return false;
     } finally {
-      setBusy(false);
+      if (operation === runOperation.current) setBusy(false);
     }
   };
 
   const resetRun = () => {
+    runOperation.current += 1;
+    setBusy(false);
     setRun(null);
     setRunId(null);
     setEvents([]);
@@ -489,15 +593,19 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     return (
       <main id="main-content" className="workspace-loading" aria-busy="true">
         <CircleNotch size={30} className="spin" />
-        <span>업무 공간을 준비하고 있습니다.</span>
+        <span>{t("업무 공간을 준비하고 있습니다.")}</span>
       </main>
     );
   }
 
-  if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={error} setError={setError} />;
+  if (!session) return <AuthGate onAuthenticated={onAuthenticated} error={t(error)} setError={setError} />;
 
   const handleSwitchWorkspace = async (workspaceId: string) => {
-    const nextSession = { ...session, workspaceId: workspaceId };
+    runOperation.current += 1;
+    setBusy(false);
+    const current = loadSession();
+    if (!current || current.userId !== session.userId) return;
+    const nextSession = { ...current, workspaceId };
     setPipelinePreferences({
       search: "",
       activeColumn: "all",
@@ -507,6 +615,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     pipelineReturn.current = { element: null, scrollY: 0 };
     setLoadedWorkspaceId(null);
     setShowNewProject(false);
+    setQuotaError(null);
     saveSession(nextSession);
     setSession(nextSession);
     setSelectedProject(null);
@@ -518,6 +627,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     try {
       await refreshProjects(nextSession);
     } catch (cause) {
+      if (cause instanceof ApiError && cause.code === "SESSION_CHANGED") return;
       setError(cause instanceof Error ? cause.message : "작업 공간을 전환하지 못했습니다.");
     }
   };
@@ -553,8 +663,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         navigateWorkspace("project", project);
       },
       onProjectUpdated: (project) => {
-        setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
-        setSelectedProject((current) => (current?.id === project.id ? project : current));
+        setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
+        setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
       }
     },
     clients: {
@@ -586,13 +696,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           runId,
           events,
           busy,
+          streamState,
           snapshot,
           permissions: activePermissions,
           initialStep: projectStep,
           onStepChange: (step) => navigateWorkspace("project", selectedProject, step),
           onProjectUpdated: (project) => {
-            setProjects((current) => current.map((item) => (item.id === project.id ? project : item)));
-            setSelectedProject(project);
+            setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
+            setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
             resetRun();
           },
           onDelete: async () => {
@@ -604,33 +715,41 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             navigateWorkspace("pipeline", null, "intake", true);
           },
           onRun: beginRun,
+          pendingRetries: pendingRetries.filter(item => item.userId === session.userId && item.workspaceId === session.workspaceId && item.projectId === selectedProject.id),
           onResetRun: resetRun,
           onCancel: async () => {
             if (!runId) return;
+            const operation = ++runOperation.current;
             setBusy(true);
             setError(null);
             try {
-              setRun(await cancelAgentRun(session, runId));
+              const cancelledRun = await cancelAgentRun(session, runId);
+              if (operation !== runOperation.current) return;
+              setRun(cancelledRun);
+              setExecutionRevision((current) => current + 1);
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "실행을 중단하지 못했습니다.");
+              if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "실행을 중단하지 못했습니다.");
             } finally {
-              setBusy(false);
+              if (operation === runOperation.current) setBusy(false);
             }
           },
           onResume: async (answers) => {
             if (!run?.interruption || !runId) return;
+            const operation = ++runOperation.current;
             setBusy(true);
+            setError(null);
             try {
               await resumeAgentRun(session, runId, run.interruption.interruptionId, answers);
+              if (operation !== runOperation.current) return;
               setRun((current) =>
                 current ? { ...current, status: "RUNNING", interruption: null } : current
               );
               setExecutionRevision((current) => current + 1);
             } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "답변을 전달하지 못했습니다.");
+              if (operation === runOperation.current) setError(cause instanceof Error ? cause.message : "답변을 전달하지 못했습니다.");
               throw cause;
             } finally {
-              setBusy(false);
+              if (operation === runOperation.current) setBusy(false);
             }
           }
         }
@@ -639,13 +758,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
 
   return (
     <div
-      className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}`}
+      className={`workspace-shell figma-workspace${sidebarCollapsed ? " sidebar-collapsed" : ""}${mobileMenuOpen ? " mobile-navigation-open" : ""}${activeView === "project" && projectStep === "agent" ? " conversation-workspace" : ""}`}
     >
       <WorkspaceChrome
         session={session}
         profile={profile}
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
+        sidebarCollapsed={compactNavigation ? !mobileMenuOpen : sidebarCollapsed}
+        compactNavigation={compactNavigation}
+        setSidebarCollapsed={compactNavigation ? (collapsed) => setMobileMenuOpen(!collapsed) : setSidebarCollapsed}
         isDarkTheme={isDarkTheme}
         setTheme={setTheme}
         activeView={activeView}
@@ -654,29 +774,37 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         runId={runId}
         run={run}
         activePermissions={activePermissions}
+        projects={projects}
+        selectedProjectId={selectedProject?.id ?? null}
+        onSelectProject={(project) => navigateWorkspace("project", project, "agent")}
+        onCreateProject={() => { setMobileMenuOpen(false); setShowNewProject(true); }}
         navigateWorkspace={navigateWorkspace}
         logout={logout}
         onSwitchWorkspace={handleSwitchWorkspace}
       />
 
-      <main id="main-content" ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label="업무 내용">
+      <main id="main-content" ref={workspaceContent} className="workspace-main" tabIndex={-1} aria-label={t("업무 내용")}>
         {error && (
           <div className="error-banner" role="alert">
             <Warning size={19} />
-            <span>{error}</span>
+            <span>{t(error)}</span>
             <button type="button" onClick={() => setError(null)}>
-              닫기
-            </button>
+              {t("닫기")}</button>
           </div>
         )}
         <WorkspaceContext.Provider value={screens}>
           {loadedWorkspaceId === session.workspaceId ? children : (
             <div className="workspace-loading" role="status" aria-busy="true">
-              <CircleNotch size={30} className="spin" /> 업무 공간을 불러오고 있습니다.
-            </div>
+              <CircleNotch size={30} className="spin" /> {t("업무 공간을 불러오고 있습니다.")}</div>
           )}
         </WorkspaceContext.Provider>
       </main>
+
+      {quotaError && <FreeUsageDialog error={quotaError} onClose={() => setQuotaError(null)} onRegister={() => {
+        const returnTo = freeUsageReturnPath(window.location.pathname);
+        setQuotaError(null);
+        router.push(`/workspace/settings${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}#ai-connections`);
+      }} />}
 
       {showNewProject && canWriteProject && (
         <ProjectDialog

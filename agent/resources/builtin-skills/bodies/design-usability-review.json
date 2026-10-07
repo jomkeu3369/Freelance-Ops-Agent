@@ -1,0 +1,83 @@
+{
+  "id": "design-usability-review",
+  "version": "1.0.0",
+  "category": "design",
+  "name": {
+    "ko": "사용성 검토",
+    "en": "Task-Based Usability Review"
+  },
+  "summary": {
+    "ko": "핵심 과업을 기준으로 혼란·오류·마찰 지점을 증거와 함께 우선순위화합니다.",
+    "en": "Review a user task for confusion, friction, and recoverability using observable evidence."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "UX 리뷰",
+    "사용성 문제 분석",
+    "review interface usability",
+    "find friction in user flow"
+  ],
+  "exclusions": [
+    "Accessibility-only compliance checks",
+    "Marketing funnel analysis across channels"
+  ],
+  "required_inputs": [
+    {
+      "key": "interface",
+      "description": "Screens, prototype, or an authorized view of the interface",
+      "required": true
+    },
+    {
+      "key": "task",
+      "description": "Target user task, audience, and success condition",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Attempt or simulate the stated task and record where the interface departs from user expectations."
+    },
+    {
+      "step": 2,
+      "instruction": "Assess information hierarchy, feedback, error prevention, consistency, navigation, and recovery."
+    },
+    {
+      "step": 3,
+      "instruction": "Classify findings by task impact and evidence; distinguish heuristic observations from real user-research results."
+    },
+    {
+      "step": 4,
+      "instruction": "Propose targeted changes and a lightweight validation method for the highest-impact uncertainties."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Usability review",
+      "format": "json",
+      "acceptance_criteria": "Each issue has location, task impact, evidence, recommendation, and validation method"
+    }
+  ],
+  "limitations": [
+    "A heuristic review is not a user study or conversion-impact measurement.",
+    "Screenshots cannot establish timing, keyboard behavior, or hidden states."
+  ],
+  "permission_boundaries": [
+    "Do not submit forms, place orders, or change live records while reviewing.",
+    "Avoid collecting identifiable session data without approval."
+  ],
+  "routing_tags": [
+    "design",
+    "ux",
+    "usability",
+    "review"
+  ],
+  "optional_capabilities": [
+    "ui.inspect"
+  ]
+}

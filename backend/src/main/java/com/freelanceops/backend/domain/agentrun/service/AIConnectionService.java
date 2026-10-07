@@ -23,13 +23,13 @@ public class AIConnectionService {
     private final Map<Provider, List<String>> models;
 
     public AIConnectionService(JdbcTemplate jdbc, CredentialCipher cipher, WorkspaceAuthorizationService authorization,
-        ProviderCredentialVerifier verifier, @Value("${APP_BYOK_OPENAI_MODELS:gpt-5.6-luna,gpt-5.6-terra}") String openai,
-        @Value("${APP_BYOK_GEMINI_MODELS:gemini-2.5-flash}") String gemini) {
+        ProviderCredentialVerifier verifier, @Value("${APP_BYOK_OPENAI_MODELS:gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-6-astra,gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}") String openai) {
         this.jdbc = jdbc;
         this.cipher = cipher;
         this.authorization = authorization;
         this.verifier = verifier;
-        this.models = Map.of(Provider.OPENAI, parseModels(openai), Provider.GEMINI, parseModels(gemini));
+        // Preserve the response shape for old clients; no configuration can reactivate Gemini.
+        this.models = Map.of(Provider.OPENAI, parseModels(openai), Provider.GEMINI, List.of());
     }
 
     public record Connection(UUID id, Provider provider, String model, String maskedKey, Instant updatedAt) {}
@@ -44,8 +44,8 @@ public class AIConnectionService {
 
     public Connection save(UUID user, UUID workspace, Provider provider, String model, String apiKey) {
         authorize(user, workspace);
-        if (!cipher.available()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI connection storage unavailable");
         requireModel(provider, model);
+        if (!cipher.available()) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "AI connection storage unavailable");
         if (apiKey == null || apiKey.length() < 16 || apiKey.length() > 512 || !apiKey.matches("[!-~]+")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid API key format");
         }
@@ -72,6 +72,7 @@ public class AIConnectionService {
     }
 
     public void validate(UUID user, UUID workspace, UUID id, Provider provider, String model) {
+        ProviderPolicy.requireSupported(provider);
         if (id == null) return;
         authorize(user, workspace);
         requireModel(provider, model);
@@ -95,11 +96,12 @@ public class AIConnectionService {
     }
 
     private void requireModel(Provider provider, String model) {
+        ProviderPolicy.requireSupported(provider);
         if (!models.getOrDefault(provider, List.of()).contains(model)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported connection model");
     }
 
     static String binding(UUID id, UUID workspace, UUID user, Provider provider) { return id + ":" + workspace + ":" + user + ":" + provider; }
     private static List<String> parseModels(String value) {
-        return Arrays.stream(value.split(",")).map(String::trim).filter(model -> model.matches("[a-zA-Z0-9._-]{1,100}")).distinct().toList();
+        return Arrays.stream(value.split(",")).map(String::trim).filter(model -> List.of(PlatformSpendTariff.MODEL_IDS.split(",")).contains(model)).distinct().toList();
     }
 }

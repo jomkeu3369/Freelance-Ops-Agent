@@ -1,0 +1,86 @@
+{
+  "id": "dev-requirements-acceptance",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "요구사항·인수 기준",
+    "en": "Requirements and Acceptance Criteria"
+  },
+  "summary": {
+    "ko": "모호한 개발 요청을 검증 가능한 작업 범위와 인수 기준으로 바꿉니다.",
+    "en": "Turn an ambiguous software request into bounded requirements and testable acceptance criteria."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "기능 요구사항 정리",
+    "인수 기준 작성",
+    "turn feature request into acceptance criteria",
+    "define software requirements"
+  ],
+  "exclusions": [
+    "Generic business proposals without a software feature",
+    "Implementation requests whose acceptance criteria are already complete"
+  ],
+  "required_inputs": [
+    {
+      "key": "request",
+      "description": "Original feature request and intended users",
+      "required": true
+    },
+    {
+      "key": "constraints",
+      "description": "Known platform, constraints, and explicitly approved scope",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Separate stated requirements, inferred assumptions, and unresolved decisions; retain source wording for consequential constraints."
+    },
+    {
+      "step": 2,
+      "instruction": "Map the principal user journey and its failure, empty, loading, and permission states."
+    },
+    {
+      "step": 3,
+      "instruction": "Write observable Given/When/Then acceptance criteria; distinguish essential behavior from optional enhancements."
+    },
+    {
+      "step": 4,
+      "instruction": "Split the work into independently verifiable slices and flag decisions that block implementation without silently deciding them."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "Requirements brief",
+      "format": "markdown",
+      "acceptance_criteria": "Includes scope, non-goals, assumptions, and unresolved decisions"
+    },
+    {
+      "name": "Acceptance checklist",
+      "format": "json",
+      "acceptance_criteria": "Each criterion has an ID, expected behavior, and verification method"
+    }
+  ],
+  "limitations": [
+    "Do not invent business rules or imply stakeholder approval.",
+    "Cannot establish feasibility without the relevant architecture or code."
+  ],
+  "permission_boundaries": [
+    "Produces planning artifacts; does not create tickets, edit a repository, or message stakeholders unless requested.",
+    "Do not add analytics collection or user-data access as an unstated requirement."
+  ],
+  "routing_tags": [
+    "development",
+    "requirements",
+    "acceptance",
+    "planning"
+  ],
+  "optional_capabilities": []
+}

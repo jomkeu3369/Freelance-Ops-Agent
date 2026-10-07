@@ -1,0 +1,91 @@
+{
+  "id": "dev-responsive-frontend",
+  "version": "1.0.0",
+  "category": "development",
+  "name": {
+    "ko": "반응형 UI 구현",
+    "en": "Responsive Frontend Implementation"
+  },
+  "summary": {
+    "ko": "기존 기술 스택과 디자인을 존중하며 화면·상태·화면 크기별 UI를 구현합니다.",
+    "en": "Implement a responsive interface while preserving the existing stack, design, and state behavior."
+  },
+  "builtin": true,
+  "price": {
+    "amount": 0,
+    "currency": "USD",
+    "unit": "skill_access"
+  },
+  "triggers": [
+    "반응형 화면 구현",
+    "프론트엔드 컴포넌트 개발",
+    "implement responsive UI",
+    "build frontend from design"
+  ],
+  "exclusions": [
+    "Design-only wireframes without code",
+    "A site publication request requiring a separate hosting workflow"
+  ],
+  "required_inputs": [
+    {
+      "key": "design",
+      "description": "Target screen, reference, or explicit visual requirements",
+      "required": true
+    },
+    {
+      "key": "code_context",
+      "description": "Relevant code or stack and component conventions",
+      "required": true
+    }
+  ],
+  "workflow": [
+    {
+      "step": 1,
+      "instruction": "Inspect the existing component, token, routing, and styling conventions before choosing an implementation approach."
+    },
+    {
+      "step": 2,
+      "instruction": "Map the target screen to reusable components and explicit loading, empty, error, and success states."
+    },
+    {
+      "step": 3,
+      "instruction": "Implement the authorized UI changes with semantic controls, keyboard operation, and responsive layouts; avoid unrelated dependencies."
+    },
+    {
+      "step": 4,
+      "instruction": "Check representative small and large viewports and interaction states; report actual render or test results and remaining visual differences."
+    }
+  ],
+  "deliverables": [
+    {
+      "name": "UI implementation",
+      "format": "code",
+      "acceptance_criteria": "Fits repository conventions and includes the requested responsive states"
+    },
+    {
+      "name": "Verification summary",
+      "format": "markdown",
+      "acceptance_criteria": "Lists checked viewports, interactions, tests, and unverified states"
+    }
+  ],
+  "limitations": [
+    "Without code or an editable environment, provide implementation-ready components or a patch instead of claiming integration.",
+    "A screenshot alone does not specify hidden interactions or exact fonts."
+  ],
+  "permission_boundaries": [
+    "Do not deploy, publish, install dependencies, or change permissions merely because UI work was requested.",
+    "Do not invent tracking, collect user data, or copy unlicensed assets."
+  ],
+  "routing_tags": [
+    "development",
+    "frontend",
+    "responsive",
+    "components"
+  ],
+  "optional_capabilities": [
+    "workspace.read",
+    "workspace.edit",
+    "test.run",
+    "ui.preview"
+  ]
+}

@@ -90,6 +90,7 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/v2/auth/**").permitAll()
                 .requestMatchers("/api/v2/proposals/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v2/notices").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterAfter(rateLimitFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
@@ -116,7 +117,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Last-Event-ID", "traceparent"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Last-Event-ID", "traceparent", "Idempotency-Key"));
         configuration.setExposedHeaders(List.of("Location"));
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);

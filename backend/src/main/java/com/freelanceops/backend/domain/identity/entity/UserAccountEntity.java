@@ -37,6 +37,12 @@ public class UserAccountEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "email_verification_required", nullable = false)
+    private boolean emailVerificationRequired;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     @Version
     private long version;
 
@@ -73,6 +79,10 @@ public class UserAccountEntity {
     public String passwordHash() {
         return passwordHash;
     }
+
+    public boolean canAuthenticate() { return "ACTIVE".equals(status) && !emailVerificationRequired; }
+
+    public Instant emailVerifiedAt() { return emailVerifiedAt; }
 
     public String status() {
         return status;

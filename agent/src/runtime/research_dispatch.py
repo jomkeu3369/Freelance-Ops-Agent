@@ -12,6 +12,7 @@ from typing import Protocol
 from uuid import UUID
 
 from contracts import AgentRunRequest, RunBudget
+from platform_budget import PlatformBudgetError, reject_unbounded_operation
 
 from .research_specialist import ResearchSpecialistError
 from .research_worker import ResearchTaskWorker
@@ -64,6 +65,9 @@ class InMemoryResearchDispatchContextBroker:
         self._lock = asyncio.Lock()
 
     async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
+        if request.platform_budget is not None:
+            raise PlatformBudgetError("PLATFORM_A2A_UNPRICED")
+        reject_unbounded_operation("A2A")
         context = ResearchDispatchContext(task, attempt, request.input.requirement_text, None, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, request.budget, workload_token)
         async with self._lock:
             existing = self._contexts.get(attempt.attempt_id)

@@ -1,3 +1,4 @@
+import { useT } from "../../../../app/lib/ui-language";
 import type { ChangeEvent, FormEvent } from "react";
 import { Client } from "../../../../app/lib/api";
 import { useRef, useState } from "react";
@@ -24,6 +25,7 @@ interface ProjectDialogProps {
 }
 
 export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClose, onCreate }: ProjectDialogProps) {
+  const t = useT();
   const dialogRef = useRef<HTMLElement>(null);
   const optionalRef = useRef<HTMLDetailsElement>(null);
   const [busy, setBusy] = useState(false);
@@ -103,19 +105,18 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
         aria-describedby="project-dialog-description"
       >
         <div>
-          <span>새 고객 문의</span>
-          <button type="button" disabled={busy} onClick={onClose} aria-label="닫기">
+          <span>{t("새 고객 문의")}</span>
+          <button type="button" disabled={busy} onClick={onClose} aria-label={t("닫기")}>
             ×
           </button>
         </div>
-        <h2 id="project-dialog-title">이름과 문의 내용으로 시작하세요.</h2>
+        <h2 id="project-dialog-title">{t("이름과 문의 내용으로 시작하세요.")}</h2>
         <p id="project-dialog-description">
-          고객이 보낸 내용을 그대로 붙여 넣으세요. 고객 연결과 예산은 나중에 추가해도 됩니다.
-        </p>
+          {t("고객이 보낸 내용을 그대로 붙여 넣으세요. 고객 연결과 예산은 나중에 추가해도 됩니다.")}</p>
         {error && (
           <div id="project-dialog-error" className="inline-error" role="alert">
             <Warning size={18} />
-            {error}
+            {t(error)}
           </div>
         )}
         <form
@@ -131,7 +132,7 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
           <fieldset className="dialog-fields" disabled={busy}>
             <label>
               <span>
-                프로젝트 이름 <small className="quick-intake-required">필수</small>
+                {t("프로젝트 이름")}<small className="quick-intake-required">{t("필수")}</small>
               </span>
               <input
                 data-autofocus
@@ -140,14 +141,14 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                 onChange={handleDraftChange}
                 required
                 maxLength={200}
-                placeholder="예: 브랜드 사이트 리뉴얼"
+                placeholder={t("예: 브랜드 사이트 리뉴얼")}
                 aria-invalid={invalidField === "title" || undefined}
                 aria-describedby={invalidField === "title" ? "project-dialog-error" : undefined}
               />
             </label>
             <label>
               <span>
-                고객 문의 원문 <small className="quick-intake-required">필수</small>
+                {t("고객 문의 원문")}<small className="quick-intake-required">{t("필수")}</small>
               </span>
               <textarea
                 name="requirementText"
@@ -156,7 +157,7 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                 required
                 maxLength={50000}
                 rows={6}
-                placeholder="고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요."
+                placeholder={t("고객이 보낸 메시지나 현재 알고 있는 요구사항을 붙여 넣으세요.")}
                 aria-invalid={invalidField === "requirementText" || undefined}
                 aria-describedby={invalidField === "requirementText" ? "project-dialog-error" : undefined}
               />
@@ -170,15 +171,14 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
             >
               <summary>
                 <span>
-                  추가 정보 <small>선택 · 고객, 예산, 일정</small>
+                  {t("추가 정보")}<small>{t("선택 · 고객, 예산, 일정")}</small>
                 </span>
                 <CaretDown size={18} aria-hidden="true" />
               </summary>
               <div className="quick-intake-option-fields">
                 <label>
-                  고객 연결
-                  <select name="clientId" value={draft.clientId} onChange={handleDraftChange}>
-                    <option value="">아직 고객을 연결하지 않음</option>
+                  {t("고객 연결")}<select name="clientId" value={draft.clientId} onChange={handleDraftChange}>
+                    <option value="">{t("아직 고객을 연결하지 않음")}</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.id}>
                         {client.name}
@@ -188,14 +188,13 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                   </select>
                   <small>
                     {clients.length === 0
-                      ? "고객 연결 없이 먼저 시작할 수 있습니다."
-                      : "선택한 고객은 프로젝트와 함께 저장됩니다."}
+                      ? t("고객 연결 없이 먼저 시작할 수 있습니다.")
+                      : t("선택한 고객은 프로젝트와 함께 저장됩니다.")}
                   </small>
                 </label>
                 <div className="form-row">
                   <label>
-                    통화
-                    <select name="currency" value={draft.currency} onChange={handleDraftChange}>
+                    {t("통화")}<select name="currency" value={draft.currency} onChange={handleDraftChange}>
                       {currencyOptions.map((currency) => (
                         <option key={currency.value} value={currency.value}>
                           {currency.label}
@@ -204,13 +203,11 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                     </select>
                   </label>
                   <label>
-                    희망 완료일
-                    <input name="deadline" type="date" value={draft.deadline} onChange={handleDraftChange} />
+                    {t("희망 완료일")}<input name="deadline" type="date" value={draft.deadline} onChange={handleDraftChange} />
                   </label>
                 </div>
                 <label>
-                  예산 범위
-                  <div className="budget-range">
+                  {t("예산 범위")}<div className="budget-range">
                     <input
                       name="budgetMin"
                       value={draft.budgetMin}
@@ -218,8 +215,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                       type="number"
                       min="0"
                       step="any"
-                      aria-label="최소 예산"
-                      placeholder="최소"
+                      aria-label={t("최소 예산")}
+                      placeholder={t("최소")}
                     />
                     <span>–</span>
                     <input
@@ -229,8 +226,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                       type="number"
                       min="0"
                       step="any"
-                      aria-label="최대 예산"
-                      placeholder="최대"
+                      aria-label={t("최대 예산")}
+                      placeholder={t("최대")}
                       aria-invalid={invalidField === "budgetMax" || undefined}
                       aria-describedby={invalidField === "budgetMax" ? "project-dialog-error" : undefined}
                     />
@@ -239,29 +236,29 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
               </div>
             </details>
             <div className="intake-draft-status">
-              <small>닫아도 작성 내용은 이 작업 공간에 유지됩니다. 로그아웃하거나 페이지를 새로 고치면 초기화됩니다.</small>
+              <small>{t("닫아도 작성 내용은 이 작업 공간에 유지됩니다. 로그아웃하거나 페이지를 새로 고치면 초기화됩니다.")}</small>
               {hasDraft && !confirmDiscard && (
-                <button type="button" className="quiet-button intake-draft-clear" onClick={() => setConfirmDiscard(true)}>초안 비우기</button>
+                <button type="button" className="quiet-button intake-draft-clear" onClick={() => setConfirmDiscard(true)}>{t("초안 비우기")}</button>
               )}
               {confirmDiscard && (
-                <div className="intake-discard-confirm" role="group" aria-label="초안 폐기 확인">
-                  <strong>작성한 내용을 모두 비울까요?</strong>
-                  <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(false)}>계속 작성</button>
+                <div className="intake-discard-confirm" role="group" aria-label={t("초안 폐기 확인")}>
+                  <strong>{t("작성한 내용을 모두 비울까요?")}</strong>
+                  <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(false)}>{t("계속 작성")}</button>
                   <button type="button" className="quiet-button" onClick={() => {
                     onDiscard();
                     setConfirmDiscard(false);
                     setError(null);
                     setInvalidField(null);
                     dialogRef.current?.querySelector<HTMLInputElement>('[name="title"]')?.focus();
-                  }}>작성값 폐기</button>
+                  }}>{t("작성값 폐기")}</button>
                 </div>
               )}
             </div>
             <div className="quick-intake-submit">
-              <small>통화를 변경하지 않으면 원화(KRW)로 시작합니다.</small>
+              <small>{t("통화를 변경하지 않으면 원화(KRW)로 시작합니다.")}</small>
               <button className="primary-button" type="submit">
                 {busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />}{" "}
-                {busy ? "프로젝트를 만들고 있습니다." : "프로젝트 만들기"}
+                {busy ? t("프로젝트를 만들고 있습니다.") : t("프로젝트 만들기")}
               </button>
             </div>
           </fieldset>

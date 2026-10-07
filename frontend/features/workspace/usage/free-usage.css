@@ -1,0 +1,34 @@
+.free-usage-status, .free-usage-return { margin: 0 0 20px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-solid); color: var(--ink); overflow-wrap: anywhere; }
+.free-usage-status p, .free-usage-return p { margin: 7px 0; font-size: 13px; line-height: 1.65; }
+.free-usage-status small { display: block; font-size: 12px; }
+.free-usage-count { font-weight: 650; }
+.free-usage-status a, .free-usage-admin a { color: var(--accent, #4f46e5); text-decoration: underline; text-underline-offset: 3px; }
+.free-usage-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgb(15 23 42 / 58%); }
+.free-usage-dialog { width: min(100%, 530px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 28px; border-radius: 20px; background: var(--surface-solid); color: var(--ink); box-shadow: 0 24px 90px rgb(0 0 0 / 30%); }
+.free-usage-dialog h2 { margin: 0 0 18px; font-size: clamp(20px, 5vw, 26px); line-height: 1.4; }
+.free-usage-dialog p { font-size: 14px; line-height: 1.7; margin: 12px 0; }
+.free-usage-warning { background: #fff4dd; border: 1px solid #e9bf73; color: #714210; padding: 12px 14px; border-radius: 10px; }
+.free-usage-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 24px; }
+.free-usage-checkbox { display: flex; gap: 10px; align-items: flex-start; margin-top: 18px; font-size: 14px; line-height: 1.6; }
+.free-usage-checkbox input { width: 18px; height: 18px; flex-shrink: 0; margin-top: 3px; }
+.free-usage-admin { max-width: 940px; margin: 0 auto; padding: 28px 24px 70px; color: var(--ink); }
+.free-usage-admin-header { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin-bottom: 42px; }
+.free-usage-admin-card { margin-top: 24px; border: 1px solid var(--line); padding: 28px; border-radius: 18px; background: var(--surface-solid); }
+.free-usage-admin p { line-height: 1.7; }
+.free-usage-admin-card form { margin: 28px 0; }
+.free-usage-admin-card label { display: grid; gap: 10px; font-weight: 600; }
+.free-usage-admin-card input { width: min(100%, 240px); border: 1px solid #949daf; border-radius: 8px; padding: 10px 12px; background: var(--surface-solid); color: inherit; }
+.free-usage-admin button, .free-usage-dialog button, .free-usage-return a { min-height: 42px; padding: 10px 16px; border: 1px solid #b8c0cf; border-radius: 9px; font: inherit; font-weight: 600; cursor: pointer; }
+.free-usage-admin button.primary-button, .free-usage-dialog button.primary-button { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.free-usage-admin button.secondary-button, .free-usage-dialog button.secondary-button { background: var(--surface-solid); color: inherit; }
+.free-usage-admin button.danger-button { background: #b42318; color: #fff; border-color: #b42318; }
+.free-usage-admin button:disabled, .free-usage-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.free-usage-admin :focus-visible, .free-usage-dialog :focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+[data-theme="dark"] .free-usage-status, [data-theme="dark"] .free-usage-return, [data-theme="dark"] .free-usage-admin-card, [data-theme="dark"] .free-usage-dialog { background: #1b2330; color: #e5eaf3; border-color: #465267; }
+[data-theme="dark"] .free-usage-admin { color: #e5eaf3; }
+[data-theme="dark"] .free-usage-admin input, [data-theme="dark"] .free-usage-admin button.secondary-button, [data-theme="dark"] .free-usage-dialog button.secondary-button { background: #222d3d; color: #e5eaf3; }
+@media (max-width: 480px) { .free-usage-dialog { padding: 22px 18px; } .free-usage-admin { padding: 20px 16px; } .free-usage-admin-card { padding: 20px 16px; } .free-usage-actions > button { flex: 1 1 auto; } }
+.admin-model-rate { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 10px; }
+.admin-model-rate > strong { overflow-wrap: anywhere; }
+.free-usage-admin .admin-model-rate .free-usage-checkbox { display: flex; align-items: center; margin: 0; }
+.free-usage-admin .admin-model-rate .free-usage-checkbox input { width: 18px; }

@@ -31,11 +31,6 @@ def build_openai_route_evaluator(
     if secret is None or version is None or expected_sha256 is None:
         raise RuntimeError("private route evaluator prompt is not configured")
 
-    if client is None:
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI()
-
     prompt = SecretSystemPrompt(
         content=secret.get_secret_value(),
         version=version,

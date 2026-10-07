@@ -1,0 +1,5 @@
+[
+  {"case":"cold_clean_korean","language":"ko","filename":"clean_korean.png","sha256":"178020495b61cd2ed390153b037367b8c17ece4a5b9c267d9fc90e370ec46adc"},
+  {"case":"cold_clean_mixed","language":"mixed","filename":"clean_mixed.png","sha256":"089cabc490a62e37c29f9252d426e887ef0655aad631fa31d47d9959f7c8749c"},
+  {"case":"cold_clean_english","language":"en","filename":"clean_english.png","sha256":"b16a81f9c2d372ac0a7c1e616f31ac2dd2d35f42517b715fc4e843c9d80519f1"}
+]
