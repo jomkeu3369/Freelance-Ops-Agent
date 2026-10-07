@@ -14,11 +14,11 @@ export async function queryCached<T>(key: string, loader: () => Promise<T>, ttlM
 
   const pending = loader()
     .then((value) => {
-      cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+      if (cache.get(key)?.pending === pending) cache.set(key, { value, expiresAt: Date.now() + ttlMs });
       return value;
     })
     .catch((error) => {
-      cache.delete(key);
+      if (cache.get(key)?.pending === pending) cache.delete(key);
       throw error;
     });
   cache.set(key, { expiresAt: 0, pending });

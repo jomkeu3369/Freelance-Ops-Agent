@@ -498,6 +498,8 @@ export interface SharedProposal {
 const SESSION_KEY = "freelance-ops-session-v1";
 const SESSION_RECOVERY_EVENT = "freelance-ops-session-recovery";
 let refreshPromise: Promise<AuthSession> | null = null;
+let sessionGeneration = 0;
+const sessionAccessTokens = new Set<string>();
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string | null = null, readonly metadata: Readonly<Record<string, unknown>> = {}) {
@@ -607,10 +609,21 @@ export function loadSession(): AuthSession | null {
 }
 
 export function saveSession(session: AuthSession): void {
+  const current = loadSession();
+  if (!current || current.userId !== session.userId || current.refreshToken !== session.refreshToken) {
+    sessionGeneration += 1;
+    sessionAccessTokens.clear();
+    refreshPromise = null;
+    clearQueryCache();
+  }
+  sessionAccessTokens.add(session.accessToken);
   window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
 export function clearSession(): void {
+  sessionGeneration += 1;
+  sessionAccessTokens.clear();
+  refreshPromise = null;
   window.sessionStorage.removeItem(SESSION_KEY);
   clearQueryCache();
   window.dispatchEvent(new Event("freelance-ops-session-cleared"));
@@ -626,29 +639,51 @@ function publishRecoveredSession(session: AuthSession | null): void {
   window.dispatchEvent(new CustomEvent<AuthSession | null>(SESSION_RECOVERY_EVENT, { detail: session }));
 }
 
+// A login/logout boundary invalidates old work; rotating tokens does not.
+export function currentSessionGeneration(): number { return sessionGeneration; }
+
+function sessionChangedError(): ApiError {
+  return new ApiError("로그인 세션이 변경되었습니다. 다시 시도해 주세요.", 409, "SESSION_CHANGED");
+}
+
 async function rotateSession(session: AuthSession): Promise<AuthSession> {
+  const generation = sessionGeneration;
+  const matchesCurrent = () => {
+    const current = loadSession();
+    return generation === sessionGeneration && current?.userId === session.userId && current.refreshToken === session.refreshToken;
+  };
+  if (!matchesCurrent()) throw sessionChangedError();
   if (refreshPromise) return refreshPromise;
-  refreshPromise = request<AuthSession>(
+  const pending = request<AuthSession>(
     "/api/v2/auth/refresh",
     { method: "POST", body: JSON.stringify({ refreshToken: session.refreshToken }) },
     undefined,
     false,
   ).then((nextSession) => {
-    const preservedSession = { ...nextSession, workspaceId: session.workspaceId };
-    saveSession(preservedSession);
+    if (!matchesCurrent()) throw sessionChangedError();
+    const preservedSession = { ...nextSession, workspaceId: loadSession()!.workspaceId };
+    // Keep the generation so delayed 401s from this same login can use the new token.
+    sessionAccessTokens.add(session.accessToken);
+    sessionAccessTokens.add(preservedSession.accessToken);
+    window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(preservedSession));
     publishRecoveredSession(preservedSession);
     return preservedSession;
   }).catch((error) => {
-    clearSession();
-    publishRecoveredSession(null);
+    // Network/rate-limit/server errors are not evidence that authentication expired.
+    if (matchesCurrent() && error instanceof ApiError && [401, 403].includes(error.status)) {
+      clearSession();
+      publishRecoveredSession(null);
+    }
     throw error;
   }).finally(() => {
-    refreshPromise = null;
+    if (refreshPromise === pending) refreshPromise = null;
   });
-  return refreshPromise;
+  refreshPromise = pending;
+  return pending;
 }
 
-async function recoverSession(failedToken: string): Promise<AuthSession | null> {
+async function recoverSession(failedToken: string, generation: number): Promise<AuthSession | null> {
+  if (generation !== sessionGeneration) return null;
   const current = loadSession();
   if (!current) return null;
   if (current.accessToken !== failedToken) return current;
@@ -661,6 +696,9 @@ async function recoverSession(failedToken: string): Promise<AuthSession | null> 
 }
 
 export async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
+  const generation = sessionGeneration;
+  const recoveryAllowed = token && (loadSession()?.accessToken === token || sessionAccessTokens.has(token));
+  if (token && typeof window !== "undefined" && !recoveryAllowed) throw sessionChangedError();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
@@ -672,8 +710,10 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
   } catch {
     throw new ApiError("서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.", 0);
   }
-  if (response.status === 401 && token && allowSessionRecovery) {
-    const recovered = await recoverSession(token);
+  if (token && generation !== sessionGeneration) throw sessionChangedError();
+  if (response.status === 401 && token && allowSessionRecovery && recoveryAllowed) {
+    const recovered = await recoverSession(token, generation);
+    if (generation !== sessionGeneration) throw sessionChangedError();
     if (recovered) return request<T>(path, init, recovered.accessToken, false);
   }
   if (!response.ok) {
@@ -696,7 +736,9 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     throw error;
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const result = await response.json() as T;
+  if (token && generation !== sessionGeneration) throw sessionChangedError();
+  return result;
 }
 
 export function register(input: {
@@ -752,8 +794,9 @@ export function login(email: string, password: string): Promise<AuthSession> {
 
 export function refreshAuthSession(session: AuthSession): Promise<AuthSession> {
   const current = loadSession();
-  if (current && current.accessToken !== session.accessToken) return Promise.resolve(current);
-  return rotateSession(current ?? session);
+  if (!current || current.userId !== session.userId) return Promise.reject(sessionChangedError());
+  if (current.accessToken !== session.accessToken) return Promise.resolve(current);
+  return rotateSession(current);
 }
 
 export function revokeAuthSession(session: AuthSession): Promise<void> {
