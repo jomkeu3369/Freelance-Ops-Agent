@@ -34,7 +34,7 @@ jobs:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
           # Exact server-stage main merge builds both images; this workflow only verifies.
-          EXPECTED_BACKEND_SHA: 00ba39b14fe6fd05aea9b011514bb70d17cbf79e
+          EXPECTED_BACKEND_SHA: 988d7581e857ec74c0415a269939a9681d8c920a
           EXPECTED_SCHEMA: 47
           EXPECTED_AGENT_SHA: 00ba39b14fe6fd05aea9b011514bb70d17cbf79e
           VERIFY_MODE: postdeploy
@@ -49,3 +49,4 @@ jobs:
             "$DEPLOY_USER@$DEPLOY_HOST" \
             "python3 - '$EXPECTED_BACKEND_SHA' '$EXPECTED_SCHEMA' '$EXPECTED_AGENT_SHA' '$VERIFY_MODE'" \
             < infra/scripts/production-release-verify.py
+
