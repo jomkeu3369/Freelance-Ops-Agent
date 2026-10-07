@@ -1,5 +1,7 @@
 # OCR 구조 수정 검증 — 2026-10-07
 
+후속 전체 CI 검증: 이 문서의 559개는 선택한 로컬 검사이며 전체 DB/native 무스킵 검증 또는 merge 준비 완료를 뜻하지 않는다. 기존 Agent/backend/frontend/contracts CI에 해당 작업 브랜치만 허용해 전체 검증을 추가한다. 결과는 정확한 작업 SHA의 GitHub Actions job 및 JUnit evidence gate로 확인한다. 아래의 run0 기록은 그 시점의 과거 SHA에 대한 조회다. 모델 후보의 탈락 결론은 유지하며 재실험하지 않는다.
+
 운영 기준 소스 `988d7581e857ec74c0415a269939a9681d8c920a`와 수정 소스 `aa1fa8bc1707d7c8763d7ac8dd153f6eb79cfc34`를 각각 실제 `agent/Dockerfile`로 빌드했다. 격리 작업 브랜치 `codex/ocr-language-layout-coverage-20261007`만 변경했으며 main, 로그인 작업 브랜치, 운영 서버·DB·인증·비용 설정은 변경하지 않았다. 설계 및 배포 순서는 [설계 보고서](ocr-coverage-design-2026-10-07.md)를 따른다.
 
 ## 결과
