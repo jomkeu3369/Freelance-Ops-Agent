@@ -892,10 +892,25 @@ async function scrollBrandMerge(page, progress) {
     // Derive the documented scroll range from current DOM geometry, including translated copy and responsive fonts.
     const start = scrollY + stage.top + stage.height / 2 - innerHeight * 0.70;
     const end = scrollY + target.top + target.height / 2 - innerHeight * 0.65;
-    const destination = start + (end - start) * value + (value === 1 ? 2 : value === 0 ? -2 : 0);
+    const destination = value === 1 ? Math.ceil(end) + 1 : value === 0 ? Math.floor(start) - 1 : start + (end - start) * value;
     window.scrollTo({ top: destination, behavior: "instant" });
     return { start, end };
   }, progress);
+}
+
+async function waitForBrandLayout(page) {
+  let previous;
+  let stable = 0;
+  await expect.poll(async () => {
+    const current = await page.evaluate(() => {
+      const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
+      const target = document.querySelector("[data-story-brand-target]").getBoundingClientRect();
+      return [stage.top + scrollY, stage.width, stage.height, target.top + scrollY, target.left, target.width];
+    });
+    stable = previous && current.every((value, index) => Math.abs(value - previous[index]) < .25) ? stable + 1 : 0;
+    previous = current;
+    return stable;
+  }, { message: "Responsive layout must settle before measuring the brand flight endpoints", intervals: [50, 100, 150] }).toBeGreaterThanOrEqual(3);
 }
 
 async function expectBrandCopyClearance(page) {
@@ -1015,6 +1030,7 @@ for (const language of ["ko", "en"]) {
       const target = page.locator("[data-story-brand-target]");
       await expect(mark).toHaveCount(1);
       await expect(target).toHaveCount(1);
+      await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", /^inset\(/);
       // Observe every rendered style change, not only settled scroll checkpoints.
       await page.locator("[data-story-brand-plate]").evaluate(element => {
         const samples = [];
@@ -1107,7 +1123,7 @@ for (const language of ["ko", "en"]) {
       expect(frames.filter(frame => !frame.textClear), "Readable text must fade before the collapsing edge reaches it, including intermediate scrub frames").toEqual([]);
       expect(frames.filter(frame => frame.radius < 20 || frame.radius > 28 || frame.difference > 0.001), "No forward or reverse frame may lose rounding or horizontal symmetry").toEqual([]);
       await page.setViewportSize({ width: width === 1440 ? 1100 : 1440, height: 820 });
-      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await waitForBrandLayout(page);
       await scrollBrandMerge(page, .75);
       await expect.poll(async () => (await brandMergeGeometry(page, .75)).error, { message: "Resize must rebuild the intermediate straight path, not only its endpoint" }).toBeLessThanOrEqual(3);
       expect((await brandMergeGeometry(page, .75)).lineError).toBeLessThanOrEqual(3);
@@ -1116,6 +1132,7 @@ for (const language of ["ko", "en"]) {
       await page.setViewportSize({ width: width + 200, height: 900 });
       // Do not scroll after restoring the desktop breakpoint: a refresh must
       // repaint the numeric flight even when GSAP suppresses timeline callbacks.
+      await waitForBrandLayout(page);
       await expect.poll(async () => (await brandMergeGeometry(page)).error, { message: "Breakpoint restoration must paint the current F pose without another scroll" }).toBeLessThanOrEqual(3);
       const restoredFlight = await brandMergeGeometry(page);
       expect(restoredFlight.visibleCount).toBe(1);
