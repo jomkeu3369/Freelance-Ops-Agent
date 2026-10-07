@@ -50,7 +50,11 @@ per-page/frame coverage는 native/raster 상태, OCR 시도·완료·결과, 사
 
 Python focused 100, frontend unit 355, Java 관련 81회가 모두 통과했다. Ruff, mypy(관련 7파일), TypeScript typecheck, ESLint도 통과했다. Java21/Gradle9.6.1에서 모든 main/test class가 compile됐다. Next.js 16.3.6 production build(webpack) 및 production UI attachment browser 23개도 통과했다(1.5분). 새 OCR 옵션/coverage/취소 2개와 기존 21개를 포함한다.
 
+선택한 테스트 총 559개이며 저장소 전체 테스트라는 뜻은 아니다. Python은 `test_attachment_coverage.py`39/`test_attachment_ocr.py`26/`test_attachments.py`35, 100개 모두 pass/skip0(기존 FastAPI TestClient deprecation warning1개). Java는 ArchitectureTest8/AgentRunGatewayServiceTest18/AgentRunHistoryServiceTest42/ChatAttachmentServiceTest13, 81개 pass/skip0다. frontend `npm test` 전체 unit355 pass/skip0, attachment browser23 pass다. 실제 OCR 171회 비교와 candidate 자원 probe는 이 단위/브라우저 시험 개수와 별도다.
+
 저장소 CI와 같은 `openapi-spec-validator`로 Agent internal 및 Spring tool OpenAPI 계약 2개 모두 OK를 확인했다. 검사 컨테이너의 read-only home/noexec 임시 도구 경로 문제는 임시 `/tmp` 도구 경로와 module 실행으로 해결했으며 호스트·운영 환경을 변경하지 않았다. 최종 변경 Python lint와 oversized fixture 변경 후 frontend lint도 통과했다.
+
+구조 수정 및 검증 백업 SHA `2e487d253db1a4efd7fe6bdd3fefd40d8b5d9e2f`에 대해 GitHub Actions REST 조회(`head_sha` filter, 2026-10-07 14:23 KST) 결과 run0개를 확인했다. Agent/backend/frontend/contracts의 기존 push branch 필터에 이 작업 브랜치가 없고 PR/수동 CI 실행을 생성하지 않았다. **이 보고서의 pass는 로컬 Linux Docker 검사 결과이며 원격 CI 통과를 주장하지 않는다.**
 
 개발 UI 검사에서는 기존 preview 코드의 Strict Mode effect 재실행을 test fixture가 1회만 가정한 5개 실패와 2MiB buffer CDP 전달 시간 초과 1개를 확인했다. preview 코드는 기준 main과 동일하며 production UI에서는 5개 모두 통과했다. oversized fixture는 실제 파일 선택 경로로 바꾸어 동일 2MiB+1byte 입력을 검증했고 production에서 2.6초에 통과했다. 개발 모드 fixture의 1회 가정 자체는 변경하지 않았다. UI 전용 환경은 Node22.23.3/Playwright1.63.0/Chromium153, CPU1·memory3GiB, ephemeral writable filesystem, 외부 요청 abort fixture, Docker bridge였다. OCR 평가의 640MiB·read-only·network none 조건과 다르다. 초기 2GiB 컨테이너 부족 및 1GiB Node heap 부족도 검사 환경 실패로 구분하고 작업 전용 컨테이너만 종료했다.
 

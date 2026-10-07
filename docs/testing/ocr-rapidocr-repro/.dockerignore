@@ -1,0 +1,10 @@
+*
+!Dockerfile
+!candidate.in
+!candidate-lock.txt
+!models/
+!models/**
+!model-manifest.json
+!native_probe.py
+!worker_probe.py
+!driver_probe.py
