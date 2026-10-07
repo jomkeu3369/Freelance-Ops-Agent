@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 test("OCR options invalidate reviewed extraction and coverage separates attempt from completion", async ({ page }) => {
@@ -152,9 +154,14 @@ test("read failure and cancellation preserve files without starting AI", async (
   expect(state.starts[0].attachmentIds).toEqual(["attachment-3"]);
   expect(state.uploads).toHaveLength(3);
 });
-test("oversize file rejected locally", async ({page}) => {
+test("oversize file rejected locally", async ({page}, testInfo) => {
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles({name: "big.txt", mimeType: "text/plain", buffer: Buffer.alloc(2097153, "a")});
+  // Use the native picker path; transferring a 2MiB buffer through CDP can
+  // consume the test timeout on a constrained CPU before the application runs.
+  const path = testInfo.outputPath("big.txt");
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, Buffer.alloc(2097153, "a"));
+  await page.getByLabel("첨부파일 선택").setInputFiles(path);
   await expect(page.getByRole("alert").filter({hasText: "2 MiB"})).toBeVisible();
   expect(state.uploads).toHaveLength(0);
 });
