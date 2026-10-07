@@ -23,7 +23,11 @@ three seconds/native command, eight shared OCR seconds, 12 CPU seconds,
 512 MiB worker address space, 15 seconds/API extraction and two workers. Originals
 and rasterized images stay in memory. Overflow is rejected without truncation.
 
-The raster threshold is a conservative heuristic, not proof of coverage. Small
+The raster threshold is a conservative heuristic, not proof of coverage. Inspection
+byte/operator checks follow decompression/parsing, so they are traversal limits,
+not strict preprocessing bounds. A whitespace-token preflight gate avoids a second
+raster parse of excessively dense streams, but prior native-text parsing and
+decompression remain protected by the unchanged worker limits. Small
 rasters/annotations and unsampled units may contain unread text. Clipped and
 overlapping raster bounding boxes can overestimate area. Existing searchable
 scans may be OCR-read again; exact native prefixes are removed once and residual

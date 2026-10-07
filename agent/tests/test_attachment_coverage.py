@@ -13,7 +13,7 @@ from attachments.ocr import LocalOcr, OcrUnavailable
 from attachments.pdf_coverage import additional_ocr, raster_kind
 from attachments.router import FileInput, run_reader
 from contracts import AttachmentText
-from test_attachment_ocr import FakeOcr, file, image_bytes
+from test_attachment_ocr import NATIVE_AVAILABLE, FakeOcr, file, image_bytes
 
 
 def synthetic_pdf(native="HEADER", scale=1000, nested=False, inline=False, cycle=False, pages=1):
@@ -265,3 +265,52 @@ async def test_worker_rejects_option_error_with_fixed_code():
         )
     )
     assert result == {"error": "OCR_OPTIONS_UNSUPPORTED"}
+
+
+def inspection_limit_pdf(operators=False):
+    writer = PdfWriter()
+    page = writer.add_page(PdfReader(io.BytesIO(synthetic_pdf(scale=0))).pages[0])
+    content = page.get_contents().get_data()
+    stream = DecodedStreamObject()
+    stream.set_data(content + (b"q Q " * 60_000 if operators else b" " * 262_145))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def test_dense_stream_gate_avoids_raster_parser(monkeypatch):
+    from pypdf.generic import ContentStream
+
+    page = PdfReader(io.BytesIO(inspection_limit_pdf(True))).pages[0]
+
+    def forbidden(self):
+        pytest.fail("Dense stream must not be parsed again for raster inspection")
+
+    monkeypatch.setattr(ContentStream, "operations", property(forbidden))
+    assert raster_kind(page) == "UNKNOWN"
+
+
+@pytest.mark.parametrize("operators", [False, True])
+def test_inspection_limits_preserve_native_text_on_failed_ocr(monkeypatch, operators):
+    class Ocr(FakeOcr):
+        def read_pdf_page(self, payload, page):
+            raise OcrUnavailable("A local OCR tool could not read the content.")
+
+    monkeypatch.setattr(reader, "LocalOcr", Ocr)
+    result = reader.extract(file("metadata.pdf", inspection_limit_pdf(operators)))
+    assert result["text"].rstrip() == "[Page 1]\nHEADER"
+    assert result["coverage"][0]["rasterStatus"] == "UNKNOWN"
+    assert result["coverage"][0]["nativeStatus"] == "TEXT"
+    assert result["coverage"][0]["ocrStatus"] == "FAILED"
+    AttachmentText.model_validate(result)
+
+
+@pytest.mark.skipif(not NATIVE_AVAILABLE, reason="Requires production Linux OCR tools")
+async def test_dense_metadata_preserves_native_text_in_actual_limited_worker():
+    result = await run_reader(FileInput.model_validate(file("metadata.pdf", inspection_limit_pdf(True))))
+    assert result["status"] == "PARTIAL", result
+    assert "HEADER" in result["text"]
+    assert result["coverage"][0]["rasterStatus"] == "UNKNOWN"
+    assert result["coverage"][0]["nativeStatus"] == "TEXT"
+    AttachmentText.model_validate(result)

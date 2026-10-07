@@ -191,6 +191,9 @@ async def test_real_ocr_in_resource_limited_worker(extension, kind, frames):
     assert result["units"] == frames
     assert "Free local OCR languages:" in result["notice"]
     assert "not understood" in result["notice"]
+    if kind == "PDF":
+        assert result["coverage"][0]["nativeStatus"] == "EMPTY"
+        assert result["coverage"][0]["rasterStatus"] == "LARGE"
     if frames > 1:
         assert "Invoice total 122 USD" in result["text"]
     AttachmentText.model_validate(result)

@@ -27,8 +27,13 @@ validation, with an OCR-unavailable notice.
   scanned bodies below native titles and long native introductions
 - Raster inspection reads placement metadata/content operators, not image pixels.
   Nested painted Forms and inline images are included. Limits are 8 nested levels,
-  64 Form visits, 5,000 operators, 256 KiB per content stream and 1 MiB inspected
-  stream data per page. Cycles/limits are `UNKNOWN`, never proof of no scan
+  64 Form visits, 5,000 visited operators, 256 KiB per content stream and 1 MiB
+  inspected stream data per page. Byte checks follow decompression and operator
+  checks follow parsing, so they are not strict bounds on preprocessing work.
+  A conservative preflight gate stops raster reparsing above 20,000 whitespace
+  tokens; it can reject harmless text/inline data and does not bound prior native
+  text parsing or decompression. Existing worker CPU/address-space/request limits
+  are the final resource boundary. Cycles/limits are `UNKNOWN`, not proof of no scan
 - This area heuristic can miss small scans, annotations and clipping/overlap cases.
   Those limitations and the unchanged three-unit sampling are explicit. It does
   not provide full-document or visual coverage

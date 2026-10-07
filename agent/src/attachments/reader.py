@@ -177,7 +177,7 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
                     native_status = "TEXT"
             except (PdfReadError, ValueError, RecursionError):
                 part, native_status = "", "FAILED"
-            raster = raster_kind(page) if part.strip() else "NONE"
+            raster = raster_kind(page)
             eligible = not part.strip() or raster in {"LARGE", "UNKNOWN"}
             reason = "SAMPLED_OUT" if eligible else "SMALL_RASTER" if raster == "SMALL" else "TEXT_ONLY"
             coverage.append(coverage_unit(index, "PAGE", native_status, reason))

@@ -1,8 +1,10 @@
-"""Bounded raster placement inspection; never decode or save embedded images.
+"""Best-effort raster placement inspection; never decode/save embedded images.
 
 A painted raster covering >=25% of the media box (including tiled images) is a
 scan candidate. This is a conservative heuristic, not visual understanding.
 Small images and annotation appearances can still contain unread text.
+Stream byte checks follow decompression; operator checks follow pypdf parsing.
+The worker CPU/address-space/request limits remain the final resource boundary.
 """
 
 import math
@@ -15,6 +17,7 @@ from pypdf.generic import ContentStream, DecodedStreamObject
 MAX_STREAM_BYTES = 262_144
 MAX_INSPECTION_BYTES = 1_048_576
 MAX_OPERATIONS = 5000
+MAX_PREFLIGHT_TOKENS = 20_000
 MAX_FORMS = 64
 MAX_DEPTH = 8
 SCAN_AREA_RATIO = 0.25
@@ -67,6 +70,12 @@ def raster_kind(page: Any) -> str:
         byte_count += len(content)
         if len(content) > MAX_STREAM_BYTES or byte_count > MAX_INSPECTION_BYTES:
             raise InspectionLimit
+        # A conservative whitespace-token gate avoids reparsing very dense streams
+        # (including excessive tiny operators). It is not a PDF tokenizer and can
+        # also reject harmless text/inline data. Decompression has already happened.
+        for token_count, _ in enumerate(re.finditer(rb"\S+", content), 1):
+            if token_count > MAX_PREFLIGHT_TOKENS:
+                raise InspectionLimit
         bounded = DecodedStreamObject()
         bounded.set_data(content)
         parsed = ContentStream(bounded, page.pdf)
