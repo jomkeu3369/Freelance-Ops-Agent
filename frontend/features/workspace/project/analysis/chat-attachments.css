@@ -1,11 +1,30 @@
 .chat-attachments { min-width: 0; font-size: .8rem; }
-.chat-attachments ul { list-style: none; margin: .4rem 0; padding: 0; max-height: 220px; overflow: auto; }
-.chat-attachments li { border: 1px solid #aaa5; border-radius: 10px; padding: .55rem; margin: .35rem 0; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.chat-attachments strong { overflow-wrap: anywhere; }
-.chat-attachments details { width: 100%; }
-.chat-attachments pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .5rem; background: #8881; }
-.chat-attachments label { display: inline-flex; align-items: center; gap: .3rem; }
-.chat-attachments button, .chat-attachments select { border: 1px solid #8885; padding: .3rem .5rem; border-radius: 6px; }
+.chat-attachment-tiles { display: flex; gap: 10px; list-style: none; margin: 0; padding: 2px 2px 6px; overflow-x: auto; overscroll-behavior-x: contain; }
+.chat-attachment-card { position: relative; flex: 0 0 104px; min-width: 0; }
+.chat-attachments .chat-attachment-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 8px; width: 104px; height: 104px; padding: 13px 11px 12px; border: 1px solid color-mix(in srgb, var(--ink) 14%, var(--surface-solid)); border-radius: 15px; background: color-mix(in srgb, var(--ink) 4%, var(--surface-solid)); color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.chat-attachments .chat-attachment-tile:hover, .chat-attachments .chat-attachment-tile[aria-expanded="true"] { border-color: color-mix(in srgb, var(--ink) 32%, var(--surface-solid)); background: var(--surface-2); }
+.attachment-file-icon { flex-shrink: 0; color: var(--muted); }
+.attachment-file-icon.pdf { color: #d92d3c; }
+[data-theme="dark"] .attachment-file-icon.pdf { color: #ff7883; }
+.attachment-file-name { display: block; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: .8rem; font-weight: 500; }
+.chat-attachments .chat-attachment-remove { position: absolute; top: 0; right: 0; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 0 15px 0 8px; color: var(--muted); background: transparent; cursor: pointer; }
+.chat-attachments .chat-attachment-remove:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.chat-attachments :is(button, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.attachment-tile-status { display: flex; align-items: center; gap: 3px; max-width: 100%; font-size: .61rem; line-height: 1.2; color: var(--muted); }
+.attachment-tile-status[data-status="PARTIAL"], .attachment-tile-status[data-status="UNSUPPORTED"] { color: var(--ink); font-weight: 600; }
+.chat-attachment-review { max-height: min(360px, 42dvh); overflow: auto; overscroll-behavior: contain; margin: 8px 0 4px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.chat-attachment-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.chat-attachment-review-heading button { flex-shrink: 0; }
+.chat-attachment-review-files article { border-top: 1px solid var(--line); padding: .7rem 0; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.chat-attachment-review strong { overflow-wrap: anywhere; }
+.chat-attachment-review details { width: 100%; }
+.chat-attachment-review pre { max-height: 180px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .5rem; background: #8881; }
+.chat-attachment-review label { display: inline-flex; align-items: center; gap: .3rem; max-width: 100%; }
+.chat-attachment-review input[type="checkbox"] { flex-shrink: 0; }
+.chat-attachment-review button, .chat-attachment-review select, .chat-attachments .chat-attachment-cancel { border: 1px solid #8885; padding: .4rem .5rem; border-radius: 6px; color: var(--ink); background: var(--surface-solid); font: inherit; }
+.chat-attachment-review select { min-width: 0; max-width: 100%; }
+.chat-attachments .chat-attachment-cancel { margin-top: 6px; }
 .attachment-coverage { max-height: 220px; overflow: auto; }
 .attachment-coverage table { border-collapse: collapse; width: 100%; }
 .attachment-coverage th, .attachment-coverage td { text-align: left; padding: .35rem; border-bottom: 1px solid #aaa5; white-space: nowrap; }
+@media (pointer: coarse) { .chat-attachments .chat-attachment-remove { width: 40px; height: 40px; } }
