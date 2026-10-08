@@ -11,7 +11,7 @@ test("OCR options invalidate reviewed extraction and coverage separates attempt 
       {index: 3, kind: "PAGE", nativeStatus: "EMPTY", rasterStatus: "NONE", ocrAttempted: false, ocrCompleted: false, ocrStatus: "SKIPPED", reason: "SAMPLED_OUT"},
     ];
   });
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("scan.pdf", "synthetic scan", "application/pdf"));
+  await attach(page, file("scan.pdf", "synthetic scan", "application/pdf"));
   const scan = row(page, "scan.pdf");
   await expect(scan.getByLabel("문자 인식 언어")).toHaveValue("mixed");
   await expect(scan.getByLabel("문서 형태")).toHaveValue("general");
@@ -40,7 +40,7 @@ test("OCR options invalidate reviewed extraction and coverage separates attempt 
 
 test("OCR selection stays disabled during reading and cancellation cannot restore its late preview", async ({ page }) => {
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("image.png", "synthetic image", "image/png"));
+  await attach(page, file("image.png", "synthetic image", "image/png"));
   const image = row(page, "image.png");
   await image.getByLabel("문자 인식 언어").selectOption("en");
   const barrier = state.uploadBarrier = requestBarrier();
@@ -80,7 +80,7 @@ async function setup(page, configure = () => {}) {
   return state;
 }
 async function paste(page, text, composing = false) {
-  return page.locator("#agent-chat-input").evaluate((field, {text, composing}) => {
+  const prevented = await page.locator("#agent-chat-input").evaluate((field, {text, composing}) => {
     if (composing) field.dispatchEvent(new CompositionEvent("compositionstart", {bubbles: true}));
     const data = new DataTransfer(); data.setData("text/plain", text);
     const event = new ClipboardEvent("paste", {bubbles: true, cancelable: true, clipboardData: data});
@@ -90,13 +90,16 @@ async function paste(page, text, composing = false) {
     // rather than treating an unchanged textarea as evidence of native pasting.
     return event.defaultPrevented;
   }, {text, composing});
+  const tile = page.locator(".chat-attachment-tile").first();
+  if (await tile.count()) await tile.click();
+  return prevented;
 }
 test("large paste is local, lossless and reviewed before sending; ambiguous retry retains attachment IDs", async ({page}) => {
   const state = await setup(page);
   const text = "  고객\r\n😀" + "x".repeat(9000) + " \n";
   await page.locator("#agent-chat-input").fill("Summarize these notes");
   await paste(page, text);
-  await expect(page.getByText("pasted-text.txt", {exact: true})).toBeVisible();
+  await expect(page.getByText("pasted-text.txt", {exact: true}).first()).toBeVisible();
   await expect(page.locator("#agent-chat-input")).toHaveValue("Summarize these notes");
   expect(state.uploads).toHaveLength(0);
   await page.getByRole("button", {name: "로컬 TXT 확인"}).click();
@@ -109,7 +112,7 @@ test("large paste is local, lossless and reviewed before sending; ambiguous retr
   state.startFailures = 1;
   await page.getByRole("button", {name: "보내기", exact: true}).click();
   await expect(page.getByRole("alert").filter({hasText: "입력은 보존"})).toBeVisible();
-  await expect(page.getByText("pasted-text.txt", {exact: true})).toBeVisible();
+  await expect(page.getByText("pasted-text.txt", {exact: true}).first()).toBeVisible();
   await page.getByRole("button", {name: "보내기", exact: true}).click();
   await expect.poll(() => state.starts.length).toBe(2);
   expect(state.starts[0].attachmentIds).toEqual(["attachment-one"]);
@@ -119,7 +122,7 @@ test("large paste is local, lossless and reviewed before sending; ambiguous retr
 test("IME paste does not intercept; removing local attachment never uploads", async ({page}) => {
   const state = await setup(page);
   expect(await paste(page, "x".repeat(9000), true)).toBe(false);
-  await expect(page.getByText("pasted-text.txt", {exact: true})).toHaveCount(0);
+  await expect(page.getByText("pasted-text.txt", {exact: true}).first()).toHaveCount(0);
   await paste(page, "x".repeat(9000));
   await page.getByRole("button", {name: "pasted-text.txt 제거"}).click();
   expect(state.uploads).toHaveLength(0);
@@ -131,7 +134,7 @@ test("read failure and cancellation preserve files without starting AI", async (
   state.attachmentFailure = true;
   await page.getByRole("button", {name: "파일 읽고 확인", exact: true}).click();
   await expect(page.getByRole("alert").filter({hasText: "Invalid attachment"})).toBeVisible();
-  await expect(page.getByText("pasted-text.txt", {exact: true})).toBeVisible();
+  await expect(page.getByText("pasted-text.txt", {exact: true}).first()).toBeVisible();
   state.attachmentFailure = false;
   const barrier = state.uploadBarrier = requestBarrier();
   await page.getByRole("button", {name: "파일 읽고 확인", exact: true}).click();
@@ -161,20 +164,25 @@ test("oversize file rejected locally", async ({page}, testInfo) => {
   const path = testInfo.outputPath("big.txt");
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, Buffer.alloc(2097153, "a"));
-  await page.getByLabel("첨부파일 선택").setInputFiles(path);
+  await attach(page, path);
   await expect(page.getByRole("alert").filter({hasText: "2 MiB"})).toBeVisible();
   expect(state.uploads).toHaveLength(0);
 });
 
 
-const file = (name, text) => ({ name, mimeType: name.endsWith(".csv") ? "text/csv" : "text/plain", buffer: Buffer.from(text) });
-const row = (page, name) => page.locator(".chat-attachments li").filter({ has: page.getByText(name, { exact: true }) });
+async function attach(page, files) {
+  await page.getByLabel("첨부파일 선택").setInputFiles(files);
+  const tile = page.locator(".chat-attachment-tile").first();
+  if (await tile.count()) await tile.click();
+}
+const file = (name, text, mimeType = name.endsWith(".csv") ? "text/csv" : "text/plain") => ({ name, mimeType, buffer: Buffer.from(text) });
+const row = (page, name) => page.locator(".chat-attachment-review article").filter({ has: page.getByText(name, { exact: true }) });
 
 test("TXT/CSV selection remains local; changing options invalidates only that reviewed extraction", async ({ page }) => {
   const state = await setup(page);
   const txt = "  Original TXT\r\n😀  ";
   const csv = "name;amount\r\n고객;12\r\n";
-  await page.getByLabel("첨부파일 선택").setInputFiles([file("notes.txt", txt), file("costs.csv", csv)]);
+  await attach(page, [file("notes.txt", txt), file("costs.csv", csv)]);
   await expect(page.locator(".chat-attachments li")).toHaveCount(2);
   expect(state.uploads).toHaveLength(0);
   const notes = row(page, "notes.txt");
@@ -210,13 +218,13 @@ test("TXT/CSV selection remains local; changing options invalidates only that re
 test("removing previewed originals clears their contents and allows the same file to be selected again", async ({ page }) => {
   const state = await setup(page);
   const original = file("repeat.txt", "Synthetic private draft contents");
-  await page.getByLabel("첨부파일 선택").setInputFiles(original);
+  await attach(page, original);
   await page.getByRole("button", { name: "로컬 TXT 확인" }).click();
   await expect(page.locator(".chat-attachments pre")).toHaveText("Synthetic private draft contents");
   await page.getByRole("button", { name: "repeat.txt 제거" }).click();
   await expect(page.locator(".chat-attachments pre")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "미리보기 닫기" })).toHaveCount(0);
-  await page.getByLabel("첨부파일 선택").setInputFiles(original);
+  await attach(page, original);
   await expect(page.locator(".chat-attachments li")).toHaveCount(1);
   await expect(page.locator(".chat-attachments pre")).toHaveCount(0);
   await page.getByRole("button", { name: "로컬 TXT 확인" }).click();
@@ -247,7 +255,7 @@ for (const dismissal of ["close", "remove", "newer preview"]) {
   test(`a delayed local preview cannot return after ${dismissal}`, async ({ page }) => {
     await delayLocalPreview(page);
     const state = await setup(page);
-    await page.getByLabel("첨부파일 선택").setInputFiles([file("delayed.txt", "Delayed old contents"), file("current.txt", "Current contents")]);
+    await attach(page, [file("delayed.txt", "Delayed old contents"), file("current.txt", "Current contents")]);
     await row(page, "delayed.txt").getByRole("button", { name: "로컬 TXT 확인" }).click();
     await expect.poll(() => page.evaluate(() => window.attachmentPreviewReads.length)).toBe(1);
     if (dismissal === "close") await page.getByRole("button", { name: "미리보기 닫기" }).click();
@@ -275,7 +283,7 @@ test("one-hour draft expiry clears local previews and leaves the message untouch
   await page.clock.install();
   const state = await setup(page);
   await page.locator("#agent-chat-input").fill("Keep this unsent message");
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("expired.txt", "Expired draft contents"));
+  await attach(page, file("expired.txt", "Expired draft contents"));
   await page.getByRole("button", { name: "로컬 TXT 확인" }).click();
   await expect(page.locator(".chat-attachments pre")).toHaveText("Expired draft contents");
   await page.clock.fastForward(60 * 60 * 1000 + 30001);
@@ -325,7 +333,7 @@ test("long local preview is capped without clipping the uploaded original", asyn
 test("paste rejected at the file limit preserves existing originals and prevents native truncation", async ({ page }) => {
   const state = await setup(page);
   await page.locator("#agent-chat-input").fill("Keep this draft");
-  await page.getByLabel("첨부파일 선택").setInputFiles(Array.from({ length: 6 }, (_, index) => file(`original-${index}.txt`, `Original ${index}`)));
+  await attach(page, Array.from({ length: 6 }, (_, index) => file(`original-${index}.txt`, `Original ${index}`)));
   expect(await paste(page, "x".repeat(60000))).toBe(true);
   await expect(page.getByRole("alert").filter({ hasText: "파일 6개" })).toBeVisible();
   await expect(page.locator(".chat-attachments li")).toHaveCount(6);
@@ -339,7 +347,7 @@ test("paste rejected at the file limit preserves existing originals and prevents
 
 test("extracted text over the aggregate limit cannot be confirmed or sent", async ({ page }) => {
   const state = await setup(page, state => { state.extractionText = "😀".repeat(20001); });
-  await page.getByLabel("첨부파일 선택").setInputFiles([file("one.txt", "Original one"), file("two.txt", "Original two")]);
+  await attach(page, [file("one.txt", "Original one"), file("two.txt", "Original two")]);
   await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "총 추출량" })).toBeVisible();
   await expect(page.getByRole("checkbox")).toBeDisabled();
@@ -358,7 +366,7 @@ test("extracted text over the aggregate limit cannot be confirmed or sent", asyn
 
 test("attachment extraction keeps the existing AI spending guard", async ({ page }) => {
   const state = await setup(page, state => { state.aiUsage.spendingEnabled = false; });
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("guarded.txt", "Guarded original"));
+  await attach(page, file("guarded.txt", "Guarded original"));
   await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   await expect(page.getByRole("alert").filter({ hasText: "사용량과 모델 지원 상태" })).toBeVisible();
@@ -370,7 +378,7 @@ test("attachment extraction keeps the existing AI spending guard", async ({ page
 test("close and reopen of the same file cannot restore an older pending preview", async ({ page }) => {
   await delayLocalPreview(page);
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("delayed.txt", "Synthetic text"));
+  await attach(page, file("delayed.txt", "Synthetic text"));
   await page.getByRole("button", { name: "로컬 TXT 확인" }).click();
   await expect.poll(() => page.evaluate(() => window.attachmentPreviewReads.length)).toBe(1);
   await page.getByRole("button", { name: "미리보기 닫기" }).click();
@@ -393,7 +401,7 @@ test("local preview rejects safely after dismissal and a current read failure ca
   page.on("pageerror", error => errors.push(error.message));
   await delayLocalPreview(page);
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("delayed.txt", "Synthetic text"));
+  await attach(page, file("delayed.txt", "Synthetic text"));
   await page.getByRole("button", { name: "로컬 TXT 확인" }).click();
   await expect.poll(() => page.evaluate(() => window.attachmentPreviewReads.length)).toBe(1);
   await page.getByRole("button", { name: "미리보기 닫기" }).click();
@@ -422,7 +430,7 @@ test("local preview rejects safely after dismissal and a current read failure ca
 test("removing a failed request's attachment clears its retry notice and preserves the draft", async ({ page }) => {
   const state = await setup(page);
   await page.locator("#agent-chat-input").fill("Keep attachment retry exact");
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("original.txt", "Original attachment"));
+  await attach(page, file("original.txt", "Original attachment"));
   await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
   await page.getByRole("checkbox").check();
   state.startFailures = 1;
@@ -435,7 +443,7 @@ test("removing a failed request's attachment clears its retry notice and preserv
   await expect(retryNotice).toHaveCount(0);
   await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await expect(page.locator("#agent-chat-input")).toHaveValue("Keep attachment retry exact");
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("new.txt", "New unsent attachment"));
+  await attach(page, file("new.txt", "New unsent attachment"));
   await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   expect(state.starts).toHaveLength(1);
@@ -445,7 +453,7 @@ test("removing a failed request's attachment clears its retry notice and preserv
 
 test("an exact attachment-only retry stays enabled when platform spending becomes paused", async ({ page }) => {
   const state = await setup(page);
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("only.txt", "Attachment-only request"));
+  await attach(page, file("only.txt", "Attachment-only request"));
   await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
   await page.getByRole("checkbox").check();
   state.startFailures = 1;
@@ -475,7 +483,7 @@ for (const personalKey of [false, true]) test(`policy-like text with an attachme
   await input.fill("기본 세율 10%로 변경");
   const freeNotice = page.getByRole("status").filter({ hasText: "주간 한도 차감 없음" });
   await expect(freeNotice).toBeVisible();
-  await page.getByLabel("첨부파일 선택").setInputFiles(file("context.txt", "Synthetic supporting text"));
+  await attach(page, file("context.txt", "Synthetic supporting text"));
   await expect(freeNotice).toHaveCount(0);
   if (personalKey) {
     await page.locator(".chat-model-trigger").click();

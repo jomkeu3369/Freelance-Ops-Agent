@@ -1,5 +1,13 @@
 // Product-owned interface copy only. File contents and user requests stay verbatim.
 export const attachmentEnglish = {
+  "첨부파일": "Attachments",
+  "첨부파일 상세": "Attachment details",
+  "첨부파일 상세 닫기": "Close attachment details",
+  "{v0} 상세 보기": "View details for {v0}",
+  "읽는 중": "Reading",
+  "일부 읽음": "Partially read",
+  "확인 완료": "Reviewed",
+  "확인 필요": "Review needed",
   "문자 인식 언어": "OCR language",
   "한국어 + 영어": "Korean + English",
   "한국어": "Korean",

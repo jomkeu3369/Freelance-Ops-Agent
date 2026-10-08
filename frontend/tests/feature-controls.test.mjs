@@ -61,7 +61,7 @@ test("history names render snapshot IDs independently of an empty new composer c
   assert.equal(render(SkillNames, { ids: saved }), before); assert.match(before, /Proposal/); assert.match(before, /Bug/);
 });
 test("partial OCR controls localize UI while preserving source text and requiring review", () => {
-  const state = { items: [{ key: "file", file: { name: "사용자-원문.png", size: 100 }, encoding: "auto", delimiter: "auto", preview: { id: "attachment-one", extraction: { status: "PARTIAL", text: "로그인 사용자 원문", units: 1, encoding: null, notice: "" } } }], reading: false, error: "", confirmed: false, ready: true, tooLarge: false, add: noop, remove: noop, options: noop, setConfirmed: noop, cancel: noop };
+  const state = { items: [{ key: "file", file: { name: "사용자-원문.png", size: 100 }, encoding: "auto", delimiter: "auto", preview: { id: "attachment-one", extraction: { status: "PARTIAL", text: "로그인 사용자 원문", units: 1, encoding: null, notice: "" } } }], reviewOpen: true, setReviewOpen: noop, reading: false, error: "", confirmed: false, ready: true, tooLarge: false, add: noop, remove: noop, options: noop, setConfirmed: noop, cancel: noop };
   const markup = render(ChatAttachments, { state, disabled: false });
   const picker = render(ChatAttachmentButton, { state, disabled: false });
   assert.match(picker, /Choose attachments/); assert.match(picker, /aria-label="Attach files"/);
@@ -80,4 +80,15 @@ test("dynamic pet and attachment labels have English copy, with no unmarked Kore
     }
     visit(source);
   }
+});
+
+
+test("fresh attachments render a compact named card without hidden review controls or promises", () => {
+  const state = { items: [{ key: "file", file: { name: "long-synthetic-document.pdf", size: 100 }, encoding: "auto", delimiter: "auto" }], reading: false, reviewOpen: false, error: "", confirmed: false };
+  const markup = render(ChatAttachments, { state, disabled: false });
+  assert.match(markup, /View details for long-synthetic-document.pdf/);
+  assert.match(markup, /aria-label="Remove long-synthetic-document.pdf"/);
+  assert.match(markup, /attachment-file-icon pdf/);
+  assert.doesNotMatch(markup, /<select|<input|chat-attachment-review|Text was extracted|Reviewed/);
+  assert.match(markup, /Not read yet/);
 });
