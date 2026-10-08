@@ -150,6 +150,7 @@ test("reading opens review details automatically and still requires explicit con
   await page.setViewportSize({ width: 390, height: 844 });
   const state = await setup(page);
   await page.getByLabel("첨부파일 선택").setInputFiles(file("review.pdf"));
+  await page.screenshot({ path: "outputs/ui-ux/attachment-card-single-mobile.png", fullPage: false, animations: "disabled" });
   await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
   await expect(panel(page)).toBeVisible();
   const confirmation = panel(page).getByRole("checkbox");
@@ -159,7 +160,20 @@ test("reading opens review details automatically and still requires explicit con
   await panel(page).getByText("읽기 결과 확인", { exact: true }).click();
   await expect(panel(page).locator("pre")).toHaveText("Extracted synthetic contents: review.pdf");
   await expectComposerInViewport(page);
+  const extras = page.locator(".agent-chat-extras");
+  await expect(panel(page)).toHaveCSS("overflow-y", "visible");
+  const expectCloseInReviewViewport = async () => {
+    const viewport = await extras.boundingBox();
+    const close = await closeDetails(page).boundingBox();
+    expect(close.y).toBeGreaterThanOrEqual(viewport.y - 1);
+    expect(close.y + close.height).toBeLessThanOrEqual(viewport.y + viewport.height + 1);
+  };
+  await expectCloseInReviewViewport();
   await page.screenshot({ path: "outputs/ui-ux/attachment-cards-detail.png", fullPage: false, animations: "disabled" });
+  await extras.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect(panel(page).getByRole("checkbox")).toBeInViewport();
+  await expectCloseInReviewViewport();
+  await page.screenshot({ path: "outputs/ui-ux/attachment-cards-detail-scrolled.png", fullPage: false, animations: "disabled" });
   expect(state.uploads).toHaveLength(1);
   expect(state.uploads[0].mimeType).toBe("application/pdf");
   expect(state.starts).toEqual([]);

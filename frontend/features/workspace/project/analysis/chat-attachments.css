@@ -12,8 +12,8 @@
 .chat-attachments :is(button, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .attachment-tile-status { display: flex; align-items: center; gap: 3px; max-width: 100%; font-size: .61rem; line-height: 1.2; color: var(--muted); }
 .attachment-tile-status[data-status="PARTIAL"], .attachment-tile-status[data-status="UNSUPPORTED"] { color: var(--ink); font-weight: 600; }
-.chat-attachment-review { max-height: min(360px, 42dvh); overflow: auto; overscroll-behavior: contain; margin: 8px 0 4px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-.chat-attachment-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.chat-attachment-review { margin: 8px 0 4px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.chat-attachment-review-heading { position: sticky; top: 0; z-index: 1; background: var(--surface); padding-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .chat-attachment-review-heading button { flex-shrink: 0; }
 .chat-attachment-review-files article { border-top: 1px solid var(--line); padding: .7rem 0; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .chat-attachment-review strong { overflow-wrap: anywhere; }
