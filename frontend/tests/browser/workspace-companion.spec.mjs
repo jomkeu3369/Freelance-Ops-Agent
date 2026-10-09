@@ -211,6 +211,9 @@ test("reduced motion and keyboard dialogs leave the still companion noninteracti
   await page.keyboard.press("Escape"); await expect(settings).toBeFocused();
   await page.locator(".workspace-theme-toggle").click();
   await expect(companion(page)).toBeVisible();
+  const caption = companion(page).locator("small");
+  await expect(caption).toHaveText("Always by your side");
+  expect(await caption.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
   await page.screenshot({ path: "outputs/ui-ux/workspace-companion-dark.png" });
   expect(state.starts).toEqual([]); expect(server.errors ?? []).toEqual([]);
 });
