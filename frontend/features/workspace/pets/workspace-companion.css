@@ -4,7 +4,7 @@
 .workspace-companion { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; max-width: 180px; min-width: 0; color: var(--ink); }
 .workspace-companion-portrait { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-2); }
 .workspace-companion .pet-art, .workspace-login-pet { display: block; width: 44px; height: 44px; }
-.workspace-companion-caption { display: grid; gap: 3px; min-width: 0; }
+.workspace-companion-caption { display: grid; gap: 3px; min-width: 0; overflow: hidden; }
 .workspace-companion-caption small { color: var(--muted); font-size: .625rem; line-height: 1.3; white-space: nowrap; }
 .workspace-companion-caption strong { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .75rem; line-height: 1.4; font-weight: 650; }
 /* Intentionally still: no autoplay, timers, or motion that needs a pause control. */

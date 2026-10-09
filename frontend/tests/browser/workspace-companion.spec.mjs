@@ -56,7 +56,7 @@ async function companionFixture(page) {
   return { state, server };
 }
 
-for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]]) {
+for (const [width, height] of [[320, 568], [390, 844], [821, 800], [844, 390], [1024, 768], [1440, 900]]) {
   test(`${width}×${height}: persistent companion stays clear of chat, attachments and header controls`, async ({ page }) => {
     const { state, server } = await companionFixture(page);
     await page.setViewportSize({ width, height });
@@ -66,6 +66,19 @@ for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1440, 900]])
     await page.getByLabel("첨부파일 선택").setInputFiles({ name: "companion-fixture.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic unsent attachment") });
     await expect(page.locator(".chat-attachments")).toContainText("companion-fixture.txt");
     const bounds = await companion(page).boundingBox();
+    const portrait = await page.locator(".workspace-companion-portrait").boundingBox();
+    const artwork = await companion(page).locator("svg").first().boundingBox();
+    expect(portrait.width).toBeGreaterThanOrEqual(36);
+    expect(portrait.height).toBeGreaterThanOrEqual(40);
+    expect(artwork.height).toBeGreaterThanOrEqual(40);
+    const title = await page.locator(".workspace-page-label").boundingBox();
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(title.x);
+    const caption = page.locator(".workspace-companion-caption");
+    if (await caption.isVisible()) {
+      const box = await caption.boundingBox();
+      expect(box.height).toBeGreaterThan(20);
+      expect(box.x + box.width).toBeLessThanOrEqual(title.x);
+    }
     for (const selector of [".workspace-account-actions", ".sidebar-toggle", ".agent-chat-composer", ".chat-attachments"]) {
       const target = await page.locator(selector).boundingBox();
       expect(target).not.toBeNull();

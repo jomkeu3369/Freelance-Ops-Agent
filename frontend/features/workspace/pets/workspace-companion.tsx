@@ -43,12 +43,12 @@ export function WorkspaceCompanion({ session, canReadPets }: { session: AuthSess
   // Never substitute an unselected library pet or an immutable past-run profile.
   const label = selected ? t("함께하는 동료: {name}", { name: selected.profile.name }) : t("로그인에서 함께 온 친구");
   return <div className="workspace-companion" role="img" aria-label={label} title={label} data-companion={selected ? "selected" : "login"}>
-    <span className="workspace-companion-portrait" aria-hidden="true">
+    <div className="workspace-companion-portrait" aria-hidden="true">
       {selected ? <PetArt kind={selected.profile.animal} profile={selected.profile} /> :
         <svg className="workspace-login-pet" viewBox="510 330 370 370" aria-hidden="true" focusable="false">
           <image href={loginMedia.staticPoster} width="1600" height="900" />
         </svg>}
-    </span>
-    <span className="workspace-companion-caption" aria-hidden="true"><small>{t("늘 함께하는 작은 동료")}</small><strong>{selected ? selected.profile.name : t("오늘도 함께해요")}</strong></span>
+    </div>
+    <div className="workspace-companion-caption" aria-hidden="true"><small>{t("늘 함께하는 작은 동료")}</small><strong>{selected ? selected.profile.name : t("오늘도 함께해요")}</strong></div>
   </div>;
 }
