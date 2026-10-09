@@ -62,6 +62,7 @@ import "../../app/workspace/quick-intake.css";
 import "./project/analysis/agent-chat.css";
 import "./professional-workspace.css";
 import "./fullscreen-chat.css";
+import "./pets/workspace-companion.css";
 
 const compactNavigationQuery = "(max-width: 820px)";
 function subscribeToCompactNavigation(onChange: () => void) {
@@ -763,6 +764,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       <WorkspaceChrome
         session={session}
         profile={profile}
+        workspaceReady={loadedWorkspaceId === session.workspaceId}
         sidebarCollapsed={compactNavigation ? !mobileMenuOpen : sidebarCollapsed}
         compactNavigation={compactNavigation}
         setSidebarCollapsed={compactNavigation ? (collapsed) => setMobileMenuOpen(!collapsed) : setSidebarCollapsed}

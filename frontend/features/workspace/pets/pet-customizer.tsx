@@ -1,6 +1,7 @@
 import { useT } from "../../../app/lib/ui-language";
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError, listAgentPets, previewAgentPet, saveAgentPet, changeAgentPet, deleteAgentPet, type AuthSession, type AgentPetCollection, type ComposeAgentPet, type CustomAgentPet, type PetProfile, type Provider } from "@/app/lib/api";
+import { petLibraryRevision, publishPetLibrary } from "./pet-library-events";
 import { PetArt } from "./pet-art";
 import { preferenceLabels, petDutyLabels } from "./pet-profile";
 
@@ -23,8 +24,9 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   useEffect(() => {
     let current = true;
     const version = ++listVersion.current;
-    listAgentPets(session).then(value => { if (current && version === listVersion.current) setCollection(value); }).catch(() => { if (current && version === listVersion.current) setStatus("펫을 불러오지 못했습니다. 다시 불러와 주세요."); });
-    return () => { current = false; };
+    const libraryRevision = petLibraryRevision();
+    listAgentPets(session).then(value => { if (current && version === listVersion.current) { setCollection(value); publishPetLibrary(session, value, libraryRevision); } }).catch(() => { if (current && version === listVersion.current) setStatus("펫을 불러오지 못했습니다. 다시 불러와 주세요."); });
+    return () => { current = false; listVersion.current += 1; };
   }, [session, reload]);
   const locked = disabled || busy || !collection;
   const active = collection?.pets.filter(pet => !pet.archived) ?? [];
@@ -51,8 +53,12 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   async function refreshCollection() {
     // A manual reload started before a mutation must not replace its newer list.
     const version = ++listVersion.current;
+    const libraryRevision = petLibraryRevision();
     const value = await listAgentPets(session);
     if (version === listVersion.current) setCollection(value);
+    // The header outlives this panel. Publish a confirmed current revision even
+    // when the panel closed while its post-mutation read was in flight.
+    publishPetLibrary(session, value, libraryRevision);
   }
 
   function makePreview() {
@@ -69,6 +75,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     void perform(async () => {
       // Preserve the mutation ID on failures; a lost response must not create another pet.
       const pet = await saveAgentPet(session, preview.input);
+      publishPetLibrary(session, null);
       await refreshCollection();
       setEditing(pet); setDescription(""); setPreview(null); setResetPreferences(false);
       setStatus("저장하고 선택했습니다. 다음 실행에 이 펫 하나의 선호를 사용합니다.");
@@ -78,6 +85,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   function change(pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE") {
     void perform(async () => {
       await changeAgentPet(session, pet, action);
+      publishPetLibrary(session, null);
       await refreshCollection();
       if (editing?.id === pet.id) edit(null);
       setStatus(action === "SELECT" ? "다음 실행에 사용할 펫을 선택했습니다." : action === "ARCHIVE" ? "보관했습니다. 이 펫은 다음 실행에 사용하지 않습니다." : "펫을 복원했습니다. 사용하려면 선택해 주세요.");
@@ -117,7 +125,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
       <button type="button" className="primary-button" disabled={locked} onClick={save}>{t("저장하고 선택")}</button>
       <button type="button" className="quiet-button" disabled={locked} onClick={() => setPreview(null)}>{t("입력으로 돌아가기")}</button></div>
     </section>}
-    {archived.length > 0 && <details className="pet-archive"><summary>{t("보관함")} ({archived.length})</summary>{archived.map(pet => <div key={pet.id}><strong>{pet.profile.name}</strong><button type="button" disabled={locked || !!preview || active.length >= (collection?.maxActivePets ?? 0)} onClick={() => change(pet, "RESTORE")}>{t("복원")}</button><button type="button" disabled={locked || !!preview} onClick={() => setDeleteId(pet.id)}>{t("삭제")}</button>{deleteId === pet.id && <span>{t("이 펫을 영구 삭제할까요? 기존 실행 기록은 유지됩니다.")}<button type="button" disabled={locked} onClick={() => void perform(async () => { await deleteAgentPet(session, pet); setDeleteId(null); await refreshCollection(); setStatus("펫을 삭제했습니다."); })}>{t("영구 삭제")}</button><button type="button" disabled={locked} onClick={() => setDeleteId(null)}>{t("취소")}</button></span>}</div>)}</details>}
+    {archived.length > 0 && <details className="pet-archive"><summary>{t("보관함")} ({archived.length})</summary>{archived.map(pet => <div key={pet.id}><strong>{pet.profile.name}</strong><button type="button" disabled={locked || !!preview || active.length >= (collection?.maxActivePets ?? 0)} onClick={() => change(pet, "RESTORE")}>{t("복원")}</button><button type="button" disabled={locked || !!preview} onClick={() => setDeleteId(pet.id)}>{t("삭제")}</button>{deleteId === pet.id && <span>{t("이 펫을 영구 삭제할까요? 기존 실행 기록은 유지됩니다.")}<button type="button" disabled={locked} onClick={() => void perform(async () => { await deleteAgentPet(session, pet); publishPetLibrary(session, null); setDeleteId(null); await refreshCollection(); setStatus("펫을 삭제했습니다."); })}>{t("영구 삭제")}</button><button type="button" disabled={locked} onClick={() => setDeleteId(null)}>{t("취소")}</button></span>}</div>)}</details>}
     <p className="pet-customizer-intro">{t("유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성입니다. 저장한 선호는 다음 업무 실행부터 적용되며 해당 실행의 모델 사용량이 적용됩니다.")}</p>
     <button type="button" className="quiet-button" disabled={busy || disabled} onClick={() => setReload(value => value + 1)}>{t("목록 다시 불러오기")}</button>
     <p role="status" aria-live="polite">{t(status)}</p>
