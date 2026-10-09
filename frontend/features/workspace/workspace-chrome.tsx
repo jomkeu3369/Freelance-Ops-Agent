@@ -1,3 +1,4 @@
+import { WorkspaceCompanion } from "./pets/workspace-companion";
 import { useT } from "../../app/lib/ui-language";
 import { WorkspaceLanguageMenu } from "./workspace-language-menu";
 import { useMemo, useRef } from "react";
@@ -10,6 +11,7 @@ import { pipelineStatusLabels, runStatusLabels } from "./shared/constants";
 interface WorkspaceChromeProps {
   session: AuthSession;
   profile: MeProfile | null;
+  workspaceReady: boolean;
   sidebarCollapsed: boolean;
   compactNavigation: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -30,7 +32,7 @@ interface WorkspaceChromeProps {
   onSwitchWorkspace: (workspaceId: string) => Promise<void>;
 }
 
-export function WorkspaceChrome({ session, profile, sidebarCollapsed, compactNavigation, setSidebarCollapsed, isDarkTheme, setTheme, activeView, streamState, streamRetryCount, runId, run, projects, selectedProjectId, activePermissions, navigateWorkspace, onSelectProject, onCreateProject, logout, onSwitchWorkspace }: WorkspaceChromeProps) {
+export function WorkspaceChrome({ session, profile, workspaceReady, sidebarCollapsed, compactNavigation, setSidebarCollapsed, isDarkTheme, setTheme, activeView, streamState, streamRetryCount, runId, run, projects, selectedProjectId, activePermissions, navigateWorkspace, onSelectProject, onCreateProject, logout, onSwitchWorkspace }: WorkspaceChromeProps) {
   const t = useT();
   const sidebar = useRef<HTMLElement>(null);
   useDialogFocusTrap(sidebar, () => setSidebarCollapsed(true), false, compactNavigation && !sidebarCollapsed, true);
@@ -62,10 +64,13 @@ export function WorkspaceChrome({ session, profile, sidebarCollapsed, compactNav
         </button>
       </div>
       <div className="workspace-live-status">
+        <WorkspaceCompanion key={`${session.userId}:${session.workspaceId}:${workspaceReady && activePermissions.has("agent.run")}`} session={session} canReadPets={workspaceReady && activePermissions.has("agent.run")} />
+        <div className="workspace-page-context">
         <strong className="workspace-page-label" title={pageLabel}>{pageLabel}</strong>
         <div className="workspace-connection-label" role="status" aria-live="polite">
           <i className={activeRun && streamState === "connected" ? "connected" : activeRun && streamState === "reconnecting" ? "reconnecting" : ""} aria-hidden="true" />
           <span>{status}</span>
+        </div>
         </div>
       </div>
       <div className="workspace-account-actions">

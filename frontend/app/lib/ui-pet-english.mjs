@@ -1,5 +1,9 @@
 // Product-owned assistant labels. Custom names and generated work remain verbatim.
 export const petEnglish = {
+  "함께하는 동료: {name}": "Your companion: {name}",
+  "로그인에서 함께 온 친구": "Your friend from the login page",
+  "늘 함께하는 작은 동료": "Always by your side",
+  "오늘도 함께해요": "Here with you today",
   "차근": "Calm",
   "또렷": "Clear",
   "든든": "Steady",
