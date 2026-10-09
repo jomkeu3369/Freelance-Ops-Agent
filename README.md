@@ -8,16 +8,12 @@
 
 [서비스 소개](https://www.freelance-ops.site) · [업무 공간 시작](https://www.freelance-ops.site/workspace) · [기술 포트폴리오](docs/portfolio/README.md)
 
-**Web & Interaction**
-
 ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React_19-149ECA?style=flat-square&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 ![GSAP](https://img.shields.io/badge/GSAP-0AE448?style=flat-square&logo=gsap&logoColor=black)
 ![Three.js](https://img.shields.io/badge/Three.js_%2F_WebGL-000000?style=flat-square&logo=threedotjs&logoColor=white)
-
-**Backend & Data**
 
 ![Java](https://img.shields.io/badge/Java_21-ED8B00?style=flat-square)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot_4-6DB33F?style=flat-square&logo=springboot&logoColor=white)
@@ -26,16 +22,12 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL_17-4169E1?style=flat-square&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-4169E1?style=flat-square)
 
-**AI Runtime**
-
 ![Python](https://img.shields.io/badge/Python_3.12-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=flat-square)
 ![OpenAI](https://img.shields.io/badge/OpenAI_Responses_API-412991?style=flat-square)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=flat-square&logo=sqlalchemy&logoColor=white)
 ![Tesseract OCR](https://img.shields.io/badge/Tesseract_OCR-4285F4?style=flat-square)
-
-**Delivery & Quality**
 
 ![Docker](https://img.shields.io/badge/Docker_Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions_%2F_GHCR-2088FF?style=flat-square&logo=githubactions&logoColor=white)
