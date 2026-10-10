@@ -34,9 +34,9 @@ jobs:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
           # Exact server-stage main merge builds both images; this workflow only verifies.
-          EXPECTED_BACKEND_SHA: ac7c7d44e5e7f6282cf735c585ab58b1f1cad5b5
+          EXPECTED_BACKEND_SHA: 9a48b5d18672f02fdcb30269b1dffc3f0a414d24
           EXPECTED_SCHEMA: 47
-          EXPECTED_AGENT_SHA: ac7c7d44e5e7f6282cf735c585ab58b1f1cad5b5
+          EXPECTED_AGENT_SHA: 9a48b5d18672f02fdcb30269b1dffc3f0a414d24
           VERIFY_MODE: postdeploy
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
