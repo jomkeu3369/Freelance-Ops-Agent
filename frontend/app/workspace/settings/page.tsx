@@ -5,5 +5,5 @@ import { useWorkspace } from "../../../features/workspace/workspace-context";
 
 export default function SettingsPanelPage() {
   const { settings } = useWorkspace();
-  return <SettingsPanel {...settings} />;
+  return <SettingsPanel key={`${settings.session.userId}:${settings.session.workspaceId}`} {...settings} />;
 }
