@@ -20,10 +20,10 @@ DEPLOY_ROOT = Path('/opt/freelance-ops')
 BACKUP_ROOT = Path('/var/backups/freelance-ops')
 PROJECT = 'freelance-ops-v2-production'
 EXPECTED_CURRENT_SHAS = {
-    'backend': '988d7581e857ec74c0415a269939a9681d8c920a',
-    'agent': '00ba39b14fe6fd05aea9b011514bb70d17cbf79e',
+    'backend': 'ac7c7d44e5e7f6282cf735c585ab58b1f1cad5b5',
+    'agent': 'ac7c7d44e5e7f6282cf735c585ab58b1f1cad5b5',
 }
-APPROVED_RELEASE_CANDIDATE_SHA = 'dc39937aa9f118e012e6de4f33d3208dcd813921'
+APPROVED_RELEASE_CANDIDATE_SHA = '9eeead1e7707d78466355bf82aaa95c522603611'
 SHA = re.compile(r'[0-9a-f]{40}')
 DIGEST = re.compile(r'sha256:[0-9a-f]{64}')
 
