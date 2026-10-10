@@ -43,6 +43,18 @@ def multiply(current: tuple[float, ...], local: tuple[float, ...]) -> tuple[floa
 
 def raster_kind(page: Any) -> str:
     """NONE/SMALL/LARGE/UNKNOWN, including inline images and nested painted Forms."""
+    try:
+        return _raster_kind(page)
+    except (
+        InspectionLimit, PdfReadError, ValueError, TypeError, KeyError, IndexError,
+        AttributeError, OverflowError, RecursionError,
+    ):
+        # Damaged optional geometry/resources must not discard readable native text.
+        # Resource exhaustion and system failures still propagate to the worker boundary.
+        return "UNKNOWN"
+
+
+def _raster_kind(page: Any) -> str:
     box = tuple(float(value) for value in page.mediabox)
     page_area = (box[2] - box[0]) * (box[3] - box[1])
     if not math.isfinite(page_area) or page_area <= 0:
@@ -117,10 +129,7 @@ def raster_kind(page: Any) -> str:
                         obj, obj.get("/Resources", resources), multiply(matrix, local), active | {identity}, depth + 1
                     )
 
-    try:
-        inspect(page.get_contents(), page.get("/Resources", {}), IDENTITY, set(), 0)
-    except (InspectionLimit, PdfReadError, ValueError, TypeError, KeyError, RecursionError):
-        return "UNKNOWN"
+    inspect(page.get_contents(), page.get("/Resources", {}), IDENTITY, set(), 0)
     return "LARGE" if total_area / page_area >= SCAN_AREA_RATIO else "SMALL" if images else "NONE"
 
 
