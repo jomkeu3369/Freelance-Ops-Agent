@@ -101,8 +101,6 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
         }
         update(current.current.map(value => value.key === item.key ? { ...value, preview } : value));
       }
-      const characters = current.current.reduce((sum, item) => sum + Array.from(item.preview?.extraction.text ?? "").length, 0);
-      if (characters > attachmentLimits.text) setError("총 추출량은 40,000자 이하여야 합니다. 일부 첨부를 제거해 주세요.");
       return false; // Review coverage and confirm before the next Send; never auto-send after extraction.
     } catch (cause) {
       if (mounted.current && !controller.signal.aborted) setFailedKey(readingKey);
@@ -112,7 +110,8 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
   }
   const ready = items.every(item => item.preview);
   const tooLarge = items.reduce((sum, item) => sum + Array.from(item.preview?.extraction.text ?? "").length, 0) > attachmentLimits.text;
-  return { items, reading, error, failedKey, add, paste, remove, options, prepare, confirmed, setConfirmed, ready, tooLarge, reviewOpen, setReviewOpen,
+  const currentError = error || (tooLarge ? "총 추출량은 40,000자 이하여야 합니다. 일부 첨부를 제거해 주세요." : "");
+  return { items, reading, error: currentError, failedKey, add, paste, remove, options, prepare, confirmed, setConfirmed, ready, tooLarge, reviewOpen, setReviewOpen,
     ids: items.flatMap(item => item.preview ? [item.preview.id] : []),
     clear: () => { update([]); setReviewOpen(false); setFailedKey(null); drafts.delete(key); }, cancel: () => abort.current?.abort() };
 }

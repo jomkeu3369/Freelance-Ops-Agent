@@ -70,9 +70,13 @@ async function setup(page, configure = () => {}) {
     const file = fields.get("file");
     state.uploadFields.push({ name: file.name, encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), bytes: Buffer.from(await file.arrayBuffer()) });
     state.ocrOptions.push({language: fields.get("ocrLanguage"), layout: fields.get("ocrLayout")});
-    const barrier = state.uploadBarrier;
-    state.uploadBarrier = null;
+    const barrier = !state.uploadBarrierAt || state.uploadBarrierAt === index ? state.uploadBarrier : null;
+    if (barrier) state.uploadBarrier = null;
     if (barrier) await barrier.wait();
+    if (state.attachmentFailureAt === index) {
+      if (state.attachmentFailureMode === "network") return route.abort("failed");
+      return route.fulfill({ status: state.attachmentFailureMode, json: { detail: `Synthetic upload failure ${state.attachmentFailureMode}` } });
+    }
     if (state.attachmentFailure) return route.fulfill({status: 422, contentType: "application/json", body: JSON.stringify({detail: "Invalid attachment"})});
     return route.fulfill({status: 201, contentType: "application/json", body: JSON.stringify({id: index === 1 ? "attachment-one" : `attachment-${index}`, expiresAt: "2099-01-01T00:00:00Z", extraction: {name: file.name, mediaType: file.type, size: file.size, sha256: "0".repeat(64), status: state.coverage ? "PARTIAL" : "COMPLETE", text: state.extractionText ?? "Extracted synthetic contents", notice: "", encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), units: state.coverage?.length ?? 1, ...(state.coverage ? {coverage: state.coverage} : {})}})});
   });
@@ -355,6 +359,7 @@ test("extracted text over the aggregate limit cannot be confirmed or sent", asyn
   await page.locator("#agent-chat-input").press("Control+Enter");
   expect(state.starts).toHaveLength(0);
   await page.getByRole("button", { name: "two.txt 제거" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "총 추출량" })).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toBeEnabled();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByRole("checkbox").check();
@@ -682,3 +687,58 @@ for (const reviewed of [false, true]) test(`logout outside chat cannot restore $
   expect(state.starts).toEqual([]);
   expect(state.blocked).toEqual([]);
 });
+
+
+for (const failure of [429, 503, "network", "cancel"]) {
+  test(`partial upload recovers after ${failure} with original files and exactly one reviewed Send`, async ({ page }) => {
+    const state = await setup(page);
+    await page.locator("#agent-chat-input").fill("Keep this request while reading");
+    await attach(page, [file("first.txt", "First original"), file("second.txt", "Second original"), file("third.txt", "Third original")]);
+    let cancelled;
+    if (failure === "cancel") {
+      cancelled = state.uploadBarrier = requestBarrier();
+      state.uploadBarrierAt = 2;
+    } else {
+      state.attachmentFailureAt = 2;
+      state.attachmentFailureMode = failure;
+    }
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    if (cancelled) {
+      await cancelled.entered;
+      await page.getByRole("button", { name: "파일 읽기 취소" }).click();
+    }
+    const error = failure === "cancel" ? "취소" : failure === "network" ? "네트워크" : `Synthetic upload failure ${failure}`;
+    await expect(page.getByRole("alert").filter({ hasText: error })).toBeVisible();
+    cancelled?.release();
+    await expect(page.getByRole("button", { name: "파일 읽기 취소" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "파일 첨부", exact: true })).toBeEnabled();
+    await expect(page.locator(".chat-attachment-tile")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "first.txt 상세 보기" })).toContainText("확인 필요");
+    if (failure !== "cancel") await expect(page.getByRole("button", { name: "second.txt 상세 보기" })).toContainText("읽기 실패");
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.locator("#agent-chat-input")).toHaveValue("Keep this request while reading");
+    expect(state.uploads).toHaveLength(2);
+    expect(state.starts).toHaveLength(0);
+    const retry = state.uploadBarrier = requestBarrier();
+    state.uploadBarrierAt = 3;
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await retry.entered;
+    await expect(page.getByRole("alert").filter({ hasText: error })).toHaveCount(0);
+    await page.locator("#agent-chat-input").press("Control+Enter");
+    await page.locator("#agent-chat-input").press("Meta+Enter");
+    expect(state.uploads).toHaveLength(3);
+    expect(state.starts).toHaveLength(0);
+    retry.release();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+    expect(state.uploadFields.map(upload => [upload.name, upload.bytes.toString()])).toEqual([
+      ["first.txt", "First original"], ["second.txt", "Second original"], ["second.txt", "Second original"], ["third.txt", "Third original"],
+    ]);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "보내기", exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(1);
+    expect(state.starts[0].attachmentIds).toEqual(["attachment-one", "attachment-3", "attachment-4"]);
+    expect(state.uploads).toHaveLength(4);
+    expect(state.blocked).toEqual([]);
+  });
+}

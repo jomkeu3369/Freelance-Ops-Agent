@@ -56,7 +56,7 @@ async function harness({ response } = {}) {
       currentSessionGeneration: () => generation,
       readChatAttachment: async (session, projectId, original, encoding, delimiter, signal) => {
         reads.push({ session, projectId, file: original, signal });
-        if (response) return response.promise;
+        if (response) return typeof response === "function" ? response(reads.at(-1), reads.length) : response.promise;
         return { id: `preview-${reads.length}`, expiresAt: new Date(now + 30 * 60 * 1000).toISOString(), extraction: { text: "Synthetic extraction", status: "COMPLETE" } };
       },
       removeChatAttachment: async (session, projectId, id) => { removals.push({ session, projectId, id }); },
@@ -184,3 +184,77 @@ test("logout while reading clears the local draft and rejects its late successfu
  h.unmount();
  assert.equal(h.remount().items.length, 0);
 });
+
+
+test("removing enough extracted text clears the aggregate-limit warning without reuploading originals", async () => {
+  const h = await harness({ response: (_, index) => ({ id: `preview-${index}`, extraction: { text: "😀".repeat(20001), status: "COMPLETE" } }) });
+  const originals = [file("one.txt"), file("two.txt"), file("three.txt")];
+  h.render().add(originals);
+  await h.render().prepare();
+  assert.equal(h.render().tooLarge, true);
+  assert.match(h.render().error, /총 추출량/);
+  h.render().remove(h.render().items[2]);
+  assert.equal(h.render().tooLarge, true);
+  assert.match(h.render().error, /총 추출량/);
+  h.render().remove(h.render().items[1]);
+  assert.equal(h.render().tooLarge, false);
+  assert.equal(h.render().error, "");
+  assert.equal(h.render().items[0].file, originals[0]);
+  assert.equal(h.render().confirmed, false);
+  assert.equal(h.reads.length, 3);
+  h.render().setConfirmed(true);
+  assert.equal(await h.render().prepare(), true);
+  assert.deepEqual(Array.from(h.render().ids), ["preview-1"]);
+  assert.equal(h.reads.length, 3);
+});
+
+test("invalidating an oversized extraction clears its obsolete limit warning and still requires rereading", async () => {
+  const h = await harness({ response: (_, index) => ({ id: `preview-${index}`, extraction: { text: "a".repeat(20001), status: "COMPLETE" } }) });
+  h.render().add([file("one.txt"), file("two.txt")]);
+  await h.render().prepare();
+  assert.match(h.render().error, /총 추출량/);
+  h.render().options(h.render().items[1], "utf-8", "auto");
+  assert.equal(h.render().tooLarge, false);
+  assert.equal(h.render().error, "");
+  assert.equal(h.render().ready, false);
+  assert.equal(h.render().confirmed, false);
+  assert.equal(h.reads.length, 2);
+});
+
+
+for (const failure of ["Too Many Requests", "Attachment parser unavailable", "Network unavailable"]) {
+  test(`a partial upload recovers from ${failure} without rereading successful originals`, async () => {
+    const retry = deferred();
+    const h = await harness({ response: (_, index) => {
+      if (index === 2) throw new Error(failure);
+      if (index === 3) return retry.promise;
+      return { id: index === 1 ? "first-preview" : "third-preview", extraction: { text: "Successful extraction", status: "COMPLETE" } };
+    } });
+    const originals = [file("first.txt"), file("second.txt"), file("third.txt")];
+    h.render().add(originals);
+    assert.equal(await h.render().prepare(), false);
+    assert.equal(h.render().reading, false);
+    assert.equal(h.render().error, failure);
+    assert.equal(h.render().failedKey, h.render().items[1].key);
+    assert.equal(h.render().ready, false);
+    assert.equal(h.render().confirmed, false);
+    assert.deepEqual(Array.from(h.render().ids), ["first-preview"]);
+    const pending = h.render().prepare();
+    assert.equal(h.render().reading, true);
+    assert.equal(h.render().error, "");
+    assert.equal(h.render().failedKey, null);
+    assert.equal(await h.render().prepare(), false);
+    assert.deepEqual(h.reads.map(read => read.file), [originals[0], originals[1], originals[1]]);
+    retry.resolve({ id: "second-preview", extraction: { text: "Recovered extraction", status: "COMPLETE" } });
+    assert.equal(await pending, false);
+    assert.equal(h.render().reading, false);
+    assert.equal(h.render().ready, true);
+    assert.equal(h.render().confirmed, false);
+    assert.deepEqual(Array.from(h.render().items, item => item.file), originals);
+    assert.deepEqual(Array.from(h.render().ids), ["first-preview", "second-preview", "third-preview"]);
+    h.render().setConfirmed(true);
+    assert.equal(await h.render().prepare(), true);
+    assert.deepEqual(h.reads.map(read => read.file), [originals[0], originals[1], originals[1], originals[2]]);
+    assert.equal(h.reads.length, 4);
+  });
+}
