@@ -90,6 +90,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const [history, setHistory] = useState<AgentRunHistoryItem[]>([]);
   const [policyHistory, setPolicyHistory] = useState<EstimationPolicyProposal[]>([]);
   const [pastRuns, setPastRuns] = useState<Record<string, AgentRunView>>({});
+  const [resultReads, setResultReads] = useState<Record<string, "loading" | "failed">>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -158,16 +159,30 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     let cancelled = false;
     Promise.resolve().then(() => { if (!cancelled) setLoading(true); });
     listProjectAgentRunHistory(session, projectId)
-      .then(async (items) => {
-        const settled = await Promise.allSettled(items.filter((item) => item.runId !== runId).map((item) => getAgentRun(session, item.runId)));
+      .then((items) => {
         if (cancelled) return;
-        const views: Record<string, AgentRunView> = {};
-        settled.forEach((result) => { if (result.status === "fulfilled") views[result.value.runId] = result.value; });
-        setPastRuns(views);
         setHistory(items);
         setError(null);
+        const historical = [...new Map(items.filter((item) => item.runId !== runId).map((item) => [item.runId, item])).values()];
+        setPastRuns((views) => Object.fromEntries(historical.filter((item) => views[item.runId]).map((item) => [item.runId, views[item.runId]])));
+        setResultReads(Object.fromEntries(historical.map((item) => [item.runId, "loading" as const])));
+        // Original inputs and each ready result remain readable while another result is slow.
+        historical.forEach((item) => {
+          void getAgentRun(session, item.runId)
+            .then((view) => {
+              if (cancelled) return;
+              setPastRuns((views) => ({ ...views, [item.runId]: view }));
+              setResultReads((reads) => { const next = { ...reads }; delete next[item.runId]; return next; });
+            })
+            .catch(() => { if (!cancelled) setResultReads((reads) => ({ ...reads, [item.runId]: "failed" })); });
+        });
       })
-      .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : t("작업 기록을 불러오지 못했습니다.")); })
+      .catch((cause) => {
+        if (cancelled) return;
+        setError(cause instanceof Error ? cause.message : t("작업 기록을 불러오지 못했습니다."));
+        // Superseded result requests cannot finish a failed history refresh.
+        setResultReads((reads) => Object.fromEntries(Object.keys(reads).map((id) => [id, "failed" as const])));
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [canRun, projectId, runId, session, t, historyRevision]);
@@ -338,8 +353,10 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           const status = view?.status ?? item.status;
           const liveEvents = item.runId === runId ? events : [];
           const state = chatState(status, item.runId === runId ? { online, reconnecting: active && streamState === "reconnecting" } : {});
-          const missingHistory = item.runId !== runId && !view && !loading;
-          const needsResultRetry = missingHistory;
+          const resultLoading = item.runId !== runId && resultReads[item.runId] === "loading";
+          const resultFailed = item.runId !== runId && resultReads[item.runId] === "failed";
+          const missingHistory = item.runId !== runId && !view && !resultLoading && !loading;
+          const needsResultRetry = resultFailed || missingHistory;
           const originalInput = originalInputPresentation(item);
           return <div className="agent-chat-turn" key={item.runId} data-run-id={item.runId}>
             {originalInput.text && <div className="agent-chat-message user"><span>{t("내 요청")}</span><ChatMarkdown locale={locale}>{originalInput.text}</ChatMarkdown></div>}
@@ -347,14 +364,15 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
             {view?.metadata?.resolvedSkillIds?.length ? <SkillNames ids={view.metadata.resolvedSkillIds} /> : null}
             {view?.metadata?.deferredSkillIds?.length ? <SkillNames ids={view.metadata.deferredSkillIds} prefix={t("다음 단계 필요: ")} /> : null}
             {item.attachments?.map((file, index) => <p className="agent-chat-muted" key={index}>{file.name} · {file.status} {file.notice}</p>)}
-            <div className="agent-chat-message assistant" data-state={missingHistory ? "offline" : state.tone}>
-              <span className="agent-chat-message-label">{missingHistory ? <WarningCircle size={17} aria-hidden="true" /> : state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {missingHistory ? t("기록 확인 필요") : t(runStatusLabels[status] ?? "확인 중")}</span>
+            <div className="agent-chat-message assistant" data-state={needsResultRetry ? "offline" : state.tone}>
+              <span className="agent-chat-message-label">{needsResultRetry ? <WarningCircle size={17} aria-hidden="true" /> : resultLoading || state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {needsResultRetry ? t("기록 확인 필요") : resultLoading ? t("확인 중") : t(runStatusLabels[status] ?? "확인 중")}</span>
               {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}><ChatMarkdown locale={locale}>{eventText(entry, t)}</ChatMarkdown></li>)}</ol></details>}
               {view?.result ? <div className="agent-chat-result">
                 <strong>{t("검토할 결과")}</strong>
                 <ChatMarkdown locale={locale}>{view.result.projectSummary}</ChatMarkdown>
                 <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}<ArrowUpRight size={17} aria-hidden="true" /></button>
-              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t(resultPendingMessage(status))}</p>}
+              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{resultLoading ? t("작업 기록을 불러오는 중입니다.") : missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t(resultPendingMessage(status))}</p>}
+              {view && resultFailed && <p className="agent-chat-muted">{t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.")}</p>}
               {needsResultRetry && <button type="button" className="quiet-button" disabled={loading} onClick={() => setHistoryRevision(value => value + 1)}>{t("기록 다시 불러오기")}</button>}
               {status === "CANCELLED" && <p className="agent-chat-muted">{t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")}</p>}
             </div>
