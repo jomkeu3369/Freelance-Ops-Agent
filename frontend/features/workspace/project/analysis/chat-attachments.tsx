@@ -219,7 +219,7 @@ function AttachmentReview({ id, state, disabled, onClose }: { id: string; state:
   }, [onClose]);
   return <section ref={region} id={id} className="chat-attachment-review" aria-label={t("첨부파일 상세")}>
     <div className="chat-attachment-review-heading"><strong>{t("첨부파일 상세")}</strong><button ref={close} type="button" onClick={onClose} aria-label={t("첨부파일 상세 닫기")}><X size={18} aria-hidden="true" /></button></div>
-      <p className="agent-chat-muted">{t("원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
+      <p className="agent-chat-muted">{t("파일 읽고 확인 시 원본을 서버로 보내 무료로 읽습니다. 확인 후 보내기를 눌러야 AI가 실행됩니다. 새로고침하면 파일을 다시 첨부해야 합니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
       <div className="chat-attachment-review-files">{state.items.map(item => <article key={item.key}>
         <strong>{item.file.name}</strong> <small>{item.file.size.toLocaleString()} B</small>
         <span>{t(!item.preview ? "아직 읽지 않음" : item.preview.extraction.status === "COMPLETE" ? "텍스트 추출 완료" : item.preview.extraction.status === "PARTIAL" ? "일부 읽음 · 문자 인식 결과 확인 필요" : "내용 읽기 미지원")}</span>

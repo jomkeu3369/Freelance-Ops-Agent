@@ -86,7 +86,7 @@ for (const [width, height, screenshot] of [[320, 568, null], [390, 844, "mobile"
     await expect(panel(page)).toHaveCount(0);
     await expect(page.locator(".chat-attachments").getByRole("combobox")).toHaveCount(0);
     await expect(page.locator(".chat-attachments").getByRole("checkbox")).toHaveCount(0);
-    await expect(page.getByText(/원본은 전송 전 이 브라우저 메모리에만 보관됩니다/)).toHaveCount(0);
+    await expect(page.getByText(/파일 읽고 확인 시 원본을 서버로 보내 무료로 읽습니다/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "로컬 TXT 확인", exact: true })).toHaveCount(0);
     for (const name of names) {
       const card = trigger(page, name);
@@ -128,6 +128,8 @@ test("Enter and Space open nonmodal file details; Escape and Close restore the e
     await card.focus();
     await card.press(key);
     await expect(panel(page)).toBeVisible();
+    await expect(panel(page)).toContainText("파일 읽고 확인 시 원본을 서버로 보내 무료로 읽습니다.");
+    await expect(panel(page)).toContainText("확인 후 보내기를 눌러야 AI가 실행됩니다.");
     await expect(card).toHaveAttribute("aria-expanded", "true");
     await expect(panel(page)).not.toHaveAttribute("aria-modal", "true");
     await expect(panel(page).getByLabel("문자 인식 언어")).toHaveValue("mixed");
