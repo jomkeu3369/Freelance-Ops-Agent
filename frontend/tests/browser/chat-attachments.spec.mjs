@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { translateUi } from "../../app/lib/ui-locale.mjs";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 test("OCR options invalidate reviewed extraction and coverage separates attempt from completion", async ({ page }) => {
@@ -739,6 +740,51 @@ for (const failure of [429, 503, "network", "cancel"]) {
     await expect.poll(() => state.starts.length).toBe(1);
     expect(state.starts[0].attachmentIds).toEqual(["attachment-one", "attachment-3", "attachment-4"]);
     expect(state.uploads).toHaveLength(4);
+    expect(state.blocked).toEqual([]);
+  });
+}
+
+
+for (const firstLocale of ["ko", "en"]) for (const paused of [false, true]) {
+  test(`${firstLocale}: attachment-only retry keeps the same body and idempotency key after language change and remount (paused=${paused})`, async ({ page }) => {
+    await page.addInitScript(locale => localStorage.setItem("freelance-ops-ui-locale-v1", locale), firstLocale);
+    const state = await setup(page);
+    const keys = [];
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/agent-runs")) keys.push(request.headers()["idempotency-key"]);
+    });
+    await page.getByLabel(translateUi("첨부파일 선택", firstLocale)).setInputFiles(file("locale.txt", "Same authorized original"));
+    await page.getByRole("button", { name: translateUi("파일 읽고 확인", firstLocale), exact: true }).click();
+    await page.getByRole("checkbox").check();
+    state.startFailures = 1;
+    await page.getByRole("button", { name: translateUi("보내기", firstLocale), exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: firstLocale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" })).toBeVisible();
+    const locale = firstLocale === "ko" ? "en" : "ko";
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
+    if (paused) {
+      state.aiUsage.spendingEnabled = false;
+      const refreshed = page.waitForResponse(response => response.url().endsWith("/me/ai-usage"));
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await (await refreshed).finished();
+    }
+    const notice = page.getByRole("status").filter({ hasText: locale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" });
+    await expect(notice).toBeVisible();
+    await expect(page.getByRole("button", { name: translateUi("보내기", locale), exact: true })).toBeEnabled();
+    await page.getByRole("navigation", { name: translateUi("주 메뉴", locale), exact: true }).getByRole("button", { name: translateUi("프로젝트 현황", locale), exact: true }).click();
+    await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+    await page.getByRole("navigation", { name: translateUi("최근 프로젝트 대화", locale) }).getByRole("button", { name: /Original project title/ }).click();
+    await page.locator(".chat-attachment-tile").click();
+    await expect(notice).toBeVisible();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: translateUi("보내기", locale), exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(2);
+    expect(state.starts[1]).toEqual(state.starts[0]);
+    expect(state.starts[0].requirementText).toBe(translateUi("첨부 자료의 읽기 범위와 내용을 확인해 주세요.", firstLocale));
+    expect(keys[0]).toBeTruthy();
+    expect(keys).toEqual([keys[0], keys[0]]);
+    expect(state.uploads).toHaveLength(1);
     expect(state.blocked).toEqual([]);
   });
 }

@@ -28,7 +28,7 @@ import { StreamState } from "../../shared/types";
 
 import type { SkillSelection } from "../../skills/skill-selection";
 import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
-import { matchesChatRetry } from "./chat-retry";
+import { attachmentOnlyPrompt, attachmentOnlyRetryMessage, matchesChatRetry } from "./chat-retry";
 import { SkillNames, useSkillSelection } from "../../skills/skill-selector";
 import { ChatAttachmentButton, ChatAttachments, useChatAttachments } from "./chat-attachments";
 
@@ -113,8 +113,10 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const policyDraft = useMemo(() => attachments.items.length ? null : parseChatPolicyIntent(draft), [draft, attachments.items.length]);
   const key = draftKey(session, projectId);
   const [skillSelection] = useSkillSelection(`${key}:skills`);
-  const message = draft.trim() ? draft : attachments.items.length ? t("첨부 자료의 읽기 범위와 내용을 확인해 주세요.") : draft;
-  const retry = attachments.ready ? retryCandidates.find(item => matchesChatRetry(item, message, attachments.ids, skillSelection)) : undefined;
+  const scopedRetries = retryCandidates.filter(item => item.userId === session.userId && item.workspaceId === session.workspaceId && item.projectId === projectId);
+  const previousAttachmentMessage = attachments.ready ? attachmentOnlyRetryMessage(scopedRetries, attachments.ids, skillSelection) : undefined;
+  const message = draft.trim() ? draft : attachments.items.length ? previousAttachmentMessage ?? t(attachmentOnlyPrompt) : draft;
+  const retry = attachments.ready ? scopedRetries.find(item => matchesChatRetry(item, message, attachments.ids, skillSelection)) : undefined;
   const retryingDraft = !!retry;
   const mayReadAttachments = canRun && attachments.items.length > 0 && !attachments.ready;
   const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;

@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
+import { supportedLocales, translateUi } from "../app/lib/ui-locale.mjs";
 import { parseChatPolicyIntent } from "../app/lib/chat-policy-intent.mjs";
 
 const base = new URL("../", import.meta.url);
@@ -18,17 +19,17 @@ async function compile(path, modules) {
   return exports;
 }
 
-async function render({ selection = auto, attachmentIds = [], ready = true, hasAttachments = attachmentIds.length > 0, message = draft, candidates = [retry], canRun = true, canSendAI = false, modelAvailable = true } = {}) {
+async function render({ selection = auto, attachmentIds = [], ready = true, hasAttachments = attachmentIds.length > 0, message = draft, candidates = [retry], canRun = true, canSendAI = false, modelAvailable = true, locale = "ko", prepareResult = false, onSend = () => false } = {}) {
   let states = 0;
   const node = (type, props) => ({ type, props });
   const noop = () => {};
   const calls = { reads: 0, sends: 0 };
-  const attachments = { prepare: async () => { calls.reads++; return false; }, items: hasAttachments ? [{}] : [], ids: attachmentIds, ready, confirmed: true, reading: false, error: "", tooLarge: false };
+  const attachments = { prepare: async () => { calls.reads++; return prepareResult; }, items: hasAttachments ? [{}] : [], ids: attachmentIds, ready, confirmed: true, reading: false, error: "", tooLarge: false };
   const modules = {
     "react/jsx-runtime": { jsx: node, jsxs: node, Fragment: "fragment" },
     react: { useState: value => [states++ === 0 ? message : value, noop], useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect: noop, useLayoutEffect: noop, useSyncExternalStore: () => true },
     "../../shared/chat-markdown": { ChatMarkdown: "ChatMarkdown" },
-    "../../../../app/lib/ui-language": { useT: () => value => value, useUiLocale: () => "ko" },
+    "../../../../app/lib/ui-language": { useT: () => value => translateUi(value, locale), useUiLocale: () => locale },
     "../../../../app/lib/api": {},
     "@phosphor-icons/react": Object.fromEntries(["ChatCircleText", "ArrowUp", "ArrowDown", "ArrowUpRight", "CheckCircle", "CircleNotch", "WarningCircle", "WifiSlash", "ListChecks"].map(name => [name, name])),
     "./chat-settings-button": { ChatSettingsButton: "ChatSettingsButton" },
@@ -45,11 +46,11 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
       "./catalog.json": { default: JSON.parse(await readFile(new URL("features/workspace/skills/catalog.json", base), "utf8")) },
       "./routing.json": { default: JSON.parse(await readFile(new URL("features/workspace/skills/routing.json", base), "utf8")) },
     });
-    modules["./chat-retry"] = await compile("features/workspace/project/analysis/chat-retry.ts", { "../../skills/skill-selection": skillModule });
+    modules["./chat-retry"] = await compile("features/workspace/project/analysis/chat-retry.ts", { "../../skills/skill-selection": skillModule, "../../../../app/lib/ui-locale.mjs": { supportedLocales, translateUi } });
   }
   const { AgentChat } = await compile("features/workspace/project/analysis/agent-chat.tsx", modules);
   let noticeRetry, noticePolicy;
-  const tree = AgentChat({ session: { userId: "user", workspaceId: "workspace" }, projectId: "project", run: null, runId: null, events: [], busy: false, canRun, canEditPolicy: false, canCancel: true, modelAvailable, streamState: "idle", clarification: null, retryCandidates: candidates, canSendAI, onSend: async () => { calls.sends++; return false; }, composerInfo: (_, value, policy) => { noticeRetry = value; noticePolicy = policy; return null; } });
+  const tree = AgentChat({ session: { userId: "user", workspaceId: "workspace" }, projectId: "project", run: null, runId: null, events: [], busy: false, canRun, canEditPolicy: false, canCancel: true, modelAvailable, streamState: "idle", clarification: null, retryCandidates: candidates, canSendAI, onSend: async (...args) => { calls.sends++; return onSend(...args); }, composerInfo: (_, value, policy) => { noticeRetry = value; noticePolicy = policy; return null; } });
   function find(value, predicate) {
     if (Array.isArray(value)) return value.flatMap(child => find(child, predicate));
     if (!value || typeof value !== "object") return [];
@@ -135,4 +136,52 @@ test("composer notices receive the same attachment-aware policy classification a
   assert.equal((await render({ message, candidates: [] })).noticePolicy, true);
   assert.equal((await render({ message, candidates: [], hasAttachments: true, ready: false })).noticePolicy, false);
   assert.equal((await render({ message, candidates: [], attachmentIds: ["reviewed"] })).noticePolicy, false);
+});
+
+
+for (const locale of ["ko", "en"]) for (const canSendAI of [false, true]) {
+  test(`attachment-only retry preserves its authorized message after switching to ${locale} (spending=${canSendAI})`, async () => {
+    const original = { ...retry, message: translateUi("첨부 자료의 읽기 범위와 내용을 확인해 주세요.", locale === "ko" ? "en" : "ko"), attachmentIds: ["original-attachment"] };
+    let submitted;
+    const { send, noticeRetry, submit } = await render({ message: "", attachmentIds: original.attachmentIds, candidates: [original], locale, canSendAI, prepareResult: true, onSend: (...args) => { submitted = args; return false; } });
+    assert.equal(send.disabled, false);
+    assert.equal(noticeRetry, original);
+    await submit();
+    assert.equal(submitted[0], original.message);
+    assert.deepEqual(submitted[1], original.attachmentIds);
+    assert.deepEqual(submitted[2], original.skillSelection);
+  });
+}
+
+
+test("locale fallback recovery cannot match changed content, files, skills, or another scope", async () => {
+  const original = { ...retry, message: "첨부 자료의 읽기 범위와 내용을 확인해 주세요.", attachmentIds: ["one", "two"] };
+  for (const changed of [
+    { message: "New typed request" },
+    { attachmentIds: ["two", "one"] },
+    { attachmentIds: ["replacement"] },
+    { attachmentIds: [] },
+    { ready: false, hasAttachments: true },
+    { selection: { ...auto, mode: "MANUAL", manualIds: [] } },
+    { selection: { ...auto, excludedIds: ["writing-proposal"] } },
+    { candidates: [{ ...original, message: "An arbitrary earlier request" }] },
+    { candidates: [{ ...original, userId: "different-user" }] },
+    { candidates: [{ ...original, workspaceId: "different-workspace" }] },
+    { candidates: [{ ...original, projectId: "different-project" }] },
+  ]) {
+    const { noticeRetry, calls, submit } = await render({ message: "", attachmentIds: original.attachmentIds, candidates: [original], locale: "en", prepareResult: true, ...changed });
+    assert.equal(noticeRetry, undefined);
+    await submit();
+    assert.equal(calls.sends, 0);
+  }
+});
+
+test("a locale-preserved retry still requires current run permission and an available model", async () => {
+  const original = { ...retry, message: "첨부 자료의 읽기 범위와 내용을 확인해 주세요.", attachmentIds: ["original-attachment"] };
+  for (const blocked of [{ canRun: false }, { modelAvailable: false }]) {
+    const { send, calls, submit } = await render({ message: "", attachmentIds: original.attachmentIds, candidates: [original], locale: "en", prepareResult: true, ...blocked });
+    if (blocked.canRun === false) assert.equal(send.disabled, true);
+    await submit();
+    assert.equal(calls.sends, 0);
+  }
 });
