@@ -1,4 +1,5 @@
 export const workspaceEnglish = {
+  "세율, 위험 대비율과 할인 한도를 0~100 사이의 숫자로 입력해 주세요.": "Enter tax, contingency and discount percentages between 0 and 100.",
   "프로젝트 상태를 저장하고 있습니다.": "Saving the project stage.",
   "{v0} 상태를 {v1}(으)로 변경했습니다.": "Changed {v0} to {v1}.",
   "다른 단계에 놓아 상태를 변경하세요. Esc 키로 취소할 수 있습니다.": "Drop in another stage to change the status. Press Escape to cancel.",

@@ -1,7 +1,7 @@
 import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent } from "react";
 import { AuthSession, RateCard, saveRateCard } from "../../../app/lib/api";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
 
@@ -15,10 +15,14 @@ interface RateCardManagerProps {
 export function RateCardManager({ session, rateCards, canWrite, onChange }: RateCardManagerProps) {
   const t = useT();
   const [editorId, setEditorId] = useState<string>("new");
+  const [newDraftVersion, setNewDraftVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const pending = useRef(false);
+  // Keep the same PUT target when the server saved but its response was lost.
+  const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
 
   const replaceCard = (card: RateCard) => {
@@ -28,7 +32,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   };
 
   const toggleActive = async () => {
-    if (!selected || busy) return;
+    if (!canWrite || !selected || busy || pending.current) return;
+    pending.current = true;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -51,13 +56,14 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "단가 상태를 변경하지 못했습니다.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (!canWrite || busy || pending.current) return;
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name")).trim();
     const rate = Number(data.get("rate"));
@@ -72,9 +78,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       setError("기본 단가와 최소 금액은 0 이상의 숫자여야 합니다.");
       return;
     }
+    pending.current = true;
     setBusy(true);
     try {
-      const card = await saveRateCard(session, selected?.id ?? crypto.randomUUID(), {
+      const id = selected?.id ?? (newCardId.current ??= crypto.randomUUID());
+      const card = await saveRateCard(session, id, {
         name,
         unit: String(data.get("unit")) as RateCard["unit"],
         rate,
@@ -88,6 +96,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -104,7 +113,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
           <button
             type="button"
             className="secondary-button"
+            disabled={busy}
             onClick={() => {
+              if (pending.current) return;
+              newCardId.current = null;
+              setNewDraftVersion(value => value + 1);
               setEditorId("new");
               setError(null);
               setNotice(null);
@@ -120,9 +133,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             <button
               type="button"
               key={card.id}
+              disabled={busy}
               aria-pressed={editorId === card.id}
               className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`}
               onClick={() => {
+                if (pending.current) return;
                 setEditorId(card.id);
                 setError(null);
                 setNotice(null);
@@ -146,7 +161,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       {canWrite ? (
         <form
           className="settings-form rate-card-form"
-          key={selected ? `${selected.id}-${selected.version}` : "new"}
+          key={selected ? `${selected.id}-${selected.version}` : `new-${newDraftVersion}`}
           aria-busy={busy}
           onSubmit={handleSubmit}
         >
