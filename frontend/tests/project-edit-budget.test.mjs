@@ -10,12 +10,14 @@ const { outputText } = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX }
 });
 
-function render(project = {}) {
-  const errors = [];
+function render(project = {}, onSave = null) {
+  const errors = [], effects = [];
+  let closed = 0;
   const noSave = () => assert.fail("Budget validation must not save a project");
   const modules = {
     "react/jsx-runtime": jsxRuntime,
-    react: { useRef: value => ({ current: value }), useState: value => [value, next => { if (typeof next === "string") errors.push(next); }] },
+    react: { useEffect(effect) { effects.push(effect()); },
+      useRef: value => ({ current: value }), useState: value => [value, next => { if (typeof next === "string") errors.push(next); }] },
     "../../../../app/lib/ui-language": { useT: () => value => value },
     "../../shared/use-dialog-focus-trap": { useDialogFocusTrap: () => {} },
     "../../../../app/lib/api": { updateProjectDetails: noSave },
@@ -29,8 +31,7 @@ function render(project = {}) {
   });
   const tree = exports.ProjectEditDialog({
     project: { id: "synthetic-project", title: "Synthetic title", requirementText: "Synthetic request", currency: "USD", budgetMin: 1.25, budgetMax: 2.75, ...project },
-    clients: [], onClose: () => {}, onSave: noSave, onUpdated: noSave,
-    session: { accessToken: "synthetic-only" }
+    clients: [], onClose: () => { closed++; }, onSave: onSave ?? noSave
   });
   function find(node, predicate) {
     if (node == null || typeof node !== "object") return null;
@@ -41,7 +42,7 @@ function render(project = {}) {
     }
     return null;
   }
-  return { errors, field: name => find(tree, node => node.type === "input" && node.props.name === name)?.props, form: find(tree, node => node.type === "form")?.props };
+  return { errors, closed: () => closed, unmount: () => effects.forEach(cleanup => cleanup?.()), field: name => find(tree, node => node.type === "input" && node.props.name === name)?.props, form: find(tree, node => node.type === "form")?.props };
 }
 
 test("project edits preserve decimal budgets without imposing currency-specific increments", () => {
@@ -68,4 +69,20 @@ test("decimal input support retains the minimum-to-maximum validation before sav
   const { form, errors } = render();
   await form.onSubmit({ preventDefault() {}, currentTarget: { budgetMin: "2.75", budgetMax: "1.25" } });
   assert.deepEqual(errors, ["최소 예산은 최대 예산보다 클 수 없습니다."]);
+});
+
+
+test("saving decimal budgets is delegated once and an unmounted dialog cannot close a newer dialog", async () => {
+  let resolve; const response = new Promise(done => { resolve = done; }); const saved = [];
+  const f = render({}, input => { saved.push(input); return response; });
+  const event = { preventDefault() {}, currentTarget: { title: "Updated title", requirementText: "Original requirements", currency: "USD", clientId: "", deadline: "", budgetMin: "1.25", budgetMax: "2.75" } };
+  const pending = f.form.onSubmit(event); await f.form.onSubmit(event);
+  assert.equal(saved.length, 1); assert.equal(saved[0].budgetMin, 1.25); assert.equal(saved[0].budgetMax, 2.75);
+  f.unmount(); resolve(); await pending; assert.equal(f.closed(), 0);
+});
+
+test("a mounted dialog closes after its own successful save", async () => {
+  const f = render({}, async () => {});
+  await f.form.onSubmit({ preventDefault() {}, currentTarget: { title: "Title", requirementText: "Requirements", currency: "USD", clientId: "", deadline: "", budgetMin: "", budgetMax: "" } });
+  assert.equal(f.closed(), 1);
 });

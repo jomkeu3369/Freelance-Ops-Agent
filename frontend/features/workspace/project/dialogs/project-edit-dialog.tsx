@@ -1,27 +1,32 @@
 import { useT } from "../../../../app/lib/ui-language";
-import { AuthSession, Project, Client, ProjectInput, updateProjectDetails } from "../../../../app/lib/api";
-import { useRef, useState, FormEvent } from "react";
+import { Project, Client, ProjectInput } from "../../../../app/lib/api";
+import { useRef, useState, useEffect, FormEvent } from "react";
 import { useDialogFocusTrap } from "../../shared/use-dialog-focus-trap";
 import { Warning, CircleNotch, CheckCircle } from "@phosphor-icons/react";
 
 interface ProjectEditDialogProps {
-  session: AuthSession;
   project: Project;
   clients: Client[];
   onClose: () => void;
-  onUpdated: (project: Project) => void;
+  onSave: (input: ProjectInput) => Promise<void>;
 }
 
-export function ProjectEditDialog({ session, project, clients, onClose, onUpdated }: ProjectEditDialogProps) {
+export function ProjectEditDialog({ project, clients, onClose, onSave }: ProjectEditDialogProps) {
   const t = useT();
   const dialogRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  const submitting = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   useDialogFocusTrap(dialogRef, onClose, busy);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busy) return;
+    if (submitting.current) return;
     const data = new FormData(event.currentTarget);
     const budgetMin = data.get("budgetMin") ? Number(data.get("budgetMin")) : null;
     const budgetMax = data.get("budgetMax") ? Number(data.get("budgetMax")) : null;
@@ -38,14 +43,17 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
       budgetMin,
       budgetMax
     };
+    submitting.current = true;
     setBusy(true);
     setError(null);
     try {
-      onUpdated(await updateProjectDetails(session, project, input));
+      await onSave(input);
+      if (mounted.current) onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "프로젝트 정보를 저장하지 못했습니다.");
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "프로젝트 정보를 저장하지 못했습니다.");
     } finally {
-      setBusy(false);
+      submitting.current = false;
+      if (mounted.current) setBusy(false);
     }
   };
 

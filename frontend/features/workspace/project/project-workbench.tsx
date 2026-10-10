@@ -7,6 +7,7 @@ import {
   isCreditQuoteRefreshRequired,
   isPlatformSpendUnavailable,
   Project,
+  ProjectInput,
   Client,
   AgentRunView,
   WorkflowEvent,
@@ -65,7 +66,7 @@ interface ProjectWorkbenchProps {
   permissions: Set<string>;
   initialStep: WorkbenchStep;
   onStepChange: (step: WorkbenchStep) => void;
-  onProjectUpdated: (project: Project) => void;
+  onSaveProject: (input: ProjectInput) => Promise<void>;
   onDelete: () => Promise<void>;
   onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
   pendingRetries: PendingRunRetry[];
@@ -74,7 +75,7 @@ interface ProjectWorkbenchProps {
   onResume: (answers: string[]) => Promise<void>;
 }
 
-export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onProjectUpdated, onDelete, onRun, pendingRetries, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onSaveProject, onDelete, onRun, pendingRetries, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
   const t = useT();
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [connections, setConnections] = useState<AIConnection[]>([]);
@@ -84,6 +85,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
+  const projectViewOperation = useRef(0);
+  const deleteInFlight = useRef(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState("");
@@ -146,13 +149,19 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   }, [canRun, session, runId]);
 
   useEffect(() => {
+    const operation = ++projectViewOperation.current;
     Promise.resolve().then(() => {
+      if (operation !== projectViewOperation.current) return;
       setActiveStep(initialStep);
+      setEditingProject(false);
+      deleteInFlight.current = false;
+      setDeletingProject(false);
       setShowAISettings(false);
       setShowDeleteConfirmation(false);
       setDeleteConfirmation("");
       setDeleteError(null);
     });
+    return () => { projectViewOperation.current += 1; };
   }, [initialStep, project.id]);
 
   const selectStep = (step: WorkbenchStep) => {
@@ -193,17 +202,25 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   }
 
   async function deleteProject() {
+    if (deleteInFlight.current) return;
+    deleteInFlight.current = true;
+    const operation = projectViewOperation.current;
     setDeletingProject(true);
     setDeleteError(null);
     try {
       await onDelete();
     } catch (cause) {
+      if (operation !== projectViewOperation.current) return;
       if (cause instanceof ApiError && cause.status === 409) {
         setDeleteError("진행 중이거나 확인을 기다리는 AI 분석이 있습니다. AI 분석에서 실행을 중단한 뒤 다시 삭제해 주세요.");
       } else {
         setDeleteError(cause instanceof Error ? cause.message : "프로젝트를 삭제하지 못했습니다.");
       }
-      setDeletingProject(false);
+    } finally {
+      if (operation === projectViewOperation.current) {
+        deleteInFlight.current = false;
+        setDeletingProject(false);
+      }
     }
   }
 
@@ -437,14 +454,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       )}
       {editingProject && (
         <ProjectEditDialog
-          session={session}
           project={project}
           clients={clients}
           onClose={() => setEditingProject(false)}
-          onUpdated={(updated) => {
-            onProjectUpdated(updated);
-            setEditingProject(false);
-          }}
+          onSave={onSaveProject}
         />
       )}
     </section>

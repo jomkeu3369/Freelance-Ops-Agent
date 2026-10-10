@@ -18,6 +18,8 @@ import {
   isFreeUsageExhausted,
   subscribeToFreeUsageExhausted,
   Project,
+  readProject,
+  updateProjectDetails,
   Client,
   MeProfile,
   AgentRunView,
@@ -98,6 +100,30 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [hydrated, setHydrated] = useState(false);
   const [loadedWorkspaceId, setLoadedWorkspaceId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
+  const projectList = useRef<Project[]>([]);
+  const projectListIncarnation = useRef(0);
+  const projectMutationRevision = useRef(0);
+  const projectNavigation = useRef({ path: "", revision: 0 });
+  const pendingWorkspacePath = useRef<string | null>(null);
+  const deletedProjectView = useRef<{ projectId: string; revision: number } | null>(null);
+  const [unavailableProjectId, setUnavailableProjectId] = useState<string | null>(null);
+  const setProjectList = useCallback((value: Project[] | ((current: Project[]) => Project[])) => {
+    const next = typeof value === "function" ? value(projectList.current) : value;
+    projectList.current = next;
+    setProjects(next);
+  }, []);
+  const trackProjectNavigation = useCallback((path: string, force = false) => {
+    if (force || projectNavigation.current.path !== path) {
+      projectNavigation.current = { path, revision: projectNavigation.current.revision + 1 };
+      deletedProjectView.current = null;
+      setUnavailableProjectId(null);
+    }
+  }, []);
+  useEffect(() => {
+    const onPopState = () => { pendingWorkspacePath.current = null; trackProjectNavigation(window.location.pathname, true); };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [trackProjectNavigation]);
   const [clients, setClients] = useState<Client[]>([]);
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -132,6 +158,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   });
   const previousView = useRef<WorkspaceView>("pipeline");
   const runStatus = run?.status;
+  const selectedProjectId = selectedProject?.id;
   const activePermissions = useMemo(
     () =>
       new Set(
@@ -172,10 +199,10 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   }, [activeView, restorePipelinePosition]);
 
   useEffect(() => {
-    if (!session || !selectedProject || activeView !== "project" || !activePermissions.has("agent.run"))
+    if (!session || !selectedProjectId || activeView !== "project" || !activePermissions.has("agent.run"))
       return;
     let cancelled = false;
-    const projectId = selectedProject.id;
+    const projectId = selectedProjectId;
     const operation = runOperation.current;
     Promise.resolve()
       .then(() => {
@@ -197,13 +224,20 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     return () => {
       cancelled = true;
     };
-  }, [activePermissions, activeView, selectedProject, session]);
+  }, [activePermissions, activeView, selectedProjectId, session]);
 
   const applyWorkspaceLocation = useCallback(
     (projectResult: Project[], permissions: Set<string>, replaceInvalid = false) => {
       // A delayed restore must not redirect after the user has left the workspace.
       const currentPath = window.location.pathname;
       if (currentPath !== "/workspace" && !currentPath.startsWith("/workspace/")) return;
+      // A list update must not restore the old URL while Next is committing a
+      // newer requested route. Back/Forward explicitly cancels this pending path.
+      if (pendingWorkspacePath.current) {
+        if (pendingWorkspacePath.current !== currentPath) return;
+        pendingWorkspacePath.current = null;
+        projectNavigation.current.path = currentPath;
+      } else trackProjectNavigation(currentPath);
       const location = parseWorkspacePath(window.location.pathname, window.location.search);
       const viewAllowed = location.view !== "clients" || permissions.has("client.read");
       const knowledgeAllowed = location.view !== "knowledge" || permissions.has("document.read");
@@ -212,6 +246,15 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           ? (projectResult.find((item) => item.id === location.projectId) ?? null)
           : null;
 
+      // A confirmed late deletion can make the newer view unavailable. Keep that
+      // view in place until the user navigates, without redirecting or clearing its run.
+      if (location.view === "project" && !project
+        && deletedProjectView.current?.projectId === location.projectId
+        && deletedProjectView.current?.revision === projectNavigation.current.revision) {
+        setActiveView("project");
+        setProjectStep(location.step as WorkbenchStep);
+        return;
+      }
       if (!viewAllowed || !knowledgeAllowed || (location.view === "project" && !project)) {
         setActiveView("pipeline");
         setProjectStep("intake");
@@ -242,7 +285,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setProjectStep("intake");
       }
     },
-    [router]
+    [router, trackProjectNavigation]
   );
 
   const navigateWorkspace = useCallback(
@@ -252,6 +295,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       const nextView = view === "project" && !nextProject ? "pipeline" : view;
       const projectChanged = nextView === "project" && nextProject?.id !== selectedProject?.id;
       const path = buildWorkspacePath({ view: nextView, projectId: nextProject?.id, step });
+      pendingWorkspacePath.current = path === window.location.pathname ? null : path;
+      trackProjectNavigation(window.location.pathname, true);
       router[replace ? "replace" : "push"](path, { scroll: false });
       setActiveView(nextView);
       setProjectStep(nextView === "project" ? step : "intake");
@@ -269,7 +314,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setStreamRetryCount(0);
       }
     },
-    [router, selectedProject]
+    [router, selectedProject, trackProjectNavigation]
   );
 
   const refreshProjects = useCallback(
@@ -278,6 +323,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       const generation = currentSessionGeneration();
       const isCurrent = () => operation === workspaceLoadOperation.current
         && generation === currentSessionGeneration()
+        && loadSession()?.userId === activeSession.userId
         && loadSession()?.workspaceId === activeSession.workspaceId;
       const assertCurrent = () => {
         if (!isCurrent()) throw new ApiError("로그인 세션이 변경되었습니다. 다시 시도해 주세요.", 409, "SESSION_CHANGED");
@@ -289,18 +335,30 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         (item) => item.workspaceId === activeSession.workspaceId
       );
       const permissions = new Set(workspace?.effectivePermissions ?? []);
-      const [projectResult, clientResult] = await Promise.all([
+      let revision = projectMutationRevision.current;
+      const [initialProjects, clientResult] = await Promise.all([
         permissions.has("project.read") ? listProjects(activeSession) : Promise.resolve([]),
         permissions.has("client.read") ? listClients(activeSession) : Promise.resolve([])
       ]);
       assertCurrent();
+      let projectResult = initialProjects;
+      // A list read begun before a confirmed write may return after it. Reload
+      // that read-only snapshot instead of resurrecting deleted/outdated data.
+      while (revision !== projectMutationRevision.current) {
+        revision = projectMutationRevision.current;
+        projectResult = permissions.has("project.read") ? await listProjects(activeSession) : [];
+        assertCurrent();
+      }
       setLoadedWorkspaceId(activeSession.workspaceId);
-      setProjects(projectResult);
+      deletedProjectView.current = null;
+      setUnavailableProjectId(null);
+      projectListIncarnation.current += 1;
+      setProjectList(projectResult);
       setClients(clientResult.filter((client) => client.status === "ACTIVE"));
       setProfile(profileResult);
       applyWorkspaceLocation(projectResult, permissions, true);
     },
-    [applyWorkspaceLocation]
+    [applyWorkspaceLocation, setProjectList]
   );
 
   useEffect(() => {
@@ -347,10 +405,12 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         runOperation.current += 1;
         setBusy(false);
         setSession(null);
+        deletedProjectView.current = null;
+        setUnavailableProjectId(null);
         pendingStart.current.clear(); setPendingRetries([]);
         setIntakeDrafts({});
         setShowNewProject(false);
-        setProjects([]);
+        setProjectList([]);
         setClients([]);
         setProfile(null);
         setSelectedProject(null);
@@ -361,7 +421,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setStreamRetryCount(0);
         setError("로그인 시간이 만료되었습니다. 다시 로그인해 주세요.");
       }),
-    []
+    [setProjectList]
   );
 
   useEffect(() => {
@@ -518,6 +578,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     runOperation.current += 1;
     setBusy(false);
     setSession(null);
+    deletedProjectView.current = null;
+    setUnavailableProjectId(null);
     pendingStart.current.clear();
     setPendingRetries([]);
     setQuotaError(null);
@@ -525,7 +587,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     setShowNewProject(false);
     setLoadedWorkspaceId(null);
     setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
-    setProjects([]);
+    setProjectList([]);
     setClients([]);
     setProfile(null);
     setSelectedProject(null);
@@ -637,10 +699,75 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     setError(null);
     const project = await createProject(session, input);
     setIntakeDrafts((current) => ({ ...current, [projectIntakeDraftScope(session)]: createProjectIntakeDraft() }));
-    setProjects((current) => [project, ...current]);
+    projectListIncarnation.current += 1;
+    setProjectList((current) => [project, ...current]);
     setSelectedProject(project);
     navigateWorkspace("project", project);
     setShowNewProject(false);
+  };
+
+  const captureProjectMutation = (owner: AuthSession, project: Project) => {
+    trackProjectNavigation(window.location.pathname);
+    return {
+      owner, projectId: project.id, generation: currentSessionGeneration(),
+      incarnation: projectListIncarnation.current, navigation: projectNavigation.current.revision,
+      path: window.location.pathname, runOperation: runOperation.current
+    };
+  };
+
+  const completeProjectMutation = async (mutation: ReturnType<typeof captureProjectMutation>, confirmed: Project | null) => {
+    const isCurrentOwner = () => {
+      const current = loadSession();
+      return currentSessionGeneration() === mutation.generation
+        && current?.userId === mutation.owner.userId
+        && current.workspaceId === mutation.owner.workspaceId;
+    };
+    if (!isCurrentOwner()) return;
+    projectMutationRevision.current += 1;
+    let result = confirmed;
+    if (mutation.incarnation !== projectListIncarnation.current) {
+      // A reload or creation replaced the local list incarnation. The server does
+      // not expose an immutable project incarnation, so verify before applying an
+      // old completion to a possibly recreated ID. This is a read, never a retry.
+      const incarnation = projectListIncarnation.current;
+      try {
+        result = await readProject(mutation.owner, mutation.projectId);
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 404) result = null;
+        else {
+          if (isCurrentOwner() && incarnation === projectListIncarnation.current)
+            setError("프로젝트 변경은 완료됐지만 최신 목록을 확인하지 못했습니다. 새로고침해 주세요.");
+          return;
+        }
+      }
+      if (!isCurrentOwner() || incarnation !== projectListIncarnation.current) return;
+    }
+    const current = projectList.current.find(project => project.id === mutation.projectId && project.workspaceId === mutation.owner.workspaceId);
+    if (result && (result.id !== mutation.projectId || result.workspaceId !== mutation.owner.workspaceId)) return;
+    const updated = result && current ? reconcileProject(current, result) : null;
+    const ownsView = mutation.incarnation === projectListIncarnation.current
+      && mutation.navigation === projectNavigation.current.revision
+      && !pendingWorkspacePath.current
+      && mutation.path === window.location.pathname
+      && selectedProjectIdRef.current === mutation.projectId
+      && mutation.runOperation === runOperation.current;
+    if (result) {
+      if (!updated) return; // A later removal must never be resurrected by an edit response.
+      setProjectList(projects => projects.map(project => project.id === mutation.projectId && project.workspaceId === mutation.owner.workspaceId ? updated : project));
+      setSelectedProject(project => project?.id === mutation.projectId && project.workspaceId === mutation.owner.workspaceId ? reconcileProject(project, updated) : project);
+      if (ownsView && updated === result) resetRun();
+      return;
+    }
+    if (ownsView) {
+      selectedProjectIdRef.current = null;
+      setSelectedProject(null);
+      resetRun();
+      navigateWorkspace("pipeline", null, "intake", true);
+    } else if (parseWorkspacePath(pendingWorkspacePath.current ?? window.location.pathname, window.location.search).projectId === mutation.projectId) {
+      deletedProjectView.current = { projectId: mutation.projectId, revision: projectNavigation.current.revision };
+      setUnavailableProjectId(mutation.projectId);
+    }
+    setProjectList(projects => projects.filter(project => project.id !== mutation.projectId || project.workspaceId !== mutation.owner.workspaceId));
   };
 
   // 개별 페이지는 화면만 조합하고, 데이터 변경과 실행 연결은 이 레이아웃에서 유지합니다.
@@ -664,7 +791,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         navigateWorkspace("project", project);
       },
       onProjectUpdated: (project) => {
-        setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
+        setProjectList((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
         setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
       }
     },
@@ -702,18 +829,15 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           permissions: activePermissions,
           initialStep: projectStep,
           onStepChange: (step) => navigateWorkspace("project", selectedProject, step),
-          onProjectUpdated: (project) => {
-            setProjects((current) => current.map((item) => (item.id === project.id ? reconcileProject(item, project) : item)));
-            setSelectedProject((current) => (current?.id === project.id ? reconcileProject(current, project) : current));
-            resetRun();
+          onSaveProject: async (input) => {
+            const mutation = captureProjectMutation(session, selectedProject);
+            const updated = await updateProjectDetails(session, selectedProject, input);
+            await completeProjectMutation(mutation, updated);
           },
           onDelete: async () => {
+            const mutation = captureProjectMutation(session, selectedProject);
             await deleteProject(session, selectedProject.id);
-            setProjects((current) => current.filter((project) => project.id !== selectedProject.id));
-            selectedProjectIdRef.current = null;
-            setSelectedProject(null);
-            resetRun();
-            navigateWorkspace("pipeline", null, "intake", true);
+            await completeProjectMutation(mutation, null);
           },
           onRun: beginRun,
           pendingRetries: pendingRetries.filter(item => item.userId === session.userId && item.workspaceId === session.workspaceId && item.projectId === selectedProject.id),
@@ -777,7 +901,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         run={run}
         activePermissions={activePermissions}
         projects={projects}
-        selectedProjectId={selectedProject?.id ?? null}
+        selectedProjectId={unavailableProjectId ? null : selectedProject?.id ?? null}
         onSelectProject={(project) => navigateWorkspace("project", project, "agent")}
         onCreateProject={() => { setMobileMenuOpen(false); setShowNewProject(true); }}
         navigateWorkspace={navigateWorkspace}
@@ -795,7 +919,14 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           </div>
         )}
         <WorkspaceContext.Provider value={screens}>
-          {loadedWorkspaceId === session.workspaceId ? children : (
+          {loadedWorkspaceId === session.workspaceId ? (
+            unavailableProjectId !== null && activeView === "project" ? (
+              <section className="workspace-loading" role="status">
+                <p>{t("이 프로젝트는 삭제되어 더 이상 수정하거나 실행할 수 없습니다.")}</p>
+                <button type="button" className="secondary-button" onClick={() => navigateWorkspace("pipeline")}>{t("프로젝트 목록으로")}</button>
+              </section>
+            ) : children
+          ) : (
             <div className="workspace-loading" role="status" aria-busy="true">
               <CircleNotch size={30} className="spin" /> {t("업무 공간을 불러오고 있습니다.")}</div>
           )}
