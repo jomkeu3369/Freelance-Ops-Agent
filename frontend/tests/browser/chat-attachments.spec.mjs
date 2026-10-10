@@ -364,13 +364,16 @@ test("extracted text over the aggregate limit cannot be confirmed or sent", asyn
   expect(state.uploads).toHaveLength(2);
 });
 
-test("attachment extraction keeps the existing AI spending guard", async ({ page }) => {
+test("free extraction keeps the existing AI spending guard on the separate Send", async ({ page }) => {
   const state = await setup(page, state => { state.aiUsage.spendingEnabled = false; });
   await attach(page, file("guarded.txt", "Guarded original"));
-  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   await expect(page.getByRole("alert").filter({ hasText: "사용량과 모델 지원 상태" })).toBeVisible();
-  expect(state.uploads).toHaveLength(0);
+  expect(state.uploads).toHaveLength(1);
   expect(state.starts).toHaveLength(0);
 });
 
@@ -444,10 +447,14 @@ test("removing a failed request's attachment clears its retry notice and preserv
   await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await expect(page.locator("#agent-chat-input")).toHaveValue("Keep attachment retry exact");
   await attach(page, file("new.txt", "New unsent attachment"));
-  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  await page.getByRole("checkbox").check();
+  await expect(retryNotice).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   expect(state.starts).toHaveLength(1);
-  expect(state.uploads).toHaveLength(1);
+  expect(state.uploads).toHaveLength(2);
   expect(state.blocked).toEqual([]);
 });
 
@@ -546,7 +553,7 @@ for (const locale of ["ko", "en"]) {
       await input.press("Meta+Enter");
       expect(state.starts).toEqual([]);
       // A changed OCR option remains a new explicit, free reading operation.
-      await page.getByLabel(labels.language, { exact: true }).selectOption("en");
+      await page.getByLabel(labels.language).selectOption("en");
       await expect(confirmation).toHaveCount(0);
       await expect(read).toBeEnabled();
       await read.click();
