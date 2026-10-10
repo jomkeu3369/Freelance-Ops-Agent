@@ -502,11 +502,82 @@ for (const personalKey of [false, true]) test(`policy-like text with an attachme
   } else {
     await expect(page.getByRole("status").filter({ hasText: "기본 제공 AI 실행이 현재 중지" }).first()).toBeVisible();
     await page.screenshot({ path: "outputs/ui-ux/attachment-policy-platform-paused.png", fullPage: true });
-    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+    await input.press("Control+Enter");
+    await page.getByRole("checkbox").check();
+    await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
     await input.press("Control+Enter");
     expect(state.starts).toHaveLength(0);
-    expect(state.uploads).toHaveLength(0);
+    expect(state.uploads).toHaveLength(1);
   }
   expect(state.proposal).toBeNull();
+  expect(state.blocked).toEqual([]);
+});
+
+
+for (const locale of ["ko", "en"]) {
+  for (const blockedBy of ["paused", "model", "budget", "usage-unavailable"]) {
+    test(`${locale}: ${blockedBy} blocks AI Send but not free OCR reading or option changes`, async ({ page }) => {
+      if (locale === "en") await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+      const state = await setup(page, state => {
+        if (blockedBy === "paused") state.aiUsage.spendingEnabled = false;
+        if (blockedBy === "model") state.aiUsage.models = state.aiUsage.models.map(model => ({ ...model, available: false, unavailableReason: "MODEL_DISABLED" }));
+        if (blockedBy === "budget") state.aiUsage.remainingUsd = "0";
+        if (blockedBy === "usage-unavailable") state.aiUsageStatus = 503;
+      });
+      const labels = locale === "ko"
+        ? { choose: "첨부파일 선택", read: "파일 읽고 확인", send: "보내기", language: "문자 인식 언어" }
+        : { choose: "Choose attachments", read: "Read and review files", send: "Send", language: "OCR language" };
+      const input = page.locator("#agent-chat-input");
+      const original = "Keep my draft while only reading the file";
+      await input.fill(original);
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await page.getByLabel(labels.choose).setInputFiles(file("free-ocr.png", "synthetic image", "image/png"));
+      const read = page.getByRole("button", { name: labels.read, exact: true });
+      await expect(read).toBeEnabled();
+      await read.click();
+      const confirmation = page.locator(".chat-attachment-review").getByRole("checkbox");
+      await expect(confirmation).not.toBeChecked();
+      expect(state.uploads).toHaveLength(1);
+      expect(state.starts).toEqual([]);
+      await confirmation.check();
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await input.press("Control+Enter");
+      await input.press("Meta+Enter");
+      expect(state.starts).toEqual([]);
+      // A changed OCR option remains a new explicit, free reading operation.
+      await page.getByLabel(labels.language, { exact: true }).selectOption("en");
+      await expect(confirmation).toHaveCount(0);
+      await expect(read).toBeEnabled();
+      await read.click();
+      await expect(confirmation).not.toBeChecked();
+      expect(state.uploads).toHaveLength(2);
+      expect(state.ocrOptions[1]).toEqual({ language: "en", layout: "general" });
+      await confirmation.check();
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await input.press("Control+Enter");
+      await expect(input).toHaveValue(original);
+      expect(state.connections).toEqual([]);
+      expect(state.starts).toEqual([]);
+      expect(state.writes).toEqual([]);
+      expect(state.blocked).toEqual([]);
+    });
+  }
+}
+
+test("read-only project access cannot attach or read files while spending is paused", async ({ page }) => {
+  const state = await setup(page, state => {
+    state.aiUsage.spendingEnabled = false;
+    state.permissions = ["project.read", "quotation.read"];
+  });
+  await expect(page.getByLabel("첨부파일 선택")).toHaveCount(0);
+  const input = page.locator("#agent-chat-input");
+  await expect(input).toBeDisabled();
+  expect(await paste(page, "x".repeat(9000))).toBe(false);
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await page.locator(".agent-chat-composer").evaluate(form => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(state.uploads).toEqual([]);
+  expect(state.starts).toEqual([]);
+  expect(state.writes).toEqual([]);
   expect(state.blocked).toEqual([]);
 });

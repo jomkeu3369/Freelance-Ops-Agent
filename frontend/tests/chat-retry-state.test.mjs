@@ -18,11 +18,12 @@ async function compile(path, modules) {
   return exports;
 }
 
-async function render({ selection = auto, attachmentIds = [], ready = true, hasAttachments = attachmentIds.length > 0, message = draft, candidates = [retry] } = {}) {
+async function render({ selection = auto, attachmentIds = [], ready = true, hasAttachments = attachmentIds.length > 0, message = draft, candidates = [retry], canRun = true, canSendAI = false, modelAvailable = true } = {}) {
   let states = 0;
   const node = (type, props) => ({ type, props });
   const noop = () => {};
-  const attachments = { items: hasAttachments ? [{}] : [], ids: attachmentIds, ready, confirmed: true, reading: false, error: "", tooLarge: false };
+  const calls = { reads: 0, sends: 0 };
+  const attachments = { prepare: async () => { calls.reads++; return false; }, items: hasAttachments ? [{}] : [], ids: attachmentIds, ready, confirmed: true, reading: false, error: "", tooLarge: false };
   const modules = {
     "react/jsx-runtime": { jsx: node, jsxs: node, Fragment: "fragment" },
     react: { useState: value => [states++ === 0 ? message : value, noop], useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect: noop, useLayoutEffect: noop, useSyncExternalStore: () => true },
@@ -48,13 +49,13 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
   }
   const { AgentChat } = await compile("features/workspace/project/analysis/agent-chat.tsx", modules);
   let noticeRetry, noticePolicy;
-  const tree = AgentChat({ session: { userId: "user", workspaceId: "workspace" }, projectId: "project", run: null, runId: null, events: [], busy: false, canRun: true, canEditPolicy: false, canCancel: true, modelAvailable: true, streamState: "idle", clarification: null, retryCandidates: candidates, canSendAI: false, composerInfo: (_, value, policy) => { noticeRetry = value; noticePolicy = policy; return null; } });
+  const tree = AgentChat({ session: { userId: "user", workspaceId: "workspace" }, projectId: "project", run: null, runId: null, events: [], busy: false, canRun, canEditPolicy: false, canCancel: true, modelAvailable, streamState: "idle", clarification: null, retryCandidates: candidates, canSendAI, onSend: async () => { calls.sends++; return false; }, composerInfo: (_, value, policy) => { noticeRetry = value; noticePolicy = policy; return null; } });
   function find(value, predicate) {
     if (Array.isArray(value)) return value.flatMap(child => find(child, predicate));
     if (!value || typeof value !== "object") return [];
     return [...(predicate(value) ? [value] : []), ...find(value.props?.children, predicate)];
   }
-  return { send: find(tree, value => value.type === "button" && value.props.type === "submit")[0].props, noticeRetry, noticePolicy };
+  return { send: find(tree, value => value.type === "button" && value.props.type === "submit")[0].props, noticeRetry, noticePolicy, calls, submit: async () => { find(tree, value => value.type === "form")[0].props.onSubmit({ preventDefault: noop }); await new Promise(setImmediate); } };
 }
 
 test("changing skills cannot present a new request as an authorized retry while spending is paused", async () => {
@@ -70,9 +71,35 @@ test("changing or removing extracted attachments cannot inherit an earlier reque
   }
 });
 
-test("adding an unread file cannot inherit a text-only request's retry state", async () => {
-  const { send } = await render({ ready: false, hasAttachments: true });
+test("an unread file permits only free reading and cannot inherit a text-only request's retry state", async () => {
+  const { send, noticeRetry, calls, submit } = await render({ ready: false, hasAttachments: true });
+  assert.equal(send["aria-label"], "파일 읽고 확인");
+  assert.equal(send.disabled, false);
+  assert.equal(noticeRetry, undefined);
+  await submit();
+  assert.deepEqual(calls, { reads: 1, sends: 0 });
+});
+
+for (const modelAvailable of [false, true]) {
+  test(`free attachment reading does not require spending or a selected model (${modelAvailable})`, async () => {
+    const { send, calls, submit } = await render({ ready: false, hasAttachments: true, candidates: [], modelAvailable });
+    assert.equal(send.disabled, false);
+    await submit();
+    assert.deepEqual(calls, { reads: 1, sends: 0 });
+  });
+  test(`reviewed attachments cannot start paid work while spending is blocked (${modelAvailable})`, async () => {
+    const { send, calls, submit } = await render({ attachmentIds: ["reviewed"], candidates: [], modelAvailable });
+    assert.equal(send.disabled, true);
+    await submit();
+    assert.deepEqual(calls, { reads: 0, sends: 0 });
+  });
+}
+
+test("free attachment reading still requires agent.run permission", async () => {
+  const { send, calls, submit } = await render({ ready: false, hasAttachments: true, candidates: [], canRun: false });
   assert.equal(send.disabled, true);
+  await submit();
+  assert.deepEqual(calls, { reads: 0, sends: 0 });
 });
 
 test("an exact retry remains available while spending is paused", async () => {

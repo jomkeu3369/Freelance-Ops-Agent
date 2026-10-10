@@ -115,6 +115,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const message = draft.trim() ? draft : attachments.items.length ? t("첨부 자료의 읽기 범위와 내용을 확인해 주세요.") : draft;
   const retry = attachments.ready ? retryCandidates.find(item => matchesChatRetry(item, message, attachments.ids, skillSelection)) : undefined;
   const retryingDraft = !!retry;
+  const mayReadAttachments = canRun && attachments.items.length > 0 && !attachments.ready;
   const maySendDraft = canSendAI || retryingDraft || !!policyDraft && canEditPolicy;
   const pendingKey = proposalKey(session, projectId);
 
@@ -247,9 +248,13 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         updateDraft("");
       } else {
         if (!canRun) throw new Error(t("분석을 실행할 권한이 없습니다."));
+        // Local bounded extraction is free and never starts an AI run. Keep its
+        // permission check, then require a separate reviewed Send for paid work.
+        if (attachments.tooLarge) return;
+        if (mayReadAttachments) { await attachments.prepare(); return; }
         if (!canSendAI && !retryingDraft) throw new Error(t("사용량과 모델 지원 상태를 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
-        if (attachments.tooLarge || !await attachments.prepare()) return;
+        if (!await attachments.prepare()) return;
         const accepted = await onSend(message, attachments.ids, skillSelection);
         if (!mounted.current) return;
         if (accepted) { setAcceptedMessage(message); updateDraft(""); attachments.clear(); showLatest(); }
@@ -379,7 +384,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           </fieldset>}
           {typeof composerInfo === "function" ? composerInfo(draft, retry, !!policyDraft) : composerInfo}
           {active && canCancel && <button type="button" className="quiet-button danger" disabled={busy || cancelling} onClick={() => void cancel()}>{t("작업 취소")}</button>}
-          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")} disabled={!online || (!draft.trim() && !attachments.items.length) || attachments.tooLarge || (attachments.items.length > 0 && attachments.ready && !attachments.confirmed) || active || busy || sending || !maySendDraft || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")}</span></button>
+          <button type="submit" className="primary-button" aria-label={sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")} disabled={!online || (!draft.trim() && !attachments.items.length) || attachments.tooLarge || (attachments.items.length > 0 && attachments.ready && !attachments.confirmed) || active || busy || sending || (!mayReadAttachments && !maySendDraft) || (!canRun && !canEditPolicy)}>{sending ? <CircleNotch size={18} className="spin" aria-hidden="true" /> : <ArrowUp size={18} aria-hidden="true" />}<span className="agent-chat-send-label">{sending ? t("요청 중...") : attachments.items.length && !attachments.ready ? t("파일 읽고 확인") : t("보내기")}</span></button>
         </div>
         {!modelAvailable && canRun && <p className="agent-chat-muted">{t("먼저 사용할 AI 모델을 선택해 주세요.")}</p>}
       </form>
