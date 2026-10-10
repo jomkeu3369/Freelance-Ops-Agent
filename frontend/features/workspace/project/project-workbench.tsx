@@ -52,6 +52,7 @@ import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
 import { WorkspacePanel } from "../shared/workspace-panel";
 import { ProjectEditDialog } from "./dialogs/project-edit-dialog";
+import type { ProjectModelSelection } from "./project-model-selection";
 
 interface ProjectWorkbenchProps {
   session: AuthSession;
@@ -66,6 +67,8 @@ interface ProjectWorkbenchProps {
   permissions: Set<string>;
   initialStep: WorkbenchStep;
   onStepChange: (step: WorkbenchStep) => void;
+  modelSelection: ProjectModelSelection;
+  onModelSelectionChange: (patch: Partial<ProjectModelSelection>) => void;
   onSaveProject: (input: ProjectInput) => Promise<void>;
   onDelete: () => Promise<void>;
   onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
@@ -75,14 +78,12 @@ interface ProjectWorkbenchProps {
   onResume: (answers: string[]) => Promise<void>;
 }
 
-export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, onSaveProject, onDelete, onRun, pendingRetries, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
+export function ProjectWorkbench({ session, project, clients, run, runId, events, busy, streamState, snapshot, permissions, initialStep, onStepChange, modelSelection, onModelSelectionChange, onSaveProject, onDelete, onRun, pendingRetries, onResetRun, onCancel, onResume }: ProjectWorkbenchProps) {
   const t = useT();
-  const [provider, setProvider] = useState<Provider>("OPENAI");
+  const { provider, model, credentialId } = modelSelection;
   const [connections, setConnections] = useState<AIConnection[]>([]);
-  const [credentialId, setCredentialId] = useState("");
   const [connectionError, setConnectionError] = useState(false);
   const connection = connections.find((item) => item.id === credentialId);
-  const [model, setModel] = useState(configuredModelOptions.OPENAI[0] ?? "");
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
   const projectViewOperation = useRef(0);
@@ -110,10 +111,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const ledgerBlocker = includedUsageBlocker(ledger.data, chatModel?.provider ?? provider, chatModel?.model ?? model);
   const ledgerMessage = ledger.loading ? t("사용량 확인 중…") : ledgerBlocker === "paused" ? t("기본 제공 AI 실행이 현재 중지되어 있습니다.") : ledgerBlocker === "model" ? t("선택한 모델의 지원 여부와 예약 상한을 확인해 주세요.") : ledgerBlocker === "insufficient" ? t("기본 제공 AI의 주간 잔여 예산이 없습니다.") : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
   const personalCostKnown = !!chatModel?.credentialId && byokCostEstimate(chatModel.provider, chatModel.model) !== null;
-  const canSendAI = !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
+  const canSendAI = canRun && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
 
   async function sendMessage(message: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
-    if (!chatModel) return false;
+    if (!canRun || !chatModel) return false;
     if (chatModel.credentialId && !personalCostKnown) throw new Error(t("이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다."));
     const retry = retryCandidates.find(item => matchesChatRetry(item, message, attachmentIds, skillSelection));
     if (!retry && !chatModel.credentialId && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
@@ -235,8 +236,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const modelControls = !selectionLocked ? <ChatModelControls
     catalogModels={ledger.data?.models ?? null}
     connections={connections} credentialId={credentialId} provider={provider} model={model}
-    busy={busy} connectionError={connectionError} onCredentialChange={setCredentialId}
-    onProviderChange={value => { setProvider(value); setModel(configuredModelOptions[value][0] ?? ""); }} onModelChange={setModel} />
+    busy={busy} connectionError={connectionError} onCredentialChange={credentialId => onModelSelectionChange({ credentialId })}
+    onProviderChange={provider => onModelSelectionChange({ provider, model: configuredModelOptions[provider][0] ?? "" })}
+    onModelChange={model => onModelSelectionChange({ model })} />
     : <p className="model-selection-note">{t("작업 중에는 AI 설정을 바꿀 수 없습니다.")}</p>;
 
   function prepareNextAnalysis() {

@@ -87,10 +87,13 @@ async function backToB(page) {
 async function saveTitle(page) {
   await page.getByRole("button", { name: "프로젝트 정보 수정", exact: true }).click();
   const dialog = editDialog(page);
-  await expect(dialog.getByLabel("통화", { exact: true })).toHaveValue("USD");
-  await expect(dialog.getByLabel("최소 예산", { exact: true })).toHaveValue("1.25");
-  await expect(dialog.getByLabel("최대 예산", { exact: true })).toHaveValue("2.75");
-  await dialog.getByLabel("프로젝트 이름", { exact: true }).fill(savedTitle);
+  await expect(dialog).toBeVisible();
+  // The native select is inside its label. Match its accessible name rather
+  // than label text, which also contains all of the option text.
+  await expect(dialog.getByRole("combobox", { name: "통화", exact: true })).toHaveValue("USD");
+  await expect(dialog.getByRole("spinbutton", { name: "최소 예산", exact: true })).toHaveValue("1.25");
+  await expect(dialog.getByRole("spinbutton", { name: "최대 예산", exact: true })).toHaveValue("2.75");
+  await dialog.getByRole("textbox", { name: "프로젝트 이름", exact: true }).fill(savedTitle);
   await dialog.getByRole("button", { name: "변경 저장", exact: true }).click();
 }
 
@@ -134,7 +137,10 @@ async function expectRunPreserved(page, state, projectId, runId) {
 async function releaseMutation(page, barrier, method) {
   const response = page.waitForResponse(response => new URL(response.url()).pathname === mutationPath && response.request().method() === method);
   barrier.release();
-  await (await response).finished();
+  const received = await response;
+  // A 204 has no body to consume; Chromium can leave finished() pending even
+  // after the app handles it. Each caller verifies the resulting UI state.
+  if (received.status() !== 204) await received.finished();
 }
 
 test("project title edits preserve both existing fractional USD budgets", async ({ page }) => {
@@ -149,9 +155,9 @@ test("project title edits preserve both existing fractional USD budgets", async 
     currency: "USD", deadline: null, budgetMin: 1.25, budgetMax: 2.75, status: "LEAD",
   }]);
   await page.getByRole("button", { name: "프로젝트 정보 수정", exact: true }).click();
-  await expect(editDialog(page).getByLabel("프로젝트 이름", { exact: true })).toHaveValue(savedTitle);
-  await expect(editDialog(page).getByLabel("최소 예산", { exact: true })).toHaveValue("1.25");
-  await expect(editDialog(page).getByLabel("최대 예산", { exact: true })).toHaveValue("2.75");
+  await expect(editDialog(page).getByRole("textbox", { name: "프로젝트 이름", exact: true })).toHaveValue(savedTitle);
+  await expect(editDialog(page).getByRole("spinbutton", { name: "최소 예산", exact: true })).toHaveValue("1.25");
+  await expect(editDialog(page).getByRole("spinbutton", { name: "최대 예산", exact: true })).toHaveValue("2.75");
   await editDialog(page).getByRole("button", { name: "취소", exact: true }).click();
   expect(state.writes).toEqual([{ path: mutationPath, method: "PATCH" }]);
   expect(state.starts).toEqual([]);
@@ -239,7 +245,7 @@ test("returning to A before delayed deletion leaves a read-only unavailable view
     await expect(input(page)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "프로젝트 정보 수정", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "프로젝트 삭제", exact: true })).toHaveCount(0);
-    await expect(page.locator(".workspace-connection-label")).not.toHaveText("실시간 작업 공간");
+    await expect(page.locator(".workspace-connection-label")).not.toHaveText("작업 공간");
     expect(state.startProjects).toEqual([projectA]);
     expect(state.cancels).toEqual([]);
     expect(state.deletes).toEqual([projectA]);
@@ -331,6 +337,49 @@ test("explicit model and personal connection selections survive steps within the
   expect(state.pageErrors).toEqual([]);
 });
 
+test("a preserved personal connection revoked between project steps blocks sending without platform fallback", async ({ page }) => {
+  const state = await mutationFixture(page);
+  state.connections = [{ id: "synthetic-revoked-connection", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-...mask", updatedAt: "2026-10-01T00:00:00Z" }];
+  const draft = "Keep this personal-key request unsent after its connection is revoked";
+  await page.goto(projectPath(projectA));
+  await input(page).fill(draft);
+  const settings = page.getByRole("dialog", { name: "AI 설정", exact: true });
+  const openSettings = page.getByRole("button", { name: "AI 설정 열기", exact: true });
+  await openSettings.click();
+  await settings.getByRole("combobox", { name: "AI 연결", exact: true }).selectOption("synthetic-revoked-connection");
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".chat-model-trigger")).toContainText("내 키");
+  await expect(sendButton(page)).toBeEnabled();
+
+  await stepButton(page, "문의").click();
+  await expect(page).toHaveURL(new RegExp(`${projectPath(projectA, "intake")}$`));
+  state.connections = [];
+  // Wait for the actual empty server response, not the transient loading state
+  // while the remounted workbench revalidates its preserved credential choice.
+  const revokedConnections = page.waitForResponse(async response =>
+    new URL(response.url()).pathname === "/api/v2/workspaces/local-space/ai-connections"
+      && response.request().method() === "GET" && (await response.json()).connections.length === 0);
+  await stepButton(page, "AI 분석").click();
+  await revokedConnections;
+  await expect(page).toHaveURL(new RegExp(`${projectPath(projectA)}$`));
+  await expect(page.locator(".chat-model-trigger")).toContainText("AI 연결 확인 필요");
+  await expect(input(page)).toHaveValue(draft);
+  await expect(sendButton(page)).toBeDisabled();
+  await openSettings.click();
+  await expect(settings.getByRole("alert")).toHaveText("선택한 연결을 사용할 수 없습니다. 설정에서 연결을 확인하거나 사용할 AI를 다시 선택해 주세요.");
+  await expect(settings.locator(".chat-model-billing")).toContainText("내 키로 실행 · 제공사 계정에 청구");
+  await expect(settings.getByRole("combobox", { name: "AI 모델", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await input(page).press("Control+Enter");
+  await expect(sendButton(page)).toBeDisabled();
+  await expect(input(page)).toHaveValue(draft);
+  expect(state.starts).toEqual([]);
+  expect(state.startProjects).toEqual([]);
+  expect(state.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
+  expect(state.pageErrors).toEqual([]);
+});
+
 test("an old edit response cannot change a same-ID project's newer login and run", async ({ page }) => {
   const state = await mutationFixture(page);
   const barrier = requestBarrier();
@@ -385,7 +434,7 @@ test("an old edit response cannot change a same-ID project's newer login and run
     await expect(page.locator(".project-heading h1")).toHaveText(newTitle);
     await expect(recentProject(page, savedTitle)).toHaveCount(0);
     await expect(editDialog(page)).toHaveCount(0);
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("main", { name: "업무 내용", exact: true }).getByRole("alert")).toHaveCount(0);
     await expectRunPreserved(page, state, projectA, runId);
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("freelance-ops-session-v1")))).toEqual(newSession);
     expect(logins).toBe(1);

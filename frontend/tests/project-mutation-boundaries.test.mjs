@@ -11,6 +11,10 @@ const compile = async path => ts.transpileModule(await readFile(new URL(path, im
 const shellSource = await compile("../features/workspace/workspace-shell.tsx");
 const reconciler = {};
 runInNewContext(await compile("../features/workspace/projects/reconcile-project.ts"), { exports: reconciler });
+const modelSelectionHelpers = {};
+runInNewContext(await compile("../features/workspace/project/project-model-selection.ts"), {
+  exports: modelSelectionHelpers, require: () => ({ configuredModelOptions: { OPENAI: ["default-model"] } })
+});
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const project = (id, overrides = {}) => ({ id, workspaceId: "workspace", title: `Project ${id}`, requirementText: "Synthetic requirements", status: "LEAD", updatedAt: "2026-10-01T00:00:00Z", ...overrides });
 const edited = (value, title = "Saved A") => ({ ...value, title, updatedAt: "2026-10-02T00:00:00Z" });
@@ -18,7 +22,7 @@ class ApiError extends Error { constructor(message, status, code) { super(messag
 
 function fixture() {
   const state = { session: { userId: "user", workspaceId: "workspace", accessToken: "synthetic", refreshToken: "synthetic", accessTokenExpiresAt: "2099-01-01" }, generation: 1,
-    projects: [project("a"), project("b")], edits: [], deletes: [], reads: [], latestReads: [], starts: [], routes: [], runByProject: {}, mutation: deferred(), read: null };
+    projects: [project("a"), project("b")], listReads: [], creates: [], edits: [], deletes: [], reads: [], latestReads: [], starts: [], routes: [], runByProject: {}, mutation: deferred(), read: null };
   const states = [], refs = [], effects = [], memoized = [];
   let cursor = 0, tree, dirty = true, sessionRecovery;
   const browser = new EventTarget();
@@ -37,9 +41,10 @@ function fixture() {
     clearSession() { state.session = null; state.generation++; }, revokeAuthSession: async () => {},
     subscribeToSessionRecovery: listener => { sessionRecovery = listener; return () => {}; }, subscribeToFreeUsageExhausted: () => () => {},
     getMe: async () => ({ displayName: "Fixture", workspaces: [{ workspaceId: state.session.workspaceId, effectivePermissions: ["project.read", "project.write", "project.delete", "agent.run"] }] }),
-    listProjects: async () => { const snapshot = state.projects.map(value => ({ ...value })); const barrier = state.nextListRead; state.nextListRead = null; if (barrier) await barrier.promise; return snapshot; }, listClients: async () => [],
+    listProjects: async owner => { state.listReads.push(owner.workspaceId); const snapshot = state.projects.map(value => ({ ...value })); const barrier = state.nextListRead; state.nextListRead = null; if (barrier) await barrier.promise; return snapshot; }, listClients: async () => [],
     getLatestProjectAgentRun: async (_session, id) => { state.latestReads.push(id); return state.runByProject[id] ?? null; },
     updateProjectDetails: async (owner, target, input) => { state.edits.push({ owner, target, input }); return state.mutation.promise; },
+    createProject: async (owner, input) => { const created = project(state.createdProjectId ?? "c", { ...input, workspaceId: owner.workspaceId }); state.creates.push(created); state.projects = [...state.projects.filter(value => value.id !== created.id), created]; return created; },
     deleteProject: async (owner, id) => { state.deletes.push({ owner, id }); return state.mutation.promise; },
     readProject: async (owner, id) => { state.reads.push({ owner, id }); if (state.read) return state.read.promise; const value = state.projects.find(value => value.id === id); if (!value) throw new ApiError("missing", 404); return value; },
     startAgentRun: async (_session, target) => { const run = { runId: `new-${target.id}`, status: "RUNNING" }; state.starts.push(target.id); state.runByProject[target.id] = run; return run; },
@@ -55,6 +60,7 @@ function fixture() {
     "next-themes": { useTheme: () => ({ resolvedTheme: "light", setTheme() {} }) },
     "./workspace-context": { WorkspaceContext: { Provider: "Provider" } },
     "./projects/reconcile-project": reconciler,
+    "./project/project-model-selection": modelSelectionHelpers,
     "../../app/lib/api": api, "../../app/lib/pending-run-store": { PendingRunStore },
     "../../app/lib/ui-language": { useT: () => value => value },
     "../../app/lib/workspace-navigation.mjs": { parseWorkspacePath, buildWorkspacePath },
@@ -63,6 +69,8 @@ function fixture() {
     "../../app/components/live-workflow": { snapshotFromEvents: () => ({}) },
     "./shared/constants": { terminalStatuses: new Set(["COMPLETED"]) },
     "./workspace-chrome": { WorkspaceChrome: "Chrome" },
+    "./project/dialogs/project-dialog": { ProjectDialog: "ProjectDialog" },
+    "@/app/lib/project-intake-draft.mjs": { createProjectIntakeDraft: () => ({}), projectIntakeDraftScope: session => `${session.userId}:${session.workspaceId}` },
     "./auth/auth-gate": { AuthGate: "AuthGate" }
   };
   const exports = {};
@@ -86,11 +94,13 @@ function fixture() {
   return { state, settle, screens, chrome, browser,
     async select(id) { chrome().onSelectProject(screens().projects.projects.find(value => value.id === id)); await settle(); },
     async start() { await screens().project.onRun("OPENAI", "fixture-model"); await settle(); },
+    async create(id) { state.createdProjectId = id; screens().projects.onCreate(); await settle(); await find("ProjectDialog", tree).props.onCreate({ title: `Created ${id}` }); await settle(); },
     async authenticate(value) { await find("AuthGate", tree).props.onAuthenticated(value); await settle(); },
     async commitRoute() { browser.location.pathname = state.routes.at(-1).path; state.deferNavigation = false; dirty = true; await settle(); },
     popNow(path) { browser.location.pathname = path; browser.dispatchEvent(new Event("popstate")); dirty = true; },
     async pop(path) { this.popNow(path); await settle(); },
     async account(value) { state.session = value; state.generation++; sessionRecovery(value); await settle(); },
+    async rotateTokens() { state.session = { ...state.session, accessToken: "rotated-synthetic-access", refreshToken: "rotated-synthetic-refresh" }; sessionRecovery(state.session); await settle(); },
     text: () => JSON.stringify(tree)
   };
 }
@@ -265,4 +275,72 @@ test("a workspace list requested before confirmed deletion cannot later resurrec
   oldList.resolve(); await reload; await f.settle();
   assert.equal(f.screens().projects.projects.some(value => value.id === "a"), false);
   assert.equal(f.state.deletes.length, 1);
+});
+
+
+test("explicit models and connection IDs live above step remounts and remain project-scoped", async () => {
+  const f = fixture(); await f.settle();
+  f.screens().project.onModelSelectionChange({ model: "chosen-model", credentialId: "chosen-connection" }); await f.settle();
+  for (const step of ["agent", "intake", "quote", "agent"]) {
+    f.screens().project.onStepChange(step); await f.settle();
+    assert.equal(f.screens().project.modelSelection.model, "chosen-model");
+    assert.equal(f.screens().project.modelSelection.credentialId, "chosen-connection");
+  }
+  await f.select("b"); assert.equal(f.screens().project.modelSelection.model, "default-model");
+  f.screens().project.onModelSelectionChange({ model: "model-b" }); await f.settle();
+  await f.select("a"); assert.equal(f.screens().project.modelSelection.credentialId, "chosen-connection");
+  assert.equal(f.state.starts.length, 0); assert.equal(f.state.edits.length, 0);
+});
+
+test("new list and login incarnations reject stale model-selection callbacks even with the same project ID", async () => {
+  for (const change of ["workspace", "login"]) {
+    const f = fixture(); await f.settle(); const owner = { ...f.state.session };
+    const oldSelection = f.screens().project.onModelSelectionChange;
+    oldSelection({ model: "old-model", credentialId: "old-connection" }); await f.settle();
+    if (change === "workspace") {
+      await f.chrome().onSwitchWorkspace("other"); await f.settle();
+      await f.chrome().onSwitchWorkspace("workspace"); await f.settle(); await f.select("a");
+    } else { await f.chrome().logout(); await f.settle(); await f.authenticate(owner); }
+    oldSelection({ model: "stale-model", credentialId: "stale-connection" }); await f.settle();
+    assert.equal(f.screens().project.modelSelection.model, "default-model");
+    assert.equal(f.screens().project.modelSelection.credentialId, "");
+    f.screens().project.onModelSelectionChange({ model: "new-model" }); await f.settle();
+    assert.equal(f.screens().project.modelSelection.model, "new-model");
+  }
+});
+
+test("confirmed removal drops only that project's model selection and rejects its stale callbacks", async () => {
+  const f = fixture(); await f.settle(); const oldSelection = f.screens().project.onModelSelectionChange;
+  oldSelection({ model: "model-a", credentialId: "connection-a" }); await f.settle();
+  const pending = f.screens().project.onDelete(); await f.select("b");
+  f.screens().project.onModelSelectionChange({ model: "model-b", credentialId: "connection-b" }); await f.settle();
+  f.state.mutation.resolve(); await pending; await f.settle();
+  oldSelection({ model: "stale-model" }); await f.settle();
+  assert.equal(f.screens().project.modelSelection.model, "model-b");
+  assert.equal(f.screens().project.modelSelection.credentialId, "connection-b");
+  assert.equal(f.screens().projects.projects.some(project => project.id === "a"), false);
+});
+
+
+test("creating an unrelated project preserves A's explicit connection but a recreated A starts clean", async () => {
+  const f = fixture(); await f.settle();
+  f.screens().project.onModelSelectionChange({ model: "model-a", credentialId: "connection-a" }); await f.settle();
+  const oldSelection = f.screens().project.onModelSelectionChange;
+  await f.create("c"); assert.equal(f.screens().project.modelSelection.credentialId, "");
+  await f.select("a"); assert.equal(f.screens().project.modelSelection.credentialId, "connection-a");
+  await f.create("a"); assert.equal(f.screens().project.modelSelection.credentialId, "");
+  oldSelection({ credentialId: "stale-connection" }); await f.settle();
+  assert.equal(f.screens().project.modelSelection.credentialId, ""); assert.equal(f.state.starts.length, 0);
+});
+
+
+test("ordinary token recovery preserves explicit model and connection without starting a list reload", async () => {
+  const f = fixture(); await f.settle();
+  f.screens().project.onModelSelectionChange({ model: "chosen-model", credentialId: "chosen-connection" }); await f.settle();
+  const generation = f.state.generation, reads = f.state.listReads.length; await f.rotateTokens();
+  assert.equal(f.state.listReads.length, reads);
+  assert.equal(f.state.generation, generation);
+  assert.equal(f.screens().project.modelSelection.model, "chosen-model");
+  assert.equal(f.screens().project.modelSelection.credentialId, "chosen-connection");
+  assert.equal(f.state.starts.length, 0);
 });

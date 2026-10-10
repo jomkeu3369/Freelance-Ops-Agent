@@ -7,6 +7,7 @@ import { ReactNode, useSyncExternalStore, useState, useRef, useMemo, useEffect, 
 import { usePathname, useRouter } from "next/navigation";
 import { WorkspaceContext, WorkspaceScreens } from "./workspace-context";
 import { reconcileProject } from "./projects/reconcile-project";
+import { createProjectModelSelections, defaultProjectModelSelection, projectModelSelectionKey, reconcileProjectModelSelections, removeProjectModelSelection, renewProjectModelSelections, updateProjectModelSelection } from "./project/project-model-selection";
 import { PipelinePreferences } from "./projects/pipeline-preferences";
 import { useTheme } from "next-themes";
 import {
@@ -127,6 +128,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectModelSelections, setProjectModelSelections] = useState(createProjectModelSelections);
   const selectedProjectIdRef = useRef<string | null>(null);
   const [run, setRun] = useState<AgentRunView | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
@@ -353,6 +355,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       deletedProjectView.current = null;
       setUnavailableProjectId(null);
       projectListIncarnation.current += 1;
+      setProjectModelSelections(current => reconcileProjectModelSelections(current, activeSession, projectResult.map(project => project.id), generation));
       setProjectList(projectResult);
       setClients(clientResult.filter((client) => client.status === "ACTIVE"));
       setProfile(profileResult);
@@ -409,6 +412,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         setUnavailableProjectId(null);
         pendingStart.current.clear(); setPendingRetries([]);
         setIntakeDrafts({});
+        setProjectModelSelections(createProjectModelSelections());
         setShowNewProject(false);
         setProjectList([]);
         setClients([]);
@@ -584,6 +588,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     setPendingRetries([]);
     setQuotaError(null);
     setIntakeDrafts({});
+    setProjectModelSelections(createProjectModelSelections());
     setShowNewProject(false);
     setLoadedWorkspaceId(null);
     setPipelinePreferences({ search: "", activeColumn: "all", preferredView: null, sort: "updated" });
@@ -681,6 +686,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     setQuotaError(null);
     saveSession(nextSession);
     setSession(nextSession);
+    setProjectModelSelections(createProjectModelSelections());
     setSelectedProject(null);
     setRun(null);
     setRunId(null);
@@ -700,6 +706,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     const project = await createProject(session, input);
     setIntakeDrafts((current) => ({ ...current, [projectIntakeDraftScope(session)]: createProjectIntakeDraft() }));
     projectListIncarnation.current += 1;
+    setProjectModelSelections(current => renewProjectModelSelections(current, projectModelSelectionKey(session, project.id, currentSessionGeneration())));
     setProjectList((current) => [project, ...current]);
     setSelectedProject(project);
     navigateWorkspace("project", project);
@@ -768,7 +775,11 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       setUnavailableProjectId(mutation.projectId);
     }
     setProjectList(projects => projects.filter(project => project.id !== mutation.projectId || project.workspaceId !== mutation.owner.workspaceId));
+    setProjectModelSelections(current => removeProjectModelSelection(current, projectModelSelectionKey(mutation.owner, mutation.projectId, mutation.generation)));
   };
+
+  const modelSelectionGeneration = currentSessionGeneration();
+  const modelSelectionKey = selectedProject ? projectModelSelectionKey(session, selectedProject.id, modelSelectionGeneration) : "";
 
   // 개별 페이지는 화면만 조합하고, 데이터 변경과 실행 연결은 이 레이아웃에서 유지합니다.
   const screens: WorkspaceScreens = {
@@ -828,6 +839,13 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
           snapshot,
           permissions: activePermissions,
           initialStep: projectStep,
+          modelSelection: projectModelSelections.values[modelSelectionKey] ?? defaultProjectModelSelection,
+          onModelSelectionChange: (patch) => {
+            const current = loadSession();
+            if (currentSessionGeneration() !== modelSelectionGeneration || current?.userId !== session.userId || current.workspaceId !== session.workspaceId) return;
+            if (!projectList.current.some(project => project.id === selectedProject.id && project.workspaceId === session.workspaceId)) return;
+            setProjectModelSelections(current => updateProjectModelSelection(current, projectModelSelections.revision, modelSelectionKey, patch));
+          },
           onStepChange: (step) => navigateWorkspace("project", selectedProject, step),
           onSaveProject: async (input) => {
             const mutation = captureProjectMutation(session, selectedProject);
