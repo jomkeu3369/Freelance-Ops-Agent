@@ -12,7 +12,7 @@ const file = name => new File([`Synthetic contents: ${name}`], name, { type: "te
 function deferred() { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; }
 
 async function harness({ response } = {}) {
-  let now = Date.parse("2026-10-10T00:00:00Z"), cursor = 0;
+  let now = Date.parse("2026-10-10T00:00:00Z"), cursor = 0, generation = 0;
   const slots = [], effects = [], timers = new Map(), reads = [], removals = [];
   const window = new EventTarget();
   const same = (a, b) => a?.length === b?.length && a.every((value, index) => Object.is(value, b[index]));
@@ -53,6 +53,7 @@ async function harness({ response } = {}) {
     react, "react/jsx-runtime": {}, "@phosphor-icons/react": {}, "./chat-attachments.css": {},
     "../../../../app/lib/ui-language": {}, "./attachment-draft": draft,
     "../../../../app/lib/api": {
+      currentSessionGeneration: () => generation,
       readChatAttachment: async (session, projectId, original, encoding, delimiter, signal) => {
         reads.push({ session, projectId, file: original, signal });
         if (response) return response.promise;
@@ -68,7 +69,8 @@ async function harness({ response } = {}) {
     while (effects.length) effects.shift()();
     return state;
   }
-  return { render: useHarness, reads, removals, advance: value => { now += value; }, tick: () => { for (const fn of timers.values()) fn(); }, unmount: () => { for (const slot of slots) slot?.cleanup?.(); } };
+  function useRemount() { slots.length = 0; return useHarness(); }
+  return { render: useHarness, reads, removals, remount: useRemount, changeSession: () => { generation++; window.dispatchEvent(new Event("freelance-ops-session-cleared")); }, advance: value => { now += value; }, tick: () => { for (const fn of timers.values()) fn(); }, unmount: () => { for (const slot of slots) slot?.cleanup?.(); } };
 }
 
 test("an expired local draft cannot upload when a background cleanup timer has not fired", async () => {
@@ -145,4 +147,40 @@ test("expiry invalidates confirmation before a reviewed Send or exact retry can 
   assert.equal(h.render().confirmed, false);
   assert.equal(h.render().ids.length, 0);
   assert.equal(h.reads.length, 1);
+});
+
+
+test("logging out away from chat cannot restore an earlier session's local attachments", async () => {
+ const h = await harness();
+ h.render().add([file("prior-login-private.txt")]);
+ h.unmount();
+ h.changeSession();
+ assert.equal(h.remount().items.length, 0);
+});
+
+
+test("ordinary unmount and remount preserve files within the same login", async () => {
+ const h = await harness();
+ const original = file("same-login.txt");
+ h.render().add([original]);
+ h.unmount();
+ assert.equal(h.remount().items[0].file, original);
+ assert.equal(h.render().confirmed, false);
+ assert.equal(h.reads.length, 0);
+});
+
+test("logout while reading clears the local draft and rejects its late successful staging response", async () => {
+ const response = deferred();
+ const h = await harness({ response });
+ h.render().add([file("logged-out.txt")]);
+ const reading = h.render().prepare();
+ h.changeSession();
+ assert.equal(h.render().items.length, 0);
+ assert.equal(h.reads[0].signal.aborted, true);
+ response.resolve({ id: "prior-session-preview", extraction: { text: "Old private result", status: "COMPLETE" } });
+ await reading;
+ assert.equal(h.render().items.length, 0);
+ assert.deepEqual(h.removals.map(item => item.id), ["prior-session-preview"]);
+ h.unmount();
+ assert.equal(h.remount().items.length, 0);
 });

@@ -3,14 +3,20 @@
 import { Check, CircleNotch, FileCsv, FileImage, FilePdf, FileText, Paperclip, X } from "@phosphor-icons/react";
 import { ClipboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
-import { AuthSession, AttachmentPreview, OcrOptions, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
+import { AuthSession, AttachmentPreview, OcrOptions, currentSessionGeneration, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
 import "./chat-attachments.css";
 
 interface DraftFile extends OcrOptions { key: string; file: File; encoding: string; delimiter: string; preview?: AttachmentPreview; }
 const drafts = new Map<string, { items: DraftFile[]; expires: number }>();
 const ttl = 60 * 60 * 1000;
-function prune() { for (const [key, value] of drafts) if (value.expires <= Date.now()) drafts.delete(key); }
+let draftsGeneration: number | null = null;
+function prune() {
+  const generation = currentSessionGeneration();
+  // Logout can happen while every chat is unmounted. Never restore an older login's files.
+  if (draftsGeneration !== generation) { drafts.clear(); draftsGeneration = generation; }
+  for (const [key, value] of drafts) if (value.expires <= Date.now()) drafts.delete(key);
+}
 
 export function useChatAttachments(session: AuthSession, projectId: string) {
   const key = `${session.userId}:${session.workspaceId}:${projectId}`;

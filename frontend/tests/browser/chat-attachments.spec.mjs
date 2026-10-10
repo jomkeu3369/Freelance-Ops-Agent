@@ -647,3 +647,38 @@ test("an uncertain START retry cannot revive an expired attachment while timers 
   expect(state.uploads).toHaveLength(1);
   expect(state.blocked).toEqual([]);
 });
+
+for (const reviewed of [false, true]) test(`logout outside chat cannot restore ${reviewed ? "reviewed" : "local"} files on the same account's next login`, async ({ page }) => {
+  const state = await setup(page);
+  await page.route("**/api/v2/auth/logout", route => route.fulfill({ status: 204 }));
+  await page.route("**/api/v2/auth/login", route => route.fulfill({ json: {
+    userId: "local-user", workspaceId: "local-space", accessToken: "new-login-token", refreshToken: "new-login-refresh",
+    accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer",
+  } }));
+  await attach(page, file("prior-login.txt", "Synthetic private original from an earlier login"));
+  if (reviewed) {
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await page.getByRole("checkbox").check();
+  }
+  const pipeline = page.getByRole("navigation", { name: "주 메뉴", exact: true }).getByRole("button", { name: "프로젝트 현황", exact: true });
+  const project = page.getByRole("navigation", { name: "최근 프로젝트 대화" }).getByRole("button", { name: /Original project title/ });
+  // Navigation within a login still keeps the original in memory.
+  await pipeline.click();
+  await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+  await project.click();
+  await expect(page.getByRole("button", { name: "prior-login.txt 상세 보기", exact: true })).toBeVisible();
+  await pipeline.click();
+  await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+  await page.locator(".sidebar-foot button").click();
+  await expect(page.locator('input[name="email"]')).toBeVisible();
+  await page.locator('input[name="email"]').fill("fixture@example.invalid");
+  await page.locator('input[name="password"]').fill("synthetic-password");
+  await page.locator('button[type="submit"]').click();
+  await project.click();
+  await expect(page.locator("#agent-chat-input")).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(page.locator(".chat-attachments pre")).toHaveCount(0);
+  expect(state.uploads).toHaveLength(reviewed ? 1 : 0);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
