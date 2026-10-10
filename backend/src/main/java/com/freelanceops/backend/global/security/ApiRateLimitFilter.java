@@ -6,9 +6,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -22,6 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ApiRateLimitFilter extends OncePerRequestFilter {
 
     private static final long WINDOW_SECONDS = 60;
+    private static final PathPatternRequestMatcher ATTACHMENT_UPLOAD_PATH = PathPatternRequestMatcher.withDefaults()
+        .matcher(HttpMethod.POST, "/api/v2/workspaces/{workspaceId}/projects/{projectId}/attachments");
 
     private final boolean enabled;
     private final int authLimit;
@@ -98,6 +102,10 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             && request.getRequestURI().contains("/ai-connections/")) return Category.AGENT;
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return null;
+        }
+        // Match decoded path segments just as MVC does, including percent-encoded route names.
+        if (ATTACHMENT_UPLOAD_PATH.matches(request)) {
+            return Category.AGENT;
         }
         String path = request.getRequestURI();
         if (path.startsWith("/api/v2/auth/")) {

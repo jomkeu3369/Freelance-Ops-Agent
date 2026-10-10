@@ -6,7 +6,16 @@ import os
 import pytest
 from pydantic import ValidationError
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, FloatObject, NameObject, NumberObject
+from pypdf.errors import LimitReachedError
+from pypdf.generic import (
+    ArrayObject,
+    DecodedStreamObject,
+    DictionaryObject,
+    FloatObject,
+    NameObject,
+    NullObject,
+    NumberObject,
+)
 
 from attachments import reader
 from attachments.ocr import LocalOcr, OcrUnavailable
@@ -304,6 +313,68 @@ def test_inspection_limits_preserve_native_text_on_failed_ocr(monkeypatch, opera
     assert result["coverage"][0]["nativeStatus"] == "TEXT"
     assert result["coverage"][0]["ocrStatus"] == "FAILED"
     AttachmentText.model_validate(result)
+
+
+def damaged_raster_metadata_pdf(kind):
+    writer = PdfWriter()
+    page = writer.add_page(PdfReader(io.BytesIO(synthetic_pdf(nested=kind == "form_resources"))).pages[0])
+    if kind == "image":
+        page["/Resources"]["/XObject"][NameObject("/Im")] = NullObject()
+    elif kind == "form_resources":
+        page["/Resources"]["/XObject"]["/Form"][NameObject("/Resources")] = NullObject()
+    elif kind == "media_box":
+        page[NameObject("/MediaBox")] = NullObject()
+    else:
+        raise AssertionError(f"Unknown fixture kind: {kind}")
+    output = io.BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+@pytest.mark.parametrize("kind", ["image", "form_resources", "media_box"])
+@pytest.mark.parametrize("ocr_result", ["text", "empty", "failed"])
+def test_damaged_raster_metadata_preserves_native_text_and_unknown_coverage(monkeypatch, kind, ocr_result):
+    class Ocr(FakeOcr):
+        def read_pdf_page(self, payload, page):
+            if ocr_result == "failed":
+                raise OcrUnavailable("A local OCR tool could not read the content.")
+            return "Additional body" if ocr_result == "text" else ""
+
+    monkeypatch.setattr(reader, "LocalOcr", Ocr)
+    payload = damaged_raster_metadata_pdf(kind)
+    page = PdfReader(io.BytesIO(payload)).pages[0]
+    assert page.extract_text().strip() == "HEADER"
+    assert raster_kind(page) == "UNKNOWN"
+    result = reader.extract(file("damaged-raster.pdf", payload))
+    assert "HEADER" in result["text"]
+    assert result["status"] == "PARTIAL"
+    unit = result["coverage"][0]
+    assert unit["nativeStatus"] == "TEXT" and unit["rasterStatus"] == "UNKNOWN"
+    assert unit["ocrAttempted"]
+    assert unit["ocrStatus"] == {"text": "READ", "empty": "EMPTY", "failed": "FAILED"}[ocr_result]
+    assert ("Additional body" in result["text"]) is (ocr_result == "text")
+    AttachmentText.model_validate(result)
+
+
+@pytest.mark.parametrize("kind", ["image", "form_resources", "media_box"])
+async def test_damaged_raster_metadata_preserves_native_text_in_actual_limited_worker(kind):
+    result = await run_reader(FileInput.model_validate(file("damaged-raster.pdf", damaged_raster_metadata_pdf(kind))))
+    assert result["status"] == "PARTIAL", result
+    assert "HEADER" in result["text"]
+    assert result["coverage"][0]["rasterStatus"] == "UNKNOWN"
+    assert result["coverage"][0]["nativeStatus"] == "TEXT"
+    AttachmentText.model_validate(result)
+
+
+@pytest.mark.parametrize("failure", [MemoryError, OSError, LimitReachedError])
+def test_raster_inspection_does_not_hide_resource_or_system_failures(failure):
+    class Page:
+        @property
+        def mediabox(self):
+            raise failure("Synthetic worker-level failure")
+
+    with pytest.raises(failure, match="Synthetic worker-level failure"):
+        raster_kind(Page())
 
 
 @pytest.mark.skipif(not NATIVE_AVAILABLE, reason="Requires production Linux OCR tools")

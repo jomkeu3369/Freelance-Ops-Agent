@@ -387,3 +387,24 @@ test("login honors reduced motion without the removed demo note or generation re
   await expect(page.locator(".auth-backdrop video source")).toHaveCount(0);
   expect(unexpected).toEqual([]);
 });
+
+test("successful pet reload clears the read error and preserves a later mutation notice", async ({ page }) => {
+  const { state, server } = await petsFixture(page);
+  const studio = await openStudio(page);
+  server.listFailures = 1;
+  await studio.getByRole("button", { name: "목록 다시 불러오기" }).click();
+  await expect(studio.getByRole("alert")).toContainText("펫을 불러오지 못했습니다");
+  await studio.getByRole("button", { name: "목록 다시 불러오기" }).click();
+  await expect(studio.getByRole("alert")).toHaveCount(0);
+  await expect(studio.getByRole("textbox")).toBeEnabled();
+  await studio.getByRole("textbox").fill("목록 복구 후에도 유지할 선호");
+  await studio.getByRole("button", { name: "펫 미리보기", exact: true }).click();
+  await expect(studio.getByRole("status").last()).toContainText("무료 미리보기입니다");
+  const refreshed = page.waitForResponse(response => response.request().method() === "GET" && response.url().endsWith("/agent-pets"));
+  await studio.getByRole("button", { name: "목록 다시 불러오기" }).click();
+  await (await refreshed).finished();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(studio.locator(".pet-composed-preview")).toBeVisible();
+  await expect(studio.getByRole("status").last()).toContainText("무료 미리보기입니다");
+  expectNoGeneration(state);
+});

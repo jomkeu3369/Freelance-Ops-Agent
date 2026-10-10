@@ -70,7 +70,7 @@ export const attachmentEnglish = {
   "파일은 1바이트 이상, 2 MiB 이하여야 합니다.": "Each file must be at least 1 byte and no larger than 2 MiB.",
   "파일 첨부": "Attach files",
   "TXT·CSV·PDF · JPG·PNG·GIF·스캔은 무료 문자 인식(OCR), 그림·움직임 해석 미지원": "TXT, CSV, PDF · Free text recognition (OCR) for JPG, PNG, GIF and scans; image and motion interpretation is unsupported",
-  "원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.": "Before upload, originals stay only in this browser’s memory and disappear on refresh. Limits: 2 MiB each, 8 MiB total, 6 files and 40,000 extracted characters.",
+  "파일 읽고 확인 시 원본을 서버로 보내 무료로 읽습니다. 확인 후 보내기를 눌러야 AI가 실행됩니다. 새로고침하면 파일을 다시 첨부해야 합니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.": "Read and review uploads originals to the server for free text extraction. AI runs only after you confirm and press Send. Refreshing requires reattaching files. Limits: 2 MiB each, 8 MiB total, 6 files and 40,000 extracted characters.",
   "{v0} 제거": "Remove {v0}",
   "제거": "Remove",
   "인코딩": "Encoding",

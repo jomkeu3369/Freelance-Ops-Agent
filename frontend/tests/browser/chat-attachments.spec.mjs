@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { translateUi } from "../../app/lib/ui-locale.mjs";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 test("OCR options invalidate reviewed extraction and coverage separates attempt from completion", async ({ page }) => {
@@ -70,9 +71,13 @@ async function setup(page, configure = () => {}) {
     const file = fields.get("file");
     state.uploadFields.push({ name: file.name, encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), bytes: Buffer.from(await file.arrayBuffer()) });
     state.ocrOptions.push({language: fields.get("ocrLanguage"), layout: fields.get("ocrLayout")});
-    const barrier = state.uploadBarrier;
-    state.uploadBarrier = null;
+    const barrier = !state.uploadBarrierAt || state.uploadBarrierAt === index ? state.uploadBarrier : null;
+    if (barrier) state.uploadBarrier = null;
     if (barrier) await barrier.wait();
+    if (state.attachmentFailureAt === index) {
+      if (state.attachmentFailureMode === "network") return route.abort("failed");
+      return route.fulfill({ status: state.attachmentFailureMode, json: { detail: `Synthetic upload failure ${state.attachmentFailureMode}` } });
+    }
     if (state.attachmentFailure) return route.fulfill({status: 422, contentType: "application/json", body: JSON.stringify({detail: "Invalid attachment"})});
     return route.fulfill({status: 201, contentType: "application/json", body: JSON.stringify({id: index === 1 ? "attachment-one" : `attachment-${index}`, expiresAt: "2099-01-01T00:00:00Z", extraction: {name: file.name, mediaType: file.type, size: file.size, sha256: "0".repeat(64), status: state.coverage ? "PARTIAL" : "COMPLETE", text: state.extractionText ?? "Extracted synthetic contents", notice: "", encoding: fields.get("encoding"), delimiter: fields.get("delimiter"), units: state.coverage?.length ?? 1, ...(state.coverage ? {coverage: state.coverage} : {})}})});
   });
@@ -355,6 +360,7 @@ test("extracted text over the aggregate limit cannot be confirmed or sent", asyn
   await page.locator("#agent-chat-input").press("Control+Enter");
   expect(state.starts).toHaveLength(0);
   await page.getByRole("button", { name: "two.txt 제거" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "총 추출량" })).toHaveCount(0);
   await expect(page.getByRole("checkbox")).toBeEnabled();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByRole("checkbox").check();
@@ -364,13 +370,16 @@ test("extracted text over the aggregate limit cannot be confirmed or sent", asyn
   expect(state.uploads).toHaveLength(2);
 });
 
-test("attachment extraction keeps the existing AI spending guard", async ({ page }) => {
+test("free extraction keeps the existing AI spending guard on the separate Send", async ({ page }) => {
   const state = await setup(page, state => { state.aiUsage.spendingEnabled = false; });
   await attach(page, file("guarded.txt", "Guarded original"));
-  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   await expect(page.getByRole("alert").filter({ hasText: "사용량과 모델 지원 상태" })).toBeVisible();
-  expect(state.uploads).toHaveLength(0);
+  expect(state.uploads).toHaveLength(1);
   expect(state.starts).toHaveLength(0);
 });
 
@@ -444,10 +453,14 @@ test("removing a failed request's attachment clears its retry notice and preserv
   await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await expect(page.locator("#agent-chat-input")).toHaveValue("Keep attachment retry exact");
   await attach(page, file("new.txt", "New unsent attachment"));
-  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  await page.getByRole("checkbox").check();
+  await expect(retryNotice).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
   await page.locator("#agent-chat-input").press("Control+Enter");
   expect(state.starts).toHaveLength(1);
-  expect(state.uploads).toHaveLength(1);
+  expect(state.uploads).toHaveLength(2);
   expect(state.blocked).toEqual([]);
 });
 
@@ -502,11 +515,374 @@ for (const personalKey of [false, true]) test(`policy-like text with an attachme
   } else {
     await expect(page.getByRole("status").filter({ hasText: "기본 제공 AI 실행이 현재 중지" }).first()).toBeVisible();
     await page.screenshot({ path: "outputs/ui-ux/attachment-policy-platform-paused.png", fullPage: true });
-    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+    await input.press("Control+Enter");
+    await page.getByRole("checkbox").check();
+    await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
     await input.press("Control+Enter");
     expect(state.starts).toHaveLength(0);
-    expect(state.uploads).toHaveLength(0);
+    expect(state.uploads).toHaveLength(1);
   }
   expect(state.proposal).toBeNull();
+  expect(state.blocked).toEqual([]);
+});
+
+
+for (const locale of ["ko", "en"]) {
+  for (const blockedBy of ["paused", "model", "budget", "usage-unavailable"]) {
+    test(`${locale}: ${blockedBy} blocks AI Send but not free OCR reading or option changes`, async ({ page }) => {
+      if (locale === "en") await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+      const state = await setup(page, state => {
+        if (blockedBy === "paused") state.aiUsage.spendingEnabled = false;
+        if (blockedBy === "model") state.aiUsage.models = state.aiUsage.models.map(model => ({ ...model, available: false, unavailableReason: "MODEL_DISABLED" }));
+        if (blockedBy === "budget") state.aiUsage.remainingUsd = "0";
+        if (blockedBy === "usage-unavailable") state.aiUsageStatus = 503;
+      });
+      const labels = locale === "ko"
+        ? { choose: "첨부파일 선택", read: "파일 읽고 확인", send: "보내기", language: "문자 인식 언어" }
+        : { choose: "Choose attachments", read: "Read and review files", send: "Send", language: "OCR language" };
+      const input = page.locator("#agent-chat-input");
+      const original = "Keep my draft while only reading the file";
+      await input.fill(original);
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await page.getByLabel(labels.choose).setInputFiles(file("free-ocr.png", "synthetic image", "image/png"));
+      const read = page.getByRole("button", { name: labels.read, exact: true });
+      await expect(read).toBeEnabled();
+      await read.click();
+      const confirmation = page.locator(".chat-attachment-review").getByRole("checkbox");
+      await expect(confirmation).not.toBeChecked();
+      expect(state.uploads).toHaveLength(1);
+      expect(state.starts).toEqual([]);
+      await confirmation.check();
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await input.press("Control+Enter");
+      await input.press("Meta+Enter");
+      expect(state.starts).toEqual([]);
+      // A changed OCR option remains a new explicit, free reading operation.
+      await page.getByLabel(labels.language).selectOption("en");
+      await expect(confirmation).toHaveCount(0);
+      await expect(read).toBeEnabled();
+      await read.click();
+      await expect(confirmation).not.toBeChecked();
+      expect(state.uploads).toHaveLength(2);
+      expect(state.ocrOptions[1]).toEqual({ language: "en", layout: "general" });
+      await confirmation.check();
+      await expect(page.getByRole("button", { name: labels.send, exact: true })).toBeDisabled();
+      await input.press("Control+Enter");
+      await expect(input).toHaveValue(original);
+      expect(state.connections).toEqual([]);
+      expect(state.starts).toEqual([]);
+      expect(state.writes).toEqual([]);
+      expect(state.blocked).toEqual([]);
+    });
+  }
+}
+
+test("read-only project access cannot attach or read files while spending is paused", async ({ page }) => {
+  const state = await setup(page, state => {
+    state.aiUsage.spendingEnabled = false;
+    state.permissions = ["project.read", "quotation.read"];
+  });
+  await expect(page.getByLabel("첨부파일 선택")).toHaveCount(0);
+  const input = page.locator("#agent-chat-input");
+  await expect(input).toBeDisabled();
+  expect(await paste(page, "x".repeat(9000))).toBe(false);
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await page.locator(".agent-chat-composer").evaluate(form => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(state.uploads).toEqual([]);
+  expect(state.starts).toEqual([]);
+  expect(state.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+
+for (const reviewed of [false, true]) test(`delayed cleanup timer cannot ${reviewed ? "send a reviewed" : "upload an unread"} expired draft`, async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  const input = page.locator("#agent-chat-input");
+  const original = "Keep my draft after the attachment expires";
+  await input.fill(original);
+  await attach(page, file("expired-before-timer.txt", "Synthetic expiring original"));
+  if (reviewed) {
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await page.getByRole("checkbox").check();
+  }
+  // Change wall time without firing timers, as can happen while a tab is suspended.
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByRole("button", { name: reviewed ? "보내기" : "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(input).toHaveValue(original);
+  expect(state.uploads).toHaveLength(reviewed ? 1 : 0);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("adding a fresh attachment cannot renew an expired draft before its cleanup timer", async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  await attach(page, file("expired-before-add.txt", "Synthetic expired original"));
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("fresh.txt", "Synthetic fresh original"));
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "fresh.txt 상세 보기", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  expect(state.uploads).toEqual([]);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("an uncertain START retry cannot revive an expired attachment while timers are suspended", async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  const input = page.locator("#agent-chat-input");
+  const original = "Keep my uncertain request exact";
+  await input.fill(original);
+  await attach(page, file("uncertain.txt", "Synthetic uncertain attachment"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" })).toBeVisible();
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(input).toHaveValue(original);
+  expect(state.starts).toHaveLength(1);
+  expect(state.uploads).toHaveLength(1);
+  expect(state.blocked).toEqual([]);
+});
+
+for (const reviewed of [false, true]) test(`logout outside chat cannot restore ${reviewed ? "reviewed" : "local"} files on the same account's next login`, async ({ page }) => {
+  const state = await setup(page);
+  await page.route("**/api/v2/auth/logout", route => route.fulfill({ status: 204 }));
+  await page.route("**/api/v2/auth/login", route => route.fulfill({ json: {
+    userId: "local-user", workspaceId: "local-space", accessToken: "new-login-token", refreshToken: "new-login-refresh",
+    accessTokenExpiresAt: "2099-01-01T00:00:00Z", refreshTokenExpiresAt: "2099-01-01T00:00:00Z", tokenType: "Bearer",
+  } }));
+  await attach(page, file("prior-login.txt", "Synthetic private original from an earlier login"));
+  if (reviewed) {
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await page.getByRole("checkbox").check();
+  }
+  const pipeline = page.getByRole("navigation", { name: "주 메뉴", exact: true }).getByRole("button", { name: "프로젝트 현황", exact: true });
+  const project = page.getByRole("navigation", { name: "최근 프로젝트 대화" }).getByRole("button", { name: /Original project title/ });
+  // Navigation within a login still keeps the original in memory.
+  await pipeline.click();
+  await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+  await project.click();
+  await expect(page.getByRole("button", { name: "prior-login.txt 상세 보기", exact: true })).toBeVisible();
+  await pipeline.click();
+  await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+  await page.locator(".sidebar-foot button").click();
+  await expect(page.locator('input[name="email"]')).toBeVisible();
+  await page.locator('input[name="email"]').fill("fixture@example.invalid");
+  await page.locator('input[name="password"]').fill("synthetic-password");
+  await page.locator('button[type="submit"]').click();
+  await project.click();
+  await expect(page.locator("#agent-chat-input")).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(page.locator(".chat-attachments pre")).toHaveCount(0);
+  expect(state.uploads).toHaveLength(reviewed ? 1 : 0);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+
+for (const failure of [429, 503, "network", "cancel"]) {
+  test(`partial upload recovers after ${failure} with original files and exactly one reviewed Send`, async ({ page }) => {
+    const state = await setup(page);
+    await page.locator("#agent-chat-input").fill("Keep this request while reading");
+    await attach(page, [file("first.txt", "First original"), file("second.txt", "Second original"), file("third.txt", "Third original")]);
+    let cancelled;
+    if (failure === "cancel") {
+      cancelled = state.uploadBarrier = requestBarrier();
+      state.uploadBarrierAt = 2;
+    } else {
+      state.attachmentFailureAt = 2;
+      state.attachmentFailureMode = failure;
+    }
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    if (cancelled) {
+      await cancelled.entered;
+      await page.getByRole("button", { name: "파일 읽기 취소" }).click();
+    }
+    const error = failure === "cancel" ? "취소" : failure === "network" ? "네트워크" : `Synthetic upload failure ${failure}`;
+    await expect(page.getByRole("alert").filter({ hasText: error })).toBeVisible();
+    cancelled?.release();
+    await expect(page.getByRole("button", { name: "파일 읽기 취소" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "파일 첨부", exact: true })).toBeEnabled();
+    await expect(page.locator(".chat-attachment-tile")).toHaveCount(3);
+    await expect(page.getByRole("button", { name: "first.txt 상세 보기" })).toContainText("확인 필요");
+    if (failure !== "cancel") await expect(page.getByRole("button", { name: "second.txt 상세 보기" })).toContainText("읽기 실패");
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.locator("#agent-chat-input")).toHaveValue("Keep this request while reading");
+    expect(state.uploads).toHaveLength(2);
+    expect(state.starts).toHaveLength(0);
+    const retry = state.uploadBarrier = requestBarrier();
+    state.uploadBarrierAt = 3;
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await retry.entered;
+    await expect(page.getByRole("alert").filter({ hasText: error })).toHaveCount(0);
+    await page.locator("#agent-chat-input").press("Control+Enter");
+    await page.locator("#agent-chat-input").press("Meta+Enter");
+    expect(state.uploads).toHaveLength(3);
+    expect(state.starts).toHaveLength(0);
+    retry.release();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+    expect(state.uploadFields.map(upload => [upload.name, upload.bytes.toString()])).toEqual([
+      ["first.txt", "First original"], ["second.txt", "Second original"], ["second.txt", "Second original"], ["third.txt", "Third original"],
+    ]);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "보내기", exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(1);
+    expect(state.starts[0].attachmentIds).toEqual(["attachment-one", "attachment-3", "attachment-4"]);
+    expect(state.uploads).toHaveLength(4);
+    expect(state.blocked).toEqual([]);
+  });
+}
+
+
+for (const firstLocale of ["ko", "en"]) for (const paused of [false, true]) {
+  test(`${firstLocale}: attachment-only retry keeps the same body and idempotency key after language change and remount (paused=${paused})`, async ({ page }) => {
+    await page.addInitScript(locale => localStorage.setItem("freelance-ops-ui-locale-v1", locale), firstLocale);
+    const state = await setup(page);
+    const keys = [];
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/agent-runs")) keys.push(request.headers()["idempotency-key"]);
+    });
+    await page.getByLabel(translateUi("첨부파일 선택", firstLocale)).setInputFiles(file("locale.txt", "Same authorized original"));
+    await page.getByRole("button", { name: translateUi("파일 읽고 확인", firstLocale), exact: true }).click();
+    await page.getByRole("checkbox").check();
+    state.startFailures = 1;
+    await page.getByRole("button", { name: translateUi("보내기", firstLocale), exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: firstLocale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" })).toBeVisible();
+    const locale = firstLocale === "ko" ? "en" : "ko";
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
+    if (paused) {
+      state.aiUsage.spendingEnabled = false;
+      const refreshed = page.waitForResponse(response => response.url().endsWith("/me/ai-usage"));
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await (await refreshed).finished();
+    }
+    const notice = page.getByRole("status").filter({ hasText: locale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" });
+    await expect(notice).toBeVisible();
+    await expect(page.getByRole("button", { name: translateUi("보내기", locale), exact: true })).toBeEnabled();
+    await page.getByRole("navigation", { name: translateUi("주 메뉴", locale), exact: true }).getByRole("button", { name: translateUi("프로젝트 현황", locale), exact: true }).click();
+    await expect(page.locator("#agent-chat-input")).toHaveCount(0);
+    await page.getByRole("navigation", { name: translateUi("최근 프로젝트 대화", locale) }).getByRole("button", { name: /Original project title/ }).click();
+    await page.locator(".chat-attachment-tile").click();
+    await expect(notice).toBeVisible();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: translateUi("보내기", locale), exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(2);
+    expect(state.starts[1]).toEqual(state.starts[0]);
+    expect(state.starts[0].requirementText).toBe(translateUi("첨부 자료의 읽기 범위와 내용을 확인해 주세요.", firstLocale));
+    expect(keys[0]).toBeTruthy();
+    expect(keys).toEqual([keys[0], keys[0]]);
+    expect(state.uploads).toHaveLength(1);
+    expect(state.blocked).toEqual([]);
+  });
+}
+
+for (const personal of [false, true]) {
+  test(`integration: ${personal ? "personal connection" : "explicit platform model"} attachment retry survives settings and language changes`, async ({ page }) => {
+    const firstLocale = personal ? "en" : "ko";
+    const locale = personal ? "ko" : "en";
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), firstLocale);
+    const state = await setup(page, state => {
+      state.connections = [{ id: "integration-personal", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-only", updatedAt: "2026-10-01T00:00:00Z" }];
+    });
+    const keys = [], errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/agent-runs")) keys.push(request.headers()["idempotency-key"]);
+    });
+    await page.getByRole("button", { name: translateUi("AI 설정 열기", firstLocale), exact: true }).click();
+    const settings = page.getByRole("dialog", { name: translateUi("AI 설정", firstLocale), exact: true });
+    let selectedModel = "gpt-6-luna";
+    if (personal) await settings.getByLabel(translateUi("AI 연결", firstLocale), { exact: true }).selectOption("integration-personal");
+    else {
+      const model = settings.getByLabel(translateUi("AI 모델", firstLocale), { exact: true });
+      const defaultModel = await model.inputValue();
+      selectedModel = state.aiUsage.models.find(item => item.model !== defaultModel)?.model;
+      expect(selectedModel).toBeTruthy();
+      await model.selectOption(selectedModel);
+    }
+    await page.keyboard.press("Escape");
+    await page.getByLabel(translateUi("첨부파일 선택", firstLocale)).setInputFiles(file("integrated.txt", "Original shared across all three boundaries"));
+    await page.getByRole("button", { name: translateUi("파일 읽고 확인", firstLocale), exact: true }).click();
+    await page.getByRole("checkbox").check();
+    state.startFailures = 1;
+    await page.getByRole("button", { name: translateUi("보내기", firstLocale), exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: firstLocale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" })).toBeVisible();
+    await page.getByRole("navigation", { name: translateUi("주 메뉴", firstLocale), exact: true }).getByRole("button", { name: translateUi("설정", firstLocale), exact: true }).click();
+    await expect(page.locator(".settings-page")).toBeVisible();
+    await expect(page.locator("#estimation-policy form")).toBeVisible();
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
+    state.aiUsage.spendingEnabled = false;
+    await page.getByRole("navigation", { name: translateUi("최근 프로젝트 대화", locale) }).getByRole("button", { name: /Original project title/ }).click();
+    await page.getByRole("button", { name: translateUi("AI 설정 열기", locale), exact: true }).click();
+    const restored = page.getByRole("dialog", { name: translateUi("AI 설정", locale), exact: true });
+    await expect(restored.getByLabel(translateUi("AI 연결", locale), { exact: true })).toHaveValue(personal ? "integration-personal" : "");
+    if (!personal) await expect(restored.getByLabel(translateUi("AI 모델", locale), { exact: true })).toHaveValue(selectedModel);
+    await page.keyboard.press("Escape");
+    await page.locator(".chat-attachment-tile").click();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: translateUi("보내기", locale), exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(2);
+    expect(state.starts[1]).toEqual(state.starts[0]);
+    expect(state.starts[1].modelSelection).toMatchObject({ provider: "OPENAI", model: selectedModel });
+    expect(state.starts[1].modelSelection.credentialId ?? null).toBe(personal ? "integration-personal" : null);
+    expect(keys[0]).toBeTruthy();
+    expect(keys).toEqual([keys[0], keys[0]]);
+    expect(state.uploads).toHaveLength(1);
+    expect(state.blocked).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("integration: a revoked personal connection permits free rereading but blocks uncertain retry and platform fallback", async ({ page }) => {
+  const state = await setup(page, state => {
+    state.connections = [{ id: "integration-revoked", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-only", updatedAt: "2026-10-01T00:00:00Z" }];
+  });
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
+  await page.getByRole("dialog", { name: "AI 설정", exact: true }).getByLabel("AI 연결", { exact: true }).selectOption("integration-revoked");
+  await page.keyboard.press("Escape");
+  await attach(page, file("revoked.txt", "Preserved original after connection revocation"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" })).toBeVisible();
+  await page.getByRole("navigation", { name: "주 메뉴", exact: true }).getByRole("button", { name: "설정", exact: true }).click();
+  await expect(page.locator(".settings-page")).toBeVisible();
+  state.connections = [];
+  const revoked = page.waitForResponse(async response => new URL(response.url()).pathname.endsWith("/ai-connections") && response.request().method() === "GET" && (await response.json()).connections.length === 0);
+  await page.getByRole("navigation", { name: "최근 프로젝트 대화" }).getByRole("button", { name: /Original project title/ }).click();
+  await revoked;
+  await expect(page.locator(".chat-model-trigger")).toContainText("AI 연결 확인 필요");
+  await page.locator(".chat-attachment-tile").click();
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  await row(page, "revoked.txt").getByLabel("인코딩").selectOption("utf-8");
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  expect(state.uploads).toHaveLength(2);
+  expect(state.uploadFields.every(upload => upload.bytes.equals(Buffer.from("Preserved original after connection revocation")))).toBe(true);
+  expect(state.starts[0].modelSelection.credentialId).toBe("integration-revoked");
   expect(state.blocked).toEqual([]);
 });

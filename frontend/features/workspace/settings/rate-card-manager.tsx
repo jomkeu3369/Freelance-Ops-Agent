@@ -1,7 +1,7 @@
 import { useT } from "../../../app/lib/ui-language";
-import type { FormEvent } from "react";
+import type { FormEvent, Dispatch, SetStateAction } from "react";
 import { AuthSession, RateCard, saveRateCard } from "../../../app/lib/api";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
 
@@ -9,26 +9,37 @@ interface RateCardManagerProps {
   session: AuthSession;
   rateCards: RateCard[];
   canWrite: boolean;
-  onChange: (cards: RateCard[]) => void;
+  onChange: Dispatch<SetStateAction<RateCard[]>>;
 }
 
 export function RateCardManager({ session, rateCards, canWrite, onChange }: RateCardManagerProps) {
   const t = useT();
   const [editorId, setEditorId] = useState<string>("new");
+  const [newDraftVersion, setNewDraftVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  // Keep uncontrolled input identity stable through a pending/failed write.
+  const [submittedCard, setSubmittedCard] = useState<RateCard | null>(null);
+  const pending = useRef(false);
+  // Keep the same PUT target when the server saved but its response was lost.
+  const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
+  const formCard = submittedCard ?? selected;
 
   const replaceCard = (card: RateCard) => {
-    const exists = rateCards.some((item) => item.id === card.id);
-    const next = exists ? rateCards.map((item) => (item.id === card.id ? card : item)) : [...rateCards, card];
-    onChange(next.sort((left, right) => left.name.localeCompare(right.name, "ko")));
+    onChange(current => {
+      const exists = current.some((item) => item.id === card.id);
+      const next = exists ? current.map((item) => (item.id === card.id ? card : item)) : [...current, card];
+      return next.sort((left, right) => left.name.localeCompare(right.name, "ko"));
+    });
   };
 
   const toggleActive = async () => {
-    if (!selected || busy) return;
+    if (!canWrite || !selected || busy || pending.current) return;
+    pending.current = true;
+    setSubmittedCard(formCard);
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -42,6 +53,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         active: !selected.active
       });
       replaceCard(card);
+      setSubmittedCard(null);
       setConfirmDeactivate(false);
       setNotice(
         card.active
@@ -51,13 +63,14 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "단가 상태를 변경하지 못했습니다.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (!canWrite || busy || pending.current) return;
     const data = new FormData(event.currentTarget);
     const name = String(data.get("name")).trim();
     const rate = Number(data.get("rate"));
@@ -72,9 +85,12 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       setError("기본 단가와 최소 금액은 0 이상의 숫자여야 합니다.");
       return;
     }
+    pending.current = true;
+    setSubmittedCard(formCard);
     setBusy(true);
     try {
-      const card = await saveRateCard(session, selected?.id ?? crypto.randomUUID(), {
+      const id = selected?.id ?? (newCardId.current ??= crypto.randomUUID());
+      const card = await saveRateCard(session, id, {
         name,
         unit: String(data.get("unit")) as RateCard["unit"],
         rate,
@@ -83,11 +99,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         active: selected?.active ?? true
       });
       replaceCard(card);
+      setSubmittedCard(null);
       setEditorId(card.id);
       setNotice(selected ? "단가 변경을 저장했습니다." : "새 단가를 등록했습니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -104,7 +122,12 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
           <button
             type="button"
             className="secondary-button"
+            disabled={busy}
             onClick={() => {
+              if (pending.current) return;
+              newCardId.current = null;
+              setSubmittedCard(null);
+              setNewDraftVersion(value => value + 1);
               setEditorId("new");
               setError(null);
               setNotice(null);
@@ -120,10 +143,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             <button
               type="button"
               key={card.id}
+              disabled={busy}
               aria-pressed={editorId === card.id}
               className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`}
               onClick={() => {
+                if (pending.current) return;
                 setEditorId(card.id);
+                setSubmittedCard(null);
                 setError(null);
                 setNotice(null);
                 setConfirmDeactivate(false);
@@ -146,7 +172,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       {canWrite ? (
         <form
           className="settings-form rate-card-form"
-          key={selected ? `${selected.id}-${selected.version}` : "new"}
+          key={formCard ? `${formCard.id}-${formCard.version}` : `new-${newDraftVersion}`}
           aria-busy={busy}
           onSubmit={handleSubmit}
         >
@@ -154,7 +180,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             <div>
               <strong>{selected ? t("단가 편집") : t("새 단가 등록")}</strong>
               <span>
-                {selected ? t("수정 이력 {v0}", { v0: selected.version }) : t("견적에 사용할 서비스와 금액을 입력하세요.")}
+                {formCard ? t("수정 이력 {v0}", { v0: formCard.version }) : t("견적에 사용할 서비스와 금액을 입력하세요.")}
               </span>
             </div>
             {selected && (
@@ -183,18 +209,18 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                   required
                   maxLength={120}
                   placeholder={t("예: 개발 작업")}
-                  defaultValue={selected?.name ?? ""}
+                  defaultValue={formCard?.name ?? ""}
                 />
               </label>
               <label>
-                {t("단위")}<select name="unit" defaultValue={selected?.unit ?? "HOUR"}>
+                {t("단위")}<select name="unit" defaultValue={formCard?.unit ?? "HOUR"}>
                   <option value="HOUR">{t("시간")}</option>
                   <option value="DAY">{t("일")}</option>
                   <option value="FIXED">{t("고정")}</option>
                 </select>
               </label>
               <label>
-                {t("통화")}<select name="currency" defaultValue={selected?.currency ?? "KRW"}>
+                {t("통화")}<select name="currency" defaultValue={formCard?.currency ?? "KRW"}>
                   <option value="KRW">KRW</option>
                   <option value="USD">USD</option>
                   <option value="JPY">JPY</option>
@@ -209,7 +235,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                   min="0"
                   required
                   step="0.01"
-                  defaultValue={selected?.rate ?? ""}
+                  defaultValue={formCard?.rate ?? ""}
                 />
               </label>
               <label>
@@ -219,7 +245,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                   min="0"
                   required
                   step="0.01"
-                  defaultValue={selected?.minimumAmount ?? 0}
+                  defaultValue={formCard?.minimumAmount ?? 0}
                 />
               </label>
             </div>

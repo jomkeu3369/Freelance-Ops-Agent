@@ -1,16 +1,22 @@
 "use client";
 
 import { Check, CircleNotch, FileCsv, FileImage, FilePdf, FileText, Paperclip, X } from "@phosphor-icons/react";
-import { ClipboardEvent, useEffect, useId, useRef, useState } from "react";
+import { ClipboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
-import { AuthSession, AttachmentPreview, OcrOptions, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
+import { AuthSession, AttachmentPreview, OcrOptions, currentSessionGeneration, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
 import "./chat-attachments.css";
 
 interface DraftFile extends OcrOptions { key: string; file: File; encoding: string; delimiter: string; preview?: AttachmentPreview; }
 const drafts = new Map<string, { items: DraftFile[]; expires: number }>();
 const ttl = 60 * 60 * 1000;
-function prune() { for (const [key, value] of drafts) if (value.expires <= Date.now()) drafts.delete(key); }
+let draftsGeneration: number | null = null;
+function prune() {
+  const generation = currentSessionGeneration();
+  // Logout can happen while every chat is unmounted. Never restore an older login's files.
+  if (draftsGeneration !== generation) { drafts.clear(); draftsGeneration = generation; }
+  for (const [key, value] of drafts) if (value.expires <= Date.now()) drafts.delete(key);
+}
 
 export function useChatAttachments(session: AuthSession, projectId: string) {
   const key = `${session.userId}:${session.workspaceId}:${projectId}`;
@@ -23,6 +29,15 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
   const abort = useRef<AbortController | null>(null);
   const current = useRef(items);
   const mounted = useRef(true);
+  const expire = useCallback(() => {
+    prune();
+    if (!drafts.has(key) && current.current.length && !abort.current) {
+      current.current = []; setItems([]); setConfirmed(false); setReviewOpen(false); setFailedKey(null);
+      setError("첨부 초안이 1시간 만료되었습니다. 원본 파일을 다시 선택해 주세요.");
+      return true;
+    }
+    return false;
+  }, [key]);
   function update(next: DraftFile[]) {
     current.current = next;
     drafts.set(key, { items: next, expires: Date.now() + ttl });
@@ -32,22 +47,17 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     mounted.current = true;
     const clear = () => { drafts.clear(); abort.current?.abort(); current.current = []; setItems([]); setReviewOpen(false); setFailedKey(null); };
     window.addEventListener("freelance-ops-session-cleared", clear);
-    const timer = setInterval(() => {
-      prune();
-      if (!drafts.has(key) && current.current.length && !abort.current) {
-        current.current = []; setItems([]); setReviewOpen(false); setFailedKey(null); setError("첨부 초안이 1시간 만료되었습니다. 원본 파일을 다시 선택해 주세요.");
-      }
-    }, 30000);
+    const timer = setInterval(expire, 30000);
     return () => { mounted.current = false; abort.current?.abort(); clearInterval(timer); window.removeEventListener("freelance-ops-session-cleared", clear); };
-  }, [key]);
+  }, [key, expire]);
   function add(files: File[]) {
     try {
-      prune();
+      const expired = expire();
       validateAttachments(current.current.map(item => item.file), files);
       const others = [...drafts].filter(([entry]) => entry !== key).flatMap(([, value]) => value.items);
       if (others.length + current.current.length + files.length > 12) throw new Error("다른 프로젝트의 미전송 첨부를 먼저 제거해 주세요.");
       update([...current.current, ...files.map(file => ({ key: crypto.randomUUID(), file, encoding: "auto", delimiter: "auto", ocrLanguage: "mixed" as const, ocrLayout: "general" as const }))]);
-      setError("");
+      if (!expired) setError("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "파일을 추가하지 못했습니다."); }
   }
   function paste(event: ClipboardEvent<HTMLTextAreaElement>, composing: boolean, disabled: boolean) {
@@ -60,18 +70,20 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     if (file) { event.preventDefault(); add([file]); }
   }
   function remove(item: DraftFile) {
+    if (expire()) return;
     if (failedKey === item.key) { setFailedKey(null); setError(""); }
     update(current.current.filter(value => value.key !== item.key));
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => setError("임시 첨부 삭제를 확인하지 못했습니다. 서버 자료는 30분 후 만료됩니다."));
   }
   function options(item: DraftFile, encoding: string, delimiter: string, ocrLanguage = item.ocrLanguage, ocrLayout = item.ocrLayout) {
-    if (abort.current) return;
+    if (abort.current || expire()) return;
     if (failedKey === item.key) { setFailedKey(null); setError(""); }
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => {});
     update(current.current.map(value => value.key === item.key ? { ...value, encoding, delimiter, ocrLanguage, ocrLayout, preview: undefined } : value));
   }
   async function prepare(): Promise<boolean> {
-    if (abort.current) return false;
+    // Background tabs can delay timers. Expiry must also gate explicit user actions.
+    if (abort.current || expire()) return false;
     const pending = current.current.filter(item => !item.preview);
     if (!pending.length) return !current.current.length || confirmed;
     setReviewOpen(true);
@@ -89,8 +101,6 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
         }
         update(current.current.map(value => value.key === item.key ? { ...value, preview } : value));
       }
-      const characters = current.current.reduce((sum, item) => sum + Array.from(item.preview?.extraction.text ?? "").length, 0);
-      if (characters > attachmentLimits.text) setError("총 추출량은 40,000자 이하여야 합니다. 일부 첨부를 제거해 주세요.");
       return false; // Review coverage and confirm before the next Send; never auto-send after extraction.
     } catch (cause) {
       if (mounted.current && !controller.signal.aborted) setFailedKey(readingKey);
@@ -100,7 +110,8 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
   }
   const ready = items.every(item => item.preview);
   const tooLarge = items.reduce((sum, item) => sum + Array.from(item.preview?.extraction.text ?? "").length, 0) > attachmentLimits.text;
-  return { items, reading, error, failedKey, add, paste, remove, options, prepare, confirmed, setConfirmed, ready, tooLarge, reviewOpen, setReviewOpen,
+  const currentError = error || (tooLarge ? "총 추출량은 40,000자 이하여야 합니다. 일부 첨부를 제거해 주세요." : "");
+  return { items, reading, error: currentError, failedKey, add, paste, remove, options, prepare, confirmed, setConfirmed, ready, tooLarge, reviewOpen, setReviewOpen,
     ids: items.flatMap(item => item.preview ? [item.preview.id] : []),
     clear: () => { update([]); setReviewOpen(false); setFailedKey(null); drafts.delete(key); }, cancel: () => abort.current?.abort() };
 }
@@ -208,7 +219,7 @@ function AttachmentReview({ id, state, disabled, onClose }: { id: string; state:
   }, [onClose]);
   return <section ref={region} id={id} className="chat-attachment-review" aria-label={t("첨부파일 상세")}>
     <div className="chat-attachment-review-heading"><strong>{t("첨부파일 상세")}</strong><button ref={close} type="button" onClick={onClose} aria-label={t("첨부파일 상세 닫기")}><X size={18} aria-hidden="true" /></button></div>
-      <p className="agent-chat-muted">{t("원본은 전송 전 이 브라우저 메모리에만 보관됩니다. 새로고침하면 사라집니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
+      <p className="agent-chat-muted">{t("파일 읽고 확인 시 원본을 서버로 보내 무료로 읽습니다. 확인 후 보내기를 눌러야 AI가 실행됩니다. 새로고침하면 파일을 다시 첨부해야 합니다. 파일당 2 MiB · 합계 8 MiB · 6개 · 추출 합계 40,000자.")}</p>
       <div className="chat-attachment-review-files">{state.items.map(item => <article key={item.key}>
         <strong>{item.file.name}</strong> <small>{item.file.size.toLocaleString()} B</small>
         <span>{t(!item.preview ? "아직 읽지 않음" : item.preview.extraction.status === "COMPLETE" ? "텍스트 추출 완료" : item.preview.extraction.status === "PARTIAL" ? "일부 읽음 · 문자 인식 결과 확인 필요" : "내용 읽기 미지원")}</span>

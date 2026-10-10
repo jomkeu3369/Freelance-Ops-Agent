@@ -8,6 +8,10 @@ on:
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
+      - "work/integrate-chat-settings-project-20261010"
+      - "work/attachment-history-boundaries-20261010"
+      - "work/settings-session-accessibility-20261010"
+      - "work/project-mutation-boundaries-20261010"
       - "codex/readme-product-screenshots-20261009"
       - "codex/workspace-pet-companion-20261009"
       - "codex/attachment-reference-ui-20261008"
@@ -62,7 +66,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch and same-repository PR verification. No deployment or provider calls.
-    if: github.ref == 'refs/heads/codex/readme-product-screenshots-20261009' || github.ref == 'refs/heads/codex/workspace-pet-companion-20261009' || github.ref == 'refs/heads/codex/attachment-reference-ui-20261008' || github.ref == 'refs/heads/codex/auth-ocr-integration-20261007' || github.ref == 'refs/heads/codex/login-session-reliability-20261007' || github.ref == 'refs/heads/codex/ocr-language-layout-coverage-20261007' || github.ref == 'refs/heads/codex/compatible-toolchain-fixes-20261006' || github.ref == 'refs/heads/codex/next-security-patch-20261006' || github.ref == 'refs/heads/codex/chat-flow-hardening-20261006' || github.ref == 'refs/heads/codex/overnight-quality-integration-20261006' || github.ref == 'refs/heads/codex/chat-composer-settings-20261006' || github.ref == 'refs/heads/codex/offline-flow-regressions-20261006' || github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.ref == 'refs/heads/work/integrate-chat-settings-project-20261010' || github.ref == 'refs/heads/work/project-mutation-boundaries-20261010' || github.ref == 'refs/heads/work/attachment-history-boundaries-20261010' || github.ref == 'refs/heads/work/settings-session-accessibility-20261010' || github.ref == 'refs/heads/codex/readme-product-screenshots-20261009' || github.ref == 'refs/heads/codex/workspace-pet-companion-20261009' || github.ref == 'refs/heads/codex/attachment-reference-ui-20261008' || github.ref == 'refs/heads/codex/auth-ocr-integration-20261007' || github.ref == 'refs/heads/codex/login-session-reliability-20261007' || github.ref == 'refs/heads/codex/ocr-language-layout-coverage-20261007' || github.ref == 'refs/heads/codex/compatible-toolchain-fixes-20261006' || github.ref == 'refs/heads/codex/next-security-patch-20261006' || github.ref == 'refs/heads/codex/chat-flow-hardening-20261006' || github.ref == 'refs/heads/codex/overnight-quality-integration-20261006' || github.ref == 'refs/heads/codex/chat-composer-settings-20261006' || github.ref == 'refs/heads/codex/offline-flow-regressions-20261006' || github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -113,6 +117,7 @@ jobs:
           npx playwright test --forbid-only \
             tests/browser/readme-screenshots.spec.mjs \
             tests/browser/composer-design.spec.mjs \
+            tests/browser/settings-mutations.spec.mjs \
             tests/browser/skills-integrated.spec.mjs \
             tests/browser/custom-agent-pets.spec.mjs \
             tests/browser/workspace-companion.spec.mjs \
@@ -126,7 +131,8 @@ jobs:
             tests/browser/auth-cinematic.spec.mjs \
             tests/browser/byok-bounded.spec.mjs \
             tests/browser/chat-markdown.spec.mjs \
-            tests/browser/chat-history.spec.mjs
+            tests/browser/chat-history.spec.mjs \
+            tests/browser/project-mutations.spec.mjs
       - name: Preserve synthetic browser evidence
         if: always()
         uses: actions/upload-artifact@v4

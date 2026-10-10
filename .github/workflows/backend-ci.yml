@@ -4,6 +4,8 @@ on:
   workflow_call:
   push:
     branches:
+      - "work/integrate-chat-settings-project-20261010"
+      - "work/attachment-history-boundaries-20261010"
       - "codex/auth-ocr-integration-20261007"
       - "codex/ocr-language-layout-coverage-20261007"
       - "codex/chat-composer-settings-20261006"

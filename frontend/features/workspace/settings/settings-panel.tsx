@@ -8,7 +8,7 @@ import {
   listRateCards,
   getEstimationPolicy,
 } from "../../../app/lib/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { CircleNotch, Warning, CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import { accountStatusLabels } from "../shared/constants";
 import { RateCardManager } from "./rate-card-manager";
@@ -38,10 +38,29 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readErrors, setReadErrors] = useState<{ profile: string | null; cards: string | null; policy: string | null }>({ profile: null, cards: null, policy: null });
   const [saved, setSaved] = useState<string | null>(null);
+  // Cache invalidation does not cancel consumers of an already-running GET.
+  const cardRevision = useRef(0);
+  const policyRevision = useRef(0);
+  const visibleError = error ?? readErrors.profile ?? readErrors.cards ?? readErrors.policy;
+
+  function handleCardsSaved(update: SetStateAction<RateCard[]>) {
+    cardRevision.current += 1;
+    setRateCards(update);
+    setReadErrors(current => ({ ...current, cards: null }));
+  }
+
+  function handlePolicySaved(value: EstimationPolicy) {
+    policyRevision.current += 1;
+    setPolicy(value);
+    setReadErrors(current => ({ ...current, policy: null }));
+  }
 
   useEffect(() => {
     let cancelled = false;
+    const cardsAtStart = cardRevision.current;
+    const policyAtStart = policyRevision.current;
     Promise.allSettled([
       getMe(session),
       canReadQuotation ? listRateCards(session) : Promise.resolve([]),
@@ -49,16 +68,19 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
     ])
       .then(([profileResult, cardsResult, policyResult]) => {
         if (cancelled) return;
+        const cardsCurrent = cardsAtStart === cardRevision.current;
+        const policyCurrent = policyAtStart === policyRevision.current;
         if (profileResult.status === "fulfilled") setProfile(profileResult.value);
-        if (cardsResult.status === "fulfilled") setRateCards(cardsResult.value);
-        if (policyResult.status === "fulfilled") setPolicy(policyResult.value);
-        const failed = [profileResult, cardsResult, policyResult].find(
-          (result) => result.status === "rejected"
-        );
-        if (failed?.status === "rejected")
-          setError(
-            failed.reason instanceof Error ? failed.reason.message : "일부 설정을 불러오지 못했습니다."
-          );
+        if (cardsCurrent && cardsResult.status === "fulfilled") setRateCards(cardsResult.value);
+        if (policyCurrent && policyResult.status === "fulfilled") setPolicy(policyResult.value);
+        const readError = (result: PromiseSettledResult<unknown>) => result.status === "rejected"
+          ? result.reason instanceof Error ? result.reason.message : "일부 설정을 불러오지 못했습니다."
+          : null;
+        setReadErrors(current => ({
+          profile: readError(profileResult),
+          cards: cardsCurrent ? readError(cardsResult) : current.cards,
+          policy: policyCurrent ? readError(policyResult) : current.policy,
+        }));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -89,10 +111,10 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
         <h1>{t("설정")}</h1>
         <p>{t("계정, AI 연결, 사용량과 견적 기준을 관리합니다.")}</p>
       </div>
-      {error && (
+      {visibleError && (
         <div className="inline-error" role="alert">
           <Warning size={18} />
-          {t(error)}
+          {t(visibleError)}
         </div>
       )}
       {saved && (
@@ -105,7 +127,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
         <FreeUsageStatus session={session} />
         {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}
       </div>
-      {canReadQuotation && !error && <details className="workspace-disclosure settings-quick-start">
+      {canReadQuotation && !visibleError && <details className="workspace-disclosure settings-quick-start">
         <summary>{t("빠른 시작")}<small>{t("온보딩 {v0}/{v1} 완료", { v0: completedSetupCount, v1: setupStates.length })}</small></summary>
       <div className={`workspace-onboarding${onboardingComplete ? " complete" : ""}`}>
         <header>
@@ -270,7 +292,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               session={session}
               rateCards={rateCards}
               canWrite={canWriteQuotation}
-              onChange={setRateCards}
+              onChange={handleCardsSaved}
             /> : <p>{t("서비스 단가를 볼 권한이 없습니다.")}</p>}
           </section>
           <section id="estimation-policy">
@@ -281,7 +303,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
                 <p>{t("견적에 기본으로 반영할 세금, 위험 대비율과 할인 한도를 정합니다.")}</p>
               </div>
             </header>
-            {policy ? (
+            {canReadQuotation && policy ? (
               canWriteQuotation ? (
                 <EstimationPolicyForm
                   session={session}
@@ -290,7 +312,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
                   setBusy={setBusy}
                   setError={setError}
                   setSaved={setSaved}
-                  onSaved={setPolicy}
+                  onSaved={handlePolicySaved}
                 />
               ) : (
                 <dl>
