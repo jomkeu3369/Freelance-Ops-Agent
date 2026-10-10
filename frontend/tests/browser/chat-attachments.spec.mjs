@@ -788,3 +788,101 @@ for (const firstLocale of ["ko", "en"]) for (const paused of [false, true]) {
     expect(state.blocked).toEqual([]);
   });
 }
+
+for (const personal of [false, true]) {
+  test(`integration: ${personal ? "personal connection" : "explicit platform model"} attachment retry survives settings and language changes`, async ({ page }) => {
+    const firstLocale = personal ? "en" : "ko";
+    const locale = personal ? "ko" : "en";
+    await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), firstLocale);
+    const state = await setup(page, state => {
+      state.connections = [{ id: "integration-personal", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-only", updatedAt: "2026-10-01T00:00:00Z" }];
+    });
+    const keys = [], errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    page.on("request", request => {
+      if (request.method() === "POST" && new URL(request.url()).pathname.endsWith("/agent-runs")) keys.push(request.headers()["idempotency-key"]);
+    });
+    await page.getByRole("button", { name: translateUi("AI 설정 열기", firstLocale), exact: true }).click();
+    const settings = page.getByRole("dialog", { name: translateUi("AI 설정", firstLocale), exact: true });
+    let selectedModel = "gpt-6-luna";
+    if (personal) await settings.getByLabel(translateUi("AI 연결", firstLocale), { exact: true }).selectOption("integration-personal");
+    else {
+      const model = settings.getByLabel(translateUi("AI 모델", firstLocale), { exact: true });
+      const defaultModel = await model.inputValue();
+      selectedModel = state.aiUsage.models.find(item => item.model !== defaultModel)?.model;
+      expect(selectedModel).toBeTruthy();
+      await model.selectOption(selectedModel);
+    }
+    await page.keyboard.press("Escape");
+    await page.getByLabel(translateUi("첨부파일 선택", firstLocale)).setInputFiles(file("integrated.txt", "Original shared across all three boundaries"));
+    await page.getByRole("button", { name: translateUi("파일 읽고 확인", firstLocale), exact: true }).click();
+    await page.getByRole("checkbox").check();
+    state.startFailures = 1;
+    await page.getByRole("button", { name: translateUi("보내기", firstLocale), exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: firstLocale === "ko" ? "접수 여부가 불확실한 이전 요청" : "Checking the previous request" })).toBeVisible();
+    await page.getByRole("navigation", { name: translateUi("주 메뉴", firstLocale), exact: true }).getByRole("button", { name: translateUi("설정", firstLocale), exact: true }).click();
+    await expect(page.locator(".settings-page")).toBeVisible();
+    await expect(page.locator("#estimation-policy form")).toBeVisible();
+    await page.locator(".workspace-language-trigger").click();
+    await page.getByRole("menuitemradio", { name: locale === "en" ? "EN English" : "KO 한국어" }).click();
+    state.aiUsage.spendingEnabled = false;
+    await page.getByRole("navigation", { name: translateUi("최근 프로젝트 대화", locale) }).getByRole("button", { name: /Original project title/ }).click();
+    await page.getByRole("button", { name: translateUi("AI 설정 열기", locale), exact: true }).click();
+    const restored = page.getByRole("dialog", { name: translateUi("AI 설정", locale), exact: true });
+    await expect(restored.getByLabel(translateUi("AI 연결", locale), { exact: true })).toHaveValue(personal ? "integration-personal" : "");
+    if (!personal) await expect(restored.getByLabel(translateUi("AI 모델", locale), { exact: true })).toHaveValue(selectedModel);
+    await page.keyboard.press("Escape");
+    await page.locator(".chat-attachment-tile").click();
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: translateUi("보내기", locale), exact: true }).click();
+    await expect.poll(() => state.starts.length).toBe(2);
+    expect(state.starts[1]).toEqual(state.starts[0]);
+    expect(state.starts[1].modelSelection).toMatchObject({ provider: "OPENAI", model: selectedModel });
+    expect(state.starts[1].modelSelection.credentialId ?? null).toBe(personal ? "integration-personal" : null);
+    expect(keys[0]).toBeTruthy();
+    expect(keys).toEqual([keys[0], keys[0]]);
+    expect(state.uploads).toHaveLength(1);
+    expect(state.blocked).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("integration: a revoked personal connection permits free rereading but blocks uncertain retry and platform fallback", async ({ page }) => {
+  const state = await setup(page, state => {
+    state.connections = [{ id: "integration-revoked", provider: "OPENAI", model: "gpt-6-luna", maskedKey: "synthetic-only", updatedAt: "2026-10-01T00:00:00Z" }];
+  });
+  await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
+  await page.getByRole("dialog", { name: "AI 설정", exact: true }).getByLabel("AI 연결", { exact: true }).selectOption("integration-revoked");
+  await page.keyboard.press("Escape");
+  await attach(page, file("revoked.txt", "Preserved original after connection revocation"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" })).toBeVisible();
+  await page.getByRole("navigation", { name: "주 메뉴", exact: true }).getByRole("button", { name: "설정", exact: true }).click();
+  await expect(page.locator(".settings-page")).toBeVisible();
+  state.connections = [];
+  const revoked = page.waitForResponse(async response => new URL(response.url()).pathname.endsWith("/ai-connections") && response.request().method() === "GET" && (await response.json()).connections.length === 0);
+  await page.getByRole("navigation", { name: "최근 프로젝트 대화" }).getByRole("button", { name: /Original project title/ }).click();
+  await revoked;
+  await expect(page.locator(".chat-model-trigger")).toContainText("AI 연결 확인 필요");
+  await page.locator(".chat-attachment-tile").click();
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  await row(page, "revoked.txt").getByLabel("인코딩").selectOption("utf-8");
+  await expect(page.getByRole("button", { name: "파일 읽고 확인", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await page.getByRole("checkbox").check();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toHaveLength(1);
+  expect(state.uploads).toHaveLength(2);
+  expect(state.uploadFields.every(upload => upload.bytes.equals(Buffer.from("Preserved original after connection revocation")))).toBe(true);
+  expect(state.starts[0].modelSelection.credentialId).toBe("integration-revoked");
+  expect(state.blocked).toEqual([]);
+});
