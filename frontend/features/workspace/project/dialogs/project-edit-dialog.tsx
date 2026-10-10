@@ -122,7 +122,7 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
                   name="budgetMin"
                   type="number"
                   min="0"
-                  step="10000"
+                  step="any"
                   defaultValue={project.budgetMin ?? ""}
                 />
               </label>
@@ -131,7 +131,7 @@ export function ProjectEditDialog({ session, project, clients, onClose, onUpdate
                   name="budgetMax"
                   type="number"
                   min="0"
-                  step="10000"
+                  step="any"
                   defaultValue={project.budgetMax ?? ""}
                 />
               </label>
