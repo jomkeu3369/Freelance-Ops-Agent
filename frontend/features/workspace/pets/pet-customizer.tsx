@@ -18,6 +18,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   const [resetPreferences, setResetPreferences] = useState(false);
   const [preview, setPreview] = useState<{ input: ComposeAgentPet; profile: PetProfile } | null>(null);
   const [status, setStatus] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     let current = true;
     const version = ++listVersion.current;
     const libraryRevision = petLibraryRevision();
-    listAgentPets(session).then(value => { if (current && version === listVersion.current) { setCollection(value); publishPetLibrary(session, value, libraryRevision); } }).catch(() => { if (current && version === listVersion.current) setStatus("펫을 불러오지 못했습니다. 다시 불러와 주세요."); });
+    listAgentPets(session).then(value => { if (current && version === listVersion.current) { setCollection(value); setLoadError(""); publishPetLibrary(session, value, libraryRevision); } }).catch(() => { if (current && version === listVersion.current) setLoadError("펫을 불러오지 못했습니다. 다시 불러와 주세요."); });
     return () => { current = false; listVersion.current += 1; };
   }, [session, reload]);
   const locked = disabled || busy || !collection;
@@ -55,7 +56,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     const version = ++listVersion.current;
     const libraryRevision = petLibraryRevision();
     const value = await listAgentPets(session);
-    if (version === listVersion.current) setCollection(value);
+    if (version === listVersion.current) { setCollection(value); setLoadError(""); }
     // The header outlives this panel. Publish a confirmed current revision even
     // when the panel closed while its post-mutation read was in flight.
     publishPetLibrary(session, value, libraryRevision);
@@ -128,6 +129,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     {archived.length > 0 && <details className="pet-archive"><summary>{t("보관함")} ({archived.length})</summary>{archived.map(pet => <div key={pet.id}><strong>{pet.profile.name}</strong><button type="button" disabled={locked || !!preview || active.length >= (collection?.maxActivePets ?? 0)} onClick={() => change(pet, "RESTORE")}>{t("복원")}</button><button type="button" disabled={locked || !!preview} onClick={() => setDeleteId(pet.id)}>{t("삭제")}</button>{deleteId === pet.id && <span>{t("이 펫을 영구 삭제할까요? 기존 실행 기록은 유지됩니다.")}<button type="button" disabled={locked} onClick={() => void perform(async () => { await deleteAgentPet(session, pet); publishPetLibrary(session, null); setDeleteId(null); await refreshCollection(); setStatus("펫을 삭제했습니다."); })}>{t("영구 삭제")}</button><button type="button" disabled={locked} onClick={() => setDeleteId(null)}>{t("취소")}</button></span>}</div>)}</details>}
     <p className="pet-customizer-intro">{t("유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성입니다. 저장한 선호는 다음 업무 실행부터 적용되며 해당 실행의 모델 사용량이 적용됩니다.")}</p>
     <button type="button" className="quiet-button" disabled={busy || disabled} onClick={() => setReload(value => value + 1)}>{t("목록 다시 불러오기")}</button>
+    {loadError && <p role="alert">{t(loadError)}</p>}
     <p role="status" aria-live="polite">{t(status)}</p>
   </section>;
 }
