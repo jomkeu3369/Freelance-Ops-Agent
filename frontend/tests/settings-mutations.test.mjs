@@ -49,7 +49,7 @@ const session = { userId: "user", workspaceId: "workspace" };
 const card = (id, name = id) => ({ id, name, workspaceId: "workspace", unit: "HOUR", rate: 100, minimumAmount: 0, currency: "KRW", active: true, version: 1 });
 function barrier() { let release; const promise = new Promise(resolve => { release = resolve; }); return { promise, release }; }
 async function rates(saveRateCard, rateCards = []) {
-  const props = { session, rateCards, canWrite: true, onChange: value => { props.rateCards = value; } };
+  const props = { session, rateCards, canWrite: true, onChange: value => { props.rateCards = typeof value === "function" ? value(props.rateCards) : value; } };
   return harness("rate-card-manager.tsx", "RateCardManager", props, { saveRateCard });
 }
 
