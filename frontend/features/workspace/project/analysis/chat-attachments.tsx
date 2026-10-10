@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, CircleNotch, FileCsv, FileImage, FilePdf, FileText, Paperclip, X } from "@phosphor-icons/react";
-import { ClipboardEvent, useEffect, useId, useRef, useState } from "react";
+import { ClipboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AttachmentPreview, OcrOptions, readChatAttachment, removeChatAttachment } from "../../../../app/lib/api";
 import { attachmentLimits, pastedTextFile, pasteThreshold, validateAttachments } from "./attachment-draft";
@@ -23,6 +23,15 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
   const abort = useRef<AbortController | null>(null);
   const current = useRef(items);
   const mounted = useRef(true);
+  const expire = useCallback(() => {
+    prune();
+    if (!drafts.has(key) && current.current.length && !abort.current) {
+      current.current = []; setItems([]); setConfirmed(false); setReviewOpen(false); setFailedKey(null);
+      setError("첨부 초안이 1시간 만료되었습니다. 원본 파일을 다시 선택해 주세요.");
+      return true;
+    }
+    return false;
+  }, [key]);
   function update(next: DraftFile[]) {
     current.current = next;
     drafts.set(key, { items: next, expires: Date.now() + ttl });
@@ -32,22 +41,17 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     mounted.current = true;
     const clear = () => { drafts.clear(); abort.current?.abort(); current.current = []; setItems([]); setReviewOpen(false); setFailedKey(null); };
     window.addEventListener("freelance-ops-session-cleared", clear);
-    const timer = setInterval(() => {
-      prune();
-      if (!drafts.has(key) && current.current.length && !abort.current) {
-        current.current = []; setItems([]); setReviewOpen(false); setFailedKey(null); setError("첨부 초안이 1시간 만료되었습니다. 원본 파일을 다시 선택해 주세요.");
-      }
-    }, 30000);
+    const timer = setInterval(expire, 30000);
     return () => { mounted.current = false; abort.current?.abort(); clearInterval(timer); window.removeEventListener("freelance-ops-session-cleared", clear); };
-  }, [key]);
+  }, [key, expire]);
   function add(files: File[]) {
     try {
-      prune();
+      const expired = expire();
       validateAttachments(current.current.map(item => item.file), files);
       const others = [...drafts].filter(([entry]) => entry !== key).flatMap(([, value]) => value.items);
       if (others.length + current.current.length + files.length > 12) throw new Error("다른 프로젝트의 미전송 첨부를 먼저 제거해 주세요.");
       update([...current.current, ...files.map(file => ({ key: crypto.randomUUID(), file, encoding: "auto", delimiter: "auto", ocrLanguage: "mixed" as const, ocrLayout: "general" as const }))]);
-      setError("");
+      if (!expired) setError("");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "파일을 추가하지 못했습니다."); }
   }
   function paste(event: ClipboardEvent<HTMLTextAreaElement>, composing: boolean, disabled: boolean) {
@@ -60,18 +64,20 @@ export function useChatAttachments(session: AuthSession, projectId: string) {
     if (file) { event.preventDefault(); add([file]); }
   }
   function remove(item: DraftFile) {
+    if (expire()) return;
     if (failedKey === item.key) { setFailedKey(null); setError(""); }
     update(current.current.filter(value => value.key !== item.key));
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => setError("임시 첨부 삭제를 확인하지 못했습니다. 서버 자료는 30분 후 만료됩니다."));
   }
   function options(item: DraftFile, encoding: string, delimiter: string, ocrLanguage = item.ocrLanguage, ocrLayout = item.ocrLayout) {
-    if (abort.current) return;
+    if (abort.current || expire()) return;
     if (failedKey === item.key) { setFailedKey(null); setError(""); }
     if (item.preview) void removeChatAttachment(session, projectId, item.preview.id).catch(() => {});
     update(current.current.map(value => value.key === item.key ? { ...value, encoding, delimiter, ocrLanguage, ocrLayout, preview: undefined } : value));
   }
   async function prepare(): Promise<boolean> {
-    if (abort.current) return false;
+    // Background tabs can delay timers. Expiry must also gate explicit user actions.
+    if (abort.current || expire()) return false;
     const pending = current.current.filter(item => !item.preview);
     if (!pending.length) return !current.current.length || confirmed;
     setReviewOpen(true);

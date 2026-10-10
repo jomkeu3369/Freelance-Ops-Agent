@@ -588,3 +588,62 @@ test("read-only project access cannot attach or read files while spending is pau
   expect(state.writes).toEqual([]);
   expect(state.blocked).toEqual([]);
 });
+
+
+for (const reviewed of [false, true]) test(`delayed cleanup timer cannot ${reviewed ? "send a reviewed" : "upload an unread"} expired draft`, async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  const input = page.locator("#agent-chat-input");
+  const original = "Keep my draft after the attachment expires";
+  await input.fill(original);
+  await attach(page, file("expired-before-timer.txt", "Synthetic expiring original"));
+  if (reviewed) {
+    await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+    await page.getByRole("checkbox").check();
+  }
+  // Change wall time without firing timers, as can happen while a tab is suspended.
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByRole("button", { name: reviewed ? "보내기" : "파일 읽고 확인", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(input).toHaveValue(original);
+  expect(state.uploads).toHaveLength(reviewed ? 1 : 0);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("adding a fresh attachment cannot renew an expired draft before its cleanup timer", async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  await attach(page, file("expired-before-add.txt", "Synthetic expired original"));
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByLabel("첨부파일 선택").setInputFiles(file("fresh.txt", "Synthetic fresh original"));
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "fresh.txt 상세 보기", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  expect(state.uploads).toEqual([]);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("an uncertain START retry cannot revive an expired attachment while timers are suspended", async ({ page }) => {
+  await page.clock.install();
+  const state = await setup(page);
+  const input = page.locator("#agent-chat-input");
+  const original = "Keep my uncertain request exact";
+  await input.fill(original);
+  await attach(page, file("uncertain.txt", "Synthetic uncertain attachment"));
+  await page.getByRole("button", { name: "파일 읽고 확인", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  state.startFailures = 1;
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "접수 여부가 불확실한 이전 요청" })).toBeVisible();
+  await page.clock.setSystemTime(new Date(await page.evaluate(() => Date.now()) + 60 * 60 * 1000));
+  await page.getByRole("button", { name: "보내기", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "1시간 만료" })).toBeVisible();
+  await expect(page.locator(".chat-attachment-tile")).toHaveCount(0);
+  await expect(input).toHaveValue(original);
+  expect(state.starts).toHaveLength(1);
+  expect(state.uploads).toHaveLength(1);
+  expect(state.blocked).toEqual([]);
+});
