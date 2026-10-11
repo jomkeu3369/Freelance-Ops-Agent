@@ -77,7 +77,7 @@ test("Vercel Preview uses the standard Next.js build without Cloudflare adapters
   assert.equal(packageJson.scripts.dev, "next dev");
   assert.equal(packageJson.scripts.build, "node scripts/validate-vercel-env.mjs && next build");
   assert.equal(packageJson.scripts.start, "next start");
-  assert.equal(packageJson.dependencies.next, "16.3.6");
+  assert.equal(packageJson.dependencies.next, "16.3.8");
   assert.equal(packageJson.devDependencies["@next/eslint-plugin-next"], packageJson.dependencies.next);
   const lockedPackages = JSON.parse(lockfile).packages;
   assert.equal(lockedPackages["node_modules/next"].version, packageJson.dependencies.next);
