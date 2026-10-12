@@ -3,6 +3,8 @@
 import base64
 import hashlib
 import hmac
+import http.client
+import io
 import json
 import os
 from pathlib import Path
@@ -11,8 +13,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
 
 CANDIDATE = "910a86f9c8f45577a7dc37a2dfd96b26502970eb"
 OLD = "9a48b5d18672f02fdcb30269b1dffc3f0a414d24"
@@ -27,6 +27,7 @@ PREFIX = "quotation-rollback-" + os.environ.get("GITHUB_RUN_ID", str(os.getpid()
 NETWORK = PREFIX + "-internal"
 DATABASE = PREFIX + "-db"
 CONTAINERS = []
+ACTIVE_BACKEND = None
 REPORT = {"candidate_sha": CANDIDATE, "old_sha": OLD, "cases": [], "result": "incomplete"}
 
 
@@ -35,8 +36,8 @@ def write_json(name, value):
     (EVIDENCE / name).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
-def run(args, *, input=None, env=None, check=True):
-    result = subprocess.run(args, input=input, env=env, text=True, capture_output=True)
+def run(args, *, input=None, env=None, check=True, timeout=None):
+    result = subprocess.run(args, input=input, env=env, text=True, capture_output=True, timeout=timeout)
     if check and result.returncode:
         # Never include environment values or generated bearer tokens in an exception.
         raise RuntimeError(f"{args[0]} {args[1]} failed: {result.stderr[-4000:]}")
@@ -96,15 +97,30 @@ def token(secret):
     return (body + b"." + signature).decode()
 
 
+def parse_http(raw):
+    class ResponseSocket:
+        def makefile(self, mode):
+            return io.BytesIO(raw)
+    response = http.client.HTTPResponse(ResponseSocket())
+    response.begin()
+    body = response.read()
+    return response.status, json.loads(body) if body else None
+
+
 def request(path, bearer=None):
-    headers = {} if bearer is None else {"Authorization": "Bearer " + bearer}
-    request = urllib.request.Request("http://127.0.0.1:18080" + path, headers=headers)
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            return response.status, json.loads(response.read())
-    except urllib.error.HTTPError as error:
-        body = error.read()
-        return error.code, json.loads(body) if body else None
+    # An internal Docker network intentionally has no published ingress. Probe
+    # the application's loopback from its own container with existing Bash/cat.
+    # HTTPResponse handles both content-length and chunked HTTP/1.1 responses.
+    headers = [f"GET {path} HTTP/1.1", "Host: localhost:8080", "Connection: close"]
+    if bearer is not None:
+        headers.append("Authorization: Bearer " + bearer)
+    payload = "\r\n".join(headers) + "\r\n\r\n"
+    result = subprocess.run(["docker", "exec", "-i", ACTIVE_BACKEND, "bash", "-c",
+                             "exec 3<>/dev/tcp/127.0.0.1/8080; cat >&3; cat <&3"],
+                            input=payload.encode(), capture_output=True, timeout=25)
+    if result.returncode:
+        raise OSError("Container-local HTTP connection is not ready")
+    return parse_http(result.stdout)
 
 
 def wait_ready(name):
@@ -117,7 +133,7 @@ def wait_ready(name):
             if status == 200 and body.get("status") == "UP":
                 write_json(name + "-readiness.json", {"http_status": status, "body": body})
                 return
-        except (OSError, ValueError):
+        except (OSError, ValueError, http.client.HTTPException, subprocess.TimeoutExpired):
             pass
         running = run(["docker", "inspect", "--format", "{{.State.Running}}", name]).stdout.strip()
         require(running == "true", f"Backend exited before readiness: {name}")
@@ -126,9 +142,11 @@ def wait_ready(name):
 
 
 def start_backend(label, env, *, image=None, jar=None):
+    global ACTIVE_BACKEND
     name = PREFIX + "-" + label
+    ACTIVE_BACKEND = name
     args = ["docker", "run", "-d", "--name", name, "--network", NETWORK,
-            "--publish", "127.0.0.1:18080:8080", "--cap-drop", "ALL", "--security-opt", "no-new-privileges"]
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges"]
     for key in env:
         args += ["-e", key]
     if jar:
