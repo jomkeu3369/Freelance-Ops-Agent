@@ -115,7 +115,10 @@ public class QuotationListPostgresTest {
             project, expected.stream().map(UUID::toString).collect(java.util.stream.Collectors.joining(",", "{", "}")));
         String cursor = first.nextCursor();
         while (cursor != null) {
+            SqlCounter.reset();
             var page = service.listPage(user, workspace, project, 50, cursor);
+            assertThat(SqlCounter.queries().getFirst().replaceAll("\\s+", ""))
+                .contains("(q.created_at,q.id)<(?,?)").doesNotContain("or(");
             assertThat(page.items()).hasSizeLessThanOrEqualTo(50);
             seen.addAll(page.items().stream().map(QuotationResponse::id).toList());
             cursor = page.nextCursor();

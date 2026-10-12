@@ -103,6 +103,8 @@ The response is `{ "items": [QuotationResponse], "nextCursor": "opaque-or-null" 
 `limit` defaults to 50 and must be between 1 and 100. Pass `nextCursor` back as `cursor`
 only when the user requests older history. Do not enumerate all pages on initial load.
 The order is `created_at DESC, id DESC`; the ID makes tied timestamps deterministic.
+Continuation uses PostgreSQL's `(created_at, id) < (:createdAt, :id)` row comparison,
+so both cursor fields form an index range instead of filtering every preceding row.
 The cursor is an ordering boundary, not an authorization grant. Every page validates
 workspace read permission and project scope. A newer quotation inserted between page
 requests appears on refresh, without shifting already traversed history. A deleted

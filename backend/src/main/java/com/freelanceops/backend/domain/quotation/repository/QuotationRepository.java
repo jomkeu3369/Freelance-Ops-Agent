@@ -18,7 +18,9 @@ public interface QuotationRepository extends JpaRepository<QuotationEntity, UUID
     @Query("select quotation from QuotationEntity quotation where quotation.workspaceId = :workspaceId and quotation.projectId = :projectId order by quotation.createdAt desc, quotation.id desc")
     List<QuotationEntity> findFirstPage(@Param("workspaceId") UUID workspaceId, @Param("projectId") UUID projectId, Pageable pageable);
 
-    @Query("select quotation from QuotationEntity quotation where quotation.workspaceId = :workspaceId and quotation.projectId = :projectId and (quotation.createdAt < :createdAt or (quotation.createdAt = :createdAt and quotation.id < :id)) order by quotation.createdAt desc, quotation.id desc")
+    // PostgreSQL row comparison keeps the entire cursor boundary in the index range.
+    // The equivalent OR predicate filters earlier rows on deep pages instead.
+    @Query(value = "select q.* from app.quotation q where q.workspace_id = :workspaceId and q.project_id = :projectId and (q.created_at, q.id) < (:createdAt, :id) order by q.created_at desc, q.id desc", nativeQuery = true)
     List<QuotationEntity> findNextPage(@Param("workspaceId") UUID workspaceId, @Param("projectId") UUID projectId, @Param("createdAt") Instant createdAt, @Param("id") UUID id, Pageable pageable);
     Optional<QuotationEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
     Optional<QuotationEntity> findTopByWorkspaceIdAndSeriesIdOrderByVersionNumberDesc(UUID workspaceId, UUID seriesId);
