@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.quotation.dto.request.CreateQuotationRequ
 import com.freelanceops.backend.domain.quotation.dto.request.SuggestQuotationAssumptionRequest;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationAssumptionSuggestionResponse;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationResponse;
+import com.freelanceops.backend.domain.quotation.dto.response.QuotationPageResponse;
 import com.freelanceops.backend.domain.quotation.service.QuotationAssumptionService;
 import com.freelanceops.backend.domain.quotation.service.QuotationService;
 import com.freelanceops.backend.domain.quotation.service.QuotationCalculator;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +40,13 @@ public class ProjectQuotationController {
     @GetMapping
     public List<QuotationResponse> list(@PathVariable UUID workspaceId, @PathVariable UUID projectId, Authentication authentication) {
         return service.list(userId(authentication), workspaceId, projectId);
+    }
+
+    @GetMapping("/page")
+    public QuotationPageResponse listPage(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
+                                         @RequestParam(defaultValue = "50") int limit,
+                                         @RequestParam(required = false) String cursor, Authentication authentication) {
+        return service.listPage(userId(authentication), workspaceId, projectId, limit, cursor);
     }
 
     @PostMapping

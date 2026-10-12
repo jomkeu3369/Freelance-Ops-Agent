@@ -6,5 +6,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface QuotationEvidenceRepository extends JpaRepository<QuotationEvidenceEntity, UUID> {
+    List<QuotationEvidenceEntity> findAllByWorkspaceIdAndQuotationIdIn(UUID workspaceId, List<UUID> quotationIds);
     List<QuotationEvidenceEntity> findAllByWorkspaceIdAndQuotationId(UUID workspaceId, UUID quotationId);
 }
