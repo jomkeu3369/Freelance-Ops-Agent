@@ -1,9 +1,13 @@
-name: Production Release Verification
+name: Production Bounded Readiness Observation
 
 on:
   push:
     branches:
       - codex/production-verify-run-20261005
+    paths:
+      - '.github/workflows/production-release-verify.yml'
+      - 'infra/scripts/production-bounded-readiness.py'
+      - 'infra/tests/test_production_bounded_readiness.py'
 
 permissions:
   contents: read
@@ -14,12 +18,14 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify exact production images and schema
+    name: Read-only production readiness preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     environment: production
     steps:
       - uses: actions/checkout@v4
+      - name: Validate observation guardrails
+        run: python3 -m unittest discover -s infra/tests -p test_production_bounded_readiness.py -v
       - name: Configure existing SSH identity and trust
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
@@ -29,24 +35,24 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
-      - name: Read health, image references and migration state
+      - name: Observe production without application credentials
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
-          # Exact server-stage main merge builds both images; this workflow only verifies.
-          EXPECTED_BACKEND_SHA: 9a48b5d18672f02fdcb30269b1dffc3f0a414d24
-          EXPECTED_SCHEMA: 47
-          EXPECTED_AGENT_SHA: 9a48b5d18672f02fdcb30269b1dffc3f0a414d24
-          VERIFY_MODE: postdeploy
+          OBSERVATION_MODE: preflight
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
           test "$DEPLOY_USER" = "root"
-          printf '%s' "$EXPECTED_BACKEND_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          printf '%s' "$EXPECTED_AGENT_SHA" | grep -Eq '^[0-9a-f]{40}$'
-          case "$EXPECTED_SCHEMA" in 35|46|47) ;; *) exit 2;; esac
-          case "$VERIFY_MODE" in predeploy|postdeploy) ;; *) exit 2;; esac
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
-            "$DEPLOY_USER@$DEPLOY_HOST" \
-            "python3 - '$EXPECTED_BACKEND_SHA' '$EXPECTED_SCHEMA' '$EXPECTED_AGENT_SHA' '$VERIFY_MODE'" \
-            < infra/scripts/production-release-verify.py
-
+          case "$OBSERVATION_MODE" in preflight|campaign) ;; *) exit 2;; esac
+          set -o pipefail
+          timeout --signal=TERM 300s ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "python3 - '$OBSERVATION_MODE'" \
+            < infra/scripts/production-bounded-readiness.py | tee production-readiness.jsonl
+      - name: Save aggregate-only observation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-bounded-readiness-${{ github.run_id }}
+          path: production-readiness.jsonl
+          if-no-files-found: ignore
+          retention-days: 14
