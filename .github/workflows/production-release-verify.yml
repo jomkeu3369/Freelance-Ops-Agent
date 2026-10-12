@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Bounded production readiness campaign
+    name: Read-only production readiness preflight
     runs-on: ubuntu-latest
     timeout-minutes: 8
     environment: production
@@ -39,7 +39,7 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
-          OBSERVATION_MODE: campaign
+          OBSERVATION_MODE: preflight
         run: |
           test "$DEPLOY_HOST" = "158.247.196.242"
           test "$DEPLOY_USER" = "root"
