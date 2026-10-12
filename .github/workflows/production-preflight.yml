@@ -22,6 +22,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+      - name: Validate preflight safety gates
+        run: python3 -m unittest discover -s infra/tests -p test_production_preflight.py -v
       - name: Configure existing SSH identity and trust
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
