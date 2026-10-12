@@ -58,6 +58,11 @@ def send(method, path, token=None, body=None):
         raise ValueError("Only fixed local API paths are permitted")
     # No URL parameter or external-origin override is intentionally supported.
     connection = getattr(TLS, "connection", None)
+    if connection is not None and time.monotonic() - getattr(TLS, "last_used", 0) >= 5:
+        # Do not reuse long-idle setup/probe sockets across workload stages.
+        # This is proactive recycling, never a retry of a measured request.
+        connection.close()
+        connection = TLS.connection = None
     if connection is None:
         connection = TLS.connection = http.client.HTTPConnection("127.0.0.1", 18080, timeout=TIMEOUT)
     headers = {"Content-Type": "application/json"}
@@ -75,6 +80,7 @@ def send(method, path, token=None, body=None):
             parsed = json.loads(data)
         except (ValueError, UnicodeDecodeError):
             parsed = None
+        TLS.last_used = time.monotonic()
         return response.status, parsed, elapsed, len(data)
     except (OSError, http.client.HTTPException, ValueError):
         connection.close()

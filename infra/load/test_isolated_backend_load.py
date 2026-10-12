@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import MagicMock, patch
 
 SPEC = importlib.util.spec_from_file_location("load", Path(__file__).with_name("isolated_backend_load.py"))
 LOAD = importlib.util.module_from_spec(SPEC)
@@ -8,6 +9,19 @@ SPEC.loader.exec_module(LOAD)
 
 
 class HarnessTest(unittest.TestCase):
+    def test_stale_socket_is_recycled_without_retry(self):
+        stale, fresh = MagicMock(), MagicMock()
+        fresh.getresponse.return_value.status = 200
+        fresh.getresponse.return_value.read.return_value = b'{}'
+        LOAD.TLS.connection = stale
+        LOAD.TLS.last_used = 0
+        with patch.object(LOAD.http.client, "HTTPConnection", return_value=fresh):
+            self.assertEqual(LOAD.send("GET", "/api/v2/me")[0], 200)
+        stale.close.assert_called_once()
+        stale.request.assert_not_called()
+        fresh.request.assert_called_once()
+        LOAD.TLS.connection = None
+
     def test_nearest_rank(self):
         self.assertEqual(LOAD.percentile(list(range(1, 101)), .95), 95)
         self.assertEqual(LOAD.percentile([1, 2], .99), 2)
