@@ -111,6 +111,10 @@ for (const { width, locale, theme } of [
         await expect(button).toHaveAccessibleName(new RegExp(`^0${number + 1}\\s*${label}$`));
         await expect(button.locator("span")).toBeVisible();
       }
+      if (step === "agent") {
+        await expect(page.locator(".agent-chat-empty strong")).toBeInViewport();
+        await expect.poll(() => page.getByRole("log").evaluate(node => node.scrollTop)).toBe(0);
+      }
       const appearance = await sharedAppearance(page);
       if (reference) expect(appearance).toEqual(reference);
       else reference = appearance;

@@ -66,3 +66,13 @@ test("project route transitions reset inner main scroll without discarding pipel
   assert.match(shell, /restorePipelinePosition\(\)/);
   assert.match(shell, /window.scrollTo\(\{ top: scrollY, behavior: "instant" \}\)/);
 });
+
+
+test("an empty narrow conversation does not scroll past its welcome message", async () => {
+  const chat = await read("../features/workspace/project/analysis/agent-chat.tsx");
+  assert.match(chat, /const hasConversation = timeline.length > 0/);
+  assert.match(chat, /if \(!box \|\| !hasConversation\) return;/);
+  assert.match(chat, /if \(!body \|\| !hasConversation\) return;/);
+  assert.match(chat, /\[updateSignature, hasConversation\]/);
+  assert.match(chat, /observer.disconnect\(\);\s*\}, \[hasConversation\]/);
+});

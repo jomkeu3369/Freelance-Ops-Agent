@@ -198,26 +198,29 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     ...turns.map((value) => ({ kind: "run" as const, value, createdAt: value.createdAt })),
     ...[...new Map([...policyHistory, ...(proposal ? [proposal] : [])].map((value) => [value.proposalId, value])).values()].map((value) => ({ kind: "policy" as const, value, createdAt: value.createdAt })),
   ].sort((a, b) => a.createdAt.localeCompare(b.createdAt)), [turns, policyHistory, proposal]);
+  const hasConversation = timeline.length > 0;
   const active = !!runId && (!run || activeStatuses.has(run.status));
   const presentation = chatState(run?.status ?? (runId ? "QUEUED" : null), { online, reconnecting: active && streamState === "reconnecting" });
   const updateSignature = `${timeline.map((entry) => entry.kind === "policy" ? `${entry.value.proposalId}:${entry.value.status}` : entry.value.runId).join("|")}:${run?.status}:${run?.interruption?.interruptionId}:${events.at(-1)?.eventId}:${run?.result?.projectSummary}`;
 
   useLayoutEffect(() => {
     const box = viewport.current;
-    if (!box) return;
+    if (!box || !hasConversation) return;
     if (followsLatest.current) box.scrollTop = box.scrollHeight;
     else Promise.resolve().then(() => setUnread(true));
-  }, [updateSignature]);
+  }, [updateSignature, hasConversation]);
 
   useEffect(() => {
     const body = content.current;
-    if (!body) return;
+    // A short reading area must start at the welcome message while empty.
+    // Only actual conversation entries follow the newest content to the bottom.
+    if (!body || !hasConversation) return;
     const observer = new ResizeObserver(() => {
       if (followsLatest.current && viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
     });
     observer.observe(body);
     return () => observer.disconnect();
-  }, []);
+  }, [hasConversation]);
 
   useLayoutEffect(() => {
     const field = input.current;
