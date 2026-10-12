@@ -12,6 +12,9 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import os
+import shutil
+import time
 
 DEPLOY_ROOT = Path('/opt/freelance-ops')
 PROJECT = 'freelance-ops-v2-production'
@@ -176,8 +179,8 @@ def persisted_byok_key_checks(path: Path, running_key: str) -> dict[str, bool]:
 def validate_expected_release(expected_backend_sha: str, expected_schema: str, expected_agent_sha: str, mode: str) -> None:
     if not SHA.fullmatch(expected_backend_sha) or not SHA.fullmatch(expected_agent_sha):
         raise ValueError('Expected full image commit SHAs')
-    if expected_schema not in ('35', '46', '47'):
-        raise ValueError('Expected reviewed schema 35, 46 or 47')
+    if expected_schema not in ('35', '46', '47', '48'):
+        raise ValueError('Expected reviewed schema 35, 46, 47 or 48')
     if mode not in ('predeploy', 'postdeploy'):
         raise ValueError('Expected explicit predeploy or postdeploy mode')
     if mode == 'predeploy' and expected_schema != '35':
@@ -185,6 +188,111 @@ def validate_expected_release(expected_backend_sha: str, expected_schema: str, e
     if mode == 'predeploy' and (expected_backend_sha != PREDEPLOY_BACKEND_SHA
                                 or expected_agent_sha != PREDEPLOY_AGENT_SHA):
         raise ValueError('Predeploy requires the reviewed backend and agent baseline pins')
+
+def cpu_ticks():
+    values = [int(x) for x in Path('/proc/stat').read_text().splitlines()[0].split()[1:9]]
+    return sum(values), values[3] + values[4]
+
+def resources():
+    before = cpu_ticks()
+    time.sleep(0.5)
+    after = cpu_ticks()
+    delta = after[0] - before[0]
+    cpu = 100 * (1 - (after[1] - before[1]) / delta) if delta else 0
+    memory = {line.split(':')[0]: int(line.split()[1]) * 1024 for line in Path('/proc/meminfo').read_text().splitlines() if ':' in line and len(line.split()) > 1}
+    disk = shutil.disk_usage('/opt/freelance-ops')
+    return {'cpu_percent': round(cpu, 2), 'cpu_count': os.cpu_count(), 'load1': os.getloadavg()[0],
+            'memory_total_mib': round(memory['MemTotal']/1048576, 2),
+            'memory_available_mib': round(memory['MemAvailable']/1048576, 2),
+            'memory_available_percent': round(100*memory['MemAvailable']/memory['MemTotal'], 2),
+            'swap_used_mib': round((memory.get('SwapTotal', 0)-memory.get('SwapFree', 0))/1048576, 2),
+            'disk_free_gib': round(disk.free/1073741824, 2), 'disk_free_percent': round(disk.free/disk.total*100, 2)}
+
+DB_QUERY = """
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout='2s';
+SET LOCAL lock_timeout='500ms';
+SELECT json_build_object(
+ 'max_connections',current_setting('max_connections')::int,
+ 'connections_total',(SELECT count(*) FROM pg_stat_activity),
+ 'app_connections',(SELECT count(*) FROM pg_stat_activity WHERE usename='app_user'),
+ 'app_active_connections',(SELECT count(*) FROM pg_stat_activity WHERE usename='app_user' AND state='active'),
+ 'app_idle_connections',(SELECT count(*) FROM pg_stat_activity WHERE usename='app_user' AND state='idle'),
+ 'app_waiting_connections',(SELECT count(*) FROM pg_stat_activity WHERE usename='app_user' AND wait_event_type='Lock'),
+ 'app_active_runs',(SELECT count(*) FROM app.agent_run WHERE status IN ('QUEUED','RUNNING')),
+ 'app_pending_commands',(SELECT count(*) FROM app.agent_run_command WHERE status IN ('PENDING','PROCESSING')),
+ 'runtime_active_runs',(SELECT count(*) FROM agent_runtime.agent_run_state WHERE status IN ('QUEUED','RUNNING')),
+ 'runtime_waiting_runs',(SELECT count(*) FROM agent_runtime.agent_run_state WHERE status='WAITING_FOR_USER'),
+ 'unfinished_tasks',(SELECT count(*) FROM agent_runtime.agent_task WHERE status IN ('SUBMITTED','ADMITTED','DEFERRED','QUEUED','RUNNING','CHECKPOINTED','PAUSED','RETRY_WAIT','WAITING_FOR_CAPACITY')),
+ 'pending_scheduler_entries',(SELECT count(*) FROM agent_runtime.agent_scheduler_entry WHERE entry_status IN ('PENDING','CLAIMED')),
+ 'schema_version',(SELECT max(version::int) FROM app.flyway_schema_history WHERE success AND version ~ '^[0-9]+$')
+);
+COMMIT;
+"""
+
+def db_metrics(postgres):
+    raw = command(['docker', 'exec', postgres, 'psql', '-X', '-qAt', '--username', 'postgres', '--dbname', 'freelance_ops', '--set', 'ON_ERROR_STOP=1', '--command', DB_QUERY], timeout=6)
+    data = json.loads(raw)
+    if not isinstance(data, dict) or any(type(value) is not int or value < 0 for value in data.values()):
+        raise RuntimeError('aggregate_metrics_shape_invalid')
+    return data
+
+def check_safety(metrics, db):
+    if metrics['cpu_percent'] >= 85:
+        raise RuntimeError('host_cpu_at_least_85_percent')
+    if metrics['load1'] >= 2 * metrics['cpu_count']:
+        raise RuntimeError('host_load_exceeds_two_per_cpu')
+    if metrics['memory_available_percent'] < 15 or metrics['memory_available_mib'] < 128:
+        raise RuntimeError('host_memory_headroom_low')
+    if metrics['disk_free_percent'] < 10 or metrics['disk_free_gib'] < 1:
+        raise RuntimeError('host_disk_headroom_low')
+    if db['connections_total'] >= .8 * db['max_connections'] or db['app_waiting_connections']:
+        raise RuntimeError('database_connection_pressure')
+    for key in ('app_active_runs', 'app_pending_commands', 'runtime_active_runs', 'unfinished_tasks', 'pending_scheduler_entries'):
+        if db[key]:
+            raise RuntimeError('active_work_present_' + key)
+    if db['schema_version'] != 48:
+        raise RuntimeError('unexpected_schema')
+
+V48_INDEX_QUERY = """
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL statement_timeout='2s';
+SET LOCAL lock_timeout='500ms';
+SELECT json_build_object(
+ 'matching_index_count',(SELECT count(*) FROM pg_index i WHERE i.indexrelid=to_regclass('app.ix_quotation_project_created_id') AND i.indrelid='app.quotation'::regclass),
+ 'valid',(SELECT i.indisvalid FROM pg_index i WHERE i.indexrelid=to_regclass('app.ix_quotation_project_created_id')),
+ 'ready',(SELECT i.indisready FROM pg_index i WHERE i.indexrelid=to_regclass('app.ix_quotation_project_created_id')),
+ 'index_definition',pg_get_indexdef(to_regclass('app.ix_quotation_project_created_id')),
+ 'index_bytes',pg_relation_size(to_regclass('app.ix_quotation_project_created_id')),
+ 'quotation_total_bytes',pg_total_relation_size('app.quotation'),
+ 'quotation_waiting_locks',(SELECT count(*) FROM pg_locks WHERE relation='app.quotation'::regclass AND NOT granted),
+ 'lock_waiting_sessions',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'),
+ 'idle_in_transaction',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND state LIKE 'idle in transaction%'),
+ 'prepared_transactions',(SELECT count(*) FROM pg_prepared_xacts WHERE database=current_database()),
+ 'flyway48_success_count',(SELECT count(*) FROM app.flyway_schema_history WHERE version='48' AND success),
+ 'flyway48_execution_ms',(SELECT execution_time FROM app.flyway_schema_history WHERE version='48' AND success)
+);
+COMMIT;
+"""
+EXPECTED_INDEX_DEFINITION = 'CREATE INDEX ix_quotation_project_created_id ON app.quotation USING btree (workspace_id, project_id, created_at DESC, id DESC)'
+
+
+def verify_schema48(postgres):
+    host = resources()
+    database = db_metrics(postgres)
+    index = json.loads(command(['docker','exec',postgres,'psql','-X','-qAt',
+        '--username','postgres','--dbname','freelance_ops','--set','ON_ERROR_STOP=1',
+        '--command',V48_INDEX_QUERY],timeout=6))
+    evidence = {'resources':host, 'database':database, 'quotation_index':index}
+    print(json.dumps({'postdeploy_observation':evidence},sort_keys=True),flush=True)
+    check_safety(host,database)
+    if index['matching_index_count'] != 1 or index['valid'] is not True or index['ready'] is not True:
+        raise RuntimeError('V48 quotation index is absent or not ready and valid')
+    if index['index_definition'] != EXPECTED_INDEX_DEFINITION or index['flyway48_success_count'] != 1:
+        raise RuntimeError('V48 definition or migration history does not match the release')
+    if any(index[key] for key in ('quotation_waiting_locks','lock_waiting_sessions','idle_in_transaction','prepared_transactions')):
+        raise RuntimeError('Database has post-release lock or unfinished transaction pressure')
+    return evidence
 
 
 def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: str, mode: str = "postdeploy") -> None:
@@ -207,7 +315,12 @@ def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: st
         healthy = data['State'].get('Health', {}).get('Status') == 'healthy'
         if not healthy:
             raise RuntimeError(f'{service} is not healthy')
-        images[service] = {'tag': tag, 'image_id': image['Id'], 'healthy': healthy}
+        images[service] = {'tag': tag, 'image_id': image['Id'], 'repo_digests': image.get('RepoDigests', []),
+                           'healthy': healthy, 'marker_matches': True,
+                           'restart_count': data.get('RestartCount', 0),
+                           'oom_killed': data['State'].get('OOMKilled', False)}
+        if expected_schema == '48' and (images[service]['oom_killed'] or (service == 'backend' and images[service]['restart_count'])):
+            raise RuntimeError('Post-release container has an OOM or unexpected backend restart')
         if service == 'backend':
             backend_env = environment(data['Config'].get('Env', []))
             config = safe_configuration(backend_env)
@@ -231,6 +344,14 @@ def main(expected_backend_sha: str, expected_schema: str, expected_agent_sha: st
                                    'http://127.0.0.1:8080/actuator/health/readiness']))
     if readiness.get('status') != 'UP':
         raise RuntimeError('Backend readiness is not UP')
+
+    if expected_schema == '48':
+        verify_schema48(postgres)
+        public_readiness = json.loads(command(['curl','--fail','--silent','--show-error','--max-time','5',
+                                               'https://api.freelance-ops.site/actuator/health/readiness']))
+        if public_readiness.get('status') != 'UP':
+            raise RuntimeError('Public backend readiness is not UP')
+        print(json.dumps({'public_backend_readiness':'UP'},sort_keys=True),flush=True)
 
     aggregate_psql = ['docker', 'exec', postgres, 'psql', '-X', '-q', '--csv',
                       '--username', 'postgres', '--dbname', 'freelance_ops',
@@ -365,5 +486,7 @@ if __name__ == '__main__':
             raise ValueError('Usage: production-release-verify.py <backend-sha> <schema> <agent-sha> [predeploy|postdeploy]')
         main(*sys.argv[1:])
     except Exception as exc:
-        print(f'Verification stopped: {type(exc).__name__}: {exc}', file=sys.stderr)
+        detail = str(exc) if type(exc) in (RuntimeError, ValueError) else 'Unexpected operation failure'
+        print(f'Verification stopped: {type(exc).__name__}: {detail}', file=sys.stderr)
         sys.exit(1)
+

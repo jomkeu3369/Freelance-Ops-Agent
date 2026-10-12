@@ -133,7 +133,7 @@ class ReleaseVerifierTest(unittest.TestCase):
     def test_placeholders_unknown_modes_and_invalid_schema_fail_before_any_process(self):
         cases = [('REPLACE_WITH_REVIEWED_BACKEND_BUILD_SHA', '47', AGENT, 'postdeploy'),
                  (BACKEND, '47', 'REPLACE_WITH_REVIEWED_AGENT_BUILD_SHA', 'postdeploy'),
-                 (BACKEND, '48', AGENT, 'postdeploy'),
+                 (BACKEND, '49', AGENT, 'postdeploy'),
                  (BACKEND, '47', AGENT, 'predeploy'),
                  (BACKEND, '35', AGENT, 'ignore'),
                  ('a' * 40, '35', AGENT, 'predeploy'),
@@ -243,15 +243,48 @@ class ReleaseVerifierTest(unittest.TestCase):
             self.assertEqual((backend, schema, agent), (BACKEND, '35', AGENT))
             verify.validate_expected_release(backend, schema, agent, mode)
         else:
-            self.assertEqual((mode, schema), ('postdeploy', '47'))
+            self.assertEqual((mode, schema), ('postdeploy', '48'))
             for key, value in [('BACKEND',backend), ('AGENT',agent)]:
                 self.assertTrue(verify.SHA.fullmatch(value) or value == f'REPLACE_WITH_REVIEWED_{key}_BUILD_SHA')
             if verify.SHA.fullmatch(backend) and verify.SHA.fullmatch(agent):
                 verify.validate_expected_release(backend, schema, agent, mode)
-        self.assertIn('35|46|47)', text)
+        self.assertIn('35|46|47|48)', text)
         self.assertIn("'$EXPECTED_AGENT_SHA' '$VERIFY_MODE'", text)
         self.assertLess(text.index('printf \'%s\' "$EXPECTED_BACKEND_SHA"'), text.index('          ssh -o BatchMode=yes'))
 
 
+    def test_schema48_profile_is_valid(self):
+        verify.validate_expected_release('c' * 40, '48', 'd' * 40, 'postdeploy')
+
+    def test_schema48_index_validation_and_safety(self):
+        host = dict(cpu_percent=10,cpu_count=1,load1=.1,memory_available_percent=40,
+                    memory_available_mib=800,disk_free_percent=33,disk_free_gib=15)
+        db = dict(connections_total=18,max_connections=100,app_waiting_connections=0,
+                  app_active_runs=0,app_pending_commands=0,runtime_active_runs=0,
+                  unfinished_tasks=0,pending_scheduler_entries=0,schema_version=48)
+        index = dict(matching_index_count=1,valid=True,ready=True,
+                     index_definition=verify.EXPECTED_INDEX_DEFINITION,flyway48_success_count=1,
+                     quotation_waiting_locks=0,lock_waiting_sessions=0,idle_in_transaction=0,prepared_transactions=0)
+        for change in [None,{'valid':False},{'ready':False},{'matching_index_count':0},
+                       {'index_definition':'wrong'},{'flyway48_success_count':0},
+                       {'quotation_waiting_locks':1},{'lock_waiting_sessions':1},
+                       {'idle_in_transaction':1},{'prepared_transactions':1}]:
+            with self.subTest(change=change), patch.object(verify,'resources',return_value=host), \
+                 patch.object(verify,'db_metrics',return_value=db), \
+                 patch.object(verify,'command',return_value=json.dumps({**index,**(change or {})})), \
+                 redirect_stdout(io.StringIO()):
+                if change:
+                    with self.assertRaises(RuntimeError):verify.verify_schema48('postgres')
+                else:
+                    verify.verify_schema48('postgres')
+        for query in (verify.DB_QUERY,verify.V48_INDEX_QUERY):
+            self.assertIn('READ ONLY',query)
+            self.assertIn("statement_timeout='2s'",query)
+            self.assertIn("lock_timeout='500ms'",query)
+            for forbidden in ('CREATE INDEX','DROP INDEX','INSERT','DELETE','UPDATE'):
+                self.assertNotIn(forbidden,query)
+
+
 if __name__ == '__main__':
     unittest.main()
+
