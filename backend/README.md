@@ -123,3 +123,8 @@ of 100 (`1 + 3 * ceil(N/100)` quotation-table queries). Its total response and m
 are intentionally not bounded; new interactive clients must use `/page`. No Redis or
 server-side response cache is added. Removing the compatibility route requires a
 separate versioned API decision.
+
+Roll out the backend before a frontend that calls `/page` or `/latest`. The previous
+frontend continues to work with the compatibility endpoint during that transition.
+The Flyway migration adds a non-concurrent composite index; review normal migration
+locking and table size before a production rollout. This change itself does not deploy.

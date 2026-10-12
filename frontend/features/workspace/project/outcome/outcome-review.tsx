@@ -4,9 +4,8 @@ import {
   AuthSession,
   Project,
   ActualOutcome,
-  Quotation,
   getOutcome,
-  listQuotations,
+  getProjectQuotation,
   saveOutcome
 } from "../../../../app/lib/api";
 import { useState, useEffect } from "react";
@@ -23,6 +22,7 @@ import {
 } from "@phosphor-icons/react";
 import { formatMoney } from "../../shared/formatters";
 import { quotationScenarioLabels } from "../../shared/constants";
+import { useQuotationHistory } from "../quotation/use-quotation-history";
 
 interface OutcomeReviewProps {
   session: AuthSession;
@@ -36,7 +36,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
   const canWrite = permissions.has("outcome.write");
   const canReadQuotations = permissions.has("quotation.read");
   const [outcome, setOutcome] = useState<ActualOutcome | null>(null);
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } = useQuotationHistory(session, project.id);
+  const [approvedQuotationId, setApprovedQuotationId] = useState("");
   const [workItems, setWorkItems] = useState<
     Array<{ title: string; actualHours: number; actualCost: number; notes: string }>
   >([]);
@@ -49,12 +50,15 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     let cancelled = false;
     Promise.all([
       getOutcome(session, project.id),
-      canReadQuotations ? listQuotations(session, project.id) : Promise.resolve([])
+      canReadQuotations ? loadFirstPage().catch((cause: unknown) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
+        return [];
+      }) : Promise.resolve([])
     ])
-      .then(([result, nextQuotations]) => {
+      .then(async ([result, nextQuotations]) => {
         if (!cancelled) {
           setOutcome(result);
-          setQuotations(nextQuotations);
+          setApprovedQuotationId(result?.approvedQuotationId ?? "");
           setWorkItems(
             result?.workItems.map((item) => ({
               title: item.title,
@@ -63,10 +67,15 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
               notes: item.notes ?? ""
             })) ?? []
           );
+          const selectedQuotation = canReadQuotations && result?.approvedQuotationId
+            ? nextQuotations.find((quotation) => quotation.id === result.approvedQuotationId)
+              ?? await getProjectQuotation(session, project.id, result.approvedQuotationId)
+            : null;
+          if (!cancelled && selectedQuotation) includeQuotation(selectedQuotation);
         }
       })
       .catch((cause: unknown) => {
-        if (!cancelled && cause instanceof Error && !cause.message.includes("찾")) setError(cause.message);
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "결과를 불러오지 못했습니다.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -74,7 +83,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     return () => {
       cancelled = true;
     };
-  }, [canRead, canReadQuotations, project.id, session]);
+  }, [canRead, canReadQuotations, includeQuotation, loadFirstPage, project.id, session]);
 
   if (!canRead)
     return (
@@ -211,17 +220,22 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
               </div>
             </header>
             <div className="outcome-metrics-grid">
-              <label className="outcome-control outcome-quotation-control">
-                <span>{t("기준 견적")}</span>
+              <div className="outcome-control outcome-quotation-control">
+                <label htmlFor="outcome-approved-quotation">{t("기준 견적")}</label>
                 <div className="outcome-select-shell">
                   <select
+                    id="outcome-approved-quotation"
                     name="approvedQuotationId"
                     disabled={!canWrite}
-                    defaultValue={outcome?.approvedQuotationId ?? ""}
+                    value={approvedQuotationId}
+                    onChange={(event) => setApprovedQuotationId(event.target.value)}
                   >
                     <option value="">{t("견적을 연결하지 않음")}</option>
+                    {approvedQuotationId && !quotations.some((quotation) => quotation.id === approvedQuotationId) && (
+                      <option value={approvedQuotationId}>{t("저장된 기준 견적")}</option>
+                    )}
                     {quotations
-                      .filter((quotation) => quotation.status === "PUBLISHED")
+                      .filter((quotation) => quotation.status === "PUBLISHED" || quotation.id === approvedQuotationId || quotation.id === outcome?.approvedQuotationId)
                       .map((quotation) => (
                         <option key={quotation.id} value={quotation.id}>
                           {t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber} ·{" "}
@@ -232,7 +246,13 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                   <CaretDown size={15} />
                 </div>
                 <small>{t("고객이 승인한 견적")}</small>
-              </label>
+                {historyError && <p className="inline-error" role="alert">{t(historyError)}</p>}
+                {canReadQuotations && nextCursor && (
+                  <button type="button" className="secondary-button" onClick={() => void loadMoreQuotations()} disabled={loadingMore}>
+                    {loadingMore ? t("이전 견적을 불러오는 중입니다.") : t("이전 견적 더 보기")}
+                  </button>
+                )}
+              </div>
               <label className="outcome-control">
                 <span>{t("최종 계약 금액")}</span>
                 <div className="outcome-input-shell">

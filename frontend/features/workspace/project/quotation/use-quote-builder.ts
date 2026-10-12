@@ -1,8 +1,9 @@
-import { AgentQuotationDraft, ApiError, AuthSession, Project, ProposalShare, Provider, Quotation, QuotationItemInput, QuotationScenario, RateCard, createProposalShare, createQuotation, listQuotations, listRateCards, publishQuotation, reloadQuotations, reviseQuotation, revokeProposalShare } from "@/app/lib/api";
+import { AgentQuotationDraft, ApiError, AuthSession, Project, ProposalShare, Provider, Quotation, QuotationItemInput, QuotationScenario, RateCard, createProposalShare, createQuotation, getProjectQuotation, getLatestQuotation, listRateCards, publishQuotation, reviseQuotation, revokeProposalShare } from "@/app/lib/api";
 import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "@/app/lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates } from "@/app/lib/rate-card-match.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { quotationScenarioLabels } from "../../shared/constants";
+import { useQuotationHistory } from "./use-quotation-history";
 import { copyToClipboard, emptyQuoteItem, quotationDraftItems, quotationItemsAsInput } from "./quotation-helpers";
 
 export type QuoteDraftStatus = {
@@ -30,9 +31,10 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const [taxRate, setTaxRate] = useState(0.1);
   const [validUntil, setValidUntil] = useState("");
   const [selectedBasisIndex, setSelectedBasisIndex] = useState(0);
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } = useQuotationHistory(session, project.id);
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [saved, setSaved] = useState<Quotation | null>(null);
+  const [unresolvedBaseId, setUnresolvedBaseId] = useState<string | null>(null);
   const [proposalShare, setProposalShare] = useState<(ProposalShare & { url: string }) | null>(null);
   const [shareCopyState, setShareCopyState] = useState<"copied" | "manual" | null>(null);
   const [conflictLatest, setConflictLatest] = useState<Quotation | null>(null);
@@ -69,11 +71,10 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   useEffect(() => {
     if (!canRead) return;
     let cancelled = false;
-    Promise.all([listQuotations(session, project.id), listRateCards(session)])
-      .then(([result, nextRateCards]) => {
+    Promise.all([loadFirstPage(), listRateCards(session)])
+      .then(async ([result, nextRateCards]) => {
         if (!cancelled) {
           setDraftStatus(null);
-          setQuotations(result);
           const activeRateCards = nextRateCards.filter((card) => card.active);
           setRateCards(activeRateCards);
           const latest = result[0] ?? null;
@@ -99,9 +100,19 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             const restoredAIDraft = availableAIDrafts.find((draft) => draft.scenario === restored.scenario) ?? defaultAIDraft;
             const restoredGeneratedItems = restoredAIDraft ? quotationDraftItems(restoredAIDraft, activeRateCards, project.currency) : null;
             const restoredItems = restoredGeneratedItems ? hydrateMissingDraftRates(restored.items, restoredGeneratedItems) as QuotationItemInput[] : restored.items;
-            const baseQuotation = restored.baseQuotationId
+            let baseQuotation = restored.baseQuotationId
               ? result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null
               : null;
+            if (restored.baseQuotationId && !baseQuotation) {
+              try {
+                baseQuotation = await getProjectQuotation(session, project.id, restored.baseQuotationId);
+              } catch {
+                if (!cancelled) setError("원본 견적을 불러오지 못했습니다. 작성 중인 내용은 복구했습니다. 새로고침해 원본을 확인하거나 새 견적안을 시작하기 전까지 저장할 수 없습니다.");
+              }
+            }
+            if (cancelled) return;
+            setUnresolvedBaseId(baseQuotation ? null : restored.baseQuotationId);
+            if (baseQuotation) includeQuotation(baseQuotation);
             setSaved(baseQuotation);
             setScenario(restored.scenario);
             setItems(restoredItems);
@@ -119,6 +130,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             lastPersistedDraftRef.current = restoredFingerprint;
             setDraftStatus({ kind: "restored", updatedAt: restored.updatedAt });
           } else {
+            setUnresolvedBaseId(null);
             setSaved(generatedItems ? null : latest);
             setScenario(defaultScenario);
             setItems(defaultItems);
@@ -136,9 +148,10 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
     return () => { cancelled = true; };
-  }, [availableAIDrafts, canRead, canWrite, draftStorageKey, fingerprint, project.currency, project.id, project.workspaceId, session]);
+  }, [availableAIDrafts, canRead, canWrite, draftStorageKey, fingerprint, includeQuotation, loadFirstPage, project.currency, project.id, project.workspaceId, session]);
 
-  const currentDraftFingerprint = fingerprint(scenario, saved?.id ?? null, taxRate, validUntil, items);
+  const baseQuotationId = saved?.id ?? unresolvedBaseId;
+  const currentDraftFingerprint = fingerprint(scenario, baseQuotationId, taxRate, validUntil, items);
   const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
 
   useEffect(() => {
@@ -148,7 +161,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
         workspaceId: project.workspaceId,
         projectId: project.id,
         scenario,
-        baseQuotationId: saved?.id ?? null,
+        baseQuotationId,
         taxRate,
         validUntil,
         items
@@ -162,7 +175,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       }
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [canWrite, currentDraftFingerprint, draftStorageKey, hasUnsavedDraft, items, project.id, project.workspaceId, saved?.id, scenario, taxRate, validUntil]);
+  }, [baseQuotationId, canWrite, currentDraftFingerprint, draftStorageKey, hasUnsavedDraft, items, project.id, project.workspaceId, scenario, taxRate, validUntil]);
 
   useEffect(() => {
     if (!hasUnsavedDraft) return;
@@ -175,7 +188,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   }, [hasUnsavedDraft]);
 
   const estimatedSubtotal = items.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0);
-  const canSave = canWrite && items.length > 0 && items.every((item) => item.title.trim()
+  const canSave = canWrite && !unresolvedBaseId && items.length > 0 && items.every((item) => item.title.trim()
     && item.quantity > 0
     && item.unitRate > 0
     && item.basis.content.trim()
@@ -205,6 +218,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   };
 
   const applyQuotation = (quotation: Quotation) => {
+    setUnresolvedBaseId(null);
     const nextItems = quotationItemsAsInput(quotation);
     setSaved(quotation);
     setScenario(quotation.scenario);
@@ -230,6 +244,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const resetQuotation = (force = false) => {
     if (!force && hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 새 견적안을 시작할까요?")) return;
     const nextItems = [emptyQuoteItem()];
+    setUnresolvedBaseId(null);
     setSaved(null);
     setScenario("RECOMMENDED");
     setItems(nextItems);
@@ -261,6 +276,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     }
     if (hasUnsavedDraft && !window.confirm("작성 중인 내용을 버리고 AI가 만든 다른 견적안을 불러올까요?")) return;
     const nextItems = quotationDraftItems(generated, rateCards, project.currency);
+    setUnresolvedBaseId(null);
     setSaved(null);
     setScenario(value);
     setItems(nextItems);
@@ -310,6 +326,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   };
 
   const save = async () => {
+    if (unresolvedBaseId || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -327,7 +344,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       const savedItems = quotationItemsAsInput(quotation);
       setSaved(quotation);
       setItems(savedItems);
-      setQuotations((current) => [quotation, ...current]);
+      includeQuotation(quotation);
       setConflictLatest(null);
       const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", savedItems);
       setDraftBaseline(baseline);
@@ -336,9 +353,9 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     } catch (cause) {
       if (cause instanceof ApiError && cause.status === 409 && saved) {
         try {
-          const refreshed = await reloadQuotations(session, project.id);
-          setQuotations(refreshed);
-          setConflictLatest(refreshed.find((quotation) => quotation.seriesId === saved.seriesId) ?? refreshed[0] ?? null);
+          const latest = await getLatestQuotation(session, saved.id);
+          includeQuotation(latest);
+          setConflictLatest(latest);
           setError(null);
         } catch {
           setError("다른 사용자가 새 견적안을 먼저 저장했습니다. 최신 목록을 불러오지 못했으니 잠시 후 다시 확인해 주세요.");
@@ -358,7 +375,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     try {
       const published = await publishQuotation(session, saved.id);
       setSaved(published);
-      setQuotations((current) => current.map((quotation) => quotation.id === published.id ? published : quotation));
+      includeQuotation(published);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "견적을 발행하지 못했습니다.");
     } finally {
@@ -451,7 +468,11 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     shareCopyState,
     copyCustomerLink,
     disableCustomerLink,
-    quotations
+    quotations,
+    nextCursor,
+    loadingMore,
+    historyError,
+    loadMoreQuotations
   };
 }
 

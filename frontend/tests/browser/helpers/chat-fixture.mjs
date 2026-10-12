@@ -47,6 +47,9 @@ export async function fixture(page) {
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });
     if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);
+    if (/\/projects\/[^/]+\/quotations\/page$/.test(path) && method === "GET") return json({ items: [], nextCursor: null });
+    // Quotation detail/latest mocks must be explicit; an array is never a detail.
+    if (/\/quotations\/[^/]+(?:\/latest)?$/.test(path) && method === "GET") return json({ message: "Quotation fixture not found" }, 404);
     if (path.endsWith("/agent-pets") && method === "GET") return json({ pets: [], selectedPetId: null, maxActivePets: 2, maxStoredPets: 3, maxPromptLength: 500, maxPreferenceRequests: 6, generationMode: "RULE_BASED_PREVIEW", aiGenerationAvailable: false });
     if (path.endsWith("/ai-connections") && method === "GET") return json({ available: true, models: { OPENAI: ["fixture-model"], GEMINI: [] }, connections: state.connections });
     if (path.endsWith("/agent-runs/latest") && method === "GET") {
