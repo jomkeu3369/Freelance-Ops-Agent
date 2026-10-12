@@ -136,7 +136,7 @@ test("Vercel public environment validation fails closed without leaking values",
       VERCEL_URL: "preview.example.invalid",
       NEXT_PUBLIC_API_BASE_URL: "https://api.example.invalid",
     }),
-    { apiOrigin: "https://api.example.invalid", siteOrigin: null },
+    { apiOrigin: "https://api.example.invalid", siteOrigin: "https://www.freelance-ops.site" },
   );
 });
 
@@ -743,11 +743,11 @@ test("quotation revision conflicts preserve the draft and expose explicit recove
     read("../app/lib/api.ts"),
   ]);
   assert.match(workspace, /cause instanceof ApiError && cause\.status === 409/);
-  assert.match(workspace, /reloadQuotations\(session, project\.id\)/);
+  assert.match(workspace, /getLatestQuotation\(session, saved\.id\)/);
   assert.match(workspace, /작성 중인 내용은 그대로 남아 있습니다/);
   assert.match(workspace, /최신 견적안 불러오기/);
   assert.match(workspace, /현재 내용으로 계속/);
-  assert.match(api, /function reloadQuotations/);
+  assert.match(api, /function getLatestQuotation/);
 });
 
 test("terminal agent runs expose server-accounted cost only to audit readers", async () => {

@@ -95,3 +95,38 @@ PostgreSQL 격리 검증은 Docker가 실행 중일 때 Testcontainers로 자동
 - Outcome: 실제 매출·원가·공수와 WBS 회고를 저장해 견적 calibration 근거로 사용
 
 발행된 견적은 직접 수정하지 않는다. 변경은 `/quotations/{quotationId}/revisions`에서 새로운 immutable version으로 생성한다. 세부 결정은 [`ADR-0019`](../docs/adr/0019-immutable-grounded-quotation.md)와 [`ADR-0020`](../docs/adr/0020-hibernate-vector-hybrid-retrieval.md)을 따른다.
+
+## Bounded quotation history
+
+Interactive clients use `GET /api/v2/workspaces/{workspaceId}/projects/{projectId}/quotations/page`.
+The response is `{ "items": [QuotationResponse], "nextCursor": "opaque-or-null" }`.
+`limit` defaults to 50 and must be between 1 and 100. Pass `nextCursor` back as `cursor`
+only when the user requests older history. Do not enumerate all pages on initial load.
+The order is `created_at DESC, id DESC`; the ID makes tied timestamps deterministic.
+Continuation uses PostgreSQL's `(created_at, id) < (:createdAt, :id)` row comparison,
+so both cursor fields form an index range instead of filtering every preceding row.
+The cursor is an ordering boundary, not an authorization grant. Every page validates
+workspace read permission and project scope. A newer quotation inserted between page
+requests appears on refresh, without shifting already traversed history. A deleted
+boundary quotation does not invalidate its cursor. This is not a snapshot across
+requests; concurrent deletions can remove older entries.
+
+A nonempty page runs one bounded quotation query (`limit + 1`, no count) and three
+workspace-scoped child queries with at most 100 quotation IDs each. Empty pages skip
+the child queries. This count excludes the existing authorization and project checks.
+Each child collection is loaded separately, avoiding Cartesian multiplication.
+Items retain sort order and the same evidence/assumption DTOs as single-detail reads.
+`GET /api/v2/workspaces/{workspaceId}/quotations/{quotationId}/latest` resolves the
+latest version of the source quotation's series for bounded revision-conflict recovery.
+
+The original `GET .../projects/{projectId}/quotations` remains a transitional full-array
+compatibility endpoint. It still returns every record, but its child reads use batches
+of 100 (`1 + 3 * ceil(N/100)` quotation-table queries). Its total response and memory
+are intentionally not bounded; new interactive clients must use `/page`. No Redis or
+server-side response cache is added. Removing the compatibility route requires a
+separate versioned API decision.
+
+Roll out the backend before a frontend that calls `/page` or `/latest`. The previous
+frontend continues to work with the compatibility endpoint during that transition.
+The Flyway migration adds a non-concurrent composite index; review normal migration
+locking and table size before a production rollout. This change itself does not deploy.

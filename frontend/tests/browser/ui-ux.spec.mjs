@@ -68,6 +68,7 @@ async function workspaceFixture(page, { projects = [], delay = 0, failLoad = nul
       return json(project, 201);
     }
     if (method === "GET" && /\/(clients|documents|rate-cards|requirements|model-pricing)$/.test(path)) return json([]);
+    if (method === "GET" && /\/projects\/[^/]+\/quotations\/page$/.test(path)) return json({ items: [], nextCursor: null });
     if (method === "GET" && /\/estimation-policy$/.test(path)) return json({ workspaceId: owner, defaultTaxRate: 0.1, defaultRiskBufferRate: 0.1, maximumDiscountRate: 0.1, version: 1 });
     state.unexpected.push(`${method} ${path}`);
     return route.abort();

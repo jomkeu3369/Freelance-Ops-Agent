@@ -6,7 +6,7 @@ const read = path => readFile(new URL(path, import.meta.url), "utf8");
 test("conversation has one viewport shell and independently scrollable reading space", async () => {
   const css = await read("../features/workspace/fullscreen-chat.css");
   assert.match(css, /\.figma-workspace\.conversation-workspace\s*\{[^}]*height: 100dvh; min-height: 0; overflow: hidden/s);
-  assert.match(css, /\.is-chat \.agent-chat-turns\s*\{[^}]*flex: 1 1 0; height: auto; min-height: 0/s);
+  assert.match(css, /\.is-chat \.agent-chat-turns\s*\{[^}]*flex: 1 1 0; height: auto; min-height: 96px/s);
   assert.match(css, /\.is-chat \.agent-chat-composer\s*\{[^}]*flex: 0 0 auto/s);
   assert.match(css, /safe-area-inset-bottom/);
   assert.match(css, /max-height: 560px/);

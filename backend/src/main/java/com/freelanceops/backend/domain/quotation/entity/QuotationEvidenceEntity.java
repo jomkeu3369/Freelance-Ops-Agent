@@ -27,6 +27,7 @@ public class QuotationEvidenceEntity {
     }
 
     public UUID id() { return id; }
+    public UUID quotationId() { return quotationId; }
     public String sourceType() { return sourceType; }
     public String sourceReference() { return sourceReference; }
     public String title() { return title; }

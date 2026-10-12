@@ -7,6 +7,7 @@ import com.freelanceops.backend.domain.quotation.dto.request.QuotationItemReques
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationBasisResponse;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationItemResponse;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationResponse;
+import com.freelanceops.backend.domain.quotation.dto.response.QuotationPageResponse;
 import com.freelanceops.backend.domain.quotation.entity.EstimationPolicyEntity;
 import com.freelanceops.backend.domain.quotation.entity.QuotationAssumptionEntity;
 import com.freelanceops.backend.domain.quotation.entity.QuotationEntity;
@@ -27,6 +28,7 @@ import com.freelanceops.backend.domain.quotation.repository.RateCardRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,9 +41,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class QuotationService {
+    public static final int MAX_LIST_PAGE_SIZE = 100;
     private static final BigDecimal DEFAULT_MAXIMUM_DISCOUNT = new BigDecimal("0.300000");
     private final ProjectRepository projectRepository;
     private final QuotationRepository quotationRepository;
@@ -65,8 +69,40 @@ public class QuotationService {
     public List<QuotationResponse> list(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
         requireProject(workspaceId, projectId);
-        return quotationRepository.findAllByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(workspaceId, projectId)
-            .stream().map(this::response).toList();
+        // Compatibility endpoint: retain the complete array, but cap every child IN query.
+        // Interactive callers should use listPage rather than materialize all history.
+        List<QuotationEntity> quotations = quotationRepository.findAllByWorkspaceIdAndProjectIdOrderByCreatedAtDescIdDesc(workspaceId, projectId);
+        List<QuotationResponse> responses = new ArrayList<>(quotations.size());
+        for (int start = 0; start < quotations.size(); start += MAX_LIST_PAGE_SIZE) {
+            responses.addAll(responses(workspaceId, quotations.subList(start, Math.min(start + MAX_LIST_PAGE_SIZE, quotations.size()))));
+        }
+        return List.copyOf(responses);
+    }
+
+    @Transactional(readOnly = true)
+    public QuotationPageResponse listPage(UUID userId, UUID workspaceId, UUID projectId, int limit, String cursor) {
+        authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
+        requireProject(workspaceId, projectId);
+        if (limit < 1 || limit > MAX_LIST_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be between 1 and 100");
+        }
+        QuotationCursor boundary = QuotationCursor.decode(cursor);
+        PageRequest window = PageRequest.of(0, limit + 1);
+        List<QuotationEntity> fetched = boundary == null
+            ? quotationRepository.findFirstPage(workspaceId, projectId, window)
+            : quotationRepository.findNextPage(workspaceId, projectId, boundary.createdAt(), boundary.id(), window);
+        boolean hasNext = fetched.size() > limit;
+        List<QuotationEntity> page = hasNext ? fetched.subList(0, limit) : fetched;
+        return new QuotationPageResponse(responses(workspaceId, page), hasNext ? QuotationCursor.encode(page.getLast()) : null);
+    }
+
+    @Transactional(readOnly = true)
+    public QuotationResponse getLatest(UUID userId, UUID workspaceId, UUID quotationId) {
+        authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
+        QuotationEntity source = find(workspaceId, quotationId);
+        QuotationEntity latest = quotationRepository.findTopByWorkspaceIdAndSeriesIdOrderByVersionNumberDesc(workspaceId, source.seriesId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return response(latest);
     }
 
     @Transactional(readOnly = true)
@@ -266,6 +302,20 @@ public class QuotationService {
         AuthorizationDecision decision = authorizationService.authorize(userId, workspaceId, permission);
         if (decision == AuthorizationDecision.NOT_FOUND) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         if (decision == AuthorizationDecision.FORBIDDEN) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    private List<QuotationResponse> responses(UUID workspaceId, List<QuotationEntity> quotations) {
+        if (quotations.isEmpty()) return List.of();
+        List<UUID> ids = quotations.stream().map(QuotationEntity::id).toList();
+        Map<UUID, List<QuotationItemEntity>> items = itemRepository.findAllByWorkspaceIdAndQuotationIdInOrderByQuotationIdAscSortOrderAscIdAsc(workspaceId, ids)
+            .stream().collect(Collectors.groupingBy(QuotationItemEntity::quotationId));
+        Map<UUID, List<QuotationAssumptionEntity>> assumptions = assumptionRepository.findAllByWorkspaceIdAndQuotationIdIn(workspaceId, ids)
+            .stream().collect(Collectors.groupingBy(QuotationAssumptionEntity::quotationId));
+        Map<UUID, List<QuotationEvidenceEntity>> evidences = evidenceRepository.findAllByWorkspaceIdAndQuotationIdIn(workspaceId, ids)
+            .stream().collect(Collectors.groupingBy(QuotationEvidenceEntity::quotationId));
+        return quotations.stream().map(quotation -> response(quotation,
+            items.getOrDefault(quotation.id(), List.of()), assumptions.getOrDefault(quotation.id(), List.of()),
+            evidences.getOrDefault(quotation.id(), List.of()))).toList();
     }
 
     private QuotationResponse response(QuotationEntity quotation) {

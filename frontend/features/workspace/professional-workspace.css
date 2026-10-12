@@ -80,13 +80,12 @@
 .figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button { justify-content: center; padding: 10px; }
 .figma-workspace.sidebar-collapsed .workspace-sidebar .workspace-nav > button span { display: none; }
 .figma-workspace .workspace-main { width: 100%; max-width: 1560px; padding: 32px clamp(20px, 3vw, 44px) 64px; }
-.figma-workspace.conversation-workspace .workspace-main { max-width: 1160px; padding-top: 25px; }
 .figma-workspace .project-heading, .figma-workspace .project-heading.chat-project-heading { margin-bottom: 18px; padding-bottom: 0; border: 0; }
 .figma-workspace .project-heading h1, .figma-workspace .chat-project-heading h1 { margin: 8px 0; font-size: clamp(1.25rem, 2vw, 1.625rem); font-weight: 700; line-height: 1.4; }
 .figma-workspace .project-client, .figma-workspace .project-status { font-size: .75rem; }
 .figma-workspace .workbench-steps { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-solid); }
 .figma-workspace .workbench-steps button { flex: 1 1 110px; justify-content: center; min-height: 42px; padding: 8px 12px; gap: 8px; border: 0; border-radius: 7px; color: var(--muted); font-size: .8125rem; font-weight: 550; }
-.figma-workspace .workbench-steps button span { color: var(--muted); font-size: .75rem; }
+.figma-workspace .workbench-steps button span { display: inline; color: var(--muted); font-size: .75rem; }
 .figma-workspace .workbench-steps button.active { background: var(--surface-2); color: var(--accent); box-shadow: none; font-weight: 700; }
 .figma-workspace .workbench-steps button.active span { color: var(--accent); }
 /* Conversation is the primary working surface; activity stays inside disclosures. */

@@ -1,3 +1,4 @@
+import { getSiteOrigin } from "../app/lib/site-config.mjs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,10 +29,7 @@ export function validateVercelEnvironment(environment = process.env) {
   if (environment.VERCEL !== "1") return { apiOrigin: null, siteOrigin: null };
 
   const apiOrigin = publicHttpsOrigin("NEXT_PUBLIC_API_BASE_URL", environment.NEXT_PUBLIC_API_BASE_URL, true);
-  const siteOrigin = publicHttpsOrigin("NEXT_PUBLIC_SITE_URL", environment.NEXT_PUBLIC_SITE_URL, false);
-  if (!siteOrigin && !environment.VERCEL_URL?.trim()) {
-    throw new Error("VERCEL_URL is required when NEXT_PUBLIC_SITE_URL is not configured.");
-  }
+  const siteOrigin = getSiteOrigin(environment);
   return { apiOrigin, siteOrigin };
 }
 
