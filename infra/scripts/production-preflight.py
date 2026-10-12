@@ -261,8 +261,13 @@ def main(release_sha: str) -> None:
     if db_size > 4 * 1024**3:
         raise RuntimeError('Database exceeds bounded 4 GiB snapshot window; review backup separately')
     BACKUP_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if BACKUP_ROOT.is_symlink() or stat.S_IMODE(BACKUP_ROOT.stat().st_mode) != 0o700:
-        raise RuntimeError('Existing snapshot root must be a real owner-only directory')
+    root_stat = BACKUP_ROOT.stat()
+    print(json.dumps({'backup_root_checks': {'mode': oct(stat.S_IMODE(root_stat.st_mode)),
+        'owner_is_root': root_stat.st_uid == 0, 'is_symlink': BACKUP_ROOT.is_symlink()}}, sort_keys=True), flush=True)
+    if BACKUP_ROOT.is_symlink() or root_stat.st_uid != 0 or stat.S_IMODE(root_stat.st_mode) & 0o022:
+        raise RuntimeError('Existing backup root must be root-owned and not group/world writable')
+    # Existing shared backup root may be 0755. Each new snapshot itself remains
+    # 0700, with 0600 files; no existing permissions are changed.
     if shutil.disk_usage(BACKUP_ROOT).free < db_size + 1024**3:
         raise RuntimeError('Insufficient free storage for bounded local snapshot')
     timestamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
@@ -311,6 +316,7 @@ if __name__ == '__main__':
         main(sys.argv[1])
     except Exception as exc:
         # Exceptions above carry no secret-bearing subprocess output.
-        print(f'Preflight stopped: {type(exc).__name__}', file=sys.stderr)
+        detail = str(exc) if type(exc) in (RuntimeError, ValueError) else 'Unexpected operation failure'
+        print(f'Preflight stopped: {type(exc).__name__}: {detail}', file=sys.stderr)
         sys.exit(1)
 
