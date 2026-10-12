@@ -1,0 +1,55 @@
+name: Isolated backend load baseline
+
+on:
+  push:
+    branches: ["work/isolated-backend-load-20261012"]
+    paths:
+      - "infra/load/isolated*"
+      - "infra/load/run-isolated-backend.sh"
+      - ".github/workflows/isolated-backend-load.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-backend-load-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bounded-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Test harness safeguards
+        run: python3 -m unittest discover -s infra/load -p 'test_isolated*.py' -v
+      - name: Run disposable real Spring and PostgreSQL campaign
+        run: bash infra/load/run-isolated-backend.sh
+      - name: Preserve sanitized benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-backend-load-${{ github.sha }}
+          path: output/isolated-load/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish observed result (not a production SLO)
+        if: always()
+        run: |
+          if [ -f output/isolated-load/report.md ]; then
+            cat output/isolated-load/report.md | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f output/isolated-load/summary.json ]; then
+            echo 'LOAD_SUMMARY_JSON_BEGIN'
+            cat output/isolated-load/summary.json
+            echo 'LOAD_SUMMARY_JSON_END'
+          fi
