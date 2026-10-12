@@ -13,6 +13,7 @@ import { storyEnglish } from './ui-story-english.mjs';
 import { petEnglish } from './ui-pet-english.mjs';
 // Korean source keys are the fallback. Only interface copy and fictional examples belong here.
 export const englishUi = {
+  "운영 공지 | Freelance Ops": "Service notices | Freelance Ops",
   "배경 영상 일시정지": "Pause background video",
   "배경 영상 재생": "Play background video",
   ...attachmentEnglish,

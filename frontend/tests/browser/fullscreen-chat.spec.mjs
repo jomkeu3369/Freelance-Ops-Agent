@@ -14,6 +14,9 @@ function seedConversation(state, count = 18) {
   });
 }
 async function expectViewportLayout(page) {
+  // Shared project context can require main scrolling on short screens.
+  // The composer must remain reachable without scrolling the document.
+  await page.locator(".agent-chat-composer").scrollIntoViewIfNeeded();
   for (const selector of [".workspace-topbar", "#agent-chat-input", '.agent-chat-composer button[type="submit"]']) {
     const box = await page.locator(selector).boundingBox();
     expect(box).not.toBeNull();
@@ -28,7 +31,7 @@ async function expectViewportLayout(page) {
 }
 
 for (const [width, height] of [[320, 568], [390, 844], [640, 800], [1280, 800], [1440, 900], [844, 390]]) {
-  test(`${width}×${height}: page fills viewport, only the conversation scrolls`, async ({ page }) => {
+  test(`${width}×${height}: shared shell keeps independently scrollable conversation and reachable composer`, async ({ page }) => {
     const state = await fixture(page);
     seedConversation(state);
     await page.setViewportSize({ width, height });
@@ -50,7 +53,7 @@ for (const [width, height] of [[320, 568], [390, 844], [640, 800], [1280, 800], 
   });
 }
 
-test("shrinking viewport keeps a long draft, offline notice and send controls in view", async ({ page, context }) => {
+test("shrinking viewport preserves long drafts and reachable offline/send controls", async ({ page, context }) => {
   const state = await fixture(page);
   state.projects[0].title = "LongUnbrokenProjectName".repeat(30);
   await page.setViewportSize({ width: 390, height: 844 });

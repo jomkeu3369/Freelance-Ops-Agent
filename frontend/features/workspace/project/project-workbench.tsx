@@ -260,7 +260,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
   return (
     <section className={`project-workbench${activeStep === "agent" ? " is-chat" : ""}`}>
-      <div className={`project-heading${activeStep === "agent" ? " chat-project-heading" : ""}`}>
+      <div className="project-heading">
         <div>
           <div className="project-context-line">
             <span className="project-status">
@@ -273,23 +273,22 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             {projectClientLabel(project, clients, t)}
           </span>
         </div>
-        {activeStep !== "agent" &&
-          (permissions.has("project.write") || permissions.has("project.delete")) && (
-            <div className="project-heading-actions">
-              {permissions.has("project.write") && (
-                <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}>
-                  <PencilSimple size={18} /> {t("프로젝트 정보 수정")}</button>
-              )}
-              {permissions.has("project.delete") && (
-                <button
-                  type="button"
-                  className="quiet-button danger"
-                  onClick={() => setShowDeleteConfirmation(true)}
-                >
-                  <Trash size={18} /> {t("프로젝트 삭제")}</button>
-              )}
-            </div>
-          )}
+        {(permissions.has("project.write") || permissions.has("project.delete")) && (
+          <div className="project-heading-actions">
+            {permissions.has("project.write") && (
+              <button type="button" className="secondary-button" onClick={() => setEditingProject(true)}>
+                <PencilSimple size={18} /> {t("프로젝트 정보 수정")}</button>
+            )}
+            {permissions.has("project.delete") && (
+              <button
+                type="button"
+                className="quiet-button danger"
+                onClick={() => setShowDeleteConfirmation(true)}
+              >
+                <Trash size={18} /> {t("프로젝트 삭제")}</button>
+            )}
+          </div>
+        )}
       </div>
 
 

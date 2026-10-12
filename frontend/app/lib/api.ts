@@ -1029,6 +1029,37 @@ export function reloadQuotations(session: AuthSession, projectId: string): Promi
   return listQuotations(session, projectId);
 }
 
+export interface QuotationPage {
+  items: Quotation[];
+  nextCursor: string | null;
+}
+
+export function listQuotationPage(session: AuthSession, projectId: string, cursor: string | null = null): Promise<QuotationPage> {
+  const parameters = new URLSearchParams({ limit: "50" });
+  if (cursor) parameters.set("cursor", cursor);
+  return queryCached(`quotations:${session.workspaceId}:${projectId}:page:${parameters}`, () => request(
+    `/api/v2/workspaces/${session.workspaceId}/projects/${projectId}/quotations/page?${parameters}`,
+    {},
+    session.accessToken,
+  ));
+}
+
+export function getQuotation(session: AuthSession, quotationId: string): Promise<Quotation> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/quotations/${quotationId}`, {}, session.accessToken);
+}
+
+export async function getProjectQuotation(session: AuthSession, projectId: string, quotationId: string): Promise<Quotation> {
+  const quotation = await getQuotation(session, quotationId);
+  if (quotation.workspaceId !== session.workspaceId || quotation.projectId !== projectId) {
+    throw new Error("프로젝트에 속한 견적을 확인할 수 없습니다.");
+  }
+  return quotation;
+}
+
+export function getLatestQuotation(session: AuthSession, quotationId: string): Promise<Quotation> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/quotations/${quotationId}/latest`, { cache: "no-store" }, session.accessToken);
+}
+
 export function createQuotation(
   session: AuthSession,
   projectId: string,

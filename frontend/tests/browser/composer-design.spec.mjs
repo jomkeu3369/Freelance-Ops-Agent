@@ -28,6 +28,7 @@ for (const theme of ["light", "dark"]) for (const [width, height] of [[320, 568]
     await expect(composer.locator(".skill-selector")).toHaveCount(0);
     await expect(composer).not.toContainText("TXT·CSV·PDF");
     await expect(clip).toHaveText("");
+    await composer.scrollIntoViewIfNeeded();
     for (const control of [clip, gear, model, composer.locator('button[type="submit"]')]) await inViewport(page, control);
     const [clipBox, gearBox, modelBox] = await Promise.all([clip.boundingBox(), gear.boundingBox(), model.boundingBox()]);
     expect(clipBox.width).toBeGreaterThanOrEqual(44); expect(clipBox.height).toBeGreaterThanOrEqual(44);

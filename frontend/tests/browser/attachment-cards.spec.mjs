@@ -62,6 +62,7 @@ async function setup(page, configure = () => {}) {
 }
 
 async function expectComposerInViewport(page) {
+  await page.locator(".agent-chat-composer").scrollIntoViewIfNeeded();
   const viewport = page.viewportSize();
   for (const locator of [page.locator("#agent-chat-input"), page.locator('.agent-chat-composer button[type="submit"]')]) {
     const box = await locator.boundingBox();

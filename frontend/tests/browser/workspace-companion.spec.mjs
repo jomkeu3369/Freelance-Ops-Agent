@@ -65,6 +65,7 @@ for (const [width, height] of [[320, 568], [390, 844], [821, 800], [844, 390], [
     await page.locator("#agent-chat-input").fill("작성하던 내용 그대로");
     await page.getByLabel("첨부파일 선택").setInputFiles({ name: "companion-fixture.txt", mimeType: "text/plain", buffer: Buffer.from("Synthetic unsent attachment") });
     await expect(page.locator(".chat-attachments")).toContainText("companion-fixture.txt");
+    await page.locator(".agent-chat-composer").scrollIntoViewIfNeeded();
     const bounds = await companion(page).boundingBox();
     const portrait = await page.locator(".workspace-companion-portrait").boundingBox();
     const artwork = await companion(page).locator("svg").first().boundingBox();

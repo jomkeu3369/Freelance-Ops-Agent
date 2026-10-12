@@ -19,12 +19,19 @@ for (const [width, height] of [[393, 252], [472, 303], [320, 180]]) {
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
     }
-    await page.locator(".chat-model-trigger").click();
+    const trigger = page.locator(".chat-model-trigger");
+    await trigger.click();
     const menu = page.getByRole("dialog", { name: "AI 모델 선택", exact: true });
     await expect(menu).toBeVisible();
     const box = await menu.boundingBox();
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
+    // Pointer opening intentionally keeps focus on its trigger; keyboard opening
+    // moves into the menu. Check both paths without changing that interaction.
+    await expect(trigger).toBeFocused();
+    await menu.getByRole("button", { name: "닫기", exact: true }).click();
+    await expect(trigger).toBeFocused();
+    await trigger.press("ArrowDown");
     await expect(menu.getByLabel("AI 연결", { exact: true })).toBeFocused();
     await menu.getByRole("button", { name: "닫기", exact: true }).click();
     await expect(page.locator(".chat-model-trigger")).toBeFocused();

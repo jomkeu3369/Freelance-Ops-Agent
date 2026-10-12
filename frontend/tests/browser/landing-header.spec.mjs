@@ -70,8 +70,10 @@ for (const locale of ["ko", "en"]) for (const theme of ["dark", "light"]) {
       await page.keyboard.press("Escape");
       await expect(page.locator(".home-language-trigger")).toBeFocused();
     }
-    await expect(page.locator(".spatial-hero-light")).toBeVisible();
-    await expect(page.locator(".spatial-hero-light path").first()).toBeVisible();
+    await expect(page.locator(".scene-hero-light")).toBeVisible();
+    // The current hero renders either a GPU surface or its visible SVG fallback.
+    // The retired .spatial-hero-light SVG no longer exists on the landing page.
+    await expect(page.locator('.scene-hero-light .webgl-scene[data-webgl-ready="true"] > .webgl-canvas, .scene-hero-light .webgl-scene:not([data-webgl-ready="true"]) > .webgl-fallback .scene-light-canvas')).toBeVisible();
     await page.evaluate(() => scrollTo(0, 700));
     await expectHeaderGeometry(page);
     await expect(page.locator(".nav-shell")).toHaveCSS("position", "fixed");
@@ -117,23 +119,23 @@ test("language listbox supports arrows, selection, Escape, outside click, Tab an
   await expect(page.locator(".home-menu-toggle")).toBeFocused();
 });
 
-test("landing English preference stays local when entering the unchanged workspace and returning", async ({ page }) => {
+test("English preference survives entering the workspace and returning", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openLanding(page);
   await page.locator(".home-language-trigger").click();
   await page.getByRole("option", { name: "English" }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page).toHaveTitle("Freelance Ops | Evidence-based estimates");
+  await expect(page).toHaveTitle("AI quote drafting for freelancers | Freelance Ops");
   await expect(page.locator("body > .skip-link")).toHaveText("Skip to main content");
   await page.locator(".nav-actions .text-link").click();
   await expect(page).toHaveURL(/\/workspace/);
-  await expect(page.locator("html")).toHaveAttribute("lang", "ko");
-  await expect(page.locator("body > .skip-link")).toHaveText("본문으로 건너뛰기");
-  await expect(page).toHaveTitle("Freelance Ops | 근거 있는 견적 운영");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.locator("body > .skip-link")).toHaveText("Skip to main content");
+  await expect(page).toHaveTitle("Freelance Ops | Evidence-based estimates");
   await expect(page.locator(".home-language")).toHaveCount(0);
   await page.goBack();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
   await expect(page.locator(".home-language-trigger")).toHaveText("English");
   await expect(page.locator("body > .skip-link")).toHaveText("Skip to main content");
-  await expect(page).toHaveTitle("Freelance Ops | Evidence-based estimates");
+  await expect(page).toHaveTitle("AI quote drafting for freelancers | Freelance Ops");
 });
