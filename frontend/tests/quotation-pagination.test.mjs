@@ -34,7 +34,7 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
     first: Array.from({ length: 50 }, (_, index) => quote(100 - index)),
     older: Array.from({ length: 50 }, (_, index) => quote(50 - index)),
     details: new Map([["quote-5", quote(5)]]),
-    outcome: savedOutcome, reads: [], writes: [], failMore: false, failDetail: false, holdMore: null, conflict: false,
+    outcome: savedOutcome, reads: [], writes: [], failMore: false, failDetail: false, holdMore: null, holdDetail: null, conflict: false,
     latest: quote(6, { seriesId: "series-5", previousVersionId: "quote-5" }),
   };
   const props = {
@@ -75,7 +75,10 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
       if (route.endsWith("/outcome")) return json(server.outcome);
       if (route.endsWith("/latest")) return json(server.latest);
       const selected = server.details.get(route.split("/").at(-1));
-      if (selected) return server.failDetail ? json({ message: "Selected quotation unavailable" }, 503) : json(selected);
+      if (selected) {
+        if (server.holdDetail) await server.holdDetail.promise;
+        return server.failDetail ? json({ message: "Selected quotation unavailable" }, 503) : json(selected);
+      }
       throw new Error(`Unexpected or unbounded read: ${url}`);
     }
     const input = init.body ? JSON.parse(init.body) : null;
@@ -302,3 +305,41 @@ for (const wrongScope of [{ projectId: "another-project" }, { workspaceId: "anot
     assert.match(JSON.stringify(tree), /프로젝트에 속한 견적을 확인할 수 없습니다/);
   });
 }
+
+test("fresh empty AI-draft props cannot restart restoration or reset unsaved edits and loaded pages", async () => {
+  const h = harness("builder", { draft: {} }); await tick();
+  await h.render().loadMoreQuotations();
+  h.render().setItems([item("Edited before the autosave timer")]);
+  h.props.quotationDrafts = [];
+  h.render(); await tick();
+  const model = h.render();
+  assert.equal(model.items[0].title, "Edited before the autosave timer");
+  assert.equal(model.saved.id, "quote-5");
+  assert.equal(model.quotations.length, 100);
+  assert.equal(model.hasUnsavedDraft, true);
+  assert.equal(h.pages().length, 2);
+  assert.equal(h.server.reads.filter(url => url.pathname.endsWith("/quotations/quote-5")).length, 1);
+});
+
+test("fresh empty AI-draft props during an off-page detail read do not cancel and repeat restoration", async () => {
+  const h = harness("builder", { draft: {} }); h.server.holdDetail = barrier(); await tick();
+  h.props.quotationDrafts = [];
+  h.render(); await tick();
+  assert.equal(h.server.reads.filter(url => url.pathname.endsWith("/quotations/quote-5")).length, 1);
+  h.server.holdDetail.release(); await tick();
+  const model = h.render();
+  assert.equal(model.saved.id, "quote-5");
+  assert.equal(model.items[0].title, "Restored working draft");
+  assert.equal(model.canSave, true);
+});
+
+test("a stable single AI draft with fresh empty multi-draft props also preserves current edits", async () => {
+  const h = harness(); await tick();
+  h.props.quotationDraft = { scenario: "RECOMMENDED", items: [item("Generated item")] };
+  h.render(); await tick();
+  h.render().setItems([item("Edited generated draft")]);
+  h.props.quotationDrafts = [];
+  h.render(); await tick();
+  assert.equal(h.render().items[0].title, "Edited generated draft");
+  assert.equal(h.render().hasUnsavedDraft, true);
+});

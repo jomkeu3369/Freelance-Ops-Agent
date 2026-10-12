@@ -62,7 +62,7 @@ test("older pages load only on request; a page failure and retry preserve the qu
   await page.locator(".quote-history > summary").click();
   state.failPage = true;
   await page.getByRole("button", { name: "이전 견적 더 보기" }).click();
-  await expect(page.getByRole("alert")).toContainText("Older quotations unavailable");
+  await expect(page.locator(".quote-history").getByRole("alert")).toContainText("Older quotations unavailable");
   await expect(title).toHaveValue("Keep my current draft");
   state.failPage = false; const pending = requestBarrier(); state.nextPage = pending;
   await page.getByRole("button", { name: "이전 견적 더 보기" }).click();
@@ -98,7 +98,7 @@ test("a missing off-page base restores the draft but cannot silently create anot
   const state = await quotations(page, { restored: true, failDetail: true });
   await page.goto("/workspace/projects/project-one/quote");
   await expect(page.locator(".quote-item-disclosure").first()).toContainText("Restored working draft");
-  await expect(page.getByRole("alert")).toContainText("원본 견적을 불러오지 못했습니다.");
+  await expect(page.locator(".quote-builder > .inline-error[role=alert]")).toContainText("원본 견적을 불러오지 못했습니다.");
   await expect(page.getByRole("button", { name: "검토용 초안 저장" })).toBeDisabled();
   expect(state.quotationRevisions).toEqual([]);
   expect(state.unexpectedQuotations).toEqual([]);

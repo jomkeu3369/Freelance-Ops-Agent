@@ -21,6 +21,8 @@ export interface QuoteBuilderProps {
   modelSelection: { provider: Provider; model: string; credentialId?: string | null } | null;
 }
 
+const EMPTY_AI_DRAFTS: AgentQuotationDraft[] = [];
+
 // API 상태, 수정 충돌 및 탭 임시 저장은 같은 순서로 처리합니다.
 export function useQuoteBuilder({ session, project, permissions, quotationDraft, quotationDrafts, modelSelection, petProfiles }: QuoteBuilderProps) {
   const canRead = permissions.has("quotation.read");
@@ -55,9 +57,10 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       return [];
     }
   });
-  const rawAIDrafts = useMemo(() => quotationDrafts.length > 0
-    ? quotationDrafts
-    : quotationDraft ? [quotationDraft] : [], [quotationDraft, quotationDrafts]);
+  // Parent usage/connection updates can supply a fresh fallback []. They must
+  // not restart restoration or overwrite edits that have not reached storage.
+  const fallbackAIDrafts = useMemo(() => quotationDraft ? [quotationDraft] : EMPTY_AI_DRAFTS, [quotationDraft]);
+  const rawAIDrafts = quotationDrafts.length > 0 ? quotationDrafts : fallbackAIDrafts;
   const availableAIDrafts = useMemo(() => rawAIDrafts.filter((draft) => !dismissedAIDraftFingerprints.includes(quotationAIDraftFingerprint(draft))), [dismissedAIDraftFingerprints, rawAIDrafts]);
 
   const fingerprint = useCallback((nextScenario: QuotationScenario, baseQuotationId: string | null, nextTaxRate: number, nextValidUntil: string, nextItems: QuotationItemInput[]) => quotationDraftFingerprint({
