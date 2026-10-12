@@ -70,8 +70,10 @@ for (const locale of ["ko", "en"]) for (const theme of ["dark", "light"]) {
       await page.keyboard.press("Escape");
       await expect(page.locator(".home-language-trigger")).toBeFocused();
     }
-    await expect(page.locator(".spatial-hero-light")).toBeVisible();
-    await expect(page.locator(".spatial-hero-light path").first()).toBeVisible();
+    await expect(page.locator(".scene-hero-light")).toBeVisible();
+    // The current hero renders either a GPU surface or its visible SVG fallback.
+    // The retired .spatial-hero-light SVG no longer exists on the landing page.
+    await expect(page.locator('.scene-hero-light .webgl-scene[data-webgl-ready="true"] > .webgl-canvas, .scene-hero-light .webgl-scene:not([data-webgl-ready="true"]) > .webgl-fallback .scene-light-canvas')).toBeVisible();
     await page.evaluate(() => scrollTo(0, 700));
     await expectHeaderGeometry(page);
     await expect(page.locator(".nav-shell")).toHaveCSS("position", "fixed");
