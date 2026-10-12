@@ -1,0 +1,78 @@
+name: Backend rollback compatibility
+
+on:
+  push:
+    branches:
+      - work/verify-quotation-rollback-20261012
+    paths:
+      - .github/workflows/backend-rollback-compatibility.yml
+      - .github/scripts/rollback/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rollback-compatibility-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Old backend runtime on candidate V48
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CANDIDATE_SHA: 910a86f9c8f45577a7dc37a2dfd96b26502970eb
+      OLD_SHA: 9a48b5d18672f02fdcb30269b1dffc3f0a414d24
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.OLD_SHA }}
+          path: old-source
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            candidate-source/backend/*.gradle.kts
+            candidate-source/backend/gradle/wrapper/gradle-wrapper.properties
+      - name: Validate pinned source identity and unchanged migrations
+        run: |
+          test "$(git -C candidate-source rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git -C old-source rev-parse HEAD)" = "$OLD_SHA"
+          for migration in old-source/backend/src/main/resources/db/migration/*.sql; do
+            cmp "$migration" "candidate-source/backend/src/main/resources/db/migration/$(basename "$migration")"
+          done
+          cmp old-source/backend/src/main/resources/application.yml candidate-source/backend/src/main/resources/application.yml
+          python3 -m py_compile .github/scripts/rollback/verify_runtime.py
+          docker info
+      - name: Resolve anonymous old image or exact-source fallback
+        id: old-runtime
+        run: python3 .github/scripts/rollback/verify_runtime.py resolve-image
+      - name: Build candidate bootJar from pinned source
+        working-directory: candidate-source/backend
+        run: bash ./gradlew bootJar --no-daemon --console=plain
+      - name: Build old bootJar from pinned source when anonymous image is unavailable
+        if: steps.old-runtime.outputs.mode == 'source'
+        working-directory: old-source/backend
+        run: bash ./gradlew bootJar --no-daemon --console=plain
+      - name: Run real candidate then old backend on isolated PostgreSQL 17
+        run: python3 .github/scripts/rollback/verify_runtime.py verify
+      - name: Preserve synthetic-only rollback evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollback-compatibility-${{ github.sha }}
+          path: rollback-evidence/
+          if-no-files-found: error
+          retention-days: 7
