@@ -14,6 +14,7 @@ export const englishUi = {
   "{v0} 예시 결과": "{v0} sample results",
   "{v0} 예시 결과. {v1}, {v2}일, {v3}원.": "{v0} sample. {v1}, {v2} days, {v3} KRW.",
   "작업 범위": "Work scope",
+  "프리랜서를 위한 AI 견적서 작성 | Freelance Ops": "AI quote drafting for freelancers | Freelance Ops",
   "Freelance Ops | 근거 있는 견적 운영": "Freelance Ops | Evidence-based estimates",
   ...homeEnglish,
   ...storyEnglish,

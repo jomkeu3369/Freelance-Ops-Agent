@@ -1,13 +1,13 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
+import { defaultSiteTitle, noticesTitle } from "./site-copy.mjs";
 import { localeStorageKey, normalizeLocale, translateUi } from "./ui-locale.mjs";
 
 type Locale = "ko" | "en";
 let memoryLocale: Locale = "ko";
 let memoryOverride = false;
 const eventName = "freelance-ops-ui-language";
-const defaultSiteTitle = "Freelance Ops | 근거 있는 견적 운영";
 function readLocale(): Locale {
   if (memoryOverride) return memoryLocale;
   try { return normalizeLocale(localStorage.getItem(localeStorageKey)) as Locale; } catch { return memoryLocale; }
@@ -29,11 +29,12 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     if (skipLink) skipLink.textContent = translateUi("본문으로 건너뛰기", locale);
     // Next can commit metadata after hydration. Follow only shared-title changes,
     // including replacement title elements, without touching route-specific titles.
-    const englishSiteTitle = translateUi(defaultSiteTitle, "en");
-    const localizedTitle = translateUi(defaultSiteTitle, locale);
+    const routeTitle = pathname === "/notices" ? noticesTitle : defaultSiteTitle;
+    const englishSiteTitle = translateUi(routeTitle, "en");
+    const localizedTitle = translateUi(routeTitle, locale);
     const syncTitle = () => {
       const currentTitle = document.title;
-      if ((currentTitle === defaultSiteTitle || currentTitle === englishSiteTitle) && currentTitle !== localizedTitle) {
+      if ((currentTitle === routeTitle || currentTitle === englishSiteTitle) && currentTitle !== localizedTitle) {
         document.title = localizedTitle;
       }
     };
@@ -50,7 +51,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       titleObserver.disconnect();
       document.documentElement.lang = previousLanguage;
       if (skipLink) skipLink.textContent = previousSkipText;
-      if (document.title === englishSiteTitle) document.title = defaultSiteTitle;
+      if (document.title === englishSiteTitle) document.title = routeTitle;
     };
   }, [locale, pathname]);
   return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>;

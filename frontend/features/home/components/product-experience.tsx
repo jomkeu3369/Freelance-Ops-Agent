@@ -68,7 +68,7 @@ export function WorkflowSection() {
       <div id="product" tabIndex={-1} className="spatial-heading section-heading">
         <p className="spatial-eyebrow spatial-hero-eyebrow"><span /> FREELANCE OPS / AI WORKFLOW</p>
         <h1 className="spatial-hero-title">{t("문의는 한마디,")}<br /><span>{t("제안은 명확하게.")}</span></h1>
-        <p>{t("요구사항, 확인 질문, 견적, 제안서.")}<br />{t("흩어진 고객 업무가 하나의 흐름으로 이어집니다.")}</p>
+        <p>{t("프리랜서를 위한 AI 견적서 작성.")}<br />{t("고객 문의부터 요구사항 분석, 견적과 제안서 초안까지.")}</p>
         <div className="hero-actions spatial-hero-actions"><Link href="/workspace" className="primary-button">{t("요구사항 정리 시작하기")}<ArrowUpRight size={16} /></Link><a href="#review" className="secondary-button">{t("완성될 초안 살펴보기")}<ArrowRight size={15} /></a></div>
         <p className="spatial-hero-note"><ShieldCheck size={12} />{t("AI 초안은 사용자가 검토하고 확정합니다.")}</p>
       </div>

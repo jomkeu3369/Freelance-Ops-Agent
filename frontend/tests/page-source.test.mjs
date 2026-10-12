@@ -136,7 +136,7 @@ test("Vercel public environment validation fails closed without leaking values",
       VERCEL_URL: "preview.example.invalid",
       NEXT_PUBLIC_API_BASE_URL: "https://api.example.invalid",
     }),
-    { apiOrigin: "https://api.example.invalid", siteOrigin: null },
+    { apiOrigin: "https://api.example.invalid", siteOrigin: "https://www.freelance-ops.site" },
   );
 });
 

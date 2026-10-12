@@ -1,3 +1,7 @@
+import { privateMetadata } from "../lib/site-metadata";
+
+export const metadata = privateMetadata;
+
 import { LocaleProvider } from "../lib/ui-language";
 import { ReactNode } from "react";
 import { WorkspaceShell } from "../../features/workspace/workspace-shell";

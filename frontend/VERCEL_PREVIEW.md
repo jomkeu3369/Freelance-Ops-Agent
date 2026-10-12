@@ -19,7 +19,7 @@
 | `NEXT_PUBLIC_DEFAULT_MODEL` | 선택 | OpenAI 모델 목록을 따로 설정하지 않았을 때 첫 선택값으로 사용한다. |
 | `NEXT_PUBLIC_OPENAI_MODELS` | 권장 | AI 실행 화면에 표시할 OpenAI 모델을 쉼표로 구분한다. |
 | `NEXT_PUBLIC_GEMINI_MODELS` | 선택 | AI 실행 화면에 표시할 Gemini 모델을 쉼표로 구분한다. 비어 있으면 Gemini 선택을 잠근다. |
-| `NEXT_PUBLIC_SITE_URL` | 선택 | canonical/OG origin을 강제로 지정할 때 사용한다. 미설정 시 Preview의 `VERCEL_URL`을 사용한다. |
+| `NEXT_PUBLIC_SITE_URL` | 선택 | canonical/OG origin을 강제로 지정할 때 사용한다. 미설정 시 공식 주소 `https://www.freelance-ops.site`를 사용한다. 임시 Preview 주소를 넣지 않는다. |
 
 `NEXT_PUBLIC_*` 값은 client bundle에 포함되므로 secret을 넣지 않는다. Preview 변수를 바꾸면 기존 배포에는 반영되지 않으므로 새 Preview Deployment를 생성한다.
 
@@ -29,7 +29,9 @@ Vercel build에서는 `scripts/validate-vercel-env.mjs`가 다음 조건을 fail
 - HTTPS origin만 허용
 - path, query, hash, trailing slash와 URL credential 금지
 - localhost와 loopback origin 금지
-- `NEXT_PUBLIC_SITE_URL`이 없으면 Vercel system variable `VERCEL_URL` 필수
+- `NEXT_PUBLIC_SITE_URL`은 공개 HTTPS origin만 허용하며, 경로·쿼리·인증정보·후행 슬래시·localhost는 거부한다.
+- `VERCEL_URL`은 canonical/OG/sitemap 주소로 사용하지 않는다. `VERCEL_ENV=preview` 또는 `development`에서는 전체 페이지가 서버 noindex 처리되고 sitemap은 비어 있다.
+- 운영 sitemap에는 `/`와 `/notices`만 포함한다. 업무·관리자·인증·고객 제안 경로는 메타 태그와 X-Robots-Tag로 검색에서 제외한다. robots.txt는 이 지시를 읽을 수 있도록 크롤링을 허용한다. noindex는 접근 제어나 보안 대체가 아니다.
 
 ## Spring CORS
 

@@ -2,13 +2,14 @@
 import { usePathname } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { CaretDown, Check, Globe } from "@phosphor-icons/react";
+import { homeTitle } from "../../app/lib/site-copy.mjs";
 import { localeStorageKey, normalizeLocale, translateUi } from "./ui-locale.mjs";
 
 type Locale = "ko" | "en";
 let memoryLocale: Locale = "ko";
 let memoryOverride = false;
 const eventName = "freelance-ops-ui-language";
-const defaultSiteTitle = "Freelance Ops | 근거 있는 견적 운영";
+const defaultSiteTitle = homeTitle;
 function writeLocale(value: Locale) {
   memoryLocale = value;
   try { localStorage.setItem(localeStorageKey, memoryLocale); memoryOverride = false; } catch { memoryOverride = true; }
