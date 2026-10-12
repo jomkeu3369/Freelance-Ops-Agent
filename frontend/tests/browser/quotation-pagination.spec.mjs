@@ -147,6 +147,8 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     const itemTitle = page.getByLabel(locale === "en" ? "Task item" : "작업 항목", { exact: true });
     const quoteDraft = `Retain quote draft ${locale}`;
     await itemTitle.fill(quoteDraft);
+    const draftKey = quotationDraftKey("local-user", "local-space", "project-one");
+    await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.items[0]?.title, draftKey)).toBe(quoteDraft);
     await page.locator(".quote-history > summary").click();
     const pending = requestBarrier();
     state.nextPage = pending;
@@ -162,11 +164,13 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
     // The old page belongs to an unmounted quote view and must not append to
     // this newly restored view, reset its draft, or change its revision target.
+    const stalePageResponse = page.waitForResponse(response => response.url().includes("/quotations/page?") && new URL(response.url()).searchParams.has("cursor"));
     pending.release();
+    await stalePageResponse;
     await page.locator(".quote-history > summary").click();
-    await expect(page.locator(".quote-history > button")).toHaveCount(50);
+    // First page plus the exact off-page restored base; exclude Load older.
+    await expect(page.locator(".quote-history > button > strong")).toHaveCount(51);
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
-    const draftKey = quotationDraftKey("local-user", "local-space", "project-one");
     await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.baseQuotationId, draftKey)).toBe("quote-5");
     await page.goForward();
     await expect(page).toHaveURL(/\/agent$/);
