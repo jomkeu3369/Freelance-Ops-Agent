@@ -28,7 +28,7 @@ def list_path(prefix, project_id):
     return prefix + f"/projects/{project_id}/quotations"
 
 
-def page_route(user, prefix, project_id, ids, limit=50):
+def page_route(user, prefix, project_id, ids, limit=50, cursor=None, route_name="quotations_page50"):
     def valid(body):
         return (isinstance(body, dict) and isinstance(body.get("items"), list)
                 and [q.get("id") for q in body["items"]] == ids[:limit]
@@ -36,7 +36,10 @@ def page_route(user, prefix, project_id, ids, limit=50):
                 and "nextCursor" in body
                 and ((isinstance(body["nextCursor"], str) and bool(body["nextCursor"]))
                      if len(ids) > limit else body["nextCursor"] is None))
-    return ("quotations_page50", list_path(prefix, project_id) + f"/page?limit={limit}", valid)
+    path = list_path(prefix, project_id) + f"/page?limit={limit}"
+    if cursor:
+        path += "&cursor=" + urllib.parse.quote(cursor, safe="")
+    return (route_name, path, valid)
 
 
 def collect_pages(user, prefix, project_id, count, limit):
@@ -78,7 +81,7 @@ def collect_pages(user, prefix, project_id, count, limit):
             "note": "Serial functional traversal, not a load-test percentile; full data across multiple HTTP responses."}
 
 
-def page_probe(route, token, count, limit=50):
+def page_probe(route, token, count, limit=50, remaining_count=None, require_tuple=False):
     probes = []
     for repeat in (1, 2):
         L.pg("SELECT pg_stat_statements_reset();")
@@ -88,14 +91,32 @@ def page_probe(route, token, count, limit=50):
           FROM pg_stat_statements WHERE query ~* 'app\\.' AND query !~* 'pg_stat_statements'"""))
         quotation = [s for s in statements if re.search(r'\bapp\.quotation(?:\b|_)', s["query"])]
         calls, rows = sum(s["calls"] for s in quotation), sum(s["rows"] for s in quotation)
-        expected_rows = min(count, limit + 1) + 12 * min(count, limit)
+        remaining = count if remaining_count is None else remaining_count
+        expected_rows = min(remaining, limit + 1) + 12 * min(remaining, limit)
+        if require_tuple:
+            parent_queries = [q["query"] for q in quotation if re.search(r"from\s+app\.quotation\s", q["query"], re.I)]
+            require(len(parent_queries) == 1 and bool(re.search(r"\(\w+\.created_at,\s*\w+\.id\)\s*<\s*\(", parent_queries[0])), "Actual next-page SQL did not contain a tuple boundary")
         require(calls == 4, "Bounded page did not use four quotation-family queries")
         require(rows == expected_rows, "Bounded page query row count differs from bounded independent associations")
         probes.append({"quotation_count": count, "repeat": repeat, "limit": limit,
-                       "request": result, "quotation_family_select_calls": calls,
+                       "request": result, "page_position": "deep-after-900" if require_tuple else "first",
+                       "remaining_quotation_count": remaining, "actual_tuple_sql_verified": require_tuple,
+                       "quotation_family_select_calls": calls,
                        "quotation_family_rows": rows, "expected_rows": expected_rows,
                        "statements": statements})
     return probes
+
+
+def deep_route(user, prefix, project_id, ids):
+    cursor = None
+    path = list_path(prefix, project_id) + "/page?limit=50"
+    for position in range(18):
+        target = path + ("&cursor=" + urllib.parse.quote(cursor, safe="") if cursor else "")
+        status, body, _, _ = L.send("GET", target, user["accessToken"])
+        require(status == 200 and [q["id"] for q in body["items"]] == ids[position*50:(position+1)*50], "Deep-page preparation lost order")
+        cursor = body["nextCursor"]
+        require(isinstance(cursor, str) and bool(cursor), "Deep-page cursor missing")
+    return page_route(user, prefix, project_id, ids[900:], cursor=cursor, route_name="quotations_deep_page50")
 
 
 def keyset_plans(user, dataset):
@@ -106,8 +127,8 @@ def keyset_plans(user, dataset):
               f"WHERE q.workspace_id='{user['workspaceId']}' AND q.project_id='{project}' AND ")
     timestamp, quotation = boundary["created_at"], boundary["id"]
     predicates = {
-        "current_or_boundary": f"(q.created_at<'{timestamp}'::timestamptz OR (q.created_at='{timestamp}'::timestamptz AND q.id<'{quotation}'::uuid))",
-        "equivalent_tuple_boundary": f"(q.created_at,q.id)<('{timestamp}'::timestamptz,'{quotation}'::uuid)",
+        "previous_or_boundary": f"(q.created_at<'{timestamp}'::timestamptz OR (q.created_at='{timestamp}'::timestamptz AND q.id<'{quotation}'::uuid))",
+        "final_tuple_boundary": f"(q.created_at,q.id)<('{timestamp}'::timestamptz,'{quotation}'::uuid)",
     }
     return {name: json.loads(L.pg(prefix + predicate + " ORDER BY q.created_at DESC,q.id DESC LIMIT 51"))
             for name, predicate in predicates.items()}
@@ -171,6 +192,27 @@ def run_page_campaign(user, prefix, projects, dataset, resources, summary):
         summary["abort"] = resources.abort
         return summary
     for mode, operations, rates in (("page_mixed", selected, (5, 20, 50)), ("page_only", [route], (1, 5, 10))):
+        for rate in rates:
+            result = L.stage(f"n1000_{mode}_{rate}rps", operations, user["accessToken"], rate, resources)
+            result["quotation_count"] = 1000
+            summary["stages"].append(result)
+            if result["abort"] or not result["observed_gate_pass"]:
+                break
+        if resources.abort:
+            summary["abort"] = resources.abort
+            return summary
+        result = L.stage(f"n1000_{mode}_{rate}rps_repeat", operations, user["accessToken"], rate, resources)
+        result["quotation_count"] = 1000
+        summary["stages"].append(result)
+        if resources.abort:
+            summary["abort"] = resources.abort
+            return summary
+    resources.stage = "deep_page_prepare"
+    ids = expected_ids(user["workspaceId"], dataset[1000]["project"]["id"])
+    deep = deep_route(user, prefix, dataset[1000]["project"]["id"], ids)
+    summary["query_probes"].extend(page_probe(deep, user["accessToken"], 1000, remaining_count=100, require_tuple=True))
+    selected[4] = deep
+    for mode, operations, rates in (("deep_page_mixed", selected, (20,)), ("deep_page_only", [deep], (5, 10))):
         for rate in rates:
             result = L.stage(f"n1000_{mode}_{rate}rps", operations, user["accessToken"], rate, resources)
             result["quotation_count"] = 1000

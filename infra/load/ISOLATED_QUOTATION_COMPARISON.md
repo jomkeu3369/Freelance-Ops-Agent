@@ -44,3 +44,12 @@ counts excluding setup/warmup/probes/negative controls.
 Limits: one sequential A/B pair, shared hosted runner, read-only warm workload,
 co-located generator/API/DB, fixed synthetic shapes and single measured tenant.
 This is not a production SLO, capacity estimate, long-run p99 or soak test.
+
+## Final tuple boundary follow-up
+
+After the original paired run, the continuation predicate is changed to a native
+PostgreSQL row-value boundary. The follow-up workflow pins the final product SHA
+and repeats the same first-page load campaign on a fresh runtime, then adds a
+19th-page workload after 900 rows, actual emitted-SQL probes, and all correctness
+controls. The original full-list A/B stays attributed to its original product SHA.
+This follow-up does not rerun unchanged legacy paths or claim a second paired A/B.
