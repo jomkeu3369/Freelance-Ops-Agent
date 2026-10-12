@@ -62,12 +62,12 @@ SQL
 JAR="$(find "$ROOT/backend/build/libs" -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' | head -1)"
 test -n "$JAR"
 # Internal Docker network has no outbound route. No provider/production secrets,
-# frontend or Agent process exists. Only loopback host port 18080 is published.
+# frontend or Agent process exists. No port is published to the host.
 docker run -d --name "$API_CONTAINER" --network "$NETWORK" \
-  --cpus=2 --memory=2g -p 127.0.0.1:18080:8080 \
+  --cpus=2 --memory=2g \
   -v "$JAR:/app/backend.jar:ro" \
   -e DB_URL=jdbc:postgresql://foa-load-postgres:5432/isolated_load \
-  -e DB_USERNAME=app_user -e DB_PASSWORD=disposable-app-only -e DB_POOL_SIZE=10 \
+  -e SERVER_PORT=18080 -e DB_USERNAME=app_user -e DB_PASSWORD=disposable-app-only -e DB_POOL_SIZE=10 \
   -e APP_ENVIRONMENT=development -e APP_AUTH_EMAIL_VERIFICATION_REQUIRED=false \
   -e APP_AUTH_ACCESS_TOKEN_TTL_SECONDS=3600 -e APP_RATE_LIMIT_ENABLED=true \
   -e APP_NOTICES_DISPATCH_ENABLED=false -e AGENT_ROUTE_OBSERVATION_COLLECTION_ENABLED=false \
@@ -80,12 +80,15 @@ docker run -d --name "$API_CONTAINER" --network "$NETWORK" \
   docker inspect --format '{{json .HostConfig}}' "$API_CONTAINER"
   docker network inspect --format '{{json .Internal}}' "$NETWORK"
 } >> "$OUT/environment.txt"
+API_PID="$(docker inspect --format '{{.State.Pid}}' "$API_CONTAINER")"
 for i in $(seq 1 120); do
-  if curl --fail --silent http://127.0.0.1:18080/actuator/health/readiness >/dev/null; then break; fi
+  if sudo nsenter --target "$API_PID" --net -- curl --max-time 3 --connect-timeout 1 --fail --silent http://127.0.0.1:18080/actuator/health/readiness >/dev/null; then break; fi
   if ! docker inspect --format '{{.State.Running}}' "$API_CONTAINER" | grep -q true; then
     echo 'Backend exited during startup' >&2; exit 1
   fi
   sleep 1
 done
-curl --fail --silent http://127.0.0.1:18080/actuator/health/readiness > "$OUT/readiness.json"
-python3 infra/load/isolated_backend_load.py
+sudo nsenter --target "$API_PID" --net -- curl --max-time 3 --connect-timeout 1 --fail --silent http://127.0.0.1:18080/actuator/health/readiness > "$OUT/readiness.json"
+# Enter only the existing network namespace, retaining host Python and Docker
+# CLI/filesystem for observations. The generator has the same no-egress network.
+sudo env LOAD_OUTPUT_DIR="$OUT" nsenter --target "$API_PID" --net -- python3 "$ROOT/infra/load/isolated_backend_load.py"

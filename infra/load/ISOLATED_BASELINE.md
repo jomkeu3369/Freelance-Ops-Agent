@@ -9,7 +9,8 @@ This is a bounded exploratory baseline on one GitHub-hosted runner, **not a
 production SLO or production user capacity estimate**. Real Spring Boot, Hibernate,
 Flyway and PostgreSQL/pgvector serve every HTTP request. There is no mock backend.
 The runtime containers share an `--internal` Docker network without outbound
-routing; only loopback port 18080 is published. No Agent process, real-user data,
+routing; no ports are published. The generator enters the API network namespace
+using nsenter and sends to its loopback port 18080. No Agent process, real-user data,
 provider keys, production secrets or production URLs are used.
 
 Before measurement, the following gate is written to `gate.json`:
@@ -33,9 +34,11 @@ establish a reliable long-run p99. Percentiles use nearest-rank observed latency
 
 ## Reproduce
 
-Requirements: Linux, Docker, Java 21, Python 3, curl; official dependency/image
+Requirements: Linux, Docker, Java 21, Python 3, curl, sudo/nsenter; official dependency/image
 registries must be reachable during build. No Python/npm load dependencies needed.
-Use a disposable machine with ports/container names below unused.
+Use a disposable machine with the container names below unused. The generator
+uses only the network namespace of the disposable API; it does not alter host
+network settings.
 
 ```sh
 python3 -m unittest discover -s infra/load -p 'test_isolated*.py' -v
