@@ -9,6 +9,7 @@ from __future__ import annotations
 import concurrent.futures
 import csv
 import http.client
+import hashlib
 import json
 import math
 import os
@@ -33,6 +34,12 @@ GATE = {"p95_ms_lt": 500, "p99_ms_lt": 1000, "error_fraction_lt": 0.01,
         "p99_schedule_lag_ms_lt": 100,
         "note": "Exploratory local gate, not a production SLO; n<100 has weak tail evidence."}
 TLS = threading.local()
+CASE = os.environ.get("LOAD_CASE", "baseline")
+if CASE not in ("baseline", "optimized"):
+    raise ValueError("LOAD_CASE must be baseline or optimized")
+PROFILE = os.environ.get("LOAD_PROFILE", "full")
+if PROFILE not in ("full", "page") or (PROFILE == "page" and CASE != "optimized"):
+    raise ValueError("Page profile requires optimized product")
 
 
 def pg(sql, variables=None, source=None):
@@ -285,6 +292,10 @@ def stage(name, selected, token, rate, resources, duration=DURATION, preserve=Tr
     return summary
 
 
+def expected_query_count(count):
+    return 1 + 3*count if CASE == "baseline" else 1 + 3*math.ceil(count / 100)
+
+
 def query_probe(route, token, count):
     # Two sequential samples per cardinality, never concurrent with a load stage.
     probes = []
@@ -298,15 +309,20 @@ def query_probe(route, token, count):
         quote_calls = sum(s["calls"] for s in statements if re.search(r'\bapp\.quotation(?:\b|_)', s["query"]))
         probes.append({"quotation_count": count, "repeat": repeat, "request": result,
                        "quotation_family_select_calls": quote_calls,
-                       "expected_quotation_family_select_calls": 1 + 3*count,
-                       "expected_count_matches": quote_calls == 1 + 3*count,
+                       "expected_quotation_family_select_calls": expected_query_count(count),
+                       "expected_count_matches": quote_calls == expected_query_count(count),
+                       "quotation_family_rows": sum(s["rows"] for s in statements if re.search(r'\bapp\.quotation(?:\b|_)', s["query"])),
+                       "expected_quotation_family_rows": 13*count,
                        "all_app_statement_calls": sum(s["calls"] for s in statements),
                        "statements": statements})
+    if any(not probe["expected_count_matches"] or probe["quotation_family_rows"] != 13*count for probe in probes):
+        raise RuntimeError("Legacy quotation query count or returned row count differs from case expectation")
     return probes
 
 
 def write_report(summary):
-    lines = ["# Isolated real-backend load baseline", "", f"Baseline: `{summary['baseline']}`", "",
+    lines = ["# Isolated real-backend quotation verification", "", f"Baseline: `{summary['baseline']}`",
+             f"Tested product: `{summary.get('product_sha')}`. Case={summary['case']}; profile={summary['profile']}", "",
              "Real Spring Boot + disposable PostgreSQL/pgvector; authenticated synthetic data; no Agent/provider process.",
              "Runtime containers have an internal-only Docker network. This is not production capacity or a production SLO.", "",
              "Gate declared before execution: per-route p95 <500 ms, p99 <1,000 ms; failure <1%; semantic failures=0; dropped=0; achieved RPS >=95% target; p99 dispatch lag <100 ms.",
@@ -316,19 +332,33 @@ def write_report(summary):
     for item in summary["stages"]:
         for name, row in item["routes"].items():
             lines.append(f"| {item['quotation_count']} | {item['name']} | {name} | {row['n']} | {row['rps']} | {row['p50_ms']} | {row['p95_ms']} | {row['p99_ms']} | {row['errors']} | {row['http_429']} | {item['dropped']} | {'pass' if row['observed_gate_pass'] and item['observed_gate_pass'] else 'fail'} |")
-    lines += ["", "## Database statement probes", "", "| Quotations | Repeat | Quotation-family SELECTs | Expected 1+3N | All app statements* |", "|---:|---:|---:|---:|---:|"]
+    lines += ["", "## Database statement probes", "", "| Quotations | Repeat | Quotation-family SELECTs | Expected for tested case | All app statements* |", "|---:|---:|---:|---:|---:|"]
     for probe in summary["query_probes"]:
         lines.append(f"| {probe['quotation_count']} | {probe['repeat']} | {probe['quotation_family_select_calls']} | {probe['expected_quotation_family_select_calls']} | {probe['all_app_statement_calls']} |")
     lines += ["", "*All app statements may contain periodic scheduler noise; exact quotation-family SELECT count is separate.",
               "", "Resources: resources.json contains container CPU/memory plus PostgreSQL app-user active/idle/waiting sessions. These sessions approximate pool usage; Hikari wait-time instrumentation is unavailable because /actuator/metrics is denied by the unchanged app. GC events are in backend.log.",
               "", f"Safety stop: {summary.get('abort') or 'none'}. Fatal harness error: {summary.get('error') or 'none'}.",
               "", "Limitations: shared hosted runner, co-located generator/DB/API, 2-core and 2-GiB limits per container, 1-GiB JVM heap, pool=10; short tests, warm read-heavy workload, single tenant; no writes, production network, AI, SSE, OCR or sustained soak. Dataset sizes coexist (1,110 quotations total), and run order is small to large. Compare repetitions on this same runner; do not generalize to production concurrency."]
+    if "pages" in summary:
+        pages = summary["pages"]
+        lines += ["", "## Bounded-page UX workload (different response cardinality)", "", pages["scope"], "",
+                  "| Stage | Route | n | p50 ms | p95 ms | p99 ms | Mean bytes | Route gate | Whole-stage gate |",
+                  "|---|---|---:|---:|---:|---:|---:|---|---|"]
+        for item in pages["stages"]:
+            for name, row in item["routes"].items():
+                lines.append(f"| {item['name']} | {name} | {row['n']} | {row['p50_ms']} | {row['p95_ms']} | {row['p99_ms']} | {row['mean_response_bytes']} | {row['observed_gate_pass']} | {item['observed_gate_pass']} |")
+        lines += ["", "Page probes (history N / SELECTs / rows):"]
+        for probe in pages["query_probes"]:
+            lines.append(f"- {probe['quotation_count']} / {probe['quotation_family_select_calls']} / {probe['quotation_family_rows']}")
+        lines += ["", f"Completed post-measurement controls: {len(pages['controls'])}. Page safety stop: {pages.get('abort') or 'none'}."]
     (OUT / "report.md").write_text("\n".join(lines)+"\n")
 
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    summary = {"baseline": "ee59296ac1b5ab4e3b3e7fb35de084900c6eb7fc", "gate": GATE,
+    summary = {"baseline": "ee59296ac1b5ab4e3b3e7fb35de084900c6eb7fc",
+               "case": CASE, "profile": PROFILE, "product_sha": os.environ.get("LOAD_PRODUCT_SHA"),
+               "fixture_sha256": hashlib.sha256((ROOT / "infra/load/isolated_seed.sql").read_bytes()).hexdigest(), "gate": GATE,
                "dataset": {"users": 1, "workspaces": 1, "clients": 1, "projects": 30,
                            "quotations_per_target_project": [10, 100, 1000], "items_per_quotation": 6,
                            "assumptions_per_quotation": 3, "evidence_per_quotation": 3},
@@ -345,7 +375,7 @@ def main():
         summary["negative_control"] = {"requests": 1, "expected_status": 401, "actual_status": status}
         if status != 401:
             raise RuntimeError("Unauthenticated control did not return 401")
-        for count in (10, 100, 1000):
+        for count in ((10, 100, 1000) if PROFILE == "full" else ()):
             selected = routes(user, prefix, projects, dataset, count)
             for route in selected:
                 result = request(route, token, time.perf_counter())
@@ -378,6 +408,12 @@ def main():
                     break
             if resources.abort:
                 break
+        if PROFILE == "page" and not resources.abort:
+            from isolated_quotation_pages import run_page_campaign
+            summary["pages"] = {}
+            run_page_campaign(user, prefix, projects, dataset, resources, summary["pages"])
+            if resources.abort:
+                summary["abort"] = resources.abort
     except Exception as error:
         # Exception text may contain local command details; store type and a
         # controlled message only. Never dump token-bearing setup responses.

@@ -1,0 +1,78 @@
+name: Verify quotation optimization A-B
+
+on:
+  push:
+    branches: ["work/verify-quotation-list-20261012"]
+    paths:
+      - "infra/load/isolated*"
+      - "infra/load/run-isolated-backend.sh"
+      - ".github/workflows/verify-quotation-load.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-quotation-load-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  paired-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          ref: ee59296ac1b5ab4e3b3e7fb35de084900c6eb7fc
+          path: baseline-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: aa276367fbe1051cd8011c54f0e3b028d41b1c85
+          path: optimized-source
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Test benchmark safeguards and page controls
+        run: python3 -m unittest discover -s infra/load -p 'test_isolated*.py' -v
+      - name: Baseline full-list workload on disposable Spring and PostgreSQL
+        env:
+          LOAD_CASE: baseline
+        run: LOAD_APP_ROOT="$GITHUB_WORKSPACE/baseline-source" LOAD_OUTPUT_DIR="$GITHUB_WORKSPACE/output/quotation-ab/baseline" bash infra/load/run-isolated-backend.sh
+      - name: Optimized identical full-list workload
+        env:
+          LOAD_CASE: optimized
+        run: LOAD_APP_ROOT="$GITHUB_WORKSPACE/optimized-source" LOAD_OUTPUT_DIR="$GITHUB_WORKSPACE/output/quotation-ab/optimized" bash infra/load/run-isolated-backend.sh
+      - name: Separately measured bounded-page workload on fresh disposable runtime
+        env:
+          LOAD_CASE: optimized
+          LOAD_PROFILE: page
+        run: LOAD_APP_ROOT="$GITHUB_WORKSPACE/optimized-source" LOAD_OUTPUT_DIR="$GITHUB_WORKSPACE/output/quotation-ab/optimized-page" bash infra/load/run-isolated-backend.sh
+      - name: Preserve benchmark evidence as authenticated artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quotation-optimization-ab-${{ github.sha }}
+          path: output/quotation-ab/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish high-level status
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, pathlib
+          for case in ('baseline','optimized','optimized-page'):
+              p=pathlib.Path('output/quotation-ab')/case/'summary.json'
+              if not p.exists():
+                  print(case, 'No completed summary')
+                  continue
+              s=json.loads(p.read_text())
+              print(case, 'product', s.get('product_sha'), 'legacy_stages', len(s['stages']), 'page_stages', len(s.get('pages',{}).get('stages',[])), 'abort',s.get('abort'), 'error',s.get('error'))
+          PY
