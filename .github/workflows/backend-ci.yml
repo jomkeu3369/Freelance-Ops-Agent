@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "work/optimize-quotation-list-20261012"
       - "work/integrate-chat-settings-project-20261010"
       - "work/attachment-history-boundaries-20261010"
       - "codex/auth-ocr-integration-20261007"

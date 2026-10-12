@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface QuotationItemRepository extends JpaRepository<QuotationItemEntity, UUID> {
+    List<QuotationItemEntity> findAllByWorkspaceIdAndQuotationIdInOrderByQuotationIdAscSortOrderAscIdAsc(UUID workspaceId, List<UUID> quotationIds);
     List<QuotationItemEntity> findAllByWorkspaceIdAndQuotationIdOrderBySortOrder(UUID workspaceId, UUID quotationId);
     Optional<QuotationItemEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 }

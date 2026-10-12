@@ -29,6 +29,11 @@ public class QuotationController {
         return service.get(userId(authentication), workspaceId, quotationId);
     }
 
+    @GetMapping("/latest")
+    public QuotationResponse getLatest(@PathVariable UUID workspaceId, @PathVariable UUID quotationId, Authentication authentication) {
+        return service.getLatest(userId(authentication), workspaceId, quotationId);
+    }
+
     @PostMapping("/revisions")
     public QuotationResponse revise(@PathVariable UUID workspaceId, @PathVariable UUID quotationId, @Valid @RequestBody CreateQuotationRequest request, Authentication authentication) {
         return service.revise(userId(authentication), workspaceId, quotationId, request);

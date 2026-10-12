@@ -22,5 +22,6 @@ public class QuotationAssumptionEntity {
     }
 
     public UUID id() { return id; }
+    public UUID quotationId() { return quotationId; }
     public String content() { return content; }
 }
