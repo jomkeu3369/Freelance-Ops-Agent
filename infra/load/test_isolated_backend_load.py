@@ -36,6 +36,16 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(result["semantic_failures"], 1)
         self.assertFalse(result["observed_gate_pass"])
 
+    def test_low_target_attainment_fails_gate(self):
+        rows = [{"route": "test", "latency_ms": 10, "schedule_lag_ms": 0, "valid": True,
+                 "status": 200, "bytes": 10}]
+        self.assertFalse(LOAD.aggregate(rows, 2, 0, 1)["observed_gate_pass"])
+
+    def test_dispatch_lag_fails_gate(self):
+        rows = [{"route": "test", "latency_ms": 10, "schedule_lag_ms": 150, "valid": True,
+                 "status": 200, "bytes": 10}]
+        self.assertFalse(LOAD.aggregate(rows, 1, 0, 1)["observed_gate_pass"])
+
     def test_drop_fails_gate(self):
         rows = [{"route": "test", "latency_ms": 10, "schedule_lag_ms": 0, "valid": True,
                  "status": 200, "bytes": 10}]

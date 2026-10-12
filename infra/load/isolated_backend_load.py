@@ -29,7 +29,8 @@ DURATION = 20
 WARMUP = 10
 TIMEOUT = 5
 GATE = {"p95_ms_lt": 500, "p99_ms_lt": 1000, "error_fraction_lt": 0.01,
-        "dropped_eq": 0, "semantic_failures_eq": 0,
+        "dropped_eq": 0, "semantic_failures_eq": 0, "achieved_target_fraction_gte": 0.95,
+        "p99_schedule_lag_ms_lt": 100,
         "note": "Exploratory local gate, not a production SLO; n<100 has weak tail evidence."}
 TLS = threading.local()
 
@@ -213,9 +214,11 @@ def aggregate(rows, seconds, dropped, target):
                    "p99_schedule_lag_ms": percentile([r["schedule_lag_ms"] for r in records], .99),
                    "tail_sample_warning": len(records) < 100}
         metrics["observed_gate_pass"] = (metrics["p95_ms"] < 500 and metrics["p99_ms"] < 1000
-                                         and failed / len(records) < .01 and metrics["semantic_failures"] == 0)
+                                         and failed / len(records) < .01 and metrics["semantic_failures"] == 0
+                                         and metrics["p99_schedule_lag_ms"] < 100)
         result["routes"][name] = metrics
-    result["observed_gate_pass"] = bool(rows) and dropped == 0 and all(r["observed_gate_pass"] for r in result["routes"].values())
+    result["target_attainment_fraction"] = round(len(rows) / seconds / target, 4)
+    result["observed_gate_pass"] = bool(rows) and dropped == 0 and len(rows) / seconds >= target * .95 and all(r["observed_gate_pass"] for r in result["routes"].values())
     return result
 
 
@@ -245,7 +248,10 @@ def stage(name, selected, token, rate, resources, duration=DURATION, preserve=Tr
                 abort = "last 20-50 requests exceed 5% failure"
                 resources.abort = abort
                 break
-            if len(pending) >= MAX_CONCURRENCY:
+            if time.perf_counter() >= deadline:
+                drops += math.ceil((deadline-next_request)*rate)
+                break
+            if len(pending) >= MAX_CONCURRENCY or time.perf_counter()-next_request >= .1:
                 drops += 1
             else:
                 pending.add(pool.submit(request, selected[index % len(selected)], token, next_request))
@@ -279,12 +285,15 @@ def query_probe(route, token, count):
     for repeat in (1, 2):
         pg("SELECT pg_stat_statements_reset();")
         result = request(route, token, time.perf_counter())
+        if not result["valid"]:
+            raise RuntimeError(f"Query probe failed for N={count}: HTTP {result['status']}")
         statements = json.loads(pg("""SELECT COALESCE(json_agg(json_build_object('query',query,'calls',calls,'rows',rows,'exec_ms',total_exec_time)), '[]'::json)
           FROM pg_stat_statements WHERE query ~* 'app\\.' AND query !~* 'pg_stat_statements'"""))
         quote_calls = sum(s["calls"] for s in statements if re.search(r'\bapp\.quotation(?:\b|_)', s["query"]))
         probes.append({"quotation_count": count, "repeat": repeat, "request": result,
                        "quotation_family_select_calls": quote_calls,
                        "expected_quotation_family_select_calls": 1 + 3*count,
+                       "expected_count_matches": quote_calls == 1 + 3*count,
                        "all_app_statement_calls": sum(s["calls"] for s in statements),
                        "statements": statements})
     return probes
@@ -294,13 +303,13 @@ def write_report(summary):
     lines = ["# Isolated real-backend load baseline", "", f"Baseline: `{summary['baseline']}`", "",
              "Real Spring Boot + disposable PostgreSQL/pgvector; authenticated synthetic data; no Agent/provider process.",
              "Runtime containers have an internal-only Docker network. This is not production capacity or a production SLO.", "",
-             "Gate declared before execution: per-route p95 <500 ms, p99 <1,000 ms; failure <1%; semantic failures=0; dropped=0.",
+             "Gate declared before execution: per-route p95 <500 ms, p99 <1,000 ms; failure <1%; semantic failures=0; dropped=0; achieved RPS >=95% target; p99 dispatch lag <100 ms.",
              "20-second stages; 10-second warm-up; maximum 32 outstanding requests; 5-second timeout. Highest attempted rate repeated once.",
              "Nearest-rank percentiles. Rows with n<100 have weak p99 evidence. No auth rejection is counted as successful business throughput.", "",
              "| Dataset | Stage | Route | n | RPS | p50 ms | p95 ms | p99 ms | Errors | 429 | Dropped | Gate |", "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
     for item in summary["stages"]:
         for name, row in item["routes"].items():
-            lines.append(f"| {item['quotation_count']} | {item['name']} | {name} | {row['n']} | {row['rps']} | {row['p50_ms']} | {row['p95_ms']} | {row['p99_ms']} | {row['errors']} | {row['http_429']} | {item['dropped']} | {'pass' if row['observed_gate_pass'] and item['dropped']==0 else 'fail'} |")
+            lines.append(f"| {item['quotation_count']} | {item['name']} | {name} | {row['n']} | {row['rps']} | {row['p50_ms']} | {row['p95_ms']} | {row['p99_ms']} | {row['errors']} | {row['http_429']} | {item['dropped']} | {'pass' if row['observed_gate_pass'] and item['observed_gate_pass'] else 'fail'} |")
     lines += ["", "## Database statement probes", "", "| Quotations | Repeat | Quotation-family SELECTs | Expected 1+3N | All app statements* |", "|---:|---:|---:|---:|---:|"]
     for probe in summary["query_probes"]:
         lines.append(f"| {probe['quotation_count']} | {probe['repeat']} | {probe['quotation_family_select_calls']} | {probe['expected_quotation_family_select_calls']} | {probe['all_app_statement_calls']} |")
@@ -337,6 +346,9 @@ def main():
                 if not result["valid"]:
                     raise RuntimeError(f"Smoke failed: N={count} route={route[0]} status={result['status']}")
             stage(f"n{count}_warmup", selected, token, 5, resources, WARMUP, preserve=False)
+            if resources.abort:
+                summary["abort"] = resources.abort
+                break
             summary["query_probes"].extend(query_probe(selected[4], token, count))
             for mode, operations, rates in (("mixed", selected, (5, 20, 50)),
                                              ("quotations", [selected[4]], (1, 5, 10))):
@@ -355,6 +367,9 @@ def main():
                 result = stage(f"n{count}_{mode}_{last_rate}rps_repeat", operations, token, last_rate, resources)
                 result["quotation_count"] = count
                 summary["stages"].append(result)
+                if resources.abort:
+                    summary["abort"] = resources.abort
+                    break
             if resources.abort:
                 break
     except Exception as error:

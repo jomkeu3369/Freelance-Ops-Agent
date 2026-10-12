@@ -15,7 +15,9 @@ provider keys, production secrets or production URLs are used.
 Before measurement, the following gate is written to `gate.json`:
 
 - Each normal route: p95 <500 ms, p99 <1,000 ms, failure fraction <1%.
-- Semantic failures=0; dropped scheduled requests=0.
+- Semantic failures=0; dropped scheduled requests=0; achieved RPS >=95% of target;
+  per-route p99 dispatch lag <100 ms. Arrivals overdue by 100 ms are dropped, not
+  silently replayed after the measurement window.
 - All normal business requests must be HTTP 200 with the expected fixture shape.
   429, other 4xx, 5xx, transport failures and HTTP-200 contract failures are separate.
 - A single expected unauthenticated 401 is a separate control and never contributes
