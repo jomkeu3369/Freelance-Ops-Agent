@@ -200,6 +200,17 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     return () => cancelAnimationFrame(frame);
   }, [activeView, restorePipelinePosition]);
 
+  // Project steps share one heading. Reset both scroll owners on navigation,
+  // including Back/Forward, without disturbing a user's current conversation.
+  useEffect(() => {
+    if (activeView !== "project") return;
+    const frame = requestAnimationFrame(() => {
+      workspaceContent.current?.scrollTo({ top: 0, behavior: "instant" });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeView, selectedProjectId, projectStep]);
+
   useEffect(() => {
     if (!session || !selectedProjectId || activeView !== "project" || !activePermissions.has("agent.run"))
       return;

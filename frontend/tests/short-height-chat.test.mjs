@@ -16,7 +16,7 @@ test("short-height conversation removes padding minima and provides an internal 
   const css = await readFile(new URL("../features/workspace/fullscreen-chat.css", import.meta.url), "utf8");
   const emergency = css.slice(css.indexOf("@media (max-height: 320px)"));
   assert.match(emergency, /workspace-main \{ overflow-y: auto/);
-  assert.match(emergency, /project-workbench.is-chat \{ min-height: 210px/);
+  assert.match(css, /agent-chat \{[^}]*min-height: 320px/s);
   assert.match(emergency, /agent-chat-turns \{ min-height: 36px; padding-block: 0; overscroll-behavior-y: auto/);
   assert.match(emergency, /textarea \{ height: 40px; min-height: 40px; max-height: 40px/);
   assert.match(emergency, /chat-model-popover \{ position: fixed/);
