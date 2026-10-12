@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -55,8 +56,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 OPENER = urllib.request.build_opener(NoRedirect())
+REQUEST_SLOTS = threading.BoundedSemaphore(1)
 
 def request(name):
+    with REQUEST_SLOTS:
+        return _request(name)
+
+def _request(name):
     start = time.monotonic()
     code, up = 0, False
     try:
@@ -175,6 +181,8 @@ def summarize(records, elapsed):
             'errors': sum(x['status'] != 200 or not x['up'] for x in records)}
 
 def stage(name, rps, containers, postgres, baseline, campaign_start):
+    global REQUEST_SLOTS
+    REQUEST_SLOTS = threading.BoundedSemaphore(min(rps, MAX_CONCURRENT))
     records, pending = [], set()
     start = time.monotonic()
     next_request, next_observation = start, start + 5
