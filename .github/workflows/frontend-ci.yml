@@ -141,6 +141,14 @@ jobs:
           # Every selected suite uses synthetic session/API fixtures and blocks
           # non-local requests. No backend, real accounts, or provider keys run.
           node scripts/verify-search-metadata.mjs
+          # Run the connected journey first so an unrelated broad regression
+          # cannot consume its first execution or overwrite its exact evidence.
+          # Both invocations remain mandatory, even when the first one fails.
+          set +e
+          PLAYWRIGHT_EVIDENCE_SUBDIR=connected npx playwright test --forbid-only \
+            tests/browser/analysis-decision-workflow.spec.mjs \
+            tests/browser/confirmed-specification-workflow.spec.mjs
+          connected_status=$?
           npx playwright test --forbid-only \
             tests/browser/search-metadata.spec.mjs \
             tests/browser/landing-header.spec.mjs \
@@ -159,8 +167,6 @@ jobs:
             tests/browser/fullscreen-chat.spec.mjs \
             tests/browser/short-height-chat.spec.mjs \
             tests/browser/project-step-shell.spec.mjs \
-            tests/browser/analysis-decision-workflow.spec.mjs \
-            tests/browser/confirmed-specification-workflow.spec.mjs \
             tests/browser/auth-error.spec.mjs \
             tests/browser/auth-session.spec.mjs \
             tests/browser/auth-cinematic.spec.mjs \
@@ -172,9 +178,14 @@ jobs:
             tests/browser/run-continuity.spec.mjs \
             tests/browser/project-mutations.spec.mjs \
             tests/browser/quotation-pagination.spec.mjs
+          broad_status=$?
+          set -e
+          if [ "$connected_status" -ne 0 ] || [ "$broad_status" -ne 0 ]; then
+            exit 1
+          fi
       - name: Require every connected workflow browser case without skips
         if: always()
-        run: python3 ../.github/scripts/verify_browser_test_reports.py outputs/ui-ux/junit.xml --contract ../.github/scripts/connected_workflow_browser_cases.json
+        run: python3 ../.github/scripts/verify_browser_test_reports.py outputs/ui-ux/connected/junit.xml --contract ../.github/scripts/connected_workflow_browser_cases.json
       - name: Preserve synthetic browser evidence
         if: always()
         uses: actions/upload-artifact@v4
