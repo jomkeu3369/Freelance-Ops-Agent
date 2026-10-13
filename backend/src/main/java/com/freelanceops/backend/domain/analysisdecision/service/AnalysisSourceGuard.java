@@ -13,11 +13,15 @@ final class AnalysisSourceGuard {
     private AnalysisSourceGuard() { }
 
     static void requireCurrent(List<MemorySourceMessage> captured, List<MemorySourceMessage> current) {
-        if (captured.isEmpty() || captured.stream().noneMatch(source -> "PROJECT_INPUT".equals(source.kind()))
-            || !roots(captured).equals(roots(current))) {
+        if (!isCurrent(captured, current)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                 "분석 이후 원문·요구사항 확정·추가 답변이 변경되었습니다. 최신 출처로 프로젝트 전체 분석을 다시 실행해 주세요.");
         }
+    }
+
+    static boolean isCurrent(List<MemorySourceMessage> captured, List<MemorySourceMessage> current) {
+        return !captured.isEmpty() && captured.stream().anyMatch(source -> "PROJECT_INPUT".equals(source.kind()))
+            && roots(captured).equals(roots(current));
     }
 
     static long eventOrder(List<MemorySourceMessage> captured) {

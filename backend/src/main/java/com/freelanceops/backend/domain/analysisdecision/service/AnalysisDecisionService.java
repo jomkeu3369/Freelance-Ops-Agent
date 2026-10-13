@@ -84,6 +84,16 @@ public class AnalysisDecisionService {
         return entity.response();
     }
 
+    /** Advisory read for a historical artifact; mutation consumers use the locking guard above. */
+    @Transactional(readOnly = true)
+    public boolean isCurrentConfirmed(UUID userId, UUID workspaceId, UUID projectId, UUID decisionId) {
+        authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
+        var project = project(workspaceId, projectId, false);
+        var entity = decision(workspaceId, projectId, decisionId);
+        return "CONFIRMED".equals(entity.status()) && project.version() == entity.sourceProjectVersion()
+            && AnalysisSourceGuard.isCurrent(entity.sourceMessages(), memory.current(workspaceId, projectId));
+    }
+
     @Transactional(readOnly = true)
     public Optional<AnalysisDecisionResponse> getLatestConfirmed(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);

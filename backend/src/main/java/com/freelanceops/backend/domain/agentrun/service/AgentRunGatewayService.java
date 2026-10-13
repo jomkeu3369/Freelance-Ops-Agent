@@ -98,6 +98,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
         Optional<StartAgentRunResponse> replay = freeUsage.replay(userId, idempotencyKey, workspaceId, projectId, request);
         if (replay.isPresent()) return replay.get();
+        if ("PROJECT_ANALYSIS".equals(request.workflowMode())
+            && !project.requirementText().strip().equals(request.requirementText().strip())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "프로젝트 문의 원문이 변경되었습니다. 최신 원문을 확인한 후 전체 분석을 시작해 주세요.");
+        }
         var attachmentText = request.attachmentIds().isEmpty() ? java.util.List.<com.freelanceops.backend.domain.agentrun.dto.AttachmentText>of()
             : attachments.resolve(userId, workspaceId, projectId, request.attachmentIds());
 
