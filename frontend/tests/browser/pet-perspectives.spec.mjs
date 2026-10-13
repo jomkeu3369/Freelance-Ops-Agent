@@ -18,7 +18,7 @@ async function perspectiveFixture(page, status = "COMPLETED") {
   // The server explicitly identifies this recorded PROJECT_ANALYSIS source;
   // unrelated completed chat turns cannot implicitly seed a quotation.
   await page.route("**/api/v2/workspaces/local-space/projects/project-one/analysis-decisions/sources/latest", route => route.fulfill({
-    json: { runId: state.run.runId, sourceProjectVersion: state.projects[0].version, view: state.run },
+    json: { runId: state.run.runId, sourceProjectVersion: state.projects[0].version, sourceCurrent: true, view: state.run },
   }));
   await page.route("**/api/v2/workspaces/local-space/rate-cards", route => route.fulfill({ json: [{ id: "rate-one", workspaceId: "local-space", name: "Synthetic rate", unit: "HOUR", rate: 1000, minimumAmount: 0, currency: "KRW", active: true, version: 1 }] }));
   await page.route("**/api/v2/workspaces/local-space/projects/project-one/quotations/preview", route => {

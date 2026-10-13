@@ -28,5 +28,5 @@ test("saved output cannot hide active questions or failure reasons and does not 
   assert.match(workbench, /quotationDraft=\{quotationSource\?\.result\?\.quotationDraft \?\? null\}/);
   assert.match(workbench, /quotationDrafts=\{quotationSource\?\.result\?\.quotationDrafts \?\? \[\]\}/);
   assert.match(workbench, /const quotationSource = completedAnalysis;/);
-  assert.match(workbench, /const completedAnalysis = analysisSource\?\.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version/);
+  assert.match(workbench, /const completedAnalysis = canRun && analysisSourceKey === analysisReadKey && analysisSource\?\.sourceCurrent && analysisSource.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version/);
 });

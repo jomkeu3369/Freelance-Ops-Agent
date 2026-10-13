@@ -132,16 +132,18 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await page.addInitScript(locale => localStorage.setItem("freelance-ops-ui-locale-v1", locale), locale);
     await page.goto("/workspace/projects/project-one/quote");
     const expectedTitle = locale === "en" ? "Freelance Ops | Evidence-based estimates" : "Freelance Ops | 근거 있는 견적 운영";
+    const stepIndex = { agent: 1, quote: 4 };
     const expectPrivateShell = async step => {
       await expect(page.locator(".project-heading h1")).toHaveText("Original project title");
       await expect(page.locator('.workbench-steps button[aria-current="step"]')).toHaveCount(1);
-      await expect(page.locator(".workbench-steps button").nth(step)).toHaveAttribute("aria-current", "step");
+      await expect(page.locator(".workbench-steps button")).toHaveCount(6);
+      await expect(page.locator(".workbench-steps button").nth(stepIndex[step])).toHaveAttribute("aria-current", "step");
       await expect(page).toHaveTitle(expectedTitle);
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
       await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
     };
-    await expectPrivateShell(2);
+    await expectPrivateShell("quote");
     await expect(page.locator(".quote-item-disclosure").first()).toContainText("Restored working draft");
     await page.locator(".quote-item-disclosure").first().click();
     const itemTitle = page.getByLabel(locale === "en" ? "Task item" : "작업 항목", { exact: true });
@@ -155,12 +157,12 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await page.getByRole("button", { name: locale === "en" ? "Load older quotations" : "이전 견적 더 보기", exact: true }).click();
     await pending.entered;
     await page.locator(".workbench-steps button").nth(1).click();
-    await expectPrivateShell(1);
+    await expectPrivateShell("agent");
     const chatDraft = `Retain unsent chat ${locale}`;
     await page.locator("#agent-chat-input").fill(chatDraft);
     await page.goBack();
     await expect(page).toHaveURL(/\/quote$/);
-    await expectPrivateShell(2);
+    await expectPrivateShell("quote");
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
     // The old page belongs to an unmounted quote view and must not append to
     // this newly restored view, reset its draft, or change its revision target.
@@ -174,7 +176,7 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.baseQuotationId, draftKey)).toBe("quote-5");
     await page.goForward();
     await expect(page).toHaveURL(/\/agent$/);
-    await expectPrivateShell(1);
+    await expectPrivateShell("agent");
     await expect(page.locator("#agent-chat-input")).toHaveValue(chatDraft);
     expect(state.starts).toEqual([]);
     expect(state.writes).toEqual([]);
