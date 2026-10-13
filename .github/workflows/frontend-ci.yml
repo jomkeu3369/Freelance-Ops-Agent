@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "backend/src/**/agentrun/**"
+      - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
+      - "backend/src/main/resources/db/migration/*platform*"
+      - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   push:
@@ -41,6 +45,10 @@ on:
       - "codex/markdown-release-20261005"
     paths:
       - "frontend/**"
+      - "backend/src/**/agentrun/**"
+      - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
+      - "backend/src/main/resources/db/migration/*platform*"
+      - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
