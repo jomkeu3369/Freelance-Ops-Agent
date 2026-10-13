@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from verify_database_test_reports import expected_suites, validate
+from verify_database_test_reports import BACKEND_MINIMUM_EXECUTIONS, expected_suites, validate
 
 
 class ReportGateTest(unittest.TestCase):
@@ -34,6 +34,21 @@ class ReportGateTest(unittest.TestCase):
 
     def test_unrelated_skips_do_not_hide_required_success(self):
         self.assertEqual([], self.report_errors('<testsuites><testsuite><testcase classname="tests.optional"><skipped /></testcase><testcase classname="tests.integration.test_database" /></testsuite></testsuites>'))
+
+    def connected_report_errors(self, count: int) -> list[str]:
+        name = next(iter(BACKEND_MINIMUM_EXECUTIONS))
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "connected.xml"
+            path.write_text('<testsuite>' + ''.join(
+                f'<testcase classname="{name}" name="case-{index}" />' for index in range(count)) + '</testsuite>')
+            with redirect_stdout(StringIO()):
+                return validate({name}, [path])
+
+    def test_connected_suite_requires_all_fourteen_executions(self):
+        self.assertTrue(self.connected_report_errors(13))
+
+    def test_complete_connected_suite_is_accepted(self):
+        self.assertEqual([], self.connected_report_errors(14))
 
     def test_source_discovery_includes_all_testcontainers_and_attachment_modules(self):
         with TemporaryDirectory() as directory:

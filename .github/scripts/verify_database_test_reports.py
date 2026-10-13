@@ -12,6 +12,10 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+BACKEND_MINIMUM_EXECUTIONS = {
+    "com.freelanceops.backend.integration.ConnectedWorkflowPostgresTest": 14,
+}
+
 
 def expected_suites(root: Path, component: str) -> set[str]:
     if component == "backend":
@@ -52,6 +56,9 @@ def validate(expected: set[str], reports: list[Path]) -> list[str]:
         print(f"{name}: tests={summary['tests']}, skipped={summary['skipped']}, failed={summary['failed']}")
         if not summary["tests"]:
             errors.append(f"Required suite is missing or collected no tests: {name}")
+        elif summary["tests"] < BACKEND_MINIMUM_EXECUTIONS.get(name, 1):
+            errors.append(f"Required suite is missing executions: {name} "
+                f"({summary['tests']}/{BACKEND_MINIMUM_EXECUTIONS[name]})")
         if summary["skipped"]:
             errors.append(f"Required suite skipped {summary['skipped']} test(s): {name}")
         if summary["failed"]:
