@@ -1,0 +1,20 @@
+{
+  "analysis-decision-workflow.spec.mjs": [
+    "recorded perspectives become a selected draft, edited revision, explicit confirmation and durable reload",
+    "double-click composition and ambiguous saved-response retry preserve one immutable target",
+    "changed selections require a fresh acknowledgement before a recorded draft can be confirmed",
+    "a concurrent revision conflict preserves the user's unsaved edit and prevents stale confirmation",
+    "semantic source changes with the same project version fail closed before confirmation",
+    "an unsaved decision edit survives immediate internal navigation, back and reload",
+    "PARTIAL partial text cannot become a confirmable analysis source",
+    "FAILED partial text cannot become a confirmable analysis source",
+    "CANCELLED partial text cannot become a confirmable analysis source",
+    "WAITING_FOR_USER partial text cannot become a confirmable analysis source"
+  ],
+  "confirmed-specification-workflow.spec.mjs": [
+    "confirmed result becomes an edited specification, exact-revision PDF and final-only reusable document",
+    "an ambiguous specification save retries the same revision and does not overwrite a newer target",
+    "a newer confirmed result prevents first-time confirmation of an old-source specification",
+    "login, customer-linked intake, pet question, full-analysis clarification and final work products stay connected"
+  ]
+}

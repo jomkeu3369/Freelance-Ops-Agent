@@ -37,6 +37,16 @@ class BrowserReportGateTest(unittest.TestCase):
     def test_path_matching_does_not_accept_a_similar_file(self):
         self.assertTrue(self.errors('<testcase classname="tests/browser/unconnected.spec.mjs" />'))
 
+    def test_exact_case_contract_cannot_be_replaced_by_unrelated_passes(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "junit.xml"
+            path.write_text('<testsuite><testcase classname="tests/browser/connected.spec.mjs" name="Other case" /></testsuite>')
+            with redirect_stdout(StringIO()):
+                self.assertTrue(validate(path, {"connected.spec.mjs": ["Connected journey"]}))
+            path.write_text('<testsuite><testcase classname="tests/browser/connected.spec.mjs" name="Connected journey" /></testsuite>')
+            with redirect_stdout(StringIO()):
+                self.assertEqual([], validate(path, {"connected.spec.mjs": ["Connected journey"]}))
+
 
 if __name__ == "__main__":
     unittest.main()
