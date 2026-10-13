@@ -60,3 +60,7 @@ claim to provide that persisted decision path.
   navigation/logout cleanup, native dragging, and synthetic hybrid touch events.
   All API/session data are synthetic; non-local requests are blocked and no
   provider run is started.
+
+- `tests/browser/pet-perspectives.spec.mjs`: Korean/English recorded-slot
+  attribution, missing opinions, explicit quotation preview/apply boundaries,
+  and different whole-run versus completed-source department outcomes.

@@ -131,6 +131,7 @@ jobs:
             tests/browser/custom-agent-pets.spec.mjs \
             tests/browser/workspace-companion.spec.mjs \
             tests/browser/pet-gaze.spec.mjs \
+            tests/browser/pet-perspectives.spec.mjs \
             tests/browser/chat-attachments.spec.mjs \
             tests/browser/attachment-cards.spec.mjs \
             tests/browser/admin-members.spec.mjs \
