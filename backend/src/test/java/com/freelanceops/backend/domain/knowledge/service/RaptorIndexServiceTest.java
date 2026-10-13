@@ -28,29 +28,41 @@ import static org.mockito.Mockito.*;
 
 class RaptorIndexServiceTest {
     @Test
-    void callsAgentOutsideDatabaseTransactionsThenPublishesAtomically() {
+    void manualIndexingFailsClosedBeforeAnyPaidCallOrSnapshot() {
         WorkspacePermissionReader permissionReader = mock(WorkspacePermissionReader.class);
         ProjectRepository projectRepository = mock(ProjectRepository.class);
         DelegationTokenIssuer tokenIssuer = mock(DelegationTokenIssuer.class);
         RaptorBuildClient client = mock(RaptorBuildClient.class);
         RaptorIndexTransactions transactions = mock(RaptorIndexTransactions.class);
-        UUID userId = UUID.randomUUID(); UUID workspaceId = UUID.randomUUID(); UUID projectId = UUID.randomUUID();
-        RaptorIndexTransactions.PreparedBuild prepared = new RaptorIndexTransactions.PreparedBuild(UUID.randomUUID(), workspaceId, "fingerprint", List.of(new RaptorIndexTransactions.SourceChunk(UUID.randomUUID(), UUID.randomUUID(), "source", Map.of())));
-        RaptorBuildResponse response = new RaptorBuildResponse(workspaceId, prepared.snapshotId(), "embedding", "summary", List.of(), List.of());
-
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.DOCUMENT_WRITE, PermissionCode.AGENT_RUN))));
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), projectId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(
+            new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.DOCUMENT_WRITE, PermissionCode.AGENT_RUN))));
         when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(mock(ProjectEntity.class)));
-        when(transactions.begin(any(), eq(workspaceId), eq(userId), eq("embedding"), eq("summary"))).thenReturn(prepared);
-        when(tokenIssuer.issue(any(), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("token");
-        when(client.build(any(), eq("token"), eq("trace"))).thenReturn(response);
-        when(transactions.publish(prepared, response)).thenReturn(3);
+        RaptorIndexService service = new RaptorIndexService(permissionReader, projectRepository);
+        assertThatThrownBy(() -> service.rebuild(userId, workspaceId, projectId,
+            new CreateRaptorIndexRequest(Provider.OPENAI, "embedding", "summary", 4, 4, 20), "trace"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                assertThat(error.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+                assertThat(error.getReason()).contains("RAPTOR_COST_CONTROL_UNSUPPORTED");
+            });
+        verifyNoInteractions(tokenIssuer, client, transactions);
+    }
 
-        RaptorIndexService service = new RaptorIndexService(permissionReader, projectRepository, tokenIssuer, client, transactions);
-        var result = service.rebuild(userId, workspaceId, projectId, new CreateRaptorIndexRequest(Provider.OPENAI, "embedding", "summary", 4, 4, 20), "trace");
-
-        assertThat(result.status()).isEqualTo("PUBLISHED"); assertThat(result.nodeCount()).isEqualTo(3);
-        InOrder order = inOrder(transactions, client); order.verify(transactions).begin(any(), eq(workspaceId), eq(userId), eq("embedding"), eq("summary")); order.verify(client).build(any(), eq("token"), eq("trace")); order.verify(transactions).publish(prepared, response);
-        verify(transactions, never()).fail(any(), any(), any());
+    @Test
+    void blockedIndexingStillHidesOtherTenantsAndEnforcesPermissions() {
+        WorkspacePermissionReader permissions = mock(WorkspacePermissionReader.class);
+        ProjectRepository projects = mock(ProjectRepository.class);
+        RaptorBuildClient client = mock(RaptorBuildClient.class);
+        RaptorIndexService service = new RaptorIndexService(permissions, projects);
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+        var request = new CreateRaptorIndexRequest(Provider.OPENAI, "embedding", "summary", 4, 4, 20);
+        when(permissions.findActiveMembership(user, workspace)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.rebuild(user, workspace, project, request, "trace"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND));
+        when(permissions.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.DOCUMENT_READ))));
+        assertThatThrownBy(() -> service.rebuild(user, workspace, project, request, "trace"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+        verifyNoInteractions(projects, client);
     }
 
     @Test

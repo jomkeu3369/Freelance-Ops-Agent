@@ -28,6 +28,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.hibernate.orm:hibernate-vector")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+    implementation("org.apache.pdfbox:pdfbox:3.0.8")
 
     runtimeOnly("org.postgresql:postgresql")
 
