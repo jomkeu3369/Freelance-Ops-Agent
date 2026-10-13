@@ -54,7 +54,7 @@ export async function analysisWorkflowFixture(page, { completed = true, projectI
     const json = (value, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     const fail = (message, status = 409) => json({ message }, status);
     if (method === "GET" && path === `${root}/sources/latest`) {
-      const snapshot = state.run && workflow.sourceEnabled ? { runId: state.run.runId, sourceProjectVersion: workflow.sourceVersion, sourceCurrent: !workflow.sourceStale && workflow.sourceVersion === state.projects[0].version, view: clone(state.run) } : null;
+      const snapshot = state.run && workflow.sourceEnabled ? { runId: state.run.runId, sourceProjectVersion: workflow.sourceVersion, sourceCurrent: !workflow.sourceStale && workflow.sourceVersion === state.projects[0].version && !["PARTIAL", "FAILED", "CANCELLED"].includes(state.run.status), view: clone(state.run) } : null;
       await barrier("source");
       return snapshot ? json(snapshot) : route.fulfill({ status: 204 });
     }
