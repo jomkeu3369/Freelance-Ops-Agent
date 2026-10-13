@@ -49,7 +49,7 @@ class PlatformUsagePostgresTest {
     @BeforeEach void setup() {
         tx=new TransactionTemplate(manager);
         user=UUID.randomUUID(); workspace=UUID.randomUUID(); project=UUID.randomUUID();
-        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
+        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_completion_reservation, app.platform_spend_month_entry, app.platform_spend_reservation, app.platform_spend_bucket");
         jdbc.update("UPDATE app.platform_spend_settings SET account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");
         jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,?,'ACTIVE')",user,"usage-test:"+user,user+"@example.invalid");
         jdbc.update("INSERT INTO app.workspace(id,name,slug,status,created_by) VALUES (?,'Synthetic',?,'ACTIVE',?)",workspace,"usage-test-"+workspace,user);
@@ -178,7 +178,8 @@ class PlatformUsagePostgresTest {
 
     @Test void catalogueDoesNotClaimProviderAccessOrEnableDisabledSpending() {
         assertThat(usage.snapshot(user).models()).hasSize(7);
-        var disabled=new PlatformUsageService(jdbc,new tools.jackson.databind.ObjectMapper(),false);
+        var disabled=new PlatformUsageService(jdbc,new tools.jackson.databind.ObjectMapper(),false,false,
+            new AgentBudgetPolicy(180,50,12,50000,48000,4,2,2,2,3));
         assertThat(disabled.snapshot(user).models()).allSatisfy(model->{
             assertThat(model.catalogued()).isTrue(); assertThat(model.available()).isFalse();
             assertThat(model.unavailableReason()).isEqualTo("SPENDING_DISABLED");

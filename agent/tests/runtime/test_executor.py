@@ -314,6 +314,48 @@ async def test_internal_specialist_task_events_are_persisted_during_real_work() 
             await asyncio.gather(running, return_exceptions=True)
 
 
+async def test_saved_first_department_survives_cancel_during_the_next_department() -> None:
+    request = _request(tool_calls=1)
+    request.budget.max_hierarchy_depth = 2
+    second_entered = asyncio.Event()
+    release = asyncio.Event()
+
+    class WaitingSecondProvider(FixedProvider):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            if self.calls == 1:
+                second_entered.set()
+                await release.wait()
+            return await super().generate_structured(*args, **kwargs)  # type: ignore[arg-type]
+
+    provider = WaitingSecondProvider()
+    store = InMemoryAgentRunStore()
+    executor = OperationalAgentExecutor(FixedGateway(RouteLabel.SUPERVISOR), provider, FixedProjectContextTool(request))
+    coordinator = RunCoordinator(store, executor)
+    await coordinator.accept(request)
+    running = asyncio.create_task(coordinator.execute(request, ExecutionAuthorization("synthetic-delegation")))
+    try:
+        await asyncio.wait_for(second_entered.wait(), 2)
+        before = await coordinator.view(request.context.run_id)
+        assert before.status is AgentRunStatus.RUNNING
+        assert before.result is not None
+        assert len(before.result.department_results) == 1
+        assert before.result.department_results[0].department.value == "REQUIREMENTS"
+        assert before.result.department_results[0].summary == "work product"
+        await coordinator.cancel(request.context.run_id)
+        await asyncio.gather(running, return_exceptions=True)
+        after = await coordinator.view(request.context.run_id)
+        assert after.status is AgentRunStatus.CANCELLED and after.result == before.result
+        assert provider.calls == 1
+        events = await coordinator.events(request.context.run_id)
+        assert sum(event.type == "department.saved" for event in events) == 1
+        assert not any(event.type == "run.completed" for event in events)
+    finally:
+        release.set()
+        if not running.done():
+            running.cancel()
+            await asyncio.gather(running, return_exceptions=True)
+
+
 async def test_cancelling_internal_specialist_does_not_emit_false_completion() -> None:
     request = _request()
     entered = asyncio.Event()

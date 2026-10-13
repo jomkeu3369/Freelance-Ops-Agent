@@ -106,11 +106,12 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         return _problem(409, "Agent run already exists", "AGENT_RUN_CONFLICT")
 
     assert credentials is not None
-    background_tasks.add_task(
-        coordinator.execute,
-        body,
-        ExecutionAuthorization(credentials.credentials, request.state.traceparent),
-    )
+    if accepted.status is AgentRunStatus.QUEUED:
+        background_tasks.add_task(
+            coordinator.execute,
+            body,
+            ExecutionAuthorization(credentials.credentials, request.state.traceparent),
+        )
     return accepted
 
 
@@ -188,12 +189,14 @@ async def _event_stream(coordinator: RunCoordinator, run_id: UUID, after_event_i
         AgentRunStatus.CANCELLED,
     }
     while True:
+        # Reconciliation may append a terminal event. Read the resulting events
+        # after it, so a stopped stream never hides that final failure reason.
+        view = await coordinator.view(run_id)
         events = await coordinator.events(run_id, cursor)
         for event in events:
             cursor = event.event_id
             payload = json.dumps(event.model_dump(mode="json", by_alias=True), ensure_ascii=False)
             yield f"id: {event.event_id}\nevent: {event.type}\ndata: {payload}\n\n"
-        view = await coordinator.view(run_id)
         if view.status in terminal or time.monotonic() >= deadline:
             return
         await asyncio.sleep(0.25)

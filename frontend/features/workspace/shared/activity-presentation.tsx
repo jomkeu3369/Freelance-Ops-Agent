@@ -6,7 +6,11 @@ import { translateUi } from "../../../app/lib/ui-locale.mjs";
 export const runFailureMessages: Record<string, string> = {
   REACT_TOOL_CALL_INVALID:
     "AI 응답 형식을 자동으로 다시 확인했지만 분석을 계속할 수 없었습니다. 새 분석으로 다시 시도해 주세요.",
-  SPRING_TOOL_UNAUTHORIZED: "내부 분석 권한을 확인하지 못했습니다. 실행을 새로 시작해 주세요.",
+  SPRING_TOOL_UNAUTHORIZED: "내부 분석 권한이 만료되었거나 확인되지 않아 중단했습니다. 저장된 결과를 먼저 확인한 뒤 새 분석을 직접 요청해 주세요.",
+  RUN_TIMEOUT: "실행 시간 한도에 도달해 중단했습니다. 저장된 결과는 보존하며 자동으로 다시 실행하지 않습니다. 이미 접수된 AI 호출의 요금은 발생했을 수 있습니다.",
+  RUN_EXECUTION_INTERRUPTED: "실행 시간 한도가 지난 뒤 완료 여부를 확인하지 못했습니다. 저장된 결과는 보존하며 자동으로 다시 실행하지 않습니다. 이미 접수된 AI 호출의 요금은 발생했을 수 있습니다.",
+  BYOK_BUDGET_EXPIRED: "개인 키 실행 시간이 만료되어 중단했습니다. 저장된 결과와 사용한 호출 한도는 보존하며 자동으로 다시 실행하지 않습니다.",
+  BYOK_ADMISSION_FAILED: "개인 키 호출의 접수 여부를 확인하지 못해 중단했습니다. 호출 한도가 사용됐을 수 있어 자동으로 다시 실행하지 않습니다.",
   SPRING_TOOL_FORBIDDEN:
     "현재 계정에 분석에 필요한 프로젝트 조회 권한이 없습니다. 작업 공간 권한을 확인해 주세요."
 };
@@ -21,6 +25,7 @@ export function runFailureMessage(errorCode: string | null): string {
 export const eventActivityLabels: Record<string, string> = {
   "run.accepted": "분석 요청 접수",
   "run.started": "분석 시작",
+  "department.saved": "부서 결과 저장",
   "requirement.updated": "요구사항 정리",
   "clarification.requested": "사용자 확인 요청",
   "clarification.responded": "사용자 답변 반영",

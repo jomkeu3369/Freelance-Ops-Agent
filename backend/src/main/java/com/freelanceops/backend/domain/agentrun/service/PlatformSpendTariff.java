@@ -60,6 +60,25 @@ public final class PlatformSpendTariff {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Model promotional tariff requires operator review");
         }
     }
+    /** Aggregate token ceilings include router work. Every attempt rounds independently. */
+    public static BigDecimal fullReservation(List<String> models,
+            com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget budget,
+            String version) {
+        if (models == null || models.isEmpty() || budget == null || budget.maxModelCalls() < 1
+            || budget.maxInputTokens() < 1 || budget.maxOutputTokens() < 1) {
+            throw new IllegalArgumentException("A bounded complete run budget is required");
+        }
+        BigDecimal input = BigDecimal.ZERO, output = BigDecimal.ZERO;
+        for (String model : models) {
+            Tariff rate = tariff(Provider.OPENAI, model, version);
+            input = input.max(rate.input()).max(rate.cachedRead()).max(rate.cacheWrite());
+            output = output.max(rate.output());
+        }
+        return input.multiply(BigDecimal.valueOf(budget.maxInputTokens()))
+            .add(output.multiply(BigDecimal.valueOf(budget.maxOutputTokens())))
+            .divide(MILLION, 8, RoundingMode.CEILING)
+            .add(new BigDecimal("0.00000001").multiply(BigDecimal.valueOf(budget.maxModelCalls() - 1L)));
+    }
     public static BigDecimal calculate(ProviderCallUsage call) { return calculate(call, VERSION); }
     public static BigDecimal calculate(ProviderCallUsage call, String version) {
         tariff(call.provider(), call.model(), version);

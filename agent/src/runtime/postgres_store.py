@@ -27,6 +27,12 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
+from .continuity import (
+    INTERRUPTED_RUN_ERROR,
+    TERMINAL_RUN_STATUSES,
+    execution_is_stalled,
+    introduces_terminal_attempt,
+)
 from .runs import (
     AgentRunNotFoundError,
     AgentRunStateError,
@@ -84,6 +90,26 @@ class PostgresAgentRunStore:
                 raise AgentRunNotFoundError("agent run was not found")
             return AgentRunRequest.model_validate(model.request_json)
 
+    async def reconcile_stalled(self, run_id: UUID, now: datetime) -> AgentRunView:
+        async with self._database.session() as session:
+            model = await self._locked(session, run_id)
+            if model.status == AgentRunStatus.RUNNING.value:
+                started_at = await session.scalar(
+                    select(AgentRunEventModel.occurred_at)
+                    .where(AgentRunEventModel.run_id == run_id, AgentRunEventModel.type == "run.started")
+                    .order_by(AgentRunEventModel.event_id.desc())
+                    .limit(1)
+                )
+                request = AgentRunRequest.model_validate(model.request_json)
+                if execution_is_stalled(request, started_at or model.updated_at, now):
+                    # The same row lock serializes completion, cancellation and
+                    # attempt persistence. Never infer provider usage or closure.
+                    model.status = AgentRunStatus.FAILED.value
+                    model.error_code = INTERRUPTED_RUN_ERROR
+                    model.updated_at = now
+                    await self._append_event(session, run_id, "run.failed", {"errorCode": INTERRUPTED_RUN_ERROR})
+            return self._view(model)
+
     async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
@@ -113,7 +139,8 @@ class PostgresAgentRunStore:
             )
             model.active_department = outcome.active_department.value if outcome.active_department is not None else None
             model.interruption_json = self._json(outcome.interruption)
-            model.result_json = self._json(outcome.result)
+            if outcome.result is not None:
+                model.result_json = self._json(outcome.result)
             model.error_code = outcome.partial_error_code
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, outcome.usage))
@@ -201,12 +228,19 @@ class PostgresAgentRunStore:
             model = await self._locked(session, run_id)
             if model.status != AgentRunStatus.RUNNING.value:
                 raise AgentRunStateError("only a running Agent run can publish progress")
+            if event.partial_result is not None:
+                model.result_json = self._json(event.partial_result)
+                model.active_department = event.active_department.value if event.active_department else None
+            model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, event.type, event.data)
 
-    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage, *, final_accounting: bool = False) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
             current = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
+            if (not final_accounting and AgentRunStatus(model.status) in TERMINAL_RUN_STATUSES
+                    and introduces_terminal_attempt(current, usage)):
+                raise AgentRunStateError("terminal Agent run cannot admit another provider attempt")
             model.usage_json = self._json(merge_usage(current, usage))
             model.updated_at = datetime.now(UTC)
 

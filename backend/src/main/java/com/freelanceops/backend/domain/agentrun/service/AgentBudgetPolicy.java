@@ -40,6 +40,8 @@ public class AgentBudgetPolicy {
         );
     }
 
+    public RunBudget maximum() { return maximum; }
+
     public void enforce(RunBudget requested) {
         enforce(requested, maximum.maxInputTokens());
     }

@@ -4,10 +4,20 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "agent/src/runtime/**"
+      - "agent/src/api/agent_runs/**"
+      - "backend/src/**/agentrun/**"
+      - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
+      - "backend/src/main/resources/db/migration/*platform*"
+      - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
+      - "work/overnight-workflow-integration-20261014"
+      - "work/agent-continuity-20261014"
+      - "work/completion-budget-guards-20261013"
+      - "work/pet-opinion-workflow-20261014"
       - "work/integrate-quotation-ui-seo-20261012"
       - "work/optimize-quotation-list-20261012"
       - "work/step-two-layout-20261012"
@@ -40,6 +50,12 @@ on:
       - "codex/markdown-release-20261005"
     paths:
       - "frontend/**"
+      - "agent/src/runtime/**"
+      - "agent/src/api/agent_runs/**"
+      - "backend/src/**/agentrun/**"
+      - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
+      - "backend/src/main/resources/db/migration/*platform*"
+      - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
   workflow_dispatch:
@@ -71,7 +87,7 @@ jobs:
   synthetic-browser:
     name: Synthetic Chromium workspace checks
     # Work-branch and same-repository PR verification. No deployment or provider calls.
-    if: github.ref == 'refs/heads/work/integrate-quotation-ui-seo-20261012' || github.ref == 'refs/heads/work/nonbrand-search-metadata-20261012' || github.ref == 'refs/heads/work/step-two-layout-20261012' || github.ref == 'refs/heads/work/optimize-quotation-list-20261012' || github.ref == 'refs/heads/work/dependency-audit-20261011' || github.ref == 'refs/heads/work/integrate-chat-settings-project-20261010' || github.ref == 'refs/heads/work/project-mutation-boundaries-20261010' || github.ref == 'refs/heads/work/attachment-history-boundaries-20261010' || github.ref == 'refs/heads/work/settings-session-accessibility-20261010' || github.ref == 'refs/heads/codex/readme-product-screenshots-20261009' || github.ref == 'refs/heads/codex/workspace-pet-companion-20261009' || github.ref == 'refs/heads/codex/attachment-reference-ui-20261008' || github.ref == 'refs/heads/codex/auth-ocr-integration-20261007' || github.ref == 'refs/heads/codex/login-session-reliability-20261007' || github.ref == 'refs/heads/codex/ocr-language-layout-coverage-20261007' || github.ref == 'refs/heads/codex/compatible-toolchain-fixes-20261006' || github.ref == 'refs/heads/codex/next-security-patch-20261006' || github.ref == 'refs/heads/codex/chat-flow-hardening-20261006' || github.ref == 'refs/heads/codex/overnight-quality-integration-20261006' || github.ref == 'refs/heads/codex/chat-composer-settings-20261006' || github.ref == 'refs/heads/codex/offline-flow-regressions-20261006' || github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.ref == 'refs/heads/work/overnight-workflow-integration-20261014' || github.ref == 'refs/heads/work/pet-opinion-workflow-20261014' || github.ref == 'refs/heads/work/agent-continuity-20261014' || github.ref == 'refs/heads/work/completion-budget-guards-20261013' || github.ref == 'refs/heads/work/integrate-quotation-ui-seo-20261012' || github.ref == 'refs/heads/work/nonbrand-search-metadata-20261012' || github.ref == 'refs/heads/work/step-two-layout-20261012' || github.ref == 'refs/heads/work/optimize-quotation-list-20261012' || github.ref == 'refs/heads/work/dependency-audit-20261011' || github.ref == 'refs/heads/work/integrate-chat-settings-project-20261010' || github.ref == 'refs/heads/work/project-mutation-boundaries-20261010' || github.ref == 'refs/heads/work/attachment-history-boundaries-20261010' || github.ref == 'refs/heads/work/settings-session-accessibility-20261010' || github.ref == 'refs/heads/codex/readme-product-screenshots-20261009' || github.ref == 'refs/heads/codex/workspace-pet-companion-20261009' || github.ref == 'refs/heads/codex/attachment-reference-ui-20261008' || github.ref == 'refs/heads/codex/auth-ocr-integration-20261007' || github.ref == 'refs/heads/codex/login-session-reliability-20261007' || github.ref == 'refs/heads/codex/ocr-language-layout-coverage-20261007' || github.ref == 'refs/heads/codex/compatible-toolchain-fixes-20261006' || github.ref == 'refs/heads/codex/next-security-patch-20261006' || github.ref == 'refs/heads/codex/chat-flow-hardening-20261006' || github.ref == 'refs/heads/codex/overnight-quality-integration-20261006' || github.ref == 'refs/heads/codex/chat-composer-settings-20261006' || github.ref == 'refs/heads/codex/offline-flow-regressions-20261006' || github.ref == 'refs/heads/codex/partial-chat-history-20261006' || github.ref == 'refs/heads/codex/cloud-feature-integration-20261005' || github.ref == 'refs/heads/codex/login-pet-road-20261005' || github.ref == 'refs/heads/codex/login-pet-motion-20261005' || github.ref == 'refs/heads/codex/login-footer-center-20261005' || github.ref == 'refs/heads/codex/byok-release-integration-20261005' || github.ref == 'refs/heads/codex/chat-markdown-20261005' || github.ref == 'refs/heads/codex/markdown-release-20261005' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -129,6 +145,8 @@ jobs:
             tests/browser/skills-integrated.spec.mjs \
             tests/browser/custom-agent-pets.spec.mjs \
             tests/browser/workspace-companion.spec.mjs \
+            tests/browser/pet-gaze.spec.mjs \
+            tests/browser/pet-perspectives.spec.mjs \
             tests/browser/chat-attachments.spec.mjs \
             tests/browser/attachment-cards.spec.mjs \
             tests/browser/admin-members.spec.mjs \
@@ -142,6 +160,9 @@ jobs:
             tests/browser/byok-bounded.spec.mjs \
             tests/browser/chat-markdown.spec.mjs \
             tests/browser/chat-history.spec.mjs \
+            tests/browser/agent-chat.spec.mjs \
+            tests/browser/chat-messenger.spec.mjs \
+            tests/browser/run-continuity.spec.mjs \
             tests/browser/project-mutations.spec.mjs \
             tests/browser/quotation-pagination.spec.mjs
       - name: Preserve synthetic browser evidence
@@ -156,7 +177,7 @@ jobs:
   search-preview:
     name: Preview search exclusion checks
     # Build-only local verification. No deployment, credentials, backend or AI calls.
-    if: github.ref == 'refs/heads/work/integrate-quotation-ui-seo-20261012' || github.ref == 'refs/heads/work/nonbrand-search-metadata-20261012' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    if: github.ref == 'refs/heads/work/overnight-workflow-integration-20261014' || github.ref == 'refs/heads/work/integrate-quotation-ui-seo-20261012' || github.ref == 'refs/heads/work/nonbrand-search-metadata-20261012' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:

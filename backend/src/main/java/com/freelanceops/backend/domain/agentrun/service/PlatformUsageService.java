@@ -35,9 +35,14 @@ public class PlatformUsageService {
     private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final boolean enabled;
+    private final boolean completionEnabled;
+    private final AgentBudgetPolicy budgetPolicy;
     public PlatformUsageService(JdbcTemplate jdbc, ObjectMapper mapper,
-                                @Value("${platform.ai.spend.enabled:false}") boolean enabled) {
+                                @Value("${platform.ai.spend.enabled:false}") boolean enabled,
+                                @Value("${platform.ai.spend.completion-enabled:false}") boolean completionEnabled,
+                                AgentBudgetPolicy budgetPolicy) {
         this.jdbc = jdbc; this.mapper = mapper; this.enabled = enabled;
+        this.completionEnabled = completionEnabled; this.budgetPolicy = budgetPolicy;
     }
     public record Model(String provider, String model, boolean catalogued, boolean enabled,
                         List<String> reasoningEfforts, BigDecimal maxRunUsd, boolean available, String unavailableReason,
@@ -50,6 +55,8 @@ public class PlatformUsageService {
                              BigDecimal platformCostUsd, BigDecimal platformReservedUsd, boolean usageKnown,
                              long byokInputTokens, long byokOutputTokens, List<ProviderCallUsage> providerCalls) { }
     public record History(List<UsageEntry> items, String nextCursor) { }
+    private record AdmissionSettings(BigDecimal account, BigDecimal day, BigDecimal week, BigDecimal soft,
+                                     BigDecimal hard, boolean completionRequired, List<String> routers) { }
     private record Hold(UUID user, BigDecimal cap, String version, LocalDate day, LocalDate week,
                         BigDecimal settled, BigDecimal reserved, boolean closed, Instant observed) { }
 
@@ -145,28 +152,51 @@ public class PlatformUsageService {
     @Transactional
     public Usage snapshot(UUID userId) {
         Objects.requireNonNull(userId);
+        var settings = jdbc.queryForObject("""
+            SELECT account_week_usd,global_day_usd,global_week_usd,global_month_soft_usd,global_month_hard_usd,
+                   completion_required,completion_router_models FROM app.platform_spend_settings WHERE id=1 FOR UPDATE
+            """, (row, n) -> new AdmissionSettings(row.getBigDecimal(1),row.getBigDecimal(2),row.getBigDecimal(3),
+                row.getBigDecimal(4),row.getBigDecimal(5),row.getBoolean(6),Arrays.asList((String[])row.getArray(7).getArray())));
         Instant now = jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class).toInstant();
         var period = FreeUsageService.Period.at(now);
-        var settings = jdbc.queryForObject("""
-            SELECT account_week_usd, global_day_usd, global_week_usd FROM app.platform_spend_settings WHERE id=1 FOR SHARE
-            """, (row, n) -> List.of(row.getBigDecimal(1), row.getBigDecimal(2), row.getBigDecimal(3)));
-        BigDecimal limit = settings.getFirst();
+        BigDecimal limit = settings.account();
+        LocalDate month = PlatformSpendService.Period.at(now).month();
+        PlatformSpendMonthLedger.refresh(jdbc, month);
+        BigDecimal monthlyExposure = PlatformSpendMonthLedger.exposure(jdbc, month);
         var totals = jdbc.queryForObject("""
             SELECT COALESCE(SUM(s.settled_usd),0), COALESCE(SUM(s.reserved_usd),0)
             FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
             WHERE r.user_id=? AND r.week_period=?
             """, (row, n) -> List.of(row.getBigDecimal(1), row.getBigDecimal(2)), userId, Date.valueOf(period.start()));
         BigDecimal remaining = limit.subtract(totals.get(0)).subtract(totals.get(1)).max(ZERO);
-        BigDecimal globalRemaining = available("GLOBAL_DAY", GLOBAL, PlatformSpendService.Period.at(now).day(), settings.get(1))
-            .min(available("GLOBAL_WEEK", GLOBAL, period.start(), settings.get(2)));
+        BigDecimal globalRemaining = available("GLOBAL_DAY", GLOBAL, PlatformSpendService.Period.at(now).day(), settings.day())
+            .min(available("GLOBAL_WEEK", GLOBAL, period.start(), settings.week()));
         List<Model> models = jdbc.query("SELECT model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER BY model",
             (row, n) -> {
                 String id = row.getString(1);
                 boolean active = row.getBoolean(3);
+                BigDecimal required = row.getBigDecimal(2);
+                String policyReason = null;
+                if (settings.completionRequired()) {
+                    if (!completionEnabled) policyReason = "COMPLETION_PROTOCOL_UNAVAILABLE";
+                    else {
+                        var allowed = new ArrayList<>(settings.routers());
+                        allowed.add(id);
+                        try {
+                            for (String model : allowed) PlatformSpendTariff.requireCurrentPrice(model, now);
+                            required = PlatformSpendTariff.fullReservation(allowed, budgetPolicy.maximum(), PlatformSpendTariff.VERSION);
+                            policyReason = required.compareTo(row.getBigDecimal(2)) > 0 ? "MODEL_FULL_RESERVATION"
+                                : PlatformSpendMonthLedger.unavailable(monthlyExposure, required, settings.soft(), settings.hard());
+                        } catch (IllegalArgumentException | ResponseStatusException invalid) {
+                            policyReason = "COMPLETION_POLICY_UNPRICEABLE";
+                        }
+                    }
+                }
                 String reason = !enabled ? "SPENDING_DISABLED" : !active ? "MODEL_DISABLED"
                     : (id.equals("gpt-5.6-sol") && !now.isBefore(PlatformSpendTariff.PROMOTION_REVIEW_AT)) ? "TARIFF_REVIEW_REQUIRED"
-                    : remaining.signum() <= 0 ? "ACCOUNT_BUDGET_EXHAUSTED"
-                    : globalRemaining.signum() <= 0 ? "GLOBAL_BUDGET_EXHAUSTED" : null;
+                    : policyReason != null ? policyReason
+                    : remaining.compareTo(required) < 0 ? "ACCOUNT_BUDGET_EXHAUSTED"
+                    : globalRemaining.compareTo(required) < 0 ? "GLOBAL_BUDGET_EXHAUSTED" : null;
                 var efforts = List.of("gpt-6.1-sol", "gpt-6-astra").contains(id)
                     ? List.of("LOW", "MEDIUM", "HIGH") : List.of("NONE", "LOW", "MEDIUM", "HIGH");
                 return new Model("OPENAI", id, true, active, efforts, row.getBigDecimal(2), reason == null, reason, false);

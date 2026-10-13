@@ -40,7 +40,7 @@ from web_research import ResearchCollection, WebResearchBudgetError
 
 from .internal_delegation import delegate_internal_task
 from .react_loop import BoundedReActLoop, ReActLoopBudget, ReActLoopError, ReActLoopResult, StructuredTool
-from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionEvent, ExecutionOutcome
+from .runs import AgentExecutionError, ExecutionAuthorization, ExecutionEvent, ExecutionOutcome, publish_progress
 from .task_shadow import ResearchTaskShadowRegistrar
 
 logger = logging.getLogger(__name__)
@@ -315,6 +315,7 @@ class OperationalAgentExecutor:
                 input_tokens,
                 output_tokens,
                 started_ns,
+                knowledge,
             )
 
         project_context: ProjectContext | None = None
@@ -392,6 +393,7 @@ class OperationalAgentExecutor:
                     sources=research.sources if department is DepartmentName.RESEARCH and research is not None else []
                 )
             )
+            await self._preserve_department_results(results, questions, quotation_drafts, knowledge)
 
         bounded_questions = self._bounded_questions(questions)
         if bounded_questions and resume is None:
@@ -466,7 +468,7 @@ class OperationalAgentExecutor:
             },
         }
 
-    async def _execute_react_departments(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], text: str, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None, model_calls: int, input_tokens: int, output_tokens: int, started_ns: int) -> ExecutionOutcome:  # noqa: E501
+    async def _execute_react_departments(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], text: str, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None, model_calls: int, input_tokens: int, output_tokens: int, started_ns: int, knowledge: KnowledgeContext) -> ExecutionOutcome:  # noqa: E501
         results: list[DepartmentResult] = []
         questions: list[str] = []
         quotation_drafts: list[QuotationDraft] = []
@@ -653,6 +655,7 @@ class OperationalAgentExecutor:
                     sources=selected.sources if selected is not None else [],
                 )
             )
+            await self._preserve_department_results(results, questions, quotation_drafts, knowledge)
 
         usage = self._usage(
             decision.route,
@@ -691,6 +694,31 @@ class OperationalAgentExecutor:
             usage=usage,
             events=(self._route_event(request, decision), *tool_events)
         )
+
+    async def _preserve_department_results(self, results: list[DepartmentResult], questions: list[str],
+                                           quotation_drafts: list[QuotationDraft], knowledge: KnowledgeContext) -> None:
+        """Save validated work before another department, tool or provider can fail.
+
+        This is an in-progress snapshot. It never changes the run to COMPLETED
+        or grants quotation/specification approval, and has no missing-stage
+        placeholders that could be mistaken for completed work.
+        """
+        snapshot = AgentRunResult(
+            project_summary="\n\n".join(
+                f"[{result.department.value}] {result.summary}" for result in results
+            )[:10000],
+            open_questions=self._bounded_questions(questions),
+            department_results=list(results),
+            quotation_draft=self._recommended_draft(quotation_drafts),
+            quotation_drafts=list(quotation_drafts),
+            referenced_document_ids=[UUID(value) for value in dict.fromkeys(knowledge.document_ids)],
+        )
+        await publish_progress(ExecutionEvent(
+            "department.saved",
+            {"department": results[-1].department.value, "savedDepartments": len(results)},
+            partial_result=snapshot,
+            active_department=results[-1].department,
+        ))
 
     def _partial_react_outcome(self, request: AgentRunRequest, decision: FinalRouteDecision, departments: tuple[DepartmentName, ...], failed_index: int, results: list[DepartmentResult], questions: list[str], quotation_drafts: list[QuotationDraft], tool_events: list[ExecutionEvent], research_usage: ResearchCollection, error_code: str, model_calls: int, tool_calls: int, input_tokens: int, output_tokens: int, started_ns: int) -> ExecutionOutcome:  # noqa: E501
         unfinished = [

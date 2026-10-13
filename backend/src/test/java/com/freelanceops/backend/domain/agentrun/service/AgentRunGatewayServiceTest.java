@@ -119,7 +119,7 @@ class AgentRunGatewayServiceTest {
             eq(List.of("agent.run", "project.read")), eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
-        verify(platformSpend).reserve(userId, response.runId(), request().modelSelection());
+        verify(platformSpend).reserve(userId, response.runId(), request().modelSelection(), request().budget());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(captor.getValue().input().skillSelection().mode()).isEqualTo("AUTO");
         assertThat(captor.getValue().input().workflowMode()).isEqualTo("PROJECT_ANALYSIS");
@@ -186,7 +186,7 @@ class AgentRunGatewayServiceTest {
         assertThat(captured.getValue().input().skillSelection()).isEqualTo(selection);
         assertThat(captured.getValue().input().workflowMode()).isEqualTo("AD_HOC");
         assertThat(captured.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
-        verify(platformSpend).reserve(user, accepted.runId(), original.modelSelection());
+        verify(platformSpend).reserve(user, accepted.runId(), original.modelSelection(), original.budget());
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
     }
 
@@ -196,7 +196,7 @@ class AgentRunGatewayServiceTest {
         when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
-        when(platformSpend.reserve(eq(user), any(), any())).thenThrow(new PlatformSpendExhaustedException("ACCOUNT_WEEK"));
+        when(platformSpend.reserve(eq(user), any(), any(), any())).thenThrow(new PlatformSpendExhaustedException("ACCOUNT_WEEK"));
         assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace"))
             .isInstanceOf(PlatformSpendExhaustedException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue, pets, agentRunRepository);

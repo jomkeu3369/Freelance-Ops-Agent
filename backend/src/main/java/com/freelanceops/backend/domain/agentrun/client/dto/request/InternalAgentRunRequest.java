@@ -55,8 +55,27 @@ public record InternalAgentRunRequest(
         }
     }
 
+    public record PlatformCompletionEnvelope(String protocolVersion, long policyRevision,
+                                              List<String> allowedModels, RunBudget budget) {
+        public PlatformCompletionEnvelope {
+            if (!"completion-v1".equals(protocolVersion) || policyRevision < 1 || budget == null
+                || allowedModels == null || allowedModels.isEmpty()
+                || allowedModels.stream().anyMatch(model -> model == null || model.isBlank())
+                || allowedModels.stream().distinct().count() != allowedModels.size()) {
+                throw new IllegalArgumentException("Completion envelope is invalid");
+            }
+            allowedModels = List.copyOf(allowedModels);
+        }
+    }
+
     public record PlatformBudget(UUID reservationId, java.math.BigDecimal maxCostUsd,
-                                 String tariffVersion, java.time.Instant validUntil) {
+                                 String tariffVersion, java.time.Instant validUntil,
+                                 @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                                 PlatformCompletionEnvelope completion) {
+        public PlatformBudget(UUID reservationId, java.math.BigDecimal maxCostUsd,
+                              String tariffVersion, java.time.Instant validUntil) {
+            this(reservationId, maxCostUsd, tariffVersion, validUntil, null);
+        }
         public PlatformBudget {
             if (reservationId == null || maxCostUsd == null || maxCostUsd.signum() <= 0
                 || maxCostUsd.compareTo(new java.math.BigDecimal("100")) > 0
