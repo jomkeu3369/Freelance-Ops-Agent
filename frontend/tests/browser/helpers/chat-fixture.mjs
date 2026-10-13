@@ -3,7 +3,7 @@ const apiOrigin = "http://localhost:8080";
 const project = {
   id: "project-one", workspaceId: "local-space", clientId: null, title: "Original project title",
   requirementText: "Original user requirements stay unchanged", currency: "KRW", deadline: null,
-  budgetMin: null, budgetMax: null, status: "LEAD", updatedAt: "2026-10-01T00:00:00Z",
+  budgetMin: null, budgetMax: null, status: "LEAD", version: 0, updatedAt: "2026-10-01T00:00:00Z",
 };
 
 // Hold one response at a known server boundary without relying on wall-clock sleeps.
@@ -47,6 +47,11 @@ export async function fixture(page) {
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });
     if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);
+    // A legacy chat fixture has no server-bound full-project source. New
+    // decision/specification workflows install their explicit handlers later.
+    if (/\/analysis-decisions\/(?:sources\/latest|latest-confirmed)$/.test(path) && method === "GET") return route.fulfill({ status: 204 });
+    if (/\/(?:analysis-decisions|specifications)$/.test(path) && method === "GET") return json([]);
+    if (/\/(?:analysis-decisions|specifications)\//.test(path)) return json({ message: "Reviewed workflow fixture not found" }, 404);
     if (/\/projects\/[^/]+\/quotations\/page$/.test(path) && method === "GET") return json({ items: [], nextCursor: null });
     // Quotation detail/latest mocks must be explicit; an array is never a detail.
     if (/\/quotations\/[^/]+(?:\/latest)?$/.test(path) && method === "GET") return json({ message: "Quotation fixture not found" }, 404);

@@ -15,6 +15,11 @@ async function perspectiveFixture(page, status = "COMPLETED") {
     result: { projectSummary: "Synthetic recorded result", openQuestions: [], departmentResults: [{ department: "REQUIREMENTS", status: "COMPLETED", summary: "실제 기록된 요구사항 결과", evidenceIds: [], assumptionIds: [], sources: [], errorCode: null }], quotationDraft: drafts[1], quotationDrafts: structuredClone(drafts) },
     metadata: { petProfiles: [profile], provider: "OPENAI", model: "fixture-model", promptVersion: "fixture", toolSchemaVersion: "fixture", traceId: "fixture-trace" }
   };
+  // The server explicitly identifies this recorded PROJECT_ANALYSIS source;
+  // unrelated completed chat turns cannot implicitly seed a quotation.
+  await page.route("**/api/v2/workspaces/local-space/projects/project-one/analysis-decisions/sources/latest", route => route.fulfill({
+    json: { runId: state.run.runId, sourceProjectVersion: state.projects[0].version, view: state.run },
+  }));
   await page.route("**/api/v2/workspaces/local-space/rate-cards", route => route.fulfill({ json: [{ id: "rate-one", workspaceId: "local-space", name: "Synthetic rate", unit: "HOUR", rate: 1000, minimumAmount: 0, currency: "KRW", active: true, version: 1 }] }));
   await page.route("**/api/v2/workspaces/local-space/projects/project-one/quotations/preview", route => {
     const input = route.request().postDataJSON(); previews.push(input);

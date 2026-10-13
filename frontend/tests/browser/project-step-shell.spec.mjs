@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { fixture } from "./helpers/chat-fixture.mjs";
 
-const steps = ["intake", "agent", "quote", "outcome"];
+const steps = ["intake", "agent", "decision", "specification", "quote", "outcome"];
 const title = "Studio website · Synthetic project";
 const clientLabel = "Example Studio · Synthetic Client";
 const path = (project = "project-one", step = "agent") => `/workspace/projects/${project}/${step}`;
@@ -9,8 +9,8 @@ const nav = page => page.locator(".workbench-steps");
 const heading = page => page.locator(".project-heading");
 const input = page => page.locator("#agent-chat-input");
 const labels = {
-  ko: { steps: ["문의", "AI 분석", "견적", "결과"], status: "신규 문의", edit: "프로젝트 정보 수정", remove: "프로젝트 삭제" },
-  en: { steps: ["Inquiry", "AI analysis", "Estimate", "Outcome"], status: "New inquiry", edit: "Edit project details", remove: "Delete project" },
+  ko: { steps: ["문의", "AI 분석", "의견 확정", "명세·PDF", "견적", "결과"], status: "신규 문의", edit: "프로젝트 정보 수정", remove: "프로젝트 삭제" },
+  en: { steps: ["Inquiry", "AI analysis", "Confirm perspectives", "Specification · PDF", "Estimate", "Outcome"], status: "New inquiry", edit: "Edit project details", remove: "Delete project" },
 };
 
 async function shellFixture(page, { locale = "ko", theme = "light", actions = ["project.write", "project.delete"] } = {}) {
@@ -91,7 +91,7 @@ for (const { width, locale, theme } of [
   { width: 1440, locale: "ko", theme: "dark" },
   { width: 1440, locale: "en", theme: "light" },
 ]) {
-  test(`${width}px ${locale}/${theme}: all four project steps retain the same visible shell`, async ({ page }) => {
+  test(`${width}px ${locale}/${theme}: all six project steps retain the same visible shell`, async ({ page }) => {
     const state = await shellFixture(page, { locale, theme });
     await page.setViewportSize({ width, height: width < 820 ? 844 : 900 });
     await page.goto(path("project-one", "intake"));
@@ -105,7 +105,7 @@ for (const { width, locale, theme } of [
       await expect(heading(page).locator(".project-client")).toHaveText(clientLabel);
       await expect(heading(page).getByRole("button", { name: labels[locale].edit, exact: true })).toBeVisible();
       await expect(heading(page).getByRole("button", { name: labels[locale].remove, exact: true })).toBeVisible();
-      await expect(nav(page).locator("button > span")).toHaveText(["01", "02", "03", "04"]);
+      await expect(nav(page).locator("button > span")).toHaveText(steps.map((_, index) => `0${index + 1}`));
       for (const [number, label] of labels[locale].steps.entries()) {
         const button = nav(page).locator("button").nth(number);
         await expect(button).toHaveAccessibleName(new RegExp(`^0${number + 1}\\s*${label}$`));
@@ -127,9 +127,14 @@ for (const { width, locale, theme } of [
         expect(boxes[2].y).toBeGreaterThanOrEqual(boxes[0].y + boxes[0].height);
         expect(boxes[3].y).toBeCloseTo(boxes[2].y, 1);
         expect(boxes[2].x).toBeCloseTo(boxes[0].x, 1);
+        expect(boxes[4].y).toBeGreaterThanOrEqual(boxes[2].y + boxes[2].height);
+        expect(boxes[5].y).toBeCloseTo(boxes[4].y, 1);
+        expect(boxes[4].x).toBeCloseTo(boxes[0].x, 1);
       } else {
         expect(boxes[2].y).toBeCloseTo(boxes[0].y, 1);
         expect(boxes[3].y).toBeCloseTo(boxes[0].y, 1);
+        expect(boxes[4].y).toBeCloseTo(boxes[0].y, 1);
+        expect(boxes[5].y).toBeCloseTo(boxes[0].y, 1);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: `outputs/ui-ux/project-shell-${width}-${locale}-${theme}-${step}.png`, fullPage: false, animations: "disabled" });
