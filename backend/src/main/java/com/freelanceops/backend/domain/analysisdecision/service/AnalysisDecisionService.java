@@ -120,7 +120,9 @@ public class AnalysisDecisionService {
             projectId, "PROJECT_ANALYSIS").map(run -> {
                 var view = gateway.get(userId, workspaceId, run.id(), traceparent());
                 var sources = memory.forRun(workspaceId, projectId, run.id());
-                boolean current = run.sourceProjectVersion() != null && project.version() == run.sourceProjectVersion()
+                boolean current = !unusableTerminal(run.status()) && !unusableTerminal(view.status())
+                    && (view.status() != AgentRunStatus.COMPLETED || view.result() != null)
+                    && run.sourceProjectVersion() != null && project.version() == run.sourceProjectVersion()
                     && matchesProjectInput(project, sources)
                     && AnalysisSourceGuard.isCurrent(sources, memory.current(workspaceId, projectId));
                 return new AnalysisSourceResponse(run.id(), run.sourceProjectVersion(), current, view);
@@ -142,7 +144,7 @@ public class AnalysisDecisionService {
             + request.expectedProjectVersion() + "\n" + String.join("\n", selected));
         Optional<AnalysisDecisionResponse> previous = replay(userId, workspaceId, projectId, request.requestId(), operationHash);
         if (previous.isPresent()) return previous.get();
-        AgentRunEntity run = runs.findByIdAndWorkspaceId(request.sourceRunId(), workspaceId)
+        AgentRunEntity run = runs.findByIdAndWorkspaceIdForUpdate(request.sourceRunId(), workspaceId)
             .filter(value -> value.projectId().equals(projectId)).orElseThrow(AnalysisDecisionService::notFound);
         if (!"PROJECT_ANALYSIS".equals(run.workflowMode()) || run.sourceProjectVersion() == null) {
             throw conflict("이전 기록은 프로젝트 원본 버전이 연결되어 있지 않습니다. 프로젝트 전체 분석을 새로 실행해 주세요.");
@@ -154,7 +156,7 @@ public class AnalysisDecisionService {
         requireSource(matchesProjectInput(project, sourceMessages),
             "이 분석의 입력이 프로젝트 문의 원문과 다릅니다. 최신 원문으로 프로젝트 전체 분석을 다시 실행해 주세요.");
         AgentRunView view = gateway.get(userId, workspaceId, run.id(), traceparent());
-        if (view.status() != AgentRunStatus.COMPLETED || view.result() == null) {
+        if (run.status() != AgentRunStatus.COMPLETED || view.status() != AgentRunStatus.COMPLETED || view.result() == null) {
             throw conflict("완료된 프로젝트 전체 분석만 의견 정리의 출처로 사용할 수 있습니다. 부분·실패·취소 결과는 확정되지 않습니다.");
         }
         var drafts = view.result().quotationDrafts();
@@ -218,6 +220,10 @@ public class AnalysisDecisionService {
         AnalysisSourceGuard.requireCurrent(entity.sourceMessages(), memory.current(workspaceId, projectId));
         entity.confirm(userId, now());
         return decisions.saveAndFlush(entity).response();
+    }
+
+    private static boolean unusableTerminal(AgentRunStatus status) {
+        return status == AgentRunStatus.PARTIAL || status == AgentRunStatus.FAILED || status == AgentRunStatus.CANCELLED;
     }
 
     private Optional<AnalysisDecisionResponse> replay(UUID userId, UUID workspaceId, UUID projectId, UUID requestId, String operationHash) {
