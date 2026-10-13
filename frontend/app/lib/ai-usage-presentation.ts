@@ -45,8 +45,14 @@ export function modelUnavailableMessage(reason: string | null): string {
     SPENDING_DISABLED: "기본 제공 AI 실행이 현재 중지되어 있습니다.",
     MODEL_DISABLED: "이 모델은 현재 기본 제공 AI에서 비활성화되어 있습니다.",
     TARIFF_REVIEW_REQUIRED: "요금 검토가 끝날 때까지 이 모델을 사용할 수 없습니다.",
-    ACCOUNT_BUDGET_EXHAUSTED: "기본 제공 AI의 주간 잔여 예산이 없습니다.",
-    GLOBAL_BUDGET_EXHAUSTED: "서비스 운영 예산이 소진되어 기본 제공 AI를 사용할 수 없습니다.",
+    ACCOUNT_BUDGET_EXHAUSTED: "새 작업 전체를 예약할 주간 예산이 부족합니다.",
+    GLOBAL_BUDGET_EXHAUSTED: "새 작업 전체를 예약할 서비스 운영 예산이 부족합니다.",
+    GLOBAL_MONTH_SOFT_TARGET: "월 운영 예산 목표에 도달해 새 작업 접수를 잠시 멈췄습니다.",
+    GLOBAL_MONTH_HARD_LIMIT: "새 작업의 전체 예산을 월 한도 안에서 예약할 수 없습니다.",
+    MONTHLY_POLICY_UNCONFIGURED: "월 운영 예산 설정을 확인한 후 새 작업을 접수할 수 있습니다.",
+    MODEL_FULL_RESERVATION: "이 모델의 전체 작업 예산이 실행별 예약 한도를 넘습니다.",
+    COMPLETION_PROTOCOL_UNAVAILABLE: "호환되는 실행 환경이 준비되지 않아 새 작업을 접수할 수 없습니다.",
+    COMPLETION_POLICY_UNPRICEABLE: "완료 예산 정책에 포함된 모델의 요금 검토가 필요합니다.",
   } as Record<string, string>)[reason ?? ""] ?? "모델 지원 상태와 예약 상한을 확인해야 합니다.";
 }
 export function reasoningEffortLabel(effort: string): string {

@@ -129,3 +129,9 @@ springdoc:
   packages-to-scan: com.freelanceops.backend
   paths-to-match: /api/**
 
+
+platform:
+  ai:
+    spend:
+      enabled: ${PLATFORM_AI_SPEND_ENABLED:false}
+      completion-enabled: ${PLATFORM_AI_SPEND_COMPLETION_ENABLED:false}

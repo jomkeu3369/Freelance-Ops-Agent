@@ -109,7 +109,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         var byokBudget = request.modelSelection().credentialId() == null ? null
             : byok.issue(runId, userId, workspaceId, projectId, request.modelSelection(), request.budget(), request.byokCostNoticeVersion());
         if (request.modelSelection().credentialId() != null && byokBudget == null) throw new IllegalStateException("Personal execution admission did not issue a scope");
-        var platformBudget = request.modelSelection().credentialId() == null ? platformSpend.reserve(userId, runId, request.modelSelection()) : null;
+        var platformBudget = request.modelSelection().credentialId() == null ? platformSpend.reserve(userId, runId, request.modelSelection(), request.budget()) : null;
         UUID threadId = UUID.randomUUID();
         List<String> permissions = membership.permissions().stream()
             .map(PermissionCode::code)

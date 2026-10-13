@@ -17,4 +17,11 @@ class PlatformSpendExceptionHandlerTest {
         assertThat(result.getStatusCode().value()).isEqualTo(503);
         assertThat(result.getBody().code()).isEqualTo("PLATFORM_SPEND_DISABLED");
     }
+    @Test void monthlyAdmissionFailureExplainsTheScopeWithoutPublishingPolicyAmounts() {
+        var soft = handler.exhausted(new PlatformSpendExhaustedException("GLOBAL_MONTH_SOFT_TARGET"));
+        var hard = handler.exhausted(new PlatformSpendExhaustedException("GLOBAL_MONTH_HARD_LIMIT"));
+        assertThat(soft.getBody().code()).isEqualTo("PLATFORM_SPEND_EXHAUSTED");
+        assertThat(soft.getBody().message()).contains("월", "새 작업").doesNotContain("$");
+        assertThat(hard.getBody().message()).contains("전체 예산", "월 한도");
+    }
 }

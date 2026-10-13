@@ -80,3 +80,23 @@ test("model options share Send's fail-closed catalog guard without claiming prov
   assert.equal(api.reasoningEffortLabel("low"), "낮음");
   assert.equal(api.reasoningEffortLabel("FUTURE_VALUE"), "확인 필요");
 });
+
+
+test("monthly admission reasons explain the new-work block without inventing operator amounts", () => {
+  const reasons = {
+    GLOBAL_MONTH_SOFT_TARGET: /월 운영 예산 목표.*새 작업/,
+    GLOBAL_MONTH_HARD_LIMIT: /새 작업.*월 한도/,
+    MONTHLY_POLICY_UNCONFIGURED: /월 운영 예산 설정/,
+    MODEL_FULL_RESERVATION: /전체 작업 예산.*예약 한도/,
+    COMPLETION_PROTOCOL_UNAVAILABLE: /호환되는 실행 환경/,
+    COMPLETION_POLICY_UNPRICEABLE: /모델의 요금 검토/,
+  };
+  for (const [reason, expected] of Object.entries(reasons)) {
+    const message = api.modelUnavailableMessage(reason);
+    assert.match(message, expected);
+    assert.doesNotMatch(message, /[0-9$]/);
+    const model = { ...usage.models[0], available: false, unavailableReason: reason };
+    assert.equal(api.isUsageModelSelectable(model), false);
+    assert.equal(api.includedUsageBlocker({ ...usage, models: [model] }, "OPENAI", "server-model"), "model");
+  }
+});
