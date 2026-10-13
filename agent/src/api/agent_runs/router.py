@@ -106,11 +106,12 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         return _problem(409, "Agent run already exists", "AGENT_RUN_CONFLICT")
 
     assert credentials is not None
-    background_tasks.add_task(
-        coordinator.execute,
-        body,
-        ExecutionAuthorization(credentials.credentials, request.state.traceparent),
-    )
+    if accepted.status is AgentRunStatus.QUEUED:
+        background_tasks.add_task(
+            coordinator.execute,
+            body,
+            ExecutionAuthorization(credentials.credentials, request.state.traceparent),
+        )
     return accepted
 
 

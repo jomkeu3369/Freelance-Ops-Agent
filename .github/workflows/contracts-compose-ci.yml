@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "work/agent-continuity-20261014"
       - "work/completion-budget-guards-20261013"
       - "codex/auth-ocr-integration-20261007"
       - "codex/ocr-language-layout-coverage-20261007"

@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "frontend/**"
+      - "agent/src/runtime/**"
+      - "agent/src/api/agent_runs/**"
       - "backend/src/**/agentrun/**"
       - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
       - "backend/src/main/resources/db/migration/*platform*"
@@ -12,6 +14,7 @@ on:
       - ".github/workflows/frontend-ci.yml"
   push:
     branches:
+      - "work/agent-continuity-20261014"
       - "work/completion-budget-guards-20261013"
       - "work/integrate-quotation-ui-seo-20261012"
       - "work/optimize-quotation-list-20261012"
@@ -45,6 +48,8 @@ on:
       - "codex/markdown-release-20261005"
     paths:
       - "frontend/**"
+      - "agent/src/runtime/**"
+      - "agent/src/api/agent_runs/**"
       - "backend/src/**/agentrun/**"
       - "backend/src/test/java/com/freelanceops/backend/integration/Platform*Test.java"
       - "backend/src/main/resources/db/migration/*platform*"

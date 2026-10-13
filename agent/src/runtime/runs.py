@@ -470,10 +470,14 @@ class RunCoordinator:
     async def accept(self, request: AgentRunRequest) -> AgentRunAccepted:
         self._validate_funding(request)
         view = await self._store.create(request)
-        await self._checkpoint_journal.record(request, AgentRunStatus.QUEUED, "accepted")
+        # A lost HTTP acknowledgement may be retried after work has already
+        # started or finished. Acknowledge the durable state, never replay it
+        # or overwrite a later checkpoint with a synthetic QUEUED state.
+        if view.status is AgentRunStatus.QUEUED:
+            await self._checkpoint_journal.record(request, AgentRunStatus.QUEUED, "accepted")
         return AgentRunAccepted(
             run_id=request.context.run_id,
-            status=AgentRunStatus.QUEUED,
+            status=view.status,
             accepted_at=view.updated_at,
         )
 

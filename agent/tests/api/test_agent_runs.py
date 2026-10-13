@@ -53,6 +53,16 @@ class SuccessfulExecutor:
         return ExecutionOutcome(result=AgentRunResult(project_summary="completed"))
 
 
+class CountingExecutor(SuccessfulExecutor):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None,
+                      authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:
+        self.calls += 1
+        return await super().execute(request, resume, authorization)
+
+
 class RoutedExecutor:
     async def execute(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None = None, authorization: ExecutionAuthorization | None = None) -> ExecutionOutcome:  # noqa: E501
         del request, resume, authorization
@@ -233,6 +243,19 @@ def test_start_and_read_completed_agent_run() -> None:
         "toolSchemaVersion": "spring-tool-api-v0.3.0",
         "traceId": "trace-1",
     }
+
+
+def test_repeated_start_returns_completed_state_without_repeating_execution() -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    executor = CountingExecutor()
+    client, token = _client_and_token(request, executor)
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = request.model_dump(mode="json", by_alias=True)
+    first = client.post("/internal/v1/agent-runs", headers=headers, json=payload)
+    second = client.post("/internal/v1/agent-runs", headers=headers, json=payload)
+    assert first.status_code == second.status_code == 202
+    assert second.json()["status"] == "COMPLETED"
+    assert executor.calls == 1
 
 
 def test_start_requires_delegation_token() -> None:

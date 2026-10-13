@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "work/agent-continuity-20261014"
       - "work/completion-budget-guards-20261013"
       - "work/integrate-chat-settings-project-20261010"
       - "work/attachment-history-boundaries-20261010"
