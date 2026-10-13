@@ -44,7 +44,7 @@ for (const animal of ["cat", "owl", "turtle"]) {
 }
 
 test("reduced-motion changes reset a moving pet immediately and keep it still", async ({ page }) => {
-  const { state, mutations } = await gazeFixture(page); await page.goto(path);
+  const { state, mutations } = await gazeFixture(page); await page.setViewportSize({ width: 1440, height: 900 }); await page.goto(path);
   await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
   await page.mouse.move(1200, 800); await expect.poll(async () => (await eyeOffset(page)).x).toBeGreaterThan(0);
   await page.emulateMedia({ reducedMotion: "reduce" }); await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
@@ -68,11 +68,29 @@ test("touch devices keep a neutral portrait without changing pet selection or st
 test("navigation preserves the companion and logout removes tracking without late errors", async ({ page }) => {
   const { state, mutations, errors } = await gazeFixture(page);
   await page.route("**/api/v2/auth/logout", route => route.fulfill({ status: 204 }));
-  await page.goto(path); await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.goto(path); await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
   await page.mouse.move(1200, 800); await expect.poll(async () => (await eyeOffset(page)).x).toBeGreaterThan(0);
   await page.getByRole("button", { name: "설정", exact: true }).click(); await expect(page).toHaveURL(/\/workspace\/settings$/);
   await page.goBack(); await expect(page).toHaveURL(new RegExp(`${path}$`));
   await page.locator(".sidebar-foot button").click(); await expect(page.locator(".workspace-companion")).toHaveCount(0);
   await page.mouse.move(300, 300); await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(state.starts).toEqual([]); expect(mutations).toEqual([]); expect(errors).toEqual([]);
+});
+
+
+test("mouse drag and touch pointer events preserve input on a fine-pointer page", async ({ page }) => {
+  const { state, mutations, errors } = await gazeFixture(page);
+  await page.setViewportSize({ width: 1440, height: 900 }); await page.goto(path);
+  await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
+  await page.mouse.move(1400, 800); await expect.poll(async () => (await eyeOffset(page)).x).toBeGreaterThan(0);
+  await page.mouse.down(); await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
+  await page.mouse.move(1100, 600); await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)"); await page.mouse.up();
+  await page.mouse.move(1400, 800); await expect.poll(async () => (await eyeOffset(page)).x).toBeGreaterThan(0);
+  // Fine-primary-pointer devices can also emit touch events. Chromium mobile
+  // emulation only models a coarse primary pointer, which the preceding test covers.
+  await page.locator("body").dispatchEvent("pointerdown", { pointerType: "touch", buttons: 1 });
+  await expect(eyes(page)).toHaveAttribute("transform", "translate(0 0)");
+  await page.locator("#agent-chat-input").fill("마우스와 터치를 사용해도 입력 유지");
+  await expect(page.locator("#agent-chat-input")).toHaveValue("마우스와 터치를 사용해도 입력 유지");
   expect(state.starts).toEqual([]); expect(mutations).toEqual([]); expect(errors).toEqual([]);
 });

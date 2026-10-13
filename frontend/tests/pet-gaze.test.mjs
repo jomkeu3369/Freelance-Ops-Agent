@@ -78,3 +78,13 @@ test("scroll and resize recompute the last pointer; cleanup cancels unfinished w
   const replacement = h.pet(), removeReplacement = h.tracker.subscribe(replacement);
   assert.equal(replacement.eyes.transform, "translate(0 0)"); assert.equal(h.frames.size, 0); removeReplacement();
 });
+
+
+test("pointer press and drag reset without canceling native input events", () => {
+  const h = harness(), pet = h.pet(); h.tracker.subscribe(pet);
+  h.browser.dispatch("pointermove", { pointerType: "mouse", clientX: 1000, clientY: 253, buttons: 0 }); h.flush();
+  h.browser.dispatch("pointerdown", { pointerType: "mouse", buttons: 1 }); assert.equal(pet.eyes.transform, "translate(0 0)");
+  h.browser.dispatch("pointermove", { pointerType: "mouse", clientX: 1000, clientY: 253, buttons: 1 }); h.flush(); assert.equal(pet.eyes.transform, "translate(0 0)");
+  h.browser.dispatch("pointermove", { pointerType: "pen", clientX: 1000, clientY: 253, buttons: 0 }); h.flush(); assert.equal(pet.eyes.transform, "translate(4 0)");
+  h.browser.dispatch("pointerdown", { pointerType: "touch", buttons: 1 }); assert.equal(pet.eyes.transform, "translate(0 0)");
+});

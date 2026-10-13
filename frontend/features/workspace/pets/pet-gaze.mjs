@@ -63,7 +63,7 @@ export function createPetGazeTracker(browser) {
     schedule();
   }
   function onPointerDown(event) {
-    if (event.pointerType === "touch" || event.pointerType === "pen") reset();
+    if (event.buttons > 0 || event.pointerType === "touch" || event.pointerType === "pen") reset();
   }
   function onPointerOut(event) { if (!event.relatedTarget) reset(); }
   function onVisibility() { if (!enabled()) reset(); }
