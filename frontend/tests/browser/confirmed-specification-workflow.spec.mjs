@@ -105,10 +105,20 @@ test("an ambiguous specification save retries the same revision and does not ove
   await page.getByRole("button", { name: "수정본 새 버전 저장", exact: true }).evaluate(node => { node.click(); node.click(); });
   await barrier.entered; expect(specifications.revisions).toHaveLength(1); expect(specifications.items).toHaveLength(2); barrier.release();
   await expect(specPanel(page).getByRole("alert")).toBeVisible(); await expect(body).toHaveValue(text);
+  const saved = structuredClone(specifications.items[0]);
+  const newer = { ...structuredClone(saved), id: "c1000000-0000-4000-8000-000000000099", supersedes: saved.id,
+    revisionNumber: 3, bodyText: "다른 탭에서 먼저 저장한 최신 명세", contentHash: "d".repeat(64), downloadFileName: "newer-v3.pdf" };
+  specifications.items.unshift(newer);
   await page.getByRole("button", { name: "수정본 새 버전 저장", exact: true }).click();
   await expect(body).toHaveValue(text); await expect(page.getByRole("checkbox", { name: specAcknowledgement, exact: true })).toBeEnabled();
   expect(specifications.revisions).toHaveLength(2); expect(specifications.revisions[1].requestId).toEqual(specifications.revisions[0].requestId);
-  expect(specifications.items).toHaveLength(2); expect(specifications.items[0].bodyText).toEqual(text);
+  expect(specifications.items).toHaveLength(3); expect(specifications.items[0]).toEqual(newer);
+  expect(specifications.items.find(value => value.id === saved.id)).toEqual(saved);
+  await page.getByRole("checkbox", { name: specAcknowledgement, exact: true }).check();
+  await page.getByRole("button", { name: "명세서 최종 확정", exact: true }).click();
+  await expect(specPanel(page).getByRole("alert")).toContainText("a newer specification revision exists");
+  await expect(body).toHaveValue(text); expect(specifications.documents).toHaveLength(0);
+  expect(specifications.items[0]).toEqual(newer);
 });
 
 test("a newer confirmed result prevents first-time confirmation of an old-source specification", async ({ page }) => {
