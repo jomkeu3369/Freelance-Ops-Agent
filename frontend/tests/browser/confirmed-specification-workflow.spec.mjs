@@ -25,11 +25,20 @@ async function attachContracts(testInfo, { state, workflow, specifications, flow
   }, null, 2)) });
 }
 
-async function confirmDecision(page, testInfo) {
+async function confirmDecision(page, testInfo, editDecision = false) {
   await page.getByRole("checkbox", { name: "핵심 범위 관점 선택", exact: true }).check();
   await page.getByRole("checkbox", { name: "확장 범위 관점 선택", exact: true }).check();
   await page.getByRole("button", { name: "선택 의견으로 정리 초안 만들기", exact: true }).click();
-  await expect(page.getByRole("textbox", { name: "검토한 결과 내용", exact: true })).toBeVisible();
+  const decisionBody = page.getByRole("textbox", { name: "검토한 결과 내용", exact: true });
+  await expect(decisionBody).toBeVisible();
+  if (editDecision) {
+    const reviewedBody = `${await decisionBody.inputValue()}\n사용자 검토 결정: 중복 없이 선택한 기능 범위만 수행합니다.`;
+    await decisionBody.fill(reviewedBody);
+    await expect(page.getByRole("checkbox", { name: decisionAcknowledgement, exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "수정 내용 새 버전 저장", exact: true }).click();
+    await expect(decisionBody).toHaveValue(reviewedBody);
+    await expect(page.getByRole("checkbox", { name: decisionAcknowledgement, exact: true })).toBeEnabled();
+  }
   await page.getByRole("checkbox", { name: decisionAcknowledgement, exact: true }).check();
   await page.getByRole("button", { name: "검토한 결과 확정", exact: true }).click();
   await expect(page.getByRole("button", { name: "확정 결과로 명세 만들기", exact: true })).toBeEnabled();
@@ -149,7 +158,9 @@ test("login, customer-linked intake, pet question, full-analysis clarification a
   const original = "고객이 제공한 원문: 로그인과 고객 관리 기능을 검토해 주세요.";
   await dialog.locator('textarea[name="requirementText"]').fill(original); await dialog.locator(".quick-intake-options summary").click();
   await dialog.locator('select[name="clientId"]').selectOption(flow.clients[0].id);
-  await dialog.getByRole("button", { name: "프로젝트 만들기", exact: true }).click(); await expect(page).toHaveURL(/\/project-one\/agent$/);
+  await dialog.getByRole("button", { name: "프로젝트 만들기", exact: true }).click(); await expect(page).toHaveURL(/\/project-one\/intake$/);
+  await page.getByRole("navigation", { name: "프로젝트 진행 단계", exact: true }).getByRole("button", { name: /AI 분석/ }).click();
+  await expect(page).toHaveURL(/\/project-one\/agent$/);
   expect(flow.projectCreates[0].clientId).toEqual(flow.clients[0].id); expect(state.projects[0].workspaceId).toEqual("local-space");
   await page.locator("#agent-chat-input").fill("이 프로젝트에서 먼저 확인할 점은 무엇인가요?");
   await page.getByRole("button", { name: "보내기", exact: true }).click(); await expect.poll(() => state.starts.length).toBe(1);
@@ -162,7 +173,7 @@ test("login, customer-linked intake, pet question, full-analysis clarification a
   expect(state.starts[1]).toMatchObject({ workflowMode: "PROJECT_ANALYSIS", requirementText: original });
   expect(state.resumes[0].answers[0].answer).toEqual("고객 제공 이미지 사용, 결제 기능은 제외합니다.");
   await page.getByRole("button", { name: "계획 의견 선택·확정", exact: true }).click(); await expect(page).toHaveURL(/\/decision$/);
-  await confirmDecision(page, testInfo); await generateAndEdit(page);
+  await confirmDecision(page, testInfo, true); await generateAndEdit(page);
   // Prime the knowledge cache immediately before confirmation, then return via
   // real browser history. The confirmed projection must invalidate that cache.
   await page.getByRole("button", { name: "근거 자료 관리", exact: true }).click(); await expect(page.getByText("저장된 자료가 없습니다.", { exact: true })).toBeVisible();
@@ -175,6 +186,7 @@ test("login, customer-linked intake, pet question, full-analysis clarification a
   expect(final.originalSources).toContainEqual(expect.objectContaining({ kind: "USER_CLARIFICATION", content: "고객 제공 이미지 사용, 결제 기능은 제외합니다." }));
   expect(state.starts).toHaveLength(2); expect(state.blocked).toEqual([]); expect(specifications.documents).toHaveLength(1);
   expect(workflow.decisions[0].sourceOpinions.map(value => value.scenario)).toEqual(["LEAN", "EXPANDED"]);
+  expect(workflow.revisions).toHaveLength(1); expect(workflow.decisions[0].versionNumber).toEqual(2);
   expect(specifications.pdfs).toEqual([final.id, final.id]);
   await attachEvidence(page, testInfo, "login-to-confirmed-document-screen");
   await attachContracts(testInfo, { state, workflow, specifications, flow });
