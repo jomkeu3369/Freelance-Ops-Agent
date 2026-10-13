@@ -1,5 +1,5 @@
 import type { PetProfile } from "@/app/lib/api";
-import { petAdvisors, petDisplayName } from "./pet-state.mjs";
+import { petAdvisors, petDisplayName, perspectiveProfile } from "./pet-state.mjs";
 
 export const petDefaults: PetProfile[] = [
   { slot: "LEAN", name: "차근", animal: "turtle", color: "sage", accessory: "none", tone: "WARM", valuePriority: "BALANCED", deliveryPriority: "SPEED", scopePriority: "CAUTIOUS" },
@@ -11,7 +11,7 @@ export const petDutyLabels = { GENERAL: "일반 업무", SCHEDULE: "일정 관�
 export const preferenceLabels: Record<string, string> = { PROFIT: "수익 우선", RELATIONSHIP: "관계 우선", BALANCED: "균형", SPEED: "빠른 납품", QUALITY: "완성도 우선", CAUTIOUS: "보수적 범위", EXPLORATORY: "도전적 제안" };
 export function advisorsWithProfiles(profiles?: PetProfile[], translate: (source: string) => string = source => source) {
   return petAdvisors.map(advisor => {
-    const profile = profiles?.find(pet => pet.petId) ?? profiles?.find(pet => pet.slot === advisor.scenario) ?? petDefaults.find(pet => pet.slot === advisor.scenario)!;
+    const profile = perspectiveProfile(profiles, advisor.scenario, petDefaults) as PetProfile;
     return { ...advisor, name: petDisplayName(profile, translate), profile, priority: [profile.valuePriority, profile.deliveryPriority, profile.scopePriority].map(value => translate(preferenceLabels[value])).join(" · ") };
   });
 }

@@ -4,6 +4,24 @@ export const petAdvisors = [
   { id: "cat", name: "든든", role: "수익 담당", scenario: "EXPANDED", priority: "제공 가치와 명확한 계약 범위", departments: ["DEAL_DESIGN"] }
 ];
 
+export const petPerspectiveLabels = {
+  LEAN: "핵심 범위 관점", RECOMMENDED: "권장 범위 관점", EXPANDED: "확장 범위 관점"
+};
+
+export const petDepartmentLabels = {
+  REQUIREMENTS: "요구사항 정리", RESEARCH: "자료 조사", VERIFICATION: "근거 검증", DEAL_DESIGN: "범위·계약 설계"
+};
+
+/** Match the recorded slot, never copy one custom pet into unrelated perspectives. */
+export function perspectiveProfile(profiles, scenario, defaults) {
+  return profiles?.find(profile => profile.slot === scenario) ?? defaults.find(profile => profile.slot === scenario);
+}
+
+/** Selections refer to immutable draft content, not a reusable array position. */
+export function petTaskSelectionId(projectId, draft, index) {
+  return JSON.stringify([projectId, draft.scenario, draft.petPerspective ?? null, draft.items[index], index]);
+}
+
 /**
  * Localize only the product's default name in its matching slot.
  * Custom names stay verbatim, and the stored profile is never changed.
@@ -28,6 +46,34 @@ export function petWorkState(run, departments) {
   if (run.status === "PARTIAL") return "partial";
   if (run.status === "COMPLETED") return results.length ? "partial" : "notRun";
   return departments.includes(run.activeDepartment ?? "") ? "working" : "queued";
+}
+
+/** A personal pet accompanies the run; its duty is a preference, not four assigned departments. */
+export function personalPetWorkState(run) {
+  if (!run) return "idle";
+  if (run.status === "FAILED") return "failed";
+  if (run.status === "CANCELLED") return "cancelled";
+  if (run.status === "WAITING_FOR_USER") return "waiting";
+  if (run.status === "QUEUED") return "queued";
+  if (run.status === "PARTIAL") return "partial";
+  if (run.status === "COMPLETED") {
+    const results = run.result?.departmentResults ?? [];
+    if (!results.length) return "notRun";
+    return results.every(result => result.status === "COMPLETED" && !result.errorCode) ? "ready" : "partial";
+  }
+  return run.activeDepartment ? "working" : "queued";
+}
+
+/** A source department keeps its own outcome even if another department later fails. */
+export function petDepartmentResultState(result) {
+  if (result.status === "FAILED") return "failed";
+  if (result.status === "CANCELLED") return "cancelled";
+  if (result.errorCode) return "partial";
+  if (result.status === "COMPLETED") return "ready";
+  if (result.status === "WAITING_FOR_USER") return "waiting";
+  if (result.status === "RUNNING") return "working";
+  if (result.status === "SKIPPED" || result.status === "NOT_RUN") return "notRun";
+  return "partial";
 }
 
 export const petStateLabels = {

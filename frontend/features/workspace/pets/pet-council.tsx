@@ -5,7 +5,7 @@ import { formatMoney } from "../shared/formatters";
 import { quotationDraftItems } from "../project/quotation/quotation-helpers";
 import type { QuoteBuilderModel } from "../project/quotation/use-quote-builder";
 import { advisorsWithProfiles } from "./pet-profile";
-import { duplicateTaskTitles } from "./pet-state.mjs";
+import { duplicateTaskTitles, petPerspectiveLabels, petTaskSelectionId } from "./pet-state.mjs";
 import { PetArt } from "./pet-art";
 
 type Comparison = { fingerprint: string; before: QuotationPreview | null; after: QuotationPreview; items: QuotationItemInput[] };
@@ -18,7 +18,7 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const candidates = model.availableAIDrafts.flatMap(draft => quotationDraftItems(draft, model.rateCards, model.project.currency).map((item, index) => ({ id: `${draft.scenario}:${index}`, item })));
+  const candidates = model.availableAIDrafts.flatMap(draft => quotationDraftItems(draft, model.rateCards, model.project.currency).map((item, index) => ({ id: petTaskSelectionId(model.project.id, draft, index), item })));
   const chosen = candidates.filter(candidate => selected.includes(candidate.id));
   const duplicateTitles = duplicateTaskTitles(chosen.map(candidate => candidate.item));
   const missingRates = chosen.some(candidate => !candidate.item.rateCardId);
@@ -65,17 +65,17 @@ export function PetCouncil({ model, session }: { model: QuoteBuilderModel; sessi
 
   return <details className="pet-council workspace-disclosure" aria-label={t("AI 펫 의견 비교")}>
     <summary>{t("동료 제안 비교·조합")}<small>{model.availableAIDrafts.length}{t("개 제안")}</small></summary>
-    <header><span className="pet-eyebrow">{t("서로 다른 관점, 결정은 나에게")}</span><h3>{t("어떤 제안으로 만들어 볼까요?")}</h3><p>{t("각 제안의 작업을 선택해 조합하세요. 선택한 작업이 현재 편집 중인 견적의 전체 항목을 대신합니다.")}</p></header>
+    <header><span className="pet-eyebrow">{t("서로 다른 관점, 결정은 나에게")}</span><h3>{t("어떤 제안으로 만들어 볼까요?")}</h3><p>{t("하나의 분석에서 나온 범위별 제안입니다. 선택한 펫의 설정은 해당 관점에 적용됩니다.")}</p><p>{t("각 제안의 작업을 선택해 조합하세요. 선택한 작업이 현재 편집 중인 견적의 전체 항목을 대신합니다.")}</p></header>
     <div className="pet-proposals">
       {petAdvisors.map(pet => {
         const draft = model.availableAIDrafts.find(value => value.scenario === pet.scenario);
         if (!draft) return null;
         const opinion = draft.petPerspective;
         return <article key={pet.id} className={`pet-proposal pet-proposal-${pet.id}`}>
-          <div className="pet-proposal-title"><PetArt kind={pet.profile.animal} profile={pet.profile} state="ready" /><div><strong>{pet.name}</strong><span>{t(pet.role)}</span><small>{pet.priority}</small></div></div>
+          <div className="pet-proposal-title"><PetArt kind={pet.profile.animal} profile={pet.profile} state="ready" /><div><strong>{pet.name}</strong><span>{t(petPerspectiveLabels[draft.scenario])}</span><small>{t(pet.role)} · {pet.priority}</small></div></div>
           {opinion ? <><h4>{opinion.proposal}</h4><p>{opinion.rationale}</p><div className="pet-tradeoff"><strong>{t("함께 생각할 점")}</strong><p>{opinion.tradeoff}</p></div></> : <p className="pet-legacy-note">{t("이전 분석에는 동료의 의견이 기록되어 있지 않습니다. 기존 견적 항목은 비교할 수 있어요.")}</p>}
           <fieldset disabled={!model.canWrite || loading || model.busy}><legend>{t("이 제안의 작업 선택")}</legend>
-            {draft.items.map((item, index) => <label key={`${draft.scenario}:${index}`} className="pet-task" htmlFor={`${inputPrefix}-${draft.scenario}-${index}`}><input id={`${inputPrefix}-${draft.scenario}-${index}`} aria-label={t("{v0}의 제안: {v1}", { v0: pet.name, v1: item.title })} type="checkbox" checked={selected.includes(`${draft.scenario}:${index}`)} onChange={() => toggle(`${draft.scenario}:${index}`)} /><span><strong>{item.title}</strong><small>{item.quantity} {item.unit === "DAY" ? t("일") : item.unit === "HOUR" ? t("시간") : t("건")}</small><span>{item.basis.type === "EVIDENCE" ? t("근거") : t("가정")} · {item.basis.content}</span></span></label>)}
+            {draft.items.map((item, index) => <label key={`${draft.scenario}:${index}`} className="pet-task" htmlFor={`${inputPrefix}-${draft.scenario}-${index}`}><input id={`${inputPrefix}-${draft.scenario}-${index}`} aria-label={t("{v0}의 제안: {v1}", { v0: pet.name, v1: item.title })} type="checkbox" checked={selected.includes(petTaskSelectionId(model.project.id, draft, index))} onChange={() => toggle(petTaskSelectionId(model.project.id, draft, index))} /><span><strong>{item.title}</strong><small>{item.quantity} {item.unit === "DAY" ? t("일") : item.unit === "HOUR" ? t("시간") : t("건")}</small><span>{item.basis.type === "EVIDENCE" ? t("근거") : t("가정")} · {item.basis.content}</span></span></label>)}
           </fieldset>
         </article>;
       })}

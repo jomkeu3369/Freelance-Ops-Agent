@@ -1,5 +1,12 @@
 // Product-owned assistant labels. Custom names and generated work remain verbatim.
 export const petEnglish = {
+  "핵심 범위 관점": "Essential scope perspective",
+  "권장 범위 관점": "Recommended scope perspective",
+  "확장 범위 관점": "Expanded scope perspective",
+  "요구사항 정리": "Requirements review",
+  "근거 검증": "Evidence verification",
+  "범위·계약 설계": "Scope and contract design",
+  "하나의 분석에서 나온 범위별 제안입니다. 선택한 펫의 설정은 해당 관점에 적용됩니다.": "These scope proposals come from one analysis. The selected pet’s settings apply to its matching perspective.",
   "함께하는 동료: {name}": "Your companion: {name}",
   "로그인에서 함께 온 친구": "Your friend from the login page",
   "늘 함께하는 작은 동료": "Always by your side",
