@@ -409,7 +409,8 @@ class ConnectedWorkflowPostgresTest {
             mvc.perform(get(path)).andExpect(status().isUnauthorized());
             mvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer invalid-synthetic-token")).andExpect(status().isUnauthorized());
             mvc.perform(authorized(get(path), outsider)).andExpect(status().isNotFound());
-            mvc.perform(authorized(get(path), viewer)).andExpect(status().isOk());
+            // The successful PDF read remains mandatory below, after independent RBAC checks.
+            if (!path.endsWith("/pdf")) mvc.perform(authorized(get(path), viewer)).andExpect(status().isOk());
         }
         postStatus(viewer, decisions(), new CreateAnalysisDecisionRequest(UUID.randomUUID(), run, 0, List.of(run + ":LEAN")), 403);
         postStatus(viewer, decisions() + "/" + decision.id() + "/revisions", new ReviseAnalysisDecisionRequest(UUID.randomUUID(), decision.contentHash(), "Viewer edit"), 403);
@@ -433,6 +434,8 @@ class ConnectedWorkflowPostgresTest {
             .content(mapper.writeValueAsString(new KnowledgeSearchRequest(QUERY, null, 10)))).andExpect(status().isForbidden());
         assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project.id())).isOne();
         assertThat(jdbc.queryForObject("select count(*) from app.specification where project_id=?", Integer.class, project.id())).isOne();
+        System.out.println("CONNECTED real bearer, membership, write-denial and delegated-claim boundaries PASS");
+        mvc.perform(authorized(get(specifications() + "/" + confirmed.id() + "/pdf"), viewer)).andExpect(status().isOk());
     }
 
     @Test void admissionOffAndUnsupportedPaidRaptorDoNotCreateExecutionOrIndex() throws Exception {
