@@ -26,8 +26,19 @@ export function listAnalysisDecisions(session: AuthSession, projectId: string): 
 export function getAnalysisDecision(session: AuthSession, projectId: string, id: string): Promise<AnalysisDecision> {
   return request(`${base(session, projectId)}/${id}`, { cache: "no-store" }, session.accessToken);
 }
-export function getLatestAnalysisSource(session: AuthSession, projectId: string): Promise<AnalysisSource | null> {
-  return request(`${base(session, projectId)}/sources/latest`, { cache: "no-store" }, session.accessToken);
+export async function getLatestAnalysisSource(session: AuthSession, projectId: string): Promise<AnalysisSource | null> {
+  const value = await request<AnalysisSource | null>(`${base(session, projectId)}/sources/latest`, { cache: "no-store" }, session.accessToken);
+  if (value === null) return null;
+  if (!value || typeof value !== "object" || typeof value.runId !== "string" || !value.runId
+    || !(value.sourceProjectVersion === null || Number.isSafeInteger(value.sourceProjectVersion) && value.sourceProjectVersion >= 0)
+    || !value.view || typeof value.view !== "object" || value.view.runId !== value.runId
+    || !["QUEUED", "RUNNING", "WAITING_FOR_USER", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED"].includes(value.view.status)) {
+    throw new Error("분석 출처 응답을 확인하지 못했습니다. 잘못된 결과는 선택하거나 확정하지 않습니다.");
+  }
+  return value;
+}
+export function getLatestDecisionRevision(session: AuthSession, projectId: string, id: string): Promise<AnalysisDecision> {
+  return request(`${base(session, projectId)}/${id}/latest-revision`, { cache: "no-store" }, session.accessToken);
 }
 export function getLatestConfirmedDecision(session: AuthSession, projectId: string): Promise<AnalysisDecision | null> {
   return request(`${base(session, projectId)}/latest-confirmed`, { cache: "no-store" }, session.accessToken);

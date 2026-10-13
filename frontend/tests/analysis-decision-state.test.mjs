@@ -6,7 +6,7 @@ import ts from "typescript";
 const sourceText = await readFile(new URL("../features/workspace/project/decisions/analysis-decision-state.ts", import.meta.url), "utf8");
 const output = ts.transpileModule(sourceText, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2023 } }).outputText;
 const { selectableOpinions, opinionLabel, latestFamilyDecision, DecisionRequestKeys, decisionStorageKey, restoredDecisionDraft } = await import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
-const draft = scenario => ({ scenario, petPerspective: { proposal: "선택 제안", rationale: "근거", tradeoff: "범위 차이" }, items: [{ title: "원본 작업" }] });
+const draft = scenario => ({ scenario, petPerspective: { proposal: "선택 제안", rationale: "근거", tradeoff: "범위 차이" }, items: [{ title: "원본 작업", quantity: 1, unit: "DAY", basis: { type: "EVIDENCE", content: "원문 근거" } }] });
 const source = () => ({ runId: "source-run", sourceProjectVersion: 4, view: { status: "COMPLETED", result: { quotationDrafts: [draft("EXPANDED"), draft("LEAN"), draft("RECOMMENDED")] } } });
 
 test("only a version-bound complete three-perspective analysis is selectable in canonical order", () => {
@@ -21,7 +21,8 @@ test("only a version-bound complete three-perspective analysis is selectable in 
 });
 test("malformed or duplicate opinions reject the entire source rather than hide missing provenance", () => {
   for (const alter of [value => value.view.result.quotationDrafts.pop(), value => value.view.result.quotationDrafts[0].scenario = "LEAN",
-    value => value.view.result.quotationDrafts[0].petPerspective.tradeoff = "  ", value => value.view.result.quotationDrafts[0].items = []]) {
+    value => value.view.result.quotationDrafts[0].petPerspective.tradeoff = "  ", value => value.view.result.quotationDrafts[0].items = [], value => value.view.result.quotationDrafts[0].petPerspective.proposal = 3,
+    value => value.view.result.quotationDrafts = {}, value => value.view.result.quotationDrafts[0].items[0].basis = null]) {
     const value = source(); alter(value); assert.deepEqual(selectableOpinions(value, 4), []);
   }
 });

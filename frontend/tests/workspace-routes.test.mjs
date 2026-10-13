@@ -11,7 +11,7 @@ test("each menu has an independently reloadable workspace address", () => {
 });
 
 test("project links preserve the project and every workbench step", () => {
-  for (const step of ["intake", "agent", "quote", "outcome"]) {
+  for (const step of ["intake", "agent", "decision", "specification", "quote", "outcome"]) {
     const location = { view: "project", projectId: "project / 한글", step };
     assert.deepEqual(parseWorkspacePath(buildWorkspacePath(location)), location);
   }

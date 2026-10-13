@@ -125,3 +125,19 @@ test("semantic source changes with the same project version fail closed before c
   await expect(panel(page).getByRole("alert").filter({ hasText: "원문·요구사항 확정·추가 답변" })).toBeVisible();
   expect(workflow.decisions[0].status).toEqual("DRAFT"); expect(state.projects[0].version).toEqual(0); expectNoProviderWork(state);
 });
+
+test("an unsaved decision edit survives immediate internal navigation, back and reload", async ({ page }, testInfo) => {
+  const { state, workflow } = await analysisWorkflowFixture(page);
+  await page.goto(path); await createTwo(page);
+  const unsaved = `${await editor(page).inputValue()}\n즉시 이동 전에 작성한 사용자 검토 초안`;
+  await editor(page).fill(unsaved);
+  await page.getByRole("button", { name: "프로젝트 전체 분석으로", exact: true }).evaluate(node => node.click());
+  await expect(page).toHaveURL(/\/agent$/);
+  await page.goBack(); await expect(page).toHaveURL(/\/decision$/);
+  await expect(editor(page)).toHaveValue(unsaved);
+  await page.reload(); await expect(editor(page)).toHaveValue(unsaved);
+  await expect(confirm(page)).toBeDisabled();
+  expect(workflow.revisions).toHaveLength(0); expect(workflow.confirms).toHaveLength(0);
+  expectNoProviderWork(state);
+  await testInfo.attach("unsaved-decision-draft-restored", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+});

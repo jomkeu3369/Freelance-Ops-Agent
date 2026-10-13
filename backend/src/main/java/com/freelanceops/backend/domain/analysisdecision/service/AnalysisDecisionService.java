@@ -66,6 +66,15 @@ public class AnalysisDecisionService {
     }
 
     @Transactional(readOnly = true)
+    public AnalysisDecisionResponse getLatestRevision(UUID userId, UUID workspaceId, UUID projectId, UUID decisionId) {
+        authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
+        project(workspaceId, projectId, false);
+        var base = decision(workspaceId, projectId, decisionId);
+        return decisions.findTopByWorkspaceIdAndProjectIdAndFamilyIdOrderByVersionNumberDesc(
+            workspaceId, projectId, base.familyId()).orElseThrow(AnalysisDecisionService::notFound).response();
+    }
+
+    @Transactional(readOnly = true)
     public AnalysisDecisionResponse getConfirmed(UUID userId, UUID workspaceId, UUID projectId, UUID decisionId) {
         AnalysisDecisionResponse result = get(userId, workspaceId, projectId, decisionId);
         if (!"CONFIRMED".equals(result.status())) throw conflict("확정된 의견 정리만 명세의 출처로 사용할 수 있습니다.");

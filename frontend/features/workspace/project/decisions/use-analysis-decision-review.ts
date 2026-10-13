@@ -1,6 +1,6 @@
 import { ApiError, currentSessionGeneration, type AgentRunView, type AuthSession, type Project } from "@/app/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { confirmAnalysisDecision, createAnalysisDecision, getAnalysisDecision, getLatestAnalysisSource, listAnalysisDecisions,
+import { confirmAnalysisDecision, createAnalysisDecision, getAnalysisDecision, getLatestDecisionRevision, getLatestAnalysisSource, listAnalysisDecisions,
   reviseAnalysisDecision, type AnalysisDecision, type AnalysisSource } from "./analysis-decisions-api";
 import { DecisionRequestKeys, decisionStorageKey, latestFamilyDecision, restoredDecisionDraft, selectableOpinions } from "./analysis-decision-state";
 
@@ -38,13 +38,22 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
+  // Persist before a client-side route transition can unmount the editor.
+  // This is a local recovery draft only, never server confirmation.
+  const persistDraft = useCallback((base: AnalysisDecision, text: string) => {
+    if (!canWrite) return;
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ baseId: base.id, baseHash: base.contentHash, bodyText: text })); }
+    catch { if (owns()) setStorageUnavailable(true); }
+  }, [canWrite, owns, storageKey]);
+
   const apply = useCallback((value: AnalysisDecision, restore = false) => {
     setDecision(value);
-    setBodyText(restore ? restoredDecisionDraft(stored(storageKey), value) ?? value.bodyText : value.bodyText);
+    const body = restore ? restoredDecisionDraft(stored(storageKey), value) ?? value.bodyText : value.bodyText;
+    setBodyText(body); persistDraft(value, body);
     setAcknowledged(false);
     setSelectedIds(value.selectedOpinionIds);
     setHistory(current => [value, ...current.filter(item => item.id !== value.id)]);
-  }, [storageKey]);
+  }, [persistDraft, storageKey]);
 
   useEffect(() => {
     if (!canRead) return;
@@ -57,7 +66,13 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
       const saved = stored(storageKey) as { baseId?: unknown } | null;
       let initial = values[0] ?? null;
       if (typeof saved?.baseId === "string") {
-        initial = values.find(value => value.id === saved.baseId) ?? await getAnalysisDecision(session, project.id, saved.baseId);
+        const listed = values.find(value => value.id === saved.baseId);
+        initial = listed ?? await getAnalysisDecision(session, project.id, saved.baseId);
+        if (!listed) {
+          const latest = await getLatestDecisionRevision(session, project.id, initial.id);
+          if (cancelled || !owns() || revision !== mutationRevision.current) return;
+          setHistory(current => [latest, ...current.filter(value => value.id !== latest.id)]);
+        }
       }
       if (cancelled || !owns() || revision !== mutationRevision.current) return;
       if (initial) apply(initial, true);
@@ -91,14 +106,6 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
   const selectionChanged = !!decision && (source?.runId === decision.sourceRunId || selectedIds.length > 0)
     && JSON.stringify([...selectedIds].sort()) !== JSON.stringify([...decision.selectedOpinionIds].sort());
 
-  useEffect(() => {
-    if (!decision || !canWrite) return;
-    const timer = window.setTimeout(() => {
-      try { sessionStorage.setItem(storageKey, JSON.stringify({ baseId: decision.id, baseHash: decision.contentHash, bodyText })); }
-      catch { if (owns()) setStorageUnavailable(true); }
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [bodyText, canWrite, decision, owns, storageKey]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -128,13 +135,23 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
       if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500) { requests.current.settle(kind, input); persistRequests(); }
       setError(message(cause));
       if (cause instanceof ApiError && cause.status === 409) {
-        try { const values = await listAnalysisDecisions(session, project.id); if (owns()) setHistory(values); }
+        try {
+          const values = await listAnalysisDecisions(session, project.id);
+          if (decision && !values.some(value => value.familyId === decision.familyId && value.versionNumber > decision.versionNumber)) {
+            const latest = await getLatestDecisionRevision(session, project.id, decision.id);
+            if (!values.some(value => value.id === latest.id)) values.unshift(latest);
+          }
+          if (owns()) setHistory(values);
+        }
         catch { /* Keep the reviewed editor and conflict message. Never retry a write automatically. */ }
       }
     } finally { lock.current = false; if (owns()) setBusy(false); }
   }
 
-  function edit(value: string) { mutationRevision.current += 1; setBodyText(value); setAcknowledged(false); setNotice(null); }
+  function edit(value: string) {
+    mutationRevision.current += 1; setBodyText(value); setAcknowledged(false); setNotice(null);
+    if (decision) persistDraft(decision, value);
+  }
   function toggle(id: string) { setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); setAcknowledged(false); setNotice(null); }
   function restoreSelection() { if (decision) { setSelectedIds(decision.selectedOpinionIds); setAcknowledged(false); } }
 
