@@ -82,6 +82,8 @@ class AgentRunGatewayServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(projectionService.synchronize(any(), any(), any()))
+            .thenAnswer(call -> call.getArgument(2));
         service = new AgentRunGatewayService(
             permissionReader,
             projectRepository,
@@ -257,6 +259,25 @@ class AgentRunGatewayServiceTest {
             .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(403));
         verify(projectRepository, never()).findByIdAndWorkspaceIdForUpdate(any(), any());
         verify(agentRunClient, never()).start(any(), any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = AgentRunStatus.class, names = {"PARTIAL", "FAILED", "CANCELLED"})
+    void getAndCancelReturnTheLockedDurableOutcomeInsteadOfLateCompletion(AgentRunStatus terminal) {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), projectId = UUID.randomUUID(), runId = UUID.randomUUID();
+        var run = run(runId, workspaceId, projectId, userId);
+        run.updateStatus(terminal, Instant.now());
+        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
+        var lateComplete = view(runId, AgentRunStatus.COMPLETED);
+        var durable = view(runId, terminal);
+        when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(lateComplete);
+        when(agentRunClient.cancel(runId, "fresh-token", "traceparent")).thenReturn(lateComplete);
+        when(projectionService.synchronize(runId, workspaceId, lateComplete)).thenReturn(durable);
+        assertThat(service.get(userId, workspaceId, runId, "traceparent")).isEqualTo(durable);
+        assertThat(service.cancel(userId, workspaceId, runId, "traceparent")).isEqualTo(durable);
     }
 
     @Test

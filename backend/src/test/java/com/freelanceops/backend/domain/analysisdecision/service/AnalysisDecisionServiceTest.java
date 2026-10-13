@@ -80,6 +80,45 @@ class AnalysisDecisionServiceTest {
         verify(decisions, never()).saveAndFlush(any());
     }
 
+    @ParameterizedTest @EnumSource(value = AgentRunStatus.class, names = {"PARTIAL", "FAILED", "CANCELLED"})
+    void durableUnsuccessfulOutcomeWinsOverLateCompletedSnapshot(AgentRunStatus terminal) {
+        source(AgentRunStatus.COMPLETED, 0L, "PROJECT_ANALYSIS");
+        var persisted = run(0L, "PROJECT_ANALYSIS");
+        persisted.updateStatus(terminal, Instant.now());
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(persisted));
+        when(runs.findFirstByWorkspaceIdAndProjectIdAndWorkflowModeOrderByCreatedAtDesc(workspace, projectId, "PROJECT_ANALYSIS"))
+            .thenReturn(Optional.of(persisted));
+        assertThat(service.latestSource(user, workspace, projectId).orElseThrow().sourceCurrent()).isFalse();
+        status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
+        verify(decisions, never()).saveAndFlush(any());
+    }
+
+    @Test void aRunningSourceCanConvergeToCompletedBeforeCreatingItsDecision() {
+        var persisted = run(0L, "PROJECT_ANALYSIS");
+        persisted.updateStatus(AgentRunStatus.RUNNING, Instant.now());
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(persisted));
+        var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenAnswer(call -> {
+            persisted.synchronizeStatus(AgentRunStatus.COMPLETED, Instant.now());
+            return new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+                new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), drafts.get(1), drafts), null, null, null, Instant.now());
+        });
+        assertThat(service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))).status()).isEqualTo("DRAFT");
+        assertThat(persisted.status()).isEqualTo(AgentRunStatus.COMPLETED);
+    }
+
+    @Test void anUnavailableCompletedPayloadCannotBeSelectedEvenWhenItsVersionAndRootsAreCurrent() {
+        var persisted = run(0L, "PROJECT_ANALYSIS");
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(persisted));
+        when(runs.findFirstByWorkspaceIdAndProjectIdAndWorkflowModeOrderByCreatedAtDesc(workspace, projectId, "PROJECT_ANALYSIS"))
+            .thenReturn(Optional.of(persisted));
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId,
+            AgentRunStatus.COMPLETED, null, null, null, null, null, null, Instant.now()));
+        assertThat(service.latestSource(user, workspace, projectId).orElseThrow().sourceCurrent()).isFalse();
+        status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
+        verify(decisions, never()).saveAndFlush(any());
+    }
+
     @Test void sourceReadReportsSemanticFreshnessWithoutTakingAProjectWriteLock() {
         var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
@@ -95,7 +134,7 @@ class AnalysisDecisionServiceTest {
     }
 
     @Test void anUnselectedMalformedPerspectiveRejectsTheEntireCompletedSource() {
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
         var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), new AgentRunView.QuotationDraft("EXPANDED", List.of(), null));
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
             new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
@@ -104,7 +143,7 @@ class AnalysisDecisionServiceTest {
     }
 
     @Test void aFullModeLabelCannotBindADifferentRunInputToTheOriginalInquiry() {
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
         when(memory.forRun(workspace, projectId, runId)).thenReturn(List.of(originalSource,
             new MemorySourceMessage(UUID.randomUUID(), 2, "RUN_INPUT", "An unrelated chat question", null, Instant.now())));
         status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
@@ -114,15 +153,15 @@ class AnalysisDecisionServiceTest {
 
     @Test void legacyAndAdHocRunsCannotPretendToHaveTheFullWorkflow() {
         var run = run(null, "AD_HOC");
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run));
         status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
         verifyNoInteractions(gateway);
     }
 
     @Test void changedProjectsAndForeignRunsAreRejectedBeforeTheAgentRead() {
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(1L, "PROJECT_ANALYSIS")));
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run(1L, "PROJECT_ANALYSIS")));
         status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(new AgentRunEntity(runId,
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(new AgentRunEntity(runId,
             workspace, UUID.randomUUID(), UUID.randomUUID(), user, Provider.OPENAI, "fixture", AgentRunStatus.COMPLETED, Instant.now())));
         status(404, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
         verifyNoInteractions(gateway);
@@ -191,7 +230,7 @@ class AnalysisDecisionServiceTest {
     }
 
     private void source(AgentRunStatus status, Long version, String mode) {
-        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(version, mode)));
+        when(runs.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run(version, mode)));
         var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, status, null, null,
             new AgentRunView.AgentRunResult("Summary", List.of("Open question?"), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));

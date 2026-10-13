@@ -26,8 +26,9 @@ export function AnalysisDecisionReview({ session, project, permissions, run, onR
     {model.sourceError && <p className="form-error" role="alert">{t(model.sourceError)}</p>}
     {!model.sourceLoading && model.canReadSource && !model.opinions.length && <div className="decision-notice"><Warning size={20} /><p>{source?.sourceProjectVersion !== undefined && source?.sourceProjectVersion !== project.version
       ? t("분석 이후 프로젝트가 변경되었습니다. 최신 문의 원문으로 프로젝트 전체 분석을 다시 실행해 주세요.")
-      : source && !source.sourceCurrent ? t("분석 이후 문의 원문·요구사항 확정·추가 답변이 달라졌습니다. 최신 내용으로 프로젝트 전체 분석을 다시 실행해 주세요.")
       : source && source.view.status !== "COMPLETED" ? t("프로젝트 전체 분석이 아직 완료되지 않았습니다. 부분·실패·취소 결과는 확정할 수 없습니다.")
+      : source && !source.view.result ? t("분석 출처 응답을 확인하지 못했습니다. 잘못된 결과는 선택하거나 확정하지 않습니다.")
+      : source && !source.sourceCurrent ? t("분석 이후 문의 원문·요구사항 확정·추가 답변이 달라졌습니다. 최신 내용으로 프로젝트 전체 분석을 다시 실행해 주세요.")
         : t("완료된 프로젝트 전체 분석과 3개 계획 의견이 필요합니다. AI 분석에서 ‘프로젝트 전체 분석 시작’을 눌러 주세요.")}</p></div>}
 
     {model.opinions.length > 0 && <section className="decision-opinion-selection" aria-label={t("계획 의견 선택")}>

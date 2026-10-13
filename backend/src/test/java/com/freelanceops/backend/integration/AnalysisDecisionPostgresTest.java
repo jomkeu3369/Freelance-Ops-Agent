@@ -6,6 +6,10 @@ import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunGatewayService;
+import com.freelanceops.backend.domain.agentrun.service.AgentRunProjectionService;
+import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
+import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
+import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
 import com.freelanceops.backend.domain.analysisdecision.dto.request.ConfirmAnalysisDecisionRequest;
 import com.freelanceops.backend.domain.analysisdecision.dto.request.CreateAnalysisDecisionRequest;
 import com.freelanceops.backend.domain.analysisdecision.dto.request.ReviseAnalysisDecisionRequest;
@@ -16,6 +20,10 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,6 +40,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /** Real Flyway/JPA/RBAC and immutable decisions, synthetic Agent results only. */
+@RecordApplicationEvents
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {"app.environment=test", "spring.flyway.create-schemas=true",
     "agent.command-dispatch-enabled=false", "agent.reconciliation-enabled=false", "app.rate-limit.enabled=false"})
@@ -47,6 +56,8 @@ class AnalysisDecisionPostgresTest {
     @Autowired WorkspaceProvisioningService provisioning;
     @Autowired AgentRunRepository runs;
     @Autowired AnalysisDecisionService service;
+    @Autowired AgentRunProjectionService projection;
+    @Autowired ApplicationEvents events;
     @MockitoBean AgentRunGatewayService gateway;
     UUID user, workspace, project, runId;
 
@@ -63,6 +74,53 @@ class AnalysisDecisionPostgresTest {
         var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
             new AgentRunView.AgentRunResult("Summary", List.of("Unanswered?"), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = AgentRunStatus.class, names = {"PARTIAL", "FAILED", "CANCELLED"})
+    void durableUnsuccessfulOutcomesRejectLateCompletionWithoutNewFactsOrDecisions(AgentRunStatus terminal) {
+        jdbc.update("update app.agent_run set status=? where id=?", terminal.name(), runId);
+        var lateComplete = completedViewWithDepartment();
+        assertThat(projection.synchronize(runId, workspace, lateComplete).status()).isEqualTo(terminal);
+        assertThat(jdbc.queryForObject("select status from app.agent_run where id=?", String.class, runId)).isEqualTo(terminal.name());
+        assertThat(events.stream(RequirementAnalysisCompleted.class)).isEmpty();
+        // Deliberately return the raw late snapshot to exercise the domain's independent guard.
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(lateComplete);
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isFalse();
+        assertStatus(409, () -> service.create(user, workspace, project,
+            new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))));
+        assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isZero();
+    }
+
+    @Test void durableCompletionCannotTurnAnOlderWaitingPayloadIntoACompletedDecisionSource() {
+        var completeLooking = completedViewWithDepartment();
+        var older = new AgentRunView(runId, AgentRunStatus.WAITING_FOR_USER, DepartmentName.REQUIREMENTS,
+            new AgentRunView.AgentInterruption(UUID.randomUUID(), InterruptionKind.CLARIFICATION, List.of("Old question?")),
+            completeLooking.result(), null, null, null, Instant.now());
+        var normalized = projection.synchronize(runId, workspace, older);
+        assertThat(normalized.status()).isEqualTo(AgentRunStatus.COMPLETED);
+        assertThat(normalized.result()).isNull();
+        assertThat(normalized.interruption()).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from app.agent_interruption where agent_run_id=?", Integer.class, runId)).isZero();
+        assertThat(events.stream(RequirementAnalysisCompleted.class)).isEmpty();
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(normalized);
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isFalse();
+        assertStatus(409, () -> service.create(user, workspace, project,
+            new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))));
+        assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isZero();
+    }
+
+    @Test void aNonterminalRunConvergesToCompletedAndRemainsAUsableSource() {
+        jdbc.update("update app.agent_run set status='RUNNING' where id=?", runId);
+        var complete = new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+            new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), draft("RECOMMENDED"),
+                List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"))), null, null, null, Instant.now());
+        assertThat(projection.synchronize(runId, workspace, complete).status()).isEqualTo(AgentRunStatus.COMPLETED);
+        assertThat(jdbc.queryForObject("select status from app.agent_run where id=?", String.class, runId)).isEqualTo("COMPLETED");
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(complete);
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isTrue();
+        assertThat(service.create(user, workspace, project,
+            new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))).status()).isEqualTo("DRAFT");
     }
 
     @Test void selectionRevisionConfirmationReloadAndRetriesKeepExactSnapshots() {
@@ -161,6 +219,14 @@ class AnalysisDecisionPostgresTest {
         assertThat(jdbc.queryForObject("select version from app.project where id=?", Long.class, project)).isZero();
         appendSource(null, "REQUIREMENT_CONFIRMATION", "New confirmed feature scope");
         assertStatus(409, () -> service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":RECOMMENDED"))));
+    }
+
+    private AgentRunView completedViewWithDepartment() {
+        var department = new AgentRunView.DepartmentResult(DepartmentName.REQUIREMENTS, "COMPLETED", "Late facts",
+            List.of(), List.of(), List.of(), null);
+        return new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+            new AgentRunView.AgentRunResult("Summary", List.of(), List.of(department), draft("RECOMMENDED"),
+                List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"))), null, null, null, Instant.now());
     }
 
     private void appendSource(UUID sourceRun, String kind, String content) {
