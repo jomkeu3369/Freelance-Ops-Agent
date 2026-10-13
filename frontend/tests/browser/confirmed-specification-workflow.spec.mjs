@@ -21,7 +21,7 @@ async function attachContracts(testInfo, { state, workflow, specifications, flow
     analysisStarts: state.starts, clarificationResponses: state.resumes,
     decisions: workflow.requests.filter(request => request.method !== "GET"),
     specifications: specifications.requests.filter(request => request.method !== "GET"),
-    pdfRevisionIds: specifications.pdfs, documentReads: specifications.documentReads,
+    pdfRevisionIds: specifications.pdfs, pdfFailures: specifications.pdfFailures, documentReads: specifications.documentReads,
     blockedExternalRequests: state.blocked,
   }, null, 2)) });
 }
@@ -95,6 +95,22 @@ test("confirmed result becomes an edited specification, exact-revision PDF and f
   await attachEvidence(page, testInfo, "confirmed-specification-before-download");
   const bytes = await downloadBytes(page); expect(await downloadBytes(page)).toEqual(bytes);
   expect(specifications.pdfs).toEqual([current.id, current.id]);
+  const savedSpecification = structuredClone(current), savedDocument = structuredClone(document), extraDownloads = [];
+  const recordDownload = download => extraDownloads.push(download);
+  page.on("download", recordDownload);
+  specifications.pdfError = { status: 503, message: "PDF 출력 준비가 되어 있지 않습니다. 확정 내용은 보존되며 출력 준비 후 다시 시도할 수 있습니다." };
+  await page.getByRole("button", { name: "PDF 다운로드", exact: true }).click();
+  await expect(specPanel(page).getByRole("alert")).toContainText(specifications.pdfError.message);
+  await expect(page.getByRole("textbox", { name: "명세 내용", exact: true })).toHaveValue(finalBody);
+  await expect(page.getByRole("button", { name: "PDF 다운로드", exact: true })).toBeEnabled();
+  expect(specifications.items[0]).toEqual(savedSpecification);
+  expect(specifications.documents[0]).toEqual(savedDocument);
+  expect(extraDownloads).toHaveLength(0);
+  expect(specifications.pdfFailures).toEqual([{ id: current.id, ...specifications.pdfError }]);
+  expect(specifications.pdfs).toEqual([current.id, current.id, current.id]);
+  await attachEvidence(page, testInfo, "pdf-unavailable-confirmed-content-preserved");
+  page.off("download", recordDownload);
+  specifications.pdfError = null;
   await page.getByRole("button", { name: "근거 자료 관리", exact: true }).click();
   await expect(page).toHaveURL(/\/workspace\/knowledge$/);
   await expect(page.locator(".knowledge-detail")).toContainText(finalBody);

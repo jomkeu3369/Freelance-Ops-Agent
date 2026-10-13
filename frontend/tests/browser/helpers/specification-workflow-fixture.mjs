@@ -21,7 +21,7 @@ function fixturePdf() {
 
 export async function specificationWorkflowFixture(page) {
   const result = await analysisWorkflowFixture(page), { state, workflow, sourceMessages } = result;
-  const specifications = { items: [], creates: [], revisions: [], confirms: [], requests: [], pdfs: [], documentReads: [], documents: [], ledger: new Map(), barriers: {}, lostResponses: {}, serial: 1 };
+  const specifications = { items: [], creates: [], revisions: [], confirms: [], requests: [], pdfs: [], pdfFailures: [], pdfError: null, documentReads: [], documents: [], ledger: new Map(), barriers: {}, lostResponses: {}, serial: 1 };
   const root = "/api/v2/workspaces/local-space/projects/project-one/specifications";
   const docsRoot = "/api/v2/workspaces/local-space/documents";
   const id = () => `c1000000-0000-4000-8000-${String(specifications.serial++).padStart(12, "0")}`;
@@ -47,6 +47,11 @@ export async function specificationWorkflowFixture(page) {
       if (!target) return fail("Fixture specification not found", 404);
       if (target.status !== "CONFIRMED") return fail("confirm the specification before PDF export");
       await barrier("pdf");
+      if (specifications.pdfError) {
+        const failure = { id: targetId, ...specifications.pdfError };
+        specifications.pdfFailures.push(clone(failure));
+        return fail(failure.message, failure.status);
+      }
       return route.fulfill({ status: 200, contentType: "application/pdf", headers: { "X-Specification-Content-SHA256": target.contentHash, "Cache-Control": "private, no-store" }, body: fixturePdf() });
     }
     if (method !== "POST") return fail("Unexpected specification route", 404);
