@@ -12,6 +12,7 @@ on:
       - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/scripts/*browser*"
   push:
     branches:
       - "work/overnight-workflow-integration-20261014"
@@ -59,6 +60,7 @@ on:
       - "backend/src/main/resources/db/migration/*completion*"
       - "contracts/fixtures/workspace-credit-contract.json"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/scripts/*browser*"
   workflow_dispatch:
 
 permissions:
@@ -83,6 +85,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Test mandatory browser evidence gate
+        run: python3 -m unittest discover -s ../.github/scripts -p 'test_verify_browser_test_reports.py'
       - run: npm run ci:check
 
   synthetic-browser:
@@ -156,6 +160,7 @@ jobs:
             tests/browser/short-height-chat.spec.mjs \
             tests/browser/project-step-shell.spec.mjs \
             tests/browser/analysis-decision-workflow.spec.mjs \
+            tests/browser/confirmed-specification-workflow.spec.mjs \
             tests/browser/auth-error.spec.mjs \
             tests/browser/auth-session.spec.mjs \
             tests/browser/auth-cinematic.spec.mjs \
@@ -167,13 +172,16 @@ jobs:
             tests/browser/run-continuity.spec.mjs \
             tests/browser/project-mutations.spec.mjs \
             tests/browser/quotation-pagination.spec.mjs
+      - name: Require every connected workflow browser case without skips
+        if: always()
+        run: python3 ../.github/scripts/verify_browser_test_reports.py outputs/ui-ux/junit.xml --contract ../.github/scripts/connected_workflow_browser_cases.json
       - name: Preserve synthetic browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: synthetic-browser-reports-${{ github.sha }}
           path: frontend/outputs/ui-ux/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
 
   search-preview:
