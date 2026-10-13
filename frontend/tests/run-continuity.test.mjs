@@ -25,6 +25,8 @@ test("saved output cannot hide active questions or failure reasons and does not 
   assert.match(chat, /savedResultPresentation\(status\)\.label/);
   assert.match(result, /!resultState\.complete/);
   assert.match(result, /resultState\.complete && onCompareQuotes &&/);
-  assert.match(workbench, /quotationDraft=\{run\?\.status === "COMPLETED" \? run\.result\?\.quotationDraft \?\? null : null\}/);
-  assert.match(workbench, /quotationDrafts=\{run\?\.status === "COMPLETED" \? run\.result\?\.quotationDrafts \?\? \[\] : \[\]\}/);
+  assert.match(workbench, /quotationDraft=\{quotationSource\?\.result\?\.quotationDraft \?\? null\}/);
+  assert.match(workbench, /quotationDrafts=\{quotationSource\?\.result\?\.quotationDrafts \?\? \[\]\}/);
+  assert.match(workbench, /const quotationSource = completedAnalysis;/);
+  assert.match(workbench, /const completedAnalysis = analysisSource\?\.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version/);
 });

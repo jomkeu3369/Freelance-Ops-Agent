@@ -705,12 +705,12 @@ async function recoverSession(failedToken: string, generation: number): Promise<
   return rotateSession(current);
 }
 
-export async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, token?: string, allowSessionRecovery = true, responseType: "json" | "blob" = "json"): Promise<T> {
   const generation = sessionGeneration;
   const recoveryAllowed = token && (loadSession()?.accessToken === token || sessionAccessTokens.has(token));
   if (token && typeof window !== "undefined" && !recoveryAllowed) throw sessionChangedError();
   const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
+  headers.set("Accept", responseType === "blob" ? "application/pdf" : "application/json");
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
@@ -724,7 +724,7 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
   if (response.status === 401 && token && allowSessionRecovery && recoveryAllowed) {
     const recovered = await recoverSession(token, generation);
     if (generation !== sessionGeneration) throw sessionChangedError();
-    if (recovered) return request<T>(path, init, recovered.accessToken, false);
+    if (recovered) return request<T>(path, init, recovered.accessToken, false, responseType);
   }
   if (!response.ok) {
     let message = `요청을 완료하지 못했습니다. (${response.status})`;
@@ -746,7 +746,7 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     throw error;
   }
   if (response.status === 204) return undefined as T;
-  const result = await response.json() as T;
+  const result = await (responseType === "blob" ? response.blob() : response.json()) as T;
   if (token && generation !== sessionGeneration) throw sessionChangedError();
   return result;
 }

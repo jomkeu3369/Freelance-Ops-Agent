@@ -50,6 +50,9 @@ import { ChatModelMenu } from "./analysis/chat-model-menu";
 import { AnalysisStep } from "./analysis/analysis-step";
 import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
+import { AnalysisDecisionReview } from "./decisions/analysis-decision-review";
+import { getLatestAnalysisSource, getLatestConfirmedDecision, type AnalysisSource } from "./decisions/analysis-decisions-api";
+import { SpecificationPanel } from "./specification/specification-panel";
 import { WorkspacePanel } from "../shared/workspace-panel";
 import { ProjectEditDialog } from "./dialogs/project-edit-dialog";
 import type { ProjectModelSelection } from "./project-model-selection";
@@ -71,7 +74,7 @@ interface ProjectWorkbenchProps {
   onModelSelectionChange: (patch: Partial<ProjectModelSelection>) => void;
   onSaveProject: (input: ProjectInput) => Promise<void>;
   onDelete: () => Promise<void>;
-  onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
+  onRun: (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection, workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC") => Promise<boolean>;
   pendingRetries: PendingRunRetry[];
   onResetRun: () => void;
   onCancel: () => Promise<void>;
@@ -83,6 +86,15 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const { provider, model, credentialId } = modelSelection;
   const [connections, setConnections] = useState<AIConnection[]>([]);
   const [connectionError, setConnectionError] = useState(false);
+  const decisionSelectionKey = `freelance-ops-selected-decision:${JSON.stringify([session.userId, session.workspaceId, project.id])}`;
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return sessionStorage.getItem(decisionSelectionKey); } catch { return null; }
+  });
+  const [analysisSource, setAnalysisSource] = useState<AnalysisSource | null>(null);
+  const [analysisStarting, setAnalysisStarting] = useState(false);
+  const [analysisStartError, setAnalysisStartError] = useState<string | null>(null);
+  const analysisStartLock = useRef(false);
   const connection = connections.find((item) => item.id === credentialId);
   const [activeStep, setActiveStep] = useState<WorkbenchStep>(initialStep);
   const [editingProject, setEditingProject] = useState(false);
@@ -148,6 +160,24 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }).catch(() => { if (!cancelled) setConnectionError(true); });
     return () => { cancelled = true; };
   }, [canRun, session, runId]);
+
+  useEffect(() => {
+    if (activeStep !== "specification" || selectedDecisionId || !permissions.has("project.read")) return;
+    let cancelled = false;
+    getLatestConfirmedDecision(session, project.id).then(value => {
+      if (!cancelled && value) setSelectedDecisionId(value.id);
+    }).catch(() => { /* The specification step still offers a direct return to decision review. */ });
+    return () => { cancelled = true; };
+  }, [activeStep, permissions, project.id, selectedDecisionId, session]);
+
+  useEffect(() => {
+    if (!canRun) return;
+    let cancelled = false;
+    getLatestAnalysisSource(session, project.id).then(value => {
+      if (!cancelled) setAnalysisSource(value);
+    }).catch(() => { if (!cancelled) setAnalysisSource(null); });
+    return () => { cancelled = true; };
+  }, [canRun, project.id, project.version, run?.status, runId, session]);
 
   useEffect(() => {
     const operation = ++projectViewOperation.current;
@@ -228,6 +258,29 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   function openAISettings(draft: string) { setSettingsDraft(draft); setShowAISettings(true); }
 
   const runInProgress = !!runId && (!run || projectDeletionBlockingStatuses.has(run.status));
+  const fullAnalysisRetry = pendingRetries.find(item => (item.workflowMode ?? "PROJECT_ANALYSIS") === "PROJECT_ANALYSIS"
+    && !!chatModel && item.provider === chatModel.provider && item.model === chatModel.model
+    && (item.credentialId ?? "") === (chatModel.credentialId ?? "") && item.message === project.requirementText
+    && JSON.stringify(item.skillSelection ?? null) === JSON.stringify(skillSelection ?? null));
+  const completedAnalysis = analysisSource?.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version ? analysisSource.view : null;
+  const quotationSource = completedAnalysis;
+
+  async function startProjectAnalysis() {
+    if (!chatModel || !canRun || (!canSendAI && !fullAnalysisRetry) || busy || runInProgress || analysisStartLock.current) return;
+    analysisStartLock.current = true;
+    const operation = projectViewOperation.current;
+    setAnalysisStarting(true); setAnalysisStartError(null);
+    try {
+      const accepted = await onRun(chatModel.provider, chatModel.model, chatModel.credentialId, undefined,
+        fullAnalysisRetry?.creditQuote, [], skillSelection, "PROJECT_ANALYSIS");
+      if (!accepted && operation === projectViewOperation.current) setAnalysisStartError("전체 분석 접수를 확인하지 못했습니다. 자동으로 다시 실행하지 않습니다. 같은 조건의 다시 확인은 원래 요청 식별자를 유지합니다.");
+    } catch (cause) {
+      if (operation === projectViewOperation.current) setAnalysisStartError(cause instanceof Error ? cause.message : "프로젝트 전체 분석을 시작하지 못했습니다.");
+    } finally {
+      analysisStartLock.current = false;
+      if (operation === projectViewOperation.current) setAnalysisStarting(false);
+    }
+  }
   const selectionLocked = busy || runInProgress;
   const selectedModelName = runInProgress ? run?.metadata?.model || t("AI 모델")
     : credentialId ? chatModel?.model ?? t("AI 연결 확인 필요") : model || t("AI 모델 선택");
@@ -371,8 +424,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           [
             ["intake", "01", "문의"],
             ["agent", "02", "AI 분석"],
-            ["quote", "03", "견적"],
-            ["outcome", "04", "결과"]
+            ["decision", "03", "의견 확정"],
+            ["specification", "04", "명세·PDF"],
+            ["quote", "05", "견적"],
+            ["outcome", "06", "결과"]
           ] as const
         ).map(([id, number, label]) => (
           <button
@@ -414,6 +469,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canEditPolicy={permissions.has("quotation.write") && permissions.has("quotation.read") && permissions.has("project.read")}
           modelAvailable={!!chatModel}
           canSendAI={canSendAI}
+          projectAnalysisControls={<section className="project-analysis-entry" aria-label={t("프로젝트 전체 분석")}>
+            <div><strong>{t("문의 원문 전체를 4단계로 분석합니다.")}</strong><small>{t("요구사항·조사·범위 설계·검증과 3개 계획 관점. 아래 선택 모델의 사용량·비용 상한을 적용합니다.")}</small></div>
+            <button type="button" className="secondary-button" disabled={!canRun || (!canSendAI && !fullAnalysisRetry) || busy || runInProgress || analysisStarting} onClick={() => void startProjectAnalysis()}>{analysisStarting ? t("접수 확인 중…") : fullAnalysisRetry ? t("전체 분석 접수 다시 확인") : t("프로젝트 전체 분석 시작")}</button>
+            {completedAnalysis && <button type="button" className="quiet-button" onClick={() => selectStep("decision")}>{t("계획 의견 선택·확정")}<ArrowRight size={16} /></button>}
+            {analysisStartError && <p className="form-error" role="alert">{t(analysisStartError)}</p>}
+          </section>}
           retryCandidates={retryCandidates}
           composerInfo={(_draft, retry, policy) => <><CreditCostNote reviewRequired={creditReviewRequired} policy={policy} active={runInProgress} retry={retry} />
             {!runInProgress && !policy && !retry && !chatModel?.credentialId && ledgerBlocker && <div className="agent-chat-credit-note"><div className="chat-credit-notice" role="status">{ledgerMessage}{!ledger.loading && <button type="button" className="quiet-button" onClick={() => void ledger.refresh()}>{t("다시 확인")}</button>}</div></div>}
@@ -432,19 +493,29 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       {run?.metadata && !isSupportedProvider(run.metadata.provider) && <p role="status">{t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.")}</p>}
       {aiSettings}
 
+      {activeStep === "decision" && <AnalysisDecisionReview key={`${session.userId}:${session.workspaceId}:${project.id}`} session={session} project={project} permissions={permissions} run={run}
+        onReturnToAnalysis={() => selectStep("agent")} onContinue={decisionId => {
+          setSelectedDecisionId(decisionId);
+          try { sessionStorage.setItem(decisionSelectionKey, decisionId); } catch { /* The specification step can still retrieve the latest confirmed decision. */ }
+          selectStep("specification");
+        }} />}
+
+      {activeStep === "specification" && <SpecificationPanel key={`${session.userId}:${session.workspaceId}:${project.id}`} session={session} project={project} permissions={permissions}
+        decisionId={selectedDecisionId} onOpenDecisions={() => selectStep("decision")} />}
+
       {activeStep === "quote" && (
         <QuoteBuilder
           key={project.id}
           session={session}
           project={project}
           permissions={permissions}
-          quotationDraft={run?.status === "COMPLETED" ? run.result?.quotationDraft ?? null : null}
-          quotationDrafts={run?.status === "COMPLETED" ? run.result?.quotationDrafts ?? [] : []}
-          petProfiles={run?.metadata?.petProfiles}
+          quotationDraft={quotationSource?.result?.quotationDraft ?? null}
+          quotationDrafts={quotationSource?.result?.quotationDrafts ?? []}
+          petProfiles={quotationSource?.metadata?.petProfiles}
           modelSelection={
-            run?.metadata
-              ? isSupportedProvider(run.metadata.provider)
-                ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+            quotationSource?.metadata
+              ? isSupportedProvider(quotationSource.metadata.provider)
+                ? { provider: quotationSource.metadata.provider, model: quotationSource.metadata.model, credentialId: quotationSource.metadata.credentialId }
                 : null
               : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }
           }

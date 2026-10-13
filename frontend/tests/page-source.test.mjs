@@ -520,7 +520,7 @@ test("expired access tokens use one coordinated refresh and retry the original S
   ]);
   assert.match(api, /let refreshPromise: Promise<AuthSession> \| null = null/);
   assert.match(api, /response\.status === 401 && token && allowSessionRecovery/);
-  assert.match(api, /return request<T>\(path, init, recovered\.accessToken, false\)/);
+  assert.match(api, /return request<T>\(path, init, recovered\.accessToken, false, responseType\)/);
   assert.match(api, /refreshTokenExpiresAt/);
   assert.match(api, /SESSION_RECOVERY_EVENT/);
   assert.match(workspace, /subscribeToSessionRecovery/);
@@ -614,7 +614,8 @@ test("completed AI analysis prices its editable draft from active server rate ca
   ]);
   assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
   assert.match(api, /quotationDrafts: AgentQuotationDraft\[\]/);
-  assert.match(workspace, /quotationDrafts=\{run\?\.status === "COMPLETED" \? run\.result\?\.quotationDrafts \?\? \[\] : \[\]\}/);
+  assert.match(workspace, /quotationDrafts=\{quotationSource\?\.result\?\.quotationDrafts \?\? \[\]\}/);
+  assert.match(workspace, /const quotationSource = completedAnalysis;/);
   assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
   assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);

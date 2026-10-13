@@ -97,7 +97,19 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         }
 
         Optional<StartAgentRunResponse> replay = freeUsage.replay(userId, idempotencyKey, workspaceId, projectId, request);
-        if (replay.isPresent()) return replay.get();
+        if (replay.isPresent()) {
+            var accepted = replay.get();
+            var previousRun = agentRunRepository.findByIdAndWorkspaceId(accepted.runId(), workspaceId)
+                .filter(value -> value.projectId().equals(projectId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.GONE, "Previously accepted analysis is no longer available; the same request will not create another run"));
+            // Replay is an identity receipt, not a new QUEUED transition. Use the
+            // current persisted projection; the normal run read refreshes Agent state.
+            return new StartAgentRunResponse(accepted.runId(), previousRun.status(), accepted.acceptedAt());
+        }
+        if ("PROJECT_ANALYSIS".equals(request.workflowMode())
+            && !project.requirementText().strip().equals(request.requirementText().strip())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "프로젝트 문의 원문이 변경되었습니다. 최신 원문을 확인한 후 전체 분석을 시작해 주세요.");
+        }
         var attachmentText = request.attachmentIds().isEmpty() ? java.util.List.<com.freelanceops.backend.domain.agentrun.dto.AttachmentText>of()
             : attachments.resolve(userId, workspaceId, projectId, request.attachmentIds());
 
@@ -156,6 +168,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             Instant.now()
         );
         run.useCredential(request.modelSelection().credentialId());
+        run.bindProjectSource(project.version(), request.workflowMode());
         agentRunRepository.saveAndFlush(run);
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
         StartAgentRunResponse accepted = new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());

@@ -7,6 +7,7 @@ on:
       - "work/overnight-workflow-integration-20261014"
       - "work/agent-continuity-20261014"
       - "work/completion-budget-guards-20261013"
+      - "work/project-analysis-confirmation-20261014"
       - "work/release-quotation-backend-20261012"
       - "work/integrate-quotation-ui-seo-20261012"
       - "work/optimize-quotation-list-20261012"

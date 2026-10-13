@@ -169,3 +169,21 @@ for (const outcome of ["resolve", "reject"]) {
     assert.equal(await queryCache.queryCached("workspace-shared", async () => "unexpected-reload"), "new-value");
   });
 }
+
+test("PDF downloads preserve binary decoding across coordinated auth recovery", async () => {
+  const session = browserSession(), recovered = nextSession(session);
+  const observed = [];
+  globalThis.fetch = async (url, init) => {
+    observed.push({ url, authorization: init.headers.get("Authorization"), accept: init.headers.get("Accept") });
+    if (url.endsWith("/auth/refresh")) return Response.json(recovered);
+    if (init.headers.get("Authorization") === `Bearer ${session.accessToken}`) return Response.json({ detail: "expired" }, { status: 401 });
+    return new Response("%PDF-1.7\nfixture", { headers: { "Content-Type": "application/pdf" } });
+  };
+  const result = await api.request("/api/v2/specifications/revision/pdf", {}, session.accessToken, true, "blob");
+  assert.ok(result instanceof Blob);
+  assert.equal(await result.text(), "%PDF-1.7\nfixture");
+  assert.equal(observed.length, 3);
+  assert.equal(observed[0].accept, "application/pdf");
+  assert.equal(observed[2].accept, "application/pdf");
+  assert.equal(observed[2].authorization, `Bearer ${recovered.accessToken}`);
+});
