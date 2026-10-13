@@ -80,6 +80,38 @@ class AnalysisDecisionServiceTest {
         verify(decisions, never()).saveAndFlush(any());
     }
 
+    @Test void sourceReadReportsSemanticFreshnessWithoutTakingAProjectWriteLock() {
+        var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+            new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
+        var run = run(0L, "PROJECT_ANALYSIS");
+        when(runs.findFirstByWorkspaceIdAndProjectIdAndWorkflowModeOrderByCreatedAtDesc(workspace, projectId, "PROJECT_ANALYSIS"))
+            .thenReturn(Optional.of(run));
+        assertThat(service.latestSource(user, workspace, projectId).orElseThrow().sourceCurrent()).isTrue();
+        when(memory.current(workspace, projectId)).thenReturn(List.of(originalSource,
+            new MemorySourceMessage(UUID.randomUUID(), 3, "USER_CLARIFICATION", "Later unrelated answer", null, Instant.now())));
+        assertThat(service.latestSource(user, workspace, projectId).orElseThrow().sourceCurrent()).isFalse();
+        verify(projects, never()).findByIdAndWorkspaceIdForUpdate(any(), any());
+    }
+
+    @Test void anUnselectedMalformedPerspectiveRejectsTheEntireCompletedSource() {
+        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
+        var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), new AgentRunView.QuotationDraft("EXPANDED", List.of(), null));
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+            new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
+        status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
+        verify(decisions, never()).saveAndFlush(any());
+    }
+
+    @Test void aFullModeLabelCannotBindADifferentRunInputToTheOriginalInquiry() {
+        when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run(0L, "PROJECT_ANALYSIS")));
+        when(memory.forRun(workspace, projectId, runId)).thenReturn(List.of(originalSource,
+            new MemorySourceMessage(UUID.randomUUID(), 2, "RUN_INPUT", "An unrelated chat question", null, Instant.now())));
+        status(409, () -> service.create(user, workspace, projectId, create(List.of(opinion("LEAN")))));
+        verifyNoInteractions(gateway);
+        verify(decisions, never()).saveAndFlush(any());
+    }
+
     @Test void legacyAndAdHocRunsCannotPretendToHaveTheFullWorkflow() {
         var run = run(null, "AD_HOC");
         when(runs.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));

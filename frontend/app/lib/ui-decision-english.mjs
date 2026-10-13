@@ -1,5 +1,6 @@
 // Interface copy for selecting recorded analysis perspectives and reviewing immutable decisions.
 export const decisionEnglish = {
+  "분석 이후 문의 원문·요구사항 확정·추가 답변이 달라졌습니다. 최신 내용으로 프로젝트 전체 분석을 다시 실행해 주세요.": "The original inquiry, confirmed requirements or additional answers changed after this analysis. Run a full analysis of the current content first.",
   "분석 출처 응답을 확인하지 못했습니다. 잘못된 결과는 선택하거나 확정하지 않습니다.": "The analysis source response could not be verified. Invalid results cannot be selected or confirmed.",
   "의견 정리를 볼 권한이 없습니다.": "You don't have permission to view analysis decisions.",
   "의견 정리와 확정": "Review and confirm perspectives",
