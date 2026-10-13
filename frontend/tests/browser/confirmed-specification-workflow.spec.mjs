@@ -101,7 +101,9 @@ test("confirmed result becomes an edited specification, exact-revision PDF and f
   specifications.pdfError = { status: 503, message: "PDF 출력 준비가 되어 있지 않습니다. 확정 내용은 보존되며 출력 준비 후 다시 시도할 수 있습니다." };
   await page.getByRole("button", { name: "PDF 다운로드", exact: true }).click();
   await expect(specPanel(page).getByRole("alert")).toContainText(specifications.pdfError.message);
-  await expect(page.getByRole("textbox", { name: "명세 내용", exact: true })).toHaveValue(finalBody);
+  const confirmedContent = specPanel(page).locator(".specification-content");
+  await expect(confirmedContent).toBeVisible();
+  expect(await confirmedContent.textContent()).toEqual(finalBody);
   await expect(page.getByRole("button", { name: "PDF 다운로드", exact: true })).toBeEnabled();
   expect(specifications.items[0]).toEqual(savedSpecification);
   expect(specifications.documents[0]).toEqual(savedDocument);
