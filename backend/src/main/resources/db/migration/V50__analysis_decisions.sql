@@ -56,3 +56,25 @@ CREATE TABLE app.analysis_decision (
 
 CREATE INDEX ix_analysis_project_history ON app.analysis_decision
     (workspace_id, project_id, created_at DESC, id DESC);
+
+-- Every body and provenance snapshot is append-only. Confirmation is the only
+-- allowed update; revisions create a new DRAFT row instead of editing history.
+CREATE FUNCTION app.guard_analysis_decision_snapshot() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status <> 'DRAFT' THEN
+            RAISE EXCEPTION 'analysis decisions must be inserted as review drafts';
+        END IF;
+        RETURN NEW;
+    END IF;
+    IF OLD.status <> 'DRAFT' OR NEW.status <> 'CONFIRMED'
+        OR (to_jsonb(NEW) - ARRAY['status', 'confirmed_by', 'confirmed_at', 'version'])
+           IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['status', 'confirmed_by', 'confirmed_at', 'version']) THEN
+        RAISE EXCEPTION 'analysis decision body and provenance are immutable; create a new revision';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER analysis_decision_snapshot_guard
+    BEFORE INSERT OR UPDATE ON app.analysis_decision
+    FOR EACH ROW EXECUTE FUNCTION app.guard_analysis_decision_snapshot();

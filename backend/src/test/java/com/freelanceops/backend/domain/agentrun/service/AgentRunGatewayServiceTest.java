@@ -137,11 +137,31 @@ class AgentRunGatewayServiceTest {
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
         var accepted = new StartAgentRunResponse(UUID.randomUUID(), AgentRunStatus.QUEUED, Instant.now());
         when(freeUsage.replay(user, "same-request-key", workspace, project, request())).thenReturn(Optional.of(accepted));
-        assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key")).isEqualTo(accepted);
+        var previous = new AgentRunEntity(accepted.runId(), workspace, project, UUID.randomUUID(), user,
+            Provider.OPENAI, "gpt-6-luna", AgentRunStatus.COMPLETED, accepted.acceptedAt());
+        when(agentRunRepository.findByIdAndWorkspaceId(accepted.runId(), workspace)).thenReturn(Optional.of(previous));
+        assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key"))
+            .isEqualTo(new StartAgentRunResponse(accepted.runId(), AgentRunStatus.COMPLETED, accepted.acceptedAt()));
         verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
-        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, agentRunRepository, platformSpend);
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, platformSpend);
+        verify(agentRunRepository, never()).saveAndFlush(any());
     }
 
+
+
+    @Test
+    void deletedAcceptedRunCannotBeRecreatedByReplayingItsReceipt() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        var accepted = new StartAgentRunResponse(UUID.randomUUID(), AgentRunStatus.QUEUED, Instant.now());
+        when(freeUsage.replay(user, "deleted-request-key", workspace, project, request())).thenReturn(Optional.of(accepted));
+        assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace", "deleted-request-key"))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(410));
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, platformSpend);
+        verify(agentRunRepository, never()).saveAndFlush(any());
+    }
 
     @Test
     void invalidAttachmentStopsBeforeCreditReservationAndValidDataStaysSeparate() {

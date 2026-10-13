@@ -82,6 +82,21 @@ class AnalysisDecisionPostgresTest {
         assertThat(jdbc.queryForObject("select jsonb_array_length(source_opinions) from app.analysis_decision where id=?", Integer.class, confirmed.id())).isEqualTo(2);
     }
 
+    @Test void databaseRejectsMutationOfDraftAndConfirmedBodiesAndDirectConfirmedInsertion() {
+        var draft = service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN")));
+        assertThatThrownBy(() -> jdbc.update("update app.analysis_decision set body_text='Altered without revision' where id=?", draft.id()))
+            .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        var confirmed = service.confirm(user, workspace, project, draft.id(), confirm(draft.contentHash()));
+        assertThatThrownBy(() -> jdbc.update("update app.analysis_decision set source_summary='Forged provenance' where id=?", confirmed.id()))
+            .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(() -> jdbc.update("update app.analysis_decision set status='DRAFT',confirmed_by=null,confirmed_at=null where id=?", confirmed.id()))
+            .isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThatThrownBy(() -> jdbc.update("insert into app.analysis_decision select * from app.analysis_decision where id=?", confirmed.id()))
+            .isInstanceOf(org.springframework.dao.DataAccessException.class)
+            .hasMessageContaining("review drafts");
+        assertThat(service.getConfirmed(user, workspace, project, confirmed.id()).bodyText()).isEqualTo(draft.bodyText());
+    }
+
     @Test void changedSourceAndCrossScopeCannotBeConfirmedOrRead() {
         var draft = service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":RECOMMENDED")));
         jdbc.update("update app.project set version=version+1,requirement_text='Changed scope' where id=?", project);
