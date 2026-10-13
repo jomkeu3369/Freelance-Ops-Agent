@@ -33,6 +33,7 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
     "../../../../app/lib/api": {},
     "@phosphor-icons/react": Object.fromEntries(["ChatCircleText", "ArrowUp", "ArrowDown", "ArrowUpRight", "CheckCircle", "CircleNotch", "WarningCircle", "WifiSlash", "ListChecks"].map(name => [name, name])),
     "./chat-settings-button": { ChatSettingsButton: "ChatSettingsButton" },
+    "./use-focused-composer-viewport": { useFocusedComposerViewport: noop },
     "../../../../app/lib/chat-presentation.mjs": { chatState: () => ({ tone: "idle", label: "idle" }) },
     "../../../../app/lib/chat-policy-intent.mjs": { parseChatPolicyIntent },
     "../../shared/constants": {},
