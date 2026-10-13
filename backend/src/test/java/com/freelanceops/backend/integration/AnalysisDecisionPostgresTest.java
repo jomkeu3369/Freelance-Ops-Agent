@@ -83,9 +83,28 @@ class AnalysisDecisionPostgresTest {
         var lateComplete = completedViewWithDepartment();
         assertThat(projection.synchronize(runId, workspace, lateComplete).status()).isEqualTo(terminal);
         assertThat(jdbc.queryForObject("select status from app.agent_run where id=?", String.class, runId)).isEqualTo(terminal.name());
+        assertThatThrownBy(() -> jdbc.update("update app.agent_run set status='NOT_A_RUN_STATUS' where id=?", runId))
+            .isInstanceOf(org.springframework.dao.DataAccessException.class);
         assertThat(events.stream(RequirementAnalysisCompleted.class)).isEmpty();
         // Deliberately return the raw late snapshot to exercise the domain's independent guard.
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(lateComplete);
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isFalse();
+        assertStatus(409, () -> service.create(user, workspace, project,
+            new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))));
+        assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isZero();
+    }
+
+    @Test void aRunningRunPersistsPartialProgressWithoutPublishingCompletedFactsOrCreatingADecision() {
+        jdbc.update("update app.agent_run set status='RUNNING' where id=?", runId);
+        var completeLooking = completedViewWithDepartment();
+        var partial = new AgentRunView(runId, AgentRunStatus.PARTIAL, null, null,
+            completeLooking.result(), "INCOMPLETE", null, null, Instant.now());
+        var normalized = projection.synchronize(runId, workspace, partial);
+        assertThat(normalized.status()).isEqualTo(AgentRunStatus.PARTIAL);
+        assertThat(normalized.result()).isSameAs(partial.result());
+        assertThat(jdbc.queryForObject("select status from app.agent_run where id=?", String.class, runId)).isEqualTo("PARTIAL");
+        assertThat(events.stream(RequirementAnalysisCompleted.class)).isEmpty();
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(normalized);
         assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isFalse();
         assertStatus(409, () -> service.create(user, workspace, project,
             new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))));
