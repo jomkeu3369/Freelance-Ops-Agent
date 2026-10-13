@@ -10,6 +10,7 @@ const specAcknowledgement = "명세 전체를 검토했으며 이 내용을 PDF�
 const specPanel = page => page.getByRole("region", { name: "명세서 검토 및 PDF 출력", exact: true });
 
 async function attachEvidence(page, testInfo, name) {
+  await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" }));
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 }
 
