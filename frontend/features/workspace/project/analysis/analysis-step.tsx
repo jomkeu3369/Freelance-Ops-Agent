@@ -28,6 +28,7 @@ interface AnalysisStepProps {
   canEditPolicy: boolean;
   modelAvailable: boolean;
   composerTools?: ReactNode;
+  projectAnalysisControls?: ReactNode;
   composerInfo?: ReactNode | ((draft: string, retry: PendingRunRetry | undefined, policy: boolean) => ReactNode);
   retryCandidates: PendingRunRetry[];
   canSendAI: boolean;
@@ -40,7 +41,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, projectAnalysisControls, composerInfo, canSendAI, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -51,6 +52,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   }
 
   return <>
+    {projectAnalysisControls}
     <AgentChat key={`${session.userId}:${session.workspaceId}:${projectId}`} session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
       canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
       canSendAI={canSendAI} retryCandidates={retryCandidates} composerInfo={composerInfo} composerTools={composerTools}

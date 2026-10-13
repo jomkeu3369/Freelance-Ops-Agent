@@ -614,7 +614,8 @@ test("completed AI analysis prices its editable draft from active server rate ca
   ]);
   assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
   assert.match(api, /quotationDrafts: AgentQuotationDraft\[\]/);
-  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts \?\? \[\]\}/);
+  assert.match(workspace, /quotationDrafts=\{quotationSource\?\.result\?\.quotationDrafts \?\? \[\]\}/);
+  assert.match(workspace, /const quotationSource = completedAnalysis \?\? \(run\?\.status === "COMPLETED" \? run : null\)/);
   assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
   assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);

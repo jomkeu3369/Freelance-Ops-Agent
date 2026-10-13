@@ -617,11 +617,11 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     }
   };
 
-  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection): Promise<boolean> => {
+  const beginRun = async (provider: Provider, model: string, credentialId?: string, message?: string, creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection, workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC"): Promise<boolean> => {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
     const projectId = selectedProject.id;
-    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds, skillSelection, workflowMode: message === undefined ? undefined : "AD_HOC" });
+    const pending = pendingStart.current.getOrCreate({ userId: session.userId, workspaceId: session.workspaceId, projectId, provider, model, credentialId, message: message ?? selectedProject.requirementText, creditQuote, attachmentIds, skillSelection, workflowMode: workflowMode ?? (message === undefined ? undefined : "AD_HOC") });
     const idempotencyKey = pending.id;
     setBusy(true);
     setError(null);

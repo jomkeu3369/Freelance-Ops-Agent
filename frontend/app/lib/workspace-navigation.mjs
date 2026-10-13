@@ -1,5 +1,5 @@
 const WORKSPACE_VIEWS = new Set(["pipeline", "clients", "knowledge", "project", "settings"]);
-const PROJECT_STEPS = new Set(["intake", "agent", "quote", "outcome"]);
+const PROJECT_STEPS = new Set(["intake", "agent", "decision", "quote", "outcome"]);
 
 export function parseWorkspaceLocation(search) {
   const params = new URLSearchParams(search);

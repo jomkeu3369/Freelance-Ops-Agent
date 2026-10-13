@@ -1,0 +1,34 @@
+.analysis-decisions { display: grid; gap: 24px; padding: 24px 0; }
+.decision-heading, .decision-editor > header { display: flex; justify-content: space-between; align-items: start; gap: 20px; }
+.decision-heading h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 32px); }
+.decision-heading p, .decision-editor p { line-height: 1.65; color: var(--muted); }
+.decision-opinion-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.decision-opinion, .decision-editor { border: 1px solid var(--line); border-radius: 16px; padding: 22px; background: var(--surface-solid); }
+.decision-opinion-title { display: flex; gap: 10px; align-items: center; }
+.decision-opinion-title span { display: grid; gap: 4px; }
+.decision-opinion input, .decision-confirmation input { width: 18px; height: 18px; flex-shrink: 0; }
+.decision-opinion h3 { font-size: 17px; line-height: 1.5; }
+.decision-opinion p, .decision-opinion li { overflow-wrap: anywhere; line-height: 1.7; }
+.decision-opinion li { margin-block: 14px; }
+.decision-opinion li > span { display: block; font-size: 13px; }
+.decision-tradeoff { border-left: 2px solid var(--line); padding-left: 12px; margin-block: 16px; }
+.decision-selection-actions, .decision-editor-actions, .decision-confirmed-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
+.decision-provenance, .decision-source-reference { font-size: 12px; overflow-wrap: anywhere; }
+.decision-status { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 6px; }
+.decision-status.confirmed { color: var(--accent); }
+.decision-notice, .decision-warnings { display: flex; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); line-height: 1.6; }
+.decision-notice svg { flex-shrink: 0; }
+.decision-notice p { margin: 0; }
+.decision-warnings { display: block; margin: 18px 0; }
+.decision-warnings h4 { margin: 0 0 8px; }
+.decision-warnings li { margin-block: 8px; }
+.decision-body-label { display: grid; gap: 9px; font-weight: 600; }
+.decision-body-label textarea { width: 100%; resize: vertical; min-height: 240px; padding: 16px; border: 1px solid var(--line); border-radius: 10px; color: inherit; background: transparent; font: inherit; font-weight: 400; line-height: 1.75; }
+.decision-editor pre { font: inherit; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.decision-confirmation { display: grid; gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+.decision-confirmation label { display: flex; gap: 10px; align-items: start; line-height: 1.7; }
+.decision-confirmation .primary-button { justify-self: start; }
+.decision-history { padding: 0; list-style: none; }
+.decision-history li { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+@media (max-width: 960px) { .decision-opinion-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .decision-heading, .decision-editor > header { flex-direction: column; } .decision-opinion, .decision-editor { padding: 16px; } .decision-selection-actions, .decision-confirmed-actions { align-items: stretch; flex-direction: column; } }
