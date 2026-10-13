@@ -57,7 +57,7 @@ jobs:
       - name: Require Docker for PostgreSQL integration tests
         run: docker info
       - name: Run all backend tests and Flyway migrations
-        run: bash ./gradlew test --no-daemon --console=plain
+        run: bash ./gradlew test --continue --no-daemon --console=plain
       - name: Require executed PostgreSQL suites without skips
         if: always()
         run: python3 ../.github/scripts/verify_database_test_reports.py backend
