@@ -1,4 +1,5 @@
 import { decisionEnglish } from "./ui-decision-english.mjs";
+import { specificationEnglish } from "./ui-specification-english.mjs";
 import { attachmentEnglish } from "./ui-attachment-english.mjs";
 import { creditEnglish } from "./ui-credit-english.mjs";
 import { noticeEnglish } from "./ui-notice-english.mjs";
@@ -14,6 +15,7 @@ import { storyEnglish } from './ui-story-english.mjs';
 import { petEnglish } from './ui-pet-english.mjs';
 // Korean source keys are the fallback. Only interface copy and fictional examples belong here.
 export const englishUi = {
+  ...specificationEnglish,
   "운영 공지 | Freelance Ops": "Service notices | Freelance Ops",
   "배경 영상 일시정지": "Pause background video",
   "배경 영상 재생": "Play background video",
