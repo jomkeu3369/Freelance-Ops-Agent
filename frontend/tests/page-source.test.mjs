@@ -520,7 +520,7 @@ test("expired access tokens use one coordinated refresh and retry the original S
   ]);
   assert.match(api, /let refreshPromise: Promise<AuthSession> \| null = null/);
   assert.match(api, /response\.status === 401 && token && allowSessionRecovery/);
-  assert.match(api, /return request<T>\(path, init, recovered\.accessToken, false\)/);
+  assert.match(api, /return request<T>\(path, init, recovered\.accessToken, false, responseType\)/);
   assert.match(api, /refreshTokenExpiresAt/);
   assert.match(api, /SESSION_RECOVERY_EVENT/);
   assert.match(workspace, /subscribeToSessionRecovery/);

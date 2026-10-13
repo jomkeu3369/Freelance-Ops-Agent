@@ -33,7 +33,7 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
   const t = useT();
   const canWrite = permissions.has("document.write");
   const canDelete = permissions.has("document.delete");
-  const canIndex = permissions.has("agent.run");
+  const canConfirmProject = permissions.has("agent.run");
   const [reviewed, setReviewed] = useState(false);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -133,8 +133,8 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
       setNotice(result.indexStatus === "INDEXED"
         ? "확인한 문서를 검색 색인에 반영했습니다. 다음 분석부터 원문과 함께 참고합니다."
         : result.indexStatus === "PENDING"
-          ? "문서 확인은 저장됐지만 벡터 색인은 완료되지 않았습니다. 현재는 키워드 검색만 가능하며, 아래에서 색인을 다시 시도할 수 있습니다."
-          : "문서 확인을 저장했습니다. 키워드 검색의 참고 자료로 사용됩니다.");
+          ? "문서 확인은 저장됐지만 벡터 색인은 완료되지 않았습니다. 현재는 키워드 검색만 가능하며, 벡터 색인은 별도 실행이 필요합니다."
+          : "문서 확인을 저장했습니다. 추가 AI 호출 없이 키워드 검색의 참고 자료로 사용됩니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "문서 확인을 저장하지 못했습니다.");
     } finally {
@@ -331,14 +331,14 @@ export function KnowledgePanel({ session, permissions }: KnowledgePanelProps) {
                   ))
                 )}
               </section>
-              {canWrite && (!detail.projectId || canIndex) && detail.confirmationStatus !== "superseded" && (
+              {canWrite && (!detail.projectId || canConfirmProject) && detail.confirmationStatus === "unconfirmed" && (
                 <section className="document-chunks">
                   <p>{t("원문에 없는 가정과 미결 질문은 확인된 요구사항으로 취급하지 않습니다. 원문과 다른 내용은 요구사항을 수정한 뒤 다시 분석하세요.")}</p>
                   <label>
                     <input type="checkbox" checked={reviewed} disabled={busy} onChange={(event) => setReviewed(event.target.checked)} />
                     {t("원문과 문서 전체를 검토했으며 다음 분석의 참고 자료로 사용하는 데 동의합니다.")}</label>
                   <button type="button" className="primary-button" disabled={busy || !reviewed} onClick={() => void confirm()}>
-                    {busy ? t("반영 중…") : detail.retrievalEligible ? t("확인 및 색인 재시도") : t("확인하고 참고 자료로 사용")}
+                    {busy ? t("반영 중…") : t("확인하고 참고 자료로 사용")}
                   </button>
                 </section>
               )}
