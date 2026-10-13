@@ -51,7 +51,8 @@ import { AnalysisStep } from "./analysis/analysis-step";
 import { QuoteBuilder } from "./quotation/quote-builder";
 import { OutcomeReview } from "./outcome/outcome-review";
 import { AnalysisDecisionReview } from "./decisions/analysis-decision-review";
-import { getLatestAnalysisSource, type AnalysisSource } from "./decisions/analysis-decisions-api";
+import { getLatestAnalysisSource, getLatestConfirmedDecision, type AnalysisSource } from "./decisions/analysis-decisions-api";
+import { SpecificationPanel } from "./specification/specification-panel";
 import { WorkspacePanel } from "../shared/workspace-panel";
 import { ProjectEditDialog } from "./dialogs/project-edit-dialog";
 import type { ProjectModelSelection } from "./project-model-selection";
@@ -85,6 +86,11 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const { provider, model, credentialId } = modelSelection;
   const [connections, setConnections] = useState<AIConnection[]>([]);
   const [connectionError, setConnectionError] = useState(false);
+  const decisionSelectionKey = `freelance-ops-selected-decision:${JSON.stringify([session.userId, session.workspaceId, project.id])}`;
+  const [selectedDecisionId, setSelectedDecisionId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return sessionStorage.getItem(decisionSelectionKey); } catch { return null; }
+  });
   const [analysisSource, setAnalysisSource] = useState<AnalysisSource | null>(null);
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [analysisStartError, setAnalysisStartError] = useState<string | null>(null);
@@ -154,6 +160,15 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }).catch(() => { if (!cancelled) setConnectionError(true); });
     return () => { cancelled = true; };
   }, [canRun, session, runId]);
+
+  useEffect(() => {
+    if (activeStep !== "specification" || selectedDecisionId || !permissions.has("project.read")) return;
+    let cancelled = false;
+    getLatestConfirmedDecision(session, project.id).then(value => {
+      if (!cancelled && value) setSelectedDecisionId(value.id);
+    }).catch(() => { /* The specification step still offers a direct return to decision review. */ });
+    return () => { cancelled = true; };
+  }, [activeStep, permissions, project.id, selectedDecisionId, session]);
 
   useEffect(() => {
     if (!canRun) return;
@@ -410,8 +425,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             ["intake", "01", "문의"],
             ["agent", "02", "AI 분석"],
             ["decision", "03", "의견 확정"],
-            ["quote", "04", "견적"],
-            ["outcome", "05", "결과"]
+            ["specification", "04", "명세·PDF"],
+            ["quote", "05", "견적"],
+            ["outcome", "06", "결과"]
           ] as const
         ).map(([id, number, label]) => (
           <button
@@ -479,9 +495,13 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
 
       {activeStep === "decision" && <AnalysisDecisionReview key={`${session.userId}:${session.workspaceId}:${project.id}`} session={session} project={project} permissions={permissions} run={run}
         onReturnToAnalysis={() => selectStep("agent")} onContinue={decisionId => {
-          try { sessionStorage.setItem(`freelance-ops-selected-decision:${JSON.stringify([session.userId, session.workspaceId, project.id])}`, decisionId); } catch { /* The next step can still retrieve the latest confirmed decision. */ }
-          selectStep("quote");
+          setSelectedDecisionId(decisionId);
+          try { sessionStorage.setItem(decisionSelectionKey, decisionId); } catch { /* The specification step can still retrieve the latest confirmed decision. */ }
+          selectStep("specification");
         }} />}
+
+      {activeStep === "specification" && <SpecificationPanel key={`${session.userId}:${session.workspaceId}:${project.id}`} session={session} project={project} permissions={permissions}
+        decisionId={selectedDecisionId} onOpenDecisions={() => selectStep("decision")} />}
 
       {activeStep === "quote" && (
         <QuoteBuilder
@@ -493,9 +513,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           quotationDrafts={quotationSource?.result?.quotationDrafts ?? []}
           petProfiles={quotationSource?.metadata?.petProfiles}
           modelSelection={
-            run?.metadata
-              ? isSupportedProvider(run.metadata.provider)
-                ? { provider: run.metadata.provider, model: run.metadata.model, credentialId: run.metadata.credentialId }
+            quotationSource?.metadata
+              ? isSupportedProvider(quotationSource.metadata.provider)
+                ? { provider: quotationSource.metadata.provider, model: quotationSource.metadata.model, credentialId: quotationSource.metadata.credentialId }
                 : null
               : { provider: "OPENAI", model: configuredModelOptions.OPENAI[0] ?? "" }
           }
