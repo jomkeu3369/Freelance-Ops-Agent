@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 from unicodedata import category
 from uuid import UUID
 
@@ -393,6 +393,22 @@ class ByokBudget(StrictModel):
         return value
 
 
+class PlatformCompletionEnvelope(StrictModel):
+    """Immutable full-run monetary scope issued only after the completion protocol rollout."""
+
+    protocol_version: Literal["completion-v1"]
+    policy_revision: int = Field(ge=1)
+    allowed_models: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(min_length=1)
+    budget: RunBudget
+
+    @field_validator("allowed_models")
+    @classmethod
+    def require_unique_models(cls, value: list[str]) -> list[str]:
+        if len(value) != len(set(value)):
+            raise ValueError("completion models must be unique exact model IDs")
+        return value
+
+
 class PlatformBudget(StrictModel):
     """A backend-issued monetary reservation, never copied from public input."""
 
@@ -400,6 +416,9 @@ class PlatformBudget(StrictModel):
     max_cost_usd: Decimal = Field(gt=0, le=100, allow_inf_nan=False)
     tariff_version: str = Field(min_length=1, max_length=100)
     valid_until: datetime
+    # Do not rewrite legacy durable requests with an unknown null field: older
+    # strict Agents must still be able to read them before protocol rollout.
+    completion: PlatformCompletionEnvelope | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("valid_until")
     @classmethod

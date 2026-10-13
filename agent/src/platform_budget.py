@@ -19,6 +19,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from contracts import (
+    AgentRunRequest,
     AgentRunUsage,
     ModelSelection,
     PlatformBudget,
@@ -77,12 +78,55 @@ def validate_reasoning(selection: ModelSelection) -> None:
         raise PlatformBudgetError("MODEL_REASONING_UNSUPPORTED")
 
 
+def _approved_tariff(version: str, model: str, provider: Provider = Provider.OPENAI) -> Tariff:
+    tariffs = TARIFF_VERSIONS.get(version)
+    if tariffs is None:
+        raise PlatformBudgetError("PLATFORM_TARIFF_UNSUPPORTED")
+    tariff = tariffs.get((provider, model))
+    if tariff is None or any(not rate.is_finite() or rate < 0 for rate in (
+            tariff.input, tariff.cached_read, tariff.cache_write, tariff.output)):
+        raise PlatformBudgetError("PLATFORM_MODEL_UNPRICED")
+    if model == "gpt-5.6-sol" and datetime.now(UTC) >= PROMOTION_REVIEW_AT:
+        raise PlatformBudgetError("PLATFORM_TARIFF_REVIEW_REQUIRED")
+    return tariff
+
+
+def completion_reserve(budget: PlatformBudget) -> Decimal:
+    """Conservative aggregate bound, including worst-case per-attempt rounding."""
+    envelope = budget.completion
+    if envelope is None or envelope.protocol_version != "completion-v1" or envelope.policy_revision < 1:
+        raise PlatformBudgetError("PLATFORM_COMPLETION_PROTOCOL_UNSUPPORTED")
+    if not envelope.allowed_models or len(envelope.allowed_models) != len(set(envelope.allowed_models)):
+        raise PlatformBudgetError("PLATFORM_COMPLETION_MODELS_INVALID")
+    tariffs = [_approved_tariff(budget.tariff_version, model) for model in envelope.allowed_models]
+    input_rate = max(max(tariff.input, tariff.cached_read, tariff.cache_write) for tariff in tariffs)
+    output_rate = max(tariff.output for tariff in tariffs)
+    raw = (Decimal(envelope.budget.max_input_tokens) * input_rate
+           + Decimal(envelope.budget.max_output_tokens) * output_rate) / _MILLION
+    return (raw.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
+            + Decimal(max(0, envelope.budget.max_model_calls - 1)) * _USD_PRECISION)
+
+
+def validate_platform_request(request: AgentRunRequest, required_selections: tuple[ModelSelection, ...] = ()) -> None:
+    """Validate the full immutable request before accepting or consuming a pause."""
+    if request.platform_budget is None:
+        raise PlatformBudgetError("PLATFORM_BUDGET_REQUIRED")
+    if request.platform_budget.reservation_id != request.context.run_id:
+        raise PlatformBudgetError("PLATFORM_RESERVATION_MISMATCH")
+    ledger = PlatformSpendLedger(request.platform_budget, run_budget=request.budget)
+    ledger.validate()
+    if request.platform_budget.completion is not None:
+        ledger.validate_selection(request.model_selection)
+        for selection in required_selections:
+            ledger.validate_selection(selection)
+
+
 class PlatformSpendLedger:
     def __init__(self, budget: PlatformBudget, previous: AgentRunUsage | None = None,
                  run_budget: RunBudget | None = None) -> None:
         self.budget = budget
         self.calls: list[ProviderCallUsage] = []
-        self.blocked = False
+        self.blocked = previous.unpriced_exposure if previous is not None else False
         self.closed = False
         self.unpriced_exposure = previous.unpriced_exposure if previous is not None else False
         self.run_budget = run_budget
@@ -105,22 +149,30 @@ class PlatformSpendLedger:
             raise PlatformBudgetError("PLATFORM_BUDGET_SCOPE_CLOSED")
         if self.budget.tariff_version not in TARIFF_VERSIONS:
             raise PlatformBudgetError("PLATFORM_TARIFF_UNSUPPORTED")
-        if datetime.now(UTC) >= self.budget.valid_until:
+        if self.budget.completion is not None:
+            if self.run_budget != self.budget.completion.budget:
+                raise PlatformBudgetError("PLATFORM_COMPLETION_BUDGET_MISMATCH")
+            if self.budget.max_cost_usd < completion_reserve(self.budget):
+                raise PlatformBudgetError("PLATFORM_COMPLETION_RESERVE_INSUFFICIENT")
+        elif datetime.now(UTC) >= self.budget.valid_until:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXPIRED")
         if self.blocked or self.previous_cost + self.cost > self.budget.max_cost_usd:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXCEEDED")
 
-    def reserve(self, selection: ModelSelection, operation: str, payload: Mapping[str, Any], output_limit: int) -> int:
-        self.validate()
+    def validate_selection(self, selection: ModelSelection) -> None:
         validate_reasoning(selection)
         if selection.credential_id is not None:
             raise PlatformBudgetError("BYOK_BUDGET_REQUIRED")
-        byok = False
-        tariff = TARIFF_VERSIONS[self.budget.tariff_version].get((selection.provider, selection.model))
-        if tariff is None and not byok:
-            raise PlatformBudgetError("PLATFORM_MODEL_UNPRICED")
-        if not byok and selection.model == "gpt-5.6-sol" and datetime.now(UTC) >= PROMOTION_REVIEW_AT:
-            raise PlatformBudgetError("PLATFORM_TARIFF_REVIEW_REQUIRED")
+        envelope = self.budget.completion
+        if envelope is not None and (
+                selection.provider is not Provider.OPENAI or selection.model not in envelope.allowed_models):
+            raise PlatformBudgetError("PLATFORM_COMPLETION_MODEL_FORBIDDEN")
+        _approved_tariff(self.budget.tariff_version, selection.model, selection.provider)
+
+    def reserve(self, selection: ModelSelection, operation: str, payload: Mapping[str, Any], output_limit: int) -> int:
+        self.validate()
+        self.validate_selection(selection)
+        tariff = _approved_tariff(self.budget.tariff_version, selection.model, selection.provider)
         if output_limit < 1:
             raise PlatformBudgetError("PLATFORM_OUTPUT_LIMIT_REQUIRED")
         # Text-only request bytes bound the tokenizer input conservatively, including
@@ -139,17 +191,14 @@ class PlatformSpendLedger:
                 raise PlatformBudgetError("INPUT_TOKEN_BUDGET_EXCEEDED")
             if previous_output + sum(call.output_tokens for call in self.calls) + output_limit > self.run_budget.max_output_tokens:  # noqa: E501
                 raise PlatformBudgetError("OUTPUT_TOKEN_BUDGET_EXCEEDED")
-        reserved = Decimal("0")
-        if not byok:
-            assert tariff is not None
-            reserved = (Decimal(input_limit) * max(tariff.input, tariff.cache_write)
-                        + Decimal(output_limit) * tariff.output) / _MILLION
-            reserved = reserved.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
+        reserved = (Decimal(input_limit) * max(tariff.input, tariff.cached_read, tariff.cache_write)
+                    + Decimal(output_limit) * tariff.output) / _MILLION
+        reserved = reserved.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
         if self.previous_cost + self.cost + reserved > self.budget.max_cost_usd:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXCEEDED")
         self.calls.append(ProviderCallUsage(
             call_id=uuid4(), provider=selection.provider, model=selection.model, operation=operation,
-            funding_source="BYOK" if byok else "PLATFORM",
+            funding_source="PLATFORM",
             input_tokens=input_limit, output_tokens=output_limit, cost_usd=reserved,
             reserved_cost_usd=reserved, usage_known=False,
         ))
@@ -294,6 +343,10 @@ async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operat
     # an unreported billable attempt into free usage.
     if ledger.persist_usage is not None:
         await ledger.persist_usage(ledger.report(None))
+    # Cancellation, scope closure or legacy expiry may occur during persistence.
+    # Keeping the reservation is conservative, but never start I/O after closure.
+    ledger.validate()
+    ledger.validate_selection(selection)
     # SDK retries are disabled at every production client construction; this call
     # represents exactly one billable attempt. Cancellation retains its bound.
     response = await client.responses.create(**payload)

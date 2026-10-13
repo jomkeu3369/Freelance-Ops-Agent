@@ -27,10 +27,17 @@ from contracts import (
     AgentRunView,
     ClarificationAnswer,
     DepartmentName,
+    ModelSelection,
     RequestTier,
     ResumeAgentRunRequest,
 )
-from platform_budget import PlatformBudgetError, PlatformSpendLedger, current_ledger, platform_budget_scope
+from platform_budget import (
+    PlatformBudgetError,
+    PlatformSpendLedger,
+    current_ledger,
+    platform_budget_scope,
+    validate_platform_request,
+)
 
 from .task_contracts import AttemptStatus
 
@@ -447,7 +454,7 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
 
 
 class RunCoordinator:
-    def __init__(self, store: AgentRunStore, executor: AgentRunExecutor, checkpoint_journal: RunCheckpointJournal | None = None, task_terminal_observer: TaskTerminalObserver | None = None, *, require_platform_budget: bool = False, allow_memory_platform_budget_for_tests: bool = False) -> None:  # noqa: E501
+    def __init__(self, store: AgentRunStore, executor: AgentRunExecutor, checkpoint_journal: RunCheckpointJournal | None = None, task_terminal_observer: TaskTerminalObserver | None = None, *, require_platform_budget: bool = False, allow_memory_platform_budget_for_tests: bool = False, platform_model_selections: tuple[ModelSelection, ...] = ()) -> None:  # noqa: E501
         self._store = store
         self._executor = executor
         self._checkpoint_journal = checkpoint_journal or NullCheckpointJournal()
@@ -455,17 +462,13 @@ class RunCoordinator:
         self._active_tasks: dict[UUID, asyncio.Task[None]] = {}
         self._task_lock = asyncio.Lock()
         self._require_platform_budget = require_platform_budget
+        self._platform_model_selections = platform_model_selections
         # Constructor-only offline mock seam. Never expose as a setting or request field.
         self._allow_memory_platform_budget_for_tests = allow_memory_platform_budget_for_tests
         self._active_ledgers: dict[UUID, PlatformSpendLedger | ByokExecutionLedger] = {}
 
     async def accept(self, request: AgentRunRequest) -> AgentRunAccepted:
         self._validate_funding(request)
-        if request.platform_budget is not None:
-            self._require_durable_budget_store()
-            if request.platform_budget.reservation_id != request.context.run_id:
-                raise PlatformBudgetError("PLATFORM_RESERVATION_MISMATCH")
-            PlatformSpendLedger(request.platform_budget).validate()
         view = await self._store.create(request)
         await self._checkpoint_journal.record(request, AgentRunStatus.QUEUED, "accepted")
         return AgentRunAccepted(
@@ -482,6 +485,9 @@ class RunCoordinator:
             self._require_platform_budget or request.platform_budget is not None
         ):
             raise PlatformBudgetError("BYOK_BUDGET_REQUIRED")
+        elif request.platform_budget is not None:
+            self._require_durable_budget_store()
+            validate_platform_request(request, self._platform_model_selections)
         elif request.platform_budget is None and self._require_platform_budget:
             raise PlatformBudgetError("PLATFORM_BUDGET_REQUIRED")
 
@@ -556,8 +562,6 @@ class RunCoordinator:
     async def _run(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
         try:
             self._validate_funding(request)
-            if request.platform_budget is not None:
-                self._require_durable_budget_store()
         except PlatformBudgetError as error:
             await self._store.fail(request.context.run_id, error.code)
             return

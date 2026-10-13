@@ -607,6 +607,28 @@ components:
         outputTokens: {type: integer, minimum: 0}
         retryCount: {type: integer, minimum: 0}
         durationMs: {type: integer, minimum: 0}
+    PlatformCompletionEnvelope:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, policyRevision, allowedModels, budget]
+      description: >-
+        Immutable backend-issued full-run monetary scope. Issuance must remain disabled until
+        the receiving Agent supports completion-v1; older strict Agents reject this field.
+        The budget must exactly equal the request RunBudget. Each allowed model must be an exact
+        approved OPENAI model ID priced under the reservation tariff, including promotion review.
+        maxCostUsd must cover ceiling8((max input/cache-read/cache-write rate across all allowed
+        models * maxInputTokens + max output rate * maxOutputTokens) / 1000000), plus
+        max(0, maxModelCalls - 1) * 0.00000001 for per-attempt rounding.
+      properties:
+        protocolVersion: {type: string, const: completion-v1}
+        policyRevision: {type: integer, minimum: 1}
+        allowedModels:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: {type: string, minLength: 1, maxLength: 100}
+        budget:
+          $ref: "#/components/schemas/RunBudget"
     PlatformBudget:
       type: object
       additionalProperties: false
@@ -629,7 +651,18 @@ components:
         validUntil:
           type: string
           format: date-time
-          description: Timezone-aware expiry at the next Seoul midnight; checked before every paid attempt and resume.
+          description: >-
+            Timezone-aware legacy monetary expiry; enforced before each paid attempt and resume when
+            completion is absent or null. With completion-v1 the immutable monetary reservation has
+            no wall-date expiry. Delegation JWT expiry, runtime limits and all provider guards remain enforced.
+        completion:
+          default: null
+          description: >-
+            Omitted/null preserves legacy monetary expiry. Only explicitly rolled-out backends emit
+            the envelope. A resume retains this scope, tariff, reservation and cumulative usage unchanged.
+          anyOf:
+            - $ref: "#/components/schemas/PlatformCompletionEnvelope"
+            - type: 'null'
     ByokBudget:
       type: object
       additionalProperties: false

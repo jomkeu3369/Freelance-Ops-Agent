@@ -117,3 +117,31 @@ completed departments are preserved as a partial result and all attempts remain
 accounted for; the scope closes without replenishment. Security/expiry failures stay
 fatal. Existing 50000-token scopes keep their original bound on resume, and legacy
 records without a scope cannot be upgraded into the new path.
+
+## Completion monetary scopes
+
+A supported backend may explicitly roll out `platformBudget.completion` with protocol
+`completion-v1`, a positive policy revision, an exact unique OpenAI model allowlist and
+an immutable copy of the full request `RunBudget`. The Agent validates all allowed model
+prices and conservatively bounds the full aggregate input/output allowance, including
+cache prices and per-attempt rounding. Admission also preflights the configured router
+model; every later provider attempt must remain allowlisted and within existing limits.
+
+Only this new monetary scope omits wall-date expiry: HITL resume reuses the original
+reservation, tariff, budget, model allowlist and cumulative attempts/costs across day or
+month boundaries. It never issues a fresh allowance. Missing or null completion remains
+a legacy scope and still enforces `validUntil`, including before consuming a pause.
+Persisted unknown attempts retain their reserved cost and tokens; cancellation, mismatch,
+SDK retry, unpriced-operation, promotion-review and runtime guards still apply.
+
+Deploy the new Agent before enabling backend issuance. Older strict Agents reject the
+new field; there is no claim of old-Agent/new-envelope compatibility. Issuance is off by
+default, and this protocol does not enable platform spending or change BYOK behavior.
+Backend/Agent router settings and the issued allowlist must agree before rollout.
+The monetary scope is not authentication: every resume still requires a valid, scoped
+backend delegation JWT. JWT expiry and token renewal behavior are unchanged.
+
+Offline regressions are in `tests/test_platform_budget_completion.py`. Real PostgreSQL
+restart and authenticated-resume cases in
+`tests/integration/test_platform_budget_completion_postgres.py` require
+`AGENT_INTEGRATION_DATABASE_URL`; all provider responses remain mocked.
