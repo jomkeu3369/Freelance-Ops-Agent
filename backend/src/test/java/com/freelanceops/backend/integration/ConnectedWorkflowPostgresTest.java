@@ -331,7 +331,8 @@ class ConnectedWorkflowPostgresTest {
                     select (jsonb_populate_record(null::app.specification,
                         to_jsonb(specification) || jsonb_build_object('id', ?::uuid, 'revision_number', 3))).*
                     from app.specification specification where specification.id=?
-                    """, UUID.randomUUID(), confirmed.id())).isInstanceOf(DataAccessException.class);
+                    """, UUID.randomUUID(), confirmed.id())).isInstanceOf(DataAccessException.class)
+                    .hasMessageContaining("specification must begin as a draft and use the lossless confirmation transition");
                 assertThat(jdbc.queryForObject("select count(*) from app.specification where project_id=?", Integer.class, project.id())).isEqualTo(2);
                 // A semantic confirmation changes truth without changing the optimistic project version.
                 jdbc.update("insert into app.source_message(workspace_id,project_id,event_key,kind,content,created_by) values (?,?,?,'REQUIREMENT_CONFIRMATION','새 합성 확정 범위',?)",
