@@ -66,7 +66,10 @@ export async function analysisWorkflowFixture(page, { completed = true, projectI
     const operation = path === root ? "create" : path.endsWith("/revisions") ? "revise" : path.endsWith("/confirm") ? "confirm" : "get";
     const targetId = path.slice(root.length + 1).split("/")[0];
     const target = workflow.decisions.find(value => value.id === targetId);
-    if (operation === "get" && method === "GET") return target ? json(clone(target)) : fail("Fixture decision not found", 404);
+    if (operation === "get" && method === "GET") {
+      const value = path.endsWith("/latest-revision") && target ? latest(target.familyId) : target;
+      return value ? json(clone(value)) : fail("Fixture decision not found", 404);
+    }
     if (method !== "POST") return fail("Unexpected decision route", 404);
     if (!state.permissions.includes("project.write")) return fail("Permission denied", 403);
     if (operation === "create") workflow.creates.push(clone(body));
@@ -97,7 +100,7 @@ export async function analysisWorkflowFixture(page, { completed = true, projectI
       value = { id: decisionId, workspaceId: "local-space", projectId, familyId: decisionId, previousId: null, versionNumber: 1, status: "DRAFT",
         sourceRunId: state.run.runId, sourceProjectVersion: workflow.sourceVersion, selectedOpinionIds: sourceOpinions.map(item => item.opinionId), sourceOpinions,
         sourcePetProfiles: clone(state.run.metadata.petProfiles), sourceSummary: state.run.result.projectSummary, sourceOpenQuestions: clone(state.run.result.openQuestions),
-        sourceMessages: clone(sourceMessages), sourceEventOrder: 1, reviewWarnings: selected.length > 1 ? ["서로 다른 범위입니다. 중복·상충하는 범위를 검토해 주세요."] : [],
+        sourceMessages: clone(sourceMessages), sourceEventOrder: Math.max(0, ...sourceMessages.filter(source => source.kind !== "RUN_INPUT").map(source => source.eventOrder)), reviewWarnings: selected.length > 1 ? ["서로 다른 범위입니다. 중복·상충하는 범위를 검토해 주세요."] : [],
         originalBodyText: bodyText, bodyText, contentHash: hash(bodyText), bodyOrigin: "SELECTED_OPINIONS", createdBy: "local-user", createdAt: now, confirmedBy: null, confirmedAt: null };
       workflow.decisions.unshift(value);
     } else if (operation === "revise") {

@@ -38,13 +38,22 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
+  // Persist before a client-side route transition can unmount the editor.
+  // This is a local recovery draft only, never server confirmation.
+  const persistDraft = useCallback((base: AnalysisDecision, text: string) => {
+    if (!canWrite) return;
+    try { sessionStorage.setItem(storageKey, JSON.stringify({ baseId: base.id, baseHash: base.contentHash, bodyText: text })); }
+    catch { if (owns()) setStorageUnavailable(true); }
+  }, [canWrite, owns, storageKey]);
+
   const apply = useCallback((value: AnalysisDecision, restore = false) => {
     setDecision(value);
-    setBodyText(restore ? restoredDecisionDraft(stored(storageKey), value) ?? value.bodyText : value.bodyText);
+    const body = restore ? restoredDecisionDraft(stored(storageKey), value) ?? value.bodyText : value.bodyText;
+    setBodyText(body); persistDraft(value, body);
     setAcknowledged(false);
     setSelectedIds(value.selectedOpinionIds);
     setHistory(current => [value, ...current.filter(item => item.id !== value.id)]);
-  }, [storageKey]);
+  }, [persistDraft, storageKey]);
 
   useEffect(() => {
     if (!canRead) return;
@@ -97,14 +106,6 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
   const selectionChanged = !!decision && (source?.runId === decision.sourceRunId || selectedIds.length > 0)
     && JSON.stringify([...selectedIds].sort()) !== JSON.stringify([...decision.selectedOpinionIds].sort());
 
-  useEffect(() => {
-    if (!decision || !canWrite) return;
-    const timer = window.setTimeout(() => {
-      try { sessionStorage.setItem(storageKey, JSON.stringify({ baseId: decision.id, baseHash: decision.contentHash, bodyText })); }
-      catch { if (owns()) setStorageUnavailable(true); }
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [bodyText, canWrite, decision, owns, storageKey]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -147,7 +148,10 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
     } finally { lock.current = false; if (owns()) setBusy(false); }
   }
 
-  function edit(value: string) { mutationRevision.current += 1; setBodyText(value); setAcknowledged(false); setNotice(null); }
+  function edit(value: string) {
+    mutationRevision.current += 1; setBodyText(value); setAcknowledged(false); setNotice(null);
+    if (decision) persistDraft(decision, value);
+  }
   function toggle(id: string) { setSelectedIds(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id]); setAcknowledged(false); setNotice(null); }
   function restoreSelection() { if (decision) { setSelectedIds(decision.selectedOpinionIds); setAcknowledged(false); } }
 
