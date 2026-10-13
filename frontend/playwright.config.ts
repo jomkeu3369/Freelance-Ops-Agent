@@ -6,7 +6,8 @@ export default defineConfig({
   workers: 1,
   timeout: 45_000,
   outputDir: "outputs/ui-ux/results",
-  reporter: [["list"], ["html", { outputFolder: "outputs/ui-ux/report", open: "never" }]],
+  reporter: [["list"], ["html", { outputFolder: "outputs/ui-ux/report", open: "never" }],
+    ["junit", { outputFile: "outputs/ui-ux/junit.xml" }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100",
     channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome",
