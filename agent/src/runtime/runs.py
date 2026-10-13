@@ -39,6 +39,12 @@ from platform_budget import (
     validate_platform_request,
 )
 
+from .continuity import (
+    INTERRUPTED_RUN_ERROR,
+    TERMINAL_RUN_STATUSES,
+    execution_is_stalled,
+    introduces_terminal_attempt,
+)
 from .task_contracts import AttemptStatus
 
 logger = logging.getLogger(__name__)
@@ -73,6 +79,8 @@ class ExecutionAuthorization:
 class ExecutionEvent:
     type: str
     data: dict[str, object] = field(default_factory=dict)
+    partial_result: AgentRunResult | None = None
+    active_department: DepartmentName | None = None
 
 
 _progress_publisher: ContextVar[Callable[[ExecutionEvent], Awaitable[None]] | None] = ContextVar(
@@ -162,6 +170,8 @@ class AgentRunStore(Protocol):
 
     async def get_request(self, run_id: UUID) -> AgentRunRequest: ...
 
+    async def reconcile_stalled(self, run_id: UUID, now: datetime) -> AgentRunView: ...
+
     async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView: ...
 
     async def complete(self, run_id: UUID, outcome: ExecutionOutcome) -> None: ...
@@ -174,7 +184,7 @@ class AgentRunStore(Protocol):
 
     async def append_progress(self, run_id: UUID, event: ExecutionEvent) -> None: ...
 
-    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None: ...
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage, *, final_accounting: bool = False) -> None: ...
 
     async def list_route_events(self, run_id: UUID, after_event_id: int = 0, limit: int = 101) -> list[AgentRunEvent]: ...  # noqa: E501
 
@@ -212,6 +222,22 @@ class InMemoryAgentRunStore:
         async with self._lock:
             return self._record(run_id).request
 
+    async def reconcile_stalled(self, run_id: UUID, now: datetime) -> AgentRunView:
+        async with self._lock:
+            record = self._record(run_id)
+            if record.status is AgentRunStatus.RUNNING:
+                started_at = next((event.occurred_at for event in reversed(record.events)
+                                   if event.type == "run.started"), record.updated_at)
+                if execution_is_stalled(record.request, started_at, now):
+                    # This proves the bounded execution window was missed, not
+                    # whether an already-admitted provider request was billed.
+                    # Keep unknown calls and execution_closed unchanged.
+                    record.status = AgentRunStatus.FAILED
+                    record.error_code = INTERRUPTED_RUN_ERROR
+                    record.updated_at = now
+                    self._append_event(record, "run.failed", {"errorCode": INTERRUPTED_RUN_ERROR})
+            return record.view()
+
     async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView:
         async with self._lock:
             record = self._record(run_id)
@@ -231,7 +257,8 @@ class InMemoryAgentRunStore:
             if record.status is not AgentRunStatus.RUNNING:
                 raise AgentRunStateError("only a running Agent run can complete or interrupt")
             record.active_department = outcome.active_department
-            record.result = outcome.result
+            if outcome.result is not None:
+                record.result = outcome.result
             record.interruption = outcome.interruption
             record.usage = merge_usage(record.usage, outcome.usage)
             record.status = (
@@ -303,11 +330,18 @@ class InMemoryAgentRunStore:
             record = self._record(run_id)
             if record.status is not AgentRunStatus.RUNNING:
                 raise AgentRunStateError("only a running Agent run can publish progress")
+            if event.partial_result is not None:
+                record.result = event.partial_result
+                record.active_department = event.active_department
+            record.updated_at = datetime.now(UTC)
             self._append_event(record, event.type, event.data)
 
-    async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
+    async def record_usage(self, run_id: UUID, usage: AgentRunUsage, *, final_accounting: bool = False) -> None:
         async with self._lock:
             record = self._record(run_id)
+            if (not final_accounting and record.status in TERMINAL_RUN_STATUSES
+                    and introduces_terminal_attempt(record.usage, usage)):
+                raise AgentRunStateError("terminal Agent run cannot admit another provider attempt")
             record.usage = merge_usage(record.usage, usage)
             record.updated_at = datetime.now(UTC)
 
@@ -468,8 +502,19 @@ class RunCoordinator:
         self._active_ledgers: dict[UUID, PlatformSpendLedger | ByokExecutionLedger] = {}
 
     async def accept(self, request: AgentRunRequest) -> AgentRunAccepted:
-        self._validate_funding(request)
-        view = await self._store.create(request)
+        try:
+            existing = await self._store.get_request(request.context.run_id)
+        except AgentRunNotFoundError:
+            self._validate_funding(request)
+        else:
+            if existing != request:
+                raise AgentRunStateError("agent run already exists with a different request")
+            # Matching HTTP retries only acknowledge saved state. An old
+            # monetary deadline is not permission to replay it, nor a reason
+            # to hide its completed result. Any still-queued execution validates
+            # the original funding again in _run before starting work.
+        await self._store.create(request)
+        view = await self.view(request.context.run_id)
         # A lost HTTP acknowledgement may be retried after work has already
         # started or finished. Acknowledge the durable state, never replay it
         # or overwrite a later checkpoint with a synthetic QUEUED state.
@@ -506,7 +551,16 @@ class RunCoordinator:
         await self._tracked_run(request, None, authorization)
 
     async def view(self, run_id: UUID) -> AgentRunView:
-        return await self._store.get(run_id)
+        view = await self._store.reconcile_stalled(run_id, datetime.now(UTC))
+        if view.error_code == INTERRUPTED_RUN_ERROR and view.status is AgentRunStatus.FAILED:
+            ledger = self._active_ledgers.get(run_id)
+            if ledger is not None:
+                ledger.blocked = True
+            async with self._task_lock:
+                task = self._active_tasks.get(run_id)
+                if task is not None and task is not asyncio.current_task() and not task.done():
+                    task.cancel()
+        return view
 
     async def events(self, run_id: UUID, after_event_id: int = 0) -> list[AgentRunEvent]:
         return await self._store.list_events(run_id, after_event_id)
@@ -604,7 +658,11 @@ class RunCoordinator:
             if ledger is not None:
                 # Scope exit blocks detached/late calls. This evidence, together
                 # with terminal state, lets Spring release only unused exposure.
-                await self._store.record_usage(request.context.run_id, ledger.report(None))
+                # No provider I/O follows this final report. A reservation made
+                # just before a cross-process cancel can have failed admission
+                # persistence; retain that conservative exposure too. This path
+                # must not share the pre-I/O permission to admit another call.
+                await self._store.record_usage(request.context.run_id, ledger.report(None), final_accounting=True)
 
     async def _run_scoped(self, request: AgentRunRequest, resume: ResumeAgentRunRequest | None, authorization: ExecutionAuthorization | None) -> None:  # noqa: E501
         run_id = request.context.run_id

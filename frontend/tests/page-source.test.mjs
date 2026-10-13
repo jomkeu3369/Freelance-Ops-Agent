@@ -614,7 +614,7 @@ test("completed AI analysis prices its editable draft from active server rate ca
   ]);
   assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
   assert.match(api, /quotationDrafts: AgentQuotationDraft\[\]/);
-  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts \?\? \[\]\}/);
+  assert.match(workspace, /quotationDrafts=\{run\?\.status === "COMPLETED" \? run\.result\?\.quotationDrafts \?\? \[\] : \[\]\}/);
   assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
   assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);
@@ -858,8 +858,8 @@ test("agent runs request enough model calls and output tokens for the four-depar
   assert.match(api, /maxModelCalls: 50/);
   assert.match(api, /maxOutputTokens: 48000/);
   assert.match(api, /\| "PARTIAL"/);
-  assert.match(workspace, /일부 분석 결과를 먼저 제공합니다/);
-  assert.match(workspace, /run\.status === "PARTIAL"/);
+  assert.match(workspace, /savedResultPresentation\(run\.status\)/);
+  assert.match(workspace, /!resultState\.complete/);
   assert.match(workflow, /"run\.partial": "review"/);
   assert.match(workflow, /PARTIAL: "부분 결과 제공"/);
 });
@@ -869,7 +869,7 @@ test("waiting agent runs prioritize inline questions and open work detail on dem
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /status === "WAITING_FOR_USER" && item\.runId === runId \? clarification/);
+  assert.match(workspace, /status === "WAITING_FOR_USER" && item\.runId === runId && clarification/);
   assert.match(workspace, /clarification=\{run\?\.interruption \?\s*<InterruptionForm/);
   assert.match(workspace, /showWorkDetails &&\s*<WorkspacePanel/);
   assert.match(workspace, /<LiveWorkflow snapshot=\{snapshot\}/);

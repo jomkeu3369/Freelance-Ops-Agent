@@ -11,8 +11,10 @@ import { chatEnglish } from './ui-chat-english.mjs';
 import { homeEnglish } from './ui-home-english.mjs';
 import { storyEnglish } from './ui-story-english.mjs';
 import { petEnglish } from './ui-pet-english.mjs';
+import { continuityEnglish } from './ui-continuity-english.mjs';
 // Korean source keys are the fallback. Only interface copy and fictional examples belong here.
 export const englishUi = {
+  ...continuityEnglish,
   "운영 공지 | Freelance Ops": "Service notices | Freelance Ops",
   "배경 영상 일시정지": "Pause background video",
   "배경 영상 재생": "Play background video",

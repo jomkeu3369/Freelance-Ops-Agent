@@ -72,6 +72,23 @@ class AgentEventRelayTest {
     }
 
     @Test
+    void allowsRealTaskProgressAndSavedDepartmentsBeforeLaterTerminalEvents() throws Exception {
+        UUID runId = UUID.randomUUID();
+        long cursor = 1;
+        for (String type : new String[] {"task.delegated", "task.completed", "department.saved", "task.failed", "run.failed"}) {
+            long eventId = cursor + 1;
+            String data = objectMapper.writeValueAsString(Map.of(
+                "eventId", eventId, "runId", runId, "type", type, "occurredAt", Instant.now(),
+                "data", Map.of("department", "REQUIREMENTS")
+            ));
+            var event = relay.parse(Long.toString(eventId), type, data, runId, cursor);
+            assertThat(event.type()).isEqualTo(type);
+            cursor = event.eventId();
+        }
+        assertThat(cursor).isEqualTo(6);
+    }
+
+    @Test
     void rejectsPrivateOrMismatchedEvents() {
         UUID runId = UUID.randomUUID();
         String data = "{\"eventId\":2,\"runId\":\"" + runId + "\",\"type\":\"internal.node\",\"occurredAt\":\"2026-08-13T00:00:00Z\",\"data\":{}}";

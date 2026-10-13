@@ -6,6 +6,7 @@ import { eventDataText, routeActivityLabels } from "../../shared/activity-presen
 import { providerLabels } from "../../shared/constants";
 import { AnalysisDepartments } from "./analysis-departments";
 import { AnalysisUsage } from "./analysis-usage";
+import { savedResultPresentation } from "../../../../app/lib/chat-presentation.mjs";
 
 interface AnalysisResultProps {
   run: AgentRunView;
@@ -21,25 +22,26 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
   const selectedRoute = latestRouteEvent ? eventDataText(latestRouteEvent, "route") : null;
   const routingProvider = latestRouteEvent ? eventDataText(latestRouteEvent, "routingProvider") : null;
   const routingModel = latestRouteEvent ? eventDataText(latestRouteEvent, "routingModel") : null;
+  const resultState = savedResultPresentation(run.status);
 
   if (!run.result) return null;
 
   return (
     <div className="run-result">
-      {run.status === "PARTIAL" && (
+      {!resultState.complete && (
         <div className="run-partial">
           <Warning size={20} />
           <div>
-            <strong>{t("일부 분석 결과를 먼저 제공합니다.")}</strong>
+            <strong>{t(resultState.label)}</strong>
             <p>
-              {t("완료된 단계의 검증된 결과만 표시합니다. 누락된 단계는 다시 분석해 보완할 수 있습니다.")}</p>
+              {t("전체 분석이 완료되지 않았습니다. 저장된 부서 결과만 표시하며 최종 확정에는 사용할 수 없습니다.")}</p>
             {run.errorCode && <small>{t("중단 사유 ·")}{run.errorCode}</small>}
           </div>
         </div>
       )}
-      <span className={`result-state${run.status === "PARTIAL" ? " partial" : ""}`}>
-        {run.status === "PARTIAL" ? <Warning size={17} /> : <CheckCircle size={17} />}{" "}
-        {run.status === "PARTIAL" ? t("부분 분석 결과") : t("분석 결과")}
+      <span className={`result-state${resultState.complete ? "" : " partial"}`}>
+        {resultState.complete ? <CheckCircle size={17} /> : <Warning size={17} />}{" "}
+        {t(resultState.label)}
       </span>
       {run.status === "COMPLETED" && run.result.departmentResults.some((result) => result.department === "REQUIREMENTS") && (
         <p>{t("AI 요구사항 문서는 근거 자료에서 검토할 수 있습니다. 사용자 확인 전에는 다음 분석의 근거로 사용되지 않습니다.")}</p>
@@ -106,7 +108,7 @@ export function AnalysisResult({ run, events, costUsage, onCompareQuotes }: Anal
             <small>
               {t("각 안의 범위와 공수는 AI가 나누고, 단가와 최종 금액은 등록된 기준으로 계산합니다.")}</small>
           </div>
-          {onCompareQuotes && <button type="button" className="secondary-button" onClick={onCompareQuotes}>
+          {resultState.complete && onCompareQuotes && <button type="button" className="secondary-button" onClick={onCompareQuotes}>
             {t("견적 비교하기")}<ArrowRight size={16} />
           </button>}
         </section>

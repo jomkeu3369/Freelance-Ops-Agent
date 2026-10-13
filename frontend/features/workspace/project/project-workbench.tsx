@@ -438,8 +438,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           session={session}
           project={project}
           permissions={permissions}
-          quotationDraft={run?.result?.quotationDraft ?? null}
-          quotationDrafts={run?.result?.quotationDrafts ?? []}
+          quotationDraft={run?.status === "COMPLETED" ? run.result?.quotationDraft ?? null : null}
+          quotationDrafts={run?.status === "COMPLETED" ? run.result?.quotationDrafts ?? [] : []}
           petProfiles={run?.metadata?.petProfiles}
           modelSelection={
             run?.metadata

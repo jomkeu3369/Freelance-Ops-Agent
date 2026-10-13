@@ -700,8 +700,8 @@ async def test_cross_instance_cancel_remains_bounded_without_releasing_reservati
             await budgeted_openai_attempt(fake, selection(), "before-cancel", payload())
             first_call_done.set()
             await proceed.wait()
-            # A different coordinator cannot cancel this local task. Admission
-            # remains under the original cap, which the backend never refunds.
+            # A different coordinator cannot cancel this local task, but the
+            # durable terminal-state fence still prevents another provider I/O.
             await budgeted_openai_attempt(fake, selection(), "after-remote-cancel", payload())
             return ExecutionOutcome(result=AgentRunResult(project_summary="bounded"))
 
@@ -718,7 +718,13 @@ async def test_cross_instance_cancel_remains_bounded_without_releasing_reservati
     await task
     assert (await store.get(request.context.run_id)).status is AgentRunStatus.CANCELLED
     assert ledger_used[0].cost <= request.platform_budget.max_cost_usd
-    assert fake.responses.create.await_count == 2
+    assert fake.responses.create.await_count == 1
+    # No new call was sent. Conservative attempted reservation accounting is
+    # retained, while the known first response remains settled.
+    final = await store.get(request.context.run_id)
+    assert final.usage.execution_closed
+    assert final.usage.provider_calls[0].usage_known
+    assert not final.usage.provider_calls[1].usage_known
 
 
 async def test_expiry_is_rechecked_between_http_attempts():

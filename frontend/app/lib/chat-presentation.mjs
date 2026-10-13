@@ -20,6 +20,17 @@ export function resultPendingMessage(status) {
   return "현재 작업 상태를 확인할 수 없습니다. 기록을 다시 불러와 주세요.";
 }
 
+// A saved department snapshot is useful evidence, never proof that the whole
+// run completed or that the user approved a quotation/specification.
+export function savedResultPresentation(status) {
+  if (status === "COMPLETED") return { complete: true, label: "분석 결과" };
+  if (status === "PARTIAL") return { complete: false, label: "부분 분석 결과" };
+  if (status === "WAITING_FOR_USER") return { complete: false, label: "확인 대기 중 저장된 결과" };
+  if (status === "RUNNING" || status === "QUEUED") return { complete: false, label: "저장된 중간 결과" };
+  if (status === "FAILED" || status === "CANCELLED") return { complete: false, label: "중단 전 저장된 결과" };
+  return { complete: false, label: "완료 미확인 결과" };
+}
+
 // Input availability is independent of run/result availability. Never substitute
 // the project's current requirements or a warning for the saved user's words.
 /** @param {{ requirementText: string | null, originalInputStatus?: string, originalInputIssue?: string | null }} item */

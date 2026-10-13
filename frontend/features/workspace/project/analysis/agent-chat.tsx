@@ -20,7 +20,7 @@ import {
 } from "../../../../app/lib/api";
 import { ChatCircleText, ArrowUp, ArrowDown, ArrowUpRight, CheckCircle, CircleNotch, WarningCircle, WifiSlash, ListChecks } from "@phosphor-icons/react";
 import { ChatSettingsButton } from "./chat-settings-button";
-import { chatState, originalInputPresentation, resultPendingMessage } from "../../../../app/lib/chat-presentation.mjs";
+import { chatState, originalInputPresentation, resultPendingMessage, savedResultPresentation } from "../../../../app/lib/chat-presentation.mjs";
 import { parseChatPolicyIntent } from "../../../../app/lib/chat-policy-intent.mjs";
 import { departmentLabels, runStatusLabels } from "../../shared/constants";
 import { eventActivityLabels, runFailureMessage } from "../../shared/activity-presentation";
@@ -373,10 +373,14 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
               <span className="agent-chat-message-label">{needsResultRetry ? <WarningCircle size={17} aria-hidden="true" /> : resultLoading || state.working ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : state.tone === "success" ? <CheckCircle size={17} aria-hidden="true" /> : <ListChecks size={17} aria-hidden="true" />}{t("작업 상태")} · {needsResultRetry ? t("기록 확인 필요") : resultLoading ? t("확인 중") : t(runStatusLabels[status] ?? "확인 중")}</span>
               {liveEvents.length > 0 && <details className="agent-chat-activity"><summary>{eventText(liveEvents.at(-1)!, t)}</summary><ol className="agent-chat-events">{liveEvents.slice(-8).map((entry) => <li key={entry.eventId}><ChatMarkdown locale={locale}>{eventText(entry, t)}</ChatMarkdown></li>)}</ol></details>}
               {view?.result ? <div className="agent-chat-result">
-                <strong>{t("검토할 결과")}</strong>
+                <strong>{t(savedResultPresentation(status).label)}</strong>
                 <ChatMarkdown locale={locale}>{view.result.projectSummary}</ChatMarkdown>
                 <button type="button" className="secondary-button" onClick={() => onOpenResult(view)}>{t("결과 열기")}<ArrowUpRight size={17} aria-hidden="true" /></button>
-              </div> : status === "WAITING_FOR_USER" && item.runId === runId ? clarification : <p className="agent-chat-muted">{resultLoading ? t("작업 기록을 불러오는 중입니다.") : missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : status === "FAILED" ? t(runFailureMessage(view?.errorCode ?? null)) : status === "CANCELLED" ? t("작업이 취소되었습니다.") : t(resultPendingMessage(status))}</p>}
+              </div> : status !== "WAITING_FOR_USER" && status !== "FAILED" && status !== "CANCELLED" && <p className="agent-chat-muted">{resultLoading ? t("작업 기록을 불러오는 중입니다.") : missingHistory ? t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.") : t(resultPendingMessage(status))}</p>}
+              {status === "WAITING_FOR_USER" && item.runId === runId && clarification}
+              {status === "WAITING_FOR_USER" && item.runId !== runId && <p className="agent-chat-muted">{t("사용자 확인을 기다리고 있습니다")}</p>}
+              {status === "FAILED" && <p className="agent-chat-muted">{t(runFailureMessage(view?.errorCode ?? null))}</p>}
+              {status === "CANCELLED" && <p className="agent-chat-muted">{t("작업이 취소되었습니다.")}</p>}
               {view && resultFailed && <p className="agent-chat-muted">{t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.")}</p>}
               {needsResultRetry && <button type="button" className="quiet-button" disabled={loading} onClick={() => setHistoryRevision(value => value + 1)}>{t("기록 다시 불러오기")}</button>}
               {status === "CANCELLED" && <p className="agent-chat-muted">{t("저장된 프로젝트와 이전 결과는 변경되지 않습니다.")}</p>}

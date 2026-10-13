@@ -22,6 +22,7 @@ from contracts import (
     AgentRunStatus,
     AgentWorkflowMode,
     ByokBudget,
+    DepartmentName,
     ModelSelection,
     Provider,
     RunBudget,
@@ -779,7 +780,12 @@ async def test_approved_150k_response_integrity_fault_stays_fatal_after_complete
     _, final, http, _ = await run_realistic_project(monkeypatch, integrity_fault=True)
     assert final.status is AgentRunStatus.FAILED
     assert final.error_code == "BYOK_RESPONSE_BINDING_MISMATCH"
-    assert final.result is None and final.usage.model_calls == 2
+    # The integrity failure is still fatal. Only the independently validated
+    # earlier department survives; no corrupted department becomes a result.
+    assert final.result is not None and final.usage.model_calls == 2
+    assert len(final.result.department_results) == 1
+    assert final.result.department_results[0].department is DepartmentName.REQUIREMENTS
+    assert final.result.department_results[0].summary == "제공된 자료에 근거한 단계별 분석"
     assert http.events == ["admission", "credential", "provider"] * 2
 
 
