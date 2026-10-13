@@ -28,6 +28,7 @@ public class DocumentEntity {
     @Column(name = "retrieval_eligible", nullable = false) private boolean retrievalEligible;
     @Column(name = "project_id") private UUID projectId;
     @Column(name = "source_run_id") private UUID sourceRunId;
+    @Column(name = "source_specification_id") private UUID sourceSpecificationId;
     @Column(name = "source_message_ids", nullable = false) private UUID[] sourceMessageIds = new UUID[0];
     @Column(name = "parent_document_ids", nullable = false) private UUID[] parentDocumentIds = new UUID[0];
     private UUID supersedes;
@@ -52,6 +53,12 @@ public class DocumentEntity {
         this.origin = "agent"; this.memoryType = "summary"; this.projectId = projectId;
         this.sourceRunId = runId; this.sourceMessageIds = sources.clone(); this.sourceEventOrder = sourceOrder;
     }
+    public void specification(UUID projectId, UUID specificationId, UUID[] sources, int revision) {
+        this.origin = "user"; this.memoryType = "decision"; this.projectId = projectId;
+        this.sourceSpecificationId = specificationId; this.sourceMessageIds = sources.clone();
+        this.revisionNumber = revision;
+    }
+    public UUID sourceSpecificationId() { return sourceSpecificationId; }
     public void parents(UUID[] ids) { this.parentDocumentIds = ids.clone(); }
     public void confirm(UUID actor, Instant now, DocumentEntity previous) {
         if (!"ACTIVE".equals(status) || "superseded".equals(confirmationStatus) || "assumption".equals(memoryType) || "response".equals(memoryType)) throw new IllegalStateException("document is not confirmable");

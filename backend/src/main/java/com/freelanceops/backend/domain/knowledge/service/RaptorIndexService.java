@@ -1,10 +1,6 @@
 package com.freelanceops.backend.domain.knowledge.service;
 
 import com.freelanceops.backend.domain.agentrun.service.ProviderPolicy;
-import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
-import com.freelanceops.backend.domain.knowledge.client.RaptorBuildClient;
-import com.freelanceops.backend.domain.knowledge.client.dto.request.RaptorBuildRequest;
-import com.freelanceops.backend.domain.knowledge.client.dto.response.RaptorBuildResponse;
 import com.freelanceops.backend.domain.knowledge.dto.request.CreateRaptorIndexRequest;
 import com.freelanceops.backend.domain.knowledge.dto.response.RaptorIndexResponse;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
@@ -19,13 +15,8 @@ import java.util.*;
 public class RaptorIndexService {
     private final WorkspacePermissionReader permissionReader;
     private final ProjectRepository projectRepository;
-    private final DelegationTokenIssuer tokenIssuer;
-    private final RaptorBuildClient client;
-    private final RaptorIndexTransactions transactions;
-
-    public RaptorIndexService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository, DelegationTokenIssuer tokenIssuer, RaptorBuildClient client, RaptorIndexTransactions transactions) {
-        this.permissionReader = permissionReader; this.projectRepository = projectRepository; this.tokenIssuer = tokenIssuer;
-        this.client = client; this.transactions = transactions;
+    public RaptorIndexService(WorkspacePermissionReader permissionReader, ProjectRepository projectRepository) {
+        this.permissionReader = permissionReader; this.projectRepository = projectRepository;
     }
 
     public RaptorIndexResponse rebuild(UUID userId, UUID workspaceId, UUID projectId, CreateRaptorIndexRequest request, String traceparent) {
@@ -34,26 +25,10 @@ public class RaptorIndexService {
         projectRepository.findByIdAndWorkspaceId(projectId, workspaceId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         ProviderPolicy.requireSupported(request.provider());
-        UUID runId = UUID.randomUUID(); UUID snapshotId = UUID.randomUUID();
-        RaptorIndexTransactions.PreparedBuild prepared = transactions.begin(snapshotId, workspaceId, userId, request.embeddingModel().trim(), request.summaryModel().trim());
-        try {
-            List<String> permissions = membership.permissions().stream().map(PermissionCode::code).sorted().collect(java.util.stream.Collectors.toCollection(ArrayList::new));
-            permissions.add("knowledge.index");
-            String token = tokenIssuer.issue(runId, workspaceId, projectId, userId, permissions);
-            RaptorBuildRequest body = new RaptorBuildRequest(
-                new RaptorBuildRequest.RaptorBuildContext(runId, workspaceId, projectId, snapshotId), request.provider().name(),
-                request.embeddingModel().trim(), request.summaryModel().trim(),
-                prepared.chunks().stream().map(chunk -> new RaptorBuildRequest.RaptorSourceChunk(chunk.chunkId(), chunk.documentId(), chunk.text(), chunk.metadata())).toList(),
-                new RaptorBuildRequest.RaptorBuildOptions(request.targetClusterSize(), request.maxSummaryLevels(), request.kmeansIterations())
-            );
-            RaptorBuildResponse response = client.build(body, token, traceparent);
-            int nodeCount = transactions.publish(prepared, response);
-            return new RaptorIndexResponse(snapshotId, "PUBLISHED", nodeCount);
-        } catch (RuntimeException error) {
-            try { transactions.fail(workspaceId, snapshotId, error.getClass().getSimpleName()); }
-            catch (RuntimeException failureError) { error.addSuppressed(failureError); }
-            throw error;
-        }
+        // This endpoint predates platform/BYOK reservations and settlement. A role
+        // permission or enabled spend flag is not a bounded payment authorization.
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+            "RAPTOR_COST_CONTROL_UNSUPPORTED: 벡터 색인의 비용 통제가 아직 지원되지 않습니다. 확인한 문서는 키워드 검색으로 사용할 수 있습니다.");
     }
 
     private static void require(MembershipPermissions membership, PermissionCode permission) {

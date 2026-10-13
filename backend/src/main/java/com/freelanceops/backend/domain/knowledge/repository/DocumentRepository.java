@@ -8,6 +8,7 @@ import java.util.UUID;
 public interface DocumentRepository extends JpaRepository<DocumentEntity, UUID> {
     List<DocumentEntity> findAllByWorkspaceIdAndProjectIdAndOrigin(UUID workspaceId, UUID projectId, String origin);
     Optional<DocumentEntity> findBySourceRunId(UUID sourceRunId);
+    Optional<DocumentEntity> findBySourceSpecificationId(UUID sourceSpecificationId);
     List<DocumentEntity> findAllByWorkspaceIdAndProjectIdAndOriginAndConfirmationStatus(UUID workspaceId, UUID projectId, String origin, String confirmationStatus);
     List<DocumentEntity> findAllByWorkspaceIdAndStatusOrderByCreatedAtDesc(UUID workspaceId, String status);
     Optional<DocumentEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);

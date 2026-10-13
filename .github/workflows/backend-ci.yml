@@ -4,6 +4,7 @@ on:
   workflow_call:
   push:
     branches:
+      - "work/specification-reuse-flow-20261014"
       - "work/project-analysis-confirmation-20261014"
       - "work/release-quotation-backend-20261012"
       - "work/integrate-quotation-ui-seo-20261012"
