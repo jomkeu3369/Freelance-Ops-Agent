@@ -37,7 +37,7 @@ export async function analysisWorkflowFixture(page, { completed = true, projectI
   state.projects[0].version = 0;
   state.run = completed ? completeWorkflowRun() : null;
   state.history = state.run ? [{ runId: state.run.runId, requirementText: state.projects[0].requirementText, status: state.run.status, createdAt: now }] : [];
-  const workflow = { decisions: [], creates: [], revisions: [], confirms: [], requests: [], barriers: {}, failures: {}, lostResponses: {}, sourceStale: false, sourceVersion: 0, ledger: new Map(), serial: 1 };
+  const workflow = { decisions: [], creates: [], revisions: [], confirms: [], requests: [], barriers: {}, failures: {}, lostResponses: {}, sourceEnabled: completed, sourceStale: false, sourceVersion: 0, ledger: new Map(), serial: 1 };
   const root = `/api/v2/workspaces/local-space/projects/${projectId}/analysis-decisions`;
   const id = () => `d1000000-0000-4000-8000-${String(workflow.serial++).padStart(12, "0")}`;
   const sourceMessages = [
@@ -54,7 +54,7 @@ export async function analysisWorkflowFixture(page, { completed = true, projectI
     const json = (value, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     const fail = (message, status = 409) => json({ message }, status);
     if (method === "GET" && path === `${root}/sources/latest`) {
-      const snapshot = state.run ? { runId: state.run.runId, sourceProjectVersion: workflow.sourceVersion, view: clone(state.run) } : null;
+      const snapshot = state.run && workflow.sourceEnabled ? { runId: state.run.runId, sourceProjectVersion: workflow.sourceVersion, view: clone(state.run) } : null;
       await barrier("source");
       return snapshot ? json(snapshot) : route.fulfill({ status: 204 });
     }

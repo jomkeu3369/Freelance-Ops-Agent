@@ -6,11 +6,16 @@ const scenarios = ["LEAN", "RECOMMENDED", "EXPANDED"] as const;
 export function selectableOpinions(source: AnalysisSource | null, projectVersion: number | undefined) {
   if (projectVersion === undefined || !source || source.sourceProjectVersion !== projectVersion || source.view.status !== "COMPLETED" || !source.view.result) return [];
   const drafts = source.view.result.quotationDrafts ?? [];
-  if (drafts.length !== 3 || new Set(drafts.map(draft => draft.scenario)).size !== 3) return [];
+  if (!Array.isArray(drafts) || drafts.length !== 3 || drafts.some(draft => !draft || typeof draft !== "object")
+    || new Set(drafts.map(draft => draft.scenario)).size !== 3) return [];
   const opinions = scenarios.flatMap(scenario => {
     const draft = drafts.find(value => value.scenario === scenario);
-    if (!draft?.petPerspective || !draft.petPerspective.proposal?.trim() || !draft.petPerspective.rationale?.trim()
-      || !draft.petPerspective.tradeoff?.trim() || !draft.items?.length) return [];
+    const nonblank = (value: unknown): value is string => typeof value === "string" && !!value.trim();
+    if (!draft?.petPerspective || !nonblank(draft.petPerspective.proposal) || !nonblank(draft.petPerspective.rationale)
+      || !nonblank(draft.petPerspective.tradeoff) || !Array.isArray(draft.items) || !draft.items.length || draft.items.length > 50
+      || draft.items.some(item => !item || !nonblank(item.title) || typeof item.quantity !== "number" || !Number.isFinite(item.quantity)
+        || item.quantity <= 0 || !["HOUR", "DAY", "FIXED"].includes(item.unit) || !item.basis
+        || !["EVIDENCE", "ASSUMPTION"].includes(item.basis.type) || !nonblank(item.basis.content))) return [];
     return [{ id: `${source.runId}:${scenario}`, scenario, draft }];
   });
   return opinions.length === 3 ? opinions : [];

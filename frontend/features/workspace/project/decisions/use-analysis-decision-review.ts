@@ -1,6 +1,6 @@
 import { ApiError, currentSessionGeneration, type AgentRunView, type AuthSession, type Project } from "@/app/lib/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { confirmAnalysisDecision, createAnalysisDecision, getAnalysisDecision, getLatestAnalysisSource, listAnalysisDecisions,
+import { confirmAnalysisDecision, createAnalysisDecision, getAnalysisDecision, getLatestDecisionRevision, getLatestAnalysisSource, listAnalysisDecisions,
   reviseAnalysisDecision, type AnalysisDecision, type AnalysisSource } from "./analysis-decisions-api";
 import { DecisionRequestKeys, decisionStorageKey, latestFamilyDecision, restoredDecisionDraft, selectableOpinions } from "./analysis-decision-state";
 
@@ -57,7 +57,13 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
       const saved = stored(storageKey) as { baseId?: unknown } | null;
       let initial = values[0] ?? null;
       if (typeof saved?.baseId === "string") {
-        initial = values.find(value => value.id === saved.baseId) ?? await getAnalysisDecision(session, project.id, saved.baseId);
+        const listed = values.find(value => value.id === saved.baseId);
+        initial = listed ?? await getAnalysisDecision(session, project.id, saved.baseId);
+        if (!listed) {
+          const latest = await getLatestDecisionRevision(session, project.id, initial.id);
+          if (cancelled || !owns() || revision !== mutationRevision.current) return;
+          setHistory(current => [latest, ...current.filter(value => value.id !== latest.id)]);
+        }
       }
       if (cancelled || !owns() || revision !== mutationRevision.current) return;
       if (initial) apply(initial, true);
@@ -128,7 +134,14 @@ export function useAnalysisDecisionReview(session: AuthSession, project: Project
       if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500) { requests.current.settle(kind, input); persistRequests(); }
       setError(message(cause));
       if (cause instanceof ApiError && cause.status === 409) {
-        try { const values = await listAnalysisDecisions(session, project.id); if (owns()) setHistory(values); }
+        try {
+          const values = await listAnalysisDecisions(session, project.id);
+          if (decision && !values.some(value => value.familyId === decision.familyId && value.versionNumber > decision.versionNumber)) {
+            const latest = await getLatestDecisionRevision(session, project.id, decision.id);
+            if (!values.some(value => value.id === latest.id)) values.unshift(latest);
+          }
+          if (owns()) setHistory(values);
+        }
         catch { /* Keep the reviewed editor and conflict message. Never retry a write automatically. */ }
       }
     } finally { lock.current = false; if (owns()) setBusy(false); }

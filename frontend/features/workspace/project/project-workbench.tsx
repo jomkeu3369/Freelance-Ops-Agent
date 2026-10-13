@@ -263,7 +263,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     && (item.credentialId ?? "") === (chatModel.credentialId ?? "") && item.message === project.requirementText
     && JSON.stringify(item.skillSelection ?? null) === JSON.stringify(skillSelection ?? null));
   const completedAnalysis = analysisSource?.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version ? analysisSource.view : null;
-  const quotationSource = completedAnalysis ?? (run?.status === "COMPLETED" ? run : null);
+  const quotationSource = completedAnalysis;
 
   async function startProjectAnalysis() {
     if (!chatModel || !canRun || (!canSendAI && !fullAnalysisRetry) || busy || runInProgress || analysisStartLock.current) return;

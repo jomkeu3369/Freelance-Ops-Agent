@@ -1,5 +1,6 @@
 // Interface copy for selecting recorded analysis perspectives and reviewing immutable decisions.
 export const decisionEnglish = {
+  "분석 출처 응답을 확인하지 못했습니다. 잘못된 결과는 선택하거나 확정하지 않습니다.": "The analysis source response could not be verified. Invalid results cannot be selected or confirmed.",
   "의견 정리를 볼 권한이 없습니다.": "You don't have permission to view analysis decisions.",
   "의견 정리와 확정": "Review and confirm perspectives",
   "선택한 관점, 내가 검토한 결과": "Selected perspectives, your reviewed result",

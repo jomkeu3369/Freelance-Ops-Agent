@@ -73,6 +73,7 @@ class AnalysisDecisionPostgresTest {
         var revisionInput = new ReviseAnalysisDecisionRequest(UUID.randomUUID(), draft.contentHash(), "Choose core scope. Unanswered: client assets.");
         var revision = service.revise(user, workspace, project, draft.id(), revisionInput);
         assertThat(service.revise(user, workspace, project, draft.id(), revisionInput).id()).isEqualTo(revision.id());
+        assertThat(service.getLatestRevision(user, workspace, project, draft.id()).id()).isEqualTo(revision.id());
         assertStatus(409, () -> service.confirm(user, workspace, project, draft.id(), confirm(draft.contentHash())));
         var confirmed = service.confirm(user, workspace, project, revision.id(), confirm(revision.contentHash()));
         assertThat(service.confirm(user, workspace, project, revision.id(), confirm(revision.contentHash()))).isEqualTo(confirmed);
@@ -80,6 +81,33 @@ class AnalysisDecisionPostgresTest {
         assertThat(service.getLatestConfirmed(user, workspace, project).orElseThrow().id()).isEqualTo(confirmed.id());
         assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isEqualTo(2);
         assertThat(jdbc.queryForObject("select jsonb_array_length(source_opinions) from app.analysis_decision where id=?", Integer.class, confirmed.id())).isEqualTo(2);
+    }
+
+    @Test void concurrentDuplicateRequestsAndCompetingRevisionsRemainSerializedAndAppendOnly() throws Exception {
+        var input = new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"));
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var requests = java.util.stream.IntStream.range(0, 6)
+                .mapToObj(index -> pool.submit(() -> service.create(user, workspace, project, input))).toList();
+            var created = requests.getFirst().get(20, java.util.concurrent.TimeUnit.SECONDS);
+            for (var request : requests) assertThat(request.get(20, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(created);
+            assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isEqualTo(1);
+            verify(gateway, times(1)).get(eq(user), eq(workspace), eq(runId), anyString());
+            var revisions = java.util.stream.IntStream.range(0, 2).mapToObj(index -> pool.submit(() -> {
+                try {
+                    return service.revise(user, workspace, project, created.id(), new ReviseAnalysisDecisionRequest(
+                        UUID.randomUUID(), created.contentHash(), "Concurrent reviewed scope " + index));
+                } catch (ResponseStatusException conflict) {
+                    assertThat(conflict.getStatusCode().value()).isEqualTo(409);
+                    return null;
+                }
+            })).toList();
+            int saved = 0;
+            for (var revision : revisions) if (revision.get(20, java.util.concurrent.TimeUnit.SECONDS) != null) saved++;
+            assertThat(saved).isEqualTo(1);
+            assertThat(service.get(user, workspace, project, created.id()).bodyText()).isEqualTo(created.bodyText());
+            assertThat(service.getLatestRevision(user, workspace, project, created.id()).versionNumber()).isEqualTo(2);
+            assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isEqualTo(2);
+        }
     }
 
     @Test void databaseRejectsMutationOfDraftAndConfirmedBodiesAndDirectConfirmedInsertion() {

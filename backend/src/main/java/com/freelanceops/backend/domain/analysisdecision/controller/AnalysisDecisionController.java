@@ -46,6 +46,11 @@ public class AnalysisDecisionController {
         return service.get(user(authentication), workspaceId, projectId, decisionId);
     }
 
+    @GetMapping("/{decisionId}/latest-revision")
+    public AnalysisDecisionResponse latestRevision(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @PathVariable UUID decisionId, Authentication authentication) {
+        return service.getLatestRevision(user(authentication), workspaceId, projectId, decisionId);
+    }
+
     @PostMapping
     public AnalysisDecisionResponse create(@PathVariable UUID workspaceId, @PathVariable UUID projectId, @Valid @RequestBody CreateAnalysisDecisionRequest request, Authentication authentication) {
         return service.create(user(authentication), workspaceId, projectId, request);
