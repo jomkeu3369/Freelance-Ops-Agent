@@ -1,13 +1,17 @@
+"use client";
+
 import type { PetProfile } from "@/app/lib/api";
+import { usePetGaze } from "./use-pet-gaze";
 const palettes = {
   sage: ["#d2e4b7", "#a2c5a1", "#79a982"], lavender: ["#e8e0f4", "#b8a9dd", "#9583bf"],
   peach: ["#f3c8a7", "#e6ad88", "#c88c66"], sky: ["#cdebf6", "#90c8e2", "#659cbb"],
   rose: ["#f3d2dc", "#e4a6be", "#b87795"], ink: ["#89919f", "#555f72", "#354055"]
 };
 export function PetArt({ kind, state = "idle", profile }: { kind: string; state?: string; profile?: PetProfile }) {
+  const portrait = usePetGaze();
   const [light, body, accent] = palettes[profile?.color ?? (kind === "cat" ? "peach" : kind === "turtle" ? "sage" : "lavender")];
   return (
-    <svg className={`pet-art pet-${kind} pet-${state}`} viewBox="0 0 140 128" fill="none" aria-hidden="true">
+    <svg ref={portrait} className={`pet-art pet-${kind} pet-${state}`} viewBox="0 0 140 128" fill="none" aria-hidden="true">
       <ellipse cx="70" cy="117" rx="39" ry="7" fill="currentColor" opacity=".08" />
       <g className="pet-body" stroke="#383345" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         {kind === "cat" ? <>
