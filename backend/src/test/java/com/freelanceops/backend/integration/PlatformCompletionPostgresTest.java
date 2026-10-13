@@ -190,6 +190,8 @@ class PlatformCompletionPostgresTest {
 
     @Test void actualOutboxConstraintFailureRollsBackCompletionAdmission() {
         UUID user = UUID.randomUUID(), run = UUID.randomUUID();
+        jdbc.update("INSERT INTO app.user_account(id,external_subject,email,status) VALUES (?,?,?,'ACTIVE')",
+            user, "completion-outbox:" + user, user + "@example.invalid");
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
             spend.reserve(user, run, LUNA, BUDGET);
             // No agent_run row was created: the real outbox foreign key rejects dispatch.
@@ -197,7 +199,7 @@ class PlatformCompletionPostgresTest {
                 INSERT INTO app.agent_run_command(id,run_id,command_type,payload,requested_by,effective_permissions,status)
                 VALUES (?,?,'START','{}',?,'[]','PENDING')
                 """, UUID.randomUUID(), run, user);
-        })).isInstanceOf(DataAccessException.class);
+        })).isInstanceOf(DataAccessException.class).hasStackTraceContaining("agent_run_command_run_id_fkey");
         assertEmptyAdmission();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.agent_run_command WHERE run_id=?", Integer.class, run)).isZero();
     }
@@ -214,7 +216,8 @@ class PlatformCompletionPostgresTest {
         assertThat(revision()).isEqualTo(originalRevision + 1);
         jdbc.update("UPDATE app.platform_spend_model_cap SET max_run_usd=? WHERE model=?", FULL.divide(BigDecimal.valueOf(2)), LUNA.model());
         var oldInstance = new PlatformSpendService(jdbc, true, false);
-        assertThat(tx.execute(status -> oldInstance.reserve(user, run, LUNA, BUDGET))).isEqualTo(original);
+        PlatformBudget replay = tx.execute(status -> oldInstance.reserve(user, run, LUNA, BUDGET));
+        assertThat(replay).isEqualTo(original);
         assertThat(jdbc.queryForObject("SELECT row_to_json(r)::text FROM app.platform_spend_reservation r WHERE run_id=?", String.class, run)).isEqualTo(parent);
         assertThat(jdbc.queryForObject("SELECT payload::text FROM app.platform_completion_reservation WHERE run_id=?", String.class, run)).isEqualTo(child);
         assertThat(count("platform_spend_reservation")).isOne();
@@ -307,8 +310,8 @@ class PlatformCompletionPostgresTest {
             .isInstanceOf(PlatformSpendUnavailableException.class);
         assertEmptyAdmission();
         var oldUsage = new PlatformUsageService(jdbc, MAPPER, true, false, budgetPolicy);
-        assertThat(tx.execute(status -> model(oldUsage.snapshot(UUID.randomUUID()), LUNA.model()).unavailableReason()))
-            .isEqualTo("COMPLETION_PROTOCOL_UNAVAILABLE");
+        String unavailable = tx.execute(status -> model(oldUsage.snapshot(UUID.randomUUID()), LUNA.model()).unavailableReason());
+        assertThat(unavailable).isEqualTo("COMPLETION_PROTOCOL_UNAVAILABLE");
     }
 
     @Test void locallyReadyInstanceStillUsesLegacyWireWhenDatabasePolicyIsInactive() {
