@@ -50,7 +50,10 @@ test("recorded perspectives become a selected draft, edited revision, explicit c
   expect(revision.id).not.toEqual(original.id); expect(revision.previousId).toEqual(original.id);
   expect(revision.versionNumber).toEqual(2); expect(revision.originalBodyText).toEqual(original.bodyText);
   expect(workflow.decisions.find(value => value.id === original.id)).toEqual(original);
-  await page.getByRole("checkbox", { name: acknowledgement, exact: true }).check(); await confirm(page).click();
+  await page.getByRole("checkbox", { name: acknowledgement, exact: true }).check();
+  const confirmGate = requestBarrier(); workflow.barriers.confirm = confirmGate;
+  await confirm(page).evaluate(node => { node.click(); node.click(); });
+  await confirmGate.entered; expect(workflow.confirms).toHaveLength(1); confirmGate.release();
   await expect(page.getByRole("button", { name: "확정 결과로 명세 만들기", exact: true })).toBeEnabled();
   expect(workflow.confirms).toHaveLength(1);
   expect(workflow.confirms[0]).toMatchObject({ id: revision.id, expectedContentHash: revision.contentHash, confirmation: "CONFIRM_ANALYSIS_DECISION" });

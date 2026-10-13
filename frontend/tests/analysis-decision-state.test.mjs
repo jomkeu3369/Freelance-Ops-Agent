@@ -7,7 +7,7 @@ const sourceText = await readFile(new URL("../features/workspace/project/decisio
 const output = ts.transpileModule(sourceText, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2023 } }).outputText;
 const { selectableOpinions, opinionLabel, latestFamilyDecision, DecisionRequestKeys, decisionStorageKey, restoredDecisionDraft } = await import(`data:text/javascript;base64,${Buffer.from(output).toString("base64")}`);
 const draft = scenario => ({ scenario, petPerspective: { proposal: "선택 제안", rationale: "근거", tradeoff: "범위 차이" }, items: [{ title: "원본 작업", quantity: 1, unit: "DAY", basis: { type: "EVIDENCE", content: "원문 근거" } }] });
-const source = () => ({ runId: "source-run", sourceProjectVersion: 4, view: { status: "COMPLETED", result: { quotationDrafts: [draft("EXPANDED"), draft("LEAN"), draft("RECOMMENDED")] } } });
+const source = () => ({ runId: "source-run", sourceProjectVersion: 4, sourceCurrent: true, view: { status: "COMPLETED", result: { quotationDrafts: [draft("EXPANDED"), draft("LEAN"), draft("RECOMMENDED")] } } });
 
 test("only a version-bound complete three-perspective analysis is selectable in canonical order", () => {
   const value = source();
@@ -15,6 +15,7 @@ test("only a version-bound complete three-perspective analysis is selectable in 
   assert.deepEqual(selectableOpinions(null, 4), []);
   assert.deepEqual(selectableOpinions(value, undefined), []);
   assert.deepEqual(selectableOpinions(value, 5), []);
+  assert.deepEqual(selectableOpinions({ ...value, sourceCurrent: false }, 4), []);
   for (const status of ["QUEUED", "RUNNING", "WAITING_FOR_USER", "PARTIAL", "FAILED", "CANCELLED"]) {
     value.view.status = status; assert.deepEqual(selectableOpinions(value, 4), [], status);
   }

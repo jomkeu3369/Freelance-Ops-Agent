@@ -46,11 +46,11 @@ test("nullable and valid bound source responses are readable while malformed pro
   const transport = await import(pathToFileURL(join(directory, "shared-api.mjs")));
   transport.state.source = null;
   assert.equal(await api.getLatestAnalysisSource(session, "project-one"), null);
-  const source = { runId: "run-one", sourceProjectVersion: 0, view: { runId: "run-one", status: "COMPLETED", result: null } };
+  const source = { runId: "run-one", sourceProjectVersion: 0, sourceCurrent: true, view: { runId: "run-one", status: "COMPLETED", result: null } };
   transport.state.source = source;
   assert.equal(await api.getLatestAnalysisSource(session, "project-one"), source);
   assert.deepEqual(transport.calls.at(-1), { path: `${base}/sources/latest`, options: { cache: "no-store" }, token: session.accessToken });
-  for (const invalid of [[], {}, { ...source, sourceProjectVersion: -1 }, { ...source, sourceProjectVersion: "0" },
+  for (const invalid of [[], {}, { ...source, sourceProjectVersion: -1 }, { ...source, sourceProjectVersion: "0" }, { ...source, sourceCurrent: undefined },
     { ...source, view: null }, { ...source, view: { runId: "another-run", status: "COMPLETED" } },
     { ...source, view: { runId: "run-one", status: "UNKNOWN" } }]) {
     transport.state.source = invalid;

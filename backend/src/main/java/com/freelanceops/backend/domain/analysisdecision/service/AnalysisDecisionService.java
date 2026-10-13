@@ -15,6 +15,7 @@ import com.freelanceops.backend.domain.analysisdecision.entity.AnalysisDecisionE
 import com.freelanceops.backend.domain.analysisdecision.repository.AnalysisDecisionRepository;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
+import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -114,10 +115,16 @@ public class AnalysisDecisionService {
     public Optional<AnalysisSourceResponse> latestSource(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
         authorize(userId, workspaceId, PermissionCode.AGENT_RUN);
-        project(workspaceId, projectId, false);
+        var project = project(workspaceId, projectId, false);
         return runs.findFirstByWorkspaceIdAndProjectIdAndWorkflowModeOrderByCreatedAtDesc(workspaceId,
-            projectId, "PROJECT_ANALYSIS").map(run -> new AnalysisSourceResponse(run.id(),
-                run.sourceProjectVersion(), gateway.get(userId, workspaceId, run.id(), traceparent())));
+            projectId, "PROJECT_ANALYSIS").map(run -> {
+                var view = gateway.get(userId, workspaceId, run.id(), traceparent());
+                var sources = memory.forRun(workspaceId, projectId, run.id());
+                boolean current = run.sourceProjectVersion() != null && project.version() == run.sourceProjectVersion()
+                    && matchesProjectInput(project, sources)
+                    && AnalysisSourceGuard.isCurrent(sources, memory.current(workspaceId, projectId));
+                return new AnalysisSourceResponse(run.id(), run.sourceProjectVersion(), current, view);
+            });
     }
 
     @Transactional
@@ -144,6 +151,8 @@ public class AnalysisDecisionService {
         if (request.expectedProjectVersion() != project.version()) throw conflict("프로젝트가 변경되었습니다. 최신 원문과 분석 출처를 다시 확인해 주세요.");
         var sourceMessages = memory.forRun(workspaceId, projectId, run.id());
         AnalysisSourceGuard.requireCurrent(sourceMessages, memory.current(workspaceId, projectId));
+        requireSource(matchesProjectInput(project, sourceMessages),
+            "이 분석의 입력이 프로젝트 문의 원문과 다릅니다. 최신 원문으로 프로젝트 전체 분석을 다시 실행해 주세요.");
         AgentRunView view = gateway.get(userId, workspaceId, run.id(), traceparent());
         if (view.status() != AgentRunStatus.COMPLETED || view.result() == null) {
             throw conflict("완료된 프로젝트 전체 분석만 의견 정리의 출처로 사용할 수 있습니다. 부분·실패·취소 결과는 확정되지 않습니다.");
@@ -151,12 +160,14 @@ public class AnalysisDecisionService {
         var drafts = view.result().quotationDrafts();
         requireSource(drafts.size() == 3 && drafts.stream().map(AgentRunView.QuotationDraft::scenario).distinct().count() == 3
             && drafts.stream().allMatch(draft -> draft.scenario() != null && SCENARIOS.contains(draft.scenario())), "완료된 3개 계획 관점이 필요합니다.");
+        // COMPLETED is usable only when all three recorded perspectives are
+        // structurally complete, including perspectives the user did not select.
+        drafts.forEach(AnalysisDecisionService::requireValidOpinion);
         List<OpinionSnapshot> opinions = new ArrayList<>();
         for (String scenario : SCENARIOS) {
             String id = run.id() + ":" + scenario;
             if (!selected.contains(id)) continue;
             var draft = drafts.stream().filter(value -> scenario.equals(value.scenario())).findFirst().orElseThrow();
-            requireValidOpinion(draft);
             opinions.add(new OpinionSnapshot(id, scenario, draft));
         }
         requireRequest(opinions.size() == selected.size(), "선택 의견이 이 분석에 속하지 않습니다.");
@@ -258,6 +269,12 @@ public class AnalysisDecisionService {
                 && item.unit() != null && List.of("HOUR", "DAY", "FIXED").contains(item.unit()) && item.basis() != null
                 && item.basis().type() != null && List.of("EVIDENCE", "ASSUMPTION").contains(item.basis().type()) && text(item.basis().content())),
             "선택 의견의 제안·트레이드오프·작업 근거가 완전하지 않습니다. 다시 분석해 주세요.");
+    }
+
+    private static boolean matchesProjectInput(ProjectEntity project, List<MemorySourceMessage> sources) {
+        var inputs = sources.stream().filter(source -> "RUN_INPUT".equals(source.kind())).toList();
+        return inputs.size() == 1 && text(inputs.getFirst().content())
+            && project.requirementText().strip().equals(inputs.getFirst().content().strip());
     }
 
     private static boolean text(String value) { return value != null && !value.isBlank(); }

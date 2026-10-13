@@ -92,6 +92,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     try { return sessionStorage.getItem(decisionSelectionKey); } catch { return null; }
   });
   const [analysisSource, setAnalysisSource] = useState<AnalysisSource | null>(null);
+  const [analysisSourceKey, setAnalysisSourceKey] = useState("");
   const [analysisStarting, setAnalysisStarting] = useState(false);
   const [analysisStartError, setAnalysisStartError] = useState<string | null>(null);
   const analysisStartLock = useRef(false);
@@ -112,6 +113,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const [creditReviewRequired, setCreditReviewRequired] = useState(false);
   const canRun = permissions.has("agent.run");
+  const analysisReadKey = JSON.stringify([activeStep, project.id, project.version, runId, run?.status]);
   const ledger = useAiUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
   const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
@@ -173,11 +175,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   useEffect(() => {
     if (!canRun) return;
     let cancelled = false;
+    Promise.resolve().then(() => { if (!cancelled) setAnalysisSource(null); });
     getLatestAnalysisSource(session, project.id).then(value => {
-      if (!cancelled) setAnalysisSource(value);
+      if (!cancelled) { setAnalysisSource(value); setAnalysisSourceKey(analysisReadKey); }
     }).catch(() => { if (!cancelled) setAnalysisSource(null); });
     return () => { cancelled = true; };
-  }, [canRun, project.id, project.version, run?.status, runId, session]);
+  }, [analysisReadKey, canRun, project.id, session]);
 
   useEffect(() => {
     const operation = ++projectViewOperation.current;
@@ -262,7 +265,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     && !!chatModel && item.provider === chatModel.provider && item.model === chatModel.model
     && (item.credentialId ?? "") === (chatModel.credentialId ?? "") && item.message === project.requirementText
     && JSON.stringify(item.skillSelection ?? null) === JSON.stringify(skillSelection ?? null));
-  const completedAnalysis = analysisSource?.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version ? analysisSource.view : null;
+  const completedAnalysis = canRun && analysisSourceKey === analysisReadKey && analysisSource?.sourceCurrent && analysisSource.view.status === "COMPLETED" && analysisSource.sourceProjectVersion === project.version ? analysisSource.view : null;
   const quotationSource = completedAnalysis;
 
   async function startProjectAnalysis() {

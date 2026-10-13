@@ -4,7 +4,7 @@ import type { AnalysisDecision, AnalysisSource } from "./analysis-decisions-api"
 const scenarios = ["LEAN", "RECOMMENDED", "EXPANDED"] as const;
 
 export function selectableOpinions(source: AnalysisSource | null, projectVersion: number | undefined) {
-  if (projectVersion === undefined || !source || source.sourceProjectVersion !== projectVersion || source.view.status !== "COMPLETED" || !source.view.result) return [];
+  if (projectVersion === undefined || !source || source.sourceProjectVersion !== projectVersion || !source.sourceCurrent || source.view.status !== "COMPLETED" || !source.view.result) return [];
   const drafts = source.view.result.quotationDrafts ?? [];
   if (!Array.isArray(drafts) || drafts.length !== 3 || drafts.some(draft => !draft || typeof draft !== "object")
     || new Set(drafts.map(draft => draft.scenario)).size !== 3) return [];

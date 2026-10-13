@@ -12,7 +12,7 @@ export interface AnalysisDecision {
   createdBy: string; createdAt: string; confirmedBy: string | null; confirmedAt: string | null;
 }
 
-export interface AnalysisSource { runId: string; sourceProjectVersion: number | null; view: AgentRunView; }
+export interface AnalysisSource { runId: string; sourceProjectVersion: number | null; sourceCurrent: boolean; view: AgentRunView; }
 export interface CreateDecisionInput { requestId: string; sourceRunId: string; expectedProjectVersion: number; selectedOpinionIds: string[]; }
 export interface ReviseDecisionInput { requestId: string; expectedContentHash: string; bodyText: string; }
 
@@ -31,7 +31,7 @@ export async function getLatestAnalysisSource(session: AuthSession, projectId: s
   if (value === null) return null;
   if (!value || typeof value !== "object" || typeof value.runId !== "string" || !value.runId
     || !(value.sourceProjectVersion === null || Number.isSafeInteger(value.sourceProjectVersion) && value.sourceProjectVersion >= 0)
-    || !value.view || typeof value.view !== "object" || value.view.runId !== value.runId
+    || typeof value.sourceCurrent !== "boolean" || !value.view || typeof value.view !== "object" || value.view.runId !== value.runId
     || !["QUEUED", "RUNNING", "WAITING_FOR_USER", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED"].includes(value.view.status)) {
     throw new Error("분석 출처 응답을 확인하지 못했습니다. 잘못된 결과는 선택하거나 확정하지 않습니다.");
   }

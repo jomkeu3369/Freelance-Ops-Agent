@@ -83,6 +83,20 @@ class AnalysisDecisionPostgresTest {
         assertThat(jdbc.queryForObject("select jsonb_array_length(source_opinions) from app.analysis_decision where id=?", Integer.class, confirmed.id())).isEqualTo(2);
     }
 
+    @Test void malformedUnselectedPerspectiveAndDifferentRunInputCannotBeBoundToOriginalFacts() {
+        var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), new AgentRunView.QuotationDraft("EXPANDED", List.of(), null));
+        when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
+            new AgentRunView.AgentRunResult("Summary", List.of(), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
+        assertStatus(409, () -> service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"))));
+        UUID otherRunId = UUID.randomUUID();
+        var otherRun = new AgentRunEntity(otherRunId, workspace, project, UUID.randomUUID(), user, Provider.OPENAI, "fixture", AgentRunStatus.COMPLETED, Instant.now());
+        otherRun.bindProjectSource(0, "PROJECT_ANALYSIS"); runs.saveAndFlush(otherRun);
+        appendSource(otherRunId, "RUN_INPUT", "Unrelated legacy chat input");
+        assertStatus(409, () -> service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), otherRunId, 0, List.of(otherRunId + ":LEAN"))));
+        verify(gateway, never()).get(eq(user), eq(workspace), eq(otherRunId), anyString());
+        assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project)).isZero();
+    }
+
     @Test void concurrentDuplicateRequestsAndCompetingRevisionsRemainSerializedAndAppendOnly() throws Exception {
         var input = new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN"));
         try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
@@ -138,9 +152,11 @@ class AnalysisDecisionPostgresTest {
 
     @Test void ownClarificationIsPreservedButNewConfirmationOrAnotherRunsAnswerRejectsStaleResults() {
         appendSource(runId, "USER_CLARIFICATION", "Own answer included in the run");
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isTrue();
         var draft = service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN")));
         assertThat(draft.sourceMessages()).anyMatch(source -> source.content().equals("Own answer included in the run"));
         appendSource(UUID.randomUUID(), "USER_CLARIFICATION", "Another later answer");
+        assertThat(service.latestSource(user, workspace, project).orElseThrow().sourceCurrent()).isFalse();
         assertStatus(409, () -> service.confirm(user, workspace, project, draft.id(), confirm(draft.contentHash())));
         assertThat(jdbc.queryForObject("select version from app.project where id=?", Long.class, project)).isZero();
         appendSource(null, "REQUIREMENT_CONFIRMATION", "New confirmed feature scope");
