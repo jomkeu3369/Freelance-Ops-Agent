@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.analysisdecision.dto.response;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.QuotationDraft;
+import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -12,6 +13,7 @@ public record AnalysisDecisionResponse(
     int versionNumber, String status, UUID sourceRunId, long sourceProjectVersion,
     List<String> selectedOpinionIds, List<OpinionSnapshot> sourceOpinions,
     List<PetProfile> sourcePetProfiles, String sourceSummary, List<String> sourceOpenQuestions,
+    List<MemorySourceMessage> sourceMessages, long sourceEventOrder,
     List<String> reviewWarnings, String originalBodyText, String bodyText, String contentHash,
     String bodyOrigin, UUID createdBy, Instant createdAt, UUID confirmedBy, Instant confirmedAt
 ) {

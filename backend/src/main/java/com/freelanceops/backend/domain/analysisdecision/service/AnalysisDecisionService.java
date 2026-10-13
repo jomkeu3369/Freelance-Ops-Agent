@@ -14,11 +14,13 @@ import com.freelanceops.backend.domain.analysisdecision.dto.response.AnalysisSou
 import com.freelanceops.backend.domain.analysisdecision.entity.AnalysisDecisionEntity;
 import com.freelanceops.backend.domain.analysisdecision.repository.AnalysisDecisionRepository;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -38,11 +40,14 @@ public class AnalysisDecisionService {
     private final AgentRunRepository runs;
     private final AgentRunGatewayService gateway;
     private final WorkspaceAuthorizationService authorization;
+    private final ProjectMemoryService memory;
 
     public AnalysisDecisionService(AnalysisDecisionRepository decisions, ProjectRepository projects,
-        AgentRunRepository runs, AgentRunGatewayService gateway, WorkspaceAuthorizationService authorization) {
+        AgentRunRepository runs, AgentRunGatewayService gateway, WorkspaceAuthorizationService authorization,
+        ProjectMemoryService memory) {
         this.decisions = decisions; this.projects = projects; this.runs = runs;
         this.gateway = gateway; this.authorization = authorization;
+        this.memory = memory;
     }
 
     @Transactional(readOnly = true)
@@ -65,6 +70,18 @@ public class AnalysisDecisionService {
         AnalysisDecisionResponse result = get(userId, workspaceId, projectId, decisionId);
         if (!"CONFIRMED".equals(result.status())) throw conflict("확정된 의견 정리만 명세의 출처로 사용할 수 있습니다.");
         return result;
+    }
+
+    /** Consumers creating or confirming a new artifact must use the current source. */
+    @Transactional
+    public AnalysisDecisionResponse getCurrentConfirmed(UUID userId, UUID workspaceId, UUID projectId, UUID decisionId) {
+        authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
+        ProjectEntity project = project(workspaceId, projectId, true);
+        var entity = decision(workspaceId, projectId, decisionId);
+        if (!"CONFIRMED".equals(entity.status())) throw conflict("확정된 의견 정리만 명세의 출처로 사용할 수 있습니다.");
+        requireCurrentProject(project, entity.sourceProjectVersion());
+        AnalysisSourceGuard.requireCurrent(entity.sourceMessages(), memory.current(workspaceId, projectId));
+        return entity.response();
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +123,8 @@ public class AnalysisDecisionService {
         }
         requireCurrentProject(project, run.sourceProjectVersion());
         if (request.expectedProjectVersion() != project.version()) throw conflict("프로젝트가 변경되었습니다. 최신 원문과 분석 출처를 다시 확인해 주세요.");
+        var sourceMessages = memory.forRun(workspaceId, projectId, run.id());
+        AnalysisSourceGuard.requireCurrent(sourceMessages, memory.current(workspaceId, projectId));
         AgentRunView view = gateway.get(userId, workspaceId, run.id(), traceparent());
         if (view.status() != AgentRunStatus.COMPLETED || view.result() == null) {
             throw conflict("완료된 프로젝트 전체 분석만 의견 정리의 출처로 사용할 수 있습니다. 부분·실패·취소 결과는 확정되지 않습니다.");
@@ -130,8 +149,9 @@ public class AnalysisDecisionService {
         var petProfiles = metadata == null || metadata.petProfiles() == null ? List.<com.freelanceops.backend.domain.agentrun.dto.PetProfile>of() : metadata.petProfiles();
         AnalysisDecisionEntity entity = new AnalysisDecisionEntity(UUID.randomUUID(), workspaceId, projectId,
             run.id(), run.sourceProjectVersion(), opinions, petProfiles, view.result().projectSummary(),
-            view.result().openQuestions(), warnings, body, OpinionComposition.hash(body), request.requestId(),
-            operationHash, userId, Instant.now());
+            view.result().openQuestions(), warnings, sourceMessages, AnalysisSourceGuard.eventOrder(sourceMessages),
+            body, OpinionComposition.hash(body), request.requestId(),
+            operationHash, userId, now());
         return decisions.saveAndFlush(entity).response();
     }
 
@@ -150,8 +170,9 @@ public class AnalysisDecisionService {
         requireLatest(workspaceId, projectId, base);
         requireHash(base, request.expectedContentHash());
         requireCurrentProject(project, base.sourceProjectVersion());
+        AnalysisSourceGuard.requireCurrent(base.sourceMessages(), memory.current(workspaceId, projectId));
         return decisions.saveAndFlush(base.revised(UUID.randomUUID(), body, OpinionComposition.hash(body),
-            request.requestId(), operationHash, userId, Instant.now())).response();
+            request.requestId(), operationHash, userId, now())).response();
     }
 
     @Transactional
@@ -164,7 +185,8 @@ public class AnalysisDecisionService {
         if ("CONFIRMED".equals(entity.status())) return entity.response();
         requireLatest(workspaceId, projectId, entity);
         requireCurrentProject(project, entity.sourceProjectVersion());
-        entity.confirm(userId, Instant.now());
+        AnalysisSourceGuard.requireCurrent(entity.sourceMessages(), memory.current(workspaceId, projectId));
+        entity.confirm(userId, now());
         return decisions.saveAndFlush(entity).response();
     }
 
@@ -225,4 +247,5 @@ public class AnalysisDecisionService {
     private static ResponseStatusException notFound() { return new ResponseStatusException(HttpStatus.NOT_FOUND); }
     private static ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT, message); }
     private static String traceparent() { return "00-" + UUID.randomUUID().toString().replace("-", "") + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16) + "-01"; }
+    private static Instant now() { return Instant.now().truncatedTo(ChronoUnit.MICROS); }
 }

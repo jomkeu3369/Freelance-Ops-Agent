@@ -25,6 +25,8 @@ CREATE TABLE app.analysis_decision (
     source_pet_profiles JSONB NOT NULL,
     source_summary TEXT NOT NULL,
     source_open_questions JSONB NOT NULL,
+    source_messages JSONB NOT NULL,
+    source_event_order BIGINT NOT NULL CHECK (source_event_order >= 0),
     review_warnings JSONB NOT NULL,
     original_body_text TEXT NOT NULL,
     body_text TEXT NOT NULL CHECK (length(body_text) BETWEEN 1 AND 100000),

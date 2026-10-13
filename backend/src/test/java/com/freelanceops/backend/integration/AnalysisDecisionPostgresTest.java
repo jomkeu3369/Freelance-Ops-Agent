@@ -59,6 +59,7 @@ class AnalysisDecisionPostgresTest {
         runId = UUID.randomUUID();
         var run = new AgentRunEntity(runId, workspace, project, UUID.randomUUID(), user, Provider.OPENAI, "fixture", AgentRunStatus.COMPLETED, Instant.now());
         run.bindProjectSource(0, "PROJECT_ANALYSIS"); runs.saveAndFlush(run);
+        appendSource(runId, "RUN_INPUT", "Original request");
         var drafts = List.of(draft("LEAN"), draft("RECOMMENDED"), draft("EXPANDED"));
         when(gateway.get(eq(user), eq(workspace), eq(runId), anyString())).thenReturn(new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null,
             new AgentRunView.AgentRunResult("Summary", List.of("Unanswered?"), List.of(), drafts.get(1), drafts), null, null, null, Instant.now()));
@@ -90,6 +91,22 @@ class AnalysisDecisionPostgresTest {
         assertThat(jdbc.queryForObject("select status from app.analysis_decision where id=?", String.class, draft.id())).isEqualTo("DRAFT");
         jdbc.update("delete from app.project where id=?", project);
         assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where id=?", Integer.class, draft.id())).isZero();
+    }
+
+    @Test void ownClarificationIsPreservedButNewConfirmationOrAnotherRunsAnswerRejectsStaleResults() {
+        appendSource(runId, "USER_CLARIFICATION", "Own answer included in the run");
+        var draft = service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":LEAN")));
+        assertThat(draft.sourceMessages()).anyMatch(source -> source.content().equals("Own answer included in the run"));
+        appendSource(UUID.randomUUID(), "USER_CLARIFICATION", "Another later answer");
+        assertStatus(409, () -> service.confirm(user, workspace, project, draft.id(), confirm(draft.contentHash())));
+        assertThat(jdbc.queryForObject("select version from app.project where id=?", Long.class, project)).isZero();
+        appendSource(null, "REQUIREMENT_CONFIRMATION", "New confirmed feature scope");
+        assertStatus(409, () -> service.create(user, workspace, project, new CreateAnalysisDecisionRequest(UUID.randomUUID(), runId, 0, List.of(runId + ":RECOMMENDED"))));
+    }
+
+    private void appendSource(UUID sourceRun, String kind, String content) {
+        jdbc.update("insert into app.source_message(workspace_id,project_id,run_id,event_key,kind,content,created_by) values (?,?,?,?,?,?,?)",
+            workspace, project, sourceRun, "fixture:" + UUID.randomUUID(), kind, content, user);
     }
 
     private AgentRunView.QuotationDraft draft(String scenario) {

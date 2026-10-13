@@ -3,6 +3,7 @@ package com.freelanceops.backend.domain.analysisdecision.entity;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
 import com.freelanceops.backend.domain.analysisdecision.dto.response.AnalysisDecisionResponse;
 import com.freelanceops.backend.domain.analysisdecision.dto.response.AnalysisDecisionResponse.OpinionSnapshot;
+import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -31,6 +32,8 @@ public class AnalysisDecisionEntity {
     @JdbcTypeCode(SqlTypes.JSON) @Column(name = "source_pet_profiles", nullable = false, columnDefinition = "jsonb") private List<PetProfile> sourcePetProfiles;
     @Column(name = "source_summary", nullable = false, columnDefinition = "text") private String sourceSummary;
     @JdbcTypeCode(SqlTypes.JSON) @Column(name = "source_open_questions", nullable = false, columnDefinition = "jsonb") private List<String> sourceOpenQuestions;
+    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "source_messages", nullable = false, columnDefinition = "jsonb") private List<MemorySourceMessage> sourceMessages;
+    @Column(name = "source_event_order", nullable = false) private long sourceEventOrder;
     @JdbcTypeCode(SqlTypes.JSON) @Column(name = "review_warnings", nullable = false, columnDefinition = "jsonb") private List<String> reviewWarnings;
     @Column(name = "original_body_text", nullable = false, columnDefinition = "text") private String originalBodyText;
     @Column(name = "body_text", nullable = false, columnDefinition = "text") private String bodyText;
@@ -49,6 +52,7 @@ public class AnalysisDecisionEntity {
     public AnalysisDecisionEntity(UUID id, UUID workspaceId, UUID projectId, UUID sourceRunId,
         long sourceProjectVersion, List<OpinionSnapshot> opinions, List<PetProfile> petProfiles,
         String sourceSummary, List<String> openQuestions, List<String> warnings,
+        List<MemorySourceMessage> sourceMessages, long sourceEventOrder,
         String body, String hash, UUID requestId, String operationHash, UUID actor, Instant now) {
         this.id = id; this.workspaceId = workspaceId; this.projectId = projectId;
         this.familyId = id; this.versionNumber = 1; this.status = "DRAFT";
@@ -57,6 +61,7 @@ public class AnalysisDecisionEntity {
         this.selectedOpinionIds = opinions.stream().map(OpinionSnapshot::opinionId).toList();
         this.sourcePetProfiles = List.copyOf(petProfiles); this.sourceSummary = sourceSummary;
         this.sourceOpenQuestions = List.copyOf(openQuestions); this.reviewWarnings = List.copyOf(warnings);
+        this.sourceMessages = List.copyOf(sourceMessages); this.sourceEventOrder = sourceEventOrder;
         this.originalBodyText = body; this.bodyText = body; this.contentHash = hash;
         this.bodyOrigin = "SELECTED_OPINIONS"; this.createdBy = actor; this.createdAt = now;
         this.requestId = requestId; this.operationHash = operationHash;
@@ -66,7 +71,7 @@ public class AnalysisDecisionEntity {
         String operationHash, UUID actor, Instant now) {
         AnalysisDecisionEntity next = new AnalysisDecisionEntity(nextId, workspaceId, projectId, sourceRunId,
             sourceProjectVersion, sourceOpinions, sourcePetProfiles, sourceSummary, sourceOpenQuestions,
-            reviewWarnings, originalBodyText, contentHash, requestId, operationHash, actor, now);
+            reviewWarnings, sourceMessages, sourceEventOrder, originalBodyText, contentHash, requestId, operationHash, actor, now);
         next.familyId = familyId; next.previousId = id; next.versionNumber = versionNumber + 1;
         next.bodyText = body; next.contentHash = hash; next.bodyOrigin = "USER_EDITED";
         return next;
@@ -84,11 +89,12 @@ public class AnalysisDecisionEntity {
     public String contentHash() { return contentHash; }
     public String bodyText() { return bodyText; }
     public String operationHash() { return operationHash; }
+    public List<MemorySourceMessage> sourceMessages() { return sourceMessages; }
 
     public AnalysisDecisionResponse response() {
         return new AnalysisDecisionResponse(id, workspaceId, projectId, familyId, previousId,
             versionNumber, status, sourceRunId, sourceProjectVersion, selectedOpinionIds, sourceOpinions,
-            sourcePetProfiles, sourceSummary, sourceOpenQuestions, reviewWarnings, originalBodyText,
+            sourcePetProfiles, sourceSummary, sourceOpenQuestions, sourceMessages, sourceEventOrder, reviewWarnings, originalBodyText,
             bodyText, contentHash, bodyOrigin, createdBy, createdAt, confirmedBy, confirmedAt);
     }
 }

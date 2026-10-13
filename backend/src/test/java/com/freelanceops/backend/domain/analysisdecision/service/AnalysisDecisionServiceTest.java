@@ -13,6 +13,8 @@ import com.freelanceops.backend.domain.analysisdecision.dto.response.AnalysisDec
 import com.freelanceops.backend.domain.analysisdecision.entity.AnalysisDecisionEntity;
 import com.freelanceops.backend.domain.analysisdecision.repository.AnalysisDecisionRepository;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
+import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
@@ -40,16 +42,20 @@ class AnalysisDecisionServiceTest {
     @Mock AgentRunRepository runs;
     @Mock AgentRunGatewayService gateway;
     @Mock WorkspaceAuthorizationService authorization;
+    @Mock ProjectMemoryService memory;
+    MemorySourceMessage originalSource = new MemorySourceMessage(UUID.randomUUID(), 1, "PROJECT_INPUT", "Original request", null, Instant.now());
     UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), projectId = UUID.randomUUID(), runId = UUID.randomUUID();
     AnalysisDecisionService service;
     ProjectEntity project;
 
     @BeforeEach void setup() {
-        service = new AnalysisDecisionService(decisions, projects, runs, gateway, authorization);
+        service = new AnalysisDecisionService(decisions, projects, runs, gateway, authorization, memory);
         project = new ProjectEntity(projectId, workspace, "Review fixture", "Original request", "KRW", null, null, null);
         lenient().when(authorization.authorize(eq(user), eq(workspace), any())).thenReturn(AuthorizationDecision.ALLOWED);
         lenient().when(projects.findByIdAndWorkspaceIdForUpdate(projectId, workspace)).thenReturn(Optional.of(project));
         lenient().when(projects.findByIdAndWorkspaceId(projectId, workspace)).thenReturn(Optional.of(project));
+        lenient().when(memory.current(workspace, projectId)).thenReturn(List.of(originalSource));
+        lenient().when(memory.forRun(workspace, projectId, runId)).thenReturn(List.of(originalSource, new MemorySourceMessage(UUID.randomUUID(), 2, "RUN_INPUT", "Original request", null, Instant.now())));
         lenient().when(decisions.saveAndFlush(any())).thenAnswer(call -> call.getArgument(0));
     }
 
@@ -144,7 +150,7 @@ class AnalysisDecisionServiceTest {
         UUID requestId = UUID.randomUUID();
         String operationHash = OpinionComposition.hash("CREATE\n" + runId + "\n0\n" + opinion("LEAN"));
         var replay = new AnalysisDecisionEntity(original.id(), workspace, projectId, runId, 0,
-            original.response().sourceOpinions(), List.of(), "summary", List.of(), List.of(), "body",
+            original.response().sourceOpinions(), List.of(), "summary", List.of(), List.of(), List.of(originalSource), 1, "body",
             OpinionComposition.hash("body"), requestId, operationHash, user, Instant.now());
         when(decisions.findByWorkspaceIdAndProjectIdAndCreatedByAndRequestId(workspace, projectId, user, requestId)).thenReturn(Optional.of(replay));
         assertThat(service.create(user, workspace, projectId, new CreateAnalysisDecisionRequest(requestId, runId, 0, List.of(opinion("LEAN")))).id()).isEqualTo(replay.id());
@@ -172,7 +178,7 @@ class AnalysisDecisionServiceTest {
     private AnalysisDecisionEntity entity() {
         return new AnalysisDecisionEntity(UUID.randomUUID(), workspace, projectId, runId, 0,
             List.of(new OpinionSnapshot(opinion("LEAN"), "LEAN", draft("LEAN"))), List.of(), "summary", List.of(), List.of(),
-            "Original composition", OpinionComposition.hash("Original composition"), UUID.randomUUID(), "operation", user, Instant.now());
+            List.of(originalSource), 1, "Original composition", OpinionComposition.hash("Original composition"), UUID.randomUUID(), "operation", user, Instant.now());
     }
     private void existing(AnalysisDecisionEntity entity) { when(decisions.findByIdAndWorkspaceIdAndProjectId(entity.id(), workspace, projectId)).thenReturn(Optional.of(entity)); }
     private String opinion(String scenario) { return runId + ":" + scenario; }
