@@ -72,6 +72,9 @@ public class AgentRunEntity {
     @Version
     private long version;
 
+    @Column(name = "source_project_version") private Long sourceProjectVersion;
+    @Column(name = "workflow_mode", length = 30) private String workflowMode;
+
     protected AgentRunEntity() {
     }
 
@@ -147,6 +150,14 @@ public class AgentRunEntity {
 
     public UUID credentialId() { return credentialId; }
     public void useCredential(UUID credentialId) { this.credentialId = credentialId; }
+
+    public void bindProjectSource(long projectVersion, String workflowMode) {
+        this.sourceProjectVersion = projectVersion;
+        this.workflowMode = workflowMode == null ? "PROJECT_ANALYSIS" : workflowMode;
+    }
+
+    public Long sourceProjectVersion() { return sourceProjectVersion; }
+    public String workflowMode() { return workflowMode; }
 
     public UUID id() {
         return id;

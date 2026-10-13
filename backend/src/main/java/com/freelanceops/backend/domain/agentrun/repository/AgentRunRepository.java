@@ -27,6 +27,8 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
 
     Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(UUID workspaceId, UUID projectId);
 
+    Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdAndWorkflowModeOrderByCreatedAtDesc(UUID workspaceId, UUID projectId, String workflowMode);
+
     List<AgentRunEntity> findByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(
         UUID workspaceId, UUID projectId, Pageable pageable
     );

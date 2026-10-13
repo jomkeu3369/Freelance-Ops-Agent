@@ -156,6 +156,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             Instant.now()
         );
         run.useCredential(request.modelSelection().credentialId());
+        run.bindProjectSource(project.version(), request.workflowMode());
         agentRunRepository.saveAndFlush(run);
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
         StartAgentRunResponse accepted = new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());
