@@ -31,6 +31,7 @@ import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
 import { attachmentOnlyPrompt, attachmentOnlyRetryMessage, matchesChatRetry } from "./chat-retry";
 import { SkillNames, useSkillSelection } from "../../skills/skill-selector";
 import { ChatAttachmentButton, ChatAttachments, useChatAttachments } from "./chat-attachments";
+import { useFocusedComposerViewport } from "./use-focused-composer-viewport";
 
 interface AgentChatProps {
   session: AuthSession;
@@ -103,6 +104,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
   const viewport = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  useFocusedComposerViewport(input);
   const followsLatest = useRef(true);
   const mounted = useRef(true);
   const sendLock = useRef(false);

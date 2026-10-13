@@ -186,7 +186,9 @@ test("short viewport emulates keyboard space without losing composer or draft", 
   await page.setViewportSize({ width: 390, height: 420 });
   await input.focus();
   await expect(input).toBeInViewport();
+  await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeInViewport();
   await expect(input).toHaveValue("모바일 작성 중\n원문 유지");
+  await page.screenshot({ path: "outputs/ui-ux/chat-after-short-focused-composer.png", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await expect(input).toHaveValue("모바일 작성 중\n원문 유지");
