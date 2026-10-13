@@ -42,6 +42,12 @@ memory while preserving the original confirmed artifact and old PDF links.
 
 ## PDF and resource boundaries
 
+This work-branch snapshot excludes the TTF binary while its publication awaits
+approval. Real Korean PDF rendering has been checked locally with that asset;
+remote rendering and complete connected backend acceptance are still pending.
+Missing renderer resources return HTTP 503 without changing confirmed content.
+No runtime asset download or substitute-font path is enabled.
+
 PDFBox 3.0.8 generates a real, selectable-text PDF locally. The bundled static
 Pretendard Korean font retains its OFL license. HTML-like text is literal, never
 executed. Unsupported characters are shown as explicit codepoint markers. Revision,

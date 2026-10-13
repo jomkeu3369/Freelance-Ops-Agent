@@ -1,5 +1,11 @@
 # Specification PDF font
 
+Publication status: the TTF asset is not included in this work-branch snapshot
+because its upload is awaiting approval. Local renderer tests used the existing
+licensed asset, but remote PDF rendering and its connected acceptance remain
+incomplete. Missing rendering resources return HTTP 503 and preserve the exact
+confirmed artifact. There is no automatic download or replacement-font fallback.
+
 `Pretendard-Regular.ttf` is the unmodified static alternative TrueType font from
 the existing frontend `pretendard` npm package, version 1.3.9:
 `dist/public/static/alternative/Pretendard-Regular.ttf`.

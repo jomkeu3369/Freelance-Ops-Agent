@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -153,6 +154,9 @@ public class SpecificationService {
         } catch (SpecificationPdfRenderer.PdfLimitExceededException error) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT,
                 "PDF는 100페이지 이하로 출력할 수 있습니다. 새 명세 버전에서 범위나 줄바꿈을 조정한 뒤 다시 확정해 주세요. 기존 확정 내용은 보존됩니다.", error);
+        } catch (UncheckedIOException error) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "PDF 출력 준비가 되어 있지 않습니다. 확정 내용은 보존되며 출력 준비 후 다시 시도할 수 있습니다.", error);
         }
         return new PdfFile(bytes, SpecificationText.downloadName(specification.title(), specification.revisionNumber()), specification.contentHash());
     }

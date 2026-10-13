@@ -15,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.server.ResponseStatusException;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
@@ -121,6 +123,22 @@ class SpecificationServiceTest {
         when(pdf.render(anyString(), eq(1), eq(body), eq(confirmed.contentHash()), any())).thenReturn(bytes);
         assertThat(service.download(actor, workspace, projectId, confirmed.id()).bytes()).isEqualTo(bytes);
         status(409, () -> service.download(actor, workspace, projectId, revision.id()));
+    }
+    @Test void unavailablePdfResourcesFailExplicitlyWithoutChangingTheConfirmedArtifact() {
+        var confirmed = confirm(create());
+        when(pdf.render(anyString(), eq(1), eq(body), eq(confirmed.contentHash()), any()))
+            .thenThrow(new UncheckedIOException(new IOException("Bundled specification PDF font is missing")));
+        assertThatThrownBy(() -> service.download(actor, workspace, projectId, confirmed.id()))
+            .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+                assertThat(error.getStatusCode().value()).isEqualTo(503);
+                assertThat(error.getReason()).contains("확정 내용은 보존");
+            });
+        var preserved = service.get(actor, workspace, projectId, confirmed.id());
+        assertThat(preserved.status()).isEqualTo("CONFIRMED");
+        assertThat(preserved.bodyText()).isEqualTo(body);
+        assertThat(preserved.contentHash()).isEqualTo(confirmed.contentHash());
+        assertThat(saved).hasSize(1);
+        verify(knowledge, times(1)).store(eq(actor), any(), any());
     }
     @Test void otherTenantAndReadOnlyRoleCannotMutate() {
         when(authorization.authorize(actor, workspace, PermissionCode.PROJECT_READ)).thenReturn(AuthorizationDecision.NOT_FOUND);
