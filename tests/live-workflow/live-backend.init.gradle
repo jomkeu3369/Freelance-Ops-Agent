@@ -1,0 +1,21 @@
+allprojects {
+    def liveFixture = new File(rootProject.projectDir, '../tests/live-workflow')
+    def liveOutput = new File(rootProject.projectDir, '../.tmp/live-workflow')
+    afterEvaluate {
+        if (plugins.hasPlugin('java')) {
+            tasks.register('compileLiveBackend', JavaCompile) {
+                source = files(new File(liveFixture, 'LiveBackend.java'))
+                classpath = sourceSets.test.runtimeClasspath
+                destinationDirectory = new File(liveOutput, 'classes')
+                options.encoding = 'UTF-8'
+                dependsOn testClasses
+            }
+            tasks.register('liveBackend', JavaExec) {
+                dependsOn compileLiveBackend
+                classpath = sourceSets.test.runtimeClasspath + files(new File(liveOutput, 'classes'))
+                mainClass = 'LiveBackend'
+                args new File(liveOutput, 'test-public.pem').absolutePath
+            }
+        }
+    }
+}
