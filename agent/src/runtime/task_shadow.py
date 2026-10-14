@@ -1,6 +1,4 @@
-"""Shadow-only Research Task registration across Spring and Python registries."""
-
-# ruff: noqa: E501, I001
+"""Research 작업을 Spring과 Python에 비교 평가용으로 등록한다."""
 
 from __future__ import annotations
 
@@ -15,9 +13,16 @@ from integrations.task_registration import SpringTaskRegistration, SpringTaskReg
 from platform_budget import PlatformBudgetError
 from routing import FinalRouteDecision, RouteExecutionProfile, SafetyContext, execution_profile
 
-from .task_attempt_events import TaskAttemptEventWrite
-from .task_contracts import AttemptStatus, DepartmentTask, ExecutionRoute, TaskAttempt, TaskExecutionSnapshot, TaskStatus
 from .scheduler import WorkerCapacitySnapshot
+from .task_attempt_events import TaskAttemptEventWrite
+from .task_contracts import (
+    AttemptStatus,
+    DepartmentTask,
+    ExecutionRoute,
+    TaskAttempt,
+    TaskExecutionSnapshot,
+    TaskStatus,
+)
 from .task_registry import AttemptNotFoundError, PostgresTaskRegistry, TaskNotFoundError
 
 
@@ -41,19 +46,19 @@ class ResearchFifoPilot(Protocol):
 
     def capacity(self, captured_at: datetime) -> WorkerCapacitySnapshot: ...
 
-    async def observe_queued(self, task: DepartmentTask, attempt: TaskAttempt, capacity: WorkerCapacitySnapshot) -> object: ...
+    async def observe_queued(self, task: DepartmentTask, attempt: TaskAttempt, capacity: WorkerCapacitySnapshot) -> object: ...  # noqa: E501
 
     async def dispatch_once(self, *, now: datetime | None = None) -> object: ...
 
 
 class ResearchDispatchBroker(Protocol):
-    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None: ...
+    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None: ...  # noqa: E501
 
 
 class PostgresResearchTaskShadowRegistrar:
     SOURCE = "agent-run-shadow-v1"
 
-    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient, publisher: TaskShadowPublisher | None = None, dispatcher: ResearchFifoPilot | None = None, context_broker: ResearchDispatchBroker | None = None, dispatcher_workspace_allowlist: Collection[UUID] | None = None) -> None:
+    def __init__(self, registry: PostgresTaskRegistry, spring: SpringTaskRegistrationClient, publisher: TaskShadowPublisher | None = None, dispatcher: ResearchFifoPilot | None = None, context_broker: ResearchDispatchBroker | None = None, dispatcher_workspace_allowlist: Collection[UUID] | None = None) -> None:  # noqa: E501
         if (dispatcher is None) != (context_broker is None):
             raise ValueError("Research FIFO dispatcher and context broker must be configured together")
         selected_workspaces = frozenset(dispatcher_workspace_allowlist or ())
@@ -66,7 +71,7 @@ class PostgresResearchTaskShadowRegistrar:
         self._context_broker = context_broker
         self._dispatcher_workspace_allowlist = selected_workspaces
 
-    async def register(self, request: AgentRunRequest, decision: FinalRouteDecision, safety: SafetyContext, workload_token: str) -> TaskShadowHandle:
+    async def register(self, request: AgentRunRequest, decision: FinalRouteDecision, safety: SafetyContext, workload_token: str) -> TaskShadowHandle:  # noqa: E501
         task_id, attempt_id = _identities(request.context.run_id)
         permissions = _read_only_permissions(request.context.effective_permissions)
         route_profile = execution_profile(decision.route, safety)
@@ -78,9 +83,44 @@ class PostgresResearchTaskShadowRegistrar:
         registered = await self._spring.register(payload, workload_token)
         _require_identity(registered, request, task_id, attempt_id)
         created_at = registered.attempt.queued_at.astimezone(UTC)
-        execution = TaskExecutionSnapshot(route=ExecutionRoute(decision.route.value), permissions=permissions, budget=request.budget, model_selection=request.model_selection, policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", risk_level=route_profile.risk, tool_profile=route_profile.tool_profile, model_profile=route_profile.model_profile, route_profile_version=route_profile.policy_version, guard_policy_version="task-guard-v1", specialist_profile="research-read-v1", authorization_revision=registered.authorization_revision, budget_revision=registered.budget_revision)
-        task = DepartmentTask(task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, project_id=request.context.project_id, department=DepartmentName.RESEARCH, revision=registered.task.revision, priority=3, execution=execution, created_at=created_at)
-        attempt = TaskAttempt(attempt_id=attempt_id, task_id=task_id, run_id=request.context.run_id, workspace_id=request.context.workspace_id, task_revision=task.revision, attempt_number=registered.attempt.attempt_number, predicted_service_runtime_seconds=prediction[0], predictor_version=prediction[1])
+        execution = TaskExecutionSnapshot(
+            route=ExecutionRoute(decision.route.value),
+            permissions=permissions,
+            budget=request.budget,
+            model_selection=request.model_selection,
+            policy_version="task-guard-v1",
+            prompt_version="research-v1",
+            tool_schema_version="web-research-v1",
+            risk_level=route_profile.risk,
+            tool_profile=route_profile.tool_profile,
+            model_profile=route_profile.model_profile,
+            route_profile_version=route_profile.policy_version,
+            guard_policy_version="task-guard-v1",
+            specialist_profile="research-read-v1",
+            authorization_revision=registered.authorization_revision,
+            budget_revision=registered.budget_revision
+        )
+        task = DepartmentTask(
+            task_id=task_id,
+            run_id=request.context.run_id,
+            workspace_id=request.context.workspace_id,
+            project_id=request.context.project_id,
+            department=DepartmentName.RESEARCH,
+            revision=registered.task.revision,
+            priority=3,
+            execution=execution,
+            created_at=created_at
+        )
+        attempt = TaskAttempt(
+            attempt_id=attempt_id,
+            task_id=task_id,
+            run_id=request.context.run_id,
+            workspace_id=request.context.workspace_id,
+            task_revision=task.revision,
+            attempt_number=registered.attempt.attempt_number,
+            predicted_service_runtime_seconds=prediction[0],
+            predictor_version=prediction[1]
+        )
         task = await self._ensure_task(task)
         attempt = await self._ensure_attempt(attempt, created_at)
         if uses_dispatcher and self._dispatcher is not None and self._context_broker is not None:
@@ -93,7 +133,7 @@ class PostgresResearchTaskShadowRegistrar:
         await self._publish(workload_token)
         return TaskShadowHandle(task, attempt)
 
-    async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:
+    async def observe_terminal(self, request: AgentRunRequest, target: AttemptStatus, failure_code: str | None, workload_token: str) -> bool:  # noqa: E501
         if target not in {AttemptStatus.COMPLETED, AttemptStatus.FAILED}:
             raise ValueError("Research Task shadow terminal status is unsupported")
         if self._uses_dispatcher(request.context.workspace_id):
@@ -113,7 +153,22 @@ class PostgresResearchTaskShadowRegistrar:
                 data["task_terminal"] = True
                 if failure_code is not None:
                     data["failure_code"] = failure_code
-            attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, target, finished_at=occurred_at, event=self._event(task, attempt, 2, event_type, occurred_at, "VERIFICATION", "Research shadow observation completed", data))
+            attempt = await self._registry.transition_attempt(
+                attempt.attempt_id,
+                attempt.workspace_id,
+                target,
+                finished_at=occurred_at,
+                event=self._event(
+                    task,
+                    attempt,
+                    2,
+                    event_type,
+                    occurred_at,
+                    "VERIFICATION",
+                    "Research shadow observation completed",
+                    data
+                )
+            )
         task_target = TaskStatus.COMPLETED if target is AttemptStatus.COMPLETED else TaskStatus.FAILED
         if task.status is TaskStatus.RUNNING:
             await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, task_target)
@@ -126,9 +181,13 @@ class PostgresResearchTaskShadowRegistrar:
         except TaskNotFoundError:
             task = await self._registry.create_task(proposed)
         if task.status is TaskStatus.SUBMITTED:
-            task = await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.ADMITTED)
+            task = await self._registry.transition_task(
+                task.task_id, task.revision, task.workspace_id, TaskStatus.ADMITTED
+            )
         if task.status is TaskStatus.ADMITTED:
-            task = await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED)
+            task = await self._registry.transition_task(
+                task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED
+            )
         return task
 
     async def _ensure_attempt(self, proposed: TaskAttempt, queued_at: datetime) -> TaskAttempt:
@@ -137,15 +196,27 @@ class PostgresResearchTaskShadowRegistrar:
         except AttemptNotFoundError:
             attempt = await self._registry.create_attempt(proposed)
         if attempt.status is AttemptStatus.PREDICTED:
-            attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at)
+            attempt = await self._registry.transition_attempt(
+                attempt.attempt_id, attempt.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at
+            )
         return attempt
 
     async def _ensure_started(self, task: DepartmentTask, attempt: TaskAttempt) -> tuple[DepartmentTask, TaskAttempt]:
         if attempt.status is AttemptStatus.QUEUED:
             started_at = datetime.now(UTC)
-            attempt = await self._registry.transition_attempt(attempt.attempt_id, attempt.workspace_id, AttemptStatus.RUNNING, started_at=started_at, event=self._event(task, attempt, 1, "attempt.started", started_at, "RESEARCH", "Research shadow execution started", {}))
+            attempt = await self._registry.transition_attempt(
+                attempt.attempt_id,
+                attempt.workspace_id,
+                AttemptStatus.RUNNING,
+                started_at=started_at,
+                event=self._event(
+                    task, attempt, 1, "attempt.started", started_at, "RESEARCH", "Research shadow execution started", {}
+                )
+            )
         if task.status is TaskStatus.QUEUED:
-            task = await self._registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING)
+            task = await self._registry.transition_task(
+                task.task_id, task.revision, task.workspace_id, TaskStatus.RUNNING
+            )
         return task, attempt
 
     async def _publish(self, workload_token: str) -> None:
@@ -156,9 +227,25 @@ class PostgresResearchTaskShadowRegistrar:
         return self._dispatcher is not None and workspace_id in self._dispatcher_workspace_allowlist
 
     @classmethod
-    def _event(cls, task: DepartmentTask, attempt: TaskAttempt, sequence: int, event_type: str, occurred_at: datetime, phase: str, milestone: str, data: dict[str, object]) -> TaskAttemptEventWrite:
+    def _event(cls, task: DepartmentTask, attempt: TaskAttempt, sequence: int, event_type: str, occurred_at: datetime, phase: str, milestone: str, data: dict[str, object]) -> TaskAttemptEventWrite:  # noqa: E501
         event_id = f"{attempt.attempt_id}:{sequence}:{event_type}"
-        return TaskAttemptEventWrite(event_id=event_id, run_id=task.run_id, source=cls.SOURCE, source_event_id=event_id, task_id=task.task_id, task_revision=task.revision, attempt_id=attempt.attempt_id, attempt_number=attempt.attempt_number, workspace_id=task.workspace_id, sequence=sequence, event_type=event_type, phase=phase, milestone=milestone, occurred_at=occurred_at, data=data)
+        return TaskAttemptEventWrite(
+            event_id=event_id,
+            run_id=task.run_id,
+            source=cls.SOURCE,
+            source_event_id=event_id,
+            task_id=task.task_id,
+            task_revision=task.revision,
+            attempt_id=attempt.attempt_id,
+            attempt_number=attempt.attempt_number,
+            workspace_id=task.workspace_id,
+            sequence=sequence,
+            event_type=event_type,
+            phase=phase,
+            milestone=milestone,
+            occurred_at=occurred_at,
+            data=data
+        )
 
 
 def _read_only_permissions(values: Collection[str]) -> list[str]:
@@ -173,11 +260,46 @@ def _identities(run_id: UUID) -> tuple[UUID, UUID]:
     return task_id, uuid5(task_id, "attempt:1")
 
 
-def _payload(request: AgentRunRequest, task_id: UUID, attempt_id: UUID, permissions: list[str], route_profile: RouteExecutionProfile, predicted_runtime_seconds: float | None = None, predictor_version: str | None = None) -> dict[str, object]:
-    return {"taskId": str(task_id), "attemptId": str(attempt_id), "parentTaskId": None, "department": "RESEARCH", "specialistProfile": "research-read-v1", "alias": "Research #1", "objectiveReference": f"run:{request.context.run_id}:research:1", "priority": 3, "deadlineAt": None, "dependencyTaskIds": [], "predictedServiceRuntimeSeconds": predicted_runtime_seconds, "predictionModelVersion": predictor_version, "predictionFeatureSnapshot": {}, "executionProfile": {"route": route_profile.route.value, "riskLevel": route_profile.risk.value, "modelProfile": route_profile.model_profile, "toolProfile": route_profile.tool_profile.value, "provider": request.model_selection.provider.value, "model": request.model_selection.model, "reasoningEffort": request.model_selection.reasoning_effort.value, "permissions": permissions, "budget": request.budget.model_dump(mode="json", by_alias=True), "routeProfileVersion": route_profile.policy_version, "guardPolicyVersion": "task-guard-v1"}}
+def _payload(request: AgentRunRequest, task_id: UUID, attempt_id: UUID, permissions: list[str], route_profile: RouteExecutionProfile, predicted_runtime_seconds: float | None = None, predictor_version: str | None = None) -> dict[str, object]:  # noqa: E501
+    return {
+        "taskId": str(task_id),
+        "attemptId": str(attempt_id),
+        "parentTaskId": None,
+        "department": "RESEARCH",
+        "specialistProfile": "research-read-v1",
+        "alias": "Research #1",
+        "objectiveReference": f"run:{request.context.run_id}:research:1",
+        "priority": 3,
+        "deadlineAt": None,
+        "dependencyTaskIds": [],
+        "predictedServiceRuntimeSeconds": predicted_runtime_seconds,
+        "predictionModelVersion": predictor_version,
+        "predictionFeatureSnapshot": {},
+        "executionProfile": {
+            "route": route_profile.route.value,
+            "riskLevel": route_profile.risk.value,
+            "modelProfile": route_profile.model_profile,
+            "toolProfile": route_profile.tool_profile.value,
+            "provider": request.model_selection.provider.value,
+            "model": request.model_selection.model,
+            "reasoningEffort": request.model_selection.reasoning_effort.value,
+            "permissions": permissions,
+            "budget": request.budget.model_dump(mode="json", by_alias=True),
+            "routeProfileVersion": route_profile.policy_version,
+            "guardPolicyVersion": "task-guard-v1",
+        },
+    }
 
 
-def _require_identity(registered: SpringTaskRegistration, request: AgentRunRequest, task_id: UUID, attempt_id: UUID) -> None:
-    invalid = registered.task.task_id != task_id or registered.task.workspace_id != request.context.workspace_id or registered.task.run_id != request.context.run_id or registered.task.revision != registered.attempt.task_revision or registered.task.current_attempt_number != registered.attempt.attempt_number or registered.attempt.task_id != task_id or registered.attempt.attempt_id != attempt_id
+def _require_identity(registered: SpringTaskRegistration, request: AgentRunRequest, task_id: UUID, attempt_id: UUID) -> None:  # noqa: E501
+    invalid = (
+        registered.task.task_id != task_id
+        or registered.task.workspace_id != request.context.workspace_id
+        or registered.task.run_id != request.context.run_id
+        or registered.task.revision != registered.attempt.task_revision
+        or registered.task.current_attempt_number != registered.attempt.attempt_number
+        or registered.attempt.task_id != task_id
+        or registered.attempt.attempt_id != attempt_id
+    )
     if invalid:
         raise ValueError("Spring Task registration identity does not match the requested workload")

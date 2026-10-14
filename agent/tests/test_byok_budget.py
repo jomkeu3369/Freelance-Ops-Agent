@@ -1,4 +1,4 @@
-"""Production-guard BYOK tests. Every HTTP request is intercepted; no provider keys or network."""
+"""모든 HTTP를 모의 객체로 대체해 개인 키 실행의 운영 제한을 검사한다."""
 
 import asyncio
 import json
@@ -33,59 +33,133 @@ from platform_budget import PlatformBudgetError, budgeted_openai_attempt, reject
 from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
 from runtime import ExecutionAuthorization, ExecutionOutcome, InMemoryAgentRunStore, RunCoordinator
 from runtime.executor import OperationalAgentExecutor
-from runtime.runs import merge_usage
+from runtime.run_state import merge_usage
 
 
 def incoming(**budget_overrides):
-    context = TrustedRunContext(run_id=uuid4(), thread_id=uuid4(), trace_id="byok-test", workspace_id=uuid4(),
-                                project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run"])
-    budget = RunBudget(**{**dict(max_duration_seconds=90, max_model_calls=6, max_tool_calls=5,
-                               max_input_tokens=150000, max_output_tokens=6000,
-                               max_departments=4, max_hierarchy_depth=2), **budget_overrides})
+    context = TrustedRunContext(
+        run_id=uuid4(),
+        thread_id=uuid4(),
+        trace_id="byok-test",
+        workspace_id=uuid4(),
+        project_id=uuid4(),
+        initiated_by=uuid4(),
+        effective_permissions=["agent.run"]
+    )
+    budget = RunBudget(
+        **{
+            **dict(
+                max_duration_seconds=90,
+                max_model_calls=6,
+                max_tool_calls=5,
+                max_input_tokens=150000,
+                max_output_tokens=6000,
+                max_departments=4,
+                max_hierarchy_depth=2
+            ),
+            **budget_overrides,
+        }
+    )
     selected = ModelSelection(provider=Provider.OPENAI, model="gpt-6.1-sol", credential_id=uuid4())
-    scope = ByokBudget(scope_id=uuid4(), run_id=context.run_id, workspace_id=context.workspace_id,
-                       project_id=context.project_id, initiated_by=context.initiated_by,
-                       credential_id=selected.credential_id, provider=selected.provider, model=selected.model,
-                       reasoning_effort=selected.reasoning_effort, funding_source="BYOK", service_tier="default",
-                       cost_notice_version=BYOK_COST_NOTICE_VERSION,
-                       valid_until=datetime.now(UTC) + timedelta(seconds=90),
-                       max_model_calls=budget.max_model_calls, max_input_tokens=budget.max_input_tokens,
-                       max_output_tokens=budget.max_output_tokens, budget=budget)
-    return AgentRunRequest(context=context, budget=budget, model_selection=selected, byok_budget=scope,
-                           safety_context=SafetyContextInput(),
-                           input=AgentInput(requirement_text="Offline only", workflow_mode=AgentWorkflowMode.AD_HOC))
+    scope = ByokBudget(
+        scope_id=uuid4(),
+        run_id=context.run_id,
+        workspace_id=context.workspace_id,
+        project_id=context.project_id,
+        initiated_by=context.initiated_by,
+        credential_id=selected.credential_id,
+        provider=selected.provider,
+        model=selected.model,
+        reasoning_effort=selected.reasoning_effort,
+        funding_source="BYOK",
+        service_tier="default",
+        cost_notice_version=BYOK_COST_NOTICE_VERSION,
+        valid_until=datetime.now(UTC) + timedelta(seconds=90),
+        max_model_calls=budget.max_model_calls,
+        max_input_tokens=budget.max_input_tokens,
+        max_output_tokens=budget.max_output_tokens,
+        budget=budget
+    )
+    return AgentRunRequest(
+        context=context,
+        budget=budget,
+        model_selection=selected,
+        byok_budget=scope,
+        safety_context=SafetyContextInput(),
+        input=AgentInput(requirement_text="Offline only", workflow_mode=AgentWorkflowMode.AD_HOC)
+    )
 
 
 def shared_default_budget(*, personal=True):
-    """Use the shared server contract; client-to-fixture matching belongs in frontend CI."""
+    """공유 서버 계약을 사용한다. 클라이언트와 검증 데이터의 매칭은 프런트엔드 CI에서
+    확인한다.
+    """
     from pathlib import Path
+
     root = Path(__file__).resolve().parents[2]
     fixtures = json.loads((root / "contracts/fixtures/workspace-credit-contract.json").read_text())
     values = fixtures["byokStart" if personal else "start"]["budget"]
     assert values == {
-        "maxDurationSeconds": 180, "maxModelCalls": 50, "maxToolCalls": 12,
-        "maxInputTokens": 150000 if personal else 50000, "maxOutputTokens": 48000,
-        "maxDepartments": 4, "maxHierarchyDepth": 2, "maxSearchCredits": 2,
-        "maxRetries": 2, "maxHandoffs": 3,
+        "maxDurationSeconds": 180,
+        "maxModelCalls": 50,
+        "maxToolCalls": 12,
+        "maxInputTokens": 150000 if personal else 50000,
+        "maxOutputTokens": 48000,
+        "maxDepartments": 4,
+        "maxHierarchyDepth": 2,
+        "maxSearchCredits": 2,
+        "maxRetries": 2,
+        "maxHandoffs": 3,
     }
     return RunBudget.model_validate(values)
 
 
 def payload(request):
-    return {"model": request.model_selection.model, "service_tier": "default", "reasoning": {"effort": "low"},
-            "input": [{"role": "user", "content": "offline only"}], "tools": [], "store": False,
-            "max_output_tokens": 100}
+    return {
+        "model": request.model_selection.model,
+        "service_tier": "default",
+        "reasoning": {"effort": "low"},
+        "input": [{"role": "user", "content": "offline only"}],
+        "tools": [],
+        "store": False,
+        "max_output_tokens": 100,
+    }
 
 
 def provider_body(request, text=None, **overrides):
-    result = dict(id="resp_offline", object="response", created_at=0, model=request.model_selection.model,
-                  service_tier="default", status="completed", parallel_tool_calls=False, tool_choice="auto", tools=[],
-                  usage={"input_tokens": 20, "output_tokens": 10, "total_tokens": 30,
-                         "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
-                         "output_tokens_details": {"reasoning_tokens": 0}},
-                  output=[{"id": "msg_offline", "type": "message", "role": "assistant", "status": "completed",
-                           "content": [{"type": "output_text", "annotations": [],
-                                        "text": text or json.dumps({"summary": "offline", "open_questions": []})}]}])
+    result = dict(
+        id="resp_offline",
+        object="response",
+        created_at=0,
+        model=request.model_selection.model,
+        service_tier="default",
+        status="completed",
+        parallel_tool_calls=False,
+        tool_choice="auto",
+        tools=[],
+        usage={
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "total_tokens": 30,
+            "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
+            "output_tokens_details": {"reasoning_tokens": 0},
+        },
+        output=[
+            {
+                "id": "msg_offline",
+                "type": "message",
+                "role": "assistant",
+                "status": "completed",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "annotations": [],
+                        "text": text or json.dumps({"summary": "offline", "open_questions": []}),
+                    }
+                ],
+            }
+        ]
+    )
     body = {**result, **overrides}
     Response.model_validate(body)
     return body
@@ -112,9 +186,17 @@ class OfflineHTTP:
             assert body["model"] == self.request.model_selection.model
             assert body["fundingSource"] == "BYOK" and body["serviceTier"] == "default"
             self.attempts.append(body)
-            return httpx.Response(self.admission_status, json={"callId": body["callId"], "admitted": True,
-                "validUntil": self.request.byok_budget.valid_until.isoformat(),
-                "fundingSource": "BYOK", "serviceTier": "default", **self.admission_override})
+            return httpx.Response(
+                self.admission_status,
+                json={
+                    "callId": body["callId"],
+                    "admitted": True,
+                    "validUntil": self.request.byok_budget.valid_until.isoformat(),
+                    "fundingSource": "BYOK",
+                    "serviceTier": "default",
+                    **self.admission_override,
+                }
+            )
         if request.url.path.endswith("/credential"):
             self.events.append("credential")
             assert request.headers["X-Run-Id"] == str(self.request.context.run_id)
@@ -135,9 +217,11 @@ class OfflineHTTP:
 
     def install(self, monkeypatch):
         original = httpx.AsyncClient
+
         def client(**kwargs):
             assert kwargs["follow_redirects"] is False and kwargs["trust_env"] is False
             return original(**kwargs, transport=httpx.MockTransport(self.respond))
+
         monkeypatch.setattr(httpx, "AsyncClient", client)
 
 
@@ -151,7 +235,8 @@ async def call(request, *, max_attempts=2):
     platform = AsyncMock()
     with credential_scope("delegated-offline", request.context.run_id):
         result = await CompositeModelProvider(platform, platform).generate_structured(
-            request.model_selection, "offline only", max_output_tokens=100, max_attempts=max_attempts)
+            request.model_selection, "offline only", max_output_tokens=100, max_attempts=max_attempts
+        )
     platform.generate_structured.assert_not_awaited()
     return result
 
@@ -177,10 +262,22 @@ async def test_true_byok_without_platform_budget_or_ambient_keys(monkeypatch):
     ledger.persist_usage.assert_awaited_once()
 
 
-@pytest.mark.parametrize("field,value", [("run_id", uuid4()), ("workspace_id", uuid4()),
-    ("project_id", uuid4()), ("initiated_by", uuid4()), ("credential_id", uuid4()),
-    ("provider", Provider.GEMINI), ("model", "other"), ("reasoning_effort", "HIGH"),
-    ("funding_source", "PLATFORM"), ("service_tier", "priority"), ("max_model_calls", 99)])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("run_id", uuid4()),
+        ("workspace_id", uuid4()),
+        ("project_id", uuid4()),
+        ("initiated_by", uuid4()),
+        ("credential_id", uuid4()),
+        ("provider", Provider.GEMINI),
+        ("model", "other"),
+        ("reasoning_effort", "HIGH"),
+        ("funding_source", "PLATFORM"),
+        ("service_tier", "priority"),
+        ("max_model_calls", 99),
+    ]
+)
 def test_scope_bindings_fail_closed(field, value):
     request = incoming()
     request.byok_budget = request.byok_budget.model_copy(update={field: value})
@@ -197,8 +294,16 @@ def test_scope_requires_aware_time_and_exact_full_budget():
         ByokExecutionLedger(request)
 
 
-@pytest.mark.parametrize("overrides", [{"admitted": False}, {"callId": str(uuid4())},
-    {"fundingSource": "PLATFORM"}, {"serviceTier": "priority"}, {"validUntil": "2100-01-01T00:00:00Z"}])
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"admitted": False},
+        {"callId": str(uuid4())},
+        {"fundingSource": "PLATFORM"},
+        {"serviceTier": "priority"},
+        {"validUntil": "2100-01-01T00:00:00Z"},
+    ]
+)
 async def test_forged_or_mismatched_admission_response_never_resolves_key(monkeypatch, overrides):
     request = incoming()
     http = OfflineHTTP(request)
@@ -286,8 +391,9 @@ async def test_conservative_counters_never_reset_across_resume_or_duplicate_repo
     assert len(http.provider_requests) == 1
 
 
-@pytest.mark.parametrize("operation", ["EMBEDDING", "RAPTOR", "WEB_RESEARCH", "A2A", "GEMINI", "PETS",
-                                       "ASSUMPTIONS", "DEEP_AGENT"])
+@pytest.mark.parametrize(
+    "operation", ["EMBEDDING", "RAPTOR", "WEB_RESEARCH", "A2A", "GEMINI", "PETS", "ASSUMPTIONS", "DEEP_AGENT"]
+)
 def test_unbounded_paid_operations_stay_closed(operation):
     with byok_budget_scope(scoped(incoming())), pytest.raises(PlatformBudgetError, match="BYOK_.*_UNSUPPORTED"):
         reject_unbounded_operation(operation)
@@ -299,16 +405,24 @@ async def test_ambient_and_direct_supplied_clients_cannot_use_byok_scope():
     with byok_budget_scope(scoped(request)):
         with pytest.raises(PlatformBudgetError, match="BYOK_AMBIENT_CLIENT_FORBIDDEN"):
             await OpenAIModelProvider(fake, credential_id=request.model_selection.credential_id).generate_structured(
-                request.model_selection, "offline", max_output_tokens=100)
+                request.model_selection, "offline", max_output_tokens=100
+            )
         with pytest.raises(PlatformBudgetError, match="BYOK_AMBIENT_CLIENT_FORBIDDEN"):
-            await budgeted_openai_attempt(fake, request.model_selection, "department_work_product", payload(request),
-                                         client_credential_id=request.model_selection.credential_id)
+            await budgeted_openai_attempt(
+                fake,
+                request.model_selection,
+                "department_work_product",
+                payload(request),
+                client_credential_id=request.model_selection.credential_id
+            )
         with pytest.raises(PlatformBudgetError, match="BYOK_SCOPE_MISMATCH"):
             await OpenAIModelProvider(fake).generate_structured(
-                request.model_selection.model_copy(update={"credential_id": None}), "offline", max_output_tokens=100)
+                request.model_selection.model_copy(update={"credential_id": None}), "offline", max_output_tokens=100
+            )
         with pytest.raises(PlatformBudgetError, match="BYOK_GEMINI_UNSUPPORTED"):
             await GeminiModelProvider(fake).generate_structured(
-                request.model_selection, "offline", max_output_tokens=100)
+                request.model_selection, "offline", max_output_tokens=100
+            )
     fake.responses.create.assert_not_awaited()
 
 
@@ -327,8 +441,9 @@ async def test_ad_hoc_run_routes_locally_and_persists_closed_scope(monkeypatch):
     platform = AsyncMock()
     executor = OperationalAgentExecutor(router, CompositeModelProvider(platform, platform))
     store = InMemoryAgentRunStore()
-    coordinator = RunCoordinator(store, executor, require_platform_budget=True,
-                                 allow_memory_platform_budget_for_tests=True)
+    coordinator = RunCoordinator(
+        store, executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     final = await store.get(request.context.run_id)
@@ -355,9 +470,11 @@ async def test_closed_scope_rejects_inherited_detached_task(monkeypatch):
     http = OfflineHTTP(request)
     http.install(monkeypatch)
     ready = asyncio.Event()
+
     async def late():
         await ready.wait()
         await call(request)
+
     with byok_budget_scope(scoped(request)):
         task = asyncio.create_task(late())
     ready.set()
@@ -371,8 +488,9 @@ async def test_queue_cancellation_closes_without_provider(monkeypatch):
     http = OfflineHTTP(request)
     http.install(monkeypatch)
     executor = AsyncMock()
-    coordinator = RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True,
-                                 allow_memory_platform_budget_for_tests=True)
+    coordinator = RunCoordinator(
+        InMemoryAgentRunStore(), executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.cancel(request.context.run_id)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
@@ -389,19 +507,24 @@ async def test_durable_attempt_exists_before_provider_network(monkeypatch):
     http.install(monkeypatch)
     store = InMemoryAgentRunStore()
     original = http.respond
+
     async def observe(outgoing):
         if outgoing.url.host == "api.openai.com":
             snapshot = await store.get(request.context.run_id)
             assert snapshot.usage.model_calls == 1
             assert snapshot.usage.provider_calls[0].call_id == __import__("uuid").UUID(http.attempts[0]["callId"])
         return await original(outgoing)
+
     http.respond = observe
+
     class Executor:
         async def execute(self, *args):
             await call(request)
             return ExecutionOutcome(result=AgentRunResult(project_summary="offline"))
-    coordinator = RunCoordinator(store, Executor(), require_platform_budget=True,
-                                 allow_memory_platform_budget_for_tests=True)
+
+    coordinator = RunCoordinator(
+        store, Executor(), require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     assert (await coordinator.view(request.context.run_id)).status is AgentRunStatus.COMPLETED
@@ -415,8 +538,12 @@ async def test_keyword_only_retrieval_never_invokes_embedder(monkeypatch):
     request.context.effective_permissions += ["project.read", "document.read"]
     tools = AsyncMock()
     tools.get_project_context.return_value = ProjectContext(
-        project_id=request.context.project_id, workspace_id=request.context.workspace_id, title="offline",
-        requirement_text="offline", currency="KRW")
+        project_id=request.context.project_id,
+        workspace_id=request.context.workspace_id,
+        title="offline",
+        requirement_text="offline",
+        currency="KRW"
+    )
     tools.search_knowledge.return_value = []
     embedder = AsyncMock()
     loader = KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden")
@@ -435,8 +562,12 @@ async def test_safety_route_remains_local_and_has_no_paid_io(monkeypatch):
     http.install(monkeypatch)
     router = AsyncMock()
     provider = AsyncMock()
-    coordinator = RunCoordinator(InMemoryAgentRunStore(), OperationalAgentExecutor(router, provider),
-                                 require_platform_budget=True, allow_memory_platform_budget_for_tests=True)
+    coordinator = RunCoordinator(
+        InMemoryAgentRunStore(),
+        OperationalAgentExecutor(router, provider),
+        require_platform_budget=True,
+        allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     final = await coordinator.view(request.context.run_id)
@@ -465,8 +596,11 @@ async def test_local_router_does_not_construct_ambient_client_at_startup(monkeyp
     constructor = AsyncMock(side_effect=AssertionError("ambient client forbidden"))
     monkeypatch.setattr(openai, "AsyncOpenAI", constructor)
     secret = "synthetic routing policy"
-    settings = Settings(route_evaluator_system_prompt=SecretStr(secret), route_evaluator_prompt_version="test",
-                        route_evaluator_prompt_sha256=hashlib.sha256(secret.encode()).hexdigest())
+    settings = Settings(
+        route_evaluator_system_prompt=SecretStr(secret),
+        route_evaluator_prompt_version="test",
+        route_evaluator_prompt_sha256=hashlib.sha256(secret.encode()).hexdigest()
+    )
     evaluator = build_openai_route_evaluator(settings)
     constructor.assert_not_called()
     with byok_budget_scope(scoped(incoming())), pytest.raises(PlatformBudgetError, match="BYOK_SCOPE_MISMATCH"):
@@ -474,9 +608,18 @@ async def test_local_router_does_not_construct_ambient_client_at_startup(monkeyp
     constructor.assert_not_called()
 
 
-@pytest.mark.parametrize("mutation", [{"tools": [{"type": "web_search"}]}, {"service_tier": "priority"},
-    {"model": "other"}, {"store": True}, {"reasoning": {"effort": "high"}}, {"background": True},
-    {"input": [{"role": "user", "content": [{"type": "input_image", "image_url": "https://invalid"}]}]}])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"tools": [{"type": "web_search"}]},
+        {"service_tier": "priority"},
+        {"model": "other"},
+        {"store": True},
+        {"reasoning": {"effort": "high"}},
+        {"background": True},
+        {"input": [{"role": "user", "content": [{"type": "input_image", "image_url": "https://invalid"}]}]},
+    ]
+)
 async def test_unbounded_provider_payload_rejected_before_admission(mutation):
     request = incoming()
     ledger = scoped(request)
@@ -495,8 +638,14 @@ async def test_small_input_budget_rejects_before_http(monkeypatch):
     assert not http.events
 
 
-@pytest.mark.parametrize("workflow,legacy", [(AgentWorkflowMode.AD_HOC, False),
-    (AgentWorkflowMode.PROJECT_ANALYSIS, False), (AgentWorkflowMode.PROJECT_ANALYSIS, True)])
+@pytest.mark.parametrize(
+    "workflow,legacy",
+    [
+        (AgentWorkflowMode.AD_HOC, False),
+        (AgentWorkflowMode.PROJECT_ANALYSIS, False),
+        (AgentWorkflowMode.PROJECT_ANALYSIS, True),
+    ]
+)
 async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypatch, workflow, legacy):
     from contracts import ProjectContext
     from retrieval.knowledge_context import KnowledgeContextLoader
@@ -510,24 +659,36 @@ async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypa
     request.context.effective_permissions += ["project.read", "document.read"]
     http = OfflineHTTP(request)
     if workflow is AgentWorkflowMode.PROJECT_ANALYSIS:
-        final = json.dumps({"action": "FINAL", "summary": "offline project department",
-                            "open_questions": [], "quotation_drafts": []})
+        final = json.dumps(
+            {"action": "FINAL", "summary": "offline project department", "open_questions": [], "quotation_drafts": []}
+        )
         http.provider_results = [provider_body(request, final)] * 4
     http.install(monkeypatch)
     tools = AsyncMock()
     tools.get_project_context.return_value = ProjectContext(
-        project_id=request.context.project_id, workspace_id=request.context.workspace_id, title="offline",
-        requirement_text="offline", currency="KRW")
+        project_id=request.context.project_id,
+        workspace_id=request.context.workspace_id,
+        title="offline",
+        requirement_text="offline",
+        currency="KRW"
+    )
     tools.search_knowledge.return_value = []
     embedder = AsyncMock()
     research = AsyncMock()
     shadow = AsyncMock()
     router = AsyncMock()
     platform = AsyncMock()
-    executor = OperationalAgentExecutor(router, CompositeModelProvider(platform, platform), tools, research, shadow,
-        KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden"))
-    coordinator = RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True,
-                                 allow_memory_platform_budget_for_tests=True)
+    executor = OperationalAgentExecutor(
+        router,
+        CompositeModelProvider(platform, platform),
+        tools,
+        research,
+        shadow,
+        KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden")
+    )
+    coordinator = RunCoordinator(
+        InMemoryAgentRunStore(), executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     final = await coordinator.view(request.context.run_id)
@@ -563,10 +724,13 @@ async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypa
 def test_schema_annotation_compaction_preserves_property_names_literals_and_validation():
     from jsonschema import Draft202012Validator
 
-    from providers import _compact_json_schema
+    from providers.schema import compact_json_schema
 
     schema = {
-        "title": "Annotation", "description": "Annotation", "type": "object", "additionalProperties": False,
+        "title": "Annotation",
+        "description": "Annotation",
+        "type": "object",
+        "additionalProperties": False,
         "properties": {
             "title": {"type": "string", "minLength": 2, "maxLength": 8, "title": "Only annotation"},
             "description": {"$ref": "#/$defs/description"},
@@ -574,10 +738,17 @@ def test_schema_annotation_compaction_preserves_property_names_literals_and_vali
             "examples": {"enum": [{"title": "keep", "description": "also keep"}]},
         },
         "required": ["title", "description", "default", "examples"],
-        "$defs": {"description": {"type": "integer", "minimum": 1, "maximum": 5, "default": 2,
-                                    "description": "Only annotation"}},
+        "$defs": {
+            "description": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "default": 2,
+                "description": "Only annotation",
+            }
+        },
     }
-    compact = _compact_json_schema(schema)
+    compact = compact_json_schema(schema)
     assert set(compact["properties"]) == set(schema["properties"])
     assert compact["required"] == schema["required"]
     assert compact["properties"]["default"] == schema["properties"]["default"]
@@ -586,10 +757,21 @@ def test_schema_annotation_compaction_preserves_property_names_literals_and_vali
     assert "title" not in compact and "description" not in compact
     original = Draft202012Validator(schema)
     reduced = Draft202012Validator(compact)
-    valid = {"title": "valid", "description": 2, "default": {"title": "keep", "description": "keep", "default": 4},
-             "examples": {"title": "keep", "description": "also keep"}}
-    samples = [valid, {}, {**valid, "title": "a"}, {**valid, "title": "very long value"},
-               {**valid, "description": 0}, {**valid, "default": {}}, {**valid, "surplus": 1}]
+    valid = {
+        "title": "valid",
+        "description": 2,
+        "default": {"title": "keep", "description": "keep", "default": 4},
+        "examples": {"title": "keep", "description": "also keep"},
+    }
+    samples = [
+        valid,
+        {},
+        {**valid, "title": "a"},
+        {**valid, "title": "very long value"},
+        {**valid, "description": 0},
+        {**valid, "default": {}},
+        {**valid, "surplus": 1},
+    ]
     for sample in samples:
         assert original.is_valid(sample) == reduced.is_valid(sample)
     assert original.is_valid(valid)
@@ -597,16 +779,25 @@ def test_schema_annotation_compaction_preserves_property_names_literals_and_vali
 
 
 def test_prompt_compaction_keeps_safety_domain_preferences_and_unicode_exact():
-    from providers import ReActStep, _byok_prompt_and_schema
+    from providers import ReActStep
+    from providers.schema import compact_prompt_and_schema
 
-    envelope = {"operation": "bounded_react_step", "objective": {
-        "department": "RESEARCH", "untrusted_user_request": "한글 🌈 quoted: \\\"\\n",
-        "pet_preference_rules": "preserve all safety instructions", "untrusted_pet_preferences": [],
-        "builtin_skills": {"selected_ids": [], "workflows": []},
-        "grounded_memory_rules": ["preserve source text"], "constraints": {"no_price_or_tax_invention": True}},
-        "observations": [], "previous_step_feedback": None}
+    envelope = {
+        "operation": "bounded_react_step",
+        "objective": {
+            "department": "RESEARCH",
+            "untrusted_user_request": '한글 🌈 quoted: \\"\\n',
+            "pet_preference_rules": "preserve all safety instructions",
+            "untrusted_pet_preferences": [],
+            "builtin_skills": {"selected_ids": [], "workflows": []},
+            "grounded_memory_rules": ["preserve source text"],
+            "constraints": {"no_price_or_tax_invention": True},
+        },
+        "observations": [],
+        "previous_step_feedback": None,
+    }
     original = ReActStep.model_json_schema()
-    prompt, compact = _byok_prompt_and_schema(json.dumps(envelope), original)
+    prompt, compact = compact_prompt_and_schema(json.dumps(envelope), original)
     assert json.loads(prompt) == envelope
     assert compact["properties"].keys() == original["properties"].keys()
     assert compact["required"] == original["required"]
@@ -618,7 +809,7 @@ async def test_unicode_escaping_admission_matches_exact_transmitted_bytes(monkey
     http.install(monkeypatch)
     ledger = scoped(request)
     body = payload(request)
-    body["input"][0]["content"] = "한글 🌈\\n\\\"/ Unicode"
+    body["input"][0]["content"] = '한글 🌈\\n\\"/ Unicode'
     with byok_budget_scope(ledger), credential_scope("delegated-offline", request.context.run_id):
         await byok_openai_attempt(request.model_selection, "department_work_product", body)
     assert http.attempts[0]["inputTokens"] == len(encode_payload(http.provider_requests[0])) + 8192
@@ -648,12 +839,29 @@ REALISTIC_REFERENCE = (
 
 def three_quotation_drafts():
     return [
-        {"scenario": scenario, "items": [{
-            "title": title, "description": description, "quantity": hours, "unit": "HOUR", "rateCardHint": None,
-            "basis": {"type": "ASSUMPTION", "content": "고객 확인과 상세 검수 기준 합의를 전제로 한 추정",
-                      "sourceReference": None, "sourceTitle": None}}],
-         "petPerspective": {"proposal": title, "rationale": "제공된 프로젝트 범위에 근거한 단계적 제안",
-                            "tradeoff": "추가 기능은 고객 승인 후 별도 범위로 합의"}}
+        {
+            "scenario": scenario,
+            "items": [
+                {
+                    "title": title,
+                    "description": description,
+                    "quantity": hours,
+                    "unit": "HOUR",
+                    "rateCardHint": None,
+                    "basis": {
+                        "type": "ASSUMPTION",
+                        "content": "고객 확인과 상세 검수 기준 합의를 전제로 한 추정",
+                        "sourceReference": None,
+                        "sourceTitle": None,
+                    },
+                }
+            ],
+            "petPerspective": {
+                "proposal": title,
+                "rationale": "제공된 프로젝트 범위에 근거한 단계적 제안",
+                "tradeoff": "추가 기능은 고객 승인 후 별도 범위로 합의",
+            },
+        }
         for scenario, title, description, hours in (
             ("LEAN", "핵심 예약 화면", "예약 등록과 기본 관리자 확인", 40),
             ("RECOMMENDED", "예약 변경·취소와 관리자", "기본 예약과 변경·취소, 영업시간 관리", 72),
@@ -663,9 +871,14 @@ def three_quotation_drafts():
 
 
 def react_reply(*, quotations=False, tool=False):
-    return {"action": "TOOL" if tool else "FINAL", "tool_name": "get_project_context" if tool else None,
-            "arguments": {"query": None}, "summary": None if tool else "제공된 자료에 근거한 단계별 분석",
-            "open_questions": [], "quotation_drafts": three_quotation_drafts() if quotations else []}
+    return {
+        "action": "TOOL" if tool else "FINAL",
+        "tool_name": "get_project_context" if tool else None,
+        "arguments": {"query": None},
+        "summary": None if tool else "제공된 자료에 근거한 단계별 분석",
+        "open_questions": [],
+        "quotation_drafts": three_quotation_drafts() if quotations else [],
+    }
 
 
 def realistic_tools(request):
@@ -674,19 +887,36 @@ def realistic_tools(request):
     request.context.effective_permissions = ["agent.run", "project.read", "document.read"]
     request.input.requirement_text = REALISTIC_KOREAN_REQUIREMENT
     request.input.workflow_mode = AgentWorkflowMode.PROJECT_ANALYSIS
-    request.input.skill_selection = SkillSelection(mode="MANUAL", manual_ids=[
-        "writing-proposal", "dev-requirements-acceptance", "ops-milestone-plan"])
+    request.input.skill_selection = SkillSelection(
+        mode="MANUAL", manual_ids=["writing-proposal", "dev-requirements-acceptance", "ops-milestone-plan"]
+    )
     tools = AsyncMock()
-    source = MemorySourceMessage(id=uuid4(), event_order=1, kind="PROJECT_INPUT", content=REALISTIC_PROJECT_SOURCE,
-                                 created_at=datetime.now(UTC))
-    tools.get_project_context.return_value = ProjectContext(project_id=request.context.project_id,
-        workspace_id=request.context.workspace_id, title="예약 웹사이트",
+    source = MemorySourceMessage(
+        id=uuid4(), event_order=1, kind="PROJECT_INPUT", content=REALISTIC_PROJECT_SOURCE, created_at=datetime.now(UTC)
+    )
+    tools.get_project_context.return_value = ProjectContext(
+        project_id=request.context.project_id,
+        workspace_id=request.context.workspace_id,
+        title="예약 웹사이트",
         requirement_text=request.input.requirement_text,
-        currency="KRW", source_messages=[source])
-    tools.search_knowledge.return_value = [KnowledgeSearchResult(chunk_id=uuid4(), document_id=uuid4(),
-        document_title="확정 운영 메모", source_type="PROJECT", content=REALISTIC_REFERENCE,
-        confirmation_status="confirmed", project_id=request.context.project_id, origin="user", memory_type="reference",
-        rrf_score=.1, keyword_rank=1)]
+        currency="KRW",
+        source_messages=[source]
+    )
+    tools.search_knowledge.return_value = [
+        KnowledgeSearchResult(
+            chunk_id=uuid4(),
+            document_id=uuid4(),
+            document_title="확정 운영 메모",
+            source_type="PROJECT",
+            content=REALISTIC_REFERENCE,
+            confirmation_status="confirmed",
+            project_id=request.context.project_id,
+            origin="user",
+            memory_type="reference",
+            rrf_score=0.1,
+            keyword_rank=1
+        )
+    ]
     return tools
 
 
@@ -694,8 +924,9 @@ async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=Fal
     from retrieval.knowledge_context import KnowledgeContextLoader
 
     request = incoming(**shared_default_budget().model_dump())
-    request.byok_budget = request.byok_budget.model_copy(update={
-        "valid_until": datetime.now(UTC) + timedelta(seconds=request.budget.max_duration_seconds)})
+    request.byok_budget = request.byok_budget.model_copy(
+        update={"valid_until": datetime.now(UTC) + timedelta(seconds=request.budget.max_duration_seconds)}
+    )
     tools = realistic_tools(request)
     if oversized:
         request.input.requirement_text += " 추가 확인이 필요한 상세 요구사항입니다." * 300
@@ -710,23 +941,34 @@ async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=Fal
         http.provider_results[1] = provider_body(request, json.dumps(replies[1]), model="unexpected-provider-model")
     http.install(monkeypatch)
     embedder, router, platform, research, shadow = [AsyncMock() for _ in range(5)]
-    executor = OperationalAgentExecutor(router, CompositeModelProvider(platform, platform), tools, research, shadow,
-        KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden"))
-    coordinator = RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True,
-                                 allow_memory_platform_budget_for_tests=True)
+    executor = OperationalAgentExecutor(
+        router,
+        CompositeModelProvider(platform, platform),
+        tools,
+        research,
+        shadow,
+        KnowledgeContextLoader(tools, embedder, "ambient-embedding-forbidden")
+    )
+    coordinator = RunCoordinator(
+        InMemoryAgentRunStore(), executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("delegated-offline"))
     final = await coordinator.view(request.context.run_id)
-    for dependency, method in ((router, "route"), (embedder, "embed"), (research, "collect"),
-                               (shadow, "register"), (platform, "generate_react_step")):
+    for dependency, method in (
+        (router, "route"),
+        (embedder, "embed"),
+        (research, "collect"),
+        (shadow, "register"),
+        (platform, "generate_react_step"),
+    ):
         getattr(dependency, method).assert_not_awaited()
     assert final.usage.byok_scope_id == request.byok_budget.scope_id and final.usage.execution_closed
     assert final.usage.platform_cost_usd == 0 and final.usage.platform_reservation_id is None
     assert final.usage.model_calls == len(http.provider_requests) == len(http.attempts)
     assert final.usage.input_tokens == sum(attempt["inputTokens"] for attempt in http.attempts) <= 150000
     assert final.usage.output_tokens == sum(attempt["maxOutputTokens"] for attempt in http.attempts) <= 48000
-    assert all(attempt["fundingSource"] == "BYOK" and attempt["serviceTier"] == "default"
-               for attempt in http.attempts)
+    assert all(attempt["fundingSource"] == "BYOK" and attempt["serviceTier"] == "default" for attempt in http.attempts)
     assert all(attempt["maxOutputTokens"] == 4000 for attempt in http.attempts)
     return request, final, http, replies
 
@@ -768,7 +1010,7 @@ async def test_approved_150k_extra_tool_steps_stop_without_scope_refill(monkeypa
     assert sum(result.status == "FAILED" for result in unfinished) == 1
     assert all(result.summary == "제공된 자료에 근거한 단계별 분석" for result in completed)
     assert all(result.summary != "제공된 자료에 근거한 단계별 분석" for result in unfinished)
-    assert final.result.quotation_drafts == []  # Incomplete deal-design work cannot publish a full quote.
+    assert final.result.quotation_drafts == []  # 거래 설계가 완료되지 않았으면 완성된 견적을 공개하지 않는다.
     assert final.error_code == "INPUT_TOKEN_BUDGET_EXCEEDED"
     assert 4 <= final.usage.model_calls < 8
     assert all(not call.usage_known for call in final.usage.provider_calls)
@@ -808,7 +1050,7 @@ async def test_legacy_null_or_absent_notice_retains_original_limits_deadline_and
     request.byok_budget = legacy
     assert legacy.cost_notice_version is None and legacy.max_input_tokens == 50000
     http = OfflineHTTP(request)
-    http.admission_status = 409  # Missing/closed backend scope cannot be granted by a null marker.
+    http.admission_status = 409  # 실행 범위가 없거나 닫혔으면 null 값으로 새 권한을 얻을 수 없다.
     http.install(monkeypatch)
     ledger = scoped(request)
     with byok_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="BYOK_ADMISSION_FAILED"):

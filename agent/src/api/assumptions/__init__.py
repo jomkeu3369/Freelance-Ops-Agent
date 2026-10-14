@@ -1,1 +1,1 @@
-"""Quotation assumption suggestion API."""
+"""견적 가정 제안 API."""

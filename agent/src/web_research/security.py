@@ -1,4 +1,4 @@
-"""Fail-closed URL and external-content security policy."""
+"""URL과 외부 콘텐츠의 보안 검사 정책."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def is_public_address(value: str) -> bool:
             address.is_link_local,
             address.is_multicast,
             address.is_reserved,
-            address.is_unspecified
+            address.is_unspecified,
         )
     )
 
@@ -83,7 +83,7 @@ _INJECTION_PATTERNS = {
         "ignore previous instructions",
         "ignore all instructions",
         "이전 지시를 무시",
-        "지시를 무시"
+        "지시를 무시",
     ),
     "SYSTEM_PROMPT_REQUEST": ("system prompt", "developer message", "시스템 프롬프트", "개발자 메시지"),
     "TOOL_EXECUTION_REQUEST": (
@@ -91,9 +91,9 @@ _INJECTION_PATTERNS = {
         "execute this command",
         "run this command",
         "도구를 호출",
-        "명령을 실행"
+        "명령을 실행",
     ),
-    "SECRET_EXFILTRATION": ("api key", "access token", "environment variable", "api 키", "접근 토큰", "환경 변수")
+    "SECRET_EXFILTRATION": ("api key", "access token", "environment variable", "api 키", "접근 토큰", "환경 변수"),
 }
 
 

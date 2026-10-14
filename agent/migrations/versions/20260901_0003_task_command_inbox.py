@@ -1,4 +1,4 @@
-"""Add the durable and idempotent Task command inbox."""
+"""중복 요청을 구분할 수 있는 작업 명령 수신함을 추가한다."""
 
 from alembic import op
 

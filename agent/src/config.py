@@ -27,19 +27,13 @@ class Settings(BaseSettings):
     langsmith_tracing: bool = Field(
         default=False,
         validation_alias=AliasChoices(
-            "LANGSMITH_TRACING",
-            "LANGSMITH_TRACING_V2",
-            "AGENT_LANGSMITH_TRACING",
-            "langsmith_tracing"
+            "LANGSMITH_TRACING", "LANGSMITH_TRACING_V2", "AGENT_LANGSMITH_TRACING", "langsmith_tracing"
         )
     )
     langsmith_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices(
-            "LANGSMITH_API_KEY",
-            "LANGCHAIN_API_KEY",
-            "AGENT_LANGSMITH_API_KEY",
-            "langsmith_api_key"
+            "LANGSMITH_API_KEY", "LANGCHAIN_API_KEY", "AGENT_LANGSMITH_API_KEY", "langsmith_api_key"
         )
     )
     langsmith_project: str = Field(
@@ -47,10 +41,7 @@ class Settings(BaseSettings):
         min_length=1,
         max_length=200,
         validation_alias=AliasChoices(
-            "LANGSMITH_PROJECT",
-            "LANGCHAIN_PROJECT",
-            "AGENT_LANGSMITH_PROJECT",
-            "langsmith_project"
+            "LANGSMITH_PROJECT", "LANGCHAIN_PROJECT", "AGENT_LANGSMITH_PROJECT", "langsmith_project"
         )
     )
 
@@ -103,7 +94,9 @@ class Settings(BaseSettings):
     web_research_max_results: int = Field(default=5, ge=1, le=20)
     web_research_max_fetches: int = Field(default=3, ge=1, le=10)
     web_research_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
-    tavily_api_key: SecretStr | None = Field(default=None, validation_alias=AliasChoices("TAVILY_API_KEY", "AGENT_TAVILY_API_KEY", "tavily_api_key"))  # noqa: E501
+    tavily_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("TAVILY_API_KEY", "AGENT_TAVILY_API_KEY", "tavily_api_key")
+    )
 
     @field_validator(
         "delegation_token_previous_key_id",
@@ -142,12 +135,11 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.delegation_token_public_key is None:
             raise ValueError("production requires the Spring delegation token public key")
 
-        previous_key_values = (
-            self.delegation_token_previous_key_id,
-            self.delegation_token_previous_public_key
-        )
+        previous_key_values = (self.delegation_token_previous_key_id, self.delegation_token_previous_public_key)
 
-        if any(value is not None for value in previous_key_values) and not all(value is not None for value in previous_key_values):  # noqa: E501
+        if any(value is not None for value in previous_key_values) and not all(
+            value is not None for value in previous_key_values
+        ):
             raise ValueError("previous delegation key id and public key must be configured together")
 
         if self.delegation_token_previous_key_id == self.delegation_token_key_id:
@@ -171,7 +163,9 @@ class Settings(BaseSettings):
         if self.web_research_enabled and self.tavily_api_key is None:
             raise ValueError("enabled web research requires a Tavily API key")
 
-        if self.fifo_dispatcher_enabled and (not self.task_shadow_enabled or self.run_store_backend != "postgres" or not self.web_research_enabled):  # noqa: E501
+        if self.fifo_dispatcher_enabled and (
+            not self.task_shadow_enabled or self.run_store_backend != "postgres" or not self.web_research_enabled
+        ):
             raise ValueError("enabled FIFO dispatcher requires PostgreSQL Task shadow and web research")
 
         fifo_workspaces = self.allowed_fifo_dispatcher_workspaces() if self.fifo_dispatcher_enabled else frozenset()
@@ -198,7 +192,9 @@ class Settings(BaseSettings):
 
     def allowed_fifo_dispatcher_workspaces(self) -> frozenset[UUID]:
         try:
-            return frozenset(UUID(value.strip()) for value in self.fifo_dispatcher_workspace_allowlist.split(",") if value.strip())  # noqa: E501
+            return frozenset(
+                UUID(value.strip()) for value in self.fifo_dispatcher_workspace_allowlist.split(",") if value.strip()
+            )
         except ValueError as error:
             raise ValueError("FIFO dispatcher workspace allowlist must contain UUIDs") from error
 

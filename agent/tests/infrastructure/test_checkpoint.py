@@ -30,7 +30,7 @@ def _request() -> AgentRunRequest:
             workspace_id=uuid4(),
             project_id=uuid4(),
             initiated_by=uuid4(),
-            effective_permissions=["agent.run"],
+            effective_permissions=["agent.run"]
         ),
         budget=RunBudget(
             max_duration_seconds=30,
@@ -39,11 +39,11 @@ def _request() -> AgentRunRequest:
             max_input_tokens=1000,
             max_output_tokens=1000,
             max_departments=1,
-            max_hierarchy_depth=1,
+            max_hierarchy_depth=1
         ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
         safety_context=SafetyContextInput(),
-        input=AgentInput(requirement_text="checkpoint test"),
+        input=AgentInput(requirement_text="checkpoint test")
     )
 
 
@@ -118,8 +118,7 @@ async def test_open_runs_official_saver_setup_and_close(monkeypatch: pytest.Monk
     context = FakeContext(saver)
     journal = PostgresCheckpointJournal("postgresql://user:secret@db/app")
     monkeypatch.setattr(
-        "infrastructure.checkpoint.AsyncPostgresSaver.from_conn_string",
-        lambda *args, **kwargs: context,
+        "infrastructure.checkpoint.AsyncPostgresSaver.from_conn_string", lambda *args, **kwargs: context
     )
     monkeypatch.setattr(journal, "_compile", lambda value: SimpleNamespace(saver=value))
     monkeypatch.setattr(journal, "_compile_execution", lambda value: SimpleNamespace(saver=value))
@@ -157,17 +156,8 @@ async def test_durable_execution_graph_keeps_authorization_out_of_checkpoint_sta
     journal._execution_graph = journal._compile_execution(cast(Any, saver))
     executor = Executor()
 
-    outcome = await journal.execute(
-        executor,
-        request,
-        None,
-        ExecutionAuthorization("transient-delegation-token"),
-    )
-    config = {
-        "configurable": {
-            "thread_id": str(request.context.thread_id),
-        }
-    }
+    outcome = await journal.execute(executor, request, None, ExecutionAuthorization("transient-delegation-token"))
+    config = {"configurable": {"thread_id": str(request.context.thread_id)}}
     snapshot = await journal._execution_graph.aget_state(config)
 
     assert outcome.result is not None
@@ -192,9 +182,7 @@ async def test_durable_execution_graph_resumes_the_same_thread() -> None:
             if resume is None:
                 return ExecutionOutcome(
                     interruption=AgentInterruption(
-                        interruption_id=uuid4(),
-                        kind=InterruptionKind.CLARIFICATION,
-                        questions=["납기일은?"],
+                        interruption_id=uuid4(), kind=InterruptionKind.CLARIFICATION, questions=["납기일은?"]
                     )
                 )
             return ExecutionOutcome(result=AgentRunResult(project_summary=resume.answers[0].answer))
@@ -213,9 +201,9 @@ async def test_durable_execution_graph_resumes_the_same_thread() -> None:
         ResumeAgentRunRequest(
             interruption_id=first.interruption.interruption_id,
             idempotency_key="resume-key-1",
-            answers=[ResumeAnswer(question_index=0, answer="2026-09-30")],
+            answers=[ResumeAnswer(question_index=0, answer="2026-09-30")]
         ),
-        None,
+        None
     )
 
     assert resumed.result is not None

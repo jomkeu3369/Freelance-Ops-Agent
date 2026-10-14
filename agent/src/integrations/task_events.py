@@ -1,4 +1,4 @@
-"""Durable delivery of sanitized TaskAttempt events to the Spring control plane."""
+"""검증된 실행 시도 이벤트를 Spring에 영속적으로 전달한다."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class SpringTaskEventClient:
             response = await client.post(
                 "/internal/v1/agent-control/task-events:batch",
                 headers={"Authorization": f"Bearer {workload_token}"},
-                json={"events": [_payload(claim) for claim in claims]},
+                json={"events": [_payload(claim) for claim in claims]}
             )
         except httpx.HTTPError as error:
             raise SpringTaskEventError("SPRING_TASK_EVENT_UNAVAILABLE") from error
@@ -79,9 +79,7 @@ class TaskEventPublisher:
             accepted_ids = await self._client.publish(claims, workload_token)
         except SpringTaskEventError as error:
             await self._store.retry_delivery(
-                claims,
-                delay_seconds=_retry_delay(max(claim.delivery_attempt for claim in claims)),
-                error=str(error),
+                claims, delay_seconds=_retry_delay(max(claim.delivery_attempt for claim in claims)), error=str(error)
             )
             raise
         accepted = [claim for claim in claims if claim.record.event_id in accepted_ids]

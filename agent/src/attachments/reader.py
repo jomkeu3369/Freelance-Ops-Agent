@@ -1,4 +1,4 @@
-"""Run in the isolated worker, never on the API event loop."""
+"""API 이벤트 루프에서 분리된 작업자 안에서 첨부파일을 읽는다."""
 
 import base64
 import csv
@@ -36,14 +36,8 @@ def coverage_unit(index: int, kind: str, native: str, reason: str) -> dict[str, 
     }
 
 
-def read_selected(
-    selected: list[int],
-    coverage: list[dict[str, Any]],
-    language: str,
-    layout: str,
-    read: Callable[[LocalOcr, int], str],
-) -> tuple[dict[int, str], str]:
-    """One engine/deadline per attachment. Preserve earlier output on safe failures."""
+def read_selected(selected: list[int], coverage: list[dict[str, Any]], language: str, layout: str, read: Callable[[LocalOcr, int], str]) -> tuple[dict[int, str], str]:  # noqa: E501
+    """첨부파일마다 OCR 엔진과 기한을 공유한다. 실패가 발생해도 앞서 읽은 결과를 보존한다."""
     parts: dict[int, str] = {}
     if not selected:
         return parts, ""
@@ -66,7 +60,7 @@ def read_selected(
             unit.update(
                 ocrCompleted=True,
                 ocrStatus="READ" if text else "EMPTY",
-                reason="TEXT_FOUND" if text else "EMPTY_RESULT",
+                reason="TEXT_FOUND" if text else "EMPTY_RESULT"
             )
             parts[index] = text
         except OcrUnavailable as error:
@@ -95,7 +89,7 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
         or not 1 <= len(name) <= 180
         or any(c in name for c in "/\\:")
         or any(ord(c) < 32 or ord(c) == 127 for c in name)
-    ):  # noqa: E501
+    ):
         raise ValueError("INVALID_FILENAME")
     extension = name.rsplit(".", 1)[-1].lower()
     if extension not in TYPES or mime not in TYPES[extension] | {"", "application/octet-stream"}:
@@ -190,11 +184,7 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
             parts.append(part)
         selected = [ocr_candidates[sample] for sample in sample_indices(len(ocr_candidates))]
         recognized, detail = read_selected(
-            selected,
-            coverage,
-            language,
-            layout,
-            lambda ocr, index: ocr.read_pdf_page(payload, index + 1),
+            selected, coverage, language, layout, lambda ocr, index: ocr.read_pdf_page(payload, index + 1)
         )
         for index, part in recognized.items():
             if not part:
@@ -225,7 +215,7 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
                 "Candidates include text-empty pages and large painted raster images. "
                 "Unsampled pages, small images and annotations may contain unread text. "
                 "See per-page coverage. Visual content and layout are not fully read. " + detail
-            ).strip(),
+            ).strip()
         )
     else:
         from PIL import Image
@@ -274,7 +264,7 @@ def extract(data: dict) -> dict:  # type: ignore[type-arg]
                 f"text found in {len(frame_recognized)} frame(s). "
                 "See per-frame attempted/completed status. "
                 "Unsampled frames were not read. No visual or animation understanding. " + detail
-            ).strip(),
+            ).strip()
         )
     return result
 

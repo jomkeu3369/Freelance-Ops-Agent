@@ -1,4 +1,4 @@
-"""Preserve the prompt version assigned when a run is created."""
+"""실행 생성 시 선택한 프롬프트 버전을 보존한다."""
 
 from alembic import op
 

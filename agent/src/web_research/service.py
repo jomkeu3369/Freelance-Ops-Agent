@@ -1,4 +1,4 @@
-"""Bounded research collection used by the operational Research department."""
+"""운영 Research 부서가 사용하는 제한된 조사 수집 서비스."""
 
 from __future__ import annotations
 
@@ -27,13 +27,13 @@ class BoundedWebResearchService:
     def __init__(self, search: SearchProvider, fetch: FetchProvider, allowed_domains: list[str], max_results: int = 5, max_fetches: int = 3, timeout_seconds: float = 30.0) -> None:  # noqa: E501
         if not allowed_domains:
             raise ValueError("web research requires at least one allowed domain")
-       
+
         if max_results < 1 or max_fetches < 1 or max_fetches > max_results:
             raise ValueError("web research result limits are invalid")
-        
+
         if timeout_seconds <= 0:
             raise ValueError("web research timeout must be positive")
-        
+
         self._search = search
         self._fetch = fetch
         self._allowed_domains = allowed_domains
@@ -45,10 +45,10 @@ class BoundedWebResearchService:
         reject_unbounded_operation("WEB_RESEARCH")
         if max_search_credits < 1:
             raise WebResearchBudgetError("SEARCH_CREDIT_BUDGET_EXCEEDED")
-        
+
         if max_tool_calls < 2:
             raise WebResearchBudgetError("TOOL_CALL_BUDGET_EXCEEDED")
-        
+
         async with asyncio.timeout(self._timeout_seconds):
             results = await self._search.search(
                 SearchRequest(
@@ -73,10 +73,10 @@ class BoundedWebResearchService:
                     )
                 except (RuntimeError, ValueError):
                     continue
-                
+
                 if document.prompt_injection_signals:
                     continue
-                
+
                 sources.append(
                     SourceReference(
                         title=document.title,
@@ -90,8 +90,5 @@ class BoundedWebResearchService:
                     )
                 )
             return ResearchCollection(
-                sources=sources,
-                search_credits=1,
-                tool_calls=1 + attempted_fetches,
-                fetched_pages=len(sources)
+                sources=sources, search_credits=1, tool_calls=1 + attempted_fetches, fetched_pages=len(sources)
             )

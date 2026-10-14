@@ -1,4 +1,3 @@
-# ruff: noqa: I001
 import json
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
@@ -6,19 +5,43 @@ from uuid import uuid4
 
 import pytest
 
-from contracts import AgentInput, AgentRunRequest, KnowledgeSearchResult, MemorySourceMessage, ModelSelection, ProjectContext, Provider, RunBudget, SafetyContextInput, TrustedRunContext  # noqa: E501, I001
+from contracts import (
+    AgentInput,
+    AgentRunRequest,
+    KnowledgeSearchResult,
+    MemorySourceMessage,
+    ModelSelection,
+    ProjectContext,
+    Provider,
+    RunBudget,
+    SafetyContextInput,
+    TrustedRunContext,
+)
 from integrations.spring_tools import SpringToolError
 from retrieval.knowledge_context import KnowledgeContextLoader
-from runtime.runs import ExecutionAuthorization
+from runtime.run_contracts import ExecutionAuthorization
 
 
 def request() -> AgentRunRequest:
     return AgentRunRequest(
         context=TrustedRunContext(
-            run_id=uuid4(), thread_id=uuid4(), trace_id="memory-test", workspace_id=uuid4(),
-            project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["project.read", "document.read", "agent.run"]  # noqa: E501
+            run_id=uuid4(),
+            thread_id=uuid4(),
+            trace_id="memory-test",
+            workspace_id=uuid4(),
+            project_id=uuid4(),
+            initiated_by=uuid4(),
+            effective_permissions=["project.read", "document.read", "agent.run"]
         ),
-        budget=RunBudget(max_tool_calls=6, max_duration_seconds=30, max_model_calls=5, max_input_tokens=20000, max_output_tokens=1000, max_departments=4, max_hierarchy_depth=2),  # noqa: E501
+        budget=RunBudget(
+            max_tool_calls=6,
+            max_duration_seconds=30,
+            max_model_calls=5,
+            max_input_tokens=20000,
+            max_output_tokens=1000,
+            max_departments=4,
+            max_hierarchy_depth=2
+        ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="test"),
         safety_context=SafetyContextInput(),
         input=AgentInput(requirement_text="Build checkout without subscriptions")
@@ -26,14 +49,24 @@ def request() -> AgentRunRequest:
 
 
 def source() -> MemorySourceMessage:
-    return MemorySourceMessage(id=uuid4(), event_order=1, kind="PROJECT_INPUT", content="No subscriptions", created_at=datetime.now(UTC))  # noqa: E501
+    return MemorySourceMessage(
+        id=uuid4(), event_order=1, kind="PROJECT_INPUT", content="No subscriptions", created_at=datetime.now(UTC)
+    )
 
 
 def hit(**overrides: object) -> KnowledgeSearchResult:
     values = dict(
-        chunk_id=uuid4(), document_id=uuid4(), document_title="Prior analysis", source_type="PAST_PROJECT",
-        content="checkout", origin="agent", memory_type="summary", confirmation_status="confirmed",
-        source_messages=[source()], rrf_score=0.1, keyword_rank=1
+        chunk_id=uuid4(),
+        document_id=uuid4(),
+        document_title="Prior analysis",
+        source_type="PAST_PROJECT",
+        content="checkout",
+        origin="agent",
+        memory_type="summary",
+        confirmation_status="confirmed",
+        source_messages=[source()],
+        rrf_score=0.1,
+        keyword_rank=1
     )
     return KnowledgeSearchResult.model_validate(values | overrides)
 
@@ -41,8 +74,12 @@ def hit(**overrides: object) -> KnowledgeSearchResult:
 def setup(request: AgentRunRequest, hits: list[KnowledgeSearchResult]) -> tuple[KnowledgeContextLoader, AsyncMock, AsyncMock]:  # noqa: E501
     tools = AsyncMock()
     tools.get_project_context.return_value = ProjectContext(
-        project_id=request.context.project_id, workspace_id=request.context.workspace_id, title="Checkout",
-        requirement_text=request.input.requirement_text, currency="KRW", source_messages=[source()]
+        project_id=request.context.project_id,
+        workspace_id=request.context.workspace_id,
+        title="Checkout",
+        requirement_text=request.input.requirement_text,
+        currency="KRW",
+        source_messages=[source()]
     )
     tools.search_knowledge.return_value = hits
     embedder = AsyncMock()
@@ -54,10 +91,17 @@ def setup(request: AgentRunRequest, hits: list[KnowledgeSearchResult]) -> tuple[
 async def test_only_confirmed_scoped_source_backed_documents_enter_context() -> None:
     req = request()
     allowed = hit(project_id=req.context.project_id)
-    loader, tools, _ = setup(req, [
-        allowed, hit(confirmation_status="unconfirmed"), hit(confirmation_status="superseded"),
-        hit(memory_type="assumption"), hit(project_id=uuid4()), hit(source_messages=[])
-    ])
+    loader, tools, _ = setup(
+        req,
+        [
+            allowed,
+            hit(confirmation_status="unconfirmed"),
+            hit(confirmation_status="superseded"),
+            hit(memory_type="assumption"),
+            hit(project_id=uuid4()),
+            hit(source_messages=[]),
+        ]
+    )
     context = await loader.load(req, ExecutionAuthorization("signed-token"))
     payload = json.loads(context.text)
     assert [item["document_id"] for item in payload["confirmed_reference_documents"]] == [str(allowed.document_id)]
@@ -85,7 +129,9 @@ async def test_embedding_failure_keeps_originals_and_uses_keyword_search() -> No
 async def test_scope_mismatch_fails_before_embedding_or_search() -> None:
     req = request()
     loader, tools, embedder = setup(req, [])
-    tools.get_project_context.return_value = tools.get_project_context.return_value.model_copy(update={"project_id": uuid4()})  # noqa: E501
+    tools.get_project_context.return_value = tools.get_project_context.return_value.model_copy(
+        update={"project_id": uuid4()}
+    )
     with pytest.raises(SpringToolError, match="FORBIDDEN"):
         await loader.load(req, ExecutionAuthorization("signed-token"))
     embedder.embed.assert_not_called()

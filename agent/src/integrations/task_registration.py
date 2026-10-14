@@ -1,6 +1,4 @@
-"""Spring control-plane client for idempotent Task and Attempt registration."""
-
-# ruff: noqa: E501
+"""작업과 실행 시도를 Spring에 중복 등록 없이 전달한다."""
 
 from __future__ import annotations
 
@@ -17,7 +15,13 @@ class SpringTaskRegistrationError(RuntimeError):
 
 
 class RegisteredTaskProjection(BaseModel):
-    model_config = ConfigDict(alias_generator=lambda value: "".join(word if index == 0 else word.capitalize() for index, word in enumerate(value.split("_"))), populate_by_name=True, extra="ignore")
+    model_config = ConfigDict(
+        alias_generator=lambda value: "".join(
+            word if index == 0 else word.capitalize() for index, word in enumerate(value.split("_"))
+        ),
+        populate_by_name=True,
+        extra="ignore"
+    )
 
     task_id: UUID
     workspace_id: UUID
@@ -63,7 +67,9 @@ class SpringTaskRegistrationClient:
         if client is None:
             client = httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout_seconds)
         try:
-            response = await client.post("/internal/v1/agent-control/tasks", headers={"Authorization": f"Bearer {workload_token}"}, json=payload)
+            response = await client.post(
+                "/internal/v1/agent-control/tasks", headers={"Authorization": f"Bearer {workload_token}"}, json=payload
+            )
         except httpx.HTTPError as error:
             raise SpringTaskRegistrationError("SPRING_TASK_REGISTRATION_UNAVAILABLE") from error
         finally:

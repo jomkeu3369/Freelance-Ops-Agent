@@ -1,4 +1,4 @@
-"""Private-prompt LLM evaluator for uncertain local routing decisions."""
+"""비공개 프롬프트로 모델의 실행 경로 판단을 요청한다."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class EvaluationReason(StrEnum):
 
 
 class LLMRouteVerdict(BaseModel):
-    """No free-text fields: the model cannot echo a private prompt in output."""
+    """비공개 프롬프트가 응답에 노출되지 않도록 자유 텍스트 필드를 두지 않는다."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -51,7 +51,7 @@ class LLMRouteVerdict(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class SecretSystemPrompt:
-    """A prompt supplied by a secret manager, represented externally by hash only."""
+    """비밀 저장소에서 주입한 프롬프트. 외부에는 해시만 표시한다."""
 
     content: str
     version: str
@@ -114,60 +114,51 @@ class LLMRouteEvaluation:
 
 
 class BoundaryRouteEvaluator(Protocol):
-    async def evaluate(
-        self,
-        text: str,
-        local_decision: RouteDecision | None,
-        safety_context: SafetyContext | None = None,
-    ) -> LLMRouteEvaluation: ...
+    async def evaluate(self, text: str, local_decision: RouteDecision | None, safety_context: SafetyContext | None = None) -> LLMRouteEvaluation: ...  # noqa: E501
 
 
 class OpenAIRouteEvaluator:
-    """One-shot, tool-free Responses API adapter with strict structured output."""
+    """도구 없이 구조화된 응답을 한 번 요청하는 Responses API 어댑터."""
 
-    def __init__(
-        self,
-        client: Any,
-        system_prompt: SecretSystemPrompt,
-        *,
-        config: LLMRouteEvaluatorConfig | None = None,
-    ) -> None:
+    def __init__(self, client: Any, system_prompt: SecretSystemPrompt, *, config: LLMRouteEvaluatorConfig | None = None) -> None:  # noqa: E501
         self._client = client
         self._system_prompt = system_prompt
         self._config = config or LLMRouteEvaluatorConfig()
 
     @traceable(name="agent-route-evaluation", run_type="llm", metadata={"component": "route-evaluator"})
-    async def evaluate(
-        self,
-        text: str,
-        local_decision: RouteDecision | None,
-        safety_context: SafetyContext | None = None,
-    ) -> LLMRouteEvaluation:
+    async def evaluate(self, text: str, local_decision: RouteDecision | None, safety_context: SafetyContext | None = None) -> LLMRouteEvaluation:  # noqa: E501
         if len(text) > self._config.max_input_characters:
             raise ValueError("route evaluator input exceeds the configured character limit")
         ordered_routes = _rotated_routes(text)
         payload = _evaluation_payload(text, local_decision, ordered_routes, safety_context)
-        selection = ModelSelection(provider=Provider.OPENAI, model=self._config.model,
-                                   reasoning_effort=ReasoningEffort(self._config.reasoning_effort.upper()))
+        selection = ModelSelection(
+            provider=Provider.OPENAI,
+            model=self._config.model,
+            reasoning_effort=ReasoningEffort(self._config.reasoning_effort.upper())
+        )
         require_generation_scope(selection)
         if self._client is None:
             from openai import AsyncOpenAI
+
             self._client = AsyncOpenAI(base_url="https://api.openai.com/v1", max_retries=0)
         response = await budgeted_openai_attempt(
-            self._client, selection,
-            "route_evaluation", dict(
-            model=self._config.model,
-            service_tier="default",
-            reasoning={"effort": self._config.reasoning_effort},
-            input=[
-                {"role": "system", "content": self._system_prompt.content},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-            ],
-            tools=[],
-            store=False,
-            max_output_tokens=self._config.max_output_tokens,
-            text={"format": _verdict_json_schema(ordered_routes)},
-        ))
+            self._client,
+            selection,
+            "route_evaluation",
+            dict(
+                model=self._config.model,
+                service_tier="default",
+                reasoning={"effort": self._config.reasoning_effort},
+                input=[
+                    {"role": "system", "content": self._system_prompt.content},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+                tools=[],
+                store=False,
+                max_output_tokens=self._config.max_output_tokens,
+                text={"format": _verdict_json_schema(ordered_routes)}
+            )
+        )
         verdict = LLMRouteVerdict.model_validate_json(str(response.output_text))
         usage = getattr(response, "usage", None)
         return LLMRouteEvaluation(
@@ -177,7 +168,7 @@ class OpenAIRouteEvaluator:
             prompt_sha256=self._system_prompt.sha256,
             response_id=_optional_string(getattr(response, "id", None)),
             input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
-            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            output_tokens=int(getattr(usage, "output_tokens", 0) or 0)
         )
 
 
@@ -203,7 +194,7 @@ class FinalRouteDecision:
 
 
 class BoundaryAwareRouteGateway:
-    """Legacy benchmark cascade; do not use for operational routing."""
+    """기존 벤치마크의 단계별 라우터. 운영 경로 선택에는 사용하지 않는다."""
 
     def __init__(self, local_model: HybridRouteModel, evaluator: BoundaryRouteEvaluator) -> None:
         self._local_model = local_model
@@ -225,7 +216,7 @@ class BoundaryAwareRouteGateway:
                 route=RouteLabel.HUMAN_REQUIRED,
                 source=RouteDecisionSource.FAIL_CLOSED,
                 local_decision=local,
-                failure_code="LLM_EVALUATOR_FAILED",
+                failure_code="LLM_EVALUATOR_FAILED"
             )
 
         verdict = evaluation.verdict
@@ -235,25 +226,20 @@ class BoundaryAwareRouteGateway:
                 source=RouteDecisionSource.LLM_EVALUATOR,
                 local_decision=local,
                 llm_evaluation=evaluation,
-                failure_code="LLM_EVALUATOR_ABSTAINED",
+                failure_code="LLM_EVALUATOR_ABSTAINED"
             )
         return FinalRouteDecision(
             route=verdict.route,
             source=RouteDecisionSource.LLM_EVALUATOR,
             local_decision=local,
-            llm_evaluation=evaluation,
+            llm_evaluation=evaluation
         )
 
 
 class OperationalRouteGateway:
-    """Use deterministic safety facts and an LLM for every operational route decision."""
+    """신뢰할 수 있는 안전 정보를 먼저 검사한 뒤 모델에 운영 경로 판단을 요청한다."""
 
-    def __init__(
-        self,
-        evaluator: BoundaryRouteEvaluator,
-        *,
-        shadow_model: HybridRouteModel | None = None,
-    ) -> None:
+    def __init__(self, evaluator: BoundaryRouteEvaluator, *, shadow_model: HybridRouteModel | None = None) -> None:
         self._evaluator = evaluator
         self._shadow_model = shadow_model
 
@@ -269,12 +255,12 @@ class OperationalRouteGateway:
                 source=RouteDecisionSource.POLICY_GATE,
                 local_decision=None,
                 failure_code=safety.code.value,
-                safety_decision=safety,
+                safety_decision=safety
             )
 
         shadow, shadow_latency_ms = await self._shadow_route(text)
         try:
-            # Shadow output is deliberately excluded from the evaluator input.
+            # 비교 평가용 출력은 운영 평가자의 입력에 포함하지 않는다.
             evaluation = await self._evaluator.evaluate(text, None, context)
         except PlatformBudgetError:
             raise
@@ -328,12 +314,7 @@ _ROUTE_POLICY: Mapping[RouteLabel, str] = {
 }
 
 
-def _evaluation_payload(
-    text: str,
-    local: RouteDecision | None,
-    ordered_routes: tuple[RouteLabel, ...],
-    safety_context: SafetyContext | None = None,
-) -> dict[str, object]:
+def _evaluation_payload(text: str, local: RouteDecision | None, ordered_routes: tuple[RouteLabel, ...], safety_context: SafetyContext | None = None) -> dict[str, object]:  # noqa: E501
     payload: dict[str, object] = {
         "operation": "classify_route",
         "security_boundary": {
@@ -367,12 +348,7 @@ def _verdict_json_schema(ordered_routes: tuple[RouteLabel, ...]) -> dict[str, ob
     if not isinstance(route_definition, dict):
         raise RuntimeError("route verdict schema is missing RouteLabel")
     route_definition["enum"] = [route.value for route in ordered_routes]
-    return {
-        "type": "json_schema",
-        "name": "boundary_route_verdict",
-        "strict": True,
-        "schema": schema,
-    }
+    return {"type": "json_schema", "name": "boundary_route_verdict", "strict": True, "schema": schema}
 
 
 def _constant_time_equal(left: str, right: str) -> bool:

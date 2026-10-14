@@ -19,7 +19,7 @@ DEPARTMENT_ORDER = [
     DepartmentName.REQUIREMENTS,
     DepartmentName.RESEARCH,
     DepartmentName.DEAL_DESIGN,
-    DepartmentName.VERIFICATION
+    DepartmentName.VERIFICATION,
 ]
 
 
@@ -43,6 +43,7 @@ def select_departments(request_tier: RequestTier, max_departments: int) -> list[
         return [DepartmentName.REQUIREMENTS]
 
     return DEPARTMENT_ORDER[:max_departments]
+
 
 def global_orchestrator(state: WorkflowState) -> dict[str, object]:
     missing_fields = [field for field in ("request_tier", "max_departments") if field not in state]
@@ -90,6 +91,7 @@ def global_orchestrator(state: WorkflowState) -> dict[str, object]:
         "status": "RUNNING" if selected else "COMPLETED",
     }
 
+
 def department_node(department: DepartmentName) -> Callable[[WorkflowState], dict[str, object]]:
     def run_department(state: WorkflowState) -> dict[str, object]:
         selected = state.get("selected_departments", [])
@@ -112,13 +114,16 @@ def department_node(department: DepartmentName) -> Callable[[WorkflowState], dic
 
     return run_department
 
+
 def route_after_orchestrator(state: WorkflowState) -> str:
     selected = state.get("selected_departments", [])
     return selected[0].lower() if selected else "end"
 
+
 def route_after_department(state: WorkflowState) -> str:
     active_department = state.get("active_department")
     return active_department.lower() if active_department else "end"
+
 
 def build_supervisor_graph() -> Any:
     builder: StateGraph[WorkflowState, None, WorkflowState, WorkflowState] = StateGraph(WorkflowState)

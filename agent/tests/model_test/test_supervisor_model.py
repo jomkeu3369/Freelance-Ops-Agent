@@ -30,7 +30,7 @@ def fake_outputs() -> list[StrictModel]:
             requirements_objective="회원가입 기능의 요구사항을 구조화한다.",
             risk_objective="인증 및 개인정보 위험을 검토한다.",
             shared_constraints=["사용자 입력 밖의 기능을 추가하지 않는다."],
-            rationale="요구사항과 위험 분석이 모두 필요한 기능 제작 요청이다.",
+            rationale="요구사항과 위험 분석이 모두 필요한 기능 제작 요청이다."
         ),
         RequirementsResult(
             summary="회원가입 기능이 필요하다.",
@@ -42,11 +42,11 @@ def fake_outputs() -> list[StrictModel]:
                     description="사용자는 계정을 생성할 수 있어야 한다.",
                     acceptance_criteria=["유효한 입력으로 계정을 생성한다."],
                     source_excerpt="회원가입 기능을 만들어 주세요.",
-                    is_assumption=False,
+                    is_assumption=False
                 )
             ],
             assumptions=[],
-            unresolved_questions=["지원할 인증 방식은 무엇인가요?"],
+            unresolved_questions=["지원할 인증 방식은 무엇인가요?"]
         ),
         RiskResult(
             summary="개인정보와 인증 정책 확인이 필요하다.",
@@ -59,11 +59,11 @@ def fake_outputs() -> list[StrictModel]:
                     affected_requirement_ids=["REQ-001"],
                     evidence_or_assumption="인증 방식과 수집 항목이 사용자 입력에 없다.",
                     mitigation="필수 수집 항목과 보관 정책을 확정한다.",
-                    human_review_required=False,
+                    human_review_required=False
                 )
             ],
             missing_evidence=["개인정보 처리 정책"],
-            human_review_required=False,
+            human_review_required=False
         ),
         FinalSupervisorResult(
             status="NEEDS_CLARIFICATION",
@@ -73,7 +73,7 @@ def fake_outputs() -> list[StrictModel]:
             risk_ids=["RISK-001"],
             conflicts=[],
             next_action="인증 방식과 개인정보 수집 범위를 확인한다.",
-            user_message="회원가입 요구사항 초안을 만들었습니다. 인증 방식과 개인정보 범위를 확인해 주세요.",
+            user_message="회원가입 요구사항 초안을 만들었습니다. 인증 방식과 개인정보 범위를 확인해 주세요."
         ),
     ]
 
@@ -101,7 +101,7 @@ def test_supervisor_stops_before_finalizer_when_output_budget_is_exhausted() -> 
     model = FakeStructuredModel(fake_outputs(), tokens_per_call=200)
     request = SupervisorRequest(
         requirement_text="회원가입 기능을 만들어 주세요.",
-        max_output_tokens=600,
+        max_output_tokens=600
     )
 
     result = run_supervisor(request, model)
@@ -120,7 +120,7 @@ def test_supervisor_stops_when_model_call_budget_is_exhausted() -> None:
     model = FakeStructuredModel(fake_outputs())
     request = SupervisorRequest(
         requirement_text="회원가입 기능을 만들어 주세요.",
-        max_model_calls=2,
+        max_model_calls=2
     )
 
     result = run_supervisor(request, model)
@@ -135,7 +135,7 @@ def test_supervisor_rejects_a_route_cycle() -> None:
     with pytest.raises(ValidationError, match="cannot be visited twice"):
         SupervisorRequest(
             requirement_text="요구사항을 분석해 주세요.",
-            route_history=["SIMPLE_LLM", "SUPERVISOR", "SIMPLE_LLM", "SUPERVISOR"],
+            route_history=["SIMPLE_LLM", "SUPERVISOR", "SIMPLE_LLM", "SUPERVISOR"]
         )
 
 

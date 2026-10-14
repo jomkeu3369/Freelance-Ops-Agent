@@ -1,20 +1,17 @@
-"""Spring-only quotation assumption suggestion endpoint."""
+"""Spring 서버가 호출하는 견적 가정 제안 API."""
 
 from __future__ import annotations
 
 import json
 import time
-from typing import Annotated, cast
+from typing import cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from contracts import (
-    AssumptionSuggestionRequest,
-    AssumptionSuggestionResponse,
-    AssumptionSuggestionUsage,
-)
+from api.dependencies import BearerDependency, VerifierDependency
+from api.responses import problem_response
+from contracts import AssumptionSuggestionRequest, AssumptionSuggestionResponse, AssumptionSuggestionUsage
 from gateway import AIGateway
 from personal_credentials import credential_scope
 from platform_budget import PlatformBudgetError, reject_unbounded_operation
@@ -22,45 +19,28 @@ from providers import ProviderCallError
 from security import DelegationPrincipal, DelegationTokenVerifier, TokenVerificationError
 
 router = APIRouter(prefix="/internal/v1/quotation-assumptions", tags=["QuotationAssumptions"])
-bearer = HTTPBearer(auto_error=False)
-
-
-def _problem(status: int, title: str, code: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        media_type="application/problem+json",
-        content={"title": title, "status": status, "code": code}
-    )
-
-
-def _verifier(request: Request) -> DelegationTokenVerifier:
-    return cast(DelegationTokenVerifier, request.app.state.delegation_token_verifier)
-
-
-BearerDependency = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
-VerifierDependency = Annotated[DelegationTokenVerifier, Depends(_verifier)]
 
 
 @router.post("/suggest", response_model=AssumptionSuggestionResponse)
 async def suggest_assumption(body: AssumptionSuggestionRequest, request: Request, credentials: BearerDependency, verifier: VerifierDependency) -> AssumptionSuggestionResponse | JSONResponse:  # noqa: E501
     if credentials is None or credentials.scheme.lower() != "bearer":
-        return _problem(401, "Delegation token is required", "DELEGATION_TOKEN_REQUIRED")
+        return problem_response(401, "Delegation token is required", "DELEGATION_TOKEN_REQUIRED")
     try:
         principal = verifier.verify(credentials.credentials)
         DelegationTokenVerifier.authorize_run(principal, run_id=body.context.run_id, permission="agent.run")
     except TokenVerificationError:
-        return _problem(403, "Delegated permission is insufficient", "DELEGATION_FORBIDDEN")
+        return problem_response(403, "Delegated permission is insufficient", "DELEGATION_FORBIDDEN")
 
     if not _matches_context(principal, body) or "quotation.write" not in principal.permissions:
-        return _problem(403, "Suggestion context exceeds delegated authority", "SUGGESTION_CONTEXT_FORBIDDEN")
+        return problem_response(403, "Suggestion context exceeds delegated authority", "SUGGESTION_CONTEXT_FORBIDDEN")
 
     try:
         reject_unbounded_operation("ASSUMPTIONS")
     except PlatformBudgetError as error:
-        return _problem(409, "Platform budget is required for this operation", error.code)
+        return problem_response(409, "Platform budget is required for this operation", error.code)
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
-        return _problem(503, "AI gateway is unavailable", "AI_GATEWAY_UNAVAILABLE")
+        return problem_response(503, "AI gateway is unavailable", "AI_GATEWAY_UNAVAILABLE")
 
     prompt = json.dumps(
         {
@@ -80,17 +60,14 @@ async def suggest_assumption(body: AssumptionSuggestionRequest, request: Request
     try:
         with credential_scope(credentials.credentials, body.context.run_id):
             generation = await gateway.generate_assumption(
-                body.model_selection,
-                prompt,
-                max_output_tokens=500,
-                max_attempts=2
+                body.model_selection, prompt, max_output_tokens=500, max_attempts=2
             )
     except ProviderCallError:
-        return _problem(502, "Assumption suggestion failed", "ASSUMPTION_MODEL_FAILED")
+        return problem_response(502, "Assumption suggestion failed", "ASSUMPTION_MODEL_FAILED")
 
     content = str(generation.payload.get("content", "")).strip()
     if not content:
-        return _problem(502, "Assumption suggestion was empty", "ASSUMPTION_EMPTY")
+        return problem_response(502, "Assumption suggestion was empty", "ASSUMPTION_EMPTY")
     return AssumptionSuggestionResponse(
         run_id=body.context.run_id,
         content=content,

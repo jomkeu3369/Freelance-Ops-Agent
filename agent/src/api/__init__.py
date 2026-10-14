@@ -1,1 +1,1 @@
-"""HTTP API package."""
+"""HTTP 요청 처리."""

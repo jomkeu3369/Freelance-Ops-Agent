@@ -1,1 +1,1 @@
-"""Durable asynchronous Task command API."""
+"""비동기 작업 명령 API."""

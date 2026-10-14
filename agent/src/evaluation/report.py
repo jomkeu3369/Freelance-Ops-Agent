@@ -1,4 +1,4 @@
-"""Aggregate the V2 specification section 14.4 metrics without an LLM judge."""
+"""모델 평가자 없이 V2 명세 14.4절의 지표를 집계한다."""
 
 from __future__ import annotations
 
@@ -97,9 +97,7 @@ def build_evaluation_report(cases: list[EvaluationCase], *, dataset_version: str
         "estimate_range_coverage": _boolean_rate(case.estimate_contains_actual for case in cases),
         "quotation_item_omission_rate": _ratio_from_counts(cases, "missing_items", "expected_items"),
         "arithmetic_accuracy": _boolean_rate(case.arithmetic_correct for case in cases),
-        "high_risk_recall": _boolean_rate(
-            case.high_risk_detected for case in cases if case.high_risk_expected is True
-        ),
+        "high_risk_recall": _boolean_rate(case.high_risk_detected for case in cases if case.high_risk_expected is True),
         "normal_case_completion_rate": _boolean_rate(case.completed for case in cases if case.normal_case is True),
         "department_routing_accuracy": _boolean_rate(
             case.expected_department == case.predicted_department
@@ -123,7 +121,7 @@ def build_evaluation_report(cases: list[EvaluationCase], *, dataset_version: str
         evaluated_at=evaluated_at,
         case_count=len(cases),
         metrics=metrics,
-        route_recall=_route_recall(cases),
+        route_recall=_route_recall(cases)
     )
 
 
@@ -160,10 +158,7 @@ def _boolean_rate(values: Iterable[bool | None]) -> MetricValue:
 
 def _mean(values: list[float | None]) -> MetricValue:
     selected = [value for value in values if value is not None]
-    return MetricValue(
-        value=sum(selected) / len(selected) if selected else None,
-        denominator=len(selected),
-    )
+    return MetricValue(value=sum(selected) / len(selected) if selected else None, denominator=len(selected))
 
 
 def _routing_macro_f1(cases: list[EvaluationCase]) -> MetricValue:
@@ -195,7 +190,8 @@ def _human_required_miss_rate(cases: list[EvaluationCase]) -> MetricValue:
 
 def _cost_ratio(cases: list[EvaluationCase]) -> MetricValue:
     eligible = [
-        case for case in cases
+        case
+        for case in cases
         if case.completed is True
         and case.variable_cost is not None
         and case.sale_price is not None
@@ -206,7 +202,7 @@ def _cost_ratio(cases: list[EvaluationCase]) -> MetricValue:
     return MetricValue(
         value=total_cost / total_sales if total_sales > 0 else None,
         numerator=total_cost if eligible else None,
-        denominator=len(eligible),
+        denominator=len(eligible)
     )
 
 
@@ -215,13 +211,7 @@ def _rate(numerator: int, denominator: int) -> MetricValue:
         return MetricValue(value=None, denominator=0)
     value = numerator / denominator
     low, high = _wilson_interval(numerator, denominator)
-    return MetricValue(
-        value=value,
-        numerator=float(numerator),
-        denominator=denominator,
-        ci95_low=low,
-        ci95_high=high,
-    )
+    return MetricValue(value=value, numerator=float(numerator), denominator=denominator, ci95_low=low, ci95_high=high)
 
 
 def _wilson_interval(numerator: int, denominator: int) -> tuple[float, float]:
@@ -229,7 +219,7 @@ def _wilson_interval(numerator: int, denominator: int) -> tuple[float, float]:
     proportion = numerator / denominator
     scale = 1 + z * z / denominator
     center = (proportion + z * z / (2 * denominator)) / scale
-    margin = z * math.sqrt(
-        proportion * (1 - proportion) / denominator + z * z / (4 * denominator * denominator)
-    ) / scale
+    margin = (
+        z * math.sqrt(proportion * (1 - proportion) / denominator + z * z / (4 * denominator * denominator)) / scale
+    )
     return max(0.0, center - margin), min(1.0, center + margin)

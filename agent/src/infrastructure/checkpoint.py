@@ -1,4 +1,4 @@
-"""Durable LangGraph lifecycle checkpoints stored in PostgreSQL."""
+"""LangGraph 실행 체크포인트를 PostgreSQL에 보관한다."""
 
 from __future__ import annotations
 
@@ -57,7 +57,9 @@ class DurableExecutionContext:
 
 
 class PostgresCheckpointJournal:
-    """Own AsyncPostgresSaver and record resumable public-safe lifecycle snapshots."""
+    """AsyncPostgresSaver를 관리하고 재개에 필요한 공개 가능한 실행 상태를
+    기록한다.
+    """
 
     def __init__(self, database_url: str, *, open_timeout_seconds: float = 10.0) -> None:
         if open_timeout_seconds <= 0:
@@ -80,7 +82,7 @@ class PostgresCheckpointJournal:
         serializer = JsonPlusSerializer(pickle_fallback=False, allowed_msgpack_modules=[])
         context = cast(
             AbstractAsyncContextManager[AsyncPostgresSaver],
-            AsyncPostgresSaver.from_conn_string(self._database_url, serde=serializer),
+            AsyncPostgresSaver.from_conn_string(self._database_url, serde=serializer)
         )
         saver = await context.__aenter__()
         try:
@@ -102,15 +104,7 @@ class PostgresCheckpointJournal:
         if context is not None:
             await context.__aexit__(None, None, None)
 
-    async def record(
-        self,
-        request: AgentRunRequest,
-        status: AgentRunStatus,
-        phase: str,
-        *,
-        active_department: DepartmentName | None = None,
-        error_code: str | None = None,
-    ) -> None:
+    async def record(self, request: AgentRunRequest, status: AgentRunStatus, phase: str, *, active_department: DepartmentName | None = None, error_code: str | None = None) -> None:  # noqa: E501
         if self._graph is None:
             raise CheckpointNotStartedError("LangGraph PostgreSQL checkpointer is not open")
         context = request.context
@@ -128,9 +122,7 @@ class PostgresCheckpointJournal:
             "error_code": error_code,
         }
         config = {
-            "configurable": {
-                "thread_id": f"lifecycle:{context.thread_id}:{context.run_id}",
-            },
+            "configurable": {"thread_id": f"lifecycle:{context.thread_id}:{context.run_id}"},
             "tags": ["freelance-ops-agent", "run-lifecycle"],
             "metadata": {
                 "service": "freelance-ops-agent",
@@ -153,15 +145,9 @@ class PostgresCheckpointJournal:
             "resume": resume.model_dump(mode="json") if resume is not None else None,
             "phase": "received",
         }
-        config = {
-            "configurable": {
-                "thread_id": str(request.context.thread_id),
-            }
-        }
+        config = {"configurable": {"thread_id": str(request.context.thread_id)}}
         result = await self._execution_graph.ainvoke(
-            state,
-            config,
-            context=DurableExecutionContext(executor=executor, authorization=authorization),
+            state, config, context=DurableExecutionContext(executor=executor, authorization=authorization)
         )
         return self._deserialize_outcome(result["outcome"])
 
@@ -186,11 +172,7 @@ class PostgresCheckpointJournal:
             request = AgentRunRequest.model_validate(state["request"])
             resume_value = state.get("resume")
             resume = ResumeAgentRunRequest.model_validate(resume_value) if resume_value is not None else None
-            outcome = await runtime.context.executor.execute(
-                request,
-                resume,
-                runtime.context.authorization,
-            )
+            outcome = await runtime.context.executor.execute(request, resume, runtime.context.authorization)
             return {"phase": "executed", "outcome": PostgresCheckpointJournal._serialize_outcome(outcome)}
 
         builder = StateGraph(DurableExecutionState, context_schema=DurableExecutionContext)
@@ -216,7 +198,7 @@ class PostgresCheckpointJournal:
 
     @staticmethod
     def _deserialize_outcome(value: dict[str, Any]) -> Any:
-        from runtime.runs import ExecutionEvent, ExecutionOutcome
+        from runtime.run_contracts import ExecutionEvent, ExecutionOutcome
 
         result = value.get("result")
         interruption = value.get("interruption")
@@ -228,8 +210,7 @@ class PostgresCheckpointJournal:
             active_department=DepartmentName(department) if department is not None else None,
             usage=AgentRunUsage.model_validate(usage) if usage is not None else None,
             events=tuple(
-                ExecutionEvent(type=event["type"], data=event.get("data", {}))
-                for event in value.get("events", [])
+                ExecutionEvent(type=event["type"], data=event.get("data", {})) for event in value.get("events", [])
             ),
             partial_error_code=value.get("partial_error_code")
         )
@@ -243,11 +224,5 @@ class PostgresCheckpointJournal:
         query["options"] = "-c search_path=agent_runtime,public"
         normalized_scheme = "postgresql" if parts.scheme == "postgresql+psycopg" else parts.scheme
         return urlunsplit(
-            (
-                normalized_scheme,
-                parts.netloc,
-                parts.path,
-                urlencode(query, quote_via=quote),
-                parts.fragment,
-            )
+            (normalized_scheme, parts.netloc, parts.path, urlencode(query, quote_via=quote), parts.fragment)
         )

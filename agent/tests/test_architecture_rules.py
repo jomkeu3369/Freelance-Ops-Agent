@@ -32,9 +32,7 @@ def test_versioned_contract_covers_every_fastapi_internal_path() -> None:
     )
     contract_paths = set(contract["paths"])
     application_paths = {
-        path.replace("{run_id}", "{runId}")
-        for path in create_app().openapi()["paths"]
-        if path.startswith("/internal/")
+        path.replace("{run_id}", "{runId}") for path in create_app().openapi()["paths"] if path.startswith("/internal/")
     }
 
     assert application_paths <= contract_paths

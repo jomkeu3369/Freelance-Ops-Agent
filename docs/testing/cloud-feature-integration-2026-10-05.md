@@ -3,10 +3,9 @@
 Work branch: `codex/cloud-feature-integration-20261005`.
 Base: `cfcaeb939129e290e7fbd8ae115414d44f361e5f`.
 
-This is a cloud-only implementation and verification checkpoint. It is not a
-production deployment or a claim that the database/browser release gates passed.
-No laptop workloads, Docker execution, paid provider requests, administrator
-grants, budget increases, main merge or force push were performed.
+This is a historical implementation and verification record. The initial cloud
+checks and subsequent GitHub Actions checks below have different database/browser
+coverage. Neither stage establishes production deployment or paid-provider quality.
 
 ## Integrated behavior
 
@@ -62,6 +61,22 @@ label such as `말투:` after a sentence-ending period is now recognized.
 Migrations V42/V43 (ledger), V44 (pets), V45 (attachments), V46 (member activity)
 have distinct numbers. Skill choices use existing durable command storage, so no
 V47 table or migration is needed.
+
+## Imported catalog provenance and earlier focused checks
+
+The original `freelance-ops-builtins-v1.zip` contained 68,460 bytes with SHA-256
+`625e29d4612a4b92de317371fd13e0d336818e98a3015f8d2efd61aa2cbc592e`.
+All seven original manifest byte counts and hashes were verified at import. The
+supplied catalog validation report was author evidence at that point; the 120-check
+validator rerun below is separate integration evidence. Original catalog files,
+manifest, validator and fixtures remain in `agent/resources/builtin-skills`.
+
+Earlier attachment checks recorded 77 Python passes, 245 frontend passes and
+three synthetic browser passes with one initial-navigation timeout. Java workers
+failed to launch, so that checkpoint supplied no passing Java or PostgreSQL suite.
+Earlier pet checks recorded 69 Python passes and 26 targeted Java passes; 22
+PostgreSQL cases were skipped. Final frontend/build/browser checks had not run on
+that pet revision. These historical checks do not replace the integrated results.
 
 ## Cloud verification so far
 

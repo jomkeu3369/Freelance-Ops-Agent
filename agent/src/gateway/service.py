@@ -1,4 +1,4 @@
-"""Reusable AI Gateway policy around provider adapters."""
+"""모델 어댑터에 공통 접근 정책을 적용한다."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class GatewayRejectedError(ProviderCallError):
-    """Stable failure raised when platform policy rejects a model call."""
+    """플랫폼 정책이 모델 호출을 거부했을 때 발생하는 오류."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,10 +47,8 @@ class _CircuitState:
 
 
 class AIGateway:
-    """Apply admission, allowlist, circuit-breaker, and telemetry policy.
-
-    Provider fallback is intentionally absent. A run always uses the provider and
-    model selected and recorded by Spring.
+    """호출 승인, 모델 허용 목록, 회로 차단기와 관측 정책을 적용한다. 실행은 Spring이
+    기록한 공급자와 모델을 사용하며 다른 공급자로 전환하지 않는다.
     """
 
     def __init__(self, provider: ModelProvider, *, policy: GatewayPolicy, telemetry: GatewayTelemetry | None = None) -> None:  # noqa: E501
@@ -70,10 +68,7 @@ class AIGateway:
             "structured_generation",
             selection,
             lambda: self._provider.generate_structured(
-                selection,
-                prompt,
-                max_output_tokens=max_output_tokens,
-                max_attempts=max_attempts
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
         )
 
@@ -82,10 +77,7 @@ class AIGateway:
             "react_step",
             selection,
             lambda: self._provider.generate_react_step(
-                selection,
-                prompt,
-                max_output_tokens=max_output_tokens,
-                max_attempts=max_attempts
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
         )
 
@@ -94,10 +86,7 @@ class AIGateway:
             "pet_profile",
             selection,
             lambda: self._provider.generate_pet(
-                selection,
-                prompt,
-                max_output_tokens=max_output_tokens,
-                max_attempts=max_attempts
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
         )
 
@@ -106,10 +95,7 @@ class AIGateway:
             "quotation_assumption",
             selection,
             lambda: self._provider.generate_assumption(
-                selection,
-                prompt,
-                max_output_tokens=max_output_tokens,
-                max_attempts=max_attempts
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
         )
 
@@ -133,8 +119,8 @@ class AIGateway:
             self._telemetry.failed(latency_ms=latency_ms, code="CALL_CANCELLED")
             raise
         except PlatformBudgetError as error:
-            # A user's exhausted/invalid reservation is not a provider outage.
-            # Keep the shared circuit unchanged and balance the started metric.
+            # 사용자의 예약 소진이나 잘못된 예약은 공급자 장애로 처리하지 않는다.
+            # 공유 회로 차단기 상태는 유지하고 시작한 호출 지표만 정리한다.
             latency_ms = (time.monotonic() - started) * 1000
             self._telemetry.rejected(code=error.code, latency_ms=latency_ms)
             raise
@@ -155,9 +141,7 @@ class AIGateway:
             if selection.credential_id is None:
                 await self._record_success(circuit_key)
             self._telemetry.succeeded(
-                latency_ms=latency_ms,
-                input_tokens=generation.input_tokens,
-                output_tokens=generation.output_tokens
+                latency_ms=latency_ms, input_tokens=generation.input_tokens, output_tokens=generation.output_tokens
             )
             logger.info(
                 "AI gateway call completed: operation=%s provider=%s model=%s "

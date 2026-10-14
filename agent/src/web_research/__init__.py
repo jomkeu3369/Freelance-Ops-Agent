@@ -1,4 +1,4 @@
-"""Secure provider-neutral web research boundary."""
+"""공급자에 종속되지 않는 웹 조사 경계."""
 
 from .contracts import (
     AuthorityLevel,
@@ -33,5 +33,5 @@ __all__ = [
     "WebProvider",
     "WebResearchBudgetError",
     "WebResearchSecurityError",
-    "detect_prompt_injection"
+    "detect_prompt_injection",
 ]

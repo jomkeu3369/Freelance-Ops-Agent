@@ -1,4 +1,4 @@
-"""Synthetic coverage/option regressions; no documents or downloaded fixtures."""
+"""합성 입력으로 첨부파일 추출 범위와 옵션을 검사한다."""
 
 import io
 import os
@@ -179,7 +179,7 @@ def test_one_shared_engine_and_second_failure_preserve_earlier_output(monkeypatc
                     "The local OCR time budget was reached."
                     if budget
                     else "A local OCR tool could not read the content.",
-                    "BUDGET_EXHAUSTED" if budget else "TOOL_FAILED",
+                    "BUDGET_EXHAUSTED" if budget else "TOOL_FAILED"
                 )
             return f"Frame {self.calls}"
 
@@ -214,7 +214,7 @@ def test_all_units_have_explicit_coverage_and_sampling_is_still_three(monkeypatc
         ("ocrLayout", "auto"),
         ("ocrLanguage", None),
         ("ocrLanguage", []),
-    ],
+    ]
 )
 def test_disallowed_options_are_rejected_before_tools(field, value):
     data = {**file("x.png", image_bytes()), field: value}
@@ -267,7 +267,7 @@ def test_requested_missing_pack_does_not_fall_back(monkeypatch):
 async def test_worker_rejects_option_error_with_fixed_code():
     data = file("x.txt", b"text")
     data["ocrLanguage"] = "bad"
-    # Bypass only the parent model in this adversarial test of the worker boundary.
+    # 작업자 경계를 직접 검사하기 위해 이 테스트에서만 상위 입력 모델을 우회한다.
     result = await run_reader(
         FileInput.model_construct(
             **{"name": "x.txt", "media_type": "", "base64": data["base64"], "ocr_language": "bad"}

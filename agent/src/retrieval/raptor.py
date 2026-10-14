@@ -1,7 +1,5 @@
-"""Storage-neutral RAPTOR tree construction and retrieval.
-
-The Agent owns recursive clustering and summarisation. Persistence, workspace
-authorization and the operational pgvector index remain Spring responsibilities.
+"""원문 조각을 재귀적으로 군집화하고 요약해 RAPTOR 트리를 생성·검색한다. 저장, 작업공간
+권한과 운영 pgvector 인덱스는 Spring이 관리한다.
 """
 
 from __future__ import annotations
@@ -21,19 +19,19 @@ FloatArray = NDArray[np.float64]
 
 
 class EmbeddingProvider(Protocol):
-    """Embed texts using the model recorded on the index snapshot."""
+    """인덱스에 기록된 모델로 텍스트를 임베딩한다."""
 
     async def embed(self, texts: Sequence[str]) -> Sequence[Sequence[float]]: ...
 
 
 class SummaryProvider(Protocol):
-    """Summarise one cluster without changing source authority."""
+    """원문의 권한을 바꾸지 않고 군집 하나를 요약한다."""
 
     async def summarize(self, texts: Sequence[str]) -> str: ...
 
 
 class NodeClusterer(Protocol):
-    """Partition one tree level into non-empty clusters."""
+    """트리의 한 계층을 비어 있지 않은 군집으로 나눈다."""
 
     def cluster(self, embeddings: Sequence[Embedding]) -> tuple[tuple[int, ...], ...]: ...
 
@@ -45,7 +43,7 @@ class RaptorNodeKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class SourceChunk:
-    """A Spring-owned source chunk supplied to the RAPTOR builder."""
+    """Spring이 RAPTOR 생성기에 전달한 원문 조각."""
 
     chunk_id: UUID
     document_id: UUID
@@ -125,11 +123,8 @@ class RaptorBuildConfig:
 
 
 class CosineKMeansClusterer:
-    """Small deterministic spherical K-means baseline.
-
-    The cluster count is derived from a bounded target size. It is deliberately
-    deterministic and replaceable so GMM/BIC can be benchmarked later without
-    changing the tree or persistence contracts.
+    """구형 K-means로 결정적인 군집을 구성한다. 목표 군집 크기에서 군집 수를 정하며,
+    트리와 저장 계약을 바꾸지 않고 다른 군집 알고리즘을 비교할 수 있다.
     """
 
     def __init__(self, *, target_cluster_size: int = 4, iterations: int = 20) -> None:
@@ -178,11 +173,7 @@ class CosineKMeansClusterer:
         return matrix[selected].copy()
 
     @staticmethod
-    def _updated_centroids(
-        matrix: FloatArray,
-        assignments: NDArray[np.int64],
-        previous: FloatArray,
-    ) -> FloatArray:
+    def _updated_centroids(matrix: FloatArray, assignments: NDArray[np.int64], previous: FloatArray) -> FloatArray:
         updated = previous.copy()
         for cluster_id in range(previous.shape[0]):
             members = matrix[assignments == cluster_id]
@@ -195,33 +186,17 @@ class CosineKMeansClusterer:
 
 
 class RaptorTreeBuilder:
-    """Build an immutable recursive abstraction tree from source chunks."""
+    """원문 조각에서 변경 불가능한 재귀 요약 트리를 생성한다."""
 
-    def __init__(
-        self,
-        embedder: EmbeddingProvider,
-        summarizer: SummaryProvider,
-        *,
-        config: RaptorBuildConfig | None = None,
-        clusterer: NodeClusterer | None = None,
-    ) -> None:
+    def __init__(self, embedder: EmbeddingProvider, summarizer: SummaryProvider, *, config: RaptorBuildConfig | None = None, clusterer: NodeClusterer | None = None) -> None:  # noqa: E501
         self._embedder = embedder
         self._summarizer = summarizer
         self._config = config or RaptorBuildConfig()
         self._clusterer = clusterer or CosineKMeansClusterer(
-            target_cluster_size=self._config.target_cluster_size,
-            iterations=self._config.kmeans_iterations,
+            target_cluster_size=self._config.target_cluster_size, iterations=self._config.kmeans_iterations
         )
 
-    async def build(
-        self,
-        *,
-        workspace_id: UUID,
-        snapshot_id: UUID,
-        chunks: Sequence[SourceChunk],
-        embedding_model: str,
-        summary_model: str,
-    ) -> RaptorIndex:
+    async def build(self, *, workspace_id: UUID, snapshot_id: UUID, chunks: Sequence[SourceChunk], embedding_model: str, summary_model: str) -> RaptorIndex:  # noqa: E501
         if not chunks:
             raise ValueError("at least one source chunk is required")
         if len({chunk.chunk_id for chunk in chunks}) != len(chunks):
@@ -239,7 +214,7 @@ class RaptorTreeBuilder:
                 embedding=embedding,
                 source_chunk_id=chunk.chunk_id,
                 document_id=chunk.document_id,
-                metadata=dict(chunk.metadata),
+                metadata=dict(chunk.metadata)
             )
             for chunk, embedding in zip(chunks, leaf_embeddings, strict=True)
         ]
@@ -254,11 +229,7 @@ class RaptorTreeBuilder:
             else:
                 clusters = self._clusterer.cluster([node.embedding for node in current])
             parents = await self._summarise_level(
-                workspace_id=workspace_id,
-                snapshot_id=snapshot_id,
-                level=level,
-                nodes=current,
-                clusters=clusters,
+                workspace_id=workspace_id, snapshot_id=snapshot_id, level=level, nodes=current, clusters=clusters
             )
             if len(parents) >= len(current):
                 raise RuntimeError("RAPTOR clustering must reduce each tree level")
@@ -272,18 +243,10 @@ class RaptorTreeBuilder:
             embedding_model=embedding_model,
             summary_model=summary_model,
             nodes=tuple(all_nodes),
-            root_ids=tuple(node.node_id for node in current),
+            root_ids=tuple(node.node_id for node in current)
         )
 
-    async def _summarise_level(
-        self,
-        *,
-        workspace_id: UUID,
-        snapshot_id: UUID,
-        level: int,
-        nodes: Sequence[RaptorNode],
-        clusters: Sequence[Sequence[int]],
-    ) -> list[RaptorNode]:
+    async def _summarise_level(self, *, workspace_id: UUID, snapshot_id: UUID, level: int, nodes: Sequence[RaptorNode], clusters: Sequence[Sequence[int]]) -> list[RaptorNode]:  # noqa: E501
         child_groups = [tuple(nodes[index] for index in cluster) for cluster in clusters]
         if not child_groups or any(not group for group in child_groups):
             raise RuntimeError("clusterer returned an empty partition")
@@ -305,7 +268,7 @@ class RaptorTreeBuilder:
                 level=level,
                 text=summary,
                 embedding=embedding,
-                child_ids=tuple(node.node_id for node in group),
+                child_ids=tuple(node.node_id for node in group)
             )
             for group, summary, embedding in zip(child_groups, summaries, embeddings, strict=True)
         ]
@@ -335,19 +298,12 @@ class RaptorRetrieval:
 
 
 class RaptorRetriever:
-    """Retrieve across tree levels and resolve every result back to source leaves."""
+    """여러 트리 계층에서 검색하고 모든 결과를 원문 리프까지 추적한다."""
 
     def __init__(self, embedder: EmbeddingProvider) -> None:
         self._embedder = embedder
 
-    async def retrieve(
-        self,
-        index: RaptorIndex,
-        query: str,
-        *,
-        tree_top_k: int = 5,
-        evidence_top_k: int = 5,
-    ) -> RaptorRetrieval:
+    async def retrieve(self, index: RaptorIndex, query: str, *, tree_top_k: int = 5, evidence_top_k: int = 5) -> RaptorRetrieval:  # noqa: E501
         if not query.strip():
             raise ValueError("query must not be empty")
         if tree_top_k < 1 or evidence_top_k < 1:
@@ -380,7 +336,7 @@ class RaptorRetriever:
                 document_id=_required_uuid(leaf.document_id),
                 text=leaf.text,
                 score=float(leaf_scores[int(index_value)]),
-                metadata=dict(leaf.metadata),
+                metadata=dict(leaf.metadata)
             )
             for index_value in ranked_leaf_indices
             for leaf in (leaves[int(index_value)],)
@@ -388,12 +344,7 @@ class RaptorRetriever:
         return RaptorRetrieval(selected_nodes=selected, evidence=evidence)
 
     @classmethod
-    def _collect_leaf_ids(
-        cls,
-        node: RaptorNode,
-        nodes_by_id: Mapping[UUID, RaptorNode],
-        output: set[UUID],
-    ) -> None:
+    def _collect_leaf_ids(cls, node: RaptorNode, nodes_by_id: Mapping[UUID, RaptorNode], output: set[UUID]) -> None:
         if node.kind is RaptorNodeKind.LEAF:
             output.add(node.node_id)
             return

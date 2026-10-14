@@ -81,9 +81,11 @@ agent/.uv-python/
 .gradle-ascii/
 .mypy_cache/
 .ruff_cache/
-.gradle-local/
 __pycache__/
 *.py[cod]
+agent/model.json
+agent/model_updated.json
+agent/tests/model_test/artifacts/
 
 # Local infrastructure state and secrets
 infra/**/*.local

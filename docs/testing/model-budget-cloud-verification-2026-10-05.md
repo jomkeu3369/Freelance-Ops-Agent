@@ -4,7 +4,7 @@ Verified source: `ae2a035d9e029ffcd181c864b8a50d600c918421`, tree
 `80769a7179b529733e79829d1b608b9211a58dd2`. All 32 changed blobs and the
 complete checkout tree matched GitHub before running tests. Work used only the
 cloud checkout, cached Java 21/Gradle 9.6.1 and the existing Python 3.12 test
-environment. No laptop workload, Docker, production action or paid API call ran.
+environment. Docker, production operations and paid API calls were not exercised.
 
 ## Corrections found by aggregate checks
 

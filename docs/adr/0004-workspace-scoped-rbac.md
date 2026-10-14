@@ -23,3 +23,10 @@ V1은 인증된 사용자가 모든 CRM record와 임의의 Agent thread에 접�
 - 동일 사용자가 workspace마다 다른 역할을 가질 수 있다.
 - permission matrix와 cross-tenant test가 필수 품질 게이트가 된다.
 - 향후 project assignment가 필요하면 RBAC와 분리된 resource scope ADR로 확장한다.
+
+## 구현 경계
+
+역할 변경의 불변규칙은 [단위 검증](../../backend/src/test/java/com/freelanceops/backend/domain/workspace/policy/RoleAssignmentPolicyTest.java)과
+[명세용 fixture](../../backend/src/test/java/com/freelanceops/backend/domain/workspace/policy/RoleAssignmentPolicy.java)에 보존한다.
+현재 운영 호출 경로에 연결되지 않은 역할 변경 명세이며, 실제 workspace 권한·tenant 경계
+검사는 기존 운영 서비스와 보안 필터에서 수행한다.

@@ -1,1 +1,1 @@
-"""Local-only, bounded attachment readers. No model or network calls."""
+"""모델이나 네트워크 호출 없이 제한된 크기의 첨부파일을 읽는다."""

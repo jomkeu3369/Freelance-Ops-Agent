@@ -1,1 +1,1 @@
-"""Model-backed workflow prototypes and deterministic test doubles."""
+"""모델 기반 실행 흐름의 실험과 결정적인 테스트 대역."""

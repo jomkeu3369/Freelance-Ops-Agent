@@ -23,10 +23,9 @@ com.freelanceops.backend
     └── health
 ```
 
-모든 도메인은 `agentrun`과 동일하게 `client`, `controller`, `dto/request`,
-`dto/response`, `entity`, `model`, `repository`, `security`, `service` 패키지를 갖는다.
-기능이 아직 없는 패키지도 `package-info.java`로 구조를 명시한다. 업무 규칙은 `policy`처럼
-도메인 특화 패키지로 확장할 수 있다. 세부 결정은
+각 도메인은 구현에 필요한 `client`, `controller`, `dto/request`,
+`dto/response`, `entity`, `model`, `repository`, `security`, `service` 패키지를 사용한다.
+업무 규칙은 `policy`처럼 도메인 특화 패키지로 확장할 수 있다. 세부 결정은
 [`ADR-0017`](../docs/adr/0017-domain-first-spring-packaging.md)을 따른다.
 
 ## Local verification

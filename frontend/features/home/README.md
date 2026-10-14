@@ -53,8 +53,6 @@
 
 상단 업무 흐름과 히어로·하단 광선은 Three.js(0.186.1, MIT)로 렌더링합니다. 외부 영상·모델·텍스처·원본 템플릿·유료 프롬프트는 포함하지 않습니다. 기존 SVG와 CSS 화면은 GPU 미지원 시 대체 화면입니다.
 
-`workflow-preview.mjs`는 이전 예시이며 현재 랜딩에 연결되지 않습니다. 실제 업무 화면의 `app/components/live-workflow.tsx`나 채팅/백엔드/API는 변경하지 않습니다.
-
 ## 검증
 
 Node 22에서 `npm run preview:check`를 실행합니다. Playwright 테스트는 `tests/browser/ui-ux.spec.mjs`, 계산/상태/번역 검사는 `tests/product-demo.test.mjs`, `tests/spatial-home.test.mjs`에 있습니다. 지원되는 브라우저 환경에서 production 서버를 127.0.0.1:3100으로 시작하고 `npm run test:ui`를 실행합니다. 외부 API 요청은 fixture로 격리됩니다.

@@ -1,4 +1,4 @@
-"""Read confirmed project memory without turning generated summaries into new originals."""
+"""확정된 프로젝트 메모리를 읽는다. 생성한 요약을 새로운 원문으로 취급하지 않는다."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ KNOWLEDGE_RULES = (
     "Keep assumptions and open questions unconfirmed, including those inside approved documents.",
     "Rebuild requirements from original sources; do not summarize a previous model summary as the sole evidence.",
     "If sources conflict, identify the conflict and ask the user; never silently choose a model assumption.",
-    "Preserve source message IDs and cite document/chunk IDs for referenced claims."
+    "Preserve source message IDs and cite document/chunk IDs for referenced claims.",
 )
 
 
@@ -53,11 +53,19 @@ class KnowledgeContextLoader:
         self._embedding_model = embedding_model
 
     async def load(self, request: AgentRunRequest, authorization: Any) -> KnowledgeContext:
-        if authorization is None or not {"project.read", "document.read"}.issubset(request.context.effective_permissions):  # noqa: E501
+        if authorization is None or not {"project.read", "document.read"}.issubset(
+            request.context.effective_permissions
+        ):
             return KnowledgeContext()
         if request.budget.max_tool_calls < 3:
             raise ValueError("KNOWLEDGE_TOOL_BUDGET_REQUIRED")
-        context = await self._tools.get_project_context(authorization.delegation_token, run_id=request.context.run_id, project_id=request.context.project_id, max_attempts=1, traceparent=authorization.traceparent)  # noqa: E501
+        context = await self._tools.get_project_context(
+            authorization.delegation_token,
+            run_id=request.context.run_id,
+            project_id=request.context.project_id,
+            max_attempts=1,
+            traceparent=authorization.traceparent
+        )
         if context.workspace_id != request.context.workspace_id or context.project_id != request.context.project_id:
             raise SpringToolError("KNOWLEDGE_CONTEXT_FORBIDDEN")
         query = request.input.requirement_text[:2000]
@@ -69,19 +77,30 @@ class KnowledgeContextLoader:
             else:
                 embedding = await self._embedder.embed(query)
         except Exception:
-            # Source lookup remains authoritative even when the embedding provider is unavailable.
+            # 임베딩 공급자가 응답하지 않아도 원문 조회 결과의 권한은 유지한다.
             embedding = None
             mode = "keyword_fallback"
         results = await self._tools.search_knowledge(
-            authorization.delegation_token, run_id=request.context.run_id,
-            request=KnowledgeSearchRequest(query=query, embedding=embedding, embedding_model=self._embedding_model if embedding else None, limit=5),  # noqa: E501
-            max_attempts=1, traceparent=authorization.traceparent
+            authorization.delegation_token,
+            run_id=request.context.run_id,
+            request=KnowledgeSearchRequest(
+                query=query, embedding=embedding, embedding_model=self._embedding_model if embedding else None, limit=5
+            ),
+            max_attempts=1,
+            traceparent=authorization.traceparent
         )
-        eligible = [hit for hit in results if hit.confirmation_status == "confirmed" and hit.memory_type not in {"assumption", "response"} and hit.project_id in {None, request.context.project_id} and (hit.origin != "agent" or hit.source_messages)]  # noqa: E501
+        eligible = [
+            hit
+            for hit in results
+            if hit.confirmation_status == "confirmed"
+            and hit.memory_type not in {"assumption", "response"}
+            and hit.project_id in {None, request.context.project_id}
+            and (hit.origin != "agent" or hit.source_messages)
+        ]
         payload: dict[str, Any] = {
             "rules": KNOWLEDGE_RULES,
             "current_project_sources": [source.model_dump(mode="json") for source in context.source_messages],
-            "confirmed_reference_documents": []
+            "confirmed_reference_documents": [],
         }
         size = len(json.dumps(payload, ensure_ascii=False))
         if size > 80000:
@@ -96,7 +115,9 @@ class KnowledgeContextLoader:
             size += length
         payload["confirmed_reference_documents"] = references
         if request.byok_budget is not None and not context.source_messages and not references:
-            # No source data exists to repeat. The department prompt still owns
-            # the same grounding/safety rules, and retrieval usage remains visible.
+            # 검색된 자료가 없어도 부서 프롬프트의 근거·안전 규칙은 적용한다.
+            # 검색에 사용한 호출 수는 결과 사용량에 반영한다.
             return KnowledgeContext("", 3, (), mode)
-        return KnowledgeContext(json.dumps(payload, ensure_ascii=False), 3, tuple(str(hit["document_id"]) for hit in references), mode)  # noqa: E501
+        return KnowledgeContext(
+            json.dumps(payload, ensure_ascii=False), 3, tuple(str(hit["document_id"]) for hit in references), mode
+        )

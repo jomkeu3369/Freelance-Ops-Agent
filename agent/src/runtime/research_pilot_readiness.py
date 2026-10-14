@@ -1,6 +1,4 @@
-"""Fail-closed readiness gate for the Research FIFO shadow pilot."""
-
-# ruff: noqa: E501
+"""Research FIFO 비교 평가의 시범 운영 준비 조건을 검사한다."""
 
 from __future__ import annotations
 
@@ -47,7 +45,11 @@ class ResearchPilotReadinessPolicy:
     minimum_retry_reason_coverage: float = 0.99
 
     def __post_init__(self) -> None:
-        coverages = (self.minimum_scheduler_observation_coverage, self.minimum_terminal_delivery_coverage, self.minimum_retry_reason_coverage)
+        coverages = (
+            self.minimum_scheduler_observation_coverage,
+            self.minimum_terminal_delivery_coverage,
+            self.minimum_retry_reason_coverage,
+        )
         if self.maximum_oldest_ready_age_seconds < 0 or any(not 0 <= value <= 1 for value in coverages):
             raise ValueError("Research pilot readiness policy is invalid")
 
@@ -64,7 +66,7 @@ class ResearchPilotReadinessGate:
     def __init__(self, policy: ResearchPilotReadinessPolicy | None = None) -> None:
         self._policy = policy or ResearchPilotReadinessPolicy()
 
-    def evaluate(self, snapshot: RuntimeOperationalSnapshot, evidence: ResearchPilotDrillEvidence) -> ResearchPilotReadinessReport:
+    def evaluate(self, snapshot: RuntimeOperationalSnapshot, evidence: ResearchPilotDrillEvidence) -> ResearchPilotReadinessReport:  # noqa: E501
         reasons: list[str] = []
         drills = {
             "RESTART_RECOVERY_FAILED": evidence.restart_recovery_passed,
@@ -75,7 +77,7 @@ class ResearchPilotReadinessGate:
             "RETRY_BUDGET_DRILL_FAILED": evidence.retry_budget_passed,
             "PROVIDER_CIRCUIT_DRILL_FAILED": evidence.provider_circuit_passed,
             "ROLLBACK_DRILL_FAILED": evidence.rollback_drill_passed,
-            "AGENT_RUN_FALLBACK_MISSING": evidence.fallback_preserved
+            "AGENT_RUN_FALLBACK_MISSING": evidence.fallback_preserved,
         }
         reasons.extend(reason for reason, passed in drills.items() if not passed)
         if snapshot.expired_lease_count:
@@ -94,5 +96,9 @@ class ResearchPilotReadinessGate:
             reasons.append("TERMINAL_DELIVERY_COVERAGE_LOW")
         if evidence.retry_reason_coverage < self._policy.minimum_retry_reason_coverage:
             reasons.append("RETRY_REASON_COVERAGE_LOW")
-        status = ResearchPilotReadinessStatus.READY_FOR_LIMITED_PILOT if not reasons else ResearchPilotReadinessStatus.ROLLBACK_REQUIRED
+        status = (
+            ResearchPilotReadinessStatus.READY_FOR_LIMITED_PILOT
+            if not reasons
+            else ResearchPilotReadinessStatus.ROLLBACK_REQUIRED
+        )
         return ResearchPilotReadinessReport(status, tuple(reasons), snapshot, evidence)

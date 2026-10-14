@@ -1,6 +1,4 @@
-"""Versioned contracts and state transitions for durable asynchronous tasks."""
-
-# ruff: noqa: E501
+"""영속 비동기 작업의 버전별 계약과 상태 전이 규칙."""
 
 from __future__ import annotations
 
@@ -16,20 +14,26 @@ from contracts import DepartmentName, ModelSelection, RunBudget, StrictModel
 from routing.profiles import ExecutionRisk, ToolProfile
 
 TASK_CONTRACT_SCHEMA_VERSION = "async-task-contract-v1"
-FORBIDDEN_RUNTIME_DATA_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret"))
+FORBIDDEN_RUNTIME_DATA_KEYS = frozenset(
+    ("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret")
+)
 
 
 class TaskContractError(RuntimeError):
     pass
 
+
 class TaskTransitionError(TaskContractError):
     pass
+
 
 class TaskRevisionConflictError(TaskContractError):
     pass
 
+
 class TaskScopeError(TaskContractError):
     pass
+
 
 class ExecutionRoute(StrEnum):
     DIRECT_TOOL = "DIRECT_TOOL"
@@ -37,6 +41,7 @@ class ExecutionRoute(StrEnum):
     REACT_AGENT = "REACT_AGENT"
     SUPERVISOR = "SUPERVISOR"
     HUMAN_REQUIRED = "HUMAN_REQUIRED"
+
 
 class TaskStatus(StrEnum):
     SUBMITTED = "SUBMITTED"
@@ -54,6 +59,7 @@ class TaskStatus(StrEnum):
     REJECTED = "REJECTED"
     SUPERSEDED = "SUPERSEDED"
 
+
 class AttemptStatus(StrEnum):
     PREDICTED = "PREDICTED"
     QUEUED = "QUEUED"
@@ -64,12 +70,14 @@ class AttemptStatus(StrEnum):
     CANCELLED = "CANCELLED"
     SUPERSEDED = "SUPERSEDED"
 
+
 class TaskCommandType(StrEnum):
     PAUSE = "PAUSE"
     RESUME = "RESUME"
     SOFT_UPDATE = "SOFT_UPDATE"
     HARD_REDIRECT = "HARD_REDIRECT"
     CANCEL = "CANCEL"
+
 
 class TaskCommandStatus(StrEnum):
     PENDING = "PENDING"
@@ -98,8 +106,10 @@ class RetryReason(StrEnum):
     MAX_ATTEMPTS_REACHED = "MAX_ATTEMPTS_REACHED"
     CORRELATED_FAILURE_CIRCUIT_OPEN = "CORRELATED_FAILURE_CIRCUIT_OPEN"
 
+
 class RuntimeContractModel(StrictModel):
     model_config = ConfigDict(frozen=True)
+
 
 class TaskExecutionSnapshot(RuntimeContractModel):
     route: ExecutionRoute
@@ -126,6 +136,7 @@ class TaskExecutionSnapshot(RuntimeContractModel):
         if len(permissions) != len(set(permissions)):
             raise ValueError("permission snapshot entries must be unique")
         return permissions
+
 
 class DepartmentTask(RuntimeContractModel):
     task_id: UUID
@@ -157,6 +168,7 @@ class DepartmentTask(RuntimeContractModel):
         if self.schema_version != TASK_CONTRACT_SCHEMA_VERSION:
             raise ValueError("task contract schema version is unsupported")
         return self
+
 
 class TaskAttempt(RuntimeContractModel):
     attempt_id: UUID
@@ -194,7 +206,9 @@ class TaskAttempt(RuntimeContractModel):
         checkpoint_parts = (self.checkpoint_id, self.checkpoint_artifact_reference, self.resume_token_hash)
         if any(value is None for value in checkpoint_parts) != all(value is None for value in checkpoint_parts):
             raise ValueError("checkpoint identity, artifact reference, and resume token hash must be recorded together")
-        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(set(self.side_effect_idempotency_keys)):
+        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(
+            set(self.side_effect_idempotency_keys)
+        ):
             raise ValueError("checkpoint steps and side effect keys must be unique")
         if self.schema_version != TASK_CONTRACT_SCHEMA_VERSION:
             raise ValueError("task contract schema version is unsupported")
@@ -217,7 +231,9 @@ class TaskCheckpoint(RuntimeContractModel):
 
     @model_validator(mode="after")
     def validate_checkpoint(self) -> TaskCheckpoint:
-        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(set(self.side_effect_idempotency_keys)):
+        if len(self.completed_steps) != len(set(self.completed_steps)) or len(self.side_effect_idempotency_keys) != len(
+            set(self.side_effect_idempotency_keys)
+        ):
             raise ValueError("checkpoint steps and side effect keys must be unique")
         if _contains_forbidden_key(self.model_dump(mode="python")):
             raise ValueError("checkpoint contains forbidden secret or reasoning data")
@@ -252,6 +268,7 @@ class RetryDecisionSnapshot(RuntimeContractModel):
     @classmethod
     def validate_retry_ready_at(cls, value: datetime | None) -> datetime | None:
         return None if value is None else _require_timezone(value, "retry ready_at")
+
 
 class TaskCommand(RuntimeContractModel):
     command_id: UUID
@@ -290,6 +307,7 @@ class TaskCommand(RuntimeContractModel):
             raise ValueError("task contract schema version is unsupported")
         return self
 
+
 class TaskEvent(RuntimeContractModel):
     event_id: str = Field(min_length=1, max_length=128)
     source: str = Field(min_length=1, max_length=64)
@@ -327,31 +345,74 @@ class TaskEvent(RuntimeContractModel):
 
 
 TASK_TRANSITIONS: Mapping[TaskStatus, frozenset[TaskStatus]] = {
-    TaskStatus.SUBMITTED: frozenset((TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
+    TaskStatus.SUBMITTED: frozenset(
+        (TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
     TaskStatus.ADMITTED: frozenset((TaskStatus.QUEUED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.DEFERRED: frozenset((TaskStatus.ADMITTED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.QUEUED: frozenset((TaskStatus.RUNNING, TaskStatus.DEFERRED, TaskStatus.PAUSED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.RUNNING: frozenset((TaskStatus.CHECKPOINTED, TaskStatus.PAUSED, TaskStatus.RETRY_WAIT, TaskStatus.WAITING_FOR_CAPACITY, TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.CHECKPOINTED: frozenset((TaskStatus.RUNNING, TaskStatus.PAUSED, TaskStatus.RETRY_WAIT, TaskStatus.WAITING_FOR_CAPACITY, TaskStatus.FAILED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.PAUSED: frozenset((TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.RETRY_WAIT: frozenset((TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
-    TaskStatus.WAITING_FOR_CAPACITY: frozenset((TaskStatus.ADMITTED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)),
+    TaskStatus.DEFERRED: frozenset(
+        (TaskStatus.ADMITTED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
+    TaskStatus.QUEUED: frozenset(
+        (TaskStatus.RUNNING, TaskStatus.DEFERRED, TaskStatus.PAUSED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
+    TaskStatus.RUNNING: frozenset(
+        (
+            TaskStatus.CHECKPOINTED,
+            TaskStatus.PAUSED,
+            TaskStatus.RETRY_WAIT,
+            TaskStatus.WAITING_FOR_CAPACITY,
+            TaskStatus.COMPLETED,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+            TaskStatus.SUPERSEDED,
+        )
+    ),
+    TaskStatus.CHECKPOINTED: frozenset(
+        (
+            TaskStatus.RUNNING,
+            TaskStatus.PAUSED,
+            TaskStatus.RETRY_WAIT,
+            TaskStatus.WAITING_FOR_CAPACITY,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+            TaskStatus.SUPERSEDED,
+        )
+    ),
+    TaskStatus.PAUSED: frozenset(
+        (TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
+    TaskStatus.RETRY_WAIT: frozenset(
+        (TaskStatus.ADMITTED, TaskStatus.DEFERRED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
+    TaskStatus.WAITING_FOR_CAPACITY: frozenset(
+        (TaskStatus.ADMITTED, TaskStatus.REJECTED, TaskStatus.CANCELLED, TaskStatus.SUPERSEDED)
+    ),
     TaskStatus.COMPLETED: frozenset(),
     TaskStatus.FAILED: frozenset(),
     TaskStatus.CANCELLED: frozenset(),
     TaskStatus.REJECTED: frozenset(),
-    TaskStatus.SUPERSEDED: frozenset()
+    TaskStatus.SUPERSEDED: frozenset(),
 }
 
 ATTEMPT_TRANSITIONS: Mapping[AttemptStatus, frozenset[AttemptStatus]] = {
     AttemptStatus.PREDICTED: frozenset((AttemptStatus.QUEUED, AttemptStatus.CANCELLED, AttemptStatus.SUPERSEDED)),
     AttemptStatus.QUEUED: frozenset((AttemptStatus.RUNNING, AttemptStatus.CANCELLED, AttemptStatus.SUPERSEDED)),
-    AttemptStatus.RUNNING: frozenset((AttemptStatus.CHECKPOINTED, AttemptStatus.COMPLETED, AttemptStatus.FAILED, AttemptStatus.CANCELLED, AttemptStatus.SUPERSEDED)),
-    AttemptStatus.CHECKPOINTED: frozenset((AttemptStatus.RUNNING, AttemptStatus.FAILED, AttemptStatus.CANCELLED, AttemptStatus.SUPERSEDED)),
+    AttemptStatus.RUNNING: frozenset(
+        (
+            AttemptStatus.CHECKPOINTED,
+            AttemptStatus.COMPLETED,
+            AttemptStatus.FAILED,
+            AttemptStatus.CANCELLED,
+            AttemptStatus.SUPERSEDED,
+        )
+    ),
+    AttemptStatus.CHECKPOINTED: frozenset(
+        (AttemptStatus.RUNNING, AttemptStatus.FAILED, AttemptStatus.CANCELLED, AttemptStatus.SUPERSEDED)
+    ),
     AttemptStatus.COMPLETED: frozenset(),
     AttemptStatus.FAILED: frozenset(),
     AttemptStatus.CANCELLED: frozenset(),
-    AttemptStatus.SUPERSEDED: frozenset()
+    AttemptStatus.SUPERSEDED: frozenset(),
 }
 
 
@@ -359,9 +420,11 @@ def ensure_task_transition(current: TaskStatus, target: TaskStatus) -> None:
     if target not in TASK_TRANSITIONS[current]:
         raise TaskTransitionError(f"task transition {current.value} -> {target.value} is not allowed")
 
+
 def ensure_attempt_transition(current: AttemptStatus, target: AttemptStatus) -> None:
     if target not in ATTEMPT_TRANSITIONS[current]:
         raise TaskTransitionError(f"attempt transition {current.value} -> {target.value} is not allowed")
+
 
 def ensure_expected_revision(actual_revision: int, expected_revision: int) -> None:
     if actual_revision != expected_revision:
@@ -369,15 +432,16 @@ def ensure_expected_revision(actual_revision: int, expected_revision: int) -> No
             f"task revision conflict: expected {expected_revision}, current {actual_revision}"
         )
 
+
 def ensure_next_revision(current_revision: int, proposed_revision: int) -> None:
     if proposed_revision != current_revision + 1:
-        raise TaskRevisionConflictError(
-            f"next task revision must be {current_revision + 1}, got {proposed_revision}"
-        )
+        raise TaskRevisionConflictError(f"next task revision must be {current_revision + 1}, got {proposed_revision}")
+
 
 def ensure_workspace_scope(expected_workspace_id: UUID, actual_workspace_id: UUID) -> None:
     if expected_workspace_id != actual_workspace_id:
         raise TaskScopeError("task workspace does not match the trusted execution context")
+
 
 def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, Mapping):
@@ -388,6 +452,7 @@ def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_contains_forbidden_key(item) for item in value)
     return False
+
 
 def _require_timezone(value: datetime, field_name: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:

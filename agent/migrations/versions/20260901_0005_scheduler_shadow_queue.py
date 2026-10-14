@@ -1,4 +1,4 @@
-"""Add durable FIFO queue and hierarchical scheduler shadow state."""
+"""FIFO 대기열과 계층형 스케줄러의 비교 평가 상태를 추가한다."""
 
 from alembic import op
 

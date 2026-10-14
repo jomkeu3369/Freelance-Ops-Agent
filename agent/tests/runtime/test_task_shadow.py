@@ -1,14 +1,27 @@
-"""Shadow registration identity tests."""
-
-# ruff: noqa: E501, I001
+"""비교 평가용 작업 등록의 식별 정보 검사."""
 
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from contracts import AgentInput, AgentRunRequest, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
+from contracts import (
+    AgentInput,
+    AgentRunRequest,
+    ModelSelection,
+    Provider,
+    RunBudget,
+    SafetyContextInput,
+    TrustedRunContext,
+)
 from integrations.task_registration import SpringTaskRegistration
 from routing import FinalRouteDecision, RouteDecisionSource, RouteLabel, SafetyContext
-from runtime import AttemptStatus, DepartmentTask, PostgresResearchTaskShadowRegistrar, TaskAttempt, TaskStatus, WorkerCapacitySnapshot
+from runtime import (
+    AttemptStatus,
+    DepartmentTask,
+    PostgresResearchTaskShadowRegistrar,
+    TaskAttempt,
+    TaskStatus,
+    WorkerCapacitySnapshot,
+)
 from runtime.task_registry import AttemptNotFoundError, TaskNotFoundError
 
 
@@ -22,7 +35,28 @@ class RecordingSpringRegistration:
         self.payloads.append(payload)
         self.tokens.append(workload_token)
         now = datetime.now(UTC)
-        return SpringTaskRegistration.model_validate({"task": {"taskId": payload["taskId"], "workspaceId": str(self.request.context.workspace_id), "runId": str(self.request.context.run_id), "status": "DISPATCHED", "revision": 1, "currentAttemptNumber": 1}, "attempt": {"attemptId": payload["attemptId"], "taskId": payload["taskId"], "taskRevision": 1, "attemptNumber": 1, "status": "QUEUED", "queuedAt": now.isoformat()}, "authorizationRevision": 9, "budgetRevision": 1})  # noqa: E501
+        return SpringTaskRegistration.model_validate(
+            {
+                "task": {
+                    "taskId": payload["taskId"],
+                    "workspaceId": str(self.request.context.workspace_id),
+                    "runId": str(self.request.context.run_id),
+                    "status": "DISPATCHED",
+                    "revision": 1,
+                    "currentAttemptNumber": 1,
+                },
+                "attempt": {
+                    "attemptId": payload["attemptId"],
+                    "taskId": payload["taskId"],
+                    "taskRevision": 1,
+                    "attemptNumber": 1,
+                    "status": "QUEUED",
+                    "queuedAt": now.isoformat(),
+                },
+                "authorizationRevision": 9,
+                "budgetRevision": 1,
+            }
+        )
 
 
 class MemoryRegistry:
@@ -45,7 +79,7 @@ class MemoryRegistry:
         self.tasks[(task.task_id, task.revision)] = task
         return task
 
-    async def transition_task(self, task_id: UUID, revision: int, workspace_id: UUID, target: TaskStatus) -> DepartmentTask:
+    async def transition_task(self, task_id: UUID, revision: int, workspace_id: UUID, target: TaskStatus) -> DepartmentTask:  # noqa: E501
         del workspace_id
         task = self.tasks[(task_id, revision)].model_copy(update={"status": target})
         self.tasks[(task_id, revision)] = task
@@ -63,10 +97,17 @@ class MemoryRegistry:
         self.attempts[attempt.attempt_id] = attempt
         return attempt
 
-    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: object | None = None) -> TaskAttempt:
+    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: object | None = None) -> TaskAttempt:  # noqa: E501
         del workspace_id
         current = self.attempts[attempt_id]
-        attempt = current.model_copy(update={"status": target, "queued_at": queued_at or current.queued_at, "started_at": started_at or current.started_at, "finished_at": finished_at or current.finished_at})
+        attempt = current.model_copy(
+            update={
+                "status": target,
+                "queued_at": queued_at or current.queued_at,
+                "started_at": started_at or current.started_at,
+                "finished_at": finished_at or current.finished_at,
+            }
+        )
         self.attempts[attempt_id] = attempt
         if event is not None:
             self.events.append(event)
@@ -93,7 +134,7 @@ class RecordingFifoDispatcher:
     def capacity(self, captured_at: datetime) -> WorkerCapacitySnapshot:
         return WorkerCapacitySnapshot("research-read-v1", 1, captured_at)
 
-    async def observe_queued(self, task: DepartmentTask, attempt: TaskAttempt, capacity: WorkerCapacitySnapshot) -> object:
+    async def observe_queued(self, task: DepartmentTask, attempt: TaskAttempt, capacity: WorkerCapacitySnapshot) -> object:  # noqa: E501
         del capacity
         self.observed.append((task, attempt))
         return object()
@@ -108,13 +149,35 @@ class RecordingContextBroker:
     def __init__(self) -> None:
         self.values: list[tuple[DepartmentTask, TaskAttempt, str]] = []
 
-    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
+    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:  # noqa: E501
         del request
         self.values.append((task, attempt, workload_token))
 
 
 def request() -> AgentRunRequest:
-    return AgentRunRequest(context=TrustedRunContext(run_id=uuid4(), thread_id=uuid4(), trace_id="trace-shadow", workspace_id=uuid4(), project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run", "project.read", "project.write"]), budget=RunBudget(max_duration_seconds=30, max_model_calls=4, max_tool_calls=2, max_input_tokens=1000, max_output_tokens=1000, max_departments=2, max_hierarchy_depth=1), model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-5.4-mini"), safety_context=SafetyContextInput(), input=AgentInput(requirement_text="민감한 원문은 payload에 넣지 않습니다."))  # noqa: E501
+    return AgentRunRequest(
+        context=TrustedRunContext(
+            run_id=uuid4(),
+            thread_id=uuid4(),
+            trace_id="trace-shadow",
+            workspace_id=uuid4(),
+            project_id=uuid4(),
+            initiated_by=uuid4(),
+            effective_permissions=["agent.run", "project.read", "project.write"]
+        ),
+        budget=RunBudget(
+            max_duration_seconds=30,
+            max_model_calls=4,
+            max_tool_calls=2,
+            max_input_tokens=1000,
+            max_output_tokens=1000,
+            max_departments=2,
+            max_hierarchy_depth=1
+        ),
+        model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-5.4-mini"),
+        safety_context=SafetyContextInput(),
+        input=AgentInput(requirement_text="민감한 원문은 payload에 넣지 않습니다.")
+    )
 
 
 async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> None:
@@ -123,7 +186,9 @@ async def test_shadow_registration_reuses_identical_task_and_attempt_ids() -> No
     registry = MemoryRegistry()
     publisher = RecordingPublisher()
     registrar = PostgresResearchTaskShadowRegistrar(registry, spring, publisher)  # type: ignore[arg-type]
-    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+    decision = FinalRouteDecision(
+        route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None
+    )
 
     first = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
     second = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
@@ -145,7 +210,9 @@ async def test_failed_shadow_observation_marks_task_terminal_without_requiring_f
     run_request = request()
     registry = MemoryRegistry()
     registrar = PostgresResearchTaskShadowRegistrar(registry, RecordingSpringRegistration(run_request))  # type: ignore[arg-type]
-    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+    decision = FinalRouteDecision(
+        route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None
+    )
 
     await registrar.register(run_request, decision, SafetyContext(), "workload-token")
     assert await registrar.observe_terminal(run_request, AttemptStatus.FAILED, None, "workload-token")
@@ -161,8 +228,16 @@ async def test_fifo_shadow_registration_stages_context_without_starting_primary_
     dispatcher = RecordingFifoDispatcher()
     broker = RecordingContextBroker()
     spring = RecordingSpringRegistration(run_request)
-    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker, dispatcher_workspace_allowlist={run_request.context.workspace_id})  # type: ignore[arg-type]
-    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+    registrar = PostgresResearchTaskShadowRegistrar(
+        registry,
+        spring,
+        dispatcher=dispatcher,
+        context_broker=broker,
+        dispatcher_workspace_allowlist={run_request.context.workspace_id}
+    )  # type: ignore[arg-type]
+    decision = FinalRouteDecision(
+        route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None
+    )
 
     handle = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
 
@@ -182,8 +257,12 @@ async def test_fifo_shadow_allowlist_preserves_legacy_lifecycle_outside_selected
     dispatcher = RecordingFifoDispatcher()
     broker = RecordingContextBroker()
     spring = RecordingSpringRegistration(run_request)
-    registrar = PostgresResearchTaskShadowRegistrar(registry, spring, dispatcher=dispatcher, context_broker=broker, dispatcher_workspace_allowlist={uuid4()})  # type: ignore[arg-type]
-    decision = FinalRouteDecision(route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None)
+    registrar = PostgresResearchTaskShadowRegistrar(
+        registry, spring, dispatcher=dispatcher, context_broker=broker, dispatcher_workspace_allowlist={uuid4()}
+    )  # type: ignore[arg-type]
+    decision = FinalRouteDecision(
+        route=RouteLabel.REACT_AGENT, source=RouteDecisionSource.LLM_EVALUATOR, local_decision=None
+    )
 
     handle = await registrar.register(run_request, decision, SafetyContext(), "workload-token")
 

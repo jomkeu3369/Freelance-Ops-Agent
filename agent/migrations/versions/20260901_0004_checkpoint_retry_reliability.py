@@ -1,4 +1,4 @@
-"""Add checkpoint, retry budget, and provider circuit reliability state."""
+"""체크포인트와 재시도 예산, 공급자 회로 차단기 상태를 추가한다."""
 
 from alembic import op
 

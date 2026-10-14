@@ -29,13 +29,26 @@ def database_url() -> str:
 
 
 def run_migrations_offline() -> None:
-    context.configure(url=database_url(), target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"}, include_schemas=True, version_table_schema="agent_runtime")  # noqa: E501
+    context.configure(
+        url=database_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        version_table_schema="agent_runtime"
+    )  # noqa: E501
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_sync_migrations(connection: object) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata, include_schemas=True, version_table_schema="agent_runtime", compare_type=True)  # noqa: E501
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        version_table_schema="agent_runtime",
+        compare_type=True
+    )  # noqa: E501
     with context.begin_transaction():
         context.run_migrations()
 

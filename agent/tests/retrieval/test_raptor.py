@@ -22,11 +22,7 @@ class KeywordEmbeddingProvider:
     @staticmethod
     def _vector(text: str) -> list[float]:
         lowered = text.lower()
-        return [
-            1.0 + lowered.count("결제"),
-            1.0 + lowered.count("보안"),
-            1.0 + lowered.count("검색"),
-        ]
+        return [1.0 + lowered.count("결제"), 1.0 + lowered.count("보안"), 1.0 + lowered.count("검색")]
 
 
 class RecordingSummaryProvider:
@@ -56,9 +52,7 @@ async def test_builds_recursive_tree_with_source_provenance() -> None:
     summarizer = RecordingSummaryProvider()
     snapshot_id = uuid4()
     builder = RaptorTreeBuilder(
-        KeywordEmbeddingProvider(),
-        summarizer,
-        config=RaptorBuildConfig(target_cluster_size=2, max_summary_levels=4),
+        KeywordEmbeddingProvider(), summarizer, config=RaptorBuildConfig(target_cluster_size=2, max_summary_levels=4)
     )
 
     index = await builder.build(
@@ -66,7 +60,7 @@ async def test_builds_recursive_tree_with_source_provenance() -> None:
         snapshot_id=snapshot_id,
         chunks=chunks,
         embedding_model="test-embedding-v1",
-        summary_model="test-summary-v1",
+        summary_model="test-summary-v1"
     )
 
     leaves = [node for node in index.nodes if node.kind is RaptorNodeKind.LEAF]
@@ -84,15 +78,13 @@ async def test_retrieval_uses_tree_but_returns_only_original_chunks_as_evidence(
     chunks = make_chunks()
     embedder = KeywordEmbeddingProvider()
     index = await RaptorTreeBuilder(
-        embedder,
-        RecordingSummaryProvider(),
-        config=RaptorBuildConfig(target_cluster_size=2),
+        embedder, RecordingSummaryProvider(), config=RaptorBuildConfig(target_cluster_size=2)
     ).build(
         workspace_id=uuid4(),
         snapshot_id=uuid4(),
         chunks=chunks,
         embedding_model="test-embedding-v1",
-        summary_model="test-summary-v1",
+        summary_model="test-summary-v1"
     )
 
     result = await RaptorRetriever(embedder).retrieve(index, "결제 정책", tree_top_k=3, evidence_top_k=2)
@@ -105,13 +97,7 @@ async def test_retrieval_uses_tree_but_returns_only_original_chunks_as_evidence(
 
 
 def test_cosine_clusterer_is_deterministic_and_partitions_every_node() -> None:
-    embeddings = (
-        (1.0, 0.0),
-        (0.9, 0.1),
-        (0.0, 1.0),
-        (0.1, 0.9),
-        (0.7, 0.7),
-    )
+    embeddings = ((1.0, 0.0), (0.9, 0.1), (0.0, 1.0), (0.1, 0.9), (0.7, 0.7))
     clusterer = CosineKMeansClusterer(target_cluster_size=2, iterations=10)
 
     first = clusterer.cluster(embeddings)
@@ -125,10 +111,7 @@ def test_cosine_clusterer_is_deterministic_and_partitions_every_node() -> None:
 @pytest.mark.asyncio
 async def test_rejects_duplicate_source_ids_and_bad_embedding_dimensions() -> None:
     chunk_id = uuid4()
-    duplicate_chunks = [
-        SourceChunk(chunk_id, uuid4(), "첫 청크"),
-        SourceChunk(chunk_id, uuid4(), "중복 청크"),
-    ]
+    duplicate_chunks = [SourceChunk(chunk_id, uuid4(), "첫 청크"), SourceChunk(chunk_id, uuid4(), "중복 청크")]
     builder = RaptorTreeBuilder(KeywordEmbeddingProvider(), RecordingSummaryProvider())
 
     with pytest.raises(ValueError, match="unique"):
@@ -137,7 +120,7 @@ async def test_rejects_duplicate_source_ids_and_bad_embedding_dimensions() -> No
             snapshot_id=uuid4(),
             chunks=duplicate_chunks,
             embedding_model="embedding",
-            summary_model="summary",
+            summary_model="summary"
         )
 
     class BrokenEmbeddingProvider:
@@ -151,7 +134,7 @@ async def test_rejects_duplicate_source_ids_and_bad_embedding_dimensions() -> No
             snapshot_id=uuid4(),
             chunks=[SourceChunk(uuid4(), uuid4(), "a"), SourceChunk(uuid4(), uuid4(), "b")],
             embedding_model="embedding",
-            summary_model="summary",
+            summary_model="summary"
         )
 
 

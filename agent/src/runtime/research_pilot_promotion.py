@@ -1,6 +1,4 @@
-"""Final evidence gate for a limited Research FIFO pilot."""
-
-# ruff: noqa: E501
+"""제한된 Research FIFO 시범 운영의 최종 근거 검사."""
 
 from __future__ import annotations
 
@@ -29,7 +27,9 @@ class IndependentPilotReview:
     reviewed_at: datetime
 
     def __post_init__(self) -> None:
-        if any(not value.strip() for value in (self.author, self.reviewer, self.reviewed_commit_sha, self.review_reference)):
+        if any(
+            not value.strip() for value in (self.author, self.reviewer, self.reviewed_commit_sha, self.review_reference)
+        ):
             raise ValueError("Independent pilot review identity is invalid")
         if self.reviewed_at.tzinfo is None or self.reviewed_at.utcoffset() is None:
             raise ValueError("Independent pilot review time must be timezone-aware")
@@ -74,7 +74,13 @@ class ResearchPilotPromotionPolicy:
     required_specialist_profile: str = "research-read-v1"
 
     def __post_init__(self) -> None:
-        if self.minimum_terminal_attempts < 1 or self.minimum_observation_days <= 0 or self.maximum_workspace_count < 1 or not self.required_resource_pool.strip() or not self.required_specialist_profile.strip():
+        if (
+            self.minimum_terminal_attempts < 1
+            or self.minimum_observation_days <= 0
+            or self.maximum_workspace_count < 1
+            or not self.required_resource_pool.strip()
+            or not self.required_specialist_profile.strip()
+        ):
             raise ValueError("Research pilot promotion policy is invalid")
 
 
@@ -95,9 +101,15 @@ class ResearchPilotPromotionGate:
         runtime_report = evidence.runtime_report
         records = evidence.runtime_records
         review = evidence.independent_review
-        if release.release_kind is not RuntimeReleaseKind.SCHEDULER_POLICY or release.status is not RuntimeReleaseStatus.APPROVED or release.approved_at is None:
+        if (
+            release.release_kind is not RuntimeReleaseKind.SCHEDULER_POLICY
+            or release.status is not RuntimeReleaseStatus.APPROVED
+            or release.approved_at is None
+        ):
             reasons.append("RUNTIME_RELEASE_NOT_APPROVED")
-        if runtime_report.status is not RuntimeReleaseStatus.APPROVED or any(not gate.passed for gate in runtime_report.gates):
+        if runtime_report.status is not RuntimeReleaseStatus.APPROVED or any(
+            not gate.passed for gate in runtime_report.gates
+        ):
             reasons.append("RUNTIME_REPORT_NOT_APPROVED")
         if release.policy_version != runtime_report.policy_version:
             reasons.append("RUNTIME_REPORT_POLICY_MISMATCH")
@@ -106,7 +118,10 @@ class ResearchPilotPromotionGate:
         if not records:
             reasons.append("RUNTIME_DATASET_EMPTY")
         else:
-            if len(records) != runtime_report.record_count or runtime_dataset_fingerprint(list(records)) != release.dataset_fingerprint:
+            if (
+                len(records) != runtime_report.record_count
+                or runtime_dataset_fingerprint(list(records)) != release.dataset_fingerprint
+            ):
                 reasons.append("RUNTIME_DATASET_MISMATCH")
             if {record.workspace_id for record in records} != set(evidence.workspace_ids):
                 reasons.append("RUNTIME_WORKSPACE_SCOPE_MISMATCH")
@@ -122,19 +137,25 @@ class ResearchPilotPromotionGate:
             reasons.append("WORKSPACE_SCOPE_EMPTY")
         elif len(evidence.workspace_ids) > self._policy.maximum_workspace_count:
             reasons.append("WORKSPACE_SCOPE_TOO_WIDE")
-        if evidence.resource_pool != self._policy.required_resource_pool or evidence.specialist_profile != self._policy.required_specialist_profile:
+        if (
+            evidence.resource_pool != self._policy.required_resource_pool
+            or evidence.specialist_profile != self._policy.required_specialist_profile
+        ):
             reasons.append("RESEARCH_PROFILE_NOT_ALLOWED")
         if evidence.read_only_terminal_attempt_count < 1:
             reasons.append("READ_ONLY_EVIDENCE_EMPTY")
         if evidence.write_capable_terminal_attempt_count:
             reasons.append("WRITE_CAPABLE_TASK_DETECTED")
-        if evidence.read_only_terminal_attempt_count + evidence.write_capable_terminal_attempt_count != runtime_report.record_count:
+        if (
+            evidence.read_only_terminal_attempt_count + evidence.write_capable_terminal_attempt_count
+            != runtime_report.record_count
+        ):
             reasons.append("TASK_SCOPE_COVERAGE_MISMATCH")
         drills = {
             "PROVIDER_OUTAGE_DRILL_FAILED": evidence.provider_outage_drill_passed,
             "IMMUTABLE_IMAGE_ROLLBACK_FAILED": evidence.immutable_image_rollback_passed,
             "BACKUP_RESTORE_DRILL_FAILED": evidence.backup_restore_passed,
-            "NETWORK_LOAD_TEST_FAILED": evidence.network_load_test_passed
+            "NETWORK_LOAD_TEST_FAILED": evidence.network_load_test_passed,
         }
         reasons.extend(reason for reason, passed in drills.items() if not passed)
         if not _image_digest(evidence.image_digest):
@@ -156,7 +177,11 @@ class ResearchPilotPromotionGate:
                 reasons.append("INDEPENDENT_REVIEW_COMMIT_MISMATCH")
             if review.reviewed_at < release.created_at:
                 reasons.append("INDEPENDENT_REVIEW_PRECEDES_EVIDENCE")
-        status = ResearchPilotPromotionStatus.ELIGIBLE_FOR_SEPARATE_RELEASE_REVIEW if not reasons else ResearchPilotPromotionStatus.HOLD
+        status = (
+            ResearchPilotPromotionStatus.ELIGIBLE_FOR_SEPARATE_RELEASE_REVIEW
+            if not reasons
+            else ResearchPilotPromotionStatus.HOLD
+        )
         return ResearchPilotPromotionReport(status, tuple(reasons), evidence)
 
 
@@ -165,4 +190,8 @@ def _commit_sha(value: str) -> bool:
 
 
 def _image_digest(value: str) -> bool:
-    return value.startswith("sha256:") and len(value) == 71 and all(character in "0123456789abcdef" for character in value[7:])
+    return (
+        value.startswith("sha256:")
+        and len(value) == 71
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )

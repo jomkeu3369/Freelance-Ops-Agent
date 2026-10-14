@@ -1,6 +1,4 @@
-"""SQLAlchemy ORM entities owned by the Agent runtime schema."""
-
-# ruff: noqa: E501, I001
+"""Agent 실행 스키마의 SQLAlchemy ORM 모델."""
 
 from __future__ import annotations
 
@@ -8,13 +6,25 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, Float, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class AgentRuntimeBase(DeclarativeBase):
-    """Base metadata restricted to the Agent-owned PostgreSQL schema."""
+    """Agent 전용 PostgreSQL 스키마로 제한된 ORM 메타데이터."""
 
 
 class AgentRunStateModel(AgentRuntimeBase):
@@ -40,11 +50,7 @@ class AgentRunStateModel(AgentRuntimeBase):
 class AgentRunEventModel(AgentRuntimeBase):
     __tablename__ = "agent_run_event"
     __table_args__ = (
-        ForeignKeyConstraint(
-            ["run_id"],
-            ["agent_runtime.agent_run_state.run_id"],
-            ondelete="CASCADE",
-        ),
+        ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
         Index("ix_agent_run_event_run_occurred", "run_id", "occurred_at"),
         {"schema": "agent_runtime"},
     )
@@ -60,14 +66,24 @@ class AgentTaskEventModel(AgentRuntimeBase):
     __tablename__ = "agent_task_event"
     __table_args__ = (
         ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
-        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["task_id", "task_revision"],
+            ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"],
+            ondelete="CASCADE"
+        ),
         ForeignKeyConstraint(["attempt_id"], ["agent_runtime.agent_task_attempt.attempt_id"], ondelete="CASCADE"),
         UniqueConstraint("source", "source_event_id", name="uq_agent_task_event_source"),
         UniqueConstraint("attempt_id", "sequence", name="uq_agent_task_event_attempt_sequence"),
         Index("ix_agent_task_event_run_received", "run_id", "received_at", "event_id"),
         Index("ix_agent_task_event_attempt_occurred", "attempt_id", "occurred_at"),
-        Index("ix_agent_task_event_delivery", "delivery_status", "delivery_available_at", "delivery_lease_until", "received_at"),
-        {"schema": "agent_runtime"}
+        Index(
+            "ix_agent_task_event_delivery",
+            "delivery_status",
+            "delivery_available_at",
+            "delivery_lease_until",
+            "received_at"
+        ),
+        {"schema": "agent_runtime"},
     )
 
     event_id: Mapped[str] = mapped_column(String(128), primary_key=True)
@@ -101,10 +117,15 @@ class AgentTaskModel(AgentRuntimeBase):
         ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
         CheckConstraint("revision >= 1", name="ck_agent_task_revision"),
         CheckConstraint("priority BETWEEN 1 AND 5", name="ck_agent_task_priority"),
-        CheckConstraint("status IN ('SUBMITTED','ADMITTED','DEFERRED','QUEUED','RUNNING','CHECKPOINTED','PAUSED','RETRY_WAIT','WAITING_FOR_CAPACITY','COMPLETED','FAILED','CANCELLED','REJECTED','SUPERSEDED')", name="ck_agent_task_status"),
+        CheckConstraint(
+            "status IN ('SUBMITTED','ADMITTED','DEFERRED','QUEUED','RUNNING','CHECKPOINTED',"
+            "'PAUSED','RETRY_WAIT','WAITING_FOR_CAPACITY','COMPLETED','FAILED','CANCELLED',"
+            "'REJECTED','SUPERSEDED')",
+            name="ck_agent_task_status"
+        ),
         Index("ix_agent_task_workspace_status_priority", "workspace_id", "status", "priority", "created_at"),
         Index("ix_agent_task_run_status", "run_id", "status"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     task_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -126,20 +147,49 @@ class AgentTaskAttemptModel(AgentRuntimeBase):
     __tablename__ = "agent_task_attempt"
     __table_args__ = (
         ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
-        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["task_id", "task_revision"],
+            ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"],
+            ondelete="CASCADE"
+        ),
         UniqueConstraint("task_id", "task_revision", "attempt_number", name="uq_agent_task_attempt_number"),
         CheckConstraint("attempt_number >= 1", name="ck_agent_task_attempt_number"),
-        CheckConstraint("status IN ('PREDICTED','QUEUED','RUNNING','CHECKPOINTED','COMPLETED','FAILED','CANCELLED','SUPERSEDED')", name="ck_agent_task_attempt_status"),
-        CheckConstraint("predicted_service_runtime_seconds IS NULL OR predicted_service_runtime_seconds >= 0", name="ck_agent_task_attempt_prediction_nonnegative"),
-        CheckConstraint("(predicted_service_runtime_seconds IS NULL AND predictor_version IS NULL) OR (predicted_service_runtime_seconds IS NOT NULL AND predictor_version IS NOT NULL)", name="ck_agent_task_attempt_prediction_pair"),
-        CheckConstraint("(queued_at IS NULL OR started_at IS NULL OR queued_at <= started_at) AND (started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at)", name="ck_agent_task_attempt_time_order"),
-        CheckConstraint("(checkpoint_id IS NULL AND checkpoint_artifact_reference IS NULL AND resume_token_hash IS NULL) OR (checkpoint_id IS NOT NULL AND checkpoint_artifact_reference IS NOT NULL AND resume_token_hash IS NOT NULL)", name="ck_agent_task_attempt_checkpoint_pair"),
+        CheckConstraint(
+            "status IN ('PREDICTED','QUEUED','RUNNING','CHECKPOINTED','COMPLETED','FAILED','CANCELLED','SUPERSEDED')",
+            name="ck_agent_task_attempt_status"
+        ),
+        CheckConstraint(
+            "predicted_service_runtime_seconds IS NULL OR predicted_service_runtime_seconds >= 0",
+            name="ck_agent_task_attempt_prediction_nonnegative"
+        ),
+        CheckConstraint(
+            "(predicted_service_runtime_seconds IS NULL AND predictor_version IS NULL) OR "
+            "(predicted_service_runtime_seconds IS NOT NULL AND predictor_version IS NOT "
+            "NULL)",
+            name="ck_agent_task_attempt_prediction_pair"
+        ),
+        CheckConstraint(
+            "(queued_at IS NULL OR started_at IS NULL OR queued_at <= started_at) AND "
+            "(started_at IS NULL OR finished_at IS NULL OR started_at <= finished_at)",
+            name="ck_agent_task_attempt_time_order"
+        ),
+        CheckConstraint(
+            "(checkpoint_id IS NULL AND checkpoint_artifact_reference IS NULL AND "
+            "resume_token_hash IS NULL) OR (checkpoint_id IS NOT NULL AND "
+            "checkpoint_artifact_reference IS NOT NULL AND resume_token_hash IS NOT NULL)",
+            name="ck_agent_task_attempt_checkpoint_pair"
+        ),
         CheckConstraint("checkpoint_restored_seconds >= 0", name="ck_agent_task_attempt_checkpoint_restored"),
-        CheckConstraint("classification_confidence IS NULL OR classification_confidence BETWEEN 0 AND 1", name="ck_agent_task_attempt_classification_confidence"),
-        CheckConstraint("retry_decision IS NULL OR retry_decision IN ('ALLOW','DENY')", name="ck_agent_task_attempt_retry_decision"),
+        CheckConstraint(
+            "classification_confidence IS NULL OR classification_confidence BETWEEN 0 AND 1",
+            name="ck_agent_task_attempt_classification_confidence"
+        ),
+        CheckConstraint(
+            "retry_decision IS NULL OR retry_decision IN ('ALLOW','DENY')", name="ck_agent_task_attempt_retry_decision"
+        ),
         Index("ix_agent_task_attempt_workspace_status", "workspace_id", "status", "created_at"),
         Index("ix_agent_task_attempt_task_status", "task_id", "task_revision", "status"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     attempt_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -176,10 +226,17 @@ class AgentRetryBucketModel(AgentRuntimeBase):
     __tablename__ = "agent_retry_bucket"
     __table_args__ = (
         CheckConstraint("scope_type IN ('GLOBAL','WORKSPACE')", name="ck_agent_retry_bucket_scope_type"),
-        CheckConstraint("capacity > 0 AND tokens >= 0 AND tokens <= capacity AND refill_per_second >= 0", name="ck_agent_retry_bucket_values"),
-        CheckConstraint("(scope_type = 'GLOBAL' AND workspace_id IS NULL) OR (scope_type = 'WORKSPACE' AND workspace_id IS NOT NULL)", name="ck_agent_retry_bucket_scope"),
+        CheckConstraint(
+            "capacity > 0 AND tokens >= 0 AND tokens <= capacity AND refill_per_second >= 0",
+            name="ck_agent_retry_bucket_values"
+        ),
+        CheckConstraint(
+            "(scope_type = 'GLOBAL' AND workspace_id IS NULL) OR (scope_type = 'WORKSPACE' "
+            "AND workspace_id IS NOT NULL)",
+            name="ck_agent_retry_bucket_scope"
+        ),
         UniqueConstraint("workspace_id", name="uq_agent_retry_bucket_workspace"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     bucket_key: Mapped[str] = mapped_column(String(200), primary_key=True)
@@ -197,8 +254,12 @@ class AgentProviderCircuitModel(AgentRuntimeBase):
     __table_args__ = (
         UniqueConstraint("provider", "model", name="uq_agent_provider_circuit_identity"),
         CheckConstraint("state IN ('CLOSED','OPEN','HALF_OPEN')", name="ck_agent_provider_circuit_state"),
-        CheckConstraint("(state = 'CLOSED' AND opened_at IS NULL AND probe_after IS NULL) OR (state IN ('OPEN','HALF_OPEN') AND opened_at IS NOT NULL AND probe_after IS NOT NULL)", name="ck_agent_provider_circuit_open"),
-        {"schema": "agent_runtime"}
+        CheckConstraint(
+            "(state = 'CLOSED' AND opened_at IS NULL AND probe_after IS NULL) OR (state IN "
+            "('OPEN','HALF_OPEN') AND opened_at IS NOT NULL AND probe_after IS NOT NULL)",
+            name="ck_agent_provider_circuit_open"
+        ),
+        {"schema": "agent_runtime"},
     )
 
     circuit_key: Mapped[str] = mapped_column(String(200), primary_key=True)
@@ -216,14 +277,31 @@ class AgentSchedulerEntryModel(AgentRuntimeBase):
     __table_args__ = (
         ForeignKeyConstraint(["attempt_id"], ["agent_runtime.agent_task_attempt.attempt_id"], ondelete="CASCADE"),
         CheckConstraint("queue_kind IN ('READY','RETRY')", name="ck_agent_scheduler_entry_kind"),
-        CheckConstraint("entry_status IN ('PENDING','CLAIMED','DISPATCHED','CANCELLED')", name="ck_agent_scheduler_entry_status"),
-        CheckConstraint("priority BETWEEN 1 AND 5 AND predicted_runtime_seconds >= 0", name="ck_agent_scheduler_entry_values"),
+        CheckConstraint(
+            "entry_status IN ('PENDING','CLAIMED','DISPATCHED','CANCELLED')", name="ck_agent_scheduler_entry_status"
+        ),
+        CheckConstraint(
+            "priority BETWEEN 1 AND 5 AND predicted_runtime_seconds >= 0", name="ck_agent_scheduler_entry_values"
+        ),
         CheckConstraint("available_at >= enqueued_at", name="ck_agent_scheduler_entry_available"),
-        CheckConstraint("shadow_decision IN ('ADMIT','DEFER','REJECT')", name="ck_agent_scheduler_entry_shadow_decision"),
-        CheckConstraint("(entry_status = 'CLAIMED' AND claim_id IS NOT NULL AND claimed_by IS NOT NULL AND lease_until IS NOT NULL) OR (entry_status <> 'CLAIMED' AND claim_id IS NULL AND claimed_by IS NULL AND lease_until IS NULL)", name="ck_agent_scheduler_entry_claim"),
+        CheckConstraint(
+            "shadow_decision IN ('ADMIT','DEFER','REJECT')", name="ck_agent_scheduler_entry_shadow_decision"
+        ),
+        CheckConstraint(
+            "(entry_status = 'CLAIMED' AND claim_id IS NOT NULL AND claimed_by IS NOT NULL "
+            "AND lease_until IS NOT NULL) OR (entry_status <> 'CLAIMED' AND claim_id IS NULL "
+            "AND claimed_by IS NULL AND lease_until IS NULL)",
+            name="ck_agent_scheduler_entry_claim"
+        ),
         Index("ix_agent_scheduler_entry_pending", "resource_pool", "entry_status", "available_at", "enqueued_at"),
-        Index("ix_agent_scheduler_entry_workspace_pending", "resource_pool", "workspace_id", "entry_status", "available_at"),
-        {"schema": "agent_runtime"}
+        Index(
+            "ix_agent_scheduler_entry_workspace_pending",
+            "resource_pool",
+            "workspace_id",
+            "entry_status",
+            "available_at"
+        ),
+        {"schema": "agent_runtime"},
     )
 
     attempt_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -260,7 +338,7 @@ class AgentWorkerCapacityEventModel(AgentRuntimeBase):
     __table_args__ = (
         CheckConstraint("worker_count >= 1", name="ck_agent_worker_capacity_event_count"),
         Index("ix_agent_worker_capacity_event_pool_time", "resource_pool", "captured_at"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     event_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -275,12 +353,20 @@ class AgentRuntimeReleaseModel(AgentRuntimeBase):
     __tablename__ = "agent_runtime_release"
     __table_args__ = (
         UniqueConstraint("release_kind", "version", "resource_pool", name="uq_agent_runtime_release_version"),
-        CheckConstraint("release_kind IN ('RUNTIME_PREDICTOR','SCHEDULER_POLICY')", name="ck_agent_runtime_release_kind"),
+        CheckConstraint(
+            "release_kind IN ('RUNTIME_PREDICTOR','SCHEDULER_POLICY')", name="ck_agent_runtime_release_kind"
+        ),
         CheckConstraint("status IN ('SHADOW_ONLY','APPROVED','REJECTED')", name="ck_agent_runtime_release_status"),
-        CheckConstraint("artifact_sha256 ~ '^[0-9a-f]{64}$' AND dataset_fingerprint ~ '^[0-9a-f]{64}$'", name="ck_agent_runtime_release_hashes"),
-        CheckConstraint("(status = 'APPROVED' AND approved_at IS NOT NULL) OR (status <> 'APPROVED' AND approved_at IS NULL)", name="ck_agent_runtime_release_approved"),
+        CheckConstraint(
+            "artifact_sha256 ~ '^[0-9a-f]{64}$' AND dataset_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_agent_runtime_release_hashes"
+        ),
+        CheckConstraint(
+            "(status = 'APPROVED' AND approved_at IS NOT NULL) OR (status <> 'APPROVED' AND approved_at IS NULL)",
+            name="ck_agent_runtime_release_approved"
+        ),
         Index("ix_agent_runtime_release_pool_status", "resource_pool", "release_kind", "status", "created_at"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     release_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -301,12 +387,22 @@ class AgentTaskCommandReceiptModel(AgentRuntimeBase):
     __tablename__ = "agent_task_command_receipt"
     __table_args__ = (
         ForeignKeyConstraint(["run_id"], ["agent_runtime.agent_run_state.run_id"], ondelete="CASCADE"),
-        ForeignKeyConstraint(["task_id", "task_revision"], ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"], ondelete="CASCADE"),
+        ForeignKeyConstraint(
+            ["task_id", "task_revision"],
+            ["agent_runtime.agent_task.task_id", "agent_runtime.agent_task.revision"],
+            ondelete="CASCADE"
+        ),
         CheckConstraint("status IN ('PENDING','APPLIED','REJECTED')", name="ck_agent_task_command_receipt_status"),
-        CheckConstraint("task_revision >= 1 AND authorization_revision >= 1 AND budget_revision >= 1", name="ck_agent_task_command_receipt_revision"),
-        CheckConstraint("(status = 'APPLIED' AND applied_at IS NOT NULL) OR (status <> 'APPLIED' AND applied_at IS NULL)", name="ck_agent_task_command_receipt_applied"),
+        CheckConstraint(
+            "task_revision >= 1 AND authorization_revision >= 1 AND budget_revision >= 1",
+            name="ck_agent_task_command_receipt_revision"
+        ),
+        CheckConstraint(
+            "(status = 'APPLIED' AND applied_at IS NOT NULL) OR (status <> 'APPLIED' AND applied_at IS NULL)",
+            name="ck_agent_task_command_receipt_applied"
+        ),
         Index("ix_agent_task_command_receipt_pending", "status", "received_at"),
-        {"schema": "agent_runtime"}
+        {"schema": "agent_runtime"},
     )
 
     command_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -329,7 +425,7 @@ class AgentTaskCommandReceiptModel(AgentRuntimeBase):
 
 
 class PgExtensionModel(AgentRuntimeBase):
-    """Read-only catalog mapping used by the internal database health check."""
+    """내부 데이터베이스 상태 검사에 사용하는 읽기 전용 카탈로그 매핑."""
 
     __tablename__ = "pg_extension"
     __table_args__ = {"schema": "pg_catalog"}

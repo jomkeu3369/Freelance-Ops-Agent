@@ -1,17 +1,36 @@
-# ruff: noqa: ANN001, E501, I001
-
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
-from runtime import HierarchicalShadowScheduler, SchedulerCandidate, SchedulerPolicy, SchedulerQueueKind, ShadowAdmissionDecision, ShadowAdmissionReason, ShadowSchedulingLane, WorkerCapacitySnapshot
+from runtime import (
+    HierarchicalShadowScheduler,
+    SchedulerCandidate,
+    SchedulerPolicy,
+    SchedulerQueueKind,
+    ShadowAdmissionDecision,
+    ShadowAdmissionReason,
+    ShadowSchedulingLane,
+    WorkerCapacitySnapshot,
+)
 
 
-def candidate(runtime: float, *, priority: int = 3, queued_seconds_ago: float = 0, available_in_seconds: float = 0, workspace_id=None) -> SchedulerCandidate:  # noqa: ANN001
+def candidate(runtime: float, *, priority: int = 3, queued_seconds_ago: float = 0, available_in_seconds: float = 0, workspace_id=None) -> SchedulerCandidate:  # noqa: E501
     now = datetime.now(UTC)
     enqueued_at = now - timedelta(seconds=queued_seconds_ago)
-    return SchedulerCandidate(uuid4(), uuid4(), 1, uuid4() if workspace_id is None else workspace_id, "default", priority, runtime, "predictor-v1", SchedulerQueueKind.READY, enqueued_at, enqueued_at + timedelta(seconds=available_in_seconds))
+    return SchedulerCandidate(
+        uuid4(),
+        uuid4(),
+        1,
+        uuid4() if workspace_id is None else workspace_id,
+        "default",
+        priority,
+        runtime,
+        "predictor-v1",
+        SchedulerQueueKind.READY,
+        enqueued_at,
+        enqueued_at + timedelta(seconds=available_in_seconds)
+    )
 
 
 def test_shadow_admission_requests_scale_without_changing_actual_fifo_policy() -> None:
@@ -31,7 +50,9 @@ def test_shadow_admission_requests_scale_without_changing_actual_fifo_policy() -
 def test_shadow_admission_rejects_low_priority_work_when_even_scaled_capacity_is_infeasible() -> None:
     scheduler = HierarchicalShadowScheduler()
 
-    snapshot = scheduler.assess(candidate(2_000, priority=1), [], WorkerCapacitySnapshot("default", 2, datetime.now(UTC)))
+    snapshot = scheduler.assess(
+        candidate(2_000, priority=1), [], WorkerCapacitySnapshot("default", 2, datetime.now(UTC))
+    )
 
     assert snapshot.decision is ShadowAdmissionDecision.REJECT
     assert snapshot.reason is ShadowAdmissionReason.GLOBAL_DRAIN_EXCEEDED

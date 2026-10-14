@@ -5,25 +5,14 @@ from uuid import uuid4
 
 import pytest
 
-from contracts import (
-    Provider,
-    RaptorBuildContext,
-    RaptorBuildOptions,
-    RaptorBuildRequest,
-    RaptorSourceChunkInput,
-)
+from contracts import Provider, RaptorBuildContext, RaptorBuildOptions, RaptorBuildRequest, RaptorSourceChunkInput
 from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
-from retrieval.openai_service import _OpenAIEmbedder
+from retrieval.provider_services import _OpenAIEmbedder
 
 
 def _request(provider: Provider) -> RaptorBuildRequest:
     return RaptorBuildRequest(
-        context=RaptorBuildContext(
-            run_id=uuid4(),
-            workspace_id=uuid4(),
-            project_id=uuid4(),
-            snapshot_id=uuid4(),
-        ),
+        context=RaptorBuildContext(run_id=uuid4(), workspace_id=uuid4(), project_id=uuid4(), snapshot_id=uuid4()),
         provider=provider,
         embedding_model="embedding-test",
         summary_model="summary-test",
@@ -31,7 +20,7 @@ def _request(provider: Provider) -> RaptorBuildRequest:
             RaptorSourceChunkInput(chunk_id=uuid4(), document_id=uuid4(), text="첫 번째 근거"),
             RaptorSourceChunkInput(chunk_id=uuid4(), document_id=uuid4(), text="두 번째 근거"),
         ],
-        options=RaptorBuildOptions(target_cluster_size=2, max_summary_levels=1),
+        options=RaptorBuildOptions(target_cluster_size=2, max_summary_levels=1)
     )
 
 
@@ -65,8 +54,7 @@ async def test_gemini_raptor_build_preserves_leaf_provenance() -> None:
     models = FakeGeminiModels()
     request = _request(Provider.GEMINI)
     service = CompositeRaptorBuildService(
-        OpenAIRaptorBuildService(SimpleNamespace()),
-        GeminiRaptorBuildService(SimpleNamespace(models=models)),
+        OpenAIRaptorBuildService(SimpleNamespace()), GeminiRaptorBuildService(SimpleNamespace(models=models))
     )
 
     response = await service.build(request)

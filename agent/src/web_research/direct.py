@@ -1,4 +1,4 @@
-"""Bounded direct HTTP and PDF collection for known allowlisted URLs."""
+"""허용된 URL에서 크기와 시간 한도를 적용해 HTTP 문서와 PDF를 수집한다."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class DirectFetchError(RuntimeError):
 class DirectHttpProvider:
     _ALLOWED_CONTENT_TYPES = {"text/html", "text/plain", "application/pdf"}
 
-    def __init__(self, client: httpx.AsyncClient | None = None, security: UrlSecurityPolicy | None = None, max_bytes: int = 5_000_000, max_pdf_pages: int = 200) -> None:  # noqa: E501
+    def __init__(self, client: httpx.AsyncClient | None = None, security: UrlSecurityPolicy | None = None, max_bytes: int = 5000000, max_pdf_pages: int = 200) -> None:  # noqa: E501
         if max_bytes < 1 or max_pdf_pages < 1:
             raise ValueError("fetch limits must be positive")
 

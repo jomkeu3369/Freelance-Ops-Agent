@@ -15,10 +15,34 @@ async def test_registration_validates_authoritative_task_and_attempt_response() 
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer workload-token"
-        return httpx.Response(201, json={"task": {"taskId": str(task_id), "workspaceId": str(workspace_id), "runId": str(run_id), "status": "DISPATCHED", "revision": 1, "currentAttemptNumber": 1}, "attempt": {"attemptId": str(attempt_id), "taskId": str(task_id), "taskRevision": 1, "attemptNumber": 1, "status": "QUEUED", "queuedAt": datetime.now(UTC).isoformat()}, "authorizationRevision": 7, "budgetRevision": 1})  # noqa: E501
+        return httpx.Response(
+            201,
+            json={
+                "task": {
+                    "taskId": str(task_id),
+                    "workspaceId": str(workspace_id),
+                    "runId": str(run_id),
+                    "status": "DISPATCHED",
+                    "revision": 1,
+                    "currentAttemptNumber": 1,
+                },
+                "attempt": {
+                    "attemptId": str(attempt_id),
+                    "taskId": str(task_id),
+                    "taskRevision": 1,
+                    "attemptNumber": 1,
+                    "status": "QUEUED",
+                    "queuedAt": datetime.now(UTC).isoformat(),
+                },
+                "authorizationRevision": 7,
+                "budgetRevision": 1,
+            }
+        )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://backend:8080") as http_client:
-        result = await SpringTaskRegistrationClient("http://backend:8080", client=http_client).register({"taskId": str(task_id)}, "workload-token")  # noqa: E501
+        result = await SpringTaskRegistrationClient("http://backend:8080", client=http_client).register(
+            {"taskId": str(task_id)}, "workload-token"
+        )
 
     assert result.task.task_id == task_id
     assert result.attempt.attempt_id == attempt_id

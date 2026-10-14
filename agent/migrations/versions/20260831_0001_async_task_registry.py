@@ -1,4 +1,4 @@
-"""Create the versioned Agent runtime baseline and async task registry."""
+"""Agent 실행 상태의 기본 스키마와 비동기 작업 등록 테이블을 생성한다."""
 
 from alembic import op
 

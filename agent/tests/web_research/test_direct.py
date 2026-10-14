@@ -58,10 +58,7 @@ async def test_direct_fetch_revalidates_redirect_domain() -> None:
 async def test_direct_fetch_rejects_declared_oversized_document_before_reading() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
-            200,
-            headers={"content-type": "text/plain", "content-length": "1000"},
-            content=b"small",
-            request=request
+            200, headers={"content-type": "text/plain", "content-length": "1000"}, content=b"small", request=request
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -74,14 +71,16 @@ def pdf_fixture(pages: int = 1) -> bytes:
     writer = PdfWriter()
     for _ in range(pages):
         page = writer.add_blank_page(width=200, height=200)
-        font = DictionaryObject({
-            NameObject("/Type"): NameObject("/Font"),
-            NameObject("/Subtype"): NameObject("/Type1"),
-            NameObject("/BaseFont"): NameObject("/Helvetica")
-        })
-        page[NameObject("/Resources")] = DictionaryObject({
-            NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})
-        })
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
+        )
+        page[NameObject("/Resources")] = DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): font})}
+        )
         content = DecodedStreamObject()
         content.set_data(b"BT /F1 12 Tf 10 100 Td (Verified PDF text) Tj ET")
         page[NameObject("/Contents")] = content

@@ -1,4 +1,4 @@
-"""CLI for producing a versioned deterministic V2 evaluation report."""
+"""버전이 지정된 V2 평가 보고서를 생성하는 CLI."""
 
 from __future__ import annotations
 
@@ -20,17 +20,11 @@ def main() -> int:
 
     cases = _load_cases(args.input)
     evaluated_at = (
-        datetime.fromisoformat(args.evaluated_at.replace("Z", "+00:00"))
-        if args.evaluated_at
-        else datetime.now(UTC)
+        datetime.fromisoformat(args.evaluated_at.replace("Z", "+00:00")) if args.evaluated_at else datetime.now(UTC)
     )
     if evaluated_at.tzinfo is None:
         raise ValueError("evaluated-at must include a timezone")
-    report = build_evaluation_report(
-        cases,
-        dataset_version=args.dataset_version,
-        evaluated_at=evaluated_at,
-    )
+    report = build_evaluation_report(cases, dataset_version=args.dataset_version, evaluated_at=evaluated_at)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report.model_dump_json(indent=2), encoding="utf-8")
     return 0

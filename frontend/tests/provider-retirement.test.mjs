@@ -12,7 +12,7 @@ test("new provider inputs are OpenAI-only while historical records remain repres
 });
 
 test("selection and configuration cannot reactivate Gemini", async () => {
-  for (const path of ["../features/workspace/settings/ai-connection-settings.tsx", "../features/workspace/settings/model-pricing-form.tsx", "../features/workspace/project/project-workbench.tsx"]) {
+  for (const path of ["../features/workspace/settings/ai-connection-settings.tsx", "../features/workspace/project/project-workbench.tsx"]) {
     assert.doesNotMatch(await read(path), /<option value="GEMINI"/);
   }
   const constants = await read("../features/workspace/shared/constants.tsx");

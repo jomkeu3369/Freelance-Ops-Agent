@@ -36,8 +36,8 @@ accounts and blocked external requests; no live login or account creation occurs
 
 The frontend CI push trigger is narrowly extended to this task branch, retaining
 the existing main/integration behavior and adding auth error/layout scenarios to
-the synthetic Chromium job. Backend/Agent/CD workflows are not changed. No laptop
-work, main merge, production deployment, admin grant or spending activation occurs.
+the synthetic Chromium job. These checks cover frontend fixtures and do not
+establish production deployment, administrator grants or spending activation.
 
 ## First hosted check
 

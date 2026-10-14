@@ -37,6 +37,12 @@
 
 파일명의 `current`는 기존 파일명입니다. 최신성은 파일명 대신 위 버전과 캡션으로 판단합니다. 새 자료는 날짜·커밋·합성 데이터 여부와 함께 추가하고, 실제 고객 이름·연락처·문의 원문·인증 정보를 포함하지 않습니다.
 
+보존한 과거 화면·시연 자료:
+
+- 기능 시연: [고객 정보](../assets/readme/client-profile-current.gif), [문의 등록](../assets/readme/project-intake-current.gif), [AI 분석](../assets/readme/ai-analysis-current.gif), [사용자 확인](../assets/readme/human-review-current.gif), [견적 검토](../assets/readme/quote-review-current.gif), [동료 의견](../assets/readme/pet-council-current.gif), [결과 기록](../assets/readme/outcome-review-current.gif)
+- 정지 화면: [AI 분석](../assets/readme/ai-analysis-current.png), [동료 의견](../assets/readme/pet-council-current.png), [간결한 견적 화면](../assets/readme/quote-compact-current.png). 2026-09-12 `c080faf`에 반영된 과거 자료입니다.
+- [이전 포트폴리오 소개 이미지](../assets/readme/freelance-ops-hero.png): 2026-08-16 `d76bc96`에 반영된 소개 자료. 이미지 안의 운영 표기만으로 현재 배포 상태나 실제 모델 실행 성공을 판단하지 않습니다.
+
 2026-10-04 자료는 지원되는 브라우저 스크린샷으로 캡처한 이미지입니다.
 
 ## 실험·테스트 기록

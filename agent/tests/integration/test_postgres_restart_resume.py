@@ -35,9 +35,7 @@ class InterruptThenCompleteExecutor:
         if resume is None:
             return ExecutionOutcome(
                 interruption=AgentInterruption(
-                    interruption_id=uuid4(),
-                    kind=InterruptionKind.CLARIFICATION,
-                    questions=["납기일을 입력해 주세요."],
+                    interruption_id=uuid4(), kind=InterruptionKind.CLARIFICATION, questions=["납기일을 입력해 주세요."]
                 )
             )
         return ExecutionOutcome(result=AgentRunResult(project_summary=resume.answers[0].answer))
@@ -76,7 +74,7 @@ async def test_hitl_resume_survives_fresh_database_and_checkpoint_instances() ->
     command = ResumeAgentRunRequest(
         interruption_id=interruption_id,
         idempotency_key="restart-resume-1",
-        answers=[ResumeAnswer(question_index=0, answer="2026-09-30")],
+        answers=[ResumeAnswer(question_index=0, answer="2026-09-30")]
     )
     try:
         _, persisted_request = await second_coordinator.accept_resume(request.context.run_id, command)
@@ -90,11 +88,7 @@ async def test_hitl_resume_survives_fresh_database_and_checkpoint_instances() ->
         assert completed.result.project_summary == "2026-09-30"
         assert completed.interruption is None
         events = await second_coordinator.events(request.context.run_id)
-        assert [event.type for event in events][-3:] == [
-            "clarification.responded",
-            "run.started",
-            "run.completed",
-        ]
+        assert [event.type for event in events][-3:] == ["clarification.responded", "run.started", "run.completed"]
     finally:
         await second_journal.close()
         await second_database.close()
@@ -109,7 +103,7 @@ def agent_request() -> AgentRunRequest:
             workspace_id=uuid4(),
             project_id=uuid4(),
             initiated_by=uuid4(),
-            effective_permissions=["agent.run"],
+            effective_permissions=["agent.run"]
         ),
         budget=RunBudget(
             max_duration_seconds=30,
@@ -118,9 +112,9 @@ def agent_request() -> AgentRunRequest:
             max_input_tokens=1000,
             max_output_tokens=1000,
             max_departments=1,
-            max_hierarchy_depth=1,
+            max_hierarchy_depth=1
         ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
         safety_context=SafetyContextInput(),
-        input=AgentInput(requirement_text="재시작 복구 테스트"),
+        input=AgentInput(requirement_text="재시작 복구 테스트")
     )

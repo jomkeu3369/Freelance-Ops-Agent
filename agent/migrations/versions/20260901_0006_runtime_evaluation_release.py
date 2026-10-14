@@ -1,4 +1,4 @@
-"""Add versioned runtime evaluation and release registry."""
+"""버전별 실행 평가와 릴리스 등록 테이블을 추가한다."""
 
 from alembic import op
 

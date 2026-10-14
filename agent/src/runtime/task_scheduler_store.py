@@ -1,6 +1,6 @@
-"""PostgreSQL-backed FIFO dispatcher with non-authoritative scheduler shadow ranking."""
-
-# ruff: noqa: E501, I001
+"""PostgreSQL FIFO 배정과 계층형 스케줄러 비교 순위. 비교 결과는 실제 배정에
+반영하지 않는다.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +12,23 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from infrastructure.database import PgVectorConnectionManager
-from infrastructure.database.models import AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskModel, AgentWorkerCapacityEventModel
+from infrastructure.database.models import (
+    AgentSchedulerEntryModel,
+    AgentTaskAttemptModel,
+    AgentTaskModel,
+    AgentWorkerCapacityEventModel,
+)
 
-from .scheduler import HierarchicalShadowScheduler, SchedulerCandidate, SchedulerQueueKind, SchedulerRank, ShadowAdmissionDecision, ShadowAdmissionReason, ShadowAdmissionSnapshot, WorkerCapacitySnapshot
+from .scheduler import (
+    HierarchicalShadowScheduler,
+    SchedulerCandidate,
+    SchedulerQueueKind,
+    SchedulerRank,
+    ShadowAdmissionDecision,
+    ShadowAdmissionReason,
+    ShadowAdmissionSnapshot,
+    WorkerCapacitySnapshot,
+)
 
 
 class SchedulerStoreError(RuntimeError):
@@ -45,14 +59,21 @@ class ClaimedSchedulerEntry:
 
 
 class PostgresShadowSchedulerStore:
-    def __init__(self, database: PgVectorConnectionManager, scheduler: HierarchicalShadowScheduler | None = None) -> None:
+    def __init__(self, database: PgVectorConnectionManager, scheduler: HierarchicalShadowScheduler | None = None) -> None:  # noqa: E501
         self._database = database
         self._scheduler = scheduler or HierarchicalShadowScheduler()
 
-    async def record_capacity(self, event_id: UUID, snapshot: WorkerCapacitySnapshot, *, source: str) -> WorkerCapacitySnapshot:
+    async def record_capacity(self, event_id: UUID, snapshot: WorkerCapacitySnapshot, *, source: str) -> WorkerCapacitySnapshot:  # noqa: E501
         if not source.strip():
             raise ValueError("capacity event source must not be blank")
-        model = AgentWorkerCapacityEventModel(event_id=event_id, resource_pool=snapshot.resource_pool, worker_count=snapshot.worker_count, captured_at=snapshot.captured_at.astimezone(UTC), source=source, policy_version=self._scheduler.policy.policy_version)
+        model = AgentWorkerCapacityEventModel(
+            event_id=event_id,
+            resource_pool=snapshot.resource_pool,
+            worker_count=snapshot.worker_count,
+            captured_at=snapshot.captured_at.astimezone(UTC),
+            source=source,
+            policy_version=self._scheduler.policy.policy_version
+        )
         try:
             async with self._database.session() as session:
                 session.add(model)
@@ -60,12 +81,19 @@ class PostgresShadowSchedulerStore:
         except IntegrityError as error:
             async with self._database.session() as session:
                 existing = await session.get(AgentWorkerCapacityEventModel, event_id)
-            if existing is not None and existing.resource_pool == snapshot.resource_pool and existing.worker_count == snapshot.worker_count and existing.captured_at == snapshot.captured_at.astimezone(UTC) and existing.source == source and existing.policy_version == self._scheduler.policy.policy_version:
+            if (
+                existing is not None
+                and existing.resource_pool == snapshot.resource_pool
+                and existing.worker_count == snapshot.worker_count
+                and existing.captured_at == snapshot.captured_at.astimezone(UTC)
+                and existing.source == source
+                and existing.policy_version == self._scheduler.policy.policy_version
+            ):
                 return snapshot
             raise SchedulerObservationConflictError("capacity event id already exists with different data") from error
         return snapshot
 
-    async def observe_queued(self, candidate: SchedulerCandidate, capacity: WorkerCapacitySnapshot) -> SchedulerObservation:
+    async def observe_queued(self, candidate: SchedulerCandidate, capacity: WorkerCapacitySnapshot) -> SchedulerObservation:  # noqa: E501
         if candidate.resource_pool != capacity.resource_pool:
             raise SchedulerObservationConflictError("scheduler candidate and capacity resource pools do not match")
         async with self._database.session() as session:
@@ -73,37 +101,92 @@ class PostgresShadowSchedulerStore:
             task = await session.get(AgentTaskModel, (candidate.task_id, candidate.task_revision), with_for_update=True)
             if attempt is None or task is None:
                 raise SchedulerStoreError("scheduler candidate task or attempt was not found")
-            if attempt.task_id != candidate.task_id or attempt.task_revision != candidate.task_revision or attempt.workspace_id != candidate.workspace_id or task.workspace_id != candidate.workspace_id:
-                raise SchedulerObservationConflictError("scheduler candidate identity does not match durable task state")
+            if (
+                attempt.task_id != candidate.task_id
+                or attempt.task_revision != candidate.task_revision
+                or attempt.workspace_id != candidate.workspace_id
+                or task.workspace_id != candidate.workspace_id
+            ):
+                raise SchedulerObservationConflictError(
+                    "scheduler candidate identity does not match durable task state"
+                )
             if attempt.status != "QUEUED" or task.status != "QUEUED":
                 raise SchedulerStoreError("scheduler observes only durable queued task attempts")
-            if attempt.predicted_service_runtime_seconds != candidate.predicted_runtime_seconds or attempt.predictor_version != candidate.predictor_version or task.priority != candidate.priority:
-                raise SchedulerObservationConflictError("scheduler candidate snapshot does not match prediction or priority")
+            if (
+                attempt.predicted_service_runtime_seconds != candidate.predicted_runtime_seconds
+                or attempt.predictor_version != candidate.predictor_version
+                or task.priority != candidate.priority
+            ):
+                raise SchedulerObservationConflictError(
+                    "scheduler candidate snapshot does not match prediction or priority"
+                )
             existing = await session.get(AgentSchedulerEntryModel, candidate.attempt_id, with_for_update=True)
             if existing is not None:
                 if self._same_candidate(existing, candidate):
                     return SchedulerObservation(candidate, self._admission(existing))
                 raise SchedulerObservationConflictError("scheduler attempt is already observed with different data")
-            statement = select(AgentSchedulerEntryModel).where(AgentSchedulerEntryModel.resource_pool == candidate.resource_pool, AgentSchedulerEntryModel.entry_status.in_(("PENDING", "CLAIMED")))
+            statement = select(AgentSchedulerEntryModel).where(
+                AgentSchedulerEntryModel.resource_pool == candidate.resource_pool,
+                AgentSchedulerEntryModel.entry_status.in_(("PENDING", "CLAIMED"))
+            )
             pending = [self._candidate(model) for model in (await session.scalars(statement)).all()]
             admission = self._scheduler.assess(candidate, pending, capacity)
             now = datetime.now(UTC)
-            session.add(AgentSchedulerEntryModel(attempt_id=candidate.attempt_id, task_id=candidate.task_id, task_revision=candidate.task_revision, workspace_id=candidate.workspace_id, resource_pool=candidate.resource_pool, queue_kind=candidate.queue_kind.value, entry_status="PENDING", priority=candidate.priority, predicted_runtime_seconds=candidate.predicted_runtime_seconds, predictor_version=candidate.predictor_version, enqueued_at=candidate.enqueued_at.astimezone(UTC), available_at=candidate.available_at.astimezone(UTC), actual_policy_version=self._scheduler.policy.actual_policy_version, shadow_policy_version=self._scheduler.policy.policy_version, shadow_decision=admission.decision.value, shadow_reason=admission.reason.value, shadow_available_at=admission.shadow_available_at, admission_snapshot=self._admission_json(admission), created_at=now, updated_at=now))
+            session.add(
+                AgentSchedulerEntryModel(
+                    attempt_id=candidate.attempt_id,
+                    task_id=candidate.task_id,
+                    task_revision=candidate.task_revision,
+                    workspace_id=candidate.workspace_id,
+                    resource_pool=candidate.resource_pool,
+                    queue_kind=candidate.queue_kind.value,
+                    entry_status="PENDING",
+                    priority=candidate.priority,
+                    predicted_runtime_seconds=candidate.predicted_runtime_seconds,
+                    predictor_version=candidate.predictor_version,
+                    enqueued_at=candidate.enqueued_at.astimezone(UTC),
+                    available_at=candidate.available_at.astimezone(UTC),
+                    actual_policy_version=self._scheduler.policy.actual_policy_version,
+                    shadow_policy_version=self._scheduler.policy.policy_version,
+                    shadow_decision=admission.decision.value,
+                    shadow_reason=admission.reason.value,
+                    shadow_available_at=admission.shadow_available_at,
+                    admission_snapshot=self._admission_json(admission),
+                    created_at=now,
+                    updated_at=now
+                )
+            )
             await session.flush()
             return SchedulerObservation(candidate, admission)
 
-    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0) -> ClaimedSchedulerEntry | None:
+    async def claim_next(self, resource_pool: str, claimed_by: str, now: datetime, *, lease_seconds: int = 60, dispatch_count: int = 0) -> ClaimedSchedulerEntry | None:  # noqa: E501
         if not resource_pool.strip() or not claimed_by.strip() or not 1 <= lease_seconds <= 300 or dispatch_count < 0:
             raise ValueError("scheduler claim options are invalid")
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("scheduler claim time must be timezone-aware")
         current = now.astimezone(UTC)
         async with self._database.session() as session:
-            statement = select(AgentSchedulerEntryModel).where(AgentSchedulerEntryModel.resource_pool == resource_pool, AgentSchedulerEntryModel.available_at <= current, or_(AgentSchedulerEntryModel.entry_status == "PENDING", and_(AgentSchedulerEntryModel.entry_status == "CLAIMED", AgentSchedulerEntryModel.lease_until <= current))).with_for_update(skip_locked=True)
+            statement = (
+                select(AgentSchedulerEntryModel)
+                .where(
+                    AgentSchedulerEntryModel.resource_pool == resource_pool,
+                    AgentSchedulerEntryModel.available_at <= current,
+                    or_(
+                        AgentSchedulerEntryModel.entry_status == "PENDING",
+                        and_(
+                            AgentSchedulerEntryModel.entry_status == "CLAIMED",
+                            AgentSchedulerEntryModel.lease_until <= current
+                        )
+                    )
+                )
+                .with_for_update(skip_locked=True)
+            )
             models = list((await session.scalars(statement)).all())
             if not models:
                 return None
-            ranks = self._scheduler.rank([self._candidate(model) for model in models], current, dispatch_count=dispatch_count)
+            ranks = self._scheduler.rank(
+                [self._candidate(model) for model in models], current, dispatch_count=dispatch_count
+            )
             rank_by_attempt = {rank.attempt_id: rank for rank in ranks}
             selected = min(models, key=lambda model: rank_by_attempt[model.attempt_id].actual_rank)
             for model in models:
@@ -125,12 +208,19 @@ class PostgresShadowSchedulerStore:
             selected.claimed_by = claimed_by
             selected.lease_until = lease_until
             await session.flush()
-            return ClaimedSchedulerEntry(self._candidate(selected), claim_id, claimed_by, lease_until, rank_by_attempt[selected.attempt_id])
+            return ClaimedSchedulerEntry(
+                self._candidate(selected), claim_id, claimed_by, lease_until, rank_by_attempt[selected.attempt_id]
+            )
 
     async def acknowledge_dispatch(self, attempt_id: UUID, claim_id: UUID, claimed_by: str) -> None:
         async with self._database.session() as session:
             model = await session.get(AgentSchedulerEntryModel, attempt_id, with_for_update=True)
-            if model is None or model.entry_status != "CLAIMED" or model.claim_id != claim_id or model.claimed_by != claimed_by:
+            if (
+                model is None
+                or model.entry_status != "CLAIMED"
+                or model.claim_id != claim_id
+                or model.claimed_by != claimed_by
+            ):
                 raise SchedulerClaimConflictError("scheduler dispatch claim does not match")
             model.entry_status = "DISPATCHED"
             model.claim_id = None
@@ -140,7 +230,19 @@ class PostgresShadowSchedulerStore:
 
     @staticmethod
     def _candidate(model: AgentSchedulerEntryModel) -> SchedulerCandidate:
-        return SchedulerCandidate(model.attempt_id, model.task_id, model.task_revision, model.workspace_id, model.resource_pool, model.priority, model.predicted_runtime_seconds, model.predictor_version, SchedulerQueueKind(model.queue_kind), model.enqueued_at, model.available_at)
+        return SchedulerCandidate(
+            model.attempt_id,
+            model.task_id,
+            model.task_revision,
+            model.workspace_id,
+            model.resource_pool,
+            model.priority,
+            model.predicted_runtime_seconds,
+            model.predictor_version,
+            SchedulerQueueKind(model.queue_kind),
+            model.enqueued_at,
+            model.available_at
+        )
 
     @staticmethod
     def _same_candidate(model: AgentSchedulerEntryModel, candidate: SchedulerCandidate) -> bool:
@@ -150,8 +252,30 @@ class PostgresShadowSchedulerStore:
     def _admission(model: AgentSchedulerEntryModel) -> ShadowAdmissionSnapshot:
         value = model.admission_snapshot
         shadow_available = value.get("shadow_available_at")
-        return ShadowAdmissionSnapshot(ShadowAdmissionDecision(str(value["decision"])), ShadowAdmissionReason(str(value["reason"])), float(value["global_drain_seconds"]), float(value["workspace_drain_seconds"]), float(value["priority_drain_seconds"]), bool(value["scale_requested"]), int(value["projected_worker_count"]), None if shadow_available is None else datetime.fromisoformat(str(shadow_available)), str(value["policy_version"]))
+        return ShadowAdmissionSnapshot(
+            ShadowAdmissionDecision(str(value["decision"])),
+            ShadowAdmissionReason(str(value["reason"])),
+            float(value["global_drain_seconds"]),
+            float(value["workspace_drain_seconds"]),
+            float(value["priority_drain_seconds"]),
+            bool(value["scale_requested"]),
+            int(value["projected_worker_count"]),
+            None if shadow_available is None else datetime.fromisoformat(str(shadow_available)),
+            str(value["policy_version"])
+        )
 
     @staticmethod
     def _admission_json(admission: ShadowAdmissionSnapshot) -> dict[str, object]:
-        return {"decision": admission.decision.value, "reason": admission.reason.value, "global_drain_seconds": admission.global_drain_seconds, "workspace_drain_seconds": admission.workspace_drain_seconds, "priority_drain_seconds": admission.priority_drain_seconds, "scale_requested": admission.scale_requested, "projected_worker_count": admission.projected_worker_count, "shadow_available_at": None if admission.shadow_available_at is None else admission.shadow_available_at.isoformat(), "policy_version": admission.policy_version}
+        return {
+            "decision": admission.decision.value,
+            "reason": admission.reason.value,
+            "global_drain_seconds": admission.global_drain_seconds,
+            "workspace_drain_seconds": admission.workspace_drain_seconds,
+            "priority_drain_seconds": admission.priority_drain_seconds,
+            "scale_requested": admission.scale_requested,
+            "projected_worker_count": admission.projected_worker_count,
+            "shadow_available_at": None
+            if admission.shadow_available_at is None
+            else admission.shadow_available_at.isoformat(),
+            "policy_version": admission.policy_version,
+        }

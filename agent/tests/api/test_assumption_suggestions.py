@@ -46,14 +46,13 @@ def _client(permissions: list[str] | None = None) -> tuple[TestClient, str, dict
     project_id = uuid4()
     user_id = uuid4()
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public_pem = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    ).decode()
+    public_pem = (
+        private_key.public_key()
+        .public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
     verifier = DelegationTokenVerifier(
-        public_key=public_pem,
-        issuer="freelance-ops-backend",
-        audience="freelance-ops-agent"
+        public_key=public_pem, issuer="freelance-ops-backend", audience="freelance-ops-agent"
     )
     now = datetime.now(UTC)
     effective_permissions = permissions or ["agent.run", "quotation.write"]
@@ -69,7 +68,7 @@ def _client(permissions: list[str] | None = None) -> tuple[TestClient, str, dict
             "workspace_id": str(workspace_id),
             "project_id": str(project_id),
             "initiated_by": str(user_id),
-            "permissions": effective_permissions
+            "permissions": effective_permissions,
         },
         private_key,
         algorithm="RS256"
@@ -82,7 +81,7 @@ def _client(permissions: list[str] | None = None) -> tuple[TestClient, str, dict
             "workspaceId": str(workspace_id),
             "projectId": str(project_id),
             "initiatedBy": str(user_id),
-            "effectivePermissions": effective_permissions
+            "effectivePermissions": effective_permissions,
         },
         "modelSelection": {"provider": "OPENAI", "model": "gpt-test", "reasoningEffort": "LOW"},
         "projectRequirement": "회원 가입 시스템을 구축합니다.",
@@ -90,11 +89,10 @@ def _client(permissions: list[str] | None = None) -> tuple[TestClient, str, dict
         "itemDescription": "기존 회원을 신규 시스템으로 이전합니다.",
         "quantity": 1,
         "unit": "건",
-        "currentAssumption": ""
+        "currentAssumption": "",
     }
     app = create_app(
-        run_coordinator=RunCoordinator(InMemoryAgentRunStore(), IdleExecutor()),
-        delegation_token_verifier=verifier
+        run_coordinator=RunCoordinator(InMemoryAgentRunStore(), IdleExecutor()), delegation_token_verifier=verifier
     )
     provider = AssumptionProvider()
     app.state.ai_gateway = AIGateway(provider, policy=GatewayPolicy())
@@ -105,9 +103,7 @@ def test_suggests_reviewable_assumption_with_selected_model() -> None:
     client, token, body, provider = _client()
 
     response = client.post(
-        "/internal/v1/quotation-assumptions/suggest",
-        headers={"Authorization": f"Bearer {token}"},
-        json=body
+        "/internal/v1/quotation-assumptions/suggest", headers={"Authorization": f"Bearer {token}"}, json=body
     )
 
     assert response.status_code == 200
@@ -121,9 +117,7 @@ def test_rejects_suggestion_without_quotation_permission() -> None:
     client, token, body, _ = _client(["agent.run"])
 
     response = client.post(
-        "/internal/v1/quotation-assumptions/suggest",
-        headers={"Authorization": f"Bearer {token}"},
-        json=body
+        "/internal/v1/quotation-assumptions/suggest", headers={"Authorization": f"Bearer {token}"}, json=body
     )
 
     assert response.status_code == 403

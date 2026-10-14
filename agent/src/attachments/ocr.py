@@ -1,7 +1,6 @@
-"""Free, local text OCR. Native tools receive bytes, never user filenames or authority.
-
-Only POSIX workers enable OCR: their process group and inherited resource limits
-bound native descendants as well as Python. No originals or OCR images are saved.
+"""로컬 OCR 도구로 텍스트를 추출한다. 도구에는 사용자 파일명 대신 바이트를 전달한다.
+POSIX 작업자에서만 실행하며 프로세스 그룹과 자원 한도를 하위 프로세스에도 적용한다. 원본과
+OCR 이미지는 저장하지 않는다.
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ OCR_LAYOUTS = {"general": "3", "singleblock": "6"}
 
 
 class OcrUnavailable(Exception):
-    """A safe, fixed explanation; never contains tool diagnostics or source data."""
+    """도구 진단 정보나 원문이 포함되지 않은 고정 안내 메시지."""
 
     def __init__(self, message: str, reason: str = "TOOL_FAILED") -> None:
         super().__init__(message)
@@ -34,14 +33,16 @@ class OcrUnavailable(Exception):
 
 
 def sample_indices(count: int) -> list[int]:
-    """Deterministic first/middle/last sampling, with zero-based source indices."""
+    """첫 번째, 가운데, 마지막 항목을 선택한다. 원본 인덱스는 0부터 시작한다."""
     if count <= MAX_OCR_UNITS:
         return list(range(count))
     return [0, (count - 1) // 2, count - 1]
 
 
 def run_native(arguments: Sequence[str], payload: bytes, *, deadline: float, max_output: int) -> bytes:
-    """Drain bounded pipes without a shell, files, inherited secrets or unbounded communicate()."""
+    """셸과 파일을 사용하지 않고 크기가 제한된 파이프를 읽는다. 비밀 환경 변수와 무제한
+    communicate 호출을 사용하지 않는다.
+    """
     if os.name != "posix":
         raise OcrUnavailable("Local OCR requires the Linux reader environment.", "TOOL_UNAVAILABLE")
     expires = min(deadline, time.monotonic() + MAX_COMMAND_SECONDS)
@@ -55,7 +56,7 @@ def run_native(arguments: Sequence[str], payload: bytes, *, deadline: float, max
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             env=environment,
-            close_fds=True,
+            close_fds=True
         ) as process:
             assert process.stdin is not None and process.stdout is not None
             output = bytearray()
@@ -115,16 +116,10 @@ class LocalOcr:
         self.executable = shutil.which("tesseract") if os.name == "posix" else None
         if self.executable is None:
             raise OcrUnavailable(
-                "Local OCR is unavailable; install Tesseract in the Linux reader environment.",
-                "TOOL_UNAVAILABLE",
+                "Local OCR is unavailable; install Tesseract in the Linux reader environment.", "TOOL_UNAVAILABLE"
             )
         installed = (
-            run_native(
-                [self.executable, "--list-langs"],
-                b"",
-                deadline=self.deadline,
-                max_output=8192,
-            )
+            run_native([self.executable, "--list-langs"], b"", deadline=self.deadline, max_output=8192)
             .decode("utf-8", errors="replace")
             .splitlines()
         )
@@ -145,7 +140,7 @@ class LocalOcr:
                 [self.executable, "stdin", "stdout", "-l", self.languages, "--psm", self.psm],
                 output.getvalue(),
                 deadline=self.deadline,
-                max_output=MAX_OCR_CHARS * 4,
+                max_output=MAX_OCR_CHARS * 4
             )
             .decode("utf-8", errors="strict")
             .strip()
@@ -158,14 +153,13 @@ class LocalOcr:
         renderer = shutil.which("pdftoppm")
         if renderer is None:
             raise OcrUnavailable(
-                "Scan OCR is unavailable; install Poppler in the Linux reader environment.",
-                "TOOL_UNAVAILABLE",
+                "Scan OCR is unavailable; install Poppler in the Linux reader environment.", "TOOL_UNAVAILABLE"
             )
         png = run_native(
             [renderer, "-f", str(page), "-l", str(page), "-singlefile", "-scale-to", str(MAX_OCR_EDGE), "-png", "-"],
             payload,
             deadline=self.deadline,
-            max_output=16 * 1024 * 1024,
+            max_output=16 * 1024 * 1024
         )
         with Image.open(io.BytesIO(png)) as picture:
             if picture.format != "PNG" or picture.width * picture.height > MAX_OCR_EDGE**2:

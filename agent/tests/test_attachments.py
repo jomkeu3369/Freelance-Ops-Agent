@@ -113,7 +113,7 @@ def test_actual_image_and_gif_frames_validated_without_vision_claim(extension, k
         (file("a.pdf", pdf(pages=31)), "PDF_PAGE_LIMIT"),
         (file("a.gif", picture("GIF", 61)), "IMAGE_FRAME_OR_PIXEL_LIMIT"),
         (file("a.csv", b"only one column"), "CSV_DELIMITER_REQUIRED"),
-    ],
+    ]
 )
 def test_bad_files_and_resource_limits_fail_closed(input, code):
     with pytest.raises(ValueError, match=code):

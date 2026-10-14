@@ -1,4 +1,4 @@
-"""Local execution-route classification."""
+"""로컬 실행 경로 분류."""
 
 from .hybrid import (
     EncoderRouteScorer,

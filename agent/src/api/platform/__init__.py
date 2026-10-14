@@ -1,1 +1,1 @@
-"""Internal AI platform observability endpoints."""
+"""내부 AI 플랫폼 관측 API."""

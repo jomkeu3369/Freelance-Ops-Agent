@@ -1,26 +1,93 @@
 from __future__ import annotations
 
-# ruff: noqa: E501, I001
-
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 
 from contracts import DepartmentName, ModelSelection, Provider, RunBudget
-from runtime import AttemptStatus, ClaimedSchedulerEntry, DepartmentTask, ExecutionRoute, PostgresResearchResultFence, ResearchDispatchContext, ResearchWorkerDispatchSink, SchedulerCandidate, SchedulerQueueKind, SchedulerRank, ShadowSchedulingLane, TaskAttempt, TaskExecutionSnapshot, TaskStatus
+from runtime import (
+    AttemptStatus,
+    ClaimedSchedulerEntry,
+    DepartmentTask,
+    ExecutionRoute,
+    PostgresResearchResultFence,
+    ResearchDispatchContext,
+    ResearchWorkerDispatchSink,
+    SchedulerCandidate,
+    SchedulerQueueKind,
+    SchedulerRank,
+    ShadowSchedulingLane,
+    TaskAttempt,
+    TaskExecutionSnapshot,
+    TaskStatus,
+)
 
 
 def fixture() -> tuple[ResearchDispatchContext, ClaimedSchedulerEntry]:
     now = datetime.now(UTC)
-    budget = RunBudget(max_duration_seconds=60, max_model_calls=2, max_tool_calls=2, max_input_tokens=1000, max_output_tokens=1000, max_departments=1, max_hierarchy_depth=1)
-    execution = TaskExecutionSnapshot(route=ExecutionRoute.REACT_AGENT, permissions=["agent.run", "project.read"], budget=budget, model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"), policy_version="task-guard-v1", prompt_version="research-v1", tool_schema_version="web-research-v1", specialist_profile="research-read-v1", authorization_revision=3, budget_revision=2)
-    task = DepartmentTask(task_id=uuid4(), run_id=uuid4(), workspace_id=uuid4(), project_id=uuid4(), department=DepartmentName.RESEARCH, revision=1, status=TaskStatus.QUEUED, execution=execution, created_at=now)
-    attempt = TaskAttempt(attempt_id=uuid4(), task_id=task.task_id, run_id=task.run_id, workspace_id=task.workspace_id, task_revision=1, attempt_number=1, status=AttemptStatus.QUEUED, predicted_service_runtime_seconds=30, predictor_version="pilot-static-v1", queued_at=now)
-    candidate = SchedulerCandidate(attempt.attempt_id, task.task_id, 1, task.workspace_id, "research-read-v1", task.priority, 30, "pilot-static-v1", SchedulerQueueKind.READY, now, now)
+    budget = RunBudget(
+        max_duration_seconds=60,
+        max_model_calls=2,
+        max_tool_calls=2,
+        max_input_tokens=1000,
+        max_output_tokens=1000,
+        max_departments=1,
+        max_hierarchy_depth=1
+    )
+    execution = TaskExecutionSnapshot(
+        route=ExecutionRoute.REACT_AGENT,
+        permissions=["agent.run", "project.read"],
+        budget=budget,
+        model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
+        policy_version="task-guard-v1",
+        prompt_version="research-v1",
+        tool_schema_version="web-research-v1",
+        specialist_profile="research-read-v1",
+        authorization_revision=3,
+        budget_revision=2
+    )
+    task = DepartmentTask(
+        task_id=uuid4(),
+        run_id=uuid4(),
+        workspace_id=uuid4(),
+        project_id=uuid4(),
+        department=DepartmentName.RESEARCH,
+        revision=1,
+        status=TaskStatus.QUEUED,
+        execution=execution,
+        created_at=now
+    )
+    attempt = TaskAttempt(
+        attempt_id=uuid4(),
+        task_id=task.task_id,
+        run_id=task.run_id,
+        workspace_id=task.workspace_id,
+        task_revision=1,
+        attempt_number=1,
+        status=AttemptStatus.QUEUED,
+        predicted_service_runtime_seconds=30,
+        predictor_version="pilot-static-v1",
+        queued_at=now
+    )
+    candidate = SchedulerCandidate(
+        attempt.attempt_id,
+        task.task_id,
+        1,
+        task.workspace_id,
+        "research-read-v1",
+        task.priority,
+        30,
+        "pilot-static-v1",
+        SchedulerQueueKind.READY,
+        now,
+        now
+    )
     rank = SchedulerRank(attempt.attempt_id, 1, 1, 30, ShadowSchedulingLane.PREDICTED_SJF)
     claim = ClaimedSchedulerEntry(candidate, uuid4(), "dispatcher-1", now + timedelta(seconds=60), rank)
-    context = ResearchDispatchContext(task, attempt, "Check the official policy", "KR", {"agent.run", "project.read"}, 3, 2, budget, "workload-token")
+    context = ResearchDispatchContext(
+        task, attempt, "Check the official policy", "KR", {"agent.run", "project.read"}, 3, 2, budget, "workload-token"
+    )
     return context, claim
 
 
@@ -82,7 +149,19 @@ async def test_dispatch_sink_starts_worker_only_for_exact_current_claim() -> Non
 async def test_dispatch_sink_rejects_claim_with_different_attempt() -> None:
     context, claim = fixture()
     worker = RecordingWorker()
-    different = claim.candidate.__class__(uuid4(), claim.candidate.task_id, claim.candidate.task_revision, claim.candidate.workspace_id, claim.candidate.resource_pool, claim.candidate.priority, claim.candidate.predicted_runtime_seconds, claim.candidate.predictor_version, claim.candidate.queue_kind, claim.candidate.enqueued_at, claim.candidate.available_at)
+    different = claim.candidate.__class__(
+        uuid4(),
+        claim.candidate.task_id,
+        claim.candidate.task_revision,
+        claim.candidate.workspace_id,
+        claim.candidate.resource_pool,
+        claim.candidate.priority,
+        claim.candidate.predicted_runtime_seconds,
+        claim.candidate.predictor_version,
+        claim.candidate.queue_kind,
+        claim.candidate.enqueued_at,
+        claim.candidate.available_at
+    )
     claim = claim.__class__(different, claim.claim_id, claim.claimed_by, claim.lease_until, claim.rank)
     sink = ResearchWorkerDispatchSink(worker, FixedLoader(context))  # type: ignore[arg-type]
 
@@ -107,8 +186,11 @@ def test_dispatch_context_repr_hides_workload_token() -> None:
     assert context.workload_token not in repr(context)
 
 
-@pytest.mark.parametrize("task_status,attempt_status", [(TaskStatus.CANCELLED, AttemptStatus.CANCELLED), (TaskStatus.SUPERSEDED, AttemptStatus.SUPERSEDED)])
-async def test_postgres_result_fence_rejects_cancelled_or_redirected_current_state(task_status: TaskStatus, attempt_status: AttemptStatus) -> None:
+@pytest.mark.parametrize(
+    "task_status,attempt_status",
+    [(TaskStatus.CANCELLED, AttemptStatus.CANCELLED), (TaskStatus.SUPERSEDED, AttemptStatus.SUPERSEDED)]
+)
+async def test_postgres_result_fence_rejects_cancelled_or_redirected_current_state(task_status: TaskStatus, attempt_status: AttemptStatus) -> None:  # noqa: E501
     context, _ = fixture()
     current_task = context.task.model_copy(update={"status": task_status})
     current_attempt = context.attempt.model_copy(update={"status": attempt_status})

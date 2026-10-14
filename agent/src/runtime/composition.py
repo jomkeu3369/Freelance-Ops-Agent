@@ -1,4 +1,4 @@
-"""Composition boundary for PostgreSQL-backed asynchronous runtime services."""
+"""PostgreSQL 기반 비동기 실행 서비스의 구성 지점."""
 
 from __future__ import annotations
 

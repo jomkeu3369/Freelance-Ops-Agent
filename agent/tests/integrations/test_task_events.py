@@ -23,7 +23,7 @@ def event() -> TaskAttemptEventWrite:
         event_type="attempt.started",
         phase="research",
         milestone="collecting sources",
-        occurred_at=datetime.now(UTC),
+        occurred_at=datetime.now(UTC)
     )
 
 

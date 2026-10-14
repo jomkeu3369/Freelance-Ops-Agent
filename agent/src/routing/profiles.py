@@ -1,4 +1,4 @@
-"""Deterministic execution profiles derived after semantic and safety routing."""
+"""의미와 안전성 판단 이후 적용하는 실행 프로필."""
 
 from __future__ import annotations
 

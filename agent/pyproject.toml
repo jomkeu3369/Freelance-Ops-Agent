@@ -6,26 +6,20 @@ readme = "README.md"
 requires-python = "==3.12.*"
 dependencies = [
     "alembic>=1.16,<2",
-    "faiss-cpu>=1.15.0",
+    "cryptography>=50,<51",
     "fastapi==0.139.2",
     "httpx>=0.28,<1",
-    "langchain[all]>=1.3.14",
-    "langchain-community>=0.4.2",
-    "langchain-openai>=1.4.3",
     "langgraph==1.2.9",
     "langsmith>=0.10,<1",
-    "matplotlib>=3.10,<4",
     "numpy>=2,<3",
     "openai>=2.26,<3",
     "pypdf>=6.16.1,<7",
+    "pydantic>=2.12,<3",
     "pydantic-settings>=2.10,<3",
     "pyjwt[crypto]>=2.10,<3",
-    "pgvector>=0.4,<1",
     "psycopg[binary,pool]>=3.2,<4",
     "sqlalchemy[asyncio]>=2.0,<2.1",
     "uvicorn[standard]>=0.35,<1",
-    "rank-bm25>=0.2.2",
-    "deepagents>=0.7.5",
     "google-genai>=1.64,<2",
     "langgraph-checkpoint-postgres>=3.0,<4",
     "tavily>=1.1.0",
@@ -41,15 +35,16 @@ local-router = [
 
 [dependency-groups]
 dev = [
-    "joblib>=1.4,<2",
+    "deepagents>=0.7.5",
+    "jsonschema>=4.26,<5",
+    "langchain-openai>=1.4.3",
     "langgraph-cli[inmem]>=0.4.31",
+    "matplotlib>=3.10,<4",
     "mypy>=1.17,<2",
     "pytest>=8.4,<9",
     "pytest-asyncio>=1.1,<2",
-    "ruff>=0.12,<1",
-    "scikit-learn>=1.6,<2",
-    "streamlit>=1.49,<2",
-    "xgboost>=3,<4"
+    "pyyaml>=6,<7",
+    "ruff>=0.12,<1"
 ]
 
 [tool.uv]
@@ -81,8 +76,4 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["torch", "safetensors.*", "transformers"]
 follow_imports = "skip"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["joblib", "sklearn.*", "xgboost"]
 ignore_missing_imports = true
