@@ -686,7 +686,7 @@ class RunCoordinator:
 
             progress_token = _progress_publisher.set(record_progress)
             try:
-                timeout = request.budget.max_duration_seconds
+                timeout: float = request.budget.max_duration_seconds
                 if isinstance(ledger, ByokExecutionLedger):
                     timeout = min(timeout, ledger.remaining_seconds())
                 if authorization is not None and authorization.execution_deadline is not None:
