@@ -40,6 +40,19 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class HttpAgentRunClientTest {
 
     @Test
+    void adaptersDoNotMutateTheSharedBuilderOrItsTransport() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://original-client");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo("http://original-client/probe"))
+            .andRespond(withSuccess("original transport", MediaType.TEXT_PLAIN));
+        new HttpAgentRunClient(builder, "http://agent:8000");
+        new AttachmentReaderClient(builder, "http://attachments:8000");
+        new PetGenerationClient(builder, "http://pets:8000");
+        assertThat(builder.build().get().uri("/probe").retrieve().body(String.class)).isEqualTo("original transport");
+        server.verify();
+    }
+
+    @Test
     void configuresABoundedConnectionTimeoutForAgentCalls() {
         assertThat(HttpAgentRunClient.http11Client(Duration.ofMillis(750)).connectTimeout())
             .contains(Duration.ofMillis(750));

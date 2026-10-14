@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.UUID;
 
@@ -18,9 +17,9 @@ public class PetGenerationClient {
     public record Output(UUID runId, PetProfile profile, Provider provider, String model, long inputTokens, long outputTokens) {}
     private final RestClient client;
     public PetGenerationClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
-        var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+        var factory = new JdkClientHttpRequestFactory(HttpAgentRunClient.http11Client(Duration.ofSeconds(5)));
         factory.setReadTimeout(Duration.ofSeconds(35));
-        client = builder.baseUrl(baseUrl).requestFactory(factory).build();
+        client = builder.clone().baseUrl(baseUrl).requestFactory(factory).build();
     }
     public Output generate(Input input, String token) {
         return client.post().uri("/internal/v1/pets/generate").headers(headers -> headers.setBearerAuth(token))

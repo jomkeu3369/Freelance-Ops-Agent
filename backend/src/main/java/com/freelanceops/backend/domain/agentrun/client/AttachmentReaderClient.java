@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import java.net.http.HttpClient;
 import java.time.Duration;
 
 @Component
@@ -16,9 +15,9 @@ public class AttachmentReaderClient {
     public record Input(TrustedRunContext context, FileInput file) { }
     private final RestClient client;
     public AttachmentReaderClient(RestClient.Builder builder, @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
-        var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build());
+        var factory = new JdkClientHttpRequestFactory(HttpAgentRunClient.http11Client(Duration.ofSeconds(2)));
         factory.setReadTimeout(Duration.ofSeconds(20));
-        client = builder.baseUrl(baseUrl).requestFactory(factory).build();
+        client = builder.clone().baseUrl(baseUrl).requestFactory(factory).build();
     }
     public AttachmentText read(Input input, String token) {
         return client.post().uri("/internal/v1/attachments/extract")
