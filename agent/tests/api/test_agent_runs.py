@@ -139,17 +139,7 @@ def _request(run_id: UUID, workspace_id: UUID, project_id: UUID, user_id: UUID) 
     )
 
 
-<<<<<<< HEAD
-def _client_and_token(request: AgentRunRequest, executor: AgentRunExecutor | None = None, raptor_service: RecordingRaptorService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None) -> tuple[TestClient, str]:  # noqa: E501
-=======
-def _client_and_token(
-    request: AgentRunRequest,
-    executor: AgentRunExecutor | None = None,
-    raptor_service: RecordingRaptorService | None = None,
-    task_command_inbox: PostgresTaskCommandInbox | None = None,
-    token_ttl_seconds: int = 120,
-) -> tuple[TestClient, str]:
->>>>>>> 776a510 (fix: isolate Agent HTTP transports and verify live Python contract)
+def _client_and_token(request: AgentRunRequest, executor: AgentRunExecutor | None = None, raptor_service: RecordingRaptorService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None, token_ttl_seconds: int = 120) -> tuple[TestClient, str]:  # noqa: E501
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_pem = (
         private_key.public_key()

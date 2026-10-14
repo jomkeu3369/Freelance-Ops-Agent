@@ -270,6 +270,10 @@ public class AgentRunEntity {
         return createdAt;
     }
 
+    public Instant updatedAt() {
+        return updatedAt;
+    }
+
     private static RunBudget defaultBudget() {
         return new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3);
     }

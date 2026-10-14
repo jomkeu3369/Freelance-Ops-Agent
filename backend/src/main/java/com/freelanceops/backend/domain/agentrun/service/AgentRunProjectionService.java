@@ -46,6 +46,13 @@ public class AgentRunProjectionService {
         this.byok = byok;
     }
 
+    /** Read only Spring's pending receipt; no Agent result, usage or version has been acknowledged yet. */
+    public AgentRunView pendingDelivery(AgentRunEntity run) {
+        return new AgentRunView(run.id(), run.status(), null, null, null, null,
+            new AgentRunView.AgentRunMetadata(run.provider(), run.model(), null, null, null, run.credentialId()),
+            null, run.updatedAt());
+    }
+
     @Transactional
     public void synchronize(UUID runId, UUID workspaceId, AgentRunView view) {
         AgentRunEntity run = lock(runId, workspaceId);
