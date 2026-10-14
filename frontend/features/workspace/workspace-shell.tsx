@@ -54,6 +54,7 @@ import { parseWorkspacePath, buildWorkspacePath } from "../../app/lib/workspace-
 import { sessionRefreshDelay } from "../../app/lib/session-timing.mjs";
 import { isActiveStreamStatus, streamReconnectDelay, nextStreamCursor } from "../../app/lib/stream-retry.mjs";
 import { terminalStatuses } from "./shared/constants";
+import { isPendingResumeSnapshot } from "../../app/lib/run-resume-state.mjs";
 import { snapshotFromEvents } from "../../app/components/live-workflow";
 import { CircleNotch, Warning } from "@phosphor-icons/react";
 import { AuthGate } from "./auth/auth-gate";
@@ -137,6 +138,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [streamRetryCount, setStreamRetryCount] = useState(0);
   const lastEventIdRef = useRef(0);
   const previousRunIdRef = useRef<string | null>(null);
+  const pendingResume = useRef<{ runId: string; interruptionId: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const runOperation = useRef(0);
   const workspaceLoadOperation = useRef(0);
@@ -538,15 +540,19 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
+        const awaitingResumeDelivery = isPendingResumeSnapshot(pendingResume.current, view);
         if (!cancelled) {
-          setRun((current) => current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status) ? current : view);
+          if (!awaitingResumeDelivery) {
+            if (pendingResume.current?.runId === view.runId) pendingResume.current = null;
+            setRun((current) => current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status) ? current : view);
+          }
           if (pollingError) {
             const recoveredError = pollingError;
             setError((current) => current === recoveredError ? null : current);
             pollingError = null;
           }
         }
-        return terminalStatuses.has(view.status);
+        return !awaitingResumeDelivery && terminalStatuses.has(view.status);
       } catch (cause) {
         if (!cancelled) {
           pollingError = cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.";
@@ -589,6 +595,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     const revokedSession = loadSession() ?? session;
     // Invalidate pending refreshes before waiting for the server.
     clearSession();
+    pendingResume.current = null;
     workspaceLoadOperation.current += 1;
     runOperation.current += 1;
     setBusy(false);
@@ -895,6 +902,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             try {
               await resumeAgentRun(session, runId, run.interruption.interruptionId, answers);
               if (operation !== runOperation.current) return;
+              pendingResume.current = { runId, interruptionId: run.interruption.interruptionId };
               setRun((current) =>
                 current ? { ...current, status: "RUNNING", interruption: null } : current
               );

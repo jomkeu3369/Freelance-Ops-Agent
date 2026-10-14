@@ -24,6 +24,32 @@ function seedSavedRun(state, status) {
     createdAt: "2026-10-01T00:01:00Z" }];
 }
 
+test("accepted asynchronous clarification ignores the prior question until delivery completes", async ({ page }) => {
+  const state = await fixture(page);
+  seedSavedRun(state, "WAITING_FOR_USER");
+  state.run.interruption = { interruptionId: "prior-question", kind: "CLARIFICATION", questions: ["Confirm source data?"] };
+  let accepted = false, reads = 0;
+  await page.route("**/agent-runs/run-one/responses", route => {
+    state.resumes.push(route.request().postDataJSON()); accepted = true;
+    return route.fulfill({ status: 202, json: { runId: "run-one", status: "QUEUED", acceptedAt: "2026-10-14T00:00:00Z" } });
+  });
+  await page.route("**/agent-runs/run-one", route => {
+    if (accepted && ++reads >= 2) {
+      state.run = { ...state.run, status: "COMPLETED", interruption: null, result: { ...state.run.result, projectSummary: "Resumed saved state completed" } };
+      state.history[0].status = "COMPLETED";
+    }
+    return route.fulfill({ json: structuredClone(state.run) });
+  });
+  await page.goto(path);
+  const form = page.locator(".agent-chat .interruption-form");
+  await expect(form).toBeVisible(); await form.locator("textarea").fill("The customer supplies all data.");
+  await form.getByRole("button", { name: "답변하고 계속", exact: true }).click();
+  await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
+  await expect(page.locator(".agent-chat")).toContainText("Resumed saved state completed");
+  await expect(form).toHaveCount(0);
+  expect(state.resumes).toHaveLength(1); expect(state.starts).toEqual([]); expect(state.blocked).toEqual([]);
+});
+
 for (const locale of ["ko", "en"]) {
   test(`${locale}: saved intermediate output never hides clarification or resumes by itself`, async ({ page }) => {
     const state = await fixture(page);
