@@ -178,6 +178,19 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     }
 
     public AgentRunView get(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
+        try {
+            return getRemote(userId, workspaceId, runId, traceparent);
+        } catch (RestClientResponseException error) {
+            if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) throw error;
+            // Spring commits the run/outbox before the dispatcher creates the
+            // Agent record. A read in that interval still has a durable QUEUED run.
+            AgentRunEntity pending = agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)
+                .filter(run -> run.status() == AgentRunStatus.QUEUED).orElseThrow(() -> error);
+            return projectionService.pendingDelivery(pending);
+        }
+    }
+
+    private AgentRunView getRemote(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
         AgentRunView response = agentRunClient.get(
             runId,
@@ -229,7 +242,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     private Optional<AgentRunView> synchronizeForProjectDeletion(UUID userId, UUID workspaceId, AgentRunEntity activeRun, String traceparent) {
         try {
-            return Optional.of(get(userId, workspaceId, activeRun.id(), traceparent));
+            return Optional.of(getRemote(userId, workspaceId, activeRun.id(), traceparent));
         } catch (RestClientResponseException error) {
             if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
                 throw error;
