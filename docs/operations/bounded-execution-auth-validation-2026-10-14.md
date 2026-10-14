@@ -80,6 +80,27 @@ $env:AGENT_LIVE_BOUNDED_TEST = 'true'
 
 DB 마이그레이션은 **없다**. 기존 V19 START command 권한 snapshot과 run/BYOK 데이터를 재사용한다. 배포는 Spring과 Agent를 같은 인증 계약으로 전환해야 한다. 새 Agent는 구 Spring의 deadline 없는 START/RESUME 토큰을 403으로 거부하므로 버전 쌍 전환 중 새 실행 접수를 조율해야 한다. 롤백도 두 컴포넌트를 함께 원복하고 실행 중 작업은 먼저 drain/cancel한다. 저장 결과·예산·시도 counter를 삭제/리셋하거나 restart로 paid replay를 만들지 않는다. 이 세션은 직접 운영 배포를 하지 않았다.
 
+### 구버전 토큰 호환성 검토
+
+**제한 없는 legacy START/RESUME fallback은 추가하지 않았다.** 구 Spring의 정상 dispatch JWT와 현재 Spring의 조회/control JWT는 동일 issuer/key/audience, run/workspace/project/initiator/permission claims, 60초 exp 형식을 사용한다. 검증된 토큰 내용만으로 두 용도를 구분할 수 없다. unsigned header나 배포 버전 추정으로 허용하면 새 control 토큰도 실행에 사용되는 우회가 생긴다. 과거 BYOK의 `duration + 30` 토큰도 원래 실행 scope deadline을 담지 않는다.
+
+token exp까지만 legacy 실행을 허용하는 방법 역시 기존 control-only 계약을 바꾼다. 특히 resume마다 새 60초 토큰을 발급하는 구 경로에는 최초 서명 deadline이 없으며, 예산을 다시 시작하는 old Agent와 섞이면 동일 실행의 원래 제한 시간을 보장할 수 없다. Spring에 저장된 run/BYOK deadline과 최초 권한을 조회하는 새 경로를 모두 거쳐야 한다. 현재 구현은 해당 경로에서 발급한 signed execution claim을 요구한다.
+
+만약 기존 dispatch JWT의 jti와 원래 scope/deadline을 신뢰할 수 있는 별도 admission 기록으로 이미 식별할 수 있다면 그 기록에 한한 이전은 설계할 수 있다. 현재 issuer/outbox에는 그러한 token-purpose/jti 기록이 없으므로 이 검토에서 가정하지 않는다. 운영 토큰을 읽어 목록을 만들거나, 기존 실행의 토큰을 새로 발급해 교체하거나, JWT expiry/grace를 완화하지 않았다.
+
+| 버전/토큰 경계 | 현재 동작·증거 |
+| --- | --- |
+| 새 Spring + 새 Agent, bounded execution token | 실제 60초 초과 완료·180초 cutoff 통과. 같은 run/workspace/project/initiator 및 최초/현재 권한으로 제한. |
+| 구 Spring JWT / 현재 control JWT, deadline 없음 | Agent START/RESUME 403 `EXECUTION_AUTHORITY_REQUIRED`; Spring tool 401. API parameterized regression, 실제 HTTP start rejection과 filter regression 통과. |
+| deadline 없는 token의 정상 GET/control | 기존 60초 검증을 유지. 실제 deadline 이후 새 조회 token으로 FAILED/결과 조회, 실제 cancel 성공. 실행 권한으로 승격하지 않음. |
+| 만료 원본 token 재사용 | 실제 exp+8초 이후 Agent GET 401; 짧은 실행 capability의 Spring tool 200→401과 실패 보존 재검증. |
+| 새 실행 token의 다른 run / tenant / owner | 실제 다른 run GET 403, Spring guard 단위 경계 및 API context 검증에서 거부. |
+| 새 실행 token의 deadline/exp | 양 verifier는 실행 토큰에 strict cutoff 적용. 실제 180초 이후 Agent/Spring 401, 기존 5초 grace 안의 deadline도 verifier regression에서 거부. |
+| 새 Agent + 구 Spring | 구 START/RESUME는 403이므로 신규 실행 전환 중 혼합 운영을 지원하지 않음. |
+| 구 Agent + 새 Spring | 구 Agent는 signed deadline을 worker cutoff로 사용하지 않아 동일 최초 deadline 보장을 주장할 수 없음. |
+
+따라서 신규 실행은 같은 버전의 Spring/Agent 쌍으로 전환하고, 기존 실행은 원래 권한/토큰의 범위에서 drain하거나 명시적으로 cancel한 뒤 전환한다. 배포 후보를 먼저 격리 검증하고 전환 중 새 실행 접수를 조율한다. 롤백에도 같은 제약이 적용된다. 안전한 호환성의 증거 없이 legacy 실행을 조용히 허용하지 않는다.
+
 기존 task shadow의 terminal event 게시가 원래 execution JWT를 사용하므로 deadline 만료 뒤 게시가 거부될 수 있다. 동일 control-plane HTTP clients의 `X-Run-Id` 누락도 읽기 전용 검토에서 확인됐다. 이 경로의 등록/heartbeat 권한을 새로 부여하거나 토큰을 연장하지 않았다. Agent의 실제 PG terminal 상태와 보존 결과는 위 시험으로 확인했으며, 별도 task 관측 전달 성공은 이 변경의 증거에 포함하지 않는다.
 
 운영 readiness는 앞선 한 번의 저빈도 공개 읽기에서 200/UP였을 뿐, 작업 브랜치의 인증 기능 검증이 아니다. 새 승인 차단은 없다. 이후 부모가 운영 반영 승인을 전달했으며 PR/CI와 배포 후보 조율은 전체 여정 세션의 담당이다. 그 세션이 전달한 draft PR #74 성공·CI 진행 상태는 자체 도구 증거로 재확인하지 않았고 이 세션의 배포 성공으로 주장하지 않는다.
