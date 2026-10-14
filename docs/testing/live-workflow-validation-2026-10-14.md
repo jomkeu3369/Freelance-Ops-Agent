@@ -44,6 +44,11 @@ operating services still use an earlier version.
 | `31ebc76` | `817038d` | Treat only authorized, locally QUEUED + upstream SSE404 as an empty reconnectable stream |
 | `cec3ec8` | this session | Reproducible actual browser/API/DB harness with sanitized evidence |
 | `19a09da` | `24fe9c3` | Record original-token expiry, preserved work and rejected replay before the approved authentication update |
+| `2974ccc` | `c9733fc` | Bound START/RESUME/tool execution to the original actor, permissions and first run deadline |
+| `a979401` | `86433c0` | Preserve active resume state against the same already-answered late question snapshot |
+| `0e387a7`, `7a7d1a1` | `1123b7d`, `446f04a` | Independent wall-clock authentication evidence and paired rollout/legacy-token boundary |
+| `4cc023b` | this session | Type the existing fractional timeout calculation as float for Agent CI; no runtime policy change |
+| `6b73e04` | this session | Limit live fixture ports and prevent bytecode writes to borrowed Python runtimes |
 
 The actual connection found a shared `RestClient.Builder` configuration mutation,
 unhandled queued reads/streams before outbox delivery, a missing public SSE event,
@@ -51,6 +56,16 @@ and the frontend's premature stop after clarification acceptance. Backend change
 were coordinated with its owner and cherry-picked. No design change was made.
 The specification test now waits for route navigation before generating a draft;
 `SpecificationPanel` production code was not changed.
+
+The approved authentication update retains 60-second query/control tokens.
+Only START/RESUME/tool execution receives `execution_deadline`, capped by the
+original `run.createdAt + budget.maxDurationSeconds` and the existing BYOK cutoff.
+Retry/resume does not renew the deadline. The original initiator and permission
+snapshot, current membership/permissions and active run/project are checked.
+WAITING itself is not admitted for tool execution. A known RESPONDED interruption
+with the same run/workspace/ID/questions cannot revert QUEUED/RUNNING; a new or
+different question still produces a genuine WAITING state. These auth changes
+introduce **zero additional DB migrations**.
 
 ## Verified journeys
 
@@ -90,15 +105,28 @@ Two additional cases using real APIs verify:
 | Frontend node tests | 533 | 0 | 0 | Unit/source checks |
 | Decision/specification/gaze/continuity Playwright | 28 | 0 | 0 | Controlled browser API fixtures; **not actual server evidence** |
 | Live Playwright | 5 | 0 | 0 | Three whole browser journeys, one browser/API boundary case, one API tenant case |
-| Java transport/gateway/relay/architecture | 62 | 0 | 0 | Local transport/unit boundaries |
+| Java auth/transport/gateway/projection/architecture | 129 | 0 | 0 | Final combined local boundaries |
 | Initial Docker ConnectedWorkflow baseline | 0 | 0 | 7 | Docker engine unavailable; not counted as passed |
 
-Frontend lint/typecheck and live-support Ruff check/format passed. Java live
+Frontend lint/typecheck, Agent mypy with the Linux CI platform (96 source files),
+and live-support Ruff check/format passed. Java live
 launcher compiled and actual readiness endpoints returned 200/UP. Repeated runs
 are not added to these totals. Independent backend and PDF session counts remain
 in their own records, rather than being counted again here.
 The local Next production build also passed; the production frontend was used
-for a subsequent whole live-suite run.
+for the final five-case live-suite run after both `c9733fc` and `86433c0` were
+integrated and Spring/Agent restarted. Each browser journey recorded **zero
+page errors and zero browser API 5xx** responses. Downloaded PDF files and their
+SHA256 hashes are retained alongside the sanitized HTTP records.
+
+The server owner's separate wall-clock fixture showed completion after the old
+60-second token's expiry, and timeout at the first 180-second cutoff with saved
+work preserved. Its model and business repository/audit data were synthetic,
+although JWT filter/controller, executor, HTTP and PG17 were actual components;
+it is **not** a whole Spring application/browser run. See
+`docs/operations/bounded-execution-auth-validation-2026-10-14.md` for that evidence.
+The short whole-application browser cases here complement it and do not claim to
+exercise the 180-second boundary themselves.
 
 The first final PG17 PDF request returned the defined missing-font **503** while
 preserving the confirmed text. Copying the existing Pretendard 1.3.9 static
@@ -134,16 +162,37 @@ existing Vercel preview **success**; the preview was not used to verify the
 connected workflow. GitHub Actions PR-triggered workflow runs were empty, and
 this branch is absent from the workflow push allowlists.
 
-Attempted action: create a **draft PR** from
+The initial attempted action was to create a **draft PR** from
 `work/live-browser-workflow-20261014` to
 `work/overnight-workflow-integration-20261014` in
 `jomkeu3369/Freelance-Ops-Agent` to run remote CI. **Denied, not executed**:
 automatic approval review rejected the external repository PR creation because
-explicit PR authorization was missing. No workaround or retry was attempted.
-Separate PR approval is required before that remote CI path can proceed.
+explicit PR authorization was missing. After the user explicitly approved it,
+the same request was retried **once** and succeeded as
+[draft PR #74](https://github.com/jomkeu3369/Freelance-Ops-Agent/pull/74), attached to
+this task. No workaround was used. At its initial `e01c087` head, Frontend CI
+and Agent CI succeeded; Backend CI failed in PDF renderer and connected PDF
+acceptance tests. The source font is intentionally absent pending separate upload
+approval; local build-resource recovery does not resolve the remote failure.
 
-Font publication remains separately pending approval. Main merge, operating
-deployment, force push, spending activation and production key/permission changes
-were not performed. Approved long-running authentication changes are being
-implemented by the server owner and will receive another whole-journey run after
-integration; the short synthetic journeys alone do not prove the 60-second boundary.
+The user subsequently approved finished work for operating rollout. This session
+has not merged main or deployed: the final candidate and test results must be
+coordinated with the parent and operating preflight first. The whole branch
+currently includes incomplete remote PDF acceptance and cannot be reported as
+ready for a complete rollout.
+
+Current main Auto CD updates Agent before Backend and rolls back one service at a
+time. New Agent START/RESUME rejects old deadline-less Spring tokens with 403;
+there is no safe legacy-token fallback because old execution and control tokens
+have indistinguishable authenticated claims. Freeze new execution/dispatch,
+drain within original bounds or explicitly cancel current work, obtain a fresh
+backup and validate a **paired Spring/Agent switch and paired rollback** before
+activation. Preserve durable results, budgets and attempt counters; do not create
+a paid replay by restarting. V49–V52 feature migrations need their own fresh
+backup/restore evidence; the previous V48 rollback drill does not establish it.
+
+Font publication remains separately pending approval. No fresh operating backup,
+image fingerprint or paired rollback evidence was produced in this local session.
+A UI/transport-only rollout would require a separate candidate and compatibility
+CI against the operating baseline. No force push, spending activation, operational
+credential issuance or authentication relaxation was performed.
