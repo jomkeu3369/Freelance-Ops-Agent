@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import jwt
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
@@ -154,6 +155,7 @@ def _client_and_token(
     raptor_service: RecordingRaptorService | None = None,
     task_command_inbox: PostgresTaskCommandInbox | None = None,
     token_ttl_seconds: int = 120,
+    execution_authority: bool = True,
 ) -> tuple[TestClient, str]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_pem = private_key.public_key().public_bytes(
@@ -175,6 +177,8 @@ def _client_and_token(
             "jti": str(uuid4()),
             "iat": now,
             "exp": now + timedelta(seconds=token_ttl_seconds),
+            **({"execution_deadline": int((now + timedelta(seconds=max(180, token_ttl_seconds))).timestamp())}
+               if execution_authority else {}),
             "run_id": str(context.run_id),
             "workspace_id": str(context.workspace_id),
             "project_id": str(context.project_id),
@@ -481,3 +485,33 @@ def test_raptor_build_is_scoped_to_delegated_workspace() -> None:
     assert response.status_code == 200
     assert response.json()["snapshotId"] == str(snapshot_id)
     assert service.request is not None
+
+
+@pytest.mark.parametrize("operation", ["start", "resume"])
+def test_control_tokens_cannot_trigger_execution_without_a_bounded_deadline(operation: str) -> None:
+    request = _request(uuid4(), uuid4(), uuid4(), uuid4())
+    client, token = _client_and_token(request, execution_authority=False)
+    path = (
+        "/internal/v1/agent-runs"
+        if operation == "start"
+        else f"/internal/v1/agent-runs/{request.context.run_id}/resume"
+    )
+    body = (
+        request.model_dump(mode="json", by_alias=True)
+        if operation == "start"
+        else {
+            "interruptionId": str(uuid4()),
+            "idempotencyKey": "control-cannot-execute",
+            "answers": [{"questionIndex": 0, "answer": "Synthetic"}],
+        }
+    )
+    with client:
+        response = client.post(path, headers={"Authorization": f"Bearer {token}"}, json=body)
+        assert response.status_code == 403
+        assert response.json()["code"] == "EXECUTION_AUTHORITY_REQUIRED"
+        assert (
+            client.get(
+                f"/internal/v1/agent-runs/{request.context.run_id}", headers={"Authorization": f"Bearer {token}"}
+            ).status_code
+            == 404
+        )

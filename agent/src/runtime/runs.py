@@ -69,6 +69,7 @@ class AgentExecutionError(RuntimeError):
 class ExecutionAuthorization:
     delegation_token: str = field(repr=False)
     traceparent: str | None = None
+    execution_deadline: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.delegation_token.strip():
@@ -501,6 +502,9 @@ class RunCoordinator:
         self._allow_memory_platform_budget_for_tests = allow_memory_platform_budget_for_tests
         self._active_ledgers: dict[UUID, PlatformSpendLedger | ByokExecutionLedger] = {}
 
+    async def original_request(self, run_id: UUID) -> AgentRunRequest:
+        return await self._store.get_request(run_id)
+
     async def accept(self, request: AgentRunRequest) -> AgentRunAccepted:
         try:
             existing = await self._store.get_request(request.context.run_id)
@@ -682,10 +686,15 @@ class RunCoordinator:
 
             progress_token = _progress_publisher.set(record_progress)
             try:
+                timeout = request.budget.max_duration_seconds
+                if isinstance(ledger, ByokExecutionLedger):
+                    timeout = min(timeout, ledger.remaining_seconds())
+                if authorization is not None and authorization.execution_deadline is not None:
+                    remaining = (authorization.execution_deadline - datetime.now(UTC)).total_seconds()
+                    timeout = min(timeout, max(0, remaining))
                 outcome = await asyncio.wait_for(
                     self._checkpoint_journal.execute(self._executor, request, resume, authorization),
-                    timeout=min(request.budget.max_duration_seconds, ledger.remaining_seconds())
-                    if isinstance(ledger, ByokExecutionLedger) else request.budget.max_duration_seconds,
+                    timeout=timeout,
                 )
             finally:
                 _progress_publisher.reset(progress_token)

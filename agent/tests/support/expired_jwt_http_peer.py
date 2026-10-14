@@ -21,14 +21,17 @@ from security import DelegationTokenVerifier
 
 
 class SlowProviderFixture:
-    def __init__(self, expires_at: datetime) -> None:
-        self._after_expiry = expires_at + timedelta(seconds=8)
+    def __init__(self, expires_at: datetime, mode: str = "expire", deadline: datetime | None = None) -> None:
+        self._after_expiry = (
+            deadline + timedelta(seconds=10) if mode == "timeout" and deadline else expires_at + timedelta(seconds=8)
+        )
+        self._mode = mode
 
     async def generate_react_step(self, selection, prompt, *, max_output_tokens, max_attempts=None):
         del selection, max_output_tokens, max_attempts
         step = json.loads(prompt)
         department = step["objective"]["department"]
-        if department == "REQUIREMENTS" and step["observations"]:
+        if step["observations"] and (department == "REQUIREMENTS" or self._mode == "complete"):
             payload = {"action": "FINAL", "summary": "Validated work saved before expiry", "arguments": {}}
         else:
             if department != "REQUIREMENTS":
@@ -46,7 +49,14 @@ def main() -> None:
     args = parser.parse_args()
     fixture = json.loads(args.fixture_file.read_text(encoding="utf-8"))
     request = AgentRunRequest.model_validate(fixture["request"])
-    provider = SlowProviderFixture(datetime.fromisoformat(fixture["expiresAt"].replace("Z", "+00:00")))
+    deadline = (
+        datetime.fromisoformat(fixture["executionDeadline"].replace("Z", "+00:00"))
+        if "executionDeadline" in fixture
+        else None
+    )
+    provider = SlowProviderFixture(
+        datetime.fromisoformat(fixture["expiresAt"].replace("Z", "+00:00")), fixture.get("mode", "expire"), deadline
+    )
     executor = OperationalAgentExecutor(
         FailClosedOperationalGateway(), provider, SpringToolClient(fixture["toolBaseUrl"])
     )

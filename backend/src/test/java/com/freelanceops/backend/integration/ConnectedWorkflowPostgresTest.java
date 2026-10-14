@@ -431,7 +431,7 @@ class ConnectedWorkflowPostgresTest {
         String noRead = tokens.issue(run, owner.workspaceId(), project.id(), owner.userId(), List.of("agent.run"));
         mvc.perform(post("/internal/v1/knowledge/search").header(HttpHeaders.AUTHORIZATION, "Bearer " + noRead)
             .header("X-Run-Id", run.toString()).contentType(MediaType.APPLICATION_JSON)
-            .content(mapper.writeValueAsString(new KnowledgeSearchRequest(QUERY, null, 10)))).andExpect(status().isForbidden());
+            .content(mapper.writeValueAsString(new KnowledgeSearchRequest(QUERY, null, 10)))).andExpect(status().isUnauthorized());
         assertThat(jdbc.queryForObject("select count(*) from app.analysis_decision where project_id=?", Integer.class, project.id())).isOne();
         assertThat(jdbc.queryForObject("select count(*) from app.specification where project_id=?", Integer.class, project.id())).isOne();
         System.out.println("CONNECTED real bearer, membership, write-denial and delegated-claim boundaries PASS");
@@ -612,9 +612,19 @@ class ConnectedWorkflowPostgresTest {
         return postJson(session, workspace(session) + "/projects", new CreateProjectRequest(customer, title, INPUT, "KRW", null, null, null), 201, ProjectResponse.class);
     }
     private List<KnowledgeSearchResult> search(UUID run, UUID projectId, String query) throws Exception {
-        String token = tokens.issue(run, owner.workspaceId(), projectId, owner.userId(), List.of("agent.run", "project.read", "document.read"));
+        // Knowledge reads now require a live execution capability, not a completed-run control JWT.
+        UUID execution = UUID.randomUUID();
+        Instant acceptedAt = Instant.now();
+        List<String> toolPermissions = List.of("agent.run", "project.read", "document.read");
+        var active = runs.save(new com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity(execution,
+            owner.workspaceId(), projectId, UUID.randomUUID(), owner.userId(), Provider.OPENAI, "gpt-test", AgentRunStatus.RUNNING, acceptedAt));
+        jdbc.update("insert into app.agent_run_command(id,run_id,command_type,payload,requested_by,effective_permissions,traceparent,status,available_at,created_at,updated_at) values (?,?,'START','{}',?,?,'trace','COMPLETED',?,?,?)",
+            UUID.randomUUID(), execution, owner.userId(), mapper.writeValueAsString(toolPermissions),
+            java.sql.Timestamp.from(acceptedAt), java.sql.Timestamp.from(acceptedAt), java.sql.Timestamp.from(acceptedAt));
+        String token = tokens.issueForExecution(execution, owner.workspaceId(), projectId, owner.userId(),
+            toolPermissions, active.createdAt().plusSeconds(active.budget().maxDurationSeconds()));
         var result = mvc.perform(post("/internal/v1/knowledge/search").header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-            .header("X-Run-Id", run.toString()).contentType(MediaType.APPLICATION_JSON)
+            .header("X-Run-Id", execution.toString()).contentType(MediaType.APPLICATION_JSON)
             .content(mapper.writeValueAsString(new KnowledgeSearchRequest(query, null, 10)))).andExpect(status().isOk()).andReturn();
         return mapper.readerForListOf(KnowledgeSearchResult.class).readValue(result.getResponse().getContentAsString());
     }

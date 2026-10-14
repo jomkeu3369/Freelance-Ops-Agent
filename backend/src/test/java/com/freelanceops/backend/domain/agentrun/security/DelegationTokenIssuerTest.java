@@ -18,6 +18,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DelegationTokenIssuerTest {
 
     @Test
+    void executionRetriesKeepTheOriginalDeadlineAndControlTokensRemainShort() throws Exception {
+        KeyPair pair = keyPair();
+        var issuer = new DelegationTokenIssuer(pem((RSAPrivateKey) pair.getPrivate()), pem((RSAPublicKey) pair.getPublic()),
+            "test-key", "backend", "agent", "spring-tools", 60, "test");
+        UUID run = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), user = UUID.randomUUID();
+        java.time.Instant deadline = java.time.Instant.now().plusSeconds(180).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        List<String> scope = List.of("agent.run", "project.read");
+        for (int attempt = 0; attempt < 2; attempt++) {
+            var claims = com.nimbusds.jwt.SignedJWT.parse(issuer.issueForExecution(run, workspace, project, user, scope, deadline)).getJWTClaimsSet();
+            assertThat(claims.getExpirationTime().toInstant()).isEqualTo(deadline);
+            assertThat(claims.getLongClaim("execution_deadline")).isEqualTo(deadline.getEpochSecond());
+            assertThat(claims.getStringListClaim("permissions")).containsExactlyElementsOf(scope);
+        }
+        var control = com.nimbusds.jwt.SignedJWT.parse(issuer.issue(run, workspace, project, user, scope)).getJWTClaimsSet();
+        assertThat(control.getExpirationTime().getTime()-control.getIssueTime().getTime()).isEqualTo(60000);
+        assertThat(control.getClaim("execution_deadline")).isNull();
+        assertThatThrownBy(() -> issuer.issueForExecution(run, workspace, project, user, scope, java.time.Instant.now().minusSeconds(1)))
+            .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void personalRunTokenCoversExecutionWithoutExceedingFiveMinutes() throws Exception {
         KeyPair pair = keyPair();
         DelegationTokenIssuer issuer = new DelegationTokenIssuer(pem((RSAPrivateKey) pair.getPrivate()), pem((RSAPublicKey) pair.getPublic()), "test-key", "backend", "agent", "spring-tools", 60, "test");

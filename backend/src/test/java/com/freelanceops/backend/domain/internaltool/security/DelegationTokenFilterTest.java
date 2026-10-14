@@ -21,6 +21,18 @@ class DelegationTokenFilterTest {
     private final FilterChain chain = mock(FilterChain.class);
 
     @Test
+    void controlTokensCannotEnterTheInternalToolChain() throws Exception {
+        UUID id = UUID.randomUUID();
+        var bounded = principal(id);
+        when(verifier.verify("token")).thenReturn(new DelegationPrincipal(bounded.subject(), bounded.tokenId(), id,
+            bounded.workspaceId(), bounded.projectId(), bounded.initiatedBy(), bounded.permissions()));
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request(id), response, chain);
+        assertThat(response.getStatus()).isEqualTo(401);
+        verify(chain, never()).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void bindsVerifiedPrincipalToMatchingRun() throws Exception {
         UUID runId = UUID.randomUUID();
         DelegationPrincipal principal = principal(runId);
@@ -60,7 +72,7 @@ class DelegationTokenFilterTest {
         UUID userId = UUID.randomUUID();
         return new DelegationPrincipal(
             userId.toString(), UUID.randomUUID().toString(), runId, UUID.randomUUID(), UUID.randomUUID(), userId,
-            Set.of("agent.run", "project.read")
+            Set.of("agent.run", "project.read"), java.time.Instant.now().plusSeconds(60)
         );
     }
 }

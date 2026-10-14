@@ -63,7 +63,12 @@ class AgentJwtExpiryLiveTest {
             new ModelSelection(Provider.OPENAI, "gpt-test", ReasoningEffort.LOW),
             new SafetyContext(false, false, false, false, false, false, true),
             new InternalAgentRunRequest.AgentInput("Synthetic long-running expiry verification", "en", "KR", null));
-        String executionToken = issuer.issue(run, workspace, project, user, PERMISSIONS);
+        String original = issuer.issue(run, workspace, project, user, PERMISSIONS);
+        var shortClaims = new com.nimbusds.jwt.JWTClaimsSet.Builder(SignedJWT.parse(original).getJWTClaimsSet())
+            .claim("execution_deadline", Instant.now().plusSeconds(180).getEpochSecond()).build();
+        var signedShort = new SignedJWT(SignedJWT.parse(original).getHeader(), shortClaims);
+        signedShort.sign(new com.nimbusds.jose.crypto.RSASSASigner((java.security.interfaces.RSAPrivateKey) keys.getPrivate()));
+        String executionToken = signedShort.serialize(); // Test-only short execution capability reproduces the old expiry.
         Instant expiresAt = SignedJWT.parse(executionToken).getJWTClaimsSet().getExpirationTime().toInstant();
         var toolService = mock(InternalToolService.class);
         when(toolService.getProjectContext(eq(project), any())).thenReturn(new ProjectContext(project, workspace,
@@ -139,7 +144,8 @@ class AgentJwtExpiryLiveTest {
             var restored = client.get(run, readToken, TRACE);
             assertThat(restored.status()).isEqualTo(AgentRunStatus.FAILED);
             assertThat(restored.result()).isEqualTo(saved.result());
-            String retryToken = issuer.issue(run, workspace, project, user, PERMISSIONS);
+            String retryToken = issuer.issueForExecution(run, workspace, project, user, PERMISSIONS,
+                Instant.ofEpochSecond(shortClaims.getLongClaim("execution_deadline")));
             assertThat(client.start(request, retryToken, TRACE).status()).isEqualTo(AgentRunStatus.FAILED);
             assertThatThrownBy(() -> client.resume(run, new ResumeAgentRunRequest(UUID.randomUUID(), "retry-failed",
                 List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic"))), retryToken, TRACE))

@@ -77,28 +77,39 @@ public class AgentRunCommandDispatcher {
             }
             return true;
         }
-        String token = run.credentialId() != null ? tokenIssuer.issueForPersonalRun(
-            run.id(), run.workspaceId(), run.projectId(), command.requestedBy(), command.permissions(), run.budget().maxDurationSeconds()
-        ) : tokenIssuer.issue(
-            run.id(), run.workspaceId(), run.projectId(), command.requestedBy(), command.permissions()
-        );
+        String controlToken = null;
         try {
+            if (!run.initiatedBy().equals(command.requestedBy()))
+                throw new IllegalStateException("Agent execution principal mismatch");
+            // Recovery/control requests do not extend the worker's execution authority.
+            controlToken = tokenIssuer.issue(run.id(), run.workspaceId(), run.projectId(),
+                run.initiatedBy(), command.permissions());
+            var originalPermissions = queue.originalPermissions(run.id());
+            if (!command.permissions().containsAll(originalPermissions))
+                throw new IllegalStateException("Original Agent execution permission was revoked");
+            var permissions = originalPermissions;
+            if (!permissions.contains("agent.run")
+                || command.type() == AgentRunCommandType.RESUME && !permissions.contains("agent.respond"))
+                throw new IllegalStateException("Original Agent execution permission is unavailable");
+            java.time.Instant deadline = run.createdAt().plusSeconds(run.budget().maxDurationSeconds());
             if (run.credentialId() != null) {
                 var scope = byok.validateRun(run);
-                if (!run.initiatedBy().equals(command.requestedBy())) throw new IllegalStateException("Personal dispatch principal mismatch");
+                if (scope.validUntil().isBefore(deadline)) deadline = scope.validUntil();
                 if (command.type() == AgentRunCommandType.START) {
                     var start = read(command.payload(), InternalAgentRunRequest.class);
                     if (!scope.equals(start.byokBudget()) || start.platformBudget() != null)
                         throw new IllegalStateException("Personal dispatch scope mismatch");
                 }
             }
+            String token = tokenIssuer.issueForExecution(run.id(), run.workspaceId(), run.projectId(),
+                run.initiatedBy(), permissions, deadline);
             if (command.type() == AgentRunCommandType.START) {
-                dispatchStart(command, run, token);
+                dispatchStart(command, run, token, controlToken);
             } else {
-                dispatchResume(command, run, token);
+                dispatchResume(command, run, token, controlToken);
             }
         } catch (RuntimeException error) {
-            if (reconcile(command, run, token)) return true;
+            if (controlToken != null && reconcile(command, run, controlToken)) return true;
             if (isPermanent(error)) {
                 if (queue.fail(command.id(), command.attempts(), errorMessage(error))) {
                     projectionService.synchronizeStatus(run.id(), run.workspaceId(), AgentRunStatus.FAILED);
@@ -113,20 +124,20 @@ public class AgentRunCommandDispatcher {
         return true;
     }
 
-    private void dispatchStart(AgentRunCommandQueue.ClaimedCommand command, AgentRunEntity run, String token) {
+    private void dispatchStart(AgentRunCommandQueue.ClaimedCommand command, AgentRunEntity run, String token, String controlToken) {
         InternalAgentRunRequest request = read(command.payload(), InternalAgentRunRequest.class);
         StartAgentRunResponse response = client.start(request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
-        if (compensateForProjectDeletion(command, run, token)) return;
+        if (compensateForProjectDeletion(command, run, controlToken)) return;
         projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }
 
-    private void dispatchResume(AgentRunCommandQueue.ClaimedCommand command, AgentRunEntity run, String token) {
+    private void dispatchResume(AgentRunCommandQueue.ClaimedCommand command, AgentRunEntity run, String token, String controlToken) {
         ResumeAgentRunRequest request = read(command.payload(), ResumeAgentRunRequest.class);
         StartAgentRunResponse response = client.resume(run.id(), request, token, command.traceparent());
         requireMatchingRun(run.id(), response == null ? null : response.runId());
-        if (compensateForProjectDeletion(command, run, token)) return;
+        if (compensateForProjectDeletion(command, run, controlToken)) return;
         projectionService.synchronizeAcknowledgedStatus(run.id(), run.workspaceId(), response.status());
         queue.complete(command.id(), command.attempts());
     }

@@ -302,3 +302,19 @@ async def test_live_sse_emits_reconciled_failure_before_terminal_close() -> None
     assert len(streamed) == 3
     assert "event: run.failed" in streamed[-1]
     assert INTERRUPTED_RUN_ERROR in streamed[-1]
+
+
+async def test_execution_deadline_stops_a_resumed_worker_without_a_fresh_duration() -> None:
+    from runtime import ExecutionAuthorization
+
+    incoming = request()
+    store = InMemoryAgentRunStore()
+    executor = AsyncMock()
+    coordinator = RunCoordinator(store, executor)
+    await coordinator.accept(incoming)
+    expired = ExecutionAuthorization("synthetic", execution_deadline=datetime.now(UTC) - timedelta(seconds=1))
+    await coordinator.execute(incoming, expired)
+    view = await store.get(incoming.context.run_id)
+    assert view.status is AgentRunStatus.FAILED
+    assert view.error_code == "RUN_TIMEOUT"
+    executor.execute.assert_not_awaited()

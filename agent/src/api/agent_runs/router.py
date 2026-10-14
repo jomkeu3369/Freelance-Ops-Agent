@@ -91,6 +91,8 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         return authorization_error
 
     assert isinstance(principal, DelegationPrincipal)
+    if principal.execution_deadline is None:
+        return _problem(403, "Bounded execution authority is required", "EXECUTION_AUTHORITY_REQUIRED")
     if (
         principal.workspace_id != body.context.workspace_id
         or principal.project_id != body.context.project_id
@@ -110,7 +112,7 @@ async def start_agent_run(body: AgentRunRequest, background_tasks: BackgroundTas
         background_tasks.add_task(
             coordinator.execute,
             body,
-            ExecutionAuthorization(credentials.credentials, request.state.traceparent),
+            ExecutionAuthorization(credentials.credentials, request.state.traceparent, principal.execution_deadline),
         )
     return accepted
 
@@ -207,7 +209,16 @@ async def resume_agent_run(run_id: UUID, body: ResumeAgentRunRequest, background
     authorization_error = _authorize(principal, run_id=run_id, permission="agent.respond")
     if authorization_error is not None:
         return authorization_error
+    assert isinstance(principal, DelegationPrincipal)
+    if principal.execution_deadline is None:
+        return _problem(403, "Bounded execution authority is required", "EXECUTION_AUTHORITY_REQUIRED")
     try:
+        original = await coordinator.original_request(run_id)
+        if (principal.workspace_id != original.context.workspace_id
+            or principal.project_id != original.context.project_id
+            or principal.initiated_by != original.context.initiated_by
+            or not set(original.context.effective_permissions).issubset(principal.permissions)):
+            return _problem(403, "Run context exceeds delegated authority", "RUN_CONTEXT_FORBIDDEN")
         accepted, request = await coordinator.accept_resume(run_id, body)
 
     except AgentRunNotFoundError:
@@ -223,7 +234,7 @@ async def resume_agent_run(run_id: UUID, body: ResumeAgentRunRequest, background
         coordinator.resume,
         request,
         body,
-        ExecutionAuthorization(credentials.credentials, http_request.state.traceparent),
+        ExecutionAuthorization(credentials.credentials, http_request.state.traceparent, principal.execution_deadline),
     )
     return accepted
 

@@ -606,16 +606,32 @@ class AgentRunGatewayServiceTest {
         verify(agentRunClient, never()).get(any(), any(), any());
     }
 
-    @Test
-    void refusesAnotherUsersPersonalRunResumeBeforeQueueing() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void refusesAnotherUsersRunResumeBeforeQueueing(boolean personal) {
         UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspace, project, UUID.randomUUID());
-        run.useCredential(UUID.randomUUID());
+        if (personal) run.useCredential(UUID.randomUUID());
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
         when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
         var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
         assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue, connections);
+    }
+
+    @Test
+    void expiredRunCannotQueueAResumeWithANewDuration() {
+        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), id = UUID.randomUUID();
+        var expired = new AgentRunEntity(id, workspace, project, UUID.randomUUID(), actor,
+            Provider.OPENAI, "gpt-test", AgentRunStatus.WAITING_FOR_USER, Instant.now().minusSeconds(181));
+        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(id, workspace)).thenReturn(Optional.of(expired));
+        assertThatThrownBy(() -> service.resume(actor, workspace, id,
+            new ResumeAgentRunRequest(UUID.randomUUID(), "expired-resume", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic"))), "trace"))
+            .isInstanceOfSatisfying(ResponseStatusException.class,
+                error -> assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+        org.mockito.Mockito.verifyNoInteractions(commandQueue, agentRunClient, projectionService);
     }
 
     @Test
