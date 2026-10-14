@@ -10,6 +10,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBat
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -39,7 +40,9 @@ public class HttpAgentRunClient implements AgentRunClient {
     ) {
         if (readTimeoutMs <= 0) throw new IllegalArgumentException("readTimeout must be positive");
         HttpClient httpClient = http11Client(Duration.ofMillis(connectTimeoutMs));
-        this.restClient = builder.baseUrl(baseUrl).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        this.restClient = builder.clone().requestFactory(requestFactory).baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = httpClient;
         this.eventResponseTimeout = Duration.ofMillis(readTimeoutMs);
@@ -50,7 +53,7 @@ public class HttpAgentRunClient implements AgentRunClient {
     }
 
     HttpAgentRunClient(RestClient.Builder builder, String baseUrl, HttpClient eventClient) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+        this.restClient = builder.clone().baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = eventClient;
         this.eventResponseTimeout = Duration.ofSeconds(10);
