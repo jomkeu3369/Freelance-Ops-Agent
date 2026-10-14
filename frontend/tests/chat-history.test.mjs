@@ -57,7 +57,9 @@ test("input warnings are separate from user text and keep result fetch, retry, a
 
 // Execute the real effect with controlled API promises and state setters. This
 // catches lifecycle ordering without copying the implementation into a model.
-const chatSource = await readFile(new URL("../features/workspace/project/analysis/agent-chat.tsx", import.meta.url), "utf8");
+// Git may check out TSX with CRLF on Windows; effect extraction must preserve
+// the same lifecycle coverage regardless of the host's line-ending setting.
+const chatSource = (await readFile(new URL("../features/workspace/project/analysis/agent-chat.tsx", import.meta.url), "utf8")).replace(/\r\n/g, "\n");
 const effectStart = chatSource.indexOf("  useEffect(() => {\n    if (!canRun) return;");
 assert.ok(effectStart >= 0);
 const effectSource = chatSource.slice(effectStart, chatSource.indexOf("  const turns =", effectStart));

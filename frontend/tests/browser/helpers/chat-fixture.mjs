@@ -1,5 +1,5 @@
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
-const apiOrigin = "http://localhost:8080";
+const apiOrigin = new URL(process.env.PLAYWRIGHT_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").origin;
 const project = {
   id: "project-one", workspaceId: "local-space", clientId: null, title: "Original project title",
   requirementText: "Original user requirements stay unchanged", currency: "KRW", deadline: null,
