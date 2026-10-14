@@ -22,6 +22,47 @@ import static org.mockito.Mockito.*;
 
 class AgentRunProjectionOutcomeTest {
     @ParameterizedTest
+    @EnumSource(value = AgentRunStatus.class, names = {"QUEUED", "RUNNING"})
+    void answeredQuestionCannotRollBackAnAcceptedResume(AgentRunStatus resumed) {
+        var fixture = new Fixture(resumed);
+        var prior = fixture.completed();
+        var answered = new AgentRunView.AgentInterruption(UUID.randomUUID(), InterruptionKind.CLARIFICATION, List.of("Answered?"));
+        var stale = new AgentRunView(fixture.run.id(), AgentRunStatus.WAITING_FOR_USER, DepartmentName.REQUIREMENTS,
+            answered, prior.result(), null, null, prior.usage(), Instant.now());
+        var repository = mock(com.freelanceops.backend.domain.agentrun.repository.AgentInterruptionRepository.class);
+        var stored = new com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity(answered.interruptionId(),
+            fixture.run.workspaceId(), fixture.run.id(), answered.kind(), answered.questions(), Instant.now());
+        stored.respond(List.of(java.util.Map.of("questionIndex", 0, "answer", "Synthetic")), Instant.now());
+        when(repository.findByIdAndWorkspaceIdAndAgentRunId(answered.interruptionId(), fixture.run.workspaceId(), fixture.run.id()))
+            .thenReturn(Optional.of(stored));
+        var projection = new AgentRunProjectionService(fixture.runs, new AgentInterruptionService(repository),
+            fixture.costs, fixture.events, fixture.credits, fixture.byok);
+        var publicView = projection.synchronize(fixture.run.id(), fixture.run.workspaceId(), stale);
+        assertThat(fixture.run.status()).isEqualTo(resumed);
+        assertThat(publicView.status()).isEqualTo(resumed);
+        assertThat(publicView.interruption()).isNull();
+        assertThat(publicView.result()).isSameAs(stale.result());
+        verify(fixture.costs).synchronize(fixture.run, stale);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void aNewPendingQuestionStillTransitionsAResumedRunToWaiting() {
+        var fixture = new Fixture(AgentRunStatus.RUNNING);
+        var fresh = new AgentRunView(fixture.run.id(), AgentRunStatus.WAITING_FOR_USER, DepartmentName.RESEARCH,
+            new AgentRunView.AgentInterruption(UUID.randomUUID(), InterruptionKind.CLARIFICATION, List.of("New question?")),
+            null, null, null, null, Instant.now());
+        var repository = mock(com.freelanceops.backend.domain.agentrun.repository.AgentInterruptionRepository.class);
+        var projection = new AgentRunProjectionService(fixture.runs, new AgentInterruptionService(repository),
+            fixture.costs, fixture.events, fixture.credits, fixture.byok);
+        assertThat(projection.synchronize(fixture.run.id(), fixture.run.workspaceId(), fresh)).isSameAs(fresh);
+        assertThat(fixture.run.status()).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
+        var saved = org.mockito.ArgumentCaptor.forClass(com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().id()).isEqualTo(fresh.interruption().interruptionId());
+        assertThat(saved.getValue().status()).isEqualTo(com.freelanceops.backend.domain.agentrun.model.InterruptionStatus.PENDING);
+    }
+    @ParameterizedTest
     @EnumSource(value = AgentRunStatus.class, names = {"PARTIAL", "FAILED", "CANCELLED"})
     void lateCompletionCannotPromoteADurableOutcomeOrPublishCompletedFactsButUsageStillSettles(AgentRunStatus terminal) {
         var fixture = new Fixture(terminal);

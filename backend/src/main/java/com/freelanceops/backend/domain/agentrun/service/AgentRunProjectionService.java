@@ -47,7 +47,10 @@ public class AgentRunProjectionService {
     public AgentRunView synchronize(UUID runId, UUID workspaceId, AgentRunView view) {
         AgentRunEntity run = lock(runId, workspaceId);
         // The locked durable outcome wins over delayed or out-of-order snapshots.
-        run.synchronizeStatus(view.status(), Instant.now());
+        boolean staleAnsweredQuestion = view.status() == AgentRunStatus.WAITING_FOR_USER
+            && (run.status() == AgentRunStatus.QUEUED || run.status() == AgentRunStatus.RUNNING)
+            && interruptionService.alreadyResponded(run, view.interruption());
+        if (!staleAnsweredQuestion) run.synchronizeStatus(view.status(), Instant.now());
         AgentRunView publicView = durableView(run, view);
         interruptionService.synchronize(run, publicView);
         // Late usage is still authoritative for settlement even when its status lost the race.
