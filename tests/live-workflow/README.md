@@ -57,6 +57,11 @@ Start Next from `frontend/` with
 npm run dev -- --hostname 127.0.0.1 --port 18220
 ```
 
+To verify the local production frontend, stop the development process first,
+then use `npm run build` and
+`npm run start -- --hostname 127.0.0.1 --port 18220` with the same public API URL.
+This is a local build/run; it does not publish a hosted deployment.
+
 Restarting Spring refreshes its memory-only fixture: restart the Agent afterward.
 Wait for both readiness endpoints to return 200 before running Playwright.
 
@@ -81,9 +86,11 @@ npx playwright test -c playwright.live.config.mjs
 
 Chrome uses a separate headless test profile on the test computer. Three browser
 journeys select one, two and three opinions; the third uses a mobile viewport.
-Two additional API cases verify partial result preservation, stale confirmation,
+Two additional cases verify partial result preservation, stale confirmation,
 idempotency and tenant isolation against actual services. They are counted
 separately from `tests/browser/`, whose API fixtures are controlled UI tests.
+The partial case also reloads the actual saved result in the browser and checks
+that its incomplete-stage notice prevents a confirmation action.
 
 The PDF test first requests the artifact and accepts the defined missing-font
 503 only if the confirmed body remains unchanged. It then copies the repository
@@ -94,6 +101,8 @@ Sanitized method/path/status traffic and result IDs are under
 `frontend/outputs/live-workflow/`. Headers, tokens and auth response bodies are
 excluded; trace and video capture are disabled. Synthetic provider call counts
 and the actual Spring component names are under `.tmp/live-workflow/`.
+The browser cases also preserve the downloaded PDF and final material screenshot
+in their result directories.
 After the whole suite passes, retain actual persisted statuses and event types:
 
 ```text

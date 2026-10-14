@@ -103,6 +103,9 @@ for (const [count, mobile] of [[1, false], [2, false], [3, true]]) {
       await page.getByRole("button", { name: "PDF 다운로드", exact: true }).click();
       const downloaded = await waiting;
       const bytes = await readFile(await downloaded.path()); expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+      const pdfPath = testInfo.outputPath("confirmed-specification.pdf");
+      await writeFile(pdfPath, bytes);
+      await testInfo.attach("downloaded-confirmed-specification", { path: pdfPath, contentType: "application/pdf" });
       await page.reload();
       await expect(page.locator(".specification-detail > pre.specification-content")).toContainText(finalText);
       await (await openNavigation(page, "근거 자료 관리")).click();
@@ -115,9 +118,12 @@ for (const [count, mobile] of [[1, false], [2, false], [3, true]]) {
       expect(evidence.traffic.filter(value => value.path.endsWith("/auth/login") && value.method === "POST")).toHaveLength(1);
       expect(evidence.errors).toEqual([]);
       expect(evidence.traffic.filter(value => value.status >= 500)).toEqual([]);
-      await writeFile(testInfo.outputPath("workflow-evidence.json"), JSON.stringify({ projectId: project.id, sourceRunId: source.runId, selectedOpinions: count, pdfInitialStatus: pdfStatus, confirmedSpecificationId: specification.id, ...evidence }, null, 2));
-      await testInfo.attach("real-local-http-evidence", { contentType: "application/json", body: Buffer.from(JSON.stringify({ boundary: "Actual Chrome → Next/Spring → FastAPI → PostgreSQL. External model adapter only is synthetic; BYOK row is existing never-decrypted test fixture; local PDF font only.", projectId: project.id, sourceRunId: source.runId, selectedOpinions: count, pdfInitialStatus: pdfStatus, confirmedSpecificationId: specification.id, ...evidence }, null, 2)) });
-      await testInfo.attach("confirmed-local-document", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+      const file = testInfo.outputPath("workflow-evidence.json");
+      await writeFile(file, JSON.stringify({ boundary: "Actual Chrome → Next/Spring → FastAPI → PostgreSQL. External model adapter only is synthetic; BYOK row is existing never-decrypted test fixture; local PDF font only.", projectId: project.id, sourceRunId: source.runId, selectedOpinions: count, pdfInitialStatus: pdfStatus, pdfSha256: createHash("sha256").update(bytes).digest("hex"), confirmedSpecificationId: specification.id, ...evidence }, null, 2));
+      await testInfo.attach("real-local-http-evidence", { path: file, contentType: "application/json" });
+      const screenshot = testInfo.outputPath("confirmed-local-document.png");
+      await page.screenshot({ path: screenshot, fullPage: true });
+      await testInfo.attach("confirmed-local-document", { path: screenshot, contentType: "image/png" });
     });
   });
 }

@@ -1,17 +1,33 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
-import { api, account, seedSyntheticConnection, latestStatus, installLiveGuards } from "./helpers/real-server.mjs";
+import { api, account, login, collectTraffic, seedSyntheticConnection, latestStatus, installLiveGuards } from "./helpers/real-server.mjs";
 
 installLiveGuards();
 
-test("real partial execution and changed original requirements cannot be confirmed", async ({ request }, testInfo) => {
-  const session = (await account(request)).session;
+test("real partial execution and changed original requirements cannot be confirmed", async ({ page, request }, testInfo) => {
+  const browserEvidence = collectTraffic(page);
+  const { email, session } = await account(request);
+  await login(page, email);
   const headers = { Authorization: `Bearer ${session.accessToken}` }, root = `${api}/api/v2/workspaces/${session.workspaceId}`;
   const credentialId = seedSyntheticConnection(session), evidence = [];
   const clientResponse = await request.post(`${root}/clients`, { headers, data: { name: "불완전 결과 검증 고객", companyName: null, email: null, phone: null, notes: "Synthetic only" } });
   expect(clientResponse.status()).toBe(201); const client = await clientResponse.json();
-  const startBody = requirementText => ({ requirementText, locale: "ko-KR", modelSelection: { provider: "OPENAI", model: "gpt-6-luna", reasoningEffort: "LOW", credentialId }, budget: { maxDurationSeconds: 180, maxModelCalls: 50, maxToolCalls: 12, maxInputTokens: 150000, maxOutputTokens: 48000, maxDepartments: 4, maxHierarchyDepth: 2, maxSearchCredits: 0, maxRetries: 2, maxHandoffs: 3 }, safetyContext: { externalSideEffect: false, sensitiveData: false, financialAuthorityRequired: false, legalAuthorityRequired: false, irreversibleAction: false, approvalRequired: false, authorityVerified: false }, workflowMode: "PROJECT_ANALYSIS", byokCostNoticeVersion: "byok-standard-150k-48k-2026-10-05-v1" });
+  const startBody = requirementText => ({
+    requirementText, locale: "ko-KR", workflowMode: "PROJECT_ANALYSIS",
+    modelSelection: { provider: "OPENAI", model: "gpt-6-luna", reasoningEffort: "LOW", credentialId },
+    budget: {
+      maxDurationSeconds: 180, maxModelCalls: 50, maxToolCalls: 12,
+      maxInputTokens: 150000, maxOutputTokens: 48000, maxDepartments: 4,
+      maxHierarchyDepth: 2, maxSearchCredits: 0, maxRetries: 2, maxHandoffs: 3,
+    },
+    safetyContext: {
+      externalSideEffect: false, sensitiveData: false,
+      financialAuthorityRequired: false, legalAuthorityRequired: false,
+      irreversibleAction: false, approvalRequired: false, authorityVerified: false,
+    },
+    byokCostNoticeVersion: "byok-standard-150k-48k-2026-10-05-v1",
+  });
   for (const partial of [true, false]) {
     const input = { clientId: client.id, title: partial ? "부분 실패" : "오래된 분석", requirementText: partial ? "LIVE_PARTIAL_FAILURE 합성 부서 실패를 검증합니다." : "LIVE 고객 제공 자료를 사용합니다.", currency: "KRW", deadline: null, budgetMin: null, budgetMax: null };
     const created = await request.post(`${root}/projects`, { headers, data: input }); expect(created.status()).toBe(201); const project = await created.json();
@@ -36,6 +52,14 @@ test("real partial execution and changed original requirements cannot be confirm
       expect(preserved.every(value => value.summary.includes("LIVE"))).toBe(true);
       expect(saved.find(value => value.department === "DEAL_DESIGN").status).toBe("FAILED");
       expect(saved.find(value => value.department === "VERIFICATION").status).toBe("SKIPPED");
+      await page.goto(`/workspace/projects/${project.id}/agent`);
+      await expect(page.locator(".agent-chat-result")).toContainText("LIVE");
+      await page.locator(".agent-chat-result button").click();
+      const panel = page.locator(".agent-chat-result-panel");
+      await expect(panel.locator(".result-state.partial")).toBeVisible();
+      await expect(panel).toContainText("최종 확정에는 사용할 수 없습니다");
+      await expect(panel.getByRole("button", { name: "견적 비교하기", exact: true })).toHaveCount(0);
+      await page.keyboard.press("Escape");
       evidence.push({ runId: source.runId, status: source.view.status, savedDepartments: saved.map(value => ({ department: value.department, status: value.status })), compositionStatus: draftResponse.status() });
     } else {
       expect(draftResponse.status()).toBe(200); const draft = await draftResponse.json();
@@ -49,6 +73,8 @@ test("real partial execution and changed original requirements cannot be confirm
       evidence.push({ runId: source.runId, replayRunId: run.runId, status: source.view.status, staleConfirmationStatus: confirmation.status(), preservedStatus: preserved.status });
     }
   }
+  expect(browserEvidence.errors).toEqual([]);
+  expect(browserEvidence.traffic.filter(value => value.status >= 500)).toEqual([]);
   const file = testInfo.outputPath("partial-stale-http-evidence.json");
   await writeFile(file, JSON.stringify({ boundary: "Real Spring/FastAPI/PostgreSQL transitions; only one synthetic model department fails", evidence }, null, 2));
   await testInfo.attach("real-partial-stale-http-evidence", { contentType: "application/json", path: file });
