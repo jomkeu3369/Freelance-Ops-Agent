@@ -142,7 +142,7 @@ class AgentBoundedExecutionLiveTest {
 
     private HttpServer toolServer(String publicKey) throws Exception {
         var runs = mock(AgentRunRepository.class);
-        when(runs.findByIdAndWorkspaceId(any(), eq(workspace))).thenAnswer(call -> Optional.ofNullable(projections.get(call.getArgument(0))));
+        when(runs.findByIdAndWorkspaceIdForUpdate(any(), eq(workspace))).thenAnswer(call -> Optional.ofNullable(projections.get(call.getArgument(0))));
         var projects = mock(ProjectRepository.class);
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(new ProjectEntity(project, workspace, "Synthetic", "Input", "KRW", null, null, null)));
         var permissions = mock(WorkspacePermissionReader.class);

@@ -40,7 +40,9 @@ public class DelegatedExecutionAccess {
     public void require(DelegationPrincipal principal) {
         Instant deadline = principal.executionDeadline();
         if (deadline == null || !Instant.now().isBefore(deadline)) throw denied();
-        var run = runs.findByIdAndWorkspaceId(principal.runId(), principal.workspaceId()).orElseThrow(this::denied);
+        // Acquire the run lock before loading its version into this persistence context.
+        // BYOK validation uses the same run -> scope order in this transaction.
+        var run = runs.findByIdAndWorkspaceIdForUpdate(principal.runId(), principal.workspaceId()).orElseThrow(this::denied);
         if (!run.id().equals(principal.runId()) || !run.workspaceId().equals(principal.workspaceId())
             || !run.projectId().equals(principal.projectId()) || !run.initiatedBy().equals(principal.initiatedBy())
             || !ACTIVE.contains(run.status()) || deadline.isAfter(run.createdAt().plusSeconds(run.budget().maxDurationSeconds())))

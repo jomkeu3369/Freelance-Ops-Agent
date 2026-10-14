@@ -35,7 +35,7 @@ class DelegatedExecutionAccessTest {
 
     private AgentRunEntity configure() {
         var run = new AgentRunEntity(id, workspace, project, UUID.randomUUID(), user, Provider.OPENAI, "gpt-test", AgentRunStatus.RUNNING, created);
-        when(runs.findByIdAndWorkspaceId(id, workspace)).thenReturn(Optional.of(run));
+        when(runs.findByIdAndWorkspaceIdForUpdate(id, workspace)).thenReturn(Optional.of(run));
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(new ProjectEntity(project, workspace, "Synthetic", "Input", "KRW", null, null, null)));
         when(permissions.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
         when(commands.originalPermissions(id)).thenReturn(List.copyOf(scope));
