@@ -1,7 +1,9 @@
 # Specification and Korean PDF validation - 2026-10-14
 
-Local validation completed with 49 passing executions, zero final failures and zero
-skips. This is isolated work-branch evidence, not production validation or a full
+Local validation completed with 49 unique passing checks on PostgreSQL 18, followed
+by 23 passing repetitions of the database/HTTP checks on PostgreSQL 17. Final failures
+and skips are zero in both environments. Repetitions are not added to the unique
+count. This is isolated work-branch evidence, not production validation or a full
 remote CI pass. The existing remote font-publication blocker remains open.
 
 ## Checkout and preserved work
@@ -32,12 +34,16 @@ sources in the same project. No production Java, migrations or CI gates changed.
 ## Test environment and execution results
 
 - Java 21.0.11 and Gradle 9.6.1.
-- PostgreSQL 18.6 and pgvector 0.8.1 from the existing portable Ubuntu runtime,
-  executed through WSL. This differs from the repository's CI image
-  `pgvector/pgvector:pg17`; PostgreSQL 17 was not validated here because the Docker
-  Linux engine pipe was unavailable. No engine restart or shared resource cleanup
-  was attempted.
-- Own data directory: `/tmp/freelanceops-spec-pdf-20261014/data`.
+- Initial environment: PostgreSQL 18.6 and pgvector 0.8.1 from the existing portable
+  Ubuntu runtime through WSL. Its full evidence was preserved before switching.
+- Final database regression: PostgreSQL 17.11 and pgvector 0.8.7 from the official
+  portable Ubuntu PGDG packages made available by the server session. Both versions
+  were verified with actual SQL against the dedicated DB. This matches the CI
+  PostgreSQL major version; it does not exercise the Docker image or remote CI.
+  The Docker Linux engine pipe remained unavailable, and no engine restart or
+  shared resource cleanup was attempted.
+- Initial own data directory: `/tmp/freelanceops-spec-pdf-20261014/data`.
+- Final own data directory: `/tmp/freelanceops-spec-pdf-pg17-20261014/data`.
 - Own DB: `127.0.0.1:18322/spec_validation`, using the permitted synthetic local
   fixture role. Other sessions' databases and tables were not modified.
 - Actual Spring HTTP listener: `127.0.0.1:18321`.
@@ -45,7 +51,7 @@ sources in the same project. No production Java, migrations or CI gates changed.
   `6d0af5258997aec7354a6e340fc2325ba321c410ca48b3af858c8c3d6e92a324`.
   The TTF was excluded from Git staging and was not uploaded.
 
-| Execution | Passed | Failed | Skipped |
+| Initial PostgreSQL 18 execution | Passed | Failed | Skipped |
 | --- | ---: | ---: | ---: |
 | `SpecificationPdfRendererTest` | 8 | 0 | 0 |
 | `SpecificationServiceTest` | 12 | 0 | 0 |
@@ -54,6 +60,13 @@ sources in the same project. No production Java, migrations or CI gates changed.
 | Local adapter of `SpecificationPostgresTest`, plus real HTTP export | 8 | 0 | 0 |
 | Separate actual HTTP missing-font preservation test | 1 | 0 | 0 |
 | Total final evidence | 49 | 0 | 0 |
+
+| PostgreSQL 17 database/HTTP repetition | Passed | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| Same 14 connected-workflow assertions | 14 | 0 | 0 |
+| Same seven specification cases and real HTTP export | 8 | 0 | 0 |
+| Actual HTTP missing-font preservation | 1 | 0 | 0 |
+| Repeated database/HTTP checks, not additional unique checks | 23 | 0 | 0 |
 
 The local adapters live in the ignored `runtime/` directory. They replace only
 Docker provisioning with the explicit portable database. The specification adapter
@@ -73,6 +86,9 @@ python runtime/prepare-local-validation.py
 gradle -p backend -I <absolute-runtime-path>/local-validation.gradle localSpecValidation --no-daemon --no-configuration-cache
 gradle -p backend -I <absolute-runtime-path>/local-validation.gradle localSpecValidation --tests 'com.freelanceops.backend.integration.PortableSpecificationValidationTest' --no-daemon --no-configuration-cache
 gradle -p backend -I <absolute-runtime-path>/local-validation.gradle -PspecFontAbsent missingFontValidation --no-daemon --no-configuration-cache
+python runtime/prepare-local-validation.py --postgres-major 17
+gradle -p backend -I <absolute-runtime-path>/local-validation.gradle -PspecDatabaseLabel='PostgreSQL 17.11' localSpecValidation --no-daemon --no-configuration-cache
+gradle -p backend -I <absolute-runtime-path>/local-validation.gradle -PspecDatabaseLabel='PostgreSQL 17.11' -PspecFontAbsent missingFontValidation --no-daemon --no-configuration-cache
 ```
 
 The negative-resource execution excluded only the generated build font copy. It
@@ -97,18 +113,27 @@ emoji marker and normalized body-text equality. Poppler reported two A4 pages,
 and both final page images were visually inspected for legible Korean and intact
 content with no clipping or overlap.
 
-- Final PDF size: 17,334 bytes; PDF version 1.6; two A4 pages.
+- Final PostgreSQL 17 PDF size: 17,337 bytes; PDF version 1.6; two A4 pages.
 - Confirmed body SHA-256:
   `d0310594f1c13186c5b60823715049fc4735730c9374b398c153f4ea1308747e`.
 - Both repeated-download PDF SHA-256 values:
-  `9c6a25c2f5ceedae80401c49c6837d899851822182c77b8542d3a3c8ccf2de5a`.
+  `73dff1c98158ebf65e0e6307fdbb8b0e4c32db662ecde26fb50c1e3105bdeed7`.
 - The separate resource-absence run verified actual PDF HTTP 503 with the same
   confirmed revision, body and complete response before/after the failed export.
 
-Local deliverables are in `task-4/output/pdf/`: the final and repeated PDFs,
+The earlier PostgreSQL 18 PDF pair remains preserved with SHA-256
+`9c6a25c2f5ceedae80401c49c6837d899851822182c77b8542d3a3c8ccf2de5a`.
+Byte equality is required for repeated exports of the same immutable revision
+within each run; the independent runs have different confirmation timestamps.
+
+Local deliverables are in `task-4/output/pdf/`: the final PostgreSQL 17 and repeated PDFs,
 two rendered PNG pages, confirmed body, extracted PDFBox text,
 `http-pdf-evidence.json` and `missing-font-http-evidence.json`. The final JUnit
-reports and `test-summary.json` are in `task-4/output/evidence/`.
+reports and `test-summary.json` are in `task-4/output/evidence/`. PostgreSQL 18
+evidence is separately retained under `output/pdf/pg18/` and
+`output/evidence/pg18/`; PostgreSQL 17 reports and SQL version evidence are under
+`output/evidence/pg17/`. The combined summary explicitly excludes repeated checks
+from its 49-check unique count.
 
 `AgentRunGatewayService` supplies a synthetic completed analysis in specification
 tests. The connected-workflow suite retains its existing outbound client doubles
@@ -128,6 +153,6 @@ remote failures into passes.
 
 Main merge, production deployment/migration, forced pushes, paid execution and
 credential or permission expansion were not performed. Only this dedicated work
-branch is intended for the approved ordinary push. The session-owned PostgreSQL
-instance can be stopped while preserving its data and reports; shared processes
-remain untouched.
+branch receives the approved ordinary push. Each session-owned PostgreSQL instance
+is stopped normally after its validation, preserving its data and reports; shared
+processes remain untouched.
