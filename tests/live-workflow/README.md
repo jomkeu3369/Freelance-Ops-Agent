@@ -29,6 +29,8 @@ SERVER_ADDRESS=127.0.0.1
 SERVER_PORT=18221
 DB_URL=jdbc:postgresql://127.0.0.1:18224/freelance_ops
 DB_USERNAME=app_user
+DB_PASSWORD=app_password
+APP_AUTH_JWT_SECRET=development-only-auth-secret-change-me
 APP_CORS_ALLOWED_ORIGINS=http://127.0.0.1:18220
 APP_RATE_LIMIT_ENABLED=false
 AGENT_BASE_URL=http://127.0.0.1:18223
@@ -47,7 +49,7 @@ Agent Python runtime and `LIVE_DATABASE_URL` set to
 `postgresql://app_user@127.0.0.1:18224/freelance_ops`:
 
 ```text
-python tests/live-workflow/synthetic-agent.py .tmp/live-workflow/test-public.pem
+python -B tests/live-workflow/synthetic-agent.py .tmp/live-workflow/test-public.pem
 ```
 
 Start Next from `frontend/` with
@@ -106,7 +108,7 @@ in their result directories.
 After the whole suite passes, retain actual persisted statuses and event types:
 
 ```text
-python tests/live-workflow/capture-evidence.py frontend/outputs/live-workflow/results .tmp/live-workflow/database-evidence.json
+python -B tests/live-workflow/capture-evidence.py frontend/outputs/live-workflow/results .tmp/live-workflow/database-evidence.json
 ```
 
 Run this from the repository root with the same `LIVE_DB_DSN`. It reads only run

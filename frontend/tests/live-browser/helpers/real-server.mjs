@@ -11,7 +11,10 @@ export function installLiveGuards() {
   test.beforeAll(async ({ request }) => {
     expect(process.env.PLAYWRIGHT_LIVE_MODELS, "Launch the real Agent with only a synthetic model provider").toBe("synthetic-provider");
     for (const url of [api, process.env.PLAYWRIGHT_BASE_URL]) {
-      expect(["127.0.0.1", "localhost", "[::1]"]).toContain(new URL(url).hostname);
+      const target = new URL(url);
+      expect(["127.0.0.1", "localhost", "[::1]"]).toContain(target.hostname);
+      expect(Number(target.port)).toBeGreaterThanOrEqual(18200);
+      expect(Number(target.port)).toBeLessThanOrEqual(18249);
     }
     expect((await request.get(`${api}/actuator/health/readiness`)).status()).toBe(200);
     expect((await request.get("http://127.0.0.1:18223/health/readiness")).status()).toBe(200);
@@ -108,7 +111,7 @@ export async function selectSyntheticConnection(page, session) {
 }
 
 export function seedSyntheticConnection(session) {
-  const id = execFileSync(process.env.LIVE_FIXTURE_PYTHON, [process.env.LIVE_CONNECTION_SEED, session.userId, session.workspaceId], { encoding: "utf8" }).trim();
+  const id = execFileSync(process.env.LIVE_FIXTURE_PYTHON, ["-B", process.env.LIVE_CONNECTION_SEED, session.userId, session.workspaceId], { encoding: "utf8" }).trim();
   expect(id).toMatch(/^[0-9a-f-]{36}$/);
   return id;
 }

@@ -16,6 +16,9 @@ for name in (
     "TAVILY_API_KEY",
     "LANGSMITH_API_KEY",
     "LANGCHAIN_API_KEY",
+    "AGENT_LANGSMITH_API_KEY",
+    "AGENT_TAVILY_API_KEY",
+    "AGENT_GATEWAY_METRICS_BEARER_TOKEN",
 ):
     os.environ.pop(name, None)
 os.environ.update(
@@ -29,6 +32,7 @@ os.environ.update(
         "AGENT_CHECKPOINT_BACKEND": "postgres",
         "AGENT_WEB_RESEARCH_ENABLED": "false",
         "LANGSMITH_TRACING": "false",
+        "AGENT_GATEWAY_METRICS_ENABLED": "false",
         "AGENT_DELEGATION_TOKEN_PUBLIC_KEY": Path(sys.argv[1]).read_text(),
     }
 )
