@@ -618,8 +618,10 @@ class ConnectedWorkflowPostgresTest {
         List<String> toolPermissions = List.of("agent.run", "project.read", "document.read");
         var active = runs.save(new com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity(execution,
             owner.workspaceId(), projectId, UUID.randomUUID(), owner.userId(), Provider.OPENAI, "gpt-test", AgentRunStatus.RUNNING, acceptedAt));
-        jdbc.update("insert into app.agent_run_command(id,run_id,command_type,payload,requested_by,effective_permissions,traceparent,status,available_at,created_at,updated_at) values (?,?,'START','{}',?,?,'trace','COMPLETED',?,?,?)",
-            UUID.randomUUID(), execution, owner.userId(), mapper.writeValueAsString(toolPermissions),
+        // START also captures the original input through the real database trigger.
+        String payload = mapper.writeValueAsString(Map.of("input", Map.of("requirementText", "Synthetic confirmed knowledge lookup")));
+        jdbc.update("insert into app.agent_run_command(id,run_id,command_type,payload,requested_by,effective_permissions,traceparent,status,available_at,created_at,updated_at) values (?,?,'START',?,?,?,'trace','COMPLETED',?,?,?)",
+            UUID.randomUUID(), execution, payload, owner.userId(), mapper.writeValueAsString(toolPermissions),
             java.sql.Timestamp.from(acceptedAt), java.sql.Timestamp.from(acceptedAt), java.sql.Timestamp.from(acceptedAt));
         String token = tokens.issueForExecution(execution, owner.workspaceId(), projectId, owner.userId(),
             toolPermissions, active.createdAt().plusSeconds(active.budget().maxDurationSeconds()));

@@ -72,13 +72,17 @@ async def test_authenticated_month_boundary_resume_preserves_postgres_ledger(com
     verifier = DelegationTokenVerifier(public_key=public, issuer="synthetic-backend", audience="synthetic-agent")
     now = datetime.now(UTC)
     context = request.context
+    deadline = int((now + timedelta(seconds=request.budget.max_duration_seconds)).timestamp())
     claims = {"iss": "synthetic-backend", "aud": "synthetic-agent", "sub": str(context.initiated_by),
-        "jti": str(uuid4()), "iat": now - timedelta(minutes=2), "exp": now + timedelta(minutes=2),
+        "jti": str(uuid4()), "iat": now - timedelta(minutes=2), "exp": deadline,
+        "execution_deadline": deadline,
         "run_id": str(context.run_id), "workspace_id": str(context.workspace_id),
         "project_id": str(context.project_id), "initiated_by": str(context.initiated_by),
         "permissions": ["agent.run", "agent.respond"]}
     fresh_token = jwt.encode(claims, key, algorithm="RS256")
     expired_token = jwt.encode({**claims, "exp": now - timedelta(seconds=30)}, key, algorithm="RS256")
+    control_token = jwt.encode({name: value for name, value in claims.items()
+                               if name != "execution_deadline"}, key, algorithm="RS256")
     store = None
     observed_attempt_counts = []
 
@@ -161,6 +165,9 @@ async def test_authenticated_month_boundary_resume_preserves_postgres_ledger(com
                 denied = await http.post(path, headers={"Authorization": f"Bearer {expired_token}"}, json=command)
                 assert denied.status_code == 401 and denied.json()["code"] == "DELEGATION_TOKEN_INVALID"
                 assert (await owner.view(context.run_id)).interruption == waiting.interruption
+                control = await http.post(path, headers={"Authorization": f"Bearer {control_token}"}, json=command)
+                assert control.status_code == 403 and control.json()["code"] == "EXECUTION_AUTHORITY_REQUIRED"
+                assert (await owner.view(context.run_id)).usage == waiting.usage
                 resumed = await http.post(path, headers={"Authorization": f"Bearer {fresh_token}"}, json=command)
                 if not completion:
                     assert resumed.status_code == 409 and resumed.json()["code"] == "PLATFORM_BUDGET_EXPIRED"
@@ -192,6 +199,6 @@ async def test_authenticated_month_boundary_resume_preserves_postgres_ledger(com
             async with second.session() as session:
                 row = await session.get(AgentRunStateModel, context.run_id)
                 persisted = json.dumps({"request": row.request_json, "usage": row.usage_json})
-                assert fresh_token not in persisted and expired_token not in persisted
+                assert all(token not in persisted for token in (fresh_token, expired_token, control_token))
         finally:
             await second.close()

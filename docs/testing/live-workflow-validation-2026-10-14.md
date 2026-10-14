@@ -100,12 +100,26 @@ Two additional cases using real APIs verify:
 
 ## Local results
 
+Candidate `116692f` is on hold. A subsequent production-build live run reproduced
+two execution failures (three passed, two failed): the internal tool's BYOK scope
+validation upgraded an already-loaded run to a pessimistic lock while concurrent
+projection changed its version. Spring returned an optimistic-lock exception and
+Agent durably retained `FAILED / SPRING_TOOL_UNAVAILABLE`. Earlier five-case
+success does not supersede this later regression. Sanitized failing traffic,
+JUnit and screenshots are preserved under `.tmp/live-workflow/failure-116692f/`.
+The server owner was requested to correct the short transaction's initial lock
+and retain all existing authority checks; no WAITING permission is granted.
+
 | Suite | Passed | Failed | Skipped | Evidence class |
 | --- | ---: | ---: | ---: | --- |
 | Frontend node tests | 533 | 0 | 0 | Unit/source checks |
 | Decision/specification/gaze/continuity Playwright | 28 | 0 | 0 | Controlled browser API fixtures; **not actual server evidence** |
-| Live Playwright | 5 | 0 | 0 | Three whole browser journeys, one browser/API boundary case, one API tenant case |
+| Live Playwright, earlier run | 5 | 0 | 0 | Superseded by the subsequent candidate regression below |
+| Live Playwright, latest `116692f` run | 3 | 2 | 0 | Two actual internal-tool failures; rollout held |
 | Java auth/transport/gateway/projection/architecture | 129 | 0 | 0 | Final combined local boundaries |
+| Repaired ConnectedWorkflow on fresh PG17 | 14 | 0 | 0 | All original assertions; local datasource adapter only, outbound clients remain synthetic |
+| Repaired BYOK dispatch security review | 4 | 0 | 0 | Original expiry/reconciliation assertions with current control-token/snapshot mocks |
+| Repaired Agent completion/auth/PG17 ledger | 49 | 0 | 0 | Provider doubles; actual PostgreSQL and signed deadline/control/expired-JWT boundaries |
 | Initial Docker ConnectedWorkflow baseline | 0 | 0 | 7 | Docker engine unavailable; not counted as passed |
 
 Frontend lint/typecheck, Agent mypy with the Linux CI platform (96 source files),
@@ -114,10 +128,19 @@ launcher compiled and actual readiness endpoints returned 200/UP. Repeated runs
 are not added to these totals. Independent backend and PDF session counts remain
 in their own records, rather than being counted again here.
 The local Next production build also passed; the production frontend was used
-for the final five-case live-suite run after both `c9733fc` and `86433c0` were
+for the earlier five-case live-suite run after both `c9733fc` and `86433c0` were
 integrated and Spring/Agent restarted. Each browser journey recorded **zero
 page errors and zero browser API 5xx** responses. Downloaded PDF files and their
 SHA256 hashes are retained alongside the sanitized HTTP records.
+
+The connected fixture repair supplies a synthetic START `input.requirementText`
+because the real source-message trigger requires a non-null original input.
+It does not change that trigger or loosen any knowledge/PDF assertion. The local
+14-case adapter changes only class/container/datasource wiring and uses a fresh
+`connected_validation_repaired` database on owned PG17 port 18224. Reusing a
+previous failed dataset left pending outbox work and is not treated as a clean
+suite execution. A separate local timestamp diagnostic excluded future leases;
+no production queue/timezone code was changed.
 
 The server owner's separate wall-clock fixture showed completion after the old
 60-second token's expiry, and timeout at the first 180-second cutoff with saved
@@ -180,6 +203,15 @@ has not merged main or deployed: the final candidate and test results must be
 coordinated with the parent and operating preflight first. The whole branch
 currently includes incomplete remote PDF acceptance and cannot be reported as
 ready for a complete rollout.
+
+At `116692f`, Frontend CI succeeded
+([run 38500147952](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/38500147952)).
+Agent CI failed four completion-budget authentication tests (748 passed): their
+synthetic JWT fixtures lacked the newly required execution deadline. Backend CI
+failed 26 tests out of 800 with three skips: besides the missing font, older BYOK
+dispatcher mocks and the connected-test START input fixture need correction.
+These are active failures, not approved skips or deployment readiness. Original
+expiry, ledger and acceptance assertions must be preserved during repair.
 
 Current main Auto CD updates Agent before Backend and rolls back one service at a
 time. New Agent START/RESUME rejects old deadline-less Spring tokens with 403;

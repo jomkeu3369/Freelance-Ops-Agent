@@ -64,7 +64,8 @@ class ByokDispatchSecurityReviewTest {
         when(runs.findById(run.id())).thenReturn(Optional.of(run));
         when(projects.findByIdAndWorkspaceId(projectId, workspace)).thenReturn(Optional.of(
             new ProjectEntity(projectId, workspace, "Synthetic project", "Synthetic input", "KRW", null, null, null)));
-        when(tokens.issueForPersonalRun(run.id(), workspace, projectId, user, permissions, 30))
+        when(queue.originalPermissions(run.id())).thenReturn(permissions);
+        when(tokens.issue(run.id(), workspace, projectId, user, permissions))
             .thenReturn("synthetic-delegation");
         when(byok.validateRun(run)).thenThrow(new ByokExecutionException(HttpStatus.GONE,
             "BYOK_SCOPE_EXPIRED", "Synthetic expired scope"));

@@ -358,13 +358,17 @@ def test_past_monetary_expiry_never_authorizes_expired_jwt_but_fresh_jwt_can_res
     verifier = DelegationTokenVerifier(public_key=public, issuer="synthetic-backend", audience="synthetic-agent")
     context = request.context
     now = datetime.now(UTC)
+    deadline = int((now + timedelta(seconds=request.budget.max_duration_seconds)).timestamp())
     claims = {"iss": "synthetic-backend", "aud": "synthetic-agent", "sub": str(context.initiated_by),
-        "jti": str(uuid4()), "iat": now - timedelta(minutes=2), "exp": now + timedelta(minutes=2),
+        "jti": str(uuid4()), "iat": now - timedelta(minutes=2), "exp": deadline,
+        "execution_deadline": deadline,
         "run_id": str(context.run_id), "workspace_id": str(context.workspace_id),
         "project_id": str(context.project_id), "initiated_by": str(context.initiated_by),
         "permissions": ["agent.run", "agent.respond"]}
     valid = jwt.encode(claims, key, algorithm="RS256")
     expired = jwt.encode({**claims, "exp": now - timedelta(seconds=30)}, key, algorithm="RS256")
+    control = jwt.encode({name: value for name, value in claims.items()
+                         if name != "execution_deadline"}, key, algorithm="RS256")
 
     class Executor:
         async def execute(self, request, resume=None, authorization=None):
@@ -384,6 +388,9 @@ def test_past_monetary_expiry_never_authorizes_expired_jwt_but_fresh_jwt_can_res
         return await call_next(request)
 
     with TestClient(app) as http:
+        denied_start = http.post("/internal/v1/agent-runs", headers={"Authorization": f"Bearer {control}"},
+                                 json=request.model_dump(mode="json", by_alias=True))
+        assert denied_start.status_code == 403 and denied_start.json()["code"] == "EXECUTION_AUTHORITY_REQUIRED"
         start = http.post("/internal/v1/agent-runs", headers={"Authorization": f"Bearer {valid}"},
                           json=request.model_dump(mode="json", by_alias=True))
         assert start.status_code == 202
@@ -394,6 +401,8 @@ def test_past_monetary_expiry_never_authorizes_expired_jwt_but_fresh_jwt_can_res
         assert http.post(path + "/resume", json=resume).status_code == 401
         denied = http.post(path + "/resume", headers={"Authorization": f"Bearer {expired}"}, json=resume)
         assert denied.status_code == 401 and denied.json()["code"] == "DELEGATION_TOKEN_INVALID"
+        denied_control = http.post(path + "/resume", headers={"Authorization": f"Bearer {control}"}, json=resume)
+        assert denied_control.status_code == 403 and denied_control.json()["code"] == "EXECUTION_AUTHORITY_REQUIRED"
         still_waiting = http.get(path, headers={"Authorization": f"Bearer {valid}"}).json()
         assert still_waiting["interruption"] == waiting["interruption"]
         assert http.post(path + "/resume", headers={"Authorization": f"Bearer {valid}"}, json=resume).status_code == 202
