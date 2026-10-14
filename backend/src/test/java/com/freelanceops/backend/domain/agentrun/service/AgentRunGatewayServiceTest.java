@@ -478,6 +478,53 @@ class AgentRunGatewayServiceTest {
         verify(projectionService, never()).pendingDelivery(any());
     }
 
+    @Test
+    void queuedSseEndsEmptyUntilTheOutboxCreatesTheUpstreamStream() throws Exception {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity queued = run(runId, workspace, project, user);
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(queued));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("pending-token");
+        when(agentRunClient.events(runId, 7L, "pending-token", "trace"))
+            .thenThrow(new com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException(404));
+        try (var stream = service.events(user, workspace, runId, 7L, "trace")) {
+            assertThat(stream.body().readAllBytes()).isEmpty();
+        }
+        assertThat(queued.status()).isEqualTo(AgentRunStatus.QUEUED);
+        org.mockito.Mockito.verifyNoInteractions(projectionService);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {401, 403, 429, 500, 503})
+    void queuedSseDoesNotHideOtherUpstreamStatuses(int status) {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+            .thenReturn(Optional.of(run(runId, workspace, project, user)));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("scoped-token");
+        var failure = new com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException(status);
+        when(agentRunClient.events(runId, 7L, "scoped-token", "trace")).thenThrow(failure);
+        assertThatThrownBy(() -> service.events(user, workspace, runId, 7L, "trace")).isSameAs(failure);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = AgentRunStatus.class,
+        names = {"RUNNING", "WAITING_FOR_USER", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED"})
+    void acknowledgedSse404RemainsAnError(AgentRunStatus status) {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity existing = run(runId, workspace, project, user);
+        existing.updateStatus(status, Instant.now());
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(existing));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("scoped-token");
+        var missing = new com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException(404);
+        when(agentRunClient.events(runId, 7L, "scoped-token", "trace")).thenThrow(missing);
+        assertThatThrownBy(() -> service.events(user, workspace, runId, 7L, "trace")).isSameAs(missing);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {401, 403, 500, 503})
     void pendingReceiptsDoNotHideAuthenticationOrTransportFailures(int status) {
