@@ -255,7 +255,8 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     @Transactional
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {
-        AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+        // Load the first version under the same lock used by BYOK and projection.
+        AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND, true);
         if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         if (!Instant.now().isBefore(authorized.run().createdAt().plusSeconds(authorized.run().budget().maxDurationSeconds())))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "AGENT_EXECUTION_DEADLINE_EXPIRED");
@@ -300,10 +301,16 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     }
 
     private AuthorizedRun authorizeRun(UUID userId, UUID workspaceId, UUID runId, PermissionCode permission) {
+        return authorizeRun(userId, workspaceId, runId, permission, false);
+    }
+
+    private AuthorizedRun authorizeRun(UUID userId, UUID workspaceId, UUID runId, PermissionCode permission, boolean lockRun) {
         MembershipPermissions membership = permissionReader.findActiveMembership(userId, workspaceId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, permission);
-        AgentRunEntity run = agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)
+        AgentRunEntity run = (lockRun
+            ? agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId)
+            : agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new AuthorizedRun(run, permissionCodes(membership));
     }

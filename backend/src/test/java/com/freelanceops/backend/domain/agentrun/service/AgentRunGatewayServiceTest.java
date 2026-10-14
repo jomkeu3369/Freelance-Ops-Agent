@@ -574,7 +574,7 @@ class AgentRunGatewayServiceTest {
         when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND)
         )));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId)).thenReturn(Optional.of(run));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
             .thenReturn(Optional.of(project(projectId, workspaceId)));
 
@@ -587,6 +587,29 @@ class AgentRunGatewayServiceTest {
         verify(agentRunClient, never()).resume(any(), any(), any(), any());
         // HITL keeps its original customer-credit and monetary reservation.
         org.mockito.Mockito.verifyNoInteractions(freeUsage, platformSpend);
+    }
+
+    @Test
+    void locksTheFirstRunVersionBeforeValidatingAPersonalResume() {
+        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), id = UUID.randomUUID();
+        var waiting = run(id, workspace, project, actor);
+        waiting.useCredential(UUID.randomUUID());
+        waiting.updateStatus(AgentRunStatus.WAITING_FOR_USER, Instant.now());
+        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(id, workspace)).thenReturn(Optional.of(waiting));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        var response = new ResumeAgentRunRequest(UUID.randomUUID(), "locked-resume", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic")));
+
+        assertThat(service.resume(actor, workspace, id, response, "trace").status()).isEqualTo(AgentRunStatus.QUEUED);
+
+        var order = org.mockito.Mockito.inOrder(agentRunRepository, byok, projectionService, commandQueue);
+        order.verify(agentRunRepository).findByIdAndWorkspaceIdForUpdate(id, workspace);
+        order.verify(byok).validateRun(waiting);
+        order.verify(projectionService).validateResume(id, workspace, response);
+        order.verify(commandQueue).enqueueResume(id, response, actor, List.of("agent.respond"), "trace");
+        order.verify(projectionService).acceptResume(id, workspace, response, AgentRunStatus.QUEUED);
+        verify(agentRunRepository, never()).findByIdAndWorkspaceId(any(), any());
     }
 
     @Test
@@ -613,7 +636,7 @@ class AgentRunGatewayServiceTest {
         AgentRunEntity run = run(runId, workspace, project, UUID.randomUUID());
         if (personal) run.useCredential(UUID.randomUUID());
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run));
         var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
         assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue, connections);
@@ -626,7 +649,7 @@ class AgentRunGatewayServiceTest {
             Provider.OPENAI, "gpt-test", AgentRunStatus.WAITING_FOR_USER, Instant.now().minusSeconds(181));
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(
             UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(id, workspace)).thenReturn(Optional.of(expired));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(id, workspace)).thenReturn(Optional.of(expired));
         assertThatThrownBy(() -> service.resume(actor, workspace, id,
             new ResumeAgentRunRequest(UUID.randomUUID(), "expired-resume", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic"))), "trace"))
             .isInstanceOfSatisfying(ResponseStatusException.class,
@@ -641,7 +664,7 @@ class AgentRunGatewayServiceTest {
         UUID credential = UUID.randomUUID();
         run.useCredential(credential);
         when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspace)).thenReturn(Optional.of(run));
         org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-6-luna");
         var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
         assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);

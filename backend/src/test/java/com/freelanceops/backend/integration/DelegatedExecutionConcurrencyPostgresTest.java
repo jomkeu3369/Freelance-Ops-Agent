@@ -1,9 +1,13 @@
 package com.freelanceops.backend.integration;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.ByokBudget;
+import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
+import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.*;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.agentrun.service.*;
 import com.freelanceops.backend.domain.client.entity.ClientEntity;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
@@ -62,6 +66,7 @@ class DelegatedExecutionConcurrencyPostgresTest {
     @Autowired ByokExecutionService byok;
     @Autowired DelegatedExecutionAccess access;
     @Autowired AgentRunProjectionService projection;
+    @Autowired AgentRunGatewayService gateway;
     @Autowired WorkspacePermissionReader permissions;
     @Autowired AgentRunCommandQueue commands;
     @Autowired AIConnectionService connections;
@@ -178,6 +183,40 @@ class DelegatedExecutionConcurrencyPostgresTest {
     }
 
     @Test
+    void publicResumeLocksBeforeCredentialValidationAndConcurrentProjection() throws Exception {
+        projection.synchronizeStatus(run.id(), run.workspaceId(), AgentRunStatus.WAITING_FOR_USER);
+        int beforeVersion = version();
+        var loaded = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var resumePermissions = new MembershipPermissions(membership.membershipId(),
+            Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ, PermissionCode.AGENT_RESPOND));
+        when(permissions.findActiveMembership(run.initiatedBy(), run.workspaceId())).thenReturn(Optional.of(resumePermissions));
+        AIConnectionService connectionFixture = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(connections);
+        doAnswer(call -> { loaded.countDown(); await(release); return null; }).when(connectionFixture)
+            .validate(run.initiatedBy(), run.workspaceId(), run.credentialId(), run.provider(), run.model());
+        var response = new ResumeAgentRunRequest(
+            UUID.randomUUID(), "synthetic-public-resume", List.of(
+                new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic")));
+        var before = scopeState();
+        Future<StartAgentRunResponse> resumed = workers.submit(() -> gateway.resume(run.initiatedBy(), run.workspaceId(), run.id(), response, "synthetic"));
+        Future<?> update = null;
+        try {
+            await(loaded);
+            var writerPid = new AtomicInteger();
+            update = workers.submit(() -> transaction.executeWithoutResult(status -> {
+                writerPid.set(jdbc.queryForObject("SELECT pg_backend_pid()", Integer.class));
+                projection.deferReconciliation(run.id(), run.workspaceId(), Instant.now().plusSeconds(5));
+            }));
+            assertBlocked(writerPid, update);
+        } finally { release.countDown(); }
+        assertThat(resumed.get(5, TimeUnit.SECONDS).status()).isEqualTo(AgentRunStatus.QUEUED);
+        if (update != null) update.get(5, TimeUnit.SECONDS);
+        assertThat(version()).isEqualTo(beforeVersion + 2);
+        assertThat(scopeState()).isEqualTo(before);
+        assertThat(jdbc.queryForObject("SELECT status FROM app.agent_run WHERE id=?", String.class, run.id())).isEqualTo("QUEUED");
+    }
+
+    @Test
     void waitingAuthorizationObservesCommittedCancellationAndRejectsIt() throws Exception {
         var cancelled = new CountDownLatch(1);
         var release = new CountDownLatch(1);
@@ -282,6 +321,14 @@ class DelegatedExecutionConcurrencyPostgresTest {
         @Bean AgentRunProjectionService projection(AgentRunRepository runs, ByokExecutionService byok) {
             return new AgentRunProjectionService(runs, mock(AgentInterruptionService.class), mock(AgentCostService.class),
                 mock(ApplicationEventPublisher.class), mock(FreeUsageService.class), byok);
+        }
+        @Bean AgentRunGatewayService gateway(WorkspacePermissionReader permissions, ProjectRepository projects,
+                                             AgentRunRepository runs, AgentRunProjectionService projection,
+                                             AgentRunCommandQueue commands, AIConnectionService connections, ByokExecutionService byok) {
+            return new AgentRunGatewayService(permissions, projects, runs,
+                mock(DelegationTokenIssuer.class), mock(AgentRunClient.class), projection, commands,
+                mock(AgentBudgetPolicy.class), connections, mock(PetProfileService.class), mock(FreeUsageService.class),
+                mock(PlatformSpendService.class), mock(ChatAttachmentService.class), byok);
         }
     }
 }
