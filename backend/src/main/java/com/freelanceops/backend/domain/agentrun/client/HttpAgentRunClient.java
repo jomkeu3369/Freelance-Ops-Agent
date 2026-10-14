@@ -28,27 +28,32 @@ public class HttpAgentRunClient implements AgentRunClient {
     private final RestClient restClient;
     private final URI baseUri;
     private final HttpClient eventClient;
+    private final Duration eventResponseTimeout;
 
     @Autowired
     public HttpAgentRunClient(
         RestClient.Builder builder,
         @Value("${agent.base-url:http://localhost:8000}") String baseUrl,
-        @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs
+        @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs,
+        @Value("${app.http.read-timeout-ms:10000}") long readTimeoutMs
     ) {
+        if (readTimeoutMs <= 0) throw new IllegalArgumentException("readTimeout must be positive");
         HttpClient httpClient = http11Client(Duration.ofMillis(connectTimeoutMs));
         this.restClient = builder.baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = httpClient;
+        this.eventResponseTimeout = Duration.ofMillis(readTimeoutMs);
     }
 
     public HttpAgentRunClient(RestClient.Builder builder, String baseUrl) {
-        this(builder, baseUrl, 2000);
+        this(builder, baseUrl, 2000, 10000);
     }
 
     HttpAgentRunClient(RestClient.Builder builder, String baseUrl, HttpClient eventClient) {
         this.restClient = builder.baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = eventClient;
+        this.eventResponseTimeout = Duration.ofSeconds(10);
     }
 
     @Override
@@ -98,6 +103,9 @@ public class HttpAgentRunClient implements AgentRunClient {
     public AgentEventStream events(UUID runId, Long lastEventId, String delegationToken, String traceparent) {
         HttpRequest.Builder request = HttpRequest.newBuilder(baseUri.resolve("internal/v1/agent-runs/" + runId + "/events"))
             .GET()
+            // ofInputStream returns at response headers. Bound that wait separately
+            // from the controller's lifetime for the open event stream.
+            .timeout(eventResponseTimeout)
             .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
             .header("Authorization", "Bearer " + delegationToken)
             .header("traceparent", traceparent);
