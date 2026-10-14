@@ -2,14 +2,20 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 class AgentEventRelayTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -86,6 +92,23 @@ class AgentEventRelayTest {
             cursor = event.eventId();
         }
         assertThat(cursor).isEqualTo(6);
+    }
+
+    @Test
+    void relaysKnowledgeRetrievalAndTheFollowingCompletionWithoutBreakingTheStream() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String knowledge = objectMapper.writeValueAsString(Map.of(
+            "eventId", 1, "runId", runId, "type", "knowledge.retrieved", "occurredAt", Instant.now(),
+            "data", Map.of("document_ids", java.util.List.of(), "mode", "keyword", "confirmed_only", true)));
+        String complete = objectMapper.writeValueAsString(Map.of(
+            "eventId", 2, "runId", runId, "type", "run.completed", "occurredAt", Instant.now(), "data", Map.of()));
+        String body = "id: 1\nevent: knowledge.retrieved\ndata: " + knowledge
+            + "\n\nid: 2\nevent: run.completed\ndata: " + complete + "\n\n";
+        var emitter = mock(SseEmitter.class);
+        relay.relay(new AgentEventStream(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8))), runId, 0, emitter);
+        verify(emitter, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(emitter).complete();
+        verify(emitter, never()).completeWithError(any());
     }
 
     @Test
