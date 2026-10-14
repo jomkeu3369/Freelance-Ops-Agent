@@ -52,6 +52,17 @@ class HttpAgentRunTransportTest {
     }
 
     @Test
+    void preservesAnUpstream404WithoutRetainingItsPrivateBody() {
+        server.createContext("/internal/v1/agent-runs", exchange -> {
+            exchange.sendResponseHeaders(404, -1);
+            exchange.close();
+        });
+        assertThatThrownBy(() -> client(1000).events(UUID.randomUUID(), null, "synthetic-token", TRACE))
+            .isInstanceOfSatisfying(AgentEventStreamResponseException.class,
+                error -> assertThat(error.statusCode()).isEqualTo(404));
+    }
+
+    @Test
     void keepsBodyReadableAfterHeaderDeadlineAndForwardsReconnectCursor() throws Exception {
         AtomicReference<String> cursor = new AtomicReference<>();
         AtomicReference<String> trace = new AtomicReference<>();

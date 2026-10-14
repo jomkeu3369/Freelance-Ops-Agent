@@ -10,6 +10,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunRespon
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
+import com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
@@ -283,12 +284,17 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     public AgentEventStream events(UUID userId, UUID workspaceId, UUID runId, Long lastEventId, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
-        return agentRunClient.events(
-            runId,
-            lastEventId,
-            issueToken(authorized.run(), userId, authorized.permissions()),
-            traceparent
-        );
+        try {
+            return agentRunClient.events(
+                runId, lastEventId, issueToken(authorized.run(), userId, authorized.permissions()), traceparent);
+        } catch (AgentEventStreamResponseException error) {
+            if (error.statusCode() != 404) throw error;
+            agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)
+                .filter(run -> run.status() == AgentRunStatus.QUEUED).orElseThrow(() -> error);
+            // Delivery has not created the upstream stream yet. End without
+            // emitting a synthetic event or advancing the browser's cursor.
+            return new AgentEventStream(java.io.InputStream.nullInputStream());
+        }
     }
 
     private AuthorizedRun authorizeRun(UUID userId, UUID workspaceId, UUID runId, PermissionCode permission) {
