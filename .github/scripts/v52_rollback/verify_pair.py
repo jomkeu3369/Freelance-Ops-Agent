@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from http.client import HTTPException, HTTPResponse
+import io
 import json
 import os
 from pathlib import Path
@@ -17,7 +19,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from urllib import error, request
 from uuid import uuid4
 
 CANDIDATE = '116692fc81b0116e6c8209eb51ce89a9a151c48b'
@@ -33,6 +34,7 @@ NETWORK = PREFIX + '-internal'
 DATABASE = PREFIX + '-pg17'
 DB_NAME = 'rollback_synthetic'
 CONTAINERS = []
+ACTIVE_SERVICES = {}
 REPORT = {'candidate_sha': CANDIDATE, 'old_backend_sha': OLD_BACKEND,
           'old_agent_sha': OLD_AGENT, 'cases': [], 'result': 'incomplete',
           'production_contacted': False, 'production_dump_used': False,
@@ -107,17 +109,29 @@ def literal(value):
 
 
 def http(port, method, path, body=None, bearer=None):
-    data = None if body is None else json.dumps(body).encode()
-    headers = {'Content-Type': 'application/json'}
+    # Keep the Docker network internal. Probe each real service's own loopback
+    # over HTTP/1.1 rather than opening the network to fix host port routing.
+    service = 'backend' if port == 18324 else 'agent'
+    internal_port = 8080 if service == 'backend' else 8000
+    data = '' if body is None else json.dumps(body)
+    headers = [f'{method} {path} HTTP/1.1', f'Host: localhost:{internal_port}',
+               'Connection: close', 'Content-Type: application/json',
+               'Content-Length: ' + str(len(data.encode('utf-8')))]
     if bearer:
-        headers['Authorization'] = 'Bearer ' + bearer
-    req = request.Request(f'http://127.0.0.1:{port}' + path, data=data, headers=headers, method=method)
-    try:
-        with request.urlopen(req, timeout=10) as response:
-            status, raw = response.status, response.read()
-    except error.HTTPError as response:
-        status, raw = response.code, response.read()
-    return status, json.loads(raw) if raw else None
+        headers.append('Authorization: Bearer ' + bearer)
+    payload = '\r\n'.join(headers) + '\r\n\r\n' + data
+    result = run(['docker', 'exec', '-i', ACTIVE_SERVICES[service], 'bash', '-c',
+                  f'exec 3<>/dev/tcp/127.0.0.1/{internal_port}; cat >&3; cat <&3'],
+                 input=payload, check=False, timeout=15)
+    if result.returncode:
+        raise OSError('container_local_http_not_ready')
+    class ResponseSocket:
+        def makefile(self, mode):
+            return io.BytesIO(result.stdout.encode('utf-8'))
+    response = HTTPResponse(ResponseSocket())
+    response.begin()
+    raw = response.read()
+    return response.status, json.loads(raw) if raw else None
 
 
 def expect(port, method, path, status, body=None, bearer=None):
@@ -134,7 +148,7 @@ def ready(name, port, path):
             if code == 200 and body.get('status') == 'UP':
                 save(name + '-readiness.json', {'http_status': code, 'status': 'UP'})
                 return
-        except (error.URLError, OSError, ValueError):
+        except (OSError, ValueError, HTTPException):
             pass
         require(run(['docker', 'inspect', '--format', '{{.State.Running}}', name]).stdout.strip() == 'true',
                 name + '_exited_before_readiness')
@@ -144,6 +158,7 @@ def ready(name, port, path):
 
 def start(label, service, env, image, *, jar=None):
     name = PREFIX + '-' + label + '-' + service
+    ACTIVE_SERVICES[service] = name
     port = 18324 if service == 'backend' else 18325
     internal_port = 8080 if service == 'backend' else 8000
     args = ['docker', 'run', '-d', '--name', name, '--network', NETWORK,

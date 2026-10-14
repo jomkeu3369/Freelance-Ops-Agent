@@ -24,6 +24,8 @@ App/runtime active runs, pending commands, unfinished tasks/attempts and pending
 
 The host had one CPU, 43.14% sampled CPU use, load 0.33545, 810.2 MiB/41.38% available memory and 15.18 GiB/32.78% free disk. The database size was 17,192,627 bytes. These measurements describe the observation, not a load test.
 
+A separate anonymous HEAD of the public frontend at `2026-10-14T02:39:08Z` returned HTTP200, HTML and a Vercel serving header. It does not prove the exact current frontend runtime SHA. No browser or logged-in user session was used.
+
 ## Fresh server-local archive
 
 The same run retained a new custom-format `pg_dump` under the existing backup root:
@@ -43,3 +45,5 @@ The existing production verification workflow is push-only, with pinned Backend/
 The dedicated `work/production-validation-20261014` branch therefore contains a metadata-only/local-archive procedure using that same existing identity. It never invokes Compose, deployment scripts, migrations, role changes, restores or remote backup destinations. Ten safety tests passed locally and in the GitHub job before server access. Changed image/schema, active work, low resource headroom or unsafe snapshot paths stop archive creation; waiting/orphan data is preserved and reported.
 
 The separate V52 pair rollback workflow uses a fresh isolated PostgreSQL17 database, synthetic fixtures and the exact prior public image digests. It uses no production identity or backup, and has no image-source or authentication fallback. Its result is laboratory compatibility evidence, not a release CI or deployment certificate. Candidate SHA and results must be pinned in the final evidence after that workflow finishes.
+
+Image identity uses the exact registry `RepoDigest` and Linux/amd64 platform. Docker's graphdriver and containerd stores can expose different local `.Id` representations for the same manifest, so equal local IDs across those engines are not the identity criterion. This distinction is documented in the [Moby containerd image inspector](https://github.com/moby/moby/blob/master/daemon/containerd/image_inspect.go). Four regression tests require the exact manifest even if a local ID matches, reject a wrong platform and accept a differing config ID only with the exact manifest.
