@@ -30,6 +30,37 @@ class AgentInterruptionServiceTest {
     private final AgentInterruptionRepository repository = mock(AgentInterruptionRepository.class);
     private final AgentInterruptionService service = new AgentInterruptionService(repository);
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(InterruptionStatus.class)
+    void onlyTheSameRespondedQuestionIsAnObsoleteSnapshot(InterruptionStatus state) {
+        var run = run();
+        var incoming = new AgentRunView.AgentInterruption(UUID.randomUUID(), InterruptionKind.CLARIFICATION, List.of("Same?"));
+        var stored = new AgentInterruptionEntity(incoming.interruptionId(), run.workspaceId(), run.id(), incoming.kind(), incoming.questions(), Instant.now());
+        if (state == InterruptionStatus.RESPONDED) stored.respond(List.of(java.util.Map.of("answer", "Synthetic")), Instant.now());
+        if (state == InterruptionStatus.CANCELLED) stored.cancel();
+        when(repository.findByIdAndWorkspaceIdAndAgentRunId(incoming.interruptionId(), run.workspaceId(), run.id())).thenReturn(Optional.of(stored));
+        assertThat(service.alreadyResponded(run, incoming)).isEqualTo(state == InterruptionStatus.RESPONDED);
+    }
+
+    @Test
+    void changedAnsweredPayloadIsNotSilentlyIgnored() {
+        var run = run(); UUID id = UUID.randomUUID();
+        var stored = new AgentInterruptionEntity(id, run.workspaceId(), run.id(), InterruptionKind.CLARIFICATION, List.of("Original?"), Instant.now());
+        stored.respond(List.of(java.util.Map.of("answer", "Synthetic")), Instant.now());
+        when(repository.findByIdAndWorkspaceIdAndAgentRunId(id, run.workspaceId(), run.id())).thenReturn(Optional.of(stored));
+        assertThatThrownBy(() -> service.alreadyResponded(run,
+            new AgentRunView.AgentInterruption(id, InterruptionKind.CLARIFICATION, List.of("Mutated?"))))
+            .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void missingQuestionAndOtherIdsRemainLegitimate() {
+        var run = run();
+        assertThat(service.alreadyResponded(run, null)).isFalse();
+        assertThat(service.alreadyResponded(run,
+            new AgentRunView.AgentInterruption(UUID.randomUUID(), InterruptionKind.CLARIFICATION, List.of("New?")))).isFalse();
+    }
+
     @Test
     void createsWorkspaceScopedPendingInterruptionFromAgentView() {
         AgentRunEntity run = run();
