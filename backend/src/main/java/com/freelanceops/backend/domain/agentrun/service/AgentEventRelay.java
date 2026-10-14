@@ -19,18 +19,11 @@ import java.util.UUID;
 @Component
 public class AgentEventRelay {
     private static final int MAX_EVENT_DATA_LENGTH = 262_144;
-    private static final Set<String> ALLOWED_EVENT_TYPES =
-            Set.of(
-                    "run.accepted",
-                    "run.started",
-                    "run.completed",
-                    "run.partial",
-                    "run.failed",
-                    "run.cancelled",
-                    "clarification.requested",
-                    "clarification.responded",
-                    "route.selected",
-                    "tool.completed");
+    private static final Set<String> ALLOWED_EVENT_TYPES = Set.of(
+        "run.accepted", "run.started", "run.completed", "run.partial", "run.failed", "run.cancelled",
+        "clarification.requested", "clarification.responded", "route.selected", "tool.completed", "knowledge.retrieved",
+        "task.delegated", "task.completed", "task.failed", "department.saved"
+    );
     private final ObjectMapper objectMapper;
 
     public AgentEventRelay(ObjectMapper objectMapper) {
