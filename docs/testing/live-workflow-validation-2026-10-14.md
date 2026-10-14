@@ -49,6 +49,9 @@ operating services still use an earlier version.
 | `0e387a7`, `7a7d1a1` | `1123b7d`, `446f04a` | Independent wall-clock authentication evidence and paired rollout/legacy-token boundary |
 | `4cc023b` | this session | Type the existing fractional timeout calculation as float for Agent CI; no runtime policy change |
 | `6b73e04` | this session | Limit live fixture ports and prevent bytecode writes to borrowed Python runtimes |
+| `2a59328` | this session | Preserve completion/expiry assertions with bounded JWT fixtures and repair START source-input/dispatcher test data |
+| `664690c` | `aee8ea9` | Acquire the first delegated-tool run version under FOR UPDATE; preserve all existing authority checks |
+| `de2ef6a` | this session | Acquire the first public-resume run version under FOR UPDATE; retain actor/deadline/permission checks and actual PG writer-wait regression |
 
 The actual connection found a shared `RestClient.Builder` configuration mutation,
 unhandled queued reads/streams before outbox delivery, a missing public SSE event,
@@ -100,23 +103,36 @@ Two additional cases using real APIs verify:
 
 ## Local results
 
-Candidate `116692f` is on hold. A subsequent production-build live run reproduced
+Candidate `116692f` was held after a subsequent production-build live run reproduced
 two execution failures (three passed, two failed): the internal tool's BYOK scope
 validation upgraded an already-loaded run to a pessimistic lock while concurrent
 projection changed its version. Spring returned an optimistic-lock exception and
 Agent durably retained `FAILED / SPRING_TOOL_UNAVAILABLE`. Earlier five-case
 success does not supersede this later regression. Sanitized failing traffic,
 JUnit and screenshots are preserved under `.tmp/live-workflow/failure-116692f/`.
-The server owner was requested to correct the short transaction's initial lock
-and retain all existing authority checks; no WAITING permission is granted.
+The server owner's `aee8ea9` (integrated as `664690c`) corrected the short
+transaction's initial lock and retained all existing authority checks; no WAITING
+permission is granted. Its independent PG17 regression reproduced the prior
+stale-version error and verified actual writer lock waits and cancellation denial.
+
+After that fix, four of five live cases passed. One public answer request returned
+409 `CONCURRENT_MODIFICATION`, left its interruption PENDING and created no
+RESUME command. That public transactional resume path still loaded the run
+without a lock before BYOK upgraded it. This session corrected its **first**
+lookup to FOR UPDATE; ordinary reads and all actor/permission/deadline checks
+remain unchanged. The full real five-case suite then passed with zero failures
+or skips. The public-path PG regression blocks at credential validation, observes
+the competing projection writer's actual PG lock wait and preserves the original
+scope/counters. Failed-case artifacts are retained separately under
+`.tmp/live-workflow/failure-664690c/`; they are not counted as successful cases.
 
 | Suite | Passed | Failed | Skipped | Evidence class |
 | --- | ---: | ---: | ---: | --- |
 | Frontend node tests | 533 | 0 | 0 | Unit/source checks |
 | Decision/specification/gaze/continuity Playwright | 28 | 0 | 0 | Controlled browser API fixtures; **not actual server evidence** |
-| Live Playwright, earlier run | 5 | 0 | 0 | Superseded by the subsequent candidate regression below |
-| Live Playwright, latest `116692f` run | 3 | 2 | 0 | Two actual internal-tool failures; rollout held |
-| Java auth/transport/gateway/projection/architecture | 129 | 0 | 0 | Final combined local boundaries |
+| Live Playwright, final corrected tree | 5 | 0 | 0 | Three actual whole browser journeys plus partial/stale/tenant boundaries |
+| Java auth/transport/gateway/projection/architecture | 134 | 0 | 0 | Final combined local boundaries, including public resume locking |
+| Actual PG17 delegated/public-resume lock regression | 6 | 0 | 0 | Prior version-error reproduction, three guard writer waits, public resume writer wait, cancellation denial |
 | Repaired ConnectedWorkflow on fresh PG17 | 14 | 0 | 0 | All original assertions; local datasource adapter only, outbound clients remain synthetic |
 | Repaired BYOK dispatch security review | 4 | 0 | 0 | Original expiry/reconciliation assertions with current control-token/snapshot mocks |
 | Repaired Agent completion/auth/PG17 ledger | 49 | 0 | 0 | Provider doubles; actual PostgreSQL and signed deadline/control/expired-JWT boundaries |
@@ -128,7 +144,7 @@ launcher compiled and actual readiness endpoints returned 200/UP. Repeated runs
 are not added to these totals. Independent backend and PDF session counts remain
 in their own records, rather than being counted again here.
 The local Next production build also passed; the production frontend was used
-for the earlier five-case live-suite run after both `c9733fc` and `86433c0` were
+for the final five-case live-suite run after both `c9733fc` and `86433c0` were
 integrated and Spring/Agent restarted. Each browser journey recorded **zero
 page errors and zero browser API 5xx** responses. Downloaded PDF files and their
 SHA256 hashes are retained alongside the sanitized HTTP records.
@@ -141,6 +157,17 @@ It does not change that trigger or loosen any knowledge/PDF assertion. The local
 previous failed dataset left pending outbox work and is not treated as a clean
 suite execution. A separate local timestamp diagnostic excluded future leases;
 no production queue/timezone code was changed.
+
+The PG lock fixture uses actual JPA entities, versioning, transactions, projection,
+BYOK scope and PostgreSQL. Membership/connection lookup, command/interruption
+and unrelated billing collaborators are explicit test doubles; this small
+fixture is not claimed to be the whole Spring/browser application. Its native
+local adapter changes only class/datasource and the dedicated port guard to owned
+182xx; the original test runs against its own Docker PG17 in CI. The six include
+the server owner's original five cases and are not added again to that owner's
+separate 152-case report. A prior incorrectly RUNNING public-resume fixture was
+repaired to the actual WAITING→QUEUED transition without relaxing its version
+or counter assertions.
 
 The server owner's separate wall-clock fixture showed completion after the old
 60-second token's expiry, and timeout at the first 180-second cutoff with saved
@@ -212,6 +239,31 @@ failed 26 tests out of 800 with three skips: besides the missing font, older BYO
 dispatcher mocks and the connected-test START input fixture need correction.
 These are active failures, not approved skips or deployment readiness. Original
 expiry, ledger and acceptance assertions must be preserved during repair.
+
+After fixture repairs at `2a59328`,
+[Agent CI 38502824788](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/38502824788)
+succeeded: **752 passed, zero failed/skipped**, including actual PG17 and native
+attachment suites; SDK/release checks, Ruff and mypy (96 source files) succeeded.
+[Backend CI 38502824787](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/38502824787)
+ran 800 tests with **14 failures and three skips**. The remaining failures are
+seven PDF renderer cases, four connected PDF acceptance cases and three
+specification PDF cases. The repaired original connected database/auth cases
+and BYOK dispatcher security tests passed. The remote font resource is still
+absent; these required PDF failures are neither skipped nor counted as passed.
+The earlier actual browser locking failure held rollout until the server owner's
+fix and new whole-application verification were integrated. That local
+integration and the corrected public resume's five-case verification are now
+complete; exact final-head remote results are tracked on the draft PR. Required
+remote PDF acceptance remains blocked by the separately pending font approval.
+
+At `2a59328`,
+[Frontend CI 38502824826](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/38502824826)
+also completed successfully. The separate operating readiness and isolated V52 /
+old-image-pair rollback record is
+[production-readiness-validation](https://github.com/jomkeu3369/Freelance-Ops-Agent/blob/4aee800a231b5bbc75ec8b224223ed9e7c54258b/docs/operations/production-readiness-validation-2026-10-14.md).
+Its fourteen rehearsal checks passed against source `116692f` and actual old image
+digests. It does not supersede this workflow's later source fixes or required PDF
+CI. No production image switch, restore or offhost dump transfer occurred here.
 
 Current main Auto CD updates Agent before Backend and rolls back one service at a
 time. New Agent START/RESUME rejects old deadline-less Spring tokens with 403;
