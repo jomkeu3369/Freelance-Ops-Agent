@@ -120,14 +120,14 @@ def http(port, method, path, body=None, bearer=None):
     if bearer:
         headers.append('Authorization: Bearer ' + bearer)
     payload = '\r\n'.join(headers) + '\r\n\r\n' + data
-    result = run(['docker', 'exec', '-i', ACTIVE_SERVICES[service], 'bash', '-c',
+    result = subprocess.run(['docker', 'exec', '-i', ACTIVE_SERVICES[service], 'bash', '-c',
                   f'exec 3<>/dev/tcp/127.0.0.1/{internal_port}; cat >&3; cat <&3'],
-                 input=payload, check=False, timeout=15)
+                 input=payload.encode('utf-8'), capture_output=True, timeout=15)
     if result.returncode:
         raise OSError('container_local_http_not_ready')
     class ResponseSocket:
         def makefile(self, mode):
-            return io.BytesIO(result.stdout.encode('utf-8'))
+            return io.BytesIO(result.stdout)
     response = HTTPResponse(ResponseSocket())
     response.begin()
     raw = response.read()
