@@ -18,8 +18,8 @@
 ## Decision
 
 - Spring modular monolith의 업무 기능은 `com.freelanceops.backend.domain.{domain}` 아래에 둔다.
-- 모든 도메인은 `agentrun`을 기준으로 `client`, `controller`, `dto/request`, `dto/response`, `entity`, `model`, `repository`, `security`, `service` 패키지를 갖는다.
-- 아직 구현이 없는 계층도 `package-info.java`로 패키지 의도와 물리 구조를 보존한다.
+- 도메인의 표준 계층은 `client`, `controller`, `dto/request`, `dto/response`, `entity`, `model`, `repository`, `security`, `service`다. 실제 구현에 필요한 계층만 만든다.
+- 구현이 없는 계층을 빈 디렉터리나 `package-info.java`로 미리 만들지 않는다.
 - 도메인 특성에 따라 `policy` 등 추가 패키지를 둘 수 있다.
 - workspace RBAC의 권한 코드와 불변조건은 `workspace.policy`에 둔다.
 - Python Agent 연동 DTO와 HTTP adapter는 `agentrun.client`에 두며 LangGraph 구현을 Spring에 포함하지 않는다.
@@ -28,13 +28,14 @@
 - API request와 response는 JPA Entity와 분리된 최상위 DTO 파일로 작성한다. 여러 DTO를 `Contracts` 클래스에 중첩하지 않는다.
 - 구현체가 하나뿐인 업무 Service에는 형식적인 interface/implementation 쌍을 강제하지 않는다. 외부 연동이나 실제 교체 경계에는 interface를 사용한다.
 - 테스트 패키지는 운영 코드 구조를 반영한다.
-- ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증하고, 구조 테스트로 모든 도메인의 표준 패키지를 검증한다.
+- ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증한다. 구조 테스트는 각 도메인의 실제 소스가 지원하는 계층에 속하고, 패키지 선언과 파일 경로가 일치하는지 검사한다.
 
 ## Consequences
 
-2026-10-14 정리: 내용 없는 `package-info.java`는 제거했다. 표준 계층 명칭은 유지하며,
-실제 클래스가 필요한 패키지만 만든다. 계층 의존성과 도메인 순환 참조는 기존 ArchUnit
-검사로 검증한다. 아래 비용·효과와 원래 결정의 맥락은 유지한다.
+2026-10-15 정리: 내용 없는 `package-info.java`는 제거했다. 표준 계층 명칭은 유지하며,
+실제 클래스가 필요한 패키지만 만든다. 빈 폴더를 강제하던 구조 테스트는 실제 소스의
+계층·DTO 위치·패키지 선언을 검증하도록 변경했다. 계층 의존성과 도메인 순환 참조는
+기존 ArchUnit 검사로 검증한다.
 
 장점:
 
