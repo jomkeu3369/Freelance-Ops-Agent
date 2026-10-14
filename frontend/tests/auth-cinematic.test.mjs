@@ -4,9 +4,9 @@ import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
-const [gate, css, media, demo, translations] = await Promise.all([
+const [gate, css, media, translations] = await Promise.all([
   read("features/workspace/auth/auth-gate.tsx"), read("features/workspace/auth/auth-cinematic.css"),
-  read("features/workspace/auth/login-media.ts"), read("features/workspace/pets/pet-login-demo.tsx"),
+  read("features/workspace/auth/login-media.ts"),
   read("app/lib/ui-pet-english.mjs")
 ]);
 
@@ -26,7 +26,7 @@ test("login wires inspected same-origin motion, matching loading poster and the 
 
 test("explicit demo disclaimer is removed in both languages rather than hidden by CSS", () => {
   const removed = "예시 미리보기입니다. 로그인 후 나만의 펫을 추가하고 대화로 수정할 수 있어요.";
-  assert.equal(gate.includes(removed) || demo.includes(removed) || translations.includes(removed), false);
+  assert.equal(gate.includes(removed) || translations.includes(removed), false);
   assert.doesNotMatch(translations, /These are example previews\. Log in to add your own pet and edit it with prompts\./);
 });
 

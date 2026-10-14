@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM persistence for resumable Agent run state."""
+"""재개 가능한 Agent 실행 상태를 SQLAlchemy ORM으로 저장한다."""
 
 from __future__ import annotations
 
@@ -9,12 +9,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from builtin_skills import resolve_skills
 from contracts import (
     MAX_INTERRUPTION_QUESTIONS,
     AgentInterruption,
     AgentRunEvent,
-    AgentRunMetadata,
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
@@ -27,18 +25,12 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
-from .runs import (
-    AgentRunNotFoundError,
-    AgentRunStateError,
-    ExecutionEvent,
-    ExecutionOutcome,
-    append_clarification_history,
-    merge_usage,
-)
+from .run_contracts import AgentRunNotFoundError, AgentRunStateError, ExecutionEvent, ExecutionOutcome
+from .run_state import append_clarification_history, merge_usage, run_metadata
 
 
 class PostgresAgentRunStore:
-    """Persist private runtime state through ORM in the Agent-owned schema only."""
+    """Agent 전용 스키마에 ORM을 통해 내부 실행 상태를 보관한다."""
 
     supports_platform_reservations = True
 
@@ -55,7 +47,7 @@ class PostgresAgentRunStore:
             prompt_version="department-work-product-v3-personal-pets",
             status=AgentRunStatus.QUEUED.value,
             idempotency_keys=[],
-            updated_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC)
         )
         try:
             async with self._database.session() as session:
@@ -87,13 +79,15 @@ class PostgresAgentRunStore:
     async def mark_running(self, run_id: UUID, request: AgentRunRequest | None = None) -> AgentRunView:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            if (model.status != AgentRunStatus.QUEUED.value
-                    or (request is not None and AgentRunRequest.model_validate(model.request_json) != request)):
+            if model.status != AgentRunStatus.QUEUED.value or (
+                request is not None and AgentRunRequest.model_validate(model.request_json) != request
+            ):
                 raise AgentRunStateError("agent run cannot enter RUNNING")
             model.status = AgentRunStatus.RUNNING.value
             if model.usage_json is not None:
-                model.usage_json = self._json(AgentRunUsage.model_validate(model.usage_json).model_copy(
-                    update={"execution_closed": False}))
+                model.usage_json = self._json(
+                    AgentRunUsage.model_validate(model.usage_json).model_copy(update={"execution_closed": False})
+                )
             model.interruption_json = None
             model.updated_at = datetime.now(UTC)
             await self._append_event(session, run_id, "run.started")
@@ -122,28 +116,22 @@ class PostgresAgentRunStore:
                 await self._append_event(session, run_id, event.type, event.data)
             if outcome.interruption is not None:
                 await self._append_event(
-                    session,
-                    run_id,
-                    "clarification.requested",
-                    {"kind": outcome.interruption.kind.value},
+                    session, run_id, "clarification.requested", {"kind": outcome.interruption.kind.value}
                 )
             elif outcome.partial_error_code is not None:
-                await self._append_event(
-                    session,
-                    run_id,
-                    "run.partial",
-                    {"errorCode": outcome.partial_error_code},
-                )
+                await self._append_event(session, run_id, "run.partial", {"errorCode": outcome.partial_error_code})
             else:
                 await self._append_event(session, run_id, "run.completed")
 
     async def fail(self, run_id: UUID, error_code: str, usage: AgentRunUsage | None = None) -> None:
         async with self._database.session() as session:
             model = await self._locked(session, run_id)
-            # Completed/partial output remains final even if a later checkpoint or observer fails.
+            # 체크포인트나 관측 처리에 실패해도 완료·부분 완료 결과는 유지한다.
             if model.status in {
-                AgentRunStatus.COMPLETED.value, AgentRunStatus.PARTIAL.value,
-                AgentRunStatus.FAILED.value, AgentRunStatus.CANCELLED.value,
+                AgentRunStatus.COMPLETED.value,
+                AgentRunStatus.PARTIAL.value,
+                AgentRunStatus.FAILED.value,
+                AgentRunStatus.CANCELLED.value,
             }:
                 return
             model.status = AgentRunStatus.FAILED.value
@@ -167,14 +155,22 @@ class PostgresAgentRunStore:
                 request = AgentRunRequest.model_validate(model.request_json)
                 if request.platform_budget is not None:
                     from platform_budget import PlatformSpendLedger
+
                     previous = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
                     idle = PlatformSpendLedger(request.platform_budget, previous)
                     idle.closed = True
                     usage = idle.report(None)
                 if request.byok_budget is not None:
-                    usage = AgentRunUsage(request_tier=RequestTier.SINGLE_AGENT, model_calls=0, tool_calls=0,
-                                          input_tokens=0, output_tokens=0, duration_ms=0, execution_closed=True,
-                                          byok_scope_id=request.byok_budget.scope_id)
+                    usage = AgentRunUsage(
+                        request_tier=RequestTier.SINGLE_AGENT,
+                        model_calls=0,
+                        tool_calls=0,
+                        input_tokens=0,
+                        output_tokens=0,
+                        duration_ms=0,
+                        execution_closed=True,
+                        byok_scope_id=request.byok_budget.scope_id
+                    )
             model.status = AgentRunStatus.CANCELLED.value
             current_usage = AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None
             model.usage_json = self._json(merge_usage(current_usage, usage))
@@ -187,10 +183,7 @@ class PostgresAgentRunStore:
                 raise AgentRunNotFoundError("agent run was not found")
             statement = (
                 select(AgentRunEventModel)
-                .where(
-                    AgentRunEventModel.run_id == run_id,
-                    AgentRunEventModel.event_id > after_event_id,
-                )
+                .where(AgentRunEventModel.run_id == run_id, AgentRunEventModel.event_id > after_event_id)
                 .order_by(AgentRunEventModel.event_id)
             )
             models = list((await session.scalars(statement)).all())
@@ -246,9 +239,7 @@ class PostgresAgentRunStore:
             keys.add(command.idempotency_key)
             model.idempotency_keys = sorted(keys)
             request = append_clarification_history(
-                AgentRunRequest.model_validate(model.request_json),
-                view.interruption,
-                command
+                AgentRunRequest.model_validate(model.request_json), view.interruption, command
             )
             model.request_json = request.model_dump(mode="json")
             model.status = AgentRunStatus.QUEUED.value
@@ -274,11 +265,7 @@ class PostgresAgentRunStore:
         event_id = int((await session.scalar(statement)) or 0) + 1
         session.add(
             AgentRunEventModel(
-                run_id=run_id,
-                event_id=event_id,
-                type=event_type,
-                data_json=data or {},
-                occurred_at=datetime.now(UTC),
+                run_id=run_id, event_id=event_id, type=event_type, data_json=data or {}, occurred_at=datetime.now(UTC)
             )
         )
         await session.flush()
@@ -297,20 +284,9 @@ class PostgresAgentRunStore:
             ),
             result=AgentRunResult.model_validate(model.result_json) if model.result_json is not None else None,
             error_code=model.error_code,
-            metadata=AgentRunMetadata(
-                skill_selection=request.input.skill_selection,
-                resolved_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[0],
-                deferred_skill_ids=resolve_skills(request.input.requirement_text, request.input.skill_selection)[1],
-                pet_profiles=request.input.pet_profiles,
-                credential_id=request.model_selection.credential_id,
-                provider=request.model_selection.provider,
-                model=request.model_selection.model,
-                prompt_version=model.prompt_version or "department-work-product-v1",
-                tool_schema_version="spring-tool-api-v0.3.0",
-                trace_id=request.context.trace_id,
-            ),
+            metadata=run_metadata(request, model.prompt_version or "department-work-product-v1"),
             usage=AgentRunUsage.model_validate(model.usage_json) if model.usage_json is not None else None,
-            updated_at=model.updated_at,
+            updated_at=model.updated_at
         )
 
     @staticmethod
@@ -320,7 +296,7 @@ class PostgresAgentRunStore:
             run_id=model.run_id,
             type=model.type,
             occurred_at=model.occurred_at,
-            data=model.data_json,
+            data=model.data_json
         )
 
     @staticmethod
@@ -332,9 +308,7 @@ class PostgresAgentRunStore:
         questions = value.get("questions")
         if not isinstance(questions, list) or len(questions) <= MAX_INTERRUPTION_QUESTIONS:
             return AgentInterruption.model_validate(value)
-        return AgentInterruption.model_validate(
-            {**value, "questions": questions[:MAX_INTERRUPTION_QUESTIONS]}
-        )
+        return AgentInterruption.model_validate({**value, "questions": questions[:MAX_INTERRUPTION_QUESTIONS]})
 
     @staticmethod
     def _string_set(value: object) -> set[str]:

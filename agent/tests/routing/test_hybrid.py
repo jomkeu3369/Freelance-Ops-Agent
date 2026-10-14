@@ -6,13 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from routing import (
-    HybridRouteConfig,
-    HybridRouteModel,
-    RouteExample,
-    RouteLabel,
-    load_route_examples,
-)
+from routing import HybridRouteConfig, HybridRouteModel, RouteExample, RouteLabel, load_route_examples
 
 
 class FixedEncoder:
@@ -76,11 +70,7 @@ async def test_abstains_without_a_lexical_signal() -> None:
 
 @pytest.mark.asyncio
 async def test_can_apply_a_calibrated_margin_threshold() -> None:
-    model = HybridRouteModel(
-        examples(),
-        FixedEncoder(RouteLabel.DIRECT_TOOL),
-        config=HybridRouteConfig(min_margin=0.5),
-    )
+    model = HybridRouteModel(examples(), FixedEncoder(RouteLabel.DIRECT_TOOL), config=HybridRouteConfig(min_margin=0.5))
 
     decision = await model.route("확정 금액의 부가세 합계를 계산해줘")
 

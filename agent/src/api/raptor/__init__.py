@@ -1,1 +1,1 @@
-"""RAPTOR build API."""
+"""RAPTOR 트리 생성 API."""

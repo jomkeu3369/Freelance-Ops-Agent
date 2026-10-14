@@ -22,13 +22,10 @@ The footer continues using the classic renderer.
 
 - The unchanged baseline is commit `a3b7719af6af4b7969b02bbc05d14459f2c8ab26`
   on `codex/refine-workflow-surfaces` (PR #56).
-- This experiment is isolated on `codex/electric-hero-ribbon`, based on that
-  branch. Review its incremental diff against PR #56, not against current main.
 - Use the classic URL for immediate visual comparison. To withdraw the release,
   revert the electric-light commit; no data or migration is involved. This keeps
   the independent workflow-surface improvements in PR #56.
-- These changes are for preview review. Production promotion follows approval
-  of the preview revision as described in `DESIGN_IMPLEMENTATION_WORKFLOW.md`.
+- Release review follows [the design workflow](DESIGN_IMPLEMENTATION_WORKFLOW.md).
 
 ## Validation
 

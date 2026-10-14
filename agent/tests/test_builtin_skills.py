@@ -44,7 +44,7 @@ def test_bounded_stages_expose_all_requested_workflows() -> None:
         {"tools": ["admin"]},
         {"excludedIds": ["unknown"]},
         {"mode": "MAGIC"},
-    ],
+    ]
 )
 def test_selection_rejects_unknown_versions_ids_duplicates_and_authority(values: dict) -> None:
     with pytest.raises(ValidationError):

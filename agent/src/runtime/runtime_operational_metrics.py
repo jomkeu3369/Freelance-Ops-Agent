@@ -1,6 +1,4 @@
-"""Query-only operational snapshot for the asynchronous Agent runtime."""
-
-# ruff: noqa: E501, I001
+"""비동기 Agent 실행의 운영 상태를 조회한다."""
 
 from __future__ import annotations
 
@@ -10,7 +8,12 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 
 from infrastructure.database import PgVectorConnectionManager
-from infrastructure.database.models import AgentProviderCircuitModel, AgentRuntimeReleaseModel, AgentSchedulerEntryModel, AgentTaskAttemptModel
+from infrastructure.database.models import (
+    AgentProviderCircuitModel,
+    AgentRuntimeReleaseModel,
+    AgentSchedulerEntryModel,
+    AgentTaskAttemptModel,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,14 +46,95 @@ class PostgresRuntimeOperationalMetrics:
         pending = AgentSchedulerEntryModel.entry_status == "PENDING"
         claimed = AgentSchedulerEntryModel.entry_status == "CLAIMED"
         async with self._database.session() as session:
-            queue_depth = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, pending)) or 0)
-            retry_depth = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, pending, AgentSchedulerEntryModel.queue_kind == "RETRY")) or 0)
-            oldest_at = await session.scalar(select(func.min(AgentSchedulerEntryModel.enqueued_at)).where(pool, pending))
-            active_claims = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, claimed, AgentSchedulerEntryModel.lease_until > captured_at)) or 0)
-            expired_leases = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, claimed, AgentSchedulerEntryModel.lease_until <= captured_at)) or 0)
-            dispatched_not_started = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).join(AgentTaskAttemptModel, AgentTaskAttemptModel.attempt_id == AgentSchedulerEntryModel.attempt_id).where(pool, AgentSchedulerEntryModel.entry_status == "DISPATCHED", AgentTaskAttemptModel.status == "QUEUED")) or 0)
-            disagreements = int(await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, AgentSchedulerEntryModel.last_actual_rank.is_not(None), AgentSchedulerEntryModel.last_shadow_rank.is_not(None), AgentSchedulerEntryModel.last_actual_rank != AgentSchedulerEntryModel.last_shadow_rank)) or 0)
-            open_circuits = int(await session.scalar(select(func.count()).select_from(AgentProviderCircuitModel).where(AgentProviderCircuitModel.state.in_(("OPEN", "HALF_OPEN")))) or 0)
-            approved_releases = int(await session.scalar(select(func.count()).select_from(AgentRuntimeReleaseModel).where(AgentRuntimeReleaseModel.resource_pool == resource_pool, AgentRuntimeReleaseModel.status == "APPROVED")) or 0)
+            queue_depth = int(
+                await session.scalar(select(func.count()).select_from(AgentSchedulerEntryModel).where(pool, pending))
+                or 0
+            )
+            retry_depth = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentSchedulerEntryModel)
+                    .where(pool, pending, AgentSchedulerEntryModel.queue_kind == "RETRY")
+                )
+                or 0
+            )
+            oldest_at = await session.scalar(
+                select(func.min(AgentSchedulerEntryModel.enqueued_at)).where(pool, pending)
+            )
+            active_claims = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentSchedulerEntryModel)
+                    .where(pool, claimed, AgentSchedulerEntryModel.lease_until > captured_at)
+                )
+                or 0
+            )
+            expired_leases = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentSchedulerEntryModel)
+                    .where(pool, claimed, AgentSchedulerEntryModel.lease_until <= captured_at)
+                )
+                or 0
+            )
+            dispatched_not_started = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentSchedulerEntryModel)
+                    .join(
+                        AgentTaskAttemptModel, AgentTaskAttemptModel.attempt_id == AgentSchedulerEntryModel.attempt_id
+                    )
+                    .where(
+                        pool,
+                        AgentSchedulerEntryModel.entry_status == "DISPATCHED",
+                        AgentTaskAttemptModel.status == "QUEUED"
+                    )
+                )
+                or 0
+            )
+            disagreements = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentSchedulerEntryModel)
+                    .where(
+                        pool,
+                        AgentSchedulerEntryModel.last_actual_rank.is_not(None),
+                        AgentSchedulerEntryModel.last_shadow_rank.is_not(None),
+                        AgentSchedulerEntryModel.last_actual_rank != AgentSchedulerEntryModel.last_shadow_rank
+                    )
+                )
+                or 0
+            )
+            open_circuits = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentProviderCircuitModel)
+                    .where(AgentProviderCircuitModel.state.in_(("OPEN", "HALF_OPEN")))
+                )
+                or 0
+            )
+            approved_releases = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(AgentRuntimeReleaseModel)
+                    .where(
+                        AgentRuntimeReleaseModel.resource_pool == resource_pool,
+                        AgentRuntimeReleaseModel.status == "APPROVED"
+                    )
+                )
+                or 0
+            )
         oldest_age = 0.0 if oldest_at is None else max(0.0, (captured_at - oldest_at).total_seconds())
-        return RuntimeOperationalSnapshot(resource_pool, captured_at, queue_depth, retry_depth, oldest_age, active_claims, expired_leases, dispatched_not_started, disagreements, open_circuits, approved_releases)
+        return RuntimeOperationalSnapshot(
+            resource_pool,
+            captured_at,
+            queue_depth,
+            retry_depth,
+            oldest_age,
+            active_claims,
+            expired_leases,
+            dispatched_not_started,
+            disagreements,
+            open_circuits,
+            approved_releases
+        )

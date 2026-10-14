@@ -2,6 +2,11 @@
 
 사용자 요청을 실제 실행 전에 어떤 형태로 처리할지 결정하는 router 비교 실험이다.
 
+학습 조건과 판단 결과는 [결과 기록](RESULTS.md)에 모아 관리한다. 평가를 재현할 때는
+commit, dataset version·split hash, model revision, seed, batch size, precision,
+warm-up 횟수와 GPU·driver·CUDA·Torch 버전을 함께 기록한다. CPU 환경의 latency·RSS와
+CUDA 환경의 latency·VRAM은 서로 다른 측정 조건으로 구분한다.
+
 - A: `LiquidAI/LFM2.5-Encoder-350M-Prompt-Router` + project routing head
 - B: route policy prompt + `gpt-5.6-luna` structured output
 - Routes: `DIRECT_TOOL`, `SIMPLE_LLM`, `REACT_AGENT`, `SUPERVISOR`, `HUMAN_REQUIRED`

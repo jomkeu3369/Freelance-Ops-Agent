@@ -1,4 +1,4 @@
-"""Production-shaped route graph: policy gate, LLM decision, optional local shadow."""
+"""안전 정책 검사, 모델의 경로 선택, 선택적인 로컬 비교 평가를 수행하는 그래프."""
 
 from __future__ import annotations
 
@@ -65,11 +65,11 @@ def _safety_context(raw: SafetyContextInput | None) -> SafetyContext:
         legal_authority_required=values.get("legal_authority_required", False),
         irreversible_action=values.get("irreversible_action", False),
         approval_required=values.get("approval_required", False),
-        authority_verified=values.get("authority_verified", False),
+        authority_verified=values.get("authority_verified", False)
     )
 
 
-def build_operational_router_graph(gateway_provider: Callable[[], OperationalRouteGateway] = build_operational_gateway,) -> Any:  # noqa: E501
+def build_operational_router_graph(gateway_provider: Callable[[], OperationalRouteGateway] = build_operational_gateway) -> Any:  # noqa: E501
     async def classify(state: OperationalRouterState) -> dict[str, object]:
         question = state.get("question", "").strip()
         if not question:
@@ -115,7 +115,9 @@ def build_operational_router_graph(gateway_provider: Callable[[], OperationalRou
             "profile_policy_version": profile.policy_version,
         }
 
-    builder: StateGraph[OperationalRouterState, None, OperationalRouterInput, OperationalRouterState] = StateGraph(OperationalRouterState, input_schema=OperationalRouterInput)  # noqa: E501
+    builder: StateGraph[OperationalRouterState, None, OperationalRouterInput, OperationalRouterState] = StateGraph(
+        OperationalRouterState, input_schema=OperationalRouterInput
+    )
     builder.add_node("policy_and_llm_route", classify)
     builder.add_edge(START, "policy_and_llm_route")
     builder.add_edge("policy_and_llm_route", END)

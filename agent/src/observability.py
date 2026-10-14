@@ -1,4 +1,4 @@
-"""Minimal W3C trace-context propagation for the internal Agent API."""
+"""내부 Agent API에 W3C 추적 정보를 전달한다."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ TRACEPARENT = re.compile(
 
 
 def configure_langsmith_privacy(*, enabled: bool) -> None:
-    """Keep traces useful for operations without exporting prompts or customer content."""
+    """프롬프트와 고객 콘텐츠를 내보내지 않고 운영 추적 정보를 설정한다."""
 
     if not enabled:
         return
@@ -27,16 +27,14 @@ async def trace_context_middleware(request: Request, call_next: Callable[[Reques
     incoming = request.headers.get("traceparent", "").lower()
     match = TRACEPARENT.fullmatch(incoming)
     trace_id = (
-        match.group("trace_id")
-        if match is not None and match.group("trace_id") != "0" * 32
-        else secrets.token_hex(16)
+        match.group("trace_id") if match is not None and match.group("trace_id") != "0" * 32 else secrets.token_hex(16)
     )
-    
+
     flags = match.group("flags") if match is not None else "01"
     request.state.traceparent = f"00-{trace_id}-{secrets.token_hex(8)}-{flags}"
     request.state.trace_id = trace_id
     response = await call_next(request)
-    
+
     # 서비스마다 새 span id를 발급하되 동일 trace id를 유지
     response.headers["traceparent"] = f"00-{trace_id}-{secrets.token_hex(8)}-{flags}"
     response.headers["X-Trace-Id"] = trace_id

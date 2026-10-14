@@ -31,11 +31,9 @@ async def test_resume_atomically_consumes_the_active_interruption() -> None:
         run_id,
         ExecutionOutcome(
             interruption=AgentInterruption(
-                interruption_id=interruption_id,
-                kind=InterruptionKind.CLARIFICATION,
-                questions=["예산을 알려주세요."],
+                interruption_id=interruption_id, kind=InterruptionKind.CLARIFICATION, questions=["예산을 알려주세요."]
             )
-        ),
+        )
     )
 
     await store.prepare_resume(run_id, _resume(interruption_id, "resume-key-one"))
@@ -64,7 +62,7 @@ def _resume(interruption_id, key: str) -> ResumeAgentRunRequest:
     return ResumeAgentRunRequest(
         interruption_id=interruption_id,
         idempotency_key=key,
-        answers=[ResumeAnswer(question_index=0, answer="500만원입니다.")],
+        answers=[ResumeAnswer(question_index=0, answer="500만원입니다.")]
     )
 
 
@@ -77,7 +75,7 @@ def _request(run_id) -> AgentRunRequest:
             workspace_id=uuid4(),
             project_id=uuid4(),
             initiated_by=uuid4(),
-            effective_permissions=["agent.run", "agent.respond"],
+            effective_permissions=["agent.run", "agent.respond"]
         ),
         budget=RunBudget(
             max_duration_seconds=30,
@@ -86,9 +84,9 @@ def _request(run_id) -> AgentRunRequest:
             max_input_tokens=1000,
             max_output_tokens=1000,
             max_departments=1,
-            max_hierarchy_depth=1,
+            max_hierarchy_depth=1
         ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
         safety_context=SafetyContextInput(),
-        input=AgentInput(requirement_text="견적을 작성합니다."),
+        input=AgentInput(requirement_text="견적을 작성합니다.")
     )

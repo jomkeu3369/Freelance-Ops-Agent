@@ -1,9 +1,7 @@
-"""Run-scoped monetary admission and attempt accounting for platform providers.
-
-The backend retains active reservations in their admission period and releases unused
-capacity only after worker closure. Unknown outcomes retain their pre-call upper bound.
-This in-process ledger is shared by child coroutines; detached workers are deliberately
-unsupported until durable admission is available. No user request or environment flag can turn admission off.
+"""실행별 플랫폼 금액 승인과 호출 시도 사용량을 관리한다. 백엔드는 실행이 닫힌 뒤 사용하지 않은
+예약만 해제한다. 결과가 불명확한 시도는 호출 전 상한을 유지한다. 하위 코루틴은 같은 원장을
+공유하며 별도 작업자는 영속 승인을 지원하기 전까지 허용하지 않는다. 요청과 환경 설정으로 승인
+절차를 끌 수 없다.
 """
 
 from __future__ import annotations
@@ -38,7 +36,7 @@ _MAX_STANDARD_INPUT_TOKENS = 272000
 
 
 class PlatformBudgetError(RuntimeError):
-    """Stable fail-closed code; contains no prompt or credential material."""
+    """프롬프트와 인증 정보가 포함되지 않은 공개 오류 코드."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -53,7 +51,7 @@ class Tariff:
     output: Decimal
 
 
-# Exact provider/model pairs only. No alias, prefix matching, or fallback pricing.
+# 공급자와 모델의 정확한 조합만 사용한다. 별칭, 접두사와 대체 가격은 허용하지 않는다.
 LEGACY_TARIFFS = {
     (Provider.OPENAI, "gpt-5.6-luna"): Tariff(Decimal("0.20"), Decimal("0.02"), Decimal("0.25"), Decimal("1.20")),
     (Provider.OPENAI, "gpt-5.6-terra"): Tariff(Decimal("2.00"), Decimal("0.20"), Decimal("2.50"), Decimal("12.00")),
@@ -67,19 +65,21 @@ TARIFFS = {
     (Provider.OPENAI, "gpt-5.6-sol"): Tariff(Decimal("4"), Decimal(".40"), Decimal("5"), Decimal("20")),
 }
 TARIFF_VERSIONS = {LEGACY_TARIFF_VERSION: LEGACY_TARIFFS, TARIFF_VERSION: TARIFFS}
-# Re-review the promotional Sol tariff before admitting calls after this date.
+# 이 날짜 이후의 호출은 Sol 프로모션 요금을 다시 검토해야 한다.
 PROMOTION_REVIEW_AT = datetime(2026, 11, 22, tzinfo=UTC)
 
 
 def validate_reasoning(selection: ModelSelection) -> None:
-    if (selection.provider is Provider.OPENAI and selection.model in {"gpt-6.1-sol", "gpt-6-astra"}
-            and selection.reasoning_effort is ReasoningEffort.NONE):
+    if (
+        selection.provider is Provider.OPENAI
+        and selection.model in {"gpt-6.1-sol", "gpt-6-astra"}
+        and selection.reasoning_effort is ReasoningEffort.NONE
+    ):
         raise PlatformBudgetError("MODEL_REASONING_UNSUPPORTED")
 
 
 class PlatformSpendLedger:
-    def __init__(self, budget: PlatformBudget, previous: AgentRunUsage | None = None,
-                 run_budget: RunBudget | None = None) -> None:
+    def __init__(self, budget: PlatformBudget, previous: AgentRunUsage | None = None, run_budget: RunBudget | None = None) -> None:  # noqa: E501
         self.budget = budget
         self.calls: list[ProviderCallUsage] = []
         self.blocked = False
@@ -123,9 +123,9 @@ class PlatformSpendLedger:
             raise PlatformBudgetError("PLATFORM_TARIFF_REVIEW_REQUIRED")
         if output_limit < 1:
             raise PlatformBudgetError("PLATFORM_OUTPUT_LIMIT_REQUIRED")
-        # Text-only request bytes bound the tokenizer input conservatively, including
-        # the complete schema and system prompt, plus protocol framing allowance.
-        # Multimodal/built-in-tool requests must not use this admission function.
+        # 텍스트 요청의 전체 바이트 크기로 입력 토큰 상한을 보수적으로 계산한다.
+        # 스키마와 시스템 지시문, 프로토콜 여유분을 포함한다.
+        # 멀티모달 요청과 내장 도구 요청은 이 승인 함수에 전달하지 않는다.
         input_limit = len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) + _PROTOCOL_TOKEN_ALLOWANCE
         if input_limit > _MAX_STANDARD_INPUT_TOKENS:
             raise PlatformBudgetError("PLATFORM_LONG_CONTEXT_UNPRICED")
@@ -135,24 +135,39 @@ class PlatformSpendLedger:
             previous_output = self.previous.output_tokens if self.previous is not None else 0
             if previous_calls + len(self.calls) + 1 > self.run_budget.max_model_calls:
                 raise PlatformBudgetError("MODEL_CALL_BUDGET_EXCEEDED")
-            if previous_input + sum(call.input_tokens for call in self.calls) + input_limit > self.run_budget.max_input_tokens:  # noqa: E501
+            if (
+                previous_input + sum(call.input_tokens for call in self.calls) + input_limit
+                > self.run_budget.max_input_tokens
+            ):
                 raise PlatformBudgetError("INPUT_TOKEN_BUDGET_EXCEEDED")
-            if previous_output + sum(call.output_tokens for call in self.calls) + output_limit > self.run_budget.max_output_tokens:  # noqa: E501
+            if (
+                previous_output + sum(call.output_tokens for call in self.calls) + output_limit
+                > self.run_budget.max_output_tokens
+            ):
                 raise PlatformBudgetError("OUTPUT_TOKEN_BUDGET_EXCEEDED")
         reserved = Decimal("0")
         if not byok:
             assert tariff is not None
-            reserved = (Decimal(input_limit) * max(tariff.input, tariff.cache_write)
-                        + Decimal(output_limit) * tariff.output) / _MILLION
+            reserved = (
+                Decimal(input_limit) * max(tariff.input, tariff.cache_write) + Decimal(output_limit) * tariff.output
+            ) / _MILLION
             reserved = reserved.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
         if self.previous_cost + self.cost + reserved > self.budget.max_cost_usd:
             raise PlatformBudgetError("PLATFORM_BUDGET_EXCEEDED")
-        self.calls.append(ProviderCallUsage(
-            call_id=uuid4(), provider=selection.provider, model=selection.model, operation=operation,
-            funding_source="BYOK" if byok else "PLATFORM",
-            input_tokens=input_limit, output_tokens=output_limit, cost_usd=reserved,
-            reserved_cost_usd=reserved, usage_known=False,
-        ))
+        self.calls.append(
+            ProviderCallUsage(
+                call_id=uuid4(),
+                provider=selection.provider,
+                model=selection.model,
+                operation=operation,
+                funding_source="BYOK" if byok else "PLATFORM",
+                input_tokens=input_limit,
+                output_tokens=output_limit,
+                cost_usd=reserved,
+                reserved_cost_usd=reserved,
+                usage_known=False
+            )
+        )
         return len(self.calls) - 1
 
     def settle_openai(self, index: int, response: Any) -> None:
@@ -173,7 +188,7 @@ class PlatformSpendLedger:
         cached = _token_count(details, "cached_tokens")
         written = _token_count(details, "cache_write_tokens")
         if None in (input_tokens, output_tokens, cached, written):
-            return  # Missing or malformed usage keeps its original upper bound.
+            return  # 사용량이 없거나 잘못된 응답은 기존 예약 상한을 유지한다.
         assert input_tokens is not None and output_tokens is not None and cached is not None and written is not None
         if cached + written > input_tokens:
             self.blocked = True
@@ -182,18 +197,30 @@ class PlatformSpendLedger:
         cost = Decimal("0")
         if call.funding_source == "PLATFORM":
             tariff = TARIFF_VERSIONS[self.budget.tariff_version][(call.provider, call.model)]
-            cost = (Decimal(input_tokens - cached - written) * tariff.input + Decimal(cached) * tariff.cached_read
-                    + Decimal(written) * tariff.cache_write + Decimal(output_tokens) * tariff.output) / _MILLION
+            cost = (
+                Decimal(input_tokens - cached - written) * tariff.input
+                + Decimal(cached) * tariff.cached_read
+                + Decimal(written) * tariff.cache_write
+                + Decimal(output_tokens) * tariff.output
+            ) / _MILLION
             cost = cost.quantize(_USD_PRECISION, rounding=ROUND_CEILING)
-        # Output tokens already include reasoning; never add reasoning_tokens again.
-        drift = (input_tokens > call.input_tokens or input_tokens > _MAX_STANDARD_INPUT_TOKENS
-                 or output_tokens > call.output_tokens or cost > call.reserved_cost_usd)
-        self.calls[index] = call.model_copy(update={
-            "input_tokens": input_tokens, "output_tokens": output_tokens,
-            "cached_read_tokens": cached, "cache_write_tokens": written,
-            "cost_usd": max(call.reserved_cost_usd, cost) if drift else cost,
-            "usage_known": not drift,
-        })
+        # 출력 토큰에는 추론 토큰이 포함되므로 reasoning_tokens를 다시 더하지 않는다.
+        drift = (
+            input_tokens > call.input_tokens
+            or input_tokens > _MAX_STANDARD_INPUT_TOKENS
+            or output_tokens > call.output_tokens
+            or cost > call.reserved_cost_usd
+        )
+        self.calls[index] = call.model_copy(
+            update={
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cached_read_tokens": cached,
+                "cache_write_tokens": written,
+                "cost_usd": max(call.reserved_cost_usd, cost) if drift else cost,
+                "usage_known": not drift,
+            }
+        )
         if drift:
             self.blocked = True
             self.unpriced_exposure = True
@@ -201,17 +228,28 @@ class PlatformSpendLedger:
 
     def report(self, usage: AgentRunUsage | None) -> AgentRunUsage:
         if usage is None:
-            usage = AgentRunUsage(request_tier=RequestTier.SINGLE_AGENT, model_calls=0, tool_calls=0,
-                                  input_tokens=0, output_tokens=0, duration_ms=0)
-        return usage.model_copy(update={
-            "provider_calls": list(self.calls), "platform_cost_usd": self.cost,
-            "platform_reservation_id": self.budget.reservation_id, "tariff_version": self.budget.tariff_version,
-            "execution_closed": self.closed,
-            "unpriced_exposure": self.unpriced_exposure,
-            "model_calls": len(self.calls), "input_tokens": sum(call.input_tokens for call in self.calls),
-            "output_tokens": sum(call.output_tokens for call in self.calls),
-            "cached_tokens": sum(call.cached_read_tokens for call in self.calls),
-        })
+            usage = AgentRunUsage(
+                request_tier=RequestTier.SINGLE_AGENT,
+                model_calls=0,
+                tool_calls=0,
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0
+            )
+        return usage.model_copy(
+            update={
+                "provider_calls": list(self.calls),
+                "platform_cost_usd": self.cost,
+                "platform_reservation_id": self.budget.reservation_id,
+                "tariff_version": self.budget.tariff_version,
+                "execution_closed": self.closed,
+                "unpriced_exposure": self.unpriced_exposure,
+                "model_calls": len(self.calls),
+                "input_tokens": sum(call.input_tokens for call in self.calls),
+                "output_tokens": sum(call.output_tokens for call in self.calls),
+                "cached_tokens": sum(call.cached_read_tokens for call in self.calls),
+            }
+        )
 
 
 def _token_count(value: Any, name: str, default: int | None = None) -> int | None:
@@ -241,7 +279,9 @@ def platform_budget_scope(ledger: PlatformSpendLedger | None) -> Iterator[None]:
 
 @contextmanager
 def offline_provider_test_scope(enabled: bool = True) -> Iterator[None]:
-    """Explicit Python-only seam for legacy offline mocks; never an API/config input."""
+    """기존 오프라인 모의 테스트에 한정된 내부 설정. API나 서비스 설정으로 노출하지
+    않는다.
+    """
     token = _offline_test_scope.set(enabled)
     try:
         yield
@@ -258,15 +298,16 @@ def require_platform_ledger() -> PlatformSpendLedger | None:
 
 def reject_unbounded_operation(operation: str) -> None:
     from byok_budget import current_byok_ledger
+
     if current_byok_ledger() is not None:
         raise PlatformBudgetError(f"BYOK_{operation}_UNSUPPORTED")
     if require_platform_ledger() is not None:
         raise PlatformBudgetError(f"PLATFORM_{operation}_UNPRICED")
 
 
-async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operation: str,
-                                  payload: dict[str, Any], *, client_credential_id: UUID | None = None) -> Any:
+async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operation: str, payload: dict[str, Any], *, client_credential_id: UUID | None = None) -> Any:  # noqa: E501
     from byok_budget import current_byok_ledger
+
     if current_byok_ledger() is not None:
         raise PlatformBudgetError("BYOK_AMBIENT_CLIENT_FORBIDDEN")
     ledger = require_platform_ledger()
@@ -282,20 +323,24 @@ async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operat
         raise PlatformBudgetError("PLATFORM_SDK_RETRIES_UNBOUNDED")
     messages = payload.get("input")
     allowed_keys = {"model", "service_tier", "reasoning", "input", "tools", "store", "max_output_tokens", "text"}
-    if (set(payload) - allowed_keys or payload.get("tools") != [] or payload.get("model") != selection.model
-            or not isinstance(messages, list)
-            or any(not isinstance(item, dict) or not isinstance(item.get("content"), str) for item in messages)):
+    if (
+        set(payload) - allowed_keys
+        or payload.get("tools") != []
+        or payload.get("model") != selection.model
+        or not isinstance(messages, list)
+        or any(not isinstance(item, dict) or not isinstance(item.get("content"), str) for item in messages)
+    ):
         raise PlatformBudgetError("PLATFORM_INPUT_UNBOUNDED")
     effort = payload.get("reasoning", {}).get("effort", selection.reasoning_effort.value.lower())
     if effort != selection.reasoning_effort.value.lower():
         raise PlatformBudgetError("MODEL_REASONING_MISMATCH")
     index = ledger.reserve(selection, operation, payload, int(payload["max_output_tokens"]))
-    # Persist the conservative attempt before provider I/O. A crash cannot turn
-    # an unreported billable attempt into free usage.
+    # 공급자 호출 전에 보수적으로 계산한 시도 기록을 저장한다.
+    # 프로세스가 종료돼도 누락된 과금 시도를 무료 사용으로 처리하지 않는다.
     if ledger.persist_usage is not None:
         await ledger.persist_usage(ledger.report(None))
-    # SDK retries are disabled at every production client construction; this call
-    # represents exactly one billable attempt. Cancellation retains its bound.
+    # 운영 클라이언트의 SDK 재시도를 꺼서 이 호출을 과금 시도 하나와 대응시킨다.
+    # 취소된 호출도 예약 상한을 유지한다.
     response = await client.responses.create(**payload)
     try:
         ledger.settle_openai(index, response)

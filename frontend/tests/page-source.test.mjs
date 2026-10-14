@@ -247,7 +247,6 @@ test("workspace settings and requirement controls remain readable at desktop wid
   assert.match(workspace, /<label[^>]*>\s*AI 모델<select[^>]*value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
   assert.match(workspace, /name="currency" value=\{draft.currency\}/);
-  assert.match(workspace, /list="suggested-models"/);
   assert.match(css, /--workspace-radius-lg: 22px/);
   assert.match(css, /\.settings-content > section \{[^}]*border: 0;[^}]*background: color-mix/);
   assert.match(css, /\.run-controls \{[^}]*border-radius: var\(--workspace-radius-md\)/);
@@ -698,9 +697,9 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
   assert.match(workspace, /const pending = busy \|\| submitting/);
   assert.match(workspace, /if \(pending \|\| submitLock\.current \|\| !canRespond/);
-  assert.match(workspace, /function EstimationPolicyForm[\s\S]*?if \(busy\) return;/);
-  assert.match(workspace, /function ModelPricingForm[\s\S]*?if \(busy\) return;/);
-  assert.equal([...workspace.matchAll(/<fieldset className="settings-fields" disabled=\{busy\}>/g)].length, 2);
+  const policyForm = await read("../features/workspace/settings/estimation-policy-form.tsx");
+  assert.match(policyForm, /if \(busy \|\| pending\.current\) return;/);
+  assert.match(policyForm, /<fieldset className="settings-fields" disabled=\{busy\}>/);
   assert.match(workspace, /<fieldset className="client-fields" disabled=\{busy\}>/);
   assert.match(workspace, /<fieldset className="outcome-fields" disabled=\{busy\}>/);
   assert.match(workspace, /password !== String\(data\.get\("passwordConfirm"\)\)/);

@@ -1,4 +1,4 @@
-"""Deterministic authority and side-effect checks that run before model routing."""
+"""모델의 경로 선택 전에 권한과 외부 영향 여부를 검사한다."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from enum import StrEnum
 
 @dataclass(frozen=True, slots=True)
 class SafetyContext:
-    """Trusted facts supplied by Spring, never inferred from user text."""
+    """Spring이 제공한 안전 정보. 사용자 문장에서 추정하지 않는다."""
 
     external_side_effect: bool = False
     sensitive_data: bool = False
@@ -41,9 +41,7 @@ def evaluate_safety(context: SafetyContext) -> SafetyDecision:
     if context.sensitive_data and context.external_side_effect:
         return SafetyDecision(True, SafetyDecisionCode.SENSITIVE_DATA_REVIEW_REQUIRED)
     authority_is_required = (
-        context.external_side_effect
-        or context.financial_authority_required
-        or context.legal_authority_required
+        context.external_side_effect or context.financial_authority_required or context.legal_authority_required
     )
     if authority_is_required and not context.authority_verified:
         return SafetyDecision(True, SafetyDecisionCode.AUTHORITY_NOT_VERIFIED)

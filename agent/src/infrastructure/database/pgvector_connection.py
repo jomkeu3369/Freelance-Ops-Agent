@@ -1,6 +1,6 @@
-"""SQLAlchemy async connection manager for PostgreSQL and pgvector."""
-
-# ruff: noqa: E501, I001
+"""PostgreSQL의 SQLAlchemy 비동기 연결 관리자. pgvector 설치 상태도
+점검한다.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +13,16 @@ from typing import cast
 from sqlalchemy import Table, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from .models import AgentRunEventModel, AgentRunStateModel, AgentRuntimeBase, AgentTaskAttemptModel, AgentTaskCommandReceiptModel, AgentTaskEventModel, AgentTaskModel, PgExtensionModel
+from .models import (
+    AgentRunEventModel,
+    AgentRunStateModel,
+    AgentRuntimeBase,
+    AgentTaskAttemptModel,
+    AgentTaskCommandReceiptModel,
+    AgentTaskEventModel,
+    AgentTaskModel,
+    PgExtensionModel,
+)
 
 REQUIRED_RUNTIME_TABLES = (
     "agent_runtime.agent_run_state",
@@ -26,17 +35,17 @@ REQUIRED_RUNTIME_TABLES = (
     "agent_runtime.agent_provider_circuit",
     "agent_runtime.agent_scheduler_entry",
     "agent_runtime.agent_worker_capacity_event",
-    "agent_runtime.agent_runtime_release"
+    "agent_runtime.agent_runtime_release",
 )
 
 
 class DatabaseNotStartedError(RuntimeError):
-    """Raised when a database operation is attempted before startup."""
+    """시작되지 않은 연결에서 데이터베이스 작업을 요청했을 때 발생하는 오류."""
 
 
 @dataclass(frozen=True, slots=True)
 class PgVectorPoolConfig:
-    """Connection settings that keep credentials out of repr output."""
+    """repr 출력에 인증 정보를 포함하지 않는 연결 설정."""
 
     database_url: str = field(repr=False)
     min_size: int = 1
@@ -73,7 +82,7 @@ class PgVectorHealth:
 
 
 class PgVectorConnectionManager:
-    """Own one async engine and create one transaction-scoped session per task."""
+    """비동기 엔진 하나를 관리하고 작업마다 트랜잭션 세션을 생성한다."""
 
     def __init__(self, config: PgVectorPoolConfig) -> None:
         self._config = config
@@ -120,25 +129,29 @@ class PgVectorConnectionManager:
         async with engine.begin() as connection:
             await connection.run_sync(
                 AgentRuntimeBase.metadata.create_all,
-                tables=[cast(Table, AgentRunStateModel.__table__), cast(Table, AgentRunEventModel.__table__), cast(Table, AgentTaskModel.__table__), cast(Table, AgentTaskAttemptModel.__table__), cast(Table, AgentTaskEventModel.__table__), cast(Table, AgentTaskCommandReceiptModel.__table__)]  # noqa: E501
+                tables=[
+                    cast(Table, AgentRunStateModel.__table__),
+                    cast(Table, AgentRunEventModel.__table__),
+                    cast(Table, AgentTaskModel.__table__),
+                    cast(Table, AgentTaskAttemptModel.__table__),
+                    cast(Table, AgentTaskEventModel.__table__),
+                    cast(Table, AgentTaskCommandReceiptModel.__table__),
+                ]
             )
 
     async def verify_runtime_tables(self) -> None:
         statement = select(*(func.to_regclass(table_name) for table_name in REQUIRED_RUNTIME_TABLES))
         async with self.session() as session:
             row = (await session.execute(statement)).one()
-        missing = [table_name for table_name, resolved in zip(REQUIRED_RUNTIME_TABLES, row, strict=True) if resolved is None]
+        missing = [
+            table_name for table_name, resolved in zip(REQUIRED_RUNTIME_TABLES, row, strict=True) if resolved is None
+        ]
         if missing:
             raise RuntimeError(f"Agent runtime migrations are incomplete: {', '.join(missing)}")
 
     async def health(self) -> PgVectorHealth:
         statement = (
-            select(
-                func.current_database(),
-                func.current_user(),
-                func.current_schema(),
-                PgExtensionModel.extversion,
-            )
+            select(func.current_database(), func.current_user(), func.current_schema(), PgExtensionModel.extversion)
             .where(PgExtensionModel.extname == "vector")
             .limit(1)
         )
@@ -147,10 +160,7 @@ class PgVectorConnectionManager:
         if row is None:
             raise RuntimeError("PostgreSQL extension 'vector' is not installed")
         return PgVectorHealth(
-            database=str(row[0]),
-            role=str(row[1]),
-            schema=str(row[2]),
-            vector_extension_version=str(row[3]),
+            database=str(row[0]), role=str(row[1]), schema=str(row[2]), vector_extension_version=str(row[3])
         )
 
     def stats(self) -> Mapping[str, int]:
@@ -172,7 +182,7 @@ class PgVectorConnectionManager:
             connect_args={
                 "application_name": self._config.application_name,
                 "options": "-c search_path=agent_runtime,public",
-            },
+            }
         )
 
     def _require_engine(self) -> AsyncEngine:

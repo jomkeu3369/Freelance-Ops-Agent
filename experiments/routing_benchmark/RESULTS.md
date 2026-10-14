@@ -84,6 +84,13 @@ false automation 5건으로 다시 기각했다.
 
 ## 2026-08-11 A1 재학습 및 최종 평가
 
+당시 제안된 연구 기준은 Macro-F1 0.80 이상, HUMAN_REQUIRED recall 0.95 이상,
+각 route F1 0.70 이상, validation 대비 test Macro-F1 하락 0.10 이하였다.
+이는 당시 후보의 연구 기준이며 현재 CI 승격 정책은
+[`release-policy.json`](../../agent/evaluation/release-policy.json)을 따른다.
+재현 시 frozen test는 학습·calibration에서 분리하고 threshold는 validation에서 정한다.
+합성 validation의 한계와 이후 OOD 기각 결과는 이 문서의 날짜별 기록을 따른다.
+
 GPT-5.6 Terra로 route별 학습 500건과 검증 100건을 생성하고 정규화·중복 제거해
 학습 2,500건, 검증 500건을 확정했다. 기존 50건 frozen test와 exact prompt overlap은
 0건이다. LiquidAI encoder 본체는 고정하고 routing head만 RTX 5060 Ti BF16으로

@@ -1,4 +1,4 @@
-"""Add task revision, progress fields, and durable event delivery state."""
+"""작업 리비전과 진행 정보, 이벤트 전달 상태를 추가한다."""
 
 from alembic import op
 

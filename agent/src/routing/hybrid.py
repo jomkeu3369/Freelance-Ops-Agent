@@ -1,4 +1,4 @@
-"""BM25 + encoder route rankings combined with reciprocal-rank fusion."""
+"""BM25와 인코더의 경로 순위를 RRF로 결합한다."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ class RouteRank:
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
-    """A local decision or an explicit request for the next fallback lane."""
+    """로컬 경로 판단 결과와 추가 판단 필요 여부."""
 
     route: RouteLabel | None
     suggested_route: RouteLabel
@@ -62,7 +62,7 @@ class RouteDecision:
 
 
 class EncoderRouteScorer(Protocol):
-    """Adapter boundary for a local or remote text encoder."""
+    """로컬 또는 원격 텍스트 인코더의 공통 계약."""
 
     @property
     def model_id(self) -> str: ...
@@ -82,19 +82,14 @@ class HybridRouteConfig:
 
     def __post_init__(self) -> None:
         if self.bm25_top_k < 1:
-
             raise ValueError("bm25_top_k must be positive")
         if self.rrf_k < 1:
-
             raise ValueError("rrf_k must be positive")
         if self.bm25_weight <= 0 or self.encoder_weight <= 0:
-
             raise ValueError("RRF lane weights must be positive")
         if not 0 <= self.min_fused_share <= 1:
-
             raise ValueError("min_fused_share must be between 0 and 1")
         if not 0 <= self.min_margin <= 1:
-
             raise ValueError("min_margin must be between 0 and 1")
 
 
@@ -106,7 +101,7 @@ class _Bm25Result:
 
 
 class _Bm25RouteIndex:
-    """Small immutable BM25 index over labelled route examples."""
+    """라벨이 지정된 예제로 구성한 변경 불가능한 BM25 인덱스."""
 
     def __init__(self, examples: Sequence[RouteExample]) -> None:
         if not examples:
@@ -171,15 +166,9 @@ class _Bm25RouteIndex:
 
 
 class HybridRouteModel:
-    """Fuse lexical and semantic route rankings, abstaining on uncertainty."""
+    """어휘와 의미 기반 순위를 결합한다. 판단이 불확실하면 경로를 확정하지 않는다."""
 
-    def __init__(
-        self,
-        examples: Sequence[RouteExample],
-        encoder: EncoderRouteScorer,
-        *,
-        config: HybridRouteConfig | None = None,
-    ) -> None:
+    def __init__(self, examples: Sequence[RouteExample], encoder: EncoderRouteScorer, *, config: HybridRouteConfig | None = None) -> None:  # noqa: E501
         self._bm25 = _Bm25RouteIndex(examples)
         self._encoder = encoder
         self._config = config or HybridRouteConfig()
@@ -200,7 +189,7 @@ class HybridRouteModel:
             encoder_ranking,
             k=self._config.rrf_k,
             first_weight=self._config.bm25_weight,
-            second_weight=self._config.encoder_weight,
+            second_weight=self._config.encoder_weight
         )
         total = sum(item.score for item in fused_ranking)
         first = fused_ranking[0]
@@ -228,7 +217,7 @@ class HybridRouteModel:
             bm25_ranking=bm25.ranking,
             encoder_ranking=encoder_ranking,
             fused_ranking=fused_ranking,
-            matched_example_ids=bm25.matched_example_ids,
+            matched_example_ids=bm25.matched_example_ids
         )
 
     @staticmethod
@@ -242,7 +231,7 @@ class HybridRouteModel:
 
 
 def load_route_examples(path: Path) -> tuple[RouteExample, ...]:
-    """Load the versioned routing JSONL without coupling runtime to experiments."""
+    """버전이 지정된 라우팅 JSONL을 읽는다. 실험 코드에 의존하지 않는다."""
 
     examples: list[RouteExample] = []
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -252,9 +241,7 @@ def load_route_examples(path: Path) -> tuple[RouteExample, ...]:
             row = json.loads(line)
             examples.append(
                 RouteExample(
-                    example_id=str(row["id"]),
-                    text=str(row["prompt"]),
-                    route=RouteLabel(str(row["expected_route"])),
+                    example_id=str(row["id"]), text=str(row["prompt"]), route=RouteLabel(str(row["expected_route"]))
                 )
             )
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
@@ -283,14 +270,7 @@ def _rank_scores(scores: Mapping[RouteLabel, float]) -> tuple[RouteRank, ...]:
     return tuple(RouteRank(route=route, rank=rank, score=scores[route]) for rank, route in enumerate(ordered, start=1))
 
 
-def _reciprocal_rank_fusion(
-    first: Sequence[RouteRank],
-    second: Sequence[RouteRank],
-    *,
-    k: int,
-    first_weight: float,
-    second_weight: float,
-) -> tuple[RouteRank, ...]:
+def _reciprocal_rank_fusion(first: Sequence[RouteRank], second: Sequence[RouteRank], *, k: int, first_weight: float, second_weight: float) -> tuple[RouteRank, ...]:  # noqa: E501
     first_ranks = {item.route: item.rank for item in first}
     second_ranks = {item.route: item.rank for item in second}
     fused = {

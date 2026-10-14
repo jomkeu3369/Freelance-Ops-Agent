@@ -1,4 +1,4 @@
-"""Deterministic V2 quality and safety evaluation reports."""
+"""V2 품질과 안전성의 결정적 평가 보고서."""
 
 from .report import EvaluationCase, EvaluationReport, MetricValue, build_evaluation_report
 

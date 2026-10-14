@@ -6,21 +6,16 @@ from deepagents.backends import StateBackend
 from departments import build_research_deep_agent, research_filesystem_permissions
 
 
-def test_research_deep_agent_has_no_general_purpose_task_or_shell_backend(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_research_deep_agent_has_no_general_purpose_task_or_shell_backend(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-only-key")
 
-    graph = build_research_deep_agent(
-        model="openai:gpt-5.4-mini",
-        run_id=uuid4(),
-    )
+    graph = build_research_deep_agent(model="openai:gpt-5.4-mini", run_id=uuid4())
     tool_node = graph.nodes["tools"].bound
-    tool_names = set(tool_node._tools_by_name)  # noqa: SLF001 - dependency contract spike
+    tool_names = set(tool_node._tools_by_name)
 
     assert "task" not in tool_names
     assert not hasattr(StateBackend(), "execute")
-    assert "execute" in tool_names  # Present in scaffolding, but StateBackend cannot execute host commands.
+    assert "execute" in tool_names  # 도구 목록에는 있지만 StateBackend에서는 호스트 명령을 실행할 수 없다.
 
 
 def test_research_file_permissions_deny_everything_outside_run_namespace() -> None:

@@ -1,0 +1,18 @@
+package com.freelanceops.backend.domain.workspace.policy;
+
+/** Failure type used by the role-change specification fixture. */
+public class RbacInvariantViolationException extends RuntimeException {
+
+    private final String code;
+
+    public RbacInvariantViolationException(String code, String message) {
+        super(message);
+        this.code = code;
+    }
+
+    public String code() {
+        return code;
+    }
+}
+
+

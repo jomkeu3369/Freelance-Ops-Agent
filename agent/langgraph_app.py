@@ -1,4 +1,4 @@
-"""LangGraph CLI entrypoint for the flat ``src`` project layout."""
+"""단일 src 경로를 사용하는 LangGraph CLI 진입점."""
 
 from __future__ import annotations
 

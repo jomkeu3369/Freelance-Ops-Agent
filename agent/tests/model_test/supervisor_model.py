@@ -1,21 +1,8 @@
-"""Bounded Luna Supervisor prototype for workspace feature requirements.
-
-This module intentionally lives under ``tests/model_test`` while the model-backed
-workflow is being evaluated.  It is not a public API and does not access the
-business database.  Production tools must be called through authenticated Spring
-internal APIs after their contracts are implemented.
-
-The graph is deliberately one-way and loop-free::
-
-    main orchestrator
-        -> requirements supervisor
-        -> risk supervisor
-        -> final verifier/merger
-        -> END
-
-Every node can make at most one model call.  The graph enforces a shared call and
-output-token budget, preserves per-call usage/cost, and returns strict structured
-outputs instead of private chain-of-thought.
+"""작업공간 요구사항을 검토하는 Luna Supervisor 실험.
+tests/model_test에서 모델 흐름을 평가하며 업무 데이터베이스에 접근하지 않는다.
+운영 도구는 인증된 Spring API로 호출해야 한다. 그래프는 주 조정자 → 요구사항 검토
+→ 위험 검토 → 최종 검증 → 종료로 진행한다. 노드마다 모델을 한 번만 호출하고, 호출 수와
+출력 토큰 예산을 공유하며 사용량과 비용을 보존한다. 응답은 구조화된 공개 결과만 포함한다.
 """
 
 from __future__ import annotations
@@ -70,7 +57,7 @@ class RiskSeverity(StrEnum):
 
 
 class SupervisorRequest(StrictModel):
-    """Only mutable workflow input; trusted identity remains outside model prompts."""
+    """변경 가능한 작업 입력. 신뢰할 수 있는 사용자 식별 정보는 모델 프롬프트에서 분리한다."""
 
     run_id: UUID = Field(default_factory=uuid4)
     requirement_text: str = Field(min_length=1, max_length=50_000)
@@ -164,19 +151,11 @@ class StructuredResponse[OutputT: StrictModel](StrictModel):
 
 
 class StructuredModel(Protocol):
-    def generate[OutputT: StrictModel](
-        self,
-        *,
-        stage: str,
-        schema: type[OutputT],
-        system_prompt: str,
-        user_payload: dict[str, object],
-        max_output_tokens: int,
-    ) -> StructuredResponse[OutputT]: ...
+    def generate[OutputT: StrictModel](self, *, stage: str, schema: type[OutputT], system_prompt: str, user_payload: dict[str, object], max_output_tokens: int) -> StructuredResponse[OutputT]: ...  # noqa: E501
 
 
 class SupervisorGraphArtifacts(StrictModel):
-    """Files exported from the compiled LangGraph definition."""
+    """컴파일한 LangGraph에서 내보낸 파일 경로."""
 
     mermaid_path: Path
     svg_path: Path
@@ -184,7 +163,7 @@ class SupervisorGraphArtifacts(StrictModel):
 
 
 class OpenAIResponsesModel:
-    """Small Responses API adapter; import the SDK only for an actual live run."""
+    """실제 실행에서만 SDK를 불러오는 Responses API 어댑터."""
 
     def __init__(self, model: str = DEFAULT_MODEL, api_key: str | None = None) -> None:
         from openai import OpenAI
@@ -192,15 +171,7 @@ class OpenAIResponsesModel:
         self.model = model
         self.client = OpenAI(api_key=api_key or os.getenv("OPENAI_API_KEY"))
 
-    def generate[OutputT: StrictModel](
-        self,
-        *,
-        stage: str,
-        schema: type[OutputT],
-        system_prompt: str,
-        user_payload: dict[str, object],
-        max_output_tokens: int,
-    ) -> StructuredResponse[OutputT]:
+    def generate[OutputT: StrictModel](self, *, stage: str, schema: type[OutputT], system_prompt: str, user_payload: dict[str, object], max_output_tokens: int) -> StructuredResponse[OutputT]:  # noqa: E501
         started = time.perf_counter()
         response = self.client.responses.create(
             model=self.model,
@@ -219,7 +190,7 @@ class OpenAIResponsesModel:
                     "strict": True,
                     "schema": schema.model_json_schema(),
                 },
-            },
+            }
         )
         usage = response.usage
         if usage is None:
@@ -234,8 +205,8 @@ class OpenAIResponsesModel:
             usage=TokenUsage(
                 input_tokens=int(usage.input_tokens or 0),
                 cached_input_tokens=cached_tokens,
-                output_tokens=int(usage.output_tokens or 0),
-            ),
+                output_tokens=int(usage.output_tokens or 0)
+            )
         )
 
 
@@ -270,16 +241,7 @@ def _request(state: SupervisorState) -> SupervisorRequest:
     return SupervisorRequest.model_validate(state["request"])
 
 
-def _call_model[OutputT: StrictModel](
-    state: SupervisorState,
-    model: StructuredModel,
-    *,
-    stage: str,
-    schema: type[OutputT],
-    system_prompt: str,
-    user_payload: dict[str, object],
-    stage_output_cap: int,
-) -> tuple[OutputT, ModelCallRecord]:
+def _call_model[OutputT: StrictModel](state: SupervisorState, model: StructuredModel, *, stage: str, schema: type[OutputT], system_prompt: str, user_payload: dict[str, object], stage_output_cap: int) -> tuple[OutputT, ModelCallRecord]:  # noqa: E501
     request = _request(state)
     if state["model_call_count"] >= request.max_model_calls:
         raise SupervisorBudgetExceeded("max_model_calls exhausted before " + stage)
@@ -292,7 +254,7 @@ def _call_model[OutputT: StrictModel](
         schema=schema,
         system_prompt=system_prompt,
         user_payload=user_payload,
-        max_output_tokens=min(stage_output_cap, remaining),
+        max_output_tokens=min(stage_output_cap, remaining)
     )
     if response.usage.output_tokens > remaining:
         raise SupervisorBudgetExceeded("provider usage exceeded reserved output-token budget")
@@ -301,7 +263,7 @@ def _call_model[OutputT: StrictModel](
         model=response.model,
         latency_ms=response.latency_ms,
         usage=response.usage,
-        estimated_cost_usd=estimate_luna_cost(response.usage),
+        estimated_cost_usd=estimate_luna_cost(response.usage)
     )
     return response.output, record
 
@@ -338,7 +300,7 @@ open questions, and next action. Never expose private chain-of-thought."""
 
 
 def build_supervisor_graph(model: StructuredModel) -> Any:
-    """Build the fixed four-call Supervisor graph with no backward transitions."""
+    """이전 단계로 돌아가지 않는 네 단계 Supervisor 그래프를 구성한다."""
 
     def orchestrate(state: SupervisorState) -> dict[str, object]:
         request = _request(state)
@@ -355,7 +317,7 @@ def build_supervisor_graph(model: StructuredModel) -> Any:
                     "locale": request.locale,
                     "route_history": request.route_history,
                 },
-                stage_output_cap=512,
+                stage_output_cap=512
             )
         except SupervisorBudgetExceeded as error:
             return _budget_failure(state, error)
@@ -380,7 +342,7 @@ def build_supervisor_graph(model: StructuredModel) -> Any:
                     "requirement_text": request.requirement_text,
                     "project_context": request.project_context,
                 },
-                stage_output_cap=1_536,
+                stage_output_cap=1_536
             )
         except SupervisorBudgetExceeded as error:
             return _budget_failure(state, error)
@@ -405,7 +367,7 @@ def build_supervisor_graph(model: StructuredModel) -> Any:
                     "requirement_text": request.requirement_text,
                     "requirements_result": state["requirements_result"],
                 },
-                stage_output_cap=1_024,
+                stage_output_cap=1_024
             )
         except SupervisorBudgetExceeded as error:
             return _budget_failure(state, error)
@@ -429,7 +391,7 @@ def build_supervisor_graph(model: StructuredModel) -> Any:
                     "requirements_result": state["requirements_result"],
                     "risk_result": state["risk_result"],
                 },
-                stage_output_cap=1_024,
+                stage_output_cap=1_024
             )
         except SupervisorBudgetExceeded as error:
             return _budget_failure(state, error)
@@ -456,49 +418,35 @@ def build_supervisor_graph(model: StructuredModel) -> Any:
     builder.add_conditional_edges(
         "main_orchestrator",
         route_or_end("requirements_supervisor"),
-        {"requirements_supervisor": "requirements_supervisor", "end": END},
+        {"requirements_supervisor": "requirements_supervisor", "end": END}
     )
     builder.add_conditional_edges(
         "requirements_supervisor",
         route_or_end("risk_supervisor"),
-        {"risk_supervisor": "risk_supervisor", "end": END},
+        {"risk_supervisor": "risk_supervisor", "end": END}
     )
     builder.add_conditional_edges(
         "risk_supervisor",
         route_or_end("final_verifier"),
-        {"final_verifier": "final_verifier", "end": END},
+        {"final_verifier": "final_verifier", "end": END}
     )
     builder.add_edge("final_verifier", END)
     return builder.compile()
 
 
 class _GraphOnlyModel:
-    """Compile-time placeholder that prevents accidental provider calls."""
+    """그래프 컴파일 중 실제 공급자 호출을 막는 테스트 대역."""
 
-    def generate[OutputT: StrictModel](
-        self,
-        *,
-        stage: str,
-        schema: type[OutputT],
-        system_prompt: str,
-        user_payload: dict[str, object],
-        max_output_tokens: int,
-    ) -> StructuredResponse[OutputT]:
+    def generate[OutputT: StrictModel](self, *, stage: str, schema: type[OutputT], system_prompt: str, user_payload: dict[str, object], max_output_tokens: int) -> StructuredResponse[OutputT]:  # noqa: E501
         del stage, schema, system_prompt, user_payload, max_output_tokens
         raise RuntimeError("Graph rendering must not execute a model")
 
 
-def export_compiled_supervisor_graph(
-    output_dir: str | Path,
-    *,
-    render_png: bool = False,
-) -> SupervisorGraphArtifacts:
-    """Export Mermaid, local SVG, and optionally PNG from the compiled graph.
-
-    The graph is compiled with a provider-free placeholder, so this operation
-    neither requires ``OPENAI_API_KEY`` nor incurs model cost. SVG is rendered
-    locally from the compiled nodes and edges. Optional PNG rendering uses
-    LangGraph's Mermaid renderer and may contact its configured rendering service.
+def export_compiled_supervisor_graph(output_dir: str | Path, *, render_png: bool = False) -> SupervisorGraphArtifacts:
+    """컴파일한 그래프를 Mermaid와 로컬 SVG로 내보낸다. 컴파일에는 공급자 없는 대역을
+    사용하므로 API 키와 모델 비용이 필요하지 않다. 선택적인 PNG 출력은
+    LangGraph의 Mermaid 렌더러를 사용하며 설정된 렌더링 서비스에 연결할 수
+    있다.
     """
 
     target_dir = Path(output_dir).resolve()
@@ -521,12 +469,12 @@ def export_compiled_supervisor_graph(
     return SupervisorGraphArtifacts(
         mermaid_path=mermaid_path,
         svg_path=svg_path,
-        png_path=png_path,
+        png_path=png_path
     )
 
 
 def _render_graph_svg(drawable_graph: Any) -> str:
-    """Render a dependency-free reference diagram from compiled graph metadata."""
+    """컴파일한 그래프의 노드와 간선으로 외부 의존성 없는 참조 그림을 생성한다."""
 
     node_ids = list(drawable_graph.nodes)
     width = 1_100
@@ -654,19 +602,21 @@ def run_supervisor(request: SupervisorRequest, model: StructuredModel) -> dict[s
 
 
 def run_live(requirement_text: str, project_context: str = "") -> dict[str, object]:
-    """Explicit paid smoke-test entry point; never called by pytest or module import."""
+    """명시적으로 실행하는 유료 점검 진입점. pytest와 모듈 import에서는 호출하지
+    않는다.
+    """
 
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required for a live Supervisor run")
     request = SupervisorRequest(
         requirement_text=requirement_text,
-        project_context=project_context,
+        project_context=project_context
     )
     return run_supervisor(request, OpenAIResponsesModel())
 
 
 class FakeStructuredModel:
-    """Deterministic queue-backed model used by tests without network or API cost."""
+    """네트워크와 API 비용 없이 준비된 응답을 순서대로 반환하는 테스트 모델."""
 
     def __init__(self, outputs: Sequence[StrictModel], tokens_per_call: int = 10) -> None:
         self._outputs = list(outputs)
@@ -674,15 +624,7 @@ class FakeStructuredModel:
         self.stages: list[str] = []
         self.caps: list[int] = []
 
-    def generate[OutputT: StrictModel](
-        self,
-        *,
-        stage: str,
-        schema: type[OutputT],
-        system_prompt: str,
-        user_payload: dict[str, object],
-        max_output_tokens: int,
-    ) -> StructuredResponse[OutputT]:
+    def generate[OutputT: StrictModel](self, *, stage: str, schema: type[OutputT], system_prompt: str, user_payload: dict[str, object], max_output_tokens: int) -> StructuredResponse[OutputT]:  # noqa: E501
         del system_prompt, user_payload
         if not self._outputs:
             raise AssertionError("No fake output remains")
@@ -698,8 +640,8 @@ class FakeStructuredModel:
             usage=TokenUsage(
                 input_tokens=100,
                 cached_input_tokens=20,
-                output_tokens=self.tokens_per_call,
-            ),
+                output_tokens=self.tokens_per_call
+            )
         )
 
 
@@ -709,17 +651,17 @@ def _main() -> None:
         "--output-dir",
         type=Path,
         default=Path(__file__).with_name("artifacts"),
-        help="Artifact directory (default: tests/model_test/artifacts)",
+        help="Artifact directory (default: tests/model_test/artifacts)"
     )
     parser.add_argument(
         "--render-png",
         action="store_true",
-        help="Also render PNG through LangGraph's configured Mermaid renderer",
+        help="Also render PNG through LangGraph's configured Mermaid renderer"
     )
     args = parser.parse_args()
     artifacts = export_compiled_supervisor_graph(
         args.output_dir,
-        render_png=args.render_png,
+        render_png=args.render_png
     )
     print(json.dumps(artifacts.model_dump(mode="json"), ensure_ascii=False, indent=2))
 

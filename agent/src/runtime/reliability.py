@@ -1,14 +1,12 @@
-"""Failure-aware checkpoint retry and provider circuit policy."""
-
-# ruff: noqa: E501, I001
+"""실패 유형에 따른 체크포인트 재시도와 공급자 회로 차단기 정책."""
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-import hashlib
-import secrets
 
 from .task_contracts import FailureClassification, FailureSignals, RetryDecision, RetryDecisionSnapshot, RetryReason
 
@@ -40,7 +38,9 @@ class WeightedFailureClassifier:
         score = max(0, score)
         if score >= self.threshold:
             return FailureAssessment(FailureClassification.CORRELATED_PROVIDER, min(1.0, 0.55 + score * 0.07), score)
-        return FailureAssessment(FailureClassification.INDEPENDENT_TRANSIENT, min(0.95, 0.55 + (self.threshold - score) * 0.08), score)
+        return FailureAssessment(
+            FailureClassification.INDEPENDENT_TRANSIENT, min(0.95, 0.55 + (self.threshold - score) * 0.08), score
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +58,12 @@ class TokenBucketState:
 
     def at(self, now: datetime) -> TokenBucketState:
         elapsed = max(0.0, (now - self.refilled_at).total_seconds())
-        return TokenBucketState(self.capacity, min(self.capacity, self.tokens + elapsed * self.refill_per_second), self.refill_per_second, now)
+        return TokenBucketState(
+            self.capacity,
+            min(self.capacity, self.tokens + elapsed * self.refill_per_second),
+            self.refill_per_second,
+            now
+        )
 
     def consume(self, now: datetime) -> tuple[TokenBucketState, bool]:
         current = self.at(now)
@@ -68,28 +73,73 @@ class TokenBucketState:
 
 
 class HierarchicalRetryBudget:
-    def decide(self, assessment: FailureAssessment, workspace: TokenBucketState, global_bucket: TokenBucketState, *, attempt_number: int, max_attempts: int, now: datetime, backoff_seconds: float = 0) -> tuple[RetryDecisionSnapshot, TokenBucketState, TokenBucketState]:
+    def decide(self, assessment: FailureAssessment, workspace: TokenBucketState, global_bucket: TokenBucketState, *, attempt_number: int, max_attempts: int, now: datetime, backoff_seconds: float = 0) -> tuple[RetryDecisionSnapshot, TokenBucketState, TokenBucketState]:  # noqa: E501
         if attempt_number >= max_attempts:
-            return self._deny(RetryReason.MAX_ATTEMPTS_REACHED, assessment, workspace.at(now), global_bucket.at(now)), workspace.at(now), global_bucket.at(now)
+            return (
+                self._deny(RetryReason.MAX_ATTEMPTS_REACHED, assessment, workspace.at(now), global_bucket.at(now)),
+                workspace.at(now),
+                global_bucket.at(now),
+            )
         if assessment.classification is FailureClassification.DETERMINISTIC:
-            return self._deny(RetryReason.NON_RETRYABLE_FAILURE, assessment, workspace.at(now), global_bucket.at(now)), workspace.at(now), global_bucket.at(now)
+            return (
+                self._deny(RetryReason.NON_RETRYABLE_FAILURE, assessment, workspace.at(now), global_bucket.at(now)),
+                workspace.at(now),
+                global_bucket.at(now),
+            )
         if assessment.classification is FailureClassification.CORRELATED_PROVIDER:
-            return self._deny(RetryReason.CORRELATED_FAILURE_CIRCUIT_OPEN, assessment, workspace.at(now), global_bucket.at(now)), workspace.at(now), global_bucket.at(now)
+            return (
+                self._deny(
+                    RetryReason.CORRELATED_FAILURE_CIRCUIT_OPEN, assessment, workspace.at(now), global_bucket.at(now)
+                ),
+                workspace.at(now),
+                global_bucket.at(now),
+            )
         workspace_current = workspace.at(now)
         global_current = global_bucket.at(now)
         workspace_after, workspace_allowed = workspace_current.consume(now)
         if not workspace_allowed:
-            return self._deny(RetryReason.WORKSPACE_BUCKET_EMPTY, assessment, workspace_current, global_current), workspace_current, global_current
+            return (
+                self._deny(RetryReason.WORKSPACE_BUCKET_EMPTY, assessment, workspace_current, global_current),
+                workspace_current,
+                global_current,
+            )
         global_after, global_allowed = global_current.consume(now)
         if not global_allowed:
-            return self._deny(RetryReason.GLOBAL_BUCKET_EMPTY, assessment, workspace_current, global_current), workspace_current, global_current
+            return (
+                self._deny(RetryReason.GLOBAL_BUCKET_EMPTY, assessment, workspace_current, global_current),
+                workspace_current,
+                global_current,
+            )
         ready_at = now + timedelta(seconds=max(0, backoff_seconds))
-        snapshot = RetryDecisionSnapshot(decision=RetryDecision.ALLOW, reason=RetryReason.RETRY_ALLOWED, failure_classification=assessment.classification, classification_confidence=assessment.confidence, classifier_version=FAILURE_CLASSIFIER_VERSION, bucket_policy_version=RETRY_BUCKET_POLICY_VERSION, workspace_tokens_before=workspace_current.tokens, workspace_tokens_after=workspace_after.tokens, global_tokens_before=global_current.tokens, global_tokens_after=global_after.tokens, retry_ready_at=ready_at)
+        snapshot = RetryDecisionSnapshot(
+            decision=RetryDecision.ALLOW,
+            reason=RetryReason.RETRY_ALLOWED,
+            failure_classification=assessment.classification,
+            classification_confidence=assessment.confidence,
+            classifier_version=FAILURE_CLASSIFIER_VERSION,
+            bucket_policy_version=RETRY_BUCKET_POLICY_VERSION,
+            workspace_tokens_before=workspace_current.tokens,
+            workspace_tokens_after=workspace_after.tokens,
+            global_tokens_before=global_current.tokens,
+            global_tokens_after=global_after.tokens,
+            retry_ready_at=ready_at
+        )
         return snapshot, workspace_after, global_after
 
     @staticmethod
-    def _deny(reason: RetryReason, assessment: FailureAssessment, workspace: TokenBucketState, global_bucket: TokenBucketState) -> RetryDecisionSnapshot:
-        return RetryDecisionSnapshot(decision=RetryDecision.DENY, reason=reason, failure_classification=assessment.classification, classification_confidence=assessment.confidence, classifier_version=FAILURE_CLASSIFIER_VERSION, bucket_policy_version=RETRY_BUCKET_POLICY_VERSION, workspace_tokens_before=workspace.tokens, workspace_tokens_after=workspace.tokens, global_tokens_before=global_bucket.tokens, global_tokens_after=global_bucket.tokens)
+    def _deny(reason: RetryReason, assessment: FailureAssessment, workspace: TokenBucketState, global_bucket: TokenBucketState) -> RetryDecisionSnapshot:  # noqa: E501
+        return RetryDecisionSnapshot(
+            decision=RetryDecision.DENY,
+            reason=reason,
+            failure_classification=assessment.classification,
+            classification_confidence=assessment.confidence,
+            classifier_version=FAILURE_CLASSIFIER_VERSION,
+            bucket_policy_version=RETRY_BUCKET_POLICY_VERSION,
+            workspace_tokens_before=workspace.tokens,
+            workspace_tokens_after=workspace.tokens,
+            global_tokens_before=global_bucket.tokens,
+            global_tokens_after=global_bucket.tokens
+        )
 
 
 class CircuitState(StrEnum):

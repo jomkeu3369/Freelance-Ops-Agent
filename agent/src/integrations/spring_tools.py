@@ -1,4 +1,4 @@
-"""Least-privilege wrappers for Spring-owned deterministic business tools."""
+"""Spring이 관리하는 업무 도구를 위임된 최소 권한으로 호출한다."""
 
 from __future__ import annotations
 
@@ -29,6 +29,7 @@ class SpringToolError(RuntimeError):
         super().__init__(code)
         self.code = code
 
+
 class SpringToolClient:
     def __init__(self, base_url: str, *, timeout_seconds: float = 10.0, read_max_attempts: int = 2, client: Any | None = None) -> None:  # noqa: E501
         if not base_url.strip() or timeout_seconds <= 0 or not 1 <= read_max_attempts <= 3:
@@ -46,7 +47,7 @@ class SpringToolClient:
             run_id,
             retry_read=True,
             max_attempts=max_attempts,
-            traceparent=traceparent,
+            traceparent=traceparent
         )
         return self._validated(response, ProjectContext)
 
@@ -58,7 +59,7 @@ class SpringToolClient:
             run_id,
             retry_read=True,
             max_attempts=max_attempts,
-            traceparent=traceparent,
+            traceparent=traceparent
         )
         return self._validated(response, DomainPack)
 
@@ -69,7 +70,7 @@ class SpringToolClient:
             delegation_token,
             run_id,
             json_body=draft.model_dump(mode="json", by_alias=True),
-            traceparent=traceparent,
+            traceparent=traceparent
         )
         return self._validated(response, RequirementValidationResult)
 
@@ -80,7 +81,7 @@ class SpringToolClient:
             delegation_token,
             run_id,
             json_body=request.model_dump(mode="json", by_alias=True),
-            traceparent=traceparent,
+            traceparent=traceparent
         )
         return self._validated(response, QuoteCalculationResult)
 
@@ -93,7 +94,7 @@ class SpringToolClient:
             json_body=request.model_dump(mode="json", by_alias=True),
             retry_read=True,
             max_attempts=max_attempts,
-            traceparent=traceparent,
+            traceparent=traceparent
         )
         try:
             return [KnowledgeSearchResult.model_validate(item) for item in response.json()]
@@ -115,18 +116,10 @@ class SpringToolClient:
         try:
             for attempt in range(1, attempts + 1):
                 try:
-                    headers = {
-                        "Authorization": f"Bearer {delegation_token}",
-                        "X-Run-Id": str(run_id),
-                    }
+                    headers = {"Authorization": f"Bearer {delegation_token}", "X-Run-Id": str(run_id)}
                     if traceparent is not None:
                         headers["traceparent"] = traceparent
-                    response = await client.request(
-                        method,
-                        path,
-                        headers=headers,
-                        json=json_body,
-                    )
+                    response = await client.request(method, path, headers=headers, json=json_body)
                 except httpx.TimeoutException as error:
                     if attempt >= attempts:
                         raise SpringToolError("SPRING_TOOL_TIMEOUT") from error

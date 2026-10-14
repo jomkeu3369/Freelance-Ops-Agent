@@ -1,4 +1,4 @@
-"""Authenticated, bounded extraction. No originals are written to disk or logs."""
+"""위임 토큰을 검증하고 첨부파일의 크기·시간 한도를 적용한다. 원본은 저장하지 않는다."""
 
 import asyncio
 import contextlib
@@ -12,7 +12,8 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from pydantic import Field, ValidationError
 
-from api.assumptions.router import BearerDependency, VerifierDependency, _problem
+from api.dependencies import BearerDependency, VerifierDependency
+from api.responses import problem_response
 from contracts import StrictModel, TrustedRunContext
 from security import DelegationTokenVerifier, TokenVerificationError
 
@@ -36,7 +37,7 @@ class ExtractInput(StrictModel):
 
 
 async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
-    # Strip credentials/environment from the parser child. No shell or filename arguments.
+    # 파서 자식 프로세스에는 인증 정보와 환경 변수를 전달하지 않는다. 셸과 파일명 인자도 사용하지 않는다.
     environment = {key: os.environ[key] for key in ("SystemRoot", "WINDIR", "PATH", "TEMP", "TMP") if key in os.environ}
     process = await asyncio.create_subprocess_exec(
         sys.executable,
@@ -47,7 +48,7 @@ async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
         stderr=asyncio.subprocess.DEVNULL,
         env=environment,
         creationflags=0x08000000 if os.name == "nt" else 0,
-        start_new_session=os.name == "posix",
+        start_new_session=os.name == "posix"
     )
     try:
         async with asyncio.timeout(15):
@@ -56,8 +57,8 @@ async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
             raise ValueError("PARSER_RESOURCE_LIMIT")
         return json.loads(stdout)  # type: ignore[no-any-return]
     finally:
-        # Include native OCR/rasterizer descendants on timeout, cancellation and worker failure.
-        if os.name == "posix":
+        # 시간 초과, 취소, 작업자 실패 시 OCR과 이미지 변환 도구의 하위 프로세스도 종료한다.
+        if sys.platform != "win32" and os.name == "posix":
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
         elif process.returncode is None:
@@ -69,18 +70,18 @@ async def run_reader(file: FileInput) -> dict:  # type: ignore[type-arg]
 @router.post("/extract")
 async def extract_attachment(request: Request, credentials: BearerDependency, verifier: VerifierDependency):  # type: ignore[no-untyped-def]  # noqa: E501
     if credentials is None or credentials.scheme.lower() != "bearer":
-        return _problem(401, "Delegation required", "DELEGATION_TOKEN_REQUIRED")
+        return problem_response(401, "Delegation required", "DELEGATION_TOKEN_REQUIRED")
     try:
         principal = verifier.verify(credentials.credentials)
         if not {"agent.run", "project.read"}.issubset(principal.permissions):
-            return _problem(403, "Delegation forbidden", "DELEGATION_FORBIDDEN")
+            return problem_response(403, "Delegation forbidden", "DELEGATION_FORBIDDEN")
     except TokenVerificationError:
-        return _problem(403, "Delegation forbidden", "DELEGATION_FORBIDDEN")
+        return problem_response(403, "Delegation forbidden", "DELEGATION_FORBIDDEN")
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
         if len(raw) > 2_800_000:
-            return _problem(413, "File size limit", "FILE_SIZE_LIMIT")
+            return problem_response(413, "File size limit", "FILE_SIZE_LIMIT")
     try:
         body = ExtractInput.model_validate_json(raw)
         DelegationTokenVerifier.authorize_run(principal, run_id=body.context.run_id, permission="agent.run")
@@ -90,22 +91,22 @@ async def extract_attachment(request: Request, credentials: BearerDependency, ve
             or principal.initiated_by != body.context.initiated_by
             or not set(body.context.effective_permissions).issubset(principal.permissions)
         ):
-            return _problem(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
+            return problem_response(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
     except (ValidationError, TokenVerificationError):
-        return _problem(400, "Invalid attachment request", "INVALID_ATTACHMENT")
+        return problem_response(400, "Invalid attachment request", "INVALID_ATTACHMENT")
     try:
         async with asyncio.timeout(0.2):
             await _slots.acquire()
     except TimeoutError:
-        return _problem(429, "Reader busy; retry later", "READER_BUSY")
+        return problem_response(429, "Reader busy; retry later", "READER_BUSY")
     try:
         result = await run_reader(body.file)
         if "error" in result:
-            return _problem(422, "File cannot be safely read", result["error"])
+            return problem_response(422, "File cannot be safely read", result["error"])
         return result
     except TimeoutError:
-        return _problem(422, "Reader time limit", "READER_TIMEOUT")
+        return problem_response(422, "Reader time limit", "READER_TIMEOUT")
     except (OSError, ValueError):
-        return _problem(422, "Reader resource limit", "PARSER_RESOURCE_LIMIT")
+        return problem_response(422, "Reader resource limit", "PARSER_RESOURCE_LIMIT")
     finally:
         _slots.release()

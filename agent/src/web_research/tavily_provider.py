@@ -1,4 +1,4 @@
-"""Tavily adapter for bounded source discovery."""
+"""검색 한도를 적용하는 Tavily 어댑터."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class TavilySearchProvider:
         for row in rows[: request.max_results]:
             url = self._required_string(row, "url")
             await self._security.validate(url, request.allowed_domains, resolve_dns=False)
-            
+
             results.append(
                 SearchResult(
                     title=self._string(row.get("title"))[:500],
@@ -46,14 +46,14 @@ class TavilySearchProvider:
                     provider=WebProvider.TAVILY
                 )
             )
-        
+
         return results
 
     @staticmethod
     def _rows(response: object) -> list[dict[str, Any]]:
         if not isinstance(response, dict) or not isinstance(response.get("results"), list):
             raise TavilyProviderError("Tavily response does not satisfy the expected schema")
-        
+
         return [row for row in response["results"] if isinstance(row, dict)]
 
     @staticmethod
@@ -61,7 +61,7 @@ class TavilySearchProvider:
         value = row.get(key)
         if not isinstance(value, str) or not value.strip():
             raise TavilyProviderError(f"Tavily result is missing {key}")
-       
+
         return value.strip()
 
     @staticmethod

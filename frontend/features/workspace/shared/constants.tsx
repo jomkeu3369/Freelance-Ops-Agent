@@ -32,10 +32,6 @@ export const configuredModelOptions: Record<Provider, string[]> = {
         )
 };
 
-export const suggestedModelOptions = [
-  ...new Set([...configuredModelOptions.OPENAI])
-];
-
 export const pipelineColumns: Array<{
   key: string;
   title: string;

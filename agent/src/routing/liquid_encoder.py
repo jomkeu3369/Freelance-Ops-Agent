@@ -1,4 +1,4 @@
-"""Optional LiquidAI encoder adapter for local routing diagnostics."""
+"""로컬 라우팅 점검에 사용하는 선택적 LiquidAI 인코더 어댑터."""
 
 from __future__ import annotations
 
@@ -12,25 +12,15 @@ from .hybrid import ROUTE_ORDER, RouteLabel
 
 
 class LiquidEncoderRouteScorer:
-    """Score every route with the pinned LiquidAI model and trained routing head."""
+    """고정된 LiquidAI 모델과 학습한 분류기로 각 경로의 점수를 계산한다."""
 
-    def __init__(
-        self,
-        *,
-        model_id: str,
-        revision: str,
-        head_path: Path,
-        route_descriptions: Mapping[RouteLabel, str],
-        device: str = "auto",
-    ) -> None:
+    def __init__(self, *, model_id: str, revision: str, head_path: Path, route_descriptions: Mapping[RouteLabel, str], device: str = "auto") -> None:  # noqa: E501
         try:
             import torch
             from safetensors.torch import load_file
             from transformers import AutoModel, AutoTokenizer
         except ImportError as error:
-            raise RuntimeError(
-                "local router dependencies are missing; install the local-router extra"
-            ) from error
+            raise RuntimeError("local router dependencies are missing; install the local-router extra") from error
 
         if device not in {"auto", "cpu", "cuda"}:
             raise ValueError("router device must be one of: auto, cpu, cuda")
@@ -40,22 +30,12 @@ class LiquidEncoderRouteScorer:
 
         self._torch = torch
         self._device = torch.device(selected_device)
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            model_id,
-            revision=revision,
-            trust_remote_code=True,
-        )
-        model = AutoModel.from_pretrained(
-            model_id,
-            revision=revision,
-            trust_remote_code=True,
-        )
+        self._tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision, trust_remote_code=True)
+        model = AutoModel.from_pretrained(model_id, revision=revision, trust_remote_code=True)
         missing, unexpected = model.load_state_dict(load_file(str(head_path)), strict=False)
         invalid_missing = [name for name in missing if not name.startswith("lfm2.")]
         if invalid_missing or unexpected:
-            raise RuntimeError(
-                f"invalid routing head: missing={invalid_missing}, unexpected={unexpected}"
-            )
+            raise RuntimeError(f"invalid routing head: missing={invalid_missing}, unexpected={unexpected}")
         self._model = model.eval().to(self._device)
         self._route_lanes = [f"{route.value}: {route_descriptions[route]}" for route in ROUTE_ORDER]
         self._inference_lock = threading.Lock()
@@ -70,11 +50,7 @@ class LiquidEncoderRouteScorer:
 
     def _score_routes_sync(self, text: str) -> dict[RouteLabel, float]:
         with self._inference_lock, self._torch.inference_mode():
-            raw_scores: list[dict[str, Any]] = self._model.route(
-                text,
-                self._route_lanes,
-                tokenizer=self._tokenizer,
-            )
+            raw_scores: list[dict[str, Any]] = self._model.route(text, self._route_lanes, tokenizer=self._tokenizer)
 
         scores: dict[RouteLabel, float] = {}
         for item in raw_scores:

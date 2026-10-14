@@ -1,6 +1,4 @@
-"""PostgreSQL registry for versioned tasks and execution attempts."""
-
-# ruff: noqa: E501, I001
+"""버전이 지정된 작업과 실행 시도의 PostgreSQL 등록 저장소."""
 
 from __future__ import annotations
 
@@ -15,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel
 
+from .task_attempt_events import TaskAttemptEventConflictError, TaskAttemptEventWrite
 from .task_contracts import (
     AttemptStatus,
     DepartmentTask,
@@ -25,9 +24,8 @@ from .task_contracts import (
     ensure_expected_revision,
     ensure_next_revision,
     ensure_task_transition,
-    ensure_workspace_scope
+    ensure_workspace_scope,
 )
-from .task_attempt_events import TaskAttemptEventConflictError, TaskAttemptEventWrite
 
 
 class TaskRegistryError(RuntimeError):
@@ -67,7 +65,9 @@ class PostgresTaskRegistry:
             try:
                 existing = await self.get_task(task.task_id, task.revision, task.workspace_id)
             except (TaskNotFoundError, TaskRevisionConflictError):
-                raise TaskRegistryError("task could not be created because a registry constraint was violated") from error
+                raise TaskRegistryError(
+                    "task could not be created because a registry constraint was violated"
+                ) from error
             if existing == task:
                 return existing
             raise TaskAlreadyExistsError("task id and revision already exist with different data") from error
@@ -82,7 +82,7 @@ class PostgresTaskRegistry:
         ensure_workspace_scope(workspace_id, model.workspace_id)
         return self._task(model)
 
-    async def transition_task(self, task_id: UUID, revision: int, workspace_id: UUID, target: TaskStatus) -> DepartmentTask:
+    async def transition_task(self, task_id: UUID, revision: int, workspace_id: UUID, target: TaskStatus) -> DepartmentTask:  # noqa: E501
         async with self._database.session() as session:
             model = await self._locked_task(session, task_id, revision)
             ensure_workspace_scope(workspace_id, model.workspace_id)
@@ -99,7 +99,11 @@ class PostgresTaskRegistry:
         async with self._database.session() as session:
             current = await self._locked_task(session, task.task_id, current_revision)
             ensure_workspace_scope(task.workspace_id, current.workspace_id)
-            if task.run_id != current.run_id or task.project_id != current.project_id or task.department.value != current.department:
+            if (
+                task.run_id != current.run_id
+                or task.project_id != current.project_id
+                or task.department.value != current.department
+            ):
                 raise TaskRevisionConflictError("new task revision cannot change run, project or department identity")
             ensure_task_transition(TaskStatus(current.status), TaskStatus.SUPERSEDED)
             current.status = TaskStatus.SUPERSEDED.value
@@ -140,9 +144,11 @@ class PostgresTaskRegistry:
         ensure_workspace_scope(workspace_id, model.workspace_id)
         return self._attempt(model)
 
-    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: TaskAttemptEventWrite | None = None) -> TaskAttempt:
+    async def transition_attempt(self, attempt_id: UUID, workspace_id: UUID, target: AttemptStatus, *, queued_at: datetime | None = None, started_at: datetime | None = None, finished_at: datetime | None = None, event: TaskAttemptEventWrite | None = None) -> TaskAttempt:  # noqa: E501
         async with self._database.session() as session:
-            statement = select(AgentTaskAttemptModel).where(AgentTaskAttemptModel.attempt_id == attempt_id).with_for_update()
+            statement = (
+                select(AgentTaskAttemptModel).where(AgentTaskAttemptModel.attempt_id == attempt_id).with_for_update()
+            )
             model = await session.scalar(statement)
             if model is None:
                 raise AttemptNotFoundError("task attempt was not found")
@@ -170,8 +176,7 @@ class PostgresTaskRegistry:
             return attempt
 
     @staticmethod
-    def _require_event_identity(model: AgentTaskAttemptModel, event: TaskAttemptEventWrite,
-                                target: AttemptStatus) -> None:
+    def _require_event_identity(model: AgentTaskAttemptModel, event: TaskAttemptEventWrite, target: AttemptStatus) -> None:  # noqa: E501
         expected_type = {
             AttemptStatus.QUEUED: "attempt.queued",
             AttemptStatus.RUNNING: "attempt.started",
@@ -192,23 +197,42 @@ class PostgresTaskRegistry:
 
     @staticmethod
     async def _event_conflict(session: AsyncSession, event: TaskAttemptEventWrite) -> AgentTaskEventModel | None:
-        statement = select(AgentTaskEventModel).where(or_(
-            AgentTaskEventModel.event_id == event.event_id,
-            and_(AgentTaskEventModel.source == event.source, AgentTaskEventModel.source_event_id == event.source_event_id),
-            and_(AgentTaskEventModel.attempt_id == event.attempt_id, AgentTaskEventModel.sequence == event.sequence),
-        )).limit(1)
+        statement = (
+            select(AgentTaskEventModel)
+            .where(
+                or_(
+                    AgentTaskEventModel.event_id == event.event_id,
+                    and_(
+                        AgentTaskEventModel.source == event.source,
+                        AgentTaskEventModel.source_event_id == event.source_event_id
+                    ),
+                    and_(
+                        AgentTaskEventModel.attempt_id == event.attempt_id,
+                        AgentTaskEventModel.sequence == event.sequence
+                    )
+                )
+            )
+            .limit(1)
+        )
         return cast(AgentTaskEventModel | None, await session.scalar(statement))
 
     @staticmethod
     def _same_event_model(model: AgentTaskEventModel, event: TaskAttemptEventWrite) -> bool:
         return (
-            model.event_id == event.event_id and model.run_id == event.run_id
-            and model.schema_version == event.schema_version and model.source == event.source
-            and model.source_event_id == event.source_event_id and model.task_id == event.task_id
-            and model.task_revision == event.task_revision and model.attempt_id == event.attempt_id
-            and model.attempt_number == event.attempt_number and model.workspace_id == event.workspace_id
-            and model.sequence == event.sequence and model.event_type == event.event_type
-            and model.phase == event.phase and model.milestone == event.milestone
+            model.event_id == event.event_id
+            and model.run_id == event.run_id
+            and model.schema_version == event.schema_version
+            and model.source == event.source
+            and model.source_event_id == event.source_event_id
+            and model.task_id == event.task_id
+            and model.task_revision == event.task_revision
+            and model.attempt_id == event.attempt_id
+            and model.attempt_number == event.attempt_number
+            and model.workspace_id == event.workspace_id
+            and model.sequence == event.sequence
+            and model.event_type == event.event_type
+            and model.phase == event.phase
+            and model.milestone == event.milestone
             and model.occurred_at == event.occurred_at.astimezone(UTC)
             and dict(model.data_json) == dict(event.data)
         )
@@ -216,29 +240,49 @@ class PostgresTaskRegistry:
     @staticmethod
     def _event_model(event: TaskAttemptEventWrite, received_at: datetime) -> AgentTaskEventModel:
         return AgentTaskEventModel(
-            event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version,
-            source=event.source, source_event_id=event.source_event_id, task_id=event.task_id,
-            task_revision=event.task_revision, attempt_id=event.attempt_id,
-            attempt_number=event.attempt_number, workspace_id=event.workspace_id,
-            sequence=event.sequence, event_type=event.event_type, phase=event.phase,
-            milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC),
-            received_at=received_at, data_json=dict(event.data), delivery_status="PENDING",
-            delivery_attempts=0, delivery_available_at=received_at,
+            event_id=event.event_id,
+            run_id=event.run_id,
+            schema_version=event.schema_version,
+            source=event.source,
+            source_event_id=event.source_event_id,
+            task_id=event.task_id,
+            task_revision=event.task_revision,
+            attempt_id=event.attempt_id,
+            attempt_number=event.attempt_number,
+            workspace_id=event.workspace_id,
+            sequence=event.sequence,
+            event_type=event.event_type,
+            phase=event.phase,
+            milestone=event.milestone,
+            occurred_at=event.occurred_at.astimezone(UTC),
+            received_at=received_at,
+            data_json=dict(event.data),
+            delivery_status="PENDING",
+            delivery_attempts=0,
+            delivery_available_at=received_at
         )
 
     async def _locked_task(self, session: AsyncSession, task_id: UUID, revision: int) -> AgentTaskModel:
-        statement = select(AgentTaskModel).where(AgentTaskModel.task_id == task_id, AgentTaskModel.revision == revision).with_for_update()
+        statement = (
+            select(AgentTaskModel)
+            .where(AgentTaskModel.task_id == task_id, AgentTaskModel.revision == revision)
+            .with_for_update()
+        )
         model = await session.scalar(statement)
         if model is not None:
             return model
-        latest = await session.scalar(select(func.max(AgentTaskModel.revision)).where(AgentTaskModel.task_id == task_id))
+        latest = await session.scalar(
+            select(func.max(AgentTaskModel.revision)).where(AgentTaskModel.task_id == task_id)
+        )
         if latest is not None:
             ensure_expected_revision(int(latest), revision)
         raise TaskNotFoundError("task was not found")
 
     async def _raise_task_lookup_error(self, task_id: UUID, revision: int) -> None:
         async with self._database.session() as session:
-            latest = await session.scalar(select(func.max(AgentTaskModel.revision)).where(AgentTaskModel.task_id == task_id))
+            latest = await session.scalar(
+                select(func.max(AgentTaskModel.revision)).where(AgentTaskModel.task_id == task_id)
+            )
         if latest is not None:
             ensure_expected_revision(int(latest), revision)
         raise TaskNotFoundError("task was not found")
@@ -246,17 +290,88 @@ class PostgresTaskRegistry:
     @staticmethod
     def _task_model(task: DepartmentTask) -> AgentTaskModel:
         now = datetime.now(UTC)
-        return AgentTaskModel(task_id=task.task_id, revision=task.revision, run_id=task.run_id, workspace_id=task.workspace_id, project_id=task.project_id, department=task.department.value, status=task.status.value, priority=task.priority, dependency_task_ids=[str(value) for value in task.dependency_task_ids], execution_json=task.execution.model_dump(mode="json"), schema_version=task.schema_version, created_at=task.created_at, updated_at=now)
+        return AgentTaskModel(
+            task_id=task.task_id,
+            revision=task.revision,
+            run_id=task.run_id,
+            workspace_id=task.workspace_id,
+            project_id=task.project_id,
+            department=task.department.value,
+            status=task.status.value,
+            priority=task.priority,
+            dependency_task_ids=[str(value) for value in task.dependency_task_ids],
+            execution_json=task.execution.model_dump(mode="json"),
+            schema_version=task.schema_version,
+            created_at=task.created_at,
+            updated_at=now
+        )
 
     @staticmethod
     def _task(model: AgentTaskModel) -> DepartmentTask:
-        return DepartmentTask.model_validate({"task_id": model.task_id, "run_id": model.run_id, "workspace_id": model.workspace_id, "project_id": model.project_id, "department": model.department, "revision": model.revision, "status": model.status, "priority": model.priority, "dependency_task_ids": model.dependency_task_ids, "execution": model.execution_json, "created_at": model.created_at, "schema_version": model.schema_version})
+        return DepartmentTask.model_validate(
+            {
+                "task_id": model.task_id,
+                "run_id": model.run_id,
+                "workspace_id": model.workspace_id,
+                "project_id": model.project_id,
+                "department": model.department,
+                "revision": model.revision,
+                "status": model.status,
+                "priority": model.priority,
+                "dependency_task_ids": model.dependency_task_ids,
+                "execution": model.execution_json,
+                "created_at": model.created_at,
+                "schema_version": model.schema_version,
+            }
+        )
 
     @staticmethod
     def _attempt_model(attempt: TaskAttempt) -> AgentTaskAttemptModel:
         now = datetime.now(UTC)
-        return AgentTaskAttemptModel(attempt_id=attempt.attempt_id, task_id=attempt.task_id, task_revision=attempt.task_revision, run_id=attempt.run_id, workspace_id=attempt.workspace_id, attempt_number=attempt.attempt_number, status=attempt.status.value, predicted_service_runtime_seconds=attempt.predicted_service_runtime_seconds, predictor_version=attempt.predictor_version, queued_at=attempt.queued_at, started_at=attempt.started_at, finished_at=attempt.finished_at, checkpoint_id=attempt.checkpoint_id, checkpoint_artifact_reference=attempt.checkpoint_artifact_reference, resume_token_hash=attempt.resume_token_hash, checkpoint_restored_seconds=attempt.checkpoint_restored_seconds, completed_steps=list(attempt.completed_steps), side_effect_idempotency_keys=list(attempt.side_effect_idempotency_keys), schema_version=attempt.schema_version, created_at=now, updated_at=now)
+        return AgentTaskAttemptModel(
+            attempt_id=attempt.attempt_id,
+            task_id=attempt.task_id,
+            task_revision=attempt.task_revision,
+            run_id=attempt.run_id,
+            workspace_id=attempt.workspace_id,
+            attempt_number=attempt.attempt_number,
+            status=attempt.status.value,
+            predicted_service_runtime_seconds=attempt.predicted_service_runtime_seconds,
+            predictor_version=attempt.predictor_version,
+            queued_at=attempt.queued_at,
+            started_at=attempt.started_at,
+            finished_at=attempt.finished_at,
+            checkpoint_id=attempt.checkpoint_id,
+            checkpoint_artifact_reference=attempt.checkpoint_artifact_reference,
+            resume_token_hash=attempt.resume_token_hash,
+            checkpoint_restored_seconds=attempt.checkpoint_restored_seconds,
+            completed_steps=list(attempt.completed_steps),
+            side_effect_idempotency_keys=list(attempt.side_effect_idempotency_keys),
+            schema_version=attempt.schema_version,
+            created_at=now,
+            updated_at=now
+        )
 
     @staticmethod
     def _attempt(model: AgentTaskAttemptModel) -> TaskAttempt:
-        return TaskAttempt(attempt_id=model.attempt_id, task_id=model.task_id, run_id=model.run_id, workspace_id=model.workspace_id, task_revision=model.task_revision, attempt_number=model.attempt_number, status=AttemptStatus(model.status), predicted_service_runtime_seconds=model.predicted_service_runtime_seconds, predictor_version=model.predictor_version, queued_at=model.queued_at, started_at=model.started_at, finished_at=model.finished_at, checkpoint_id=model.checkpoint_id, checkpoint_artifact_reference=model.checkpoint_artifact_reference, resume_token_hash=model.resume_token_hash, checkpoint_restored_seconds=model.checkpoint_restored_seconds, completed_steps=list(model.completed_steps), side_effect_idempotency_keys=list(model.side_effect_idempotency_keys), schema_version=model.schema_version)
+        return TaskAttempt(
+            attempt_id=model.attempt_id,
+            task_id=model.task_id,
+            run_id=model.run_id,
+            workspace_id=model.workspace_id,
+            task_revision=model.task_revision,
+            attempt_number=model.attempt_number,
+            status=AttemptStatus(model.status),
+            predicted_service_runtime_seconds=model.predicted_service_runtime_seconds,
+            predictor_version=model.predictor_version,
+            queued_at=model.queued_at,
+            started_at=model.started_at,
+            finished_at=model.finished_at,
+            checkpoint_id=model.checkpoint_id,
+            checkpoint_artifact_reference=model.checkpoint_artifact_reference,
+            resume_token_hash=model.resume_token_hash,
+            checkpoint_restored_seconds=model.checkpoint_restored_seconds,
+            completed_steps=list(model.completed_steps),
+            side_effect_idempotency_keys=list(model.side_effect_idempotency_keys),
+            schema_version=model.schema_version
+        )

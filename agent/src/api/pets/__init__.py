@@ -1,1 +1,1 @@
-"""Bounded pet profile generation."""
+"""허용된 값과 예산 안에서 펫 프로필을 생성한다."""

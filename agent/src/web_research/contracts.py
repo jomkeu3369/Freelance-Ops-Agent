@@ -1,4 +1,4 @@
-"""Provider-neutral contracts for bounded web discovery and collection."""
+"""예산이 제한된 웹 검색과 수집의 공통 계약."""
 
 from __future__ import annotations
 

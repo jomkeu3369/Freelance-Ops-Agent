@@ -68,7 +68,7 @@ def make_config() -> PgVectorPoolConfig:
     return PgVectorPoolConfig(
         database_url="postgresql://agent_user:secret@postgres:5432/freelance_ops",
         timeout_seconds=3.0,
-        open_timeout_seconds=4.0,
+        open_timeout_seconds=4.0
     )
 
 
@@ -126,10 +126,21 @@ async def test_runtime_table_verification_fails_closed_when_migration_is_missing
 
     async def execute(statement: object) -> RuntimeTableResult:
         session.statements.append(statement)
-        return RuntimeTableResult(("agent_run_state", "agent_run_event", "agent_task", None,
-                                   "agent_task_event", "agent_task_command_receipt", "agent_retry_bucket",
-                                   "agent_provider_circuit", "agent_scheduler_entry",
-                                   "agent_worker_capacity_event", "agent_runtime_release"))
+        return RuntimeTableResult(
+            (
+                "agent_run_state",
+                "agent_run_event",
+                "agent_task",
+                None,
+                "agent_task_event",
+                "agent_task_command_receipt",
+                "agent_retry_bucket",
+                "agent_provider_circuit",
+                "agent_scheduler_entry",
+                "agent_worker_capacity_event",
+                "agent_runtime_release",
+            )
+        )
 
     session.execute = cast(Any, execute)
     manager._engine = cast(Any, engine)

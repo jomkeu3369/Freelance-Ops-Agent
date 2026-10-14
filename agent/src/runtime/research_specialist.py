@@ -1,6 +1,4 @@
-"""Pre-registered read-only Research specialist with independent evidence verification."""
-
-# ruff: noqa: E501
+"""사전 등록된 읽기 전용 Research 실행기. 조사 근거는 별도로 검증한다."""
 
 from __future__ import annotations
 
@@ -56,7 +54,7 @@ class VerifiedResearch:
 
 
 class ResearchResultVerifier:
-    """Verifies evidence independently from the model that produced the summary."""
+    """요약을 생성한 모델과 별개로 근거를 검증한다."""
 
     def verify(self, summary: str, sources: Sequence[SourceReference]) -> VerifiedResearch:
         citations = [int(value) for value in _CITATION.findall(summary)]
@@ -78,26 +76,36 @@ class ResearchResultVerifier:
     @staticmethod
     def _valid_source(source: SourceReference) -> bool:
         parsed = urlsplit(source.url)
-        return parsed.scheme in {"http", "https"} and bool(parsed.hostname) and source.fetched_at.tzinfo is not None and source.fetched_at.utcoffset() is not None and source.authority_level in {"OFFICIAL", "PRIMARY", "SECONDARY", "UNKNOWN"}
+        return (
+            parsed.scheme in {"http", "https"}
+            and bool(parsed.hostname)
+            and source.fetched_at.tzinfo is not None
+            and source.fetched_at.utcoffset() is not None
+            and source.authority_level in {"OFFICIAL", "PRIMARY", "SECONDARY", "UNKNOWN"}
+        )
 
 
 class ReadOnlyResearchSpecialist:
     PROFILE = "research-read-v1"
 
-    def __init__(self, provider: ReActStepProvider, research_tool: ResearchTool, verifier: ResearchResultVerifier | None = None) -> None:
+    def __init__(self, provider: ReActStepProvider, research_tool: ResearchTool, verifier: ResearchResultVerifier | None = None) -> None:  # noqa: E501
         self._provider = provider
         self._research_tool = research_tool
         self._verifier = verifier or ResearchResultVerifier()
 
-    async def execute(self, task: DepartmentTask, *, objective: str, jurisdiction: str | None = None) -> ResearchSpecialistResult:
+    async def execute(self, task: DepartmentTask, *, objective: str, jurisdiction: str | None = None) -> ResearchSpecialistResult:  # noqa: E501
         self._require_contract(task, objective)
         collections: list[ResearchCollection] = []
 
         async def collect(arguments: BaseModel) -> ResearchCollection:
             query = ResearchQuery.model_validate(arguments.model_dump(mode="json"))
-            remaining_search_credits = task.execution.budget.max_search_credits - sum(item.search_credits for item in collections)
+            remaining_search_credits = task.execution.budget.max_search_credits - sum(
+                item.search_credits for item in collections
+            )
             remaining_tool_calls = task.execution.budget.max_tool_calls - sum(item.tool_calls for item in collections)
-            collection = await self._research_tool.collect(query.query, jurisdiction, remaining_search_credits, remaining_tool_calls)
+            collection = await self._research_tool.collect(
+                query.query, jurisdiction, remaining_search_credits, remaining_tool_calls
+            )
             if collection.search_credits > remaining_search_credits or collection.tool_calls > remaining_tool_calls:
                 raise ResearchSpecialistError("RESEARCH_USAGE_EXCEEDED")
             collections.append(collection)
@@ -107,13 +115,23 @@ class ReadOnlyResearchSpecialist:
             assert isinstance(collection, ResearchCollection)
             sources = self._unique_sources(collections)
             return {
-                "sources": [{"source_id": index, **source.model_dump(mode="json")} for index, source in enumerate(sources, start=1)],
+                "sources": [
+                    {"source_id": index, **source.model_dump(mode="json")}
+                    for index, source in enumerate(sources, start=1)
+                ],
                 "search_credits": collection.search_credits,
                 "tool_calls": collection.tool_calls,
-                "fetched_pages": collection.fetched_pages
+                "fetched_pages": collection.fetched_pages,
             }
 
-        tool = StructuredTool(name="web_research", description="Search and fetch allowlisted public sources without side effects.", input_model=ResearchQuery, handler=collect, sanitize_observation=observation, call_cost=self._tool_cost)
+        tool = StructuredTool(
+            name="web_research",
+            description="Search and fetch allowlisted public sources without side effects.",
+            input_model=ResearchQuery,
+            handler=collect,
+            sanitize_observation=observation,
+            call_cost=self._tool_cost
+        )
         loop = BoundedReActLoop(self._provider, [tool])
         budget = task.execution.budget
         objective_payload = {
@@ -123,10 +141,16 @@ class ReadOnlyResearchSpecialist:
             "jurisdiction": jurisdiction,
             "output_contract": {
                 "summary_must_cite_evidence": "Use [source:N] markers from web_research observations.",
-                "no_uncited_factual_claims": True
-            }
+                "no_uncited_factual_claims": True,
+            },
         }
-        loop_budget = ReActLoopBudget(max_model_calls=budget.max_model_calls, max_tool_calls=budget.max_tool_calls, max_input_tokens=budget.max_input_tokens, max_output_tokens=budget.max_output_tokens, max_retries=budget.max_retries)
+        loop_budget = ReActLoopBudget(
+            max_model_calls=budget.max_model_calls,
+            max_tool_calls=budget.max_tool_calls,
+            max_input_tokens=budget.max_input_tokens,
+            max_output_tokens=budget.max_output_tokens,
+            max_retries=budget.max_retries
+        )
         try:
             async with asyncio.timeout(budget.max_duration_seconds):
                 result = await loop.run(task.execution.model_selection, objective_payload, loop_budget)
@@ -145,8 +169,19 @@ class ReadOnlyResearchSpecialist:
 
         sources = self._unique_sources(collections)
         verified = self._verifier.verify(result.summary, sources)
-        department_result = DepartmentResult(department=DepartmentName.RESEARCH, status="COMPLETED", summary=result.summary, sources=verified.sources)
-        return ResearchSpecialistResult(department_result=department_result, model_calls=result.model_calls, tool_calls=result.tool_calls, input_tokens=result.input_tokens, output_tokens=result.output_tokens, citation_count=verified.citation_count, verification_status="PASSED", specialist_profile=self.PROFILE)
+        department_result = DepartmentResult(
+            department=DepartmentName.RESEARCH, status="COMPLETED", summary=result.summary, sources=verified.sources
+        )
+        return ResearchSpecialistResult(
+            department_result=department_result,
+            model_calls=result.model_calls,
+            tool_calls=result.tool_calls,
+            input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens,
+            citation_count=verified.citation_count,
+            verification_status="PASSED",
+            specialist_profile=self.PROFILE
+        )
 
     @classmethod
     def _require_contract(cls, task: DepartmentTask, objective: str) -> None:

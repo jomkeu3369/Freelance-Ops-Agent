@@ -1,4 +1,4 @@
-"""Offline, version-pinned skill resolution. Selection never changes tools or budgets."""
+"""고정된 버전의 스킬을 로컬에서 선택한다. 선택 결과는 도구 권한과 예산을 바꾸지 않는다."""
 
 from __future__ import annotations
 
@@ -10,19 +10,19 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1] / "resources" / "builtin-skills"
 CATALOG_VERSION = "1.0.0"
-INDEX = json.loads((ROOT / "builtin-skills.index.json").read_text())
+INDEX = json.loads((ROOT / "builtin-skills.index.json").read_text(encoding="utf-8"))
 SKILL_IDS = frozenset(item["id"] for item in INDEX["skills"])
-RULES = json.loads((ROOT / "routing.json").read_text())
-POLICY = json.loads((ROOT / "policy.json").read_text())
+RULES = json.loads((ROOT / "routing.json").read_text(encoding="utf-8"))
+POLICY = json.loads((ROOT / "policy.json").read_text(encoding="utf-8"))
 
 
 def resolve_skills(text: str, selection: Any = None) -> tuple[list[str], list[str]]:
-    """Read the current user task only, never attachments, memories or pet preferences."""
+    """현재 요청에서 스킬을 선택한다. 첨부파일과 메모리, 펫 선호는 제외한다."""
     if selection is None:
-        return [], []  # Legacy persisted runs did not have skill instructions.
+        return [], []  # 이전에 저장된 실행에는 스킬 선택 정보가 없다.
     if selection.mode == "MANUAL":
         return list(selection.manual_ids), []
-    excluded = set(selection.excluded_ids if selection is not None else [])
+    excluded = set(selection.excluded_ids)
     matches = []
     for skill_id, rule in RULES.items():
         if skill_id in excluded:
@@ -38,7 +38,7 @@ def resolve_skills(text: str, selection: Any = None) -> tuple[list[str], list[st
 def _body(skill_id: str) -> dict[str, Any]:
     if skill_id not in SKILL_IDS:
         raise ValueError("Unknown built-in skill")
-    body = json.loads((ROOT / "bodies" / f"{skill_id}.json").read_text())
+    body = json.loads((ROOT / "bodies" / f"{skill_id}.json").read_text(encoding="utf-8"))
     return {
         key: body[key]
         for key in (

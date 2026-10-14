@@ -1,8 +1,8 @@
 """${message}
 
-Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
-Create Date: ${create_date}
+리비전 ID: ${up_revision}
+이전 리비전: ${down_revision | comma,n}
+생성 일시: ${create_date}
 """
 
 from collections.abc import Sequence

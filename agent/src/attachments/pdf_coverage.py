@@ -1,10 +1,7 @@
-"""Best-effort raster placement inspection; never decode/save embedded images.
-
-A painted raster covering >=25% of the media box (including tiled images) is a
-scan candidate. This is a conservative heuristic, not visual understanding.
-Small images and annotation appearances can still contain unread text.
-Stream byte checks follow decompression; operator checks follow pypdf parsing.
-The worker CPU/address-space/request limits remain the final resource boundary.
+"""PDF에서 그려진 이미지의 위치와 면적을 검사한다. 페이지 면적의 25% 이상을 차지하는
+이미지나 타일 조합을 스캔 후보로 본다. 작은 이미지와 주석에도 읽지 못한 텍스트가 있을 수
+있다. 스트림 크기는 압축 해제 후, 연산자 수는 pypdf 파싱 후 검사하며 작업자의
+CPU·메모리·요청 한도를 최종 경계로 사용한다. 내장 이미지를 디코딩하거나 저장하지 않는다.
 """
 
 import math
@@ -42,15 +39,24 @@ def multiply(current: tuple[float, ...], local: tuple[float, ...]) -> tuple[floa
 
 
 def raster_kind(page: Any) -> str:
-    """NONE/SMALL/LARGE/UNKNOWN, including inline images and nested painted Forms."""
+    """인라인 이미지와 중첩된 Form을 포함해 이미지 면적을 NONE, SMALL,
+    LARGE, UNKNOWN으로 분류한다.
+    """
     try:
         return _raster_kind(page)
     except (
-        InspectionLimit, PdfReadError, ValueError, TypeError, KeyError, IndexError,
-        AttributeError, OverflowError, RecursionError,
+        InspectionLimit,
+        PdfReadError,
+        ValueError,
+        TypeError,
+        KeyError,
+        IndexError,
+        AttributeError,
+        OverflowError,
+        RecursionError,
     ):
-        # Damaged optional geometry/resources must not discard readable native text.
-        # Resource exhaustion and system failures still propagate to the worker boundary.
+        # 이미지 좌표나 리소스가 손상돼도 읽을 수 있는 기존 텍스트는 보존한다.
+        # 자원 고갈과 시스템 오류는 작업자 경계에서 처리하도록 전달한다.
         return "UNKNOWN"
 
 
@@ -82,9 +88,9 @@ def _raster_kind(page: Any) -> str:
         byte_count += len(content)
         if len(content) > MAX_STREAM_BYTES or byte_count > MAX_INSPECTION_BYTES:
             raise InspectionLimit
-        # A conservative whitespace-token gate avoids reparsing very dense streams
-        # (including excessive tiny operators). It is not a PDF tokenizer and can
-        # also reject harmless text/inline data. Decompression has already happened.
+        # 압축 해제된 스트림을 공백으로 나눠 연산자가 과도하게 많은 입력의 재파싱을 막는다.
+        # PDF 토큰 분석기는 아니므로 정상 텍스트나 인라인 데이터도 거부할 수 있다.
+        # 압축 해제 자체의 비용은 작업자의 자원 한도로 제한한다.
         for token_count, _ in enumerate(re.finditer(rb"\S+", content), 1):
             if token_count > MAX_PREFLIGHT_TOKENS:
                 raise InspectionLimit
@@ -134,10 +140,8 @@ def _raster_kind(page: Any) -> str:
 
 
 def additional_ocr(native: str, recognized: str) -> str:
-    """Remove only an exact native-text prefix, once; preserve repeated identifiers.
-
-    Whitespace may differ between the native and OCR copies. No fuzzy match, case
-    folding, numeric-only deletion, or global repeated-line removal is performed.
+    """OCR 텍스트의 시작이 기존 텍스트와 일치할 때 한 번만 제거한다. 공백 차이는 허용하되
+    유사 문자열 비교, 대소문자 통합, 숫자 삭제, 반복 줄 제거는 하지 않는다.
     """
     tokens = re.findall(r"\S+", native)
     matches = list(re.finditer(r"\S+", recognized))

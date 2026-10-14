@@ -14,4 +14,4 @@ Creation retries use stable pet/mutation IDs, expected revisions and transaction
 
 Standalone paid generation stays unavailable until durable reservation, reconciliation, idempotent settlement, cancellation and retry semantics are integrated with the platform cost ledger. The existing spend guard is preserved. See [the feature contract](../frontend/CUSTOM_AGENT_PETS.md) for the required ledger states and current limits.
 
-This checkpoint is not fully verified. Further builds, browser tests and database integration must run in the cloud environment, following the user's instruction to stop heavy work on their laptop. No production migration or deployment is authorized.
+Verification at the initial checkpoint was incomplete. Executed tests and remaining database/browser limits are recorded in [the integration report](../testing/cloud-feature-integration-2026-10-05.md); the design decision alone does not establish production deployment.

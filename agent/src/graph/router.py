@@ -1,4 +1,4 @@
-"""LangGraph Studio diagnostic entrypoint for the local hybrid router."""
+"""LangGraph Studio에서 로컬 혼합 라우터를 점검하는 진입점."""
 
 from __future__ import annotations
 
@@ -59,11 +59,10 @@ def build_local_route_model() -> HybridRouteModel:
     )
     return HybridRouteModel(examples, encoder)
 
+
 def _ranking(items: tuple[Any, ...]) -> list[dict[str, object]]:
-    return [
-        {"route": item.route.value, "rank": item.rank, "score": item.score}
-        for item in items
-    ]
+    return [{"route": item.route.value, "rank": item.rank, "score": item.score} for item in items]
+
 
 def _decision_output(decision: RouteDecision, model: HybridRouteModel) -> dict[str, object]:
     return {
@@ -78,8 +77,9 @@ def _decision_output(decision: RouteDecision, model: HybridRouteModel) -> dict[s
         "matched_example_ids": list(decision.matched_example_ids),
         "bm25_ranking": _ranking(decision.bm25_ranking),
         "encoder_ranking": _ranking(decision.encoder_ranking),
-        "fused_ranking": _ranking(decision.fused_ranking)
+        "fused_ranking": _ranking(decision.fused_ranking),
     }
+
 
 def build_router_diagnostic_graph(model_provider: Callable[[], HybridRouteModel] = build_local_route_model) -> Any:
     async def classify(state: RouterDiagnosticState) -> dict[str, object]:
@@ -92,18 +92,18 @@ def build_router_diagnostic_graph(model_provider: Callable[[], HybridRouteModel]
             decision = await model.route(question)
 
         except (OSError, RuntimeError, ValueError):
-            return {
-                "status": "CONFIGURATION_ERROR",
-                "error_code": "LOCAL_ROUTER_UNAVAILABLE",
-            }
+            return {"status": "CONFIGURATION_ERROR", "error_code": "LOCAL_ROUTER_UNAVAILABLE"}
 
         return _decision_output(decision, model)
 
-    builder: StateGraph[RouterDiagnosticState, None, RouterDiagnosticInput, RouterDiagnosticState] = StateGraph(RouterDiagnosticState, input_schema=RouterDiagnosticInput)  # noqa: E501
+    builder: StateGraph[RouterDiagnosticState, None, RouterDiagnosticInput, RouterDiagnosticState] = StateGraph(
+        RouterDiagnosticState, input_schema=RouterDiagnosticInput
+    )
     builder.add_node("classify_route", classify)
     builder.add_edge(START, "classify_route")
     builder.add_edge("classify_route", END)
 
     return builder.compile()
+
 
 graph = build_router_diagnostic_graph()

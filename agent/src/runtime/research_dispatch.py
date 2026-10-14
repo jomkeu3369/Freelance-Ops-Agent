@@ -1,6 +1,4 @@
-"""Dispatcher sink and current-state result fence for the Research pilot."""
-
-# ruff: noqa: E501
+"""Research 시범 작업의 배정 대상과 최신 상태를 기준으로 한 결과 승인 검사."""
 
 from __future__ import annotations
 
@@ -33,7 +31,13 @@ class PostgresResearchResultFence:
             current_attempt = await self._registry.get_attempt(attempt.attempt_id, attempt.workspace_id)
         except (TaskNotFoundError, AttemptNotFoundError):
             return False
-        return current_task.status is TaskStatus.RUNNING and current_attempt.status is AttemptStatus.RUNNING and current_attempt.task_id == current_task.task_id and current_attempt.task_revision == current_task.revision and current_attempt.attempt_number == attempt.attempt_number
+        return (
+            current_task.status is TaskStatus.RUNNING
+            and current_attempt.status is AttemptStatus.RUNNING
+            and current_attempt.task_id == current_task.task_id
+            and current_attempt.task_revision == current_task.revision
+            and current_attempt.attempt_number == attempt.attempt_number
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,11 +68,21 @@ class InMemoryResearchDispatchContextBroker:
         self._contexts: dict[UUID, ResearchDispatchContext] = {}
         self._lock = asyncio.Lock()
 
-    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:
+    async def stage(self, request: AgentRunRequest, task: DepartmentTask, attempt: TaskAttempt, workload_token: str) -> None:  # noqa: E501
         if request.platform_budget is not None:
             raise PlatformBudgetError("PLATFORM_A2A_UNPRICED")
         reject_unbounded_operation("A2A")
-        context = ResearchDispatchContext(task, attempt, request.input.requirement_text, None, tuple(task.execution.permissions), task.execution.authorization_revision, task.execution.budget_revision, request.budget, workload_token)
+        context = ResearchDispatchContext(
+            task,
+            attempt,
+            request.input.requirement_text,
+            None,
+            tuple(task.execution.permissions),
+            task.execution.authorization_revision,
+            task.execution.budget_revision,
+            request.budget,
+            workload_token
+        )
         async with self._lock:
             existing = self._contexts.get(attempt.attempt_id)
             if existing is not None and replace(existing, workload_token=workload_token) != context:
@@ -85,7 +99,7 @@ class InMemoryResearchDispatchContextBroker:
 
 
 class ResearchWorkerDispatchSink:
-    def __init__(self, worker: ResearchTaskWorker, loader: ResearchDispatchContextLoader, publisher: ResearchEventPublisher | None = None) -> None:
+    def __init__(self, worker: ResearchTaskWorker, loader: ResearchDispatchContextLoader, publisher: ResearchEventPublisher | None = None) -> None:  # noqa: E501
         self._worker = worker
         self._loader = loader
         self._publisher = publisher
@@ -96,7 +110,14 @@ class ResearchWorkerDispatchSink:
         if context is None or not self._matches(claim, context):
             return False
         try:
-            self._worker.validate(context.task, context.attempt, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
+            self._worker.validate(
+                context.task,
+                context.attempt,
+                current_permissions=context.current_permissions,
+                current_authorization_revision=context.current_authorization_revision,
+                current_budget_revision=context.current_budget_revision,
+                parent_budget=context.parent_budget
+            )
         except (ResearchSpecialistError, RuntimeError, ValueError) as error:
             logger.warning("Research FIFO dispatch rejected: error_type=%s", error.__class__.__name__)
             return False
@@ -111,7 +132,16 @@ class ResearchWorkerDispatchSink:
 
     async def _run(self, context: ResearchDispatchContext) -> None:
         try:
-            await self._worker.run(context.task, context.attempt, objective=context.objective, jurisdiction=context.jurisdiction, current_permissions=context.current_permissions, current_authorization_revision=context.current_authorization_revision, current_budget_revision=context.current_budget_revision, parent_budget=context.parent_budget)
+            await self._worker.run(
+                context.task,
+                context.attempt,
+                objective=context.objective,
+                jurisdiction=context.jurisdiction,
+                current_permissions=context.current_permissions,
+                current_authorization_revision=context.current_authorization_revision,
+                current_budget_revision=context.current_budget_revision,
+                parent_budget=context.parent_budget
+            )
         finally:
             if self._publisher is not None:
                 try:
@@ -134,4 +164,16 @@ class ResearchWorkerDispatchSink:
         candidate = claim.candidate
         task = context.task
         attempt = context.attempt
-        return task.execution.specialist_profile == "research-read-v1" and task.status is TaskStatus.QUEUED and attempt.status is AttemptStatus.QUEUED and candidate.task_id == task.task_id and candidate.task_revision == task.revision and candidate.workspace_id == task.workspace_id and candidate.attempt_id == attempt.attempt_id and attempt.task_id == task.task_id and attempt.task_revision == task.revision and attempt.run_id == task.run_id and attempt.workspace_id == task.workspace_id
+        return (
+            task.execution.specialist_profile == "research-read-v1"
+            and task.status is TaskStatus.QUEUED
+            and attempt.status is AttemptStatus.QUEUED
+            and candidate.task_id == task.task_id
+            and candidate.task_revision == task.revision
+            and candidate.workspace_id == task.workspace_id
+            and candidate.attempt_id == attempt.attempt_id
+            and attempt.task_id == task.task_id
+            and attempt.task_revision == task.revision
+            and attempt.run_id == task.run_id
+            and attempt.workspace_id == task.workspace_id
+        )

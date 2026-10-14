@@ -17,7 +17,7 @@ class FakeOpenAIResponses:
         self.calls.append(kwargs)
         return SimpleNamespace(
             output_text=json.dumps({"summary": "OpenAI 결과", "open_questions": []}),
-            usage=SimpleNamespace(input_tokens=11, output_tokens=7),
+            usage=SimpleNamespace(input_tokens=11, output_tokens=7)
         )
 
 
@@ -29,7 +29,7 @@ class FakeGeminiModels:
         self.calls.append(kwargs)
         return SimpleNamespace(
             text=json.dumps({"summary": "Gemini 결과", "open_questions": ["확인할까요?"]}),
-            usage_metadata=SimpleNamespace(prompt_token_count=13, candidates_token_count=5),
+            usage_metadata=SimpleNamespace(prompt_token_count=13, candidates_token_count=5)
         )
 
 
@@ -41,9 +41,7 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
     provider = CompositeModelProvider(openai, gemini)
 
     generation = await provider.generate_structured(
-        ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-        "untrusted request",
-        max_output_tokens=100,
+        ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "untrusted request", max_output_tokens=100
     )
 
     assert generation.payload["summary"] == "OpenAI 결과"
@@ -62,13 +60,11 @@ async def test_composite_dispatches_gemini_with_same_schema() -> None:
     models = FakeGeminiModels()
     provider = CompositeModelProvider(
         OpenAIModelProvider(SimpleNamespace(responses=FakeOpenAIResponses())),
-        GeminiModelProvider(SimpleNamespace(models=models)),
+        GeminiModelProvider(SimpleNamespace(models=models))
     )
 
     generation = await provider.generate_structured(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"),
-        "untrusted request",
-        max_output_tokens=100,
+        ModelSelection(provider=Provider.GEMINI, model="gemini-test"), "untrusted request", max_output_tokens=100
     )
 
     assert generation.payload["summary"] == "Gemini 결과"
@@ -84,19 +80,15 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
         async def create(self, **kwargs: object) -> object:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                output_text=json.dumps(
-                    {"action": "TOOL", "tool_name": "get_project_context", "arguments": {}}
-                ),
-                usage=SimpleNamespace(input_tokens=9, output_tokens=4),
+                output_text=json.dumps({"action": "TOOL", "tool_name": "get_project_context", "arguments": {}}),
+                usage=SimpleNamespace(input_tokens=9, output_tokens=4)
             )
 
     responses = ReActResponses()
     provider = OpenAIModelProvider(SimpleNamespace(responses=responses))
 
     generation = await provider.generate_react_step(
-        ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-        "bounded step",
-        max_output_tokens=100,
+        ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "bounded step", max_output_tokens=100
     )
 
     assert generation.payload["action"] == "TOOL"
@@ -107,14 +99,7 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
     assert output_format["name"] == "bounded_react_step"
     assert output_format["strict"] is True
     schema = output_format["schema"]
-    assert schema["required"] == [
-        "action",
-        "tool_name",
-        "arguments",
-        "summary",
-        "open_questions",
-        "quotation_drafts"
-    ]
+    assert schema["required"] == ["action", "tool_name", "arguments", "summary", "open_questions", "quotation_drafts"]
     arguments_schema = schema["$defs"]["ReActArguments"]
     assert arguments_schema["required"] == ["query"]
     assert arguments_schema["additionalProperties"] is False
@@ -128,16 +113,14 @@ async def test_gemini_react_step_uses_same_provider_neutral_contract() -> None:
             self.calls.append(kwargs)
             return SimpleNamespace(
                 text=json.dumps({"action": "FINAL", "summary": "완료", "arguments": {}}),
-                usage_metadata=SimpleNamespace(prompt_token_count=8, candidates_token_count=3),
+                usage_metadata=SimpleNamespace(prompt_token_count=8, candidates_token_count=3)
             )
 
     models = ReActModels()
     provider = GeminiModelProvider(SimpleNamespace(models=models))
 
     generation = await provider.generate_react_step(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"),
-        "bounded step",
-        max_output_tokens=100,
+        ModelSelection(provider=Provider.GEMINI, model="gemini-test"), "bounded step", max_output_tokens=100
     )
 
     assert generation.payload["action"] == "FINAL"
@@ -165,9 +148,7 @@ async def test_provider_retries_transient_failure_but_redacts_error() -> None:
 
     with pytest.raises(ProviderCallError, match="model provider call failed") as caught:
         await provider.generate_structured(
-            ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-            "sensitive input",
-            max_output_tokens=10,
+            ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "sensitive input", max_output_tokens=10
         )
 
     assert responses.calls == 2
@@ -189,15 +170,13 @@ async def test_successful_retry_reports_every_model_call() -> None:
                 raise TransientError()
             return SimpleNamespace(
                 output_text=json.dumps({"summary": "retried", "open_questions": []}),
-                usage=SimpleNamespace(input_tokens=3, output_tokens=2),
+                usage=SimpleNamespace(input_tokens=3, output_tokens=2)
             )
 
     responses = RetryResponses()
     provider = OpenAIModelProvider(SimpleNamespace(responses=responses), max_attempts=2)
     generation = await provider.generate_structured(
-        ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-        "request",
-        max_output_tokens=10,
+        ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "request", max_output_tokens=10
     )
 
     assert generation.model_calls == 2
@@ -219,9 +198,7 @@ async def test_openai_incomplete_output_is_rejected_before_json_parsing() -> Non
 
     with pytest.raises(ProviderCallError, match="incomplete output") as caught:
         await provider.generate_react_step(
-            ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-            "bounded step",
-            max_output_tokens=100
+            ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "bounded step", max_output_tokens=100
         )
 
     assert "truncated" not in str(caught.value)
@@ -250,9 +227,7 @@ async def test_openai_malformed_output_is_sanitized() -> None:
 
     with pytest.raises(ProviderCallError, match="invalid structured output") as caught:
         await provider.generate_react_step(
-            ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-            "bounded step",
-            max_output_tokens=100
+            ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "bounded step", max_output_tokens=100
         )
 
     assert "malformed" not in str(caught.value)
@@ -281,22 +256,18 @@ async def test_openai_invalid_structured_output_is_regenerated_once() -> None:
                         "arguments": {"query": None},
                         "summary": "재생성 완료",
                         "open_questions": [],
-                        "quotation_drafts": []
+                        "quotation_drafts": [],
                     }
                 )
             return SimpleNamespace(
-                status="completed",
-                output_text=output_text,
-                usage=SimpleNamespace(input_tokens=10, output_tokens=5)
+                status="completed", output_text=output_text, usage=SimpleNamespace(input_tokens=10, output_tokens=5)
             )
 
     responses = RegeneratedResponses()
     provider = OpenAIModelProvider(SimpleNamespace(responses=responses))
 
     generation = await provider.generate_react_step(
-        ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-        "bounded step",
-        max_output_tokens=100
+        ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "bounded step", max_output_tokens=100
     )
 
     assert generation.payload["summary"] == "재생성 완료"

@@ -1,4 +1,4 @@
-"""Evaluate BM25, LiquidAI A1, and hybrid RRF on the frozen route test set."""
+"""고정된 평가 데이터로 BM25, LiquidAI A1, RRF 혼합 라우팅을 비교한다."""
 
 from __future__ import annotations
 
@@ -45,12 +45,7 @@ def _metrics(truth: Sequence[str], predicted: Sequence[str]) -> dict[str, Any]:
         recall = true_positive / (true_positive + false_negative) if true_positive + false_negative else 0.0
         f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
         f1_values.append(f1)
-        per_route[label] = {
-            "support": sum(matrix[index]),
-            "precision": precision,
-            "recall": recall,
-            "f1": f1,
-        }
+        per_route[label] = {"support": sum(matrix[index]), "precision": precision, "recall": recall, "f1": f1}
     return {
         "accuracy": sum(expected == actual for expected, actual in zip(truth, predicted, strict=True)) / len(truth),
         "macro_f1": sum(f1_values) / len(f1_values),
@@ -89,12 +84,10 @@ def _correlation(values: Sequence[float], correct: Sequence[bool]) -> float | No
 
 def _exact_mcnemar(truth: Sequence[str], first: Sequence[str], second: Sequence[str]) -> dict[str, float | int]:
     first_only = sum(
-        left == expected and right != expected
-        for expected, left, right in zip(truth, first, second, strict=True)
+        left == expected and right != expected for expected, left, right in zip(truth, first, second, strict=True)
     )
     second_only = sum(
-        right == expected and left != expected
-        for expected, left, right in zip(truth, first, second, strict=True)
+        right == expected and left != expected for expected, left, right in zip(truth, first, second, strict=True)
     )
     discordant = first_only + second_only
     if discordant == 0:
@@ -150,9 +143,7 @@ def _plot_dashboard(report: dict[str, Any], output: Path) -> None:
     axes[1, 0].set_ylabel("Normalized margin")
     axes[1, 0].legend()
 
-    fallback_counts = Counter(
-        row["fallback_reason"] or "ACCEPTED" for row in report["cases"]
-    )
+    fallback_counts = Counter(row["fallback_reason"] or "ACCEPTED" for row in report["cases"])
     fallback_names = list(fallback_counts)
     axes[1, 1].bar(range(len(fallback_names)), [fallback_counts[name] for name in fallback_names])
     axes[1, 1].set_xticks(range(len(fallback_names)), fallback_names, rotation=30, ha="right", fontsize=8)
@@ -231,11 +222,7 @@ async def evaluate(dataset_path: Path, train_path: Path) -> dict[str, Any]:
             "latency_ms_p50": float(np.percentile(latencies, 50)),
             "latency_ms_p95": float(np.percentile(latencies, 95)),
         },
-        "models": {
-            "bm25": _metrics(truth, bm25),
-            "encoder": _metrics(truth, encoder),
-            "rrf": _metrics(truth, rrf),
-        },
+        "models": {"bm25": _metrics(truth, bm25), "encoder": _metrics(truth, encoder), "rrf": _metrics(truth, rrf)},
         "agreement": {
             "bm25_encoder_top1_rate": sum(left == right for left, right in zip(bm25, encoder, strict=True)) / len(rows),
             "bm25_encoder_cohen_kappa": _cohen_kappa(bm25, encoder),
@@ -251,9 +238,7 @@ async def evaluate(dataset_path: Path, train_path: Path) -> dict[str, Any]:
             "fallback_count": len(rows) - len(accepted),
             "fallback_rate": 1 - len(accepted) / len(rows),
             "accepted_accuracy": (
-                sum(row["accepted_route"] == row["expected"] for row in accepted) / len(accepted)
-                if accepted
-                else None
+                sum(row["accepted_route"] == row["expected"] for row in accepted) / len(accepted) if accepted else None
             ),
             "accepted_by_expected_route": accepted_by_expected,
             "fallback_reasons": dict(Counter(row["fallback_reason"] for row in rows if row["fallback_reason"])),
@@ -280,17 +265,15 @@ def main() -> None:
             / "reports"
             / "2026-08-11-a1-vs-luna"
             / "routing_dataset.json"
-        ),
+        )
     )
     parser.add_argument(
-        "--train",
-        type=Path,
-        default=repository_root / "agent" / "resources" / "routing" / "examples.jsonl",
+        "--train", type=Path, default=repository_root / "agent" / "resources" / "routing" / "examples.jsonl"
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=repository_root / "experiments" / "routing_benchmark" / "reports" / "2026-08-13-hybrid-rrf",
+        default=repository_root / "experiments" / "routing_benchmark" / "reports" / "2026-08-13-hybrid-rrf"
     )
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -299,22 +282,8 @@ def main() -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     _plot_confusions(report, args.output_dir / "confusion_matrices.png")
     _plot_dashboard(report, args.output_dir / "hybrid_router_dashboard.png")
-    summary_keys = (
-        "dataset",
-        "runtime",
-        "models",
-        "agreement",
-        "signal_correlation",
-        "selective_gate",
-        "paired_tests",
-    )
-    print(
-        json.dumps(
-            {key: report[key] for key in summary_keys},
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    summary_keys = ("dataset", "runtime", "models", "agreement", "signal_correlation", "selective_gate", "paired_tests")
+    print(json.dumps({key: report[key] for key in summary_keys}, ensure_ascii=False, indent=2))
     print(report_path)
 
 

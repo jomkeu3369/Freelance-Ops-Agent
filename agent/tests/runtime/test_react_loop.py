@@ -39,7 +39,7 @@ def budget(*, model_calls: int = 3, tool_calls: int = 2, tokens: int = 100, retr
         max_tool_calls=tool_calls,
         max_input_tokens=tokens,
         max_output_tokens=tokens,
-        max_retries=retries,
+        max_retries=retries
     )
 
 
@@ -52,12 +52,7 @@ async def test_model_selects_allowlisted_tool_then_finishes_from_observation() -
         [
             generation({"action": "TOOL", "tool_name": "search", "arguments": {"query": "세금"}}),
             generation(
-                {
-                    "action": "FINAL",
-                    "summary": "공식 근거를 확인했습니다.",
-                    "open_questions": [],
-                    "arguments": {},
-                }
+                {"action": "FINAL", "summary": "공식 근거를 확인했습니다.", "open_questions": [], "arguments": {}}
             ),
         ]
     )
@@ -125,11 +120,11 @@ async def test_invalid_tool_contract_is_corrected_once_before_execution() -> Non
                     "action": "TOOL",
                     "tool_name": "search",
                     "arguments": {"query": "세금"},
-                    "summary": "Tool 단계에는 요약을 포함하면 안 됩니다."
+                    "summary": "Tool 단계에는 요약을 포함하면 안 됩니다.",
                 }
             ),
             generation({"action": "TOOL", "tool_name": "search", "arguments": {"query": "세금"}}),
-            generation({"action": "FINAL", "summary": "교정 후 완료", "arguments": {}})
+            generation({"action": "FINAL", "summary": "교정 후 완료", "arguments": {}}),
         ]
     )
     calls: list[str] = []
@@ -158,7 +153,7 @@ async def test_invalid_tool_contract_fails_after_one_correction() -> None:
             "action": "TOOL",
             "tool_name": "search",
             "arguments": {"query": "세금"},
-            "open_questions": ["잘못 포함된 질문"]
+            "open_questions": ["잘못 포함된 질문"],
         }
     )
     provider = SequenceProvider([invalid, invalid])
@@ -183,7 +178,7 @@ async def test_invalid_tool_contract_fails_after_one_correction() -> None:
     [
         ({"action": "TOOL", "tool_name": "search", "arguments": {}}, "TOOL_INPUT_INVALID"),
         ({"action": "FINAL", "summary": None, "arguments": {}}, "REACT_FINAL_INVALID"),
-    ],
+    ]
 )
 async def test_invalid_structured_decisions_fail_closed(payload: dict[str, Any], error_code: str) -> None:
     provider = SequenceProvider([generation(payload)])
@@ -199,9 +194,7 @@ async def test_invalid_structured_decisions_fail_closed(payload: dict[str, Any],
 
 
 async def test_provider_retry_usage_cannot_exceed_model_budget() -> None:
-    provider = SequenceProvider(
-        [generation({"action": "FINAL", "summary": "완료", "arguments": {}}, model_calls=2)]
-    )
+    provider = SequenceProvider([generation({"action": "FINAL", "summary": "완료", "arguments": {}}, model_calls=2)])
     loop = BoundedReActLoop(provider, [])
 
     with pytest.raises(ReActLoopError, match="MODEL_CALL_BUDGET_EXCEEDED"):

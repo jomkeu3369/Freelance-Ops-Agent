@@ -2,6 +2,8 @@
 
 Historical probes and gate/plan files are copied unchanged from the 2026-10-07 run. No originals, model binaries, credentials or private policy are stored in Git. Read the [decision report](../ocr-rapidocr-feasibility-2026-10-07.md) before running. These commands are documentation; the operator must have authorization for the chosen machine, files and time.
 
+The recorded [replacement gates](evaluation-gates.json) and [feasibility input plan](feasibility-plan.json) preserve the criteria fixed before the candidate outputs. Their role is evidence of the experiment's predeclared bounds; the driver and worker contain the corresponding execution limits.
+
 `Dockerfile` here is a replay variant using the **recorded hash lock** rather than resolving floating transitive dependencies again. The original run's full image ID is recorded in the report. Rebuilding apt/base layers later can differ from the historical image; keep the image inspect/build metadata when comparing.
 
 The original image build and probes were executed: its Dockerfile generated the hash lock during the build with `uv pip compile --generate-hashes`, installed that lock with `uv pip install --require-hashes --no-deps`, and then captured the installed manifest. This replay Dockerfile directly copies the recorded lock without generating it again. This replay variant and model-fetch utility were reviewed statically and were not run as a new evaluation after the failed resource gate.

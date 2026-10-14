@@ -1,4 +1,4 @@
-"""Ephemeral delegated credential access. Never put credentials in persisted contracts."""
+"""위임된 인증 정보를 일시적으로 조회한다. 저장되는 계약 모델에는 인증 정보를 넣지 않는다."""
 
 from __future__ import annotations
 

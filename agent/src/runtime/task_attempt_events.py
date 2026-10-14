@@ -1,4 +1,4 @@
-"""Append-only TaskAttempt telemetry persistence owned by the Agent runtime."""
+"""Agent 실행 시도의 관측 이벤트를 추가 전용으로 저장한다."""
 
 from __future__ import annotations
 
@@ -16,8 +16,21 @@ from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentTaskEventModel
 
 TASK_ATTEMPT_EVENT_SCHEMA_VERSION = "task-attempt-telemetry-v1"
-TASK_ATTEMPT_EVENT_TYPES = frozenset(("attempt.predicted", "attempt.queued", "attempt.started", "attempt.checkpointed", "attempt.failed", "attempt.retry_decided", "attempt.completed", "attempt.incident_finalized"))  # noqa: E501
-FORBIDDEN_TASK_EVENT_KEYS = frozenset(("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret"))  # noqa: E501
+TASK_ATTEMPT_EVENT_TYPES = frozenset(
+    (
+        "attempt.predicted",
+        "attempt.queued",
+        "attempt.started",
+        "attempt.checkpointed",
+        "attempt.failed",
+        "attempt.retry_decided",
+        "attempt.completed",
+        "attempt.incident_finalized",
+    )
+)
+FORBIDDEN_TASK_EVENT_KEYS = frozenset(
+    ("api_key", "chain_of_thought", "delegation_token", "prompt", "resume_token", "secret")
+)
 
 
 class TaskAttemptEventConflictError(RuntimeError):
@@ -26,7 +39,10 @@ class TaskAttemptEventConflictError(RuntimeError):
 
 def _contains_forbidden_key(value: object) -> bool:
     if isinstance(value, Mapping):
-        return any(str(key).lower() in FORBIDDEN_TASK_EVENT_KEYS or _contains_forbidden_key(item) for key, item in value.items())  # noqa: E501
+        return any(
+            str(key).lower() in FORBIDDEN_TASK_EVENT_KEYS or _contains_forbidden_key(item)
+            for key, item in value.items()
+        )
     if isinstance(value, (list, tuple)):
         return any(_contains_forbidden_key(item) for item in value)
     return False
@@ -55,7 +71,7 @@ class TaskAttemptEventWrite:
         identifiers = (self.event_id, self.source, self.source_event_id)
         if not all(value.strip() for value in identifiers):
             raise ValueError("TaskAttempt event identifiers must not be blank")
-        if len(self.event_id) > 128 or len(self.source_event_id) > 128 or len(self.source) > 64:  # noqa: E501
+        if len(self.event_id) > 128 or len(self.source_event_id) > 128 or len(self.source) > 64:
             raise ValueError("TaskAttempt event identifier exceeds its storage limit")
         if self.schema_version != TASK_ATTEMPT_EVENT_SCHEMA_VERSION:
             raise ValueError("TaskAttempt event schema version is unsupported")
@@ -113,7 +129,7 @@ class ClaimedTaskAttemptEvent:
 class TaskAttemptEventStore(Protocol):
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord: ...
 
-    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]: ...  # noqa: E501
+    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1000) -> list[TaskAttemptEventRecord]: ...  # noqa: E501
 
     async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]: ...  # noqa: E501
 
@@ -123,11 +139,46 @@ class TaskAttemptEventStore(Protocol):
 
 
 def _record_from_write(event: TaskAttemptEventWrite, received_at: datetime) -> TaskAttemptEventRecord:
-    return TaskAttemptEventRecord(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, task_revision=event.task_revision, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, phase=event.phase, milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at.astimezone(UTC), data=dict(event.data))  # noqa: E501
+    return TaskAttemptEventRecord(
+        event_id=event.event_id,
+        run_id=event.run_id,
+        schema_version=event.schema_version,
+        source=event.source,
+        source_event_id=event.source_event_id,
+        task_id=event.task_id,
+        task_revision=event.task_revision,
+        attempt_id=event.attempt_id,
+        attempt_number=event.attempt_number,
+        workspace_id=event.workspace_id,
+        sequence=event.sequence,
+        event_type=event.event_type,
+        phase=event.phase,
+        milestone=event.milestone,
+        occurred_at=event.occurred_at.astimezone(UTC),
+        received_at=received_at.astimezone(UTC),
+        data=dict(event.data)
+    )
 
 
 def _same_event(record: TaskAttemptEventRecord, event: TaskAttemptEventWrite) -> bool:
-    return record.event_id == event.event_id and record.run_id == event.run_id and record.schema_version == event.schema_version and record.source == event.source and record.source_event_id == event.source_event_id and record.task_id == event.task_id and record.task_revision == event.task_revision and record.attempt_id == event.attempt_id and record.attempt_number == event.attempt_number and record.workspace_id == event.workspace_id and record.sequence == event.sequence and record.event_type == event.event_type and record.phase == event.phase and record.milestone == event.milestone and record.occurred_at == event.occurred_at.astimezone(UTC) and dict(record.data) == dict(event.data)  # noqa: E501
+    return (
+        record.event_id == event.event_id
+        and record.run_id == event.run_id
+        and record.schema_version == event.schema_version
+        and record.source == event.source
+        and record.source_event_id == event.source_event_id
+        and record.task_id == event.task_id
+        and record.task_revision == event.task_revision
+        and record.attempt_id == event.attempt_id
+        and record.attempt_number == event.attempt_number
+        and record.workspace_id == event.workspace_id
+        and record.sequence == event.sequence
+        and record.event_type == event.event_type
+        and record.phase == event.phase
+        and record.milestone == event.milestone
+        and record.occurred_at == event.occurred_at.astimezone(UTC)
+        and dict(record.data) == dict(event.data)
+    )
 
 
 class InMemoryTaskAttemptEventStore:
@@ -141,7 +192,11 @@ class InMemoryTaskAttemptEventStore:
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord:
         async with self._lock:
             direct_id = event.event_id if event.event_id in self._records else None
-            conflict_ids = (direct_id, self._source_keys.get((event.source, event.source_event_id)), self._attempt_sequences.get((event.attempt_id, event.sequence)))  # noqa: E501
+            conflict_ids = (
+                direct_id,
+                self._source_keys.get((event.source, event.source_event_id)),
+                self._attempt_sequences.get((event.attempt_id, event.sequence)),
+            )
             conflicts = [self._records[event_id] for event_id in conflict_ids if event_id is not None]
             if conflicts:
                 if all(_same_event(record, event) for record in conflicts):
@@ -154,27 +209,38 @@ class InMemoryTaskAttemptEventStore:
             self._deliveries[record.event_id] = ("PENDING", 0, record.received_at, None)
             return record
 
-    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]:  # noqa: E501
+    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1000) -> list[TaskAttemptEventRecord]:  # noqa: E501
         if not 1 <= limit <= 5_000:
             raise ValueError("TaskAttempt event limit must be between 1 and 5000")
         async with self._lock:
-            selected = [record for record in self._records.values() if record.run_id == run_id and (after is None or (record.received_at, record.event_id) > (after.received_at, after.event_id))]  # noqa: E501
+            selected = [
+                record
+                for record in self._records.values()
+                if record.run_id == run_id
+                and (after is None or (record.received_at, record.event_id) > (after.received_at, after.event_id))
+            ]
             return sorted(selected, key=lambda record: (record.received_at, record.event_id))[:limit]
 
     async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
         _validate_delivery_options(limit, lease_seconds)
         now = datetime.now(UTC)
         async with self._lock:
-            claimable = [event_id for event_id, (status, _, available_at, lease_until) in self._deliveries.items()
-                         if (status == "PENDING" and available_at <= now)
-                         or (status == "PROCESSING" and lease_until is not None and lease_until <= now)]
+            claimable = [
+                event_id
+                for event_id, (status, _, available_at, lease_until) in self._deliveries.items()
+                if (status == "PENDING" and available_at <= now)
+                or (status == "PROCESSING" and lease_until is not None and lease_until <= now)
+            ]
             selected = sorted(claimable, key=lambda event_id: (self._records[event_id].received_at, event_id))[:limit]
             claims: list[ClaimedTaskAttemptEvent] = []
             for event_id in selected:
                 _, attempts, available_at, _ = self._deliveries[event_id]
                 attempts += 1
                 self._deliveries[event_id] = (
-                    "PROCESSING", attempts, available_at, now + timedelta(seconds=lease_seconds)
+                    "PROCESSING",
+                    attempts,
+                    available_at,
+                    now + timedelta(seconds=lease_seconds),
                 )
                 claims.append(ClaimedTaskAttemptEvent(self._records[event_id], attempts))
             return claims
@@ -207,7 +273,28 @@ class PostgresTaskAttemptEventStore:
 
     async def append(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord:
         received_at = datetime.now(UTC)
-        model = AgentTaskEventModel(event_id=event.event_id, run_id=event.run_id, schema_version=event.schema_version, source=event.source, source_event_id=event.source_event_id, task_id=event.task_id, task_revision=event.task_revision, attempt_id=event.attempt_id, attempt_number=event.attempt_number, workspace_id=event.workspace_id, sequence=event.sequence, event_type=event.event_type, phase=event.phase, milestone=event.milestone, occurred_at=event.occurred_at.astimezone(UTC), received_at=received_at, data_json=dict(event.data), delivery_status="PENDING", delivery_attempts=0, delivery_available_at=received_at)  # noqa: E501
+        model = AgentTaskEventModel(
+            event_id=event.event_id,
+            run_id=event.run_id,
+            schema_version=event.schema_version,
+            source=event.source,
+            source_event_id=event.source_event_id,
+            task_id=event.task_id,
+            task_revision=event.task_revision,
+            attempt_id=event.attempt_id,
+            attempt_number=event.attempt_number,
+            workspace_id=event.workspace_id,
+            sequence=event.sequence,
+            event_type=event.event_type,
+            phase=event.phase,
+            milestone=event.milestone,
+            occurred_at=event.occurred_at.astimezone(UTC),
+            received_at=received_at,
+            data_json=dict(event.data),
+            delivery_status="PENDING",
+            delivery_attempts=0,
+            delivery_available_at=received_at
+        )
         try:
             async with self._database.session() as session:
                 session.add(model)
@@ -216,15 +303,25 @@ class PostgresTaskAttemptEventStore:
             existing = await self._find_conflict(event)
             if existing is not None and _same_event(existing, event):
                 return existing
-            raise TaskAttemptEventConflictError("TaskAttempt event idempotency key conflicts with different data") from error  # noqa: E501
+            raise TaskAttemptEventConflictError(
+                "TaskAttempt event idempotency key conflicts with different data"
+            ) from error
         return self._record(model)
 
-    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1_000) -> list[TaskAttemptEventRecord]:  # noqa: E501
+    async def list_for_run(self, run_id: UUID, *, after: TaskAttemptEventCursor | None = None, limit: int = 1000) -> list[TaskAttemptEventRecord]:  # noqa: E501
         if not 1 <= limit <= 5_000:
             raise ValueError("TaskAttempt event limit must be between 1 and 5000")
         statement = select(AgentTaskEventModel).where(AgentTaskEventModel.run_id == run_id)
         if after is not None:
-            statement = statement.where(or_(AgentTaskEventModel.received_at > after.received_at, and_(AgentTaskEventModel.received_at == after.received_at, AgentTaskEventModel.event_id > after.event_id)))  # noqa: E501
+            statement = statement.where(
+                or_(
+                    AgentTaskEventModel.received_at > after.received_at,
+                    and_(
+                        AgentTaskEventModel.received_at == after.received_at,
+                        AgentTaskEventModel.event_id > after.event_id
+                    )
+                )
+            )
         statement = statement.order_by(AgentTaskEventModel.received_at, AgentTaskEventModel.event_id).limit(limit)
         async with self._database.session() as session:
             models = list((await session.scalars(statement)).all())
@@ -233,19 +330,23 @@ class PostgresTaskAttemptEventStore:
     async def claim_for_delivery(self, *, limit: int = 100, lease_seconds: int = 60) -> list[ClaimedTaskAttemptEvent]:
         _validate_delivery_options(limit, lease_seconds)
         now = datetime.now(UTC)
-        statement = select(AgentTaskEventModel).where(
-            or_(
-                and_(
-                    AgentTaskEventModel.delivery_status == "PENDING",
-                    AgentTaskEventModel.delivery_available_at <= now,
-                ),
-                and_(
-                    AgentTaskEventModel.delivery_status == "PROCESSING",
-                    AgentTaskEventModel.delivery_lease_until <= now,
-                ),
+        statement = (
+            select(AgentTaskEventModel)
+            .where(
+                or_(
+                    and_(
+                        AgentTaskEventModel.delivery_status == "PENDING",
+                        AgentTaskEventModel.delivery_available_at <= now
+                    ),
+                    and_(
+                        AgentTaskEventModel.delivery_status == "PROCESSING",
+                        AgentTaskEventModel.delivery_lease_until <= now
+                    )
+                )
             )
-        ).order_by(AgentTaskEventModel.received_at, AgentTaskEventModel.event_id).limit(limit).with_for_update(
-            skip_locked=True
+            .order_by(AgentTaskEventModel.received_at, AgentTaskEventModel.event_id)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
         )
         async with self._database.session() as session:
             models = list((await session.scalars(statement)).all())
@@ -288,14 +389,48 @@ class PostgresTaskAttemptEventStore:
                     model.delivery_last_error = error[:500]
 
     async def _find_conflict(self, event: TaskAttemptEventWrite) -> TaskAttemptEventRecord | None:
-        statement = select(AgentTaskEventModel).where(or_(AgentTaskEventModel.event_id == event.event_id, and_(AgentTaskEventModel.source == event.source, AgentTaskEventModel.source_event_id == event.source_event_id), and_(AgentTaskEventModel.attempt_id == event.attempt_id, AgentTaskEventModel.sequence == event.sequence))).limit(1)  # noqa: E501
+        statement = (
+            select(AgentTaskEventModel)
+            .where(
+                or_(
+                    AgentTaskEventModel.event_id == event.event_id,
+                    and_(
+                        AgentTaskEventModel.source == event.source,
+                        AgentTaskEventModel.source_event_id == event.source_event_id
+                    ),
+                    and_(
+                        AgentTaskEventModel.attempt_id == event.attempt_id,
+                        AgentTaskEventModel.sequence == event.sequence
+                    )
+                )
+            )
+            .limit(1)
+        )
         async with self._database.session() as session:
             model = await session.scalar(statement)
         return None if model is None else self._record(model)
 
     @staticmethod
     def _record(model: AgentTaskEventModel) -> TaskAttemptEventRecord:
-        return TaskAttemptEventRecord(event_id=model.event_id, run_id=model.run_id, schema_version=model.schema_version, source=model.source, source_event_id=model.source_event_id, task_id=model.task_id, task_revision=model.task_revision, attempt_id=model.attempt_id, attempt_number=model.attempt_number, workspace_id=model.workspace_id, sequence=model.sequence, event_type=model.event_type, phase=model.phase, milestone=model.milestone, occurred_at=model.occurred_at, received_at=model.received_at, data=dict(model.data_json))  # noqa: E501
+        return TaskAttemptEventRecord(
+            event_id=model.event_id,
+            run_id=model.run_id,
+            schema_version=model.schema_version,
+            source=model.source,
+            source_event_id=model.source_event_id,
+            task_id=model.task_id,
+            task_revision=model.task_revision,
+            attempt_id=model.attempt_id,
+            attempt_number=model.attempt_number,
+            workspace_id=model.workspace_id,
+            sequence=model.sequence,
+            event_type=model.event_type,
+            phase=model.phase,
+            milestone=model.milestone,
+            occurred_at=model.occurred_at,
+            received_at=model.received_at,
+            data=dict(model.data_json)
+        )
 
 
 def _validate_delivery_options(limit: int, lease_seconds: int) -> None:

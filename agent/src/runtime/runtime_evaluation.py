@@ -1,6 +1,4 @@
-"""Fail-closed runtime predictor and scheduler promotion evaluation."""
-
-# ruff: noqa: E501
+"""예측기와 스케줄러가 운영 전환 기준을 충족하는지 검사한다."""
 
 from __future__ import annotations
 
@@ -46,7 +44,12 @@ class TaskAttemptEvaluationRecord:
 
     @property
     def complete(self) -> bool:
-        return self.queued_at is not None and self.started_at is not None and self.finished_at is not None and self.queued_at <= self.started_at <= self.finished_at
+        return (
+            self.queued_at is not None
+            and self.started_at is not None
+            and self.finished_at is not None
+            and self.queued_at <= self.started_at <= self.finished_at
+        )
 
     @property
     def runtime_seconds(self) -> float | None:
@@ -123,7 +126,7 @@ class RuntimeEvaluationReport:
     gates: tuple[RuntimeGate, ...]
 
 
-def evaluate_runtime_release(records: list[TaskAttemptEvaluationRecord], *, load_band_count: int, source_terminal_count: int | None = None, shadow_scheduler: SchedulerEvaluationMetrics | None = None, policy: RuntimeEvaluationPolicy | None = None) -> RuntimeEvaluationReport:
+def evaluate_runtime_release(records: list[TaskAttemptEvaluationRecord], *, load_band_count: int, source_terminal_count: int | None = None, shadow_scheduler: SchedulerEvaluationMetrics | None = None, policy: RuntimeEvaluationPolicy | None = None) -> RuntimeEvaluationReport:  # noqa: E501
     selected = policy or RuntimeEvaluationPolicy()
     total_terminal = len(records) if source_terminal_count is None else source_terminal_count
     if not records or load_band_count < 0 or total_terminal < len(records):
@@ -134,7 +137,14 @@ def evaluate_runtime_release(records: list[TaskAttemptEvaluationRecord], *, load
     missing_count = len(records) - len(complete)
     predictions = [record for record in complete if record.predicted_runtime_seconds is not None]
     coverage = len(predictions) / len(records)
-    version_coverage = 0.0 if not predictions else sum(record.predictor_version is not None and bool(record.predictor_version.strip()) for record in predictions) / len(predictions)
+    version_coverage = (
+        0.0
+        if not predictions
+        else sum(
+            record.predictor_version is not None and bool(record.predictor_version.strip()) for record in predictions
+        )
+        / len(predictions)
+    )
     errors = [abs(_prediction(record) - _runtime(record)) for record in predictions]
     actual = [_runtime(record) for record in predictions]
     mae = 0.0 if not errors else mean(errors)
@@ -142,44 +152,143 @@ def evaluate_runtime_release(records: list[TaskAttemptEvaluationRecord], *, load
     r2 = _r2(actual, [_prediction(record) for record in predictions])
     predictor = PredictorEvaluationMetrics(coverage, version_coverage, mae, p95_error, r2)
     retries = [record for record in records if record.attempt_number > 1]
-    retry_coverage = 1.0 if not retries else sum(record.retry_reason is not None and bool(record.retry_reason.strip()) for record in retries) / len(retries)
+    retry_coverage = (
+        1.0
+        if not retries
+        else sum(record.retry_reason is not None and bool(record.retry_reason.strip()) for record in retries)
+        / len(retries)
+    )
     scheduler_coverage = len(records) / total_terminal
     observed = _scheduler_metrics(complete, selected)
     gates = [
-        RuntimeGate("minimum_attempts", len(records) >= selected.minimum_attempts, float(len(records)), f">= {selected.minimum_attempts}"),
-        RuntimeGate("minimum_observation_days", observation_days >= selected.minimum_observation_days, observation_days, f">= {selected.minimum_observation_days}"),
-        RuntimeGate("minimum_load_bands", load_band_count >= selected.minimum_load_bands, float(load_band_count), f">= {selected.minimum_load_bands}"),
+        RuntimeGate(
+            "minimum_attempts",
+            len(records) >= selected.minimum_attempts,
+            float(len(records)),
+            f">= {selected.minimum_attempts}"
+        ),
+        RuntimeGate(
+            "minimum_observation_days",
+            observation_days >= selected.minimum_observation_days,
+            observation_days,
+            f">= {selected.minimum_observation_days}"
+        ),
+        RuntimeGate(
+            "minimum_load_bands",
+            load_band_count >= selected.minimum_load_bands,
+            float(load_band_count),
+            f">= {selected.minimum_load_bands}"
+        ),
         RuntimeGate("required_field_missing_count", missing_count == 0, float(missing_count), "= 0"),
         RuntimeGate("scheduler_observation_coverage", scheduler_coverage == 1, scheduler_coverage, "= 1.0"),
-        RuntimeGate("prediction_coverage", coverage >= selected.minimum_prediction_coverage, coverage, f">= {selected.minimum_prediction_coverage}"),
+        RuntimeGate(
+            "prediction_coverage",
+            coverage >= selected.minimum_prediction_coverage,
+            coverage,
+            f">= {selected.minimum_prediction_coverage}"
+        ),
         RuntimeGate("predictor_version_coverage", version_coverage == 1, version_coverage, "= 1.0"),
-        RuntimeGate("retry_reason_coverage", retry_coverage >= selected.minimum_retry_reason_coverage, retry_coverage, f">= {selected.minimum_retry_reason_coverage}"),
-        RuntimeGate("predictor_mae_seconds", mae <= selected.maximum_mae_seconds, mae, f"<= {selected.maximum_mae_seconds}"),
-        RuntimeGate("predictor_p95_absolute_error_seconds", p95_error <= selected.maximum_p95_absolute_error_seconds, p95_error, f"<= {selected.maximum_p95_absolute_error_seconds}"),
+        RuntimeGate(
+            "retry_reason_coverage",
+            retry_coverage >= selected.minimum_retry_reason_coverage,
+            retry_coverage,
+            f">= {selected.minimum_retry_reason_coverage}"
+        ),
+        RuntimeGate(
+            "predictor_mae_seconds", mae <= selected.maximum_mae_seconds, mae, f"<= {selected.maximum_mae_seconds}"
+        ),
+        RuntimeGate(
+            "predictor_p95_absolute_error_seconds",
+            p95_error <= selected.maximum_p95_absolute_error_seconds,
+            p95_error,
+            f"<= {selected.maximum_p95_absolute_error_seconds}"
+        ),
         RuntimeGate("predictor_r2", r2 >= selected.minimum_r2, r2, f">= {selected.minimum_r2}"),
-        RuntimeGate("shadow_metrics_available", shadow_scheduler is not None, 0.0 if shadow_scheduler is None else 1.0, "= 1.0")
+        RuntimeGate(
+            "shadow_metrics_available", shadow_scheduler is not None, 0.0 if shadow_scheduler is None else 1.0, "= 1.0"
+        ),
     ]
     if shadow_scheduler is not None:
         gates.extend(_scheduler_gates(shadow_scheduler, selected))
     status = RuntimeReleaseStatus.APPROVED if all(gate.passed for gate in gates) else RuntimeReleaseStatus.SHADOW_ONLY
-    return RuntimeEvaluationReport(status, selected.policy_version, len(records), observation_days, load_band_count, missing_count, scheduler_coverage, retry_coverage, predictor, observed, shadow_scheduler, tuple(gates))
+    return RuntimeEvaluationReport(
+        status,
+        selected.policy_version,
+        len(records),
+        observation_days,
+        load_band_count,
+        missing_count,
+        scheduler_coverage,
+        retry_coverage,
+        predictor,
+        observed,
+        shadow_scheduler,
+        tuple(gates)
+    )
 
 
-def _scheduler_metrics(records: list[TaskAttemptEvaluationRecord], policy: RuntimeEvaluationPolicy) -> SchedulerEvaluationMetrics:
+def _scheduler_metrics(records: list[TaskAttemptEvaluationRecord], policy: RuntimeEvaluationPolicy) -> SchedulerEvaluationMetrics:  # noqa: E501
     if not records:
         return SchedulerEvaluationMetrics(0, 0, 0, 0, math.inf)
-    completion_goodput = sum(record.succeeded and _completion(record) <= policy.completion_slo_seconds for record in records) / len(records)
+    completion_goodput = sum(
+        record.succeeded and _completion(record) <= policy.completion_slo_seconds for record in records
+    ) / len(records)
     priority = [record for record in records if record.priority >= 4]
-    priority_goodput = 1.0 if not priority else sum(_wait(record) <= policy.priority_wait_slo_seconds for record in priority) / len(priority)
+    priority_goodput = (
+        1.0
+        if not priority
+        else sum(_wait(record) <= policy.priority_wait_slo_seconds for record in priority) / len(priority)
+    )
     grouped: dict[UUID, list[TaskAttemptEvaluationRecord]] = defaultdict(list)
     for record in records:
         grouped[record.workspace_id].append(record)
-    workspace_rates = [sum(record.succeeded and _completion(record) <= policy.completion_slo_seconds for record in values) / len(values) for values in grouped.values()]
-    return SchedulerEvaluationMetrics(completion_goodput, priority_goodput, min(workspace_rates), _jain(workspace_rates), max(_wait(record) for record in records))
+    workspace_rates = [
+        sum(record.succeeded and _completion(record) <= policy.completion_slo_seconds for record in values)
+        / len(values)
+        for values in grouped.values()
+    ]
+    return SchedulerEvaluationMetrics(
+        completion_goodput,
+        priority_goodput,
+        min(workspace_rates),
+        _jain(workspace_rates),
+        max(_wait(record) for record in records)
+    )
 
 
 def _scheduler_gates(metrics: SchedulerEvaluationMetrics, policy: RuntimeEvaluationPolicy) -> list[RuntimeGate]:
-    return [RuntimeGate("shadow_completion_goodput", metrics.completion_goodput >= policy.minimum_completion_goodput, metrics.completion_goodput, f">= {policy.minimum_completion_goodput}"), RuntimeGate("shadow_priority_wait_goodput", metrics.priority_wait_goodput >= policy.minimum_priority_wait_goodput, metrics.priority_wait_goodput, f">= {policy.minimum_priority_wait_goodput}"), RuntimeGate("shadow_worst_workspace_goodput", metrics.worst_workspace_goodput >= policy.minimum_worst_workspace_goodput, metrics.worst_workspace_goodput, f">= {policy.minimum_worst_workspace_goodput}"), RuntimeGate("shadow_workspace_fairness", metrics.workspace_fairness >= policy.minimum_workspace_fairness, metrics.workspace_fairness, f">= {policy.minimum_workspace_fairness}"), RuntimeGate("shadow_maximum_wait_seconds", metrics.maximum_wait_seconds <= policy.maximum_wait_seconds, metrics.maximum_wait_seconds, f"<= {policy.maximum_wait_seconds}")]
+    return [
+        RuntimeGate(
+            "shadow_completion_goodput",
+            metrics.completion_goodput >= policy.minimum_completion_goodput,
+            metrics.completion_goodput,
+            f">= {policy.minimum_completion_goodput}"
+        ),
+        RuntimeGate(
+            "shadow_priority_wait_goodput",
+            metrics.priority_wait_goodput >= policy.minimum_priority_wait_goodput,
+            metrics.priority_wait_goodput,
+            f">= {policy.minimum_priority_wait_goodput}"
+        ),
+        RuntimeGate(
+            "shadow_worst_workspace_goodput",
+            metrics.worst_workspace_goodput >= policy.minimum_worst_workspace_goodput,
+            metrics.worst_workspace_goodput,
+            f">= {policy.minimum_worst_workspace_goodput}"
+        ),
+        RuntimeGate(
+            "shadow_workspace_fairness",
+            metrics.workspace_fairness >= policy.minimum_workspace_fairness,
+            metrics.workspace_fairness,
+            f">= {policy.minimum_workspace_fairness}"
+        ),
+        RuntimeGate(
+            "shadow_maximum_wait_seconds",
+            metrics.maximum_wait_seconds <= policy.maximum_wait_seconds,
+            metrics.maximum_wait_seconds,
+            f"<= {policy.maximum_wait_seconds}"
+        ),
+    ]
 
 
 def _prediction(record: TaskAttemptEvaluationRecord) -> float:
@@ -209,7 +318,9 @@ def _percentile(values: list[float], percentile: float) -> float:
     position = (len(ordered) - 1) * percentile / 100
     lower = math.floor(position)
     upper = math.ceil(position)
-    return ordered[lower] if lower == upper else ordered[lower] * (upper - position) + ordered[upper] * (position - lower)
+    return (
+        ordered[lower] if lower == upper else ordered[lower] * (upper - position) + ordered[upper] * (position - lower)
+    )
 
 
 def _r2(actual: list[float], predicted: list[float]) -> float:
@@ -217,7 +328,11 @@ def _r2(actual: list[float], predicted: list[float]) -> float:
         return -math.inf
     average = mean(actual)
     total = sum((value - average) ** 2 for value in actual)
-    return -math.inf if total == 0 else 1 - sum((left - right) ** 2 for left, right in zip(actual, predicted, strict=True)) / total
+    return (
+        -math.inf
+        if total == 0
+        else 1 - sum((left - right) ** 2 for left, right in zip(actual, predicted, strict=True)) / total
+    )
 
 
 def _jain(values: list[float]) -> float:

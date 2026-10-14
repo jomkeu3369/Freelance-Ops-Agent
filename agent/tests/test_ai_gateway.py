@@ -23,10 +23,7 @@ class FixedProvider:
 
     async def generate_react_step(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         return await self.generate_structured(
-            selection,
-            prompt,
-            max_output_tokens=max_output_tokens,
-            max_attempts=max_attempts
+            selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
         )
 
 
@@ -68,10 +65,7 @@ async def test_gateway_records_content_free_usage_metrics() -> None:
 @pytest.mark.asyncio
 async def test_gateway_rejects_model_outside_allowlist_without_calling_provider() -> None:
     provider = FixedProvider()
-    gateway = AIGateway(
-        provider,
-        policy=GatewayPolicy(allowed_models=frozenset({"approved-model"}))
-    )
+    gateway = AIGateway(provider, policy=GatewayPolicy(allowed_models=frozenset({"approved-model"})))
 
     with pytest.raises(GatewayRejectedError, match="not allowed"):
         await gateway.generate_structured(selection("unapproved-model"), "prompt", max_output_tokens=100)
@@ -83,10 +77,7 @@ async def test_gateway_rejects_model_outside_allowlist_without_calling_provider(
 @pytest.mark.asyncio
 async def test_gateway_opens_circuit_after_consecutive_provider_failures() -> None:
     provider = FixedProvider(failure=ProviderCallError("provider unavailable"))
-    gateway = AIGateway(
-        provider,
-        policy=GatewayPolicy(circuit_failure_threshold=2, circuit_recovery_seconds=60)
-    )
+    gateway = AIGateway(provider, policy=GatewayPolicy(circuit_failure_threshold=2, circuit_recovery_seconds=60))
 
     for _ in range(2):
         with pytest.raises(ProviderCallError):
@@ -102,14 +93,9 @@ async def test_gateway_opens_circuit_after_consecutive_provider_failures() -> No
 @pytest.mark.asyncio
 async def test_gateway_rejects_excess_concurrency_after_bounded_wait() -> None:
     provider = BlockingProvider()
-    gateway = AIGateway(
-        provider,
-        policy=GatewayPolicy(max_concurrency=1, acquire_timeout_seconds=0.01)
-    )
+    gateway = AIGateway(provider, policy=GatewayPolicy(max_concurrency=1, acquire_timeout_seconds=0.01))
 
-    first = asyncio.create_task(
-        gateway.generate_structured(selection(), "first", max_output_tokens=100)
-    )
+    first = asyncio.create_task(gateway.generate_structured(selection(), "first", max_output_tokens=100))
     await provider.started.wait()
     try:
         with pytest.raises(GatewayRejectedError, match="capacity is exhausted"):
@@ -126,9 +112,7 @@ async def test_gateway_rejects_excess_concurrency_after_bounded_wait() -> None:
 async def test_gateway_releases_capacity_and_metrics_when_call_is_cancelled() -> None:
     provider = BlockingProvider()
     gateway = AIGateway(provider, policy=GatewayPolicy(max_concurrency=1))
-    task = asyncio.create_task(
-        gateway.generate_structured(selection(), "cancelled", max_output_tokens=100)
-    )
+    task = asyncio.create_task(gateway.generate_structured(selection(), "cancelled", max_output_tokens=100))
     await provider.started.wait()
 
     task.cancel()

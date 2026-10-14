@@ -1,4 +1,4 @@
-"""Fail-closed Task contract validation before admission or dispatch."""
+"""작업 접수와 배정 전에 실행 계약을 검증한다."""
 
 from __future__ import annotations
 
@@ -15,15 +15,7 @@ class TaskGuardRejection(RuntimeError):
 
 
 class TaskGuard:
-    def validate(
-        self,
-        task: DepartmentTask,
-        *,
-        current_permissions: Collection[str],
-        current_authorization_revision: int,
-        current_budget_revision: int,
-        parent_budget: RunBudget,
-    ) -> None:
+    def validate(self, task: DepartmentTask, *, current_permissions: Collection[str], current_authorization_revision: int, current_budget_revision: int, parent_budget: RunBudget) -> None:  # noqa: E501
         snapshot = task.execution
         permissions = frozenset(current_permissions)
         requested = frozenset(snapshot.permissions)
@@ -70,8 +62,15 @@ class TaskGuard:
 
 def _exceeds(requested: RunBudget, maximum: RunBudget) -> bool:
     fields = (
-        "max_duration_seconds", "max_model_calls", "max_tool_calls", "max_input_tokens",
-        "max_output_tokens", "max_departments", "max_hierarchy_depth", "max_search_credits",
-        "max_retries", "max_handoffs",
+        "max_duration_seconds",
+        "max_model_calls",
+        "max_tool_calls",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_departments",
+        "max_hierarchy_depth",
+        "max_search_credits",
+        "max_retries",
+        "max_handoffs",
     )
     return any(getattr(requested, field) > getattr(maximum, field) for field in fields)

@@ -1,4 +1,6 @@
-"""Quota settlement must not depend on polling before/after a post-result journal failure."""
+"""결과 저장 이후 체크포인트 실패가 발생해도 조회 시점에 따라 예산 정산이 달라지지 않는지
+검사한다.
+"""
 
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -18,19 +20,32 @@ from contracts import (
     TrustedRunContext,
 )
 from runtime import ExecutionOutcome, InMemoryAgentRunStore, PostgresAgentRunStore, RunCoordinator
-from runtime.runs import NullCheckpointJournal
+from runtime.run_contracts import NullCheckpointJournal
 
 
 def request() -> AgentRunRequest:
     return AgentRunRequest(
         context=TrustedRunContext(
-            run_id=uuid4(), thread_id=uuid4(), trace_id="terminal-quota-test", workspace_id=uuid4(),
-            project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run"],
+            run_id=uuid4(),
+            thread_id=uuid4(),
+            trace_id="terminal-quota-test",
+            workspace_id=uuid4(),
+            project_id=uuid4(),
+            initiated_by=uuid4(),
+            effective_permissions=["agent.run"]
         ),
-        budget=RunBudget(max_duration_seconds=30, max_model_calls=1, max_tool_calls=1, max_input_tokens=1000,
-                         max_output_tokens=1000, max_departments=1, max_hierarchy_depth=1),
+        budget=RunBudget(
+            max_duration_seconds=30,
+            max_model_calls=1,
+            max_tool_calls=1,
+            max_input_tokens=1000,
+            max_output_tokens=1000,
+            max_departments=1,
+            max_hierarchy_depth=1
+        ),
         model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
-        safety_context=SafetyContextInput(), input=AgentInput(requirement_text="Synthetic quota finality test"),
+        safety_context=SafetyContextInput(),
+        input=AgentInput(requirement_text="Synthetic quota finality test")
     )
 
 
@@ -41,8 +56,12 @@ async def test_late_failure_cannot_change_a_consumed_result(partial: bool) -> No
     run_id = incoming.context.run_id
     await store.create(incoming)
     await store.mark_running(run_id)
-    await store.complete(run_id, ExecutionOutcome(result=AgentRunResult(project_summary="delivered"),
-                                                 partial_error_code="PARTIAL_OUTPUT" if partial else None))
+    await store.complete(
+        run_id,
+        ExecutionOutcome(
+            result=AgentRunResult(project_summary="delivered"), partial_error_code="PARTIAL_OUTPUT" if partial else None
+        )
+    )
     before = await store.get(run_id)
     events_before = await store.list_events(run_id)
     await store.fail(run_id, "LATE_JOURNAL_FAILURE")
@@ -52,8 +71,9 @@ async def test_late_failure_cannot_change_a_consumed_result(partial: bool) -> No
     assert await store.list_events(run_id) == events_before
 
 
-@pytest.mark.parametrize("status", [AgentRunStatus.COMPLETED, AgentRunStatus.PARTIAL,
-                                    AgentRunStatus.FAILED, AgentRunStatus.CANCELLED])
+@pytest.mark.parametrize(
+    "status", [AgentRunStatus.COMPLETED, AgentRunStatus.PARTIAL, AgentRunStatus.FAILED, AgentRunStatus.CANCELLED]
+)
 async def test_postgres_terminal_fail_guard_does_not_mutate_or_emit_events(status: AgentRunStatus) -> None:
     database = MagicMock()
     database.session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
@@ -75,9 +95,11 @@ async def test_final_checkpoint_failure_preserves_result_and_no_failed_event(par
                 raise RuntimeError("Synthetic final checkpoint failure")
 
     executor = MagicMock()
-    executor.execute = AsyncMock(return_value=ExecutionOutcome(
-        result=AgentRunResult(project_summary="delivered"), partial_error_code="PARTIAL_OUTPUT" if partial else None,
-    ))
+    executor.execute = AsyncMock(
+        return_value=ExecutionOutcome(
+            result=AgentRunResult(project_summary="delivered"), partial_error_code="PARTIAL_OUTPUT" if partial else None
+        )
+    )
     store = InMemoryAgentRunStore()
     coordinator = RunCoordinator(store, executor, FailingFinalJournal())
     incoming = request()

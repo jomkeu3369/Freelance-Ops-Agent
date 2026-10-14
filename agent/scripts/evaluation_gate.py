@@ -1,4 +1,4 @@
-"""Fail CI when a pinned routing candidate regresses below release policy."""
+"""고정된 라우팅 후보가 릴리스 기준을 충족하는지 검사한다."""
 
 from __future__ import annotations
 
@@ -31,10 +31,7 @@ def evaluate_policy(repository_root: Path, policy_path: Path) -> dict[str, Any]:
         raise ValueError("report routers must be a list")
 
     candidate_name = _string(policy, "candidate_name")
-    candidate = next(
-        (item for item in routers if isinstance(item, dict) and item.get("name") == candidate_name),
-        None
-    )
+    candidate = next((item for item in routers if isinstance(item, dict) and item.get("name") == candidate_name), None)
     if candidate is None:
         raise ValueError(f"candidate is missing from report: {candidate_name}")
     if candidate.get("model_id") != _string(policy, "candidate_model"):
@@ -44,23 +41,14 @@ def evaluate_policy(repository_root: Path, policy_path: Path) -> dict[str, Any]:
     minimum = _object(policy.get("minimum"), "minimum")
     maximum = _object(policy.get("maximum"), "maximum")
     human_metrics = _object(
-        _object(metrics.get("per_route"), "per_route").get("HUMAN_REQUIRED"),
-        "HUMAN_REQUIRED metrics"
+        _object(metrics.get("per_route"), "per_route").get("HUMAN_REQUIRED"), "HUMAN_REQUIRED metrics"
     )
     checks = [
         _minimum("accuracy", metrics.get("accuracy"), minimum.get("accuracy")),
         _minimum("macro_f1", metrics.get("macro_f1"), minimum.get("macro_f1")),
-        _minimum(
-            "human_required_recall",
-            human_metrics.get("recall"),
-            minimum.get("human_required_recall")
-        ),
+        _minimum("human_required_recall", human_metrics.get("recall"), minimum.get("human_required_recall")),
         _maximum("p95_ms", metrics.get("p95_ms"), maximum.get("p95_ms")),
-        _maximum(
-            "cost_usd_per_50_cases",
-            metrics.get("total_cost_usd"),
-            maximum.get("cost_usd_per_50_cases")
-        )
+        _maximum("cost_usd_per_50_cases", metrics.get("total_cost_usd"), maximum.get("cost_usd_per_50_cases")),
     ]
     return {
         "schema_version": "1.0",
@@ -71,7 +59,7 @@ def evaluate_policy(repository_root: Path, policy_path: Path) -> dict[str, Any]:
         "report": str(report_path.relative_to(repository_root)).replace("\\", "/"),
         "passed": all(check["passed"] for check in checks),
         "checks": checks,
-        "known_limitations": policy.get("known_limitations", [])
+        "known_limitations": policy.get("known_limitations", []),
     }
 
 
@@ -81,10 +69,7 @@ def _require_approved_candidate(policy: dict[str, Any], registry: dict[str, Any]
         raise ValueError("model registry models must be a list")
     candidate_model = _string(policy, "candidate_model")
     candidate_use = _string(policy, "candidate_use")
-    registered = next(
-        (item for item in models if isinstance(item, dict) and item.get("id") == candidate_model),
-        None
-    )
+    registered = next((item for item in models if isinstance(item, dict) and item.get("id") == candidate_model), None)
     if registered is None or registered.get("status") != "APPROVED":
         raise ValueError("release candidate is not approved in the model registry")
     permitted_uses = registered.get("permitted_uses")
@@ -100,7 +85,7 @@ def _minimum(name: str, actual: object, threshold: object) -> dict[str, object]:
         "operator": ">=",
         "actual": actual_number,
         "threshold": threshold_number,
-        "passed": actual_number >= threshold_number
+        "passed": actual_number >= threshold_number,
     }
 
 
@@ -112,7 +97,7 @@ def _maximum(name: str, actual: object, threshold: object) -> dict[str, object]:
         "operator": "<=",
         "actual": actual_number,
         "threshold": threshold_number,
-        "passed": actual_number <= threshold_number
+        "passed": actual_number <= threshold_number,
     }
 
 

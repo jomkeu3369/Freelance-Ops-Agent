@@ -1,4 +1,4 @@
-"""Content-free operational metrics for model gateway calls."""
+"""모델 호출 콘텐츠를 포함하지 않는 운영 지표."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class GatewayMetricSnapshot:
 
 
 class GatewayTelemetry:
-    """Bounded in-memory metrics without prompts, responses, or credentials."""
+    """프롬프트와 응답, 인증 정보를 제외한 지표를 제한된 메모리 안에 보관한다."""
 
     def __init__(self, sample_limit: int = 2048) -> None:
         if sample_limit < 1:
@@ -64,7 +64,7 @@ class GatewayTelemetry:
             self._rejected_calls += 1
             self._outcomes[code] += 1
             if latency_ms is not None:
-                # A rejection discovered after admission already called started().
+                # 승인 후 거부된 호출은 started 지표에 이미 반영돼 있다.
                 self._inflight_calls -= 1
                 self._latencies_ms.append(latency_ms)
 

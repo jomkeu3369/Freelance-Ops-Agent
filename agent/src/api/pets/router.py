@@ -1,4 +1,4 @@
-"""Generate safe profile values; never save business data from the Agent."""
+"""펫 프로필 값만 생성하며 업무 데이터는 저장하지 않는다."""
 
 import asyncio
 import json
@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 from langsmith import tracing_context
 from pydantic import Field, ValidationError
 
-from api.assumptions.router import BearerDependency, VerifierDependency, _problem
+from api.dependencies import BearerDependency, VerifierDependency
+from api.responses import problem_response
 from contracts import ModelSelection, PetProfile, Provider, StrictModel, TrustedRunContext
 from gateway import AIGateway
 from personal_credentials import credential_scope
@@ -40,7 +41,7 @@ class GeneratePetResponse(StrictModel):
 @router.post("/generate", response_model=GeneratePetResponse)
 async def generate_pet(body: GeneratePetRequest, request: Request, credentials: BearerDependency, verifier: VerifierDependency) -> GeneratePetResponse | JSONResponse:  # noqa: E501
     if credentials is None or credentials.scheme.lower() != "bearer":
-        return _problem(401, "Delegation token required", "DELEGATION_TOKEN_REQUIRED")
+        return problem_response(401, "Delegation token required", "DELEGATION_TOKEN_REQUIRED")
     try:
         principal = verifier.verify(credentials.credentials)
         DelegationTokenVerifier.authorize_run(principal, run_id=body.context.run_id, permission="agent.run")
@@ -51,16 +52,16 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
             or "project.read" not in principal.permissions
             or not set(body.context.effective_permissions).issubset(principal.permissions)
         ):
-            return _problem(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
+            return problem_response(403, "Context exceeds authority", "DELEGATION_FORBIDDEN")
     except TokenVerificationError:
-        return _problem(403, "Invalid delegation", "DELEGATION_FORBIDDEN")
+        return problem_response(403, "Invalid delegation", "DELEGATION_FORBIDDEN")
     try:
         reject_unbounded_operation("PETS")
     except PlatformBudgetError as error:
-        return _problem(409, "Platform budget is required for this operation", error.code)
+        return problem_response(409, "Platform budget is required for this operation", error.code)
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
     if gateway is None:
-        return _problem(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")
+        return problem_response(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")
     try:
         async with asyncio.timeout(30):
             with tracing_context(enabled=False), credential_scope(credentials.credentials, body.context.run_id):
@@ -72,7 +73,7 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
                 )
         profile = PetProfile.model_validate(generated.payload)
         if profile.slot != body.slot:
-            return _problem(502, "Invalid pet slot", "PET_GENERATION_FAILED")
+            return problem_response(502, "Invalid pet slot", "PET_GENERATION_FAILED")
         return GeneratePetResponse(
             run_id=body.context.run_id,
             profile=profile,
@@ -82,4 +83,4 @@ async def generate_pet(body: GeneratePetRequest, request: Request, credentials: 
             output_tokens=generated.output_tokens
         )
     except (ProviderCallError, ValidationError, TimeoutError):
-        return _problem(502, "Pet generation failed", "PET_GENERATION_FAILED")
+        return problem_response(502, "Pet generation failed", "PET_GENERATION_FAILED")

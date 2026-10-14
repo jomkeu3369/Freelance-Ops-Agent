@@ -6,6 +6,7 @@ import pytest
 
 import personal_credentials
 import providers
+import providers.composite as composite_module
 from contracts import ModelSelection, Provider
 from gateway import AIGateway, GatewayPolicy
 from personal_credentials import credential_scope, resolve_credential
@@ -28,9 +29,11 @@ async def test_credential_scope_is_reset_and_resolution_never_redirects(monkeypa
         return httpx.Response(200, json={"apiKey": "synthetic-key"})
 
     original = httpx.AsyncClient
-    monkeypatch.setattr(personal_credentials.httpx, "AsyncClient", lambda **kwargs: original(
-        **kwargs, transport=httpx.MockTransport(respond)
-    ))
+    monkeypatch.setattr(
+        personal_credentials.httpx,
+        "AsyncClient",
+        lambda **kwargs: original(**kwargs, transport=httpx.MockTransport(respond))
+    )
     with credential_scope("delegated-test", run_id):
         assert await resolve_credential(chosen, "http://backend:8080", 1) == "synthetic-key"
     with pytest.raises(ValueError, match="authorization unavailable"):
@@ -41,7 +44,9 @@ async def test_credential_scope_is_reset_and_resolution_never_redirects(monkeypa
 
 async def test_deleted_connection_fails_without_platform_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     platform = AsyncMock()
-    monkeypatch.setattr(providers, "resolve_credential", AsyncMock(side_effect=ValueError("secret-provider-detail")))
+    monkeypatch.setattr(
+        composite_module, "resolve_credential", AsyncMock(side_effect=ValueError("secret-provider-detail"))
+    )
     composite = CompositeModelProvider(platform, platform)
     with pytest.raises(ProviderCallError, match="Personal AI connection unavailable") as caught:
         await composite.generate_structured(selection(), "test", max_output_tokens=10)
@@ -55,7 +60,7 @@ async def test_personal_calls_use_fresh_clients_and_preserve_usage(monkeypatch: 
     keys = []
     clients = []
     resolver = AsyncMock(side_effect=["synthetic-first", "synthetic-replacement"])
-    monkeypatch.setattr(providers, "resolve_credential", resolver)
+    monkeypatch.setattr(composite_module, "resolve_credential", resolver)
 
     def client(**kwargs: object) -> AsyncMock:
         keys.append(kwargs["api_key"])
@@ -64,9 +69,13 @@ async def test_personal_calls_use_fresh_clients_and_preserve_usage(monkeypatch: 
         return instance
 
     monkeypatch.setattr(openai, "AsyncOpenAI", client)
-    monkeypatch.setattr(providers.OpenAIModelProvider, "generate_assumption", AsyncMock(
-        return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
-    ))
+    monkeypatch.setattr(
+        providers.OpenAIModelProvider,
+        "generate_assumption",
+        AsyncMock(
+            return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
+        )
+    )
     composite = CompositeModelProvider(AsyncMock(), AsyncMock())
     for _ in range(2):
         result = await composite.generate_assumption(selection(), "test", max_output_tokens=10)
@@ -106,15 +115,20 @@ async def test_gemini_personal_client_closes_without_using_platform_key(monkeypa
         return SimpleNamespace(aio=client)
 
     monkeypatch.setattr(genai, "Client", create_client)
-    monkeypatch.setattr(providers, "resolve_credential", AsyncMock(return_value="synthetic-gemini-key"))
-    monkeypatch.setattr(providers.GeminiModelProvider, "generate_assumption", AsyncMock(
-        return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
-    ))
+    monkeypatch.setattr(composite_module, "resolve_credential", AsyncMock(return_value="synthetic-gemini-key"))
+    monkeypatch.setattr(
+        providers.GeminiModelProvider,
+        "generate_assumption",
+        AsyncMock(
+            return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
+        )
+    )
     platform = AsyncMock()
     composite = CompositeModelProvider(platform, platform)
     await composite.generate_assumption(
         ModelSelection(provider=Provider.GEMINI, model="gemini-2.5-flash", credential_id=uuid4()),
-        "test", max_output_tokens=10
+        "test",
+        max_output_tokens=10
     )
     assert keys == ["synthetic-gemini-key"]
     client.aclose.assert_awaited_once()

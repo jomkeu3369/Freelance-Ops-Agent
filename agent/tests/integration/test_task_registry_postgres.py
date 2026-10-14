@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# ruff: noqa: E501, I001
-
 import asyncio
 import os
 from datetime import UTC, datetime
@@ -9,21 +7,85 @@ from uuid import uuid4
 
 import pytest
 
-from contracts import AgentInput, AgentRunRequest, DepartmentName, ModelSelection, Provider, RunBudget, SafetyContextInput, TrustedRunContext
+from contracts import (
+    AgentInput,
+    AgentRunRequest,
+    DepartmentName,
+    ModelSelection,
+    Provider,
+    RunBudget,
+    SafetyContextInput,
+    TrustedRunContext,
+)
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from runtime import AttemptAlreadyExistsError, AttemptStatus, DepartmentTask, ExecutionRoute, PostgresAgentRunStore, PostgresTaskAttemptEventStore, PostgresTaskRegistry, TaskAlreadyExistsError, TaskAttempt, TaskAttemptEventWrite, TaskExecutionSnapshot, TaskRevisionConflictError, TaskScopeError, TaskStatus, TaskTransitionError
+from runtime import (
+    AttemptAlreadyExistsError,
+    AttemptStatus,
+    DepartmentTask,
+    ExecutionRoute,
+    PostgresAgentRunStore,
+    PostgresTaskAttemptEventStore,
+    PostgresTaskRegistry,
+    TaskAlreadyExistsError,
+    TaskAttempt,
+    TaskAttemptEventWrite,
+    TaskExecutionSnapshot,
+    TaskRevisionConflictError,
+    TaskScopeError,
+    TaskStatus,
+    TaskTransitionError,
+)
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
 
 
 def run_request() -> AgentRunRequest:
-    return AgentRunRequest(context=TrustedRunContext(run_id=uuid4(), thread_id=uuid4(), trace_id="task-registry-integration", workspace_id=uuid4(), project_id=uuid4(), initiated_by=uuid4(), effective_permissions=["agent.run", "project.read"]), budget=RunBudget(max_duration_seconds=120, max_model_calls=4, max_tool_calls=8, max_input_tokens=4000, max_output_tokens=2000, max_departments=2, max_hierarchy_depth=2), model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"), safety_context=SafetyContextInput(), input=AgentInput(requirement_text="Task Registry 통합 테스트"))
+    return AgentRunRequest(
+        context=TrustedRunContext(
+            run_id=uuid4(),
+            thread_id=uuid4(),
+            trace_id="task-registry-integration",
+            workspace_id=uuid4(),
+            project_id=uuid4(),
+            initiated_by=uuid4(),
+            effective_permissions=["agent.run", "project.read"]
+        ),
+        budget=RunBudget(
+            max_duration_seconds=120,
+            max_model_calls=4,
+            max_tool_calls=8,
+            max_input_tokens=4000,
+            max_output_tokens=2000,
+            max_departments=2,
+            max_hierarchy_depth=2
+        ),
+        model_selection=ModelSelection(provider=Provider.OPENAI, model="gpt-test"),
+        safety_context=SafetyContextInput(),
+        input=AgentInput(requirement_text="Task Registry 통합 테스트")
+    )
 
 
 def task_for(request: AgentRunRequest) -> DepartmentTask:
-    snapshot = TaskExecutionSnapshot(route=ExecutionRoute.SUPERVISOR, permissions=request.context.effective_permissions, budget=request.budget, model_selection=request.model_selection, policy_version="routing-v1", prompt_version="research-v1", tool_schema_version="spring-tool-v1")
-    return DepartmentTask(task_id=uuid4(), run_id=request.context.run_id, workspace_id=request.context.workspace_id, project_id=request.context.project_id, department=DepartmentName.RESEARCH, revision=1, execution=snapshot, created_at=datetime.now(UTC))
+    snapshot = TaskExecutionSnapshot(
+        route=ExecutionRoute.SUPERVISOR,
+        permissions=request.context.effective_permissions,
+        budget=request.budget,
+        model_selection=request.model_selection,
+        policy_version="routing-v1",
+        prompt_version="research-v1",
+        tool_schema_version="spring-tool-v1"
+    )
+    return DepartmentTask(
+        task_id=uuid4(),
+        run_id=request.context.run_id,
+        workspace_id=request.context.workspace_id,
+        project_id=request.context.project_id,
+        department=DepartmentName.RESEARCH,
+        revision=1,
+        execution=snapshot,
+        created_at=datetime.now(UTC)
+    )
 
 
 async def test_task_registry_persists_transitions_scope_and_attempts_across_connections() -> None:
@@ -52,20 +114,53 @@ async def test_task_registry_persists_transitions_scope_and_attempts_across_conn
         with pytest.raises(TaskRevisionConflictError):
             await registry.get_task(task.task_id, task.revision + 1, task.workspace_id)
 
-        outcomes = await asyncio.gather(registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED), registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED), return_exceptions=True)
+        outcomes = await asyncio.gather(
+            registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED),
+            registry.transition_task(task.task_id, task.revision, task.workspace_id, TaskStatus.QUEUED),
+            return_exceptions=True
+        )
         assert sum(isinstance(value, DepartmentTask) for value in outcomes) == 1
         assert sum(isinstance(value, TaskTransitionError) for value in outcomes) == 1
 
-        attempt = TaskAttempt(attempt_id=uuid4(), task_id=task.task_id, run_id=task.run_id, workspace_id=task.workspace_id, task_revision=task.revision, attempt_number=1, predicted_service_runtime_seconds=10.0, predictor_version="predictor-v1")
+        attempt = TaskAttempt(
+            attempt_id=uuid4(),
+            task_id=task.task_id,
+            run_id=task.run_id,
+            workspace_id=task.workspace_id,
+            task_revision=task.revision,
+            attempt_number=1,
+            predicted_service_runtime_seconds=10.0,
+            predictor_version="predictor-v1"
+        )
         await registry.create_attempt(attempt)
         assert await registry.create_attempt(attempt) == attempt
         with pytest.raises(AttemptAlreadyExistsError):
             await registry.create_attempt(attempt.model_copy(update={"attempt_id": uuid4()}))
         queued_at = datetime.now(UTC)
-        queued_event = TaskAttemptEventWrite(event_id=f"{attempt.attempt_id}:queued", run_id=attempt.run_id, source="integration-worker", source_event_id=f"{attempt.attempt_id}:queued", task_id=attempt.task_id, task_revision=attempt.task_revision, attempt_id=attempt.attempt_id, attempt_number=attempt.attempt_number, workspace_id=attempt.workspace_id, sequence=1, event_type="attempt.queued", occurred_at=queued_at)
-        queued = await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event)
+        queued_event = TaskAttemptEventWrite(
+            event_id=f"{attempt.attempt_id}:queued",
+            run_id=attempt.run_id,
+            source="integration-worker",
+            source_event_id=f"{attempt.attempt_id}:queued",
+            task_id=attempt.task_id,
+            task_revision=attempt.task_revision,
+            attempt_id=attempt.attempt_id,
+            attempt_number=attempt.attempt_number,
+            workspace_id=attempt.workspace_id,
+            sequence=1,
+            event_type="attempt.queued",
+            occurred_at=queued_at
+        )
+        queued = await registry.transition_attempt(
+            attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event
+        )
         assert queued.status is AttemptStatus.QUEUED
-        assert await registry.transition_attempt(attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event) == queued
+        assert (
+            await registry.transition_attempt(
+                attempt.attempt_id, task.workspace_id, AttemptStatus.QUEUED, queued_at=queued_at, event=queued_event
+            )
+            == queued
+        )
         persisted_events = await PostgresTaskAttemptEventStore(database).list_for_run(task.run_id)
         assert [event.event_id for event in persisted_events] == [queued_event.event_id]
 

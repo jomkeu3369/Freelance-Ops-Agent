@@ -39,7 +39,7 @@ def cases() -> list[EvaluationCase]:
             variable_cost=10,
             sale_price=100,
             cross_tenant_attempt=True,
-            cross_tenant_blocked=True,
+            cross_tenant_blocked=True
         ),
         EvaluationCase(
             case_id="case-2",
@@ -70,16 +70,14 @@ def cases() -> list[EvaluationCase]:
             variable_cost=20,
             sale_price=100,
             cross_tenant_attempt=False,
-            cross_tenant_blocked=False,
+            cross_tenant_blocked=False
         ),
     ]
 
 
 def test_builds_every_specification_metric_with_sample_sizes_and_intervals() -> None:
     report = build_evaluation_report(
-        cases(),
-        dataset_version="frozen-v1",
-        evaluated_at=datetime(2026, 8, 14, tzinfo=UTC),
+        cases(), dataset_version="frozen-v1", evaluated_at=datetime(2026, 8, 14, tzinfo=UTC)
     )
 
     assert report.case_count == 2
@@ -99,9 +97,7 @@ def test_builds_every_specification_metric_with_sample_sizes_and_intervals() -> 
 
 def test_missing_measurements_are_null_instead_of_false_success() -> None:
     report = build_evaluation_report(
-        [EvaluationCase(case_id="empty")],
-        dataset_version="empty-v1",
-        evaluated_at=datetime(2026, 8, 14, tzinfo=UTC),
+        [EvaluationCase(case_id="empty")], dataset_version="empty-v1", evaluated_at=datetime(2026, 8, 14, tzinfo=UTC)
     )
 
     assert report.metrics["citation_precision"].value is None

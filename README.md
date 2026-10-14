@@ -157,7 +157,6 @@ OpenAI 연결 구현과 유료 기능의 활성화 상태는 별개입니다. �
 | Agent 연구·진단 | **Deep Agents · LangChain 생태계 · StateBackend · LangGraph CLI / Studio** | 제한된 파일 권한의 Research spike, Supervisor·라우팅 그래프 진단. Deep Agents는 검증용이며 제품 실행기에 연결하지 않음 |
 | 분류·라우팅·검색 연구 | **Hugging Face Datasets / Hub · Transformers · PyTorch / CUDA · Safetensors · scikit-learn · OpenAI · LangSmith · NumPy · pandas · Matplotlib · python-dotenv** | DistilBERT·MiniLM·LiquidAI 비교, KLUE-MRC·KLUE RoBERTa cross-encoder·BERT QA reader, Dense + BM25 + RRF와 답변 가능성 평가 |
 | 실행시간·스케줄러 연구 | **scikit-learn · XGBoost · joblib · NumPy · pandas · Matplotlib · Plotly · Streamlit** | 회귀·분류·온라인 학습, 스케줄링·재시도·공정성 시뮬레이션과 대시보드. 운영 스케줄러의 ML 적용과는 구분 |
-| 문서 미디어 도구 | **FFmpeg / imageio-ffmpeg** | 제품 녹화 영상의 README용 GIF 변환 스크립트 |
 
 <details>
 <summary>의존성·과거 호환 코드의 구분과 근거 파일</summary>

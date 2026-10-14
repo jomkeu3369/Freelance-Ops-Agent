@@ -24,11 +24,7 @@ def test_view_limits_legacy_stored_interruption_questions() -> None:
         request_json=request.model_dump(mode="json"),
         status=AgentRunStatus.WAITING_FOR_USER.value,
         active_department=None,
-        interruption_json={
-            "interruptionId": str(uuid4()),
-            "kind": "CLARIFICATION",
-            "questions": questions,
-        },
+        interruption_json={"interruptionId": str(uuid4()), "kind": "CLARIFICATION", "questions": questions},
         result_json=None,
         usage_json=None,
         error_code=None,

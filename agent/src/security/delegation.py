@@ -1,4 +1,4 @@
-"""Verification of short-lived audience-bound delegation JWTs issued by Spring."""
+"""Spring이 발급한 단기 위임 JWT의 서명과 대상 서비스를 검증한다."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import jwt
 
 
 class TokenVerificationError(ValueError):
-    """Raised without exposing token contents or cryptographic details."""
+    """토큰 원문과 암호화 세부 정보를 노출하지 않는 인증 오류."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +43,7 @@ class DelegationTokenVerifier:
             raise ValueError("active delegation key id must be non-empty and unique")
 
         self._public_key = public_key
-        self._public_keys = ({key_id: public_key, **previous_keys} if key_id is not None else {})
+        self._public_keys = {key_id: public_key, **previous_keys} if key_id is not None else {}
         self._issuer = issuer
         self._audience = audience
         self._algorithms = algorithms
@@ -62,7 +62,7 @@ class DelegationTokenVerifier:
                 audience=self._audience,
                 issuer=self._issuer,
                 leeway=self._leeway_seconds,
-                options={"require": ["exp", "iat", "iss", "aud", "sub", "jti"]},
+                options={"require": ["exp", "iat", "iss", "aud", "sub", "jti"]}
             )
             permissions = claims["permissions"]
             if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
@@ -75,7 +75,7 @@ class DelegationTokenVerifier:
                 workspace_id=UUID(str(claims["workspace_id"])),
                 project_id=UUID(str(claims["project_id"])),
                 initiated_by=UUID(str(claims["initiated_by"])),
-                permissions=frozenset(permissions),
+                permissions=frozenset(permissions)
             )
 
             if principal.subject != str(principal.initiated_by):

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createProjectIntakeDraft, hasProjectIntakeDraft, projectIntakeDraftScope, readProjectIntakeDraft } from "../app/lib/project-intake-draft.mjs";
-import { nextWorkflowStep, workflowEventCounts, workflowPreviewEventCount } from "../features/home/workflow-preview.mjs";
 
 test("intake drafts preserve every raw field, including whitespace and decimal budgets", () => {
   const expected = { title: "  첫 문의  ", requirementText: "첫 줄\n둘째 줄  ", clientId: "client-1", currency: "USD", deadline: "2026-11-30", budgetMin: "1.25", budgetMax: "2.75" };
@@ -20,17 +19,4 @@ test("intake draft scopes cannot collide across accounts or workspace IDs with s
   const first = createProjectIntakeDraft();
   first.title = "first";
   assert.equal(createProjectIntakeDraft().title, "");
-});
-
-test("one workflow timeline includes the final event and stays synchronized for repeated cycles", () => {
-  assert.equal(workflowPreviewEventCount(0), 1);
-  assert.equal(workflowPreviewEventCount(4), 7);
-  let step = 0;
-  for (let tick = 0; tick < 150; tick += 1) {
-    assert.equal(step, tick % 5);
-    assert.equal(workflowPreviewEventCount(step), workflowEventCounts[step]);
-    if (step > 0) assert.ok(workflowPreviewEventCount(step) > workflowPreviewEventCount(step - 1));
-    step = nextWorkflowStep(step);
-  }
-  assert.equal(step, 0);
 });

@@ -1,6 +1,4 @@
-"""Deterministic FIFO dispatch with hierarchical scheduler shadow decisions."""
-
-# ruff: noqa: E501
+"""FIFO 배정과 계층형 스케줄러의 비교 판단을 계산한다."""
 
 from __future__ import annotations
 
@@ -53,10 +51,27 @@ class SchedulerPolicy:
     low_priority_threshold: int = 2
 
     def __post_init__(self) -> None:
-        positive = (self.global_drain_limit_seconds, self.priority_wait_slo_seconds, self.high_priority_rescue_seconds, self.maximum_wait_seconds, self.maximum_defer_seconds, self.emergency_drain_seconds, self.workspace_burst_work_seconds, self.scale_factor)
-        if not self.policy_version.strip() or not self.actual_policy_version.strip() or any(value <= 0 for value in positive):
+        positive = (
+            self.global_drain_limit_seconds,
+            self.priority_wait_slo_seconds,
+            self.high_priority_rescue_seconds,
+            self.maximum_wait_seconds,
+            self.maximum_defer_seconds,
+            self.emergency_drain_seconds,
+            self.workspace_burst_work_seconds,
+            self.scale_factor,
+        )
+        if (
+            not self.policy_version.strip()
+            or not self.actual_policy_version.strip()
+            or any(value <= 0 for value in positive)
+        ):
             raise ValueError("scheduler policy versions and thresholds must be positive")
-        if self.aging_rate < 0 or self.aging_overdue_interval < 1 or not 1 <= self.low_priority_threshold < self.high_priority_threshold <= 5:
+        if (
+            self.aging_rate < 0
+            or self.aging_overdue_interval < 1
+            or not 1 <= self.low_priority_threshold < self.high_priority_threshold <= 5
+        ):
             raise ValueError("scheduler aging and priority thresholds are invalid")
 
 
@@ -87,7 +102,13 @@ class SchedulerCandidate:
     available_at: datetime
 
     def __post_init__(self) -> None:
-        if self.task_revision < 1 or not self.resource_pool.strip() or not 1 <= self.priority <= 5 or self.predicted_runtime_seconds < 0 or not self.predictor_version.strip():
+        if (
+            self.task_revision < 1
+            or not self.resource_pool.strip()
+            or not 1 <= self.priority <= 5
+            or self.predicted_runtime_seconds < 0
+            or not self.predictor_version.strip()
+        ):
             raise ValueError("scheduler candidate values are invalid")
         _require_timezone(self.enqueued_at, "candidate enqueued_at")
         _require_timezone(self.available_at, "candidate available_at")
@@ -121,20 +142,31 @@ class HierarchicalShadowScheduler:
     def __init__(self, policy: SchedulerPolicy | None = None) -> None:
         self.policy = policy or SchedulerPolicy()
 
-    def assess(self, candidate: SchedulerCandidate, pending: list[SchedulerCandidate], capacity: WorkerCapacitySnapshot) -> ShadowAdmissionSnapshot:
+    def assess(self, candidate: SchedulerCandidate, pending: list[SchedulerCandidate], capacity: WorkerCapacitySnapshot) -> ShadowAdmissionSnapshot:  # noqa: E501
         candidates = [*pending, candidate]
         workers = capacity.worker_count
         global_work = sum(item.predicted_runtime_seconds for item in candidates)
-        workspace_work = sum(item.predicted_runtime_seconds for item in candidates if item.workspace_id == candidate.workspace_id)
-        priority_work = sum(item.predicted_runtime_seconds for item in candidates if item.priority >= self.policy.high_priority_threshold)
+        workspace_work = sum(
+            item.predicted_runtime_seconds for item in candidates if item.workspace_id == candidate.workspace_id
+        )
+        priority_work = sum(
+            item.predicted_runtime_seconds
+            for item in candidates
+            if item.priority >= self.policy.high_priority_threshold
+        )
         workspace_count = len({item.workspace_id for item in candidates})
         global_drain = global_work / workers
         workspace_drain = workspace_work / (workers / workspace_count)
         priority_drain = priority_work / workers
-        overload = global_drain > self.policy.global_drain_limit_seconds or priority_drain > self.policy.priority_wait_slo_seconds
+        overload = (
+            global_drain > self.policy.global_drain_limit_seconds
+            or priority_drain > self.policy.priority_wait_slo_seconds
+        )
         projected_workers = max(workers + 1, round(workers * self.policy.scale_factor)) if overload else workers
         scale_resolves = overload and global_work / projected_workers <= self.policy.emergency_drain_seconds
-        workspace_delay = max(0.0, (workspace_work - self.policy.workspace_burst_work_seconds) / (workers / workspace_count))
+        workspace_delay = max(
+            0.0, (workspace_work - self.policy.workspace_burst_work_seconds) / (workers / workspace_count)
+        )
         global_delay = max(0.0, global_drain - self.policy.global_drain_limit_seconds)
         delay = max(global_delay, workspace_delay)
         if not overload and delay <= 0:
@@ -145,37 +177,76 @@ class HierarchicalShadowScheduler:
             decision, reason = ShadowAdmissionDecision.REJECT, ShadowAdmissionReason.GLOBAL_DRAIN_EXCEEDED
         elif delay <= self.policy.maximum_defer_seconds:
             decision = ShadowAdmissionDecision.DEFER
-            reason = ShadowAdmissionReason.WORKSPACE_BURST_EXCEEDED if workspace_delay >= global_delay else ShadowAdmissionReason.GLOBAL_DRAIN_EXCEEDED
+            reason = (
+                ShadowAdmissionReason.WORKSPACE_BURST_EXCEEDED
+                if workspace_delay >= global_delay
+                else ShadowAdmissionReason.GLOBAL_DRAIN_EXCEEDED
+            )
         else:
             decision, reason = ShadowAdmissionDecision.REJECT, ShadowAdmissionReason.MAXIMUM_DEFER_EXCEEDED
-        shadow_available_at = candidate.enqueued_at + timedelta(seconds=delay) if decision is ShadowAdmissionDecision.DEFER else None
-        return ShadowAdmissionSnapshot(decision, reason, global_drain, workspace_drain, priority_drain, overload, projected_workers, shadow_available_at, self.policy.policy_version)
+        shadow_available_at = (
+            candidate.enqueued_at + timedelta(seconds=delay) if decision is ShadowAdmissionDecision.DEFER else None
+        )
+        return ShadowAdmissionSnapshot(
+            decision,
+            reason,
+            global_drain,
+            workspace_drain,
+            priority_drain,
+            overload,
+            projected_workers,
+            shadow_available_at,
+            self.policy.policy_version
+        )
 
-    def rank(self, candidates: list[SchedulerCandidate], now: datetime, *, dispatch_count: int = 0) -> list[SchedulerRank]:
+    def rank(self, candidates: list[SchedulerCandidate], now: datetime, *, dispatch_count: int = 0) -> list[SchedulerRank]:  # noqa: E501
         _require_timezone(now, "scheduler rank time")
         eligible = [candidate for candidate in candidates if candidate.available_at <= now]
-        actual = sorted(eligible, key=lambda candidate: (candidate.available_at, candidate.enqueued_at, str(candidate.attempt_id)))
+        actual = sorted(
+            eligible, key=lambda candidate: (candidate.available_at, candidate.enqueued_at, str(candidate.attempt_id))
+        )
         actual_ranks = {candidate.attempt_id: index for index, candidate in enumerate(actual, start=1)}
         shadow = sorted(eligible, key=lambda candidate: self._shadow_key(candidate, now, dispatch_count))
         shadow_ranks = {candidate.attempt_id: index for index, candidate in enumerate(shadow, start=1)}
-        return [SchedulerRank(candidate.attempt_id, actual_ranks[candidate.attempt_id], shadow_ranks[candidate.attempt_id], self._score(candidate, now), self._lane(candidate, now, dispatch_count)) for candidate in actual]
+        return [
+            SchedulerRank(
+                candidate.attempt_id,
+                actual_ranks[candidate.attempt_id],
+                shadow_ranks[candidate.attempt_id],
+                self._score(candidate, now),
+                self._lane(candidate, now, dispatch_count)
+            )
+            for candidate in actual
+        ]
 
-    def _shadow_key(self, candidate: SchedulerCandidate, now: datetime, dispatch_count: int) -> tuple[float, float, datetime, str]:
+    def _shadow_key(self, candidate: SchedulerCandidate, now: datetime, dispatch_count: int) -> tuple[float, float, datetime, str]:  # noqa: E501
         lane = self._lane(candidate, now, dispatch_count)
-        lane_rank = {ShadowSchedulingLane.HIGH_PRIORITY_RESCUE: 0.0, ShadowSchedulingLane.BOUNDED_AGING_RESCUE: 1.0, ShadowSchedulingLane.PREDICTED_SJF: 2.0}[lane]
+        lane_rank = {
+            ShadowSchedulingLane.HIGH_PRIORITY_RESCUE: 0.0,
+            ShadowSchedulingLane.BOUNDED_AGING_RESCUE: 1.0,
+            ShadowSchedulingLane.PREDICTED_SJF: 2.0,
+        }[lane]
         return lane_rank, self._score(candidate, now), candidate.enqueued_at, str(candidate.attempt_id)
 
     def _lane(self, candidate: SchedulerCandidate, now: datetime, dispatch_count: int) -> ShadowSchedulingLane:
         wait = max(0.0, (now - candidate.enqueued_at).total_seconds())
-        if candidate.priority >= self.policy.high_priority_threshold and wait >= self.policy.high_priority_rescue_seconds:
+        if (
+            candidate.priority >= self.policy.high_priority_threshold
+            and wait >= self.policy.high_priority_rescue_seconds
+        ):
             return ShadowSchedulingLane.HIGH_PRIORITY_RESCUE
-        if wait >= self.policy.maximum_wait_seconds and dispatch_count % self.policy.aging_overdue_interval == self.policy.aging_overdue_interval - 1:
+        if (
+            wait >= self.policy.maximum_wait_seconds
+            and dispatch_count % self.policy.aging_overdue_interval == self.policy.aging_overdue_interval - 1
+        ):
             return ShadowSchedulingLane.BOUNDED_AGING_RESCUE
         return ShadowSchedulingLane.PREDICTED_SJF
 
     def _score(self, candidate: SchedulerCandidate, now: datetime) -> float:
         wait = max(0.0, (now - candidate.enqueued_at).total_seconds())
-        return candidate.predicted_runtime_seconds / (1 + 0.25 * (candidate.priority - 1) + self.policy.aging_rate * wait)
+        return candidate.predicted_runtime_seconds / (
+            1 + 0.25 * (candidate.priority - 1) + self.policy.aging_rate * wait
+        )
 
 
 def _require_timezone(value: datetime, field_name: str) -> None:

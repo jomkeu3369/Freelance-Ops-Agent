@@ -3,7 +3,7 @@ FROM ghcr.io/astral-sh/uv:0.11.26 AS uv
 FROM python:3.12-slim
 
 WORKDIR /app
-# Free local attachment OCR; no hosted vision/OCR service is called.
+# 첨부파일 OCR에 무료 로컬 도구를 사용한다.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor \
     && rm -rf /var/lib/apt/lists/*

@@ -7,12 +7,7 @@ from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
-from deepagents import (
-    GeneralPurposeSubagentProfile,
-    HarnessProfile,
-    create_deep_agent,
-    register_harness_profile,
-)
+from deepagents import GeneralPurposeSubagentProfile, HarnessProfile, create_deep_agent, register_harness_profile
 from deepagents.backends import StateBackend
 from deepagents.middleware.filesystem import FilesystemPermission
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,7 +62,7 @@ def research_filesystem_permissions(run_id: UUID) -> list[FilesystemPermission]:
     namespace = f"/run/{run_id}"
     return [
         FilesystemPermission(operations=["read", "write"], paths=[namespace, f"{namespace}/**"], mode="allow"),
-        FilesystemPermission(operations=["read", "write"], paths=["/**"], mode="deny")
+        FilesystemPermission(operations=["read", "write"], paths=["/**"], mode="deny"),
     ]
 
 
@@ -82,7 +77,6 @@ def _register_secure_profile(provider: str) -> None:
     register_harness_profile(
         provider,
         HarnessProfile(
-            excluded_tools=frozenset({"execute"}),
-            general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False)
+            excluded_tools=frozenset({"execute"}), general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False)
         )
     )

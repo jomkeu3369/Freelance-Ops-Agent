@@ -17,7 +17,7 @@ class StrictModel(BaseModel):
         alias_generator=lambda name: "".join(
             word if index == 0 else word.capitalize() for index, word in enumerate(name.split("_"))
         ),
-        populate_by_name=True,
+        populate_by_name=True
     )
 
 
@@ -363,7 +363,9 @@ class AgentRunRequest(StrictModel):
 
 
 class ByokBudget(StrictModel):
-    """Immutable backend scope; durable admission, never this object alone, permits I/O."""
+    """백엔드가 발급한 변경 불가능한 실행 범위. 실제 호출에는 영속적인 예산 승인이 추가로
+    필요하다.
+    """
 
     scope_id: UUID
     run_id: UUID
@@ -376,8 +378,8 @@ class ByokBudget(StrictModel):
     reasoning_effort: ReasoningEffort
     funding_source: Literal["BYOK"]
     service_tier: Literal["default"]
-    # Null/absent is only an already-issued legacy scope representation. The
-    # backend exclusively validates notice consent before admitting new scopes.
+    # null이나 누락된 동의 값은 이미 발급된 과거 실행 범위에서만 허용한다.
+    # 새 실행 범위의 고지 동의는 백엔드가 검증한다.
     cost_notice_version: Literal["byok-standard-150k-48k-2026-10-05-v1"] | None = None
     valid_until: datetime
     max_model_calls: int = Field(ge=1, le=50)
@@ -394,7 +396,7 @@ class ByokBudget(StrictModel):
 
 
 class PlatformBudget(StrictModel):
-    """A backend-issued monetary reservation, never copied from public input."""
+    """백엔드가 발급한 금액 예약. 공개 요청의 값을 그대로 사용하지 않는다."""
 
     reservation_id: UUID
     max_cost_usd: Decimal = Field(gt=0, le=100, allow_inf_nan=False)

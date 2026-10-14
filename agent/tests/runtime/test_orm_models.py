@@ -1,8 +1,17 @@
-# ruff: noqa: E501, I001
-
 from sqlalchemy import Select, select
 
-from infrastructure.database.models import AgentProviderCircuitModel, AgentRetryBucketModel, AgentRunEventModel, AgentRunStateModel, AgentRuntimeReleaseModel, AgentSchedulerEntryModel, AgentTaskAttemptModel, AgentTaskEventModel, AgentTaskModel, AgentWorkerCapacityEventModel
+from infrastructure.database.models import (
+    AgentProviderCircuitModel,
+    AgentRetryBucketModel,
+    AgentRunEventModel,
+    AgentRunStateModel,
+    AgentRuntimeReleaseModel,
+    AgentSchedulerEntryModel,
+    AgentTaskAttemptModel,
+    AgentTaskEventModel,
+    AgentTaskModel,
+    AgentWorkerCapacityEventModel,
+)
 
 
 def test_runtime_models_are_confined_to_agent_schema() -> None:
