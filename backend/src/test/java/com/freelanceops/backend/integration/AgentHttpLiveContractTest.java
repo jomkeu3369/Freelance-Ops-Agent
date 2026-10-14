@@ -30,11 +30,17 @@ class AgentHttpLiveContractTest {
 
     @BeforeEach
     void launchLocalPeerWhenRequested() throws Exception {
+        var address = java.net.URI.create(System.getenv("AGENT_LIVE_TEST_BASE_URL"));
+        if (!"http".equals(address.getScheme()) || address.getPort() < 1
+            || !("127.0.0.1".equals(address.getHost()) || "localhost".equals(address.getHost()))) {
+            throw new IllegalArgumentException("Live Agent tests require a localhost HTTP address with an explicit port");
+        }
         String python = System.getenv("AGENT_LIVE_TEST_PYTHON");
         if (python == null || python.isBlank()) return;
         var agent = Path.of("..", "agent").toAbsolutePath().normalize();
-        var fixture = Path.of(System.getenv("AGENT_LIVE_TEST_FIXTURE"));
-        String port = Integer.toString(java.net.URI.create(System.getenv("AGENT_LIVE_TEST_BASE_URL")).getPort());
+        var fixture = Path.of(System.getenv("AGENT_LIVE_TEST_FIXTURE")).toAbsolutePath().normalize();
+        Files.createDirectories(fixture.getParent());
+        String port = Integer.toString(address.getPort());
         var process = new ProcessBuilder(python, "tests/support/live_http_peer.py", "--port", port,
             "--fixture-output", fixture.toString()).directory(agent.toFile())
             .redirectErrorStream(true).redirectOutput(fixture.resolveSibling("live-peer.log").toFile());
