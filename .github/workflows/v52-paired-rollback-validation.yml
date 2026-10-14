@@ -39,7 +39,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Read the exact existing public image pair without credential fallback
-        run: python3 .github/scripts/v52_rollback/verify_pair.py resolve-images
+        run: |
+          python3 -m unittest discover -s .github/scripts/v52_rollback -p test_image_identity.py -v
+          python3 .github/scripts/v52_rollback/verify_pair.py resolve-images
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

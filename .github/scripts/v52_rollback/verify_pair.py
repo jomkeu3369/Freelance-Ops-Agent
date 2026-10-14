@@ -27,7 +27,6 @@ OLD_IMAGES = {
     'backend': 'ghcr.io/jomkeu3369/freelance-ops-backend@sha256:eaa06af3b6fc1b04430ef872fa1f290102faa4dc362a18dc6583381b8531e6d0',
     'agent': 'ghcr.io/jomkeu3369/freelance-ops-agent@sha256:d3429b0c281c0292489715225bb2ef0c95b6de4c168aeca9c67a85d1f8f56f69',
 }
-OLD_IMAGE_IDS = {service: image.rsplit('@', 1)[1] for service, image in OLD_IMAGES.items()}
 EVIDENCE = Path('rollback-evidence')
 PREFIX = 'v52-rollback-' + os.environ.get('GITHUB_RUN_ID', str(os.getpid()))
 NETWORK = PREFIX + '-internal'
@@ -67,6 +66,16 @@ def case(name, **facts):
     print('PASS: ' + name, flush=True)
 
 
+def validate_image_identity(service, image, facts):
+    # Graphdriver .Id identifies the image config; containerd may expose the
+    # target manifest digest instead. Match the exact production RepoDigest,
+    # not these different engine-local ID representations.
+    require(image in facts['repo_digests'], service + '_digest_matches_fresh_production')
+    require(re.fullmatch(r'sha256:[0-9a-f]{64}', facts['image_id']) is not None,
+            service + '_local_image_id_shape')
+    require(facts['architecture'] == 'amd64' and facts['os'] == 'linux', service + '_linux_amd64_image')
+
+
 def resolve_images():
     selections = {}
     for service, image in OLD_IMAGES.items():
@@ -77,11 +86,10 @@ def resolve_images():
         save('old-image-resolution.json', selections)
         require(result.returncode == 0, service + '_exact_public_image_unavailable_stop_no_fallback')
         facts = json.loads(run(['docker', 'image', 'inspect', '--format',
-            '{"image_id":{{json .Id}},"repo_digests":{{json .RepoDigests}}}', image]).stdout)
-        require(facts['image_id'] == OLD_IMAGE_IDS[service], service + '_image_id_matches_fresh_production')
-        require(image in facts['repo_digests'], service + '_digest_matches_fresh_production')
+            '{"image_id":{{json .Id}},"repo_digests":{{json .RepoDigests}},"architecture":{{json .Architecture}},"os":{{json .Os}}}', image]).stdout)
         selections[service].update(facts)
         save('old-image-resolution.json', selections)
+        validate_image_identity(service, image, facts)
     print('Both exact production images are anonymously readable; no authentication fallback.', flush=True)
 
 
