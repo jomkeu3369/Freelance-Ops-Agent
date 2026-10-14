@@ -144,6 +144,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   const [streamState, setStreamState] = useState<StreamState>("idle");
   const [streamRetryCount, setStreamRetryCount] = useState(0);
   const [busy, setBusy] = useState(false);
+  const pendingResume = useRef<{ runId: string; interruptionId: string } | null>(null);
   const runOperation = useRef(0);
   const workspaceLoadOperation = useRef(0);
   const pendingStart = useRef(new PendingRunStore());
@@ -502,6 +503,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
   }, [session]);
 
   useAgentRunMonitor({
+    pendingResume,
     session,
     runId,
     runStatus,
@@ -536,6 +538,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     const revokedSession = loadSession() ?? session;
     // 서버 응답을 기다리기 전에 진행 중 세션 갱신을 무효화한다.
     clearSession();
+    pendingResume.current = null;
     workspaceLoadOperation.current += 1;
     runOperation.current += 1;
     setBusy(false);
@@ -932,6 +935,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             try {
               await resumeAgentRun(session, runId, run.interruption.interruptionId, answers);
               if (operation !== runOperation.current) return;
+              pendingResume.current = { runId, interruptionId: run.interruption.interruptionId };
               setRun((current) => (current ? { ...current, status: "RUNNING", interruption: null } : current));
               setExecutionRevision((current) => current + 1);
             } catch (cause) {

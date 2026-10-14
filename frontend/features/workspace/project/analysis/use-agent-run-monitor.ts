@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ApiError, getAgentRun, streamRunEvents } from "../../../../app/lib/api";
 import type { AgentRunView, AuthSession, WorkflowEvent } from "../../../../app/lib/api";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../../../../app/lib/stream-retry.mjs";
+import { isPendingResumeSnapshot } from "../../../../app/lib/run-resume-state.mjs";
 import { terminalStatuses } from "../../shared/constants";
 import type { StreamState } from "../../shared/types";
 
 interface AgentRunMonitorOptions {
+  pendingResume: RefObject<{ runId: string; interruptionId: string } | null>;
   session: AuthSession | null;
   runId: string | null;
   runStatus: string | undefined;
@@ -21,16 +23,17 @@ interface AgentRunMonitorOptions {
 }
 
 // 이벤트 재연결과 상태 조회의 수명을 실행 단위로 관리한다.
-export function useAgentRunMonitor({ session, runId, runStatus, executionRevision, setRun, setEvents, setStreamState, setStreamRetryCount, setError }: AgentRunMonitorOptions) {
+export function useAgentRunMonitor({ pendingResume, session, runId, runStatus, executionRevision, setRun, setEvents, setStreamState, setStreamRetryCount, setError }: AgentRunMonitorOptions) {
   const lastEventIdRef = useRef(0);
   const previousRunIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (previousRunIdRef.current !== runId) {
       previousRunIdRef.current = runId;
+      if (pendingResume.current?.runId !== runId) pendingResume.current = null;
       lastEventIdRef.current = 0;
     }
-  }, [runId]);
+  }, [pendingResume, runId]);
 
   useEffect(() => {
     if (!session || !runId) return;
@@ -100,19 +103,23 @@ export function useAgentRunMonitor({ session, runId, runStatus, executionRevisio
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
+        const awaitingResumeDelivery = isPendingResumeSnapshot(pendingResume.current, view);
         if (!cancelled) {
-          setRun((current) =>
+          if (!awaitingResumeDelivery) {
+            if (pendingResume.current?.runId === view.runId) pendingResume.current = null;
+            setRun((current) =>
             current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status)
               ? current
               : view
-          );
+            );
+          }
           if (pollingError) {
             const recoveredError = pollingError;
             setError((current) => (current === recoveredError ? null : current));
             pollingError = null;
           }
         }
-        return terminalStatuses.has(view.status);
+        return !awaitingResumeDelivery && terminalStatuses.has(view.status);
       } catch (cause) {
         if (!cancelled) {
           pollingError = cause instanceof Error ? cause.message : "실행 상태를 확인하지 못했습니다.";
@@ -131,5 +138,5 @@ export function useAgentRunMonitor({ session, runId, runStatus, executionRevisio
       cancelled = true;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [executionRevision, runId, session, setError, setRun]);
+  }, [executionRevision, pendingResume, runId, session, setError, setRun]);
 }
