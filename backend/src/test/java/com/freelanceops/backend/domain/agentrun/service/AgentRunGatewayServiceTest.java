@@ -84,6 +84,7 @@ class AgentRunGatewayServiceTest {
     void setUp() {
         org.mockito.Mockito.lenient().when(projectionService.synchronize(any(), any(), any()))
             .thenAnswer(call -> call.getArgument(2));
+        org.mockito.Mockito.lenient().when(projectionService.pendingDelivery(any())).thenCallRealMethod();
         service = new AgentRunGatewayService(
             permissionReader,
             projectRepository,
@@ -322,6 +323,68 @@ class AgentRunGatewayServiceTest {
 
         assertThat(response).isPresent().get().extracting(AgentRunView::status).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
         verify(projectionService).synchronize(runId, workspaceId, response.orElseThrow());
+    }
+
+    @Test
+    void queuedRunRemainsReadableBeforeTheOutboxCreatesItsAgentRecord() {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity queued = run(runId, workspace, project, user);
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(queued));
+        when(projectRepository.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspace, project))
+            .thenReturn(Optional.of(queued));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("pending-token");
+        when(agentRunClient.get(runId, "pending-token", "trace"))
+            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+
+        AgentRunView direct = service.get(user, workspace, runId, "trace");
+        AgentRunView latest = service.latestForProject(user, workspace, project, "trace").orElseThrow();
+
+        assertThat(direct).isEqualTo(latest);
+        assertThat(direct.status()).isEqualTo(AgentRunStatus.QUEUED);
+        assertThat(direct.updatedAt()).isEqualTo(queued.updatedAt());
+        assertThat(direct.metadata().provider()).isEqualTo(queued.provider());
+        assertThat(direct.metadata().model()).isEqualTo(queued.model());
+        assertThat(direct.metadata().promptVersion()).isNull();
+        assertThat(direct.result()).isNull();
+        assertThat(direct.usage()).isNull();
+        verify(projectionService, never()).synchronize(any(), any(), any());
+        verify(agentRunClient, never()).start(any(), any(), any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = AgentRunStatus.class,
+        names = {"RUNNING", "WAITING_FOR_USER", "COMPLETED", "PARTIAL", "FAILED", "CANCELLED"})
+    void missingAcknowledgedRunsAreNotPresentedAsPendingDelivery(AgentRunStatus status) {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        AgentRunEntity existing = run(runId, workspace, project, user);
+        existing.updateStatus(status, Instant.now());
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(existing));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("scoped-token");
+        var missing = new HttpClientErrorException(HttpStatus.NOT_FOUND);
+        when(agentRunClient.get(runId, "scoped-token", "trace")).thenThrow(missing);
+        assertThatThrownBy(() -> service.get(user, workspace, runId, "trace")).isSameAs(missing);
+        verify(projectionService, never()).pendingDelivery(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {401, 403, 500, 503})
+    void pendingReceiptsDoNotHideAuthenticationOrTransportFailures(int status) {
+        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+            .thenReturn(Optional.of(run(runId, workspace, project, user)));
+        when(tokenIssuer.issue(eq(runId), eq(workspace), eq(project), eq(user), anyList())).thenReturn("scoped-token");
+        var failure = new org.springframework.web.client.RestClientResponseException("Synthetic failure", status,
+            "Synthetic", null, new byte[0], null);
+        when(agentRunClient.get(runId, "scoped-token", "trace")).thenThrow(failure);
+        assertThatThrownBy(() -> service.get(user, workspace, runId, "trace")).isSameAs(failure);
+        verify(projectionService, never()).pendingDelivery(any());
     }
 
     @Test
