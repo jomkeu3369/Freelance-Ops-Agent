@@ -1,0 +1,65 @@
+name: Isolated V52 and paired image rollback validation
+
+on:
+  push:
+    branches:
+      - work/production-validation-20261014
+    paths:
+      - .github/workflows/v52-paired-rollback-validation.yml
+      - .github/scripts/v52_rollback/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isolated-v52-rollback-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CANDIDATE_SHA: 116692fc81b0116e6c8209eb51ce89a9a151c48b
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          path: candidate-source
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 775b92c8dbaafbdd21438140d4238e39e1aa8ef1
+          path: old-source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read the exact existing public image pair without credential fallback
+        run: python3 .github/scripts/v52_rollback/verify_pair.py resolve-images
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: candidate-source/backend/*.gradle.kts
+      - name: Build pinned candidate backend
+        working-directory: candidate-source/backend
+        run: bash ./gradlew bootJar --no-daemon --console=plain
+      - name: Build pinned candidate Agent and fixture signing dependencies
+        run: |
+          docker build --tag v52-candidate-agent:"$CANDIDATE_SHA" candidate-source/agent
+          python3 -m pip install cryptography==50.0.0 PyJWT==2.13.0
+      - name: Validate forward migration and exact old pair on isolated PostgreSQL17
+        run: python3 .github/scripts/v52_rollback/verify_pair.py verify
+      - name: Retain synthetic-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v52-paired-rollback-${{ github.sha }}
+          path: rollback-evidence/
+          if-no-files-found: error
+          retention-days: 7
