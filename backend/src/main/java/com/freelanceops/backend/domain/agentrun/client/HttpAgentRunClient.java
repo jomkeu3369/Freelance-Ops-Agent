@@ -117,7 +117,7 @@ public class HttpAgentRunClient implements AgentRunClient {
             HttpResponse<InputStream> response = eventClient.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 response.body().close();
-                throw new IllegalStateException("agent event stream returned status " + response.statusCode());
+                throw new AgentEventStreamResponseException(response.statusCode());
             }
             return new AgentEventStream(response.body());
         } catch (InterruptedException error) {
