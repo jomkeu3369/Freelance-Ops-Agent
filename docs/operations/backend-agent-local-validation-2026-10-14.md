@@ -18,6 +18,8 @@
 
 `AGENT_EVENT_STREAM_TIMEOUT_MS`는 기본 30000이며 양수만 허용한다. run JWT의 수명이나 권한 목록은 변경하지 않았다.
 
+이 문서의 기본 만료 증거를 보존한 뒤 사용자가 동일 실행의 최초 deadline 안에서 인증을 유지하는 코드 변경을 추가 승인했다. 후속 `c9733fc` 구현과 실제 60초 초과/180초 경계 결과는 [별도 인증 검증 기록](bounded-execution-auth-validation-2026-10-14.md)을 따른다. 아래 미구현/승인 관련 설명은 후속 승인 전의 상태다.
+
 ## 실행 환경과 실제 통신
 
 - Windows Java 21, 저장소 Gradle wrapper 9.6.1, Python 3.12 및 `uv sync --locked`.
