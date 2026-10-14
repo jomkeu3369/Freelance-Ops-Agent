@@ -51,7 +51,7 @@ Agent START/RESUME는 deadline 없는 토큰을 거부한다. resume는 저장�
 
 | 검증 | 통과 | 실패 | 건너뜀 |
 | --- | ---: | ---: | ---: |
-| 최종 Java 통신·SSE·JWT/filter/controller·Gateway·dispatcher·projection·outbox·architecture 및 실제 단기 HTTP/기본 만료 실패 회귀 | 137 | 0 | 0 |
+| 이전 Java 통신·SSE·JWT/filter/controller·Gateway·dispatcher·projection·outbox·architecture 및 실제 단기 HTTP/기본 만료 실패 회귀 | 137 | 0 | 0 |
 | 별도 실제 60초 초과/180초/cancel 실행 시험 | 1 | 0 | 0 |
 | Agent API·delegation·executor·continuity·ReAct·Spring tools | 100 | 0 | 0 |
 | resume projection·실제 interruption service·Gateway·execution guard·dispatcher 및 architecture 추가 회귀 | 103 | 0 | 0 |
@@ -104,3 +104,34 @@ token exp까지만 legacy 실행을 허용하는 방법 역시 기존 control-on
 기존 task shadow의 terminal event 게시가 원래 execution JWT를 사용하므로 deadline 만료 뒤 게시가 거부될 수 있다. 동일 control-plane HTTP clients의 `X-Run-Id` 누락도 읽기 전용 검토에서 확인됐다. 이 경로의 등록/heartbeat 권한을 새로 부여하거나 토큰을 연장하지 않았다. Agent의 실제 PG terminal 상태와 보존 결과는 위 시험으로 확인했으며, 별도 task 관측 전달 성공은 이 변경의 증거에 포함하지 않는다.
 
 운영 readiness는 앞선 한 번의 저빈도 공개 읽기에서 200/UP였을 뿐, 작업 브랜치의 인증 기능 검증이 아니다. 새 승인 차단은 없다. 이후 부모가 운영 반영 승인을 전달했으며 PR/CI와 배포 후보 조율은 전체 여정 세션의 담당이다. 그 세션이 전달한 draft PR #74 성공·CI 진행 상태는 자체 도구 증거로 재확인하지 않았고 이 세션의 배포 성공으로 주장하지 않는다.
+
+## 실제 동시 요청에서 발견된 잠금 경합과 후속 수정
+
+위의 전체 여정 5개 통과는 `c9733fc` 시점의 이전 결과다. 이후 통합 후보 `116692fc81b0116e6c8209eb51ce89a9a151c48b`에서 전체 Spring 앱, Agent, PG17, 브라우저 polling과 dispatcher projection이 동시에 작동할 때 두 실행이 `SPRING_TOOL_UNAVAILABLE`로 실패했다. 재개 run `17cfa314-12f7-4583-a16e-999321b7de85`의 앞선 4개 부서 결과는 보존됐고, AD_HOC run `1b0515d3-9ee2-4922-a72d-d97f8112e909`도 같은 서버 오류였다. 통합 담당의 비밀값 없는 stack에서 `DelegatedExecutionAccess.require` → `ByokExecutionService.validateRun` → `findByIdAndWorkspaceIdForUpdate`의 `StaleObjectStateException`을 확인했다. 이전 통과 결과로 이 후속 후보의 성공을 주장하지 않는다.
+
+`aee8ea9fb2aeea628bb4e9b354d2d4c67b2c448c`는 guard의 **최초 run 조회부터 FOR UPDATE**를 사용한다. unlocked read로 이전 version이 JPA persistence context에 저장된 뒤 다른 transaction이 projection version을 올리면, 후속 BYOK 잠금 조회가 새 version과 충돌하던 문제를 해결한다. 기존 run→scope 잠금 순서, 권한·binding·상태·최초 permission snapshot·BYOK·고정 deadline 검사를 유지한다. transaction은 controller/provider 작업 전에 종료되고 잠금 대기 이후 deadline을 다시 검사한다. 예외를 삼키거나 검사를 생략하지 않았다. 새 migration, 운영 인증 정보, scope 연장, 예산·counter 변경은 없다.
+
+`DelegatedExecutionConcurrencyPostgresTest`는 제 소유의 독립 `127.0.0.1:18114/backend_lock_test`, PostgreSQL **17.11**에서 실제 JPA/transaction/repository/BYOK scope/projection/guard를 사용한다. schema는 이 테스트용 DB에만 생성한다. membership·최초 permission·AI connection 조회와 audit/cost/budget lookup은 synthetic fixture이며 provider 호출은 없다. 실제 운영 RBAC DB나 전체 앱 검증으로 일반화하지 않는다.
+
+- 기존 unlocked 조회 → 별도 실제 projection version commit → BYOK lock upgrade는 보고된 `StaleObjectStateException`을 실제로 재현한다. 이 오류가 발생해야 통과하는 음성 대조군이다.
+- 수정 guard가 최초 잠금을 가진 동안 projection writer가 실제 PostgreSQL에서 대기하는 것을 `pg_stat_activity.wait_event_type='Lock'`과 `pg_blocking_pids`로 확인한다. 이 회귀는 3회 실행했고 guard 완료 후 writer가 version 1을 commit했다. BYOK payload/deadline/closed 상태와 model/token counter는 전후 동일하다.
+- cancellation transaction이 먼저 잠금·상태 변경·scope close를 수행하면 guard가 실제로 대기한다. commit 후 새 CANCELLED 상태를 읽고 기존 `DelegationTokenException`으로 거부하며 AI connection 조회에 도달하지 않는다.
+
+| 잠금 수정 이후 제 세션 검증 | 통과 | 실패 | 건너뜀 |
+| --- | ---: | ---: | ---: |
+| 실제 PG17 경합 5개 + guard/projection/interruption/architecture | 55 | 0 | 0 |
+| 최종 Java 보안·통신·SSE·Gateway·dispatcher·projection·interruption·architecture, 실제 단기 HTTP 및 PG17 경합 | 152 | 0 | 0 |
+
+55개는 152개에 포함되므로 합산하지 않는다. 장시간 60초 만료 실패·180초 cutoff 시험과 Agent 100개는 앞서 기록된 검증이며 이 한 줄의 Spring 잠금 수정 이후 반복 실행하지 않았다. 최신 실제 단기 HTTP run `f5ff6ed2-b951-4a31-aa44-2e6ede0ee3cf`는 COMPLETED이며 durable SSE cursor는 1 accepted → 2 started → 3 clarification.requested → 4 clarification.responded → 5 started → 6 completed다. 중복 start, resume, 이전 cursor 재접속과 잘못된 token/run 거부를 실제 Java HTTP→Uvicorn→PG17에서 확인했다. 이 단기 HTTP의 executor는 기존 `InterruptThenCompleteExecutor` 대역이다. 전체 운영 executor·전체 Spring 앱의 최신 5개 여정은 통합 담당이 별도로 재검증한다.
+
+비밀값 없는 로컬 증거는 `2026-10-14T03:04:52Z`의 `.tmp/validation/lock-concurrency-evidence.json`, `03:04:53Z`의 `.tmp/validation/live-http-evidence.json`, `.tmp/validation/java-lock-concurrency-55` 및 `java-lock-final-152`의 JUnit XML이다. 전용 DB의 5개 run은 모두 version 1이며 cancellation 1개의 scope만 closed다. 모든 model/token counter는 0이다. runtime/증거/fixture는 커밋하지 않는다.
+
+```powershell
+# backend 폴더. 기존 synthetic test role을 가진 전용 localhost DB만 사용한다.
+$env:BACKEND_LOCK_TEST_JDBC_URL = 'jdbc:postgresql://127.0.0.1:18114/backend_lock_test'
+./gradlew.bat test --tests '*DelegatedExecutionConcurrencyPostgresTest' --tests '*DelegatedExecutionAccessTest' --tests '*AgentRunProjectionOutcomeTest' --tests '*AgentInterruptionServiceTest' --tests '*ArchitectureTest' --console=plain
+```
+
+전용 DB URL이 없으면 CI의 Docker가 가능할 때 테스트가 소유한 PG17 container만 사용한다. DB와 Docker가 모두 없으면 해당 경합 class는 건너뛴다. 제 실행은 위 전용 DB로 실제 수행했고 skip 0이다. 기존 다른 세션 DB `18224`와 공유 Docker 리소스에 접근하거나 변경하지 않았다.
+
+코드는 승인된 서버 작업 브랜치에 푸시했고 통합 담당이 `664690c`로 cherry-pick했다고 보고했다. 최신 전체 여정 결과를 받기 전에는 잠금 수정 후 5개 전체 앱 여정 통과나 운영 반영을 주장하지 않는다. 이 세션의 실행·승인·원격 푸시 차단은 없다. 통합 담당이 보고한 별도 Backend CI의 PDF font 관련 14개 실패/3개 skip은 이 서버 잠금 검증 152개 결과와 구분한다. 폰트 자원 승인·전체 CI 및 배포 조율은 부모/PDF/통합 세션의 담당이다.
