@@ -1,0 +1,49 @@
+name: Production readiness and local recovery snapshot
+
+on:
+  push:
+    branches:
+      - work/production-validation-20261014
+    paths:
+      - .github/workflows/production-readiness-snapshot.yml
+      - infra/scripts/production-readiness-snapshot.py
+      - infra/tests/test_production_readiness_snapshot.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  observe-and-snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate bounded secret-free local snapshot procedure
+        run: python3 -m unittest discover -s infra/tests -p test_production_readiness_snapshot.py -v
+      - name: Configure existing SSH identity and host trust
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VULTR_SSH_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_HOST_KEY" > ~/.ssh/known_hosts
+      - name: Observe production and verify fresh server-local archive
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+        run: |
+          test "$DEPLOY_HOST" = "158.247.196.242"
+          test "$DEPLOY_USER" = "root"
+          printf '%s' "$GITHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "python3 - '$GITHUB_SHA'" \
+            < infra/scripts/production-readiness-snapshot.py
