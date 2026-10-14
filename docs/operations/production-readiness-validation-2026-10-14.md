@@ -44,6 +44,45 @@ The existing production verification workflow is push-only, with pinned Backend/
 
 The dedicated `work/production-validation-20261014` branch therefore contains a metadata-only/local-archive procedure using that same existing identity. It never invokes Compose, deployment scripts, migrations, role changes, restores or remote backup destinations. Ten safety tests passed locally and in the GitHub job before server access. Changed image/schema, active work, low resource headroom or unsafe snapshot paths stop archive creation; waiting/orphan data is preserved and reported.
 
-The separate V52 pair rollback workflow uses a fresh isolated PostgreSQL17 database, synthetic fixtures and the exact prior public image digests. It uses no production identity or backup, and has no image-source or authentication fallback. Its result is laboratory compatibility evidence, not a release CI or deployment certificate. Candidate SHA and results must be pinned in the final evidence after that workflow finishes.
+The separate V52 pair rollback workflow uses a fresh isolated PostgreSQL17 database, synthetic fixtures and the exact prior public image digests. It uses no production identity or backup, and has no image-source or authentication fallback. Its result is laboratory compatibility evidence, not a release CI or deployment certificate.
 
 Image identity uses the exact registry `RepoDigest` and Linux/amd64 platform. Docker's graphdriver and containerd stores can expose different local `.Id` representations for the same manifest, so equal local IDs across those engines are not the identity criterion. This distinction is documented in the [Moby containerd image inspector](https://github.com/moby/moby/blob/master/daemon/containerd/image_inspect.go). Four regression tests require the exact manifest even if a local ID matches, reject a wrong platform and accept a differing config ID only with the exact manifest.
+
+## Completed V52 paired rollback rehearsal
+
+[GitHub run 38502746550](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/38502746550), validation code `824ff19a39d9e852c73dd1444a249aeaa579d9d2`, passed against laboratory candidate `116692fc81b0116e6c8209eb51ce89a9a151c48b`. The journey owner subsequently kept that candidate on hold for separate execution-authority/concurrency regressions. This test does not lift that hold, and a final candidate must be coordinated with that owner.
+
+| Validation group | Final result | Failed | Skipped |
+| --- | --- | --- | --- |
+| Secret-free production snapshot safety | 10 tests passed locally and in the production verification job | 0 | 0 |
+| Exact registry identity regression | 4 tests passed locally and in the successful laboratory job | 0 | 0 |
+| Real PG17/image-pair rehearsal | 14 named checks passed | 0 | 0 |
+
+The final job had no skipped build, verification or post-job steps. Earlier laboratory attempts stopped on harness-local image-ID comparison and host-routing issues; those were corrected and reverified with exact manifest identity and container-local HTTP. No production code, production images, shared environment or existing test gates were altered to fix the harness.
+
+The rehearsal used PostgreSQL17.11 and pgvector0.8.7 on an internal Docker network. Both prior production images were pulled anonymously by their exact recorded digests, with no source/image/authentication fallback. HTTP requests used the services' own container loopback; the separate network kept external model routing unavailable. Fixture signing used the existing connected-test RSA-2048 in-memory pattern and fixture database roles/passwords. Actual user registration/login and wrong-password rejection ran through Spring; no user-login bypass was used.
+
+The sequence was:
+
+1. Start exact old Backend775/Agent9a on new synthetic PG17; apply V1–V48 and read a saved completed fixture result.
+2. Stop that pair while leaving the same database alive. Start the pinned candidate Spring/Agent; apply V49→V52 and preserve the legacy saved result and usage.
+3. Confirm analysis and specification through actual HTTP; retain its final-only keyword document. With the remote font absent, PDF returns HTTP503 while the confirmed artifact remains intact. This observation does **not** replace the 14 mandatory connected/PDF CI cases or treat them as passing.
+4. Validate PARTIAL in the V52 app constraint and actual Spring/Agent projection; seed a synthetic conservative monthly liability while `completion_required` and spending remain disabled.
+5. Stop the candidate pair and run the exact old image pair on the unchanged V52 database. Verify normal login, project/quotation/document and saved COMPLETED/PARTIAL reads, scope rejection, and zero paid replay.
+6. Use the old project-update HTTP API. Verify the V51 source invalidation trigger remains compatible while preserving immutable specification/provenance and monetary rows.
+7. Re-forward to the candidate pair. Verify schema/data remain unchanged and the historical specification correctly reports its changed source as obsolete.
+
+All 52 successful Flyway entries and Alembic `20260912_0007` were retained. Complete schema hashes were identical before rollback, after old startup/reads/project write and after re-forward:
+
+`83b551442e94248bdf31565371770f925ce17e4e09af72ca06139ac934f8343f`
+
+The complete selected artifact/runtime/money snapshot matched byte-for-byte as structured data across old startup and reads. Re-forward matched the legitimate old-write snapshot. The fixture contained one confirmed specification, two saved runtime runs and one monthly liability entry. Provider-attempt counts and actual model calls were zero. Only this harness's disposable containers/network were cleaned up.
+
+The synthetic-only evidence ZIP has SHA256 `8b7994fc1aaccbd33cce3439e2f2090eb9c83c644244cfb7cbe8107d86387122`. It contains schema/history/data comparisons and readiness records; the production archive was never used or copied into the lab.
+
+## Remaining release prerequisites
+
+- Final integrated candidate and unchanged CI, including the existing font approval and all mandatory PDF/connected cases, remain outside this compatibility result.
+- The verified rollback scope keeps completion/spend disabled. Old Agent mixed with new Spring does not enforce the new worker deadline; new Agent rejects old deadline-free START/RESUME. A reviewed admission pause/drain and paired deployment/recovery procedure is still required before switching production.
+- The existing orphan WAITING entry is preserved. A fresh inventory must distinguish that history from new in-flight work at a later release boundary; do not delete, replay, cancel or reissue authority merely to produce empty counts.
+- The local archive was catalogued/fully decoded/checksummed. Off-host transfer/configuration, actual database restore, production migrations, cancellation/admission pause, main merge and image switching were not performed in this task.
