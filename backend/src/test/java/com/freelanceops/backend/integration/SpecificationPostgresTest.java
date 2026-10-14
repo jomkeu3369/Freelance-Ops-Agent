@@ -34,6 +34,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import tools.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -63,6 +64,7 @@ class SpecificationPostgresTest {
     @Autowired AnalysisDecisionService decisions;
     @Autowired SpecificationService specifications;
     @Autowired KnowledgeService knowledge;
+    @Autowired ObjectMapper json;
     @MockitoBean AgentRunGatewayService gateway;
     @MockitoBean RaptorBuildClient paidIndex;
     UUID actor, workspace, projectId, runId;
@@ -208,6 +210,50 @@ class SpecificationPostgresTest {
         assertThat(jdbc.queryForObject("select count(*) from app.specification where project_id=?", Integer.class, projectId)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from app.specification_request where project_id=?", Integer.class, projectId)).isZero();
         assertThat(jdbc.queryForObject("select count(*) from app.document where id=?", Integer.class, confirmed.reusableDocumentId())).isZero();
+    }
+
+    @Test void draftAndConfirmedRevisionsRetainExactProvenanceAcrossUserEdits() throws Exception {
+        var result = confirmedResult("검토 결과 source_only_keyword");
+        var original = specifications.create(actor, workspace, projectId,
+            new CreateSpecificationRequest(result.id(), UUID.randomUUID()));
+        var originalSnapshot = specifications.get(actor, workspace, projectId, original.id());
+        // JSONB preserves JSON numbers, but a small Long can reload as an Integer.
+        assertThat(json.readTree(json.writeValueAsString(originalSnapshot.sourceProvenance())))
+            .isEqualTo(json.readTree(json.writeValueAsString(original.sourceProvenance())));
+        assertThat(originalSnapshot.originalSources()).isEqualTo(original.originalSources());
+        assertSnapshotIsImmutable(original.id());
+
+        String finalBody = "  최종 명세 final_only_keyword\r\n\r\n고객 확인 범위\n마지막 완료 기준  ";
+        var revised = specifications.revise(actor, workspace, projectId, original.id(),
+            new ReviseSpecificationRequest(UUID.randomUUID(), original.contentHash(), "합성 확정 명세", finalBody));
+        var confirmed = confirm(revised);
+        var reloaded = specifications.get(actor, workspace, projectId, confirmed.id());
+        assertThat(reloaded.bodyText()).isEqualTo(finalBody);
+        assertThat(reloaded.sourceBodyText()).isEqualTo(result.bodyText());
+        assertThat(reloaded.sourceDecisionHash()).isEqualTo(result.contentHash());
+        assertThat(reloaded.sourceProvenance()).isEqualTo(originalSnapshot.sourceProvenance());
+        assertThat(reloaded.originalSources()).isEqualTo(originalSnapshot.originalSources());
+        assertSnapshotIsImmutable(confirmed.id());
+        for (var source : originalSnapshot.originalSources()) {
+            assertThatThrownBy(() -> jdbc.update("update app.source_message set content='tampered' where id=?", source.id()))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("source messages are immutable");
+        }
+        assertThat(specifications.get(actor, workspace, projectId, original.id())).isEqualTo(originalSnapshot);
+        assertThat(specifications.get(actor, workspace, projectId, confirmed.id())).isEqualTo(reloaded);
+        assertThat(knowledge.search(actor, workspace, new KnowledgeSearchRequest("source_only_keyword", null, 10), projectId, null)).isEmpty();
+        assertThat(knowledge.search(actor, workspace, new KnowledgeSearchRequest("final_only_keyword", null, 10), projectId, null))
+            .isNotEmpty().allMatch(hit -> hit.documentId().equals(confirmed.reusableDocumentId())
+                && hit.sourceMessages().equals(originalSnapshot.originalSources()));
+        assertThat(knowledge.search(actor, workspace, new KnowledgeSearchRequest("final_only_keyword", null, 10))).isEmpty();
+        verifyNoInteractions(paidIndex);
+    }
+
+    private void assertSnapshotIsImmutable(UUID specificationId) {
+        for (String mutation : List.of("title='tampered'", "body_text='tampered'", "source_body_text='tampered'",
+            "source_provenance='{}'::jsonb", "original_sources='[{\"id\":\"tampered\"}]'::jsonb")) {
+            assertThatThrownBy(() -> jdbc.update("update app.specification set " + mutation + " where id=?", specificationId))
+                .isInstanceOf(DataAccessException.class).hasMessageContaining("specification content is immutable");
+        }
     }
 
     private AnalysisDecisionResponse confirmedResult(String text) {
