@@ -68,3 +68,26 @@ def _token(private_key: rsa.RSAPrivateKey, key_id: str) -> str:
         algorithm="RS256",
         headers={"kid": key_id}
     )
+
+
+@pytest.mark.parametrize("claim", [None, True, "deadline", 1.5, {}, -1])
+def test_rejects_malformed_execution_deadlines(claim) -> None:
+    private, public = _key_pair()
+    original = _token(private, "test")
+    claims = jwt.decode(original, options={"verify_signature": False})
+    claims["execution_deadline"] = claim
+    signed = jwt.encode(claims, private, algorithm="RS256", headers={"kid": "test"})
+    verifier = DelegationTokenVerifier(public_key=public, key_id="test", issuer="issuer", audience="agent")
+    with pytest.raises(ValueError, match="invalid"):
+        verifier.verify(signed)
+
+
+def test_execution_deadline_has_no_jwt_expiry_grace() -> None:
+    private, public = _key_pair()
+    now = int(datetime.now(UTC).timestamp())
+    claims = jwt.decode(_token(private, "test"), options={"verify_signature": False})
+    claims.update(iat=now - 60, exp=now, execution_deadline=now)
+    verifier = DelegationTokenVerifier(public_key=public, key_id="test", issuer="issuer", audience="agent")
+    signed = jwt.encode(claims, private, algorithm="RS256", headers={"kid": "test"})
+    with pytest.raises(ValueError, match="invalid"):
+        verifier.verify(signed)

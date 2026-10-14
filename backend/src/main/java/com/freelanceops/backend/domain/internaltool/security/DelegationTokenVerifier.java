@@ -65,6 +65,7 @@ public class DelegationTokenVerifier {
             if (decoder == null) throw new IllegalArgumentException("unknown delegation key id");
             Jwt jwt = decoder.decode(token);
             requireClaims(jwt);
+            java.time.Instant deadline = executionDeadline(jwt);
             List<?> permissionValues = jwt.getClaimAsStringList("permissions");
             if (permissionValues == null || permissionValues.stream().anyMatch(value -> !(value instanceof String))) {
                 throw new IllegalArgumentException("invalid permissions");
@@ -79,7 +80,8 @@ public class DelegationTokenVerifier {
                 UUID.fromString(jwt.getClaimAsString("workspace_id")),
                 UUID.fromString(jwt.getClaimAsString("project_id")),
                 UUID.fromString(jwt.getClaimAsString("initiated_by")),
-                permissions
+                permissions,
+                deadline
             );
             if (!principal.subject().equals(principal.initiatedBy().toString())) {
                 throw new IllegalArgumentException("delegated subject does not match initiated_by");
@@ -88,6 +90,24 @@ public class DelegationTokenVerifier {
         } catch (java.text.ParseException | JwtException | IllegalArgumentException error) {
             throw new DelegationTokenException("delegation token is invalid", error);
         }
+    }
+
+    private static java.time.Instant executionDeadline(Jwt jwt) {
+        Object value = jwt.getClaim("execution_deadline");
+        if (!jwt.getClaims().containsKey("execution_deadline")) return null;
+        if (!(value instanceof Long) && !(value instanceof Integer)) throw new IllegalArgumentException("invalid execution deadline");
+        Number number = (Number) value;
+        if (number.longValue() <= jwt.getIssuedAt().getEpochSecond()
+            || number.longValue() > jwt.getIssuedAt().getEpochSecond() + 900)
+            throw new IllegalArgumentException("invalid execution deadline");
+        java.time.Instant deadline = java.time.Instant.ofEpochSecond(number.longValue());
+        if (!java.time.Instant.now().isBefore(deadline) || !java.time.Instant.now().isBefore(jwt.getExpiresAt())
+            || jwt.getExpiresAt().isAfter(deadline)
+            || !jwt.getIssuedAt().isBefore(deadline)
+            || java.time.Duration.between(jwt.getIssuedAt(), deadline).compareTo(Duration.ofSeconds(900)) > 0) {
+            throw new IllegalArgumentException("execution deadline is invalid or expired");
+        }
+        return deadline;
     }
 
     private static JwtDecoder decoder(String publicKey, String issuer, String audience) {

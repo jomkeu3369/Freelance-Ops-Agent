@@ -10,8 +10,13 @@ public record DelegationPrincipal(
     UUID workspaceId,
     UUID projectId,
     UUID initiatedBy,
-    Set<String> permissions
+    Set<String> permissions,
+    java.time.Instant executionDeadline
 ) {
+    public DelegationPrincipal(String subject, String tokenId, UUID runId, UUID workspaceId, UUID projectId,
+                               UUID initiatedBy, Set<String> permissions) {
+        this(subject, tokenId, runId, workspaceId, projectId, initiatedBy, permissions, null);
+    }
 }
 
 

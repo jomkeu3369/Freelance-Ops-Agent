@@ -80,26 +80,42 @@ public class DelegationTokenIssuer {
         return issueWithLifetime(runId, workspaceId, projectId, initiatedBy, permissions, Duration.ofSeconds(durationSeconds + 30L));
     }
 
+    /** Execution authority ends at the original run deadline, including retries and resume. */
+    public String issueForExecution(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy,
+                                    List<String> permissions, Instant deadline) {
+        Instant now = clock.instant();
+        Instant bounded = deadline.truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        if (!now.isBefore(bounded) || Duration.between(now, bounded).compareTo(Duration.ofSeconds(900)) > 0) {
+            throw new IllegalStateException("agent execution deadline is unavailable or expired");
+        }
+        return encode(runId, workspaceId, projectId, initiatedBy, permissions, now, bounded, bounded);
+    }
+
     private String issueWithLifetime(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions, Duration tokenLifetime) {
+        Instant now = clock.instant();
+        return encode(runId, workspaceId, projectId, initiatedBy, permissions, now, now.plus(tokenLifetime), null);
+    }
+
+    private String encode(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions,
+                          Instant now, Instant expiresAt, Instant executionDeadline) {
         if (encoder == null) {
             throw new IllegalStateException("delegation signing key is unavailable");
         }
-        Instant now = clock.instant();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
             .issuer(issuer)
             .audience(audiences)
             .subject(initiatedBy.toString())
             .id(UUID.randomUUID().toString())
             .issuedAt(now)
-            .expiresAt(now.plus(tokenLifetime))
+            .expiresAt(expiresAt)
             .claim("run_id", runId.toString())
             .claim("workspace_id", workspaceId.toString())
             .claim("project_id", projectId.toString())
             .claim("initiated_by", initiatedBy.toString())
-            .claim("permissions", List.copyOf(permissions))
-            .build();
+            .claim("permissions", List.copyOf(permissions));
+        if (executionDeadline != null) claims.claim("execution_deadline", executionDeadline.getEpochSecond());
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(keyId).build();
-        return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
     }
 
     private static JwtEncoder createEncoder(String privateKey, String publicKey, String keyId) {

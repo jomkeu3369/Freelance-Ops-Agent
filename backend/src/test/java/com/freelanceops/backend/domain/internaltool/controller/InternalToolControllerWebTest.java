@@ -161,6 +161,7 @@ class InternalToolControllerWebTest {
             .id(UUID.randomUUID().toString())
             .issuedAt(now)
             .expiresAt(now.plusSeconds(60))
+            .claim("execution_deadline", now.plusSeconds(60).getEpochSecond())
             .claim("run_id", runId.toString())
             .claim("workspace_id", workspaceId.toString())
             .claim("project_id", projectId.toString())

@@ -16,9 +16,18 @@ public class DelegationTokenFilter extends OncePerRequestFilter {
 
     public static final String PRINCIPAL_ATTRIBUTE = "internalToolDelegationPrincipal";
     private final DelegationTokenVerifier verifier;
+    private final com.freelanceops.backend.domain.internaltool.service.DelegatedExecutionAccess executionAccess;
 
-    public DelegationTokenFilter(DelegationTokenVerifier verifier) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public DelegationTokenFilter(DelegationTokenVerifier verifier,
+        com.freelanceops.backend.domain.internaltool.service.DelegatedExecutionAccess executionAccess) {
         this.verifier = verifier;
+        this.executionAccess = executionAccess;
+    }
+
+    /** Standalone security tests may supply their business authorization separately. */
+    public DelegationTokenFilter(DelegationTokenVerifier verifier) {
+        this(verifier, null);
     }
 
     @Override
@@ -42,6 +51,8 @@ public class DelegationTokenFilter extends OncePerRequestFilter {
             if (!principal.runId().equals(runId)) {
                 throw new DelegationTokenException("run binding does not match");
             }
+            if (principal.executionDeadline() == null) throw new DelegationTokenException("execution authority is required");
+            if (executionAccess != null) executionAccess.require(principal);
             request.setAttribute(PRINCIPAL_ATTRIBUTE, principal);
             filterChain.doFilter(request, response);
         } catch (DelegationTokenException | IllegalArgumentException error) {

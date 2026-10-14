@@ -47,6 +47,33 @@ class AgentRunCommandDispatcherTest {
     private ObjectMapper objectMapper;
     private AgentRunCommandDispatcher dispatcher;
 
+    @Test
+    void expiryDuringIssuanceUsesShortControlRecoveryAndReleasesTheClaim() throws Exception {
+        Fixture fixture = fixture();
+        var request = startRequest(fixture);
+        var command = command(fixture, AgentRunCommandType.START, objectMapper.writeValueAsString(request), 1);
+        when(tokenIssuer.issueForExecution(eq(fixture.runId()), any(), any(), any(), any(), any()))
+            .thenThrow(new IllegalStateException("agent execution deadline expired"));
+        when(client.get(fixture.runId(), "token", "traceparent")).thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+        when(queue.fail(eq(command.id()), eq(command.attempts()), any())).thenReturn(true);
+        dispatcher.dispatch(command);
+        verify(queue).fail(eq(command.id()), eq(command.attempts()), any());
+        verify(projectionService).synchronizeStatus(fixture.runId(), fixture.workspaceId(), AgentRunStatus.FAILED);
+        verify(client, never()).start(any(), any(), any());
+        verify(queue, never()).retry(any(), anyInt(), any(), any());
+    }
+
+    @Test
+    void missingOriginalAuthorityNeverFallsBackToCurrentCommandPermissions() throws Exception {
+        Fixture fixture = fixture();
+        var command = command(fixture, AgentRunCommandType.START, objectMapper.writeValueAsString(startRequest(fixture)), 1);
+        when(queue.originalPermissions(fixture.runId())).thenThrow(new IllegalStateException("original scope missing"));
+        when(client.get(fixture.runId(), "token", "traceparent")).thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+        dispatcher.dispatch(command);
+        verify(client, never()).start(any(), any(), any());
+        verify(queue).fail(eq(command.id()), eq(command.attempts()), any());
+    }
+
     @BeforeEach
     void setUp() {
         objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -60,7 +87,7 @@ class AgentRunCommandDispatcherTest {
         Fixture fixture = fixture();
         InternalAgentRunRequest request = startRequest(fixture);
         var command = command(fixture, AgentRunCommandType.START, objectMapper.writeValueAsString(request), 1);
-        when(client.start(request, "token", "traceparent"))
+        when(client.start(request, "execution-token", "traceparent"))
             .thenThrow(new ResourceAccessException("response lost"));
         AgentRunView running = view(fixture.runId(), AgentRunStatus.RUNNING, null);
         when(client.get(fixture.runId(), "token", "traceparent")).thenReturn(running);
@@ -77,7 +104,7 @@ class AgentRunCommandDispatcherTest {
         Fixture fixture = fixture();
         InternalAgentRunRequest request = startRequest(fixture);
         var command = command(fixture, AgentRunCommandType.START, objectMapper.writeValueAsString(request), 2);
-        when(client.start(request, "token", "traceparent"))
+        when(client.start(request, "execution-token", "traceparent"))
             .thenThrow(new ResourceAccessException("agent unavailable"));
         when(client.get(fixture.runId(), "token", "traceparent"))
             .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
@@ -95,7 +122,7 @@ class AgentRunCommandDispatcherTest {
             UUID.randomUUID(), "resume-key-123", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "답변"))
         );
         var command = command(fixture, AgentRunCommandType.RESUME, objectMapper.writeValueAsString(request), 2);
-        when(client.resume(fixture.runId(), request, "token", "traceparent"))
+        when(client.resume(fixture.runId(), request, "execution-token", "traceparent"))
             .thenThrow(new HttpClientErrorException(HttpStatus.CONFLICT));
         AgentRunView queued = view(fixture.runId(), AgentRunStatus.QUEUED, null);
         when(client.get(fixture.runId(), "token", "traceparent")).thenReturn(queued);
@@ -116,7 +143,7 @@ class AgentRunCommandDispatcherTest {
             .thenReturn(Optional.of(project(fixture, false)))
             .thenReturn(Optional.of(project(fixture, true)))
             .thenReturn(Optional.of(project(fixture, true)));
-        when(client.start(request, "token", "traceparent"))
+        when(client.start(request, "execution-token", "traceparent"))
             .thenReturn(new com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse(
                 fixture.runId(), AgentRunStatus.QUEUED, Instant.now()
             ));
@@ -144,6 +171,10 @@ class AgentRunCommandDispatcherTest {
         when(runRepository.findById(fixture.runId())).thenReturn(Optional.of(fixture.run()));
         when(tokenIssuer.issue(fixture.runId(), fixture.workspaceId(), fixture.projectId(),
             fixture.userId(), List.of("agent.run", "agent.respond"))).thenReturn("token");
+        when(queue.originalPermissions(fixture.runId())).thenReturn(List.of("agent.run", "agent.respond"));
+        org.mockito.Mockito.lenient().when(tokenIssuer.issueForExecution(fixture.runId(), fixture.workspaceId(), fixture.projectId(),
+            fixture.userId(), List.of("agent.run", "agent.respond"),
+            fixture.run().createdAt().plusSeconds(fixture.run().budget().maxDurationSeconds()))).thenReturn("execution-token");
         return new AgentRunCommandQueue.ClaimedCommand(
             UUID.randomUUID(), fixture.runId(), type, payload, fixture.userId(),
             List.of("agent.run", "agent.respond"), "traceparent", attempts

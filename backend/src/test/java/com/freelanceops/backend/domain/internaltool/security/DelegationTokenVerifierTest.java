@@ -26,6 +26,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DelegationTokenVerifierTest {
 
+    @Test
+    void executionDeadlineRejectsTheBoundaryEvenInsideJwtClockSkew() throws Exception {
+        UUID user = UUID.randomUUID();
+        var original = com.nimbusds.jwt.SignedJWT.parse(token("agent-service", user, UUID.randomUUID()));
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        var claims = new com.nimbusds.jwt.JWTClaimsSet.Builder(original.getJWTClaimsSet())
+            .issueTime(java.util.Date.from(now.minusSeconds(60))).expirationTime(java.util.Date.from(now))
+            .claim("execution_deadline", now.getEpochSecond()).build();
+        var header = JwsHeader.with(SignatureAlgorithm.RS256).keyId("test-key").build();
+        var springClaims = JwtClaimsSet.builder().claims(map -> map.putAll(claims.getClaims()))
+            .issuedAt(now.minusSeconds(60)).expiresAt(now).build();
+        String signed = encoder.encode(JwtEncoderParameters.from(header, springClaims)).getTokenValue();
+        assertThatThrownBy(() -> verifier(pem(publicKey)).verify(signed)).isInstanceOf(DelegationTokenException.class);
+    }
+
     private RSAPublicKey publicKey;
     private JwtEncoder encoder;
 

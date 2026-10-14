@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -23,6 +24,7 @@ class DelegationPrincipal:
     project_id: UUID
     initiated_by: UUID
     permissions: frozenset[str]
+    execution_deadline: datetime | None = None
 
 
 class DelegationTokenVerifier:
@@ -68,6 +70,16 @@ class DelegationTokenVerifier:
             if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
                 raise ValueError("invalid permissions")
 
+            deadline = None
+            if "execution_deadline" in claims:
+                value = claims["execution_deadline"]
+                if type(value) is not int or not claims["iat"] < value <= claims["iat"] + 900:
+                    raise ValueError("invalid execution deadline")
+                deadline = datetime.fromtimestamp(value, UTC)
+                now = datetime.now(UTC)
+                if now >= deadline or now.timestamp() >= claims["exp"] or claims["exp"] > value:
+                    raise ValueError("execution deadline is invalid or expired")
+
             principal = DelegationPrincipal(
                 subject=str(claims["sub"]),
                 token_id=str(claims["jti"]),
@@ -76,6 +88,7 @@ class DelegationTokenVerifier:
                 project_id=UUID(str(claims["project_id"])),
                 initiated_by=UUID(str(claims["initiated_by"])),
                 permissions=frozenset(permissions),
+                execution_deadline=deadline,
             )
 
             if principal.subject != str(principal.initiated_by):

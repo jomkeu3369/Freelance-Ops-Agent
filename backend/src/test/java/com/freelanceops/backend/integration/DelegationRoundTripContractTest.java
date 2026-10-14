@@ -108,8 +108,8 @@ class DelegationRoundTripContractTest {
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        String token = tokenIssuer.issue(
-            runId, workspaceId, projectId, userId, List.of("agent.run", "project.read")
+        String token = tokenIssuer.issueForExecution(
+            runId, workspaceId, projectId, userId, List.of("agent.run", "project.read"), java.time.Instant.now().plusSeconds(60)
         );
         when(runRepository.existsByIdAndWorkspaceId(runId, workspaceId)).thenReturn(true);
         when(toolService.getProjectContext(eq(projectId), any())).thenReturn(new ProjectContext(

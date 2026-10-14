@@ -256,8 +256,10 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     @Transactional
     public StartAgentRunResponse resume(UUID userId, UUID workspaceId, UUID runId, ResumeAgentRunRequest request, String traceparent) {
         AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+        if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!Instant.now().isBefore(authorized.run().createdAt().plusSeconds(authorized.run().budget().maxDurationSeconds())))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "AGENT_EXECUTION_DEADLINE_EXPIRED");
         if (authorized.run().credentialId() != null) {
-            if (!userId.equals(authorized.run().initiatedBy())) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
             connections.validate(userId, workspaceId, authorized.run().credentialId(), authorized.run().provider(), authorized.run().model());
             byok.validateRun(authorized.run());
         }

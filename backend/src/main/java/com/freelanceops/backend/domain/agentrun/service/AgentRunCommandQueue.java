@@ -59,6 +59,13 @@ public class AgentRunCommandQueue implements ProjectAgentCommandFence {
             .orElse(false);
     }
 
+    @Transactional(readOnly = true)
+    public List<String> originalPermissions(UUID runId) {
+        return repository.findFirstByRunIdAndCommandTypeOrderByCreatedAtAsc(runId, AgentRunCommandType.START)
+            .map(command -> readPermissions(command.effectivePermissions()))
+            .orElseThrow(() -> new IllegalStateException("original agent execution authority is unavailable"));
+    }
+
     @Transactional
     public boolean retry(UUID commandId, int claimedAttempt, Duration delay, String error) {
         return repository.findByIdForUpdate(commandId)
