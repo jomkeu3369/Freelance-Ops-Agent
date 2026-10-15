@@ -1,14 +1,15 @@
 package com.freelanceops.backend.domain.agenttask.entity;
 
-import com.freelanceops.backend.domain.agenttask.model.AgentTaskStatus;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
+import com.freelanceops.backend.domain.agenttask.model.AgentTaskStatus;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentTaskEntityTest {
 
@@ -23,7 +24,8 @@ class AgentTaskEntityTest {
 
         assertThat(revision).isEqualTo(2);
         assertThat(task.status()).isEqualTo(AgentTaskStatus.QUEUED);
-        assertThat(task.complete(1, oldAttempt, AgentTaskStatus.COMPLETED, now.plusSeconds(3))).isFalse();
+        assertThat(task.complete(1, oldAttempt, AgentTaskStatus.COMPLETED, now.plusSeconds(3)))
+                .isFalse();
     }
 
     @Test
@@ -38,8 +40,8 @@ class AgentTaskEntityTest {
         assertThat(task.lastHeartbeatAt()).isEqualTo(now.plusSeconds(2));
         assertThat(task.phase()).isEqualTo("research");
         assertThatThrownBy(() -> task.heartbeat(2, attempt, "late", "late", now.plusSeconds(3)))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("revision");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("revision");
     }
 
     @Test
@@ -61,7 +63,17 @@ class AgentTaskEntityTest {
     }
 
     private static AgentTaskEntity task(Instant now) {
-        return new AgentTaskEntity(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), null,
-            DepartmentName.RESEARCH, "research-v1", "Research #1", "objective:1", 3, null, now);
+        return new AgentTaskEntity(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                DepartmentName.RESEARCH,
+                "research-v1",
+                "Research #1",
+                "objective:1",
+                3,
+                null,
+                now);
     }
 }

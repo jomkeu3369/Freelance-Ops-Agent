@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -14,8 +15,7 @@ import java.util.UUID;
 @Table(name = "proposal_share", schema = "app")
 public class ProposalShareEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -39,11 +39,18 @@ public class ProposalShareEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected ProposalShareEntity() {
-    }
+    protected ProposalShareEntity() {}
 
-    public ProposalShareEntity(UUID id, UUID workspaceId, UUID quotationId, String tokenHash, Instant expiresAt, UUID createdBy, Instant createdAt) {
-        if (!expiresAt.isAfter(createdAt)) throw new IllegalArgumentException("share expiry must be after creation");
+    public ProposalShareEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID quotationId,
+            String tokenHash,
+            Instant expiresAt,
+            UUID createdBy,
+            Instant createdAt) {
+        if (!expiresAt.isAfter(createdAt))
+            throw new IllegalArgumentException("share expiry must be after creation");
         if (tokenHash == null || !tokenHash.matches("^[0-9a-f]{64}$")) {
             throw new IllegalArgumentException("share token hash is invalid");
         }
@@ -64,12 +71,35 @@ public class ProposalShareEntity {
         if (revokedAt == null) revokedAt = now;
     }
 
-    public UUID id() { return id; }
-    public UUID workspaceId() { return workspaceId; }
-    public UUID quotationId() { return quotationId; }
-    public String tokenHash() { return tokenHash; }
-    public Instant expiresAt() { return expiresAt; }
-    public Instant revokedAt() { return revokedAt; }
-    public UUID createdBy() { return createdBy; }
-    public Instant createdAt() { return createdAt; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID workspaceId() {
+        return workspaceId;
+    }
+
+    public UUID quotationId() {
+        return quotationId;
+    }
+
+    public String tokenHash() {
+        return tokenHash;
+    }
+
+    public Instant expiresAt() {
+        return expiresAt;
+    }
+
+    public Instant revokedAt() {
+        return revokedAt;
+    }
+
+    public UUID createdBy() {
+        return createdBy;
+    }
+
+    public Instant createdAt() {
+        return createdAt;
+    }
 }

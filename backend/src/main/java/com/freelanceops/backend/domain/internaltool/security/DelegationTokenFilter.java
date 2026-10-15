@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -27,7 +28,9 @@ public class DelegationTokenFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
         try {
             String authorization = request.getHeader("Authorization");
             if (authorization == null || !authorization.startsWith("Bearer ")) {
@@ -52,10 +55,10 @@ public class DelegationTokenFilter extends OncePerRequestFilter {
     private void writeUnauthorized(HttpServletResponse response) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,"
-            + "\"detail\":\"The delegation token is invalid or is not bound to this run.\","
-            + "\"code\":\"DELEGATION_TOKEN_INVALID\"}");
+        response.getWriter()
+                .write(
+                        "{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,"
+                                + "\"detail\":\"The delegation token is invalid or is not bound to this run.\","
+                                + "\"code\":\"DELEGATION_TOKEN_INVALID\"}");
     }
 }
-
-

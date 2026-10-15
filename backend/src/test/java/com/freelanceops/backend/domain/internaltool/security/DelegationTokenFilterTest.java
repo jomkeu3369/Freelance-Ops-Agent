@@ -1,18 +1,19 @@
 package com.freelanceops.backend.domain.internaltool.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import jakarta.servlet.FilterChain;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.Set;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class DelegationTokenFilterTest {
 
@@ -31,7 +32,8 @@ class DelegationTokenFilterTest {
         filter.doFilter(request, response, chain);
 
         verify(chain).doFilter(request, response);
-        assertThat(request.getAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE)).isEqualTo(principal);
+        assertThat(request.getAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE))
+                .isEqualTo(principal);
     }
 
     @Test
@@ -50,7 +52,8 @@ class DelegationTokenFilterTest {
     }
 
     private static MockHttpServletRequest request(UUID runId) {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/internal/v1/projects/test/context");
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/internal/v1/projects/test/context");
         request.addHeader("Authorization", "Bearer token");
         request.addHeader("X-Run-Id", runId.toString());
         return request;
@@ -59,10 +62,12 @@ class DelegationTokenFilterTest {
     private static DelegationPrincipal principal(UUID runId) {
         UUID userId = UUID.randomUUID();
         return new DelegationPrincipal(
-            userId.toString(), UUID.randomUUID().toString(), runId, UUID.randomUUID(), UUID.randomUUID(), userId,
-            Set.of("agent.run", "project.read")
-        );
+                userId.toString(),
+                UUID.randomUUID().toString(),
+                runId,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                userId,
+                Set.of("agent.run", "project.read"));
     }
 }
-
-

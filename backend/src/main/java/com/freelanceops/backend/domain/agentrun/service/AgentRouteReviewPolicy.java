@@ -13,8 +13,10 @@ public class AgentRouteReviewPolicy {
     private final int naturalDualPercent;
     private final int naturalSeniorAuditPercent;
 
-    public AgentRouteReviewPolicy(@Value("${agent.route-review-natural-dual-percent:50}") int naturalDualPercent,
-                                  @Value("${agent.route-review-natural-senior-audit-percent:5}") int naturalSeniorAuditPercent) {
+    public AgentRouteReviewPolicy(
+            @Value("${agent.route-review-natural-dual-percent:50}") int naturalDualPercent,
+            @Value("${agent.route-review-natural-senior-audit-percent:5}")
+                    int naturalSeniorAuditPercent) {
         if (naturalDualPercent < 0 || naturalDualPercent > 100) {
             throw new IllegalArgumentException("natural dual-review percent must be 0-100");
         }

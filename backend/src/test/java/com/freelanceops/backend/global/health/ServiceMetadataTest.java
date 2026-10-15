@@ -15,6 +15,3 @@ class ServiceMetadataTest {
         assertThat(metadata.status()).isEqualTo("UP");
     }
 }
-
-
-

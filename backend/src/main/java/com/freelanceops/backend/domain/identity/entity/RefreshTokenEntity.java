@@ -13,8 +13,7 @@ import java.util.UUID;
 @Table(name = "refresh_token", schema = "app")
 public class RefreshTokenEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
@@ -46,17 +45,23 @@ public class RefreshTokenEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    protected RefreshTokenEntity() {
-    }
+    protected RefreshTokenEntity() {}
 
-    public RefreshTokenEntity(UUID id, UUID userId, String tokenHash, Instant expiresAt, Instant createdAt) {
+    public RefreshTokenEntity(
+            UUID id, UUID userId, String tokenHash, Instant expiresAt, Instant createdAt) {
         this(id, userId, tokenHash, id, null, expiresAt, createdAt);
     }
 
-    public RefreshTokenEntity(UUID id, UUID userId, String tokenHash, UUID familyId, UUID parentTokenId, Instant expiresAt, Instant createdAt) {
+    public RefreshTokenEntity(
+            UUID id,
+            UUID userId,
+            String tokenHash,
+            UUID familyId,
+            UUID parentTokenId,
+            Instant expiresAt,
+            Instant createdAt) {
         this.id = id;
         this.userId = userId;
         this.tokenHash = tokenHash;
@@ -75,7 +80,8 @@ public class RefreshTokenEntity {
     }
 
     public void rotateTo(UUID replacementId, Instant now) {
-        if (revokedAt != null || replacedByTokenId != null) throw new IllegalStateException("refresh token is already consumed");
+        if (revokedAt != null || replacedByTokenId != null)
+            throw new IllegalStateException("refresh token is already consumed");
         replacedByTokenId = replacementId;
         revoke(now, "ROTATED");
     }
@@ -94,11 +100,31 @@ public class RefreshTokenEntity {
         return userId;
     }
 
-    public UUID id() { return id; }
-    public UUID familyId() { return familyId; }
-    public UUID parentTokenId() { return parentTokenId; }
-    public UUID replacedByTokenId() { return replacedByTokenId; }
-    public Instant revokedAt() { return revokedAt; }
-    public String revokeReason() { return revokeReason; }
-    public Instant reuseDetectedAt() { return reuseDetectedAt; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID familyId() {
+        return familyId;
+    }
+
+    public UUID parentTokenId() {
+        return parentTokenId;
+    }
+
+    public UUID replacedByTokenId() {
+        return replacedByTokenId;
+    }
+
+    public Instant revokedAt() {
+        return revokedAt;
+    }
+
+    public String revokeReason() {
+        return revokeReason;
+    }
+
+    public Instant reuseDetectedAt() {
+        return reuseDetectedAt;
+    }
 }

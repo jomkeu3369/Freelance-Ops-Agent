@@ -1,24 +1,28 @@
 package com.freelanceops.backend.domain.agentrun.service;
-import org.springframework.context.ApplicationEventPublisher;
-import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
-import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
+
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.entity.AgentInterruptionEntity;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+import com.freelanceops.backend.domain.agentrun.model.DepartmentName;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.time.Instant;
 import java.util.UUID;
 
 @Service
 public class AgentRunProjectionService {
 
-    private static final java.time.Duration RECONCILIATION_INTERVAL = java.time.Duration.ofSeconds(5);
+    private static final java.time.Duration RECONCILIATION_INTERVAL =
+            java.time.Duration.ofSeconds(5);
 
     private final AgentRunRepository runRepository;
     private final AgentInterruptionService interruptionService;
@@ -27,7 +31,13 @@ public class AgentRunProjectionService {
     private final FreeUsageService freeUsage;
     private final ByokExecutionService byok;
 
-    public AgentRunProjectionService(AgentRunRepository runRepository, AgentInterruptionService interruptionService, AgentCostService costService, ApplicationEventPublisher events, FreeUsageService freeUsage, ByokExecutionService byok) {
+    public AgentRunProjectionService(
+            AgentRunRepository runRepository,
+            AgentInterruptionService interruptionService,
+            AgentCostService costService,
+            ApplicationEventPublisher events,
+            FreeUsageService freeUsage,
+            ByokExecutionService byok) {
         this.runRepository = runRepository;
         this.interruptionService = interruptionService;
         this.costService = costService;
@@ -44,10 +54,21 @@ public class AgentRunProjectionService {
         freeUsage.settleConfirmed(run.id(), view.status());
         if (view.status() == AgentRunStatus.COMPLETED && view.result() != null) {
             view.result().departmentResults().stream()
-                .filter(result -> result.department() == DepartmentName.REQUIREMENTS && "COMPLETED".equals(result.status()))
-                .findFirst().ifPresent(result -> events.publishEvent(new RequirementAnalysisCompleted(
-                    run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), result.summary(), view.result().referencedDocumentIds()
-                )));
+                    .filter(
+                            result ->
+                                    result.department() == DepartmentName.REQUIREMENTS
+                                            && "COMPLETED".equals(result.status()))
+                    .findFirst()
+                    .ifPresent(
+                            result ->
+                                    events.publishEvent(
+                                            new RequirementAnalysisCompleted(
+                                                    run.id(),
+                                                    run.workspaceId(),
+                                                    run.projectId(),
+                                                    run.initiatedBy(),
+                                                    result.summary(),
+                                                    view.result().referencedDocumentIds())));
         }
         byok.closeIfTerminal(run.id(), view.status());
         run.synchronizeStatus(view.status(), Instant.now());
@@ -61,7 +82,8 @@ public class AgentRunProjectionService {
     }
 
     @Transactional
-    public void acceptResume(UUID runId, UUID workspaceId, ResumeAgentRunRequest request, AgentRunStatus status) {
+    public void acceptResume(
+            UUID runId, UUID workspaceId, ResumeAgentRunRequest request, AgentRunStatus status) {
         AgentRunEntity run = lock(runId, workspaceId);
         AgentInterruptionEntity interruption = interruptionService.requirePending(run, request);
         interruptionService.markResponded(interruption, request, Instant.now());
@@ -74,10 +96,11 @@ public class AgentRunProjectionService {
         byok.closeIfTerminal(runId, status);
     }
 
-    /** Use only for status acknowledged by the Agent, never a locally inferred delivery failure. */
+    /** Agent가 확인한 상태에만 사용한다. 로컬에서 추정한 전달 실패에는 사용하지 않는다. */
     @Transactional
     public void synchronizeAcknowledgedStatus(UUID runId, UUID workspaceId, AgentRunStatus status) {
-        if (status == null) throw new IllegalStateException("Agent did not acknowledge a run status");
+        if (status == null)
+            throw new IllegalStateException("Agent did not acknowledge a run status");
         AgentRunEntity run = lock(runId, workspaceId);
         freeUsage.settleConfirmed(run.id(), status);
         byok.closeIfTerminal(run.id(), status);
@@ -90,7 +113,8 @@ public class AgentRunProjectionService {
     }
 
     private AgentRunEntity lock(UUID runId, UUID workspaceId) {
-        return runRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return runRepository
+                .findByIdAndWorkspaceIdForUpdate(runId, workspaceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 }

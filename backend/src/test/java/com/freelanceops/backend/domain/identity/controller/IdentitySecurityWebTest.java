@@ -1,37 +1,5 @@
 package com.freelanceops.backend.domain.identity.controller;
 
-import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
-import com.freelanceops.backend.domain.identity.dto.response.AuthTokenResponse;
-import com.freelanceops.backend.domain.identity.dto.response.MeResponse;
-import com.freelanceops.backend.domain.identity.service.AuthService;
-import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
-import com.freelanceops.backend.global.config.AuthSecurityConfig;
-import com.freelanceops.backend.global.config.SecurityConfig;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.DispatcherType;
-import jakarta.servlet.RequestDispatcher;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.web.FilterChainProxy;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
@@ -42,76 +10,122 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
+import com.freelanceops.backend.domain.identity.dto.response.AuthTokenResponse;
+import com.freelanceops.backend.domain.identity.dto.response.MeResponse;
+import com.freelanceops.backend.domain.identity.service.AuthService;
+import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
+import com.freelanceops.backend.global.config.AuthSecurityConfig;
+import com.freelanceops.backend.global.config.SecurityConfig;
+
+import jakarta.servlet.DispatcherType;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.RequestDispatcher;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.web.FilterChainProxy;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
 @WebMvcTest(
-    controllers = {AuthController.class, MeController.class},
-    properties = {
-        "app.auth.jwt-secret=test-web-auth-secret-with-at-least-32-bytes",
-        "app.auth.issuer=test-issuer",
-        "app.auth.audience=test-web"
-    }
-)
+        controllers = {AuthController.class, MeController.class},
+        properties = {
+            "app.auth.jwt-secret=test-web-auth-secret-with-at-least-32-bytes",
+            "app.auth.issuer=test-issuer",
+            "app.auth.audience=test-web"
+        })
 @Import({SecurityConfig.class, AuthSecurityConfig.class})
 class IdentitySecurityWebTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private JwtEncoder jwtEncoder;
-    @Autowired
-    private FilterChainProxy springSecurityFilterChain;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private JwtEncoder jwtEncoder;
+    @Autowired private FilterChainProxy springSecurityFilterChain;
 
-    @MockitoBean
-    private AuthService authService;
-    @MockitoBean
-    private DelegationTokenFilter delegationTokenFilter;
+    @MockitoBean private AuthService authService;
+    @MockitoBean private DelegationTokenFilter delegationTokenFilter;
 
     @BeforeEach
     void letPublicRequestsPassDelegationFilter() throws Exception {
-        doAnswer(invocation -> {
-            FilterChain chain = invocation.getArgument(2);
-            chain.doFilter(invocation.getArgument(0), invocation.getArgument(1));
-            return null;
-        }).when(delegationTokenFilter).doFilter(any(), any(), any());
+        doAnswer(
+                        invocation -> {
+                            FilterChain chain = invocation.getArgument(2);
+                            chain.doFilter(invocation.getArgument(0), invocation.getArgument(1));
+                            return null;
+                        })
+                .when(delegationTokenFilter)
+                .doFilter(any(), any(), any());
     }
 
     @Test
     void registrationAcceptsExplicitBooleanAgeConfirmation() throws Exception {
-        when(authService.register(any())).thenReturn(new AuthTokenResponse(
-            UUID.randomUUID(), UUID.randomUUID(), "access", Instant.now().plusSeconds(900),
-            "refresh", Instant.now().plusSeconds(3600), "Bearer"
-        ));
+        when(authService.register(any()))
+                .thenReturn(
+                        new AuthTokenResponse(
+                                UUID.randomUUID(),
+                                UUID.randomUUID(),
+                                "access",
+                                Instant.now().plusSeconds(900),
+                                "refresh",
+                                Instant.now().plusSeconds(3600),
+                                "Bearer"));
 
-        mockMvc.perform(post("/api/v2/auth/register")
-                .contentType("application/json")
-                .content(registrationJson(",\"ageAtLeast14\":true")))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.tokenType").value("Bearer"));
+        mockMvc.perform(
+                        post("/api/v2/auth/register")
+                                .contentType("application/json")
+                                .content(registrationJson(",\"ageAtLeast14\":true")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"));
 
-        verify(authService).register(new RegisterRequest(
-            "member@example.com", "valid-password", "Member", "Member Workspace", true
-        ));
+        verify(authService)
+                .register(
+                        new RegisterRequest(
+                                "member@example.com",
+                                "valid-password",
+                                "Member",
+                                "Member Workspace",
+                                true));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "",
-        ",\"ageAtLeast14\":null",
-        ",\"ageAtLeast14\":false",
-        ",\"ageAtLeast14\":\"true\"",
-        ",\"ageAtLeast14\":\"false\"",
-        ",\"ageAtLeast14\":\"\"",
-        ",\"ageAtLeast14\":1",
-        ",\"ageAtLeast14\":0",
-        ",\"ageAtLeast14\":1.0",
-        ",\"ageAtLeast14\":[]",
-        ",\"ageAtLeast14\":[true]",
-        ",\"ageAtLeast14\":{}"
-    })
-    void registrationRejectsMissingFalseOrNonBooleanAgeConfirmation(String ageField) throws Exception {
-        mockMvc.perform(post("/api/v2/auth/register")
-                .contentType("application/json")
-                .content(registrationJson(ageField)))
-            .andExpect(status().isBadRequest());
+    @ValueSource(
+            strings = {
+                "",
+                ",\"ageAtLeast14\":null",
+                ",\"ageAtLeast14\":false",
+                ",\"ageAtLeast14\":\"true\"",
+                ",\"ageAtLeast14\":\"false\"",
+                ",\"ageAtLeast14\":\"\"",
+                ",\"ageAtLeast14\":1",
+                ",\"ageAtLeast14\":0",
+                ",\"ageAtLeast14\":1.0",
+                ",\"ageAtLeast14\":[]",
+                ",\"ageAtLeast14\":[true]",
+                ",\"ageAtLeast14\":{}"
+            })
+    void registrationRejectsMissingFalseOrNonBooleanAgeConfirmation(String ageField)
+            throws Exception {
+        mockMvc.perform(
+                        post("/api/v2/auth/register")
+                                .contentType("application/json")
+                                .content(registrationJson(ageField)))
+                .andExpect(status().isBadRequest());
 
         verifyNoInteractions(authService);
     }
@@ -119,53 +133,53 @@ class IdentitySecurityWebTest {
     @Test
     void authenticationEndpointsArePublicButMeRequiresBearerToken() throws Exception {
         UUID userId = UUID.randomUUID();
-        when(authService.login(any())).thenReturn(new AuthTokenResponse(
-            userId,
-            UUID.randomUUID(),
-            "access",
-            Instant.now().plusSeconds(900),
-            "refresh",
-            Instant.now().plusSeconds(3600),
-            "Bearer"
-        ));
+        when(authService.login(any()))
+                .thenReturn(
+                        new AuthTokenResponse(
+                                userId,
+                                UUID.randomUUID(),
+                                "access",
+                                Instant.now().plusSeconds(900),
+                                "refresh",
+                                Instant.now().plusSeconds(3600),
+                                "Bearer"));
 
-        mockMvc.perform(post("/api/v2/auth/login")
-                .contentType("application/json")
-                .content("{\"email\":\"member@example.com\",\"password\":\"valid-password\"}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.tokenType").value("Bearer"));
+        mockMvc.perform(
+                        post("/api/v2/auth/login")
+                                .contentType("application/json")
+                                .content(
+                                        "{\"email\":\"member@example.com\",\"password\":\"valid-password\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"));
 
-        mockMvc.perform(get("/api/v2/me"))
-            .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v2/me")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void validAccessTokenSuppliesUuidSubjectToMeEndpoint() throws Exception {
         UUID userId = UUID.randomUUID();
-        when(authService.me(userId)).thenReturn(new MeResponse(
-            userId,
-            "member@example.com",
-            "Member",
-            "ACTIVE",
-            List.of()
-        ));
+        when(authService.me(userId))
+                .thenReturn(
+                        new MeResponse(
+                                userId, "member@example.com", "Member", "ACTIVE", List.of()));
 
-        mockMvc.perform(get("/api/v2/me")
-                .header("Authorization", "Bearer " + accessToken(userId)))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(userId.toString()));
+        mockMvc.perform(get("/api/v2/me").header("Authorization", "Bearer " + accessToken(userId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId.toString()));
 
         verify(authService).me(userId);
     }
 
     @Test
     void actuatorMetricsAreNotPublicOrUserAccessible() throws Exception {
-        mockMvc.perform(get("/actuator/metrics"))
-            .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
 
-        mockMvc.perform(get("/actuator/metrics")
-                .header("Authorization", "Bearer " + accessToken(UUID.randomUUID())))
-            .andExpect(status().isForbidden());
+        mockMvc.perform(
+                        get("/actuator/metrics")
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + accessToken(UUID.randomUUID())))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -174,16 +188,26 @@ class IdentitySecurityWebTest {
         request.setServletPath("/error");
         request.setDispatcherType(DispatcherType.ERROR);
         MockHttpServletResponse response = new MockHttpServletResponse();
-        springSecurityFilterChain.doFilter(request, response, (incoming, outgoing) -> response.setStatus(409));
+        springSecurityFilterChain.doFilter(
+                request, response, (incoming, outgoing) -> response.setStatus(409));
         org.assertj.core.api.Assertions.assertThat(response.getStatus()).isEqualTo(409);
 
-        mockMvc.perform(post("/error").servletPath("/error")
-                .with(dispatchedRequest -> { dispatchedRequest.setDispatcherType(DispatcherType.ERROR); return dispatchedRequest; })
-                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409)
-                .requestAttr(RequestDispatcher.ERROR_REQUEST_URI, "/api/v2/proposals/test-token/decisions")
-                .accept("application/json"))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.status").value(409));
+        mockMvc.perform(
+                        post("/error")
+                                .servletPath("/error")
+                                .with(
+                                        dispatchedRequest -> {
+                                            dispatchedRequest.setDispatcherType(
+                                                    DispatcherType.ERROR);
+                                            return dispatchedRequest;
+                                        })
+                                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409)
+                                .requestAttr(
+                                        RequestDispatcher.ERROR_REQUEST_URI,
+                                        "/api/v2/proposals/test-token/decisions")
+                                .accept("application/json"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test
@@ -192,36 +216,41 @@ class IdentitySecurityWebTest {
         request.setServletPath("/api/v2/me");
         request.setDispatcherType(DispatcherType.ERROR);
         MockHttpServletResponse response = new MockHttpServletResponse();
-        springSecurityFilterChain.doFilter(request, response, (incoming, outgoing) -> response.setStatus(200));
+        springSecurityFilterChain.doFilter(
+                request, response, (incoming, outgoing) -> response.setStatus(200));
         org.assertj.core.api.Assertions.assertThat(response.getStatus()).isEqualTo(401);
 
-        mockMvc.perform(get("/error").servletPath("/error")
-                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409))
-            .andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v2/me"))
-            .andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                        get("/error")
+                                .servletPath("/error")
+                                .requestAttr(RequestDispatcher.ERROR_STATUS_CODE, 409))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v2/me")).andExpect(status().isUnauthorized());
     }
 
     private static String registrationJson(String ageField) {
         return """
             {"email":"member@example.com","password":"valid-password",
              "displayName":"Member","workspaceName":"Member Workspace"%s}
-            """.formatted(ageField);
+            """
+                .formatted(ageField);
     }
 
     private String accessToken(UUID userId) {
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-            .issuer("test-issuer")
-            .subject(userId.toString())
-            .audience(List.of("test-web"))
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(60))
-            .claim("token_type", "access")
-            .build();
-        return jwtEncoder.encode(JwtEncoderParameters.from(
-            JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(),
-            claims
-        )).getTokenValue();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer("test-issuer")
+                        .subject(userId.toString())
+                        .audience(List.of("test-web"))
+                        .issuedAt(now)
+                        .expiresAt(now.plusSeconds(60))
+                        .claim("token_type", "access")
+                        .build();
+        return jwtEncoder
+                .encode(
+                        JwtEncoderParameters.from(
+                                JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(), claims))
+                .getTokenValue();
     }
 }

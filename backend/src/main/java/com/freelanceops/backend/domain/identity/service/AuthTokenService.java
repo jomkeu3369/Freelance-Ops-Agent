@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.identity.service;
 
 import com.freelanceops.backend.domain.identity.entity.UserAccountEntity;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -34,18 +35,34 @@ public class AuthTokenService {
 
     @Autowired
     public AuthTokenService(
-        JwtEncoder encoder,
-        @Value("${app.auth.issuer:freelance-ops-backend}") String issuer,
-        @Value("${app.auth.audience:freelance-ops-web}") String audience,
-        @Value("${app.auth.access-token-ttl-seconds:900}") long accessTtlSeconds,
-        @Value("${app.auth.refresh-token-ttl-seconds:2592000}") long refreshTtlSeconds
-    ) {
-        this(encoder, issuer, audience, Duration.ofSeconds(accessTtlSeconds), Duration.ofSeconds(refreshTtlSeconds), Clock.systemUTC(), new SecureRandom());
+            JwtEncoder encoder,
+            @Value("${app.auth.issuer:freelance-ops-backend}") String issuer,
+            @Value("${app.auth.audience:freelance-ops-web}") String audience,
+            @Value("${app.auth.access-token-ttl-seconds:900}") long accessTtlSeconds,
+            @Value("${app.auth.refresh-token-ttl-seconds:2592000}") long refreshTtlSeconds) {
+        this(
+                encoder,
+                issuer,
+                audience,
+                Duration.ofSeconds(accessTtlSeconds),
+                Duration.ofSeconds(refreshTtlSeconds),
+                Clock.systemUTC(),
+                new SecureRandom());
     }
 
-    AuthTokenService(JwtEncoder encoder, String issuer, String audience, Duration accessLifetime, Duration refreshLifetime, Clock clock, SecureRandom secureRandom) {
-        if (accessLifetime.isNegative() || accessLifetime.isZero() || refreshLifetime.compareTo(accessLifetime) <= 0) {
-            throw new IllegalArgumentException("refresh lifetime must be greater than a positive access lifetime");
+    AuthTokenService(
+            JwtEncoder encoder,
+            String issuer,
+            String audience,
+            Duration accessLifetime,
+            Duration refreshLifetime,
+            Clock clock,
+            SecureRandom secureRandom) {
+        if (accessLifetime.isNegative()
+                || accessLifetime.isZero()
+                || refreshLifetime.compareTo(accessLifetime) <= 0) {
+            throw new IllegalArgumentException(
+                    "refresh lifetime must be greater than a positive access lifetime");
         }
         this.encoder = encoder;
         this.issuer = issuer;
@@ -59,16 +76,17 @@ public class AuthTokenService {
     public IssuedAccessToken issueAccessToken(UserAccountEntity user) {
         Instant issuedAt = clock.instant();
         Instant expiresAt = issuedAt.plus(accessLifetime);
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-            .issuer(issuer)
-            .subject(user.id().toString())
-            .audience(List.of(audience))
-            .issuedAt(issuedAt)
-            .expiresAt(expiresAt)
-            .id(UUID.randomUUID().toString())
-            .claim("token_type", "access")
-            .claim("email", user.email())
-            .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer(issuer)
+                        .subject(user.id().toString())
+                        .audience(List.of(audience))
+                        .issuedAt(issuedAt)
+                        .expiresAt(expiresAt)
+                        .id(UUID.randomUUID().toString())
+                        .claim("token_type", "access")
+                        .claim("email", user.email())
+                        .build();
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         String value = encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
         return new IssuedAccessToken(value, expiresAt);
@@ -83,7 +101,9 @@ public class AuthTokenService {
 
     public String hash(String token) {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(token.getBytes(StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException("SHA-256 is unavailable", error);
@@ -94,9 +114,7 @@ public class AuthTokenService {
         return clock.instant();
     }
 
-    public record IssuedAccessToken(String value, Instant expiresAt) {
-    }
+    public record IssuedAccessToken(String value, Instant expiresAt) {}
 
-    public record IssuedRefreshToken(String value, String hash, Instant expiresAt) {
-    }
+    public record IssuedRefreshToken(String value, String hash, Instant expiresAt) {}
 }

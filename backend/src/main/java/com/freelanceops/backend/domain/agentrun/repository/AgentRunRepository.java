@@ -2,11 +2,14 @@ package com.freelanceops.backend.domain.agentrun.repository;
 
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+
+import jakarta.persistence.LockModeType;
+
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,53 +18,61 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import jakarta.persistence.LockModeType;
 
 public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> {
 
     Optional<AgentRunEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select run from AgentRunEntity run where run.id = :id and run.workspaceId = :workspaceId")
-    Optional<AgentRunEntity> findByIdAndWorkspaceIdForUpdate(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
+    @Query(
+            "select run from AgentRunEntity run where run.id = :id and run.workspaceId = :workspaceId")
+    Optional<AgentRunEntity> findByIdAndWorkspaceIdForUpdate(
+            @Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
 
-    Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(UUID workspaceId, UUID projectId);
+    Optional<AgentRunEntity> findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(
+            UUID workspaceId, UUID projectId);
 
     List<AgentRunEntity> findByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(
-        UUID workspaceId, UUID projectId, Pageable pageable
-    );
+            UUID workspaceId, UUID projectId, Pageable pageable);
 
-    List<AgentRunEntity> findAllByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
+    List<AgentRunEntity> findAllByWorkspaceIdAndProjectIdAndStatusIn(
+            UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
 
-    @Query("""
+    @Query(
+            """
         select run from AgentRunEntity run
         where run.status in :statuses and run.nextReconciliationAt <= :now
         order by run.nextReconciliationAt, run.createdAt
         """)
     List<AgentRunEntity> findDueForReconciliation(
-        @Param("statuses") Collection<AgentRunStatus> statuses,
-        @Param("now") Instant now,
-        Pageable pageable
-    );
+            @Param("statuses") Collection<AgentRunStatus> statuses,
+            @Param("now") Instant now,
+            Pageable pageable);
 
     boolean existsByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
-    // Terminal status can precede the worker's final usage checkpoint.
-    @Query(value = """
+    // 종료 상태가 작업자의 최종 사용량 기록보다 먼저 도착할 수 있다.
+    @Query(
+            value =
+                    """
         SELECT r.* FROM app.agent_run r
         JOIN app.platform_spend_reservation p ON p.run_id=r.id
         JOIN app.platform_spend_settlement s ON s.run_id=r.id
         WHERE r.status IN ('COMPLETED','PARTIAL','FAILED','CANCELLED') AND NOT s.execution_closed
             AND p.tariff_version='platform-ai-2026-10-05-v2' AND r.next_reconciliation_at <= :now
         ORDER BY r.next_reconciliation_at,r.created_at
-        """, nativeQuery = true)
-    List<AgentRunEntity> findMonetaryRunsAwaitingClosure(@Param("now") Instant now, Pageable pageable);
+        """,
+            nativeQuery = true)
+    List<AgentRunEntity> findMonetaryRunsAwaitingClosure(
+            @Param("now") Instant now, Pageable pageable);
 
-    boolean existsByWorkspaceIdAndProjectIdAndStatusIn(UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
+    boolean existsByWorkspaceIdAndProjectIdAndStatusIn(
+            UUID workspaceId, UUID projectId, Collection<AgentRunStatus> statuses);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
-    @Query("""
+    @Query(
+            """
         UPDATE AgentRunEntity run
         SET run.status = :status,
             run.updatedAt = :updatedAt,
@@ -72,12 +83,9 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
           AND run.status <> :status
         """)
     int synchronizeStatus(
-        @Param("runId") UUID runId,
-        @Param("workspaceId") UUID workspaceId,
-        @Param("status") AgentRunStatus status,
-        @Param("updatedAt") Instant updatedAt,
-        @Param("terminalStatuses") Collection<AgentRunStatus> terminalStatuses
-    );
+            @Param("runId") UUID runId,
+            @Param("workspaceId") UUID workspaceId,
+            @Param("status") AgentRunStatus status,
+            @Param("updatedAt") Instant updatedAt,
+            @Param("terminalStatuses") Collection<AgentRunStatus> terminalStatuses);
 }
-
-

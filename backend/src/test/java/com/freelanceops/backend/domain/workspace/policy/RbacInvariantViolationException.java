@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.workspace.policy;
 
-/** Failure type used by the role-change specification fixture. */
+/** 역할 변경 규칙 테스트에서 사용하는 예외다. */
 public class RbacInvariantViolationException extends RuntimeException {
 
     private final String code;
@@ -14,5 +14,3 @@ public class RbacInvariantViolationException extends RuntimeException {
         return code;
     }
 }
-
-

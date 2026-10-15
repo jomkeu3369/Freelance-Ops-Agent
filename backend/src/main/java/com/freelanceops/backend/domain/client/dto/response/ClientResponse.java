@@ -6,17 +6,15 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ClientResponse(
-    UUID id,
-    UUID workspaceId,
-    String name,
-    String companyName,
-    String email,
-    String phone,
-    String notes,
-    ClientStatus status,
-    UUID createdBy,
-    Instant createdAt,
-    Instant updatedAt,
-    long version
-) {
-}
+        UUID id,
+        UUID workspaceId,
+        String name,
+        String companyName,
+        String email,
+        String phone,
+        String notes,
+        ClientStatus status,
+        UUID createdBy,
+        Instant createdAt,
+        Instant updatedAt,
+        long version) {}

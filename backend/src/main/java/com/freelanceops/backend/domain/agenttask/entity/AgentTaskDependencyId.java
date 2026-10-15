@@ -10,19 +10,26 @@ import java.util.UUID;
 @Embeddable
 public class AgentTaskDependencyId implements Serializable {
 
-    @Column(name = "task_id") private UUID taskId;
-    @Column(name = "depends_on_task_id") private UUID dependsOnTaskId;
+    @Column(name = "task_id")
+    private UUID taskId;
 
-    protected AgentTaskDependencyId() {
-    }
+    @Column(name = "depends_on_task_id")
+    private UUID dependsOnTaskId;
+
+    protected AgentTaskDependencyId() {}
 
     public AgentTaskDependencyId(UUID taskId, UUID dependsOnTaskId) {
         this.taskId = Objects.requireNonNull(taskId);
         this.dependsOnTaskId = Objects.requireNonNull(dependsOnTaskId);
     }
 
-    public UUID taskId() { return taskId; }
-    public UUID dependsOnTaskId() { return dependsOnTaskId; }
+    public UUID taskId() {
+        return taskId;
+    }
+
+    public UUID dependsOnTaskId() {
+        return dependsOnTaskId;
+    }
 
     @Override
     public boolean equals(Object other) {

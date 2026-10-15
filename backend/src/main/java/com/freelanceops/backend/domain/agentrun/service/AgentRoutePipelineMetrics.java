@@ -3,10 +3,12 @@ package com.freelanceops.backend.domain.agentrun.service;
 import com.freelanceops.backend.domain.agentrun.model.RouteCollectionStatus;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRouteCollectionRepository;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRouteObservationRepository;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,9 +39,10 @@ public class AgentRoutePipelineMetrics {
     private final AtomicLong oldestCollectionLagSeconds = new AtomicLong();
     private final AtomicLong oldestReviewAgeSeconds = new AtomicLong();
 
-    public AgentRoutePipelineMetrics(MeterRegistry registry,
-                                     AgentRouteCollectionRepository collectionRepository,
-                                     AgentRouteObservationRepository observationRepository) {
+    public AgentRoutePipelineMetrics(
+            MeterRegistry registry,
+            AgentRouteCollectionRepository collectionRepository,
+            AgentRouteObservationRepository observationRepository) {
         this.collectionRepository = collectionRepository;
         this.observationRepository = observationRepository;
         collectionBatches = registry.counter("freelance_ops.route.collection.batches");
@@ -50,23 +53,32 @@ public class AgentRoutePipelineMetrics {
         reviewsCompleted = registry.counter("freelance_ops.route.review.completed");
         snapshotLatency = registry.timer("freelance_ops.route.collection.snapshot.latency");
         Gauge.builder("freelance_ops.route.collection.backlog", collectionBacklog, AtomicLong::get)
-            .register(registry);
+                .register(registry);
         Gauge.builder("freelance_ops.route.review.backlog", reviewBacklog, AtomicLong::get)
-            .register(registry);
-        Gauge.builder("freelance_ops.route.collection.oldest.lag.seconds", oldestCollectionLagSeconds,
-            AtomicLong::get).register(registry);
-        Gauge.builder("freelance_ops.route.review.oldest.age.seconds", oldestReviewAgeSeconds,
-            AtomicLong::get).register(registry);
+                .register(registry);
+        Gauge.builder(
+                        "freelance_ops.route.collection.oldest.lag.seconds",
+                        oldestCollectionLagSeconds,
+                        AtomicLong::get)
+                .register(registry);
+        Gauge.builder(
+                        "freelance_ops.route.review.oldest.age.seconds",
+                        oldestReviewAgeSeconds,
+                        AtomicLong::get)
+                .register(registry);
     }
 
     @Scheduled(fixedDelayString = "${agent.route-observation-metrics-refresh-ms:15000}")
     public void refresh() {
         Instant now = Instant.now();
         try {
-            collectionBacklog.set(collectionRepository.countByStatusNot(RouteCollectionStatus.COMPLETED));
+            collectionBacklog.set(
+                    collectionRepository.countByStatusNot(RouteCollectionStatus.COMPLETED));
             reviewBacklog.set(observationRepository.countByReviewedAtIsNull());
-            oldestCollectionLagSeconds.set(ageSeconds(collectionRepository.oldestIncompleteAvailableAt(), now));
-            oldestReviewAgeSeconds.set(ageSeconds(observationRepository.oldestUnreviewedOccurredAt(), now));
+            oldestCollectionLagSeconds.set(
+                    ageSeconds(collectionRepository.oldestIncompleteAvailableAt(), now));
+            oldestReviewAgeSeconds.set(
+                    ageSeconds(observationRepository.oldestUnreviewedOccurredAt(), now));
         } catch (RuntimeException error) {
             log.debug("Route pipeline metric refresh deferred", error);
         }
@@ -96,6 +108,7 @@ public class AgentRoutePipelineMetrics {
     }
 
     private static long ageSeconds(Optional<Instant> oldest, Instant now) {
-        return oldest.map(value -> Math.max(0, Duration.between(value, now).toSeconds())).orElse(0L);
+        return oldest.map(value -> Math.max(0, Duration.between(value, now).toSeconds()))
+                .orElse(0L);
     }
 }

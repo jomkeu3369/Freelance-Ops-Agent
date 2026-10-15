@@ -5,5 +5,3 @@ public enum AuthorizationDecision {
     NOT_FOUND,
     FORBIDDEN
 }
-
-

@@ -6,11 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ProposalDecisionResponse(
-    UUID decisionId,
-    UUID quotationId,
-    ProposalDecision decision,
-    String clientName,
-    String comment,
-    Instant decidedAt
-) {
-}
+        UUID decisionId,
+        UUID quotationId,
+        ProposalDecision decision,
+        String clientName,
+        String comment,
+        Instant decidedAt) {}

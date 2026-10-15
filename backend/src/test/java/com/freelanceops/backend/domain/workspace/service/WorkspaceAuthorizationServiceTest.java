@@ -1,9 +1,12 @@
 package com.freelanceops.backend.domain.workspace.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationAuditEvent;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -11,8 +14,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class WorkspaceAuthorizationServiceTest {
 
@@ -24,7 +25,8 @@ class WorkspaceAuthorizationServiceTest {
     void allowsExplicitPermissionForActiveMembership() {
         WorkspaceAuthorizationService service = serviceWith(Set.of(PermissionCode.PROJECT_READ));
 
-        AuthorizationDecision decision = service.authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
+        AuthorizationDecision decision =
+                service.authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
 
         assertThat(decision).isEqualTo(AuthorizationDecision.ALLOWED);
         assertThat(events).isEmpty();
@@ -34,21 +36,24 @@ class WorkspaceAuthorizationServiceTest {
     void deniesByDefaultWhenPermissionIsMissing() {
         WorkspaceAuthorizationService service = serviceWith(Set.of(PermissionCode.PROJECT_READ));
 
-        AuthorizationDecision decision = service.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
+        AuthorizationDecision decision =
+                service.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
 
         assertThat(decision).isEqualTo(AuthorizationDecision.FORBIDDEN);
-        assertThat(events).singleElement().extracting(AuthorizationAuditEvent::decision)
-            .isEqualTo(AuthorizationDecision.FORBIDDEN);
+        assertThat(events)
+                .singleElement()
+                .extracting(AuthorizationAuditEvent::decision)
+                .isEqualTo(AuthorizationDecision.FORBIDDEN);
     }
 
     @Test
     void hidesWorkspaceWhenMembershipDoesNotExist() {
-        WorkspaceAuthorizationService service = new WorkspaceAuthorizationService(
-            (ignoredUser, ignoredWorkspace) -> Optional.empty(),
-            events::add
-        );
+        WorkspaceAuthorizationService service =
+                new WorkspaceAuthorizationService(
+                        (ignoredUser, ignoredWorkspace) -> Optional.empty(), events::add);
 
-        AuthorizationDecision decision = service.authorize(userId, workspaceId, PermissionCode.WORKSPACE_READ);
+        AuthorizationDecision decision =
+                service.authorize(userId, workspaceId, PermissionCode.WORKSPACE_READ);
 
         assertThat(decision).isEqualTo(AuthorizationDecision.NOT_FOUND);
     }
@@ -57,23 +62,17 @@ class WorkspaceAuthorizationServiceTest {
     void resourceFromAnotherWorkspaceIsHiddenBeforePermissionCheck() {
         WorkspaceAuthorizationService service = serviceWith(Set.of());
 
-        AuthorizationDecision decision = service.authorize(
-            userId,
-            workspaceId,
-            PermissionCode.PROJECT_READ,
-            UUID.randomUUID()
-        );
+        AuthorizationDecision decision =
+                service.authorize(
+                        userId, workspaceId, PermissionCode.PROJECT_READ, UUID.randomUUID());
 
         assertThat(decision).isEqualTo(AuthorizationDecision.NOT_FOUND);
     }
 
     private WorkspaceAuthorizationService serviceWith(Set<PermissionCode> permissions) {
-        MembershipPermissions membership = new MembershipPermissions(UUID.randomUUID(), permissions);
+        MembershipPermissions membership =
+                new MembershipPermissions(UUID.randomUUID(), permissions);
         return new WorkspaceAuthorizationService(
-            (ignoredUser, ignoredWorkspace) -> Optional.of(membership),
-            events::add
-        );
+                (ignoredUser, ignoredWorkspace) -> Optional.of(membership), events::add);
     }
 }
-
-

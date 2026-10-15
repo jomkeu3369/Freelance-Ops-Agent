@@ -1,5 +1,12 @@
 package com.freelanceops.backend.domain.agenttask.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
 import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskExecutionProfileRequest;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskAttemptEntity;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
@@ -7,6 +14,7 @@ import com.freelanceops.backend.domain.agenttask.entity.AgentTaskExecutionProfil
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskExecutionProfileId;
 import com.freelanceops.backend.domain.agenttask.repository.AgentTaskExecutionProfileRepository;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
+
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,19 +25,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 class AgentTaskRegistrationServiceTest {
 
     private final AgentTaskRegistry registry = mock(AgentTaskRegistry.class);
     private final AgentTaskGuard guard = mock(AgentTaskGuard.class);
-    private final AgentTaskExecutionProfileRepository profiles = mock(AgentTaskExecutionProfileRepository.class);
-    private final AgentTaskRegistrationService service = new AgentTaskRegistrationService(registry, guard, profiles);
+    private final AgentTaskExecutionProfileRepository profiles =
+            mock(AgentTaskExecutionProfileRepository.class);
+    private final AgentTaskRegistrationService service =
+            new AgentTaskRegistrationService(registry, guard, profiles);
 
     @Test
     void validatesBeforeRegisteringTaskAndImmutableProfile() {
@@ -50,11 +53,20 @@ class AgentTaskRegistrationServiceTest {
         when(registered.id()).thenReturn(UUID.randomUUID());
         when(registered.workspaceId()).thenReturn(UUID.randomUUID());
         when(registered.revision()).thenReturn(1);
-        when(registry.createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
-            Map.of(), now)).thenReturn(attempt);
+        when(registry.createAttempt(
+                        registered.id(),
+                        registered.workspaceId(),
+                        1,
+                        attemptId,
+                        null,
+                        null,
+                        Map.of(),
+                        now))
+                .thenReturn(attempt);
 
-        AgentTaskRegistrationService.RegistrationResult result = service.register(task, List.of(), request,
-            attemptId, null, null, Map.of(), principal, now);
+        AgentTaskRegistrationService.RegistrationResult result =
+                service.register(
+                        task, List.of(), request, attemptId, null, null, Map.of(), principal, now);
 
         assertThat(result.task()).isSameAs(registered);
         assertThat(result.attempt()).isSameAs(attempt);
@@ -65,8 +77,16 @@ class AgentTaskRegistrationServiceTest {
         order.verify(registry).register(task, List.of(), now);
         order.verify(profiles).findById(validated.id());
         order.verify(profiles).saveAndFlush(validated);
-        order.verify(registry).createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
-            Map.of(), now);
+        order.verify(registry)
+                .createAttempt(
+                        registered.id(),
+                        registered.workspaceId(),
+                        1,
+                        attemptId,
+                        null,
+                        null,
+                        Map.of(),
+                        now);
     }
 
     @Test
@@ -89,11 +109,20 @@ class AgentTaskRegistrationServiceTest {
         when(registered.id()).thenReturn(UUID.randomUUID());
         when(registered.workspaceId()).thenReturn(UUID.randomUUID());
         when(registered.revision()).thenReturn(1);
-        when(registry.createAttempt(registered.id(), registered.workspaceId(), 1, attemptId, null, null,
-            Map.of(), now)).thenReturn(attempt);
+        when(registry.createAttempt(
+                        registered.id(),
+                        registered.workspaceId(),
+                        1,
+                        attemptId,
+                        null,
+                        null,
+                        Map.of(),
+                        now))
+                .thenReturn(attempt);
 
-        AgentTaskRegistrationService.RegistrationResult result = service.register(task, List.of(), request,
-            attemptId, null, null, Map.of(), principal, now);
+        AgentTaskRegistrationService.RegistrationResult result =
+                service.register(
+                        task, List.of(), request, attemptId, null, null, Map.of(), principal, now);
 
         assertThat(result.task()).isSameAs(registered);
         assertThat(result.attempt()).isSameAs(attempt);
@@ -106,19 +135,40 @@ class AgentTaskRegistrationServiceTest {
         AgentTaskExecutionProfileRequest request = mock(AgentTaskExecutionProfileRequest.class);
         DelegationPrincipal principal = mock(DelegationPrincipal.class);
         Instant now = Instant.parse("2026-08-31T00:00:00Z");
-        when(guard.validate(task, request, principal, now)).thenThrow(new IllegalStateException("rejected"));
+        when(guard.validate(task, request, principal, now))
+                .thenThrow(new IllegalStateException("rejected"));
 
-        assertThatThrownBy(() -> service.register(task, List.of(), request, UUID.randomUUID(), null, null,
-            Map.of(), principal, now))
-            .isInstanceOf(IllegalStateException.class).hasMessage("rejected");
+        assertThatThrownBy(
+                        () ->
+                                service.register(
+                                        task,
+                                        List.of(),
+                                        request,
+                                        UUID.randomUUID(),
+                                        null,
+                                        null,
+                                        Map.of(),
+                                        principal,
+                                        now))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("rejected");
         verifyNoInteractions(registry, profiles);
     }
 
     @Test
     void registrationBoundaryIsTransactional() throws NoSuchMethodException {
-        var method = AgentTaskRegistrationService.class.getMethod("register", AgentTaskEntity.class,
-            java.util.Collection.class, AgentTaskExecutionProfileRequest.class, UUID.class, Double.class,
-            String.class, Map.class, DelegationPrincipal.class, Instant.class);
+        var method =
+                AgentTaskRegistrationService.class.getMethod(
+                        "register",
+                        AgentTaskEntity.class,
+                        java.util.Collection.class,
+                        AgentTaskExecutionProfileRequest.class,
+                        UUID.class,
+                        Double.class,
+                        String.class,
+                        Map.class,
+                        DelegationPrincipal.class,
+                        Instant.class);
 
         assertThat(method.getAnnotation(Transactional.class)).isNotNull();
     }

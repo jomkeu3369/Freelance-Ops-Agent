@@ -7,6 +7,4 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record IngestAgentTaskEventBatchRequest(
-    @NotEmpty @Size(max = 100) List<@Valid IngestAgentTaskEventRequest> events
-) {
-}
+        @NotEmpty @Size(max = 100) List<@Valid IngestAgentTaskEventRequest> events) {}

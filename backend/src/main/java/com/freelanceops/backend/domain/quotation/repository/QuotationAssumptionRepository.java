@@ -1,11 +1,17 @@
 package com.freelanceops.backend.domain.quotation.repository;
 
 import com.freelanceops.backend.domain.quotation.entity.QuotationAssumptionEntity;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 import java.util.UUID;
 
-public interface QuotationAssumptionRepository extends JpaRepository<QuotationAssumptionEntity, UUID> {
-    List<QuotationAssumptionEntity> findAllByWorkspaceIdAndQuotationIdIn(UUID workspaceId, List<UUID> quotationIds);
-    List<QuotationAssumptionEntity> findAllByWorkspaceIdAndQuotationId(UUID workspaceId, UUID quotationId);
+public interface QuotationAssumptionRepository
+        extends JpaRepository<QuotationAssumptionEntity, UUID> {
+    List<QuotationAssumptionEntity> findAllByWorkspaceIdAndQuotationIdIn(
+            UUID workspaceId, List<UUID> quotationIds);
+
+    List<QuotationAssumptionEntity> findAllByWorkspaceIdAndQuotationId(
+            UUID workspaceId, UUID quotationId);
 }

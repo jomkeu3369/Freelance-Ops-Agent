@@ -1,13 +1,14 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class AgentRunEntityTest {
 
@@ -33,8 +34,14 @@ class AgentRunEntityTest {
 
     private static AgentRunEntity run(AgentRunStatus status, Instant now) {
         return new AgentRunEntity(
-            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-            Provider.OPENAI, "gpt-test", status, now
-        );
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                Provider.OPENAI,
+                "gpt-test",
+                status,
+                now);
     }
 }

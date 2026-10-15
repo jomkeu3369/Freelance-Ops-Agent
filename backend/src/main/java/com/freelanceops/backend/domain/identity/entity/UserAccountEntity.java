@@ -13,8 +13,7 @@ import java.util.UUID;
 @Table(name = "user_account", schema = "app")
 public class UserAccountEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "external_subject", nullable = false, unique = true)
     private String externalSubject;
@@ -43,13 +42,12 @@ public class UserAccountEntity {
     @Column(name = "email_verified_at")
     private Instant emailVerifiedAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    protected UserAccountEntity() {
-    }
+    protected UserAccountEntity() {}
 
-    private UserAccountEntity(UUID id, String email, String displayName, String passwordHash, Instant now) {
+    private UserAccountEntity(
+            UUID id, String email, String displayName, String passwordHash, Instant now) {
         this.id = id;
         this.externalSubject = "local:" + id;
         this.email = email;
@@ -60,7 +58,8 @@ public class UserAccountEntity {
         this.updatedAt = now;
     }
 
-    public static UserAccountEntity registerLocal(UUID id, String email, String displayName, String passwordHash, Instant now) {
+    public static UserAccountEntity registerLocal(
+            UUID id, String email, String displayName, String passwordHash, Instant now) {
         return new UserAccountEntity(id, email, displayName, passwordHash, now);
     }
 
@@ -80,9 +79,13 @@ public class UserAccountEntity {
         return passwordHash;
     }
 
-    public boolean canAuthenticate() { return "ACTIVE".equals(status) && !emailVerificationRequired; }
+    public boolean canAuthenticate() {
+        return "ACTIVE".equals(status) && !emailVerificationRequired;
+    }
 
-    public Instant emailVerifiedAt() { return emailVerifiedAt; }
+    public Instant emailVerifiedAt() {
+        return emailVerifiedAt;
+    }
 
     public String status() {
         return status;

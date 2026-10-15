@@ -11,8 +11,7 @@ import java.util.UUID;
 @Table(name = "workspace", schema = "app")
 public class WorkspaceEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     private String name;
 
@@ -23,8 +22,7 @@ public class WorkspaceEntity {
     @Column(name = "created_by")
     private UUID createdBy;
 
-    protected WorkspaceEntity() {
-    }
+    protected WorkspaceEntity() {}
 
     private WorkspaceEntity(UUID id, String name, String slug, UUID createdBy) {
         this.id = id;
@@ -54,5 +52,3 @@ public class WorkspaceEntity {
         return status;
     }
 }
-
-

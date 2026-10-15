@@ -1,12 +1,14 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
 import com.freelanceops.backend.domain.agentrun.model.ToolExecutionStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -18,8 +20,7 @@ import java.util.UUID;
 @Table(name = "tool_execution", schema = "app")
 public class ToolExecutionEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -53,10 +54,15 @@ public class ToolExecutionEntity {
     @Column(name = "completed_at")
     private Instant completedAt;
 
-    protected ToolExecutionEntity() {
-    }
+    protected ToolExecutionEntity() {}
 
-    public ToolExecutionEntity(UUID id, UUID workspaceId, UUID agentRunId, String toolName, String inputHash, Instant startedAt) {
+    public ToolExecutionEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID agentRunId,
+            String toolName,
+            String inputHash,
+            Instant startedAt) {
         this.id = id;
         this.workspaceId = workspaceId;
         this.agentRunId = agentRunId;
@@ -74,9 +80,15 @@ public class ToolExecutionEntity {
         complete(ToolExecutionStatus.FAILED, null, errorCode, completedAt);
     }
 
-    private void complete(ToolExecutionStatus nextStatus, String resultSummary, String errorCode, Instant completedAt) {
-        if (status != ToolExecutionStatus.STARTED) throw new IllegalStateException("tool execution is already completed");
-        if (completedAt.isBefore(startedAt)) throw new IllegalArgumentException("completion time precedes start time");
+    private void complete(
+            ToolExecutionStatus nextStatus,
+            String resultSummary,
+            String errorCode,
+            Instant completedAt) {
+        if (status != ToolExecutionStatus.STARTED)
+            throw new IllegalStateException("tool execution is already completed");
+        if (completedAt.isBefore(startedAt))
+            throw new IllegalArgumentException("completion time precedes start time");
         this.status = nextStatus;
         this.resultSummary = resultSummary;
         this.errorCode = errorCode;
@@ -84,15 +96,47 @@ public class ToolExecutionEntity {
         this.latencyMs = Duration.between(startedAt, completedAt).toMillis();
     }
 
-    public UUID id() { return id; }
-    public UUID workspaceId() { return workspaceId; }
-    public UUID agentRunId() { return agentRunId; }
-    public String toolName() { return toolName; }
-    public String inputHash() { return inputHash; }
-    public ToolExecutionStatus status() { return status; }
-    public String resultSummary() { return resultSummary; }
-    public String errorCode() { return errorCode; }
-    public Long latencyMs() { return latencyMs; }
-    public Instant startedAt() { return startedAt; }
-    public Instant completedAt() { return completedAt; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID workspaceId() {
+        return workspaceId;
+    }
+
+    public UUID agentRunId() {
+        return agentRunId;
+    }
+
+    public String toolName() {
+        return toolName;
+    }
+
+    public String inputHash() {
+        return inputHash;
+    }
+
+    public ToolExecutionStatus status() {
+        return status;
+    }
+
+    public String resultSummary() {
+        return resultSummary;
+    }
+
+    public String errorCode() {
+        return errorCode;
+    }
+
+    public Long latencyMs() {
+        return latencyMs;
+    }
+
+    public Instant startedAt() {
+        return startedAt;
+    }
+
+    public Instant completedAt() {
+        return completedAt;
+    }
 }

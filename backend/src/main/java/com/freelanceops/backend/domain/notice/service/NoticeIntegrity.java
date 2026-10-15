@@ -7,8 +7,9 @@ import java.util.HexFormat;
 import java.util.List;
 
 public final class NoticeIntegrity {
-    private NoticeIntegrity() { }
-    /** Length-prefixed fields prevent delimiter ambiguity. Input ordering is part of the contract. */
+    private NoticeIntegrity() {}
+
+    /** 필드 길이를 함께 해시해 구분자 충돌을 막는다. 입력 순서도 해시에 반영한다. */
     public static String hash(List<String> fields) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -18,6 +19,8 @@ public final class NoticeIntegrity {
                 digest.update(bytes);
             }
             return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException error) { throw new IllegalStateException("SHA-256 unavailable", error); }
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 unavailable", error);
+        }
     }
 }

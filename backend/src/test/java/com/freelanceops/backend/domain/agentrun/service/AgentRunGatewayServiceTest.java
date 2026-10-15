@@ -1,27 +1,38 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
-import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
-import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunMetadata;
-import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
-import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
-import com.freelanceops.backend.domain.agentrun.model.Provider;
-import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.SafetyContext;
-import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunMetadata;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
-import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
+import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
-import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,42 +49,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.times;
-
 @ExtendWith(MockitoExtension.class)
 class AgentRunGatewayServiceTest {
 
-    @Mock
-    private WorkspacePermissionReader permissionReader;
-    @Mock
-    private ProjectRepository projectRepository;
-    @Mock
-    private AgentRunRepository agentRunRepository;
-    @Mock
-    private DelegationTokenIssuer tokenIssuer;
-    @Mock
-    private AgentRunClient agentRunClient;
-    @Mock
-    private AgentRunProjectionService projectionService;
-    @Mock
-    private AgentRunCommandQueue commandQueue;
-    @Mock
-    private AgentBudgetPolicy budgetPolicy;
-    @Mock
-    private AIConnectionService connections;
-    @Mock
-    private PetProfileService pets;
-    @Mock
-    private FreeUsageService freeUsage;
+    @Mock private WorkspacePermissionReader permissionReader;
+    @Mock private ProjectRepository projectRepository;
+    @Mock private AgentRunRepository agentRunRepository;
+    @Mock private DelegationTokenIssuer tokenIssuer;
+    @Mock private AgentRunClient agentRunClient;
+    @Mock private AgentRunProjectionService projectionService;
+    @Mock private AgentRunCommandQueue commandQueue;
+    @Mock private AgentBudgetPolicy budgetPolicy;
+    @Mock private AIConnectionService connections;
+    @Mock private PetProfileService pets;
+    @Mock private AgentStartIdempotencyService idempotency;
     @Mock private PlatformSpendService platformSpend;
 
     @Mock private ChatAttachmentService attachments;
@@ -82,22 +71,22 @@ class AgentRunGatewayServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AgentRunGatewayService(
-            permissionReader,
-            projectRepository,
-            agentRunRepository,
-            tokenIssuer,
-            agentRunClient,
-            projectionService,
-            commandQueue,
-            budgetPolicy,
-            connections,
-            pets,
-            freeUsage,
-            platformSpend,
-            attachments,
-            byok
-        );
+        service =
+                new AgentRunGatewayService(
+                        permissionReader,
+                        projectRepository,
+                        agentRunRepository,
+                        tokenIssuer,
+                        agentRunClient,
+                        projectionService,
+                        commandQueue,
+                        budgetPolicy,
+                        connections,
+                        pets,
+                        idempotency,
+                        platformSpend,
+                        attachments,
+                        byok);
     }
 
     @Test
@@ -105,67 +94,123 @@ class AgentRunGatewayServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
-        )));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
         var profiles = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults();
         when(pets.list(userId, workspaceId)).thenReturn(profiles);
-        StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
+        StartAgentRunResponse response =
+                service.start(userId, workspaceId, projectId, request(), "traceparent");
 
-        ArgumentCaptor<InternalAgentRunRequest> captor = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
-        verify(commandQueue).enqueueStart(eq(response.runId()), captor.capture(), eq(userId),
-            eq(List.of("agent.run", "project.read")), eq("traceparent"));
+        ArgumentCaptor<InternalAgentRunRequest> captor =
+                ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(commandQueue)
+                .enqueueStart(
+                        eq(response.runId()),
+                        captor.capture(),
+                        eq(userId),
+                        eq(List.of("agent.run", "project.read")),
+                        eq("traceparent"));
         verify(agentRunRepository).saveAndFlush(any(AgentRunEntity.class));
-        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(platformSpend).reserve(userId, response.runId(), request().modelSelection());
         assertThat(captor.getValue().input().petProfiles()).isEqualTo(profiles);
         assertThat(captor.getValue().input().skillSelection().mode()).isEqualTo("AUTO");
         assertThat(captor.getValue().input().workflowMode()).isEqualTo("PROJECT_ANALYSIS");
         assertThat(response.runId()).isEqualTo(captor.getValue().context().runId());
         assertThat(captor.getValue().context().workspaceId()).isEqualTo(workspaceId);
-        assertThat(captor.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
+        assertThat(captor.getValue().context().effectivePermissions())
+                .containsExactly("agent.run", "project.read");
         assertThat(captor.getValue().input().requirementText()).isEqualTo("쇼핑몰 요구사항을 분석해 주세요.");
     }
 
     @Test
     void idempotentReplayDoesNotReserveOrEnqueueAgain() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
-        var accepted = new StartAgentRunResponse(UUID.randomUUID(), AgentRunStatus.QUEUED, Instant.now());
-        when(freeUsage.replay(user, "same-request-key", workspace, project, request())).thenReturn(Optional.of(accepted));
-        assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key")).isEqualTo(accepted);
-        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
-        org.mockito.Mockito.verifyNoInteractions(commandQueue, connections, pets, agentRunRepository, platformSpend);
+        when(permissionReader.findActiveMembership(user, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace))
+                .thenReturn(Optional.of(project(project, workspace)));
+        var accepted =
+                new StartAgentRunResponse(UUID.randomUUID(), AgentRunStatus.QUEUED, Instant.now());
+        when(idempotency.replay(user, "same-request-key", workspace, project, request()))
+                .thenReturn(Optional.of(accepted));
+        assertThat(service.start(user, workspace, project, request(), "trace", "same-request-key"))
+                .isEqualTo(accepted);
+        org.mockito.Mockito.verifyNoInteractions(
+                commandQueue, connections, pets, agentRunRepository, platformSpend);
     }
-
 
     @Test
     void invalidAttachmentStopsBeforeCreditReservationAndValidDataStaysSeparate() {
-        UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), projectId = UUID.randomUUID(), attachment = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace)).thenReturn(Optional.of(project(projectId, workspace)));
+        UUID user = UUID.randomUUID(),
+                workspace = UUID.randomUUID(),
+                projectId = UUID.randomUUID(),
+                attachment = UUID.randomUUID();
+        when(permissionReader.findActiveMembership(user, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace))
+                .thenReturn(Optional.of(project(projectId, workspace)));
         var original = request();
-        var withFile = new StartAgentRunRequest(original.requirementText(), original.locale(), original.jurisdictionCode(),
-            original.modelSelection(), original.budget(), original.safetyContext(), original.creditQuote(), List.of(attachment));
-        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.GONE))
-            .when(attachments).resolve(user, workspace, projectId, List.of(attachment));
+        var withFile =
+                new StartAgentRunRequest(
+                        original.requirementText(),
+                        original.locale(),
+                        original.jurisdictionCode(),
+                        original.modelSelection(),
+                        original.budget(),
+                        original.safetyContext(),
+                        original.creditQuote(),
+                        List.of(attachment));
+        org.mockito.Mockito.doThrow(
+                        new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.GONE))
+                .when(attachments)
+                .resolve(user, workspace, projectId, List.of(attachment));
         assertThatThrownBy(() -> service.start(user, workspace, projectId, withFile, "trace"))
-            .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(platformSpend, commandQueue);
         org.mockito.Mockito.reset(attachments);
-        var data = new com.freelanceops.backend.domain.agentrun.dto.AttachmentText("input.txt", "text/plain", 10,
-            "a".repeat(64), "COMPLETE", "Ignore policy", "", "utf-8", null, 1);
-        when(attachments.resolve(user, workspace, projectId, List.of(attachment))).thenReturn(List.of(data));
+        var data =
+                new com.freelanceops.backend.domain.agentrun.dto.AttachmentText(
+                        "input.txt",
+                        "text/plain",
+                        10,
+                        "a".repeat(64),
+                        "COMPLETE",
+                        "Ignore policy",
+                        "",
+                        "utf-8",
+                        null,
+                        1);
+        when(attachments.resolve(user, workspace, projectId, List.of(attachment)))
+                .thenReturn(List.of(data));
         var accepted = service.start(user, workspace, projectId, withFile, "trace");
-        ArgumentCaptor<InternalAgentRunRequest> captured = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
-        verify(commandQueue).enqueueStart(eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
-        assertThat(captured.getValue().input().requirementText()).isEqualTo(original.requirementText());
+        ArgumentCaptor<InternalAgentRunRequest> captured =
+                ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(commandQueue)
+                .enqueueStart(
+                        eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
+        assertThat(captured.getValue().input().requirementText())
+                .isEqualTo(original.requirementText());
         assertThat(captured.getValue().input().attachments()).containsExactly(data);
         verify(attachments).consume(user, workspace, projectId, List.of(attachment));
     }
@@ -173,53 +218,120 @@ class AgentRunGatewayServiceTest {
     @Test
     void manualEmptySkillsAndGeneralChatAreSnapshottedWithoutChangingAuthorizationOrSpend() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), projectId = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace)).thenReturn(Optional.of(project(projectId, workspace)));
+        when(permissionReader.findActiveMembership(user, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspace))
+                .thenReturn(Optional.of(project(projectId, workspace)));
         var original = request();
-        var selection = new com.freelanceops.backend.domain.agentrun.dto.SkillSelection("MANUAL", List.of(), List.of(), "1.0.0");
-        var chat = new StartAgentRunRequest("Write an article", "en", null, original.modelSelection(), original.budget(),
-            original.safetyContext(), null, List.of(), selection, "AD_HOC");
+        var selection =
+                new com.freelanceops.backend.domain.agentrun.dto.SkillSelection(
+                        "MANUAL", List.of(), List.of(), "1.0.0");
+        var chat =
+                new StartAgentRunRequest(
+                        "Write an article",
+                        "en",
+                        null,
+                        original.modelSelection(),
+                        original.budget(),
+                        original.safetyContext(),
+                        null,
+                        List.of(),
+                        selection,
+                        "AD_HOC");
         var accepted = service.start(user, workspace, projectId, chat, "trace");
-        ArgumentCaptor<InternalAgentRunRequest> captured = ArgumentCaptor.forClass(InternalAgentRunRequest.class);
-        verify(commandQueue).enqueueStart(eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
+        ArgumentCaptor<InternalAgentRunRequest> captured =
+                ArgumentCaptor.forClass(InternalAgentRunRequest.class);
+        verify(commandQueue)
+                .enqueueStart(
+                        eq(accepted.runId()), captured.capture(), eq(user), any(), eq("trace"));
         assertThat(captured.getValue().input().skillSelection()).isEqualTo(selection);
         assertThat(captured.getValue().input().workflowMode()).isEqualTo("AD_HOC");
-        assertThat(captured.getValue().context().effectivePermissions()).containsExactly("agent.run", "project.read");
+        assertThat(captured.getValue().context().effectivePermissions())
+                .containsExactly("agent.run", "project.read");
         verify(platformSpend).reserve(user, accepted.runId(), original.modelSelection());
-        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
     }
 
     @Test
     void monetaryLimitFailurePreventsRunAndOutboxWrites() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
-        when(platformSpend.reserve(eq(user), any(), any())).thenThrow(new PlatformSpendExhaustedException("ACCOUNT_WEEK"));
+        when(permissionReader.findActiveMembership(user, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace))
+                .thenReturn(Optional.of(project(project, workspace)));
+        when(platformSpend.reserve(eq(user), any(), any()))
+                .thenThrow(new PlatformSpendExhaustedException("ACCOUNT_WEEK"));
         assertThatThrownBy(() -> service.start(user, workspace, project, request(), "trace"))
-            .isInstanceOf(PlatformSpendExhaustedException.class);
+                .isInstanceOf(PlatformSpendExhaustedException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue, pets, agentRunRepository);
     }
 
     @Test
     void personalCredentialScopeDoesNotReservePlatformOrWeeklyCredits() {
         UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(user, workspace)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ))));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        when(permissionReader.findActiveMembership(user, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace))
+                .thenReturn(Optional.of(project(project, workspace)));
         var source = request();
-        var personal = new StartAgentRunRequest(source.requirementText(), source.locale(), source.jurisdictionCode(),
-            new ModelSelection(Provider.OPENAI, source.modelSelection().model(), source.modelSelection().reasoningEffort(), UUID.randomUUID()),
-            source.budget(), source.safetyContext());
-        when(byok.issue(any(), eq(user), eq(workspace), eq(project), eq(personal.modelSelection()), eq(personal.budget()), eq(personal.byokCostNoticeVersion())))
-            .thenAnswer(inv -> new InternalAgentRunRequest.ByokBudget(UUID.randomUUID(), inv.getArgument(0), workspace, project,
-                user, personal.modelSelection().credentialId(), Provider.OPENAI, personal.modelSelection().model(),
-                personal.modelSelection().reasoningEffort(), "BYOK", "default", Instant.now().plusSeconds(180),
-                personal.budget().maxModelCalls(), personal.budget().maxInputTokens(), personal.budget().maxOutputTokens(), personal.budget()));
+        var personal =
+                new StartAgentRunRequest(
+                        source.requirementText(),
+                        source.locale(),
+                        source.jurisdictionCode(),
+                        new ModelSelection(
+                                Provider.OPENAI,
+                                source.modelSelection().model(),
+                                source.modelSelection().reasoningEffort(),
+                                UUID.randomUUID()),
+                        source.budget(),
+                        source.safetyContext());
+        when(byok.issue(
+                        any(),
+                        eq(user),
+                        eq(workspace),
+                        eq(project),
+                        eq(personal.modelSelection()),
+                        eq(personal.budget()),
+                        eq(personal.byokCostNoticeVersion())))
+                .thenAnswer(
+                        inv ->
+                                new InternalAgentRunRequest.ByokBudget(
+                                        UUID.randomUUID(),
+                                        inv.getArgument(0),
+                                        workspace,
+                                        project,
+                                        user,
+                                        personal.modelSelection().credentialId(),
+                                        Provider.OPENAI,
+                                        personal.modelSelection().model(),
+                                        personal.modelSelection().reasoningEffort(),
+                                        "BYOK",
+                                        "default",
+                                        Instant.now().plusSeconds(180),
+                                        personal.budget().maxModelCalls(),
+                                        personal.budget().maxInputTokens(),
+                                        personal.budget().maxOutputTokens(),
+                                        personal.budget()));
         service.start(user, workspace, project, personal, "trace");
         org.mockito.Mockito.verifyNoInteractions(platformSpend);
-        verify(freeUsage, never()).reserveQuoted(any(), any(), any(), any(), any());
         verify(commandQueue).enqueueStart(any(), any(), eq(user), anyList(), eq("trace"));
     }
 
@@ -227,14 +339,28 @@ class AgentRunGatewayServiceTest {
     void failsClosedBeforeProjectLookupWithoutAgentPermission() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.PROJECT_READ)
-        )));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.PROJECT_READ))));
 
-        assertThatThrownBy(() -> service.start(userId, workspaceId, UUID.randomUUID(), request(), "traceparent"))
-            .isInstanceOf(ResponseStatusException.class)
-            .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(403));
+        assertThatThrownBy(
+                        () ->
+                                service.start(
+                                        userId,
+                                        workspaceId,
+                                        UUID.randomUUID(),
+                                        request(),
+                                        "traceparent"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(
+                        error ->
+                                assertThat(
+                                                ((ResponseStatusException) error)
+                                                        .getStatusCode()
+                                                        .value())
+                                        .isEqualTo(403));
         verify(projectRepository, never()).findByIdAndWorkspaceIdForUpdate(any(), any());
         verify(agentRunClient, never()).start(any(), any(), any());
     }
@@ -246,13 +372,20 @@ class AgentRunGatewayServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
-        )));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
-        when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(view(runId, AgentRunStatus.RUNNING));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.of(run));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("fresh-token");
+        when(agentRunClient.get(runId, "fresh-token", "traceparent"))
+                .thenReturn(view(runId, AgentRunStatus.RUNNING));
 
         AgentRunView response = service.get(userId, workspaceId, runId, "traceparent");
 
@@ -267,19 +400,34 @@ class AgentRunGatewayServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
-        )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(workspaceId, projectId)).thenReturn(Optional.of(run));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("fresh-token");
-        when(agentRunClient.get(runId, "fresh-token", "traceparent")).thenReturn(view(runId, AgentRunStatus.WAITING_FOR_USER));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findFirstByWorkspaceIdAndProjectIdOrderByUpdatedAtDesc(
+                        workspaceId, projectId))
+                .thenReturn(Optional.of(run));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.of(run));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("fresh-token");
+        when(agentRunClient.get(runId, "fresh-token", "traceparent"))
+                .thenReturn(view(runId, AgentRunStatus.WAITING_FOR_USER));
 
-        Optional<AgentRunView> response = service.latestForProject(userId, workspaceId, projectId, "traceparent");
+        Optional<AgentRunView> response =
+                service.latestForProject(userId, workspaceId, projectId, "traceparent");
 
-        assertThat(response).isPresent().get().extracting(AgentRunView::status).isEqualTo(AgentRunStatus.WAITING_FOR_USER);
+        assertThat(response)
+                .isPresent()
+                .get()
+                .extracting(AgentRunView::status)
+                .isEqualTo(AgentRunStatus.WAITING_FOR_USER);
         verify(projectionService).synchronize(runId, workspaceId, response.orElseThrow());
     }
 
@@ -292,27 +440,45 @@ class AgentRunGatewayServiceTest {
         UUID waitingRunId = UUID.randomUUID();
         AgentRunEntity completedRun = run(completedRunId, workspaceId, projectId, userId);
         AgentRunEntity waitingRun = run(waitingRunId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
-        )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
-            .thenReturn(List.of(completedRun, waitingRun));
-        when(agentRunRepository.findByIdAndWorkspaceId(completedRunId, workspaceId)).thenReturn(Optional.of(completedRun));
-        when(agentRunRepository.findByIdAndWorkspaceId(waitingRunId, workspaceId)).thenReturn(Optional.of(waitingRun));
-        when(tokenIssuer.issue(eq(completedRunId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("completed-token");
-        when(tokenIssuer.issue(eq(waitingRunId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("waiting-token");
-        when(agentRunClient.get(completedRunId, "completed-token", "traceparent")).thenReturn(view(completedRunId, AgentRunStatus.COMPLETED));
-        when(agentRunClient.get(waitingRunId, "waiting-token", "traceparent")).thenReturn(view(waitingRunId, AgentRunStatus.WAITING_FOR_USER));
-        when(agentRunClient.cancel(waitingRunId, "waiting-token", "traceparent")).thenReturn(view(waitingRunId, AgentRunStatus.CANCELLED));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.PROJECT_READ,
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.AGENT_CANCEL))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+                        eq(workspaceId), eq(projectId), any()))
+                .thenReturn(List.of(completedRun, waitingRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(completedRunId, workspaceId))
+                .thenReturn(Optional.of(completedRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(waitingRunId, workspaceId))
+                .thenReturn(Optional.of(waitingRun));
+        when(tokenIssuer.issue(
+                        eq(completedRunId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("completed-token");
+        when(tokenIssuer.issue(
+                        eq(waitingRunId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("waiting-token");
+        when(agentRunClient.get(completedRunId, "completed-token", "traceparent"))
+                .thenReturn(view(completedRunId, AgentRunStatus.COMPLETED));
+        when(agentRunClient.get(waitingRunId, "waiting-token", "traceparent"))
+                .thenReturn(view(waitingRunId, AgentRunStatus.WAITING_FOR_USER));
+        when(agentRunClient.cancel(waitingRunId, "waiting-token", "traceparent"))
+                .thenReturn(view(waitingRunId, AgentRunStatus.CANCELLED));
 
         service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
 
         verify(agentRunClient, never()).cancel(eq(completedRunId), any(), any());
         verify(agentRunClient).cancel(waitingRunId, "waiting-token", "traceparent");
-        verify(projectionService).synchronize(eq(completedRunId), eq(workspaceId), any(AgentRunView.class));
-        verify(projectionService, org.mockito.Mockito.times(2)).synchronize(eq(waitingRunId), eq(workspaceId), any(AgentRunView.class));
+        verify(projectionService)
+                .synchronize(eq(completedRunId), eq(workspaceId), any(AgentRunView.class));
+        verify(projectionService, org.mockito.Mockito.times(2))
+                .synchronize(eq(waitingRunId), eq(workspaceId), any(AgentRunView.class));
     }
 
     @Test
@@ -320,13 +486,22 @@ class AgentRunGatewayServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN, PermissionCode.PROJECT_READ)
-        )));
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        StartAgentRunResponse response = service.start(userId, workspaceId, projectId, request(), "traceparent");
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.PROJECT_READ))));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        StartAgentRunResponse response =
+                service.start(userId, workspaceId, projectId, request(), "traceparent");
 
-        verify(commandQueue).enqueueStart(eq(response.runId()), any(), eq(userId), anyList(), eq("traceparent"));
+        verify(commandQueue)
+                .enqueueStart(
+                        eq(response.runId()), any(), eq(userId), anyList(), eq("traceparent"));
         verify(agentRunClient, never()).start(any(), any(), any());
     }
 
@@ -337,23 +512,36 @@ class AgentRunGatewayServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.PROJECT_DELETE)
-        )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
-            .thenReturn(List.of(run));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), argThat(permissions ->
-            permissions.contains("project.delete") && permissions.contains("agent.run") && permissions.contains("agent.cancel")
-        ))).thenReturn("cleanup-token");
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.PROJECT_DELETE))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+                        eq(workspaceId), eq(projectId), any()))
+                .thenReturn(List.of(run));
+        when(tokenIssuer.issue(
+                        eq(runId),
+                        eq(workspaceId),
+                        eq(projectId),
+                        eq(userId),
+                        argThat(
+                                permissions ->
+                                        permissions.contains("project.delete")
+                                                && permissions.contains("agent.run")
+                                                && permissions.contains("agent.cancel"))))
+                .thenReturn("cleanup-token");
         when(agentRunClient.get(runId, "cleanup-token", "traceparent"))
-            .thenReturn(view(runId, AgentRunStatus.RUNNING));
+                .thenReturn(view(runId, AgentRunStatus.RUNNING));
         when(agentRunClient.cancel(runId, "cleanup-token", "traceparent"))
-            .thenReturn(view(runId, AgentRunStatus.CANCELLED));
+                .thenReturn(view(runId, AgentRunStatus.CANCELLED));
 
         service.cancelActiveRuns(userId, workspaceId, projectId, "traceparent");
 
-        verify(projectionService, org.mockito.Mockito.times(2)).synchronize(eq(runId), eq(workspaceId), any(AgentRunView.class));
+        verify(projectionService, org.mockito.Mockito.times(2))
+                .synchronize(eq(runId), eq(workspaceId), any(AgentRunView.class));
     }
 
     @Test
@@ -363,17 +551,26 @@ class AgentRunGatewayServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         AgentRunEntity missingRun = run(runId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
-        )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
-            .thenReturn(List.of(missingRun));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(missingRun));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("missing-token");
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.PROJECT_READ,
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.AGENT_CANCEL))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+                        eq(workspaceId), eq(projectId), any()))
+                .thenReturn(List.of(missingRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.of(missingRun));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("missing-token");
         when(agentRunClient.get(runId, "missing-token", "traceparent"))
-            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
         service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent");
 
@@ -388,22 +585,34 @@ class AgentRunGatewayServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         AgentRunEntity activeRun = run(runId, workspaceId, projectId, userId);
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.AGENT_CANCEL)
-        )));
-        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project(projectId, workspaceId)));
-        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(eq(workspaceId), eq(projectId), any()))
-            .thenReturn(List.of(activeRun));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(activeRun));
-        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList())).thenReturn("unavailable-token");
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(),
+                                        Set.of(
+                                                PermissionCode.PROJECT_READ,
+                                                PermissionCode.AGENT_RUN,
+                                                PermissionCode.AGENT_CANCEL))));
+        when(projectRepository.findByIdAndWorkspaceId(projectId, workspaceId))
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
+        when(agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+                        eq(workspaceId), eq(projectId), any()))
+                .thenReturn(List.of(activeRun));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.of(activeRun));
+        when(tokenIssuer.issue(eq(runId), eq(workspaceId), eq(projectId), eq(userId), anyList()))
+                .thenReturn("unavailable-token");
         when(agentRunClient.get(runId, "unavailable-token", "traceparent"))
-            .thenThrow(new HttpClientErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+                .thenThrow(new HttpClientErrorException(HttpStatus.SERVICE_UNAVAILABLE));
 
-        assertThatThrownBy(() -> service.cancelActiveForProject(userId, workspaceId, projectId, "traceparent"))
-            .isInstanceOf(HttpClientErrorException.class)
-            .extracting(error -> ((HttpClientErrorException) error).getStatusCode())
-            .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThatThrownBy(
+                        () ->
+                                service.cancelActiveForProject(
+                                        userId, workspaceId, projectId, "traceparent"))
+                .isInstanceOf(HttpClientErrorException.class)
+                .extracting(error -> ((HttpClientErrorException) error).getStatusCode())
+                .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
 
         assertThat(activeRun.status()).isEqualTo(AgentRunStatus.QUEUED);
         verify(agentRunRepository, never()).save(activeRun);
@@ -417,25 +626,32 @@ class AgentRunGatewayServiceTest {
         UUID runId = UUID.randomUUID();
         UUID interruptionId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspaceId, projectId, userId);
-        ResumeAgentRunRequest request = new ResumeAgentRunRequest(
-            interruptionId, "idempotency-key", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "예산은 500만원입니다."))
-        );
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND)
-        )));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.of(run));
+        ResumeAgentRunRequest request =
+                new ResumeAgentRunRequest(
+                        interruptionId,
+                        "idempotency-key",
+                        List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "예산은 500만원입니다.")));
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.of(run));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
-            .thenReturn(Optional.of(project(projectId, workspaceId)));
+                .thenReturn(Optional.of(project(projectId, workspaceId)));
 
-        StartAgentRunResponse response = service.resume(userId, workspaceId, runId, request, "traceparent");
+        StartAgentRunResponse response =
+                service.resume(userId, workspaceId, runId, request, "traceparent");
 
         assertThat(response.status()).isEqualTo(AgentRunStatus.QUEUED);
         verify(projectionService).validateResume(runId, workspaceId, request);
-        verify(commandQueue).enqueueResume(runId, request, userId, List.of("agent.respond"), "traceparent");
+        verify(commandQueue)
+                .enqueueResume(runId, request, userId, List.of("agent.respond"), "traceparent");
         verify(projectionService).acceptResume(runId, workspaceId, request, AgentRunStatus.QUEUED);
         verify(agentRunClient, never()).resume(any(), any(), any(), any());
-        // HITL keeps its original customer-credit and monetary reservation.
-        org.mockito.Mockito.verifyNoInteractions(freeUsage, platformSpend);
+        // 사용자 확인을 기다리는 동안 기존 크레딧과 금액 예약을 유지한다.
+        org.mockito.Mockito.verifyNoInteractions(platformSpend);
     }
 
     @Test
@@ -443,41 +659,77 @@ class AgentRunGatewayServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        when(permissionReader.findActiveMembership(userId, workspaceId)).thenReturn(Optional.of(new MembershipPermissions(
-            UUID.randomUUID(),
-            Set.of(PermissionCode.AGENT_RUN)
-        )));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)).thenReturn(Optional.empty());
+        when(permissionReader.findActiveMembership(userId, workspaceId))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.AGENT_RUN))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+                .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.get(userId, workspaceId, runId, "traceparent"))
-            .isInstanceOf(ResponseStatusException.class)
-            .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(404));
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(
+                        error ->
+                                assertThat(
+                                                ((ResponseStatusException) error)
+                                                        .getStatusCode()
+                                                        .value())
+                                        .isEqualTo(404));
         verify(agentRunClient, never()).get(any(), any(), any());
     }
 
     @Test
     void refusesAnotherUsersPersonalRunResumeBeforeQueueing() {
-        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        UUID actor = UUID.randomUUID(),
+                workspace = UUID.randomUUID(),
+                project = UUID.randomUUID(),
+                runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspace, project, UUID.randomUUID());
         run.useCredential(UUID.randomUUID());
-        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
-        var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
-        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
+        when(permissionReader.findActiveMembership(actor, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+                .thenReturn(Optional.of(run));
+        var request =
+                new ResumeAgentRunRequest(
+                        UUID.randomUUID(),
+                        "resume-test",
+                        List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
+        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace"))
+                .isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue, connections);
     }
 
     @Test
     void refusesDeletedPersonalConnectionOnResumeBeforeQueueing() {
-        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), runId = UUID.randomUUID();
+        UUID actor = UUID.randomUUID(),
+                workspace = UUID.randomUUID(),
+                project = UUID.randomUUID(),
+                runId = UUID.randomUUID();
         AgentRunEntity run = run(runId, workspace, project, actor);
         UUID credential = UUID.randomUUID();
         run.useCredential(credential);
-        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace)).thenReturn(Optional.of(run));
-        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND)).when(connections).validate(actor, workspace, credential, Provider.OPENAI, "gpt-6-luna");
-        var request = new ResumeAgentRunRequest(UUID.randomUUID(), "resume-test", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
-        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace")).isInstanceOf(ResponseStatusException.class);
+        when(permissionReader.findActiveMembership(actor, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new MembershipPermissions(
+                                        UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+                .thenReturn(Optional.of(run));
+        org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND))
+                .when(connections)
+                .validate(actor, workspace, credential, Provider.OPENAI, "gpt-6-luna");
+        var request =
+                new ResumeAgentRunRequest(
+                        UUID.randomUUID(),
+                        "resume-test",
+                        List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "확인")));
+        assertThatThrownBy(() -> service.resume(actor, workspace, runId, request, "trace"))
+                .isInstanceOf(ResponseStatusException.class);
         org.mockito.Mockito.verifyNoInteractions(commandQueue);
     }
 
@@ -487,56 +739,51 @@ class AgentRunGatewayServiceTest {
 
     private static AgentRunEntity run(UUID runId, UUID workspaceId, UUID projectId, UUID userId) {
         return new AgentRunEntity(
-            runId,
-            workspaceId,
-            projectId,
-            UUID.randomUUID(),
-            userId,
-            Provider.OPENAI,
-            "gpt-6-luna",
-            AgentRunStatus.QUEUED,
-            Instant.now()
-        );
+                runId,
+                workspaceId,
+                projectId,
+                UUID.randomUUID(),
+                userId,
+                Provider.OPENAI,
+                "gpt-6-luna",
+                AgentRunStatus.QUEUED,
+                Instant.now());
     }
 
     private static AgentRunView view(UUID runId, AgentRunStatus status) {
         return new AgentRunView(
-            runId,
-            status,
-            null,
-            null,
-            null,
-            null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
-            null,
-            Instant.now()
-        );
+                runId,
+                status,
+                null,
+                null,
+                null,
+                null,
+                new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
+                null,
+                Instant.now());
     }
 
     private static AgentRunView interruptedView(UUID runId, UUID interruptionId) {
         return new AgentRunView(
-            runId,
-            AgentRunStatus.WAITING_FOR_USER,
-            null,
-            new AgentRunView.AgentInterruption(interruptionId, InterruptionKind.CLARIFICATION, List.of("예산은 얼마인가요?")),
-            null,
-            null,
-            new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
-            null,
-            Instant.now()
-        );
+                runId,
+                AgentRunStatus.WAITING_FOR_USER,
+                null,
+                new AgentRunView.AgentInterruption(
+                        interruptionId, InterruptionKind.CLARIFICATION, List.of("예산은 얼마인가요?")),
+                null,
+                null,
+                new AgentRunMetadata(Provider.OPENAI, "gpt-6-luna", "v1", "v1", "trace"),
+                null,
+                Instant.now());
     }
 
     private static StartAgentRunRequest request() {
         return new StartAgentRunRequest(
-            "쇼핑몰 요구사항을 분석해 주세요.",
-            "ko-KR",
-            "KR",
-            new ModelSelection(Provider.OPENAI, "gpt-6-luna", ReasoningEffort.LOW),
-            new RunBudget(120, 5, 10, 10000, 5000, 2, 2, 5, 1, 2),
-            new SafetyContext(false, false, false, false, false, false, true)
-        );
+                "쇼핑몰 요구사항을 분석해 주세요.",
+                "ko-KR",
+                "KR",
+                new ModelSelection(Provider.OPENAI, "gpt-6-luna", ReasoningEffort.LOW),
+                new RunBudget(120, 5, 10, 10000, 5000, 2, 2, 5, 1, 2),
+                new SafetyContext(false, false, false, false, false, false, true));
     }
 }
-
-

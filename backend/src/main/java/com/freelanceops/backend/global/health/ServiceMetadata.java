@@ -6,6 +6,3 @@ public record ServiceMetadata(String service, String version, String status) {
         return new ServiceMetadata("backend", "0.1.0", "UP");
     }
 }
-
-
-

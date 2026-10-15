@@ -1,18 +1,20 @@
 package com.freelanceops.backend.domain.agenttask.controller;
 
 import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskHeartbeatRequest;
-import com.freelanceops.backend.domain.agenttask.dto.request.RegisterAgentTaskRequest;
 import com.freelanceops.backend.domain.agenttask.dto.request.IngestAgentTaskEventBatchRequest;
+import com.freelanceops.backend.domain.agenttask.dto.request.RegisterAgentTaskRequest;
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskEventBatchResponse;
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskRegistrationResponse;
 import com.freelanceops.backend.domain.agenttask.entity.AgentTaskEntity;
 import com.freelanceops.backend.domain.agenttask.security.AgentTaskAuthority;
-import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskEventIngestionService;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistrationService;
+import com.freelanceops.backend.domain.agenttask.service.AgentTaskRegistry;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +36,11 @@ public class AgentTaskControlController {
     private final AgentTaskEventIngestionService eventIngestionService;
     private final AgentTaskRegistrationService registrationService;
 
-    public AgentTaskControlController(AgentTaskRegistry registry, AgentTaskAuthority authority,
-                                      AgentTaskEventIngestionService eventIngestionService,
-                                      AgentTaskRegistrationService registrationService) {
+    public AgentTaskControlController(
+            AgentTaskRegistry registry,
+            AgentTaskAuthority authority,
+            AgentTaskEventIngestionService eventIngestionService,
+            AgentTaskRegistrationService registrationService) {
         this.registry = registry;
         this.authority = authority;
         this.eventIngestionService = eventIngestionService;
@@ -46,41 +50,70 @@ public class AgentTaskControlController {
     @PostMapping("/tasks")
     @ResponseStatus(HttpStatus.CREATED)
     public AgentTaskRegistrationResponse register(
-        @Valid @RequestBody RegisterAgentTaskRequest request,
-        @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
-    ) {
+            @Valid @RequestBody RegisterAgentTaskRequest request,
+            @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE)
+                    DelegationPrincipal principal) {
         authority.requireControl(principal);
         Instant now = Instant.now();
-        AgentTaskEntity task = new AgentTaskEntity(request.taskId(), principal.workspaceId(), principal.runId(),
-            request.parentTaskId(), request.department(), request.specialistProfile(), request.alias(),
-            request.objectiveReference(), request.priority(), request.deadlineAt(), now);
-        AgentTaskRegistrationService.RegistrationResult result = registrationService.register(task,
-            request.dependencyTaskIds(), request.executionProfile(), request.attemptId(),
-            request.predictedServiceRuntimeSeconds(), request.predictionModelVersion(),
-            request.predictionFeatureSnapshot(), principal, now);
-        return AgentTaskRegistrationResponse.from(result.task(), result.attempt(), result.profile());
+        AgentTaskEntity task =
+                new AgentTaskEntity(
+                        request.taskId(),
+                        principal.workspaceId(),
+                        principal.runId(),
+                        request.parentTaskId(),
+                        request.department(),
+                        request.specialistProfile(),
+                        request.alias(),
+                        request.objectiveReference(),
+                        request.priority(),
+                        request.deadlineAt(),
+                        now);
+        AgentTaskRegistrationService.RegistrationResult result =
+                registrationService.register(
+                        task,
+                        request.dependencyTaskIds(),
+                        request.executionProfile(),
+                        request.attemptId(),
+                        request.predictedServiceRuntimeSeconds(),
+                        request.predictionModelVersion(),
+                        request.predictionFeatureSnapshot(),
+                        principal,
+                        now);
+        return AgentTaskRegistrationResponse.from(
+                result.task(), result.attempt(), result.profile());
     }
 
     @PostMapping("/tasks/{taskId}/attempts/{attemptId}/heartbeat")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void heartbeat(
-        @PathVariable UUID taskId,
-        @PathVariable UUID attemptId,
-        @Valid @RequestBody AgentTaskHeartbeatRequest request,
-        @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
-    ) {
+            @PathVariable UUID taskId,
+            @PathVariable UUID attemptId,
+            @Valid @RequestBody AgentTaskHeartbeatRequest request,
+            @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE)
+                    DelegationPrincipal principal) {
         authority.requireControl(principal);
-        registry.heartbeat(taskId, attemptId, principal.workspaceId(), request.expectedTaskRevision(),
-            request.attemptNumber(), request.phase(), request.activity(), Instant.now());
+        registry.heartbeat(
+                taskId,
+                attemptId,
+                principal.workspaceId(),
+                request.expectedTaskRevision(),
+                request.attemptNumber(),
+                request.phase(),
+                request.activity(),
+                Instant.now());
     }
 
     @PostMapping("/task-events:batch")
     public AgentTaskEventBatchResponse ingestEvents(
-        @Valid @RequestBody IngestAgentTaskEventBatchRequest request,
-        @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE) DelegationPrincipal principal
-    ) {
+            @Valid @RequestBody IngestAgentTaskEventBatchRequest request,
+            @RequestAttribute(DelegationTokenFilter.PRINCIPAL_ATTRIBUTE)
+                    DelegationPrincipal principal) {
         authority.requireControl(principal);
-        return new AgentTaskEventBatchResponse(eventIngestionService.ingest(
-            request.events(), principal.workspaceId(), principal.runId(), Instant.now()));
+        return new AgentTaskEventBatchResponse(
+                eventIngestionService.ingest(
+                        request.events(),
+                        principal.workspaceId(),
+                        principal.runId(),
+                        Instant.now()));
     }
 }

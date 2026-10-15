@@ -2,13 +2,14 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunEvent;
 import com.freelanceops.backend.domain.agentrun.dto.response.RouteObservationBatch;
-import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRouteCollectionEntity;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRouteObservationEntity;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRouteCollectionRepository;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRouteObservationRepository;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,26 +27,40 @@ import java.util.UUID;
 @Service
 public class AgentRouteCollectionQueue {
     private static final Duration LEASE = Duration.ofMinutes(2);
-    private static final Set<String> ROUTES = Set.of(
-        "DIRECT_TOOL", "SIMPLE_LLM", "REACT_AGENT", "SUPERVISOR", "HUMAN_REQUIRED"
-    );
-    private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "route", "decisionSource", "reasonCodes", "evaluatorProvider", "evaluatorModel", "evaluatorSuggestedRoute",
-        "failureCode", "safetyCode", "policyOverrodeRoute", "shadowSuggestedRoute",
-        "shadowNeedsFallback", "shadowFallbackReason", "shadowFusedShare", "shadowMargin",
-        "shadowLaneAgreement", "shadowLatencyMs", "routingLatencyMs", "routingInputTokens",
-        "routingOutputTokens"
-    );
+    private static final Set<String> ROUTES =
+            Set.of("DIRECT_TOOL", "SIMPLE_LLM", "REACT_AGENT", "SUPERVISOR", "HUMAN_REQUIRED");
+    private static final Set<String> ALLOWED_FIELDS =
+            Set.of(
+                    "route",
+                    "decisionSource",
+                    "reasonCodes",
+                    "evaluatorProvider",
+                    "evaluatorModel",
+                    "evaluatorSuggestedRoute",
+                    "failureCode",
+                    "safetyCode",
+                    "policyOverrodeRoute",
+                    "shadowSuggestedRoute",
+                    "shadowNeedsFallback",
+                    "shadowFallbackReason",
+                    "shadowFusedShare",
+                    "shadowMargin",
+                    "shadowLaneAgreement",
+                    "shadowLatencyMs",
+                    "routingLatencyMs",
+                    "routingInputTokens",
+                    "routingOutputTokens");
 
     private final AgentRouteCollectionRepository collectionRepository;
     private final AgentRouteObservationRepository observationRepository;
     private final AgentRunRepository runRepository;
     private final AgentRouteReviewPolicy reviewPolicy;
 
-    public AgentRouteCollectionQueue(AgentRouteCollectionRepository collectionRepository,
-                                     AgentRouteObservationRepository observationRepository,
-                                     AgentRunRepository runRepository,
-                                     AgentRouteReviewPolicy reviewPolicy) {
+    public AgentRouteCollectionQueue(
+            AgentRouteCollectionRepository collectionRepository,
+            AgentRouteObservationRepository observationRepository,
+            AgentRunRepository runRepository,
+            AgentRouteReviewPolicy reviewPolicy) {
         this.collectionRepository = collectionRepository;
         this.observationRepository = observationRepository;
         this.runRepository = runRepository;
@@ -56,36 +71,53 @@ public class AgentRouteCollectionQueue {
     public Optional<ClaimedCollection> claimNext() {
         Instant now = Instant.now();
         return collectionRepository.findDispatchableForUpdate(now, PageRequest.of(0, 1)).stream()
-            .findFirst()
-            .map(collection -> {
-                collection.claim(now, LEASE);
-                return new ClaimedCollection(
-                    collection.agentRunId(), collection.cursorEventId(), collection.attempts()
-                );
-            });
+                .findFirst()
+                .map(
+                        collection -> {
+                            collection.claim(now, LEASE);
+                            return new ClaimedCollection(
+                                    collection.agentRunId(),
+                                    collection.cursorEventId(),
+                                    collection.attempts());
+                        });
     }
 
     @Transactional
     public boolean record(ClaimedCollection claim, RouteObservationBatch batch) {
-        AgentRouteCollectionEntity collection = collectionRepository.findByRunIdForUpdate(claim.runId())
-            .orElse(null);
+        AgentRouteCollectionEntity collection =
+                collectionRepository.findByRunIdForUpdate(claim.runId()).orElse(null);
         if (collection == null) return false;
         validateBatch(claim, batch);
-        AgentRunEntity run = runRepository.findById(claim.runId())
-            .orElseThrow(() -> new IllegalStateException("route collection references an unknown run"));
+        AgentRunEntity run =
+                runRepository
+                        .findById(claim.runId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "route collection references an unknown run"));
         boolean complete = batch.terminal() && !batch.hasMore();
-        Duration nextDelay = batch.status() == AgentRunStatus.WAITING_FOR_USER && batch.events().isEmpty()
-            ? Duration.ofSeconds(60)
-            : Duration.ofSeconds(5);
-        if (!collection.record(Instant.now(), batch.nextEventId(), complete, nextDelay, claim.attempt())) return false;
+        Duration nextDelay =
+                batch.status() == AgentRunStatus.WAITING_FOR_USER && batch.events().isEmpty()
+                        ? Duration.ofSeconds(60)
+                        : Duration.ofSeconds(5);
+        if (!collection.record(
+                Instant.now(), batch.nextEventId(), complete, nextDelay, claim.attempt()))
+            return false;
         for (AgentRunEvent event : batch.events()) {
-            if (observationRepository.existsByAgentRunIdAndAgentEventId(event.runId(), event.eventId())) continue;
+            if (observationRepository.existsByAgentRunIdAndAgentEventId(
+                    event.runId(), event.eventId())) continue;
             UUID observationId = UUID.randomUUID();
             Map<String, Object> routeData = sanitize(event.data());
-            AgentRouteObservationEntity observation = new AgentRouteObservationEntity(
-                observationId, run.workspaceId(), run.projectId(), run.id(), event.eventId(),
-                event.occurredAt(), routeData, Instant.now()
-            );
+            AgentRouteObservationEntity observation =
+                    new AgentRouteObservationEntity(
+                            observationId,
+                            run.workspaceId(),
+                            run.projectId(),
+                            run.id(),
+                            event.eventId(),
+                            event.occurredAt(),
+                            routeData,
+                            Instant.now());
             observation.configureReviewTarget(reviewPolicy.reviewTarget(observationId, routeData));
             observationRepository.save(observation);
         }
@@ -94,9 +126,10 @@ public class AgentRouteCollectionQueue {
 
     @Transactional
     public boolean retry(ClaimedCollection claim, Duration delay, String error) {
-        return collectionRepository.findByRunIdForUpdate(claim.runId())
-            .map(collection -> collection.retry(Instant.now(), delay, error, claim.attempt()))
-            .orElse(false);
+        return collectionRepository
+                .findByRunIdForUpdate(claim.runId())
+                .map(collection -> collection.retry(Instant.now(), delay, error, claim.attempt()))
+                .orElse(false);
     }
 
     static Map<String, Object> sanitize(Map<String, Object> data) {
@@ -145,7 +178,9 @@ public class AgentRouteCollectionQueue {
             throw new IllegalArgumentException("route numeric signal is invalid");
         }
         if (Set.of("shadowFusedShare", "shadowMargin").contains(field)) {
-            if (value > 1) throw new IllegalArgumentException("route share signal must be between zero and one");
+            if (value > 1)
+                throw new IllegalArgumentException(
+                        "route share signal must be between zero and one");
             return value;
         }
         if (Set.of("routingInputTokens", "routingOutputTokens").contains(field)) {
@@ -155,18 +190,23 @@ public class AgentRouteCollectionQueue {
             return number.longValue();
         }
         if (Set.of("shadowLatencyMs", "routingLatencyMs").contains(field)) {
-            if (value > 900_000) throw new IllegalArgumentException("route latency signal is invalid");
+            if (value > 900_000)
+                throw new IllegalArgumentException("route latency signal is invalid");
             return value;
         }
         throw new IllegalArgumentException("route numeric field is not recognized: " + field);
     }
 
     private static void validateBatch(ClaimedCollection claim, RouteObservationBatch batch) {
-        if (!claim.runId().equals(batch.runId())) throw new IllegalArgumentException("route batch run does not match");
+        if (!claim.runId().equals(batch.runId()))
+            throw new IllegalArgumentException("route batch run does not match");
         long cursor = claim.cursorEventId();
         for (AgentRunEvent event : batch.events()) {
-            if (!claim.runId().equals(event.runId()) || !"route.selected".equals(event.type()) || event.eventId() <= cursor) {
-                throw new IllegalArgumentException("route batch event is invalid or non-increasing");
+            if (!claim.runId().equals(event.runId())
+                    || !"route.selected".equals(event.type())
+                    || event.eventId() <= cursor) {
+                throw new IllegalArgumentException(
+                        "route batch event is invalid or non-increasing");
             }
             cursor = event.eventId();
         }
@@ -175,5 +215,5 @@ public class AgentRouteCollectionQueue {
         }
     }
 
-    public record ClaimedCollection(UUID runId, long cursorEventId, int attempt) { }
+    public record ClaimedCollection(UUID runId, long cursorEventId, int attempt) {}
 }

@@ -9,20 +9,18 @@ import java.util.List;
 import java.util.UUID;
 
 public record SharedProposalResponse(
-    UUID quotationId,
-    UUID projectId,
-    String projectTitle,
-    int versionNumber,
-    QuotationScenario scenario,
-    String currency,
-    BigDecimal subtotal,
-    BigDecimal discountTotal,
-    BigDecimal riskBufferAmount,
-    BigDecimal taxAmount,
-    BigDecimal total,
-    LocalDate validUntil,
-    Instant publishedAt,
-    Instant shareExpiresAt,
-    List<SharedProposalItemResponse> items
-) {
-}
+        UUID quotationId,
+        UUID projectId,
+        String projectTitle,
+        int versionNumber,
+        QuotationScenario scenario,
+        String currency,
+        BigDecimal subtotal,
+        BigDecimal discountTotal,
+        BigDecimal riskBufferAmount,
+        BigDecimal taxAmount,
+        BigDecimal total,
+        LocalDate validUntil,
+        Instant publishedAt,
+        Instant shareExpiresAt,
+        List<SharedProposalItemResponse> items) {}

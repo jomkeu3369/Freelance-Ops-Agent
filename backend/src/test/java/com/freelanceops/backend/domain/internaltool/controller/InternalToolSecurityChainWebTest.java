@@ -1,4 +1,12 @@
 package com.freelanceops.backend.domain.internaltool.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.freelanceops.backend.domain.agentrun.service.ToolExecutionAuditService;
 import com.freelanceops.backend.domain.internaltool.dto.response.ProjectContext;
 import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
@@ -10,6 +18,7 @@ import com.freelanceops.backend.global.security.ApiRateLimitFilter;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +34,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
 import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -34,21 +44,14 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-    controllers = InternalToolController.class,
-    properties = {
-        "app.auth.jwt-secret=test-web-auth-secret-with-at-least-32-bytes",
-        "app.auth.issuer=test-issuer",
-        "app.auth.audience=test-web"
-    }
-)
+        controllers = InternalToolController.class,
+        properties = {
+            "app.auth.jwt-secret=test-web-auth-secret-with-at-least-32-bytes",
+            "app.auth.issuer=test-issuer",
+            "app.auth.audience=test-web"
+        })
 @Import({
     SecurityConfig.class,
     AuthSecurityConfig.class,
@@ -62,25 +65,22 @@ class InternalToolSecurityChainWebTest {
     private static KeyPair keyPair;
     private static JwtEncoder encoder;
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockitoBean
-    private ApiRateLimitFilter rateLimitFilter;
-    @MockitoBean
-    private InternalToolService toolService;
-    @MockitoBean
-    private ToolExecutionAuditService auditService;
+    @MockitoBean private ApiRateLimitFilter rateLimitFilter;
+    @MockitoBean private InternalToolService toolService;
+    @MockitoBean private ToolExecutionAuditService auditService;
 
     @BeforeAll
     static void createSigningKey() throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
         keyPair = generator.generateKeyPair();
-        RSAKey jwk = new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
-            .privateKey((RSAPrivateKey) keyPair.getPrivate())
-            .keyID(KEY_ID)
-            .build();
+        RSAKey jwk =
+                new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
+                        .privateKey((RSAPrivateKey) keyPair.getPrivate())
+                        .keyID(KEY_ID)
+                        .build();
         encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
     }
 
@@ -88,59 +88,66 @@ class InternalToolSecurityChainWebTest {
     void delegationTokenIsHandledOnlyByInternalSecurityChain() throws Exception {
         UUID runId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        ProjectContext context = new ProjectContext(
-            projectId,
-            UUID.randomUUID(),
-            "통합 보안 테스트",
-            "내부 Tool 체인을 검증합니다.",
-            "KRW",
-            null,
-            new BigDecimal("100000"),
-            new BigDecimal("300000"), java.util.List.of()
-        );
+        ProjectContext context =
+                new ProjectContext(
+                        projectId,
+                        UUID.randomUUID(),
+                        "통합 보안 테스트",
+                        "내부 Tool 체인을 검증합니다.",
+                        "KRW",
+                        null,
+                        new BigDecimal("100000"),
+                        new BigDecimal("300000"),
+                        java.util.List.of());
         when(auditService.execute(eq("get_project_context"), any(), any(), eq(runId), any()))
-            .thenReturn(context);
+                .thenReturn(context);
 
-        mockMvc.perform(get("/internal/v1/projects/{projectId}/context", projectId)
-                .header("Authorization", "Bearer " + delegationToken(runId, projectId))
-                .header("X-Run-Id", runId))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.projectId").value(projectId.toString()));
+        mockMvc.perform(
+                        get("/internal/v1/projects/{projectId}/context", projectId)
+                                .header(
+                                        "Authorization",
+                                        "Bearer " + delegationToken(runId, projectId))
+                                .header("X-Run-Id", runId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectId").value(projectId.toString()));
     }
 
     @Test
     void invalidDelegationTokenFailsInsideInternalSecurityChain() throws Exception {
-        mockMvc.perform(get("/internal/v1/projects/{projectId}/context", UUID.randomUUID())
-                .header("Authorization", "Bearer invalid-token")
-                .header("X-Run-Id", UUID.randomUUID()))
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("DELEGATION_TOKEN_INVALID"));
+        mockMvc.perform(
+                        get("/internal/v1/projects/{projectId}/context", UUID.randomUUID())
+                                .header("Authorization", "Bearer invalid-token")
+                                .header("X-Run-Id", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("DELEGATION_TOKEN_INVALID"));
     }
 
     private static String delegationToken(UUID runId, UUID projectId) {
         UUID userId = UUID.randomUUID();
         Instant now = Instant.now();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-            .issuer(ISSUER)
-            .audience(List.of("freelance-ops-agent", TOOL_AUDIENCE))
-            .subject(userId.toString())
-            .id(UUID.randomUUID().toString())
-            .issuedAt(now)
-            .expiresAt(now.plusSeconds(60))
-            .claim("run_id", runId.toString())
-            .claim("workspace_id", UUID.randomUUID().toString())
-            .claim("project_id", projectId.toString())
-            .claim("initiated_by", userId.toString())
-            .claim("permissions", List.of("agent.run", "project.read"))
-            .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer(ISSUER)
+                        .audience(List.of("freelance-ops-agent", TOOL_AUDIENCE))
+                        .subject(userId.toString())
+                        .id(UUID.randomUUID().toString())
+                        .issuedAt(now)
+                        .expiresAt(now.plusSeconds(60))
+                        .claim("run_id", runId.toString())
+                        .claim("workspace_id", UUID.randomUUID().toString())
+                        .claim("project_id", projectId.toString())
+                        .claim("initiated_by", userId.toString())
+                        .claim("permissions", List.of("agent.run", "project.read"))
+                        .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(KEY_ID).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
 
     private static String publicKeyPem() {
         return "-----BEGIN PUBLIC KEY-----\n"
-            + Base64.getMimeEncoder(64, new byte[]{'\n'}).encodeToString(keyPair.getPublic().getEncoded())
-            + "\n-----END PUBLIC KEY-----";
+                + Base64.getMimeEncoder(64, new byte[] {'\n'})
+                        .encodeToString(keyPair.getPublic().getEncoded())
+                + "\n-----END PUBLIC KEY-----";
     }
 
     @TestConfiguration
@@ -149,13 +156,7 @@ class InternalToolSecurityChainWebTest {
         @Bean
         DelegationTokenVerifier delegationTokenVerifier() {
             return new DelegationTokenVerifier(
-                publicKeyPem(),
-                KEY_ID,
-                "",
-                "",
-                ISSUER,
-                TOOL_AUDIENCE
-            );
+                    publicKeyPem(), KEY_ID, "", "", ISSUER, TOOL_AUDIENCE);
         }
 
         @Bean

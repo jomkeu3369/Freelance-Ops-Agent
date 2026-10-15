@@ -1,10 +1,12 @@
 package com.freelanceops.backend.domain.workspace.entity;
 
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationAuditEvent;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -15,8 +17,7 @@ import java.util.UUID;
 @Table(name = "rbac_audit_event", schema = "app")
 public class RbacAuditEventEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id")
     private UUID workspaceId;
@@ -40,19 +41,17 @@ public class RbacAuditEventEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private Map<String, Object> details;
 
-    protected RbacAuditEventEntity() {
-    }
+    protected RbacAuditEventEntity() {}
 
     private RbacAuditEventEntity(
-        UUID workspaceId,
-        UUID actorUserId,
-        String action,
-        String outcome,
-        String permissionCode,
-        String targetType,
-        UUID targetId,
-        Map<String, Object> details
-    ) {
+            UUID workspaceId,
+            UUID actorUserId,
+            String action,
+            String outcome,
+            String permissionCode,
+            String targetType,
+            UUID targetId,
+            Map<String, Object> details) {
         this.id = UUID.randomUUID();
         this.workspaceId = workspaceId;
         this.actorUserId = actorUserId;
@@ -66,32 +65,29 @@ public class RbacAuditEventEntity {
 
     public static RbacAuditEventEntity workspaceCreated(UUID workspaceId, UUID actorUserId) {
         return new RbacAuditEventEntity(
-            workspaceId,
-            actorUserId,
-            "WORKSPACE_CREATED",
-            "SUCCEEDED",
-            null,
-            "WORKSPACE",
-            workspaceId,
-            Map.of()
-        );
+                workspaceId,
+                actorUserId,
+                "WORKSPACE_CREATED",
+                "SUCCEEDED",
+                null,
+                "WORKSPACE",
+                workspaceId,
+                Map.of());
     }
 
     public static RbacAuditEventEntity authorizationCheck(AuthorizationAuditEvent event) {
-        Map<String, Object> details = event.resourceWorkspaceId() == null
-            ? Map.of()
-            : Map.of("resourceWorkspaceId", event.resourceWorkspaceId().toString());
+        Map<String, Object> details =
+                event.resourceWorkspaceId() == null
+                        ? Map.of()
+                        : Map.of("resourceWorkspaceId", event.resourceWorkspaceId().toString());
         return new RbacAuditEventEntity(
-            event.workspaceId(),
-            event.actorUserId(),
-            "AUTHORIZATION_CHECK",
-            event.decision().name(),
-            event.permission().code(),
-            "WORKSPACE_RESOURCE",
-            null,
-            details
-        );
+                event.workspaceId(),
+                event.actorUserId(),
+                "AUTHORIZATION_CHECK",
+                event.decision().name(),
+                event.permission().code(),
+                "WORKSPACE_RESOURCE",
+                null,
+                details);
     }
 }
-
-

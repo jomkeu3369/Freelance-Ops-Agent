@@ -6,6 +6,7 @@ import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -30,9 +31,12 @@ public class AgentRouteObservationCollector {
     private final DelegationTokenIssuer tokenIssuer;
     private final Optional<AgentRoutePipelineMetrics> metrics;
 
-    public AgentRouteObservationCollector(AgentRouteCollectionQueue queue, AgentRunRepository runRepository,
-                                          AgentRunClient client, DelegationTokenIssuer tokenIssuer,
-                                          Optional<AgentRoutePipelineMetrics> metrics) {
+    public AgentRouteObservationCollector(
+            AgentRouteCollectionQueue queue,
+            AgentRunRepository runRepository,
+            AgentRunClient client,
+            DelegationTokenIssuer tokenIssuer,
+            Optional<AgentRoutePipelineMetrics> metrics) {
         this.queue = queue;
         this.runRepository = runRepository;
         this.client = client;
@@ -63,22 +67,33 @@ public class AgentRouteObservationCollector {
     void collect(AgentRouteCollectionQueue.ClaimedCollection claim) {
         AgentRunEntity run = runRepository.findById(claim.runId()).orElse(null);
         if (run == null) return;
-        String token = tokenIssuer.issue(
-            run.id(), run.workspaceId(), run.projectId(), run.initiatedBy(), List.of(PermissionCode.AGENT_RUN.code())
-        );
+        String token =
+                tokenIssuer.issue(
+                        run.id(),
+                        run.workspaceId(),
+                        run.projectId(),
+                        run.initiatedBy(),
+                        List.of(PermissionCode.AGENT_RUN.code()));
         long startedAt = System.nanoTime();
         try {
-            RouteObservationBatch batch = client.routeObservations(
-                run.id(), claim.cursorEventId(), token, newTraceparent()
-            );
-            if (batch == null) throw new IllegalStateException("Agent returned no route observation batch");
+            RouteObservationBatch batch =
+                    client.routeObservations(
+                            run.id(), claim.cursorEventId(), token, newTraceparent());
+            if (batch == null)
+                throw new IllegalStateException("Agent returned no route observation batch");
             if (queue.record(claim, batch)) {
-                metrics.ifPresent(value -> value.recordCollection(batch.events().size(), System.nanoTime() - startedAt));
+                metrics.ifPresent(
+                        value ->
+                                value.recordCollection(
+                                        batch.events().size(), System.nanoTime() - startedAt));
             }
         } catch (RuntimeException error) {
             queue.retry(claim, retryDelay(claim.attempt()), errorMessage(error));
             metrics.ifPresent(value -> value.recordRetry(System.nanoTime() - startedAt));
-            log.debug("Route observation collection deferred: runId={} attempt={}", claim.runId(), claim.attempt());
+            log.debug(
+                    "Route observation collection deferred: runId={} attempt={}",
+                    claim.runId(),
+                    claim.attempt());
         }
     }
 
@@ -92,7 +107,9 @@ public class AgentRouteObservationCollector {
     }
 
     private static String newTraceparent() {
-        String traceId = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+        String traceId =
+                UUID.randomUUID().toString().replace("-", "")
+                        + UUID.randomUUID().toString().replace("-", "");
         String spanId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
         return "00-" + traceId.substring(0, 32) + "-" + spanId + "-01";
     }

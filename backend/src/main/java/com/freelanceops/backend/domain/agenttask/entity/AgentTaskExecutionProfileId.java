@@ -8,7 +8,5 @@ import java.util.UUID;
 
 @Embeddable
 public record AgentTaskExecutionProfileId(
-    @Column(name = "task_id") UUID taskId,
-    @Column(name = "task_revision") int taskRevision
-) implements Serializable {
-}
+        @Column(name = "task_id") UUID taskId, @Column(name = "task_revision") int taskRevision)
+        implements Serializable {}

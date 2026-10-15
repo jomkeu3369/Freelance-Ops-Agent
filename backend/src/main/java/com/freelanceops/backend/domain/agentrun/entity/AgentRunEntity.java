@@ -4,6 +4,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,8 +20,7 @@ import java.util.UUID;
 @Table(name = "agent_run", schema = "app")
 public class AgentRunEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -45,16 +45,35 @@ public class AgentRunEntity {
     @Column(name = "reasoning_effort", nullable = false, length = 20)
     private ReasoningEffort reasoningEffort;
 
-    @Column(name = "max_duration_seconds", nullable = false) private int maxDurationSeconds;
-    @Column(name = "max_model_calls", nullable = false) private int maxModelCalls;
-    @Column(name = "max_tool_calls", nullable = false) private int maxToolCalls;
-    @Column(name = "max_input_tokens", nullable = false) private int maxInputTokens;
-    @Column(name = "max_output_tokens", nullable = false) private int maxOutputTokens;
-    @Column(name = "max_departments", nullable = false) private int maxDepartments;
-    @Column(name = "max_hierarchy_depth", nullable = false) private int maxHierarchyDepth;
-    @Column(name = "max_search_credits", nullable = false) private int maxSearchCredits;
-    @Column(name = "max_retries", nullable = false) private int maxRetries;
-    @Column(name = "max_handoffs", nullable = false) private int maxHandoffs;
+    @Column(name = "max_duration_seconds", nullable = false)
+    private int maxDurationSeconds;
+
+    @Column(name = "max_model_calls", nullable = false)
+    private int maxModelCalls;
+
+    @Column(name = "max_tool_calls", nullable = false)
+    private int maxToolCalls;
+
+    @Column(name = "max_input_tokens", nullable = false)
+    private int maxInputTokens;
+
+    @Column(name = "max_output_tokens", nullable = false)
+    private int maxOutputTokens;
+
+    @Column(name = "max_departments", nullable = false)
+    private int maxDepartments;
+
+    @Column(name = "max_hierarchy_depth", nullable = false)
+    private int maxHierarchyDepth;
+
+    @Column(name = "max_search_credits", nullable = false)
+    private int maxSearchCredits;
+
+    @Column(name = "max_retries", nullable = false)
+    private int maxRetries;
+
+    @Column(name = "max_handoffs", nullable = false)
+    private int maxHandoffs;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
@@ -69,27 +88,71 @@ public class AgentRunEntity {
     @Column(name = "next_reconciliation_at", nullable = false)
     private Instant nextReconciliationAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    protected AgentRunEntity() {
+    protected AgentRunEntity() {}
+
+    public AgentRunEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID projectId,
+            UUID threadId,
+            UUID initiatedBy,
+            Provider provider,
+            String model,
+            AgentRunStatus status,
+            Instant now) {
+        this(
+                id,
+                workspaceId,
+                projectId,
+                threadId,
+                initiatedBy,
+                provider,
+                model,
+                ReasoningEffort.LOW,
+                defaultBudget(),
+                status,
+                now);
     }
 
-    public AgentRunEntity(UUID id, UUID workspaceId, UUID projectId, UUID threadId, UUID initiatedBy, Provider provider, String model, AgentRunStatus status, Instant now) {
-        this(id, workspaceId, projectId, threadId, initiatedBy, provider, model, ReasoningEffort.LOW,
-            defaultBudget(), status, now);
+    public AgentRunEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID projectId,
+            UUID threadId,
+            UUID initiatedBy,
+            Provider provider,
+            String model,
+            ReasoningEffort reasoningEffort,
+            AgentRunStatus status,
+            Instant now) {
+        this(
+                id,
+                workspaceId,
+                projectId,
+                threadId,
+                initiatedBy,
+                provider,
+                model,
+                reasoningEffort,
+                defaultBudget(),
+                status,
+                now);
     }
 
-    public AgentRunEntity(UUID id, UUID workspaceId, UUID projectId, UUID threadId, UUID initiatedBy,
-                          Provider provider, String model, ReasoningEffort reasoningEffort,
-                          AgentRunStatus status, Instant now) {
-        this(id, workspaceId, projectId, threadId, initiatedBy, provider, model, reasoningEffort,
-            defaultBudget(), status, now);
-    }
-
-    public AgentRunEntity(UUID id, UUID workspaceId, UUID projectId, UUID threadId, UUID initiatedBy,
-                          Provider provider, String model, ReasoningEffort reasoningEffort, RunBudget budget,
-                          AgentRunStatus status, Instant now) {
+    public AgentRunEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID projectId,
+            UUID threadId,
+            UUID initiatedBy,
+            Provider provider,
+            String model,
+            ReasoningEffort reasoningEffort,
+            RunBudget budget,
+            AgentRunStatus status,
+            Instant now) {
         this.id = id;
         this.workspaceId = workspaceId;
         this.projectId = projectId;
@@ -133,9 +196,9 @@ public class AgentRunEntity {
 
     private static boolean isTerminal(AgentRunStatus status) {
         return status == AgentRunStatus.COMPLETED
-            || status == AgentRunStatus.PARTIAL
-            || status == AgentRunStatus.FAILED
-            || status == AgentRunStatus.CANCELLED;
+                || status == AgentRunStatus.PARTIAL
+                || status == AgentRunStatus.FAILED
+                || status == AgentRunStatus.CANCELLED;
     }
 
     public void scheduleReconciliation(Instant when) {
@@ -145,8 +208,13 @@ public class AgentRunEntity {
     @jakarta.persistence.Column(name = "credential_id")
     private UUID credentialId;
 
-    public UUID credentialId() { return credentialId; }
-    public void useCredential(UUID credentialId) { this.credentialId = credentialId; }
+    public UUID credentialId() {
+        return credentialId;
+    }
+
+    public void useCredential(UUID credentialId) {
+        this.credentialId = credentialId;
+    }
 
     public UUID id() {
         return id;
@@ -181,8 +249,17 @@ public class AgentRunEntity {
     }
 
     public RunBudget budget() {
-        return new RunBudget(maxDurationSeconds, maxModelCalls, maxToolCalls, maxInputTokens, maxOutputTokens,
-            maxDepartments, maxHierarchyDepth, maxSearchCredits, maxRetries, maxHandoffs);
+        return new RunBudget(
+                maxDurationSeconds,
+                maxModelCalls,
+                maxToolCalls,
+                maxInputTokens,
+                maxOutputTokens,
+                maxDepartments,
+                maxHierarchyDepth,
+                maxSearchCredits,
+                maxRetries,
+                maxHandoffs);
     }
 
     public AgentRunStatus status() {
@@ -197,5 +274,3 @@ public class AgentRunEntity {
         return new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3);
     }
 }
-
-

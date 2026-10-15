@@ -6,9 +6,8 @@ import com.freelanceops.backend.domain.agentrun.model.RouteCorrectionSource;
 import java.util.UUID;
 
 public record RouteGoldReviewExportResponse(
-    UUID runId,
-    long eventId,
-    UUID workspaceId,
-    AgentRouteLabel goldRoute,
-    RouteCorrectionSource correctionSource
-) { }
+        UUID runId,
+        long eventId,
+        UUID workspaceId,
+        AgentRouteLabel goldRoute,
+        RouteCorrectionSource correctionSource) {}

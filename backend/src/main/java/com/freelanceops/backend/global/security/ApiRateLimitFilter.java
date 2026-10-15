@@ -4,8 +4,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -16,7 +17,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,8 +24,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ApiRateLimitFilter extends OncePerRequestFilter {
 
     private static final long WINDOW_SECONDS = 60;
-    private static final PathPatternRequestMatcher ATTACHMENT_UPLOAD_PATH = PathPatternRequestMatcher.withDefaults()
-        .matcher(HttpMethod.POST, "/api/v2/workspaces/{workspaceId}/projects/{projectId}/attachments");
+    private static final PathPatternRequestMatcher ATTACHMENT_UPLOAD_PATH =
+            PathPatternRequestMatcher.withDefaults()
+                    .matcher(
+                            HttpMethod.POST,
+                            "/api/v2/workspaces/{workspaceId}/projects/{projectId}/attachments");
 
     private final boolean enabled;
     private final int authLimit;
@@ -37,16 +40,21 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
 
     @Autowired
     public ApiRateLimitFilter(
-        @Value("${app.rate-limit.enabled:true}") boolean enabled,
-        @Value("${app.rate-limit.auth-per-minute:20}") int authLimit,
-        @Value("${app.rate-limit.public-proposal-per-minute:30}") int proposalLimit,
-        @Value("${app.rate-limit.agent-per-minute:20}") int agentLimit,
-        @Value("${app.rate-limit.max-entries:10000}") int maxEntries
-    ) {
+            @Value("${app.rate-limit.enabled:true}") boolean enabled,
+            @Value("${app.rate-limit.auth-per-minute:20}") int authLimit,
+            @Value("${app.rate-limit.public-proposal-per-minute:30}") int proposalLimit,
+            @Value("${app.rate-limit.agent-per-minute:20}") int agentLimit,
+            @Value("${app.rate-limit.max-entries:10000}") int maxEntries) {
         this(enabled, authLimit, proposalLimit, agentLimit, maxEntries, Clock.systemUTC());
     }
 
-    ApiRateLimitFilter(boolean enabled, int authLimit, int proposalLimit, int agentLimit, int maxEntries, Clock clock) {
+    ApiRateLimitFilter(
+            boolean enabled,
+            int authLimit,
+            int proposalLimit,
+            int agentLimit,
+            int maxEntries,
+            Clock clock) {
         if (authLimit < 1 || proposalLimit < 1 || agentLimit < 1 || maxEntries < 100) {
             throw new IllegalArgumentException("rate limit configuration is invalid");
         }
@@ -64,8 +72,9 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-        throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
         Category category = category(request);
         if (category == null) {
             chain.doFilter(request, response);
@@ -79,8 +88,10 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             response.setStatus(429);
             response.setHeader("Retry-After", Long.toString(counter.retryAfter(now)));
             response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-            response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Too Many Requests\","
-                + "\"status\":429,\"code\":\"RATE_LIMIT_EXCEEDED\"}");
+            response.getWriter()
+                    .write(
+                            "{\"type\":\"about:blank\",\"title\":\"Too Many Requests\","
+                                    + "\"status\":429,\"code\":\"RATE_LIMIT_EXCEEDED\"}");
             return;
         }
         if (counters.size() > maxEntries) {
@@ -98,12 +109,13 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     }
 
     private static Category category(HttpServletRequest request) {
-        if ("PUT".equalsIgnoreCase(request.getMethod()) && request.getRequestURI().startsWith("/api/v2/workspaces/")
-            && request.getRequestURI().contains("/ai-connections/")) return Category.AGENT;
+        if ("PUT".equalsIgnoreCase(request.getMethod())
+                && request.getRequestURI().startsWith("/api/v2/workspaces/")
+                && request.getRequestURI().contains("/ai-connections/")) return Category.AGENT;
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             return null;
         }
-        // Match decoded path segments just as MVC does, including percent-encoded route names.
+        // 인코딩된 경로도 MVC와 같은 방식으로 해석한 뒤 제한 대상을 판별한다.
         if (ATTACHMENT_UPLOAD_PATH.matches(request)) {
             return Category.AGENT;
         }
@@ -115,7 +127,10 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             return Category.PUBLIC_PROPOSAL;
         }
         if (path.startsWith("/api/v2/workspaces/")
-            && (path.contains("/agent-runs") || path.contains("/agent-pets") || path.endsWith("/assumption-suggestions") || path.endsWith("/pet-generations"))) {
+                && (path.contains("/agent-runs")
+                        || path.contains("/agent-pets")
+                        || path.endsWith("/assumption-suggestions")
+                        || path.endsWith("/pet-generations"))) {
             return Category.AGENT;
         }
         return null;
@@ -123,11 +138,14 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
 
     private static String principalKey(HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getName())) {
+        if (authentication != null
+                && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getName())) {
             return "user:" + authentication.getName();
         }
         String remoteAddress = request.getRemoteAddr();
-        return "ip:" + (remoteAddress == null || remoteAddress.isBlank() ? "unknown" : remoteAddress);
+        return "ip:"
+                + (remoteAddress == null || remoteAddress.isBlank() ? "unknown" : remoteAddress);
     }
 
     private enum Category {

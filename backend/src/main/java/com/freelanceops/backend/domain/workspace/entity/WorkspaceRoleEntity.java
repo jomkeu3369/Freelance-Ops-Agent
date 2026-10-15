@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.workspace.entity;
 
 import com.freelanceops.backend.domain.workspace.policy.SystemRole;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -12,8 +13,7 @@ import java.util.UUID;
 @Table(name = "workspace_role", schema = "app")
 public class WorkspaceRoleEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id")
     private UUID workspaceId;
@@ -26,8 +26,7 @@ public class WorkspaceRoleEntity {
     @Column(name = "system_role")
     private boolean systemRole;
 
-    protected WorkspaceRoleEntity() {
-    }
+    protected WorkspaceRoleEntity() {}
 
     private WorkspaceRoleEntity(UUID id, UUID workspaceId, SystemRole role) {
         this.id = id;
@@ -41,5 +40,3 @@ public class WorkspaceRoleEntity {
         return new WorkspaceRoleEntity(id, workspaceId, role);
     }
 }
-
-

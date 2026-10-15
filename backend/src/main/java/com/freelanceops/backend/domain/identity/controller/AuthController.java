@@ -6,7 +6,9 @@ import com.freelanceops.backend.domain.identity.dto.request.RefreshRequest;
 import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
 import com.freelanceops.backend.domain.identity.dto.response.AuthTokenResponse;
 import com.freelanceops.backend.domain.identity.service.AuthService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

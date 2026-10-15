@@ -49,10 +49,9 @@ public enum PermissionCode {
 
     public static PermissionCode fromCode(String code) {
         return Arrays.stream(values())
-            .filter(permission -> permission.code.equals(code))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown permission code: " + code));
+                .filter(permission -> permission.code.equals(code))
+                .findFirst()
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Unknown permission code: " + code));
     }
 }
-
-

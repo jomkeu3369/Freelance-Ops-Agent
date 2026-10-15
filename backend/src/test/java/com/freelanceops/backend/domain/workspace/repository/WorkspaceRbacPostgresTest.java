@@ -1,34 +1,39 @@
 package com.freelanceops.backend.domain.workspace.repository;
-import com.freelanceops.backend.domain.knowledge.service.KnowledgeService;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.freelanceops.backend.domain.agentrun.dto.request.ReviewRouteObservationRequest;
+import com.freelanceops.backend.domain.agentrun.entity.AgentRouteObservationEntity;
+import com.freelanceops.backend.domain.agentrun.model.AgentRouteLabel;
+import com.freelanceops.backend.domain.agentrun.model.RouteCorrectionSource;
+import com.freelanceops.backend.domain.agentrun.repository.AgentRouteObservationRepository;
+import com.freelanceops.backend.domain.agentrun.service.AgentRouteCanaryService;
+import com.freelanceops.backend.domain.agentrun.service.AgentRouteExportService;
+import com.freelanceops.backend.domain.agentrun.service.AgentRouteReviewService;
+import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
 import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
-import com.freelanceops.backend.domain.knowledge.service.GeneratedMemoryListener;
-import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
+import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
+import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
+import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
+import com.freelanceops.backend.domain.knowledge.model.KnowledgeSourceType;
 import com.freelanceops.backend.domain.knowledge.repository.DocumentChunkRepository;
 import com.freelanceops.backend.domain.knowledge.repository.KnowledgeSearchRepository;
-import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
-import com.freelanceops.backend.domain.knowledge.dto.request.KnowledgeSearchRequest;
+import com.freelanceops.backend.domain.knowledge.service.DocumentService;
+import com.freelanceops.backend.domain.knowledge.service.GeneratedMemoryListener;
 import com.freelanceops.backend.domain.memory.dto.response.MemorySourceMessage;
-import com.freelanceops.backend.domain.knowledge.dto.request.CreateDocumentRequest;
-import com.freelanceops.backend.domain.knowledge.model.KnowledgeSourceType;
-import com.freelanceops.backend.domain.knowledge.dto.request.DocumentChunkRequest;
-import com.freelanceops.backend.domain.workspace.repository.AuthorizationAuditSink;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningResult;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
-import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
+import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
+import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+import com.freelanceops.backend.domain.quotation.dto.request.UpdateEstimationPolicyRequest;
+import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.policy.SystemRole;
-import com.freelanceops.backend.domain.agentrun.service.AgentRunCommandQueue;
-import com.freelanceops.backend.domain.agentrun.repository.AgentRouteObservationRepository;
-import com.freelanceops.backend.domain.agentrun.entity.AgentRouteObservationEntity;
-import com.freelanceops.backend.domain.agentrun.dto.request.ReviewRouteObservationRequest;
-import com.freelanceops.backend.domain.agentrun.model.AgentRouteLabel;
-import com.freelanceops.backend.domain.agentrun.model.RouteCorrectionSource;
-import com.freelanceops.backend.domain.agentrun.service.AgentRouteReviewService;
-import com.freelanceops.backend.domain.quotation.dto.request.UpdateEstimationPolicyRequest;
-import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
-import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningResult;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
+import com.freelanceops.backend.global.event.RequirementAnalysisCompleted;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,62 +47,59 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-import java.time.Duration;
-import java.time.Instant;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 class WorkspaceRbacPostgresTest {
+    @Autowired private AgentRouteExportService routeExports;
+    @Autowired private AgentRouteCanaryService routeCanary;
+
+    @Autowired
+    private com.freelanceops.backend.domain.knowledge.service.KnowledgeSearchService
+            knowledgeSearch;
 
     @Container
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-        DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres")
-    );
+    private static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer(
+                    DockerImageName.parse("pgvector/pgvector:pg17")
+                            .asCompatibleSubstituteFor("postgres"));
 
-    @Autowired
-    private JdbcClient jdbcClient;
+    @Autowired private JdbcClient jdbcClient;
 
-    @Autowired
-    private WorkspaceProvisioningService provisioningService;
+    @Autowired private WorkspaceProvisioningService provisioningService;
 
-    @Autowired
-    private WorkspacePermissionReader permissionReader;
+    @Autowired private WorkspacePermissionReader permissionReader;
 
-    @Autowired
-    private AuthorizationAuditSink auditSink;
+    @Autowired private AuthorizationAuditSink auditSink;
 
-    @Autowired
-    private AgentRunCommandQueue agentRunCommandQueue;
+    @Autowired private AgentRunCommandQueue agentRunCommandQueue;
 
-    @Autowired
-    private AgentRouteObservationRepository agentRouteObservationRepository;
+    @Autowired private AgentRouteObservationRepository agentRouteObservationRepository;
 
-    @Autowired
-    private AgentRouteReviewService agentRouteReviewService;
+    @Autowired private AgentRouteReviewService agentRouteReviewService;
 
-    @Autowired
-    private PricingConfigurationService pricingConfigurationService;
+    @Autowired private PricingConfigurationService pricingConfigurationService;
 
-    @Autowired
-    private WorkspaceAuthorizationService workspaceAuthorizationService;
+    @Autowired private WorkspaceAuthorizationService workspaceAuthorizationService;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    @Autowired private PlatformTransactionManager transactionManager;
 
     @Autowired
     private com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
     @org.springframework.test.context.bean.override.mockito.MockitoBean
-    private com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier credentialVerifier;
+    private com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier
+            credentialVerifier;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -107,13 +109,13 @@ class WorkspaceRbacPostgresTest {
         registry.add("spring.flyway.create-schemas", () -> true);
         registry.add("agent.command-dispatch-enabled", () -> false);
         registry.add("agent.reconciliation-enabled", () -> false);
-        registry.add("APP_BYOK_ENCRYPTION_KEY", () -> java.util.Base64.getEncoder().encodeToString(new byte[32]));
+        registry.add(
+                "APP_BYOK_ENCRYPTION_KEY",
+                () -> java.util.Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("APP_BYOK_OPENAI_MODELS", () -> "gpt-6-luna");
     }
 
-
-    @Autowired
-    private com.freelanceops.backend.domain.agentrun.service.PetProfileService pets;
+    @Autowired private com.freelanceops.backend.domain.agentrun.service.PetProfileService pets;
 
     @Autowired
     private com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService customPets;
@@ -122,10 +124,14 @@ class WorkspaceRbacPostgresTest {
     void customPetsAreOwnerScopedRetrySafeSelectableAndArchivedWithoutChangingSnapshots() {
         UUID owner = insertUser("custom-pet-owner");
         UUID other = insertUser("custom-pet-other");
-        UUID workspace = provisioningService.create(owner, "Custom Pets", "custom-pets").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Custom Pets", "custom-pets").workspaceId();
         addRole(workspace, other, owner, "OWNER");
-        UUID otherWorkspace = provisioningService.create(owner, "Other pets", "custom-pets-other").workspaceId();
-        var input = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "친근한 고양이. 일정 관리를 꼼꼼히", false);
+        UUID otherWorkspace =
+                provisioningService.create(owner, "Other pets", "custom-pets-other").workspaceId();
+        var input =
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                        UUID.randomUUID(), UUID.randomUUID(), 0, "친근한 고양이. 일정 관리를 꼼꼼히", false);
         var preview = customPets.preview(owner, workspace, input);
         assertThat(customPets.list(owner, workspace).pets()).isEmpty();
         var pet = customPets.save(owner, workspace, input);
@@ -136,48 +142,111 @@ class WorkspaceRbacPostgresTest {
         assertThat(customPets.list(owner, otherWorkspace).pets()).isEmpty();
         var snapshot = pets.list(owner, workspace);
         assertThat(snapshot).containsExactly(pet.profile());
-        var edit = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(pet.id(), UUID.randomUUID(), 1, "말투: 유쾌한 선장처럼; 업무: 계약 번역", false);
-        assertThatThrownBy(() -> customPets.save(other, workspace, edit)).hasMessageContaining("404");
-        assertThatThrownBy(() -> customPets.save(owner, otherWorkspace, edit)).hasMessageContaining("404");
+        var edit =
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                        pet.id(), UUID.randomUUID(), 1, "말투: 유쾌한 선장처럼; 업무: 계약 번역", false);
+        assertThatThrownBy(() -> customPets.save(other, workspace, edit))
+                .hasMessageContaining("404");
+        assertThatThrownBy(() -> customPets.save(owner, otherWorkspace, edit))
+                .hasMessageContaining("404");
         var revised = customPets.save(owner, workspace, edit);
         assertThat(revised.revision()).isEqualTo(2);
         assertThat(customPets.save(owner, workspace, edit)).isEqualTo(revised);
-        assertThatThrownBy(() -> customPets.save(owner, workspace, new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(pet.id(), UUID.randomUUID(), 1, "stale", false))).hasMessageContaining("409");
+        assertThatThrownBy(
+                        () ->
+                                customPets.save(
+                                        owner,
+                                        workspace,
+                                        new com.freelanceops.backend.domain.agentrun.service
+                                                .CustomAgentPetService.Compose(
+                                                pet.id(), UUID.randomUUID(), 1, "stale", false)))
+                .hasMessageContaining("409");
         assertThat(snapshot.getFirst().preferences().communication()).isEmpty();
-        assertThat(pets.list(owner, workspace).getFirst().preferences().communication()).isEqualTo("유쾌한 선장처럼");
-        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 2));
+        assertThat(pets.list(owner, workspace).getFirst().preferences().communication())
+                .isEqualTo("유쾌한 선장처럼");
+        customPets.change(
+                owner,
+                workspace,
+                pet.id(),
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                        "ARCHIVE", 2));
         assertThat(pets.list(owner, workspace)).isEmpty();
         assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
-        assertThatThrownBy(() -> customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("SELECT", 3))).hasMessageContaining("PET_ARCHIVED");
-        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("RESTORE", 3));
+        assertThatThrownBy(
+                        () ->
+                                customPets.change(
+                                        owner,
+                                        workspace,
+                                        pet.id(),
+                                        new com.freelanceops.backend.domain.agentrun.service
+                                                .CustomAgentPetService.Change("SELECT", 3)))
+                .hasMessageContaining("PET_ARCHIVED");
+        customPets.change(
+                owner,
+                workspace,
+                pet.id(),
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                        "RESTORE", 3));
         assertThat(pets.list(owner, workspace)).isEmpty();
-        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("SELECT", 4));
+        customPets.change(
+                owner,
+                workspace,
+                pet.id(),
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                        "SELECT", 4));
         assertThat(pets.list(owner, workspace)).hasSize(1);
-        customPets.change(owner, workspace, pet.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 4));
+        customPets.change(
+                owner,
+                workspace,
+                pet.id(),
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                        "ARCHIVE", 4));
         customPets.delete(owner, workspace, pet.id(), 5);
         assertThat(customPets.list(owner, workspace).pets()).isEmpty();
         assertThat(pets.list(owner, workspace)).isEmpty();
-        jdbcClient.sql("UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).update();
-        assertThatThrownBy(() -> customPets.preview(owner, workspace, input)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThatThrownBy(() -> customPets.list(owner, workspace)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        jdbcClient
+                .sql(
+                        "UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user")
+                .param("workspace", workspace)
+                .param("user", owner)
+                .update();
+        assertThatThrownBy(() -> customPets.preview(owner, workspace, input))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> customPets.list(owner, workspace))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test
-    void concurrentCustomPetCreatesRespectConfiguredLimitAndRetriesDoNotDuplicate() throws Exception {
+    void concurrentCustomPetCreatesRespectConfiguredLimitAndRetriesDoNotDuplicate()
+            throws Exception {
         UUID owner = insertUser("pet-concurrent-owner");
-        UUID workspace = provisioningService.create(owner, "Concurrent pets", "custom-pet-concurrency").workspaceId();
+        UUID workspace =
+                provisioningService
+                        .create(owner, "Concurrent pets", "custom-pet-concurrency")
+                        .workspaceId();
         int maximum = customPets.list(owner, workspace).maxActivePets();
         try (var pool = Executors.newFixedThreadPool(4)) {
             var jobs = new java.util.ArrayList<java.util.concurrent.Callable<Boolean>>();
-            for (int i = 0; i < maximum + 4; i++) jobs.add(() -> {
-                try {
-                    customPets.save(owner, workspace, new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "일정 펫", false));
-                    return true;
-                } catch (org.springframework.web.server.ResponseStatusException error) {
-                    assertThat(error.getReason()).isEqualTo("PET_ACTIVE_LIMIT");
-                    return false;
-                }
-            });
+            for (int i = 0; i < maximum + 4; i++)
+                jobs.add(
+                        () -> {
+                            try {
+                                customPets.save(
+                                        owner,
+                                        workspace,
+                                        new com.freelanceops.backend.domain.agentrun.service
+                                                .CustomAgentPetService.Compose(
+                                                UUID.randomUUID(),
+                                                UUID.randomUUID(),
+                                                0,
+                                                "일정 펫",
+                                                false));
+                                return true;
+                            } catch (org.springframework.web.server.ResponseStatusException error) {
+                                assertThat(error.getReason()).isEqualTo("PET_ACTIVE_LIMIT");
+                                return false;
+                            }
+                        });
             int successes = 0;
             for (var result : pool.invokeAll(jobs)) if (result.get()) successes++;
             assertThat(successes).isEqualTo(maximum);
@@ -185,61 +254,114 @@ class WorkspaceRbacPostgresTest {
         assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
         assertThat(pets.list(owner, workspace)).hasSize(1);
         var first = customPets.list(owner, workspace).pets().getFirst();
-        customPets.change(owner, workspace, first.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("ARCHIVE", 1));
-        var input = new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, "새 펫", false);
+        customPets.change(
+                owner,
+                workspace,
+                first.id(),
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change(
+                        "ARCHIVE", 1));
+        var input =
+                new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Compose(
+                        UUID.randomUUID(), UUID.randomUUID(), 0, "새 펫", false);
         try (var pool = Executors.newFixedThreadPool(2)) {
-            var results = pool.invokeAll(java.util.List.of(() -> customPets.save(owner, workspace, input), () -> customPets.save(owner, workspace, input)));
+            var results =
+                    pool.invokeAll(
+                            java.util.List.of(
+                                    () -> customPets.save(owner, workspace, input),
+                                    () -> customPets.save(owner, workspace, input)));
             assertThat(results.get(0).get()).isEqualTo(results.get(1).get());
         }
         assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum + 1);
-        assertThatThrownBy(() -> customPets.change(owner, workspace, first.id(), new com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService.Change("RESTORE", 2))).hasMessageContaining("PET_ACTIVE_LIMIT");
+        assertThatThrownBy(
+                        () ->
+                                customPets.change(
+                                        owner,
+                                        workspace,
+                                        first.id(),
+                                        new com.freelanceops.backend.domain.agentrun.service
+                                                .CustomAgentPetService.Change("RESTORE", 2)))
+                .hasMessageContaining("PET_ACTIVE_LIMIT");
     }
-
 
     @Test
     void customPetMutationCannotBeReusedWithDifferentContentOrAfterLaterChanges() {
         UUID owner = insertUser("pet-mutation-owner");
-        UUID workspace = provisioningService.create(owner, "Mutation pets", "pet-mutation").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Mutation pets", "pet-mutation").workspaceId();
         var create = petInput("말투: 다정하게");
         var saved = customPets.save(owner, workspace, create);
         var before = customPets.list(owner, workspace);
-        assertThatThrownBy(() -> customPets.save(owner, workspace,
-            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, "말투: 간결하게", false)))
-            .hasMessageContaining("PET_REQUEST_REUSED");
-        assertThatThrownBy(() -> customPets.save(owner, workspace,
-            new CustomAgentPetService.Compose(create.id(), create.mutationId(), 0, create.description(), true)))
-            .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThatThrownBy(
+                        () ->
+                                customPets.save(
+                                        owner,
+                                        workspace,
+                                        new CustomAgentPetService.Compose(
+                                                create.id(),
+                                                create.mutationId(),
+                                                0,
+                                                "말투: 간결하게",
+                                                false)))
+                .hasMessageContaining("PET_REQUEST_REUSED");
+        assertThatThrownBy(
+                        () ->
+                                customPets.save(
+                                        owner,
+                                        workspace,
+                                        new CustomAgentPetService.Compose(
+                                                create.id(),
+                                                create.mutationId(),
+                                                0,
+                                                create.description(),
+                                                true)))
+                .hasMessageContaining("PET_REQUEST_REUSED");
         assertThat(customPets.list(owner, workspace)).isEqualTo(before);
 
-        var edit = new CustomAgentPetService.Compose(saved.id(), UUID.randomUUID(), 1, "중점: 빠뜨린 일 찾기", false);
+        var edit =
+                new CustomAgentPetService.Compose(
+                        saved.id(), UUID.randomUUID(), 1, "중점: 빠뜨린 일 찾기", false);
         var revised = customPets.save(owner, workspace, edit);
-        // Only the most recent mutation is retained: an older create remains a conflict,
-        // without reviving or overwriting the now-edited pet.
-        assertThatThrownBy(() -> customPets.save(owner, workspace, create)).hasMessageContaining("409");
+        // 가장 최근 변경만 기억한다. 과거 생성 요청을 재전송해도 수정된 동료를 되돌리거나 덮어쓰지 않는다.
+        assertThatThrownBy(() -> customPets.save(owner, workspace, create))
+                .hasMessageContaining("409");
         assertThat(customPets.list(owner, workspace).pets()).containsExactly(revised);
-        customPets.change(owner, workspace, saved.id(), new CustomAgentPetService.Change("ARCHIVE", revised.revision()));
-        assertThatThrownBy(() -> customPets.save(owner, workspace, edit)).hasMessageContaining("PET_REVISION_CHANGED");
+        customPets.change(
+                owner,
+                workspace,
+                saved.id(),
+                new CustomAgentPetService.Change("ARCHIVE", revised.revision()));
+        assertThatThrownBy(() -> customPets.save(owner, workspace, edit))
+                .hasMessageContaining("PET_REVISION_CHANGED");
         var archived = customPets.list(owner, workspace);
         assertThat(archived.selectedPetId()).isNull();
-        assertThat(archived.pets()).singleElement().satisfies(pet -> {
-            assertThat(pet.archived()).isTrue();
-            assertThat(pet.revision()).isEqualTo(3);
-            assertThat(pet.profile()).isEqualTo(revised.profile());
-        });
+        assertThat(archived.pets())
+                .singleElement()
+                .satisfies(
+                        pet -> {
+                            assertThat(pet.archived()).isTrue();
+                            assertThat(pet.revision()).isEqualTo(3);
+                            assertThat(pet.profile()).isEqualTo(revised.profile());
+                        });
     }
 
     @Test
     void guessedCustomPetIdNeverReplacesAnotherOwnersPetOrSelection() {
         UUID owner = insertUser("pet-id-owner");
         UUID other = insertUser("pet-id-other");
-        UUID workspace = provisioningService.create(owner, "Scoped pets", "pet-scoped-id").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Scoped pets", "pet-scoped-id").workspaceId();
         addRole(workspace, other, owner, "OWNER");
-        UUID elsewhere = provisioningService.create(other, "Other scope", "pet-other-scope").workspaceId();
+        UUID elsewhere =
+                provisioningService.create(other, "Other scope", "pet-other-scope").workspaceId();
         var original = customPets.save(owner, workspace, petInput("고양이"));
         var own = customPets.save(other, workspace, petInput("부엉이"));
-        var collision = new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 0, "거북이", false);
-        assertThatThrownBy(() -> customPets.save(other, workspace, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
-        assertThatThrownBy(() -> customPets.save(other, elsewhere, collision)).hasMessageContaining("PET_ID_UNAVAILABLE");
+        var collision =
+                new CustomAgentPetService.Compose(
+                        original.id(), UUID.randomUUID(), 0, "거북이", false);
+        assertThatThrownBy(() -> customPets.save(other, workspace, collision))
+                .hasMessageContaining("PET_ID_UNAVAILABLE");
+        assertThatThrownBy(() -> customPets.save(other, elsewhere, collision))
+                .hasMessageContaining("PET_ID_UNAVAILABLE");
         assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
         assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
         assertThat(customPets.list(other, workspace).pets()).containsExactly(own);
@@ -251,25 +373,48 @@ class WorkspaceRbacPostgresTest {
     @Test
     void customPetWritesAndSelectionParticipateInCallerRollback() {
         UUID owner = insertUser("pet-rollback-owner");
-        UUID workspace = provisioningService.create(owner, "Rollback pets", "pet-rollback").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Rollback pets", "pet-rollback").workspaceId();
         var original = customPets.save(owner, workspace, petInput("고양이"));
         var input = petInput("부엉이");
         var transaction = new TransactionTemplate(transactionManager);
-        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
-            customPets.save(owner, workspace, input);
-            assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(input.id());
-            throw new IllegalStateException("synthetic save rollback");
-        })).hasMessage("synthetic save rollback");
+        assertThatThrownBy(
+                        () ->
+                                transaction.executeWithoutResult(
+                                        status -> {
+                                            customPets.save(owner, workspace, input);
+                                            assertThat(
+                                                            customPets
+                                                                    .list(owner, workspace)
+                                                                    .selectedPetId())
+                                                    .isEqualTo(input.id());
+                                            throw new IllegalStateException(
+                                                    "synthetic save rollback");
+                                        }))
+                .hasMessage("synthetic save rollback");
         assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
         assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
-        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
-            customPets.change(owner, workspace, original.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
-            assertThat(customPets.list(owner, workspace).selectedPetId()).isNull();
-            throw new IllegalStateException("synthetic archive rollback");
-        })).hasMessage("synthetic archive rollback");
+        assertThatThrownBy(
+                        () ->
+                                transaction.executeWithoutResult(
+                                        status -> {
+                                            customPets.change(
+                                                    owner,
+                                                    workspace,
+                                                    original.id(),
+                                                    new CustomAgentPetService.Change("ARCHIVE", 1));
+                                            assertThat(
+                                                            customPets
+                                                                    .list(owner, workspace)
+                                                                    .selectedPetId())
+                                                    .isNull();
+                                            throw new IllegalStateException(
+                                                    "synthetic archive rollback");
+                                        }))
+                .hasMessage("synthetic archive rollback");
         assertThat(customPets.list(owner, workspace).pets()).containsExactly(original);
         assertThat(customPets.list(owner, workspace).selectedPetId()).isEqualTo(original.id());
-        // The rolled-back mutation was not consumed, and retry creates exactly one row.
+        // 롤백한 요청은 처리 완료로 기록하지 않으며 재시도하면 한 행만 생성한다.
         var retried = customPets.save(owner, workspace, input);
         assertThat(customPets.save(owner, workspace, input)).isEqualTo(retried);
         assertThat(customPets.list(owner, workspace).pets()).hasSize(2);
@@ -278,19 +423,27 @@ class WorkspaceRbacPostgresTest {
     @Test
     void archivedCustomPetsCountTowardStorageWhileEditAndRestoreDoNotAddRows() {
         UUID owner = insertUser("pet-storage-owner");
-        UUID workspace = provisioningService.create(owner, "Stored pets", "pet-storage").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Stored pets", "pet-storage").workspaceId();
         int maximum = customPets.list(owner, workspace).maxStoredPets();
         for (int i = 0; i < maximum; i++) {
             var pet = customPets.save(owner, workspace, petInput("일정 친구 " + i));
-            customPets.change(owner, workspace, pet.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
+            customPets.change(
+                    owner, workspace, pet.id(), new CustomAgentPetService.Change("ARCHIVE", 1));
         }
         var full = customPets.list(owner, workspace);
-        assertThat(full.pets()).hasSize(maximum).allSatisfy(pet -> assertThat(pet.archived()).isTrue());
-        assertThatThrownBy(() -> customPets.save(owner, workspace, petInput("새 친구"))).hasMessageContaining("PET_STORAGE_LIMIT");
+        assertThat(full.pets())
+                .hasSize(maximum)
+                .allSatisfy(pet -> assertThat(pet.archived()).isTrue());
+        assertThatThrownBy(() -> customPets.save(owner, workspace, petInput("새 친구")))
+                .hasMessageContaining("PET_STORAGE_LIMIT");
         assertThat(customPets.list(owner, workspace)).isEqualTo(full);
         var first = full.pets().getFirst();
-        customPets.change(owner, workspace, first.id(), new CustomAgentPetService.Change("RESTORE", 2));
-        var edit = new CustomAgentPetService.Compose(first.id(), UUID.randomUUID(), 3, "말투: 천천히", false);
+        customPets.change(
+                owner, workspace, first.id(), new CustomAgentPetService.Change("RESTORE", 2));
+        var edit =
+                new CustomAgentPetService.Compose(
+                        first.id(), UUID.randomUUID(), 3, "말투: 천천히", false);
         var revised = customPets.save(owner, workspace, edit);
         assertThat(revised.revision()).isEqualTo(4);
         assertThat(customPets.list(owner, workspace).pets()).hasSize(maximum);
@@ -304,83 +457,206 @@ class WorkspaceRbacPostgresTest {
     @org.junit.jupiter.api.Timeout(60)
     void concurrentCustomPetEditsCannotLoseAnAcceptedPreference() throws Exception {
         UUID owner = insertUser("pet-edit-owner");
-        UUID workspace = provisioningService.create(owner, "Concurrent edits", "pet-edit-race").workspaceId();
+        UUID workspace =
+                provisioningService
+                        .create(owner, "Concurrent edits", "pet-edit-race")
+                        .workspaceId();
         var original = customPets.save(owner, workspace, petInput("고양이"));
         var start = new CountDownLatch(1);
         try (var pool = Executors.newFixedThreadPool(2)) {
-            var jobs = new java.util.ArrayList<java.util.concurrent.Callable<CustomAgentPetService.Pet>>();
-            for (String prompt : java.util.List.of("말투: 천천히", "중점: 일정 확인")) jobs.add(() -> {
-                start.await();
-                try {
-                    return customPets.save(owner, workspace,
-                        new CustomAgentPetService.Compose(original.id(), UUID.randomUUID(), 1, prompt, false));
-                } catch (org.springframework.web.server.ResponseStatusException error) {
-                    assertThat(error.getReason()).isEqualTo("PET_REVISION_CHANGED");
-                    return null;
-                }
-            });
+            var jobs =
+                    new java.util.ArrayList<
+                            java.util.concurrent.Callable<CustomAgentPetService.Pet>>();
+            for (String prompt : java.util.List.of("말투: 천천히", "중점: 일정 확인"))
+                jobs.add(
+                        () -> {
+                            start.await();
+                            try {
+                                return customPets.save(
+                                        owner,
+                                        workspace,
+                                        new CustomAgentPetService.Compose(
+                                                original.id(),
+                                                UUID.randomUUID(),
+                                                1,
+                                                prompt,
+                                                false));
+                            } catch (org.springframework.web.server.ResponseStatusException error) {
+                                assertThat(error.getReason()).isEqualTo("PET_REVISION_CHANGED");
+                                return null;
+                            }
+                        });
             var first = pool.submit(jobs.get(0));
             var second = pool.submit(jobs.get(1));
             start.countDown();
-            var accepted = Stream.of(first.get(), second.get()).filter(java.util.Objects::nonNull).toList();
+            var accepted =
+                    Stream.of(first.get(), second.get())
+                            .filter(java.util.Objects::nonNull)
+                            .toList();
             assertThat(accepted).hasSize(1);
-            assertThat(customPets.list(owner, workspace).pets()).containsExactly(accepted.getFirst());
+            assertThat(customPets.list(owner, workspace).pets())
+                    .containsExactly(accepted.getFirst());
             assertThat(accepted.getFirst().revision()).isEqualTo(2);
-            assertThat(accepted.getFirst().profile().preferences().requests()).hasSize(2).startsWith("고양이");
+            assertThat(accepted.getFirst().profile().preferences().requests())
+                    .hasSize(2)
+                    .startsWith("고양이");
         }
     }
 
     private static CustomAgentPetService.Compose petInput(String prompt) {
-        return new CustomAgentPetService.Compose(UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
+        return new CustomAgentPetService.Compose(
+                UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
     }
-
 
     @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
     private com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer petTokens;
+
     @Autowired
     private com.freelanceops.backend.domain.agentrun.service.PetGenerationService petGeneration;
+
     @org.springframework.test.context.bean.override.mockito.MockitoBean
     private com.freelanceops.backend.domain.agentrun.client.PetGenerationClient petClient;
 
     @Test
     void generationReservesDailyQuotaAuditsUsageAndNeverSavesPreview() {
         UUID owner = insertUser("pet-gen-owner");
-        UUID workspace = provisioningService.create(owner, "Pet Generation", "pet-generation").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Pet Generation", "pet-generation").workspaceId();
         UUID project = UUID.randomUUID();
-        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
-            .param("id", project).param("workspace", workspace).param("user", owner).update();
-        org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
-        org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenAnswer(call -> {
-            com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Input input = call.getArgument(0);
-            return new com.freelanceops.backend.domain.agentrun.client.PetGenerationClient.Output(input.context().runId(), com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst(), model.provider(), model.model(), 15, 20);
-        });
-        for (int i = 0; i < 20; i++) petGeneration.generate(owner, workspace, project, model, "작은 동료", "LEAN");
-        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "작은 동료", "LEAN"))
-            .isInstanceOfSatisfying(org.springframework.web.server.ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(429));
-        org.mockito.Mockito.verify(petClient, org.mockito.Mockito.times(20)).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
-        assertThat(jdbcClient.sql("SELECT sum(input_tokens) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).query(Long.class).single()).isEqualTo(300L);
-        assertThat(jdbcClient.sql("SELECT count(*) FROM app.pet_profile WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).query(Long.class).single()).isZero();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
+                .param("id", project)
+                .param("workspace", workspace)
+                .param("user", owner)
+                .update();
+        org.mockito.Mockito.doReturn("synthetic-delegation")
+                .when(petTokens)
+                .issue(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyList());
+        var model =
+                new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
+                        .ModelSelection(
+                        com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI,
+                        "gpt-6-luna",
+                        com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        org.mockito.Mockito.when(
+                        petClient.generate(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(
+                        call -> {
+                            com.freelanceops.backend.domain.agentrun.client.PetGenerationClient
+                                            .Input
+                                    input = call.getArgument(0);
+                            return new com.freelanceops.backend.domain.agentrun.client
+                                    .PetGenerationClient.Output(
+                                    input.context().runId(),
+                                    com.freelanceops.backend.domain.agentrun.dto.PetProfile
+                                            .defaults()
+                                            .getFirst(),
+                                    model.provider(),
+                                    model.model(),
+                                    15,
+                                    20);
+                        });
+        for (int i = 0; i < 20; i++)
+            petGeneration.generate(owner, workspace, project, model, "작은 동료", "LEAN");
+        assertThatThrownBy(
+                        () ->
+                                petGeneration.generate(
+                                        owner, workspace, project, model, "작은 동료", "LEAN"))
+                .isInstanceOfSatisfying(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(429));
+        org.mockito.Mockito.verify(petClient, org.mockito.Mockito.times(20))
+                .generate(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyString());
+        assertThat(
+                        jdbcClient
+                                .sql(
+                                        "SELECT sum(input_tokens) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user")
+                                .param("workspace", workspace)
+                                .param("user", owner)
+                                .query(Long.class)
+                                .single())
+                .isEqualTo(300L);
+        assertThat(
+                        jdbcClient
+                                .sql(
+                                        "SELECT count(*) FROM app.pet_profile WHERE workspace_id = :workspace AND user_id = :user")
+                                .param("workspace", workspace)
+                                .param("user", owner)
+                                .query(Long.class)
+                                .single())
+                .isZero();
         UUID otherProject = UUID.randomUUID();
-        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, otherProject, model, "작은 동료", "LEAN")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(
+                        () ->
+                                petGeneration.generate(
+                                        owner, workspace, otherProject, model, "작은 동료", "LEAN"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test
     void failedGenerationKeepsProfileAndMarksUnknownUsageWithoutRetry() {
         UUID owner = insertUser("pet-fail-owner");
-        UUID workspace = provisioningService.create(owner, "Pet Failure", "pet-failure").workspaceId();
+        UUID workspace =
+                provisioningService.create(owner, "Pet Failure", "pet-failure").workspaceId();
         UUID project = UUID.randomUUID();
-        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
-            .param("id", project).param("workspace", workspace).param("user", owner).update();
-        var original = com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :workspace, 'Pet', 'Requirement', 'KRW', 'LEAD', :user)")
+                .param("id", project)
+                .param("workspace", workspace)
+                .param("user", owner)
+                .update();
+        var original =
+                com.freelanceops.backend.domain.agentrun.dto.PetProfile.defaults().getFirst();
         pets.save(owner, workspace, original);
-        org.mockito.Mockito.doReturn("synthetic-delegation").when(petTokens).issue(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList());
-        var model = new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI, "gpt-6-luna", com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
-        org.mockito.Mockito.when(petClient.generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString())).thenThrow(new IllegalStateException("sensitive provider error"));
-        assertThatThrownBy(() -> petGeneration.generate(owner, workspace, project, model, "different", "LEAN")).hasMessageNotContaining("sensitive");
-        org.mockito.Mockito.verify(petClient).generate(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString());
+        org.mockito.Mockito.doReturn("synthetic-delegation")
+                .when(petTokens)
+                .issue(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyList());
+        var model =
+                new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
+                        .ModelSelection(
+                        com.freelanceops.backend.domain.agentrun.model.Provider.OPENAI,
+                        "gpt-6-luna",
+                        com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.LOW);
+        org.mockito.Mockito.when(
+                        petClient.generate(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new IllegalStateException("sensitive provider error"));
+        assertThatThrownBy(
+                        () ->
+                                petGeneration.generate(
+                                        owner, workspace, project, model, "different", "LEAN"))
+                .hasMessageNotContaining("sensitive");
+        org.mockito.Mockito.verify(petClient)
+                .generate(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyString());
         assertThat(pets.list(owner, workspace)).contains(original);
-        assertThat(jdbcClient.sql("SELECT count(*) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user AND status = 'FAILED' AND input_tokens IS NULL").param("workspace", workspace).param("user", owner).query(Long.class).single()).isEqualTo(1L);
+        assertThat(
+                        jdbcClient
+                                .sql(
+                                        "SELECT count(*) FROM app.pet_generation WHERE workspace_id = :workspace AND user_id = :user AND status = 'FAILED' AND input_tokens IS NULL")
+                                .param("workspace", workspace)
+                                .param("user", owner)
+                                .query(Long.class)
+                                .single())
+                .isEqualTo(1L);
     }
 
     @Test
@@ -390,17 +666,45 @@ class WorkspaceRbacPostgresTest {
         UUID workspace = provisioningService.create(owner, "Pets", "pet-test").workspaceId();
         addRole(workspace, other, owner, "OWNER");
         UUID second = provisioningService.create(owner, "Pets second", "pet-second").workspaceId();
-        var profile = new com.freelanceops.backend.domain.agentrun.dto.PetProfile("LEAN", "밤이", "cat", "ink", "star", "DIRECT", "PROFIT", "QUALITY", "EXPLORATORY");
+        var profile =
+                new com.freelanceops.backend.domain.agentrun.dto.PetProfile(
+                        "LEAN",
+                        "밤이",
+                        "cat",
+                        "ink",
+                        "star",
+                        "DIRECT",
+                        "PROFIT",
+                        "QUALITY",
+                        "EXPLORATORY");
         pets.save(owner, workspace, profile);
         assertThat(pets.list(owner, workspace)).hasSize(3).contains(profile);
         assertThat(pets.list(other, workspace)).doesNotContain(profile);
         assertThat(pets.list(owner, second)).doesNotContain(profile);
-        assertThatThrownBy(() -> pets.list(other, second)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        var invalid = new com.freelanceops.backend.domain.agentrun.dto.PetProfile("FOURTH", "밤이", "cat", "ink", "star", "DIRECT", "PROFIT", "QUALITY", "EXPLORATORY");
-        assertThatThrownBy(() -> pets.save(owner, workspace, invalid)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> pets.list(other, second))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var invalid =
+                new com.freelanceops.backend.domain.agentrun.dto.PetProfile(
+                        "FOURTH",
+                        "밤이",
+                        "cat",
+                        "ink",
+                        "star",
+                        "DIRECT",
+                        "PROFIT",
+                        "QUALITY",
+                        "EXPLORATORY");
+        assertThatThrownBy(() -> pets.save(owner, workspace, invalid))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThat(pets.list(owner, workspace)).hasSize(3).contains(profile);
-        jdbcClient.sql("UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user").param("workspace", workspace).param("user", owner).update();
-        assertThatThrownBy(() -> pets.save(owner, workspace, profile)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        jdbcClient
+                .sql(
+                        "UPDATE app.workspace_member SET status = 'SUSPENDED' WHERE workspace_id = :workspace AND user_id = :user")
+                .param("workspace", workspace)
+                .param("user", owner)
+                .update();
+        assertThatThrownBy(() -> pets.save(owner, workspace, profile))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test
@@ -410,47 +714,89 @@ class WorkspaceRbacPostgresTest {
         UUID other = insertUser("byok-other");
         UUID workspace = provisioningService.create(owner, "BYOK", "byok-test").workspaceId();
         addRole(workspace, other, owner, "OWNER");
-        UUID secondWorkspace = provisioningService.create(owner, "BYOK Second", "byok-second").workspaceId();
-        var connection = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-first-1234");
-        String stored = jdbcClient.sql("SELECT ciphertext FROM app.ai_connection WHERE id = :id").param("id", connection.id()).query(String.class).single();
+        UUID secondWorkspace =
+                provisioningService.create(owner, "BYOK Second", "byok-second").workspaceId();
+        var connection =
+                connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-first-1234");
+        String stored =
+                jdbcClient
+                        .sql("SELECT ciphertext FROM app.ai_connection WHERE id = :id")
+                        .param("id", connection.id())
+                        .query(String.class)
+                        .single();
         assertThat(stored).doesNotContain("synthetic-first");
         assertThat(connection.maskedKey()).isEqualTo("••••1234");
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-first-1234");
-        assertThatThrownBy(() -> connections.resolve(other, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna"))
+                .isEqualTo("synthetic-first-1234");
+        assertThatThrownBy(
+                        () ->
+                                connections.resolve(
+                                        other, workspace, connection.id(), provider, "gpt-6-luna"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
         assertThat(connections.list(other, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, secondWorkspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        var replacement = connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-second-5678");
+        assertThatThrownBy(
+                        () ->
+                                connections.resolve(
+                                        owner,
+                                        secondWorkspace,
+                                        connection.id(),
+                                        provider,
+                                        "gpt-6-luna"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        var replacement =
+                connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-second-5678");
         assertThat(replacement.id()).isEqualTo(connection.id());
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
-        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST))
-            .when(credentialVerifier).verify(provider, "gpt-6-luna", "synthetic-invalid-0000");
-        assertThatThrownBy(() -> connections.save(owner, workspace, provider, "gpt-6-luna", "synthetic-invalid-0000")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isEqualTo("synthetic-second-5678");
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna"))
+                .isEqualTo("synthetic-second-5678");
+        org.mockito.Mockito.doThrow(
+                        new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.BAD_REQUEST))
+                .when(credentialVerifier)
+                .verify(provider, "gpt-6-luna", "synthetic-invalid-0000");
+        assertThatThrownBy(
+                        () ->
+                                connections.save(
+                                        owner,
+                                        workspace,
+                                        provider,
+                                        "gpt-6-luna",
+                                        "synthetic-invalid-0000"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna"))
+                .isEqualTo("synthetic-second-5678");
         connections.delete(owner, workspace, connection.id());
         assertThat(connections.list(owner, workspace).connections()).isEmpty();
-        assertThatThrownBy(() -> connections.resolve(owner, workspace, connection.id(), provider, "gpt-6-luna")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(
+                        () ->
+                                connections.resolve(
+                                        owner, workspace, connection.id(), provider, "gpt-6-luna"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test
     void migrationSeedsStablePermissionCatalog() {
-        Integer count = jdbcClient.sql("SELECT COUNT(*) FROM app.permission")
-            .query(Integer.class)
-            .single();
+        Integer count =
+                jdbcClient.sql("SELECT COUNT(*) FROM app.permission").query(Integer.class).single();
 
         assertThat(count).isEqualTo(PermissionCode.values().length);
     }
 
     @Test
     void migrationsCreateVectorAndProposalShareStorage() {
-        Integer vectorExtension = jdbcClient.sql("SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'")
-            .query(Integer.class)
-            .single();
-        Integer proposalShareTable = jdbcClient.sql("""
+        Integer vectorExtension =
+                jdbcClient
+                        .sql("SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'")
+                        .query(Integer.class)
+                        .single();
+        Integer proposalShareTable =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'app' AND table_name = 'proposal_share'
                 """)
-            .query(Integer.class)
-            .single();
+                        .query(Integer.class)
+                        .single();
 
         assertThat(vectorExtension).isEqualTo(1);
         assertThat(proposalShareTable).isEqualTo(1);
@@ -458,19 +804,25 @@ class WorkspaceRbacPostgresTest {
 
     @Test
     void migrationsCreateAuthoritativeAgentTaskRegistry() {
-        Integer taskRegistryTables = jdbcClient.sql("""
+        Integer taskRegistryTables =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'app'
                   AND table_name IN ('agent_task', 'agent_task_dependency', 'agent_task_attempt')
                 """)
-            .query(Integer.class)
-            .single();
-        Integer attemptNumberConstraint = jdbcClient.sql("""
+                        .query(Integer.class)
+                        .single();
+        Integer attemptNumberConstraint =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM pg_constraint
                 WHERE conname = 'uq_agent_task_attempt_number'
                 """)
-            .query(Integer.class)
-            .single();
+                        .query(Integer.class)
+                        .single();
 
         assertThat(taskRegistryTables).isEqualTo(3);
         assertThat(attemptNumberConstraint).isEqualTo(1);
@@ -479,31 +831,35 @@ class WorkspaceRbacPostgresTest {
     @Test
     void databaseAllowsOnlyOneDurableStartCommandPerAgentRun() {
         UUID ownerId = insertUser("agent-command-owner");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId, "Agent Command Workspace", "agent-command-workspace"
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(
+                        ownerId, "Agent Command Workspace", "agent-command-workspace");
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.project (
                     id, workspace_id, title, requirement_text, currency, status, created_by
                 ) VALUES (:id, :workspaceId, 'Agent project', 'Requirement', 'KRW', 'LEAD', :ownerId)
                 """)
-            .param("id", projectId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("ownerId", ownerId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", projectId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("ownerId", ownerId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.agent_run (
                     id, workspace_id, project_id, thread_id, initiated_by, provider, model, status
                 ) VALUES (:id, :workspaceId, :projectId, :threadId, :ownerId, 'OPENAI', 'gpt-test', 'QUEUED')
                 """)
-            .param("id", runId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("projectId", projectId)
-            .param("threadId", UUID.randomUUID())
-            .param("ownerId", ownerId)
-            .update();
+                .param("id", runId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("projectId", projectId)
+                .param("threadId", UUID.randomUUID())
+                .param("ownerId", ownerId)
+                .update();
         insertStartCommand(UUID.randomUUID(), runId, ownerId);
 
         CountDownLatch start = new CountDownLatch(1);
@@ -511,79 +867,94 @@ class WorkspaceRbacPostgresTest {
             Future<UUID> first = executor.submit(() -> claimAfter(start));
             Future<UUID> second = executor.submit(() -> claimAfter(start));
             start.countDown();
-            long claimed = Stream.of(first.get(), second.get())
-                .filter(runId::equals)
-                .count();
+            long claimed = Stream.of(first.get(), second.get()).filter(runId::equals).count();
             assertThat(claimed).isEqualTo(1);
         } catch (Exception error) {
             throw new AssertionError("concurrent Agent command claims failed", error);
         }
         TransactionTemplate deletionCheck = new TransactionTemplate(transactionManager);
-        assertThatThrownBy(() -> deletionCheck.executeWithoutResult(status ->
-            agentRunCommandQueue.requireNoInFlightCommands(workspace.workspaceId(), projectId)
-        )).isInstanceOf(ProjectDeletionInProgressException.class);
+        assertThatThrownBy(
+                        () ->
+                                deletionCheck.executeWithoutResult(
+                                        status ->
+                                                agentRunCommandQueue.requireNoInFlightCommands(
+                                                        workspace.workspaceId(), projectId)))
+                .isInstanceOf(ProjectDeletionInProgressException.class);
 
         assertThatThrownBy(() -> insertStartCommand(UUID.randomUUID(), runId, ownerId))
-            .isInstanceOf(DataAccessException.class);
+                .isInstanceOf(DataAccessException.class);
     }
 
     @Test
     void routeReviewQueriesSeparateNaturalAndRiskStrataInPostgres() {
         UUID ownerId = insertUser("route-review-owner");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId, "Route Review Workspace", "route-review-workspace"
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(
+                        ownerId, "Route Review Workspace", "route-review-workspace");
         UUID projectId = UUID.randomUUID();
         UUID runId = UUID.randomUUID();
         UUID naturalId = UUID.randomUUID();
         UUID riskId = UUID.randomUUID();
         UUID secondRiskId = UUID.randomUUID();
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.project (
                     id, workspace_id, title, requirement_text, currency, status, created_by
                 ) VALUES (:id, :workspaceId, 'Route project', 'Requirement', 'KRW', 'LEAD', :ownerId)
                 """)
-            .param("id", projectId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("ownerId", ownerId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", projectId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("ownerId", ownerId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.agent_run (
                     id, workspace_id, project_id, thread_id, initiated_by, provider, model, status
                 ) VALUES (:id, :workspaceId, :projectId, :threadId, :ownerId, 'OPENAI', 'gpt-test', 'COMPLETED')
                 """)
-            .param("id", runId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("projectId", projectId)
-            .param("threadId", UUID.randomUUID())
-            .param("ownerId", ownerId)
-            .update();
-        insertRouteObservation(naturalId, workspace.workspaceId(), projectId, runId, 1, "SIMPLE_LLM");
-        insertRouteObservation(riskId, workspace.workspaceId(), projectId, runId, 2, "HUMAN_REQUIRED");
-        insertRouteObservation(secondRiskId, workspace.workspaceId(), projectId, runId, 3, "REACT_AGENT");
+                .param("id", runId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("projectId", projectId)
+                .param("threadId", UUID.randomUUID())
+                .param("ownerId", ownerId)
+                .update();
+        insertRouteObservation(
+                naturalId, workspace.workspaceId(), projectId, runId, 1, "SIMPLE_LLM");
+        insertRouteObservation(
+                riskId, workspace.workspaceId(), projectId, runId, 2, "HUMAN_REQUIRED");
+        insertRouteObservation(
+                secondRiskId, workspace.workspaceId(), projectId, runId, 3, "REACT_AGENT");
 
         assertThat(agentRouteObservationRepository.findNaturalPending(workspace.workspaceId(), 10))
-            .extracting(observation -> observation.id())
-            .containsExactly(naturalId);
+                .extracting(observation -> observation.id())
+                .containsExactly(naturalId);
         assertThat(agentRouteObservationRepository.findRiskPending(workspace.workspaceId(), 10))
-            .extracting(observation -> observation.id())
-            .containsExactly(riskId, secondRiskId);
+                .extracting(observation -> observation.id())
+                .containsExactly(riskId, secondRiskId);
 
         CountDownLatch start = new CountDownLatch(1);
         UUID firstReviewer = insertUser("route-review-first");
         UUID secondReviewer = insertUser("route-review-second");
         try (var executor = Executors.newFixedThreadPool(2)) {
-            Future<UUID> first = executor.submit(() -> claimRiskAfter(start, workspace.workspaceId(), firstReviewer));
-            Future<UUID> second = executor.submit(() -> claimRiskAfter(start, workspace.workspaceId(), secondReviewer));
+            Future<UUID> first =
+                    executor.submit(
+                            () -> claimRiskAfter(start, workspace.workspaceId(), firstReviewer));
+            Future<UUID> second =
+                    executor.submit(
+                            () -> claimRiskAfter(start, workspace.workspaceId(), secondReviewer));
             start.countDown();
             assertThat(Stream.of(first.get(), second.get()).distinct().count()).isEqualTo(2);
         } catch (Exception error) {
             throw new AssertionError("concurrent route review claims failed", error);
         }
-        assertThat(agentRouteObservationRepository.findRiskPending(workspace.workspaceId(), 10)).isEmpty();
+        assertThat(agentRouteObservationRepository.findRiskPending(workspace.workspaceId(), 10))
+                .isEmpty();
 
         UUID consensusId = UUID.randomUUID();
-        insertRouteObservation(consensusId, workspace.workspaceId(), projectId, runId, 4, "HUMAN_REQUIRED");
+        insertRouteObservation(
+                consensusId, workspace.workspaceId(), projectId, runId, 4, "HUMAN_REQUIRED");
         UUID firstConsensusReviewer = insertUser("route-consensus-first");
         UUID secondConsensusReviewer = insertUser("route-consensus-second");
         UUID adjudicator = insertUser("route-consensus-adjudicator");
@@ -591,42 +962,66 @@ class WorkspaceRbacPostgresTest {
         addRole(workspace.workspaceId(), secondConsensusReviewer, ownerId, "MANAGER");
         addRole(workspace.workspaceId(), adjudicator, ownerId, "ADMIN");
 
-        var firstClaims = agentRouteReviewService.claim(firstConsensusReviewer, workspace.workspaceId(), 2);
+        var firstClaims =
+                agentRouteReviewService.claim(firstConsensusReviewer, workspace.workspaceId(), 2);
         assertThat(firstClaims).extracting(item -> item.id()).contains(consensusId);
         agentRouteReviewService.review(
-            firstConsensusReviewer, workspace.workspaceId(), consensusId,
-            new ReviewRouteObservationRequest(AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW)
-        );
-        assertThat(agentRouteReviewService.claim(secondConsensusReviewer, workspace.workspaceId(), 1))
-            .extracting(item -> item.id()).containsExactly(consensusId);
-        var auditRequired = agentRouteReviewService.review(
-            secondConsensusReviewer, workspace.workspaceId(), consensusId,
-            new ReviewRouteObservationRequest(AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW)
-        );
+                firstConsensusReviewer,
+                workspace.workspaceId(),
+                consensusId,
+                new ReviewRouteObservationRequest(
+                        AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW));
+        assertThat(
+                        agentRouteReviewService.claim(
+                                secondConsensusReviewer, workspace.workspaceId(), 1))
+                .extracting(item -> item.id())
+                .containsExactly(consensusId);
+        var auditRequired =
+                agentRouteReviewService.review(
+                        secondConsensusReviewer,
+                        workspace.workspaceId(),
+                        consensusId,
+                        new ReviewRouteObservationRequest(
+                                AgentRouteLabel.REACT_AGENT, RouteCorrectionSource.HUMAN_REVIEW));
         assertThat(auditRequired.reviewStatus().name()).isEqualTo("ADJUDICATION");
-        assertThat(agentRouteReviewService.claimAdjudication(adjudicator, workspace.workspaceId(), 1))
-            .extracting(item -> item.id()).containsExactly(consensusId);
-        assertThat(agentRouteReviewService.adjudicationContext(
-            adjudicator, workspace.workspaceId(), consensusId
-        ).priorVotes()).containsExactly(AgentRouteLabel.REACT_AGENT, AgentRouteLabel.REACT_AGENT);
-        var completed = agentRouteReviewService.review(
-            adjudicator, workspace.workspaceId(), consensusId,
-            new ReviewRouteObservationRequest(AgentRouteLabel.SUPERVISOR, RouteCorrectionSource.HUMAN_REVIEW)
-        );
+        assertThat(
+                        agentRouteReviewService.claimAdjudication(
+                                adjudicator, workspace.workspaceId(), 1))
+                .extracting(item -> item.id())
+                .containsExactly(consensusId);
+        assertThat(
+                        agentRouteReviewService
+                                .adjudicationContext(
+                                        adjudicator, workspace.workspaceId(), consensusId)
+                                .priorVotes())
+                .containsExactly(AgentRouteLabel.REACT_AGENT, AgentRouteLabel.REACT_AGENT);
+        var completed =
+                agentRouteReviewService.review(
+                        adjudicator,
+                        workspace.workspaceId(),
+                        consensusId,
+                        new ReviewRouteObservationRequest(
+                                AgentRouteLabel.SUPERVISOR, RouteCorrectionSource.HUMAN_REVIEW));
 
         assertThat(completed.reviewStatus().name()).isEqualTo("COMPLETED");
         assertThat(completed.reviewVotes()).isEqualTo(3);
         assertThat(completed.goldRoute()).isEqualTo(AgentRouteLabel.SUPERVISOR);
-        Integer voteCount = jdbcClient.sql("""
+        Integer voteCount =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM app.agent_route_review_vote WHERE observation_id = :observationId
                 """)
-            .param("observationId", consensusId)
-            .query(Integer.class)
-            .single();
+                        .param("observationId", consensusId)
+                        .query(Integer.class)
+                        .single();
         assertThat(voteCount).isEqualTo(3);
-        var canary = agentRouteReviewService.canaryMetrics(
-            adjudicator, workspace.workspaceId(), Instant.now().minus(Duration.ofDays(30)), 100
-        );
+        var canary =
+                routeCanary.canaryMetrics(
+                        adjudicator,
+                        workspace.workspaceId(),
+                        Instant.now().minus(Duration.ofDays(30)),
+                        100);
         assertThat(canary.riskConsensusOverturn().total()).isEqualTo(1);
         assertThat(canary.riskConsensusOverturn().errors()).isEqualTo(1);
         assertThat(canary.riskAvailableConsensusAudits()).isEqualTo(1);
@@ -636,21 +1031,35 @@ class WorkspaceRbacPostgresTest {
 
         Instant exportUntil = Instant.now();
         Instant snapshotAt = Instant.now();
-        var firstExport = agentRouteReviewService.exportCohort(
-            ownerId, workspace.workspaceId(), exportUntil.minus(Duration.ofDays(1)), exportUntil,
-            snapshotAt, null, null, 1
-        );
+        var firstExport =
+                routeExports.exportCohort(
+                        ownerId,
+                        workspace.workspaceId(),
+                        exportUntil.minus(Duration.ofDays(1)),
+                        exportUntil,
+                        snapshotAt,
+                        null,
+                        null,
+                        1);
         assertThat(firstExport.observations()).hasSize(1);
         assertThat(firstExport.hasMore()).isTrue();
-        var secondExport = agentRouteReviewService.exportCohort(
-            ownerId, workspace.workspaceId(), exportUntil.minus(Duration.ofDays(1)), exportUntil,
-            snapshotAt, firstExport.nextOccurredAt(), firstExport.nextObservationId(), 1
-        );
+        var secondExport =
+                routeExports.exportCohort(
+                        ownerId,
+                        workspace.workspaceId(),
+                        exportUntil.minus(Duration.ofDays(1)),
+                        exportUntil,
+                        snapshotAt,
+                        firstExport.nextOccurredAt(),
+                        firstExport.nextObservationId(),
+                        1);
         assertThat(secondExport.observations()).hasSize(1);
         assertThat(secondExport.observations().getFirst().observationId())
-            .isNotEqualTo(firstExport.observations().getFirst().observationId());
+                .isNotEqualTo(firstExport.observations().getFirst().observationId());
 
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.model_pricing (
                     id, workspace_id, provider, model, version_label, currency,
                     input_per_million, cached_input_per_million, output_per_million,
@@ -660,12 +1069,16 @@ class WorkspaceRbacPostgresTest {
                     1, 0, 10, :validFrom, :ownerId, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", UUID.randomUUID())
-            .param("workspaceId", workspace.workspaceId())
-            .param("validFrom", Timestamp.from(exportUntil.minus(Duration.ofDays(30))))
-            .param("ownerId", ownerId)
-            .update();
-        assertThatThrownBy(() -> jdbcClient.sql("""
+                .param("id", UUID.randomUUID())
+                .param("workspaceId", workspace.workspaceId())
+                .param("validFrom", Timestamp.from(exportUntil.minus(Duration.ofDays(30))))
+                .param("ownerId", ownerId)
+                .update();
+        assertThatThrownBy(
+                        () ->
+                                jdbcClient
+                                        .sql(
+                                                """
                 INSERT INTO app.model_pricing (
                     id, workspace_id, provider, model, version_label, currency,
                     input_per_million, cached_input_per_million, output_per_million,
@@ -675,23 +1088,35 @@ class WorkspaceRbacPostgresTest {
                     2, 0, 20, :validFrom, :ownerId, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", UUID.randomUUID())
-            .param("workspaceId", workspace.workspaceId())
-            .param("validFrom", Timestamp.from(exportUntil.minus(Duration.ofDays(1))))
-            .param("ownerId", ownerId)
-            .update()).isInstanceOf(DataAccessException.class);
+                                        .param("id", UUID.randomUUID())
+                                        .param("workspaceId", workspace.workspaceId())
+                                        .param(
+                                                "validFrom",
+                                                Timestamp.from(
+                                                        exportUntil.minus(Duration.ofDays(1))))
+                                        .param("ownerId", ownerId)
+                                        .update())
+                .isInstanceOf(DataAccessException.class);
     }
 
     @Test
     void concurrentInitialPolicyUpsertsProduceOneWorkspacePolicy() {
         UUID ownerId = insertUser("policy-concurrency-owner");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId, "Policy Workspace", "policy-concurrency-workspace"
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(
+                        ownerId, "Policy Workspace", "policy-concurrency-workspace");
         CountDownLatch start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            Future<?> first = executor.submit(() -> updatePolicyAfter(start, ownerId, workspace.workspaceId(), "0.10"));
-            Future<?> second = executor.submit(() -> updatePolicyAfter(start, ownerId, workspace.workspaceId(), "0.20"));
+            Future<?> first =
+                    executor.submit(
+                            () ->
+                                    updatePolicyAfter(
+                                            start, ownerId, workspace.workspaceId(), "0.10"));
+            Future<?> second =
+                    executor.submit(
+                            () ->
+                                    updatePolicyAfter(
+                                            start, ownerId, workspace.workspaceId(), "0.20"));
             start.countDown();
             first.get();
             second.get();
@@ -699,10 +1124,13 @@ class WorkspaceRbacPostgresTest {
             throw new AssertionError("concurrent policy upserts failed", error);
         }
 
-        Integer policies = jdbcClient.sql("SELECT COUNT(*) FROM app.estimation_policy WHERE workspace_id = :workspaceId")
-            .param("workspaceId", workspace.workspaceId())
-            .query(Integer.class)
-            .single();
+        Integer policies =
+                jdbcClient
+                        .sql(
+                                "SELECT COUNT(*) FROM app.estimation_policy WHERE workspace_id = :workspaceId")
+                        .param("workspaceId", workspace.workspaceId())
+                        .query(Integer.class)
+                        .single();
         assertThat(policies).isEqualTo(1);
     }
 
@@ -710,76 +1138,81 @@ class WorkspaceRbacPostgresTest {
     void provisioningCreatesRolesAndAssignsOwnerWithAllPermissions() {
         UUID creatorId = insertUser("owner-one");
 
-        WorkspaceProvisioningResult result = provisioningService.create(
-            creatorId,
-            "Owner Workspace",
-            "owner-workspace"
-        );
+        WorkspaceProvisioningResult result =
+                provisioningService.create(creatorId, "Owner Workspace", "owner-workspace");
 
-        Integer roleCount = jdbcClient.sql("SELECT COUNT(*) FROM app.workspace_role WHERE workspace_id = :workspaceId")
-            .param("workspaceId", result.workspaceId())
-            .query(Integer.class)
-            .single();
+        Integer roleCount =
+                jdbcClient
+                        .sql(
+                                "SELECT COUNT(*) FROM app.workspace_role WHERE workspace_id = :workspaceId")
+                        .param("workspaceId", result.workspaceId())
+                        .query(Integer.class)
+                        .single();
         assertThat(roleCount).isEqualTo(SystemRole.values().length);
         assertThat(permissionReader.findActiveMembership(creatorId, result.workspaceId()))
-            .get()
-            .extracting(membership -> membership.permissions().size())
-            .isEqualTo(PermissionCode.values().length);
+                .get()
+                .extracting(membership -> membership.permissions().size())
+                .isEqualTo(PermissionCode.values().length);
     }
 
     @Test
     void databaseRejectsRoleAssignmentAcrossWorkspaces() {
         UUID creatorId = insertUser("owner-two");
-        WorkspaceProvisioningResult first = provisioningService.create(creatorId, "First", "first-workspace");
-        WorkspaceProvisioningResult second = provisioningService.create(creatorId, "Second", "second-workspace");
-        UUID secondRoleId = jdbcClient.sql("""
+        WorkspaceProvisioningResult first =
+                provisioningService.create(creatorId, "First", "first-workspace");
+        WorkspaceProvisioningResult second =
+                provisioningService.create(creatorId, "Second", "second-workspace");
+        UUID secondRoleId =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT id FROM app.workspace_role
                 WHERE workspace_id = :workspaceId AND code = 'VIEWER'
                 """)
-            .param("workspaceId", second.workspaceId())
-            .query(UUID.class)
-            .single();
+                        .param("workspaceId", second.workspaceId())
+                        .query(UUID.class)
+                        .single();
 
-        assertThatThrownBy(() -> jdbcClient.sql("""
+        assertThatThrownBy(
+                        () ->
+                                jdbcClient
+                                        .sql(
+                                                """
                 INSERT INTO app.member_role (workspace_id, membership_id, role_id, assigned_by)
                 VALUES (:workspaceId, :membershipId, :roleId, :assignedBy)
                 """)
-            .param("workspaceId", first.workspaceId())
-            .param("membershipId", first.ownerMembershipId())
-            .param("roleId", secondRoleId)
-            .param("assignedBy", creatorId)
-            .update())
-            .isInstanceOf(DataAccessException.class);
+                                        .param("workspaceId", first.workspaceId())
+                                        .param("membershipId", first.ownerMembershipId())
+                                        .param("roleId", secondRoleId)
+                                        .param("assignedBy", creatorId)
+                                        .update())
+                .isInstanceOf(DataAccessException.class);
     }
 
     @Test
     void deniedAccessIsWrittenToAuditLog() {
         UUID ownerId = insertUser("owner-three");
         UUID intruderId = insertUser("intruder-three");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId,
-            "Audited Workspace",
-            "audited-workspace"
-        );
-        WorkspaceAuthorizationService authorizationService = new WorkspaceAuthorizationService(
-            permissionReader,
-            auditSink
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(ownerId, "Audited Workspace", "audited-workspace");
+        WorkspaceAuthorizationService authorizationService =
+                new WorkspaceAuthorizationService(permissionReader, auditSink);
 
-        AuthorizationDecision decision = authorizationService.authorize(
-            intruderId,
-            workspace.workspaceId(),
-            PermissionCode.WORKSPACE_READ
-        );
-        Integer deniedCount = jdbcClient.sql("""
+        AuthorizationDecision decision =
+                authorizationService.authorize(
+                        intruderId, workspace.workspaceId(), PermissionCode.WORKSPACE_READ);
+        Integer deniedCount =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM app.rbac_audit_event
                 WHERE actor_user_id = :actorUserId
                   AND action = 'AUTHORIZATION_CHECK'
                   AND outcome = 'NOT_FOUND'
                 """)
-            .param("actorUserId", intruderId)
-            .query(Integer.class)
-            .single();
+                        .param("actorUserId", intruderId)
+                        .query(Integer.class)
+                        .single();
 
         assertThat(decision).isEqualTo(AuthorizationDecision.NOT_FOUND);
         assertThat(deniedCount).isEqualTo(1);
@@ -788,11 +1221,9 @@ class WorkspaceRbacPostgresTest {
     @Test
     void deletingProjectRemovesQuotationAndOutcomeAggregate() {
         UUID ownerId = insertUser("project-delete-owner");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId,
-            "Project Delete Workspace",
-            "project-delete-workspace"
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(
+                        ownerId, "Project Delete Workspace", "project-delete-workspace");
         UUID projectId = UUID.randomUUID();
         UUID firstQuotationId = UUID.randomUUID();
         UUID revisedQuotationId = UUID.randomUUID();
@@ -801,27 +1232,39 @@ class WorkspaceRbacPostgresTest {
         UUID shareId = UUID.randomUUID();
         UUID outcomeId = UUID.randomUUID();
 
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.project (
                     id, workspace_id, title, requirement_text, currency, status, created_by
                 ) VALUES (:id, :workspaceId, 'Delete me', 'Requirement', 'KRW', 'LEAD', :ownerId)
                 """)
-            .param("id", projectId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("ownerId", ownerId)
-            .update();
+                .param("id", projectId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("ownerId", ownerId)
+                .update();
         insertQuotation(firstQuotationId, workspace.workspaceId(), projectId, null, 1, ownerId);
-        insertQuotation(revisedQuotationId, workspace.workspaceId(), projectId, firstQuotationId, 2, ownerId);
-        jdbcClient.sql("""
+        insertQuotation(
+                revisedQuotationId,
+                workspace.workspaceId(),
+                projectId,
+                firstQuotationId,
+                2,
+                ownerId);
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.quotation_assumption (
                     id, workspace_id, quotation_id, content, created_at
                 ) VALUES (:id, :workspaceId, :quotationId, 'Confirmed assumption', CURRENT_TIMESTAMP)
                 """)
-            .param("id", assumptionId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("quotationId", revisedQuotationId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", assumptionId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("quotationId", revisedQuotationId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.quotation_item (
                     id, workspace_id, quotation_id, title, quantity, unit, unit_rate,
                     subtotal, discount_rate, discount_amount, total, assumption_id,
@@ -831,12 +1274,14 @@ class WorkspaceRbacPostgresTest {
                     100000, 0, 0, 100000, :assumptionId, 0, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", quotationItemId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("quotationId", revisedQuotationId)
-            .param("assumptionId", assumptionId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", quotationItemId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("quotationId", revisedQuotationId)
+                .param("assumptionId", assumptionId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.proposal_share (
                     id, workspace_id, quotation_id, token_hash, expires_at, created_by, created_at
                 ) VALUES (
@@ -844,25 +1289,29 @@ class WorkspaceRbacPostgresTest {
                     CURRENT_TIMESTAMP + INTERVAL '7 days', :ownerId, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", shareId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("quotationId", revisedQuotationId)
-            .param("tokenHash", "a".repeat(64))
-            .param("ownerId", ownerId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", shareId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("quotationId", revisedQuotationId)
+                .param("tokenHash", "a".repeat(64))
+                .param("ownerId", ownerId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.quotation_decision (
                     id, workspace_id, quotation_id, decision, share_id, client_name, created_at
                 ) VALUES (
                     :id, :workspaceId, :quotationId, 'APPROVED', :shareId, 'Client', CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", UUID.randomUUID())
-            .param("workspaceId", workspace.workspaceId())
-            .param("quotationId", revisedQuotationId)
-            .param("shareId", shareId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", UUID.randomUUID())
+                .param("workspaceId", workspace.workspaceId())
+                .param("quotationId", revisedQuotationId)
+                .param("shareId", shareId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.actual_outcome (
                     id, workspace_id, project_id, approved_quotation_id, total_revenue,
                     actual_cost, actual_hours, profit_amount, created_by, created_at, updated_at
@@ -871,13 +1320,15 @@ class WorkspaceRbacPostgresTest {
                     60000, 8, 40000, :ownerId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", outcomeId)
-            .param("workspaceId", workspace.workspaceId())
-            .param("projectId", projectId)
-            .param("quotationId", revisedQuotationId)
-            .param("ownerId", ownerId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", outcomeId)
+                .param("workspaceId", workspace.workspaceId())
+                .param("projectId", projectId)
+                .param("quotationId", revisedQuotationId)
+                .param("ownerId", ownerId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.actual_work_item (
                     id, workspace_id, outcome_id, quotation_item_id, title,
                     actual_hours, actual_cost, sort_order, created_at
@@ -886,15 +1337,17 @@ class WorkspaceRbacPostgresTest {
                     8, 60000, 0, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", UUID.randomUUID())
-            .param("workspaceId", workspace.workspaceId())
-            .param("outcomeId", outcomeId)
-            .param("quotationItemId", quotationItemId)
-            .update();
+                .param("id", UUID.randomUUID())
+                .param("workspaceId", workspace.workspaceId())
+                .param("outcomeId", outcomeId)
+                .param("quotationItemId", quotationItemId)
+                .update();
 
-        int deleted = jdbcClient.sql("DELETE FROM app.project WHERE id = :projectId")
-            .param("projectId", projectId)
-            .update();
+        int deleted =
+                jdbcClient
+                        .sql("DELETE FROM app.project WHERE id = :projectId")
+                        .param("projectId", projectId)
+                        .update();
 
         assertThat(deleted).isEqualTo(1);
         assertThat(countRows("quotation", "project_id", projectId)).isZero();
@@ -903,8 +1356,16 @@ class WorkspaceRbacPostgresTest {
         assertThat(countRows("quotation_decision", "quotation_id", revisedQuotationId)).isZero();
     }
 
-    private void insertQuotation(UUID quotationId, UUID workspaceId, UUID projectId, UUID previousVersionId, int versionNumber, UUID ownerId) {
-        jdbcClient.sql("""
+    private void insertQuotation(
+            UUID quotationId,
+            UUID workspaceId,
+            UUID projectId,
+            UUID previousVersionId,
+            int versionNumber,
+            UUID ownerId) {
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.quotation (
                     id, workspace_id, project_id, series_id, previous_version_id, version_number,
                     scenario, status, currency, subtotal, discount_total, risk_buffer_rate,
@@ -915,33 +1376,36 @@ class WorkspaceRbacPostgresTest {
                     0, 0, 0, 100000, :ownerId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                 )
                 """)
-            .param("id", quotationId)
-            .param("workspaceId", workspaceId)
-            .param("projectId", projectId)
-            .param("seriesId", projectId)
-            .param("previousVersionId", previousVersionId)
-            .param("versionNumber", versionNumber)
-            .param("ownerId", ownerId)
-            .update();
+                .param("id", quotationId)
+                .param("workspaceId", workspaceId)
+                .param("projectId", projectId)
+                .param("seriesId", projectId)
+                .param("previousVersionId", previousVersionId)
+                .param("versionNumber", versionNumber)
+                .param("ownerId", ownerId)
+                .update();
     }
 
     private Integer countRows(String table, String column, UUID id) {
-        return jdbcClient.sql("SELECT COUNT(*) FROM app." + table + " WHERE " + column + " = :id")
-            .param("id", id)
-            .query(Integer.class)
-            .single();
+        return jdbcClient
+                .sql("SELECT COUNT(*) FROM app." + table + " WHERE " + column + " = :id")
+                .param("id", id)
+                .query(Integer.class)
+                .single();
     }
 
     private UUID insertUser(String subject) {
         UUID userId = UUID.randomUUID();
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.user_account (id, external_subject, email, status)
                 VALUES (:id, :subject, :email, 'ACTIVE')
                 """)
-            .param("id", userId)
-            .param("subject", subject)
-            .param("email", subject + "@example.com")
-            .update();
+                .param("id", userId)
+                .param("subject", subject)
+                .param("email", subject + "@example.com")
+                .update();
         return userId;
     }
 
@@ -949,33 +1413,43 @@ class WorkspaceRbacPostgresTest {
     void deniedAccessAuditSurvivesTheCallerTransactionRollback() {
         UUID ownerId = insertUser("rollback-audit-owner");
         UUID intruderId = insertUser("rollback-audit-intruder");
-        WorkspaceProvisioningResult workspace = provisioningService.create(
-            ownerId, "Rollback Audit Workspace", "rollback-audit-workspace"
-        );
+        WorkspaceProvisioningResult workspace =
+                provisioningService.create(
+                        ownerId, "Rollback Audit Workspace", "rollback-audit-workspace");
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
 
-        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
-            AuthorizationDecision decision = workspaceAuthorizationService.authorize(
-                intruderId, workspace.workspaceId(), PermissionCode.PROJECT_DELETE
-            );
-            assertThat(decision).isEqualTo(AuthorizationDecision.NOT_FOUND);
-            throw new IllegalStateException("force caller rollback");
-        })).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(
+                        () ->
+                                transaction.executeWithoutResult(
+                                        status -> {
+                                            AuthorizationDecision decision =
+                                                    workspaceAuthorizationService.authorize(
+                                                            intruderId,
+                                                            workspace.workspaceId(),
+                                                            PermissionCode.PROJECT_DELETE);
+                                            assertThat(decision)
+                                                    .isEqualTo(AuthorizationDecision.NOT_FOUND);
+                                            throw new IllegalStateException(
+                                                    "force caller rollback");
+                                        }))
+                .isInstanceOf(IllegalStateException.class);
 
-        Integer deniedCount = jdbcClient.sql("""
+        Integer deniedCount =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT COUNT(*) FROM app.rbac_audit_event
                 WHERE actor_user_id = :actorUserId
                   AND permission_code = 'project.delete'
                   AND outcome = 'NOT_FOUND'
                 """)
-            .param("actorUserId", intruderId)
-            .query(Integer.class)
-            .single();
+                        .param("actorUserId", intruderId)
+                        .query(Integer.class)
+                        .single();
         assertThat(deniedCount).isEqualTo(1);
     }
 
-
-    @Autowired private KnowledgeService knowledge;
+    @Autowired private DocumentService knowledge;
     @Autowired private GeneratedMemoryListener generatedMemory;
     @Autowired private ProjectMemoryService memory;
     @Autowired private DocumentChunkRepository memoryChunks;
@@ -984,7 +1458,14 @@ class WorkspaceRbacPostgresTest {
     @Test
     void generatedMemoryRequiresConfirmationAndOriginalEditsRevokeIt() {
         MemoryFixture fixture = memoryFixture("approval");
-        var event = new RequirementAnalysisCompleted(fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout without subscriptions", java.util.List.of());
+        var event =
+                new RequirementAnalysisCompleted(
+                        fixture.runId(),
+                        fixture.workspaceId(),
+                        fixture.projectId(),
+                        fixture.ownerId(),
+                        "checkout without subscriptions",
+                        java.util.List.of());
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         transaction.executeWithoutResult(status -> generatedMemory.completed(event));
         transaction.executeWithoutResult(status -> generatedMemory.completed(event));
@@ -994,80 +1475,248 @@ class WorkspaceRbacPostgresTest {
         assertThat(document.confirmationStatus()).isEqualTo("unconfirmed");
         assertThat(document.sourceMessageIds()).hasSize(2);
         var query = new KnowledgeSearchRequest("checkout", null, 5);
-        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).isEmpty();
-        var confirmed = knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), document.version());
+        assertThat(
+                        knowledgeSearch.search(
+                                fixture.ownerId(),
+                                fixture.workspaceId(),
+                                query,
+                                fixture.projectId(),
+                                null))
+                .isEmpty();
+        var confirmed =
+                knowledge.confirm(
+                        fixture.ownerId(),
+                        fixture.workspaceId(),
+                        document.id(),
+                        document.version());
         assertThat(confirmed.confirmedBy()).isEqualTo(fixture.ownerId());
-        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).hasSize(1);
-        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), fixture.runId())).isEmpty();
-        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, UUID.randomUUID(), null)).isEmpty();
+        assertThat(
+                        knowledgeSearch.search(
+                                fixture.ownerId(),
+                                fixture.workspaceId(),
+                                query,
+                                fixture.projectId(),
+                                null))
+                .hasSize(1);
+        assertThat(
+                        knowledgeSearch.search(
+                                fixture.ownerId(),
+                                fixture.workspaceId(),
+                                query,
+                                fixture.projectId(),
+                                fixture.runId()))
+                .isEmpty();
+        assertThat(
+                        knowledgeSearch.search(
+                                fixture.ownerId(),
+                                fixture.workspaceId(),
+                                query,
+                                UUID.randomUUID(),
+                                null))
+                .isEmpty();
         UUID originalId = confirmed.sourceMessageIds().getFirst();
-        assertThatThrownBy(() -> jdbcClient.sql("UPDATE app.source_message SET content = 'fabricated' WHERE id = :id").param("id", originalId).update()).isInstanceOf(DataAccessException.class);
-        assertThatThrownBy(() -> jdbcClient.sql("DELETE FROM app.source_message WHERE id = :id").param("id", originalId).update()).isInstanceOf(DataAccessException.class);
-        jdbcClient.sql("UPDATE app.project SET requirement_text = 'new checkout', requirement_updated_by = :actor WHERE id = :id")
-            .param("actor", fixture.ownerId()).param("id", fixture.projectId()).update();
-        assertThat(knowledge.get(fixture.ownerId(), fixture.workspaceId(), document.id()).confirmationStatus()).isEqualTo("superseded");
-        assertThat(knowledge.search(fixture.ownerId(), fixture.workspaceId(), query, fixture.projectId(), null)).isEmpty();
-        assertThatThrownBy(() -> knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), confirmed.version())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
-        assertThat(jdbcClient.sql("SELECT content FROM app.source_message WHERE id = :id").param("id", originalId).query(String.class).single()).isEqualTo("checkout without subscriptions");
-        jdbcClient.sql("DELETE FROM app.project WHERE id = :id").param("id", fixture.projectId()).update();
-        assertThat(jdbcClient.sql("SELECT count(*) FROM app.source_message WHERE project_id = :id").param("id", fixture.projectId()).query(Integer.class).single()).isZero();
+        assertThatThrownBy(
+                        () ->
+                                jdbcClient
+                                        .sql(
+                                                "UPDATE app.source_message SET content = 'fabricated' WHERE id = :id")
+                                        .param("id", originalId)
+                                        .update())
+                .isInstanceOf(DataAccessException.class);
+        assertThatThrownBy(
+                        () ->
+                                jdbcClient
+                                        .sql("DELETE FROM app.source_message WHERE id = :id")
+                                        .param("id", originalId)
+                                        .update())
+                .isInstanceOf(DataAccessException.class);
+        jdbcClient
+                .sql(
+                        "UPDATE app.project SET requirement_text = 'new checkout', requirement_updated_by = :actor WHERE id = :id")
+                .param("actor", fixture.ownerId())
+                .param("id", fixture.projectId())
+                .update();
+        assertThat(
+                        knowledge
+                                .get(fixture.ownerId(), fixture.workspaceId(), document.id())
+                                .confirmationStatus())
+                .isEqualTo("superseded");
+        assertThat(
+                        knowledgeSearch.search(
+                                fixture.ownerId(),
+                                fixture.workspaceId(),
+                                query,
+                                fixture.projectId(),
+                                null))
+                .isEmpty();
+        assertThatThrownBy(
+                        () ->
+                                knowledge.confirm(
+                                        fixture.ownerId(),
+                                        fixture.workspaceId(),
+                                        document.id(),
+                                        confirmed.version()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThat(
+                        jdbcClient
+                                .sql("SELECT content FROM app.source_message WHERE id = :id")
+                                .param("id", originalId)
+                                .query(String.class)
+                                .single())
+                .isEqualTo("checkout without subscriptions");
+        jdbcClient
+                .sql("DELETE FROM app.project WHERE id = :id")
+                .param("id", fixture.projectId())
+                .update();
+        assertThat(
+                        jdbcClient
+                                .sql(
+                                        "SELECT count(*) FROM app.source_message WHERE project_id = :id")
+                                .param("id", fixture.projectId())
+                                .query(Integer.class)
+                                .single())
+                .isZero();
     }
 
     @Test
     void lateAnalysisIsSavedAsSupersededAndCannotReplaceNewRequirements() {
         MemoryFixture fixture = memoryFixture("late");
-        jdbcClient.sql("UPDATE app.project SET requirement_text = 'new request' WHERE id = :id").param("id", fixture.projectId()).update();
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> generatedMemory.completed(
-            new RequirementAnalysisCompleted(fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "old checkout", java.util.List.of())
-        ));
+        jdbcClient
+                .sql("UPDATE app.project SET requirement_text = 'new request' WHERE id = :id")
+                .param("id", fixture.projectId())
+                .update();
+        new TransactionTemplate(transactionManager)
+                .executeWithoutResult(
+                        status ->
+                                generatedMemory.completed(
+                                        new RequirementAnalysisCompleted(
+                                                fixture.runId(),
+                                                fixture.workspaceId(),
+                                                fixture.projectId(),
+                                                fixture.ownerId(),
+                                                "old checkout",
+                                                java.util.List.of())));
         var document = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
         assertThat(document.confirmationStatus()).isEqualTo("superseded");
         assertThat(document.retrievalEligible()).isFalse();
-        assertThat(memory.current(fixture.workspaceId(), fixture.projectId())).extracting(MemorySourceMessage::content).containsExactly("new request");
+        assertThat(memory.current(fixture.workspaceId(), fixture.projectId()))
+                .extracting(MemorySourceMessage::content)
+                .containsExactly("new request");
     }
 
     @Test
     void vectorSearchRejectsWrongModelsAndExpiredDocuments() {
         MemoryFixture fixture = memoryFixture("vector");
         var vector = java.util.Collections.nCopies(1536, 0.1F);
-        var document = knowledge.create(fixture.ownerId(), fixture.workspaceId(), new CreateDocumentRequest(
-            KnowledgeSourceType.POLICY, "checkout", null, null, null, null, null,
-            java.util.List.of(new DocumentChunkRequest("checkout", vector, "correct-model", null, null))
-        ));
-        knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), document.id(), document.version());
-        float[] embedding = new float[1536]; java.util.Arrays.fill(embedding, 0.1F);
-        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "wrong-model", 5)).isEmpty();
-        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "correct-model", 5)).hasSize(1);
-        jdbcClient.sql("UPDATE app.document SET effective_until = CURRENT_DATE - 1 WHERE id = :id").param("id", document.id()).update();
-        assertThat(memorySearch.vectorSearch(fixture.workspaceId(), fixture.projectId(), null, embedding, "correct-model", 5)).isEmpty();
+        var document =
+                knowledge.create(
+                        fixture.ownerId(),
+                        fixture.workspaceId(),
+                        new CreateDocumentRequest(
+                                KnowledgeSourceType.POLICY,
+                                "checkout",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(
+                                        new DocumentChunkRequest(
+                                                "checkout", vector, "correct-model", null, null))));
+        knowledge.confirm(
+                fixture.ownerId(), fixture.workspaceId(), document.id(), document.version());
+        float[] embedding = new float[1536];
+        java.util.Arrays.fill(embedding, 0.1F);
+        assertThat(
+                        memorySearch.vectorSearch(
+                                fixture.workspaceId(),
+                                fixture.projectId(),
+                                null,
+                                embedding,
+                                "wrong-model",
+                                5))
+                .isEmpty();
+        assertThat(
+                        memorySearch.vectorSearch(
+                                fixture.workspaceId(),
+                                fixture.projectId(),
+                                null,
+                                embedding,
+                                "correct-model",
+                                5))
+                .hasSize(1);
+        jdbcClient
+                .sql("UPDATE app.document SET effective_until = CURRENT_DATE - 1 WHERE id = :id")
+                .param("id", document.id())
+                .update();
+        assertThat(
+                        memorySearch.vectorSearch(
+                                fixture.workspaceId(),
+                                fixture.projectId(),
+                                null,
+                                embedding,
+                                "correct-model",
+                                5))
+                .isEmpty();
         assertThat(memoryChunks.findAllActiveByWorkspaceId(fixture.workspaceId())).isEmpty();
     }
-
 
     @Test
     void documentRevisionsKeepRootsAndParentLineage() {
         MemoryFixture fixture = memoryFixture("lineage");
         var transaction = new TransactionTemplate(transactionManager);
-        transaction.executeWithoutResult(status -> generatedMemory.completed(new RequirementAnalysisCompleted(
-            fixture.runId(), fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout first", java.util.List.of()
-        )));
+        transaction.executeWithoutResult(
+                status ->
+                        generatedMemory.completed(
+                                new RequirementAnalysisCompleted(
+                                        fixture.runId(),
+                                        fixture.workspaceId(),
+                                        fixture.projectId(),
+                                        fixture.ownerId(),
+                                        "checkout first",
+                                        java.util.List.of())));
         var first = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
         knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), first.id(), first.version());
         UUID secondRun = UUID.randomUUID();
-        jdbcClient.sql("INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
-            .param("id", secondRun).param("ws", fixture.workspaceId()).param("project", fixture.projectId()).param("thread", UUID.randomUUID()).param("owner", fixture.ownerId()).update();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
+                .param("id", secondRun)
+                .param("ws", fixture.workspaceId())
+                .param("project", fixture.projectId())
+                .param("thread", UUID.randomUUID())
+                .param("owner", fixture.ownerId())
+                .update();
         insertStartCommand(UUID.randomUUID(), secondRun, fixture.ownerId());
-        jdbcClient.sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run").param("run", secondRun).update();
-        transaction.executeWithoutResult(status -> generatedMemory.completed(new RequirementAnalysisCompleted(
-            secondRun, fixture.workspaceId(), fixture.projectId(), fixture.ownerId(), "checkout revised", java.util.List.of(first.id())
-        )));
+        jdbcClient
+                .sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run")
+                .param("run", secondRun)
+                .update();
+        transaction.executeWithoutResult(
+                status ->
+                        generatedMemory.completed(
+                                new RequirementAnalysisCompleted(
+                                        secondRun,
+                                        fixture.workspaceId(),
+                                        fixture.projectId(),
+                                        fixture.ownerId(),
+                                        "checkout revised",
+                                        java.util.List.of(first.id()))));
         var second = knowledge.list(fixture.ownerId(), fixture.workspaceId()).getFirst();
-        var confirmed = knowledge.confirm(fixture.ownerId(), fixture.workspaceId(), second.id(), second.version());
+        var confirmed =
+                knowledge.confirm(
+                        fixture.ownerId(), fixture.workspaceId(), second.id(), second.version());
         assertThat(confirmed.revisionNumber()).isEqualTo(2);
         assertThat(confirmed.supersedes()).isEqualTo(first.id());
         assertThat(confirmed.parentDocumentIds()).containsExactly(first.id());
-        assertThat(confirmed.sourceMessages()).allSatisfy(source -> assertThat(source.content()).doesNotContain("checkout first"));
-        assertThat(knowledge.get(fixture.ownerId(), fixture.workspaceId(), first.id()).confirmationStatus()).isEqualTo("superseded");
+        assertThat(confirmed.sourceMessages())
+                .allSatisfy(
+                        source -> assertThat(source.content()).doesNotContain("checkout first"));
+        assertThat(
+                        knowledge
+                                .get(fixture.ownerId(), fixture.workspaceId(), first.id())
+                                .confirmationStatus())
+                .isEqualTo("superseded");
     }
 
     @Test
@@ -1075,50 +1724,91 @@ class WorkspaceRbacPostgresTest {
         MemoryFixture fixture = memoryFixture("clarification");
         UUID interruption = UUID.randomUUID();
         UUID responder = insertUser("memory-clarification-responder");
-        jdbcClient.sql("INSERT INTO app.agent_run_command(id, run_id, command_type, payload, requested_by, effective_permissions, status) VALUES (:id, :run, 'RESUME', '{}', :actor, '[]', 'COMPLETED')")
-            .param("id", UUID.randomUUID()).param("run", fixture.runId()).param("actor", responder).update();
-        jdbcClient.sql("INSERT INTO app.agent_interruption(id, workspace_id, agent_run_id, kind, status, questions, created_at) VALUES (:id, :ws, :run, 'CLARIFICATION', 'PENDING', '[\"Add subscriptions?\"]', now())")
-            .param("id", interruption).param("ws", fixture.workspaceId()).param("run", fixture.runId()).update();
-        jdbcClient.sql("UPDATE app.agent_interruption SET status = 'RESPONDED', answers = '[{\"questionIndex\":0,\"answer\":\"No\"}]', responded_at = now() WHERE id = :id")
-            .param("id", interruption).update();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.agent_run_command(id, run_id, command_type, payload, requested_by, effective_permissions, status) VALUES (:id, :run, 'RESUME', '{}', :actor, '[]', 'COMPLETED')")
+                .param("id", UUID.randomUUID())
+                .param("run", fixture.runId())
+                .param("actor", responder)
+                .update();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.agent_interruption(id, workspace_id, agent_run_id, kind, status, questions, created_at) VALUES (:id, :ws, :run, 'CLARIFICATION', 'PENDING', '[\"Add subscriptions?\"]', now())")
+                .param("id", interruption)
+                .param("ws", fixture.workspaceId())
+                .param("run", fixture.runId())
+                .update();
+        jdbcClient
+                .sql(
+                        "UPDATE app.agent_interruption SET status = 'RESPONDED', answers = '[{\"questionIndex\":0,\"answer\":\"No\"}]', responded_at = now() WHERE id = :id")
+                .param("id", interruption)
+                .update();
         var clarification = memory.current(fixture.workspaceId(), fixture.projectId()).getLast();
         assertThat(clarification.content()).isEqualTo("No");
         assertThat(clarification.prompt()).isEqualTo("Add subscriptions?");
         assertThat(clarification.kind()).isEqualTo("USER_CLARIFICATION");
-        assertThat(jdbcClient.sql("SELECT created_by FROM app.source_message WHERE id = :id").param("id", clarification.id()).query(UUID.class).single()).isEqualTo(responder);
-        assertThat(memory.forRun(fixture.workspaceId(), fixture.projectId(), fixture.runId())).hasSize(3);
+        assertThat(
+                        jdbcClient
+                                .sql("SELECT created_by FROM app.source_message WHERE id = :id")
+                                .param("id", clarification.id())
+                                .query(UUID.class)
+                                .single())
+                .isEqualTo(responder);
+        assertThat(memory.forRun(fixture.workspaceId(), fixture.projectId(), fixture.runId()))
+                .hasSize(3);
     }
 
     private MemoryFixture memoryFixture(String suffix) {
         UUID owner = insertUser("memory-" + suffix);
-        UUID workspace = provisioningService.create(owner, "Memory", "memory-" + suffix).workspaceId();
-        UUID project = UUID.randomUUID(); UUID run = UUID.randomUUID();
-        jdbcClient.sql("INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :ws, 'Memory', 'checkout without subscriptions', 'KRW', 'LEAD', :owner)")
-            .param("id", project).param("ws", workspace).param("owner", owner).update();
-        jdbcClient.sql("INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
-            .param("id", run).param("ws", workspace).param("project", project).param("thread", UUID.randomUUID()).param("owner", owner).update();
+        UUID workspace =
+                provisioningService.create(owner, "Memory", "memory-" + suffix).workspaceId();
+        UUID project = UUID.randomUUID();
+        UUID run = UUID.randomUUID();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.project(id, workspace_id, title, requirement_text, currency, status, created_by) VALUES (:id, :ws, 'Memory', 'checkout without subscriptions', 'KRW', 'LEAD', :owner)")
+                .param("id", project)
+                .param("ws", workspace)
+                .param("owner", owner)
+                .update();
+        jdbcClient
+                .sql(
+                        "INSERT INTO app.agent_run(id, workspace_id, project_id, thread_id, initiated_by, provider, model, status) VALUES (:id, :ws, :project, :thread, :owner, 'OPENAI', 'test', 'QUEUED')")
+                .param("id", run)
+                .param("ws", workspace)
+                .param("project", project)
+                .param("thread", UUID.randomUUID())
+                .param("owner", owner)
+                .update();
         insertStartCommand(UUID.randomUUID(), run, owner);
-        jdbcClient.sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run").param("run", run).update();
+        jdbcClient
+                .sql("UPDATE app.agent_run_command SET status = 'COMPLETED' WHERE run_id = :run")
+                .param("run", run)
+                .update();
         return new MemoryFixture(owner, workspace, project, run);
     }
 
     private record MemoryFixture(UUID ownerId, UUID workspaceId, UUID projectId, UUID runId) {}
 
     private void insertStartCommand(UUID commandId, UUID runId, UUID ownerId) {
-        jdbcClient.sql("""
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.agent_run_command (
                     id, run_id, command_type, payload, requested_by, effective_permissions, status
                 ) VALUES (:id, :runId, 'START', '{"input":{"requirementText":"original request"}}', :ownerId, '[]', 'PENDING')
                 """)
-            .param("id", commandId)
-            .param("runId", runId)
-            .param("ownerId", ownerId)
-            .update();
+                .param("id", commandId)
+                .param("runId", runId)
+                .param("ownerId", ownerId)
+                .update();
     }
 
-    private void insertRouteObservation(UUID id, UUID workspaceId, UUID projectId, UUID runId,
-                                        long eventId, String route) {
-        jdbcClient.sql("""
+    private void insertRouteObservation(
+            UUID id, UUID workspaceId, UUID projectId, UUID runId, long eventId, String route) {
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.agent_route_observation (
                     id, workspace_id, project_id, agent_run_id, agent_event_id,
                     occurred_at, route_data, captured_at, review_target
@@ -1127,66 +1817,80 @@ class WorkspaceRbacPostgresTest {
                     CURRENT_TIMESTAMP, CAST(:routeData AS jsonb), CURRENT_TIMESTAMP, :reviewTarget
                 )
                 """)
-            .param("id", id)
-            .param("workspaceId", workspaceId)
-            .param("projectId", projectId)
-            .param("runId", runId)
-            .param("eventId", eventId)
-            .param("routeData", "{\"route\":\"" + route + "\"}")
-            .param("reviewTarget", "REACT_AGENT".equals(route) || "HUMAN_REQUIRED".equals(route) ? 3 : 1)
-            .update();
+                .param("id", id)
+                .param("workspaceId", workspaceId)
+                .param("projectId", projectId)
+                .param("runId", runId)
+                .param("eventId", eventId)
+                .param("routeData", "{\"route\":\"" + route + "\"}")
+                .param(
+                        "reviewTarget",
+                        "REACT_AGENT".equals(route) || "HUMAN_REQUIRED".equals(route) ? 3 : 1)
+                .update();
     }
 
     private void addRole(UUID workspaceId, UUID userId, UUID assignedBy, String roleCode) {
         UUID membershipId = UUID.randomUUID();
-        UUID managerRoleId = jdbcClient.sql("""
+        UUID managerRoleId =
+                jdbcClient
+                        .sql(
+                                """
                 SELECT id FROM app.workspace_role WHERE workspace_id = :workspaceId AND code = :roleCode
                 """)
-            .param("workspaceId", workspaceId)
-            .param("roleCode", roleCode)
-            .query(UUID.class)
-            .single();
-        jdbcClient.sql("""
+                        .param("workspaceId", workspaceId)
+                        .param("roleCode", roleCode)
+                        .query(UUID.class)
+                        .single();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.workspace_member (id, workspace_id, user_id, status, joined_at)
                 VALUES (:id, :workspaceId, :userId, 'ACTIVE', CURRENT_TIMESTAMP)
                 """)
-            .param("id", membershipId)
-            .param("workspaceId", workspaceId)
-            .param("userId", userId)
-            .update();
-        jdbcClient.sql("""
+                .param("id", membershipId)
+                .param("workspaceId", workspaceId)
+                .param("userId", userId)
+                .update();
+        jdbcClient
+                .sql(
+                        """
                 INSERT INTO app.member_role (workspace_id, membership_id, role_id, assigned_by)
                 VALUES (:workspaceId, :membershipId, :roleId, :assignedBy)
                 """)
-            .param("workspaceId", workspaceId)
-            .param("membershipId", membershipId)
-            .param("roleId", managerRoleId)
-            .param("assignedBy", assignedBy)
-            .update();
+                .param("workspaceId", workspaceId)
+                .param("membershipId", membershipId)
+                .param("roleId", managerRoleId)
+                .param("assignedBy", assignedBy)
+                .update();
     }
 
     private UUID claimAfter(CountDownLatch start) throws InterruptedException {
         start.await();
-        return agentRunCommandQueue.claimNext()
-            .map(AgentRunCommandQueue.ClaimedCommand::runId)
-            .orElse(null);
+        return agentRunCommandQueue
+                .claimNext()
+                .map(AgentRunCommandQueue.ClaimedCommand::runId)
+                .orElse(null);
     }
 
-    private UUID claimRiskAfter(CountDownLatch start, UUID workspaceId, UUID reviewerId) throws InterruptedException {
+    private UUID claimRiskAfter(CountDownLatch start, UUID workspaceId, UUID reviewerId)
+            throws InterruptedException {
         start.await();
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-        return transaction.execute(status -> {
-            AgentRouteObservationEntity observation = agentRouteObservationRepository
-                .claimRiskPending(workspaceId, reviewerId, Instant.now(), 1)
-                .stream()
-                .findFirst()
-                .orElseThrow();
-            observation.claimReview(reviewerId, Instant.now(), Duration.ofMinutes(15));
-            return observation.id();
-        });
+        return transaction.execute(
+                status -> {
+                    AgentRouteObservationEntity observation =
+                            agentRouteObservationRepository
+                                    .claimRiskPending(workspaceId, reviewerId, Instant.now(), 1)
+                                    .stream()
+                                    .findFirst()
+                                    .orElseThrow();
+                    observation.claimReview(reviewerId, Instant.now(), Duration.ofMinutes(15));
+                    return observation.id();
+                });
     }
 
-    private void updatePolicyAfter(CountDownLatch start, UUID userId, UUID workspaceId, String taxRate) {
+    private void updatePolicyAfter(
+            CountDownLatch start, UUID userId, UUID workspaceId, String taxRate) {
         try {
             start.await();
         } catch (InterruptedException error) {
@@ -1194,13 +1898,9 @@ class WorkspaceRbacPostgresTest {
             throw new IllegalStateException(error);
         }
         pricingConfigurationService.updatePolicy(
-            userId,
-            workspaceId,
-            new UpdateEstimationPolicyRequest(
-                new BigDecimal(taxRate), new BigDecimal("0.10"), new BigDecimal("0.30")
-            )
-        );
+                userId,
+                workspaceId,
+                new UpdateEstimationPolicyRequest(
+                        new BigDecimal(taxRate), new BigDecimal("0.10"), new BigDecimal("0.30")));
     }
 }
-
-

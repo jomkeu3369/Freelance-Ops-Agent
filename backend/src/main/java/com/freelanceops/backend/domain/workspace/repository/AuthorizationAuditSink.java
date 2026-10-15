@@ -6,5 +6,3 @@ public interface AuthorizationAuditSink {
 
     void record(AuthorizationAuditEvent event);
 }
-
-
