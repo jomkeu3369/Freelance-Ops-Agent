@@ -31,7 +31,7 @@ test('typed BYOK admission errors reach the preserved-draft chat and terminal pr
   const shell=await readFile(new URL('../features/workspace/workspace-shell.tsx',import.meta.url),'utf8');
   const workbench=await readFile(new URL('../features/workspace/project/project-workbench.tsx',import.meta.url),'utf8');
   const activity=await readFile(new URL('../features/workspace/shared/activity-presentation.tsx',import.meta.url),'utf8');
-  assert.match(shell,/cause\s*instanceof\s*ApiError\s*&&\s*byokFailureMessage\(cause.code\)\s*\)\s*throw\s*cause/);
+  assert.match(shell,/cause\s*instanceof\s*ApiError\s*&&\s*byokFailureMessage\(cause.code\)\s*\)?\s*\)\s*throw\s*cause/);
   assert.match(workbench,/if\s*\(byokMessage\)\s*throw\s*new\s*Error\(t\(byokMessage\)\)/);
   assert.match(activity,/byokFailureMessage\(errorCode\)\s*\?\?/);
   assert.match(workbench,/<div\s*className="agent-chat-credit-note">\s*<ByokCostNotice/);
