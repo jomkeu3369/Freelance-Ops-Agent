@@ -5,7 +5,7 @@
 - 보완: [ADR-0015](0015-llm-first-operational-routing.md)
 - 부분 대체: [ADR-0027](0027-full-project-analysis-route-floor.md)의 사후 route 상향과 route model call 예산
 
-## Context
+## 배경
 
 ADR-0015는 Safety Gate를 통과한 모든 요청을 LLM evaluator로 분류하도록 결정했다. ADR-0027은
 `PROJECT_ANALYSIS` 요청에서 evaluator가 낮은 route를 선택해도 사후 정책으로 `SUPERVISOR`에
@@ -23,7 +23,7 @@ call을 budget에 포함한다.
 같은 실험에서 validation threshold를 적용한 local 자동 routing과 과거 lane agreement는
 HUMAN recall과 false automation을 악화시켰으므로 운영 후보에서 제외됐다.
 
-## Decision
+## 결정
 
 운영 routing 순서를 다음과 같이 변경한다.
 
@@ -53,7 +53,7 @@ HUMAN recall과 false automation을 악화시켰으므로 운영 후보에서 �
 - BM25, LiquidAI와 TF-IDF 후보는 별도 승격 Gate를 통과하기 전까지 `SHADOW_ONLY` 또는
   `SIGNAL_ONLY`다.
 
-## Consequences
+## 영향
 
 ### 장점
 

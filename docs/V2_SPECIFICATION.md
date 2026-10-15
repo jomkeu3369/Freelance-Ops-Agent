@@ -1,8 +1,8 @@
 # Freelance Ops Agent V2 제품·기술 명세서
 
-> 문서 상태: Draft v1.2
+> 문서 상태: V2 목표 명세와 구현 기준. 장기 설계와 현재 지원 범위는 아래 구분을 따른다.
 > 작성일: 2026-07-20
-> 마지막 갱신: 2026-08-13
+> 구현 대조: 2026-10-16
 > 대상 버전: Freelance Ops Agent V2
 > 구현 기준: 본 문서는 V2의 제품 범위와 아키텍처를 결정하는 기준 문서다. 구현 중 중요한 변경이 생기면 ADR(Architecture Decision Record)을 먼저 작성하고 본 문서를 갱신한다.
 
@@ -14,6 +14,25 @@ Agent Tool의 책임과 서비스 경계는
 2026-09-12 개인 AI 연결은 [ADR-0031](adr/0031-personal-ai-connections.md)을 따른다. 일반 설정에서 토큰 단가 수동 입력을 제거하고 사용자·workspace 소유 API 키 연결을 제공한다. Spring은 키 검증·암호화 저장·권한을, Agent는 호출 직전 일시적 해결과 모델 호출을 소유한다. 실행마다 기본 제공/개인 연결을 명시하며 fallback은 없다. 가격 원장과 실행 제한은 유지하고 금액은 제공사 실제 청구액과 구분한 예상치로 표시한다. [사용·운영 안내](frontend/BYOK_CONNECTIONS.md)를 함께 따른다.
 
 2026-09-12 펫 개인화와 제한된 생성은 [ADR-0032](adr/0032-personal-pet-profiles.md)를 따른다.
+
+---
+
+## 현재 구현과 목표 설계
+
+본문의 제품 목표·도메인 규칙·수용 기준은 모든 기능의 구현 완료를 뜻하지 않는다. 현재 사용법은 [문서 안내](README.md)와 서비스별 README를 먼저 확인한다.
+
+| 항목            | 현재 코드에서 확인한 범위                                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 모델 제공사     | 새 분석·연결은 OpenAI만 허용한다. Gemini는 과거 이력 호환이다.                                                                                |
+| 사용량          | 신규 기본 제공 AI는 USD 예약·정산 원장이다. 월간 횟수·주간 고정 크레딧 API는 이전 기록 호환이다.                                              |
+| 개인 키         | 별도 호출·토큰·시간 한도, 로컬 라우팅·키워드 검색, 기본 키 자동 전환 없음. [현재 계약](frontend/BYOK_CONNECTIONS.md) 참고.                    |
+| 개인 동료       | 무료 규칙 미리보기와 선택·보관을 지원한다. 별도 유료 생성과 견적 가정 생성은 차단돼 있다.                                                     |
+| 부문 실행       | LangGraph와 자체 제한 실행기가 운영 경로다. Deep Agents는 개발·비교용 후보 구현이다.                                                          |
+| 비동기 스케줄러 | 작업·시도·명령·이벤트·체크포인트·FIFO·관측 구현은 존재한다. 재정렬·자동 확장 정책의 운영 승격은 별도 근거가 필요하다.                         |
+| 첨부·저장       | 대화 첨부는 원본을 저장하지 않는 제한된 추출·로컬 OCR이다. S3 원본 보관·PDF 제안서 내보내기·외부 MCP는 목표 설계와 현재 제공 기능을 구분한다. |
+| 배포            | PostgreSQL 인프라와 Agent/Backend Compose를 분리하고 Caddy를 운영 덧씌움 구성에 추가한다. Frontend는 Vercel을 사용한다.                       |
+
+검증 결과와 실제 배포의 출처는 [제품 근거](portfolio/product-evidence.md)에 모았다. 아래 단계별 계획과 체크 항목을 최신 테스트 실행 결과로 읽지 않는다.
 
 ---
 
@@ -36,19 +55,19 @@ V2의 우선순위는 다음 순서를 따른다.
 
 ## 2. V1 진단 및 V2 대응
 
-| V1 문제 | 영향 | V2 대응 |
-|---|---|---|
-| 평가 데이터셋과 회귀 테스트 부재 | 개선 여부를 측정할 수 없음 | 버전 관리되는 golden dataset과 자동 평가 파이프라인 구축 |
-| 검색 문서가 문자열 context로만 소비됨 | 결과가 어떤 근거에서 나왔는지 추적 불가 | Evidence Ledger와 chunk 단위 citation 저장 |
-| LLM이 가격과 공수를 자유 텍스트로 생성 | 계산 오류와 재현성 저하 | LLM은 기능 분해·가정 생성, Tool은 계산 담당 |
-| 고정된 LangGraph node 순서 | 실제 Tool 선택 Agent가 아님 | LangGraph durable workflow 안에 제한된 ReAct Tool loop 배치 |
-| `MemorySaver` 기반 상태 | 재시작·다중 인스턴스에서 상태 유실 | PostgreSQL에 Agent run 및 HITL 상태 영속화 |
-| MongoDB와 FAISS 분리 | 트랜잭션·참조 무결성·권한 필터 부족 | PostgreSQL + pgvector로 통합 |
-| Kafka가 로그와 로그인 이벤트에만 사용됨 | 운영 복잡도 대비 가치 부족 | Kafka 제거, 구조화 로그와 DB audit/outbox 사용 |
-| FAISS 전역 index | 동시 쓰기·멀티테넌시·백업 어려움 | 운영 검색은 pgvector, FAISS는 평가 baseline으로만 유지 |
-| CRM과 Agent thread에 소유권 없음 | 사용자 간 데이터 노출 위험 | 모든 도메인 데이터에 `workspace_id` 적용 |
-| Workspace UI가 dummy data로 동작 | 제품 흐름 검증 불가 | 실제 API 기반 Quote Builder로 전면 재구축 |
-| README의 continual learning 표현 | 실제 학습과 RAG memory를 혼동 | `Outcome-informed retrieval`로 정확히 표현 |
+| V1 문제                                 | 영향                                    | V2 대응                                                     |
+| --------------------------------------- | --------------------------------------- | ----------------------------------------------------------- |
+| 평가 데이터셋과 회귀 테스트 부재        | 개선 여부를 측정할 수 없음              | 버전 관리되는 golden dataset과 자동 평가 파이프라인 구축    |
+| 검색 문서가 문자열 context로만 소비됨   | 결과가 어떤 근거에서 나왔는지 추적 불가 | Evidence Ledger와 chunk 단위 citation 저장                  |
+| LLM이 가격과 공수를 자유 텍스트로 생성  | 계산 오류와 재현성 저하                 | LLM은 기능 분해·가정 생성, Tool은 계산 담당                 |
+| 고정된 LangGraph node 순서              | 실제 Tool 선택 Agent가 아님             | LangGraph durable workflow 안에 제한된 ReAct Tool loop 배치 |
+| `MemorySaver` 기반 상태                 | 재시작·다중 인스턴스에서 상태 유실      | PostgreSQL에 Agent run 및 HITL 상태 영속화                  |
+| MongoDB와 FAISS 분리                    | 트랜잭션·참조 무결성·권한 필터 부족     | PostgreSQL + pgvector로 통합                                |
+| Kafka가 로그와 로그인 이벤트에만 사용됨 | 운영 복잡도 대비 가치 부족              | Kafka 제거, 구조화 로그와 DB audit/outbox 사용              |
+| FAISS 전역 index                        | 동시 쓰기·멀티테넌시·백업 어려움        | 운영 검색은 pgvector, FAISS는 평가 baseline으로만 유지      |
+| CRM과 Agent thread에 소유권 없음        | 사용자 간 데이터 노출 위험              | 모든 도메인 데이터에 `workspace_id` 적용                    |
+| Workspace UI가 dummy data로 동작        | 제품 흐름 검증 불가                     | 실제 API 기반 Quote Builder로 전면 재구축                   |
+| README의 continual learning 표현        | 실제 학습과 RAG memory를 혼동           | `Outcome-informed retrieval`로 정확히 표현                  |
 
 ---
 
@@ -102,10 +121,10 @@ V2 첫 릴리스에서는 다음을 구현하지 않는다.
 
 ### 4.1 사용자 유형
 
-| 사용자 | 설명 | 주요 권한 |
-|---|---|---|
+| 사용자           | 설명                         | 주요 권한                                   |
+| ---------------- | ---------------------------- | ------------------------------------------- |
 | Workspace Member | 개인 프리랜서 또는 내부 팀원 | 부여된 RBAC role에 따라 workspace 기능 사용 |
-| Client Viewer | 선택적 외부 고객 | 공유된 제안서 열람 및 승인·의견 제출 |
+| Client Viewer    | 선택적 외부 고객             | 공유된 제안서 열람 및 승인·의견 제출        |
 
 회원의 권한은 workspace 범위의 RBAC(Role-Based Access Control)로 결정한다. Client Viewer는 workspace 회원이 아니며, 만료 가능한 proposal share token으로 공유된 제안서에만 접근한다.
 
@@ -133,13 +152,13 @@ V2 첫 릴리스에서는 다음을 구현하지 않는다.
 
 ### 4.4 기본 role
 
-| Role | 목적 | 핵심 권한 |
-|---|---|---|
-| `OWNER` | workspace 소유자 | 모든 권한, 소유권 이전, workspace 삭제, 데이터 export |
-| `ADMIN` | 운영 관리자 | 멤버·설정·연동 관리, 모든 업무 데이터 관리. 소유권 이전과 workspace 삭제 제외 |
-| `MANAGER` | 고객·프로젝트 책임자 | 고객·프로젝트 관리, 견적 승인·발행, 결과 입력, Agent 실행 |
-| `ESTIMATOR` | 견적 작성자 | 프로젝트 열람, 요구사항·견적 작성, Agent 실행. 발행과 멤버 관리 제외 |
-| `VIEWER` | 내부 열람자 | workspace 업무 데이터 읽기. 민감 설정·권한·외부 발행 제외 |
+| Role        | 목적                 | 핵심 권한                                                                     |
+| ----------- | -------------------- | ----------------------------------------------------------------------------- |
+| `OWNER`     | workspace 소유자     | 모든 권한, 소유권 이전, workspace 삭제, 데이터 export                         |
+| `ADMIN`     | 운영 관리자          | 멤버·설정·연동 관리, 모든 업무 데이터 관리. 소유권 이전과 workspace 삭제 제외 |
+| `MANAGER`   | 고객·프로젝트 책임자 | 고객·프로젝트 관리, 견적 승인·발행, 결과 입력, Agent 실행                     |
+| `ESTIMATOR` | 견적 작성자          | 프로젝트 열람, 요구사항·견적 작성, Agent 실행. 발행과 멤버 관리 제외          |
+| `VIEWER`    | 내부 열람자          | workspace 업무 데이터 읽기. 민감 설정·권한·외부 발행 제외                     |
 
 - workspace 생성자는 자동으로 `OWNER`가 된다.
 - workspace에는 항상 한 명 이상의 활성 `OWNER`가 있어야 한다.
@@ -189,21 +208,21 @@ data.delete
 
 ### 4.6 기본 권한 matrix
 
-| Permission group | OWNER | ADMIN | MANAGER | ESTIMATOR | VIEWER |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Workspace 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Workspace 설정 수정 | ✓ | ✓ |  |  |  |
-| Workspace 삭제·소유권 이전 | ✓ |  |  |  |  |
-| Member·Role 관리 | ✓ | ✓* |  |  |  |
-| Client·Project 읽기 | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Client·Project 쓰기 | ✓ | ✓ | ✓ | ✓ |  |
-| Document 관리 | ✓ | ✓ | ✓ | ✓ | 읽기 |
-| 견적 작성 | ✓ | ✓ | ✓ | ✓ |  |
-| 견적 승인·발행 | ✓ | ✓ | ✓ |  |  |
-| Agent 실행·응답 | ✓ | ✓ | ✓ | ✓ |  |
-| Outcome 입력 | ✓ | ✓ | ✓ |  |  |
-| Integration 관리 | ✓ | ✓ |  |  |  |
-| Audit 열람·Data export | ✓ | ✓ |  |  |  |
+| 권한 묶음                  | OWNER | ADMIN | MANAGER | ESTIMATOR | VIEWER |
+| -------------------------- | :---: | :---: | :-----: | :-------: | :----: |
+| Workspace 읽기             |   ✓   |   ✓   |    ✓    |     ✓     |   ✓    |
+| Workspace 설정 수정        |   ✓   |   ✓   |         |           |        |
+| Workspace 삭제·소유권 이전 |   ✓   |       |         |           |        |
+| Member·Role 관리           |   ✓   |  ✓\*  |         |           |        |
+| Client·Project 읽기        |   ✓   |   ✓   |    ✓    |     ✓     |   ✓    |
+| Client·Project 쓰기        |   ✓   |   ✓   |    ✓    |     ✓     |        |
+| Document 관리              |   ✓   |   ✓   |    ✓    |     ✓     |  읽기  |
+| 견적 작성                  |   ✓   |   ✓   |    ✓    |     ✓     |        |
+| 견적 승인·발행             |   ✓   |   ✓   |    ✓    |           |        |
+| Agent 실행·응답            |   ✓   |   ✓   |    ✓    |     ✓     |        |
+| Outcome 입력               |   ✓   |   ✓   |    ✓    |           |        |
+| Integration 관리           |   ✓   |   ✓   |         |           |        |
+| Audit 열람·Data export     |   ✓   |   ✓   |         |           |        |
 
 `* ADMIN`은 OWNER role과 소유권을 변경할 수 없다. 초기 릴리스는 workspace 범위 RBAC로 시작하고, 실제 요구가 확인되면 project assignment 기반 resource scope를 별도 ADR로 추가한다. RBAC를 가장해 미검증된 복잡한 ABAC를 선제 도입하지 않는다.
 
@@ -228,23 +247,23 @@ Spring Security의 method security와 중앙 `WorkspaceAuthorizationService`를 
 
 ### 5.1 런타임 구성
 
-| 영역 | 선택 | 이유 |
-|---|---|---|
-| Product Backend | Java 21+, Spring Boot | 기업형 도메인 모델, 보안, RBAC, 트랜잭션, Tool 구현 |
-| AI Runtime | Python 3.12+, uv, FastAPI, LangGraph | 독립적인 Agent dependency 관리, Agent graph, ReAct, HITL checkpoint, AI 평가 |
-| Model Provider | OpenAI API, Gemini API | run별 provider/model을 고정하고 동일 평가셋으로 비교 |
-| Internal Contract | REST/OpenAPI 우선, MCP 후속 | 초기 복잡도를 제한하고 Tool 경계를 명시적으로 versioning |
-| Frontend | React/Next.js + TypeScript | 제품형 UI와 타입 안전한 API 연동 |
-| Primary DB | PostgreSQL | 관계형 데이터, 트랜잭션, 상태, 감사 기록 통합 |
-| Vector Search | pgvector | 비즈니스 데이터와 embedding을 동일 DB에서 관리 |
-| Web Research | Search/Fetch interface + Tavily + Direct HTTP/PDF | 탐색과 통제된 원문 수집을 분리하고 provider 종속 방지 |
-| Migration | Flyway | 재현 가능한 schema 변경 |
-| File Storage | 개발: Docker volume, 운영: S3-compatible storage | 원본 문서를 DB와 분리 |
-| Observability | Micrometer + OpenTelemetry-compatible tracing | API·LLM·Tool 실행 추적 |
-| Test | JUnit 5, Testcontainers, pytest | business와 Agent runtime을 각각 검증 |
-| Backend Packaging | Gradle Kotlin DSL | 명시적인 Java 의존성과 build 관리 |
-| Agent Packaging | uv + `pyproject.toml` + `uv.lock` | V1 Poetry 환경과 분리된 재현 가능한 Python dependency 관리 |
-| Local Infra | Docker Compose | 한 명의 개발자도 재현 가능한 환경 |
+| 영역              | 선택                                              | 이유                                                                         |
+| ----------------- | ------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Product Backend   | Java 21+, Spring Boot                             | 기업형 도메인 모델, 보안, RBAC, 트랜잭션, Tool 구현                          |
+| AI Runtime        | Python 3.12, uv, FastAPI, LangGraph               | 독립적인 Agent dependency 관리, Agent graph, ReAct, HITL checkpoint, AI 평가 |
+| Model Provider    | 신규 실행 OpenAI, 과거 Gemini 기록 호환           | 실행별 제공사·모델을 고정하고 현재 지원 정책으로 검증                        |
+| Internal Contract | REST/OpenAPI 우선, MCP 후속                       | 초기 복잡도를 제한하고 Tool 경계를 명시적으로 versioning                     |
+| Frontend          | React/Next.js + TypeScript                        | 제품형 UI와 타입 안전한 API 연동                                             |
+| Primary DB        | PostgreSQL                                        | 관계형 데이터, 트랜잭션, 상태, 감사 기록 통합                                |
+| Vector Search     | pgvector                                          | 비즈니스 데이터와 embedding을 동일 DB에서 관리                               |
+| Web Research      | Search/Fetch interface + Tavily + Direct HTTP/PDF | 탐색과 통제된 원문 수집을 분리하고 provider 종속 방지                        |
+| Migration         | Flyway                                            | 재현 가능한 schema 변경                                                      |
+| File Storage 목표 | 개발 volume, 운영 S3 호환 저장소 검토             | 현재 대화 첨부 원본은 저장하지 않음. 일반 원본 보관 설계와 구분              |
+| Observability     | Micrometer + OpenTelemetry-compatible tracing     | API·LLM·Tool 실행 추적                                                       |
+| Test              | JUnit 5, Testcontainers, pytest                   | business와 Agent runtime을 각각 검증                                         |
+| Backend Packaging | Gradle Kotlin DSL                                 | 명시적인 Java 의존성과 build 관리                                            |
+| Agent Packaging   | uv + `pyproject.toml` + `uv.lock`                 | V1 Poetry 환경과 분리된 재현 가능한 Python dependency 관리                   |
+| Local Infra       | Docker Compose                                    | 한 명의 개발자도 재현 가능한 환경                                            |
 
 구현 시점의 안정 버전을 build 파일과 Docker image tag에 고정한다. `latest` tag를 사용하지 않는다.
 
@@ -287,9 +306,9 @@ flowchart LR
     subgraph AIR["Python Agent Runtime"]
         FAST["FastAPI Internal API"]
         GRAPH["LangGraph Global Orchestrator"]
-        DEPT["Bounded Department Deep Agents"]
+        DEPT["제한된 부문 실행 · Deep Agents는 승격 후보"]
         SPEC["Specialist Agent / ReAct / HITL"]
-        MODEL["OpenAI / Gemini Adapter"]
+        MODEL["OpenAI · 과거 제공사 기록 호환"]
         WEB["SearchProvider / FetchProvider"]
     end
 
@@ -336,60 +355,57 @@ flowchart LR
 
 ---
 
-## 7. Backend 모듈 구조
+## 7. 서비스 코드 구조
+
+Backend는 [ADR-0017](adr/0017-domain-first-spring-packaging.md)의 도메인 우선 구조를 사용한다.
 
 ```text
-backend/src/main/java/com/freelanceops/
-├── identity/
-│   ├── domain/
-│   ├── application/
-│   ├── infrastructure/
-│   └── web/
-├── workspace/
-├── crm/
-├── quotation/
-├── knowledge/
-├── agentgateway/
-├── internaltool/
-├── evidence/
-├── proposal/
-├── audit/
-└── shared/
+backend/src/main/java/com/freelanceops/backend/
+├── domain/
+│   ├── identity/       # 계정·인증
+│   ├── workspace/      # 멤버십·권한
+│   ├── client/         # 고객
+│   ├── project/        # 문의·프로젝트
+│   ├── requirement/    # 요구사항
+│   ├── quotation/      # 견적·계산·발행
+│   ├── knowledge/      # 문서·검색·색인
+│   ├── memory/         # 원문·확인 기록
+│   ├── agentrun/       # 실행 요청·제공사·비용
+│   ├── agenttask/      # 공개 작업·명령·이벤트
+│   ├── internaltool/   # 인증된 내부 도구
+│   ├── proposal/       # 공유 제안서
+│   ├── outcome/        # 실제 결과
+│   └── notice/         # 운영 공지
+└── global/             # 공통 설정·오류·상태·관측
 ```
 
-각 모듈은 다음 계층을 기본으로 한다.
+도메인 안에는 실제 구현에 필요한 `controller`, `dto`, `entity`, `model`, `repository`, `service`, `client`, `security`, `policy`만 둔다. 형식적인 빈 계층이나 구현체가 하나인 서비스의 인터페이스 쌍을 강제하지 않는다. JPA 엔티티를 API 응답으로 직접 반환하지 않고 비밀번호 해시·내부 메타데이터·삭제 정보를 별도 DTO로 보호한다.
 
-- `domain`: entity, value object, domain rule
-- `application`: use case와 transaction boundary
-- `infrastructure`: JPA, pgvector, 외부 API, 파일 저장 구현
-- `web`: REST controller와 request/response DTO
-
-JPA entity를 API response로 직접 반환하지 않는다. 특히 password hash, 내부 metadata, 삭제 정보가 직렬화되지 않도록 별도 DTO를 사용한다.
-
-Python Agent service는 다음 구조를 기본으로 한다.
+Agent는 독립적인 uv 애플리케이션 프로젝트이며 배포 wheel을 만들지 않는다.
 
 ```text
 agent/
 ├── src/
-│   ├── api/              # Spring 전용 internal FastAPI route
-│   ├── graph/            # LangGraph 정의와 상태
-│   ├── infrastructure/   # Agent runtime adapter
-│   ├── retrieval/        # RAPTOR tree build와 retrieval core
-│   ├── main.py           # FastAPI entrypoint
-│   ├── contracts.py      # versioned request/response model
-│   └── providers.py      # OpenAI/Gemini adapter boundary
+│   ├── api/            # 내부 인증 API·응답
+│   ├── runtime/        # 수명·실행·저장·작업·이벤트
+│   ├── graph/          # LangGraph·부문·프롬프트
+│   ├── routing/        # 정책·실행 경로 선택
+│   ├── gateway/        # 모델 정책·동시성·장애 격리
+│   ├── providers/      # 제공사별 통신 경계
+│   ├── integrations/   # Spring 내부 도구·작업 연동
+│   ├── security/       # 위임 토큰 검증
+│   ├── attachments/    # 제한된 판독·로컬 OCR
+│   ├── retrieval/      # RAPTOR·근거 맥락
+│   ├── web_research/   # 검색·허용 출처 수집
+│   ├── departments/    # Deep Agents 비교 후보
+│   ├── main.py         # 앱 생성 진입점
+│   └── config.py       # 환경 설정
 ├── tests/
 ├── pyproject.toml
 └── uv.lock
 ```
 
-- `agent`는 ADR-0008에 따라 독립적인 uv project로 관리한다.
-- 배포 wheel을 만들지 않는 application project이며 `[tool.uv] package = false`와
-  flat `src/` import root를 사용한다.
-- V2 Agent dependency를 Git history에 보존된 V1 Poetry project와 혼합하지 않는다.
-- LangChain/LangGraph 내부 message나 Runnable 객체를 service contract로 노출하지 않는다.
-- FastAPI request/response는 versioned Pydantic schema를 사용한다.
-- Agent service는 Spring이 발급한 delegation token과 `aud=agent-service`를 검증한다.
+`[tool.uv] package = false`와 `src/` import 루트를 사용한다. 의존성·테스트·이미지는 [ADR-0008](adr/0008-python-agent-uv-project.md)에 따라 잠금 파일을 기준으로 관리한다. LangChain/LangGraph 내부 객체는 서비스 계약으로 노출하지 않으며 API는 버전 있는 Pydantic/OpenAPI 계약과 Spring 위임 토큰을 사용한다. Agent audience 기본값은 `freelance-ops-agent`다.
 
 ---
 
@@ -498,17 +514,17 @@ version BIGINT
 
 V2 Agent는 모든 로직을 LLM에 위임하지 않는다.
 
-| 책임 | 담당 |
-|---|---|
-| 제품 상태, 권한, 견적 영속화, 승인 | Spring application code |
-| Agent graph, 기능 분해, Tool 선택, interrupt | Python LangGraph |
-| OpenAI/Gemini 호출과 structured output | Python model provider adapter |
-| 금액, 기간, 세금, 합계 계산 | Spring의 결정적 Java Tool |
-| 내부 지식 검색 | Spring의 PostgreSQL full-text + pgvector Tool |
-| 외부 자료 탐색·수집 | Python SearchProvider·FetchProvider와 검증된 수집 정책 |
-| 상세 checkpoint와 resume | LangGraph `AsyncPostgresSaver` |
-| 결과 근거 검증 | Spring validator + 제한된 LLM evaluator |
-| 최종 수정·승인 | 사용자 HITL, Spring public API 경유 |
+| 책임                                         | 담당                                                   |
+| -------------------------------------------- | ------------------------------------------------------ |
+| 제품 상태, 권한, 견적 영속화, 승인           | Spring application code                                |
+| Agent graph, 기능 분해, Tool 선택, interrupt | Python LangGraph                                       |
+| OpenAI/Gemini 호출과 structured output       | Python model provider adapter                          |
+| 금액, 기간, 세금, 합계 계산                  | Spring의 결정적 Java Tool                              |
+| 내부 지식 검색                               | Spring의 PostgreSQL full-text + pgvector Tool          |
+| 외부 자료 탐색·수집                          | Python SearchProvider·FetchProvider와 검증된 수집 정책 |
+| 상세 checkpoint와 resume                     | LangGraph `AsyncPostgresSaver`                         |
+| 결과 근거 검증                               | Spring validator + 제한된 LLM evaluator                |
+| 최종 수정·승인                               | 사용자 HITL, Spring public API 경유                    |
 
 ### 9.2 상태 전이
 
@@ -551,17 +567,17 @@ Spring은 사용자에게 공개되는 `agent_run` 상태와 승인 기록을 `a
 
 ### 9.4 내부 Tool 목록
 
-| Tool | 입력 | 출력 | 필요 permission / 성격 |
-|---|---|---|---|
-| `search_past_projects` | query, filters | rank와 source가 포함된 사례 | `project.read`, `document.read` |
-| `search_risk_evidence` | requirement, source type | 정책·약관 chunk | `document.read` |
-| `get_rate_card` | work type | 단가와 적용 규칙 | `workspace.read` |
-| `get_estimation_policy` | 없음 | buffer·최소금액 정책 | `workspace.read` |
-| `calculate_effort` | work items, complexity | 항목별 공수 범위 | deterministic |
-| `calculate_quote` | items, rate card, policy | 합계와 계산 breakdown | deterministic |
-| `validate_quote` | quotation draft | 오류·누락·경고 | `quotation.read`, deterministic |
-| `check_availability` | 기간, 사용자 일정 | 가능한 일정 범위 | `integration.read`, optional |
-| `create_quote_draft` | validated result | draft ID | `quotation.write`, workflow-controlled |
+| Tool                    | 입력                     | 출력                        | 필요 permission / 성격                 |
+| ----------------------- | ------------------------ | --------------------------- | -------------------------------------- |
+| `search_past_projects`  | query, filters           | rank와 source가 포함된 사례 | `project.read`, `document.read`        |
+| `search_risk_evidence`  | requirement, source type | 정책·약관 chunk             | `document.read`                        |
+| `get_rate_card`         | work type                | 단가와 적용 규칙            | `workspace.read`                       |
+| `get_estimation_policy` | 없음                     | buffer·최소금액 정책        | `workspace.read`                       |
+| `calculate_effort`      | work items, complexity   | 항목별 공수 범위            | deterministic                          |
+| `calculate_quote`       | items, rate card, policy | 합계와 계산 breakdown       | deterministic                          |
+| `validate_quote`        | quotation draft          | 오류·누락·경고              | `quotation.read`, deterministic        |
+| `check_availability`    | 기간, 사용자 일정        | 가능한 일정 범위            | `integration.read`, optional           |
+| `create_quote_draft`    | validated result         | draft ID                    | `quotation.write`, workflow-controlled |
 
 표의 Tool은 Python 내부에서 Spring internal REST API를 호출하는 wrapper다. Spring은 token의 workspace를 사용하므로 Agent가 임의의 `workspace_id`를 Tool 인자로 선택하게 하지 않는다. `calculate_quote` 결과를 LLM이 임의로 덮어쓸 수 없으며, 변경하려면 입력 work item 또는 policy를 수정해 Tool을 다시 호출한다.
 
@@ -615,7 +631,7 @@ flowchart TD
 - 사용자 대화의 단계 전환은 상태에 의해 허용된 제한적 handoff만 사용한다.
 - Agent가 동적으로 새로운 Agent를 생성하거나 허용되지 않은 부문으로 handoff할 수 없다.
 - 각 부문은 versioned structured result를 반환하며 `findings`, `risks`, `sources`, `assumptions`, `unresolved_questions`, `validation_status`를 포함한다.
-- Requirements, Research와 Deal Design 부문의 내부 실행 하네스는 `deepagents`를 사용한다. 기본 범용 subagent와 host shell은 비활성화하고, 사전 등록한 specialist·Tool allowlist·skill·run 전용 가상 파일공간만 허용한다.
+- 목표 설계에서 Requirements, Research와 Deal Design의 하네스 후보는 `deepagents`다. 현재 운영 경로에 일괄 적용된 상태는 아니다. 기본 범용 subagent와 host shell은 비활성화하고, 사전 등록한 specialist·Tool allowlist·skill·run 전용 가상 파일공간만 허용한다.
 - Verification은 Deep Agent가 아니라 별도 LangGraph workflow와 결정적 Spring Tool로 유지하여 생성 부문과 승인 부문을 분리한다.
 
 첫 구현은 단일 Orchestrator와 Specialist Tool 호출로 시작한다. 평가에서 품질 이득이 확인된 부문만 Deep Agent로 승격하며 조사 부문을 첫 후보로 한다. 세부 runtime·보안·승격 기준은 [ADR-0013](adr/0013-deep-agents-department-runtime.md)과 [목표 구조](architecture/deep-agents-target-architecture.md)를 따른다.
@@ -693,11 +709,11 @@ local-first hybrid cascade를 대체한 근거와 향후 승격 조건은
 
 검색은 다음 신호를 조합한다.
 
-1. PostgreSQL full-text keyword rank
-2. pgvector semantic rank
-3. workspace, document type, project status, category filter
+1. PostgreSQL 전문 검색의 키워드 순위
+2. pgvector 의미 검색 순위
+3. 워크스페이스·문서 유형·프로젝트 상태·분류 필터
 4. 실제 완료 결과 보유 여부
-5. recency 또는 source authority
+5. 최신성과 출처 신뢰도
 
 초기에는 두 검색 결과를 application service에서 RRF로 결합한다. 가중치는 추측으로 고정하지 않고 evaluation dataset 결과로 결정한다.
 
@@ -745,11 +761,11 @@ FetchProvider.fetch(url)
 
 기본 routing 정책은 다음과 같다.
 
-| 상황 | 기본 route |
-|---|---|
-| 새로운 출처와 최신 정보 탐색 | Tavily Search |
-| 알려진 정적 URL 조회 | Direct HTTP |
-| 법령·가이드 PDF | 전용 PDF extractor |
+| 상황                         | 기본 route         |
+| ---------------------------- | ------------------ |
+| 새로운 출처와 최신 정보 탐색 | Tavily Search      |
+| 알려진 정적 URL 조회         | Direct HTTP        |
+| 법령·가이드 PDF              | 전용 PDF extractor |
 
 JavaScript 동적 페이지와 다중 페이지 수집은 현재 지원하지 않는다. 실제 요구, 브라우저 runtime 운영 계획과 동일 corpus benchmark가 준비되면 별도 ADR로 provider를 도입한다.
 
@@ -1118,25 +1134,25 @@ Agent 실행 route 자체는 별도로 다음 구성을 비교한다.
 
 ### 14.4 지표
 
-| 영역 | 지표 | 초기 목표 |
-|---|---|---|
-| Retrieval | Recall@5 | 0.80 이상 |
-| Retrieval | MRR | baseline 대비 개선 |
-| Grounding | Citation precision | 0.90 이상 |
-| Grounding | 주요 주장 citation coverage | 0.95 이상 |
-| 견적 | 정답 범위 포함률 | 0.75 이상 |
-| 견적 | 항목 누락률 | V1 대비 30% 이상 감소 |
-| 계산 | 합계·세금·할인 산술 정확도 | 100% |
-| Risk | 고위험 사례 recall | 0.95 이상 |
-| Agent | 정상 case completion rate | 0.90 이상 |
-| Agent | department routing accuracy | baseline 측정 후 결정 |
-| Routing | macro-F1·route별 recall | baseline 측정 후 threshold 결정 |
-| Routing | `HUMAN_REQUIRED` 누락률 | 0% 목표 |
-| Routing | abstain·Terra fallback 비율 | 품질·비용 Pareto curve로 선택 |
-| Agent | loop·budget 초과율 | 0% |
-| Web | source 수집 성공률·freshness | corpus별 baseline 대비 개선 |
-| Cost | 성공한 산출물당 variable cost | 판매가의 20% 이하를 초기 guardrail로 사용 |
-| Security | cross-tenant 차단 | 100% |
+| 영역      | 지표                          | 초기 목표                                 |
+| --------- | ----------------------------- | ----------------------------------------- |
+| Retrieval | Recall@5                      | 0.80 이상                                 |
+| Retrieval | MRR                           | baseline 대비 개선                        |
+| Grounding | Citation precision            | 0.90 이상                                 |
+| Grounding | 주요 주장 citation coverage   | 0.95 이상                                 |
+| 견적      | 정답 범위 포함률              | 0.75 이상                                 |
+| 견적      | 항목 누락률                   | V1 대비 30% 이상 감소                     |
+| 계산      | 합계·세금·할인 산술 정확도    | 100%                                      |
+| Risk      | 고위험 사례 recall            | 0.95 이상                                 |
+| Agent     | 정상 case completion rate     | 0.90 이상                                 |
+| Agent     | department routing accuracy   | baseline 측정 후 결정                     |
+| Routing   | macro-F1·route별 recall       | baseline 측정 후 threshold 결정           |
+| Routing   | `HUMAN_REQUIRED` 누락률       | 0% 목표                                   |
+| Routing   | abstain·Terra fallback 비율   | 품질·비용 Pareto curve로 선택             |
+| Agent     | loop·budget 초과율            | 0%                                        |
+| Web       | source 수집 성공률·freshness  | corpus별 baseline 대비 개선               |
+| Cost      | 성공한 산출물당 variable cost | 판매가의 20% 이하를 초기 guardrail로 사용 |
+| Security  | cross-tenant 차단             | 100%                                      |
 
 초기 목표는 dataset 품질과 baseline 결과에 따라 ADR로 조정할 수 있다. 숫자를 README에 공개할 때 dataset 규모와 confidence interval을 함께 표기한다.
 
@@ -1339,16 +1355,15 @@ billable_outcome
 
 ### 18.1 로컬 Compose
 
-필수 service는 다음 네 개다.
+현재 구성은 다음과 같다.
 
-```text
-frontend
-backend-spring
-agent-python
-postgres-pgvector
-```
+| 파일                             | 서비스                                      |
+| -------------------------------- | ------------------------------------------- |
+| `docker-compose-infra.yaml`      | `postgres`와 내부 네트워크·DB 볼륨          |
+| `docker-compose.yaml`            | `agent`, `backend`                          |
+| `docker-compose.production.yaml` | 운영 이미지·자원 제한을 겹치고 `caddy` 추가 |
 
-`agent-python`은 Docker 내부 network에만 expose한다. 선택적으로 observability profile을 제공할 수 있다. 브라우저 crawler는 실제 요구와 운영 benchmark가 생길 때 별도 배포 결정을 내린다. 로컬 개발 기본 경로에 Kafka, MongoDB, Qdrant, Redis를 포함하지 않는다.
+Frontend는 로컬 Node.js로 실행하거나 Vercel로 배포한다. 기본 Compose의 네 번째 서비스로 들어 있지 않다. Agent·PostgreSQL은 호스트 포트를 공개하지 않고 Backend만 loopback에 연결한다. Kafka·MongoDB·Qdrant·Redis와 브라우저 크롤러는 기본 구성에 없다. 실제 실행·검사·복구 명령은 [인프라 안내](../infra/README.md)를 따른다.
 
 ### 18.2 PostgreSQL
 
@@ -1372,7 +1387,7 @@ postgres-pgvector
 ### 18.4 Vultr runtime 배포
 
 - Spring Boot, Python Agent와 PostgreSQL + pgvector는 초기 Vultr VM의 Docker Compose에서 실행한다.
-- host firewall은 SSH 관리 경로와 TLS reverse proxy만 허용하고 Backend를 제외한 application port를 외부에 공개하지 않는다.
+- 호스트 방화벽은 SSH 관리 경로와 TLS 프록시만 허용한다. Backend는 loopback에만 연결하고 Agent·PostgreSQL 포트를 공개하지 않는다.
 - 서비스별 CPU·memory limit와 disk 사용량 경보를 설정해 Agent 부하가 Spring과 PostgreSQL을 고갈시키지 않게 한다.
 - database volume snapshot만으로 backup을 대체하지 않는다. 암호화한 PostgreSQL logical backup과 원본 파일을 별도 장애 영역에 보관하고 restore를 검증한다.
 - image registry, Vultr 배포 사용자, secret 주입 방식과 rollback 명령을 staging runbook에 고정한 뒤 자동 CD를 활성화한다.
@@ -1405,14 +1420,14 @@ postgres-pgvector
 
 ### 19.2 대상
 
-| V1 데이터 | V2 목적지 | 처리 |
-|---|---|---|
-| User | `user`, `workspace`, `workspace_member`, `member_role` | 사용자별 기본 workspace 생성 후 OWNER role 부여 |
-| CRM project | `client`, `project` | 중복 고객 정리 및 owner 연결 |
-| FAISS project document | `document`, `document_chunk` | 원문 복원 후 재chunk·재embedding |
-| 법률/TOS chunk | versioned policy document | 공식 source와 버전 검증 후 재적재 |
-| 기존 Agent thread | 기본적으로 미이관 | 가치 있는 최종 견적만 import |
-| system logs | 미이관 | 보존 필요 시 archive만 생성 |
+| V1 데이터              | V2 목적지                                              | 처리                                            |
+| ---------------------- | ------------------------------------------------------ | ----------------------------------------------- |
+| User                   | `user`, `workspace`, `workspace_member`, `member_role` | 사용자별 기본 workspace 생성 후 OWNER role 부여 |
+| CRM project            | `client`, `project`                                    | 중복 고객 정리 및 owner 연결                    |
+| FAISS project document | `document`, `document_chunk`                           | 원문 복원 후 재chunk·재embedding                |
+| 법률/TOS chunk         | versioned policy document                              | 공식 source와 버전 검증 후 재적재               |
+| 기존 Agent thread      | 기본적으로 미이관                                      | 가치 있는 최종 견적만 import                    |
+| system logs            | 미이관                                                 | 보존 필요 시 archive만 생성                     |
 
 ### 19.3 검증
 
@@ -1638,7 +1653,7 @@ V2의 첫 공개 릴리스는 다음 조건을 모두 만족해야 한다.
 - [ ] 마지막 Owner 보호와 권한 상승 차단 테스트가 통과한다.
 - [ ] Spring Boot backend가 주요 use case를 제공한다.
 - [ ] FastAPI/LangGraph Agent service가 Docker 내부 API로 배포된다.
-- [ ] Agent service는 OpenAI와 Gemini provider를 run별로 선택·기록할 수 있다.
+- [ ] Agent는 지원 제공사·모델을 실행별로 고정·기록한다. 현재 새 실행은 OpenAI만 허용한다.
 - [ ] Python Agent는 Spring business table에 직접 접근하지 않는다.
 - [ ] Spring-Agent delegation token, idempotency와 contract test가 구현되었다.
 - [ ] dummy가 아닌 실제 Next.js frontend가 API와 연결된다.

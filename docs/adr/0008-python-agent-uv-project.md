@@ -6,7 +6,9 @@
 > 2026-09-01 저장소 정리에서 V1 source는 Git history로 이관했다. 아래 `legacy/v1`
 > 설명은 결정 당시의 migration 경계를 기록한 역사적 맥락이다.
 
-## Context
+> 2026-10-16 구현 대조: 현재 Agent는 Python 3.12로 고정하며 pyproject.toml·uv.lock·Docker·CI를 사용한다. V1 Poetry 소스는 Git 이력에 보존돼 있어 현재 legacy/v1 디렉터리나 초기 scaffold를 찾을 필요가 없다.
+
+## 배경
 
 V2는 Spring Boot 제품 backend와 Python Agent runtime을 분리하며 Python
 서비스는 `agent`에 위치한다. `legacy/v1`에는 V1과 기존 prototype
@@ -16,7 +18,7 @@ V2 Agent는 Docker, CI와 여러 개발 PC에서 같은 Python dependency graph�
 재현해야 한다. 동시에 V1 기준선을 보존하면서 새 Agent의 dependency와
 virtual environment 경계를 명확히 분리해야 한다.
 
-## Decision
+## 결정
 
 - V2 Python Agent는 `agent`를 root로 하는 독립적인 uv 프로젝트로 관리한다.
 - V2 Agent의 직접 dependency와 project metadata는
@@ -47,7 +49,7 @@ test:              uv run --locked pytest
 실제 `pyproject.toml`과 `uv.lock`이 생성되기 전에는 위 명령을 성공한
 검증으로 보고하지 않는다.
 
-## Consequences
+## 영향
 
 장점:
 
@@ -64,7 +66,7 @@ test:              uv run --locked pytest
 - legacy prototype을 V2 Agent로 옮길 때 dependency와 test 경계를 명시적으로
   재정리해야 한다.
 
-## Rejected alternatives
+## 검토한 대안
 
 - V2 Agent도 legacy Poetry project에 포함: V1과 V2 dependency 경계가 섞이고
   독립적인 Agent image와 CI 재현성이 낮아지므로 거부한다.

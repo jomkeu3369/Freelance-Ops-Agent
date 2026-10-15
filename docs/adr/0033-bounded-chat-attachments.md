@@ -1,12 +1,28 @@
-# ADR-0033: Bounded chat attachment extraction
+# ADR-0033: 대화 첨부파일의 제한된 텍스트 추출
 
-- Status: Accepted for this implementation branch
-- Date: 2026-10-05
+- 상태: Accepted — 2026-10-05 구현 경계
+- 결정일: 2026-10-05
 
-Chat attachments use Spring authentication, workspace permissions and project scope. Originals stay in browser memory until the user requests extraction. Spring relays bounded bytes to an authenticated, local-only Agent parser and stores only its bounded text and coverage metadata in a 30-minute staging record. The user reviews coverage before sending. START resolves owner-scoped staging IDs inside its existing transaction, after idempotent replay and before execution-cost admission. The durable START input stores extracted data separately from the user request. Staging is deleted on successful START, explicit removal, expiry or project deletion. Existing run retention governs text already sent to a run; deletion of staging does not erase that conversation.
+## 배경과 결정
 
-The parser reuses the existing pypdf dependency. Parsing runs in a killable child process with a 15-second timeout; Linux adds a 512 MiB address-space and CPU limit. At most two parsers run per Agent process. Files are limited to six per message, 2 MiB each, 8 MiB total, 30 PDF pages, 60 GIF frames, 16 million pixels and 40,000 extracted characters per message. Overflow is rejected, never silently truncated. UTF-8/UTF-16 BOM/CP949 text is decoded strictly. CSV delimiters are limited to comma, tab, semicolon and pipe, with CSV treated solely as data (no formula execution). PDF text layers are read first. On Linux, free local Tesseract OCR can also read JPG/PNG/GIF text and PDF pages without text layers, with English/Korean language packs when available. OCR samples at most three frames or text-empty pages (first/middle/last), scales images to at most 2,000 pixels per edge and has an eight-second OCR budget with at most three seconds per native command, inside the reader's existing process/resource limits. Original bytes and OCR images are not persisted; timeout or cancellation terminates the parser process group, including native descendants. Coverage identifies sampled and omitted pages/frames. PDF/image results remain `PARTIAL` when text is found and `UNSUPPORTED` when no text is available; missing OCR tools are reported without inventing extracted content. OCR can miss or misread text and does not understand objects, charts, handwriting, layout or animation meaning. No paid model, remote OCR service, embedding or multimodal path is invoked.
+첨부파일은 Spring의 인증·워크스페이스 권한·프로젝트 범위를 따른다. 원본은 사용자가 읽기를 요청할 때까지 브라우저 메모리에만 둔다. Spring은 제한된 바이트를 인증된 내부 Agent 판독기에 전달하고, 추출 텍스트·범위만 30분 대기 자료로 보관한다. 사용자는 범위를 확인한 뒤 전송한다.
 
-Attachment content is JSON-encoded as untrusted reference data after routing, with explicit instructions never to obey instructions inside it or infer authority. It is excluded from routing, direct operations and research queries. Model prompt separation reduces injection risk; it is not a guarantee of model compliance. Existing Tool permissions and financial approval boundaries remain authoritative.
+START는 기존 트랜잭션 안에서 동일 요청 재전송을 처리한 뒤, 비용 승인 전에 본인 대기 ID를 해결한다. 추출 자료는 사용자 요청과 별도로 영속 명령에 기록한다. 성공한 START·명시적 삭제·만료·프로젝트 삭제 때 대기 자료를 제거한다. 이미 전송한 텍스트는 기존 대화 보존 정책을 따르므로 대기 자료 삭제가 과거 대화까지 지우지는 않는다.
 
-Local drafts retain File objects only in memory, scoped to the authenticated user/workspace/project with a one-hour expiry and removal on logout. They survive component navigation, not page reloads. Long clipboard text becomes a UTF-8 TXT File without trimming or newline conversion; configurable threshold defaults to 8,000 characters. New attachment modules isolate UI changes from composer styling work.
+## 판독과 자원 제한
+
+기존 pypdf를 재사용하며 종료 가능한 자식 프로세스에서 읽는다. 기본 경계는 파일당 2MiB, 메시지당 6개·합계 8MiB·40,000자, PDF 30페이지, 이미지 60프레임이다. 이미지 한 프레임은 1,600만 픽셀, 디코딩 합계는 3,200만 픽셀을 넘지 않는다. 크기 초과는 잘라내지 않고 거부한다.
+
+UTF-8·UTF-16 BOM·CP949를 엄격히 해석한다. CSV 구분자는 쉼표·탭·세미콜론·파이프로 제한하고 수식은 실행하지 않는다. PDF는 텍스트 레이어를 먼저 읽는다. Linux에서는 무료 로컬 Tesseract의 한글·영문 팩으로 이미지와 스캔 후보를 읽는다.
+
+OCR은 최대 세 프레임·후보 페이지를 표본으로 읽으며 변당 2,000픽셀, 명령당 3초, 전체 8초를 적용한다. 판독기는 최대 2개, 요청 15초, 주소 공간 512MiB와 CPU 제한을 사용한다. 원본·OCR 이미지는 저장하지 않고 시간 초과·취소 시 네이티브 자손을 포함한 프로세스 그룹을 종료한다.
+
+초기 빈 페이지 중심 후보 선정은 이후 혼합 PDF의 이미지 배치 검사로 보완했다. 현재 세부 한도·언어/배치 옵션·실패 보존·범위 형식은 [판독기 안내](../../agent/src/attachments/README.md), 변경 근거는 [2026-10-07 검증](../testing/ocr-coverage-validation-2026-10-07.md)을 따른다.
+
+## 신뢰 경계와 영향
+
+추출 자료는 라우팅 뒤 JSON으로 인코딩한 신뢰하지 않는 참고 데이터다. 내부 지시를 따르거나 권한 근거로 사용하지 않는다. 라우팅·직접 작업·검색어에서는 제외한다. 문구 분리는 모델의 지시 준수를 보장하지 않으므로 서버의 도구 권한·금액 승인 경계를 유지한다.
+
+텍스트가 있으면 PDF·이미지 결과는 `PARTIAL`, 없으면 `UNSUPPORTED`다. 도구 누락·생략한 페이지·프레임을 표시하며 결과를 꾸며내지 않는다. OCR은 누락·오독할 수 있고 물체·차트·필기·배치·움직임의 의미는 이해하지 않는다. 유료 모델·외부 OCR·임베딩·멀티모달 호출은 없다.
+
+로컬 File 초안은 사용자·워크스페이스·프로젝트별 메모리에 한 시간 보관하고 로그아웃 때 제거한다. 화면 이동은 유지하지만 새로고침은 유지하지 않는다. 기본 8,000자를 넘는 붙여넣기는 공백·줄바꿈을 바꾸지 않은 UTF-8 TXT 파일로 전환한다. 첨부 모듈은 입력창 스타일과 분리한다.

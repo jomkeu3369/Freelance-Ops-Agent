@@ -3,11 +3,11 @@
 - 상태: Accepted
 - 결정일: 2026-07-20
 
-## Context
+## 배경
 
 V1은 MongoDB와 로컬 FAISS index를 분리해 사용한다. 이 구조는 업무 데이터와 vector metadata의 transaction, 멀티테넌시 필터, 동시 쓰기, backup과 참조 무결성을 일관되게 보장하기 어렵다.
 
-## Decision
+## 결정
 
 - PostgreSQL을 유일한 운영 database로 사용한다.
 - pgvector를 document chunk embedding 검색에 사용한다.
@@ -16,7 +16,7 @@ V1은 MongoDB와 로컬 FAISS index를 분리해 사용한다. 이 구조는 업
 - 초기 데이터에서는 exact vector search를 사용하고 benchmark가 필요성을 입증할 때 HNSW를 추가한다.
 - 원본 파일은 개발 환경의 volume, 운영 환경의 S3-compatible storage에 두고 metadata만 PostgreSQL에 저장한다.
 
-## Consequences
+## 영향
 
 - 업무 데이터, evidence와 vector source를 transaction 및 foreign key로 연결할 수 있다.
 - workspace filter를 일반 SQL과 vector 검색에 동일하게 적용할 수 있다.

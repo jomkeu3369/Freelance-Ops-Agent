@@ -3,13 +3,15 @@
 - 상태: Accepted
 - 결정일: 2026-08-05
 
-## Context
+> 2026-10-16 구현 대조: 아래 프로토타입 설명은 2026-08-05의 배경이다. 이후 승인·배포된 현재 화면을 일괄 프로토타입으로 취급하지 않는다. 새 시각 변경의 디자인 전달·Preview 승인 원칙은 유지한다.
+
+## 배경
 
 구현 담당자가 제품 문서만으로 시각 디자인과 frontend 구현을 동시에 주도하면 사용자가 기대하는 완성도와 현업 웹디자이너의 시각적 판단을 안정적으로 재현하기 어렵다. 현재 `frontend/` prototype은 기술과 interaction 가능성을 검증했지만 최종 디자인 기준으로 확정하지 않았다.
 
 웹디자이너는 1920×1080 기준의 결과물을 제작하고, 가능하면 HTML·CSS·JavaScript와 원본 asset을 함께 제공한다. 구현 담당자는 제품 명세를 디자이너가 사용할 수 있는 자료로 변환하고, 완료된 결과물을 제품 코드와 반응형 화면으로 옮기는 역할에 집중해야 한다.
 
-## Decision
+## 결정
 
 - 사용자가 실제 레퍼런스 사이트 2~3개를 선택한다.
 - 구현 담당자는 레퍼런스와 V2 문서를 근거로 웹디자이너용 brief, 문구, 화면 명세, component·state 목록과 handoff checklist를 작성한다.
@@ -22,7 +24,7 @@
 
 상세 절차는 [`docs/frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md`](../frontend/DESIGN_IMPLEMENTATION_WORKFLOW.md)를 따른다.
 
-## Consequences
+## 영향
 
 ### 장점
 

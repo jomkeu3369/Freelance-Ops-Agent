@@ -3,7 +3,7 @@
 - 상태: Accepted
 - 결정일: 2026-08-13
 
-## Context
+## 배경
 
 라우팅 모델과 다중 Agent를 적용하기 전에 내부 문서 질의에 대한 단일 RAG 기준선이
 필요하다. 일반적인 고정 크기 청크 검색만으로는 프로젝트 전체의 공통 주제나 여러
@@ -14,7 +14,7 @@
 도움이 되지만 답변 가능 여부를 단독으로 판정하기에는 부족했다. 따라서 RAPTOR의 cluster를
 답변 허용 gate로 오용하지 않고 계층 탐색에만 사용해야 한다.
 
-## Decision
+## 결정
 
 - 단일 RAG는 원문 leaf 청크를 재귀적으로 embedding, clustering, summarization하여
   여러 추상화 level의 tree를 만드는 RAPTOR 구조를 사용한다.
@@ -54,7 +54,7 @@ Spring 문서 ingest·권한 검사
 → 원문 chunk citation을 포함한 답변 또는 거부
 ```
 
-## Consequences
+## 영향
 
 장점:
 
@@ -71,7 +71,7 @@ Spring 문서 ingest·권한 검사
 - Python 코어만으로 운영 RAG가 완성되는 것은 아니며 Spring Knowledge schema와 internal
   ingest/search API가 추가로 필요하다.
 
-## Rejected alternatives
+## 검토한 대안
 
 - flat chunk RAG만 사용: 단일 문서의 장거리·다중 주제 맥락을 포착하는 기준선이 부족하다.
 - summary를 최종 evidence로 인용: 원문 provenance와 authority를 보장할 수 없어 거부한다.

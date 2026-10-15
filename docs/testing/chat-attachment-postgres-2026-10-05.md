@@ -1,55 +1,26 @@
-# Chat attachment PostgreSQL integration coverage
+# 첨부파일 PostgreSQL 통합 검증 — 2026-10-05
 
-`ChatAttachmentPostgresTest` uses the existing disposable `pgvector/pgvector:pg17`
-Testcontainers/Spring Boot pattern and the complete Flyway migration chain, including
-V45. Only the external `AttachmentReaderClient` is mocked. Membership, permissions,
-project locking, token issuance, JSONB, the monetary ledger, run/outbox creation,
-idempotency and transaction rollback use their real implementations. Signing keys
-are generated in memory for the test. Dispatch and reconciliation are disabled;
-no parser service, model provider or production database is contacted.
+`ChatAttachmentPostgresTest`는 기존 `pgvector/pgvector:pg17` Testcontainers·Spring Boot 패턴과 V45를 포함한 Flyway 이력을 사용한다. 외부 `AttachmentReaderClient`만 대체한다. 멤버십·권한·프로젝트 잠금·토큰 발급·JSONB·금액 원장·실행/발송 대기 명령·중복 처리·롤백은 실제 구현이다. 서명 키는 메모리에서 만들며 운영 DB·모델·실제 판독 서비스는 호출하지 않는다.
 
-## Coverage
+## 검사 범위
 
-- A preview persists only extraction metadata/text and its owner/workspace/project
-  scope, with a 30-minute expiry. Neither original synthetic bytes nor their base64
-  representation appears in staging or the committed START command. Reading a
-  preview leaves it staged and does not create a run or spend reservation
-- V45 rejects a mismatched workspace/project foreign key and oversized JSONB;
-  deleting a project cascades only its staging rows
-- Parser failure and upload transaction rollback leave no staging row
-- Expiry cleanup removes expired rows across owners while preserving fresh rows;
-  expired receipts cannot be resolved or started
-- The 12-item staging quota spans one account's projects and workspaces. Upload
-  cleanup reclaims only that owner's expired rows. A concurrent upload on a second
-  project is observed waiting on PostgreSQL's account-row lock before being rejected
-  as item 13; a barrier keeps the first extraction in flight until the wait is seen
-- Resolution, deletion and consumption enforce all four receipt dimensions; missing
-  membership, foreign projects, revoked membership/permissions and deleting projects
-  cannot upload, delete or start existing receipts
-- START alone consumes selected staging rows after writing its durable command;
-  idempotent replay works after staging is gone, without duplicating the command or
-  reservation. Both caller rollback and a real database outbox-insert failure restore
-  staging and roll back the run, idempotency record and reservation, allowing retry
-- Duplicate receipts, a seventh receipt, more than 8 MiB total and more than 40,000
-  Unicode code points fail without consumption. Exactly six, 8 MiB and 40,000 code
-  points are accepted. Large boundary fixtures insert synthetic validated extraction
-  records directly; parser/file-format validation remains covered separately
+- 미리보기는 소유자·워크스페이스·프로젝트에 속한 텍스트·추출 메타데이터만 30분 보관한다. 원본 바이트와 Base64는 대기 자료·START 명령에 남지 않는다. 미리보기 조회는 실행·금액 예약을 만들지 않는다.
+- V45는 잘못된 워크스페이스/프로젝트 외래키와 큰 JSONB를 거부한다. 프로젝트 삭제는 해당 대기 자료만 함께 제거한다.
+- 판독 실패·업로드 트랜잭션 롤백은 행을 남기지 않는다. 만료 정리는 새 자료를 보존하며 만료 ID는 실행할 수 없다.
+- 대기 한도 12개는 계정의 모든 프로젝트·워크스페이스를 합산한다. 동시 업로드가 계정 행 잠금에 대기한 뒤 13번째로 거부되는 것을 장벽으로 확인한다. 업로드 정리는 해당 소유자의 만료 자료만 회수한다.
+- ID·소유자·워크스페이스·프로젝트를 모두 검사한다. 멤버십·권한 회수·다른 프로젝트·삭제 중 프로젝트는 업로드·삭제·실행을 허용하지 않는다.
+- START는 영속 명령을 쓴 뒤 선택 자료를 소비한다. 대기 자료 삭제 뒤에도 같은 START 재전송은 중복 명령·예약을 만들지 않는다. 호출자 롤백과 실제 DB 명령 삽입 실패 모두 자료·실행·중복 방지 기록·예약을 복원한다.
+- 중복 ID·일곱 번째 파일·합계 8MiB 초과·40,000 Unicode 코드 포인트 초과는 소비 없이 거부한다. 정확히 6개·8MiB·40,000자는 허용한다. 큰 경계 입력은 검증된 합성 추출 행을 직접 넣으며 파일 형식·판독은 별도 검사한다.
 
-## Verification boundary
+## 실행 결과와 재실행
 
-Authored in the dot cloud checkout. The focused Gradle invocation completed on
-2026-10-05: Java/test compilation succeeded; all 19 tests were skipped, with zero
-failures or errors. Docker is unavailable here and no Docker process was started. This class uses `disabledWithoutDocker = true`; an execution that skips
-it is **not** evidence that PostgreSQL migration/locking/rollback assertions passed.
-Run in a supported Docker-capable cloud CI runner with Java 21:
+2026-10-05 최초 환경에서는 Java·테스트 컴파일만 성공했고 19개 전부 생략됐다. `disabledWithoutDocker=true`이므로 이 결과는 DB 잠금·마이그레이션·롤백 통과의 근거가 아니다. 이후 두 번째 원격 통합 후보에서 19개가 실행·통과한 결과는 [통합 기록](cloud-feature-integration-2026-10-05.md)에 보존한다.
+
+Docker와 Java 21이 있는 환경에서 다음 명령으로 검사한다.
 
 ```sh
 cd backend
 ./gradlew test --tests com.freelanceops.backend.integration.ChatAttachmentPostgresTest
 ```
 
-Require zero skipped tests in this class before marking its database behavior
-verified. Compilation/test execution status is reported with the integration result;
-this note does not claim that unexecuted assertions passed. HTTP multipart handling,
-filesystem spill behavior and the live Spring-to-Python reader boundary are outside
-this database-focused suite.
+이 클래스의 생략 0건을 확인해야 DB 동작을 검증했다고 할 수 있다. HTTP multipart·파일시스템 임시 저장·실제 Spring→Python 판독 연결은 이 DB 전용 검사의 범위 밖이다. 최근 전체 CI는 [제품 근거](../portfolio/product-evidence.md)와 연결한다.

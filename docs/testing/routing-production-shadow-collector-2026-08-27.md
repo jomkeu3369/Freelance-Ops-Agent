@@ -48,14 +48,14 @@ delegation token의 run scope가 다르면 403이며, WAITING run은 terminal로
 `V23__route_observation_review_queue.sql`은 다음을 생성한다.
 
 - `agent_route_collection`: cursor, attempt, available time, lease, 마지막 오류
-- `agent_route_observation`: workspace/project/run scope, allowlisted JSONB, optional gold review
+- `agent_route_observation`: 워크스페이스·프로젝트·실행 범위, 허용한 JSONB, 선택적 정답 검토
 - `agent_run` 생성 후 queue row를 만드는 trigger와 기존 run backfill
 - `(agent_run_id, agent_event_id)` unique constraint
 
 후속 migration은 운영 review workflow를 단계적으로 확장한다.
 
 - `V24__route_review_claim_lease.sql`: reviewer claim owner와 15분 lease
-- `V25__route_review_consensus.sql`: review target/vote/status, immutable vote audit,
+- `V25__route_review_consensus.sql`: 검토 대상·투표·상태와 변경 불가 투표 감사,
   위험 route dual-review constraint, OWNER·ADMIN adjudication permission
 - `V26__route_review_shared_error_audit.sql`: 위험 route target 3, 자연 dual 50%, 자연 senior
   audit 5%, 공통오류 방어 constraint
@@ -107,12 +107,12 @@ reviewer ID나 개별 vote를 포함하지 않는다.
 
 가정은 회차당 20건, fixed delay 1초, snapshot latency 50/100/250/500ms, 1시간 지속 유입이다.
 
-| 동시성 | 50ms | 100ms | 250ms | 500ms |
-|---:|---:|---:|---:|---:|
-| 1 | 600/분 | 400/분 | 200/분 | 109/분 |
-| 4 | 960/분 | 800/분 | 533/분 | 343/분 |
-| 8 | 1,043/분 | 923/분 | 686/분 | 480/분 |
-| 20 | 1,143/분 | 1,091/분 | 960/분 | 800/분 |
+| 동시성 |     50ms |    100ms |  250ms |  500ms |
+| -----: | -------: | -------: | -----: | -----: |
+|      1 |   600/분 |   400/분 | 200/분 | 109/분 |
+|      4 |   960/분 |   800/분 | 533/분 | 343/분 |
+|      8 | 1,043/분 |   923/분 | 686/분 | 480/분 |
+|     20 | 1,143/분 | 1,091/분 | 960/분 | 800/분 |
 
 가장 보수적인 500ms와 400건/분 유입에서 동시성 1은 1시간 후 17,469건이 밀렸지만,
 구현값인 동시성 20은 backlog 9건, p95 수집 지연 1.85초였다. 이는 실제 부하 측정이 아니라

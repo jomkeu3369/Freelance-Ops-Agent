@@ -1,7 +1,7 @@
 # RAPTOR Productionization
 
 > 기준일: 2026-09-01
-> 상태: Spring publish·collapsed-tree retrieval 구현, PostgreSQL CI 검증 대기
+> 당시 상태: Spring publish·collapsed-tree retrieval 구현, PostgreSQL CI 검증 대기
 
 ## 트랜잭션 경계
 

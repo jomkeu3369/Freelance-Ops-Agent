@@ -3,11 +3,11 @@
 - 상태: Accepted
 - 결정일: 2026-07-20
 
-## Context
+## 배경
 
 V1은 인증된 사용자가 모든 CRM record와 임의의 Agent thread에 접근할 수 있어 여러 프리랜서가 안전하게 사용하는 제품이 될 수 없다. 단순한 `is_admin`이나 전역 role은 workspace별 팀 구성을 표현하지 못한다.
 
-## Decision
+## 결정
 
 - RBAC role은 `workspace_member`에 부여한다.
 - 기본 role은 `OWNER`, `ADMIN`, `MANAGER`, `ESTIMATOR`, `VIEWER`다.
@@ -18,7 +18,7 @@ V1은 인증된 사용자가 모든 CRM record와 임의의 Agent thread에 접�
 - Agent와 Tool은 실행 사용자의 위임된 permission을 넘을 수 없다.
 - role과 permission 변경은 audit event로 기록한다.
 
-## Consequences
+## 영향
 
 - 동일 사용자가 workspace마다 다른 역할을 가질 수 있다.
 - permission matrix와 cross-tenant test가 필수 품질 게이트가 된다.

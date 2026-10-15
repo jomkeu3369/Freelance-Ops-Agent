@@ -1,4 +1,4 @@
-# Async Agent Runtime 장애 대응 Runbook
+# 비동기 Agent 실행 장애 대응
 
 ## 1. 적용 범위
 
@@ -8,7 +8,7 @@ Agent가 소유한다. 장애 중 Python에서 `app` schema를 직접 수정하�
 
 ## 2. 최초 확인
 
-1. Spring readiness와 Agent health를 각각 확인한다.
+1. Spring과 Agent의 readiness를 각각 확인한다. Agent `/health`는 생존 검사이므로 준비 상태와 구분한다.
 2. 한 `run_id / task_id / attempt_id / revision`을 선택해 이벤트와 상태를 대조한다.
 3. runtime operational snapshot에서 다음을 확인한다.
 
@@ -28,15 +28,15 @@ approved_release_count
 
 ## 3. 증상별 조치
 
-| 증상 | 확인 | 즉시 조치 |
-|---|---|---|
-| oldest ready age 120초 초과 | Worker health, capacity event freshness, claim 수 | 신규 batch 접수를 줄이고 FIFO 유지 |
-| oldest ready age 300초 초과 | provider circuit, DB lock, Worker crash | Scheduler/모델 승격 중단, incident 선언 |
-| 만료 lease 반복 | Worker heartbeat와 종료 로그 | lease 회수 허용, 동일 attempt 중복 생성 금지 |
-| retry queue 급증 | failure classification, workspace/global bucket | bucket을 임의 확대하지 말고 correlated circuit 확인 |
-| provider circuit OPEN | provider 429/5xx, 영향 workspace 수 | 자동 보조 provider 전환 금지, checkpoint 유지 |
-| shadow disagreement 증가 | priority, prediction drift, resource pool | actual FIFO 유지, release gate 재평가 |
-| release evidence 불일치 | artifact SHA, dataset fingerprint, report | release 사용 중지, 새 version으로만 재등록 |
+| 증상                        | 확인                                              | 즉시 조치                                           |
+| --------------------------- | ------------------------------------------------- | --------------------------------------------------- |
+| oldest ready age 120초 초과 | Worker health, capacity event freshness, claim 수 | 신규 batch 접수를 줄이고 FIFO 유지                  |
+| oldest ready age 300초 초과 | provider circuit, DB lock, Worker crash           | Scheduler/모델 승격 중단, incident 선언             |
+| 만료 lease 반복             | Worker heartbeat와 종료 로그                      | lease 회수 허용, 동일 attempt 중복 생성 금지        |
+| retry queue 급증            | failure classification, workspace/global bucket   | bucket을 임의 확대하지 말고 correlated circuit 확인 |
+| provider circuit OPEN       | provider 429/5xx, 영향 workspace 수               | 자동 보조 provider 전환 금지, checkpoint 유지       |
+| shadow disagreement 증가    | priority, prediction drift, resource pool         | actual FIFO 유지, release gate 재평가               |
+| release evidence 불일치     | artifact SHA, dataset fingerprint, report         | release 사용 중지, 새 version으로만 재등록          |
 
 ## 4. 안전한 복구 순서
 
@@ -54,12 +54,12 @@ Task, Attempt 또는 Scheduler entry를 복제해 복구하지 않는다. Retry�
 attempt number를 사용하고 `retry_ready_at` 이전에는 release하지 않는다. write side effect는 기존
 idempotency key를 재사용한다.
 
-## 5. Rollback
+## 5. 롤백
 
 - Scheduler 정책: actual `fifo-v1`은 그대로이므로 shadow collector만 중지한다.
 - Runtime Predictor: 직전 승인 version으로 되돌리고 새 prediction은 version을 명시한다.
 - Agent 배포: immutable image marker의 직전 Agent tag만 rollback한다.
-- Migration: 서비스가 이전 schema와 호환되는지 확인한 뒤 Alembic 한 revision만 downgrade한다.
+- 마이그레이션: 이미지 롤백과 별도 절차다. 이전 이미지의 스키마 호환성과 백업·복구 계획을 확인한다. 일괄적인 Alembic downgrade를 기본 복구 명령으로 사용하지 않는다.
 - Spring과 Agent를 동시에 rollback하지 않는다. contract 호환성 실패가 확인된 경우에만 각 서비스
   marker를 독립적으로 되돌린다.
 

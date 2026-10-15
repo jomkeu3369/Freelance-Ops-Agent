@@ -1,57 +1,39 @@
-# Model catalogue and tariff verification — 2026-10-05
+# 모델 카탈로그·가격표 검증 — 2026-10-05
 
-Base: `cfcaeb939129e290e7fbd8ae115414d44f361e5f`. No paid calls, SDK upgrades,
-production changes, main merge or account/global limit increases are part of this work.
-The selected base does not track AGENTS.md, .agents/skills or docs/STATUS.md;
-the existing checkout's AGENTS.md, service READMEs and accepted ADRs were inspected.
+기준은 `cfcaeb939129e290e7fbd8ae115414d44f361e5f`다. 아래 가격은 **2026-10-05에 확인한 고정 가격표 기록**이며 현재 제공사의 견적이 아니다. 유료 호출·SDK 갱신·운영 변경·한도 증가 없이 검토했다. 실제 제공사 계정의 모델 접근은 확인하지 않았다.
 
-## Official sources and Standard USD per million text tokens
+## 당시 Standard 텍스트 가격
 
-| Exact ID / source | Input | Cached read | Cache write | Output | Supported app reasoning |
-| --- | ---: | ---: | ---: | ---: | --- |
-| [gpt-6-luna](https://developers.openai.com/api/docs/models/gpt-6-luna) | .10 | .01 | .125 | .50 | NONE, LOW, MEDIUM, HIGH |
-| [gpt-6-sol](https://developers.openai.com/api/docs/models/gpt-6-sol) | 2 | .20 | 2.50 | 10 | NONE, LOW, MEDIUM, HIGH |
-| [gpt-6.1-sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) | 2 | .10 | 2.50 | 10 | LOW, MEDIUM, HIGH |
-| [gpt-6-astra](https://developers.openai.com/api/docs/models/gpt-6-astra) | 10 | 1 | 12.50 | 50 | LOW, MEDIUM, HIGH |
-| [gpt-5.6-luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna) | .20 | .02 | .25 | 1.20 | NONE, LOW, MEDIUM, HIGH |
-| [gpt-5.6-terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra) | 2 | .20 | 2.50 | 12 | NONE, LOW, MEDIUM, HIGH |
-| [gpt-5.6-sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol) | 4 | .40 | 5 | 20 | NONE, LOW, MEDIUM, HIGH |
+단위는 USD / 100만 토큰이다. 정확한 ID와 당시 참조 페이지를 보존한다.
 
-Fetched exact model pages on 2026-10-05. Sol 5.6 promotional pricing is guaranteed
-at least through 2026-11-21: new platform attempts fail closed from 2026-11-22 UTC
-until an operator reviews and versions the tariff. Historical settlement stays valid.
-No `gpt-6` alias. Actual account model permissions are unverified.
+| 모델·출처                                                                    | 입력 | 캐시 읽기 | 캐시 쓰기 | 출력 | 앱의 추론 수준          |
+| ---------------------------------------------------------------------------- | ---: | --------: | --------: | ---: | ----------------------- |
+| [gpt-6-luna](https://developers.openai.com/api/docs/models/gpt-6-luna)       |  .10 |       .01 |      .125 |  .50 | NONE, LOW, MEDIUM, HIGH |
+| [gpt-6-sol](https://developers.openai.com/api/docs/models/gpt-6-sol)         |    2 |       .20 |      2.50 |   10 | NONE, LOW, MEDIUM, HIGH |
+| [gpt-6.1-sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)     |    2 |       .10 |      2.50 |   10 | LOW, MEDIUM, HIGH       |
+| [gpt-6-astra](https://developers.openai.com/api/docs/models/gpt-6-astra)     |   10 |         1 |     12.50 |   50 | LOW, MEDIUM, HIGH       |
+| [gpt-5.6-luna](https://developers.openai.com/api/docs/models/gpt-5.6-luna)   |  .20 |       .02 |       .25 | 1.20 | NONE, LOW, MEDIUM, HIGH |
+| [gpt-5.6-terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra) |    2 |       .20 |      2.50 |   12 | NONE, LOW, MEDIUM, HIGH |
+| [gpt-5.6-sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)     |    4 |       .40 |         5 |   20 | NONE, LOW, MEDIUM, HIGH |
 
-`platform-ai-2026-10-04-v1` remains a two-model immutable tariff. New reservations
-pin `platform-ai-2026-10-05-v2`; settlement never substitutes the latest version.
-V42 copies the existing Luna run cap to both Lunas and the existing Terra cap to
-each other exact model. These are separate operator-editable rows. Existing
-account/week, global/day and global/week settings remain unchanged; spend is off.
+`gpt-6` 같은 별칭은 허용하지 않는다. 당시 Sol 5.6의 할인 가격 확인 기한을 반영해 코드에는 2026-11-22 UTC부터 가격 재검토 없이 신규 플랫폼 호출을 승인하지 않는 경계가 있다. 과거 정산은 원래 가격 버전을 사용한다. 새 가격을 적용하기 전에는 공식 출처와 실제 코드 가격표를 다시 검토한다.
 
-The priced path is text-only Responses, official `https://api.openai.com/v1`,
-Standard `service_tier=default`, no provider tools, bounded retries, <=272,000
-input tokens. Regional endpoints, fast/flex/batch tiers, images, embeddings,
-search and other unpriced paths remain blocked. Output already contains reasoning.
-Missing cache-write/read details retain the call's conservative pre-call bound.
+`platform-ai-2026-10-04-v1`은 두 모델의 불변 가격표이며 신규 예약은 `platform-ai-2026-10-05-v2`를 고정했다. V42는 기존 Luna 실행 상한을 두 Luna에, Terra 상한을 나머지 정확한 모델 ID에 복사한 별도 수정 가능 행을 만들었다. 계정 주간·전체 일간/주간 한도와 지출 비활성 기본값은 바꾸지 않았다.
 
-## Cost-proportional weekly allowance direction
+가격을 계산할 수 있는 경로는 공식 `https://api.openai.com/v1`의 텍스트 Responses, Standard `service_tier=default`, 제공사 도구 없음, 제한된 재시도와 입력 272,000토큰 이하로 한정했다. 지역 주소·다른 서비스 등급·이미지·임베딩·검색 등 미등록 비용 경로는 차단한다. 출력에는 추론 토큰이 포함되며 캐시 정보가 빠지면 호출 전 보수적 상한을 유지한다.
 
-The newer user instruction replaces model-fixed credit charges. V42 intentionally
-does not add the proposed 5/100/500 credit rows or increase the weekly 100 value.
-The catalogue is not proof of credit, cash, operator enablement or provider access.
-The follow-up V43 implements precise USD usage and remaining/reserved percentages.
+## 당시 비용 추정
 
-Planning estimates, not observed usage (uncached Standard text, no retries):
+모델별 고정 크레딧 대신 비용에 비례한 주간 제공량을 검토했다. V42는 제안 단계의 5/100/500 크레딧 행이나 주간 100 값을 추가·증가시키지 않았고 이후 V43이 정확한 USD 사용량과 잔액·예약 비율을 구현했다.
 
-| Scenario / total main tokens + 5.6 Luna route tokens (input/output) | 6 Luna | 6.1 Sol | 6 Astra |
-| --- | ---: | ---: | ---: |
-| Short conversation: 2k/500 + 2k/200 | $0.00109 | $0.00964 | $0.04564 |
-| File analysis: 50k/3k + 2k/200 | $0.00714 | $0.13064 | $0.65064 |
-| Quote/proposal across calls: 60k/8k + 3k/500 | $0.01120 | $0.20120 | $1.00120 |
+아래는 캐시·재시도가 없는 텍스트 호출의 계획값이다. 실제 사용량 측정이 아니다.
 
-At the unchanged $1.25 account/week setting these are approximately 111 Luna
-quote workflows or 6 Sol workflows before retry/cache-write headroom. Recommend
-6 Luna as the catalogue default; users can explicitly choose costlier models.
-Actual prompt/context sizes can differ substantially. No allowance increase or
-paid enablement is implied by these estimates. BYOK main calls use the user's key;
-platform-funded routing is still counted against the platform allowance.
+| 입력/출력 토큰: 주 작업 + 5.6 Luna 라우팅 |   6 Luna |  6.1 Sol |  6 Astra |
+| ----------------------------------------- | -------: | -------: | -------: |
+| 짧은 대화: 2k/500 + 2k/200                | $0.00109 | $0.00964 | $0.04564 |
+| 파일 분석: 50k/3k + 2k/200                | $0.00714 | $0.13064 | $0.65064 |
+| 견적·제안서 여러 호출: 60k/8k + 3k/500    | $0.01120 | $0.20120 | $1.00120 |
+
+당시 $1.25/계정·주 설정에서는 재시도·캐시 쓰기 여유분 전에 약 111회 Luna 또는 6회 Sol 견적 흐름으로 추정했다. 이를 근거로 저비용 기본 모델과 명시적 상위 모델 선택을 검토했으며 실제 제공량이나 유료 활성화를 약속하지 않았다. 프롬프트·맥락 크기는 실제 실행에서 달라질 수 있다.
+
+당시 혼합 결제 경로의 개인 키 본 호출과 플랫폼 라우팅은 구분해 계산했다. 이후 V47 개인 키 실행은 추가 플랫폼 유료 라우팅을 사용하지 않는다. 현재 계약은 [사용량 API](platform-usage-api-2026-10-05.md), 실제 실행 결과는 [예산 검증](model-budget-cloud-verification-2026-10-05.md)을 따른다.

@@ -1,7 +1,7 @@
 # Async Runtime 구현 Phase 2 Task Registry
 
 > 기준일: 2026-08-31
-> 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
+> 당시 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
 
 ## 1. 소유권 경계
 
@@ -38,13 +38,13 @@ idempotent 계약으로 연결한다.
 
 ## 4. 검증 결과
 
-| 검증 | 결과 |
-|---|---:|
-| Agent pytest | 361 passed, 2 skipped |
-| Agent Ruff | 통과 |
-| Agent strict mypy | 60 source files 통과 |
-| Alembic upgrade/downgrade offline SQL | 통과 |
-| Backend Gradle test | 통과 |
+| 검증                                  |                  결과 |
+| ------------------------------------- | --------------------: |
+| Agent pytest                          | 361 passed, 2 skipped |
+| Agent Ruff                            |                  통과 |
+| Agent strict mypy                     |  60 source files 통과 |
+| Alembic upgrade/downgrade offline SQL |                  통과 |
+| Backend Gradle test                   |                  통과 |
 
 로컬 Agent skip 2건은 PostgreSQL integration URL이 필요한 재시작·Task Registry 테스트다.
 PR에서는 Agent CI PostgreSQL service와 Backend Testcontainers로 migration, 실제 transaction,

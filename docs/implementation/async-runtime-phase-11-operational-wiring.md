@@ -1,6 +1,6 @@
 # Async Runtime Phase 11 · 운영 Wiring과 Shadow Pilot 계획
 
-> 상태: 11A~11D 구현·자동 검증 완료, 11D 실제 운영 증거 수집은 HOLD
+> 당시 상태: 11A~11D 구현·자동 검증 완료, 11D 실제 운영 증거 수집은 HOLD
 > 선행 조건: Phase 0~10 구현·자동 검증 완료
 > 운영 경계: 기존 AgentRun fallback과 실제 `fifo-v1` 순서를 유지한다.
 
@@ -146,7 +146,7 @@ shadow 기록, 실제 worker dispatch를 한 단계로 취급하면 장애 지�
 Scheduler 재정렬 활성화와 AgentRun fallback 제거는 Phase 11에 포함하지 않는다. 각각 별도의
 `APPROVED SCHEDULER_POLICY` release와 제거 PR로 검토한다.
 
-## 3. PR 순서
+## 3. 당시 구현 순서
 
 1. 11A + 11B-1: 공통 Router builder와 Runtime composition
 2. 11B-2a: Task identity·멱등 shadow registration
@@ -157,5 +157,4 @@ Scheduler 재정렬 활성화와 AgentRun fallback 제거는 Phase 11에 포함�
 7. 11C-3: 장애 주입·운영 snapshot·rollback 검증
 8. 11D: 제한적 pilot 증거 수집과 독립 승격 심사
 
-각 PR은 기본 비활성 feature flag, 기존 fallback 보존, 독립 rollback 절차를 포함해야 다음
-단계로 진행할 수 있다.
+각 변경은 기본 비활성 설정·기존 fallback·독립 복구 절차를 유지했다. 실제 파일럿 활성화는 별도의 운영 근거로 판단한다.

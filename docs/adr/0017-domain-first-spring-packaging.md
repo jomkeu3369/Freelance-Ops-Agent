@@ -4,7 +4,7 @@
 - 결정일: 2026-08-13
 - 참고: ADR-0011의 JPA 선택과 영속성 규칙은 유지하며, Entity를 `infrastructure`에 둔다는 패키지 위치 결정만 본 ADR로 대체한다.
 
-## Context
+## 배경
 
 초기 Spring 기반선은 `workspace/application/domain/infrastructure`와
 `project/api/application/infrastructure`처럼 도메인마다 서로 다른 패키지 명칭을 사용했다.
@@ -15,7 +15,7 @@
 파악할 수 있어야 한다. 동시에 workspace RBAC, Agent delegation과 외부 AI runtime 경계처럼
 이 프로젝트에만 필요한 구조도 보존해야 한다.
 
-## Decision
+## 결정
 
 - Spring modular monolith의 업무 기능은 `com.freelanceops.backend.domain.{domain}` 아래에 둔다.
 - 도메인의 표준 계층은 `client`, `controller`, `dto/request`, `dto/response`, `entity`, `model`, `repository`, `security`, `service`다. 실제 구현에 필요한 계층만 만든다.
@@ -30,7 +30,7 @@
 - 테스트 패키지는 운영 코드 구조를 반영한다.
 - ArchUnit으로 Controller의 Repository 직접 접근, 역방향 계층 의존성, DTO 위치와 도메인 순환 참조를 검증한다. 구조 테스트는 각 도메인의 실제 소스가 지원하는 계층에 속하고, 패키지 선언과 파일 경로가 일치하는지 검사한다.
 
-## Consequences
+## 영향
 
 2026-10-15 정리: 내용 없는 `package-info.java`는 제거했다. 표준 계층 명칭은 유지하며,
 실제 클래스가 필요한 패키지만 만든다. 빈 폴더를 강제하던 구조 테스트는 실제 소스의

@@ -4,13 +4,13 @@
 - 결정일: 2026-08-09
 - 관계: JPA와 Flyway 결정은 유지한다. Entity의 패키지 위치는 ADR-0017이 대체한다.
 
-## Context
+## 배경
 
 초기 Spring Boot 기반선은 `JdbcClient`와 애플리케이션 코드에 작성한 SQL로 워크스페이스 생성, RBAC 권한 조회, 감사 이벤트 저장을 구현했다. 작은 기반선을 빠르게 검증하는 데는 유효했지만, 도메인이 Client·Project·Quotation으로 확대되면 SQL 매핑과 변경 추적 비용이 커지고 영속성 세부 사항이 application 계층으로 누출된다.
 
 동시에 workspace 격리와 cross-workspace 역할 할당 차단은 ORM 편의 기능만으로 보장할 수 없다. DB 복합 외래키와 명시적인 `workspace_id` 조회 조건도 유지해야 한다.
 
-## Decision
+## 결정
 
 - Spring 업무 데이터의 기본 영속성 기술로 Spring Data JPA와 Hibernate를 사용한다.
 - application service는 `JdbcClient`, SQL 또는 JPA `EntityManager`를 직접 사용하지 않고 Repository를 의존한다.
@@ -21,7 +21,7 @@
 - Flyway migration, DB 고유 제약 검증, 성능상 근거가 있는 복잡한 조회에는 SQL을 허용한다. 예외적인 native query는 근거와 테스트를 함께 기록한다.
 - 연관관계는 필요한 방향에만 추가하고, 무제한 양방향 관계와 무분별한 cascade를 사용하지 않는다.
 
-## Consequences
+## 영향
 
 ### 장점
 

@@ -3,7 +3,7 @@
 - 상태: Superseded by [ADR-0015](0015-llm-first-operational-routing.md)
 - 결정일: 2026-08-10
 
-## Context
+## 배경
 
 Agent 실행 전에 요청을 `DIRECT_TOOL`, `SIMPLE_LLM`, `REACT_AGENT`, `SUPERVISOR`,
 `HUMAN_REQUIRED` 중 하나로 보내는 앞단 라우팅이 필요하다. 모든 요청을 무조건 LLM이나
@@ -15,11 +15,9 @@ zero-shot으로 사용한 결과, 균형 test set 50건을 모두 `REACT_AGENT`�
 0.20, macro-F1 0.067이므로 이 구성은 운영 후보에서 제외한다. 이 결과는 해당 zero-shot
 구성이 실패했다는 뜻이며 모든 encoder 분류기가 부적합하다는 뜻은 아니다.
 
-현재 노트북에는 CUDA GPU가 없지만 다른 작업 PC에는 CUDA GPU가 있다. 데이터 검토와
-CPU smoke test는 현재 PC에서도 가능하지만, encoder fine-tuning과 full benchmark는 CUDA
-작업 PC에서 수행하는 것이 효율적이다.
+초기 데이터 검토·소규모 점검은 CPU 환경에서, 인코더 학습·전체 비교는 별도 CUDA 환경에서 수행하도록 분리했다. 실제 결과는 각 평가의 하드웨어 조건을 따른다.
 
-## Decision
+## 결정
 
 앞단 라우터를 단일 모델이 아니라 다음 단계형 gateway로 구성한다.
 
@@ -79,7 +77,7 @@ CPU smoke test는 현재 PC에서도 가능하지만, encoder fine-tuning과 ful
 3. 프로젝트 데이터로 fine-tuning한 encoder-only A
 4. BM25 + encoder weighted RRF
 5. GPT-5.6 Luna router B
-6. policy Gate + RRF local router + Luna fallback hybrid
+6. 정책 관문 + RRF 로컬 라우터 + Luna 평가를 결합한 구성
 
 필수 지표는 accuracy, macro-F1, route별 precision·recall·F1, `HUMAN_REQUIRED` 누락률,
 `SUPERVISOR` 과소 라우팅률, abstain·fallback 비율, p50·p95 latency, throughput, VRAM,
@@ -104,7 +102,7 @@ route-order permutation 일관성, 언어·문장 길이·민감도 slice별 성
 - CPU와 CUDA latency는 같은 표에서 실행 환경을 명시하고, 하드웨어가 다른 수치를 모델
   성능 차이로만 해석하지 않는다.
 
-## Consequences
+## 영향
 
 ### 장점
 
@@ -121,4 +119,3 @@ route-order permutation 일관성, 언어·문장 길이·민감도 slice별 성
 - 두 PC의 하드웨어 차이 때문에 latency 결과에는 환경 metadata와 반복 측정이 필요하다.
 - hybrid는 단일 모델보다 구현과 관측성이 복잡하므로 각 단계의 결정 근거와 fallback 원인을
   trace에 남겨야 한다.
-

@@ -6,11 +6,11 @@
 
 공식 PyPI `rapidocr==3.9.2`, `onnxruntime==1.30.0`; 공식 RapidOCR v3.9.2 manifest의 ONNX PP-OCRv5 mobile detection, mobile text-line classification, Korean mobile recognition을 사용했다. 인식 모델은 한국어·영어·숫자 지원 모델이다. RapidOCR 최신 기본 PP-OCRv6를 그대로 사용하지 않고 세 모델의 버전·언어·로컬 경로를 명시했다. 모델 파일 크기는 실행 RAM 요구량이 아니다. [RapidOCR 모델 문서](https://rapidai.github.io/RapidOCRDocs/main/model_list/), [PaddleOCR 인식 모델 문서](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/module_usage/text_recognition.en.md), [RapidOCR PyPI](https://pypi.org/project/rapidocr/), [ONNX Runtime PyPI](https://pypi.org/project/onnxruntime/).
 
-| 역할 | 고정 ONNX 파일 | bytes | 공식 SHA256 |
-| --- | --- | ---: | --- |
-| detection | ch_PP-OCRv5_det_mobile.onnx | 4,819,576 | 4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae |
-| classification | ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx | 1,018,508 | 54379ae5174d026780215fc748a7f31910dee36818e63d49e17dc598ecc82df7 |
-| Korean recognition | korean_PP-OCRv5_rec_mobile.onnx | 13,488,748 | cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b |
+| 역할               | 고정 ONNX 파일                                 |      bytes | 공식 SHA256                                                      |
+| ------------------ | ---------------------------------------------- | ---------: | ---------------------------------------------------------------- |
+| detection          | ch_PP-OCRv5_det_mobile.onnx                    |  4,819,576 | 4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae |
+| classification     | ch_PP-LCNet_x0_25_textline_ori_cls_mobile.onnx |  1,018,508 | 54379ae5174d026780215fc748a7f31910dee36818e63d49e17dc598ecc82df7 |
+| Korean recognition | korean_PP-OCRv5_rec_mobile.onnx                | 13,488,748 | cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b |
 
 다운로드 URL은 `https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv5/{det,cls,rec}/...`이며 로컬 파일 SHA256이 공식 wheel manifest와 일치했다. 인식 사전은 ONNX 내부 metadata를 사용한다. runtime network none 상태에서 세 session이 모두 `CPUExecutionProvider`로 초기화됐다. GPU·외부 API·사용자 문서 전송은 없다. RapidOCR/PaddleOCR 프로젝트는 Apache-2.0, ONNX Runtime 프로젝트는 MIT로 표시된다. [RapidOCR license](https://github.com/RapidAI/RapidOCR/blob/main/LICENSE), [PaddleOCR license](https://github.com/PaddlePaddle/PaddleOCR/blob/main/LICENSE), [ONNX Runtime license](https://github.com/microsoft/onnxruntime/blob/main/LICENSE).
 
@@ -28,15 +28,15 @@ Container CPU1/memory640MiB/pids256/root read-only/tmp256MiB noexec nosuid/netwo
 
 ## 실측 및 실패
 
-| 반복 | worker 부모 wall | worker wall | native wrapper(import/loading 포함) | import | 모델 init | native peak RSS | 관측 native peak VMS | 결과 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 1 | 1.623초 | 1.591초 | 1.421초 | 1.084초 | 0.167초 | 209.07MiB | 501.09MiB | MemoryError |
-| 2 | 1.269초 | 1.243초 | 1.122초 | 0.797초 | 0.163초 | 209.10MiB | 500.87MiB | MemoryError |
-| 3 | 1.241초 | 1.217초 | 1.088초 | 0.755초 | 0.177초 | 209.52MiB | 501.31MiB | MemoryError |
+| 반복 | worker 부모 wall | worker wall | native wrapper(import/loading 포함) |  import | 모델 init | native peak RSS | 관측 native peak VMS | 결과        |
+| ---- | ---------------: | ----------: | ----------------------------------: | ------: | --------: | --------------: | -------------------: | ----------- |
+| 1    |          1.623초 |     1.591초 |                             1.421초 | 1.084초 |   0.167초 |       209.07MiB |            501.09MiB | MemoryError |
+| 2    |          1.269초 |     1.243초 |                             1.122초 | 0.797초 |   0.163초 |       209.10MiB |            500.87MiB | MemoryError |
+| 3    |          1.241초 |     1.217초 |                             1.088초 | 0.755초 |   0.177초 |       209.52MiB |            501.31MiB | MemoryError |
 
 native wrapper 중앙값 1.122초, nearest-rank p95(n=3) 1.421초다. 이 시간은 **실패까지**의 시간이다. 모두 `engine(image_bytes)`에서 `Unable to allocate 32.8 MiB for an array with shape (896, 1600, 3) and data type float64`로 종료됐다. 실제 detection/recognition 결과 및 CER/WER는 없다. RSS가 약209MiB여도 공유 라이브러리·mapping 등을 포함한 주소 공간 한도에 닿을 수 있다. 20ms `/proc` 관측 VMS는 peak를 놓칠 수 있어, 한도 적용 및 오류 원문과 함께 해석한다.
 
-실패 위치 확인 요청에 따라 **동일 image/input/model/options/limits에서 1회만 별도 진단**했다. gate의 원래 3회 CSV/계획/판정은 수정하지 않았고 품질 반복 수로 추가하지 않았다. 이 진단도 같은 MemoryError로 실패했으며 native wrapper 2.292초, worker 2.507초였다. stack은 locals나 문서 내용을 제외한 file/line/function만 기록했다. 실제 frame 순서는 `rapidocr/main.py:120 __call__ → :130 run_ocr_steps → :301 detect_and_crop → rapidocr/ch_ppocr_det/main.py:57 __call__ → utils.py:65 __call__ → utils.py:71 normalize`다. line71의 `(img.astype("float32") * self.scale - self.mean) / self.std`에서 float64 결과 배열을 할당하지 못했다. native의 `getrlimit`은 여전히 AS `[536870912,536870912]`, CPU `[12,12]`, FSIZE `[0,0]`이었다. `/opt/feasibility/native_probe.py:43`은 probe가 `engine(image_bytes)`를 호출한 위치다. 원래 native stderr는 guard가 버렸으므로 최초 3회의 전체 stack을 수집했다고 주장하지 않는다.
+원인을 확인하기 위해 **동일 이미지·입력·모델·옵션·한도에서 별도 진단을 한 번** 수행했다. gate의 원래 3회 CSV/계획/판정은 수정하지 않았고 품질 반복 수로 추가하지 않았다. 이 진단도 같은 MemoryError로 실패했으며 native wrapper 2.292초, worker 2.507초였다. stack은 locals나 문서 내용을 제외한 file/line/function만 기록했다. 실제 frame 순서는 `rapidocr/main.py:120 __call__ → :130 run_ocr_steps → :301 detect_and_crop → rapidocr/ch_ppocr_det/main.py:57 __call__ → utils.py:65 __call__ → utils.py:71 normalize`다. line71의 `(img.astype("float32") * self.scale - self.mean) / self.std`에서 float64 결과 배열을 할당하지 못했다. native의 `getrlimit`은 여전히 AS `[536870912,536870912]`, CPU `[12,12]`, FSIZE `[0,0]`이었다. `/opt/feasibility/native_probe.py:43`은 probe가 `engine(image_bytes)`를 호출한 위치다. 원래 native stderr는 guard가 버렸으므로 최초 3회의 전체 stack을 수집했다고 주장하지 않는다.
 
 컨테이너 cgroup memory peak 254,398,464bytes(242.61MiB), `memory.max=671088640`, `cpu.max=100000 100000`, pids256. memory events의 oom/oom_kill/max는 모두 0, Docker State.OOMKilled=false였다. **컨테이너 OOM이 아니라 프로세스 주소 공간 제한 아래의 배열 할당 실패**다. worker와 native 양쪽 `/proc/limits` 및 native `getrlimit`에서 AS536870912/CPU12/FSIZE0을 확인했다. phase별 CPU seconds는 따로 측정하지 않았고 wall과 CPU 한도 적용을 기록했다. native runtime logging stderr는 guard에서 버리며, 이 probe의 오류는 synthetic 입력에 한해 구조화된 stdout으로 보관했다.
 

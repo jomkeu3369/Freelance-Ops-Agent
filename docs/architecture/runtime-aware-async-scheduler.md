@@ -1,8 +1,10 @@
-# Runtime-aware Async Sub-Agent Scheduler Architecture
+# 실행시간 예측을 이용한 비동기 작업 스케줄러 설계
 
 > 상태: Prototype 검증 기반 목표 설계
 > 기준일: 2026-08-27
 > 범위: Runtime 예측, 사용자 간 공정성, SLO 기반 스케줄링, 과부하 제어, 재개와 제한적 Retry
+
+현재 Task·Attempt·명령·이벤트·FIFO·관측 구현은 [최종 감사](../reviews/2026-09-01-async-runtime-final-audit.md)와 [운영 연결 기록](../implementation/async-runtime-phase-11-operational-wiring.md)을 따른다. 아래 자동 확장·예측 재정렬·보조 제공사 전환은 합성 실험 후보이며 실제 배포 정책이 아니다.
 
 ## 1. 목적
 
@@ -205,13 +207,13 @@ safety margin을 적용한다. 과소예측이 증가하면 Admission Controller
 
 아래 값은 초기 실험을 위한 기본 구간이며 실제 execution history로 보정해야 한다.
 
-| 상태 | 예시 조건 | Admission 동작 |
-|---|---|---|
-| `NORMAL` | `ρ < 0.75` | 정상 수락 |
-| `BUSY` | `0.75 ≤ ρ < 0.90` | 낮은 우선순위와 batch 유입 제한 |
-| `SATURATED` | `0.90 ≤ ρ < 1.00` | 지연 승인, 캐시 우선, 품질 축소 검토 |
-| `OVERLOADED` | `ρ ≥ 1.00` | 신규 batch 제한, interactive 용량 보존 |
-| `EMERGENCY` | Queue 지속 증가 또는 SLO 붕괴 | Load shedding과 Provider circuit open |
+| 상태         | 예시 조건                     | Admission 동작                         |
+| ------------ | ----------------------------- | -------------------------------------- |
+| `NORMAL`     | `ρ < 0.75`                    | 정상 수락                              |
+| `BUSY`       | `0.75 ≤ ρ < 0.90`             | 낮은 우선순위와 batch 유입 제한        |
+| `SATURATED`  | `0.90 ≤ ρ < 1.00`             | 지연 승인, 캐시 우선, 품질 축소 검토   |
+| `OVERLOADED` | `ρ ≥ 1.00`                    | 신규 batch 제한, interactive 용량 보존 |
+| `EMERGENCY`  | Queue 지속 증가 또는 SLO 붕괴 | Load shedding과 Provider circuit open  |
 
 상태 진동을 피하기 위해 hysteresis를 사용한다.
 
@@ -222,25 +224,25 @@ OVERLOADED 해제: ρ < 0.80 상태가 60초 이상 지속
 
 Admission 결과는 다음 네 가지 중 하나다.
 
-| 결과 | 의미 |
-|---|---|
-| `ADMIT` | 정상적으로 Ready Queue에 저장 |
-| `DEFER` | 수락하지만 용량 회복 전까지 실행하지 않음 |
-| `DEGRADE` | 더 작은 모델, 축소된 탐색 범위 또는 캐시 결과 사용 |
-| `REJECT` | 제품이 보장할 수 있는 대기 한계를 넘어 명시적으로 거절 |
+| 결과      | 의미                                                   |
+| --------- | ------------------------------------------------------ |
+| `ADMIT`   | 정상적으로 Ready Queue에 저장                          |
+| `DEFER`   | 수락하지만 용량 회복 전까지 실행하지 않음              |
+| `DEGRADE` | 더 작은 모델, 축소된 탐색 범위 또는 캐시 결과 사용     |
+| `REJECT`  | 제품이 보장할 수 있는 대기 한계를 넘어 명시적으로 거절 |
 
 ## 6. Scheduler 정책
 
 운영 후보는 다음 여섯 가지를 동일 Task stream에서 비교한다.
 
-| 정책 | 사용자 간 공정성 | Runtime 예측 | Aging |
-|---|---:|---:|---:|
-| Global FIFO | 없음 | 없음 | 없음 |
-| Global Predicted-SJF | 없음 | 사용 | 없음 |
-| Global Predicted-SJF + Aging | 없음 | 사용 | 사용 |
-| Fair FIFO | 사용 | 없음 | 없음 |
-| Fair Predicted-SJF | 사용 | 사용 | 없음 |
-| Fair Predicted-SJF + Aging | 사용 | 사용 | 사용 |
+| 정책                         | 사용자 간 공정성 | Runtime 예측 | Aging |
+| ---------------------------- | ---------------: | -----------: | ----: |
+| Global FIFO                  |             없음 |         없음 |  없음 |
+| Global Predicted-SJF         |             없음 |         사용 |  없음 |
+| Global Predicted-SJF + Aging |             없음 |         사용 |  사용 |
+| Fair FIFO                    |             사용 |         없음 |  없음 |
+| Fair Predicted-SJF           |             사용 |         사용 |  없음 |
+| Fair Predicted-SJF + Aging   |             사용 |         사용 |  사용 |
 
 Oracle-SJF는 실제 Runtime을 미리 아는 이론적 비교군이며 운영 후보가 아니다.
 
@@ -283,8 +285,6 @@ priority_4_5_wait_over_60_seconds_rate: 0.01
 - 높은 캐시 적중률로 `ρ=0.53`: 모든 정책 통과 후 평균 completion으로 선택
 - 예측 노이즈가 있는 `ρ=0.95`: 모든 정책 탈락
 - 과부하 `ρ=1.99`: 모든 정책 탈락
-
-
 
 ## 8. 사용자 실시간 제어
 
@@ -417,7 +417,7 @@ provider_429_rate
 Scheduler 지표와 Runtime Predictor 지표는 model version, policy version과 workload snapshot을 함께
 기록해야 재현 가능한 비교가 가능하다.
 
-## 13. 현재 구현 범위와 한계
+## 13. 연구 구현 범위와 한계
 
 현재 `experiments/runtime_scheduler`에는 다음 검증 코드가 있다.
 
@@ -434,9 +434,7 @@ Scheduler 지표와 Runtime Predictor 지표는 model version, policy version과
 - Matplotlib 결과 Plot
 - Streamlit 실험 대시보드
 
-현재 구현은 event-driven synthetic simulator이며 운영 Queue, 실제 Worker Pool, durable Task Registry,
-운영 Admission Controller와 Checkpoint Runtime은 구현하지 않았다. Admission은 fluid approximation
-기반 simulator로만 검증했다. Fair Queue도 정식 WFQ가 아니라 누적 virtual service 기반의 간략화된
+이 실험 디렉터리는 합성 이벤트 시뮬레이터이며 운영 구현 자체가 아니다. 이후 서비스 코드에는 Task Registry·작업자·PostgreSQL FIFO·체크포인트·관측 저장이 추가됐다. 예측 기반 재정렬·자동 확장·보조 제공사 전환의 승격은 별도다. 당시 Admission은 유체 근사 시뮬레이터로만 검증했다. Fair Queue도 정식 WFQ가 아니라 누적 virtual service 기반의 간략화된
 프로토타입이다. 실제 도입 전에는 실제 execution history의 시간순 replay와 shadow scheduling
 검증이 필요하다.
 
@@ -478,9 +476,7 @@ Predicted retry demand > capacity
   → explicit RETRY_BUDGET_EXHAUSTED outcome
 ```
 
-현재 PostgreSQL checkpoint는 run lifecycle과 graph execution state를 보존하지만 Sub-Agent의 durable
-service progress, checkpoint artifact와 side-effect idempotency boundary를 별도 TaskAttempt contract로
-노출하지 않는다. 운영 구현 전 이 contract가 필요하다.
+실험 당시 PostgreSQL 체크포인트에는 실행 수명과 그래프 상태만 있었고 별도 TaskAttempt 계약이 필요했다. 이후 [체크포인트·재시도 구현](../implementation/async-runtime-phase-7-checkpoint-reliability.md)이 작업 단위 진행·시도·부수효과 경계를 추가했다. 아래 결과는 당시 합성 실험의 근거다.
 
 계층형 Scheduler와 retry를 결합한 후속 실험에서는 고정 retry 정책이 failure mode 양쪽을 보호하지
 못했다. `Checkpoint immediate`는 독립 실패 gate 96.7%를 통과했지만 provider outage에서는 59.3%에
@@ -510,7 +506,7 @@ Threshold 4에서 action FPR 5.6%, 10초 detection FNR 6.4%, P95 탐지 18.3초�
 단일 threshold는 FPR이 40.6~78.3%였고 temporal LogisticRegression은 drift 이후 FNR 46.7%로
 붕괴했다.
 
-운영에서는 첫 correlated 판정을 circuit에 latch하고 recovery probe와 hysteresis로 종료한다. 최종
+이 후보 정책은 첫 correlated 판정을 circuit에 latch하고 recovery probe와 hysteresis로 종료한다. 최종
 incident label은 예측 시점 feature와 분리해 사후에만 확정하며, 실제 TaskAttempt shadow log로 검증하기
 전까지 threshold 4는 prototype 후보이다.
 
@@ -530,8 +526,7 @@ decision 누락을 주입했다. 11개 invalid 조건을 모두 100% 차단했�
 100% 수락해 runtime·prediction을 오차 0초로 재구성했다.
 
 `received_at` 순서가 아니라 `(attempt_id, sequence)`와 `occurred_at`을 권위로 사용한다. 임시 지연 경계는
-30초 초과 warning과 300초 초과 replay reject다. 실제 TaskAttempt event emitter와 DB 저장이 아직 없으므로
-contract 검증일 뿐 production telemetry 검증은 아니다.
+30초 초과 경고와 300초 초과 replay 거부였다. 이 실험은 계약 검증이며 운영 관측 품질을 검증한 것은 아니다. 이후 이벤트 방출·DB 저장은 `agent/src/runtime/task_attempt_events.py`와 [실행 연결 기록](../implementation/async-runtime-phase-11-operational-wiring.md)에 구현됐다.
 
 Multi-tenant adversarial 실험에서는 Global Predicted-SJF + Aging이 mean completion 48.4초와 Jain
 fairness 0.931로 항상-on Fair Queue보다 좋았다. Bounded Fair 후보도 idle credit은 제한했지만
@@ -558,7 +553,7 @@ Workspace quota는 global capacity가 정상일 때 강제하지 않는다. Glob
 tasks/$ 1,487.4로 gate를 통과한 후보 중 가장 효율적이었다. 합성 workload의 최소 scale 성공률 경계는
 약 70%지만 운영 control-plane SLO는 90%로 유지한다.
 
-현재 기본 흐름은 `2× scale 요청 → 30초 target → 60초 hard deadline → 실패 시 workspace quota
+후속 실험 후보의 기본 흐름은 `2× scale 요청 → 30초 target → 60초 hard deadline → 실패 시 workspace quota
 fallback`이다. 50% 체계적 runtime 과소예측에서도 합성 gate는 유지됐지만 실제 강건성 증거로
 간주하지 않는다. 실제 TaskAttempt shadow replay와 task type별 drift calibration 전까지 prototype이다.
 

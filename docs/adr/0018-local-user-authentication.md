@@ -3,13 +3,13 @@
 - 상태: Accepted
 - 결정일: 2026-08-13
 
-## Context
+## 배경
 
 기존 Spring Security 기반선은 개발용 HTTP Basic 사용자만 제공했다. 반면 공개 Controller는 인증 principal 이름을 UUID 사용자 ID로 사용하고 있었으므로 실제 로그인 사용자와 workspace RBAC를 안전하게 연결할 수 없었다. V2는 Spring이 인증과 업무 트랜잭션을 소유하고 브라우저가 Spring 공개 API만 호출한다는 경계를 유지해야 한다.
 
 초기 서비스에는 외부 Identity Provider를 운영할 필요가 없지만, 이후 OAuth/OIDC로 교체할 수 있도록 업무 도메인과 token 구현을 분리해야 한다. 탈취된 장기 token의 재사용 범위를 줄이고 DB 유출 시 session 원문이 노출되지 않도록 해야 한다.
 
-## Decision
+## 결정
 
 - Spring의 `identity` 도메인이 이메일 계정, 비밀번호 검증과 사용자 session을 소유한다.
 - 비밀번호는 BCrypt strength 12로 단방향 hash한다. 로그인 시 존재하지 않는 이메일에도 dummy hash 검증을 수행해 응답 시간 차이를 줄인다.
@@ -22,7 +22,7 @@
 - Agent delegation token은 사용자 access token과 key, audience, filter를 분리한다. 브라우저가 delegation token을 받거나 Agent API를 직접 호출하지 않는다.
 - 비공개 chain-of-thought나 인증 token 원문을 audit log에 저장하지 않는다.
 
-## Consequences
+## 영향
 
 장점:
 

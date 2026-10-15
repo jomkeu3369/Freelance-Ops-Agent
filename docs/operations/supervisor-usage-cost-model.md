@@ -1,8 +1,10 @@
 # Supervisor 사용량 기반 비용 계산 모델
 
-> 문서 상태: Draft v0.1
+> 문서 상태: 계층별 사용량을 분석하기 위한 비용 설계·계산 모델
 > 작성일: 2026-07-28
 > 적용 범위: Global Orchestrator, Department Supervisor, Specialist Agent, 결정적 Tool과 외부 조사 Provider
+
+현재 가격표·USD 예약/정산·개인 키의 실제 계약은 [사용량 API](../testing/platform-usage-api-2026-10-05.md)를 따른다. 아래 계층·route·예시는 비용 분석을 위한 목표 모델이며 현재 제공량·가격·운영 청구 결과가 아니다. 예측할 수 없는 비용을 0으로 처리하지 않는 원칙과 계산 근거는 보존한다.
 
 ## 1. 목적
 
@@ -27,13 +29,13 @@ versioned pricing configuration의 값을 대입한다.
 
 V2의 요청 등급을 비용 집계 단위로 사용한다.
 
-| Route | 설명 | 주요 비용 발생원 |
-|---|---|---|
-| `DIRECT_TOOL` | LLM 없이 결정적 조회·계산만 실행 | Tool, API와 소량의 infra |
-| `SINGLE_AGENT` | Specialist Agent 하나가 제한된 ReAct 실행 | 모델, Tool |
-| `DEPARTMENT` | Department Supervisor와 하나 이상의 Specialist 실행 | Supervisor, Specialist, Tool |
-| `MULTI_DEPARTMENT` | Global Orchestrator가 여러 부문을 조정 | Global, 복수 Supervisor·Specialist, 검증 |
-| `HUMAN_REQUIRED` | 실행 전 또는 실행 중 사람의 판단이 필요해 중단 | 중단 전까지 소비한 모델·Tool과 checkpoint |
+| Route              | 설명                                                | 주요 비용 발생원                          |
+| ------------------ | --------------------------------------------------- | ----------------------------------------- |
+| `DIRECT_TOOL`      | LLM 없이 결정적 조회·계산만 실행                    | Tool, API와 소량의 infra                  |
+| `SINGLE_AGENT`     | Specialist Agent 하나가 제한된 ReAct 실행           | 모델, Tool                                |
+| `DEPARTMENT`       | Department Supervisor와 하나 이상의 Specialist 실행 | Supervisor, Specialist, Tool              |
+| `MULTI_DEPARTMENT` | Global Orchestrator가 여러 부문을 조정              | Global, 복수 Supervisor·Specialist, 검증  |
+| `HUMAN_REQUIRED`   | 실행 전 또는 실행 중 사람의 판단이 필요해 중단      | 중단 전까지 소비한 모델·Tool과 checkpoint |
 
 `HUMAN_REQUIRED`는 무료 실행이 아니다. 중단되기 전까지 소비된 비용을 해당
 run에 기록하고, 재개하면 같은 `agent_run_id`의 누적 원가에 더한다.
@@ -74,16 +76,16 @@ C_llm(r)
   + Σ[c ∈ M(r)] P_request(m_c)
 ```
 
-| 기호 | 의미 |
-|---|---|
-| `U_c` | 호출 `c`의 cache가 적용되지 않은 input token |
-| `K_c` | 호출 `c`의 cached input token |
-| `O_c` | 호출 `c`의 billable output token |
-| `m_c` | 호출에 사용한 provider·model·pricing version |
-| `P_input` | 100만 uncached input token당 단가 |
-| `P_cached_input` | 100만 cached input token당 단가 |
-| `P_output` | 100만 billable output token당 단가 |
-| `P_request` | Provider가 request 단위로 부과할 때의 호출당 단가 |
+| 기호             | 의미                                              |
+| ---------------- | ------------------------------------------------- |
+| `U_c`            | 호출 `c`의 cache가 적용되지 않은 input token      |
+| `K_c`            | 호출 `c`의 cached input token                     |
+| `O_c`            | 호출 `c`의 billable output token                  |
+| `m_c`            | 호출에 사용한 provider·model·pricing version      |
+| `P_input`        | 100만 uncached input token당 단가                 |
+| `P_cached_input` | 100만 cached input token당 단가                   |
+| `P_output`       | 100만 billable output token당 단가                |
+| `P_request`      | Provider가 request 단위로 부과할 때의 호출당 단가 |
 
 Provider usage가 reasoning token을 billable output에 포함한다면 `O_c`에
 포함하고 별도로 중복 계산하지 않는다. Provider가 별도 항목으로 청구할
@@ -328,13 +330,13 @@ quota 설계에 사용한다.
 
 다음 값은 실제 Provider 가격이 아닌 수식 검증용 가상 값이다.
 
-| Route | 월 사용 횟수 | 관측 평균 변동비 |
-|---|---:|---:|
-| `DIRECT_TOOL` | 200 | 5원 |
-| `SINGLE_AGENT` | 500 | 40원 |
-| `DEPARTMENT` | 250 | 100원 |
-| `MULTI_DEPARTMENT` | 50 | 250원 |
-| `HUMAN_REQUIRED` | 20 | 30원 |
+| Route              | 월 사용 횟수 | 관측 평균 변동비 |
+| ------------------ | -----------: | ---------------: |
+| `DIRECT_TOOL`      |          200 |              5원 |
+| `SINGLE_AGENT`     |          500 |             40원 |
+| `DEPARTMENT`       |          250 |            100원 |
+| `MULTI_DEPARTMENT` |           50 |            250원 |
+| `HUMAN_REQUIRED`   |           20 |             30원 |
 
 ```text
 C_month_variable
