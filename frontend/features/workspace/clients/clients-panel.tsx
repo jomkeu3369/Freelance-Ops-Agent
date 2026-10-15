@@ -118,7 +118,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               setArchiveTarget(null);
             }}
           >
-            <Plus size={18} /> {t("새 고객")}</button>
+            <Plus size={18} /> {t("새 고객")}
+          </button>
         )}
       </div>
       {error && (
@@ -149,7 +150,11 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               <div className="client-empty">
                 <AddressBook size={30} />
                 <strong>{clients.length === 0 ? t("첫 고객을 등록하세요.") : t("검색 결과가 없습니다.")}</strong>
-                <span>{clients.length === 0 ? t("고객을 등록하면 새 문의에 바로 연결할 수 있습니다.") : t("다른 검색어로 찾아보세요.")}</span>
+                <span>
+                  {clients.length === 0
+                    ? t("고객을 등록하면 새 문의에 바로 연결할 수 있습니다.")
+                    : t("다른 검색어로 찾아보세요.")}
+                </span>
               </div>
             ) : (
               filtered.map((client) => {
@@ -170,7 +175,10 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                       <strong>{client.name}</strong>
                       <small>{client.companyName || "개인 고객"}</small>
                     </span>
-                    <em>{linkedCount}{t("개 프로젝트")}</em>
+                    <em>
+                      {linkedCount}
+                      {t("개 프로젝트")}
+                    </em>
                   </button>
                 );
               })
@@ -189,7 +197,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
             <fieldset className="client-fields" disabled={busy}>
               <div className="form-row">
                 <label>
-                  {t("담당자 이름")}<input
+                  {t("담당자 이름")}
+                  <input
                     name="name"
                     required
                     maxLength={120}
@@ -198,7 +207,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                   />
                 </label>
                 <label>
-                  {t("회사명")}<input
+                  {t("회사명")}
+                  <input
                     name="companyName"
                     maxLength={160}
                     readOnly={!canWrite}
@@ -208,7 +218,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               </div>
               <div className="form-row">
                 <label>
-                  {t("이메일")}<input
+                  {t("이메일")}
+                  <input
                     name="email"
                     type="email"
                     maxLength={320}
@@ -217,7 +228,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                   />
                 </label>
                 <label>
-                  {t("전화번호")}<input
+                  {t("전화번호")}
+                  <input
                     name="phone"
                     type="tel"
                     maxLength={40}
@@ -227,7 +239,8 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                 </label>
               </div>
               <label>
-                {t("관계 메모")}<textarea
+                {t("관계 메모")}
+                <textarea
                   name="notes"
                   rows={7}
                   maxLength={5000}
@@ -249,17 +262,16 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
                     <div className="archive-confirm">
                       <span>{t("이 고객을 보관할까요?")}</span>
                       <button type="button" disabled={busy} onClick={() => void archive(selected)}>
-                        {t("보관")}</button>
+                        {t("보관")}
+                      </button>
                       <button type="button" onClick={() => setArchiveTarget(null)}>
-                        {t("취소")}</button>
+                        {t("취소")}
+                      </button>
                     </div>
                   ) : (
-                    <button
-                      className="quiet-button danger"
-                      type="button"
-                      onClick={() => setArchiveTarget(selected.id)}
-                    >
-                      <Archive size={18} /> {t("고객 보관")}</button>
+                    <button className="quiet-button danger" type="button" onClick={() => setArchiveTarget(selected.id)}>
+                      <Archive size={18} /> {t("고객 보관")}
+                    </button>
                   ))}
               </div>
             </fieldset>

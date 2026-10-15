@@ -14,5 +14,9 @@ interface WorkspaceLayoutProps {
 }
 
 export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
-  return <LocaleProvider><WorkspaceShell>{children}</WorkspaceShell></LocaleProvider>;
+  return (
+    <LocaleProvider>
+      <WorkspaceShell>{children}</WorkspaceShell>
+    </LocaleProvider>
+  );
 }

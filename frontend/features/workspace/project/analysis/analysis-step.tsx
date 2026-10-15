@@ -50,26 +50,93 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
     setReviewedRun(view);
   }
 
-  return <>
-    <AgentChat key={`${session.userId}:${session.workspaceId}:${projectId}`} session={session} projectId={projectId} run={run} runId={runId} events={events} busy={busy}
-      canRun={canRun} canEditPolicy={canEditPolicy} canCancel={canCancel} modelAvailable={modelAvailable}
-      canSendAI={canSendAI} retryCandidates={retryCandidates} composerInfo={composerInfo} composerTools={composerTools}
-      headerTools={<>
-        {runId && <button type="button" className="quiet-button chat-work-details-trigger" onClick={() => setShowWorkDetails(true)}><ListChecks size={18} aria-hidden="true" /><span>{t("작업 자세히 보기")}</span><CaretRight size={13} aria-hidden="true" /></button>}
-      </>}
-      streamState={streamState} onOpenAISettings={onOpenAISettings} onSend={onSendMessage} onCancel={onCancel} onOpenResult={openResult}
-      clarification={run?.interruption ? <InterruptionForm key={run.interruption.interruptionId}
-        interruption={run.interruption}
-        draftKey={interruptionDraftKey(session.userId, session.workspaceId, runId ?? run.runId, run.interruption.interruptionId)}
-        draftWorkspaceId={session.workspaceId} draftRunId={runId ?? run.runId} busy={busy} canRespond={canRespond} onSubmit={onResume} /> : <p>{t("사용자 확인을 기다리고 있습니다")}</p>} />
-    {resultView?.result && <WorkspacePanel title={t("분석 결과")} className="agent-chat-result-panel" onClose={() => setReviewedRun(null)}>
-      <AnalysisResult run={resultView} events={resultView.runId === runId ? events : []} costUsage={resultView.runId === runId ? costUsage : null} onCompareQuotes={resultView.runId === runId ? onCompareQuotes : undefined} />
-    </WorkspacePanel>}
-    {runId && showWorkDetails && <WorkspacePanel title={t("작업 자세히 보기")} className="agent-chat-work-details" onClose={() => setShowWorkDetails(false)}>
-      {run?.metadata && <p className="model-selection-note">{run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} · {run.metadata.model}</p>}
-      <PetWorkspace key={runId} run={run} />
-      <LiveWorkflow snapshot={snapshot} />
-      <AnalysisTimeline events={events} run={run} />
-    </WorkspacePanel>}
-  </>;
+  return (
+    <>
+      <AgentChat
+        key={`${session.userId}:${session.workspaceId}:${projectId}`}
+        session={session}
+        projectId={projectId}
+        run={run}
+        runId={runId}
+        events={events}
+        busy={busy}
+        canRun={canRun}
+        canEditPolicy={canEditPolicy}
+        canCancel={canCancel}
+        modelAvailable={modelAvailable}
+        canSendAI={canSendAI}
+        retryCandidates={retryCandidates}
+        composerInfo={composerInfo}
+        composerTools={composerTools}
+        headerTools={
+          <>
+            {runId && (
+              <button
+                type="button"
+                className="quiet-button chat-work-details-trigger"
+                onClick={() => setShowWorkDetails(true)}
+              >
+                <ListChecks size={18} aria-hidden="true" />
+                <span>{t("작업 자세히 보기")}</span>
+                <CaretRight size={13} aria-hidden="true" />
+              </button>
+            )}
+          </>
+        }
+        streamState={streamState}
+        onOpenAISettings={onOpenAISettings}
+        onSend={onSendMessage}
+        onCancel={onCancel}
+        onOpenResult={openResult}
+        clarification={
+          run?.interruption ? (
+            <InterruptionForm
+              key={run.interruption.interruptionId}
+              interruption={run.interruption}
+              draftKey={interruptionDraftKey(
+                session.userId,
+                session.workspaceId,
+                runId ?? run.runId,
+                run.interruption.interruptionId
+              )}
+              draftWorkspaceId={session.workspaceId}
+              draftRunId={runId ?? run.runId}
+              busy={busy}
+              canRespond={canRespond}
+              onSubmit={onResume}
+            />
+          ) : (
+            <p>{t("사용자 확인을 기다리고 있습니다")}</p>
+          )
+        }
+      />
+      {resultView?.result && (
+        <WorkspacePanel title={t("분석 결과")} className="agent-chat-result-panel" onClose={() => setReviewedRun(null)}>
+          <AnalysisResult
+            run={resultView}
+            events={resultView.runId === runId ? events : []}
+            costUsage={resultView.runId === runId ? costUsage : null}
+            onCompareQuotes={resultView.runId === runId ? onCompareQuotes : undefined}
+          />
+        </WorkspacePanel>
+      )}
+      {runId && showWorkDetails && (
+        <WorkspacePanel
+          title={t("작업 자세히 보기")}
+          className="agent-chat-work-details"
+          onClose={() => setShowWorkDetails(false)}
+        >
+          {run?.metadata && (
+            <p className="model-selection-note">
+              {run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} ·{" "}
+              {run.metadata.model}
+            </p>
+          )}
+          <PetWorkspace key={runId} run={run} />
+          <LiveWorkflow snapshot={snapshot} />
+          <AnalysisTimeline events={events} run={run} />
+        </WorkspacePanel>
+      )}
+    </>
+  );
 }

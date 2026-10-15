@@ -6,7 +6,7 @@ const project = {
   budgetMin: null, budgetMax: null, status: "LEAD", updatedAt: "2026-10-01T00:00:00Z",
 };
 
-// Hold one response at a known server boundary without relying on wall-clock sleeps.
+// 시간 지연에 의존하지 않고 정해진 서버 경계에서 응답 하나를 대기시킨다.
 export function requestBarrier() {
   let enter;
   let release;
@@ -48,7 +48,7 @@ export async function fixture(page) {
     if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);
     if (/\/projects\/[^/]+\/quotations\/page$/.test(path) && method === "GET") return json({ items: [], nextCursor: null });
-    // Quotation detail/latest mocks must be explicit; an array is never a detail.
+    // 견적 상세·최신 모의 응답은 명시적으로 지정한다. 배열을 상세로 사용하지 않는다.
     if (/\/quotations\/[^/]+(?:\/latest)?$/.test(path) && method === "GET") return json({ message: "Quotation fixture not found" }, 404);
     if (path.endsWith("/agent-pets") && method === "GET") return json({ pets: [], selectedPetId: null, maxActivePets: 2, maxStoredPets: 3, maxPromptLength: 500, maxPreferenceRequests: 6, generationMode: "RULE_BASED_PREVIEW", aiGenerationAvailable: false });
     if (path.endsWith("/ai-connections") && method === "GET") return json({ available: true, models: { OPENAI: ["fixture-model"], GEMINI: [] }, connections: state.connections });

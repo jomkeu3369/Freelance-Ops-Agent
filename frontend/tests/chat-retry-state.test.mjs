@@ -26,6 +26,7 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
   const calls = { reads: 0, sends: 0 };
   const attachments = { prepare: async () => { calls.reads++; return prepareResult; }, items: hasAttachments ? [{}] : [], ids: attachmentIds, ready, confirmed: true, reading: false, error: "", tooLarge: false };
   const modules = {
+    "./use-agent-history": { useAgentHistory: () => ({ history: [], pastRuns: {}, resultReads: {}, loading: false, error: null, refreshHistory: noop }) },
     "react/jsx-runtime": { jsx: node, jsxs: node, Fragment: "fragment" },
     react: { useState: value => [states++ === 0 ? message : value, noop], useRef: value => ({ current: value }), useMemo: fn => fn(), useEffect: noop, useLayoutEffect: noop, useSyncExternalStore: () => true },
     "../../shared/chat-markdown": { ChatMarkdown: "ChatMarkdown" },
@@ -40,7 +41,7 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
     "../../skills/skill-selector": { useSkillSelection: () => [selection, noop], SkillNames: "SkillNames" },
     "./chat-attachments": { useChatAttachments: () => attachments, ChatAttachmentButton: "ChatAttachmentButton", ChatAttachments: "ChatAttachments" },
   };
-  // Execute the actual matcher and component decision, with only effects and APIs stubbed.
+  // 효과와 API만 대체하고 실제 재시도 비교와 컴포넌트 판단을 실행한다.
   {
     const skillModule = await compile("features/workspace/skills/skill-selection.ts", {
       "./catalog.json": { default: JSON.parse(await readFile(new URL("features/workspace/skills/catalog.json", base), "utf8")) },

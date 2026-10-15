@@ -89,7 +89,7 @@ test("same-column Accepted drop, Escape, outside drop and external drag never wr
   await drop(page, "quoting", external);
   await expect(page.locator(".pipeline-drag-preview, .drop-target, .dragging")).toHaveCount(0);
   expect(state.moves).toEqual([]);
-  // Drag completion must not trigger the card's normal click navigation.
+  // 드래그 종료가 카드의 일반 클릭 이동을 유발하지 않아야 한다.
   await card(page).locator(".pipeline-card-open").dispatchEvent("click");
   await expect(page).toHaveURL(/\/workspace\/projects$/);
 });

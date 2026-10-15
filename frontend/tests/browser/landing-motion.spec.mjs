@@ -3,11 +3,11 @@ import { test as base, expect } from "@playwright/test";
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 const depthHosts = ".spatial-flow, .story-execution, .story-effort-prisms, .story-dashboard-ring";
 
-// Landing examples must remain local, without a Business API or external request.
+// 소개 예시는 업무 API나 외부 요청 없이 로컬에서만 동작해야 한다.
 const test = base.extend({
   page: async ({ page }, runTest) => {
-    // This suite validates the retained CSS fallback and its existing motion
-    // contracts. Real GPU rendering is exercised in landing-webgl.spec.mjs.
+    // 이 묶음은 유지된 CSS 대체 화면과 동작 계약을 검증한다.
+    // 실제 GPU 렌더링은 landing-webgl.spec.mjs에서 검증한다.
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function(type, ...args) {
@@ -91,7 +91,7 @@ for (const language of ["ko", "en"]) {
       }
 
       await expectView(4, "essential", false);
-      // Do not select a stage before these edits: that hid the original regression.
+      // 수정 전에 단계를 선택하면 기존 회귀 문제가 가려지므로 바로 편집한다.
       const otherControl = firstControl === "buttons" ? "range" : "buttons";
       for (const control of [firstControl, otherControl, firstControl]) {
         for (const scope of ["extended", "essential"]) {
@@ -99,13 +99,13 @@ for (const language of ["ko", "en"]) {
           await expectView(4, scope);
         }
       }
-      await scopeButton("essential").click(); // Repeated selection must also retain the proposal.
+      await scopeButton("essential").click(); // 같은 단계를 반복 선택해도 제안서를 유지해야 한다.
       await expectView(4, "essential");
-      await expect(workflow.locator(".spatial-motion-toggle")).toBeDisabled();
+      await expect(workflow.locator(".spatial-motion-toggle")).toHaveCount(0);
 
       await page.emulateMedia({ reducedMotion: "no-preference" });
-      await expect(workflow.locator(".spatial-motion-toggle")).toBeEnabled();
-      await expectView(0, "essential"); // The paused execution cursor was never overwritten.
+      await expect(workflow.locator(".spatial-motion-toggle")).toHaveCount(0);
+      await expectView(0, "essential"); // 일시정지한 실행 커서는 덮어쓰지 않아야 한다.
       await page.emulateMedia({ reducedMotion: "reduce" });
       await expectView(4, "essential");
 
@@ -137,8 +137,8 @@ async function expectCohesiveText(page) {
           if (/blur\((?!0(?:px)?\))/.test(style.filter)) failures.add(`Blurred text: ${ancestor.className}`);
           if (ancestor === host) break;
           const matrix = new DOMMatrixReadOnly(style.transform);
-          // Glyphs inherit the scene's one tilt. Local card travel and small,
-          // fixed Z offsets are allowed, but a second rotation/scale is not.
+          // 글자는 장면의 공통 기울기를 따른다. 카드 이동과 작은 고정 Z축 오프셋은
+          // 허용하지만 추가 회전·확대는 허용하지 않는다.
           const distorted = [matrix.m11 - 1, matrix.m22 - 1, matrix.m33 - 1, matrix.m44 - 1,
             matrix.m12, matrix.m13, matrix.m14, matrix.m21, matrix.m23, matrix.m24,
             matrix.m31, matrix.m32, matrix.m34].some(value => Math.abs(value) > .001);
@@ -160,7 +160,7 @@ async function sceneState(host) {
     return {
       transform: style.transform,
       shellTransform: shell.transform,
-      // The common root's rendered off-plane components reverse at corners.
+      // 모서리에서 공통 루트의 평면 밖 성분 방향이 반전되는지 확인한다.
       x: matrix.m23,
       y: matrix.m13,
       perspective: matrix.m34,
@@ -345,7 +345,7 @@ for (const mode of ["reduced-motion", "coarse-pointer"]) {
       for (const host of await page.locator(depthHosts).all()) {
         await host.scrollIntoViewIfNeeded();
         const before = await sceneState(host);
-        // A desktop-sized touch context tests the media gate independently of the mobile breakpoint.
+        // 데스크톱 크기의 터치 환경으로 모바일 분기점과 독립적으로 미디어 조건을 검증한다.
         await pointerAnchor(host).dispatchEvent("pointermove", { pointerType: "mouse", clientX: 100, clientY: 100 });
         await page.waitForTimeout(80);
         const after = await sceneState(host);
@@ -504,7 +504,7 @@ async function transferGeometry(card) {
       height: shellBox.height,
       x: matrix.m41,
       textOpacity: Number(getComputedStyle(content).opacity),
-      // Translation is allowed; glyphs must never inherit the droplet's scaling.
+      // 평행 이동은 허용하되 글자가 물방울의 크기 변환을 상속하지 않아야 한다.
       textFlat: Math.abs(matrix.m43) <= 12 && Math.abs(matrix.m13) < .001 && Math.abs(matrix.m23) < .001 && Math.abs(matrix.m31) < .001 && Math.abs(matrix.m32) < .001 && Math.abs(matrix.m33 - 1) < .001 && Math.abs(matrix.m11 - 1) < .001 && Math.abs(matrix.m22 - 1) < .001 && Math.abs(matrix.m12) < .001 && Math.abs(matrix.m21) < .001 && getComputedStyle(content).transform === "none"
     };
   });
@@ -535,7 +535,7 @@ test("manual proposal transfer condenses into a droplet, stretches in flight, an
   await openLanding(page, { clock: true });
   const card = page.locator(".spatial-project-card");
   await card.evaluate(element => { window.__motionTransferCard = element; });
-  await expectSettledTransfer(page, 0); // Preference hydration must not invent a reverse transfer.
+  await expectSettledTransfer(page, 0); // 동작 설정을 읽는 과정에서 역방향 전송을 새로 만들지 않아야 한다.
   const original = await transferGeometry(card);
   await page.locator(".spatial-stage").nth(4).click();
   await expect(card).toHaveAttribute("data-transfer-state", "condensing");

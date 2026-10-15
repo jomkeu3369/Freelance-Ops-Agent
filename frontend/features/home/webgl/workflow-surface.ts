@@ -3,12 +3,16 @@ import * as THREE from "three";
 export type SurfaceKind = "node" | "lane" | "card";
 export const surfacePadding = 14;
 
-/** One antialiased contour replaces the front/back wireframe around each pane. */
+/** 각 표면 앞뒤의 와이어프레임 대신 계단 현상을 줄인 외곽선 하나를 사용한다. */
 export function createWorkflowSurface(kind: SurfaceKind) {
   return new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, toneMapped: false,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
     uniforms: {
-      time: { value: 0 }, energy: { value: 0 }, size: { value: new THREE.Vector2(1, 1) },
+      time: { value: 0 },
+      energy: { value: 0 },
+      size: { value: new THREE.Vector2(1, 1) },
       kind: { value: kind === "lane" ? 1 : kind === "card" ? 2 : 0 },
       base: { value: new THREE.Color(kind === "card" ? "#19151f" : "#141219") },
       top: { value: new THREE.Color(kind === "card" ? "#32243f" : "#25202e") },
@@ -40,7 +44,7 @@ export function createWorkflowSurface(kind: SurfaceKind) {
         color+=tint*(corner*(.018+energy*.075)+reflection*.008)*(1.-lane);
         float edgeLight=(.075+corner*.38+energy*.19)*(1.-lane);
         color=mix(color,tint,rim*edgeLight);
-        // Only the active pane carries a quiet, broad light sweep.
+        // 활성 표면에만 넓고 약한 빛의 이동을 적용한다.
         float sweep=exp(-pow((uv.y-fract(time*.045))*12.,2.));
         color+=tint*sweep*energy*.012*(1.-lane);
         float alpha=mix(.94,.98,card)*inside;

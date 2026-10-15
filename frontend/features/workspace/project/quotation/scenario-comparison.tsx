@@ -1,15 +1,22 @@
 import { useT } from "../../../../app/lib/ui-language";
 import { quotationStatusLabels } from "../../shared/constants";
 import { formatMoney } from "../../shared/formatters";
-import {
-  quotationDraftItems
-} from "./quotation-helpers";
+import { quotationDraftItems } from "./quotation-helpers";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { latestByScenario, aiDraftByScenario, rawAIDraftByScenario, rateCards, project, taxRate, scenario, activateScenario } = model;
+  const {
+    latestByScenario,
+    aiDraftByScenario,
+    rawAIDraftByScenario,
+    rateCards,
+    project,
+    taxRate,
+    scenario,
+    activateScenario
+  } = model;
 
   return (
     <>
@@ -26,14 +33,9 @@ export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
             const quotation = latestByScenario[value];
             const generated = aiDraftByScenario[value];
             const dismissed = Boolean(rawAIDraftByScenario[value] && !generated);
-            const generatedItems = generated
-              ? quotationDraftItems(generated, rateCards, project.currency)
-              : [];
+            const generatedItems = generated ? quotationDraftItems(generated, rateCards, project.currency) : [];
             const generatedTotal =
-              generatedItems.reduce(
-                (sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate),
-                0
-              ) *
+              generatedItems.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0) *
               (1 + taxRate);
             return (
               <button
@@ -48,14 +50,17 @@ export function ScenarioComparison({ model }: { model: QuoteBuilderModel }) {
                   <>
                     <strong>{formatMoney(quotation.total, quotation.currency)}</strong>
                     <small>
-                      v{quotation.versionNumber} ·{" "}
-                      {t(quotationStatusLabels[quotation.status]) ?? t("상태 확인 필요")}
+                      v{quotation.versionNumber} · {t(quotationStatusLabels[quotation.status]) ?? t("상태 확인 필요")}
                     </small>
                   </>
                 ) : generated ? (
                   <>
                     <strong>{formatMoney(generatedTotal, project.currency)}</strong>
-                    <small>{t("AI 초안 ·")}{generated.items.length}{t("개 작업")}</small>
+                    <small>
+                      {t("AI 초안 ·")}
+                      {generated.items.length}
+                      {t("개 작업")}
+                    </small>
                   </>
                 ) : dismissed ? (
                   <>

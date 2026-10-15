@@ -17,8 +17,12 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       <p>일시적인 네트워크 또는 화면 오류일 수 있습니다. 문제가 계속되면 홈으로 돌아가 다시 시작할 수 있습니다.</p>
       {error.digest && <code>오류 참조 {error.digest}</code>}
       <div className="state-actions">
-        <button type="button" className="primary-button" onClick={reset}><ArrowClockwise size={18} /> 다시 시도</button>
-        <Link className="quiet-button" href="/">홈으로 이동</Link>
+        <button type="button" className="primary-button" onClick={reset}>
+          <ArrowClockwise size={18} /> 다시 시도
+        </button>
+        <Link className="quiet-button" href="/">
+          홈으로 이동
+        </Link>
       </div>
     </main>
   );

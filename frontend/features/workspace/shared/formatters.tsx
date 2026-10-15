@@ -1,6 +1,6 @@
 import { Project, Client } from "../../../app/lib/api";
 
-export function projectClientLabel(project: Project, clients: Client[], translate: (source: string) => string = source => source): string {
+export function projectClientLabel(project: Project, clients: Client[], translate: (source: string) => string = (source) => source): string {
   if (!project.clientId) return translate("고객 미연결");
   const client = clients.find((candidate) => candidate.id === project.clientId);
   if (!client) return translate("연결된 고객");
@@ -8,18 +8,7 @@ export function projectClientLabel(project: Project, clients: Client[], translat
 }
 
 export function formatMoney(value: number, currency: string): string {
-  return new Intl.NumberFormat("ko-KR", { style: "currency", currency, maximumFractionDigits: 0 }).format(
-    value
-  );
-}
-
-export function formatRate(value: number, currency: string): string {
-  return new Intl.NumberFormat("ko-KR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 6
-  }).format(value);
+  return new Intl.NumberFormat("ko-KR", { style: "currency", currency, maximumFractionDigits: 0 }).format(value);
 }
 
 export function toDateTimeLocal(value: string | null): string {

@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type AuthSession, type Quotation, listQuotationPage } from "@/app/lib/api";
 
-// Keep locally saved/published versions when an overlapping, older page arrives.
+// 늦게 도착한 이전 페이지가 로컬에서 저장·발행한 버전을 덮어쓰지 않게 한다.
 function mergeQuotations(current: Quotation[], incoming: Quotation[]): Quotation[] {
   const seen = new Set(current.map((quotation) => quotation.id));
-  // Instant JSON omits trailing fractional zeros; normalize without losing nanos.
-  const instantKey = (value: string) => value.replace(/(?:\.(\d+))?Z$/, (_match, fraction = "") => `.${fraction.padEnd(9, "0")}Z`);
-  return [...current, ...incoming.filter((quotation) => {
-    if (seen.has(quotation.id)) return false;
-    seen.add(quotation.id);
-    return true;
-  })].sort((left, right) => instantKey(right.createdAt).localeCompare(instantKey(left.createdAt)) || right.id.localeCompare(left.id));
+  // Instant JSON의 생략된 소수부 0을 나노초 정밀도를 잃지 않게 정규화한다.
+  const instantKey = (value: string) =>
+    value.replace(/(?:\.(\d+))?Z$/, (_match, fraction = "") => `.${fraction.padEnd(9, "0")}Z`);
+  return [
+    ...current,
+    ...incoming.filter((quotation) => {
+      if (seen.has(quotation.id)) return false;
+      seen.add(quotation.id);
+      return true;
+    })
+  ].sort(
+    (left, right) =>
+      instantKey(right.createdAt).localeCompare(instantKey(left.createdAt)) || right.id.localeCompare(left.id)
+  );
 }
 
 export function useQuotationHistory(session: AuthSession, projectId: string) {
@@ -22,11 +29,14 @@ export function useQuotationHistory(session: AuthSession, projectId: string) {
   const pendingMore = useRef(false);
   const pendingFirst = useRef(false);
 
-  useEffect(() => () => {
-    generation.current++;
-    pendingMore.current = false;
-    pendingFirst.current = false;
-  }, [session, projectId]);
+  useEffect(
+    () => () => {
+      generation.current++;
+      pendingMore.current = false;
+      pendingFirst.current = false;
+    },
+    [session, projectId]
+  );
 
   const loadFirstPage = useCallback(async () => {
     const requestGeneration = ++generation.current;

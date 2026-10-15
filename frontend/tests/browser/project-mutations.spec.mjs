@@ -16,8 +16,8 @@ const sendButton = page => page.getByRole("button", { name: "보내기", exact: 
 const stepButton = (page, label) => page.getByRole("navigation", { name: "프로젝트 진행 단계", exact: true }).getByRole("button", { name: new RegExp(`^(?:0[1-4]\\s*)?${label}$`) });
 
 async function mutationFixture(page) {
-  // The shared fixture owns all API traffic and blocks external providers. Only
-  // this synthetic project's detail endpoint is overridden after its routes.
+  // 공통 검증 환경에서 모든 API 요청을 처리하고 외부 공급자는 차단한다.
+  // 공통 경로 설정 뒤 이 가상 프로젝트의 상세 응답만 교체한다.
   const state = await fixture(page);
   state.permissions.push("project.write", "project.delete");
   Object.assign(state.projects[0], { currency: "USD", budgetMin: 1.25, budgetMax: 2.75 });
@@ -72,8 +72,8 @@ async function openAIntakeFromB(page) {
 }
 
 async function backToB(page) {
-  // B/agent → A/agent → A/intake is real SPA history. Browser Back can leave
-  // a busy modal without attempting clicks through its backdrop/focus trap.
+  // B/agent → A/agent → A/intake는 실제 SPA 기록이다. 브라우저 뒤로가기로
+  // 처리 중 모달을 벗어나며 배경이나 포커스 제한을 뚫고 클릭하지 않는다.
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${projectPath(projectA)}$`));
   await expect(editDialog(page)).toHaveCount(0);
@@ -88,8 +88,8 @@ async function saveTitle(page) {
   await page.getByRole("button", { name: "프로젝트 정보 수정", exact: true }).click();
   const dialog = editDialog(page);
   await expect(dialog).toBeVisible();
-  // The native select is inside its label. Match its accessible name rather
-  // than label text, which also contains all of the option text.
+  // 기본 select는 label 안에 있으므로 옵션 문구까지 포함하는 label 텍스트 대신
+  // 접근 가능한 이름으로 찾는다.
   await expect(dialog.getByRole("combobox", { name: "통화", exact: true })).toHaveValue("USD");
   await expect(dialog.getByRole("spinbutton", { name: "최소 예산", exact: true })).toHaveValue("1.25");
   await expect(dialog.getByRole("spinbutton", { name: "최대 예산", exact: true })).toHaveValue("2.75");
@@ -122,8 +122,8 @@ async function startRun(page, state, projectId) {
 async function expectRunPreserved(page, state, projectId, runId) {
   await expect(page).toHaveURL(new RegExp(`${projectPath(projectId)}$`));
   await expect(page.locator(`[data-run-id="${runId}"]`)).toBeVisible();
-  // A historical turn alone is not proof of a live run: cancellation must still
-  // be available, and a nonempty next draft must remain unsendable while active.
+  // 과거 대화만으로 현재 실행을 판단하지 않는다. 실행 중 취소가 가능하고
+  // 새 초안이 있어도 다음 전송은 불가능한지 확인한다.
   await expect(page.getByRole("button", { name: "작업 취소", exact: true })).toBeVisible();
   await expect(sendButton(page)).toBeDisabled();
   await expect(input(page)).toHaveValue(`Unsent next request for ${projectId}`);
@@ -138,8 +138,8 @@ async function releaseMutation(page, barrier, method) {
   const response = page.waitForResponse(response => new URL(response.url()).pathname === mutationPath && response.request().method() === method);
   barrier.release();
   const received = await response;
-  // A 204 has no body to consume; Chromium can leave finished() pending even
-  // after the app handles it. Each caller verifies the resulting UI state.
+  // 204 응답은 본문이 없어 앱 처리 후에도 Chromium의 finished가 대기할 수 있다.
+  // 각 호출자는 처리 후 UI 상태로 완료를 확인한다.
   if (received.status() !== 204) await received.finished();
 }
 
@@ -354,8 +354,8 @@ test("a preserved personal connection revoked between project steps blocks sendi
   await stepButton(page, "문의").click();
   await expect(page).toHaveURL(new RegExp(`${projectPath(projectA, "intake")}$`));
   state.connections = [];
-  // Wait for the actual empty server response, not the transient loading state
-  // while the remounted workbench revalidates its preserved credential choice.
+  // 다시 열린 작업 화면이 보존한 자격 선택을 검증하는 중의 로딩 상태 대신
+  // 실제 빈 서버 응답을 기다린다.
   const revokedConnections = page.waitForResponse(async response =>
     new URL(response.url()).pathname === "/api/v2/workspaces/local-space/ai-connections"
       && response.request().method() === "GET" && (await response.json()).connections.length === 0);
@@ -391,8 +391,8 @@ test("an old edit response cannot change a same-ID project's newer login and run
   };
   let logins = 0;
   let logouts = 0;
-  // Hold an old server snapshot, rather than rewriting the new session's fixture
-  // when its response is finally delivered. All auth values are synthetic.
+  // 응답이 늦게 도착할 때 새 세션의 모의 데이터를 바꾸지 않고
+  // 기존 서버 스냅샷을 대기시킨다. 모든 인증 값은 가상 데이터다.
   await page.route(`**${mutationPath}`, async route => {
     if (route.request().method() !== "PATCH") return route.fallback();
     const body = route.request().postDataJSON();
@@ -428,8 +428,8 @@ test("an old edit response cannot change a same-ID project's newer login and run
     await expect(page).toHaveURL(new RegExp(`${projectPath(projectA)}$`));
     const runId = await startRun(page, state, projectA);
     await releaseMutation(page, barrier, "PATCH");
-    // Observe a committed render after the rejected stale response. There is no
-    // successful title/list change to use as a positive reconciliation signal.
+    // 이전 응답이 거부된 뒤 렌더링이 반영됐는지 확인한다.
+    // 거부되는 경우에는 성공한 제목·목록 변경을 완료 신호로 사용할 수 없다.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await expect(page.locator(".project-heading h1")).toHaveText(newTitle);
     await expect(recentProject(page, savedTitle)).toHaveCount(0);

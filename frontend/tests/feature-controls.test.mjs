@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 import { translateUi } from "../app/lib/ui-locale.mjs";
 
-// Render actual controls without network, a browser or an added DOM dependency.
+// 네트워크·브라우저·추가 DOM 의존성 없이 실제 조작 요소를 렌더링한다.
 const directory = await mkdtemp(join(tmpdir(), "feature-controls-"));
 after(async () => { delete globalThis.__featureControlLocale; await rm(directory, { recursive: true, force: true }); });
 async function compile(path, name, replace = source => source) {
@@ -27,7 +27,7 @@ const categories = JSON.parse(await readFile(new URL(`${skillPath}categories.jso
 await compile(`${skillPath}skill-selection.ts`, "selection", source => source.replace('import catalog from "./catalog.json";', `const catalog = ${JSON.stringify(catalog)};`).replace('import rules from "./routing.json";', `const rules = ${JSON.stringify(rules)};`));
 const { SkillSelector, SkillNames } = await compile(`${skillPath}skill-selector.tsx`, "selector", source => source.replace('"../../../app/lib/ui-language"', '"./locale.mjs"').replace('"./skill-selection"', '"./selection.mjs"').replace('import "./skills.css";', "").replace('import categories from "./categories.json";', `const categories = ${JSON.stringify(categories)};`));
 await compile("../features/workspace/project/analysis/attachment-draft.ts", "attachment-draft");
-const { ChatAttachmentButton, ChatAttachments } = await compile("../features/workspace/project/analysis/chat-attachments.tsx", "attachments", source => source.replace('"../../../../app/lib/ui-language"', '"./locale.mjs"').replace(/import \{[^\n]+\} from "\.\.\/\.\.\/\.\.\/\.\.\/app\/lib\/api";/, 'const readChatAttachment = () => { throw new Error("No network in rendering tests"); }; const removeChatAttachment = readChatAttachment;').replace('"./attachment-draft"', '"./attachment-draft.mjs"').replace('import "./chat-attachments.css";', ""));
+const { ChatAttachmentButton, ChatAttachments } = await compile("../features/workspace/project/analysis/chat-attachments.tsx", "attachments", source => source.replace('"../../../../app/lib/ui-language"', '"./locale.mjs"').replace(/import \{[^}]+\} from "\.\.\/\.\.\/\.\.\/\.\.\/app\/lib\/api";/, 'const readChatAttachment = () => { throw new Error("No network in rendering tests"); }; const removeChatAttachment = readChatAttachment;').replace('"./attachment-draft"', '"./attachment-draft.mjs"').replace('import "./chat-attachments.css";', ""));
 const selection = (patch = {}) => ({ mode: "AUTO", manualIds: [], excludedIds: [], catalogVersion: "1.0.0", ...patch });
 const render = (component, props, locale = "en") => { globalThis.__featureControlLocale = locale; return renderToStaticMarkup(createElement(component, props)); };
 const noop = () => {};

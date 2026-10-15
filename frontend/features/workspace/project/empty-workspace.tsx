@@ -19,12 +19,25 @@ export function EmptyWorkspace({ canCreate, onCreate }: EmptyWorkspaceProps) {
       </p>
       {canCreate && (
         <button type="button" className="primary-button" onClick={onCreate}>
-          <Plus size={18} /> {t("첫 고객 문의 등록")}</button>
+          <Plus size={18} /> {t("첫 고객 문의 등록")}
+        </button>
       )}
       <ol className="first-inquiry-steps" aria-label={t("문의 이후의 진행 순서")}>
-        <li><span>01</span><strong>{t("문의 보관")}</strong><p>{t("고객이 보낸 내용을 그대로 남깁니다.")}</p></li>
-        <li><span>02</span><strong>{t("요구사항 확인")}</strong><p>{t("필요한 정보와 확인할 질문을 정리합니다.")}</p></li>
-        <li><span>03</span><strong>{t("견적 검토")}</strong><p>{t("범위와 금액을 검토하고 직접 확정합니다.")}</p></li>
+        <li>
+          <span>01</span>
+          <strong>{t("문의 보관")}</strong>
+          <p>{t("고객이 보낸 내용을 그대로 남깁니다.")}</p>
+        </li>
+        <li>
+          <span>02</span>
+          <strong>{t("요구사항 확인")}</strong>
+          <p>{t("필요한 정보와 확인할 질문을 정리합니다.")}</p>
+        </li>
+        <li>
+          <span>03</span>
+          <strong>{t("견적 검토")}</strong>
+          <p>{t("범위와 금액을 검토하고 직접 확정합니다.")}</p>
+        </li>
       </ol>
     </div>
   );

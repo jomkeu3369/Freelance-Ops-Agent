@@ -7,19 +7,12 @@ import {
   FileText,
   MagnifyingGlass,
   Question,
-  ShareNetwork,
+  ShareNetwork
 } from "@phosphor-icons/react";
 import type { AgentRunStatus, WorkflowEvent } from "../lib/api";
 import { useT } from "../lib/ui-language";
 
-export type WorkflowNodeId =
-  | "intake"
-  | "routing"
-  | "context"
-  | "analysis"
-  | "evidence"
-  | "quotation"
-  | "review";
+export type WorkflowNodeId = "intake" | "routing" | "context" | "analysis" | "evidence" | "quotation" | "review";
 
 export interface WorkflowSnapshot {
   activeNode: WorkflowNodeId;
@@ -38,7 +31,7 @@ const nodes = [
   { id: "analysis" as const, label: "요구 분석", icon: Brain },
   { id: "evidence" as const, label: "근거 연결", icon: CheckCircle },
   { id: "quotation" as const, label: "견적 계산", icon: Calculator },
-  { id: "review" as const, label: "사용자 검토", icon: Question },
+  { id: "review" as const, label: "사용자 검토", icon: Question }
 ];
 
 const eventNode: Record<string, WorkflowNodeId> = {
@@ -53,7 +46,7 @@ const eventNode: Record<string, WorkflowNodeId> = {
   "quotation.draft.created": "quotation",
   "approval.requested": "review",
   "run.completed": "review",
-  "run.partial": "review",
+  "run.partial": "review"
 };
 
 function recordedCompletedNodes(events: WorkflowEvent[]): WorkflowNodeId[] {
@@ -75,7 +68,7 @@ const routeNodes: Record<string, WorkflowNodeId[]> = {
   SIMPLE_LLM: ["intake", "routing", "analysis", "review"],
   REACT_AGENT: ["intake", "routing", "context", "analysis", "evidence", "review"],
   SUPERVISOR: nodes.map((node) => node.id),
-  HUMAN_REQUIRED: ["intake", "routing", "review"],
+  HUMAN_REQUIRED: ["intake", "routing", "review"]
 };
 
 const statusCopy: Record<WorkflowSnapshot["status"], string> = {
@@ -87,13 +80,10 @@ const statusCopy: Record<WorkflowSnapshot["status"], string> = {
   COMPLETED: "실행 완료",
   PARTIAL: "부분 결과 제공",
   FAILED: "실행 중단",
-  CANCELLED: "사용자 중단",
+  CANCELLED: "사용자 중단"
 };
 
-export function snapshotFromEvents(
-  events: WorkflowEvent[],
-  status: AgentRunStatus | "PREVIEW" | "IDLE",
-): WorkflowSnapshot {
+export function snapshotFromEvents(events: WorkflowEvent[], status: AgentRunStatus | "PREVIEW" | "IDLE"): WorkflowSnapshot {
   if (events.length === 0) {
     return {
       activeNode: status === "IDLE" ? "intake" : "routing",
@@ -101,28 +91,28 @@ export function snapshotFromEvents(
       skippedNodes: [],
       status,
       eventLabel: status === "IDLE" ? "실행을 기다리고 있습니다" : "실행 경로를 준비하고 있습니다",
-      eventCount: 0,
+      eventCount: 0
     };
   }
   const last = events.at(-1)!;
   const failed = last.type === "run.failed" || status === "FAILED";
   const route = [...events].reverse().find((event) => event.type === "route.selected")?.data.route;
-  const expectedNodes = typeof route === "string" && routeNodes[route]
-    ? routeNodes[route]
-    : nodes.map((node) => node.id);
+  const expectedNodes =
+    typeof route === "string" && routeNodes[route] ? routeNodes[route] : nodes.map((node) => node.id);
   const eventCompletedNodes = recordedCompletedNodes(events).filter((node) => expectedNodes.includes(node));
   const lastProgressEvent = [...events].reverse().find((event) => event.type !== "run.failed");
   const inferredActiveNode = eventNode[lastProgressEvent?.type ?? last.type] ?? "analysis";
   const failedNode = failed
-    ? expectedNodes.find((node) => !eventCompletedNodes.includes(node)) ?? inferredActiveNode
+    ? (expectedNodes.find((node) => !eventCompletedNodes.includes(node)) ?? inferredActiveNode)
     : undefined;
   const activeNode = failedNode ?? eventNode[last.type] ?? inferredActiveNode;
   const activeIndex = nodes.findIndex((node) => node.id === activeNode);
-  const completedNodes = status === "COMPLETED"
-    ? expectedNodes
-    : failed
-      ? eventCompletedNodes
-      : expectedNodes.filter((node) => nodes.findIndex((item) => item.id === node) < activeIndex);
+  const completedNodes =
+    status === "COMPLETED"
+      ? expectedNodes
+      : failed
+        ? eventCompletedNodes
+        : expectedNodes.filter((node) => nodes.findIndex((item) => item.id === node) < activeIndex);
   return {
     activeNode,
     completedNodes,
@@ -130,7 +120,7 @@ export function snapshotFromEvents(
     failedNode,
     status,
     eventLabel: publicEventLabel(last.type),
-    eventCount: events.length,
+    eventCount: events.length
   };
 }
 
@@ -148,7 +138,7 @@ function publicEventLabel(type: string): string {
       "approval.requested": "최종 검토를 기다리고 있습니다",
       "run.completed": "분석을 완료했습니다",
       "run.partial": "완료된 단계의 부분 결과를 준비했습니다",
-      "run.failed": "실행을 안전하게 중단했습니다",
+      "run.failed": "실행을 안전하게 중단했습니다"
     }[type] ?? "분석을 진행하고 있습니다"
   );
 }
@@ -160,10 +150,13 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
   const isComplete = snapshot.status === "COMPLETED";
   const expectedNodeCount = Math.max(1, nodes.length - snapshot.skippedNodes.length);
   const progress = isComplete ? 100 : Math.round((snapshot.completedNodes.length / expectedNodeCount) * 100);
-  const trackProgress = isComplete ? 100 : Math.max(0, activeIndex) / (nodes.length - 1) * 100;
+  const trackProgress = isComplete ? 100 : (Math.max(0, activeIndex) / (nodes.length - 1)) * 100;
 
   return (
-    <section className={`live-graph status-${snapshot.status.toLowerCase()}`} aria-label={t(preview ? "제품 흐름 미리보기" : "분석 진행 상황")}>
+    <section
+      className={`live-graph status-${snapshot.status.toLowerCase()}`}
+      aria-label={t(preview ? "제품 흐름 미리보기" : "분석 진행 상황")}
+    >
       <div className="live-graph-head">
         <div>
           <span className={`live-dot ${isMoving ? "moving" : ""}`} aria-hidden="true" />
@@ -171,7 +164,14 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         </div>
         <span>{t(statusCopy[snapshot.status])}</span>
       </div>
-      <div className="workflow-progress" role="progressbar" aria-label={t("분석 진행률")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+      <div
+        className="workflow-progress"
+        role="progressbar"
+        aria-label={t("분석 진행률")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progress}
+      >
         <span style={{ width: `${progress}%` }} />
       </div>
       <div className="workflow-rail">
@@ -180,24 +180,28 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         </div>
         {nodes.map((node) => {
           const Icon = node.icon;
-          const state = snapshot.failedNode === node.id
-            ? "failed"
-            : snapshot.skippedNodes.includes(node.id)
-              ? "skipped"
-              : snapshot.completedNodes.includes(node.id)
-                ? "completed"
-                : snapshot.activeNode === node.id
-                  ? "active"
-                  : "pending";
-          const stateLabel = state === "completed"
-            ? "완료"
-            : state === "failed"
-              ? "중단"
-              : state === "active"
-                ? snapshot.status === "WAITING_FOR_USER" ? "확인 필요" : "처리 중"
-                : state === "skipped"
-                  ? "해당 없음"
-                : "대기";
+          const state =
+            snapshot.failedNode === node.id
+              ? "failed"
+              : snapshot.skippedNodes.includes(node.id)
+                ? "skipped"
+                : snapshot.completedNodes.includes(node.id)
+                  ? "completed"
+                  : snapshot.activeNode === node.id
+                    ? "active"
+                    : "pending";
+          const stateLabel =
+            state === "completed"
+              ? "완료"
+              : state === "failed"
+                ? "중단"
+                : state === "active"
+                  ? snapshot.status === "WAITING_FOR_USER"
+                    ? "확인 필요"
+                    : "처리 중"
+                  : state === "skipped"
+                    ? "해당 없음"
+                    : "대기";
           return (
             <div className="workflow-node-wrap" key={node.id}>
               <div className={`workflow-node ${state}`} aria-current={state === "active" ? "step" : undefined}>
@@ -212,7 +216,13 @@ export function LiveWorkflow({ snapshot, preview = false }: { snapshot: Workflow
         })}
       </div>
       <div className="live-event" aria-live={preview ? "off" : "polite"}>
-        <div><p>{t(snapshot.eventLabel)}</p><small>{t(nodes[Math.max(activeIndex, 0)].label)} · {t("{count}개 이벤트", { count: snapshot.eventCount.toLocaleString() })}</small></div>
+        <div>
+          <p>{t(snapshot.eventLabel)}</p>
+          <small>
+            {t(nodes[Math.max(activeIndex, 0)].label)} ·{" "}
+            {t("{count}개 이벤트", { count: snapshot.eventCount.toLocaleString() })}
+          </small>
+        </div>
       </div>
     </section>
   );

@@ -1,33 +1,20 @@
+import { createApiFixture } from "../scripts/lib/typescript-fixture.mjs";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import ts from "typescript";
+
 
 
 const originalOrigin = process.env.NEXT_PUBLIC_API_BASE_URL;
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
-let temporaryRoot;
+let fixtureRuntime;
 let api;
 let queryCache;
 
 before(async () => {
-  temporaryRoot = await mkdtemp(join(tmpdir(), "freelance-ops-api-url-test-"));
-  // Exercise the real TypeScript API client without loading Next or contacting a server.
-  for (const name of ["api", "query-cache"]) {
-    const source = await readFile(new URL(`../app/lib/${name}.ts`, import.meta.url), "utf8");
-    const { outputText } = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ES2022 },
-    });
-    await writeFile(join(temporaryRoot, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
-  }
-  await writeFile(join(temporaryRoot, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
-  await writeFile(join(temporaryRoot, "byok-presentation.mjs"), await readFile(new URL("../app/lib/byok-presentation.mjs", import.meta.url)));
-  api = await import(pathToFileURL(join(temporaryRoot, "api.mjs")));
-  queryCache = await import(pathToFileURL(join(temporaryRoot, "query-cache.mjs")));
+  fixtureRuntime = await createApiFixture();
+  api = fixtureRuntime.api;
+  queryCache = fixtureRuntime.queryCache;
 });
 
 afterEach(() => {
@@ -38,7 +25,7 @@ afterEach(() => {
 });
 
 after(async () => {
-  if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
+  await fixtureRuntime?.cleanup();
 });
 
 function fixture(suffix = "a") {

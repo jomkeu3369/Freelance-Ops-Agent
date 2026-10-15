@@ -4,7 +4,7 @@ import test from "node:test";
 import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../app/lib/stream-retry.mjs";
 import { sessionRefreshDelay } from "../app/lib/session-timing.mjs";
-import { buildWorkspaceSearch, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
+import { buildWorkspacePath, parseWorkspaceLocation } from "../app/lib/workspace-navigation.mjs";
 import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "../app/lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates, selectRateCardForDraftItem } from "../app/lib/rate-card-match.mjs";
 import { createInterruptionDraft, interruptionDraftKey, parseInterruptionDraft } from "../app/lib/interruption-draft.mjs";
@@ -22,15 +22,15 @@ test("HITL drafts remain isolated to an exact run and expire after 24 hours", ()
 
 test("pipeline and HITL controls preserve the server truth and unfinished answers", async () => {
   const [workspace, css] = await Promise.all([read("../app/workspace/page.tsx"), read("../app/globals.css")]);
-  assert.match(workspace, /<select value=\{project\.status\}/);
-  assert.match(workspace, /ACCEPTED: "고객 승인됨"/);
-  assert.match(workspace, /interruptionDraftKey\(session\.userId, session\.workspaceId/);
-  assert.match(workspace, /await onSubmit\(answers\)/);
-  assert.match(workspace, /작성 중인 답변은 이 탭에 임시 저장됩니다/);
+  assert.match(workspace, /<select\s*value=\{project\.status\}/);
+  assert.match(workspace, /ACCEPTED:\s*"고객\s*승인됨"/);
+  assert.match(workspace, /interruptionDraftKey\(session\.userId,\s*session\.workspaceId/);
+  assert.match(workspace, /await\s*onSubmit\(answers\)/);
+  assert.match(workspace, /작성\s*중인\s*답변은\s*이\s*탭에\s*임시\s*저장됩니다/);
   assert.match(css, /\.interruption-actions/);
 });
 
-// Source checks cover the feature tree rather than assuming a monolithic route file.
+// 경로 파일 하나가 아닌 기능 폴더 전체의 소스를 검사한다.
 async function readFeatureTree(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const sources = await Promise.all(entries.map(async (entry) => {
@@ -50,6 +50,7 @@ async function read(path) {
     .replace(/\bt\(([a-zA-Z]+Labels\[[^\]]+\])\)/g, '$1');
   const features = {
     "../app/page.tsx": "../features/home/",
+    "../app/lib/api.ts": "../app/lib/api/",
     "../app/workspace/page.tsx": "../features/workspace/",
     "../app/proposal/[token]/page.tsx": "../features/proposal/"
   };
@@ -59,7 +60,7 @@ async function read(path) {
     return normalizeInterfaceCalls(source);
   }
   const source = normalizeInterfaceCalls(await readFeatureTree(new URL(features[path], import.meta.url)));
-  // Ignore formatting-only newlines inside JSX while keeping content checks intact.
+  // JSX의 배치용 줄바꿈만 무시하고 내용 검사는 유지한다.
   return source.replace(/\r?\n\s*/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").replace(/>\s+</g, "><").replace(/>\s+(?=[가-힣])/g, ">").replace(/\s+(?=<)/g, "");
 }
 
@@ -87,10 +88,10 @@ test("Vercel Preview uses the standard Next.js build without Cloudflare adapters
   assert.equal(vercel.installCommand, "npm ci");
   assert.equal(vercel.buildCommand, "npm run build");
   assert.equal("outputDirectory" in vercel, false);
-  assert.match(nextEnv, /reference types="next"/);
+  assert.match(nextEnv, /reference\s*types="next"/);
   assert.doesNotMatch(packageSource, /vinext|wrangler|@cloudflare|vite|drizzle/);
   assert.doesNotMatch(lockfile, /node_modules\/vinext|node_modules\/wrangler|node_modules\/@cloudflare\/vite-plugin/);
-  assert.match(runbook, /Root Directory: `frontend`/);
+  assert.match(runbook, /Root\s*Directory:\s*`frontend`/);
   assert.match(runbook, /APP_CORS_ALLOWED_ORIGINS/);
 });
 
@@ -112,23 +113,23 @@ test("Vercel public environment validation fails closed without leaking values",
   assert.deepEqual(validateVercelEnvironment({}), { apiOrigin: null, siteOrigin: null });
   assert.throws(
     () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid" }),
-    /NEXT_PUBLIC_API_BASE_URL must be configured/,
+    /NEXT_PUBLIC_API_BASE_URL\s*must\s*be\s*configured/,
   );
   assert.throws(
     () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "http://api.example.invalid" }),
-    /must use HTTPS/,
+    /must\s*use\s*HTTPS/,
   );
   assert.throws(
     () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://api.example.invalid/v2" }),
-    /must be an origin/,
+    /must\s*be\s*an\s*origin/,
   );
   assert.throws(
     () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://user:password@api.example.invalid" }),
-    /must not contain credentials/,
+    /must\s*not\s*contain\s*credentials/,
   );
   assert.throws(
     () => validateVercelEnvironment({ VERCEL: "1", VERCEL_URL: "preview.example.invalid", NEXT_PUBLIC_API_BASE_URL: "https://localhost" }),
-    /must be publicly reachable/,
+    /must\s*be\s*publicly\s*reachable/,
   );
   assert.deepEqual(
     validateVercelEnvironment({
@@ -151,18 +152,18 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
   ]);
   assert.match(layout, /href="#main-content"/);
   assert.match(errorBoundary, /reset/);
-  assert.match(errorBoundary, /오류 참조/);
-  assert.match(notFound, /Workspace 열기/);
-  assert.match(proposal, /다시 시도/);
+  assert.match(errorBoundary, /오류\s*참조/);
+  assert.match(notFound, /Workspace\s*열기/);
+  assert.match(proposal, /다시\s*시도/);
   assert.match(proposal, /aria-pressed=/);
   assert.match(workspace, /copyToClipboard/);
-  assert.match(workspace, /자동 복사가 차단되었습니다/);
-  assert.match(workspace, /링크 복사/);
+  assert.match(workspace, /자동\s*복사가\s*차단되었습니다/);
+  assert.match(workspace, /링크\s*복사/);
   assert.match(workspace, /role="tabpanel"/);
   assert.match(workspace, /aria-controls="auth-panel-login"/);
-  assert.match(workspace, /event\.key === "ArrowLeft"/);
+  assert.match(workspace, /event\.key\s*===\s*"ArrowLeft"/);
   assert.match(workspace, /useDialogFocusTrap/);
-  assert.match(workspace, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(workspace, /document\.body\.style\.overflow\s*=\s*"hidden"/);
   assert.match(workspace, /previouslyFocused\?\.focus\(\)/);
   assert.match(workspace, /aria-current=/);
   assert.match(css, /:focus-visible/);
@@ -171,13 +172,13 @@ test("App Router recovery states and keyboard navigation remain product-safe", a
 
 test("landing page follows the approved product brief without fabricated social proof", async () => {
   const source = await read("../app/page.tsx");
-  assert.match(source, /문의는 한마디/);
-  assert.match(source, /제안은 명확하게/);
-  assert.match(source, /AI 초안은 사용자가 검토하고 확정합니다/);
-  assert.match(source, /하나의 흐름으로 이어집니다/);
-  assert.match(source, /예시 일단가/);
-  assert.match(source, /사용자 검토 필요/);
-  assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한 AI|모든 직군|모든 국가|자동 학습합니다/);
+  assert.match(source, /문의는\s*한마디/);
+  assert.match(source, /제안은\s*명확하게/);
+  assert.match(source, /AI\s*초안은\s*사용자가\s*검토하고\s*확정합니다/);
+  assert.match(source, /하나의\s*흐름으로\s*이어집니다/);
+  assert.match(source, /예시\s*일단가/);
+  assert.match(source, /사용자\s*검토\s*필요/);
+  assert.doesNotMatch(source, /김도윤|박서연|이준호|98%|10배|무제한\s*AI|모든\s*직군|모든\s*국가|자동\s*학습합니다/);
 });
 
 test("landing typography keeps Korean display copy within the measured line budget", async () => {
@@ -190,77 +191,77 @@ test("landing typography keeps Korean display copy within the measured line budg
   assert.doesNotMatch(layout, /next\/font\/google/);
   assert.match(source, /spatial-hero-title/);
   assert.match(source, /spatial-graph-wires/);
-  assert.match(css, /font-synthesis: none/);
-  assert.match(css, /word-break: keep-all/);
-  assert.match(css, /\.hero-title \{[^}]*clamp\(4\.25rem, 4\.7vw, 5\.65rem\)/);
-  assert.match(css, /\.evidence-copy h2, \.outcome-copy h2 \{ font-size: clamp\(3\.1rem, 3\.6vw, 4\.3rem\)/);
-  assert.match(css, /\.audience-section \.section-heading h2 \{ font-size: clamp\(1\.9rem, 7\.6vw, 2\.2rem\)/);
-  assert.match(css, /\.final-cta h2 \{ font-size: clamp\(2rem, 8\.5vw, 3\.5rem\)/);
-  assert.match(css, /\.accordion-content strong \{[^}]*white-space: normal; word-break: keep-all/);
+  assert.match(css, /font-synthesis:\s*none/);
+  assert.match(css, /word-break:\s*keep-all/);
+  assert.match(css, /\.hero-title\s*\{[^}]*clamp\(4\.25rem,\s*4\.7vw,\s*5\.65rem\)/);
+  assert.match(css, /\.evidence-copy\s*h2,\s*\.outcome-copy\s*h2\s*\{\s*font-size:\s*clamp\(3\.1rem,\s*3\.6vw,\s*4\.3rem\)/);
+  assert.match(css, /\.audience-section\s*\.section-heading\s*h2\s*\{\s*font-size:\s*clamp\(1\.9rem,\s*7\.6vw,\s*2\.2rem\)/);
+  assert.match(css, /\.final-cta\s*h2\s*\{\s*font-size:\s*clamp\(2rem,\s*8\.5vw,\s*3\.5rem\)/);
+  assert.match(css, /\.accordion-content\s*strong\s*\{[^}]*white-space:\s*normal;\s*word-break:\s*keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
-  assert.match(css, /\.step-visual \{[^}]*grid-template-rows: auto minmax\(82px, 1fr\) auto/);
+  assert.match(css, /\.step-visual\s*\{[^}]*grid-template-rows:\s*auto\s*minmax\(82px,\s*1fr\)\s*auto/);
   assert.match(source, /IntersectionObserver/);
   assert.match(source, /visibilitychange/);
   assert.match(source, /preference\.addEventListener\("change"/);
-  assert.match(css, /@keyframes workflowCardPulse/);
-  assert.match(css, /@keyframes workflowCoreScan/);
-  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*?workflow-auto-sequence::after/);
+  assert.match(css, /@keyframes\s*workflowCardPulse/);
+  assert.match(css, /@keyframes\s*workflowCoreScan/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce[\s\S]*?workflow-auto-sequence::after/);
   assert.doesNotMatch(source, /outcome-orbit|cta-light|step-visual-packet|className="orbit"/);
   assert.match(css, /workflowSheen|workflowPulse|workflowSignal/);
 });
 
 test("authentication layout keeps the form visible and Korean words intact", async () => {
   const css = await read("../features/workspace/auth/auth.css");
-  assert.match(css, /\.auth-layout \{[^}]*minmax\(0, 1fr\)/);
-  assert.match(css, /\.auth-message \{[^}]*min-width: 0/);
-  assert.match(css, /\.auth-message h2 \{[^}]*word-break: keep-all/);
-  assert.match(css, /@media \(max-width: 800px\)[\s\S]*?\.auth-panel \{[^}]*grid-row: 1/);
-  assert.match(css, /prefers-reduced-motion: reduce/);
-  assert.match(css, /\[data-theme="dark"\] \.auth-page/);
+  assert.match(css, /\.auth-layout\s*\{[^}]*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.auth-message\s*\{[^}]*min-width:\s*0/);
+  assert.match(css, /\.auth-message\s*h2\s*\{[^}]*word-break:\s*keep-all/);
+  assert.match(css, /@media\s*\(max-width:\s*800px\)[\s\S]*?\.auth-panel\s*\{[^}]*grid-row:\s*1/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /\[data-theme="dark"\]\s*\.auth-page/);
 });
 test("workspace settings and requirement controls remain readable at desktop widths", async () => {
   const [workspace, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(css, /\.pipeline-heading > div \{[^}]*max-width: 1050px/);
-  assert.match(css, /\.pipeline-heading h1,[\s\S]*?font-size: clamp\(2\.15rem, 3\.1vw, 3\.55rem\)/);
-  assert.match(css, /\.pipeline-heading h1 \{[^}]*word-break: keep-all/);
-  assert.match(css, /\.pipeline-heading h1 \{[^}]*text-wrap: balance/);
-  assert.match(css, /\.settings-heading h1,[\s\S]*?font-size: clamp\(2\.15rem, 3\.1vw, 3\.55rem\)/);
-  assert.match(css, /\.settings-heading h1 \{[^}]*word-break: keep-all/);
-  assert.match(css, /\.settings-heading h1 \{[^}]*text-wrap: balance/);
-  assert.match(workspace, /aria-label="작업 공간 설정 목차"/);
-  assert.match(workspace, /<span>02<\/span><strong>서비스 단가<\/strong><small>시간·일·고정 금액<\/small>/);
-  assert.match(workspace, /자주 쓰는 단가와 계산 기준을 저장해 두면 새 견적을 만들 때 바로 불러올 수 있습니다/);
-  assert.doesNotMatch(workspace, /Spring이 소유|결정적으로 적용|workspace\.update 권한이|quotation\.read 권한|outcome\.read 권한|Java 계산 도구|서버 계산 완료|새 revision/);
-  assert.match(css, /\.settings-grid \{[^}]*grid-template-columns: 230px minmax\(0, 1fr\)/);
-  assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*min-height: 50px/);
-  assert.match(css, /\.settings-form input, \.settings-form select \{[^}]*background: var\(--surface-solid\)/);
-  assert.match(css, /\.settings-form input:focus, \.settings-form select:focus \{[^}]*border-color: var\(--accent\)/);
-  assert.match(css, /\.rate-card-form \.form-row:first-of-type \{[^}]*minmax\(220px, 1\.5fr\)/);
-  assert.match(css, /\.requirement-editor \.form-row \{[^}]*grid-template-columns: minmax\(0, 1\.5fr\) minmax\(180px, \.5fr\)/);
-  assert.match(css, /\.requirement-editor input, \.requirement-editor select, \.requirement-editor textarea \{[^}]*width: 100%/);
-  assert.match(css, /\.requirement-editor input, \.requirement-editor select \{[^}]*min-height: 46px/);
-  assert.match(css, /\.requirement-editor textarea \{[^}]*min-height: 92px/);
-  assert.match(workspace, /const configuredModelOptions: Record<Provider, string\[]>/);
-  assert.match(workspace, /<label[^>]*>\s*AI 모델<select[^>]*value=\{model\}/);
+  assert.match(css, /\.pipeline-heading\s*>\s*div\s*\{[^}]*max-width:\s*1050px/);
+  assert.match(css, /\.pipeline-heading\s*h1,[\s\S]*?font-size:\s*clamp\(2\.15rem,\s*3\.1vw,\s*3\.55rem\)/);
+  assert.match(css, /\.pipeline-heading\s*h1\s*\{[^}]*word-break:\s*keep-all/);
+  assert.match(css, /\.pipeline-heading\s*h1\s*\{[^}]*text-wrap:\s*balance/);
+  assert.match(css, /\.settings-heading\s*h1,[\s\S]*?font-size:\s*clamp\(2\.15rem,\s*3\.1vw,\s*3\.55rem\)/);
+  assert.match(css, /\.settings-heading\s*h1\s*\{[^}]*word-break:\s*keep-all/);
+  assert.match(css, /\.settings-heading\s*h1\s*\{[^}]*text-wrap:\s*balance/);
+  assert.match(workspace, /aria-label="작업\s*공간\s*설정\s*목차"/);
+  assert.match(workspace, /<span>02<\/span>\s*<strong>서비스\s*단가<\/strong>\s*<small>시간·일·고정\s*금액<\/small>/);
+  assert.match(workspace, /자주\s*쓰는\s*단가와\s*계산\s*기준을\s*저장해\s*두면\s*새\s*견적을\s*만들\s*때\s*바로\s*불러올\s*수\s*있습니다/);
+  assert.doesNotMatch(workspace, /Spring이\s*소유|결정적으로\s*적용|workspace\.update\s*권한이|quotation\.read\s*권한|outcome\.read\s*권한|Java\s*계산\s*도구|서버\s*계산\s*완료|새\s*revision/);
+  assert.match(css, /\.settings-grid\s*\{[^}]*grid-template-columns:\s*230px\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.settings-form\s*input,\s*\.settings-form\s*select\s*\{[^}]*min-height:\s*50px/);
+  assert.match(css, /\.settings-form\s*input,\s*\.settings-form\s*select\s*\{[^}]*background:\s*var\(--surface-solid\)/);
+  assert.match(css, /\.settings-form\s*input:focus,\s*\.settings-form\s*select:focus\s*\{[^}]*border-color:\s*var\(--accent\)/);
+  assert.match(css, /\.rate-card-form\s*\.form-row:first-of-type\s*\{[^}]*minmax\(220px,\s*1\.5fr\)/);
+  assert.match(css, /\.requirement-editor\s*\.form-row\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1\.5fr\)\s*minmax\(180px,\s*0?\.5fr\)/);
+  assert.match(css, /\.requirement-editor\s*input,\s*\.requirement-editor\s*select,\s*\.requirement-editor\s*textarea\s*\{[^}]*width:\s*100%/);
+  assert.match(css, /\.requirement-editor\s*input,\s*\.requirement-editor\s*select\s*\{[^}]*min-height:\s*46px/);
+  assert.match(css, /\.requirement-editor\s*textarea\s*\{[^}]*min-height:\s*92px/);
+  assert.match(workspace, /const\s*configuredModelOptions:\s*Record<Provider,\s*string\[]>/);
+  assert.match(workspace, /<label[^>]*>\s*AI\s*모델<select[^>]*value=\{model\}/);
   assert.doesNotMatch(workspace, /<label>Model<input/);
-  assert.match(workspace, /name="currency" value=\{draft.currency\}/);
-  assert.match(css, /--workspace-radius-lg: 22px/);
-  assert.match(css, /\.settings-content > section \{[^}]*border: 0;[^}]*background: color-mix/);
-  assert.match(css, /\.run-controls \{[^}]*border-radius: var\(--workspace-radius-md\)/);
-  assert.match(css, /\.budget-range \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\)/);
+  assert.match(workspace, /name="currency"\s*value=\{draft.currency\}/);
+  assert.match(css, /--workspace-radius-lg:\s*22px/);
+  assert.match(css, /\.settings-content\s*>\s*section\s*\{[^}]*border:\s*0;[^}]*background:\s*color-mix/);
+  assert.match(css, /\.run-controls\s*\{[^}]*border-radius:\s*var\(--workspace-radius-md\)/);
+  assert.match(css, /\.budget-range\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*auto\s*minmax\(0,\s*1fr\)/);
 });
 
 test("workspace interaction states use neutral focus and selection without neon halos", async () => {
   const css = await read("../app/globals.css");
-  assert.match(css, /Neutral interaction language/);
-  assert.match(css, /input:focus-visible[\s\S]*outline: 2px solid color-mix\(in srgb, var\(--ink\)/);
-  assert.match(css, /\.settings-content > section:target \{[^}]*outline: 1px solid[^}]*box-shadow: var\(--shadow\)/);
-  assert.match(css, /\.rate-card-list > button\.active,[\s\S]*\.quote-item-block\.selected,[\s\S]*box-shadow: none/);
-  assert.match(css, /\.graph-panel \.workflow-node\.active \.workflow-node-icon,[\s\S]*box-shadow: none/);
-  assert.match(css, /\.accordion-slice\.active \{[^}]*background: var\(--surface-2\);[^}]*box-shadow: none/);
+  assert.match(css, /색상은 상태 구분에 사용/);
+  assert.match(css, /input:focus-visible[\s\S]*outline:\s*2px\s*solid\s*color-mix\(in\s*srgb,\s*var\(--ink\)/);
+  assert.match(css, /\.settings-content\s*>\s*section:target\s*\{[^}]*outline:\s*1px\s*solid[^}]*box-shadow:\s*var\(--shadow\)/);
+  assert.match(css, /\.rate-card-list\s*>\s*button\.active,[\s\S]*\.quote-item-block\.selected,[\s\S]*box-shadow:\s*none/);
+  assert.match(css, /\.graph-panel\s*\.workflow-node\.active\s*\.workflow-node-icon,[\s\S]*box-shadow:\s*none/);
+  assert.match(css, /\.accordion-slice\.active\s*\{[^}]*background:\s*var\(--surface-2\);[^}]*box-shadow:\s*none/);
 });
 
 test("every CSS custom property resolves except runtime font variables", async () => {
@@ -283,22 +284,22 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /role="progressbar"/);
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
   assert.match(graph, /workflow-track-progress/);
-  assert.match(graph, /확인 필요/);
+  assert.match(graph, /확인\s*필요/);
   assert.match(graph, /routeNodes/);
   assert.match(graph, /skippedNodes/);
-  assert.match(graph, /해당 없음/);
+  assert.match(graph, /해당\s*없음/);
   assert.match(css, /\.workflow-node\.skipped/);
-  assert.match(css, /\.workflow-track\.moving \.workflow-track-progress::after/);
-  assert.match(css, /@keyframes workflowTrackSignal/);
+  assert.match(css, /\.workflow-track\.moving\s*\.workflow-track-progress::after/);
+  assert.match(css, /@keyframes\s*workflowTrackSignal/);
   assert.doesNotMatch(graph, /workflow-link/);
   assert.doesNotMatch(graph, /node-orbit|signal-bars/);
   assert.match(workspace, /route\.selected/);
-  assert.match(workspace, /Tool 사용/);
+  assert.match(workspace, /Tool\s*사용/);
   assert.match(workspace, /reasonCodes/);
   assert.match(workspace, /decisionSource/);
   assert.match(workspace, /PROJECT_ANALYSIS_FULL_WORKFLOW/);
   assert.match(workspace, /evaluatorSuggestedRoute/);
-  assert.match(api, /maxDepartments: 4/);
+  assert.match(api, /maxDepartments:\s*4/);
   assert.match(workspace, /toolName/);
   assert.match(css, /\.event-activity-route/);
   assert.match(css, /\.event-activity-tool/);
@@ -308,10 +309,10 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
   assert.match(graph, /tool\.started/);
   assert.match(graph, /quotation\.draft\.created/);
   assert.match(graph, /run\.completed/);
-  assert.match(graph, /function recordedCompletedNodes\(events: WorkflowEvent\[\]\)/);
-  assert.match(graph, /expectedNodes\.find\(\(node\) => !eventCompletedNodes\.includes\(node\)\)/);
-  assert.match(workspace, /REACT_TOOL_CALL_INVALID: "AI 응답 형식을 자동으로 다시 확인했지만/);
-  assert.match(workspace, /runFailureMessage\(view\?\.errorCode \?\? null\)/);
+  assert.match(graph, /function\s*recordedCompletedNodes\(events:\s*WorkflowEvent\[\]\)/);
+  assert.match(graph, /expectedNodes\.find\(\(node\)\s*=>\s*!eventCompletedNodes\.includes\(node\)\)/);
+  assert.match(workspace, /REACT_TOOL_CALL_INVALID:\s*"AI\s*응답\s*형식을\s*자동으로\s*다시\s*확인했지만/);
+  assert.match(workspace, /runFailureMessage\(view\?\.errorCode\s*\?\?\s*null\)/);
 });
 
 test("Agent SSE reconnects from the last durable event with bounded backoff", async () => {
@@ -320,10 +321,10 @@ test("Agent SSE reconnects from the last durable event with bounded backoff", as
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(api, /headers\.set\("Last-Event-ID", String\(lastEventId\)\)/);
+  assert.match(api, /headers\.set\("Last-Event-ID",\s*String\(lastEventId\)\)/);
   assert.match(api, /contentType\.includes\("text\/event-stream"\)/);
   assert.match(api, /onConnected\?\.\(\)/);
-  assert.match(workspace, /lastEventIdRef\.current = nextStreamCursor/);
+  assert.match(workspace, /lastEventIdRef\.current\s*=\s*nextStreamCursor/);
   assert.match(workspace, /streamReconnectDelay/);
   assert.deepEqual([1, 2, 3, 4, 5, 8].map(streamReconnectDelay), [1_000, 2_000, 4_000, 8_000, 10_000, 10_000]);
   assert.equal(nextStreamCursor(8, 9), 9);
@@ -335,8 +336,8 @@ test("Agent SSE reconnects from the last durable event with bounded backoff", as
   assert.match(workspace, /!isActiveStreamStatus\(runStatus\)/);
   assert.match(workspace, /window\.clearTimeout\(retryTimer\)/);
   assert.match(workspace, /aria-live="polite"/);
-  assert.match(workspace, /재연결 중/);
-  assert.match(css, /workspace-live-status span\.reconnecting/);
+  assert.match(workspace, /재연결\s*중/);
+  assert.match(css, /workspace-live-status\s*span\.reconnecting/);
 });
 
 test("workspace navigation survives refresh and rejects malformed deep links", async () => {
@@ -357,23 +358,23 @@ test("workspace navigation survives refresh and rejects malformed deep links", a
     step: "intake",
   });
   assert.deepEqual(parseWorkspaceLocation("?view=javascript%3Aalert%281%29"), { view: "pipeline" });
-  assert.equal(buildWorkspaceSearch({ view: "pipeline" }), "");
+  assert.equal(buildWorkspacePath({ view: "pipeline" }), "/workspace/projects");
   assert.equal(
-    buildWorkspaceSearch({ view: "project", projectId: "project-17", step: "quote" }),
-    "?view=project&project=project-17&step=quote",
+    buildWorkspacePath({ view: "project", projectId: "project-17", step: "quote" }),
+    "/workspace/projects/project-17/quote",
   );
-  assert.match(workspace, /\[pathname, loadedWorkspaceId, activePermissions, applyWorkspaceLocation, projects, session\]/);
+  assert.match(workspace, /\[pathname,\s*loadedWorkspaceId,\s*activePermissions,\s*applyWorkspaceLocation,\s*projects,\s*session\]/);
   assert.match(workspace, /router\.replace\(/);
   assert.match(workspace, /permissions\.has\("client\.read"\)/);
   assert.match(workspace, /permissions\.has\("document\.read"\)/);
-  assert.match(workspace, /projectResult\.find\(\(item\) => item\.id === location\.projectId\)/);
-  assert.match(workspace, /selectedProjectIdRef\.current !== project\.id/);
-  assert.doesNotMatch(workspace, /aria-label="프로젝트 바로가기"/);
-  assert.doesNotMatch(workspace, /aria-label="프로젝트 목록"/);
-  assert.match(workspace, /className="pipeline-list-open" onClick=\{\(\) => onSelect\(project\)\}/);
-  assert.match(workspace, /aria-label="프로젝트 검색"/);
-  assert.match(css, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.match(css, /\.workspace-sidebar nav \{ display: none; \}/);
+  assert.match(workspace, /projectResult\.find\(\(item\)\s*=>\s*item\.id\s*===\s*location\.projectId\)/);
+  assert.match(workspace, /selectedProjectIdRef\.current\s*!==\s*project\.id/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트\s*바로가기"/);
+  assert.doesNotMatch(workspace, /aria-label="프로젝트\s*목록"/);
+  assert.match(workspace, /className="pipeline-list-open"\s*onClick=\{\(\)\s*=>\s*onSelect\(project\)\}/);
+  assert.match(workspace, /aria-label="프로젝트\s*검색"/);
+  assert.match(css, /grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.workspace-sidebar\s*nav\s*\{\s*display:\s*none;\s*\}/);
 });
 
 test("responsive and reduced-motion gates cover the documented breakpoints", async () => {
@@ -381,34 +382,34 @@ test("responsive and reduced-motion gates cover the documented breakpoints", asy
     read("../app/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(css, /@media \(min-width: 1181px\) and \(max-width: 1440px\)/);
-  assert.match(css, /\.hero-title \{ font-size: clamp\(3\.4rem, 5\.1vw, 5rem\); \}/);
-  assert.match(css, /@media \(max-width: 1180px\)/);
-  assert.match(css, /@media \(max-width: 820px\)/);
-  assert.match(css, /@media \(max-width: 520px\)/);
+  assert.match(css, /@media\s*\(min-width:\s*1181px\)\s*and\s*\(max-width:\s*1440px\)/);
+  assert.match(css, /\.hero-title\s*\{\s*font-size:\s*clamp\(3\.4rem,\s*5\.1vw,\s*5rem\);\s*\}/);
+  assert.match(css, /@media\s*\(max-width:\s*1180px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*520px\)/);
   assert.match(css, /prefers-reduced-motion/);
-  assert.match(css, /grid-auto-flow: dense/);
-  assert.match(css, /\.hero-title \{ font-size: clamp\(2\.8rem, 12vw, 4\.2rem\); \}/);
-  assert.match(css, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
-  assert.match(css, /\.accordion-content strong \{[^}]*word-break: keep-all/);
+  assert.match(css, /grid-auto-flow:\s*dense/);
+  assert.match(css, /\.hero-title\s*\{\s*font-size:\s*clamp\(2\.8rem,\s*12vw,\s*4\.2rem\);\s*\}/);
+  assert.match(css, /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.accordion-content\s*strong\s*\{[^}]*word-break:\s*keep-all/);
   assert.doesNotMatch(css, /writing-mode:\s*vertical-rl/);
-  assert.match(css, /scroll-padding-top: 112px/);
-  assert.match(page, /제품 예시 단계 선택/);
+  assert.match(css, /scroll-padding-top:\s*112px/);
+  assert.match(page, /제품\s*예시\s*단계\s*선택/);
   assert.match(page, /aria-controls="workflow-example"/);
 });
 
 test("landing color tokens and section grids keep light and dark hierarchy consistent", async () => {
   const css = await read("../app/globals.css");
-  assert.match(css, /--accent-card-bg: #242426/);
-  assert.match(css, /--bg: #0b0f17/);
-  assert.match(css, /--surface-solid: #141a26/);
-  assert.match(css, /--muted: #b7c0ce/);
-  assert.match(css, /--accent-card-bg: #151b2b/);
-  assert.match(css, /\.deliverables-section,[\s\S]*?grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
-  assert.match(css, /\.deliverable-card\.featured \{[^}]*background: var\(--accent-card-bg\)/);
-  assert.match(css, /\.outcome-card \{[^}]*background: var\(--accent-card-bg\)/);
-  assert.match(css, /\.final-cta \{[^}]*background: var\(--cta-bg\)/);
-  assert.doesNotMatch(css, /\[data-theme="dark"\] \.deliverable-card\.featured/);
+  assert.match(css, /--accent-card-bg:\s*#242426/);
+  assert.match(css, /--bg:\s*#0b0f17/);
+  assert.match(css, /--surface-solid:\s*#141a26/);
+  assert.match(css, /--muted:\s*#b7c0ce/);
+  assert.match(css, /--accent-card-bg:\s*#151b2b/);
+  assert.match(css, /\.deliverables-section,[\s\S]*?grid-template-columns:\s*repeat\(12,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /\.deliverable-card\.featured\s*\{[^}]*background:\s*var\(--accent-card-bg\)/);
+  assert.match(css, /\.outcome-card\s*\{[^}]*background:\s*var\(--accent-card-bg\)/);
+  assert.match(css, /\.final-cta\s*\{[^}]*background:\s*var\(--cta-bg\)/);
+  assert.doesNotMatch(css, /\[data-theme="dark"\]\s*\.deliverable-card\.featured/);
 });
 
 test("manual quotation, evidence, outcome, and public proposal flows use real Spring contracts", async () => {
@@ -420,12 +421,12 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   ]);
   assert.match(workspace, /createQuotation/);
   assert.match(workspace, /basis\.content/);
-  assert.match(workspace, /sourceReference: event\.target\.value/);
-  assert.match(workspace, /근거는 출처 유형과 참조가 필수입니다/);
+  assert.match(workspace, /sourceReference:\s*event\.target\.value/);
+  assert.match(workspace, /근거는\s*출처\s*유형과\s*참조가\s*필수입니다/);
   assert.match(workspace, /evidence-inspector/);
-  assert.match(workspace, /aria-label="서비스 단가표"/);
-  assert.match(workspace, /rateCardId: card\.id/);
-  assert.match(workspace, /aria-label="견적 시나리오 비교"/);
+  assert.match(workspace, /aria-label="서비스\s*단가표"/);
+  assert.match(workspace, /rateCardId:\s*card\.id/);
+  assert.match(workspace, /aria-label="견적\s*시나리오\s*비교"/);
   assert.match(workspace, /className="quote-field-label">수량/);
   assert.match(workspace, /className="quote-field-label">단위/);
   assert.match(workspace, /className="quote-field-label">단가/);
@@ -434,7 +435,7 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(workspace, /loadQuotation\(quotation\)/);
   assert.match(workspace, /saveOutcome/);
   assert.match(workspace, /reviseQuotation/);
-  assert.match(workspace, /사용자 확정 revision 저장/);
+  assert.match(workspace, /사용자\s*확정\s*revision\s*저장/);
   assert.match(api, /\/quotations\/\$\{quotationId\}\/publish/);
   assert.match(api, /\/quotations\/\$\{quotationId\}\/revisions/);
   assert.match(api, /\/proposal-shares\/\$\{shareId\}/);
@@ -442,10 +443,10 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(proposal, /submitProposalDecision/);
   assert.match(proposal, /CHANGES_REQUESTED/);
   assert.match(proposal, /window\.print/);
-  assert.match(workspace, /링크 비활성화/);
-  assert.match(css, /\.quote-item-block \{[^}]*border-radius: 12px/);
-  assert.match(css, /\.quote-row input,[\s\S]*?background: var\(--surface-2\)/);
-  assert.match(css, /\.quote-row \{[^}]*grid-template-columns: minmax\(220px, 1\.8fr\)/);
+  assert.match(workspace, /링크\s*비활성화/);
+  assert.match(css, /\.quote-item-block\s*\{[^}]*border-radius:\s*12px/);
+  assert.match(css, /\.quote-row\s*input,[\s\S]*?background:\s*var\(--surface-2\)/);
+  assert.match(css, /\.quote-row\s*\{[^}]*grid-template-columns:\s*minmax\(220px,\s*1\.8fr\)/);
 });
 
 test("pipeline, onboarding settings, and structured intake are API-backed", async () => {
@@ -460,12 +461,12 @@ test("pipeline, onboarding settings, and structured intake are API-backed", asyn
   assert.match(workspace, /saveRateCard/);
   assert.match(workspace, /saveEstimationPolicy/);
   assert.match(workspace, /createDocument/);
-  assert.match(workspace, /항목별 실제 결과/);
-  assert.match(workspace, /예상 대비 오차/);
+  assert.match(workspace, /항목별\s*실제\s*결과/);
+  assert.match(workspace, /예상\s*대비\s*오차/);
   assert.match(workspace, /revenueVariance/);
   assert.match(workspace, /hoursVariance/);
   assert.match(workspace, /refreshAuthSession/);
-  assert.match(api, /method: "PATCH"/);
+  assert.match(api, /method:\s*"PATCH"/);
   assert.match(api, /\/rate-cards\/\$\{rateCardId\}/);
   assert.match(api, /\/estimation-policy/);
   assert.match(api, /\/documents/);
@@ -484,16 +485,16 @@ test("CRM lifecycle and project-to-client linking use the Spring client contract
   assert.match(workspace, /updateClient/);
   assert.match(workspace, /archiveClient/);
   assert.match(workspace, /name="clientId"/);
-  assert.match(workspace, /기존 프로젝트 연결은 유지됩니다/);
+  assert.match(workspace, /기존\s*프로젝트\s*연결은\s*유지됩니다/);
   assert.match(api, /clients:\$\{session\.workspaceId\}/);
   assert.match(api, /\/clients\/\$\{clientId\}/);
-  assert.match(api, /clientId: string \| null/);
-  assert.match(workspace, /function projectClientLabel\(project: Project, clients: Client\[\], translate:/);
-  assert.match(workspace, /client\.companyName \? `\$\{client\.companyName\} · \$\{client\.name\}` : client\.name/);
+  assert.match(api, /clientId:\s*string\s*\|\s*null/);
+  assert.match(workspace, /function\s*projectClientLabel\(project:\s*Project,\s*clients:\s*Client\[\],\s*translate:/);
+  assert.match(workspace, /client\.companyName\s*\?\s*`\$\{client\.companyName\}\s*·\s*\$\{client\.name\}`\s*:\s*client\.name/);
   assert.match(workspace, /className="pipeline-card-client"/);
   assert.doesNotMatch(workspace, /className="sidebar-project-client"/);
   assert.match(workspace, /className="project-client"/);
-  assert.match(workspace, /projectClientLabel\(project, clients, t\)/);
+  assert.match(workspace, /projectClientLabel\(project,\s*clients,\s*t\)/);
 });
 
 test("workspace switching and agent cancellation preserve recoverable operator control", async () => {
@@ -501,14 +502,14 @@ test("workspace switching and agent cancellation preserve recoverable operator c
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
   ]);
-  assert.match(workspace, /profile\.workspaces\.length > 1/);
+  assert.match(workspace, /profile\.workspaces\.length\s*>\s*1/);
   assert.match(workspace, /onSwitchWorkspace\(event\.target\.value\)/);
   assert.match(workspace, /permissions\.has\("project\.read"\)/);
   assert.match(workspace, /activePermissions\.has\("client\.read"\)/);
   assert.match(workspace, /permissions\.has\("document\.delete"\)/);
   assert.match(workspace, /cancelAgentRun/);
-  assert.match(workspace, /새 분석 준비/);
-  assert.match(workspace, /저장된 프로젝트와 이전 결과는 변경되지 않습니다/);
+  assert.match(workspace, /새\s*분석\s*준비/);
+  assert.match(workspace, /저장된\s*프로젝트와\s*이전\s*결과는\s*변경되지\s*않습니다/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/cancel/);
 });
 
@@ -517,13 +518,13 @@ test("expired access tokens use one coordinated refresh and retry the original S
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
   ]);
-  assert.match(api, /let refreshPromise: Promise<AuthSession> \| null = null/);
-  assert.match(api, /response\.status === 401 && token && allowSessionRecovery/);
-  assert.match(api, /return request<T>\(path, init, recovered\.accessToken, false\)/);
+  assert.match(api, /let\s*refreshPromise:\s*Promise<AuthSession>\s*\|\s*null\s*=\s*null/);
+  assert.match(api, /response\.status\s*===\s*401\s*&&\s*token\s*&&\s*allowSessionRecovery/);
+  assert.match(api, /return\s*request<T>\(path,\s*init,\s*recovered\.accessToken,\s*false\)/);
   assert.match(api, /refreshTokenExpiresAt/);
   assert.match(api, /SESSION_RECOVERY_EVENT/);
   assert.match(workspace, /subscribeToSessionRecovery/);
-  assert.match(workspace, /로그인 시간이 만료되었습니다\. 다시 로그인해 주세요/);
+  assert.match(workspace, /로그인\s*시간이\s*만료되었습니다\.\s*다시\s*로그인해\s*주세요/);
 });
 
 test("session refresh scheduling stays inside the browser timer range", async () => {
@@ -534,7 +535,7 @@ test("session refresh scheduling stays inside the browser timer range", async ()
   assert.equal(sessionRefreshDelay("2099-01-01T00:00:00Z", now), 2_147_000_000);
   assert.equal(sessionRefreshDelay("not-a-date", now), 1_000);
   assert.match(workspace, /sessionRefreshDelay\(session\.accessTokenExpiresAt\)/);
-  assert.doesNotMatch(workspace, /Math\.max\(1_000, refreshAt\)/);
+  assert.doesNotMatch(workspace, /Math\.max\(1_000,\s*refreshAt\)/);
 });
 
 test("quotation drafts are scoped, validated, expiring, and recoverable", async () => {
@@ -562,14 +563,14 @@ test("Quote Builder preserves unsaved work in the current browser tab", async ()
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /quotationDraftKey\(session\.userId, project\.workspaceId, project\.id\)/);
+  assert.match(workspace, /quotationDraftKey\(session\.userId,\s*project\.workspaceId,\s*project\.id\)/);
   assert.match(workspace, /parseQuotationDraft\(rawDraft/);
-  assert.match(workspace, /window\.sessionStorage\.setItem\(draftStorageKey, JSON\.stringify\(draft\)\)/);
+  assert.match(workspace, /window\.sessionStorage\.setItem\(draftStorageKey,\s*JSON\.stringify\(draft\)\)/);
   assert.match(workspace, /window\.sessionStorage\.removeItem\(draftStorageKey\)/);
-  assert.match(workspace, /window\.addEventListener\("beforeunload", warnBeforeUnload\)/);
-  assert.match(workspace, /작성 중인 내용을 버리고 선택한 견적안을 불러올까요/);
-  assert.match(workspace, /작성 중이던 견적을 불러왔습니다/);
-  assert.match(workspace, /다른 브라우저에서는 이어서 볼 수 없습니다/);
+  assert.match(workspace, /window\.addEventListener\("beforeunload",\s*warnBeforeUnload\)/);
+  assert.match(workspace, /작성\s*중인\s*내용을\s*버리고\s*선택한\s*견적안을\s*불러올까요/);
+  assert.match(workspace, /작성\s*중이던\s*견적을\s*불러왔습니다/);
+  assert.match(workspace, /다른\s*브라우저에서는\s*이어서\s*볼\s*수\s*없습니다/);
   assert.match(css, /\.quote-draft-state/);
   assert.match(css, /\.quote-draft-state\.unavailable/);
 });
@@ -588,21 +589,21 @@ test("a discarded AI quotation scenario stays hidden only for the same generated
   assert.deepEqual(parseQuotationAIDraftDismissals("not-json"), []);
 
   const workspace = await read("../app/workspace/page.tsx");
-  assert.match(workspace, /AI \{quotationScenarioLabels\[scenario\]\} 버리기/);
-  assert.match(workspace, /저장된 견적과 다른 견적안은 그대로 유지됩니다/);
-  assert.match(workspace, /초안 폐기됨/);
-  assert.match(workspace, /새 분석에서 다시 생성됩니다/);
+  assert.match(workspace, /AI\s*\{quotationScenarioLabels\[scenario\]\}\s*버리기/);
+  assert.match(workspace, /저장된\s*견적과\s*다른\s*견적안은\s*그대로\s*유지됩니다/);
+  assert.match(workspace, /초안\s*폐기됨/);
+  assert.match(workspace, /새\s*분석에서\s*다시\s*생성됩니다/);
 });
 
 test("workspace presents operational AI metadata in human-readable labels", async () => {
   const workspace = await read("../app/workspace/page.tsx");
-  assert.match(workspace, /const eventActivityLabels/);
-  assert.match(workspace, /"run\.completed": "분석 완료"/);
-  assert.match(workspace, /eventActivityLabels\[event\.type\] \?\? "분석 진행"/);
-  assert.match(workspace, /departmentLabels\[result\.department\] \?\? "분석 단계"/);
-  assert.match(workspace, /<summary>실행 정보<\/summary>/);
+  assert.match(workspace, /const\s*eventActivityLabels/);
+  assert.match(workspace, /"run\.completed":\s*"분석\s*완료"/);
+  assert.match(workspace, /eventActivityLabels\[event\.type\]\s*\?\?\s*"분석\s*진행"/);
+  assert.match(workspace, /departmentLabels\[result\.department\]\s*\?\?\s*"분석\s*단계"/);
+  assert.match(workspace, /<summary>실행\s*정보<\/summary>/);
   assert.match(workspace, /costStatusLabels\[costUsage\.costStatus\]/);
-  assert.doesNotMatch(workspace, /<span>\{event\.type\}<\/span>/);
+  assert.doesNotMatch(workspace, /<span>\s*\{event\.type\}\s*<\/span>/);
 });
 
 test("completed AI analysis prices its editable draft from active server rate cards", async () => {
@@ -611,24 +612,24 @@ test("completed AI analysis prices its editable draft from active server rate ca
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(api, /quotationDraft: AgentQuotationDraft \| null/);
-  assert.match(api, /quotationDrafts: AgentQuotationDraft\[\]/);
-  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts \?\? \[\]\}/);
-  assert.match(workspace, /function quotationDraftItems\(draft: AgentQuotationDraft, rateCards: RateCard\[\], currency: string\)/);
-  assert.match(workspace, /핵심·권장·확장 3개 견적안을 준비했습니다/);
+  assert.match(api, /quotationDraft:\s*AgentQuotationDraft\s*\|\s*null/);
+  assert.match(api, /quotationDrafts:\s*AgentQuotationDraft\[\]/);
+  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts\s*\?\?\s*\[\]\}/);
+  assert.match(workspace, /function\s*quotationDraftItems\(draft:\s*AgentQuotationDraft,\s*rateCards:\s*RateCard\[\],\s*currency:\s*string\)/);
+  assert.match(workspace, /핵심·권장·확장\s*3개\s*견적안을\s*준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);
-  assert.match(workspace, /AI 초안 ·\s*\{generated\.items\.length\}개 작업/);
-  assert.match(workspace, /selectRateCardForDraftItem\(item, rateCards, currency\)/);
-  assert.match(workspace, /hydrateMissingDraftRates\(restored\.items, restoredGeneratedItems\)/);
-  assert.match(workspace, /const activeRateCards = nextRateCards\.filter\(\(card\) => card\.active\)/);
-  assert.match(workspace, /const defaultItems = generatedItems \?\? \(latest \? quotationItemsAsInput\(latest\)/);
-  assert.match(workspace, /item\.unitRate > 0/);
-  assert.match(workspace, /AI가 견적 초안을 채웠습니다/);
-  assert.match(workspace, /견적 초안 검토/);
+  assert.match(workspace, /AI\s*초안\s*·\s*\{generated\.items\.length\}\s*개\s*작업/);
+  assert.match(workspace, /selectRateCardForDraftItem\(item,\s*rateCards,\s*currency\)/);
+  assert.match(workspace, /hydrateMissingDraftRates\(restored\.items,\s*restoredGeneratedItems\)/);
+  assert.match(workspace, /const\s*activeRateCards\s*=\s*nextRateCards\.filter\(\(card\)\s*=>\s*card\.active\)/);
+  assert.match(workspace, /const\s*defaultItems\s*=\s*generatedItems\s*\?\?\s*\(latest\s*\?\s*quotationItemsAsInput\(latest\)/);
+  assert.match(workspace, /item\.unitRate\s*>\s*0/);
+  assert.match(workspace, /AI가\s*견적\s*초안을\s*채웠습니다/);
+  assert.match(workspace, /견적\s*초안\s*검토/);
   assert.match(css, /\.ai-quote-ready/);
   assert.match(css, /\.quote-draft-state\.generated/);
-  assert.match(css, /\.quote-select-control select/);
-  assert.match(css, /\.basis-copy textarea/);
+  assert.match(css, /\.quote-select-control\s*select/);
+  assert.match(css, /\.basis-copy\s*textarea/);
 });
 
 test("rate-card matching deterministically fills generated and restored zero-price items", () => {
@@ -655,14 +656,14 @@ test("workspace evidence library exposes the complete document lifecycle", async
   assert.match(workspace, /KnowledgePanel/);
   assert.match(workspace, /prepareDocumentUpload/);
   assert.match(workspace, /sourceTypeLabel/);
-  assert.match(workspace, /다음 AI 분석부터 참고 대상에서 제외됩니다/);
+  assert.match(workspace, /다음\s*AI\s*분석부터\s*참고\s*대상에서\s*제외됩니다/);
   assert.match(workspace, /detail\.chunks\.map/);
   assert.match(workspace, /detail\.sourceMessages\.map/);
-  assert.match(workspace, /disabled=\{busy \|\| !reviewed\}/);
-  assert.match(api, /function confirmDocument/);
-  assert.match(api, /function getDocument/);
-  assert.match(api, /function archiveDocument/);
-  assert.match(api, /method: "DELETE"/);
+  assert.match(workspace, /disabled=\{busy\s*\|\|\s*!reviewed\}/);
+  assert.match(api, /function\s*confirmDocument/);
+  assert.match(api, /function\s*getDocument/);
+  assert.match(api, /function\s*archiveDocument/);
+  assert.match(api, /method:\s*"DELETE"/);
 });
 
 test("project details remain editable after intake without mutating quotation revisions", async () => {
@@ -671,15 +672,15 @@ test("project details remain editable after intake without mutating quotation re
     read("../app/lib/api.ts"),
   ]);
   assert.match(workspace, /ProjectEditDialog/);
-  assert.match(workspace, /프로젝트 정보 수정/);
-  assert.match(workspace, /최소 예산은 최대 예산보다 클 수 없습니다/);
-  assert.match(workspace, /이미 고객에게 보낸 견적은 그대로 유지됩니다/);
+  assert.match(workspace, /프로젝트\s*정보\s*수정/);
+  assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
+  assert.match(workspace, /이미\s*고객에게\s*보낸\s*견적은\s*그대로\s*유지됩니다/);
   assert.match(workspace, /structuredOutdated/);
-  assert.match(workspace, /요구사항을 다시 확인한 뒤 견적을 작성해 주세요/);
+  assert.match(workspace, /요구사항을\s*다시\s*확인한\s*뒤\s*견적을\s*작성해\s*주세요/);
   assert.match(workspace, /setFeatures\(latest\?\.features\.map/);
   assert.match(workspace, /updateProjectDetails/);
-  assert.match(api, /interface ProjectInput/);
-  assert.match(api, /status: project\.status/);
+  assert.match(api, /interface\s*ProjectInput/);
+  assert.match(api, /status:\s*project\.status/);
 });
 
 test("transactional forms prevent duplicate submission and keep validation errors in context", async () => {
@@ -689,33 +690,33 @@ test("transactional forms prevent duplicate submission and keep validation error
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /function ProjectDialog/);
-  assert.match(workspace, /await onCreate\(/);
-  assert.match(workspace, /프로젝트를 만들고 있습니다/);
-  assert.match(workspace, /최소 예산은 최대 예산보다 클 수 없습니다/);
-  assert.match(workspace, /<fieldset className="dialog-fields" disabled=\{busy\}>/);
-  assert.match(workspace, /if \(!canWrite \|\| busy\) return/);
-  assert.match(workspace, /const pending = busy \|\| submitting/);
-  assert.match(workspace, /if \(pending \|\| submitLock\.current \|\| !canRespond/);
+  assert.match(workspace, /function\s*ProjectDialog/);
+  assert.match(workspace, /await\s*onCreate\(/);
+  assert.match(workspace, /프로젝트를\s*만들고\s*있습니다/);
+  assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
+  assert.match(workspace, /<fieldset\s*className="dialog-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\)\s*return/);
+  assert.match(workspace, /const\s*pending\s*=\s*busy\s*\|\|\s*submitting/);
+  assert.match(workspace, /if\s*\(pending\s*\|\|\s*submitLock\.current\s*\|\|\s*!canRespond/);
   const policyForm = await read("../features/workspace/settings/estimation-policy-form.tsx");
-  assert.match(policyForm, /if \(busy \|\| pending\.current\) return;/);
-  assert.match(policyForm, /<fieldset className="settings-fields" disabled=\{busy\}>/);
-  assert.match(workspace, /<fieldset className="client-fields" disabled=\{busy\}>/);
-  assert.match(workspace, /<fieldset className="outcome-fields" disabled=\{busy\}>/);
-  assert.match(workspace, /password !== String\(data\.get\("passwordConfirm"\)\)/);
-  assert.match(workspace, /비밀번호 확인이 일치하지 않습니다/);
-  assert.match(workspace, /aria-label=\{showPassword \? "비밀번호 숨기기" : "비밀번호 표시"\}/);
-  assert.match(workspace, /<fieldset className="auth-fields" disabled=\{busy\}>/);
-  assert.match(workspace, /const selectMode = \(nextMode: AuthMode\)/);
-  assert.match(workspace, /<form className="outcome-form" aria-busy=\{busy\}/);
-  assert.match(proposal, /<fieldset className="proposal-response-fields" disabled=\{busy \|\| responseRecorded\}>/);
-  assert.match(proposal, /응답을 기록하고 있습니다/);
-  assert.match(api, /서버에 연결할 수 없습니다\. 네트워크 상태를 확인한 뒤 다시 시도해 주세요/);
+  assert.match(policyForm, /if\s*\(busy\s*\|\|\s*pending\.current\)\s*return;/);
+  assert.match(policyForm, /<fieldset\s*className="settings-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /<fieldset\s*className="client-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /<fieldset\s*className="outcome-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /password\s*!==\s*String\(data\.get\("passwordConfirm"\)\)/);
+  assert.match(workspace, /비밀번호\s*확인이\s*일치하지\s*않습니다/);
+  assert.match(workspace, /aria-label=\{showPassword\s*\?\s*"비밀번호\s*숨기기"\s*:\s*"비밀번호\s*표시"\}/);
+  assert.match(workspace, /<fieldset\s*className="auth-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /const\s*selectMode\s*=\s*\(nextMode:\s*AuthMode\)/);
+  assert.match(workspace, /<form\s*className="outcome-form"\s*aria-busy=\{busy\}/);
+  assert.match(proposal, /<fieldset\s*className="proposal-response-fields"\s*disabled=\{busy\s*\|\|\s*responseRecorded\}>/);
+  assert.match(proposal, /응답을\s*기록하고\s*있습니다/);
+  assert.match(api, /서버에\s*연결할\s*수\s*없습니다\.\s*네트워크\s*상태를\s*확인한\s*뒤\s*다시\s*시도해\s*주세요/);
   assert.match(css, /\.dialog-fields:disabled/);
   assert.match(css, /\.proposal-response-fields:disabled/);
   assert.match(css, /\.settings-fields/);
-  assert.match(css, /\.client-fields, \.outcome-fields/);
-  assert.match(await read("../features/workspace/auth/auth.css"), /\.auth-page :focus-visible/);
+  assert.match(css, /\.client-fields,\s*\.outcome-fields/);
+  assert.match(await read("../features/workspace/auth/auth.css"), /\.auth-page\s*:focus-visible/);
 });
 
 test("agent results expose reviewable questions and safe source provenance", async () => {
@@ -724,16 +725,16 @@ test("agent results expose reviewable questions and safe source provenance", asy
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /run\.result\.openQuestions/);
-  assert.match(workspace, /아직 확인할 질문/);
+  assert.match(workspace, /아직\s*확인할\s*질문/);
   assert.match(workspace, /result\.sources\.length/);
-  assert.match(workspace, /검토 가능한 출처/);
+  assert.match(workspace, /검토\s*가능한\s*출처/);
   assert.match(workspace, /externalHttpUrl\(source\.url\)/);
-  assert.match(workspace, /url\.protocol === "https:" \|\| url\.protocol === "http:"/);
-  assert.match(workspace, /rel="noopener noreferrer"/);
+  assert.match(workspace, /url\.protocol\s*===\s*"https:"\s*\|\|\s*url\.protocol\s*===\s*"http:"/);
+  assert.match(workspace, /rel="noopener\s*noreferrer"/);
   assert.match(workspace, /run\.metadata\.promptVersion/);
-  assert.match(workspace, /<details className="department-results">/);
-  assert.match(workspace, /분석 단계별 상세/);
-  assert.match(css, /\.department-results > summary/);
+  assert.match(workspace, /<details\s*className="department-results">/);
+  assert.match(workspace, /분석\s*단계별\s*상세/);
+  assert.match(css, /\.department-results\s*>\s*summary/);
 });
 
 test("quotation revision conflicts preserve the draft and expose explicit recovery choices", async () => {
@@ -741,12 +742,12 @@ test("quotation revision conflicts preserve the draft and expose explicit recove
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
   ]);
-  assert.match(workspace, /cause instanceof ApiError && cause\.status === 409/);
-  assert.match(workspace, /getLatestQuotation\(session, saved\.id\)/);
-  assert.match(workspace, /작성 중인 내용은 그대로 남아 있습니다/);
-  assert.match(workspace, /최신 견적안 불러오기/);
-  assert.match(workspace, /현재 내용으로 계속/);
-  assert.match(api, /function getLatestQuotation/);
+  assert.match(workspace, /cause\s*instanceof\s*ApiError\s*&&\s*cause\.status\s*===\s*409/);
+  assert.match(workspace, /getLatestQuotation\(session,\s*saved\.id\)/);
+  assert.match(workspace, /작성\s*중인\s*내용은\s*그대로\s*남아\s*있습니다/);
+  assert.match(workspace, /최신\s*견적안\s*불러오기/);
+  assert.match(workspace, /현재\s*내용으로\s*계속/);
+  assert.match(api, /function\s*getLatestQuotation/);
 });
 
 test("terminal agent runs expose server-accounted cost only to audit readers", async () => {
@@ -756,22 +757,25 @@ test("terminal agent runs expose server-accounted cost only to audit readers", a
   ]);
   assert.match(workspace, /permissions\.has\("audit\.read"\)/);
   assert.match(workspace, /getAgentRunUsage/);
-  assert.match(workspace, /예상 AI 비용/);
+  assert.match(workspace, /예상\s*AI\s*비용/);
   assert.match(workspace, /billableOutcome/);
-  assert.match(api, /interface AgentRunUsage/);
+  assert.match(api, /interface\s*AgentRunUsage/);
   assert.match(api, /\/agent-runs\/\$\{runId\}\/usage/);
 });
 
-test("settings offer personal AI connections while retaining the server price ledger", async () => {
-  const [workspace, api] = await Promise.all([
+test("settings offer personal AI connections without obsolete model-price editing", async () => {
+  const [workspace, api, ledger] = await Promise.all([
     read("../features/workspace/settings/settings-panel.tsx"),
     read("../app/lib/api.ts"),
+    read("../app/lib/admin-members-api.ts"),
   ]);
-  assert.match(workspace, /AI 연결/);
-  assert.match(workspace, /canConnectAI = permissions\.has\("agent\.run"\)/);
-  assert.doesNotMatch(workspace, /ModelPricingForm|listModelPricing|AI 사용 비용/);
-  assert.match(api, /interface ModelPricing/);
-  assert.match(api, /\/model-pricing/);
+  assert.match(workspace, /AI\s*연결/);
+  assert.match(workspace, /canConnectAI\s*=\s*permissions\.has\("agent\.run"\)/);
+  assert.doesNotMatch(workspace, /ModelPricingForm|listModelPricing|AI\s*사용\s*비용/);
+  assert.doesNotMatch(api, /interface\s*ModelPricing/);
+  assert.doesNotMatch(api, /\/model-pricing/);
+  assert.match(ledger, /platformCostUsd/);
+  assert.match(ledger, /\/ai-usage\/history/);
 });
 
 test("rate cards support the complete server-owned edit and activation lifecycle", async () => {
@@ -780,19 +784,19 @@ test("rate cards support the complete server-owned edit and activation lifecycle
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /function RateCardManager/);
-  assert.match(workspace, /aria-pressed=\{editorId === card\.id\}/);
-  assert.match(workspace, /saveRateCard\(session, selected\.id/);
-  assert.match(workspace, /active: !selected\.active/);
-  assert.match(workspace, /새 견적에서 이 단가를 숨길까요/);
-  assert.match(workspace, /기존 견적에는 유지/);
-  assert.match(workspace, /다시 사용/);
-  assert.match(workspace, /<fieldset disabled=\{busy\}>/);
+  assert.match(workspace, /function\s*RateCardManager/);
+  assert.match(workspace, /aria-pressed=\{editorId\s*===\s*card\.id\}/);
+  assert.match(workspace, /saveRateCard\(session,\s*selected\.id/);
+  assert.match(workspace, /active:\s*!selected\.active/);
+  assert.match(workspace, /새\s*견적에서\s*이\s*단가를\s*숨길까요/);
+  assert.match(workspace, /기존\s*견적에는\s*유지/);
+  assert.match(workspace, /다시\s*사용/);
+  assert.match(workspace, /<fieldset\s*disabled=\{busy\}>/);
   assert.match(workspace, /Number\.isFinite\(rate\)/);
-  assert.match(api, /method: "PUT"/);
+  assert.match(api, /method:\s*"PUT"/);
   assert.match(api, /rate-cards\/\$\{rateCardId\}/);
-  assert.match(css, /\.rate-card-list > button\.active/);
-  assert.match(css, /\.rate-card-list > button\.inactive/);
+  assert.match(css, /\.rate-card-list\s*>\s*button\.active/);
+  assert.match(css, /\.rate-card-list\s*>\s*button\.inactive/);
 });
 
 test("new workspaces enter a server-backed guided setup before the first inquiry", async () => {
@@ -800,17 +804,17 @@ test("new workspaces enter a server-backed guided setup before the first inquiry
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /onAuthenticated\(session, mode === "register"\)/);
-  assert.match(workspace, /if \(isNewWorkspace\) navigateWorkspace\("settings"/);
-  assert.match(workspace, /const setupStates = \[Boolean\(workspace\), hasActiveRateCard, Boolean\(policy\), projectCount > 0\]/);
+  assert.match(workspace, /onAuthenticated\(session,\s*mode\s*===\s*"register"\)/);
+  assert.match(workspace, /if\s*\(isNewWorkspace\)\s*navigateWorkspace\("settings"/);
+  assert.match(workspace, /const\s*setupStates\s*=\s*\[Boolean\(workspace\),\s*hasActiveRateCard,\s*Boolean\(policy\),\s*projectCount\s*>\s*0\]/);
   assert.match(workspace, /role="progressbar"/);
-  assert.match(workspace, /서비스 단가 등록/);
-  assert.match(workspace, /계산 기준 확인/);
-  assert.match(workspace, /첫 문의 등록/);
+  assert.match(workspace, /서비스\s*단가\s*등록/);
+  assert.match(workspace, /계산\s*기준\s*확인/);
+  assert.match(workspace, /첫\s*문의\s*등록/);
   assert.match(workspace, /onClick=\{onCreateProject\}/);
   assert.match(workspace, /useGSAP/);
-  assert.match(css, /\.onboarding-steps \{[^}]*grid-template-columns: repeat\(4/);
-  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.onboarding-steps \{ grid-template-columns: 1fr/);
+  assert.match(css, /\.onboarding-steps\s*\{[^}]*grid-template-columns:\s*repeat\(4/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)[\s\S]*?\.onboarding-steps\s*\{\s*grid-template-columns:\s*1fr/);
 });
 
 test("settings hides raw RBAC diagnostics and keeps supporting text readable", async () => {
@@ -818,13 +822,13 @@ test("settings hides raw RBAC diagnostics and keeps supporting text readable", a
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.doesNotMatch(workspace, /내 접근 범위/);
+  assert.doesNotMatch(workspace, /내\s*접근\s*범위/);
   assert.doesNotMatch(workspace, /formatPermissionLabel/);
-  assert.match(css, /\.workspace-sidebar nav small,[\s\S]*?font-size: \.82rem/);
-  assert.match(css, /\.onboarding-step p \{ font-size: \.84rem/);
-  assert.match(css, /\.settings-index a > small \{ font-size: \.82rem/);
-  assert.match(css, /\.settings-content dt \{ font-size: \.82rem/);
-  assert.match(css, /\.settings-form input,[\s\S]*?font-size: 1rem/);
+  assert.match(css, /\.workspace-sidebar\s*nav\s*small,[\s\S]*?font-size:\s*0?\.82rem/);
+  assert.match(css, /\.onboarding-step\s*p\s*\{\s*font-size:\s*0?\.84rem/);
+  assert.match(css, /\.settings-index\s*a\s*>\s*small\s*\{\s*font-size:\s*0?\.82rem/);
+  assert.match(css, /\.settings-content\s*dt\s*\{\s*font-size:\s*0?\.82rem/);
+  assert.match(css, /\.settings-form\s*input,[\s\S]*?font-size:\s*1rem/);
 });
 
 test("project intake compares the current source with the last confirmed revision", async () => {
@@ -832,20 +836,20 @@ test("project intake compares the current source with the last confirmed revisio
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /function requirementTextDelta/);
-  assert.match(workspace, /latest\.sourceText\.trim\(\), project\.requirementText\.trim\(\)/);
-  assert.match(workspace, /원문과 구조화 결과 비교/);
-  assert.match(workspace, /원문 동기화됨/);
-  assert.match(workspace, /재검토 필요/);
-  assert.match(workspace, /이전 원문에서 빠진 부분/);
-  assert.match(workspace, /현재 원문에 추가된 부분/);
-  assert.match(workspace, /자동 의미 추정은 검토 완료로 표시하지 않습니다/);
-  assert.match(workspace, /<del>\{textDelta\.removed/);
-  assert.match(workspace, /<ins>\{textDelta\.added/);
-  assert.match(css, /\.requirement-diff-summary \{[^}]*grid-template-columns: repeat\(3/);
-  assert.match(css, /\.requirement-source-delta del/);
-  assert.match(css, /\.requirement-source-delta ins/);
-  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.requirement-diff-summary, \.requirement-diff-map/);
+  assert.match(workspace, /function\s*requirementTextDelta/);
+  assert.match(workspace, /latest\.sourceText\.trim\(\),\s*project\.requirementText\.trim\(\)/);
+  assert.match(workspace, /원문과\s*구조화\s*결과\s*비교/);
+  assert.match(workspace, /원문\s*동기화됨/);
+  assert.match(workspace, /재검토\s*필요/);
+  assert.match(workspace, /이전\s*원문에서\s*빠진\s*부분/);
+  assert.match(workspace, /현재\s*원문에\s*추가된\s*부분/);
+  assert.match(workspace, /자동\s*의미\s*추정은\s*검토\s*완료로\s*표시하지\s*않습니다/);
+  assert.match(workspace, /<del>\s*\{textDelta\.removed/);
+  assert.match(workspace, /<ins>\s*\{textDelta\.added/);
+  assert.match(css, /\.requirement-diff-summary\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
+  assert.match(css, /\.requirement-source-delta\s*del/);
+  assert.match(css, /\.requirement-source-delta\s*ins/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)[\s\S]*?\.requirement-diff-summary,\s*\.requirement-diff-map/);
 });
 
 test("agent runs request enough model calls and output tokens for the four-department ReAct route", async () => {
@@ -854,13 +858,13 @@ test("agent runs request enough model calls and output tokens for the four-depar
     read("../app/workspace/page.tsx"),
     read("../app/components/live-workflow.tsx"),
   ]);
-  assert.match(api, /maxModelCalls: 50/);
-  assert.match(api, /maxOutputTokens: 48000/);
-  assert.match(api, /\| "PARTIAL"/);
-  assert.match(workspace, /일부 분석 결과를 먼저 제공합니다/);
-  assert.match(workspace, /run\.status === "PARTIAL"/);
-  assert.match(workflow, /"run\.partial": "review"/);
-  assert.match(workflow, /PARTIAL: "부분 결과 제공"/);
+  assert.match(api, /maxModelCalls:\s*50/);
+  assert.match(api, /maxOutputTokens:\s*48000/);
+  assert.match(api, /\|\s*"PARTIAL"/);
+  assert.match(workspace, /일부\s*분석\s*결과를\s*먼저\s*제공합니다/);
+  assert.match(workspace, /run\.status\s*===\s*"PARTIAL"/);
+  assert.match(workflow, /"run\.partial":\s*"review"/);
+  assert.match(workflow, /PARTIAL:\s*"부분\s*결과\s*제공"/);
 });
 
 test("waiting agent runs prioritize inline questions and open work detail on demand", async () => {
@@ -868,14 +872,14 @@ test("waiting agent runs prioritize inline questions and open work detail on dem
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /status === "WAITING_FOR_USER" && item\.runId === runId \? clarification/);
-  assert.match(workspace, /clarification=\{run\?\.interruption \?\s*<InterruptionForm/);
-  assert.match(workspace, /showWorkDetails &&\s*<WorkspacePanel/);
-  assert.match(workspace, /<LiveWorkflow snapshot=\{snapshot\}/);
+  assert.match(workspace, /status\s*===\s*"WAITING_FOR_USER"\s*&&\s*item\.runId\s*===\s*runId\s*\?\s*\(?\s*clarification/);
+  assert.match(workspace, /clarification=\{\s*run\?\.interruption\s*\?\s*\(?\s*<InterruptionForm/);
+  assert.match(workspace, /showWorkDetails\s*&&\s*\(?\s*<WorkspacePanel/);
+  assert.match(workspace, /<LiveWorkflow\s*snapshot=\{snapshot\}/);
   assert.match(workspace, /onOpenResult=\{openResult\}/);
   assert.doesNotMatch(css, /\.graph-restore/);
-  assert.match(css, /\.interruption-form label \{[^}]*font-size: 1rem/);
-  assert.match(css, /\.interruption-form textarea \{[^}]*min-height: 132px/);
+  assert.match(css, /\.interruption-form\s*label\s*\{[^}]*font-size:\s*1rem/);
+  assert.match(css, /\.interruption-form\s*textarea\s*\{[^}]*min-height:\s*132px/);
 });
 
 test("workspace supports persistent theme switching and guarded project deletion", async () => {
@@ -885,61 +889,61 @@ test("workspace supports persistent theme switching and guarded project deletion
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /useTheme/);
-  assert.match(workspace, /setTheme\(isDarkTheme \? "light" : "dark"\)/);
-  assert.match(workspace, /role="switch" aria-checked=\{isDarkTheme\} aria-label="다크 모드"/);
+  assert.match(workspace, /setTheme\(isDarkTheme\s*\?\s*"light"\s*:\s*"dark"\)/);
+  assert.match(workspace, /role="switch"\s*aria-checked=\{isDarkTheme\}\s*aria-label="다크\s*모드"/);
   assert.match(workspace, /permissions\.has\("project\.delete"\)/);
-  assert.match(workspace, /deleteConfirmation !== project\.title/);
-  assert.doesNotMatch(workspace, /AI 분석을 중단한 뒤 삭제할 수 있습니다/);
+  assert.match(workspace, /deleteConfirmation\s*!==\s*project\.title/);
+  assert.doesNotMatch(workspace, /AI\s*분석을\s*중단한\s*뒤\s*삭제할\s*수\s*있습니다/);
   assert.match(
     workspace,
-    /진행 중이거나 확인 대기 중인 AI 분석은 먼저 안전하게 중단합니다/
+    /진행\s*중이거나\s*확인\s*대기\s*중인\s*AI\s*분석은\s*먼저\s*안전하게\s*중단합니다/
   );
-  assert.match(workspace, /projectDeletionBlockingStatuses = new Set\(\["QUEUED", "RUNNING", "WAITING_FOR_USER"\]\)/);
-  assert.match(workspace, /getLatestProjectAgentRun\(session, projectId\)/);
-  assert.match(workspace, /await deleteProject\(session, selectedProject\.id\)/);
-  assert.doesNotMatch(workspace, /disabled=\{runLookupPending \|\| deleteBlockedByRun\}/);
-  assert.match(workspace, /진행 중이거나 확인을 기다리는 AI 분석이 있습니다/);
+  assert.match(workspace, /projectDeletionBlockingStatuses\s*=\s*new\s*Set\(\["QUEUED",\s*"RUNNING",\s*"WAITING_FOR_USER"\]\)/);
+  assert.match(workspace, /getLatestProjectAgentRun\(session,\s*projectId\)/);
+  assert.match(workspace, /await\s*deleteProject\(session,\s*selectedProject\.id\)/);
+  assert.doesNotMatch(workspace, /disabled=\{runLookupPending\s*\|\|\s*deleteBlockedByRun\}/);
+  assert.match(workspace, /진행\s*중이거나\s*확인을\s*기다리는\s*AI\s*분석이\s*있습니다/);
   assert.match(workspace, /className="project-delete-backdrop"/);
   assert.match(workspace, /aria-modal="true"/);
-  assert.match(workspace, /정리된 요구사항/);
-  assert.match(workspace, /AI 분석 기록/);
-  assert.match(workspace, /견적과 결과 기록/);
-  assert.match(api, /export function deleteProject/);
+  assert.match(workspace, /정리된\s*요구사항/);
+  assert.match(workspace, /AI\s*분석\s*기록/);
+  assert.match(workspace, /견적과\s*결과\s*기록/);
+  assert.match(api, /export\s*function\s*deleteProject/);
   assert.doesNotMatch(api, /deleteProjectWithBestEffortRunCleanup/);
-  assert.doesNotMatch(api, /Project deletion must not depend on Agent availability/);
-  assert.match(api, /export function getLatestProjectAgentRun/);
+  assert.doesNotMatch(api, /Project\s*deletion\s*must\s*not\s*depend\s*on\s*Agent\s*availability/);
+  assert.match(api, /export\s*function\s*getLatestProjectAgentRun/);
   assert.doesNotMatch(api, /cancelActiveProjectAgentRuns/);
   assert.match(api, /projects\/\$\{projectId\}\/agent-runs\/latest/);
   assert.doesNotMatch(api, /projects\/\$\{projectId\}\/agent-runs\/cancel-active/);
-  assert.match(api, /method: "DELETE"/);
+  assert.match(api, /method:\s*"DELETE"/);
   assert.match(css, /\.project-delete-confirmation/);
-  assert.match(css, /@keyframes deleteDialogIn/);
-  assert.match(css, /@keyframes workspacePanelIn/);
-  assert.match(css, /\.workbench-steps button\.active \{[^}]*font-weight: 800/);
+  assert.match(css, /@keyframes\s*deleteDialogIn/);
+  assert.match(css, /@keyframes\s*workspacePanelIn/);
+  assert.match(css, /\.workbench-steps\s*button\.active\s*\{[^}]*font-weight:\s*800/);
   assert.match(css, /\.workspace-theme-toggle/);
 });
 
-test("quotation review aligns calculated amounts and offers bounded AI assumption drafting", async () => {
+test("quotation review preserves calculated amounts while standalone AI drafting stays disabled", async () => {
   const [workspace, api, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /AI로 제안받기/);
-  assert.match(workspace, /AI로 다듬기/);
+  assert.match(workspace, /AI로\s*제안받기/);
+  assert.match(workspace, /AI로\s*다듬기/);
   assert.doesNotMatch(await read("../features/workspace/project/quotation/quote-item-basis.tsx"), /ai-assumption-note|providerLabels/);
-  assert.match(workspace, /경로 판정/);
-  assert.match(workspace, /자동 전환/);
-  assert.match(api, /export function suggestQuotationAssumption/);
-  assert.match(api, /quotations\/assumption-suggestions/);
+  assert.match(workspace, /경로\s*판정/);
+  assert.match(workspace, /자동\s*전환/);
+  assert.doesNotMatch(api, /export\s*function\s*suggestQuotationAssumption/);
+  assert.doesNotMatch(api, /quotations\/assumption-suggestions/);
   assert.match(css, /\.quote-amount-field/);
-  assert.match(css, /\.quote-amount \{[^}]*height: 46px/);
+  assert.match(css, /\.quote-amount\s*\{[^}]*height:\s*46px/);
   assert.match(css, /\.quote-summary-controls/);
-  assert.match(workspace, /id="quote-calculation-settings">계산 조건/);
+  assert.match(workspace, /id="quote-calculation-settings">계산\s*조건/);
   assert.match(workspace, /aria-label="세율"/);
-  assert.match(workspace, /aria-label="견적 유효 기간"/);
+  assert.match(workspace, /aria-label="견적\s*유효\s*기간"/);
   assert.match(css, /\.quote-tax-control/);
-  assert.match(css, /\.quote-summary-controls > label \{[^}]*grid-template-columns: minmax\(0, 1fr\) 132px/);
+  assert.match(css, /\.quote-summary-controls\s*>\s*label\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*132px/);
   assert.match(css, /\.ai-assumption-button/);
   assert.match(css, /\.run-model-routing/);
 });
@@ -949,28 +953,28 @@ test("outcome review presents deliberate line breaks and complete result inputs"
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /끝난 프로젝트를 다음<br \/>견적의 근거로 남기세요/);
-  assert.match(workspace, /문의 내용을<br \/>먼저 확인합니다/);
+  assert.match(workspace, /끝난\s*프로젝트를\s*다음<br\s*\/>견적의\s*근거로\s*남기세요/);
+  assert.match(workspace, /문의\s*내용을<br\s*\/>먼저\s*확인합니다/);
   assert.match(workspace, /className="outcome-basics"/);
   assert.match(workspace, /className="outcome-metrics-grid"/);
   assert.match(workspace, /className="outcome-input-shell"/);
-  assert.match(workspace, /name="totalRevenue" type="number" min="0" step="0\.01"/);
-  assert.match(workspace, /name="actualCost" type="number" min="0" step="0\.01"/);
+  assert.match(workspace, /name="totalRevenue"\s*type="number"\s*min="0"\s*step="0\.01"/);
+  assert.match(workspace, /name="actualCost"\s*type="number"\s*min="0"\s*step="0\.01"/);
   assert.doesNotMatch(workspace, /name="(?:totalRevenue|actualCost)"[^>]*step="1000"/);
   assert.match(workspace, /className="outcome-date-shell"/);
   assert.match(workspace, /className="outcome-select-shell"/);
   assert.match(workspace, /className="actual-work-heading"/);
-  assert.match(workspace, /첫 항목 추가/);
-  assert.match(workspace, /처음 예상과 달라진 점/);
-  assert.match(workspace, /추가된 범위/);
-  assert.match(workspace, /제외된 작업/);
-  assert.match(workspace, /일정·비용 변화/);
-  assert.match(workspace, /확인된 사실을 중심으로 작성하세요/);
-  assert.match(css, /\.outcome-control input, \.outcome-control select/);
-  assert.match(css, /\.outcome-change-card textarea \{[^}]*min-height: 156px/);
+  assert.match(workspace, /첫\s*항목\s*추가/);
+  assert.match(workspace, /처음\s*예상과\s*달라진\s*점/);
+  assert.match(workspace, /추가된\s*범위/);
+  assert.match(workspace, /제외된\s*작업/);
+  assert.match(workspace, /일정·비용\s*변화/);
+  assert.match(workspace, /확인된\s*사실을\s*중심으로\s*작성하세요/);
+  assert.match(css, /\.outcome-control\s*input,\s*\.outcome-control\s*select/);
+  assert.match(css, /\.outcome-change-card\s*textarea\s*\{[^}]*min-height:\s*156px/);
   assert.match(css, /\.actual-work-empty/);
-  assert.match(css, /\.outcome-form \.outcome-input-shell/);
-  assert.match(css, /\.outcome-change-prompts \{[^}]*grid-template-columns: repeat\(3/);
-  assert.match(css, /\.workbench-steps \{[^}]*border-radius: 0/);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.outcome-metrics-grid \{ grid-template-columns: 1fr/);
+  assert.match(css, /\.outcome-form\s*\.outcome-input-shell/);
+  assert.match(css, /\.outcome-change-prompts\s*\{[^}]*grid-template-columns:\s*repeat\(3/);
+  assert.match(css, /\.workbench-steps\s*\{[^}]*border-radius:\s*0/);
+  assert.match(css, /@media\s*\(max-width:\s*520px\)[\s\S]*?\.outcome-metrics-grid\s*\{\s*grid-template-columns:\s*1fr/);
 });

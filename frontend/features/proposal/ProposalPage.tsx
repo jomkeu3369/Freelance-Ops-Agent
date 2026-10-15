@@ -55,8 +55,12 @@ export default function ProposalPage() {
         <h1>제안서를 열 수 없습니다.</h1>
         <p>{error}</p>
         <div className="state-actions">
-          <button type="button" className="primary-button" onClick={retryLoading}>다시 시도</button>
-          <Link className="quiet-button" href="/">홈으로 이동</Link>
+          <button type="button" className="primary-button" onClick={retryLoading}>
+            다시 시도
+          </button>
+          <Link className="quiet-button" href="/">
+            홈으로 이동
+          </Link>
         </div>
       </main>
     );

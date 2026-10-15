@@ -1,8 +1,5 @@
 import { useT } from "../../../../app/lib/ui-language";
-import {
-  Clock,
-  Warning
-} from "@phosphor-icons/react";
+import { Clock, Warning } from "@phosphor-icons/react";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
@@ -34,12 +31,20 @@ export function QuoteNotices({ model }: { model: QuoteBuilderModel }) {
                 ? t("비어 있는 단가를 입력하고 공수와 가정을 확인하세요.")
                 : draftStatus.kind === "unavailable"
                   ? t("초안을 저장하기 전에는 화면을 닫거나 다른 곳으로 이동하지 마세요.")
-                  : t("{v0} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.", { v0: draftStatus.updatedAt ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : t("방금") })}
+                  : t("{v0} 저장 · 다른 브라우저에서는 이어서 볼 수 없습니다.", {
+                      v0: draftStatus.updatedAt
+                        ? new Date(draftStatus.updatedAt).toLocaleTimeString("ko-KR", {
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })
+                        : t("방금")
+                    })}
             </small>
           </div>
           {draftStatus.kind !== "unavailable" && (
             <button type="button" className="quiet-button" onClick={discardDraft}>
-              {t("임시저장 버리기")}</button>
+              {t("임시저장 버리기")}
+            </button>
           )}
         </div>
       )}
@@ -57,18 +62,19 @@ export function QuoteNotices({ model }: { model: QuoteBuilderModel }) {
             <div>
               <strong>{t("다른 사용자가 새 견적안을 먼저 저장했습니다.")}</strong>
               <p>
-                {t("작성 중인 내용은 그대로 남아 있습니다. 최신 v")}{conflictLatest.versionNumber}{t("을 불러오거나 현재 내용을 새 견적안으로 저장할 수 있습니다.")}</p>
+                {t("작성 중인 내용은 그대로 남아 있습니다. 최신 v")}
+                {conflictLatest.versionNumber}
+                {t("을 불러오거나 현재 내용을 새 견적안으로 저장할 수 있습니다.")}
+              </p>
             </div>
           </div>
           <div>
             <button type="button" className="secondary-button" onClick={() => loadQuotation(conflictLatest)}>
-              {t("최신 견적안 불러오기")}</button>
-            <button
-              type="button"
-              className="quiet-button"
-              onClick={continueWithCurrentDraft}
-            >
-              {t("현재 내용으로 계속")}</button>
+              {t("최신 견적안 불러오기")}
+            </button>
+            <button type="button" className="quiet-button" onClick={continueWithCurrentDraft}>
+              {t("현재 내용으로 계속")}
+            </button>
           </div>
         </section>
       )}

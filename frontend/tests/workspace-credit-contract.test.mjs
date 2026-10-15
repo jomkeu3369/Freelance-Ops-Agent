@@ -1,33 +1,23 @@
+import { createApiFixture } from "../scripts/lib/typescript-fixture.mjs";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import ts from "typescript";
+import { readFile } from "node:fs/promises";
 
-// The backend's MockMvc/DTO tests consume this same file, not a second hand-written schema.
+// 백엔드 MockMvc·DTO 검사와 같은 계약 파일을 사용한다.
 const contract = JSON.parse(await readFile(new URL("../../contracts/fixtures/workspace-credit-contract.json", import.meta.url), "utf8"));
 const oldFetch = globalThis.fetch;
 const oldOrigin = process.env.NEXT_PUBLIC_API_BASE_URL;
 const session = { userId: "11111111-1111-4111-8111-111111111111", workspaceId: "44444444-4444-4444-8444-444444444444", accessToken: "synthetic-unit-token" };
 const project = { id: "55555555-5555-4555-8555-555555555555", requirementText: contract.start.requirementText };
-let directory, api, policy, PendingRunStore;
+let fixtureRuntime, api, policy, PendingRunStore;
 before(async () => {
-  directory = await mkdtemp(join(tmpdir(), "workspace-credit-contract-"));
-  for (const name of ["api", "query-cache", "credit-policy", "pending-run-store"]) {
-    const source = await readFile(new URL(`../app/lib/${name}.ts`, import.meta.url), "utf8");
-    const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ES2022 } });
-    await writeFile(join(directory, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
-  }
-  await writeFile(join(directory, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
-  await writeFile(join(directory, "byok-presentation.mjs"), await readFile(new URL("../app/lib/byok-presentation.mjs", import.meta.url)));
-  api = await import(pathToFileURL(join(directory, "api.mjs")));
-  policy = await import(pathToFileURL(join(directory, "credit-policy.mjs")));
-  ({ PendingRunStore } = await import(pathToFileURL(join(directory, "pending-run-store.mjs"))));
+  fixtureRuntime = await createApiFixture();
+  api = fixtureRuntime.api;
+  policy = await fixtureRuntime.importModule("app/lib/credit-policy.ts");
+  ({ PendingRunStore } = await fixtureRuntime.importModule("app/lib/pending-run-store.ts"));
 });
 afterEach(() => { globalThis.fetch = oldFetch; if (oldOrigin === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL; else process.env.NEXT_PUBLIC_API_BASE_URL = oldOrigin; });
-after(async () => { if (directory) await rm(directory, { recursive: true, force: true }); });
+after(async () => { await fixtureRuntime?.cleanup(); });
 function capture(response, status = 200) {
   process.env.NEXT_PUBLIC_API_BASE_URL = "https://contract.example.invalid";
   const requests = [];
@@ -101,7 +91,7 @@ test("account balance changes only from a fresh shared server usage response aft
   capture(contract.usage);
   const reserved = await api.getFreeUsage(session);
   assert.equal(reserved.reserved, 10); assert.equal(reserved.remaining, 70);
-  // A terminal run does not itself carry a refundable credit amount. No local refund is inferred.
+  // 종료된 실행 자체에는 환불할 크레딧 금액이 없다. 로컬에서 환불을 추정하지 않는다.
   capture({ runId: "synthetic", status: "FAILED", result: null, metadata: null });
   await api.getAgentRun(session, "synthetic");
   assert.equal(reserved.reserved, 10); assert.equal(reserved.remaining, 70);
@@ -128,7 +118,7 @@ test("START client retains reviewed attachments, manual-empty skill choice and A
   assert.equal(new Headers(requests[0].headers).get("Idempotency-Key"), "exact-skill-key");
 });
 
-// Synthetic fetch capture only; no request leaves this process.
+// 가상 fetch로 기록만 하며 요청은 이 프로세스 밖으로 나가지 않는다.
 test("unknown personal pricing blocks before transport while platform requests omit personal acknowledgement", async () => {
   const requests=capture({runId:"synthetic",status:"QUEUED"},202);
   await assert.rejects(api.startAgentRun(session,project,{...contract.byokStart.modelSelection,model:"unpriced-future-model"}),error=>error.code==="BYOK_COST_NOTICE_REFRESH_REQUIRED");

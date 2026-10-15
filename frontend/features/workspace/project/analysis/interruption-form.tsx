@@ -77,17 +77,9 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
         )
       );
     } catch {
-      // Storage can be unavailable in privacy-restricted browser contexts.
+      // 개인정보 보호 설정에 따라 브라우저 저장소를 사용할 수 없을 수 있다.
     }
-  }, [
-    answers,
-    draftKey,
-    draftRunId,
-    draftWorkspaceId,
-    hasDraft,
-    interruption.interruptionId,
-    interruption.questions
-  ]);
+  }, [answers, draftKey, draftRunId, draftWorkspaceId, hasDraft, interruption.interruptionId, interruption.questions]);
 
   const submitAnswers = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -102,7 +94,7 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
         /* no-op */
       }
     } catch {
-      // The parent exposes the API error; retaining the draft is the recovery path.
+      // API 오류는 부모가 표시한다. 복구할 수 있도록 입력 초안을 유지한다.
     } finally {
       submitLock.current = false;
       setSubmitting(false);
@@ -144,24 +136,19 @@ export function InterruptionForm({ interruption, draftKey, draftWorkspaceId, dra
       {canRespond ? (
         <div className="interruption-actions">
           <div aria-live="polite">
-            {hasDraft
-              ? t("작성 중인 답변은 이 탭에 임시 저장됩니다.")
-              : t("답변을 입력하면 이 탭에 임시 저장됩니다.")}
+            {hasDraft ? t("작성 중인 답변은 이 탭에 임시 저장됩니다.") : t("답변을 입력하면 이 탭에 임시 저장됩니다.")}
           </div>
           <span>
-            <button
-              type="button"
-              className="quiet-button"
-              disabled={pending || !hasDraft}
-              onClick={clearDraft}
-            >
-              <Trash size={16} /> {t("답변 지우기")}</button>
+            <button type="button" className="quiet-button" disabled={pending || !hasDraft} onClick={clearDraft}>
+              <Trash size={16} /> {t("답변 지우기")}
+            </button>
             <button
               type="submit"
               className="primary-button"
               disabled={pending || answers.some((answer) => !answer.trim())}
             >
-              {pending ? <CircleNotch className="spin" /> : <ArrowRight />} {t("답변하고 계속")}</button>
+              {pending ? <CircleNotch className="spin" /> : <ArrowRight />} {t("답변하고 계속")}
+            </button>
           </span>
         </div>
       ) : (

@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
 
-// Execute real component handlers with deterministic React state and API boundaries.
+// 제어 가능한 React 상태와 API 경계로 실제 컴포넌트 핸들러를 실행한다.
 async function harness(file, component, props, api) {
   const slots = [];
   let cursor = 0;
@@ -100,7 +100,7 @@ test("read-only rates expose the saved list without a write form", async () => {
   const writable = h.render();
   h.props.canWrite = false;
   h.render();
-  // A stale React handler is not a security boundary; the current visible tree must omit the form.
+  // 이전 React 핸들러는 권한 경계가 아니다. 현재 화면에서도 폼을 제외해야 한다.
   assert.equal(form(h.render()), undefined);
   assert.ok(form(writable));
   assert.equal(calls.length, 0);

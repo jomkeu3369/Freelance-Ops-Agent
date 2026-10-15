@@ -21,7 +21,7 @@ async function settingsFixture(page, initial = []) {
   await page.route("**/api/v2/workspaces/local-space/rate-cards**", async route => {
     const request = route.request();
     if (request.method() === "GET") {
-      // Capture before waiting: a write must not silently update an already-started GET.
+      // 대기 전에 스냅샷을 잡아 이미 시작한 GET을 변경 요청이 덮어쓰지 못하게 한다.
       const status = server.rateReadStatus;
       const snapshot = structuredClone(server.cards);
       server.reads.rates.push({ authorization: request.headers().authorization, snapshot, status });
@@ -70,7 +70,7 @@ async function refreshSettings(page, server) {
   const token = `fixture-refreshed-token-${++server.refreshes}`;
   const profileName = `Settings refresh completed ${server.refreshes}`;
   server.profileName = profileName;
-  // Only advance Date.now: expire the 15-second query cache without sleeping or firing timers.
+  // Date.now만 진행해 15초 캐시를 만료시킨다. 대기하거나 타이머를 실행하지 않는다.
   await page.clock.setFixedTime(new Date(await page.evaluate(() => Date.now()) + 16_000));
   await page.evaluate(token => {
     const key = "freelance-ops-session-v1";
@@ -91,7 +91,7 @@ async function afterDelayedRead(page, server, resource, mutate) {
     const refreshed = await refreshSettings(page, server);
     await barrier.entered;
     expect(server.reads[resource].at(-1).authorization).toBe(`Bearer ${refreshed.token}`);
-    // A same-owner token rotation must leave the mounted settings editor usable.
+    // 같은 사용자의 토큰 교체는 열린 설정 편집기를 계속 사용할 수 있게 해야 한다.
     await expect(page.locator("#estimation-policy form")).toBeVisible();
     await expect(page.locator(".rate-card-form")).toBeVisible();
     await mutate();
@@ -100,8 +100,8 @@ async function afterDelayedRead(page, server, resource, mutate) {
       && response.request().headers().authorization === `Bearer ${refreshed.token}`);
     barrier.release();
     expect(await (await completed).finished()).toBeNull();
-    // Network completion alone can precede React. This fresh profile is committed by
-    // SettingsPanel's same allSettled batch, so persistence checks run after its render.
+    // 네트워크 완료가 React 반영보다 빠를 수 있다. 같은 allSettled 묶음으로
+    // 프로필이 반영된 것을 확인한 뒤 저장 결과를 검사한다.
     await expect(page.locator("#workspace-profile")).toContainText(refreshed.profileName);
   } finally {
     server[nextRead] = null;
@@ -223,7 +223,7 @@ test("a policy save wins over an older refresh snapshot and a later refresh stil
   await expect(page.locator(".settings-page > .inline-error")).toHaveCount(0);
   await expect(page.locator(".settings-page > .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
 
-  // Read suppression must be scoped to the older request, not all future refreshes.
+  // 이전 요청만 반영을 막고 이후 모든 갱신을 막지 않아야 한다.
   state.policy = { ...state.policy, defaultTaxRate: .3, defaultRiskBufferRate: .2, maximumDiscountRate: .1, version: 3 };
   server.cards = [rate("one", "Externally refreshed service")];
   const refreshed = await refreshSettings(page, server);
@@ -258,7 +258,7 @@ for (const operation of ["edit", "create", "deactivate", "reactivate"]) {
     await expect(page.locator(".rate-card-list > button")).toHaveCount(2);
     if (operation !== "create") await page.locator(".rate-card-list > button").filter({ hasText: "First service" }).click();
     const form = page.locator(".rate-card-form");
-    // An unrelated resource from this same read batch remains eligible to update.
+    // 같은 조회 묶음의 다른 자료는 계속 갱신할 수 있어야 한다.
     state.policy = { ...state.policy, defaultTaxRate: .17, version: 2 };
 
     await afterDelayedRead(page, server, "rates", async () => {
@@ -322,7 +322,7 @@ for (const resource of ["rates", "profile", "policy"]) {
       }
       await expect(error).toHaveText(message);
 
-      // A successful read of the failed resource should clear that resource's old error.
+      // 실패한 자료를 정상 조회하면 해당 자료의 이전 오류를 지워야 한다.
       server[statusKey] = 200;
       const recovered = await refreshSettings(page, server);
       await expect(page.locator("#workspace-profile")).toContainText(recovered.profileName);

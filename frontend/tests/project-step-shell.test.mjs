@@ -30,8 +30,8 @@ test("chat CSS preserves shared project heading and numbered tab presentation", 
       assert.doesNotMatch(rule.declarations, /(?:clip-path\s*:|display\s*:\s*none|position\s*:\s*absolute|(?:width|height)\s*:\s*1px)/, rule.selector);
     }
     if (/\.is-chat\b/.test(rule.selector) && /\.workbench-steps\b/.test(rule.selector)) {
-      // A non-shrinking flex item is structural; its appearance belongs to the
-      // shared stylesheet, including phone wrapping and visible step numbers.
+      // 줄어들지 않는 flex 항목은 구조이며 모양은 공통 스타일에서 정한다.
+      // 휴대폰 줄바꿈과 단계 번호 표시도 공통 스타일에 포함한다.
       assert.doesNotMatch(rule.declarations, /(?:^|;)\s*(?:display|flex-wrap|flex-basis|gap|padding(?:-[\w-]+)?|margin(?:-[\w-]+)?|font(?:-[\w-]+)?|border(?:-[\w-]+)?|background(?:-[\w-]+)?|min-height)\s*:/, rule.selector);
     }
   }

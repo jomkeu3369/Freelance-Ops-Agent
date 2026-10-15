@@ -1,4 +1,4 @@
-// Keep raw strings until submission so closing a dialog never changes the user's work.
+// 제출 전에는 원문 문자열을 유지해 창을 닫아도 입력 내용이 바뀌지 않게 한다.
 export function createProjectIntakeDraft() {
   return { title: "", requirementText: "", clientId: "", currency: "KRW", deadline: "", budgetMin: "", budgetMax: "" };
 }

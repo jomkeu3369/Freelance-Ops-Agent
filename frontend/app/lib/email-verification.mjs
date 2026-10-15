@@ -1,4 +1,4 @@
-// Fragment only: never read query parameters, log, or persist an ownership token.
+// 인증 토큰은 URL 해시에서만 읽으며 쿼리 조회, 로그 출력, 저장을 하지 않는다.
 export function verificationTokenFromFragment(fragment) {
   if (typeof fragment !== "string" || !fragment.startsWith("#")) return null;
   const params = new URLSearchParams(fragment.slice(1));
@@ -8,7 +8,8 @@ export function verificationTokenFromFragment(fragment) {
 }
 
 export function verificationPasswordError(password, confirmation) {
-  if (typeof password !== "string" || password.length < 12 || password.length > 72 || password !== confirmation) return "MISMATCH";
+  if (typeof password !== "string" || password.length < 12 || password.length > 72 || password !== confirmation)
+    return "MISMATCH";
   if (new TextEncoder().encode(password).length > 72) return "UTF8_LENGTH";
   return null;
 }

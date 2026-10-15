@@ -1,5 +1,33 @@
-import { AgentQuotationDraft, ApiError, AuthSession, Project, ProposalShare, Provider, Quotation, QuotationItemInput, QuotationScenario, RateCard, createProposalShare, createQuotation, getProjectQuotation, getLatestQuotation, listRateCards, publishQuotation, reviseQuotation, revokeProposalShare } from "@/app/lib/api";
-import { createQuotationAIDraftDismissals, createQuotationDraft, parseQuotationAIDraftDismissals, parseQuotationDraft, quotationAIDraftDismissalKey, quotationAIDraftFingerprint, quotationDraftFingerprint, quotationDraftKey } from "@/app/lib/quotation-draft.mjs";
+import {
+  AgentQuotationDraft,
+  ApiError,
+  AuthSession,
+  Project,
+  ProposalShare,
+  Provider,
+  Quotation,
+  QuotationItemInput,
+  QuotationScenario,
+  RateCard,
+  createProposalShare,
+  createQuotation,
+  getProjectQuotation,
+  getLatestQuotation,
+  listRateCards,
+  publishQuotation,
+  reviseQuotation,
+  revokeProposalShare
+} from "@/app/lib/api";
+import {
+  createQuotationAIDraftDismissals,
+  createQuotationDraft,
+  parseQuotationAIDraftDismissals,
+  parseQuotationDraft,
+  quotationAIDraftDismissalKey,
+  quotationAIDraftFingerprint,
+  quotationDraftFingerprint,
+  quotationDraftKey
+} from "@/app/lib/quotation-draft.mjs";
 import { hydrateMissingDraftRates } from "@/app/lib/rate-card-match.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { quotationScenarioLabels } from "../../shared/constants";
@@ -33,7 +61,8 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const [taxRate, setTaxRate] = useState(0.1);
   const [validUntil, setValidUntil] = useState("");
   const [selectedBasisIndex, setSelectedBasisIndex] = useState(0);
-  const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } = useQuotationHistory(session, project.id);
+  const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } =
+    useQuotationHistory(session, project.id);
   const [rateCards, setRateCards] = useState<RateCard[]>([]);
   const [saved, setSaved] = useState<Quotation | null>(null);
   const [unresolvedBaseId, setUnresolvedBaseId] = useState<string | null>(null);
@@ -57,19 +86,32 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       return [];
     }
   });
-  // Parent usage/connection updates can supply a fresh fallback []. They must
-  // not restart restoration or overwrite edits that have not reached storage.
-  const fallbackAIDrafts = useMemo(() => quotationDraft ? [quotationDraft] : EMPTY_AI_DRAFTS, [quotationDraft]);
+  // 사용량·연결 상태 갱신 때 부모가 새 빈 배열을 전달할 수 있다.
+  // 이 때문에 복원을 다시 시작하거나 저장 전 편집 내용을 덮어쓰면 안 된다.
+  const fallbackAIDrafts = useMemo(() => (quotationDraft ? [quotationDraft] : EMPTY_AI_DRAFTS), [quotationDraft]);
   const rawAIDrafts = quotationDrafts.length > 0 ? quotationDrafts : fallbackAIDrafts;
-  const availableAIDrafts = useMemo(() => rawAIDrafts.filter((draft) => !dismissedAIDraftFingerprints.includes(quotationAIDraftFingerprint(draft))), [dismissedAIDraftFingerprints, rawAIDrafts]);
+  const availableAIDrafts = useMemo(
+    () => rawAIDrafts.filter((draft) => !dismissedAIDraftFingerprints.includes(quotationAIDraftFingerprint(draft))),
+    [dismissedAIDraftFingerprints, rawAIDrafts]
+  );
 
-  const fingerprint = useCallback((nextScenario: QuotationScenario, baseQuotationId: string | null, nextTaxRate: number, nextValidUntil: string, nextItems: QuotationItemInput[]) => quotationDraftFingerprint({
-    scenario: nextScenario,
-    baseQuotationId,
-    taxRate: nextTaxRate,
-    validUntil: nextValidUntil,
-    items: nextItems
-  }), []);
+  const fingerprint = useCallback(
+    (
+      nextScenario: QuotationScenario,
+      baseQuotationId: string | null,
+      nextTaxRate: number,
+      nextValidUntil: string,
+      nextItems: QuotationItemInput[]
+    ) =>
+      quotationDraftFingerprint({
+        scenario: nextScenario,
+        baseQuotationId,
+        taxRate: nextTaxRate,
+        validUntil: nextValidUntil,
+        items: nextItems
+      }),
+    []
+  );
 
   useEffect(() => {
     if (!canRead) return;
@@ -81,11 +123,14 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
           const activeRateCards = nextRateCards.filter((card) => card.active);
           setRateCards(activeRateCards);
           const latest = result[0] ?? null;
-          const defaultAIDraft = availableAIDrafts.find((draft) => draft.scenario === "RECOMMENDED") ?? availableAIDrafts[0] ?? null;
-          const generatedItems = defaultAIDraft ? quotationDraftItems(defaultAIDraft, activeRateCards, project.currency) : null;
+          const defaultAIDraft =
+            availableAIDrafts.find((draft) => draft.scenario === "RECOMMENDED") ?? availableAIDrafts[0] ?? null;
+          const generatedItems = defaultAIDraft
+            ? quotationDraftItems(defaultAIDraft, activeRateCards, project.currency)
+            : null;
           const defaultScenario = defaultAIDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
           const defaultItems = generatedItems ?? (latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()]);
-          const defaultTaxRate = latest?.taxRate ?? .1;
+          const defaultTaxRate = latest?.taxRate ?? 0.1;
           const defaultValidUntil = latest?.validUntil ?? "";
           let restored = null;
           if (canWrite) {
@@ -100,17 +145,25 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             }
           }
           if (restored) {
-            const restoredAIDraft = availableAIDrafts.find((draft) => draft.scenario === restored.scenario) ?? defaultAIDraft;
-            const restoredGeneratedItems = restoredAIDraft ? quotationDraftItems(restoredAIDraft, activeRateCards, project.currency) : null;
-            const restoredItems = restoredGeneratedItems ? hydrateMissingDraftRates(restored.items, restoredGeneratedItems) as QuotationItemInput[] : restored.items;
+            const restoredAIDraft =
+              availableAIDrafts.find((draft) => draft.scenario === restored.scenario) ?? defaultAIDraft;
+            const restoredGeneratedItems = restoredAIDraft
+              ? quotationDraftItems(restoredAIDraft, activeRateCards, project.currency)
+              : null;
+            const restoredItems = restoredGeneratedItems
+              ? (hydrateMissingDraftRates(restored.items, restoredGeneratedItems) as QuotationItemInput[])
+              : restored.items;
             let baseQuotation = restored.baseQuotationId
-              ? result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null
+              ? (result.find((quotation) => quotation.id === restored.baseQuotationId) ?? null)
               : null;
             if (restored.baseQuotationId && !baseQuotation) {
               try {
                 baseQuotation = await getProjectQuotation(session, project.id, restored.baseQuotationId);
               } catch {
-                if (!cancelled) setError("원본 견적을 불러오지 못했습니다. 작성 중인 내용은 복구했습니다. 새로고침해 원본을 확인하거나 새 견적안을 시작하기 전까지 저장할 수 없습니다.");
+                if (!cancelled)
+                  setError(
+                    "원본 견적을 불러오지 못했습니다. 작성 중인 내용은 복구했습니다. 새로고침해 원본을 확인하거나 새 견적안을 시작하기 전까지 저장할 수 없습니다."
+                  );
               }
             }
             if (cancelled) return;
@@ -121,15 +174,23 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             setItems(restoredItems);
             setTaxRate(restored.taxRate);
             setValidUntil(restored.validUntil);
-            const restoredFingerprint = fingerprint(restored.scenario, restored.baseQuotationId, restored.taxRate, restored.validUntil, restoredItems);
+            const restoredFingerprint = fingerprint(
+              restored.scenario,
+              restored.baseQuotationId,
+              restored.taxRate,
+              restored.validUntil,
+              restoredItems
+            );
             const baselineItems = baseQuotation ? quotationItemsAsInput(baseQuotation) : [emptyQuoteItem()];
-            setDraftBaseline(fingerprint(
-              baseQuotation?.scenario ?? "RECOMMENDED",
-              baseQuotation?.id ?? null,
-              baseQuotation?.taxRate ?? .1,
-              baseQuotation?.validUntil ?? "",
-              baselineItems
-            ));
+            setDraftBaseline(
+              fingerprint(
+                baseQuotation?.scenario ?? "RECOMMENDED",
+                baseQuotation?.id ?? null,
+                baseQuotation?.taxRate ?? 0.1,
+                baseQuotation?.validUntil ?? "",
+                baselineItems
+              )
+            );
             lastPersistedDraftRef.current = restoredFingerprint;
             setDraftStatus({ kind: "restored", updatedAt: restored.updatedAt });
           } else {
@@ -139,7 +200,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             setItems(defaultItems);
             setTaxRate(defaultTaxRate);
             setValidUntil(defaultValidUntil);
-            const baseline = fingerprint(defaultScenario, generatedItems ? null : latest?.id ?? null, defaultTaxRate, defaultValidUntil, defaultItems);
+            const baseline = fingerprint(
+              defaultScenario,
+              generatedItems ? null : (latest?.id ?? null),
+              defaultTaxRate,
+              defaultValidUntil,
+              defaultItems
+            );
             setDraftBaseline(baseline);
             lastPersistedDraftRef.current = baseline;
             if (generatedItems) setDraftStatus({ kind: "generated", updatedAt: null });
@@ -150,12 +217,27 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       .catch((cause: unknown) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "견적 목록을 불러오지 못했습니다.");
       });
-    return () => { cancelled = true; };
-  }, [availableAIDrafts, canRead, canWrite, draftStorageKey, fingerprint, includeQuotation, loadFirstPage, project.currency, project.id, project.workspaceId, session]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    availableAIDrafts,
+    canRead,
+    canWrite,
+    draftStorageKey,
+    fingerprint,
+    includeQuotation,
+    loadFirstPage,
+    project.currency,
+    project.id,
+    project.workspaceId,
+    session
+  ]);
 
   const baseQuotationId = saved?.id ?? unresolvedBaseId;
   const currentDraftFingerprint = fingerprint(scenario, baseQuotationId, taxRate, validUntil, items);
-  const hasUnsavedDraft = draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
+  const hasUnsavedDraft =
+    draftProjectId === project.id && draftBaseline !== null && currentDraftFingerprint !== draftBaseline;
 
   useEffect(() => {
     if (!canWrite || !hasUnsavedDraft || currentDraftFingerprint === lastPersistedDraftRef.current) return;
@@ -178,7 +260,19 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       }
     }, 450);
     return () => window.clearTimeout(timer);
-  }, [baseQuotationId, canWrite, currentDraftFingerprint, draftStorageKey, hasUnsavedDraft, items, project.id, project.workspaceId, scenario, taxRate, validUntil]);
+  }, [
+    baseQuotationId,
+    canWrite,
+    currentDraftFingerprint,
+    draftStorageKey,
+    hasUnsavedDraft,
+    items,
+    project.id,
+    project.workspaceId,
+    scenario,
+    taxRate,
+    validUntil
+  ]);
 
   useEffect(() => {
     if (!hasUnsavedDraft) return;
@@ -190,32 +284,63 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [hasUnsavedDraft]);
 
-  const estimatedSubtotal = items.reduce((sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate), 0);
-  const canSave = canWrite && !unresolvedBaseId && items.length > 0 && items.every((item) => item.title.trim()
-    && item.quantity > 0
-    && item.unitRate > 0
-    && item.basis.content.trim()
-    && (item.basis.type === "ASSUMPTION" || Boolean(item.basis.sourceType && item.basis.sourceReference?.trim())));
+  const estimatedSubtotal = items.reduce(
+    (sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate),
+    0
+  );
+  const canSave =
+    canWrite &&
+    !unresolvedBaseId &&
+    items.length > 0 &&
+    items.every(
+      (item) =>
+        item.title.trim() &&
+        item.quantity > 0 &&
+        item.unitRate > 0 &&
+        item.basis.content.trim() &&
+        (item.basis.type === "ASSUMPTION" || Boolean(item.basis.sourceType && item.basis.sourceReference?.trim()))
+    );
   const selectedBasis = items[Math.min(selectedBasisIndex, items.length - 1)]?.basis ?? null;
-  const latestByScenario = useMemo(() => Object.fromEntries(
-    (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, quotations.find((quotation) => quotation.scenario === value) ?? null])
-  ) as Record<QuotationScenario, Quotation | null>, [quotations]);
-  const aiDraftByScenario = useMemo(() => Object.fromEntries(
-    (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, availableAIDrafts.find((draft) => draft.scenario === value) ?? null])
-  ) as Record<QuotationScenario, AgentQuotationDraft | null>, [availableAIDrafts]);
-  const rawAIDraftByScenario = useMemo(() => Object.fromEntries(
-    (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [value, rawAIDrafts.find((draft) => draft.scenario === value) ?? null])
-  ) as Record<QuotationScenario, AgentQuotationDraft | null>, [rawAIDrafts]);
+  const latestByScenario = useMemo(
+    () =>
+      Object.fromEntries(
+        (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [
+          value,
+          quotations.find((quotation) => quotation.scenario === value) ?? null
+        ])
+      ) as Record<QuotationScenario, Quotation | null>,
+    [quotations]
+  );
+  const aiDraftByScenario = useMemo(
+    () =>
+      Object.fromEntries(
+        (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [
+          value,
+          availableAIDrafts.find((draft) => draft.scenario === value) ?? null
+        ])
+      ) as Record<QuotationScenario, AgentQuotationDraft | null>,
+    [availableAIDrafts]
+  );
+  const rawAIDraftByScenario = useMemo(
+    () =>
+      Object.fromEntries(
+        (["LEAN", "RECOMMENDED", "EXPANDED"] as const).map((value) => [
+          value,
+          rawAIDrafts.find((draft) => draft.scenario === value) ?? null
+        ])
+      ) as Record<QuotationScenario, AgentQuotationDraft | null>,
+    [rawAIDrafts]
+  );
 
   const updateItem = (index: number, update: (item: QuotationItemInput) => QuotationItemInput) => {
-    setItems((current) => current.map((item, itemIndex) => itemIndex === index ? update(item) : item));
+    setItems((current) => current.map((item, itemIndex) => (itemIndex === index ? update(item) : item)));
   };
 
   const clearStoredDraft = () => {
     try {
       window.sessionStorage.removeItem(draftStorageKey);
     } catch {
-      // The editor remains usable when browser storage is unavailable.
+      // 브라우저 저장소를 사용할 수 없어도 편집은 유지한다.
     }
     setDraftStatus(null);
   };
@@ -233,7 +358,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setShareCopyState(null);
     setConflictLatest(null);
     setError(null);
-    const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", nextItems);
+    const baseline = fingerprint(
+      quotation.scenario,
+      quotation.id,
+      quotation.taxRate,
+      quotation.validUntil ?? "",
+      nextItems
+    );
     setDraftBaseline(baseline);
     lastPersistedDraftRef.current = baseline;
     clearStoredDraft();
@@ -252,13 +383,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setScenario("RECOMMENDED");
     setItems(nextItems);
     setSelectedBasisIndex(0);
-    setTaxRate(.1);
+    setTaxRate(0.1);
     setValidUntil("");
     setProposalShare(null);
     setShareCopyState(null);
     setConflictLatest(null);
     setError(null);
-    const baseline = fingerprint("RECOMMENDED", null, .1, "", nextItems);
+    const baseline = fingerprint("RECOMMENDED", null, 0.1, "", nextItems);
     setDraftBaseline(baseline);
     lastPersistedDraftRef.current = baseline;
     clearStoredDraft();
@@ -304,14 +435,22 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const discardGeneratedAIDraft = () => {
     const generated = aiDraftByScenario[scenario];
     if (!generated || saved) return;
-    if (!window.confirm(`AI가 만든 ${quotationScenarioLabels[scenario]}을 버릴까요? 저장된 견적과 다른 견적안은 그대로 유지됩니다.`)) return;
+    if (
+      !window.confirm(
+        `AI가 만든 ${quotationScenarioLabels[scenario]}을 버릴까요? 저장된 견적과 다른 견적안은 그대로 유지됩니다.`
+      )
+    )
+      return;
 
     const fingerprintToDismiss = quotationAIDraftFingerprint(generated);
     const nextDismissed = [...new Set([...dismissedAIDraftFingerprints, fingerprintToDismiss])];
     try {
-      window.sessionStorage.setItem(aiDraftDismissalStorageKey, JSON.stringify(createQuotationAIDraftDismissals(nextDismissed)));
+      window.sessionStorage.setItem(
+        aiDraftDismissalStorageKey,
+        JSON.stringify(createQuotationAIDraftDismissals(nextDismissed))
+      );
     } catch {
-      // The current editor still discards the draft when browser storage is unavailable.
+      // 브라우저 저장소를 사용할 수 없어도 현재 편집기의 초안은 폐기한다.
     }
     setDismissedAIDraftFingerprints(nextDismissed);
 
@@ -349,7 +488,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
       setItems(savedItems);
       includeQuotation(quotation);
       setConflictLatest(null);
-      const baseline = fingerprint(quotation.scenario, quotation.id, quotation.taxRate, quotation.validUntil ?? "", savedItems);
+      const baseline = fingerprint(
+        quotation.scenario,
+        quotation.id,
+        quotation.taxRate,
+        quotation.validUntil ?? "",
+        savedItems
+      );
       setDraftBaseline(baseline);
       lastPersistedDraftRef.current = baseline;
       clearStoredDraft();
@@ -361,7 +506,9 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
           setConflictLatest(latest);
           setError(null);
         } catch {
-          setError("다른 사용자가 새 견적안을 먼저 저장했습니다. 최신 목록을 불러오지 못했으니 잠시 후 다시 확인해 주세요.");
+          setError(
+            "다른 사용자가 새 견적안을 먼저 저장했습니다. 최신 목록을 불러오지 못했으니 잠시 후 다시 확인해 주세요."
+          );
         }
       } else {
         setError(cause instanceof Error ? cause.message : "견적을 저장하지 못했습니다.");

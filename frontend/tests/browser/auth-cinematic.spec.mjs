@@ -34,8 +34,8 @@ async function expectMotionControl(page, { paused = false } = {}) {
   expect(bounds.x).toBeGreaterThanOrEqual(0);
   expect(bounds.x).toBeLessThan(80);
   if (viewport.width <= 760) {
-    // On narrow overflowing forms the control docks beside the document footer,
-    // not over an input. A fitting page still places it at the viewport bottom.
+    // 좁고 긴 폼에서는 조작 요소를 입력란 위가 아닌 문서 하단 옆에 둔다.
+    // 화면에 맞는 폼에서는 화면 아래쪽에 둔다.
     await expect(control).toHaveCSS("position", "absolute");
     const root = await page.locator(".auth-page.auth-cinematic").boundingBox();
     const bottomInset = await control.evaluate(element => Number.parseFloat(getComputedStyle(element).bottom));
@@ -76,8 +76,8 @@ async function expectCenteredFooter(page, { locale, fitsViewport = false } = {})
   await page.evaluate(() => document.fonts.ready);
 
   const geometry = await footer.evaluate(element => {
-    // Measure the visible text, not just the paragraph box: a centered wide box
-    // with right-aligned text would otherwise pass a bounding-box-only check.
+    // 문단 상자뿐 아니라 실제 글자 영역을 측정한다. 넓은 중앙 상자 안에
+    // 텍스트가 오른쪽 정렬돼 있어도 통과하는 것을 방지한다.
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     const fragments = [];
     while (walker.nextNode()) {
@@ -445,7 +445,7 @@ test("explicit still mode survives visibility and offscreen pauses until play is
   const visual = page.locator(".auth-backdrop__visual");
   const video = page.locator(".auth-backdrop video");
   await expect(backdrop).toHaveAttribute("data-media-state", "playing");
-  // An automatic suspension retains the matching video poster and pause action.
+  // 자동 일시정지는 해당 영상의 포스터와 일시정지 동작을 유지한다.
   await setDocumentHidden(page, true);
   await expect(backdrop).toHaveAttribute("data-media-state", "paused");
   await expectPoster(page, motionPoster);

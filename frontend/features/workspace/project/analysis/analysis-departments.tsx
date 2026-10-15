@@ -14,7 +14,10 @@ export function AnalysisDepartments({ results }: { results: DepartmentResults })
     <details className="department-results">
       <summary>
         <span>{t("분석 단계별 상세")}</span>
-        <small>{results.length}{t("개 결과")}</small>
+        <small>
+          {results.length}
+          {t("개 결과")}
+        </small>
       </summary>
       <div>
         {results.map((result) => (
@@ -22,11 +25,17 @@ export function AnalysisDepartments({ results }: { results: DepartmentResults })
             <strong>{t(departmentLabels[result.department]) ?? t("분석 단계")}</strong>
             <p>{result.summary}</p>
             <small>
-              {t("근거")}{result.evidenceIds.length} {t("· 가정")}{result.assumptionIds.length}
+              {t("근거")}
+              {result.evidenceIds.length} {t("· 가정")}
+              {result.assumptionIds.length}
             </small>
             {result.sources.length > 0 && (
               <details className="run-sources">
-                <summary>{t("검토 가능한 출처")}{result.sources.length}{t("개")}</summary>
+                <summary>
+                  {t("검토 가능한 출처")}
+                  {result.sources.length}
+                  {t("개")}
+                </summary>
                 <ul>
                   {result.sources.map((source, index) => {
                     const safeUrl = externalHttpUrl(source.url);
@@ -42,7 +51,8 @@ export function AnalysisDepartments({ results }: { results: DepartmentResults })
                         {source.excerpt && <p>{source.excerpt}</p>}
                         {safeUrl ? (
                           <a href={safeUrl} target="_blank" rel="noopener noreferrer">
-                            {t("원문 열기")}<ArrowRight size={13} />
+                            {t("원문 열기")}
+                            <ArrowRight size={13} />
                           </a>
                         ) : (
                           <code>{source.url}</code>

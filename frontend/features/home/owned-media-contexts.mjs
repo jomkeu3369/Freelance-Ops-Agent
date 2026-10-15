@@ -1,4 +1,4 @@
-/** Own native media listeners as well as the animations created for each match. */
+/** 각 미디어 조건에서 만든 애니메이션과 기본 이벤트 리스너를 함께 정리한다. */
 export function createOwnedMediaContexts(gsap, mediaOwner, scope) {
   const cleanups = new Set();
   let reverted = false;
@@ -40,7 +40,7 @@ export function createOwnedMediaContexts(gsap, mediaOwner, scope) {
       reverted = true;
       for (const cleanup of cleanups) cleanup();
       cleanups.clear();
-    },
+    }
   };
   return owner;
 }

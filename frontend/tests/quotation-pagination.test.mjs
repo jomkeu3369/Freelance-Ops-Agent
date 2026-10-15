@@ -25,8 +25,8 @@ function barrier() {
   return { promise, release };
 }
 
-// Exercise the real API/cache, history hook, and consumer handlers; replace only
-// React's scheduler/JSX, browser storage, and the network with deterministic fakes.
+// 실제 API·캐시·이력 훅·소비자 핸들러를 실행한다. React 스케줄러·JSX,
+// 브라우저 저장소, 네트워크만 순서를 제어할 수 있는 대역으로 바꾼다.
 function harness(kind = "builder", { draft = null, canReadQuotations = true, savedOutcome = outcome } = {}) {
   const slots = [], modules = new Map(), storage = new Map(), timers = new Map();
   let slotIndex = 0, effects = [], timerId = 0;

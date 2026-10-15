@@ -1,15 +1,8 @@
 import { useT } from "../../../../app/lib/ui-language";
-import {
-  QuotationItemInput
-} from "@/app/lib/api";
-import {
-  Plus,
-  Trash
-} from "@phosphor-icons/react";
+import { QuotationItemInput } from "@/app/lib/api";
+import { Plus, Trash } from "@phosphor-icons/react";
 import { formatMoney } from "../../shared/formatters";
-import {
-  emptyQuoteItem
-} from "./quotation-helpers";
+import { emptyQuoteItem } from "./quotation-helpers";
 import { QuoteItemBasis } from "./quote-item-basis";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
@@ -34,8 +27,17 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
             aria-label={t("{v0}번 견적 항목", { v0: index + 1 })}
           >
             <summary className="quote-item-disclosure">
-              <span><small>{t("항목")}{String(index + 1).padStart(2, "0")}</small><strong>{item.title || "새 작업 항목"}</strong></span>
-              <span>{formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}<small>{t("상세·근거")}</small></span>
+              <span>
+                <small>
+                  {t("항목")}
+                  {String(index + 1).padStart(2, "0")}
+                </small>
+                <strong>{item.title || "새 작업 항목"}</strong>
+              </span>
+              <span>
+                {formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}
+                <small>{t("상세·근거")}</small>
+              </span>
             </summary>
             <div className="quote-row">
               <label className="quote-title-field">
@@ -45,9 +47,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                   readOnly={!canWrite}
                   maxLength={200}
                   placeholder={t("예: 결제 플로우 구현")}
-                  onChange={(event) =>
-                    updateItem(index, (current) => ({ ...current, title: event.target.value }))
-                  }
+                  onChange={(event) => updateItem(index, (current) => ({ ...current, title: event.target.value }))}
                 />
               </label>
               <label>
@@ -137,7 +137,8 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
             className="add-row"
             onClick={() => setItems((current) => [...current, emptyQuoteItem()])}
           >
-            <Plus size={17} /> {t("작업 항목 추가")}</button>
+            <Plus size={17} /> {t("작업 항목 추가")}
+          </button>
         )}
       </div>
     </>

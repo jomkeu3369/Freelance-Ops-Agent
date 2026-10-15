@@ -12,13 +12,20 @@ export function HomeHeader() {
   const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
-  const themeMounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const themeMounted = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false
+  );
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = themeMounted && resolvedTheme === "dark";
   useEffect(() => {
     if (!menuOpen) return;
     const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { setMenuOpen(false); menuButton.current?.focus(); }
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
     };
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
@@ -29,22 +36,42 @@ export function HomeHeader() {
   }
 
   return (
-    <header className="nav-shell" aria-label={t("주요 탐색")} onBlur={(event) => {
-      if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
-    }}>
+    <header
+      className="nav-shell"
+      aria-label={t("주요 탐색")}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false);
+      }}
+    >
       <div className="nav-inner">
         <a className="brand" href="#top" aria-label={t("Freelance Ops 홈")}>
           <StoryMark className="brand-mark" />
           <span className="brand-wordmark">Freelance Ops</span>
         </a>
-        <button ref={menuButton} type="button" className="icon-button home-menu-toggle" aria-label={menuOpen ? t("페이지 메뉴 닫기") : t("페이지 메뉴 열기")} aria-expanded={menuOpen} aria-controls="home-navigation" onClick={() => setMenuOpen((open) => !open)}>
+        <button
+          ref={menuButton}
+          type="button"
+          className="icon-button home-menu-toggle"
+          aria-label={menuOpen ? t("페이지 메뉴 닫기") : t("페이지 메뉴 열기")}
+          aria-expanded={menuOpen}
+          aria-controls="home-navigation"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
           {menuOpen ? <X size={20} /> : <List size={20} />}
         </button>
         <nav id="home-navigation" className={`nav-links${menuOpen ? " is-open" : ""}`} aria-label={t("페이지 이동")}>
-          <a href="#product" onClick={() => closeMenu("#product")}>{t("제품 소개")}</a>
-          <a href="#workflow" onClick={() => closeMenu("#workflow")}>{t("작동 방식")}</a>
-          <a href="#evidence" onClick={() => closeMenu("#evidence")}>{t("검증 원칙")}</a>
-          <a href="#audience" onClick={() => closeMenu("#audience")}>{t("대상 사용자")}</a>
+          <a href="#product" onClick={() => closeMenu("#product")}>
+            {t("제품 소개")}
+          </a>
+          <a href="#workflow" onClick={() => closeMenu("#workflow")}>
+            {t("작동 방식")}
+          </a>
+          <a href="#evidence" onClick={() => closeMenu("#evidence")}>
+            {t("검증 원칙")}
+          </a>
+          <a href="#audience" onClick={() => closeMenu("#audience")}>
+            {t("대상 사용자")}
+          </a>
         </nav>
         <div className="nav-actions">
           <LanguageSelector />
@@ -56,8 +83,12 @@ export function HomeHeader() {
           >
             {isDark ? <Sun size={19} weight="bold" /> : <Moon size={19} weight="bold" />}
           </button>
-          <Link className="text-link" href="/workspace">{t("로그인")}</Link>
-          <Link className="primary-button compact" href="/workspace">{t("요구사항 정리 시작하기")}</Link>
+          <Link className="text-link" href="/workspace">
+            {t("로그인")}
+          </Link>
+          <Link className="primary-button compact" href="/workspace">
+            {t("요구사항 정리 시작하기")}
+          </Link>
         </div>
       </div>
     </header>

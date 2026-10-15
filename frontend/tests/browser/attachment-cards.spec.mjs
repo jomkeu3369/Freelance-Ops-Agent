@@ -12,8 +12,8 @@ const trigger = (page, name) => tiles(page).getByRole("button", { name: `${name}
 const panel = page => page.getByRole("region", { name: "첨부파일 상세", exact: true });
 const closeDetails = page => panel(page).getByRole("button", { name: "첨부파일 상세 닫기", exact: true });
 
-// All uploads, extracted contents and AI requests stay inside the route fixture.
-// The shared fixture rejects nonlocal network requests before navigation.
+// 업로드·추출 내용·AI 요청은 모두 경로 모의 응답 안에서 처리한다.
+// 공통 검증 환경은 탐색 전에 외부 네트워크 요청을 차단한다.
 async function setup(page, configure = () => {}) {
   const state = await fixture(page);
   Object.assign(state, { uploads: [], completedUploads: [], removals: [], extractions: {}, failures: new Set(), uploadBarrier: null });
@@ -108,7 +108,7 @@ for (const [width, height, screenshot] of [[320, 568, null], [390, 844, "mobile"
       return style.textOverflow === "ellipsis" && style.overflow === "hidden" && element.scrollWidth > element.clientWidth;
     })).toBe(true);
     await expectComposerInViewport(page);
-    // Any overflow must stay inside the attachment strip, including the final file.
+    // 마지막 파일을 포함한 모든 넘침은 첨부 띠 안에 머물러야 한다.
     await trigger(page, names.at(-1)).scrollIntoViewIfNeeded();
     await expect(trigger(page, names.at(-1))).toBeInViewport();
     await expectComposerInViewport(page);

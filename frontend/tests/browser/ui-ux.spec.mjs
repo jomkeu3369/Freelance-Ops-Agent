@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 
-// Every Business API request is fulfilled in this browser. No server writes or AI calls.
+// 모든 업무 API 요청은 브라우저에서 모의 응답하며 서버 저장이나 AI 호출은 없다.
 const test = base.extend({
   page: async ({ page }, runTest) => {
     const blocked = [];
@@ -107,7 +107,7 @@ test("landing header stays centered through narrow and restored viewports after 
   }
 });
 
-// The spatial scenes share one fictional project and never submit a Business API request.
+// 입체 장면은 같은 가상 프로젝트를 공유하며 업무 API 요청을 보내지 않는다.
 function watchLandingApiRequests(page) {
   const requests = [];
   page.on("request", (request) => {
@@ -117,7 +117,7 @@ function watchLandingApiRequests(page) {
 }
 
 async function expectSpatialLayout(page) {
-  // Include direct text beside SVGs, spans and <br>; leaf-only scans miss real copy.
+  // SVG·span·br 옆의 직접 텍스트도 검사해 말단 요소만 검사할 때의 누락을 막는다.
   const tinyCopy = await page.locator(".figma-home *").evaluateAll(elements => elements.flatMap(element => {
     const directText = [...element.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent.trim()).filter(Boolean).join(" ");
     const rect = element.getBoundingClientRect();
@@ -129,7 +129,7 @@ async function expectSpatialLayout(page) {
   const documentSize = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth, body: document.body.scrollWidth }));
   expect(documentSize.scroll, "Root overflow must be checked against usable width, excluding the scrollbar").toBeLessThanOrEqual(documentSize.client);
   expect(documentSize.body, "Body overflow must not be hidden by the page shell").toBeLessThanOrEqual(documentSize.client);
-  // Decorative glass may extend beyond its frame; meaningful content must stay inside usable width.
+  // 장식 유리는 프레임 밖으로 나갈 수 있지만 실제 내용은 사용 가능한 폭 안에 둔다.
   const clipped = await page.locator(".nav-shell, .nav-shell .brand, .nav-actions, .spatial-stage, .spatial-project-card, .spatial-review-panel, .spatial-proposal, .spatial-effort, .spatial-quote-table, .spatial-quote-total, .workflow-unfold, .workflow-unfold-card, #scope-comparison input[type=range], .spatial-comparison-grid > article").evaluateAll(elements => elements.flatMap(element => {
     const box = element.getBoundingClientRect();
     if (!box.width || !box.height) return [];
@@ -173,7 +173,7 @@ async function expectSpatialLayout(page) {
         if (intersects(stages[index].getBoundingClientRect(), other.getBoundingClientRect())) failures.push("Stage controls overlap");
       }
     }
-    // Check glyph bounds as well as boxes: a fixed-width table cell can fit while its text paints over its neighbour.
+    // 셀 영역뿐 아니라 글자 영역도 측정해 이웃 셀 위에 겹쳐 그리는 것을 확인한다.
     const textContainers = document.querySelectorAll('.workflow-unfold h2, .workflow-unfold-card, .spatial-project-card, .spatial-stage, .spatial-scope-switch button, .spatial-quote-table [role="cell"], .spatial-quote-table [role="rowheader"], .spatial-quote-table [role="columnheader"]');
     for (const container of textContainers) {
       const box = container.getBoundingClientRect();
@@ -295,7 +295,7 @@ async function openClockedLanding(page, language = "ko") {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
-  // Install before navigation; assert the visible hero starts without a click or scroll.
+  // 이동 전에 설치해 첫 화면이 클릭·스크롤 없이 시작하는지 확인한다.
   await page.clock.install();
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("lang", language);
@@ -353,7 +353,7 @@ for (const language of ["ko", "en"]) {
         const card = page.locator(".spatial-project-card");
         await expect(card).toHaveCount(1);
         const original = await card.elementHandle();
-        // Reduced motion starts with the finished, readable sample, without running the timeline.
+        // 동작 축소 설정에서는 타임라인 재생 없이 완성된 예시를 표시한다.
         await expect(chapter).toHaveAttribute("data-step", "4");
         await expect(chapter).toHaveAttribute("data-paused", "true");
         await expect(page.locator(".spatial-flow")).toHaveAttribute("data-column", "1");
@@ -470,7 +470,7 @@ for (const language of ["ko", "en"]) {
         await expect(comparisons.nth(1).locator(".is-filled")).toHaveCount(days);
         await expect(comparisons.nth(2).locator(".spatial-comparison-price")).toHaveText(`${total}KRW`);
         await expect(table.getByRole("row")).toHaveCount(extended ? 5 : 4);
-        // The duplicate visual bar column is decorative on every viewport.
+        // 중복 시각 막대 열은 모든 화면 크기에서 장식으로 처리한다.
         await expect(table.getByRole("columnheader")).toHaveCount(3);
         for (const bars of await table.locator(".story-grid-effort").all()) await expect(bars).toHaveAttribute("aria-hidden", "true");
         for (const heading of language === "ko" ? ["작업", "공수", "금액"] : ["Task", "Effort", "Price"]) {
@@ -501,7 +501,7 @@ for (const language of ["ko", "en"]) {
         expect(await original.evaluate(element => element === document.querySelector(".spatial-project-card"))).toBe(true);
         await expectSpatialLayout(page);
       }
-      // Both controls drive the same scope. Native keyboard input also clamps at each endpoint.
+      // 두 조작 요소는 같은 범위를 바꾼다. 기본 키보드 입력도 양 끝에서 제한된다.
       for (const [key, extended] of [["Home", false], ["End", true], ["ArrowLeft", false], ["ArrowRight", true], ["ArrowRight", true], ["Home", false], ["ArrowLeft", false]]) {
         await slider.focus();
         await page.keyboard.press(key);
@@ -562,7 +562,7 @@ for (const language of ["ko", "en"]) {
     }
     await expect(card.locator(".spatial-status")).toHaveText(landingCopy[language].finalStatus);
     await expect.poll(async () => (await card.boundingBox()).x).toBeGreaterThan(initial.x + 30);
-    // Automatic updates stay silent; manual previews have their own status announcement.
+    // 자동 갱신은 읽어 주지 않고 수동 미리보기는 별도 상태 알림을 사용한다.
     await expect(chapter.getByRole("status")).toBeEmpty();
     await page.clock.fastForward(4300);
     await expect(chapter).toHaveAttribute("data-run", "2");
@@ -605,7 +605,7 @@ test("landing hover, focus, explicit pause and live reduced motion independently
   await flow.scrollIntoViewIfNeeded();
   await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
-  // Hover alone pauses; focus then keeps it paused after the pointer leaves.
+  // 포인터만 올려도 멈추며 이후 포커스가 있으면 포인터가 떠나도 정지를 유지한다.
   await page.locator(".spatial-project-card").hover();
   await expectAutoplayFrozen(page);
   await page.locator(".spatial-stage").first().focus();
@@ -625,12 +625,12 @@ test("landing hover, focus, explicit pause and live reduced motion independently
   await expectAutoplayFrozen(page);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(page.getByRole("button", { name: "예시 자동 진행 재개" })).toBeEnabled();
-  await expectAutoplayFrozen(page); // Changing the preference must not erase explicit pause.
+  await expectAutoplayFrozen(page); // 설정 변경이 명시적인 일시정지를 지우지 않아야 한다.
   await page.getByRole("button", { name: "예시 자동 진행 재개" }).click();
   await releaseSpatialInteraction(page);
   await expect(chapter).toHaveAttribute("data-paused", "false");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expectAutoplayFrozen(page); // Reduced motion alone pauses a running example too.
+  await expectAutoplayFrozen(page); // 동작 축소 설정만으로도 진행 중 예시를 멈춘다.
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(chapter).toHaveAttribute("data-paused", "false");
 });
@@ -687,8 +687,8 @@ test("ambient CSS travel moves on screen and freezes for hover, offscreen and vi
   await expect(hero).toHaveAttribute("data-ambient-visible", "false");
   await expectCssTravelFrozen(heroTravel);
   await expect(footer).toHaveAttribute("data-ambient-visible", "true");
-  await expectCssTravelMoving(footerTravel); // A different visible layer keeps moving independently.
-  // Exercise the visibility listener with a controlled document signal, without depending on headless tab policy.
+  await expectCssTravelMoving(footerTravel); // 다른 보이는 레이어는 독립적으로 계속 움직인다.
+  // 헤드리스 탭 정책에 의존하지 않고 제어한 문서 신호로 가시성 리스너를 검증한다.
   await page.evaluate(() => {
     Object.defineProperty(document, "hidden", { configurable: true, value: true });
     document.dispatchEvent(new Event("visibilitychange"));
@@ -890,7 +890,7 @@ async function scrollBrandMerge(page, progress) {
   return page.evaluate(value => {
     const stage = document.querySelector(".story-brand-stage").getBoundingClientRect();
     const target = document.querySelector("[data-story-brand-target]").getBoundingClientRect();
-    // Derive the documented scroll range from current DOM geometry, including translated copy and responsive fonts.
+    // 번역과 반응형 폰트를 포함한 현재 DOM 배치에서 스크롤 범위를 구한다.
     const start = scrollY + stage.top + stage.height / 2 - innerHeight * 0.70;
     const end = scrollY + target.top + target.height / 2 - innerHeight * 0.65;
     const destination = value === 1 ? Math.ceil(end) + 1 : value === 0 ? Math.floor(start) - 1 : start + (end - start) * value;
@@ -921,7 +921,7 @@ async function expectBrandCopyClearance(page) {
     const plate = document.querySelector("[data-story-brand-plate]").getBoundingClientRect();
     return { gap: mark.top - copy.bottom, copyTop: copy.top - plate.top, copyLeft: copy.left - plate.left, copyRight: plate.right - copy.right, logoBottom: plate.bottom - mark.bottom };
   });
-  // offsetTop/offsetHeight are integer layout metrics; allow only subpixel rounding.
+  // offsetTop·offsetHeight는 정수 측정값이므로 서브픽셀 반올림만 허용한다.
   expect(geometry.gap + 0.75, "Brand copy needs at least 24px of clearance above the F").toBeGreaterThanOrEqual(24);
   for (const key of ["copyTop", "copyLeft", "copyRight", "logoBottom"]) expect(geometry[key], `${key} must stay inside the readable full plate`).toBeGreaterThanOrEqual(-1);
 }
@@ -983,8 +983,8 @@ async function brandMergeGeometry(page, progress) {
       })()
     };
   });
-  // Independently measure the straight line between DOM endpoints. One eased
-  // progress value must interpolate position and size without a separate detour.
+  // DOM 양 끝점 사이의 직선을 별도로 측정한다. 같은 완화 진행률이
+  // 별도 우회 없이 위치와 크기를 함께 보간해야 한다.
   const currentProgress = progress ?? measured.scrollProgress;
   const flightProgress = Math.max(0, Math.min(1, (currentProgress - .46) / .54));
   const eased = flightProgress < .5 ? 2 * flightProgress * flightProgress : 1 - Math.pow(-2 * flightProgress + 2, 2) / 2;
@@ -1032,7 +1032,7 @@ for (const language of ["ko", "en"]) {
       await expect(mark).toHaveCount(1);
       await expect(target).toHaveCount(1);
       await expect(page.locator("[data-story-brand-plate]")).toHaveCSS("clip-path", /^inset\(/);
-      // Observe every rendered style change, not only settled scroll checkpoints.
+      // 최종 스크롤 지점뿐 아니라 렌더링 중 모든 스타일 변화를 관찰한다.
       await page.locator("[data-story-brand-plate]").evaluate(element => {
         const samples = [];
         const capture = () => {
@@ -1088,7 +1088,7 @@ for (const language of ["ko", "en"]) {
         }
         if (progress <= 0.13) await expectBrandCopyClearance(page);
         if (progress >= 0.12 && progress <= 0.46) {
-          // Scalar CSS variables preserve symmetry even when CSSOM shortens the shape string.
+          // CSSOM이 모양 문자열을 줄여도 스칼라 CSS 변수는 대칭을 유지해야 한다.
           await expect.poll(async () => (await brandPlateClip(page)).rounding, { message: "Fold corners must retain their initial rounding in both scroll directions" }).toBeGreaterThanOrEqual(20);
           await expect.poll(async () => (await brandPlateClip(page)).sideDifference, { message: "Left and right clip insets must remain equal throughout the fold" }).toBeLessThanOrEqual(0.001);
         }
@@ -1131,8 +1131,8 @@ for (const language of ["ko", "en"]) {
       await page.setViewportSize({ width: 390, height: 900 });
       await expect(mark).not.toHaveAttribute("style", /translate/);
       await page.setViewportSize({ width: width + 200, height: 900 });
-      // Do not scroll after restoring the desktop breakpoint: a refresh must
-      // repaint the numeric flight even when GSAP suppresses timeline callbacks.
+      // 데스크톱 분기점 복원 뒤 스크롤하지 않는다. GSAP 콜백이 억제돼도
+      // 갱신 시 이동 진행률이 화면에 다시 반영돼야 한다.
       await waitForBrandLayout(page);
       await expect.poll(async () => (await brandMergeGeometry(page)).error, { message: "Breakpoint restoration must paint the current F pose without another scroll" }).toBeLessThanOrEqual(3);
       const restoredFlight = await brandMergeGeometry(page);
@@ -1214,7 +1214,7 @@ for (const language of ["ko", "en"]) {
     const ring = ringScene.locator("[data-story-ring]");
     const samples = page.locator(".story-sample-columns");
     await expect(ringScene).toHaveAttribute("data-story-entry-state", "waiting");
-    await expectFinalMetricCounts(page); // Offscreen content is already semantically correct, without a timer.
+    await expectFinalMetricCounts(page); // 화면 밖 내용도 타이머 없이 의미상 올바른 상태여야 한다.
     expect(await ring.evaluate(element => element.style.strokeDasharray)).toBe("");
     await expectTaskMarkerList(page);
     for (const marker of await samples.locator("[data-story-task-marker]").all()) {
@@ -1232,7 +1232,7 @@ for (const language of ["ko", "en"]) {
     expect(ringFill).toBeGreaterThan(0);
     expect(ringFill).toBeLessThan(10 / 13 * 100);
     await expect(ringScene.locator("[data-story-count] + .sr-only")).toHaveText("10");
-    // Invoke the real scope control without scrolling away, so revision cleanup is tested during an active tween.
+    // 화면을 이동하지 않고 실제 범위 조작을 호출해 tween 진행 중 버전 정리를 검증한다.
     const choices = page.getByRole("group", { name: landingCopy[language].scope });
     await choices.getByRole("button", { name: new RegExp(`^${landingCopy[language].extended}`) }).evaluate(button => button.click());
     await expect(ringScene.locator("[data-story-count]")).toHaveText("13");
@@ -1256,7 +1256,7 @@ for (const language of ["ko", "en"]) {
       expect(countValues[index]).toBeGreaterThan(0);
       expect(countValues[index]).toBeLessThan(final);
     }
-    await expectTaskMarkerList(page); // Tasks remain complete and accessible while decoration staggers.
+    await expectTaskMarkerList(page); // 장식이 순차 진입하는 동안에도 모든 작업 정보에 접근할 수 있어야 한다.
     const markerOpacity = await samples.locator("[data-story-task-marker]").evaluateAll(elements => elements.map(element => Number(getComputedStyle(element).opacity)));
     expect(markerOpacity[0]).toBeGreaterThan(markerOpacity.at(-1));
     expect(markerOpacity.at(-1)).toBeGreaterThanOrEqual(0.35);
@@ -1277,13 +1277,13 @@ for (const language of ["ko", "en"]) {
     await samples.scrollIntoViewIfNeeded();
     await page.clock.runFor(100);
     for (const scene of await sampleScenes.all()) await expect(scene).toHaveAttribute("data-story-entry-state", "complete");
-    await expectFinalMetricCounts(page); // Reentry cannot restart completed counts.
+    await expectFinalMetricCounts(page); // 다시 진입해도 완료한 숫자 증가를 반복하지 않아야 한다.
     for (const extended of [true, false, true]) {
       const copy = landingCopy[language];
       await page.getByRole("group", { name: copy.scope }).getByRole("button", { name: new RegExp(`^${extended ? copy.extended : copy.essential}`) }).click();
       await expectFinalMetricCounts(page, extended);
       await page.clock.runFor(2000);
-      await expectFinalMetricCounts(page, extended); // A stale essential-scope tween cannot overwrite new props.
+      await expectFinalMetricCounts(page, extended); // 이전 필수 범위 tween이 새 속성을 덮어쓰지 않아야 한다.
       expect(Number.parseFloat(await ring.getAttribute("stroke-dasharray"))).toBeCloseTo((extended ? 13 : 10) / 13 * 100, 6);
       await expectTaskMarkerList(page, extended);
       await expect(samples.locator("[data-story-segment].is-active")).toHaveCount(extended ? 13 : 10);

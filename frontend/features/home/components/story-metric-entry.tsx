@@ -3,13 +3,27 @@ import gsap from "gsap";
 
 const formatCount = (value: number, decimals: number, digits: number) => value.toFixed(decimals).padStart(digits, "0");
 
-/** Screen readers always get the real result, never the decorative count-up. */
+/** 스크린 리더에는 증가 중인 장식 숫자 대신 실제 결과를 제공한다. */
 export function StoryCount({ value, decimals = 0, digits = 1 }: { value: number; decimals?: number; digits?: number }) {
   const final = formatCount(value, decimals, digits);
-  return <><span className="story-entry-count" aria-hidden="true" data-story-count={value} data-count-decimals={decimals} data-count-digits={digits} style={{ minWidth: `${final.length}ch` }}>{final}</span><span className="sr-only">{final}</span></>;
+  return (
+    <>
+      <span
+        className="story-entry-count"
+        aria-hidden="true"
+        data-story-count={value}
+        data-count-decimals={decimals}
+        data-count-digits={digits}
+        style={{ minWidth: `${final.length}ch` }}
+      >
+        {final}
+      </span>
+      <span className="sr-only">{final}</span>
+    </>
+  );
 }
 
-/** One coordinated entry per graph; there is no tween/timer before it enters view. */
+/** 그래프마다 진입을 한 번만 실행하며 화면 밖에서는 타이머를 시작하지 않는다. */
 export function useStoryMetricEntry(revision: string) {
   const rootRef = useRef<HTMLDivElement>(null);
   const entered = useRef(new WeakSet<Element>());
@@ -19,16 +33,16 @@ export function useStoryMetricEntry(revision: string) {
     if (!root) return;
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     const motionRoot = root.closest<HTMLElement>("[data-motion-paused]");
-    // The parent's SSR-safe reduced-motion default is not a user pause. Child
-    // effects can run before its first preference read has committed.
+    // 부모의 서버 렌더링용 동작 축소 기본값을 사용자가 일시정지한 것으로 취급하지 않는다.
+    // 자식 효과가 부모의 실제 설정 확인보다 먼저 실행될 수 있다.
     const motionReady = () => motionRoot?.dataset.motionReady !== "false";
     const motionPaused = () => motionRoot?.dataset.motionPaused === "true";
     const scenes = Array.from(root.querySelectorAll<HTMLElement>("[data-story-metric-scene]"));
     const active = new Map<HTMLElement, gsap.core.Timeline>();
     const visible = new Set<HTMLElement>();
 
-    // Read current DOM props, including after a scope change. Never leave a
-    // captured essential-scope value over a newly rendered extended scope.
+    // 범위 변경 뒤에도 현재 DOM 속성을 읽는다.
+    // 새 확장 범위에 이전 필수 범위의 수치를 덮어쓰지 않는다.
     const renderCount = (scene: HTMLElement, progress: number) => {
       scene.querySelectorAll<HTMLElement>("[data-story-count]").forEach((element) => {
         const value = Number(element.dataset.storyCount);
@@ -38,8 +52,8 @@ export function useStoryMetricEntry(revision: string) {
       });
     };
     const prepareWaiting = (scene: HTMLElement) => {
-      // A scene can fade into view before its plot reaches the entry threshold.
-      // Keep decorative counts at their starting value throughout that wait.
+      // 장면이 차트의 진입 기준점보다 먼저 화면에 보일 수 있다.
+      // 그동안 장식 숫자는 시작 값에 둔다.
       renderCount(scene, 0);
       scene.dataset.storyEntryState = "waiting";
     };
@@ -52,11 +66,15 @@ export function useStoryMetricEntry(revision: string) {
         element.style.removeProperty("stroke-dashoffset");
         element.style.removeProperty("opacity");
       });
-      scene.querySelectorAll<HTMLElement | SVGElement>("[data-story-segment], [data-story-task-marker], [data-story-meter], [data-story-day-cell]").forEach((element) => {
-        element.style.removeProperty("transform");
-        element.style.removeProperty("transform-origin");
-        element.style.removeProperty("opacity");
-      });
+      scene
+        .querySelectorAll<
+          HTMLElement | SVGElement
+        >("[data-story-segment], [data-story-task-marker], [data-story-meter], [data-story-day-cell]")
+        .forEach((element) => {
+          element.style.removeProperty("transform");
+          element.style.removeProperty("transform-origin");
+          element.style.removeProperty("opacity");
+        });
       scene.querySelectorAll<HTMLElement>("[data-story-prism]").forEach((element) => {
         element.style.removeProperty("--story-prism-grow");
       });
@@ -67,52 +85,100 @@ export function useStoryMetricEntry(revision: string) {
       if (!motionReady() || motionPaused()) return;
       entered.current.add(scene);
       scene.dataset.storyEntryState = "running";
-      // Open evidence columns enter left to right, with the count and its
-      // graphic sharing the same bounded offset. Other plots start immediately.
-      const entryOffset = Math.min(2, Math.max(0, Number(scene.dataset.storyEntryOrder) || 0)) * .12;
+      // 근거 열은 왼쪽부터 나타나며 숫자와 그래프에 같은 이동량을 적용한다.
+      // 나머지 그래프는 지연 없이 시작한다.
+      const entryOffset = Math.min(2, Math.max(0, Number(scene.dataset.storyEntryOrder) || 0)) * 0.12;
       const counter = { progress: 0 };
       const timeline = gsap.timeline({ paused: true, onComplete: () => restore(scene) });
       active.set(scene, timeline);
       if (scene.querySelector("[data-story-count]")) {
         renderCount(scene, 0);
-        timeline.to(counter, { progress: 1, duration: 1.45, ease: "power2.out", onUpdate: () => renderCount(scene, counter.progress) }, entryOffset);
+        timeline.to(
+          counter,
+          { progress: 1, duration: 1.45, ease: "power2.out", onUpdate: () => renderCount(scene, counter.progress) },
+          entryOffset
+        );
       }
 
-      // Scale the bodies in their local vertical axis, before their 3D rotation.
-      // Their connected caps keep full depth; labels and grid baselines stay put.
+      // 3D 회전 전에 로컬 세로축으로 막대 몸체의 크기를 조정한다.
+      // 윗면의 깊이, 라벨 위치, 격자 기준선은 유지한다.
       const prisms = scene.querySelectorAll("[data-story-prism]");
-      if (prisms.length) timeline.fromTo(prisms, { "--story-prism-grow": .025 }, { "--story-prism-grow": 1, duration: .74, stagger: .1, ease: "power3.out" }, entryOffset + .06);
+      if (prisms.length)
+        timeline.fromTo(
+          prisms,
+          { "--story-prism-grow": 0.025 },
+          { "--story-prism-grow": 1, duration: 0.74, stagger: 0.1, ease: "power3.out" },
+          entryOffset + 0.06
+        );
       const meters = scene.querySelectorAll("[data-story-meter]");
-      if (meters.length) timeline.fromTo(meters, { scaleX: 0, transformOrigin: "left center" }, { scaleX: 1, duration: .68, stagger: .1, ease: "power3.out" }, entryOffset + .06);
-      // A half-day cell represents the same value throughout entry. Row starts
-      // are coordinated, with a short left-to-right wave inside each row.
+      if (meters.length)
+        timeline.fromTo(
+          meters,
+          { scaleX: 0, transformOrigin: "left center" },
+          { scaleX: 1, duration: 0.68, stagger: 0.1, ease: "power3.out" },
+          entryOffset + 0.06
+        );
+      // 반일 단위 셀의 값은 진입 중에도 유지한다. 행 시작을 맞추고
+      // 각 행 안에서는 왼쪽부터 짧은 간격으로 표시한다.
       scene.querySelectorAll<HTMLElement>("[data-story-day-row]").forEach((row, index) => {
         const cells = row.querySelectorAll("[data-story-day-cell].is-active");
-        if (cells.length) timeline.fromTo(cells, { scaleX: 0, opacity: .3, transformOrigin: "left center" }, { scaleX: 1, opacity: 1, duration: .32, stagger: .035, ease: "power2.out" }, entryOffset + .06 + index * .1);
+        if (cells.length)
+          timeline.fromTo(
+            cells,
+            { scaleX: 0, opacity: 0.3, transformOrigin: "left center" },
+            { scaleX: 1, opacity: 1, duration: 0.32, stagger: 0.035, ease: "power2.out" },
+            entryOffset + 0.06 + index * 0.1
+          );
       });
 
       const ring = scene.querySelector<SVGCircleElement>("[data-story-ring]");
-      if (ring) timeline.fromTo(ring, { strokeDasharray: "0 100", opacity: 0 }, { strokeDasharray: ring.getAttribute("stroke-dasharray") ?? "0 100", opacity: 1, duration: 1.45, ease: "power2.out" }, entryOffset);
+      if (ring)
+        timeline.fromTo(
+          ring,
+          { strokeDasharray: "0 100", opacity: 0 },
+          {
+            strokeDasharray: ring.getAttribute("stroke-dasharray") ?? "0 100",
+            opacity: 1,
+            duration: 1.45,
+            ease: "power2.out"
+          },
+          entryOffset
+        );
       const taskMarkers = scene.querySelectorAll("[data-story-task-marker]");
-      if (taskMarkers.length) timeline.fromTo(taskMarkers, { opacity: .35, y: 4 }, { opacity: 1, y: 0, duration: .45, stagger: .1, ease: "power2.out" }, entryOffset + .1);
+      if (taskMarkers.length)
+        timeline.fromTo(
+          taskMarkers,
+          { opacity: 0.35, y: 4 },
+          { opacity: 1, y: 0, duration: 0.45, stagger: 0.1, ease: "power2.out" },
+          entryOffset + 0.1
+        );
       const segments = scene.querySelectorAll("[data-story-segment]");
-      if (segments.length) timeline.fromTo(segments, { scaleY: .14, opacity: .15, transformOrigin: "center bottom" }, { scaleY: 1, opacity: 1, duration: .5, stagger: .055, ease: "power2.out" }, entryOffset + .08);
+      if (segments.length)
+        timeline.fromTo(
+          segments,
+          { scaleY: 0.14, opacity: 0.15, transformOrigin: "center bottom" },
+          { scaleY: 1, opacity: 1, duration: 0.5, stagger: 0.055, ease: "power2.out" },
+          entryOffset + 0.08
+        );
       timeline.play();
     };
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const scene = entry.target as HTMLElement;
-        if (entry.isIntersecting && entry.intersectionRatio >= .35) {
-          visible.add(scene);
-          enter(scene);
-        } else {
-          visible.delete(scene);
-          // Scrolling past a card completes it, rather than running offscreen
-          // or replaying a partly counted number on the way back.
-          if (active.has(scene)) restore(scene);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const scene = entry.target as HTMLElement;
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+            visible.add(scene);
+            enter(scene);
+          } else {
+            visible.delete(scene);
+            // 카드를 지나치면 진행 중인 진입 효과를 완료한다.
+            // 화면 밖에서 재생하거나 되돌아왔을 때 중간 숫자부터 반복하지 않는다.
+            if (active.has(scene)) restore(scene);
+          }
         }
-      }
-    }, { threshold: .35, rootMargin: "0px 0px -6% 0px" });
+      },
+      { threshold: 0.35, rootMargin: "0px 0px -6% 0px" }
+    );
     const syncMotion = () => {
       if (preference.matches) {
         for (const scene of scenes) {
@@ -123,7 +189,7 @@ export function useStoryMetricEntry(revision: string) {
       }
       if (!motionReady()) return;
       if (motionPaused()) {
-        // Finish active entries but don't consume graphs not yet visited.
+        // 진행 중인 진입은 완료하고 아직 방문하지 않은 그래프는 남겨 둔다.
         for (const scene of scenes) restore(scene);
         return;
       }
@@ -149,7 +215,11 @@ export function useStoryMetricEntry(revision: string) {
       observer.observe(scene);
     }
     const motionObserver = new MutationObserver(syncMotion);
-    if (motionRoot) motionObserver.observe(motionRoot, { attributes: true, attributeFilter: ["data-motion-paused", "data-motion-ready"] });
+    if (motionRoot)
+      motionObserver.observe(motionRoot, {
+        attributes: true,
+        attributeFilter: ["data-motion-paused", "data-motion-ready"]
+      });
     preference.addEventListener("change", syncMotion);
     document.addEventListener("visibilitychange", syncVisibility);
     return () => {

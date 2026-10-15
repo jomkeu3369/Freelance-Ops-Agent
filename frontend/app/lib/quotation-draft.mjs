@@ -13,19 +13,21 @@ const nullableString = (value) => value === null || typeof value === "string";
 
 function validItem(item) {
   if (!item || typeof item !== "object" || !item.basis || typeof item.basis !== "object") return false;
-  return nullableString(item.rateCardId)
-    && typeof item.title === "string"
-    && typeof item.description === "string"
-    && finiteNumber(item.quantity)
-    && UNITS.has(item.unit)
-    && finiteNumber(item.unitRate)
-    && finiteNumber(item.discountRate)
-    && BASIS_TYPES.has(item.basis.type)
-    && typeof item.basis.content === "string"
-    && nullableString(item.basis.sourceType)
-    && nullableString(item.basis.sourceReference)
-    && nullableString(item.basis.sourceTitle)
-    && nullableString(item.basis.retrievedAt);
+  return (
+    nullableString(item.rateCardId) &&
+    typeof item.title === "string" &&
+    typeof item.description === "string" &&
+    finiteNumber(item.quantity) &&
+    UNITS.has(item.unit) &&
+    finiteNumber(item.unitRate) &&
+    finiteNumber(item.discountRate) &&
+    BASIS_TYPES.has(item.basis.type) &&
+    typeof item.basis.content === "string" &&
+    nullableString(item.basis.sourceType) &&
+    nullableString(item.basis.sourceReference) &&
+    nullableString(item.basis.sourceTitle) &&
+    nullableString(item.basis.retrievedAt)
+  );
 }
 
 export function quotationDraftKey(userId, workspaceId, projectId) {
@@ -43,10 +45,13 @@ export function quotationAIDraftFingerprint(draft) {
 export function parseQuotationAIDraftDismissals(raw) {
   try {
     const stored = JSON.parse(raw);
-    if (stored.version !== AI_DRAFT_DISMISSAL_VERSION
-      || !Array.isArray(stored.fingerprints)
-      || stored.fingerprints.length > MAX_DISMISSED_AI_DRAFTS
-      || !stored.fingerprints.every((fingerprint) => typeof fingerprint === "string" && fingerprint.length > 0)) return [];
+    if (
+      stored.version !== AI_DRAFT_DISMISSAL_VERSION ||
+      !Array.isArray(stored.fingerprints) ||
+      stored.fingerprints.length > MAX_DISMISSED_AI_DRAFTS ||
+      !stored.fingerprints.every((fingerprint) => typeof fingerprint === "string" && fingerprint.length > 0)
+    )
+      return [];
     return [...new Set(stored.fingerprints)];
   } catch {
     return [];
@@ -56,7 +61,7 @@ export function parseQuotationAIDraftDismissals(raw) {
 export function createQuotationAIDraftDismissals(fingerprints) {
   return {
     version: AI_DRAFT_DISMISSAL_VERSION,
-    fingerprints: [...new Set(fingerprints)].slice(-MAX_DISMISSED_AI_DRAFTS),
+    fingerprints: [...new Set(fingerprints)].slice(-MAX_DISMISSED_AI_DRAFTS)
   };
 }
 
@@ -66,7 +71,7 @@ export function quotationDraftFingerprint(draft) {
     baseQuotationId: draft.baseQuotationId,
     taxRate: draft.taxRate,
     validUntil: draft.validUntil,
-    items: draft.items,
+    items: draft.items
   });
 }
 
@@ -74,22 +79,25 @@ export function parseQuotationDraft(raw, expected, now = Date.now()) {
   try {
     const draft = JSON.parse(raw);
     const updatedAt = Date.parse(draft.updatedAt);
-    if (draft.version !== DRAFT_VERSION
-      || draft.workspaceId !== expected.workspaceId
-      || draft.projectId !== expected.projectId
-      || !SCENARIOS.has(draft.scenario)
-      || !nullableString(draft.baseQuotationId)
-      || !finiteNumber(draft.taxRate)
-      || draft.taxRate < 0
-      || draft.taxRate > 1
-      || typeof draft.validUntil !== "string"
-      || !Array.isArray(draft.items)
-      || draft.items.length < 1
-      || draft.items.length > 100
-      || !draft.items.every(validItem)
-      || !Number.isFinite(updatedAt)
-      || updatedAt > now + 60_000
-      || now - updatedAt > MAX_DRAFT_AGE_MS) return null;
+    if (
+      draft.version !== DRAFT_VERSION ||
+      draft.workspaceId !== expected.workspaceId ||
+      draft.projectId !== expected.projectId ||
+      !SCENARIOS.has(draft.scenario) ||
+      !nullableString(draft.baseQuotationId) ||
+      !finiteNumber(draft.taxRate) ||
+      draft.taxRate < 0 ||
+      draft.taxRate > 1 ||
+      typeof draft.validUntil !== "string" ||
+      !Array.isArray(draft.items) ||
+      draft.items.length < 1 ||
+      draft.items.length > 100 ||
+      !draft.items.every(validItem) ||
+      !Number.isFinite(updatedAt) ||
+      updatedAt > now + 60_000 ||
+      now - updatedAt > MAX_DRAFT_AGE_MS
+    )
+      return null;
     return draft;
   } catch {
     return null;
@@ -106,6 +114,6 @@ export function createQuotationDraft({ workspaceId, projectId, scenario, baseQuo
     taxRate,
     validUntil,
     items,
-    updatedAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString()
   };
 }
