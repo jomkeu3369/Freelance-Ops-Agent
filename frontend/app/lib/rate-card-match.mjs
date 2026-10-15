@@ -1,13 +1,18 @@
 const genericTerms = new Set(["가격", "기본", "단가", "서비스", "업무", "일반", "작업", "표준"]);
 
 function normalized(value) {
-  return String(value ?? "").toLocaleLowerCase("ko-KR").replace(/[^\p{L}\p{N}]+/gu, "");
+  return String(value ?? "")
+    .toLocaleLowerCase("ko-KR")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
 function terms(value) {
-  return String(value ?? "")
-    .toLocaleLowerCase("ko-KR")
-    .match(/[\p{L}\p{N}]+/gu)?.filter((term) => term.length > 1 && !genericTerms.has(term)) ?? [];
+  return (
+    String(value ?? "")
+      .toLocaleLowerCase("ko-KR")
+      .match(/[\p{L}\p{N}]+/gu)
+      ?.filter((term) => term.length > 1 && !genericTerms.has(term)) ?? []
+  );
 }
 
 function matchScore(item, card) {
@@ -33,8 +38,9 @@ export function hydrateMissingDraftRates(items, generatedItems) {
     if (item.rateCardId || item.unitRate > 0) return item;
     const title = normalized(item.title);
     const indexed = generatedItems[index];
-    const generated = generatedItems.find((candidate) => normalized(candidate.title) === title)
-      ?? (indexed && normalized(indexed.title) === title ? indexed : null);
+    const generated =
+      generatedItems.find((candidate) => normalized(candidate.title) === title) ??
+      (indexed && normalized(indexed.title) === title ? indexed : null);
     return generated?.rateCardId && generated.unitRate > 0
       ? { ...item, rateCardId: generated.rateCardId, unit: generated.unit, unitRate: generated.unitRate }
       : item;

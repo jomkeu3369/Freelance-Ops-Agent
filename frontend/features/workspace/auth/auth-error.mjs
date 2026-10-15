@@ -1,5 +1,5 @@
-// Keep server codes and untrusted response details out of authentication UI.
-// Invalid credentials must not reveal which account or credential failed.
+// 서버 코드와 검증되지 않은 응답 상세를 인증 화면에 노출하지 않는다.
+// 인증 실패 메시지로 계정 존재 여부나 실패한 항목을 구분할 수 없게 한다.
 export function authErrorMessage(error) {
   const code = error?.code ?? error?.message;
   if (code === "INVALID_CREDENTIALS" || error?.status === 401) {

@@ -5,8 +5,8 @@ import vm from "node:vm";
 import ts from "typescript";
 import { parseChatPolicyIntent } from "../app/lib/chat-policy-intent.mjs";
 
-// Execute the actual inline presentation callback with the effective submission
-// context. Hooks, effects and child components are not needed to inspect props.
+// 실제 제출 문맥으로 인라인 표시 콜백을 실행한다.
+// 속성 확인에 필요 없는 훅·효과·자식 컴포넌트는 실행하지 않는다.
 async function composerInfo(credentialId) {
   const source = await readFile(new URL("../features/workspace/project/project-workbench.tsx", import.meta.url), "utf8");
   const ast = ts.createSourceFile("project-workbench.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

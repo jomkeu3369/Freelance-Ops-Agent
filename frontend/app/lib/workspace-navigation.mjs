@@ -14,17 +14,6 @@ export function parseWorkspaceLocation(search) {
   return { view, projectId, step };
 }
 
-export function buildWorkspaceSearch(location) {
-  if (location.view === "pipeline") return "";
-
-  const params = new URLSearchParams({ view: location.view });
-  if (location.view === "project" && location.projectId) {
-    params.set("project", location.projectId);
-    params.set("step", PROJECT_STEPS.has(location.step) ? location.step : "intake");
-  }
-  return `?${params.toString()}`;
-}
-
 /** 메뉴 및 프로젝트 단계에 대응하는 독립 주소를 만듭니다. */
 export function buildWorkspacePath(location) {
   if (location.view === "project" && location.projectId) {

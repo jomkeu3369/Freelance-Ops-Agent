@@ -1,18 +1,12 @@
 import { useT } from "../../../../app/lib/ui-language";
-import {
-  QuotationItemInput
-} from "@/app/lib/api";
-import {
-  CaretDown,
-  Waveform
-} from "@phosphor-icons/react";
+import { QuotationItemInput } from "@/app/lib/api";
+import { CaretDown, Waveform } from "@phosphor-icons/react";
 import { formatMoney, toDateTimeLocal } from "../../shared/formatters";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
-
 // 단가와 산정 근거를 하나의 작업 항목에 적용합니다.
-export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderModel; item: QuotationItemInput; index: number }) {
+export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderModel; item: QuotationItemInput; index: number; }) {
   const t = useT();
   const { rateCards, canWrite, updateItem, project } = model;
 
@@ -49,9 +43,7 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
           <CaretDown size={16} aria-hidden="true" />
         </div>
         <small>
-          {item.rateCardId
-            ? t("등록된 단가가 적용되었습니다.")
-            : t("적합한 단가를 선택하거나 직접 입력하세요.")}
+          {item.rateCardId ? t("등록된 단가가 적용되었습니다.") : t("적합한 단가를 선택하거나 직접 입력하세요.")}
         </small>
       </label>
       <label className="quote-select-control">
@@ -67,13 +59,13 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
                 basis:
                   event.target.value === "ASSUMPTION"
                     ? {
-                      type: "ASSUMPTION",
-                      content: current.basis.content,
-                      sourceType: null,
-                      sourceReference: null,
-                      sourceTitle: null,
-                      retrievedAt: null
-                    }
+                        type: "ASSUMPTION",
+                        content: current.basis.content,
+                        sourceType: null,
+                        sourceReference: null,
+                        sourceTitle: null,
+                        retrievedAt: null
+                      }
                     : { ...current.basis, type: "EVIDENCE" }
               }))
             }
@@ -106,7 +98,11 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
             </button>
           )}
         </div>
-        {canWrite && item.basis.type === "ASSUMPTION" && <small id={`quotation-assumption-unavailable-${index}`}>{t("별도 AI 가정 생성은 예산 연결 전 사용할 수 없습니다. 가정은 직접 입력하고 수정할 수 있습니다.")}</small>}
+        {canWrite && item.basis.type === "ASSUMPTION" && (
+          <small id={`quotation-assumption-unavailable-${index}`}>
+            {t("별도 AI 가정 생성은 예산 연결 전 사용할 수 없습니다. 가정은 직접 입력하고 수정할 수 있습니다.")}
+          </small>
+        )}
         <textarea
           id={`quotation-basis-${index}`}
           rows={3}
@@ -136,9 +132,7 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
                   ...current,
                   basis: {
                     ...current.basis,
-                    sourceType: event.target.value as NonNullable<
-                      QuotationItemInput["basis"]["sourceType"]
-                    >
+                    sourceType: event.target.value as NonNullable<QuotationItemInput["basis"]["sourceType"]>
                   }
                 }))
               }
@@ -192,9 +186,7 @@ export function QuoteItemBasis({ model, item, index }: { model: QuoteBuilderMode
                   ...current,
                   basis: {
                     ...current.basis,
-                    retrievedAt: event.target.value
-                      ? new Date(event.target.value).toISOString()
-                      : null
+                    retrievedAt: event.target.value ? new Date(event.target.value).toISOString() : null
                   }
                 }))
               }

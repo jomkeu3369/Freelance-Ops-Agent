@@ -1,9 +1,5 @@
 import { useT } from "../../../../app/lib/ui-language";
-import {
-  Archive,
-  ArrowRight,
-  Copy
-} from "@phosphor-icons/react";
+import { Archive, ArrowRight, Copy } from "@phosphor-icons/react";
 import { quotationScenarioLabels, quotationStatusLabels } from "../../shared/constants";
 import { formatMoney } from "../../shared/formatters";
 
@@ -11,20 +7,35 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { saved, canPublish, busy, publishSavedQuotation, proposalShare, createCustomerLink, shareCopyState, copyCustomerLink, disableCustomerLink } = model;
+  const {
+    saved,
+    canPublish,
+    busy,
+    publishSavedQuotation,
+    proposalShare,
+    createCustomerLink,
+    shareCopyState,
+    copyCustomerLink,
+    disableCustomerLink
+  } = model;
 
   return (
     <>
       {saved && (
         <article className="saved-quote" aria-live="polite">
           <div>
-            <span>{t("견적 저장 완료 ·")}{t(quotationStatusLabels[saved.status]) ?? t("상태 확인 필요")}</span>
+            <span>
+              {t("견적 저장 완료 ·")}
+              {t(quotationStatusLabels[saved.status]) ?? t("상태 확인 필요")}
+            </span>
             <h3>
               {t(quotationScenarioLabels[saved.scenario])} v{saved.versionNumber}
             </h3>
             <p>
-              {t("총액")}{formatMoney(saved.total, saved.currency)} {t("· 위험 대비율")}{" "}
-              {Math.round(saved.riskBufferRate * 100)}{t("% · 세금")}{formatMoney(saved.taxAmount, saved.currency)}
+              {t("총액")}
+              {formatMoney(saved.total, saved.currency)} {t("· 위험 대비율")} {Math.round(saved.riskBufferRate * 100)}
+              {t("% · 세금")}
+              {formatMoney(saved.taxAmount, saved.currency)}
             </p>
           </div>
           <div className="saved-quote-actions">
@@ -36,7 +47,8 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
                 title={model.hasUnsavedDraft ? t("변경한 초안을 먼저 저장해 주세요.") : undefined}
                 onClick={() => void publishSavedQuotation()}
               >
-                {t("발행하기")}<ArrowRight size={17} />
+                {t("발행하기")}
+                <ArrowRight size={17} />
               </button>
             )}
             {saved.status === "PUBLISHED" && canPublish && !proposalShare && (
@@ -46,7 +58,8 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
                 disabled={busy}
                 onClick={() => void createCustomerLink()}
               >
-                {t("고객 링크 만들기")}<ArrowRight size={17} />
+                {t("고객 링크 만들기")}
+                <ArrowRight size={17} />
               </button>
             )}
           </div>
@@ -70,20 +83,17 @@ export function QuotePublication({ model }: { model: QuoteBuilderModel }) {
             {proposalShare.url}
           </a>
           <div className="share-link-actions">
-            <button
-              type="button"
-              className="quiet-button"
-              disabled={busy}
-              onClick={() => void copyCustomerLink()}
-            >
-              <Copy size={17} /> {t("링크 복사")}</button>
+            <button type="button" className="quiet-button" disabled={busy} onClick={() => void copyCustomerLink()}>
+              <Copy size={17} /> {t("링크 복사")}
+            </button>
             <button
               type="button"
               className="quiet-button danger"
               disabled={busy}
               onClick={() => void disableCustomerLink()}
             >
-              <Archive size={17} /> {t("링크 비활성화")}</button>
+              <Archive size={17} /> {t("링크 비활성화")}
+            </button>
           </div>
         </div>
       )}

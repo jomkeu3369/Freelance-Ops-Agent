@@ -1,22 +1,26 @@
-/** Only explicit, root-relative public assets may become authentication-page media. */
+/** 인증 화면 미디어에는 명시한 공개 자산의 루트 상대 경로만 허용한다. */
 export function isAuthMediaPath(value) {
-  return typeof value === "string"
-    && value.startsWith("/")
-    && !value.startsWith("//")
-    && !value.includes("\\")
-    && [...value].every(character => character.charCodeAt(0) > 32 && character.charCodeAt(0) !== 127);
+  return (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !value.includes("\\") &&
+    [...value].every((character) => character.charCodeAt(0) > 32 && character.charCodeAt(0) !== 127)
+  );
 }
 
 /** @param {readonly { src: string, type: string }[]} sources */
 export function normalizeAuthMediaSources(sources = []) {
   const seen = new Set();
-  return sources.filter(source => {
-    if (!isAuthMediaPath(source.src) || !["video/mp4", "video/webm"].includes(source.type)) return false;
-    const key = `${source.type}:${source.src}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).map(({ src, type }) => ({ src, type }));
+  return sources
+    .filter((source) => {
+      if (!isAuthMediaPath(source.src) || !["video/mp4", "video/webm"].includes(source.type)) return false;
+      const key = `${source.type}:${source.src}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(({ src, type }) => ({ src, type }));
 }
 
 export function authMediaPolicy({ hasSources = false, reducedMotion = false, saveData = false, hidden = false, inViewport = false, userPaused = false, blocked = false, failed = false } = {}) {
@@ -24,10 +28,8 @@ export function authMediaPolicy({ hasSources = false, reducedMotion = false, sav
   return { canLoad, canPlay: canLoad && !hidden && inViewport && !userPaused && !blocked };
 }
 
-/**
- * Owns a decorative video's entire lifecycle. Sources are attached only after
- * client preferences and initial viewport visibility are known. The static
- * fallback is owned by React and is never removed by this controller.
+/** 장식 영상의 전체 수명을 관리한다. 동작 설정과 초기 화면 내 위치를 확인한 뒤
+ * 소스를 연결한다. 정적 대체 화면은 React가 관리하며 이 제어기에서 제거하지 않는다.
  *
  * @param {{ video: HTMLVideoElement, host: HTMLElement, sources?: readonly {src: string, type: string}[], onStateChange: (state: {status: string, paused: boolean, canToggle: boolean}) => void, environment?: Window & typeof globalThis }} options
  */
@@ -35,8 +37,8 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
   const safeSources = normalizeAuthMediaSources(sources);
   const document = environment.document;
   const motion = environment.matchMedia?.("(prefers-reduced-motion: reduce)");
-  // Network Information is deliberately optional; browsers without it still
-  // honor reduced motion, visibility, viewport and the explicit pause control.
+  // Network Information API는 선택 사항이다. 지원하지 않는 브라우저에서도
+  // 동작 축소, 가시성, 화면 크기, 사용자의 일시정지 설정은 적용한다.
   const connection = environment.navigator?.connection;
   let disposed = false;
   let inViewport = !environment.IntersectionObserver;
@@ -52,23 +54,34 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
   const failedSources = new Set();
   const cleanups = [];
 
-  const policy = () => authMediaPolicy({
-    hasSources: safeSources.length > 0,
-    reducedMotion: motion?.matches === true,
-    saveData: connection?.saveData === true,
-    hidden: document.hidden,
-    inViewport, userPaused, blocked, failed,
-  });
+  const policy = () =>
+    authMediaPolicy({
+      hasSources: safeSources.length > 0,
+      reducedMotion: motion?.matches === true,
+      saveData: connection?.saveData === true,
+      hidden: document.hidden,
+      inViewport,
+      userPaused,
+      blocked,
+      failed
+    });
 
   function notify() {
     if (disposed) return;
     const allowed = policy();
-    const status = !safeSources.length ? "absent"
-      : motion?.matches || connection?.saveData ? "disabled"
-      : failed ? "error"
-      : blocked ? "blocked"
-      : !allowed.canPlay ? "paused"
-      : playing ? "playing" : "loading";
+    const status = !safeSources.length
+      ? "absent"
+      : motion?.matches || connection?.saveData
+        ? "disabled"
+        : failed
+          ? "error"
+          : blocked
+            ? "blocked"
+            : !allowed.canPlay
+              ? "paused"
+              : playing
+                ? "playing"
+                : "loading";
     const state = { status, paused: userPaused || blocked, canToggle: allowed.canLoad };
     const signature = JSON.stringify(state);
     if (signature !== previousState) {
@@ -90,7 +103,7 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
     failedSources.clear();
     for (const source of sourceNodes.splice(0)) source.remove();
     video.removeAttribute("src");
-    // With no source this cancels an in-flight request and releases the decoder.
+    // 소스를 비우면 진행 중 요청을 취소하고 디코더를 해제한다.
     video.load();
   }
 
@@ -125,7 +138,7 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
     }
     notify();
     if (playing || pending) return;
-    // Set these before each attempt, including user-initiated resumes.
+    // 사용자가 재개하는 경우를 포함해 재생을 시도하기 전에 설정한다.
     video.muted = true;
     video.defaultMuted = true;
     video.loop = true;
@@ -144,7 +157,7 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
       result?.then(() => {
         if (disposed || currentAttempt !== attempt) return;
         pending = false;
-        // A resolved play promise alone is not evidence a frame is visible.
+        // play가 성공해도 프레임이 실제로 표시됐는지는 별도로 확인한다.
         notify();
       }, rejected);
     } catch {
@@ -160,12 +173,19 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
 
   listen(video, "playing", () => {
     if (disposed) return;
-    if (!policy().canPlay) { pause(); notify(); return; }
+    if (!policy().canPlay) {
+      pause();
+      notify();
+      return;
+    }
     pending = false;
     playing = true;
     notify();
   });
-  listen(video, "pause", () => { playing = false; notify(); });
+  listen(video, "pause", () => {
+    playing = false;
+    notify();
+  });
   listen(video, "error", () => {
     failed = true;
     reconcile();
@@ -179,13 +199,17 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
   }
 
   const observer = environment.IntersectionObserver
-    ? new environment.IntersectionObserver(entries => {
-      for (const entry of entries) {
-        if (entry.target !== host) continue;
-        inViewport = entry.isIntersecting;
-        reconcile();
-      }
-    }, { threshold: 0 }) : null;
+    ? new environment.IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.target !== host) continue;
+            inViewport = entry.isIntersecting;
+            reconcile();
+          }
+        },
+        { threshold: 0 }
+      )
+    : null;
   observer?.observe(host);
   reconcile();
 
@@ -203,6 +227,6 @@ export function createAuthMediaController({ video, host, sources = [], onStateCh
       for (const cleanup of cleanups) cleanup();
       pause();
       unload();
-    },
+    }
   };
 }

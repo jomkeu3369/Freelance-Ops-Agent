@@ -16,7 +16,7 @@ interface EstimationPolicyFormProps {
 export function EstimationPolicyForm({ session, policy, busy, setBusy, setError, setSaved, onSaved }: EstimationPolicyFormProps) {
   const t = useT();
   const pending = useRef(false);
-  // Background reads may update policy while a write is pending or failed.
+  // 변경 대기·실패 중에도 백그라운드 조회로 정책이 갱신될 수 있다.
   const [submittedPolicy, setSubmittedPolicy] = useState<EstimationPolicy | null>(null);
   const formPolicy = submittedPolicy ?? policy;
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -25,8 +25,8 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
     setError(null);
     setSaved(null);
     const data = new FormData(event.currentTarget);
-    const values = ["taxRate", "bufferRate", "discountRate"].map(name => String(data.get(name) ?? "").trim());
-    if (values.some(value => !value || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100)) {
+    const values = ["taxRate", "bufferRate", "discountRate"].map((name) => String(data.get(name) ?? "").trim());
+    if (values.some((value) => !value || !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 100)) {
       setError("세율, 위험 대비율과 할인 한도를 0~100 사이의 숫자로 입력해 주세요.");
       return;
     }
@@ -55,7 +55,8 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
       <fieldset className="settings-fields" disabled={busy}>
         <div className="form-row">
           <label>
-            {t("기본 세율 (%)")}<input
+            {t("기본 세율 (%)")}
+            <input
               name="taxRate"
               type="number"
               required
@@ -66,7 +67,8 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
             />
           </label>
           <label>
-            {t("위험 대비율 (%)")}<input
+            {t("위험 대비율 (%)")}
+            <input
               name="bufferRate"
               type="number"
               required
@@ -77,7 +79,8 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
             />
           </label>
           <label>
-            {t("최대 할인율 (%)")}<input
+            {t("최대 할인율 (%)")}
+            <input
               name="discountRate"
               type="number"
               required
@@ -89,7 +92,8 @@ export function EstimationPolicyForm({ session, policy, busy, setBusy, setError,
           </label>
         </div>
         <button type="submit" className="primary-button" disabled={busy}>
-          {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("계산 기준 저장")}</button>
+          {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("계산 기준 저장")}
+        </button>
       </fieldset>
     </form>
   );

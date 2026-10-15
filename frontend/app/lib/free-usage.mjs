@@ -6,15 +6,23 @@ export function parseFreeUsageLimit(value, maxLimit) {
   return Number.isSafeInteger(limit) && limit >= 0 && limit <= maxLimit ? limit : null;
 }
 
-// Never pass an arbitrary returnTo URL to the router or a link.
+// 외부에서 받은 returnTo 주소를 검증 없이 링크나 라우터에 전달하지 않는다.
 export function freeUsageReturnPath(value) {
-  return typeof value === "string" && /^\/workspace\/projects\/[a-zA-Z0-9_-]+\/(?:agent|intake|quote|outcome)$/.test(value)
-    ? value : null;
+  return typeof value === "string" &&
+    /^\/workspace\/projects\/[a-zA-Z0-9_-]+\/(?:agent|intake|quote|outcome)$/.test(value)
+    ? value
+    : null;
 }
 
 export function freeUsageResetLabel(resetAt, locale) {
   if (typeof resetAt !== "string" || !Number.isFinite(Date.parse(resetAt))) return null;
   return new Intl.DateTimeFormat(locale === "en" ? "en-US" : "ko-KR", {
-    timeZone: "Asia/Seoul", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
   }).format(new Date(resetAt));
 }

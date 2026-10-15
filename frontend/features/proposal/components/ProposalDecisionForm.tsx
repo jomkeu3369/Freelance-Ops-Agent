@@ -66,22 +66,58 @@ export default function ProposalDecisionForm({ token }: { token: string }) {
       <form aria-busy={busy} onSubmit={handleSubmit}>
         <fieldset className="proposal-response-fields" disabled={busy || responseRecorded}>
           <div className="decision-options" role="group" aria-label="제안 응답">
-            <button type="button" aria-pressed={decision === "APPROVED"} className={decision === "APPROVED" ? "active" : ""} onClick={() => setDecision("APPROVED")}>승인</button>
-            <button type="button" aria-pressed={decision === "CHANGES_REQUESTED"} className={decision === "CHANGES_REQUESTED" ? "active" : ""} onClick={() => setDecision("CHANGES_REQUESTED")}>수정 요청</button>
-            <button type="button" aria-pressed={decision === "REJECTED"} className={decision === "REJECTED" ? "active" : ""} onClick={() => setDecision("REJECTED")}>거절</button>
+            <button
+              type="button"
+              aria-pressed={decision === "APPROVED"}
+              className={decision === "APPROVED" ? "active" : ""}
+              onClick={() => setDecision("APPROVED")}
+            >
+              승인
+            </button>
+            <button
+              type="button"
+              aria-pressed={decision === "CHANGES_REQUESTED"}
+              className={decision === "CHANGES_REQUESTED" ? "active" : ""}
+              onClick={() => setDecision("CHANGES_REQUESTED")}
+            >
+              수정 요청
+            </button>
+            <button
+              type="button"
+              aria-pressed={decision === "REJECTED"}
+              className={decision === "REJECTED" ? "active" : ""}
+              onClick={() => setDecision("REJECTED")}
+            >
+              거절
+            </button>
           </div>
           <div className="form-row">
-            <label>이름<input name="clientName" required maxLength={120} /></label>
-            <label>이메일<input name="clientEmail" type="email" maxLength={320} /></label>
+            <label>
+              이름
+              <input name="clientName" required maxLength={120} />
+            </label>
+            <label>
+              이메일
+              <input name="clientEmail" type="email" maxLength={320} />
+            </label>
           </div>
           <label>
             의견
-            <textarea name="comment" rows={5} maxLength={3000} placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요." />
+            <textarea
+              name="comment"
+              rows={5}
+              maxLength={3000}
+              placeholder="승인 조건이나 수정이 필요한 내용을 남겨주세요."
+            />
           </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
           <button type="submit" className="primary-button">
-            {busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />}
-            {" "}{busy ? "응답을 기록하고 있습니다." : "응답 제출"}
+            {busy ? <CircleNotch className="spin" /> : <ArrowRight size={18} />}{" "}
+            {busy ? "응답을 기록하고 있습니다." : "응답 제출"}
           </button>
         </fieldset>
       </form>

@@ -668,7 +668,7 @@ for (const reviewed of [false, true]) test(`logout outside chat cannot restore $
   }
   const pipeline = page.getByRole("navigation", { name: "주 메뉴", exact: true }).getByRole("button", { name: "프로젝트 현황", exact: true });
   const project = page.getByRole("navigation", { name: "최근 프로젝트 대화" }).getByRole("button", { name: /Original project title/ });
-  // Navigation within a login still keeps the original in memory.
+  // 같은 로그인 내의 경로 이동에서는 원본을 메모리에 유지한다.
   await pipeline.click();
   await expect(page.locator("#agent-chat-input")).toHaveCount(0);
   await project.click();

@@ -7,7 +7,7 @@ const copy = {
   en: "Could not log in. Check your email and password."
 };
 
-// No real sign-in or external calls: only the local test response is used.
+// 실제 로그인이나 외부 호출 없이 로컬 모의 응답만 사용한다.
 const test = base.extend({
   auth: async ({ page }, runFixture) => {
     const state = { status: 401, code: "INVALID_CREDENTIALS", delay: 0, requests: [], unexpected: [], errors: [] };

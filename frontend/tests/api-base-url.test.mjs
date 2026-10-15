@@ -1,31 +1,18 @@
+import { createApiFixture } from "../scripts/lib/typescript-fixture.mjs";
 import assert from "node:assert/strict";
 import { after, afterEach, before, test } from "node:test";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import ts from "typescript";
+
 import { validateVercelEnvironment } from "../scripts/validate-vercel-env.mjs";
 
 const originalOrigin = process.env.NEXT_PUBLIC_API_BASE_URL;
 const originalFetch = globalThis.fetch;
 const originalWindow = globalThis.window;
-let temporaryRoot;
+let fixtureRuntime;
 let api;
 
 before(async () => {
-  temporaryRoot = await mkdtemp(join(tmpdir(), "freelance-ops-api-url-test-"));
-  // Exercise the real TypeScript API client without loading Next or contacting a server.
-  for (const name of ["api", "query-cache"]) {
-    const source = await readFile(new URL(`../app/lib/${name}.ts`, import.meta.url), "utf8");
-    const { outputText } = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ES2022 },
-    });
-    await writeFile(join(temporaryRoot, `${name}.mjs`), outputText.replace('"./query-cache"', '"./query-cache.mjs"'));
-  }
-  await writeFile(join(temporaryRoot, "free-usage.mjs"), await readFile(new URL("../app/lib/free-usage.mjs", import.meta.url)));
-  await writeFile(join(temporaryRoot, "byok-presentation.mjs"), await readFile(new URL("../app/lib/byok-presentation.mjs", import.meta.url)));
-  api = await import(pathToFileURL(join(temporaryRoot, "api.mjs")));
+  fixtureRuntime = await createApiFixture();
+  api = fixtureRuntime.api;
 });
 
 afterEach(() => {
@@ -36,7 +23,7 @@ afterEach(() => {
 });
 
 after(async () => {
-  if (temporaryRoot) await rm(temporaryRoot, { recursive: true, force: true });
+  await fixtureRuntime?.cleanup();
 });
 
 test("API origins use the same outer-whitespace normalization as Vercel validation", () => {
@@ -155,7 +142,7 @@ test("registration sends the age attestation as a JSON boolean and never assumes
     assert.equal(request.method, "POST");
     assert.deepEqual(await request.json(), { ...input, ageAtLeast14 });
   }
-  // A stale JavaScript caller is not silently opted in; the server rejects the missing field.
+  // 이전 자바스크립트 호출자에게 동의를 가정하지 않는다. 누락 필드는 서버에서 거부한다.
   await api.register(input);
   assert.deepEqual(await requests.at(-1).json(), input);
 });

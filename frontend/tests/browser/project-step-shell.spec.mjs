@@ -24,8 +24,8 @@ async function shellFixture(page, { locale = "ko", theme = "light", actions = ["
     localStorage.setItem("theme", theme);
   }, { locale, theme });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  // Keep these additional read-only endpoints local to this suite. The generic
-  // fixture returns an array, whereas an absent outcome is explicitly null.
+  // 이 묶음의 추가 조회 경로는 로컬 모의 응답으로 처리한다.
+  // 공통 응답은 배열이지만 성과가 없는 경우에는 명시적으로 null을 반환한다.
   await page.route("**/api/v2/workspaces/local-space/clients", route => {
     if (route.request().method() !== "GET") return route.fallback();
     return route.fulfill({ json: [{ id: "synthetic-client", name: "Synthetic Client", companyName: "Example Studio", status: "ACTIVE" }] });

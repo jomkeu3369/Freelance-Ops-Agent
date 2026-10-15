@@ -1,17 +1,38 @@
 export const petAdvisors = [
-  { id: "turtle", name: "차근", role: "일정 담당", scenario: "LEAN", priority: "필수 범위와 현실적인 납기", departments: ["REQUIREMENTS"] },
-  { id: "owl", name: "또렷", role: "근거 담당", scenario: "RECOMMENDED", priority: "확인된 자료와 균형 잡힌 범위", departments: ["RESEARCH", "VERIFICATION"] },
-  { id: "cat", name: "든든", role: "수익 담당", scenario: "EXPANDED", priority: "제공 가치와 명확한 계약 범위", departments: ["DEAL_DESIGN"] }
+  {
+    id: "turtle",
+    name: "차근",
+    role: "일정 담당",
+    scenario: "LEAN",
+    priority: "필수 범위와 현실적인 납기",
+    departments: ["REQUIREMENTS"]
+  },
+  {
+    id: "owl",
+    name: "또렷",
+    role: "근거 담당",
+    scenario: "RECOMMENDED",
+    priority: "확인된 자료와 균형 잡힌 범위",
+    departments: ["RESEARCH", "VERIFICATION"]
+  },
+  {
+    id: "cat",
+    name: "든든",
+    role: "수익 담당",
+    scenario: "EXPANDED",
+    priority: "제공 가치와 명확한 계약 범위",
+    departments: ["DEAL_DESIGN"]
+  }
 ];
 
-/**
- * Localize only the product's default name in its matching slot.
- * Custom names stay verbatim, and the stored profile is never changed.
+/** 해당 슬롯의 기본 이름만 번역한다. 사용자 이름은 원문을 유지하고
+ * 저장된 프로필은 변경하지 않는다.
+ *
  * @param {{ slot: string, name: string, petId?: string | null }} profile
  * @param {(source: string) => string} translate
  */
-export function petDisplayName(profile, translate = source => source) {
-  const advisor = petAdvisors.find(pet => pet.scenario === profile.slot);
+export function petDisplayName(profile, translate = (source) => source) {
+  const advisor = petAdvisors.find((pet) => pet.scenario === profile.slot);
   return !profile.petId && advisor && profile.name === advisor.name ? translate(advisor.name) : profile.name;
 }
 
@@ -22,21 +43,32 @@ export function petWorkState(run, departments) {
   if (run.status === "CANCELLED") return "cancelled";
   if (run.status === "WAITING_FOR_USER") return "waiting";
   if (run.status === "QUEUED") return "queued";
-  const results = run.result?.departmentResults.filter(result => departments.includes(result.department)) ?? [];
-  if (results.some(result => result.status === "FAILED" || result.errorCode)) return "partial";
-  if (departments.every(department => results.some(result => result.department === department && result.status === "COMPLETED"))) return "ready";
+  const results = run.result?.departmentResults.filter((result) => departments.includes(result.department)) ?? [];
+  if (results.some((result) => result.status === "FAILED" || result.errorCode)) return "partial";
+  if (
+    departments.every((department) =>
+      results.some((result) => result.department === department && result.status === "COMPLETED")
+    )
+  )
+    return "ready";
   if (run.status === "PARTIAL") return "partial";
   if (run.status === "COMPLETED") return results.length ? "partial" : "notRun";
   return departments.includes(run.activeDepartment ?? "") ? "working" : "queued";
 }
 
 export const petStateLabels = {
-  idle: "문의 기다리는 중", queued: "차례 기다리는 중", working: "자료 살펴보는 중",
-  waiting: "사용자 확인 필요", ready: "검토 결과 준비됨", partial: "확인할 결과가 남았어요",
-  failed: "실행을 완료하지 못했어요", cancelled: "사용자가 중단했어요", notRun: "이번 실행에서 수행하지 않음"
+  idle: "문의 기다리는 중",
+  queued: "차례 기다리는 중",
+  working: "자료 살펴보는 중",
+  waiting: "사용자 확인 필요",
+  ready: "검토 결과 준비됨",
+  partial: "확인할 결과가 남았어요",
+  failed: "실행을 완료하지 못했어요",
+  cancelled: "사용자가 중단했어요",
+  notRun: "이번 실행에서 수행하지 않음"
 };
 
-/** Reject accidental double charging when combining alternatives for the same task. */
+/** 같은 작업의 대안을 합칠 때 비용이 중복 계산되지 않게 한다. */
 export function duplicateTaskTitles(items) {
   const seen = new Set();
   const duplicates = new Set();

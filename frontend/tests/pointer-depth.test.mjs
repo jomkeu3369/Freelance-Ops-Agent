@@ -16,8 +16,8 @@ test("pointer depth is neutral at center and clamps outside all edges", () => {
 test("pointer motion is restricted and resets for focus, pause, visibility and cleanup", async () => {
   const source = await readFile(new URL("../features/home/use-pointer-depth.ts", import.meta.url), "utf8");
   for (const guard of ["(hover: hover)", "(pointer: fine)", "(prefers-reduced-motion: no-preference)", "document.hidden", "data-motion-paused", ':focus-within', 'pointerleave', 'pointercancel', 'focusin', 'observer.disconnect()', 'pauseObserver.disconnect()']) assert.ok(source.includes(guard), guard);
-  assert.match(source, /duration: \.24/);
-  assert.match(source, /duration: immediate \? 0 : \.5/);
+  assert.match(source, /duration:\s*0?\.24/);
+  assert.match(source, /duration:\s*immediate\s*\?\s*0\s*:\s*0?\.5/);
   assert.match(source, /cancelAnimationFrame/);
   assert.doesNotMatch(source, /setInterval/);
 });

@@ -11,152 +11,268 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 export function useHomeAnimation() {
   const pageRef = useRef<HTMLDivElement>(null);
-  useGSAP(() => {
-    const ambientObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) (entry.target as HTMLElement).dataset.ambientVisible = String(entry.isIntersecting);
-    }, { threshold: .08 });
-    pageRef.current?.querySelectorAll<HTMLElement>("[data-ambient]").forEach((element) => ambientObserver.observe(element));
-    const motion = createOwnedMediaContexts(gsap, window, pageRef.current);
-    motion.add("(prefers-reduced-motion: no-preference)", () => {
-      // CSS owns percentage-based centering. A GSAP transform would cache its
-      // horizontal pixel offset and move the header offscreen after zoom/resize.
-      gsap.from(".nav-shell", { opacity: 0, duration: .6, ease: "power3.out" });
-      gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: .8, stagger: .08, ease: "power3.out" });
-      gsap.from(".pointer-depth-hero", { y: 25, opacity: 0, duration: 1.1, delay: .2, ease: "power3.out" });
-      gsap.utils.toArray<HTMLElement>("[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div").forEach((element) => {
-        gsap.from(element, { y: 16, opacity: 0, duration: .8, ease: "power3.out", scrollTrigger: { trigger: element, start: "top 92%", once: true } });
-      });
-      gsap.utils.toArray<HTMLElement>(".story-review-chat").forEach((element) => {
-        gsap.from(element.querySelectorAll("[data-story-chat]"), { y: 12, opacity: 0, duration: .6, stagger: .3, ease: "power2.out", scrollTrigger: { trigger: element, start: "top 86%", once: true } });
-      });
-    });
-    motion.add("(min-width: 821px) and (prefers-reduced-motion: no-preference)", () => {
-      const intro = pageRef.current?.querySelector<HTMLElement>("[data-story-intro]");
-      let opening: gsap.core.Timeline | undefined;
-      const finishOpening = () => { opening?.kill(); if (intro) gsap.set(intro, { display: "none" }); };
-      if (intro && window.scrollY < 16 && (!window.location.hash || window.location.hash === "#top") && !document.hidden) {
-        const shell = intro.querySelector(".spatial-intro-shell");
-        const openingMark = intro.querySelector(".spatial-intro-mark");
-        const size = Math.max(window.innerWidth, window.innerHeight) * 1.5;
-        gsap.set(intro, { display: "block" });
-        gsap.set(shell, { width: size, height: size, xPercent: -50, yPercent: -50, scale: 1 });
-        opening = gsap.timeline({ onComplete: () => gsap.set(intro, { display: "none" }) });
-        opening.to(shell, { scale: 90 / size, duration: .64, ease: "power2.inOut" })
-          .to(shell, { opacity: 0, duration: .12 }, .56)
-          .to(openingMark, { opacity: 0, scale: .82, duration: .17 }, .61);
-      }
-      // Decorative, never a loading gate. Input or scrolling dismisses it.
-      const interruptEvents = ["wheel", "touchstart", "pointerdown", "keydown", "scroll", "visibilitychange"] as const;
-      interruptEvents.forEach((event) => window.addEventListener(event, finishOpening, { passive: true, once: true }));
-      const plate = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-plate]");
-      const scene = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-scene]");
-      const copy = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-copy]");
-      const mark = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-mark]");
-      const target = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-target]");
-      const card = pageRef.current?.querySelector<HTMLElement>("[data-story-merge-card]");
-      const stage = scene?.querySelector<HTMLElement>(".story-brand-stage");
-      if (!plate || !scene || !copy || !mark || !target || !card || !stage) return () => {
-        finishOpening(); interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
-      };
-      const originalMarkStyle = mark.getAttribute("style");
-
-      // Read actual layout on refresh, including translated copy and loaded fonts.
-      // The source is outside the clipped plate so it can become the lower hub.
-      const clipInsets = () => {
-        const half = mark.offsetWidth * .78;
-        const top = mark.offsetTop;
-        const side = stage.offsetWidth / 2 - half;
-        return { top: top - half, side, bottom: stage.offsetHeight - top - half };
-      };
-      const destination = () => {
-        const from = stage.getBoundingClientRect();
-        const to = target.getBoundingClientRect();
-        return { x: to.left + to.width / 2 - (from.left + from.width / 2), y: to.top + to.height / 2 - (from.top + mark.offsetTop), scale: to.width / mark.offsetWidth };
-      };
-      const placeMark = () => gsap.set(mark, { top: Math.max(stage.offsetHeight * .57 + 24, copy.offsetTop + copy.offsetHeight + 24 + mark.offsetHeight / 2) });
-      let flight = createBrandFlight();
-      const refreshFlight = () => {
-        placeMark();
-        flight = createBrandFlight({ destination: destination() });
-      };
-      refreshFlight();
-      ScrollTrigger.addEventListener("refreshInit", refreshFlight);
-      gsap.set(mark, { xPercent: -50, yPercent: -50, x: 0, y: 0, scale: 1, autoAlpha: 1, color: "#d7baff", backgroundColor: "#171021", transformOrigin: "center center" });
-      gsap.set(target, { autoAlpha: 0 });
-      // The panel is readable from first visibility. One scrubbed playhead
-      // owns hold, collapse and travel, preventing conflicting boundary clocks.
-      // CSSOM normalizes inset shorthand. Tween scalar custom properties,
-      // never the serialized shape string; both sides share one value.
-      gsap.set(plate, {
-        clipPath: "inset(var(--brand-clip-top) var(--brand-clip-side) var(--brand-clip-bottom) var(--brand-clip-side) round var(--brand-clip-radius))",
-        "--brand-clip-top": "0px", "--brand-clip-side": "0px", "--brand-clip-bottom": "0px", "--brand-clip-radius": "20px",
-        autoAlpha: 1, y: 0
-      });
-      gsap.set(copy, { opacity: 1 });
-      // Measure once per layout refresh, then scrub a single straight segment.
-      const flightProgress = { value: 0 };
-      const setFlightPose = createBrandFlightRenderer(gsap, mark);
-      const renderFlight = () => setFlightPose(flight.sample(flightProgress.value));
-      let poseFrame = 0;
-      const syncRefreshedPose = () => {
-        cancelAnimationFrame(poseFrame);
-        poseFrame = requestAnimationFrame(() => {
-          const trigger = transfer.scrollTrigger;
-          if (!trigger) return;
-          // Refresh restores the timeline with callbacks suppressed. Finish any
-          // old scrub and explicitly paint its numeric flight at the new layout.
-          trigger.getTween()?.progress(1);
-          transfer.progress(trigger.progress, true);
-          renderFlight();
+  useGSAP(
+    () => {
+      const ambientObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries)
+            (entry.target as HTMLElement).dataset.ambientVisible = String(entry.isIntersecting);
+        },
+        { threshold: 0.08 }
+      );
+      pageRef.current
+        ?.querySelectorAll<HTMLElement>("[data-ambient]")
+        .forEach((element) => ambientObserver.observe(element));
+      const motion = createOwnedMediaContexts(gsap, window, pageRef.current);
+      motion.add("(prefers-reduced-motion: no-preference)", () => {
+        // 가로 중앙 정렬은 CSS의 백분율 계산에 맡긴다. GSAP이 픽셀 오프셋을 저장하면
+        // 화면 크기나 확대 비율이 바뀔 때 메뉴가 화면 밖으로 밀릴 수 있다.
+        gsap.from(".nav-shell", { opacity: 0, duration: 0.6, ease: "power3.out" });
+        gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: 0.8, stagger: 0.08, ease: "power3.out" });
+        gsap.from(".pointer-depth-hero", { y: 25, opacity: 0, duration: 1.1, delay: 0.2, ease: "power3.out" });
+        gsap.utils
+          .toArray<HTMLElement>(
+            "[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div"
+          )
+          .forEach((element) => {
+            gsap.from(element, {
+              y: 16,
+              opacity: 0,
+              duration: 0.8,
+              ease: "power3.out",
+              scrollTrigger: { trigger: element, start: "top 92%", once: true }
+            });
+          });
+        gsap.utils.toArray<HTMLElement>(".story-review-chat").forEach((element) => {
+          gsap.from(element.querySelectorAll("[data-story-chat]"), {
+            y: 12,
+            opacity: 0,
+            duration: 0.6,
+            stagger: 0.3,
+            ease: "power2.out",
+            scrollTrigger: { trigger: element, start: "top 86%", once: true }
+          });
         });
-      };
-      const transfer = gsap.timeline({ scrollTrigger: {
-        id: "story-brand-merge", trigger: stage, start: "center 70%", endTrigger: target, end: "center 65%",
-        scrub: .85, invalidateOnRefresh: true, onRefresh: syncRefreshedPose
-      } });
-      transfer.fromTo(plate, {
-          "--brand-clip-top": "0px", "--brand-clip-side": "0px", "--brand-clip-bottom": "0px", "--brand-clip-radius": "20px"
-        }, {
-          "--brand-clip-top": () => `${clipInsets().top}px`, "--brand-clip-side": () => `${clipInsets().side}px`,
-          "--brand-clip-bottom": () => `${clipInsets().bottom}px`, "--brand-clip-radius": "28px",
-          duration: .34, ease: "sine.inOut"
-        }, .12)
-        // Finish fading before the closing edge reaches the first text line.
-        // This keeps the full-open reading hold, without clipping live glyphs.
-        .to(copy, { opacity: 0, duration: .08, ease: "sine.out" }, .12)
-        .to(plate, { autoAlpha: 0, duration: .09, ease: "sine.in" }, .44)
-        .fromTo(flightProgress, { value: 0 }, { value: 1, onUpdate: renderFlight, immediateRender: false, duration: .54, ease: "power1.inOut" }, .46)
-        .to(mark, { color: "#24142f", backgroundColor: "#cfacf0", boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521", duration: .24 }, .76)
-        .set(target, { autoAlpha: 1 }, 1)
-        .set(mark, { autoAlpha: 0 }, 1);
-
-      let refreshFrame = 0;
-      const layoutObserver = new ResizeObserver(() => {
-        cancelAnimationFrame(refreshFrame);
-        refreshFrame = requestAnimationFrame(() => ScrollTrigger.refresh());
       });
-      // Changes below this handoff (for example estimator scope rows) cannot
-      // move its target. Avoid refreshing every ScrollTrigger for those edits.
-      pageRef.current!.querySelectorAll<HTMLElement>(".spatial-workflow, .workflow-unfold, .story-features, .story-brand-scene, .story-benefits").forEach(element => layoutObserver.observe(element));
-      layoutObserver.observe(card);
-      layoutObserver.observe(copy);
-      // A flexed diagram can change internally while its outer card keeps the
-      // same min-height (for example after translated text or fonts wrap).
-      const targetFrame = target.closest<HTMLElement>(".story-radial");
-      if (targetFrame) layoutObserver.observe(targetFrame);
-      layoutObserver.observe(target);
+      motion.add("(min-width: 821px) and (prefers-reduced-motion: no-preference)", () => {
+        const intro = pageRef.current?.querySelector<HTMLElement>("[data-story-intro]");
+        let opening: gsap.core.Timeline | undefined;
+        const finishOpening = () => {
+          opening?.kill();
+          if (intro) gsap.set(intro, { display: "none" });
+        };
+        if (
+          intro &&
+          window.scrollY < 16 &&
+          (!window.location.hash || window.location.hash === "#top") &&
+          !document.hidden
+        ) {
+          const shell = intro.querySelector(".spatial-intro-shell");
+          const openingMark = intro.querySelector(".spatial-intro-mark");
+          const size = Math.max(window.innerWidth, window.innerHeight) * 1.5;
+          gsap.set(intro, { display: "block" });
+          gsap.set(shell, { width: size, height: size, xPercent: -50, yPercent: -50, scale: 1 });
+          opening = gsap.timeline({ onComplete: () => gsap.set(intro, { display: "none" }) });
+          opening
+            .to(shell, { scale: 90 / size, duration: 0.64, ease: "power2.inOut" })
+            .to(shell, { opacity: 0, duration: 0.12 }, 0.56)
+            .to(openingMark, { opacity: 0, scale: 0.82, duration: 0.17 }, 0.61);
+        }
+        // 로딩을 막지 않는 장식이며 입력하거나 스크롤하면 사라진다.
+        const interruptEvents = [
+          "wheel",
+          "touchstart",
+          "pointerdown",
+          "keydown",
+          "scroll",
+          "visibilitychange"
+        ] as const;
+        interruptEvents.forEach((event) =>
+          window.addEventListener(event, finishOpening, { passive: true, once: true })
+        );
+        const plate = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-plate]");
+        const scene = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-scene]");
+        const copy = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-copy]");
+        const mark = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-mark]");
+        const target = pageRef.current?.querySelector<HTMLElement>("[data-story-brand-target]");
+        const card = pageRef.current?.querySelector<HTMLElement>("[data-story-merge-card]");
+        const stage = scene?.querySelector<HTMLElement>(".story-brand-stage");
+        if (!plate || !scene || !copy || !mark || !target || !card || !stage)
+          return () => {
+            finishOpening();
+            interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
+          };
+        const originalMarkStyle = mark.getAttribute("style");
+
+        // 갱신 시 번역된 문구와 로드된 폰트를 포함한 실제 배치를 읽는다.
+        // 출발점은 잘린 표면 밖에 둬 아래쪽 연결점으로 이동할 수 있게 한다.
+        const clipInsets = () => {
+          const half = mark.offsetWidth * 0.78;
+          const top = mark.offsetTop;
+          const side = stage.offsetWidth / 2 - half;
+          return { top: top - half, side, bottom: stage.offsetHeight - top - half };
+        };
+        const destination = () => {
+          const from = stage.getBoundingClientRect();
+          const to = target.getBoundingClientRect();
+          return {
+            x: to.left + to.width / 2 - (from.left + from.width / 2),
+            y: to.top + to.height / 2 - (from.top + mark.offsetTop),
+            scale: to.width / mark.offsetWidth
+          };
+        };
+        const placeMark = () =>
+          gsap.set(mark, {
+            top: Math.max(
+              stage.offsetHeight * 0.57 + 24,
+              copy.offsetTop + copy.offsetHeight + 24 + mark.offsetHeight / 2
+            )
+          });
+        let flight = createBrandFlight();
+        const refreshFlight = () => {
+          placeMark();
+          flight = createBrandFlight({ destination: destination() });
+        };
+        refreshFlight();
+        ScrollTrigger.addEventListener("refreshInit", refreshFlight);
+        gsap.set(mark, {
+          xPercent: -50,
+          yPercent: -50,
+          x: 0,
+          y: 0,
+          scale: 1,
+          autoAlpha: 1,
+          color: "#d7baff",
+          backgroundColor: "#171021",
+          transformOrigin: "center center"
+        });
+        gsap.set(target, { autoAlpha: 0 });
+        // 표면은 처음 보일 때부터 읽을 수 있다. 하나의 재생 위치로
+        // 유지·접힘·이동을 관리해 구간별 타이머 충돌을 방지한다.
+        // CSSOM은 inset 단축 값을 정규화하므로 직렬화된 모양 문자열 대신
+        // 스칼라 사용자 속성에 애니메이션을 적용하고 양쪽에서 같은 값을 사용한다.
+        gsap.set(plate, {
+          clipPath:
+            "inset(var(--brand-clip-top) var(--brand-clip-side) var(--brand-clip-bottom) var(--brand-clip-side) round var(--brand-clip-radius))",
+          "--brand-clip-top": "0px",
+          "--brand-clip-side": "0px",
+          "--brand-clip-bottom": "0px",
+          "--brand-clip-radius": "20px",
+          autoAlpha: 1,
+          y: 0
+        });
+        gsap.set(copy, { opacity: 1 });
+        // 레이아웃 갱신마다 한 번 측정하고 직선 구간 하나를 스크롤에 연결한다.
+        const flightProgress = { value: 0 };
+        const setFlightPose = createBrandFlightRenderer(gsap, mark);
+        const renderFlight = () => setFlightPose(flight.sample(flightProgress.value));
+        let poseFrame = 0;
+        const syncRefreshedPose = () => {
+          cancelAnimationFrame(poseFrame);
+          poseFrame = requestAnimationFrame(() => {
+            const trigger = transfer.scrollTrigger;
+            if (!trigger) return;
+            // 갱신 중에는 콜백이 억제되므로 이전 스크롤 애니메이션을 끝내고
+            // 새 배치에서 이동 진행률을 직접 반영한다.
+            trigger.getTween()?.progress(1);
+            transfer.progress(trigger.progress, true);
+            renderFlight();
+          });
+        };
+        const transfer = gsap.timeline({
+          scrollTrigger: {
+            id: "story-brand-merge",
+            trigger: stage,
+            start: "center 70%",
+            endTrigger: target,
+            end: "center 65%",
+            scrub: 0.85,
+            invalidateOnRefresh: true,
+            onRefresh: syncRefreshedPose
+          }
+        });
+        transfer
+          .fromTo(
+            plate,
+            {
+              "--brand-clip-top": "0px",
+              "--brand-clip-side": "0px",
+              "--brand-clip-bottom": "0px",
+              "--brand-clip-radius": "20px"
+            },
+            {
+              "--brand-clip-top": () => `${clipInsets().top}px`,
+              "--brand-clip-side": () => `${clipInsets().side}px`,
+              "--brand-clip-bottom": () => `${clipInsets().bottom}px`,
+              "--brand-clip-radius": "28px",
+              duration: 0.34,
+              ease: "sine.inOut"
+            },
+            0.12
+          )
+          // 접히는 경계가 첫 텍스트 행에 닿기 전에 페이드를 완료한다.
+          // 열린 상태의 읽기 시간을 유지하면서 글자가 잘리는 것을 막는다.
+          .to(copy, { opacity: 0, duration: 0.08, ease: "sine.out" }, 0.12)
+          .to(plate, { autoAlpha: 0, duration: 0.09, ease: "sine.in" }, 0.44)
+          .fromTo(
+            flightProgress,
+            { value: 0 },
+            { value: 1, onUpdate: renderFlight, immediateRender: false, duration: 0.54, ease: "power1.inOut" },
+            0.46
+          )
+          .to(
+            mark,
+            {
+              color: "#24142f",
+              backgroundColor: "#cfacf0",
+              boxShadow: "inset 0 1px #ffffff88, 0 0 38px #c391e521",
+              duration: 0.24
+            },
+            0.76
+          )
+          .set(target, { autoAlpha: 1 }, 1)
+          .set(mark, { autoAlpha: 0 }, 1);
+
+        let refreshFrame = 0;
+        const layoutObserver = new ResizeObserver(() => {
+          cancelAnimationFrame(refreshFrame);
+          refreshFrame = requestAnimationFrame(() => ScrollTrigger.refresh());
+        });
+        // 아래쪽 견적 범위 행 등의 변경은 이 이동 목적지에 영향을 주지 않으므로
+        // 그 변경마다 모든 ScrollTrigger를 갱신하지 않는다.
+        pageRef
+          .current!.querySelectorAll<HTMLElement>(
+            ".spatial-workflow, .workflow-unfold, .story-features, .story-brand-scene, .story-benefits"
+          )
+          .forEach((element) => layoutObserver.observe(element));
+        layoutObserver.observe(card);
+        layoutObserver.observe(copy);
+        // 번역 문구나 폰트의 줄바꿈으로 내부 배치가 바뀌어도
+        // 바깥 카드의 최소 높이는 같을 수 있다.
+        const targetFrame = target.closest<HTMLElement>(".story-radial");
+        if (targetFrame) layoutObserver.observe(targetFrame);
+        layoutObserver.observe(target);
+        return () => {
+          layoutObserver.disconnect();
+          cancelAnimationFrame(refreshFrame);
+          cancelAnimationFrame(poseFrame);
+          opening?.kill();
+          ScrollTrigger.removeEventListener("refreshInit", refreshFlight);
+          interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
+          // quickSetter는 tween의 스타일 복원 범위 밖에서 변환을 기록하므로
+          // 원래 스타일을 직접 복원해 모바일 CSS의 Y축 기준점이 적용되게 한다.
+          if (originalMarkStyle === null) mark.removeAttribute("style");
+          else mark.setAttribute("style", originalMarkStyle);
+        };
+      });
+      const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());
       return () => {
-        layoutObserver.disconnect(); cancelAnimationFrame(refreshFrame); cancelAnimationFrame(poseFrame); opening?.kill();
-        ScrollTrigger.removeEventListener("refreshInit", refreshFlight);
-        interruptEvents.forEach((event) => window.removeEventListener(event, finishOpening));
-        // quickSetter writes transforms outside a tween's style snapshot. Restore
-        // the exact source style so mobile CSS owns its different Y anchoring.
-        if (originalMarkStyle === null) mark.removeAttribute("style");
-        else mark.setAttribute("style", originalMarkStyle);
+        cancelInitialAnchor();
+        ambientObserver.disconnect();
+        motion.revert();
       };
-    });
-    const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());
-    return () => { cancelInitialAnchor(); ambientObserver.disconnect(); motion.revert(); };
-  }, { scope: pageRef });
+    },
+    { scope: pageRef }
+  );
   return pageRef;
 }

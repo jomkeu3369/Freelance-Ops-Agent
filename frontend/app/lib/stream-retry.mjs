@@ -9,5 +9,5 @@ export function nextStreamCursor(current, eventId) {
 }
 
 export function streamReconnectDelay(attempt) {
-  return Math.min(1_000 * (2 ** Math.max(0, attempt - 1)), 10_000);
+  return Math.min(1_000 * 2 ** Math.max(0, attempt - 1), 10_000);
 }

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-/** Camera-facing ribbons have a soft radial falloff, not a moving solid segment. */
+/** 카메라를 향한 리본의 빛이 중심에서 바깥으로 부드럽게 줄어들게 한다. */
 const vertexShader = `
   attribute float along;
   attribute float across;
@@ -23,7 +23,7 @@ const fragmentShader = `
     float core = exp(-d * d * 130.0);
     float halo = exp(-d * d * mix(26.0, 18.0, broadField)) * mix(0.30, 0.24, broadField);
     float scatter = exp(-d * d * 4.8) * 0.055;
-    // A broad asymmetric pulse rides an always-lit filament. No hard head/tail.
+    // 항상 켜진 줄기 위로 비대칭 광량 파동을 흘려 앞뒤 경계가 뚜렷해지지 않게 한다.
     float phase = fract(u * 0.64 - time * 0.115 + seed);
     float pulse = exp(-pow((phase - 0.5) / 0.13, 2.0));
     float wave = 0.86 + 0.14 * sin(u * 17.0 - time * 0.7 + seed * 20.0);
@@ -40,38 +40,71 @@ export function createLightRibbon(scene: THREE.Scene, compact: boolean, footer =
   const group = new THREE.Group();
   const materials: THREE.ShaderMaterial[] = [];
   const geometries: THREE.BufferGeometry[] = [];
-  const count = footer ? (compact ? 18 : 32) : (compact ? 44 : 72);
+  const count = footer ? (compact ? 18 : 32) : compact ? 44 : 72;
   for (let strand = 0; strand < count; strand++) {
-    const fan = (strand / (count - 1) - .5);
-    const depth = Math.sin(strand * 2.13) * .65;
+    const fan = strand / (count - 1) - 0.5;
+    const depth = Math.sin(strand * 2.13) * 0.65;
     const curve = new THREE.CurvePath<THREE.Vector3>();
     if (footer) {
-      curve.add(new THREE.CubicBezierCurve3(new THREE.Vector3(-14, -5 + fan * 3, depth), new THREE.Vector3(-3, 4 + fan, depth), new THREE.Vector3(2, -5 + fan, -depth), new THREE.Vector3(14, 4 + fan * 4, depth)));
+      curve.add(
+        new THREE.CubicBezierCurve3(
+          new THREE.Vector3(-14, -5 + fan * 3, depth),
+          new THREE.Vector3(-3, 4 + fan, depth),
+          new THREE.Vector3(2, -5 + fan, -depth),
+          new THREE.Vector3(14, 4 + fan * 4, depth)
+        )
+      );
     } else {
-      // A ribbon bundle turns through a volume, never through one shared pin.
-      // Equal, long handles preserve the tangent and give the U-turn a broad radius.
-      const bend = new THREE.Vector3(-3.2 + fan * .92, -4.3 + fan * 1.35, .35 + depth * .42);
-      const radius = 3.6 + fan * .45;
-      curve.add(new THREE.CubicBezierCurve3(new THREE.Vector3(14.5, 9.4 + fan * 10.8, depth), new THREE.Vector3(5.6, 5.9 + fan * 6.5, -depth), new THREE.Vector3(bend.x, bend.y + radius, bend.z), bend));
-      curve.add(new THREE.CubicBezierCurve3(bend, new THREE.Vector3(bend.x, bend.y - radius, bend.z), new THREE.Vector3(6.1, -7.9 + fan * 5.9, -depth), new THREE.Vector3(15.5, -10.3 + fan * 10.6, depth)));
+      // 리본 묶음은 하나의 점에서 꺾지 않고 공간 안에서 돌아가게 한다.
+      // 긴 제어선을 같은 길이로 둬 접선을 유지하고 반환 곡선의 반경을 넓힌다.
+      const bend = new THREE.Vector3(-3.2 + fan * 0.92, -4.3 + fan * 1.35, 0.35 + depth * 0.42);
+      const radius = 3.6 + fan * 0.45;
+      curve.add(
+        new THREE.CubicBezierCurve3(
+          new THREE.Vector3(14.5, 9.4 + fan * 10.8, depth),
+          new THREE.Vector3(5.6, 5.9 + fan * 6.5, -depth),
+          new THREE.Vector3(bend.x, bend.y + radius, bend.z),
+          bend
+        )
+      );
+      curve.add(
+        new THREE.CubicBezierCurve3(
+          bend,
+          new THREE.Vector3(bend.x, bend.y - radius, bend.z),
+          new THREE.Vector3(6.1, -7.9 + fan * 5.9, -depth),
+          new THREE.Vector3(15.5, -10.3 + fan * 10.6, depth)
+        )
+      );
     }
     const positions: number[] = [];
     const along: number[] = [];
     const across: number[] = [];
     const indices: number[] = [];
     const segments = compact ? 96 : 160;
-    const width = footer ? (strand % 9 === 0 ? .32 : .14 + (strand % 4) * .025) : (strand % 11 === 0 ? .48 : strand % 5 === 0 ? .32 : .19 + (strand % 4) * .03);
+    const width = footer
+      ? strand % 9 === 0
+        ? 0.32
+        : 0.14 + (strand % 4) * 0.025
+      : strand % 11 === 0
+        ? 0.48
+        : strand % 5 === 0
+          ? 0.32
+          : 0.19 + (strand % 4) * 0.03;
     for (let i = 0; i <= segments; i++) {
       const u = i / segments;
       const point = curve.getPoint(u);
       const tangent = curve.getTangent(u);
       const normal = new THREE.Vector3(-tangent.y, tangent.x, 0).normalize();
-      const spread = width * (1 + .25 * Math.sin(u * 8 + strand));
+      const spread = width * (1 + 0.25 * Math.sin(u * 8 + strand));
       for (const side of [-1, 1]) {
         positions.push(point.x + normal.x * spread * side, point.y + normal.y * spread * side, point.z);
-        along.push(u); across.push(side);
+        along.push(u);
+        across.push(side);
       }
-      if (i < segments) { const n = i * 2; indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2); }
+      if (i < segments) {
+        const n = i * 2;
+        indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2);
+      }
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
@@ -79,36 +112,54 @@ export function createLightRibbon(scene: THREE.Scene, compact: boolean, footer =
     geometry.setAttribute("across", new THREE.Float32BufferAttribute(across, 1));
     geometry.setIndex(indices);
     const material = new THREE.ShaderMaterial({
-      vertexShader, fragmentShader, transparent: true, depthWrite: false,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      uniforms: { time: { value: 3 }, seed: { value: strand * .173 }, broadField: { value: footer ? 0 : 1 }, strength: { value: footer ? (strand % 9 === 0 ? 1.1 : .58) : (strand % 11 === 0 ? .76 : strand % 5 === 0 ? .58 : .4) }, tint: { value: new THREE.Color(strand % 11 === 3 ? "#8aaaff" : "#c59aef") } }
+      vertexShader,
+      fragmentShader,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      uniforms: {
+        time: { value: 3 },
+        seed: { value: strand * 0.173 },
+        broadField: { value: footer ? 0 : 1 },
+        strength: {
+          value: footer ? (strand % 9 === 0 ? 1.1 : 0.58) : strand % 11 === 0 ? 0.76 : strand % 5 === 0 ? 0.58 : 0.4
+        },
+        tint: { value: new THREE.Color(strand % 11 === 3 ? "#8aaaff" : "#c59aef") }
+      }
     });
     group.add(new THREE.Mesh(geometry, material));
-    materials.push(material); geometries.push(geometry);
+    materials.push(material);
+    geometries.push(geometry);
   }
-  // A genuinely smooth light field surrounds the bend, bounded to this scene.
+  // 장면 안에서 곡선을 감싸는 부드러운 광량 분포를 만든다.
   const glowGeometry = new THREE.PlaneGeometry(footer ? 9 : 12, footer ? 8 : 11);
   const glowMaterial = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
     uniforms: { time: { value: 3 }, broadField: { value: footer ? 0 : 1 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: `varying vec2 vUv; uniform float time; uniform float broadField; void main(){ vec2 p=(vUv-.5)*2.0; float r=dot(p,p); float swell=.84+.16*sin(time*.62); float fog=exp(-r*mix(5.5,4.2,broadField))*mix(.13,.12,broadField); float halo=exp(-r*mix(42.0,16.0,broadField))*mix(.22,.12,broadField); float core=exp(-r*260.0)*.45*(1.0-broadField); gl_FragColor=vec4(mix(vec3(.58,.32,.83),vec3(1.0,.87,1.0),core*2.0), (fog+halo+core)*swell); }`
   });
   const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-  glow.position.set(footer ? 1 : -3.2, footer ? -.5 : -4.3, -.2);
+  glow.position.set(footer ? 1 : -3.2, footer ? -0.5 : -4.3, -0.2);
   group.add(glow);
   scene.add(group);
   return {
     update(time: number, x: number, y: number) {
-      materials.forEach(material => { material.uniforms.time.value = time; });
+      materials.forEach((material) => {
+        material.uniforms.time.value = time;
+      });
       glowMaterial.uniforms.time.value = time;
-      group.rotation.y = x * .022;
-      group.rotation.x = y * .012;
+      group.rotation.y = x * 0.022;
+      group.rotation.x = y * 0.012;
     },
     dispose() {
-      geometries.forEach(geometry => geometry.dispose());
-      materials.forEach(material => material.dispose());
-      glowGeometry.dispose(); glowMaterial.dispose();
+      geometries.forEach((geometry) => geometry.dispose());
+      materials.forEach((material) => material.dispose());
+      glowGeometry.dispose();
+      glowMaterial.dispose();
       scene.remove(group);
     }
   };

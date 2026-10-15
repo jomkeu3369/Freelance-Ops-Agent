@@ -208,7 +208,7 @@ test("polls are serialized while a prior read is pending and stop at completion"
     await page.clock.runFor(6000);
     expect(state.runReads).toHaveLength(readsWhilePending);
 
-    // The held response is a RUNNING snapshot; only the following read sees completion.
+    // 대기시킨 응답은 RUNNING 스냅샷이다. 다음 조회에서만 완료를 관찰한다.
     state.run = { ...state.run, status: "COMPLETED", result: completedResult };
     const heldResponse = page.waitForResponse(response => response.url().endsWith("/agent-runs/run-one") && response.request().method() === "GET");
     barrier.release();

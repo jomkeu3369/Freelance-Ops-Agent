@@ -36,10 +36,7 @@ export function requirementTextDelta(previous: string, current: string) {
 
   let suffix = 0;
   const maxSuffix = Math.min(previous.length - prefix, current.length - prefix);
-  while (
-    suffix < maxSuffix &&
-    previous[previous.length - 1 - suffix] === current[current.length - 1 - suffix]
-  )
+  while (suffix < maxSuffix && previous[previous.length - 1 - suffix] === current[current.length - 1 - suffix])
     suffix += 1;
 
   const previousEnd = suffix ? previous.length - suffix : previous.length;
@@ -107,12 +104,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
 
   useGSAP(
     () => {
-      if (
-        !latest ||
-        editing ||
-        !diffRef.current ||
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      )
+      if (!latest || editing || !diffRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
         return;
       gsap.fromTo(
         ".requirement-diff-summary > article",
@@ -162,7 +154,10 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         <div>
           <FileText size={20} />
           <strong>{t("고객 문의 원문")}</strong>
-          <small>{project.requirementText.length.toLocaleString()}{t("자")}</small>
+          <small>
+            {project.requirementText.length.toLocaleString()}
+            {t("자")}
+          </small>
         </div>
         <p>{project.requirementText}</p>
         <dl>
@@ -190,7 +185,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
           </div>
           {canWriteDocuments && (
             <label className="secondary-button">
-              {uploading ? <CircleNotch className="spin" /> : <Plus size={17} />} {t("문서 추가")}<input
+              {uploading ? <CircleNotch className="spin" /> : <Plus size={17} />} {t("문서 추가")}
+              <input
                 type="file"
                 accept=".txt,.md,.markdown,.csv,.json,text/plain,text/markdown,text/csv,application/json"
                 disabled={uploading}
@@ -227,16 +223,24 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             </ul>
           )}
           <p>
-            {t("업로드한 파일은 워크스페이스 자료로 저장됩니다. 근거 자료 화면에서 내용을 확인한 후 AI 분석에 사용됩니다.")}</p>
+            {t(
+              "업로드한 파일은 워크스페이스 자료로 저장됩니다. 근거 자료 화면에서 내용을 확인한 후 AI 분석에 사용됩니다."
+            )}
+          </p>
         </div>
       </div>
       <div className="guided-copy">
         <span>{t("사용자 입력 · 원문")}</span>
         <h2>
-          {t("문의 내용을")}<br />
-          {t("먼저 확인합니다.")}</h2>
+          {t("문의 내용을")}
+          <br />
+          {t("먼저 확인합니다.")}
+        </h2>
         <p>
-          {t("고객 문의 원문과 아래 구조화 결과를 검토합니다. 저장된 버전은 사용자 확정 결과이며 AI 초안과 구분됩니다.")}</p>
+          {t(
+            "고객 문의 원문과 아래 구조화 결과를 검토합니다. 저장된 버전은 사용자 확정 결과이며 AI 초안과 구분됩니다."
+          )}
+        </p>
         <div className="requirement-version-state">
           <span>
             {loading
@@ -256,7 +260,9 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         <header>
           <div>
             <span>{t("구조화된 요구사항")}</span>
-            <h3>{latest ? t("검토 완료된 버전 {v0}", { v0: latest.versionNumber }) : t("아직 확정된 버전이 없습니다.")}</h3>
+            <h3>
+              {latest ? t("검토 완료된 버전 {v0}", { v0: latest.versionNumber }) : t("아직 확정된 버전이 없습니다.")}
+            </h3>
           </div>
           {canWriteProject && (
             <button
@@ -282,7 +288,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         {structuredOutdated && (
           <div className="inline-error requirement-stale" role="status">
             <Warning size={18} />
-            {t("고객 문의가 마지막 검토 이후 변경되었습니다. 요구사항을 다시 확인한 뒤 견적을 작성해 주세요.")}</div>
+            {t("고객 문의가 마지막 검토 이후 변경되었습니다. 요구사항을 다시 확인한 뒤 견적을 작성해 주세요.")}
+          </div>
         )}
         {error && (
           <div className="inline-error" role="alert">
@@ -325,7 +332,10 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 <article>
                   <header>
                     <span>{t("현재 고객 원문")}</span>
-                    <strong>{project.requirementText.length.toLocaleString()}{t("자")}</strong>
+                    <strong>
+                      {project.requirementText.length.toLocaleString()}
+                      {t("자")}
+                    </strong>
                   </header>
                   <p>{compactDiffExcerpt(project.requirementText, 700)}</p>
                   <dl>
@@ -360,7 +370,13 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                   ) : (
                     <p>{t("확정된 기능이 없습니다.")}</p>
                   )}
-                  {latest.features.length > 4 && <small>{t("그 외")}{latest.features.length - 4}{t("개 기능")}</small>}
+                  {latest.features.length > 4 && (
+                    <small>
+                      {t("그 외")}
+                      {latest.features.length - 4}
+                      {t("개 기능")}
+                    </small>
+                  )}
                 </article>
               </div>
               {structuredOutdated && textDelta?.changed ? (
@@ -379,10 +395,15 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 </details>
               ) : (
                 <p className="requirement-diff-synced">
-                  <CheckCircle size={17} weight="fill" /> {t("현재 원문이 이 구조화 revision의 기준 원문과 일치합니다.")}</p>
+                  <CheckCircle size={17} weight="fill" />{" "}
+                  {t("현재 원문이 이 구조화 revision의 기준 원문과 일치합니다.")}
+                </p>
               )}
               <p className="requirement-diff-note">
-                {t("이 비교는 저장된 원문과 사용자 확정 revision만 보여 줍니다. 자동 의미 추정은 검토 완료로 표시하지 않습니다.")}</p>
+                {t(
+                  "이 비교는 저장된 원문과 사용자 확정 revision만 보여 줍니다. 자동 의미 추정은 검토 완료로 표시하지 않습니다."
+                )}
+              </p>
             </section>
             <div className="feature-list">
               {latest.features.length === 0 ? (
@@ -394,7 +415,12 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                     <div>
                       <h4>{feature.title}</h4>
                       <p>{feature.description}</p>
-                      {feature.acceptanceCriteria && <small>{t("완료 기준 ·")}{feature.acceptanceCriteria}</small>}
+                      {feature.acceptanceCriteria && (
+                        <small>
+                          {t("완료 기준 ·")}
+                          {feature.acceptanceCriteria}
+                        </small>
+                      )}
                     </div>
                   </article>
                 ))
@@ -438,10 +464,14 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             </div>
             {features.map((feature, index) => (
               <fieldset key={index}>
-                <legend>{t("기능")}{index + 1}</legend>
+                <legend>
+                  {t("기능")}
+                  {index + 1}
+                </legend>
                 <div className="form-row">
                   <label>
-                    {t("기능 이름")}<input
+                    {t("기능 이름")}
+                    <input
                       required
                       maxLength={200}
                       value={feature.title}
@@ -455,7 +485,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                     />
                   </label>
                   <label>
-                    {t("우선순위")}<select
+                    {t("우선순위")}
+                    <select
                       value={feature.priority}
                       onChange={(event) =>
                         setFeatures((current) =>
@@ -475,7 +506,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                   </label>
                 </div>
                 <label>
-                  {t("설명")}<textarea
+                  {t("설명")}
+                  <textarea
                     required
                     maxLength={5000}
                     rows={3}
@@ -490,7 +522,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                   />
                 </label>
                 <label>
-                  {t("완료 기준")}<textarea
+                  {t("완료 기준")}
+                  <textarea
                     maxLength={5000}
                     rows={2}
                     value={feature.acceptanceCriteria}
@@ -507,11 +540,10 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                   type="button"
                   className="remove-feature"
                   disabled={features.length === 1}
-                  onClick={() =>
-                    setFeatures((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                  }
+                  onClick={() => setFeatures((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                 >
-                  <Trash size={16} /> {t("이 기능 제거")}</button>
+                  <Trash size={16} /> {t("이 기능 제거")}
+                </button>
               </fieldset>
             ))}
             <button
@@ -524,10 +556,12 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 ])
               }
             >
-              <Plus size={17} /> {t("기능 추가")}</button>
+              <Plus size={17} /> {t("기능 추가")}
+            </button>
             <div className="form-row">
               <label>
-                {t("확인된 가정")}<textarea
+                {t("확인된 가정")}
+                <textarea
                   name="assumptions"
                   rows={5}
                   placeholder={t("한 줄에 하나씩 입력")}
@@ -535,7 +569,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 />
               </label>
               <label>
-                {t("열린 질문")}<textarea
+                {t("열린 질문")}
+                <textarea
                   name="questions"
                   rows={5}
                   placeholder={t("한 줄에 하나씩 입력")}
@@ -544,17 +579,18 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
               </label>
             </div>
             <button type="submit" className="primary-button" disabled={busy}>
-              {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("사용자 확정 revision 저장")}</button>
+              {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("사용자 확정 revision 저장")}
+            </button>
           </form>
         ) : (
           <div className="structured-empty">
-            <p>
-              {t("원문에서 기능, 제약과 열린 질문을 분리하면 견적 항목과 근거를 더 정확하게 연결할 수 있습니다.")}</p>
+            <p>{t("원문에서 기능, 제약과 열린 질문을 분리하면 견적 항목과 근거를 더 정확하게 연결할 수 있습니다.")}</p>
           </div>
         )}
         <div className="intake-next">
           <button type="button" className="primary-button" onClick={onContinue}>
-            {t("AI 분석으로 이동")}<ArrowRight size={18} />
+            {t("AI 분석으로 이동")}
+            <ArrowRight size={18} />
           </button>
         </div>
       </div>

@@ -187,7 +187,7 @@ test("evidence columns offset each counter and its fills left to right within on
     assert.ok(finish <= 1.7, "All three columns finish within 1.7 seconds of entry");
   });
 
-  // A running first column cannot advance the other columns' count state.
+  // 첫 번째 열이 실행 중이어도 다른 열의 숫자 상태를 진행시키지 않아야 한다.
   counters[0].target.progress = .5;
   counters[0].vars.onUpdate();
   assert.deepEqual(columns.map(column => column.count.textContent), ["02", "0", "0.0"]);

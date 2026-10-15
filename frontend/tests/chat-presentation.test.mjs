@@ -19,8 +19,8 @@ test("activity is derived from real running state; offline, queued, approval and
 
 test("terminal and unknown result absence never claims work is still running", () => {
   for (const status of ["COMPLETED", "PARTIAL"]) assert.equal(resultPendingMessage(status), "이 실행에 저장된 결과가 없습니다.");
-  assert.match(resultPendingMessage("UNKNOWN"), /확인할 수 없습니다/);
-  assert.match(resultPendingMessage("RUNNING"), /진행 중/);
+  assert.match(resultPendingMessage("UNKNOWN"), /확인할\s*수\s*없습니다/);
+  assert.match(resultPendingMessage("RUNNING"), /진행\s*중/);
 });
 
 test("all state labels, result explanations and starter prompts have explicit English copy", () => {
@@ -32,20 +32,20 @@ test("all state labels, result explanations and starter prompts have explicit En
 
 test("professional chrome scopes styles, restores text spans, uses real locale selector and inset log focus", async () => {
   const css = await readFile(new URL("../features/workspace/professional-workspace.css", import.meta.url), "utf8");
-  assert.match(css, /\.workspace-connection-label > span\s*\{[^}]*width: auto;[^}]*height: auto;[^}]*background: transparent;/);
+  assert.match(css, /\.workspace-connection-label\s*>\s*span\s*\{[^}]*width:\s*auto;[^}]*height:\s*auto;[^}]*background:\s*transparent;/);
   assert.match(css, /\.ui-language-selector/);
   assert.doesNotMatch(css, /\.language-selector\b/);
-  assert.match(css, /\.agent-chat-turns:focus-visible\s*\{ outline-offset: -3px;/);
-  assert.match(css, /prefers-reduced-motion: reduce/);
-  assert.match(css, /max-height: 560px/);
+  assert.match(css, /\.agent-chat-turns:focus-visible\s*\{\s*outline-offset:\s*-3px;/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /max-height:\s*560px/);
 });
 
 test("navigation is project scoped and no chat action replaces authorization or contracts", async () => {
   const shell = await readFile(new URL("../features/workspace/workspace-shell.tsx", import.meta.url), "utf8");
   const chat = await readFile(new URL("../features/workspace/project/analysis/agent-chat.tsx", import.meta.url), "utf8");
-  assert.match(shell, /onSelectProject=\{\(project\) => navigateWorkspace\("project", project, "agent"\)\}/);
-  assert.match(chat, /if \(!online \|\| !message.trim\(\)/);
-  assert.match(chat, /if \(!canRun\) throw new Error/);
-  assert.match(chat, /if \(!canEditPolicy \|\| item.status !== "PENDING" \|\| confirmLock.current\) return;/);
-  assert.match(chat, /if \(followsLatest.current\) box.scrollTop = box.scrollHeight;/);
+  assert.match(shell, /onSelectProject=\{\(project\)\s*=>\s*navigateWorkspace\("project",\s*project,\s*"agent"\)\}/);
+  assert.match(chat, /if\s*\(!online\s*\|\|\s*!message.trim\(\)/);
+  assert.match(chat, /if\s*\(!canRun\)\s*throw\s*new\s*Error/);
+  assert.match(chat, /if\s*\(!canEditPolicy\s*\|\|\s*item.status\s*!==\s*"PENDING"\s*\|\|\s*confirmLock.current\)\s*return;/);
+  assert.match(chat, /if\s*\(followsLatest.current\)\s*box.scrollTop\s*=\s*box.scrollHeight;/);
 });

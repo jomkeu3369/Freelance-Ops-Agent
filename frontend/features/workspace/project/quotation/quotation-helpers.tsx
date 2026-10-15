@@ -32,8 +32,7 @@ export function quotationItemsAsInput(quotation: Quotation): QuotationItemInput[
   }));
 }
 
-export function quotationDraftItems(draft: AgentQuotationDraft, rateCards: RateCard[], currency: string
-): QuotationItemInput[] {
+export function quotationDraftItems(draft: AgentQuotationDraft, rateCards: RateCard[], currency: string): QuotationItemInput[] {
   return draft.items.map((item) => {
     const card = selectRateCardForDraftItem(item, rateCards, currency) as RateCard | null;
     const hasEvidence = item.basis.type === "EVIDENCE" && Boolean(item.basis.sourceReference?.trim());

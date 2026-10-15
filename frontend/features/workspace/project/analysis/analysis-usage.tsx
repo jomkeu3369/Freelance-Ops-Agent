@@ -13,7 +13,8 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
   if (!usage && !costUsage) return null;
 
   return (
-    <details className="workspace-disclosure"><summary>{t("사용량·예상 AI 비용")}</summary>
+    <details className="workspace-disclosure">
+      <summary>{t("사용량·예상 AI 비용")}</summary>
       {usage && (
         <dl className="usage-list">
           <div>
@@ -26,7 +27,10 @@ export function AnalysisUsage({ usage, costUsage }: AnalysisUsageProps) {
           </div>
           <div>
             <dt>{t("소요 시간")}</dt>
-            <dd>{Math.round(usage.durationMs / 1000)}{t("초")}</dd>
+            <dd>
+              {Math.round(usage.durationMs / 1000)}
+              {t("초")}
+            </dd>
           </div>
         </dl>
       )}

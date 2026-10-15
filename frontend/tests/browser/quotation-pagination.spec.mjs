@@ -162,13 +162,13 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await expect(page).toHaveURL(/\/quote$/);
     await expectPrivateShell(2);
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
-    // The old page belongs to an unmounted quote view and must not append to
-    // this newly restored view, reset its draft, or change its revision target.
+    // 이전 페이지는 이미 닫힌 견적 화면에 속한다. 새로 복원된 화면에 추가되거나
+    // 초안을 초기화하거나 수정 기준을 바꾸지 않아야 한다.
     const stalePageResponse = page.waitForResponse(response => response.url().includes("/quotations/page?") && new URL(response.url()).searchParams.has("cursor"));
     pending.release();
     await stalePageResponse;
     await page.locator(".quote-history > summary").click();
-    // First page plus the exact off-page restored base; exclude Load older.
+    // 첫 페이지와 페이지 밖에서 복원한 정확한 기준만 포함하고 이전 항목 조회는 제외한다.
     await expect(page.locator(".quote-history > button > strong")).toHaveCount(51);
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
     await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.baseQuotationId, draftKey)).toBe("quote-5");

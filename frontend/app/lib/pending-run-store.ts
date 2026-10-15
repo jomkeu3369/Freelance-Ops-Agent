@@ -1,17 +1,52 @@
 import type { SkillSelection } from "../../features/workspace/skills/skill-selection";
 import type { CreditQuote, Provider } from "./api";
-export interface PendingRunInput { userId: string; workspaceId: string; projectId: string; provider: Provider; model: string; credentialId?: string; message: string; creditQuote?: CreditQuote; attachmentIds?: string[]; skillSelection?: SkillSelection; workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC"; }
-export interface PendingRunRetry extends PendingRunInput { id: string; }
-interface Entry { signature: string; request: PendingRunRetry; uncertain: boolean; }
+export interface PendingRunInput {
+  userId: string;
+  workspaceId: string;
+  projectId: string;
+  provider: Provider;
+  model: string;
+  credentialId?: string;
+  message: string;
+  creditQuote?: CreditQuote;
+  attachmentIds?: string[];
+  skillSelection?: SkillSelection;
+  workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC";
+}
+export interface PendingRunRetry extends PendingRunInput {
+  id: string;
+}
+interface Entry {
+  signature: string;
+  request: PendingRunRetry;
+  uncertain: boolean;
+}
 
-/** Ambiguous retries retain the first authorized body, including its exact price version. */
+/** 결과가 불확실한 재시도는 가격 버전을 포함해 처음 승인한 요청 본문을 유지한다. */
 export class PendingRunStore {
   private entries = new Map<string, Entry>();
   getOrCreate(input: PendingRunInput): PendingRunRetry {
-    const signature = JSON.stringify([input.userId, input.workspaceId, input.projectId, input.provider, input.model, input.credentialId ?? null, input.message, input.attachmentIds ?? [], input.skillSelection ?? null, input.workflowMode ?? "PROJECT_ANALYSIS"]);
+    const signature = JSON.stringify([
+      input.userId,
+      input.workspaceId,
+      input.projectId,
+      input.provider,
+      input.model,
+      input.credentialId ?? null,
+      input.message,
+      input.attachmentIds ?? [],
+      input.skillSelection ?? null,
+      input.workflowMode ?? "PROJECT_ANALYSIS"
+    ]);
     const previous = this.entries.get(signature);
     if (previous) return structuredClone(previous.request);
-    const request = { ...input, attachmentIds: [...(input.attachmentIds ?? [])], skillSelection: input.skillSelection ? structuredClone(input.skillSelection) : undefined, id: crypto.randomUUID(), creditQuote: input.credentialId ? undefined : input.creditQuote ? { ...input.creditQuote } : undefined };
+    const request = {
+      ...input,
+      attachmentIds: [...(input.attachmentIds ?? [])],
+      skillSelection: input.skillSelection ? structuredClone(input.skillSelection) : undefined,
+      id: crypto.randomUUID(),
+      creditQuote: input.credentialId ? undefined : input.creditQuote ? { ...input.creditQuote } : undefined
+    };
     this.entries.set(signature, { signature, request, uncertain: false });
     return structuredClone(request);
   }
@@ -23,6 +58,10 @@ export class PendingRunStore {
       break;
     }
   }
-  retries(): PendingRunRetry[] { return [...this.entries.values()].filter(entry => entry.uncertain).map(entry => structuredClone(entry.request)); }
-  clear() { this.entries.clear(); }
+  retries(): PendingRunRetry[] {
+    return [...this.entries.values()].filter((entry) => entry.uncertain).map((entry) => structuredClone(entry.request));
+  }
+  clear() {
+    this.entries.clear();
+  }
 }

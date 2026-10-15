@@ -7,14 +7,15 @@ export const runFailureMessages: Record<string, string> = {
   REACT_TOOL_CALL_INVALID:
     "AI 응답 형식을 자동으로 다시 확인했지만 분석을 계속할 수 없었습니다. 새 분석으로 다시 시도해 주세요.",
   SPRING_TOOL_UNAUTHORIZED: "내부 분석 권한을 확인하지 못했습니다. 실행을 새로 시작해 주세요.",
-  SPRING_TOOL_FORBIDDEN:
-    "현재 계정에 분석에 필요한 프로젝트 조회 권한이 없습니다. 작업 공간 권한을 확인해 주세요."
+  SPRING_TOOL_FORBIDDEN: "현재 계정에 분석에 필요한 프로젝트 조회 권한이 없습니다. 작업 공간 권한을 확인해 주세요."
 };
 
 export function runFailureMessage(errorCode: string | null): string {
   if (!errorCode) return "분석을 완료하지 못했습니다. 새 분석으로 다시 시도해 주세요.";
   return (
-    byokFailureMessage(errorCode) ?? runFailureMessages[errorCode] ?? "분석을 완료하지 못했습니다. 저장된 프로젝트 정보는 변경되지 않았습니다."
+    byokFailureMessage(errorCode) ??
+    runFailureMessages[errorCode] ??
+    "분석을 완료하지 못했습니다. 저장된 프로젝트 정보는 변경되지 않았습니다."
   );
 }
 
@@ -93,18 +94,27 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
     const routingModel = eventDataText(event, "routingModel");
     const decisionSource = eventDataText(event, "decisionSource");
     const evaluatorSuggestedRoute = eventDataText(event, "evaluatorSuggestedRoute");
-    const reasons = eventDataTexts(event, "reasonCodes").map((reason) => routeReasonLabels[reason] ? t(routeReasonLabels[reason]) : reason);
+    const reasons = eventDataTexts(event, "reasonCodes").map((reason) =>
+      routeReasonLabels[reason] ? t(routeReasonLabels[reason]) : reason
+    );
     return {
       title: t("경로 선택 · {route}", { route: t(routeActivityLabels[route ?? ""] ?? route ?? "확인 중") }),
       detail: reasons.join(" · ") || t("요청의 범위와 필요한 작업을 기준으로 실행 경로를 선택했습니다."),
       tags: [
-        route ? t("경로 {route}", {route}) : null,
+        route ? t("경로 {route}", { route }) : null,
         routingModel
-          ? t("경로 판정 {provider} · {model}", {provider: providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI", model: routingModel})
+          ? t("경로 판정 {provider} · {model}", {
+              provider: providerLabels[routingProvider ?? ""] ?? routingProvider ?? "OpenAI",
+              model: routingModel
+            })
           : t("경로 판정 정책 Gate"),
-        model ? t("분석 실행 {provider} · {model}", {provider: providerLabels[provider ?? ""] ?? provider ?? "AI", model}) : null,
+        model
+          ? t("분석 실행 {provider} · {model}", { provider: providerLabels[provider ?? ""] ?? provider ?? "AI", model })
+          : null,
         evaluatorSuggestedRoute
-          ? t("평가 후보 {route}", {route: t(routeActivityLabels[evaluatorSuggestedRoute] ?? evaluatorSuggestedRoute)})
+          ? t("평가 후보 {route}", {
+              route: t(routeActivityLabels[evaluatorSuggestedRoute] ?? evaluatorSuggestedRoute)
+            })
           : null,
         decisionSource ? t(routeDecisionSourceLabels[decisionSource] ?? decisionSource) : null
       ].filter((value): value is string => Boolean(value)),
@@ -115,7 +125,7 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
     const toolName = eventDataText(event, "toolName");
     const department = eventDataText(event, "department");
     return {
-      title: t("Tool 사용 · {tool}", {tool: t(toolActivityLabels[toolName ?? ""] ?? toolName ?? "업무 도구")}),
+      title: t("Tool 사용 · {tool}", { tool: t(toolActivityLabels[toolName ?? ""] ?? toolName ?? "업무 도구") }),
       detail: eventDataText(event, "reason") ?? t("선택된 경로에 필요한 정보를 확인했습니다."),
       tags: [toolName, department ? t(departmentLabels[department] ?? department) : null].filter(
         (value): value is string => Boolean(value)
@@ -126,7 +136,10 @@ export function activityPresentation(event: WorkflowEvent, run: AgentRunView | n
   if (event.type === "run.started" && run?.metadata) {
     return {
       title: t(eventActivityLabels[event.type]),
-      detail: t("{provider}의 {model} 모델로 분석을 시작했습니다.", {provider: providerLabels[run.metadata.provider] ?? run.metadata.provider, model: run.metadata.model}),
+      detail: t("{provider}의 {model} 모델로 분석을 시작했습니다.", {
+        provider: providerLabels[run.metadata.provider] ?? run.metadata.provider,
+        model: run.metadata.model
+      }),
       tags: [run.metadata.promptVersion],
       tone: "model"
     };

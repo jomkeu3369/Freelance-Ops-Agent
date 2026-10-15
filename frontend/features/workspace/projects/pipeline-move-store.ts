@@ -11,13 +11,25 @@ const idle: MoveState = { pending: null, notice: null, error: null };
 const states = new Map<string, MoveState>();
 const operations = new Map<string, symbol>();
 const listeners = new Set<() => void>();
-const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-const publish = (scope: string, state: MoveState) => { states.set(scope, state); listeners.forEach(listener => listener()); };
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+};
+const publish = (scope: string, state: MoveState) => {
+  states.set(scope, state);
+  listeners.forEach((listener) => listener());
+};
 
-// A pending write belongs to the workspace, not a route mount. Leaving and returning
-// to the board cannot start another write before the first response is reconciled.
+// 진행 중 변경은 경로가 아닌 작업 공간에 속한다. 보드를 나갔다 돌아와도
+// 첫 응답을 반영하기 전에 다른 변경을 시작하지 않는다.
 export function usePipelineMoveState(scope: string) {
-  const state = useSyncExternalStore(subscribe, () => states.get(scope) ?? idle, () => idle);
+  const state = useSyncExternalStore(
+    subscribe,
+    () => states.get(scope) ?? idle,
+    () => idle
+  );
   return {
     ...state,
     begin(id: string, status: ProjectStatus) {

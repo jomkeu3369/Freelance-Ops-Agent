@@ -16,7 +16,7 @@ test("repeated flight scrubbing retains a bounded GSAP context and reverts its o
   });
   let tween;
   const context = gsap.context(() => {
-    // Mirrors the initial pose captured by the home animation's context.
+    // 소개 애니메이션 context에 저장한 초기 자세와 맞춘다.
     gsap.set(target, { x: 0, y: 0, scaleX: 1, scaleY: 1 });
     const render = createBrandFlightRenderer(gsap, target);
     tween = gsap.fromTo(driver, { progress: 0 }, {
@@ -25,7 +25,7 @@ test("repeated flight scrubbing retains a bounded GSAP context and reverts its o
     });
   });
   try {
-    tween.progress(.5); // Include GSAP's one-time fromTo startAt setup.
+    tween.progress(.5); // GSAP fromTo의 최초 startAt 설정을 포함한다.
     const retained = context.data.length;
     const tracked = context.getTweens().length;
     for (let cycle = 0; cycle < 2000; cycle++) {
@@ -39,7 +39,7 @@ test("repeated flight scrubbing retains a bounded GSAP context and reverts its o
     }
     assert.equal(context.data.length, retained, "Scroll frames must not retain new set tweens");
     assert.equal(context.getTweens().length, tracked);
-    // Layout refresh replaces geometry, not setter channels or the driver.
+    // 레이아웃 갱신은 좌표만 교체하고 setter와 구동 객체는 유지한다.
     path = createBrandFlight({ destination: { x: -320, y: 860, scale: .76 } });
     tween.progress(1);
     for (const key of ["x", "y"]) assert.equal(Number.parseFloat(target[key]), path.sample(1)[key]);

@@ -9,7 +9,11 @@ function getUnitLabel(unit: string) {
 
 export default function ProposalSummary({ proposal }: { proposal: SharedProposal }) {
   function formatMoney(value: number) {
-    return new Intl.NumberFormat("ko-KR", { style: "currency", currency: proposal.currency, maximumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat("ko-KR", {
+      style: "currency",
+      currency: proposal.currency,
+      maximumFractionDigits: 0
+    }).format(value);
   }
 
   return (
@@ -42,9 +46,20 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
               </div>
             </div>
             <dl>
-              <div><dt>공수</dt><dd>{item.quantity} {getUnitLabel(item.unit)}</dd></div>
-              <div><dt>단가</dt><dd>{formatMoney(item.unitRate)}</dd></div>
-              <div><dt>금액</dt><dd>{formatMoney(item.total)}</dd></div>
+              <div>
+                <dt>공수</dt>
+                <dd>
+                  {item.quantity} {getUnitLabel(item.unit)}
+                </dd>
+              </div>
+              <div>
+                <dt>단가</dt>
+                <dd>{formatMoney(item.unitRate)}</dd>
+              </div>
+              <div>
+                <dt>금액</dt>
+                <dd>{formatMoney(item.total)}</dd>
+              </div>
             </dl>
             <aside>
               <span>{item.basis.type === "EVIDENCE" ? "검증된 근거" : "확인할 가정"}</span>
@@ -57,11 +72,26 @@ export default function ProposalSummary({ proposal }: { proposal: SharedProposal
       <section className="proposal-calculation">
         <h2>금액 요약</h2>
         <dl>
-          <div><dt>항목 합계</dt><dd>{formatMoney(proposal.subtotal)}</dd></div>
-          <div><dt>할인</dt><dd>− {formatMoney(proposal.discountTotal)}</dd></div>
-          <div><dt>위험 대비 금액</dt><dd>{formatMoney(proposal.riskBufferAmount)}</dd></div>
-          <div><dt>세금</dt><dd>{formatMoney(proposal.taxAmount)}</dd></div>
-          <div><dt>최종 합계</dt><dd>{formatMoney(proposal.total)}</dd></div>
+          <div>
+            <dt>항목 합계</dt>
+            <dd>{formatMoney(proposal.subtotal)}</dd>
+          </div>
+          <div>
+            <dt>할인</dt>
+            <dd>− {formatMoney(proposal.discountTotal)}</dd>
+          </div>
+          <div>
+            <dt>위험 대비 금액</dt>
+            <dd>{formatMoney(proposal.riskBufferAmount)}</dd>
+          </div>
+          <div>
+            <dt>세금</dt>
+            <dd>{formatMoney(proposal.taxAmount)}</dd>
+          </div>
+          <div>
+            <dt>최종 합계</dt>
+            <dd>{formatMoney(proposal.total)}</dd>
+          </div>
         </dl>
       </section>
     </>

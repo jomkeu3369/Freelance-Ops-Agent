@@ -21,8 +21,8 @@ function keyframes(name) {
   return css.slice(bodyStart, cursor - 1);
 }
 
-// A larger visual envelope must never turn into a page-wide filter animation or
-// bypass the visibility, tab-background and user-pause state inherited by decor.
+// 넓어진 장식 표면도 페이지 전체 필터 애니메이션이 되거나
+// 가시성·백그라운드·사용자 일시정지 상태를 무시하지 않아야 한다.
 test("lighting animates only opacity/transform and inherits the ambient pause contract", () => {
   for (const name of lightAnimations) {
     const body = keyframes(name);
@@ -58,7 +58,7 @@ test("light swells keep a visible luminance range with multi-second rises and a 
 });
 
 test("hero ribbon combines a bright static core with bounded near and broad light layers", () => {
-  const threads = Number(atmosphere.match(/const heroThreads = Array\.from\(\{ length:\s*(\d+)/)?.[1]);
+  const threads = Number(atmosphere.match(/const\s*heroThreads\s*=\s*Array\.from\(\{\s*length:\s*(\d+)/)?.[1]);
   assert.ok(threads >= 40 && threads <= 48, "The dense hero fan has a bounded strand budget");
   const core = css.match(/\.scene-bend-core\s*\{([^}]+)/)?.[1];
   const halo = css.match(/\.scene-bend-halo\s*\{([^}]+)/)?.[1];
@@ -66,11 +66,11 @@ test("hero ribbon combines a bright static core with bounded near and broad ligh
   const width = rule => Number(rule.match(/stroke-width:\s*([.\d]+)px/)?.[1]);
   assert.ok(width(core) >= 8 && width(core) <= 12, "The bend has a visible narrow hot core");
   assert.ok(width(halo) / width(core) >= 6 && width(halo) <= 110, "The near halo stays distinct from the sharp core and broad bloom");
-  assert.match(core, /opacity:\s*\.(?:9\d*)\b/);
+  assert.match(core, /opacity:\s*0?\.(?:9\d*)\b/);
   assert.doesNotMatch(core, /animation:|filter:/, "The core remains bright and sharp even when a swell settles");
   assert.match(atmosphere, /className="scene-pinch-bloom"/);
   assert.match(atmosphere, /className="scene-pinch-hotspot"/);
-  assert.match(atmosphere, /className="scene-travel scene-bend-travel"/);
+  assert.match(atmosphere, /className="scene-travel\s*scene-bend-travel"/);
   assert.match(css, /\.scene-thread\.is-soft[^}]*\.scene-bend-halo\s*\{\s*display:\s*none/, "Mobile omits the extra blurred material layers");
 });
 
@@ -79,8 +79,8 @@ test("hero arrival and new light layers have static visible mobile and reduced-m
   assert.match(mobile, /\.scene-hero-arrival[^}]*\.scene-pinch-arrival\s*\{[^}]*animation:\s*none;[^}]*opacity:\s*1;[^}]*transform:\s*none/);
   assert.match(mobile, /\.scene-filament-cluster[^}]*\.scene-footer-bloom[^}]*animation:\s*none/);
   assert.match(mobile, /\.scene-local-aura\s*\{[^}]*display:\s*none;[^}]*animation:\s*none/);
-  assert.match(css, /@media \(max-width: 820px\)[^{]*\{\s*[^}]*\.scene-evidence-bloom[^}]*animation:\s*none/);
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\[data-ambient\]\s*\*[^}]*animation:\s*none\s*!important/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)[^{]*\{\s*[^}]*\.scene-evidence-bloom[^}]*animation:\s*none/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\[data-ambient\]\s*\*[^}]*animation:\s*none\s*!important/);
   assert.match(css, /\.scene-hero-arrival\s*\{\s*opacity:\s*1/);
   assert.match(css, /\.scene-pinch-arrival\s*\{\s*opacity:\s*1/);
 });

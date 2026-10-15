@@ -8,5 +8,10 @@ import { useWorkspace } from "../../../../../features/workspace/workspace-contex
 export default function ProjectStepPage() {
   const { project, empty } = useWorkspace();
   if (!project) return <EmptyWorkspace {...empty} />;
-  return <ProjectWorkbench key={`${project.session.userId}:${project.session.workspaceId}:${currentSessionGeneration()}:${project.project.id}`} {...project} />;
+  return (
+    <ProjectWorkbench
+      key={`${project.session.userId}:${project.session.workspaceId}:${currentSessionGeneration()}:${project.project.id}`}
+      {...project}
+    />
+  );
 }

@@ -75,7 +75,7 @@ for (const width of [390, 1440]) {
     expect(opening[1].opacity).toBeGreaterThan(0);
     expect(opening[4].opacity).toBeLessThan(opening[1].opacity);
     expect(Math.abs(opening[1].x - opening[0].x) + Math.abs(opening[1].y - opening[0].y)).toBeGreaterThan(20);
-    // This is controlled by scroll position, not a timeline that finishes after a delay.
+    // 시간이 지나면 끝나는 타임라인이 아닌 스크롤 위치로 제어한다.
     await page.waitForTimeout(300);
     expect(await cardPoses(section)).toEqual(opening);
 

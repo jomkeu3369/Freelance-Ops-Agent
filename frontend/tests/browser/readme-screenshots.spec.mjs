@@ -7,8 +7,8 @@ const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1
 const apiOrigin = "http://localhost:8080";
 const outputDirectory = "outputs/ui-ux/readme";
 
-// Capture the real built application. Workspace responses are synthetic fixtures;
-// there are no live accounts, keys, backend writes, or paid provider requests.
+// 실제 빌드한 화면을 촬영하되 작업 공간 응답은 가상 데이터를 사용한다.
+// 실계정·키·백엔드 저장·유료 공급자 요청은 사용하지 않는다.
 async function auditRequests(page, allowFixtureApi = false) {
   const audit = { blockedRequests: [], attemptedWrites: [], apiReads: [], pageErrors: [] };
   page.on("pageerror", error => audit.pageErrors.push(error.message));

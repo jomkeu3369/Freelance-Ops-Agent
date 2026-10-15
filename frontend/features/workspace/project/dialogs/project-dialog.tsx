@@ -5,7 +5,11 @@ import { useRef, useState } from "react";
 import { useDialogFocusTrap } from "../../shared/use-dialog-focus-trap";
 import { Warning, CaretDown, CircleNotch, ArrowRight } from "@phosphor-icons/react";
 import { currencyOptions } from "../../shared/constants";
-import { createProjectIntakeDraft, hasProjectIntakeDraft, readProjectIntakeDraft } from "@/app/lib/project-intake-draft.mjs";
+import {
+  createProjectIntakeDraft,
+  hasProjectIntakeDraft,
+  readProjectIntakeDraft
+} from "@/app/lib/project-intake-draft.mjs";
 
 interface ProjectDialogProps {
   clients: Client[];
@@ -112,7 +116,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
         </div>
         <h2 id="project-dialog-title">{t("이름과 문의 내용으로 시작하세요.")}</h2>
         <p id="project-dialog-description">
-          {t("고객이 보낸 내용을 그대로 붙여 넣으세요. 고객 연결과 예산은 나중에 추가해도 됩니다.")}</p>
+          {t("고객이 보낸 내용을 그대로 붙여 넣으세요. 고객 연결과 예산은 나중에 추가해도 됩니다.")}
+        </p>
         {error && (
           <div id="project-dialog-error" className="inline-error" role="alert">
             <Warning size={18} />
@@ -132,7 +137,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
           <fieldset className="dialog-fields" disabled={busy}>
             <label>
               <span>
-                {t("프로젝트 이름")}<small className="quick-intake-required">{t("필수")}</small>
+                {t("프로젝트 이름")}
+                <small className="quick-intake-required">{t("필수")}</small>
               </span>
               <input
                 data-autofocus
@@ -148,7 +154,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
             </label>
             <label>
               <span>
-                {t("고객 문의 원문")}<small className="quick-intake-required">{t("필수")}</small>
+                {t("고객 문의 원문")}
+                <small className="quick-intake-required">{t("필수")}</small>
               </span>
               <textarea
                 name="requirementText"
@@ -171,13 +178,15 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
             >
               <summary>
                 <span>
-                  {t("추가 정보")}<small>{t("선택 · 고객, 예산, 일정")}</small>
+                  {t("추가 정보")}
+                  <small>{t("선택 · 고객, 예산, 일정")}</small>
                 </span>
                 <CaretDown size={18} aria-hidden="true" />
               </summary>
               <div className="quick-intake-option-fields">
                 <label>
-                  {t("고객 연결")}<select name="clientId" value={draft.clientId} onChange={handleDraftChange}>
+                  {t("고객 연결")}
+                  <select name="clientId" value={draft.clientId} onChange={handleDraftChange}>
                     <option value="">{t("아직 고객을 연결하지 않음")}</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.id}>
@@ -194,7 +203,8 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                 </label>
                 <div className="form-row">
                   <label>
-                    {t("통화")}<select name="currency" value={draft.currency} onChange={handleDraftChange}>
+                    {t("통화")}
+                    <select name="currency" value={draft.currency} onChange={handleDraftChange}>
                       {currencyOptions.map((currency) => (
                         <option key={currency.value} value={currency.value}>
                           {currency.label}
@@ -203,11 +213,13 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
                     </select>
                   </label>
                   <label>
-                    {t("희망 완료일")}<input name="deadline" type="date" value={draft.deadline} onChange={handleDraftChange} />
+                    {t("희망 완료일")}
+                    <input name="deadline" type="date" value={draft.deadline} onChange={handleDraftChange} />
                   </label>
                 </div>
                 <label>
-                  {t("예산 범위")}<div className="budget-range">
+                  {t("예산 범위")}
+                  <div className="budget-range">
                     <input
                       name="budgetMin"
                       value={draft.budgetMin}
@@ -236,21 +248,37 @@ export function ProjectDialog({ clients, draft, onDraftChange, onDiscard, onClos
               </div>
             </details>
             <div className="intake-draft-status">
-              <small>{t("닫아도 작성 내용은 이 작업 공간에 유지됩니다. 로그아웃하거나 페이지를 새로 고치면 초기화됩니다.")}</small>
+              <small>
+                {t("닫아도 작성 내용은 이 작업 공간에 유지됩니다. 로그아웃하거나 페이지를 새로 고치면 초기화됩니다.")}
+              </small>
               {hasDraft && !confirmDiscard && (
-                <button type="button" className="quiet-button intake-draft-clear" onClick={() => setConfirmDiscard(true)}>{t("초안 비우기")}</button>
+                <button
+                  type="button"
+                  className="quiet-button intake-draft-clear"
+                  onClick={() => setConfirmDiscard(true)}
+                >
+                  {t("초안 비우기")}
+                </button>
               )}
               {confirmDiscard && (
                 <div className="intake-discard-confirm" role="group" aria-label={t("초안 폐기 확인")}>
                   <strong>{t("작성한 내용을 모두 비울까요?")}</strong>
-                  <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(false)}>{t("계속 작성")}</button>
-                  <button type="button" className="quiet-button" onClick={() => {
-                    onDiscard();
-                    setConfirmDiscard(false);
-                    setError(null);
-                    setInvalidField(null);
-                    dialogRef.current?.querySelector<HTMLInputElement>('[name="title"]')?.focus();
-                  }}>{t("작성값 폐기")}</button>
+                  <button type="button" className="quiet-button" onClick={() => setConfirmDiscard(false)}>
+                    {t("계속 작성")}
+                  </button>
+                  <button
+                    type="button"
+                    className="quiet-button"
+                    onClick={() => {
+                      onDiscard();
+                      setConfirmDiscard(false);
+                      setError(null);
+                      setInvalidField(null);
+                      dialogRef.current?.querySelector<HTMLInputElement>('[name="title"]')?.focus();
+                    }}
+                  >
+                    {t("작성값 폐기")}
+                  </button>
                 </div>
               )}
             </div>

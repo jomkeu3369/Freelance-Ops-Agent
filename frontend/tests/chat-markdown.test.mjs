@@ -13,7 +13,7 @@ const source = await readFile(new URL("../features/workspace/shared/chat-markdow
 const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });
 const exports = {};
 const modules = { react: React, "react/jsx-runtime": jsx, "react-markdown": { __esModule: true, default: Markdown }, "remark-gfm": { __esModule: true, default: remarkGfm }, "./chat-markdown.css": {} };
-// No browser globals: the actual renderer must remain safe during SSR.
+// 브라우저 전역 없이 실행해 실제 렌더러가 서버 렌더링에서도 안전한지 확인한다.
 vm.runInNewContext(outputText, { exports, URL, require: name => { assert.ok(name in modules, name); return modules[name]; } });
 const render = (children, locale = "en") => renderToStaticMarkup(React.createElement(exports.ChatMarkdown, { locale }, children));
 

@@ -27,8 +27,8 @@ const card = (id, name = id) => ({ id, name, workspaceId: "workspace", unit: "HO
 const rateInput = { name: "Saved service", rate: "250", minimumAmount: "0", unit: "HOUR", currency: "KRW" };
 const policyInput = { taxRate: "25", bufferRate: "15", discountRate: "20" };
 
-// Run the actual page, parent/child handlers, API and query cache. Only React's
-// scheduling/JSX and network are replaced, so every interleaving is deterministic.
+// 실제 페이지·부모와 자식 핸들러·API·쿼리 캐시를 실행한다.
+// React 스케줄링·JSX와 네트워크만 대체해 엇갈린 응답 순서를 제어한다.
 async function settings() {
   let now = Date.now(), current, panelIdentity;
   const instances = new Map(), modules = new Map();
@@ -173,7 +173,7 @@ for (const create of [false, true]) test(`a delayed rate GET preserves a confirm
   assert.equal(field(h.rate(), "rate"), 250);
   const list = all(h.rate(), node => node.props.className === "rate-card-list")[0];
   assert.equal(all(list, node => node.type === "button").length, create ? 2 : 1);
-  // A later activation change must not submit the reverted original price.
+  // 이후 활성화 변경 시 되돌린 이전 가격을 제출하지 않아야 한다.
   button(h.rate(), "비활성화").props.onClick();
   button(h.rate(), "비활성화").props.onClick();
   await flush();

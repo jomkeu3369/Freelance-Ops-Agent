@@ -52,8 +52,9 @@ Vercel Project의 Root Directory를 `frontend`로 지정합니다. `vercel.json`
 2. JSX는 화면을 읽는 순서대로 작성하고 저장·발행처럼 여러 단계의 동작은 이름 있는 함수로 둡니다. 컴포넌트 입력은 `Props` 인터페이스로 설명합니다. 함수 매개변수는 가로로 작성하고 마지막 콤마는 생략합니다.
 3. 화면 표시 함수·라벨·문서 변환은 `features/workspace/shared/`를 먼저 확인합니다. 다른 페이지의 컴포넌트 안에 있는 함수를 가져오는 대신 공통 함수를 이 폴더에 둡니다.
 4. `workspace-shell.tsx`와 `workspace-context.tsx`는 로그인 세션·작업 공간·현재 프로젝트·실시간 실행 상태를 공유하는 경계입니다. 이 파일의 계약을 바꿀 때는 다른 화면 담당자와 먼저 맞춥니다. 페이지에서 별도의 로그인 세션을 만들지 않습니다.
-5. 서버 요청은 기존 `app/lib/api.ts`를 사용합니다. 화면에서 서버 주소와 인증 처리를 다시 작성하지 않습니다.
-6. 공통 스타일은 `app/globals.css`, 작업 공간 스타일은 `app/workspace/figma-workspace.css`, 빠른 문의 스타일은 `app/workspace/quick-intake.css`입니다. 기존 스타일 적용 순서를 유지하기 위해 스타일 파일은 이번에 이동하지 않았습니다. 공통 CSS를 바꿀 때는 다른 화면에도 영향이 있는지 확인합니다.
+5. 화면의 서버 요청은 `app/lib/api.ts`를 통해 가져옵니다. 실제 구현은 `app/lib/api/`의 업무별 모듈에 있고, 요청·세션 복구는 `http.ts`, 응답 타입은 `contracts/`에서 관리합니다. 화면에서 서버 주소와 인증 처리를 다시 작성하지 않습니다.
+6. 실행 이벤트 재연결·상태 조회는 `project/analysis/use-agent-run-monitor.ts`, 대화 기록·과거 결과 조회는 `use-agent-history.ts`에서 관리합니다. 화면은 이 훅을 사용하며 같은 조회를 중복 구현하지 않습니다.
+7. 공통 스타일은 `app/globals.css`, 작업 공간 스타일은 `app/workspace/figma-workspace.css`, 빠른 문의 스타일은 `app/workspace/quick-intake.css`입니다. 공통 CSS를 바꿀 때는 다른 화면에도 영향이 있는지 확인하고 스타일 적용 순서를 유지합니다.
 
 메인 소개의 세부 수정 지도는 [`features/home/README.md`](features/home/README.md)를 참고합니다. 작업 후 `npm run preview:check`로 타입·회귀 검사·린트·빌드를 함께 확인합니다.
 

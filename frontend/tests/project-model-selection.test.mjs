@@ -10,8 +10,8 @@ const compile = async path => ts.transpileModule(await readFile(new URL(path, im
 const constants = {};
 runInNewContext(await compile("../features/workspace/shared/constants.tsx"), { exports: constants, process: { env: {} } });
 const selections = {};
-// No storage, browser, network or API objects exist in this fixture. Selection
-// changes are ephemeral data operations and cannot persist secrets or start work.
+// 이 검증 환경에는 저장소·브라우저·네트워크·API 객체가 없다.
+// 선택 변경은 임시 데이터 처리이며 비밀 정보를 저장하거나 실행을 시작할 수 없다.
 runInNewContext(await compile("../features/workspace/project/project-model-selection.ts"), {
   exports: selections, require: name => { assert.equal(name, "../shared/constants"); return constants; }
 });

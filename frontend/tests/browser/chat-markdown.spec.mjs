@@ -49,14 +49,14 @@ for (const width of [320, 390, 1440]) for (const [locale, theme] of [["ko", "lig
       await table.press("ArrowRight");
       await expect.poll(() => table.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
     }
-    // Capture real application rendering, with the message top visible.
+    // 메시지 상단이 보이는 실제 애플리케이션 화면을 촬영한다.
     await page.getByRole("log").evaluate(el => { el.scrollTop = 0; });
     await page.screenshot({ path: `outputs/ui-ux/chat-markdown-${width}-${locale}-${theme}.png` });
     await table.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `outputs/ui-ux/chat-markdown-table-${width}-${locale}-${theme}.png` });
     await pre.scrollIntoViewIfNeeded();
     await page.screenshot({ path: `outputs/ui-ux/chat-markdown-code-${width}-${locale}-${theme}.png` });
-    // Measure the actual themed code foreground/background, rather than a fixed palette.
+    // 고정 색상 대신 현재 테마의 실제 코드 글자색과 배경색을 측정한다.
     const codeContrast = await pre.evaluate(element => {
       const rgb = color => color.match(/[\d.]+/g).slice(0, 3).map(Number);
       const luminance = color => rgb(color).map(value => { const v = value / 255; return v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);

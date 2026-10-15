@@ -7,7 +7,7 @@ const copy = {
   en: { signup: "Sign up", login: "Log in", question: "Are you at least 14 years old? (required)", error: "Confirm that you are at least 14 years old. Anyone under 14 cannot sign up." }
 };
 
-// Every auth request is intercepted. These tests never create an account or contact a real API.
+// 모든 인증 요청을 가로챈다. 계정을 생성하거나 실제 API에 접속하지 않는다.
 const test = base.extend({
   auth: async ({ page }, runFixture) => {
     const state = { requests: [], unexpected: [], errors: [], delay: 0 };

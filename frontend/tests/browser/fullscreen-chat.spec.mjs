@@ -14,8 +14,8 @@ function seedConversation(state, count = 18) {
   });
 }
 async function expectViewportLayout(page) {
-  // Shared project context can require main scrolling on short screens.
-  // The composer must remain reachable without scrolling the document.
+  // 짧은 화면에서는 공통 프로젝트 정보 때문에 본문 스크롤이 필요할 수 있다.
+  // 문서 전체를 스크롤하지 않고도 입력창에 접근할 수 있어야 한다.
   await page.locator(".agent-chat-composer").scrollIntoViewIfNeeded();
   for (const selector of [".workspace-topbar", "#agent-chat-input", '.agent-chat-composer button[type="submit"]']) {
     const box = await page.locator(selector).boundingBox();
@@ -70,7 +70,7 @@ test("shrinking viewport preserves long drafts and reachable offline/send contro
     const controls = await page.locator(".workspace-account-actions").boundingBox();
     expect(title.x + title.width).toBeLessThanOrEqual(controls.x);
   }
-  // Expanding either new feature must not steal space from the primary controls.
+  // 새 기능을 펼쳐도 주요 조작 요소의 공간을 빼앗지 않아야 한다.
   await page.setViewportSize({ width: 390, height: 420 });
   await page.getByRole("button", { name: "AI 설정 열기", exact: true }).click();
   await page.locator(".skill-selector summary").click();

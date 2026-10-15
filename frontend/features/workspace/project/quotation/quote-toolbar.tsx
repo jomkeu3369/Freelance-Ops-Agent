@@ -5,7 +5,16 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteToolbar({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { availableAIDrafts, canWrite, scenario, activateScenario, aiDraftByScenario, saved, discardGeneratedAIDraft, resetQuotation } = model;
+  const {
+    availableAIDrafts,
+    canWrite,
+    scenario,
+    activateScenario,
+    aiDraftByScenario,
+    saved,
+    discardGeneratedAIDraft,
+    resetQuotation
+  } = model;
 
   return (
     <>
@@ -36,16 +45,14 @@ export function QuoteToolbar({ model }: { model: QuoteBuilderModel }) {
             ))}
           </div>
           {canWrite && aiDraftByScenario[scenario] && !saved && (
-            <button
-              type="button"
-              className="quiet-button danger discard-ai-draft"
-              onClick={discardGeneratedAIDraft}
-            >
-              AI {t(quotationScenarioLabels[scenario])} {t("버리기")}</button>
+            <button type="button" className="quiet-button danger discard-ai-draft" onClick={discardGeneratedAIDraft}>
+              AI {t(quotationScenarioLabels[scenario])} {t("버리기")}
+            </button>
           )}
           {canWrite && (
             <button type="button" className="quiet-button" onClick={() => resetQuotation()}>
-              {t("새 견적안")}</button>
+              {t("새 견적안")}
+            </button>
           )}
         </div>
       </div>

@@ -9,7 +9,7 @@ test('BYOK denials are stable, localizable and do not interpolate credential dat
   for (const [code, message] of Object.entries(byokFailureMessages)) {
     assert.equal(byokFailureMessage(code), message);
     assert.ok(creditEnglish[message]);
-    assert.doesNotMatch(message, /sk-secret|https:|credential_id|provider payload/);
+    assert.doesNotMatch(message, /sk-secret|https:|credential_id|provider\s*payload/);
   }
   for (const unknown of [null, undefined, '', 'PLATFORM_SPEND_DISABLED', 'toString', '__proto__', 'sk-secret-value', {}]) assert.equal(byokFailureMessage(unknown), null);
 });
@@ -17,13 +17,13 @@ test('BYOK denials are stable, localizable and do not interpolate credential dat
 test('model controls describe the true personal-key cost boundary and unsupported extras', async () => {
   const controls=await readFile(new URL('../features/workspace/project/analysis/chat-model-controls.tsx',import.meta.url),'utf8');
   const settings=await readFile(new URL('../features/workspace/settings/ai-connection-settings.tsx',import.meta.url),'utf8');
-  assert.match(controls,/선택한 OpenAI 키로만/);
-  assert.match(controls,/플랫폼 AI를 사용하지 않습니다/);
-  assert.match(controls,/실패·재시도도 실행 한도에 포함/);
-  assert.match(settings,/텍스트와 프로젝트를 분석/);
+  assert.match(controls,/선택한\s*OpenAI\s*키로만/);
+  assert.match(controls,/플랫폼\s*AI를\s*사용하지\s*않습니다/);
+  assert.match(controls,/실패·재시도도\s*실행\s*한도에\s*포함/);
+  assert.match(settings,/텍스트와\s*프로젝트를\s*분석/);
   for (const source of [controls,settings]) {
-    assert.match(source,/유료 웹 검색·임베딩·별도 AI 생성은 지원하지 않습니다/);
-    assert.doesNotMatch(source,/플랫폼이 처리하는 라우팅 비용은 주간 예산에 포함|분석과 견적 가정 제안을 실행하세요/);
+    assert.match(source,/유료\s*웹\s*검색·임베딩·별도\s*AI\s*생성은\s*지원하지\s*않습니다/);
+    assert.doesNotMatch(source,/플랫폼이\s*처리하는\s*라우팅\s*비용은\s*주간\s*예산에\s*포함|분석과\s*견적\s*가정\s*제안을\s*실행하세요/);
   }
 });
 
@@ -31,11 +31,11 @@ test('typed BYOK admission errors reach the preserved-draft chat and terminal pr
   const shell=await readFile(new URL('../features/workspace/workspace-shell.tsx',import.meta.url),'utf8');
   const workbench=await readFile(new URL('../features/workspace/project/project-workbench.tsx',import.meta.url),'utf8');
   const activity=await readFile(new URL('../features/workspace/shared/activity-presentation.tsx',import.meta.url),'utf8');
-  assert.match(shell,/cause instanceof ApiError && byokFailureMessage\(cause.code\)\) throw cause/);
-  assert.match(workbench,/if \(byokMessage\) throw new Error\(t\(byokMessage\)\)/);
-  assert.match(activity,/byokFailureMessage\(errorCode\) \?\?/);
-  assert.match(workbench,/<div className="agent-chat-credit-note"><ByokCostNotice/);
-  assert.match(workbench,/chatModel.credentialId \? personalCostKnown : !ledgerBlocker && !ledger.loading/);
+  assert.match(shell,/cause\s*instanceof\s*ApiError\s*&&\s*byokFailureMessage\(cause.code\)\s*\)\s*throw\s*cause/);
+  assert.match(workbench,/if\s*\(byokMessage\)\s*throw\s*new\s*Error\(t\(byokMessage\)\)/);
+  assert.match(activity,/byokFailureMessage\(errorCode\)\s*\?\?/);
+  assert.match(workbench,/<div\s*className="agent-chat-credit-note">\s*<ByokCostNotice/);
+  assert.match(workbench,/chatModel.credentialId\s*\?\s*personalCostKnown\s*:\s*!ledgerBlocker\s*&&\s*!ledger.loading/);
 });
 
 test('per-run personal cost estimates use exact conservative Standard arithmetic, never free unknown prices', async () => {
@@ -62,14 +62,14 @@ test('actual START caps differ only for explicitly selected personal credentials
   assert.equal(contract.start.budget.maxInputTokens,50000);
   assert.equal(contract.byokStart.budget.maxInputTokens,150000);
   assert.deepEqual({...contract.start.budget,maxInputTokens:150000},contract.byokStart.budget);
-  const source=await readFile(new URL('../app/lib/api.ts',import.meta.url),'utf8');
-  assert.match(source,/maxInputTokens: input.credentialId \? 150000 : 50000/);
-  const block=source.match(/budget: \{\s*maxDurationSeconds: 180,(.*?)\n\s*\},/s)?.[0];
+  const source=await readFile(new URL('../app/lib/api/agent-runs.ts',import.meta.url),'utf8');
+  assert.match(source,/maxInputTokens:\s*input.credentialId\s*\?\s*150000\s*:\s*50000/);
+  const block=source.match(/budget:\s*\{\s*maxDurationSeconds:\s*180,(.*?)\n\s*\},/s)?.[0];
   assert.ok(block);
-  const values=Object.fromEntries([...block.matchAll(/(max\w+): (\d+)/g)].map(([,key,value])=>[key,Number(value)]));
+  const values=Object.fromEntries([...block.matchAll(/(max\w+):\s*(\d+)/g)].map(([,key,value])=>[key,Number(value)]));
   for(const [personal,key] of [[false,'start'],[true,'byokStart']]){
     assert.deepEqual({...values,maxInputTokens:personal?150000:50000},contract[key].budget);
   }
-  assert.match(source,/input.credentialId && !byokCostEstimate\(input.provider, input.model\)/);
-  assert.match(source,/input.credentialId \? \{ byokCostNoticeVersion \} : \{\}/);
+  assert.match(source,/input.credentialId\s*&&\s*!byokCostEstimate\(input.provider,\s*input.model\)/);
+  assert.match(source,/input.credentialId\s*\?\s*\{\s*byokCostNoticeVersion\s*\}\s*:\s*\{\}/);
 });

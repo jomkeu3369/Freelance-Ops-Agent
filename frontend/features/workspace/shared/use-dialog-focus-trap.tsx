@@ -1,7 +1,7 @@
 import { RefObject, useRef, useEffect } from "react";
 
-// Async server notices can appear while a settings or result panel is open.
-// One ordered stack owns keyboard handling, body scrolling, and inert snapshots.
+// 설정이나 결과 패널이 열린 동안 서버 알림이 추가될 수 있다.
+// 스택 하나에서 키보드 처리, 본문 스크롤, inert 복원 상태의 순서를 관리한다.
 type DialogEntry = { element: HTMLElement; inertBackground: boolean };
 const dialogs: DialogEntry[] = [];
 const inertSnapshots = new Map<HTMLElement, boolean>();
@@ -26,13 +26,7 @@ function reconcileBackground() {
   }
 }
 
-export function useDialogFocusTrap(
-  dialogRef: RefObject<HTMLElement | null>,
-  onClose: () => void,
-  closeDisabled = false,
-  enabled = true,
-  inertBackground = false
-) {
+export function useDialogFocusTrap(dialogRef: RefObject<HTMLElement | null>, onClose: () => void, closeDisabled = false, enabled = true, inertBackground = false) {
   const closeRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
 
@@ -51,9 +45,11 @@ export function useDialogFocusTrap(
     document.body.style.overflow = "hidden";
     reconcileBackground();
     const getFocusable = () =>
-      [...element.querySelectorAll<HTMLElement>(
-        "button, input, textarea, select, summary, [href], [tabindex]:not([tabindex='-1'])"
-      )].filter((candidate) => {
+      [
+        ...element.querySelectorAll<HTMLElement>(
+          "button, input, textarea, select, summary, [href], [tabindex]:not([tabindex='-1'])"
+        )
+      ].filter((candidate) => {
         const closedDetails = candidate.closest("details:not([open])");
         return (
           !candidate.matches(":disabled") &&
@@ -77,7 +73,10 @@ export function useDialogFocusTrap(
       }
       if (event.key !== "Tab") return;
       const focusable = getFocusable();
-      if (!focusable.length) { event.preventDefault(); return; }
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!element.contains(document.activeElement)) {
@@ -100,7 +99,8 @@ export function useDialogFocusTrap(
       reconcileBackground();
       if (!dialogs.length) document.body.style.overflow = originalBodyOverflow;
       const top = dialogs.at(-1);
-      if (previouslyFocused?.isConnected && (!top || top.element.contains(previouslyFocused))) previouslyFocused?.focus();
+      if (previouslyFocused?.isConnected && (!top || top.element.contains(previouslyFocused)))
+        previouslyFocused?.focus();
     };
   }, [dialogRef, enabled, inertBackground]);
 }

@@ -71,9 +71,9 @@ function mount() {
         to(target, vars, at) { this.calls.push({ kind: "to", target, vars, at }); return this; },
         set(target, vars, at) { this.calls.push({ kind: "set", target, vars, at }); return this; },
         kill() { this.killed = true; },
-        // Apply completed milestones, retaining chronological order even when
-        // the hook creates overlapping tweens. Intermediate travel is supplied
-        // explicitly below so interruption tests control the observed position.
+        // 훅이 겹치는 tween을 만들어도 완료 지점은 시간 순서대로 적용한다.
+        // 중간 이동 위치는 아래에서 직접 지정해
+        // 중단 검증이 실제 관찰 위치를 제어할 수 있게 한다.
         finishThrough(time) {
           if (this.killed) return;
           this.calls.map(call => ({ ...call, end: call.at + (call.vars.duration ?? 0) }))

@@ -46,42 +46,48 @@ test("partial missing text keeps its distinct explanation, and unknown partial r
 
 test("input warnings are separate from user text and keep result fetch, retry, and opening paths", async () => {
   const chat = await readFile(new URL("../features/workspace/project/analysis/agent-chat.tsx", import.meta.url), "utf8");
+  const history = await readFile(new URL("../features/workspace/project/analysis/use-agent-history.ts", import.meta.url), "utf8");
   assert.match(chat, /originalInputPresentation\(item\)/);
-  assert.match(chat, /originalInput\.text && <div className="agent-chat-message user"/);
-  assert.match(chat, /originalInput\.notices\.map\(notice => <p className="agent-chat-input-notice"/);
-  assert.match(chat, /if \(cancelled\) return;\s*setHistory\(items\)/);
+  assert.match(chat, /originalInput\.text\s*&&\s*\(?\s*<div\s*className="agent-chat-message\s*user"/);
+  assert.match(chat, /originalInput\.notices\.map\(\(?notice\)?\s*=>\s*\(?\s*<p\s*className="agent-chat-input-notice"/);
+  assert.match(history, /if\s*\(cancelled\)\s*return;\s*setHistory\(items\)/);
   assert.match(chat, /onOpenResult\(view\)/);
-  assert.match(chat, /setHistoryRevision\(value => value \+ 1\)/);
+  assert.match(chat, /onClick=\{refreshHistory\}/);
   assert.match(chat, /a\.createdAt\.localeCompare\(b\.createdAt\)/);
 });
 
-// Execute the real effect with controlled API promises and state setters. This
-// catches lifecycle ordering without copying the implementation into a model.
-const chatSource = await readFile(new URL("../features/workspace/project/analysis/agent-chat.tsx", import.meta.url), "utf8");
-const effectStart = chatSource.indexOf("  useEffect(() => {\n    if (!canRun) return;");
-assert.ok(effectStart >= 0);
-const effectSource = chatSource.slice(effectStart, chatSource.indexOf("  const turns =", effectStart));
-const effect = ts.transpileModule(effectSource, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+// 실제 훅에 제어 가능한 API 응답을 주입해 취소와 상태 갱신 순서를 검증한다.
+const historySource = await readFile(new URL("../features/workspace/project/analysis/use-agent-history.ts", import.meta.url), "utf8");
+const historyModule = ts.transpileModule(historySource, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }
+}).outputText;
 const flush = () => new Promise(setImmediate);
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const saved = (runId) => ({ runId, requirementText: `Original ${runId}`, status: "COMPLETED", createdAt: "2026-10-01T00:00:00Z" });
 const view = (runId) => ({ runId, status: "COMPLETED", result: { projectSummary: `Result ${runId}` } });
 
 function historyHarness() {
-  const state = { history: [], pastRuns: {}, resultReads: {}, loading: false, error: null };
+  const state = { history: [], pastRuns: {}, resultReads: {}, loading: false, error: null, historyRevision: 0 };
   const reads = [];
   const writes = [];
   const setter = (name) => value => { state[name] = typeof value === "function" ? value(state[name]) : value; writes.push(name); };
   function start({ history, results = {}, projectId = "project-one", session = { userId: "user-one", workspaceId: "space-one" }, runId = "current" }) {
     let cleanup;
-    const dependencies = {
-      useEffect: callback => { cleanup = callback(); }, canRun: true,
-      listProjectAgentRunHistory: () => history, session, projectId, runId,
-      getAgentRun: (_session, id) => { reads.push({ session, projectId, runId: id }); return results[id]?.() ?? Promise.resolve(view(id)); },
-      setHistory: setter("history"), setPastRuns: setter("pastRuns"), setResultReads: setter("resultReads"),
-      setLoading: setter("loading"), setError: setter("error"), t: value => value, historyRevision: 0,
+    let cursor = 0;
+    const keys = Object.keys(state);
+    const imports = {
+      react: {
+        useState: () => { const name = keys[cursor++]; return [state[name], setter(name)]; },
+        useEffect: callback => { cleanup = callback(); }
+      },
+      "../../../../app/lib/api": {
+        listProjectAgentRunHistory: () => history,
+        getAgentRun: (_session, id) => { reads.push({ session, projectId, runId: id }); return results[id]?.() ?? Promise.resolve(view(id)); }
+      }
     };
-    Function(...Object.keys(dependencies), effect)(...Object.values(dependencies));
+    const exports = {};
+    Function("exports", "require", historyModule)(exports, name => imports[name]);
+    exports.useAgentHistory({ session, projectId, runId, canRun: true, t: value => value });
     return cleanup;
   }
   return { state, reads, writes, start };

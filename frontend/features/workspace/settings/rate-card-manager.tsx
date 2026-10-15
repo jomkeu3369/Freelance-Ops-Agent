@@ -20,16 +20,16 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  // Keep uncontrolled input identity stable through a pending/failed write.
+  // 변경 대기·실패 중에도 비제어 입력의 식별자를 유지한다.
   const [submittedCard, setSubmittedCard] = useState<RateCard | null>(null);
   const pending = useRef(false);
-  // Keep the same PUT target when the server saved but its response was lost.
+  // 서버 저장 후 응답이 유실돼도 같은 PUT 대상으로 다시 확인한다.
   const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
   const formCard = submittedCard ?? selected;
 
   const replaceCard = (card: RateCard) => {
-    onChange(current => {
+    onChange((current) => {
       const exists = current.some((item) => item.id === card.id);
       const next = exists ? current.map((item) => (item.id === card.id ? card : item)) : [...current, card];
       return next.sort((left, right) => left.name.localeCompare(right.name, "ko"));
@@ -116,7 +116,10 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         <p>
           {rateCards.length === 0
             ? t("등록된 단가가 없습니다. 첫 단가를 추가하세요.")
-            : t("{v0}개 사용 중 · {v1}개 전체", { v0: rateCards.filter((card) => card.active).length, v1: rateCards.length })}
+            : t("{v0}개 사용 중 · {v1}개 전체", {
+                v0: rateCards.filter((card) => card.active).length,
+                v1: rateCards.length
+              })}
         </p>
         {canWrite && (
           <button
@@ -127,14 +130,15 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               if (pending.current) return;
               newCardId.current = null;
               setSubmittedCard(null);
-              setNewDraftVersion(value => value + 1);
+              setNewDraftVersion((value) => value + 1);
               setEditorId("new");
               setError(null);
               setNotice(null);
               setConfirmDeactivate(false);
             }}
           >
-            <Plus size={17} /> {t("새 단가")}</button>
+            <Plus size={17} /> {t("새 단가")}
+          </button>
         )}
       </div>
       {rateCards.length > 0 && (
@@ -162,7 +166,10 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               <span>
                 {formatMoney(card.rate, card.currency)} /{" "}
                 {card.unit === "HOUR" ? t("시간") : card.unit === "DAY" ? t("일") : t("건")}
-                <small>{t("최소")}{formatMoney(card.minimumAmount, card.currency)}</small>
+                <small>
+                  {t("최소")}
+                  {formatMoney(card.minimumAmount, card.currency)}
+                </small>
               </span>
             </button>
           ))}
@@ -180,7 +187,9 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             <div>
               <strong>{selected ? t("단가 편집") : t("새 단가 등록")}</strong>
               <span>
-                {formCard ? t("수정 이력 {v0}", { v0: formCard.version }) : t("견적에 사용할 서비스와 금액을 입력하세요.")}
+                {formCard
+                  ? t("수정 이력 {v0}", { v0: formCard.version })
+                  : t("견적에 사용할 서비스와 금액을 입력하세요.")}
               </span>
             </div>
             {selected && (
@@ -204,7 +213,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
           <fieldset disabled={busy}>
             <div className="form-row">
               <label>
-                {t("서비스 이름")}<input
+                {t("서비스 이름")}
+                <input
                   name="name"
                   required
                   maxLength={120}
@@ -213,14 +223,16 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                 />
               </label>
               <label>
-                {t("단위")}<select name="unit" defaultValue={formCard?.unit ?? "HOUR"}>
+                {t("단위")}
+                <select name="unit" defaultValue={formCard?.unit ?? "HOUR"}>
                   <option value="HOUR">{t("시간")}</option>
                   <option value="DAY">{t("일")}</option>
                   <option value="FIXED">{t("고정")}</option>
                 </select>
               </label>
               <label>
-                {t("통화")}<select name="currency" defaultValue={formCard?.currency ?? "KRW"}>
+                {t("통화")}
+                <select name="currency" defaultValue={formCard?.currency ?? "KRW"}>
                   <option value="KRW">KRW</option>
                   <option value="USD">USD</option>
                   <option value="JPY">JPY</option>
@@ -229,17 +241,12 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
             </div>
             <div className="form-row">
               <label>
-                {t("기본 단가")}<input
-                  name="rate"
-                  type="number"
-                  min="0"
-                  required
-                  step="0.01"
-                  defaultValue={formCard?.rate ?? ""}
-                />
+                {t("기본 단가")}
+                <input name="rate" type="number" min="0" required step="0.01" defaultValue={formCard?.rate ?? ""} />
               </label>
               <label>
-                {t("최소 금액")}<input
+                {t("최소 금액")}
+                <input
                   name="minimumAmount"
                   type="number"
                   min="0"
@@ -260,28 +267,29 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                     <div className="archive-confirm">
                       <span>{t("새 견적에서 이 단가를 숨길까요?")}</span>
                       <button type="button" onClick={() => void toggleActive()}>
-                        {t("비활성화")}</button>
+                        {t("비활성화")}
+                      </button>
                       <button type="button" onClick={() => setConfirmDeactivate(false)}>
-                        {t("취소")}</button>
+                        {t("취소")}
+                      </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="quiet-button danger"
-                      onClick={() => setConfirmDeactivate(true)}
-                    >
-                      <Archive size={17} /> {t("비활성화")}</button>
+                    <button type="button" className="quiet-button danger" onClick={() => setConfirmDeactivate(true)}>
+                      <Archive size={17} /> {t("비활성화")}
+                    </button>
                   )
                 ) : (
                   <button type="button" className="quiet-button" onClick={() => void toggleActive()}>
-                    <ArrowRight size={17} /> {t("다시 사용")}</button>
+                    <ArrowRight size={17} /> {t("다시 사용")}
+                  </button>
                 ))}
             </div>
           </fieldset>
         </form>
       ) : (
         <p className="permission-note">
-          {t("단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.")}</p>
+          {t("단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.")}
+        </p>
       )}
     </div>
   );

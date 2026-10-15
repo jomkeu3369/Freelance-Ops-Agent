@@ -47,7 +47,7 @@ function difference(first, second, region = () => true) {
 
 function brightTarget(frame) {
   let best = { x: 0, y: 0, energy: -1 };
-  // Aim at the rendered light instead of assuming a shader-space coordinate.
+  // 셰이더 좌표를 가정하지 않고 실제로 그려진 빛을 조작한다.
   for (let y = 180; y < frame.height * .78; y += 70) for (let x = frame.width * .3; x < frame.width * .88; x += 70) {
     let energy = 0;
     for (let dy = -30; dy <= 30; dy += 6) for (let dx = -30; dx <= 30; dx += 6) {

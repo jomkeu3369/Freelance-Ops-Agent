@@ -38,11 +38,7 @@ export function AnalysisTimeline({ events, run }: AnalysisTimelineProps) {
                       </div>
                     )}
                   </div>
-                  <time>
-                    {event.occurredAt
-                      ? new Date(event.occurredAt).toLocaleTimeString("ko-KR")
-                      : t("방금")}
-                  </time>
+                  <time>{event.occurredAt ? new Date(event.occurredAt).toLocaleTimeString("ko-KR") : t("방금")}</time>
                 </li>
               );
             })}

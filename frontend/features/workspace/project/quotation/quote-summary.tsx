@@ -1,9 +1,5 @@
 import { useT } from "../../../../app/lib/ui-language";
-import {
-  CheckCircle,
-  CircleNotch,
-  Receipt
-} from "@phosphor-icons/react";
+import { CheckCircle, CircleNotch, Receipt } from "@phosphor-icons/react";
 import { sourceTypeLabel } from "../../shared/documents";
 import { formatMoney } from "../../shared/formatters";
 
@@ -11,13 +7,26 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { estimatedSubtotal, project, taxRate, canWrite, setTaxRate, validUntil, setValidUntil, selectedBasis, busy, canSave, save } = model;
+  const {
+    estimatedSubtotal,
+    project,
+    taxRate,
+    canWrite,
+    setTaxRate,
+    validUntil,
+    setValidUntil,
+    selectedBasis,
+    busy,
+    canSave,
+    save
+  } = model;
 
   return (
     <>
       <aside className="quote-summary">
         <span>
-          <Receipt size={18} /> {t("계산 미리보기")}</span>
+          <Receipt size={18} /> {t("계산 미리보기")}
+        </span>
         <dl>
           <div>
             <dt>{t("항목 합계")}</dt>
@@ -33,7 +42,13 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
           </div>
         </dl>
         <details className="quote-summary-controls workspace-disclosure">
-          <summary id="quote-calculation-settings">{t("계산 조건")}<small>{t("세율")}{Math.round(taxRate * 100)}%</small></summary>
+          <summary id="quote-calculation-settings">
+            {t("계산 조건")}
+            <small>
+              {t("세율")}
+              {Math.round(taxRate * 100)}%
+            </small>
+          </summary>
           <label>
             <div>
               <strong>{t("세율")}</strong>
@@ -72,9 +87,7 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
           <details className="evidence-inspector workspace-disclosure">
             <summary>{t("선택 항목 근거")}</summary>
             <strong>
-              {selectedBasis.type === "EVIDENCE"
-                ? selectedBasis.sourceTitle || "제목 없는 근거"
-                : t("확인할 가정")}
+              {selectedBasis.type === "EVIDENCE" ? selectedBasis.sourceTitle || "제목 없는 근거" : t("확인할 가정")}
             </strong>
             <p>{selectedBasis.content || "근거 또는 가정 내용을 입력하세요."}</p>
             {selectedBasis.type === "EVIDENCE" && (
@@ -100,19 +113,16 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
           </details>
         )}
         {canWrite ? (
-          <button
-            type="button"
-            className="primary-button"
-            disabled={busy || !canSave}
-            onClick={() => void save()}
-          >
-            {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("검토용 초안 저장")}</button>
+          <button type="button" className="primary-button" disabled={busy || !canSave} onClick={() => void save()}>
+            {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("검토용 초안 저장")}
+          </button>
         ) : (
           <small className="validation-hint">{t("읽기 전용 견적입니다.")}</small>
         )}
         {canWrite && !canSave && (
           <small className="validation-hint">
-            {t("모든 항목에 이름, 수량, 단가와 근거 또는 가정을 입력하세요. 근거는 출처 유형과 참조가 필수입니다.")}</small>
+            {t("모든 항목에 이름, 수량, 단가와 근거 또는 가정을 입력하세요. 근거는 출처 유형과 참조가 필수입니다.")}
+          </small>
         )}
       </aside>
     </>

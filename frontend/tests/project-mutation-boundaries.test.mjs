@@ -9,6 +9,7 @@ const compile = async path => ts.transpileModule(await readFile(new URL(path, im
   compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
 }).outputText;
 const shellSource = await compile("../features/workspace/workspace-shell.tsx");
+const monitorSource = await compile("../features/workspace/project/analysis/use-agent-run-monitor.ts");
 const reconciler = {};
 runInNewContext(await compile("../features/workspace/projects/reconcile-project.ts"), { exports: reconciler });
 const modelSelectionHelpers = {};
@@ -74,6 +75,18 @@ function fixture() {
     "./auth/auth-gate": { AuthGate: "AuthGate" }
   };
   const exports = {};
+  const monitor = {};
+  runInNewContext(monitorSource, {
+    exports: monitor,
+    require: name => ({
+      react,
+      "../../../../app/lib/api": api,
+      "../../../../app/lib/stream-retry.mjs": imports["../../app/lib/stream-retry.mjs"],
+      "../../shared/constants": imports["./shared/constants"]
+    })[name] ?? {},
+    window: browser, AbortController, Promise, Set
+  });
+  imports["./project/analysis/use-agent-run-monitor"] = monitor;
   runInNewContext(shellSource, { exports, require: name => imports[name] ?? {}, window: browser, AbortController,
     document: { activeElement: null, querySelector: () => null }, HTMLElement: class {}, requestAnimationFrame: () => 1, cancelAnimationFrame() {}, CSS: { escape: value => value }, Date, Promise, Set });
   function find(type, node) {

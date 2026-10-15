@@ -12,7 +12,15 @@ import {
 } from "../../../app/lib/api";
 import { useState, useRef, useSyncExternalStore, useCallback, useEffect, FormEvent } from "react";
 import { pipelineColumns, pipelineStatusLabels } from "../shared/constants";
-import { CaretDown, CircleNotch, MagnifyingGlass, Plus, Warning, FolderOpen, DotsSixVertical } from "@phosphor-icons/react";
+import {
+  CaretDown,
+  CircleNotch,
+  MagnifyingGlass,
+  Plus,
+  Warning,
+  FolderOpen,
+  DotsSixVertical
+} from "@phosphor-icons/react";
 import { projectClientLabel, formatMoney } from "../shared/formatters";
 import { usePipelineMoveState } from "./pipeline-move-store";
 import { usePipelineDrag } from "./use-pipeline-drag";
@@ -65,8 +73,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
   const [error, setError] = useState<string | null>(null);
   const { search, activeColumn, preferredView, sort } = preferences;
   const setSearch = (search: string) => onPreferencesChange((current) => ({ ...current, search }));
-  const setActiveColumn = (activeColumn: string) =>
-    onPreferencesChange((current) => ({ ...current, activeColumn }));
+  const setActiveColumn = (activeColumn: string) => onPreferencesChange((current) => ({ ...current, activeColumn }));
   const setView = (preferredView: "board" | "list") =>
     onPreferencesChange((current) => ({ ...current, preferredView }));
   const setSort = (sort: "updated" | "deadline") => onPreferencesChange((current) => ({ ...current, sort }));
@@ -90,19 +97,18 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
     () => false
   );
   const view = preferredView ?? (compact ? "list" : "board");
-  const displayedProjects = projects.map(project => pendingMove?.id === project.id ? { ...project, status: pendingMove.status } : project);
+  const displayedProjects = projects.map((project) =>
+    pendingMove?.id === project.id ? { ...project, status: pendingMove.status } : project
+  );
   const activeProjects = displayedProjects.filter(
     (project) =>
-      project.status !== "CANCELLED" &&
-      (!searchResults || searchResults.some((result) => result.id === project.id))
+      project.status !== "CANCELLED" && (!searchResults || searchResults.some((result) => result.id === project.id))
   );
   const selectedColumn = pipelineColumns.find((column) => column.key === activeColumn);
   const visibleProjects = activeProjects
     .filter(
       (project) =>
-        view === "board" ||
-        !selectedColumn ||
-        selectedColumn.statuses.includes(project.status as ProjectStatus)
+        view === "board" || !selectedColumn || selectedColumn.statuses.includes(project.status as ProjectStatus)
     )
     .toSorted((left, right) =>
       sort === "deadline"
@@ -158,33 +164,37 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
   };
 
   const move = async (project: Project, status: ProjectStatus) => {
-    const current = projects.find(item => item.id === project.id);
+    const current = projects.find((item) => item.id === project.id);
     if (!canWrite || !current || current.status === status) return;
     const operation = stageMove.begin(project.id, status);
     if (!operation) return;
     let moveError: string | null = null;
     let notice: { title: string; status: string } | null = null;
-    const focusedSelect = document.activeElement instanceof HTMLSelectElement
-      && document.activeElement.closest("[data-project-id]")?.getAttribute("data-project-id") === project.id;
+    const focusedSelect =
+      document.activeElement instanceof HTMLSelectElement &&
+      document.activeElement.closest("[data-project-id]")?.getAttribute("data-project-id") === project.id;
     const restoreFocus = () => {
-      if (focusedSelect) requestAnimationFrame(() => {
-        if (document.activeElement === document.body) {
-          boardPage.current?.querySelector<HTMLSelectElement>(`[data-project-id="${CSS.escape(project.id)}"] select`)?.focus();
-        }
-      });
+      if (focusedSelect)
+        requestAnimationFrame(() => {
+          if (document.activeElement === document.body) {
+            boardPage.current
+              ?.querySelector<HTMLSelectElement>(`[data-project-id="${CSS.escape(project.id)}"] select`)
+              ?.focus();
+          }
+        });
     };
     setError(null);
     restoreFocus();
     const accept = (updated: Project) => {
       onProjectUpdated(updated);
-      setSearchResults(current => current?.map(item => item.id === updated.id ? updated : item) ?? null);
+      setSearchResults((current) => current?.map((item) => (item.id === updated.id ? updated : item)) ?? null);
     };
     try {
       const updated = await updateProject(session, current, status);
       accept(updated);
       notice = { title: updated.title, status: updated.status };
     } catch {
-      // A lost response is ambiguous: never blindly retry a write or overwrite fresh server state.
+      // 응답 유실 시 서버 반영 여부가 불확실하므로 변경을 반복하거나 최신 상태를 덮어쓰지 않는다.
       try {
         const latest = await readProject(session, project.id);
         accept(latest);
@@ -202,9 +212,10 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
   const drag = usePipelineDrag({
     projects: visibleProjects,
     enabled: canWrite && view === "board" && movingId === null,
-    onMove: (project, status) => { void move(project, status); }
+    onMove: (project, status) => {
+      void move(project, status);
+    }
   });
-
 
   if (projects.length === 0 && !search.trim() && searchResults === null && !searching) {
     return <EmptyWorkspace canCreate={canWrite} onCreate={onCreate} />;
@@ -216,23 +227,36 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
         <div className="pipeline-heading">
           <div>
             <h1>
-              {t("안녕하세요.")}{displayName}{t("님,")}<br />
-              {t("지금 확인할 일을 모았습니다.")}</h1>
+              {t("안녕하세요.")}
+              {displayName}
+              {t("님,")}
+              <br />
+              {t("지금 확인할 일을 모았습니다.")}
+            </h1>
             <p>{t("새 문의부터 진행 중인 작업, 마무리할 회고까지 한곳에서 확인하세요.")}</p>
           </div>
         </div>
         <div className="pipeline-summary">
           <button type="button" onClick={() => showStage("all")}>
             <span>{t("전체 프로젝트")}</span>
-            <strong>{projects.filter((project) => project.status !== "CANCELLED").length}{t("건")}</strong>
+            <strong>
+              {projects.filter((project) => project.status !== "CANCELLED").length}
+              {t("건")}
+            </strong>
           </button>
           <button type="button" onClick={() => showStage("quoting")}>
             <span>{t("견적 작성")}</span>
-            <strong>{projects.filter((project) => project.status === "QUOTING").length}{t("건")}</strong>
+            <strong>
+              {projects.filter((project) => project.status === "QUOTING").length}
+              {t("건")}
+            </strong>
           </button>
           <button type="button" onClick={() => showStage("review")}>
             <span>{t("완료 프로젝트")}</span>
-            <strong>{projects.filter((project) => project.status === "COMPLETED").length}{t("건")}</strong>
+            <strong>
+              {projects.filter((project) => project.status === "COMPLETED").length}
+              {t("건")}
+            </strong>
           </button>
         </div>
       </div>
@@ -242,16 +266,24 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             type="button"
             aria-pressed={view === "board"}
             className={view === "board" ? "active" : ""}
-            onClick={() => { drag.cancel(); setView("board"); }}
+            onClick={() => {
+              drag.cancel();
+              setView("board");
+            }}
           >
-            {t("한눈에 보기")}</button>
+            {t("한눈에 보기")}
+          </button>
           <button
             type="button"
             aria-pressed={view === "list"}
             className={view === "list" ? "active" : ""}
-            onClick={() => { drag.cancel(); setView("list"); }}
+            onClick={() => {
+              drag.cancel();
+              setView("list");
+            }}
           >
-            {t("목록 보기")}</button>
+            {t("목록 보기")}
+          </button>
         </div>
         <div className="pipeline-actions">
           <label className="pipeline-sort">
@@ -276,7 +308,8 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
           </form>
           {canWrite && (
             <button type="button" className="primary-button" onClick={onCreate}>
-              <Plus size={18} /> {t("신규 문의 등록")}</button>
+              <Plus size={18} /> {t("신규 문의 등록")}
+            </button>
           )}
         </div>
       </div>
@@ -290,7 +323,11 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
         <p role="status" aria-live="polite">
           {searching
             ? t("검색 중입니다…")
-            : t("{v0} {v1}건{v2}", { v0: view === "list" && selectedColumn ? t(selectedColumn.title) : t("전체"), v1: visibleProjects.length, v2: searchResults ? t(" · 검색 결과") : "" })}
+            : t("{v0} {v1}건{v2}", {
+                v0: view === "list" && selectedColumn ? t(selectedColumn.title) : t("전체"),
+                v1: visibleProjects.length,
+                v2: searchResults ? t(" · 검색 결과") : ""
+              })}
         </p>
         {(search || activeColumn !== "all") && (
           <button
@@ -302,13 +339,26 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
               searchInput.current?.focus();
             }}
           >
-            {t("검색·필터 초기화")}</button>
+            {t("검색·필터 초기화")}
+          </button>
         )}
       </div>
-      <p className={movingId || moveNotice ? "pipeline-move-feedback" : "sr-only"} role="status" aria-live="polite" aria-atomic="true">
-        {movingId ? t("프로젝트 상태를 저장하고 있습니다.") : moveNotice
-          ? t("{v0} 상태를 {v1}(으)로 변경했습니다.", { v0: moveNotice.title, v1: t(pipelineStatusLabels[moveNotice.status]) })
-          : drag.draggingId ? t("다른 단계에 놓아 상태를 변경하세요. Esc 키로 취소할 수 있습니다.") : ""}
+      <p
+        className={movingId || moveNotice ? "pipeline-move-feedback" : "sr-only"}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {movingId
+          ? t("프로젝트 상태를 저장하고 있습니다.")
+          : moveNotice
+            ? t("{v0} 상태를 {v1}(으)로 변경했습니다.", {
+                v0: moveNotice.title,
+                v1: t(pipelineStatusLabels[moveNotice.status])
+              })
+            : drag.draggingId
+              ? t("다른 단계에 놓아 상태를 변경하세요. Esc 키로 취소할 수 있습니다.")
+              : ""}
       </p>
       {view === "board" && canWrite && (
         <p id="pipeline-drag-help" className="pipeline-drag-help">
@@ -324,16 +374,17 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             value={activeColumn}
             onChange={(event) => setActiveColumn(event.target.value)}
           >
-            <option value="all">{t("전체 ·")}{activeProjects.length}{t("건")}</option>
+            <option value="all">
+              {t("전체 ·")}
+              {activeProjects.length}
+              {t("건")}
+            </option>
             {pipelineColumns.map((column) => (
               <option key={column.key} value={column.key}>
                 {t(column.title)} ·{" "}
-                {
-                  activeProjects.filter((project) =>
-                    column.statuses.includes(project.status as ProjectStatus)
-                  ).length
-                }
-                {t("건")}</option>
+                {activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}
+                {t("건")}
+              </option>
             ))}
           </select>
         </label>
@@ -346,7 +397,8 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             className={activeColumn === "all" ? "active" : ""}
             onClick={() => setActiveColumn("all")}
           >
-            {t("전체")}<span>{activeProjects.length}</span>
+            {t("전체")}
+            <span>{activeProjects.length}</span>
           </button>
           {pipelineColumns.map((column) => (
             <button
@@ -358,11 +410,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             >
               {t(column.title)}
               <span>
-                {
-                  activeProjects.filter((project) =>
-                    column.statuses.includes(project.status as ProjectStatus)
-                  ).length
-                }
+                {activeProjects.filter((project) => column.statuses.includes(project.status as ProjectStatus)).length}
               </span>
             </button>
           ))}
@@ -414,10 +462,15 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                       onDragEnd={drag.cancel}
                       aria-busy={movingId === project.id}
                     >
-                      <button type="button" className="pipeline-card-open"
+                      <button
+                        type="button"
+                        className="pipeline-card-open"
                         aria-describedby={canWrite ? "pipeline-drag-help" : undefined}
                         disabled={movingId === project.id}
-                        onClick={() => { if (drag.canOpen()) onSelect(project); }}>
+                        onClick={() => {
+                          if (drag.canOpen()) onSelect(project);
+                        }}
+                      >
                         {canWrite && <DotsSixVertical className="pipeline-drag-grip" size={16} aria-hidden="true" />}
                         <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                         <h3>{project.title}</h3>
@@ -474,18 +527,20 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
           </p>
           {canWrite && !searchResults && (
             <button type="button" className="primary-button" onClick={onCreate}>
-              {t("문의 등록")}</button>
+              {t("문의 등록")}
+            </button>
           )}
         </div>
       ) : (
         <div className="pipeline-list">
           {visibleProjects.map((project) => (
-            <article
-              data-project-id={project.id}
-              key={project.id}
-              className={movingId === project.id ? "saving" : ""}
-            >
-              <button type="button" className="pipeline-list-open" onClick={() => onSelect(project)} disabled={movingId === project.id}>
+            <article data-project-id={project.id} key={project.id} className={movingId === project.id ? "saving" : ""}>
+              <button
+                type="button"
+                className="pipeline-list-open"
+                onClick={() => onSelect(project)}
+                disabled={movingId === project.id}
+              >
                 <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>
                 <span className="pipeline-list-divider">·</span>
                 <span className="pipeline-status-text">

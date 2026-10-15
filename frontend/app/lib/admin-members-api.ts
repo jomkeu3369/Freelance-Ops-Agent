@@ -1,22 +1,62 @@
 import { AuthSession, request } from "./api";
 
 export interface AdminMember {
-  id: string; email: string; displayName: string | null; status: string;
-  emailVerificationRequired: boolean; emailVerifiedAt: string | null;
-  joinedAt: string; lastLoginAt: string | null;
+  id: string;
+  email: string;
+  displayName: string | null;
+  status: string;
+  emailVerificationRequired: boolean;
+  emailVerifiedAt: string | null;
+  joinedAt: string;
+  lastLoginAt: string | null;
 }
-export interface AdminPage<T> { items: T[]; total: number; page: number; size: number; recordingStartedAt: string | null }
-export interface MemberSummary { totalMembers: number; activeMembers: number; pendingVerification: number; joinedLast7Days: number; signedInLast7Days: number; recordingStartedAt: string }
-export interface LoginEvent { id: string; userId: string; method: string; occurredAt: string }
-export interface AdminAudit { id: string; source: string; actorUserId: string; action: string; target: string; previousValue: string; newValue: string; previousEpoch: number; newEpoch: number; createdAt: string }
+export interface AdminPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  size: number;
+  recordingStartedAt: string | null;
+}
+export interface MemberSummary {
+  totalMembers: number;
+  activeMembers: number;
+  pendingVerification: number;
+  joinedLast7Days: number;
+  signedInLast7Days: number;
+  recordingStartedAt: string;
+}
+export interface LoginEvent {
+  id: string;
+  userId: string;
+  method: string;
+  occurredAt: string;
+}
+export interface AdminAudit {
+  id: string;
+  source: string;
+  actorUserId: string;
+  action: string;
+  target: string;
+  previousValue: string;
+  newValue: string;
+  previousEpoch: number;
+  newEpoch: number;
+  createdAt: string;
+}
 
 function read<T>(session: AuthSession, path: string, signal?: AbortSignal): Promise<T> {
   return request(`/api/v2/admin/${path}`, { signal, cache: "no-store" }, session.accessToken);
 }
 export function getMembers(session: AuthSession, q: string, status: string, page: number, signal?: AbortSignal) {
-  return read<AdminPage<AdminMember>>(session, `members?${new URLSearchParams({ q, status, page: String(page), size: "25" })}`, signal);
+  return read<AdminPage<AdminMember>>(
+    session,
+    `members?${new URLSearchParams({ q, status, page: String(page), size: "25" })}`,
+    signal
+  );
 }
-export function getMemberSummary(session: AuthSession, signal?: AbortSignal) { return read<MemberSummary>(session, "members/summary", signal); }
+export function getMemberSummary(session: AuthSession, signal?: AbortSignal) {
+  return read<MemberSummary>(session, "members/summary", signal);
+}
 export function getLoginEvents(session: AuthSession, userId: string, page: number, signal?: AbortSignal) {
   const params = new URLSearchParams({ page: String(page), size: "25" });
   if (userId) params.set("userId", userId);
@@ -26,18 +66,35 @@ export function getMemberAudits(session: AuthSession, page: number, signal?: Abo
   return read<AdminPage<AdminAudit>>(session, `member-audit-events?page=${page}&size=25`, signal);
 }
 
-/** Read-only USD ledger DTOs. Historical product credits are never converted into USD. */
+/** USD 원장의 조회 전용 DTO다. 이전 상품 크레딧을 USD로 환산하지 않는다. */
 export interface AdminMemberUsage {
-  currency: "USD"; limitUsd: number; settledUsd: number; reservedUsd: number; remainingUsd: number;
-  remainingPercent: number; reservedPercent: number; periodStart: string; resetAt: string;
-  timezone: string; spendingEnabled: boolean;
+  currency: "USD";
+  limitUsd: number;
+  settledUsd: number;
+  reservedUsd: number;
+  remainingUsd: number;
+  remainingPercent: number;
+  reservedPercent: number;
+  periodStart: string;
+  resetAt: string;
+  timezone: string;
+  spendingEnabled: boolean;
 }
 export interface AdminUsageEntry {
-  runId: string; model: string; status: string; startedAt: string;
-  platformCostUsd: number; platformReservedUsd: number; usageKnown: boolean;
-  byokInputTokens: number; byokOutputTokens: number;
+  runId: string;
+  model: string;
+  status: string;
+  startedAt: string;
+  platformCostUsd: number;
+  platformReservedUsd: number;
+  usageKnown: boolean;
+  byokInputTokens: number;
+  byokOutputTokens: number;
 }
-export interface AdminUsageHistory { items: AdminUsageEntry[]; nextCursor: string | null }
+export interface AdminUsageHistory {
+  items: AdminUsageEntry[];
+  nextCursor: string | null;
+}
 export function getMemberUsage(session: AuthSession, userId: string, signal?: AbortSignal) {
   return read<AdminMemberUsage>(session, `members/${encodeURIComponent(userId)}/ai-usage`, signal);
 }
