@@ -1,4 +1,4 @@
--- Validate before reporting success. Never repair unknown ownership with broad grants.
+-- 소유권과 격리를 검증하며 잘못된 권한을 임의 GRANT로 덮어쓰지 않는다.
 DO $$
 BEGIN
     IF (SELECT COUNT(*) FROM pg_namespace

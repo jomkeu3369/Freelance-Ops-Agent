@@ -5,13 +5,23 @@
     {
       "title": "Gateway calls / 5m",
       "type": "timeseries",
-      "targets": [{ "expr": "sum(increase(ai_gateway_calls_total[5m])) by (outcome)", "legendFormat": "{{outcome}}" }],
+      "targets": [
+        {
+          "expr": "sum(increase(ai_gateway_calls_total[5m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ],
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
     },
     {
       "title": "Gateway latency p95",
       "type": "timeseries",
-      "targets": [{ "expr": "ai_gateway_latency_ms{quantile=\"0.95\"}", "legendFormat": "p95 ms" }],
+      "targets": [
+        {
+          "expr": "ai_gateway_latency_ms{quantile=\"0.95\"}",
+          "legendFormat": "p95 ms"
+        }
+      ],
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
     },
     {
@@ -23,13 +33,23 @@
     {
       "title": "Rejected and failed calls / 15m",
       "type": "timeseries",
-      "targets": [{ "expr": "sum(increase(ai_gateway_outcomes_total{code!=\"SUCCESS\"}[15m])) by (code)", "legendFormat": "{{code}}" }],
+      "targets": [
+        {
+          "expr": "sum(increase(ai_gateway_outcomes_total{code!=\"SUCCESS\"}[15m])) by (code)",
+          "legendFormat": "{{code}}"
+        }
+      ],
       "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 }
     },
     {
       "title": "Provider tokens / 1h",
       "type": "timeseries",
-      "targets": [{ "expr": "sum(increase(ai_gateway_tokens_total[1h])) by (type)", "legendFormat": "{{type}}" }],
+      "targets": [
+        {
+          "expr": "sum(increase(ai_gateway_tokens_total[1h])) by (type)",
+          "legendFormat": "{{type}}"
+        }
+      ],
       "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 }
     }
   ],

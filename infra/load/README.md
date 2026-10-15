@@ -1,5 +1,7 @@
 # 운영 부하 검증
 
+실행 진입점은 `k6-*.js`다. 업무 시나리오의 `lib/business-fixtures.js`는 합성 데이터 준비를, `lib/business-operations.js`는 조회·접근 거부와 응답 검증을 담당한다. 실행 시간과 임계값은 `k6-business-readiness.js`에서 조정한다.
+
 ## Readiness 기준선
 
 ```bash
@@ -44,4 +46,4 @@ k6 run \
   infra/load/k6-agent-run-smoke.js
 ```
 
-기본값은 1 VU·1회이며 유료 호출 확인 변수가 없으면 실행을 거부한다. 현재 script는 run 접수 202만 확인하며 완료·HITL·견적 품질을 판정하지 않는다. 운영 부하 테스트는 `VUS`와 `ITERATIONS`를 한 단계씩 올리고 Provider quota와 예산을 함께 확인한다. 토큰과 결과 JSON은 저장소에 남기지 않는다.
+기본값은 1 VU·1회이며 유료 호출 확인 변수가 없으면 실행을 거부한다. HTTP 202 접수만 성공으로 인정하며 check 실패는 실행 실패로 처리한다. 완료·HITL·견적 품질은 판정하지 않는다. 운영 부하 테스트는 `VUS`와 `ITERATIONS`를 한 단계씩 올리고 제공자 할당량과 예산을 함께 확인한다. 토큰과 결과 JSON은 저장소에 남기지 않는다.

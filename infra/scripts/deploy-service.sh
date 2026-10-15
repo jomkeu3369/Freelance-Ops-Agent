@@ -17,43 +17,12 @@ case "$SERVICE" in
         ;;
 esac
 
-validate_tag() {
-    tag="$1"
-    if ! printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
-        echo "deployment image tag contains unsupported characters" >&2
-        exit 2
-    fi
-    case "$tag" in
-        latest|dev|main|"")
-            echo "deployment requires an immutable image tag" >&2
-            exit 2
-            ;;
-    esac
-}
+SCRIPT_DIRECTORY="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck source=infra/scripts/lib/deploy-common.sh
+. "$SCRIPT_DIRECTORY/lib/deploy-common.sh"
 
-read_deployed_tag() {
-    marker="$1"
-    if [ -f "$marker" ]; then
-        cat "$marker"
-    elif [ -f "$DEPLOY_ROOT/.deployed-tag" ]; then
-        cat "$DEPLOY_ROOT/.deployed-tag"
-    fi
-}
-
-write_tag() {
-    marker="$1"
-    tag="$2"
-    temporary="$marker.tmp"
-    printf '%s\n' "$tag" > "$temporary"
-    mv "$temporary" "$marker"
-}
-
-validate_tag "$TARGET_TAG"
-
-DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/freelance-ops}"
-ENV_FILE="${ENV_FILE:-$DEPLOY_ROOT/.env}"
-sh "$(dirname "$0")/ensure-byok-key.sh" "$ENV_FILE"
-COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.yaml -f docker-compose.production.yaml"
+validate_image_tag "$TARGET_TAG"
+initialize_deployment
 BACKEND_MARKER="$DEPLOY_ROOT/.backend-deployed-tag"
 AGENT_MARKER="$DEPLOY_ROOT/.agent-deployed-tag"
 CURRENT_BACKEND_TAG="$(read_deployed_tag "$BACKEND_MARKER")"
@@ -71,8 +40,7 @@ if [ "$SERVICE" = "backend" ]; then
 else
     PREVIOUS_TAG="$CURRENT_AGENT_TAG"
     if [ -z "$CURRENT_BACKEND_TAG" ]; then
-        # Compose validates image interpolation for every declared service even
-        # when only Agent is selected. The placeholder is not pulled or started.
+        # Agent만 선택해도 Compose는 Backend 태그를 요구한다. 이 값으로 Backend를 실행하지는 않는다.
         CURRENT_BACKEND_TAG="$TARGET_TAG"
     fi
     BACKEND_IMAGE_TAG="$CURRENT_BACKEND_TAG"
@@ -80,44 +48,48 @@ else
     TARGET_MARKER="$AGENT_MARKER"
 fi
 
-validate_tag "$BACKEND_IMAGE_TAG"
-validate_tag "$AGENT_IMAGE_TAG"
+validate_image_tag "$BACKEND_IMAGE_TAG"
+validate_image_tag "$AGENT_IMAGE_TAG"
 
 rollback() {
     echo "$SERVICE deployment diagnostics:" >&2
-    $COMPOSE ps "$SERVICE" >&2 || true
-    $COMPOSE logs --no-color --tail=200 "$SERVICE" >&2 || true
+    compose ps "$SERVICE" >&2 || true
+    compose logs --no-color --tail=200 "$SERVICE" >&2 || true
     if [ -n "$PREVIOUS_TAG" ]; then
         echo "$SERVICE deployment failed; rolling back to $PREVIOUS_TAG" >&2
         if [ "$SERVICE" = "backend" ]; then
             BACKEND_IMAGE_TAG="$PREVIOUS_TAG" AGENT_IMAGE_TAG="$AGENT_IMAGE_TAG" \
-                $COMPOSE up -d --no-build --no-deps --wait backend
+                compose up -d --no-build --no-deps --wait backend
         else
             BACKEND_IMAGE_TAG="$BACKEND_IMAGE_TAG" AGENT_IMAGE_TAG="$PREVIOUS_TAG" \
-                $COMPOSE up -d --no-build --no-deps --wait agent
+                compose up -d --no-build --no-deps --wait agent
         fi
     fi
 }
 
-trap rollback INT TERM HUP EXIT
+# 신호는 종료 코드로 바꾸고, 복구는 EXIT에서 한 번만 실행한다.
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap rollback EXIT
 export BACKEND_IMAGE_TAG
 export AGENT_IMAGE_TAG
-$COMPOSE config --quiet
+compose config --quiet
 if [ "$SERVICE" = "backend" ]; then
-    $COMPOSE pull backend caddy
-    $COMPOSE up -d --no-build --no-deps --wait backend
-    $COMPOSE up -d --no-build --no-deps --wait caddy
+    compose pull backend caddy
+    compose up -d --no-build --no-deps --wait backend
+    compose up -d --no-build --no-deps --wait caddy
 else
-    $COMPOSE pull agent
-    $COMPOSE up -d --no-build --no-deps --wait agent
+    compose pull agent
+    compose up -d --no-build --no-deps --wait agent
 fi
 
 if [ "$SERVICE" = "backend" ]; then
     curl --fail --silent --show-error "http://127.0.0.1:${BACKEND_PORT:-8080}/actuator/health/readiness" >/dev/null
 else
-    $COMPOSE exec -T agent uv run --no-dev python -c \
+    compose exec -T agent uv run --no-dev python -c \
         "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/readiness', timeout=3)" >/dev/null
 fi
 
-write_tag "$TARGET_MARKER" "$TARGET_TAG"
+write_deployed_tag "$TARGET_MARKER" "$TARGET_TAG"
 trap - INT TERM HUP EXIT
