@@ -101,10 +101,10 @@ for (const language of ["ko", "en"]) {
       }
       await scopeButton("essential").click(); // 같은 단계를 반복 선택해도 제안서를 유지해야 한다.
       await expectView(4, "essential");
-      await expect(workflow.locator(".spatial-motion-toggle")).toBeDisabled();
+      await expect(workflow.locator(".spatial-motion-toggle")).toHaveCount(0);
 
       await page.emulateMedia({ reducedMotion: "no-preference" });
-      await expect(workflow.locator(".spatial-motion-toggle")).toBeEnabled();
+      await expect(workflow.locator(".spatial-motion-toggle")).toHaveCount(0);
       await expectView(0, "essential"); // 일시정지한 실행 커서는 덮어쓰지 않아야 한다.
       await page.emulateMedia({ reducedMotion: "reduce" });
       await expectView(4, "essential");
