@@ -2,12 +2,13 @@
 set -eu
 export LC_ALL=C
 
-REPOSITORY_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+REPOSITORY_ROOT="$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)"
 TEST_DIR="${RESTORE_TEST_OUTPUT_DIR:-$(mktemp -d)}"
 mkdir -p "$TEST_DIR"
-TEST_DIR="$(CDPATH= cd -- "$TEST_DIR" && pwd)"
+TEST_DIR="$(CDPATH='' cd -- "$TEST_DIR" && pwd)"
 export INFRA_COMPOSE_FILE="$TEST_DIR/compose.yaml"
-export COMPOSE_PROJECT_NAME="restore-regression-$(date +%s)-$$"
+COMPOSE_PROJECT_NAME="restore-regression-$(date +%s)-$$"
+export COMPOSE_PROJECT_NAME
 cat > "$INFRA_COMPOSE_FILE" <<'YAML'
 services:
   postgres:
@@ -52,7 +53,7 @@ INSERT INTO agent_runtime.agent_run_state (value) VALUES ('synthetic checkpoint'
 RESET ROLE;
 SQL
 
-# Only remote transport is replaced. Both repository scripts and PostgreSQL are real.
+# 원격 전송만 로컬 복사로 대체하고 백업·복구 스크립트와 PostgreSQL은 실제로 실행한다.
 mkdir -p "$TEST_DIR/bin" "$TEST_DIR/remote"
 cat > "$TEST_DIR/bin/rclone" <<'SH'
 #!/usr/bin/env sh
@@ -117,7 +118,7 @@ expect_failure cross-schema 'must remain isolated across schemas' env RESTORE_DA
     sh "$REPOSITORY_ROOT/infra/scripts/restore-drill.sh" "$TEST_DIR/cross-schema.dump"
 compose exec -T postgres psql -X -U postgres -d freelance_ops -v ON_ERROR_STOP=1 -c 'REVOKE USAGE ON SCHEMA app FROM agent_user;'
 
-# Custom-format pg_dump retains owner metadata even with the old --no-owner flag.
+# 이전 --no-owner 옵션으로 만든 custom archive에도 소유권 정보가 남는지 확인한다.
 compose exec -T postgres pg_dump -U postgres -d freelance_ops -Fc --no-owner --no-acl > "$TEST_DIR/legacy.dump"
 (cd "$TEST_DIR" && sha256sum legacy.dump > legacy.dump.sha256)
 RESTORE_DATABASE=legacy_restore_drill sh "$REPOSITORY_ROOT/infra/scripts/restore-drill.sh" "$TEST_DIR/legacy.dump" > "$TEST_DIR/legacy.log" 2>&1

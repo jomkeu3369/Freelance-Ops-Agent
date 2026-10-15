@@ -1,8 +1,13 @@
 import http from "k6/http";
 import { check, fail, sleep } from "k6";
 
-const required = ["BASE_URL", "ACCESS_TOKEN", "WORKSPACE_ID", "PROJECT_ID"];
-for (const name of required) {
+const requiredVariables = [
+  "BASE_URL",
+  "ACCESS_TOKEN",
+  "WORKSPACE_ID",
+  "PROJECT_ID",
+];
+for (const name of requiredVariables) {
   if (!__ENV[name]) fail(`${name} is required`);
 }
 if (__ENV.ALLOW_PAID_MODEL_CALLS !== "true") {
@@ -19,6 +24,7 @@ export const options = {
   vus: Number(__ENV.VUS || 1),
   iterations: Number(__ENV.ITERATIONS || 1),
   thresholds: {
+    checks: ["rate==1"],
     http_req_failed: ["rate<0.01"],
     "http_req_duration{operation:start-run}": ["p(95)<2000"],
   },
@@ -59,7 +65,13 @@ export default function () {
   const response = http.post(
     `${baseUrl}/api/v2/workspaces/${__ENV.WORKSPACE_ID}/projects/${__ENV.PROJECT_ID}/agent-runs`,
     payload,
-    { headers, tags: { operation: "start-run" } },
+    {
+      headers,
+      tags: { operation: "start-run", name: "start-run" },
+      responseCallback: http.expectedStatuses(202),
+      timeout: "10s",
+      redirects: 0,
+    },
   );
   check(response, { "run accepted": (result) => result.status === 202 });
   sleep(1);

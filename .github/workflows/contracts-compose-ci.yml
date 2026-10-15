@@ -37,6 +37,16 @@ jobs:
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
       - run: docker compose -f docker-compose-infra.yaml config
       - run: docker compose -f docker-compose.yaml config
+      - name: Check infrastructure shell scripts
+        run: |
+          shellcheck -x infra/postgres/init/*.sh infra/scripts/*.sh infra/scripts/lib/*.sh infra/tests/*.sh
+      - name: Verify service deployment and rollback
+        run: sh infra/tests/test-deploy.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify load scenario contracts without external calls
+        run: node --experimental-vm-modules --test infra/tests/test-load.mjs
       - name: Verify backup ownership and service-role recovery
         run: sh infra/tests/test-backup-restore.sh
       - name: Verify persistent personal-key encryption configuration
