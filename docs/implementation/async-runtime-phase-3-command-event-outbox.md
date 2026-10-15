@@ -1,7 +1,7 @@
 # Async Runtime 구현 Phase 3 Command/Event Outbox
 
 > 기준일: 2026-08-31
-> 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
+> 당시 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
 
 ## 1. 구조와 소유권
 
@@ -37,13 +37,13 @@ Spring 코드는 기존 `agentrun` 도메인의 구조와 관례를 기준으로
 
 ## 4. 상태 투영 규칙
 
-| Event | Attempt projection | Task projection |
-|---|---|---|
-| `attempt.started` | `RUNNING` | 현재 revision이면 `RUNNING` |
-| `attempt.checkpointed` | `CHECKPOINTED` | 공개 phase/milestone만 갱신 |
-| `attempt.completed` | `COMPLETED` | `COMPLETED` 또는 `COMPLETED_REUSED` |
-| `attempt.failed` | `FAILED` | 최종 retry 판정 전에는 terminal로 만들지 않음 |
-| 이전 revision event | 변경 없음 | 변경 없음 |
+| Event                  | Attempt projection | Task projection                               |
+| ---------------------- | ------------------ | --------------------------------------------- |
+| `attempt.started`      | `RUNNING`          | 현재 revision이면 `RUNNING`                   |
+| `attempt.checkpointed` | `CHECKPOINTED`     | 공개 phase/milestone만 갱신                   |
+| `attempt.completed`    | `COMPLETED`        | `COMPLETED` 또는 `COMPLETED_REUSED`           |
+| `attempt.failed`       | `FAILED`           | 최종 retry 판정 전에는 terminal로 만들지 않음 |
+| 이전 revision event    | 변경 없음          | 변경 없음                                     |
 
 ## 5. 검증 기준
 

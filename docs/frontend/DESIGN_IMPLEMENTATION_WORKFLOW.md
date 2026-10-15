@@ -1,106 +1,40 @@
-# Frontend 디자인·구현 협업 절차
+# 프런트엔드 디자인·구현 협업 절차
 
-## 목적
+제품 규칙과 승인된 디자인을 Next.js·React·TypeScript 구현으로 연결하는 절차다. 초기 프로토타입 설명은 당시 배경이며 현재 운영 화면을 일괄 프로토타입으로 취급하지 않는다. 변경은 승인된 현재 화면과 디자인 원본을 기준으로 검토한다.
 
-Freelance Ops Agent V2의 frontend는 구현 담당자가 시각 디자인을 임의로 완성하는 방식으로 진행하지 않는다. 현업 웹디자이너가 1920×1080 기준의 시안을 설계하고, 구현 담당자는 제품 문서와 디자인 결과물을 연결해 Next.js·React·TypeScript 코드와 반응형 화면으로 구현한다.
+## 역할과 전달물
 
-현재 `frontend/`에 있는 화면은 제품 구조, 테마, 모션과 빌드 방식을 검증한 prototype이다. 최종 시각 디자인의 기준이나 웹디자이너의 handoff를 제한하는 source of truth로 사용하지 않는다.
+사용자는 참고 사이트와 적용·제외할 요소를 정하고 디자인·Preview를 검수한다. 디자이너는 1920×1080 기준 화면의 배치·글꼴·색상·상호작용을 설계한다. 구현 담당자는 제품 명세·실제 문구·상태·접근성 요구를 전달하고 디자인을 컴포넌트·반응형·API로 연결한다.
 
-## 역할
+디자인 전달물에는 다음을 포함한다.
 
-### 사용자
+- 1920×1080 기준 화면과 편집 가능한 원본.
+- 가능하면 HTML·CSS·JavaScript, 이미지·아이콘·글꼴 원본과 라이선스.
+- 라이트·다크, 색상·여백·타이포그래피와 주요 상호작용 설명.
+- 로딩·오류·빈 결과·비활성·긴 문구·키보드 상태와 구현 시 판단이 필요한 차이.
 
-- 참고할 실제 사이트 2~3개를 선택한다.
-- 각 사이트에서 참고할 화면·구성·타이포그래피·상호작용과 제외할 요소를 설명한다.
-- 웹디자이너의 1920×1080 결과물을 검수하고 최종 시각 방향을 승인한다.
-- Vercel Preview를 검수한 뒤 Production 배포를 승인한다.
+정적 코드가 제공되면 시각 의도를 이해하는 우선 자료로 사용하되 제품 권한·상태·API를 가짜 화면으로 대체하지 않는다. Figma나 이미지 시안만 있는 경우에도 원본과 실제 구현의 차이를 확인한다.
 
-### 구현 담당자
+## 구현
 
-- 레퍼런스를 복제하지 않고 정보 구조, 레이아웃 원칙, 타이포그래피, 상호작용과 상태 표현으로 분해한다.
-- `docs/V2_SPECIFICATION.md`와 관련 문서를 근거로 실제 화면 문구와 제품 규칙을 정리한다.
-- 웹디자이너에게 전달할 brief, content matrix, screen specification, component inventory, interaction guide와 handoff checklist를 작성한다.
-- 디자이너가 제공한 HTML·CSS·JavaScript를 Next.js·React·TypeScript component로 변환한다.
-- 1920×1080 원본의 시각적 의도를 보존하면서 desktop, tablet과 mobile 반응형 동작을 추가한다.
-- 접근성, loading/error/empty state, keyboard interaction, API contract와 test를 구현한다.
-- Vercel Preview를 배포하고 승인된 revision만 Production에 배포한다.
+반복되는 UI는 기능별로 분리하되 승인된 화면의 DOM·CSS 의도를 유지한다. 임시 화면 데이터는 합성임을 밝히고 Spring 공개 API 계약과 분리한다. 브라우저는 Python Agent를 직접 호출하지 않는다.
 
-### 웹디자이너
+1920px은 원본 검수 기준이며 1440px·1024px·768px·약 390px에서 탐색·표·입력·서랍·대화상자를 다시 배치한다. 단순 축소로 정보나 조작을 가리지 않는다. 디자인 해석이 필요한 차이는 이유와 대안을 제시하고 사용자가 검토할 수 있게 한다.
 
-- 승인된 brief와 제품 문구를 기준으로 1920×1080 화면을 제작한다.
-- 가능한 경우 HTML·CSS·JavaScript와 함께 이미지, 아이콘, 폰트, 라이선스와 interaction 설명을 전달한다.
-- light/dark theme가 모두 필요한 화면은 두 상태를 제공한다.
-- hover, focus, selected, disabled, loading, error와 empty 등 필요한 상태를 명시한다.
+현재 시각·문구 원칙은 [시각 방향](VISUAL_DIRECTION.md), 초기 설계 배경은 [브리프](MAIN_PAGE_DESIGN_BRIEF.md), 기능·상태는 [프런트엔드 안내](README.md)와 [V2 명세](../V2_SPECIFICATION.md)를 따른다.
 
-## 단계별 절차
+## 검수와 배포
 
-### 1. 레퍼런스 선정
+새 시각 디자인과 화면 동작 변경은 다음을 확인한다.
 
-사용자가 레퍼런스 2~3개의 URL 또는 캡처를 제공한다. 각 레퍼런스에는 다음 내용을 함께 기록한다.
+1. 원본과 구현의 배치·글꼴·색상·간격을 비교한다.
+2. 데스크톱·태블릿·모바일, 라이트·다크, 긴 한글·영문과 확대에서 핵심 업무를 완료할 수 있는지 확인한다.
+3. 키보드·초점·로딩·오류·빈 결과·비활성·동작 줄이기를 확인한다.
+4. 타입·린트·단위 검사·운영 빌드를 실행하고 실제 브라우저 결과와 합성 응답 검사의 한계를 구분한다.
+5. Vercel Preview에서 사용자 승인을 받은 뒤 검수한 동일 소스의 Production 배포를 진행한다.
 
-- 참고할 page 또는 section
-- 마음에 드는 요소와 그 이유
-- 사용하지 않을 요소
-- light/dark theme 방향
-- 필요한 animation과 interaction
-
-### 2. 디자이너 전달자료 작성
-
-구현 담당자는 다음 문서를 `docs/frontend/`에 준비한다.
-
-```text
-DESIGN_BRIEF.md
-CONTENT_MATRIX.md
-SCREEN_SPECIFICATION.md
-COMPONENT_INVENTORY.md
-INTERACTION_GUIDE.md
-DESIGN_HANDOFF_CHECKLIST.md
-```
-
-문서에는 서비스와 사용자 설명, page별 목적, 실제 문구, navigation과 정보 구조, realistic data, component와 state, 접근성 요구사항, 디자이너의 재량 범위와 반드시 지켜야 하는 제품 규칙을 포함한다.
-
-### 3. 1920×1080 디자인 handoff
-
-기본 handoff package는 다음을 포함한다.
-
-- 완성된 HTML, CSS와 JavaScript
-- 1920×1080 기준 화면
-- image, icon과 font 원본
-- light/dark theme
-- 주요 interaction 설명
-- 외부 library와 asset license
-
-Figma 또는 raster 시안만 전달되는 경우에도 구현할 수 있지만, 정적 코드가 함께 제공되는 경우 이를 시각적 의도의 우선 기준으로 사용한다.
-
-### 4. React와 반응형 구현
-
-- 기술 기준은 Next.js, React와 TypeScript다.
-- 반복되는 UI를 component로 분리하되, 분리 때문에 원본의 DOM·CSS 의도가 훼손되지 않게 한다.
-- static mock data는 typed fixture로 분리하고 이후 Spring 공개 API contract로 교체할 수 있게 한다.
-- browser는 Spring Boot 공개 API만 호출하며 Python Agent service를 직접 호출하지 않는다.
-- 1920px은 디자이너 원본 검수 기준으로 유지한다.
-- 1440px desktop, 1024px small laptop/tablet landscape, 768px tablet portrait, 약 390px mobile에서 정보 우선순위와 interaction을 재배치한다.
-- 단순 축소보다 navigation, grid, table, editor, drawer와 modal의 사용성을 우선한다.
-- 디자인 해석이 필요한 변경은 임의로 확정하지 않고 차이와 trade-off를 사용자에게 제시한다.
-
-### 5. 검수와 Vercel 배포
-
-다음 gate를 통과한 뒤 배포한다.
-
-- 1920×1080 원본과 visual comparison
-- 1440, 1024, 768과 mobile responsive 확인
-- light/dark theme와 긴 한글 문구 확인
-- hover, focus, keyboard, loading, error, empty와 disabled 상태 확인
-- TypeScript, lint, component test와 production build 통과
-- image와 font 최적화, 기본 accessibility와 performance 확인
-- Vercel Preview 사용자 승인
-- 승인된 commit의 Vercel Production 배포
-
-Vercel은 frontend를 배포한다. Spring Boot, Agent service와 PostgreSQL의 배포 경계 및 browser가 Spring 공개 API만 호출하는 원칙은 그대로 유지한다.
+실행 명령은 [Frontend README](../../frontend/README.md)를 따른다. 프런트엔드 배포는 Vercel이 소유하며 Spring·Agent·PostgreSQL의 배포 경계는 [인프라 안내](../../infra/README.md)를 따른다. 문서 이력 정리와 새 화면 디자인 승인은 구분한다.
 
 ## 완료 기준
 
-- 웹디자이너의 1920×1080 결과와 구현 화면의 핵심 layout, typography, color와 spacing이 합의된 허용 오차 안에서 일치한다.
-- 반응형 화면에서 핵심 업무를 가로 스크롤이나 잘린 control 없이 완료할 수 있다.
-- 시각 상태와 backend 상태가 혼동되지 않고 AI 초안과 사용자 확정 결과가 구분된다.
-- Vercel Preview에서 검수한 동일 revision이 Production에 배포된다.
+핵심 업무를 가로 넘침·가려진 제어 없이 완료할 수 있고 AI 초안·사용자 확정·실제 서버 상태가 구분돼야 한다. Preview 검수와 배포 버전, 실행한 검사·남은 확인 사항을 함께 기록한다. 정책의 근거는 [ADR-0010](../adr/0010-designer-first-frontend-vercel.md)이다.

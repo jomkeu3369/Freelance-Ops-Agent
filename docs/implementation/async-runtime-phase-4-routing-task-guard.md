@@ -1,7 +1,7 @@
 # Async Runtime 구현 Phase 4 Routing Profile과 TaskGuard
 
 > 기준일: 2026-08-31
-> 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
+> 당시 상태: 구현 및 로컬 검증 완료, PostgreSQL CI 검증 대기
 
 ## 1. 구조와 소유권
 
@@ -13,13 +13,13 @@ identity, 모델 선택과 예산 정책을 다시 검증한 뒤에만 Task와 �
 
 ## 2. 결정론적 실행 프로필
 
-| Route | Model profile | Tool profile | 기본 위험도 |
-|---|---|---|---|
-| `DIRECT_TOOL` | `direct-tool-v1` | `READ_ONLY` | `LOW` |
-| `SIMPLE_LLM` | `simple-llm-v1` | `NONE` | `LOW` |
-| `REACT_AGENT` | `react-read-v1` | `READ_ONLY` | `MEDIUM` |
-| `SUPERVISOR` | `supervisor-v1` | `READ_ONLY` | `MEDIUM` |
-| `HUMAN_REQUIRED` | `human-required` | `NONE` | `RESTRICTED` |
+| Route            | Model profile    | Tool profile | 기본 위험도  |
+| ---------------- | ---------------- | ------------ | ------------ |
+| `DIRECT_TOOL`    | `direct-tool-v1` | `READ_ONLY`  | `LOW`        |
+| `SIMPLE_LLM`     | `simple-llm-v1`  | `NONE`       | `LOW`        |
+| `REACT_AGENT`    | `react-read-v1`  | `READ_ONLY`  | `MEDIUM`     |
+| `SUPERVISOR`     | `supervisor-v1`  | `READ_ONLY`  | `MEDIUM`     |
+| `HUMAN_REQUIRED` | `human-required` | `NONE`       | `RESTRICTED` |
 
 외부 side effect, 민감 데이터, 법률·금융 권한 요구는 위험도를 `HIGH`로 올린다. 되돌릴 수 없는
 행동이나 사전 승인이 필요한 요청은 자동 실행하지 않고 `HUMAN_REQUIRED`로 닫는다. 라우팅 프로필

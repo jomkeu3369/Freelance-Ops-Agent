@@ -53,13 +53,13 @@ context에 답이 없음을 의미하며 전체 corpus 어디에도 우연히 �
 
 답변 가능성 분류 결과는 낮았다.
 
-| 방법 | F1 | FAR | Recall |
-|---|---:|---:|---:|
-| Top-1 cosine | 0.100 | 0.14 | 0.06 |
-| Top-3 cosine 평균 | 0.102 | 0.12 | 0.06 |
-| Semantic + BM25 | 0.256 | 0.16 | 0.17 |
-| Semantic + cluster | 0.020 | 0.01 | 0.01 |
-| Calibrated feature gate | 0.168 | 0.09 | 0.10 |
+| 방법                    |    F1 |  FAR | Recall |
+| ----------------------- | ----: | ---: | -----: |
+| Top-1 cosine            | 0.100 | 0.14 |   0.06 |
+| Top-3 cosine 평균       | 0.102 | 0.12 |   0.06 |
+| Semantic + BM25         | 0.256 | 0.16 |   0.17 |
+| Semantic + cluster      | 0.020 | 0.01 |   0.01 |
+| Calibrated feature gate | 0.168 | 0.09 |   0.10 |
 
 선택된 K는 2였고 cosine silhouette는 `0.079`였다. Answerable과 unanswerable의 similarity 분포가
 거의 겹쳤으며 개별 feature AUC도 약 `0.47~0.57`이었다.
@@ -89,11 +89,11 @@ context에 답이 없음을 의미하며 전체 corpus 어디에도 우연히 �
 
 ### 결과
 
-| 모델 | F1 | FAR | Recall |
-|---|---:|---:|---:|
-| 기존 Semantic + BM25 | 0.256 | 0.16 | 0.17 |
-| KLUE QA reader | 0.333 | 0.10 | 0.22 |
-| 균형 학습 cross-encoder | 0.374 | 0.13 | 0.26 |
+| 모델                    |    F1 |  FAR | Recall |
+| ----------------------- | ----: | ---: | -----: |
+| 기존 Semantic + BM25    | 0.256 | 0.16 |   0.17 |
+| KLUE QA reader          | 0.333 | 0.10 |   0.22 |
+| 균형 학습 cross-encoder | 0.374 | 0.13 |   0.26 |
 
 Local verifier는 기존 feature gate보다 개선됐지만 단독 운영 기준에는 미달했다. F1 최적 threshold에서는
 F1 `0.650`, Recall `0.80`까지 상승했지만 FAR도 `0.66`으로 상승했다.
@@ -114,11 +114,11 @@ Accept와 reject threshold는 validation 150건에서 FAR/FRR의 90% Wilson uppe
 
 ### Top-K 비교
 
-| 구성 | Retrieval | Local coverage | LLM fallback | FAR | FRR | Accept precision |
-|---|---:|---:|---:|---:|---:|---:|
-| Hybrid Top-3 + cross-encoder | Recall@3 0.82 | 0.195 | 0.805 | 0.04 | 0.07 | 0.733 |
-| Hybrid Top-5 + cross-encoder | Recall@5 0.87 | 0.170 | 0.830 | 0.04 | 0.03 | 0.750 |
-| Hybrid Top-10 + cross-encoder | Recall@10 0.91 | 0.165 | 0.835 | 0.03 | 0.04 | 0.800 |
+| 구성                          |      Retrieval | Local coverage | LLM fallback |  FAR |  FRR | Accept precision |
+| ----------------------------- | -------------: | -------------: | -----------: | ---: | ---: | ---------------: |
+| Hybrid Top-3 + cross-encoder  |  Recall@3 0.82 |          0.195 |        0.805 | 0.04 | 0.07 |            0.733 |
+| Hybrid Top-5 + cross-encoder  |  Recall@5 0.87 |          0.170 |        0.830 | 0.04 | 0.03 |            0.750 |
+| Hybrid Top-10 + cross-encoder | Recall@10 0.91 |          0.165 |        0.835 | 0.03 | 0.04 |            0.800 |
 
 Top-5는 retrieval recall, verifier latency와 후보 문맥량의 균형점이다. RTX 5060 Ti 기준 Local verifier
 추론 시간은 약 `11.9ms/query`였다. 그러나 자동 허용 precision `0.75`는 최종 답변 허용 기준으로
@@ -156,15 +156,15 @@ PDF/TXT parsing and chunking
 
 ### 구성요소별 책임
 
-| 구성요소 | 책임 | 사용하지 않는 용도 |
-|---|---|---|
-| Dense embedding | 의미 기반 후보 검색 | 답변 가능성 최종 판정 |
-| BM25 | 고유명사·숫자·키워드 보완 | 단독 품질 gate |
-| Cluster | corpus 분석·검색 다양화 | 답변 품질 예측 |
-| Local verifier | reranking·위험도·후보 축소 | 현재 단계의 최종 accept |
-| LLM evidence verifier | 근거 충분성·모순·복수 chunk 판정 | 외부 지식 기반 추측 |
-| Answer generator | 검증된 근거 내 답변과 인용 | 검증되지 않은 사실 추가 |
-| Groundedness checker | 생성 주장과 근거 재대조 | 비공개 chain-of-thought 저장 |
+| 구성요소              | 책임                             | 사용하지 않는 용도           |
+| --------------------- | -------------------------------- | ---------------------------- |
+| Dense embedding       | 의미 기반 후보 검색              | 답변 가능성 최종 판정        |
+| BM25                  | 고유명사·숫자·키워드 보완        | 단독 품질 gate               |
+| Cluster               | corpus 분석·검색 다양화          | 답변 품질 예측               |
+| Local verifier        | reranking·위험도·후보 축소       | 현재 단계의 최종 accept      |
+| LLM evidence verifier | 근거 충분성·모순·복수 chunk 판정 | 외부 지식 기반 추측          |
+| Answer generator      | 검증된 근거 내 답변과 인용       | 검증되지 않은 사실 추가      |
+| Groundedness checker  | 생성 주장과 근거 재대조          | 비공개 chain-of-thought 저장 |
 
 Local verifier가 높은 점수를 반환해도 현재는 LLM verifier를 생략하지 않는다. 실제 업무 도메인의
 frozen test를 통과한 뒤에만 명백한 구간부터 Local accept를 단계적으로 허용한다.
@@ -176,7 +176,7 @@ Hybrid Top-5 + cross-encoder는 frozen test 200건 중 166건을 LLM fallback �
 194건, 약 `$0.030/test 200건`으로 예상된다. 이는 추정값이며 실제 운영에서는 provider usage token과
 가격 snapshot으로 집계해야 한다.
 
-LLM evaluator 실행 코드는 구현했지만 현재 `experiments/.env`에 저장된 OpenAI API key가 401
+당시 LLM evaluator 실행은 비공개 로컬 자격 증명 오류로 401
 `invalid_api_key`를 반환하므로 실제 LLM verdict A/B는 완료되지 않았다. 해당 호출에서 비용은 발생하지 않았다.
 
 ## 10. 운영 데이터와 승격 기준

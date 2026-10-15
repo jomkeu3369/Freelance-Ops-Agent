@@ -3,11 +3,11 @@
 - 상태: Accepted
 - 결정일: 2026-08-13
 
-## Context
+## 배경
 
 Knowledge와 Evidence Ledger는 Spring이 소유한 workspace 문서에서 근거 chunk를 검색해야 한다. 운영 FAISS는 제거하기로 했고 Python Agent가 Spring의 `app` schema를 직접 조회해서도 안 된다. 직접 SQL 중심 구현은 기존 ORM 결정과 충돌한다.
 
-## Decision
+## 결정
 
 - PostgreSQL `document`와 `document_chunk`가 원본 provenance, source version, jurisdiction, 효력일, content hash와 chunk offset을 저장한다.
 - 초기 embedding dimension은 1536으로 고정하고 embedding model과 dimension을 함께 기록한다.
@@ -18,7 +18,7 @@ Knowledge와 Evidence Ledger는 Spring이 소유한 workspace 문서에서 근�
 - Agent는 delegation token의 `agent.run`·`document.read`와 현재 DB permission을 모두 통과한 Spring internal Tool API만 호출한다.
 - 검색 결과는 chunk와 document provenance를 함께 반환한다. Python Agent는 Spring business table을 직접 읽지 않는다.
 
-## Consequences
+## 영향
 
 - PostgreSQL 하나로 lexical·vector 검색과 업무 데이터 격리를 유지한다.
 - Hibernate 공식 모듈을 사용해 vector column을 직접 SQL CRUD로 다루지 않는다.

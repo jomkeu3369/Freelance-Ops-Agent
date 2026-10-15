@@ -1,17 +1,22 @@
-# ADR-0044: Personal agent pet library with untrusted preference data
+# ADR-0044: 개인 동료 모음과 신뢰하지 않는 선호 데이터
 
-- Status: Proposed; implementation checkpoint, not release approval
-- Date: 2026-10-05
-- Supplements ADR-0030 and ADR-0032
+- 상태: Proposed — 초기 구현 기록이며 별도 출시 승인 아님
+- 작성일: 2026-10-05
+- 보완: ADR-0030, ADR-0032
 
-The three quotation scenarios are not a limit of three user-owned pets. Personal pets need stable IDs, separate active/archive lifecycle and one selected profile for the next run. Spring owns these records and tenant authorization. V44 introduces a separate collection without rewriting legacy quotation profiles or saved run requests.
+## 배경
 
-The initial prompt flow is a free deterministic preview over existing SVG appearance assets. Arbitrary style and task preferences remain bounded, reviewable user data, including an ordered correction history and separately labelled fields. The preview must explicitly disclose limited interpretation. It must never claim that a paid model generated or fully understood the result.
+세 견적 시나리오가 사용자가 보유할 동료 수를 세 개로 제한하는 것은 아니다. 개인 동료에는 고정 ID, 활성·보관 생명주기와 다음 실행에 사용할 하나의 선택이 필요하다. Spring이 데이터와 소유 권한을 관리하며 V44는 기존 세 견적 슬롯·저장된 실행을 다시 쓰지 않는 별도 모음을 도입했다.
 
-Selection contributes one snapshot to the existing run, not another agent loop. Python receives the free-form content under an untrusted preference-data field. A fixed instruction limits application to communication style and current task emphasis; server permissions, approval, tools, model selection, credentials and budgets remain independent. The separate skill catalog can consume the AUTO selection hint after integration; no duplicate catalog is created here.
+## 제안과 구현 경계
 
-Creation retries use stable pet/mutation IDs, expected revisions and transaction-serialized owner-scoped limits. Archive clears selection, restore requires a subsequent explicit selection, and deletion requires an archived profile. Existing run snapshots remain unchanged. Cross-workspace and cross-user access is denied even to another owner in the same workspace.
+- 최초 생성은 기존 SVG를 조합한 무료 규칙 미리보기다. 임의 성향·업무 요청은 제한된 사용자 데이터로 보관하고 수정 이력·명시적 항목을 검토할 수 있게 한다. 해석 한계를 표시하며 유료 AI가 생성·완전히 이해한 결과로 안내하지 않는다.
+- 선택은 기존 실행에 스냅샷 하나를 전달하며 별도 Agent 반복을 만들지 않는다. Python의 선호 필드는 신뢰하지 않는 참고 데이터로, 적용은 말투와 현재 업무의 강조점에 한정한다.
+- 권한·승인·도구·모델·자격 증명·예산은 독립적으로 검사한다. 기존 스킬 카탈로그의 AUTO 연결점을 사용하며 중복 카탈로그를 만들지 않는다.
+- 생성 재시도는 같은 동료/변경 ID·예상 revision을 사용한다. 소유자별 트랜잭션 잠금으로 수량을 직렬화한다. 선택한 동료 보관은 선택을 해제하고 복원은 별도 선택을 요구한다. 삭제는 보관 상태만 허용한다.
+- 과거 실행 스냅샷은 보존하며 같은 워크스페이스의 다른 Owner를 포함해 타인 접근을 거부한다.
+- 별도 유료 생성은 영속 예약·사용량 대조·중복 정산 방지·취소·재시도 계약이 연결될 때까지 비활성으로 유지한다.
 
-Standalone paid generation stays unavailable until durable reservation, reconciliation, idempotent settlement, cancellation and retry semantics are integrated with the platform cost ledger. The existing spend guard is preserved. See [the feature contract](../frontend/CUSTOM_AGENT_PETS.md) for the required ledger states and current limits.
+## 영향과 검증
 
-Verification at the initial checkpoint was incomplete. Executed tests and remaining database/browser limits are recorded in [the integration report](../testing/cloud-feature-integration-2026-10-05.md); the design decision alone does not establish production deployment.
+자유로운 표현을 보존하면서 외형·실행 권한과 분리한다. 구체적인 현재 한도와 API는 [개인 동료 안내](../frontend/CUSTOM_AGENT_PETS.md), 초기 DB·브라우저 검증의 성공·실패·미실행은 [통합 기록](../testing/cloud-feature-integration-2026-10-05.md)에 남긴다. 이후 배포 근거는 [제품 근거](../portfolio/product-evidence.md)를 따른다. 구현·배포 기록을 추가했다는 이유로 이 제안의 승인 상태를 바꾸지 않는다.

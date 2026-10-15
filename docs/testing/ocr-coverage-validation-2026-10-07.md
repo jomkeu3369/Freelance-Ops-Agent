@@ -8,25 +8,25 @@
 
 기본 설정의 기존 19개 입력(18개 이미지와 30페이지 PDF)은 각 3회, 총 57쌍의 비교에서 텍스트·status·성공 여부·오류가 동일했다. 하이브리드 PDF의 스캔 본문 누락은 별도 합성 대조 자료에서 복구됐다. 기본 언어 `eng+kor`와 PSM 3을 유지하고, 요청에 명시된 `ko/en/mixed`, `general/singleblock`만 허용한다. 자동 엔진 전환이나 자동 언어 추정은 추가하지 않았다.
 
-| 합성 PDF, 각 3회 | 기존 CER / WER | 수정 CER / WER | reader 중앙값 기존 → 수정 |
-| --- | --- | --- | --- |
-| 스캔만 있음 | 0% / 0% | 0% / 0% | 0.913 → 0.889초 |
-| 제목 + 큰 스캔 본문 | 96.05% / 96.15% | 0% / 0% | 0.357 → 0.909초 |
-| 긴 native 서문 + 큰 스캔 본문 | 8.88% / 12.20% | 0% / 0% | 0.368 → 0.916초 |
-| native 텍스트만 있음 | 0% / 0% | 0% / 0% | 0.366 → 0.361초 |
-| native 텍스트 + 작은 로고 | 0% / 0% | 0% / 0% | 0.354 → 0.356초 |
-| native OCR layer + 같은 스캔 | 0% / 0% | 0% / 0% | 0.348 → 0.903초 |
+| 합성 PDF, 각 3회              | 기존 CER / WER  | 수정 CER / WER | reader 중앙값 기존 → 수정 |
+| ----------------------------- | --------------- | -------------- | ------------------------- |
+| 스캔만 있음                   | 0% / 0%         | 0% / 0%        | 0.913 → 0.889초           |
+| 제목 + 큰 스캔 본문           | 96.05% / 96.15% | 0% / 0%        | 0.357 → 0.909초           |
+| 긴 native 서문 + 큰 스캔 본문 | 8.88% / 12.20%  | 0% / 0%        | 0.368 → 0.916초           |
+| native 텍스트만 있음          | 0% / 0%         | 0% / 0%        | 0.366 → 0.361초           |
+| native 텍스트 + 작은 로고     | 0% / 0%         | 0% / 0%        | 0.354 → 0.356초           |
+| native OCR layer + 같은 스캔  | 0% / 0%         | 0% / 0%        | 0.348 → 0.903초           |
 
 마지막 대조는 중복 본문을 추가하지 않았지만 큰 raster 검사·OCR 비용이 늘었다. 긴 서문 대조의 native 서문은 합성 invisible text이므로, 실제 문서에서 OCR/native 중복을 일반적으로 해소했다는 의미는 아니다. 추가 OCR은 원래 텍스트와 구분해 보이고, 문자 포함 native 전체와 일치하는 OCR 선두 부분만 공백 토큰 비교로 1회 제거한다. 숫자만 있는 native, fuzzy matching, 전역 반복 제거는 사용하지 않는다. 남는 겹침은 preview에 명시한다.
 
-| 입력, 각 3회 | 기본 mixed / PSM 3 CER | 명시 옵션 CER | 명시 옵션 WER |
-| --- | --- | --- | --- |
-| 깨끗한 한글 | 65.98% | ko / PSM 6: 0% | 0% |
-| 작은 한글 | 74.23% | ko / PSM 6: 0% | 0% |
-| 깨끗한 한글 | 65.98% | mixed / PSM 6: 25.77% | 133.33% |
-| 깨끗한 혼합 | 24.17% | mixed / PSM 6: 23.33% | 125% |
-| 작은 혼합 | 55% | mixed / PSM 6: 30% | 115% |
-| 90도 회전 혼합 | 89.17% | mixed / PSM 6: 116.67% | 320% |
+| 입력, 각 3회   | 기본 mixed / PSM 3 CER | 명시 옵션 CER          | 명시 옵션 WER |
+| -------------- | ---------------------- | ---------------------- | ------------- |
+| 깨끗한 한글    | 65.98%                 | ko / PSM 6: 0%         | 0%            |
+| 작은 한글      | 74.23%                 | ko / PSM 6: 0%         | 0%            |
+| 깨끗한 한글    | 65.98%                 | mixed / PSM 6: 25.77%  | 133.33%       |
+| 깨끗한 혼합    | 24.17%                 | mixed / PSM 6: 23.33%  | 125%          |
+| 작은 혼합      | 55%                    | mixed / PSM 6: 30%     | 115%          |
+| 90도 회전 혼합 | 89.17%                 | mixed / PSM 6: 116.67% | 320%          |
 
 CER/WER에는 삽입 오류가 포함되어 100%를 넘을 수 있다. 동일 문구 반복은 시간 측정 반복이지 독립 문서 수가 아니다. 기존 자료는 독립 원문 3개를 변형한 좁은 합성 자료이므로 엔진 교체 근거로 일반화하지 않는다. PSM 6의 회전 자료 악화와 mixed 한글 분절 오류 때문에 기본값을 일괄 변경하지 않는다.
 
@@ -54,7 +54,7 @@ Python focused 100, frontend unit 355, Java 관련 81회가 모두 통과했다.
 
 선택한 테스트 총 559개이며 저장소 전체 테스트라는 뜻은 아니다. Python은 `test_attachment_coverage.py`39/`test_attachment_ocr.py`26/`test_attachments.py`35, 100개 모두 pass/skip0(기존 FastAPI TestClient deprecation warning1개). Java는 ArchitectureTest8/AgentRunGatewayServiceTest18/AgentRunHistoryServiceTest42/ChatAttachmentServiceTest13, 81개 pass/skip0다. frontend `npm test` 전체 unit355 pass/skip0, attachment browser23 pass다. 실제 OCR 171회 비교와 candidate 자원 probe는 이 단위/브라우저 시험 개수와 별도다.
 
-저장소 CI와 같은 `openapi-spec-validator`로 Agent internal 및 Spring tool OpenAPI 계약 2개 모두 OK를 확인했다. 검사 컨테이너의 read-only home/noexec 임시 도구 경로 문제는 임시 `/tmp` 도구 경로와 module 실행으로 해결했으며 호스트·운영 환경을 변경하지 않았다. 최종 변경 Python lint와 oversized fixture 변경 후 frontend lint도 통과했다.
+저장소 CI와 같은 `openapi-spec-validator`로 Agent internal 및 Spring tool OpenAPI 계약 2개 모두 OK를 확인했다. 검사는 별도 컨테이너에서 수행했으며 호스트·운영 환경을 변경하지 않았다. 최종 변경 Python lint와 oversized fixture 변경 후 frontend lint도 통과했다.
 
 구조 수정 및 검증 백업 SHA `2e487d253db1a4efd7fe6bdd3fefd40d8b5d9e2f`에 대해 GitHub Actions REST 조회(`head_sha` filter, 2026-10-07 14:23 KST) 결과 run0개를 확인했다. Agent/backend/frontend/contracts의 기존 push branch 필터에 이 작업 브랜치가 없고 PR/수동 CI 실행을 생성하지 않았다. **이 보고서의 pass는 로컬 Linux Docker 검사 결과이며 원격 CI 통과를 주장하지 않는다.**
 
@@ -64,6 +64,6 @@ Python focused 100, frontend unit 355, Java 관련 81회가 모두 통과했다.
 
 PostgreSQL/Flyway 및 실 인증 서비스 통합, 전체 unrelated 테스트는 이번 검증에 포함하지 않았다. 실제 사용자 문서·유료 API는 사용하지 않았고 운영 entrypoint의 DB migration을 실행하지 않았다. UI 테스트는 외부 요청을 abort하는 합성 fixture와 별도 검사 환경을 사용한다. OCR network none 조건과 구분한다.
 
-공개 가능한 수치와 input SHA256은 [비교 CSV](ocr-coverage-comparison-2026-10-07.csv)에 있다. 작업 폴더에는 원시 CSV/JSON, fixed comparison plan, 합성 입력, Docker build metadata, 검사 XML/log와 `harness/compare_images.py`, `trial.py`, `prepare_comparison.py`, `summarize_comparison.py`를 보관한다. 원문·인증 메타데이터·개인 정책은 Git 백업에 포함하지 않는다. 재현은 Library ZIP을 공식 경로로 materialize한 후 고정 입력의 SHA256을 검증하고 두 소스 이미지를 빌드해 수행한다.
+공개 가능한 수치와 input SHA256은 [비교 CSV](ocr-coverage-comparison-2026-10-07.csv)에 있다. 작업 폴더에는 원시 CSV/JSON, fixed comparison plan, 합성 입력, Docker build metadata, 검사 XML/log와 `harness/compare_images.py`, `trial.py`, `prepare_comparison.py`, `summarize_comparison.py`를 보관한다. 원문·인증 메타데이터·개인 정책은 Git 백업에 포함하지 않는다. 전체 비교를 재현하려면 별도로 보관한 합성 입력 ZIP과 고정 비교 계획이 필요하다. 입력 SHA-256을 확인한 뒤 두 소스 이미지를 빌드한다. Git의 CSV만으로 전체 원시 입력을 복원할 수는 없다.
 
-원자료는 공식 Library materialization의 Windows `os.setxattr` 실패 후, 명시적인 이 PC 목적지로 지원 흐름을 1회 재시도하여 Ubuntu WSL에서 materialize하고 Windows에서 ZIP 읽기 및 72개 파일 존재를 확인했다. ZIP SHA256 `ca8b0b18ae0022fd3017b0b186406f7054000f49b76390719fe6f86b74749015`. 과거 Windows 63회 실패는 POSIX LocalOcr 차단 결과이며 WASM CER/WER를 Linux 결과에 합산하지 않았다. 출력 Library prepared-upload는 이 환경의 지원 오류로 완료되지 않았으므로 Library 저장 성공이나 파일 ID를 주장하지 않는다. 로컬 결과 및 Git 보고서 링크로 전달한다.
+원자료 ZIP을 읽고 72개 파일의 존재를 확인했다. ZIP SHA256 `ca8b0b18ae0022fd3017b0b186406f7054000f49b76390719fe6f86b74749015`. 과거 Windows 63회 실패는 POSIX LocalOcr 차단 결과이며 WASM CER/WER를 Linux 결과에 합산하지 않았다. 원자료의 외부 업로드 성공은 확인하지 않았으며 공개 근거는 저장소의 보고서·CSV와 구분한다.

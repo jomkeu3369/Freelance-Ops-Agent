@@ -3,7 +3,7 @@
 - 상태: Accepted; 기본 사용자 확인 정책 구현 (2026-09-16), 고급 평가·독립 출처 검증은 후속 과제
 - 제안일: 2026-07-29
 
-## Context
+## 배경
 
 V2는 요구사항, 기술명세와 견적 artifact를 생성하고 과거 프로젝트를
 pgvector로 검색한다. LLM 생성 초안을 검증 없이 검색 corpus에 다시 넣으면
@@ -15,7 +15,7 @@ pgvector로 검색한다. LLM 생성 초안을 검증 없이 검색 corpus에 �
 self-reinforcing feedback를 통해 시스템 품질을 장기적으로 저하시킬 수
 있다.
 
-## Decision
+## 결정
 
 - artifact의 영속 저장과 retrieval publish를 분리한다.
 - 모든 LLM 생성물은 기본적으로 `DRAFT` 또는 `QUARANTINED`이며
@@ -41,7 +41,7 @@ self-reinforcing feedback를 통해 시스템 품질을 장기적으로 저하�
 [`LLM 생성 자료 재사용과 재귀 오염 위험 검토`](../reviews/2026-07-29-generated-artifact-recursion-risk-review.md)를
 따른다.
 
-## Consequences
+## 영향
 
 장점:
 
@@ -59,7 +59,7 @@ self-reinforcing feedback를 통해 시스템 품질을 장기적으로 저하�
 - source pool별 retrieval과 dedup 평가가 복잡해진다.
 - 기존 artifact를 migration할 때 origin과 root evidence를 재분류해야 한다.
 
-## Rejected alternatives
+## 검토한 대안
 
 - 모든 생성 문서를 즉시 embedding: 구현은 단순하지만 재귀 오염과
   citation laundering을 통제할 수 없어 거부한다.

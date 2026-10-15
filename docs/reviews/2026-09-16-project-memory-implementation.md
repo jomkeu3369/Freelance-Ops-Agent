@@ -20,18 +20,18 @@
 
 ## 발견된 위험 요소와 이번 수정
 
-| 우선순위 | 문제 | 적용 |
-|---|---|---|
-| P0 | 생성물과 사용자 사실 혼동 | origin/memory_type/confirmation_status, 확인자·시각, 원문 ID 분리 |
-| P0 | 확인 없는 자동 재사용 | 신규·기존 문서 모두 기본 unconfirmed, 검색과 색인에서 제외 |
-| P0 | 사용자 원문 덮어쓰기 | DB의 append-only 원문 로그, 수동 요구사항 버전 저장 시 원문 불일치 409 |
-| P0 | 프로젝트 간·동일 실행 자기참조 | 서명된 실행의 project/run으로 범위를 고정 |
-| P0 | 원문 수정 후 이전 AI 문서 잔존 | 검색 자격 회수, snapshot 무효화, 늦은 결과 및 동시 확인 보호 |
-| P1 | 벡터 공간 혼합 | 질의와 청크/snapshot의 embeddingModel 일치 검사 |
-| P1 | 생성 문서 수가 검색을 점유 | 원문을 별도 Context로 항상 우선 제공, origin별 우선순위, 문서당 최대 2청크, lexical 중복 제거 |
-| P1 | 필요한 RAG 연결 부재 | 에이전트의 실제 실행 경로에서 검색 호출 및 생성 프롬프트 연결 |
-| P1 | 검토 화면의 본문 생략 | 전체 원문·청크 표시, 확인 체크박스, 확인/색인 결과 표시 |
-| P1 | 키워드 검색 실행 오류 | Hibernate sql() 반환값의 Boolean 명시적 변환 |
+| 우선순위 | 문제                           | 적용                                                                                          |
+| -------- | ------------------------------ | --------------------------------------------------------------------------------------------- |
+| P0       | 생성물과 사용자 사실 혼동      | origin/memory_type/confirmation_status, 확인자·시각, 원문 ID 분리                             |
+| P0       | 확인 없는 자동 재사용          | 신규·기존 문서 모두 기본 unconfirmed, 검색과 색인에서 제외                                    |
+| P0       | 사용자 원문 덮어쓰기           | DB의 append-only 원문 로그, 수동 요구사항 버전 저장 시 원문 불일치 409                        |
+| P0       | 프로젝트 간·동일 실행 자기참조 | 서명된 실행의 project/run으로 범위를 고정                                                     |
+| P0       | 원문 수정 후 이전 AI 문서 잔존 | 검색 자격 회수, snapshot 무효화, 늦은 결과 및 동시 확인 보호                                  |
+| P1       | 벡터 공간 혼합                 | 질의와 청크/snapshot의 embeddingModel 일치 검사                                               |
+| P1       | 생성 문서 수가 검색을 점유     | 원문을 별도 Context로 항상 우선 제공, origin별 우선순위, 문서당 최대 2청크, lexical 중복 제거 |
+| P1       | 필요한 RAG 연결 부재           | 에이전트의 실제 실행 경로에서 검색 호출 및 생성 프롬프트 연결                                 |
+| P1       | 검토 화면의 본문 생략          | 전체 원문·청크 표시, 확인 체크박스, 확인/색인 결과 표시                                       |
+| P1       | 키워드 검색 실행 오류          | Hibernate sql() 반환값의 Boolean 명시적 변환                                                  |
 
 ## 이미 적용된 보호 장치
 
@@ -69,7 +69,7 @@
 - `backend/src/main/java/com/freelanceops/backend/domain/agentrun/service/AgentRunProjectionService.java`: 실행 결과 → 문서 생성 이벤트
 - `backend/src/main/java/com/freelanceops/backend/global/event/RequirementAnalysisCompleted.java`: 도메인 순환 의존성 없는 완료 이벤트
 - `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/GeneratedMemoryListener.java`: 원문에 연결된 미확인 문서 생성
-- `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/KnowledgeService.java`: 확인, 버전, 근거 검색 정책 및 중복 제한
+- `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/DocumentService.java`와 `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/KnowledgeSearchService.java`: 문서 생명주기와 근거 검색 정책·중복 제한. 당시 KnowledgeService의 책임을 2026-10-15에 분리했다.
 - `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/DocumentReviewService.java`: 확인 이후 색인·실패 상태
 - `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/RaptorRetrievalService.java`: leaf 필터링 이후 top-k
 - `backend/src/main/java/com/freelanceops/backend/domain/knowledge/service/RaptorIndexTransactions.java`: workspace 동시성 제어
@@ -95,8 +95,6 @@ Compose는 `KNOWLEDGE_EMBEDDING_MODEL`을 양 서비스에 전달한다(기본 `
 - Python 전체 src/tests Ruff 및 src 85개 파일 Mypy 통과.
 - 로컬에는 JDK 21이 없어 JDK 25에서 Java 21 타깃으로 컴파일·테스트했다. JDK 21 런타임 자체의 검증은 수행하지 않았다.
 - 임베딩 API 및 실제 LLM을 호출하는 비용 발생 E2E, 운영 배포, 장기 반복 생성 품질 실험은 수행하지 않았다.
-
-- 작업 저장소의 캐시 및 이번 검증용 임시 빌드·설정 414개 경로를 제거했다. 다른 worktree와 전역 캐시는 정리 대상에서 제외했다.
 
 ## PR 기준 브랜치 동기화
 

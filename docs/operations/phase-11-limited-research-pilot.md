@@ -2,9 +2,7 @@
 
 ## 1. 현재 판정
 
-현재 저장소에는 실제 운영 7일·1,000 terminal attempts, immutable image rollback, backup restore와
-실제 네트워크 부하 테스트 증거가 없다. 따라서 현재 판정은 `HOLD`이며 dispatcher 기본값은
-비활성이다. synthetic 데이터, 로컬 skip 또는 문서상 체크 표시는 운영 증거로 대체하지 않는다.
+이 파일럿의 동일 실행 범위에 묶인 실제 7일·1,000 terminal attempts와 외부 장애·복구·부하 증거는 이 저장소의 연결 자료만으로 충족되지 않는다. 따라서 파일럿 판정은 `HOLD`이며 dispatcher 기본값은 비활성이다. 일반 애플리케이션 CI·배포와 로컬 PostgreSQL 복구 성공은 파일럿 전체 승격의 근거와 구분한다. synthetic 데이터, 로컬 skip 또는 문서상 체크 표시는 운영 증거로 대체하지 않는다.
 
 ## 2. Pilot 범위
 

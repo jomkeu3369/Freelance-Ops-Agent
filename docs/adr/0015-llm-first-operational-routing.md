@@ -5,7 +5,7 @@
 - 대체: [ADR-0012](0012-hybrid-agent-routing-gateway.md)의 local-first hybrid cascade
 - 보완: [ADR-0028](0028-trusted-contract-routing-fast-path.md)의 trusted contract fast path
 
-## Context
+## 배경
 
 ADR-0012는 BM25와 fine-tuned encoder를 RRF로 결합하고, 두 lane이 불일치하는 경계 요청만 LLM evaluator로 보내 비용을 줄이도록 결정했다. 이후 사람이 검토한 균형 frozen test 50건에서 실제 A1 checkpoint를 포함한 구성을 평가했다.
 
@@ -18,7 +18,7 @@ ADR-0012는 BM25와 fine-tuned encoder를 RRF로 결합하고, 두 lane이 불�
 
 평균 accepted accuracy와 달리 실제 `HUMAN_REQUIRED` 요청 중 두 lane이 같은 비안전 route에 동의한 사례가 있었다. 따라서 lane agreement는 자동 실행을 허용할 충분조건이 아니며, local-first cascade는 V2 초기 운영의 안전 기준을 충족하지 못한다.
 
-## Decision
+## 결정
 
 V2 초기 운영 라우팅은 다음 순서를 사용한다.
 
@@ -54,7 +54,7 @@ V2 초기 운영 라우팅은 다음 순서를 사용한다.
 
 표본 수만 충족하거나 전체 accuracy만 개선되는 것은 승격 근거가 아니다.
 
-## Consequences
+## 영향
 
 초기 운영의 LLM 비용과 latency는 hybrid cascade보다 증가한다. 대신 현재 검증되지 않은 로컬 분류기가 자동 실행 경로를 선택하는 위험을 제거한다. shadow 결과와 LLM 결정 및 사람 수정 결과를 함께 축적하면 향후 저위험 route부터 제한적으로 자동 확정하는 근거를 만들 수 있다.
 

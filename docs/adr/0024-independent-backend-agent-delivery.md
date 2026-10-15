@@ -3,7 +3,7 @@
 - 상태: Accepted
 - 결정일: 2026-08-14
 
-## Context
+## 배경
 
 V2는 하나의 repository에 Spring Backend와 Python Agent를 두지만 두 서비스는 서로 다른
 runtime, dependency graph, test와 image를 가진다. 기존 CI는 한 workflow 안에서 모든 검사를
@@ -15,7 +15,7 @@ runtime, dependency graph, test와 image를 가진다. 기존 CI는 한 workflow
 상태와 배포 marker를 서로 덮어쓸 수 있다. 또한 Spring 공개 readiness와 Agent 내부 health는
 검증 경로가 다르다.
 
-## Decision
+## 결정
 
 - Backend, Agent, Frontend와 공통 Contracts & Compose 검사를 독립 GitHub Actions workflow로 관리한다.
 - `contracts/**` 변경은 서비스 경계에 영향을 주므로 Backend·Agent·Contracts & Compose CI를 모두 실행한다.
@@ -34,7 +34,7 @@ runtime, dependency graph, test와 image를 가진다. 기존 CI는 한 workflow
   경우 호환용 coordinated `deploy.sh`를 유지한다.
 - Frontend Production 배포는 ADR-0010의 Vercel 배포를 유지하며 Vultr CD에 포함하지 않는다.
 
-## Consequences
+## 영향
 
 ### 장점
 

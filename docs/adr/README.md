@@ -1,19 +1,19 @@
-# Architecture Decision Records
+# 아키텍처 결정 기록
 
 V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리한다.
 
 ## 상태
 
 - `Proposed`: 논의 중이며 구현 기준이 아님
-- `Accepted`: 현재 구현 기준
+- `Accepted`: 채택한 설계. 구현·운영 적용 여부는 본문의 구현 상태와 코드를 별도로 확인한다.
 - `Superseded`: 더 최신 ADR로 대체됨
 - `Deprecated`: 신규 구현에서 사용하지 않음
 
 ## 작성 규칙
 
-파일명은 `NNNN-short-title.md` 형식을 사용한다. 각 ADR은 최소한 Context, Decision, Consequences를 포함한다. 기존 Accepted ADR의 결정을 바꿀 때 원문을 지우지 않고 새 ADR을 만들어 `Superseded` 관계를 남긴다.
+파일명은 `NNNN-short-title.md` 형식을 사용한다. 각 ADR은 배경, 결정, 영향과 검증 근거를 기록한다. 기존 Accepted ADR의 결정을 바꿀 때 원문을 지우지 않고 새 ADR을 만들어 `Superseded` 관계를 남긴다.
 
-## Index
+## 목록
 
 - [ADR-0001: Spring Boot와 Python Agent 서비스 경계](0001-spring-python-service-boundary.md)
 - [ADR-0002: PostgreSQL과 pgvector 통합 저장소](0002-postgresql-pgvector.md)
@@ -23,7 +23,7 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0006: 제한된 계층형 Supervisor](0006-bounded-hierarchical-supervisor.md)
 - [ADR-0007: 웹 자료 탐색·수집 Provider 경계](0007-web-research-provider-boundary.md)
 - [ADR-0008: Python Agent의 uv 프로젝트 관리](0008-python-agent-uv-project.md)
-- [ADR-0009: 생성 Artifact의 검색 자격과 재귀 오염 방지](0009-generated-artifact-retrieval-safety.md) — Proposed
+- [ADR-0009: 생성 Artifact의 검색 자격과 재귀 오염 방지](0009-generated-artifact-retrieval-safety.md) — 기본 확인 정책 구현, 고급 검증은 후속
 - [ADR-0010: Designer-first frontend 구현과 Vercel 배포](0010-designer-first-frontend-vercel.md)
 - [ADR-0011: Spring Data JPA 기반 업무 데이터 영속화](0011-spring-data-jpa-persistence.md)
 - [ADR-0012: 정책 Gate와 경량 분류기·LLM fallback을 결합한 Agent 라우팅](0012-hybrid-agent-routing-gateway.md) — Superseded
@@ -46,3 +46,13 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0029: Routing 관측과 Human Review는 내구성 있는 비동기 projection으로 운영](0029-durable-route-observation-and-review.md)
 - [ADR-0030: 제한된 AI 펫 관점과 사용자 검토 후 견적 반영](0030-bounded-pet-advisors.md)
 - [ADR-0031: 개인 소유 AI 연결과 호출 직전 자격 증명 확인](0031-personal-ai-connections.md)
+
+- [ADR-0032: 개인 펫 프로필과 제한된 자연어 생성](0032-personal-pet-profiles.md) — 초기 세 견적안 프로필, 현재 별도 유료 생성은 차단
+- [ADR-0033: 대화 첨부파일의 제한된 텍스트 추출](0033-bounded-chat-attachments.md)
+- [ADR-0044: 개인 동료 모음과 신뢰하지 않는 선호 데이터](0044-personal-agent-pet-library.md) — Proposed 상태 보존
+
+## 현재 구현을 읽을 때
+
+[문서 안내](../README.md)의 제공사·비용·개인 동료·OCR·런타임 범위를 함께 확인한다. ADR-0012의 로컬 우선 라우팅은 ADR-0015로 대체됐고, ADR-0028이 신뢰된 실행 계약의 빠른 경로를 추가했다. V47 개인 키 실행은 별도 로컬 라우팅·호출 예산을 사용한다.
+
+ADR-0013의 Deep Agents 승격, 스케줄러 실제 재정렬과 자동 확장은 목표 설계와 운영 적용을 구분한다. ADR-0031/0032의 초기 Gemini·유료 생성 설명은 현재 지원 여부를 보장하지 않는다. 파일 번호는 기존 인용과 이력을 위해 유지하며 중간 번호가 비어 있다고 새 결정을 만들어 채우지 않는다.

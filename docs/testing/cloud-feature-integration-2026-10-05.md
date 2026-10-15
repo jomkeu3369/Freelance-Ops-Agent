@@ -1,188 +1,53 @@
-# Cloud workspace feature integration — 2026-10-05
+# 업무 공간 기능 통합 검증 — 2026-10-05
 
-Work branch: `codex/cloud-feature-integration-20261005`.
-Base: `cfcaeb939129e290e7fbd8ae115414d44f361e5f`.
+기준 커밋은 `cfcaeb939129e290e7fbd8ae115414d44f361e5f`, 당시 브랜치는 `codex/cloud-feature-integration-20261005`다. 이 문서는 여러 후보의 성공·실패·생략을 기록한다. 현재 기능은 [문서 안내](../README.md), 이후 main 검증·배포는 [제품 근거](../portfolio/product-evidence.md)를 따른다.
 
-This is a historical implementation and verification record. The initial cloud
-checks and subsequent GitHub Actions checks below have different database/browser
-coverage. Neither stage establishes production deployment or paid-provider quality.
+## 통합한 기능과 경계
 
-## Integrated behavior
+- 신규 기본 제공 AI는 고정 크레딧 대신 USD 예약·정산을 사용한다. 지출 스위치·모델·미확정 비용 예약·서버 권한을 유지하며 기존 관리자 크레딧 설정은 호환용이다.
+- 무료 내장 스킬 60개를 8개 범주에서 한글·영문으로 검색하고 자동 또는 정확한 수동 선택을 지원한다. 수동 0개도 가능하며 본문은 최대 3개만 전달한다. 나머지는 다음 단계 후보로 표시한다.
+- 사용자 요청·선택·첨부·실행 모드는 재시도 식별에 포함된다. 자동 선택은 유료 라우팅을 추가하지 않으며 역할 이름·첨부 원문·동료 선호가 스킬을 선택하거나 권한을 부여하지 않는다.
+- 일반 대화는 `AD_HOC`, 명시적 프로젝트 분석은 기존 네 부문 흐름을 사용한다. 구조화 생성과 ReAct 모두 선택한 스킬과 기존 권한·과금 경계를 유지한다.
+- 개인 동료는 무료 규칙 미리보기·저장·선택·수정·보관·복원·삭제를 제공한다. 선호 하나를 참고 데이터로 고정하며 유료 별도 생성은 비활성이다.
+- 첨부는 제한된 텍스트·PDF·이미지·로컬 OCR을 제공한다. 원본은 저장하지 않고 추출 내용은 사용자·워크스페이스·프로젝트별 30분 대기 자료로 관리한다. START 트랜잭션에서 소비하며 전송 뒤에는 기존 대화 보존 정책을 따른다.
+- 관리자 회원 조회는 활성·이메일 인증을 마친 요청자의 현재 `MEMBERS_READ`를 먼저 확인한다. 회원별 USD 내역을 읽되 관리자 권한을 자동 부여하지 않는다.
 
-- Actual USD usage/admission and the final compact chat UI are combined. Ordinary
-  starts no longer charge fixed model credits. Current spending/model switches,
-  durable reservations, unknown-cost holds and backend authorization remain
-  authoritative. Existing administrator credit settings are legacy controls.
-- All 60 free built-in workflows are searchable in Korean/English, grouped into
-  eight categories, and available in Auto or exact manual mode (including zero).
-  At most three bodies enter an execution prompt; exclusions are task-local.
-  User request, selection, attachments and workflow mode participate in retry
-  identity. Skills cannot grant tools or change permissions/models/budgets.
-- Auto uses deterministic local rules, with no extra paid routing call. Role labels,
-  attached source text and pet preferences do not select workflows. Both structured
-  generation and ReAct objectives receive the selected workflow bodies and safety
-  boundaries. More than three matches are shown as deferred next-stage work, not
-  silently loaded or represented as completed.
-- Normal project chat uses AD_HOC mode, avoiding mandatory quotation scenarios for
-  unrelated writing/design/research work. Existing explicit project analysis keeps
-  its four-department workflow. Model quality remains unverified by paid calls.
-- Multiple personal pets support preview, save/select, edits, archive/restore and
-  removal. One selected pet's preferences are copied into a run as untrusted style
-  and focus data. Appearance preview composes existing animal/color/accessory
-  presets; it is not arbitrary AI image generation or a claim of full natural-
-  language preference understanding. Paid standalone generation remains disabled.
-- TXT/CSV preserve bounded source text; PDF text layers, JPG/PNG/GIF and scanned
-  pages have bounded reading with free local OCR where needed. OCR is always
-  partial and fallible. Up to three frames/text-empty PDF pages are sampled, with
-  exact omissions reported. General image, chart, animation and layout understanding
-  is not provided. Long paste becomes a local TXT attachment without trimming.
-- Attachment extraction and sending remain distinct review steps. Original bytes
-  are not stored. Staged extraction is owner/workspace/project scoped, expires after
-  30 minutes and is consumed in the START transaction. Sent reference text remains
-  in the existing conversation retention boundary. An attachment cannot authorize
-  actions or affect privileged routing.
-- Member administration includes signup/login information plus per-member exact
-  USD snapshots and cursor history. Every read rechecks an active, verified actor's
-  current MEMBERS_READ grant before target lookup or ledger access. Disabled target
-  members remain auditable. No member grant is created implicitly.
+당시 OCR은 최대 세 프레임·텍스트 없는 PDF 페이지를 표본으로 읽었다. 이후 혼합 PDF 후보 검사는 [2026-10-07 기록](ocr-coverage-validation-2026-10-07.md)과 [현재 판독기](../../agent/src/attachments/README.md)를 따른다. 전체 이미지·차트·배치·애니메이션 의미를 이해한 결과는 아니다.
 
-## Source integrations and corrections
+## 소스와 재현 자료
 
-Original feature checkpoints: admin `b5ab4b6`, attachments `07eae54`, pets
-`bf354ba`, catalog `6c734a0`. Final ledger `bb72158` and UI `ae4add2` are included.
-The integration also includes free OCR and admin ledger work, full skill runtime
-and chooser wiring, general chat mode, contract reconciliation and regressions.
+기능 기준점은 관리자 `b5ab4b6`, 첨부 `07eae54`, 동료 `bf354ba`, 스킬 `6c734a0`이며 최종 원장 `bb72158`과 UI `ae4add2`를 통합했다. V42/V43은 원장, V44는 동료, V45는 첨부, V46은 회원 활동이다. 스킬은 기존 명령 저장소를 사용해 별도 V47 마이그레이션을 만들지 않았다. 이후 개인 키 범위의 V47과 혼동하지 않는다.
 
-UI merge conflicts were resolved by preserving attachment/paste handling and exact
-retry identity while adopting USD eligibility and the simplified composer controls.
-A real pet parser issue found by the combined Java tests was fixed: an explicit
-label such as `말투:` after a sentence-ending period is now recognized.
+원래 카탈로그 `freelance-ops-builtins-v1.zip`은 68,460바이트, SHA-256 `625e29d4612a4b92de317371fd13e0d336818e98a3015f8d2efd61aa2cbc592e`였다. 원본 manifest 7개 파일의 크기·해시를 확인했다. 원본·manifest·검증기·fixture는 `agent/resources/builtin-skills`에 보존한다. 제공자가 제출한 보고서와 통합 후 재실행한 120개 검사는 별도 근거다.
 
-Migrations V42/V43 (ledger), V44 (pets), V45 (attachments), V46 (member activity)
-have distinct numbers. Skill choices use existing durable command storage, so no
-V47 table or migration is needed.
+## 단계별 실행 결과
 
-## Imported catalog provenance and earlier focused checks
+| 단계                                                         | Agent·도구                                                          | Backend                                                                                                                | Frontend·브라우저                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 첨부 초기 점검                                               | Python 77개 통과                                                    | Java 작업자 시작 실패로 DB 통과 근거 없음                                                                              | 단위 245개, 합성 브라우저 3개 통과·최초 탐색 1개 시간 초과                                    |
+| 동료 초기 점검                                               | Python 69개 통과                                                    | 대상 Java 26개 통과·PostgreSQL 22개 생략                                                                               | 최종 빌드·브라우저 미실행                                                                     |
+| 최초 통합 로컬                                               | 전체 511개 통과·DB 8개 생략, Ruff·mypy 93개 소스, SDK 2개           | 441개 중 342개 통과·99개 생략, 실패·오류 0. 첨부 DB 19개 포함                                                          | Node.js 22.23.3 단위 293개·타입·린트·webpack 빌드 통과. 새 기능 브라우저 20개 수집, 실행 아님 |
+| 수정 후 로컬                                                 | Python 516개 통과·DB 8개 생략, Ruff 통과                            | Java 343개 통과·DB 99개 생략                                                                                           | 단위 294개·타입·린트 통과                                                                     |
+| 원격 첫 후보 `b44363b8148cc096fa4341700ed98c1a779759a6`      | Agent DB 8개 통과, OCR 필수 도구 누락을 생략 방지 검사로 발견       | 영속 명령 JSON·신규 컨테이너 스키마·fixture 오류로 실패                                                                | 브라우저 40개 통과·짧은 화면 1개 실패                                                         |
+| 원격 두 번째 후보 `a5abd1f585bb10f4aa6e8fbbda045f4c4ac40426` | 전체 524개 통과·생략 0, DB 8개·OCR 26개 포함, 양쪽 이미지 빌드 통과 | 첨부 19개·회원 8개·동료/워크스페이스 22개·공지 21개 DB 검사 통과. 구형 예산 fixture 4개 클래스의 23개 오류로 전체 실패 | 단위 294개·타입·린트·운영 빌드, 합성 브라우저 41개 모두 통과                                  |
 
-The original `freelance-ops-builtins-v1.zip` contained 68,460 bytes with SHA-256
-`625e29d4612a4b92de317371fd13e0d336818e98a3015f8d2efd61aa2cbc592e`.
-All seven original manifest byte counts and hashes were verified at import. The
-supplied catalog validation report was author evidence at that point; the 120-check
-validator rerun below is separate integration evidence. Original catalog files,
-manifest, validator and fixtures remain in `agent/resources/builtin-skills`.
+원격 첫 실행: [Backend 37268299662](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/37268299662), [Agent 37268299648](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/37268299648), [Frontend 37268299647](https://github.com/jomkeu3369/Freelance-Ops-Agent/actions/runs/37268299647).
 
-Earlier attachment checks recorded 77 Python passes, 245 frontend passes and
-three synthetic browser passes with one initial-navigation timeout. Java workers
-failed to launch, so that checkpoint supplied no passing Java or PostgreSQL suite.
-Earlier pet checks recorded 69 Python passes and 26 targeted Java passes; 22
-PostgreSQL cases were skipped. Final frontend/build/browser checks had not run on
-that pet revision. These historical checks do not replace the integrated results.
+추가로 내장 카탈로그 120개 검사·스킬 60개·fixture 40개, 오프라인 자동 선택 수용 사례, 구조화/ReAct 프롬프트 전달, 실제 한글·영문 OCR을 포함한 판독기 56개, 저장된 평가 보고서를 읽는 릴리스 기준을 통과했다. 저장된 보고서 검사는 새 유료 모델 평가가 아니다.
 
-## Cloud verification so far
+## 발견한 오류와 수정
 
-- Full agent tests: 511 passed, 8 PostgreSQL-dependent skips
-- Ruff: passed across all agent source/tests
-- Strict Mypy: passed, 93 source files
-- Catalog schema/content validator: 120 checks passed, 60 skills, 40 fixtures
-- Actual offline routing acceptance cases: passed in the full agent suite
-- Structured and ReAct captured-provider prompt tests: passed; selected workflows
-  appear, unselected bodies do not, and existing authorization/billing gates remain
-- Native reader suite: 56 focused tests passed, including real English/Korean OCR,
-  JPG/PNG/GIF/scanned-PDF bytes and native descendant cleanup on cancellation
-- Full backend XML: 441 total, 342 passed, 99 skipped, zero failures/errors,
-  including 19 explicit skips from the dedicated attachment PostgreSQL suite.
-  A subsequent fixture-only correction uses a catalogued synthetic model in
-  WorkspaceRbacPostgresTest; genuine execution awaits Actions
-- Python SDK: 2 passed
-- Frozen release-policy artifact gate: passed; this consumes stored evaluation
-  reports and is not a new paid provider evaluation
-- Final integrated frontend under Node 22.23.3: typecheck, all 293 Node tests and
-  ESLint passed. Tests include both-language React rendering, all 60 skill options,
-  manual/exclusion/deferred-stage cases, exact immutable retry snapshots, custom
-  pet-name preservation and partial OCR review controls
-- Production frontend webpack build: passed. The normal Turbopack build hit the
-  cloud worktree's external read-only node_modules symlink boundary, so the supported
-  webpack build was used locally; Actions installs real local dependencies and
-  exercises the normal build
-- Browser fixture collection: 20 tests in the four new-feature suites collected
-  successfully; collection is not browser execution. Actions also includes the
-  existing composer and fullscreen suites
+- `SkillSelection.isDefault`가 JSON의 미지원 `default` 필드로 직렬화됐다. 직렬화 제외와 자동·수동·빈 수동 선택의 엄격한 왕복 검사를 추가했다.
+- 새 PostgreSQL 컨테이너를 쓰는 다섯 클래스에 스키마 생성 설정이 빠졌다. 테스트에서만 활성화하고 운영 `spring.flyway.create-schemas=false`는 유지했다.
+- Mockito 재설정이 null 인자로 기존 응답을 호출하던 fixture를 수정했다. 실제 검증 조건은 유지했다.
+- OCR 취소 검사의 `/proc` 확인 사이 프로세스 종료 경합을 처리했다. 사라진 프로세스만 종료로 인정하며 권한 오류는 계속 실패시킨다.
+- 언어 팩만으로 Tesseract 실행 파일이 설치되지 않던 CI를 수정해 실행 파일·Poppler·두 언어 팩을 먼저 요구했다.
+- 낮은 화면의 줄어들지 않는 대화 여백·제어·제목을 조정했다. 엄격한 화면 안 배치 검사와 390×420 오프라인·첨부·확장 제어 검사를 유지했다.
+- 두 번째 후보의 구형 예산 검사는 같은 합성 이메일을 재사용했다. 계정 UUID별 `@example.invalid` 주소로 수정하고 운영 고유성 제약은 유지했다.
+- 통합 Java 검사는 마침표 뒤의 명시적 `말투:` 구문 누락도 드러내 수정했다.
 
-## Unverified release gates
+## 검증 한계
 
-1. Docker/PostgreSQL integration: Docker is unavailable on this cloud computer.
-   Skipped Testcontainers/PostgreSQL cases are not passes. Run V42–V46 migration,
-   cost settlement, admin revocation, pet ownership/concurrency and attachment
-   transaction/expiry/quota cases in an authorized Docker-capable environment.
-   GitHub Actions test-only execution was authorized; the candidate branch has
-   narrowly scoped CI triggers, with results to be recorded after execution.
-2. Browser: Chromium fails before the app at its Unix socket creation restriction;
-   the supported cloud browser rejects localhost. No restriction was bypassed.
-   Existing screenshots are earlier synthetic-fixture evidence, not evidence of
-   this combined revision. Integrated browser fixtures remain unexecuted here.
-   A test-only Actions Chromium job on this branch will build an ephemeral local
-   app, use synthetic sessions and blocked external requests, and preserve reports.
-3. No real Spring-to-Agent upload against a live database or authenticated admin
-   service was exercised. Unit, HTTP mock and direct native-parser results are
-   separate evidence and do not substitute for that end-to-end check.
-4. OCR packaging was added to the Agent Dockerfile and CI dependencies; the Docker
-   image itself was not built here. English/Korean coverage requires the included
-   Tesseract language packs and Poppler binaries.
-5. Provider access, paid output quality and full natural-image understanding were
-   not tested. Spending stays disabled by default, and standalone paid generation
-   remains fail-closed.
+로컬 Docker가 없어 생략한 DB 검사는 통과로 세지 않았다. 당시 클라우드 브라우저는 앱 실행 전에 소켓 제한으로 시작하지 못했고 기존 스크린샷도 최종 통합 후보의 증거가 아니었다. Turbopack의 외부 읽기 전용 의존성 경로 문제로 로컬은 지원되는 webpack 빌드를 사용하고 Actions는 정상 의존성 설치·빌드를 사용했다.
 
-## First GitHub Actions run and corrections
-
-Candidate `b44363b8148cc096fa4341700ed98c1a779759a6` started Backend run
-`37268299662`, Agent run `37268299648`, and Frontend run `37268299647`.
-These are genuine remote test executions, distinct from local skipped suites.
-
-- Both Docker images built successfully; no image was pushed or deployed
-- All eight Agent PostgreSQL integration tests executed and passed
-- Browser execution reached 40 passes and one short-height viewport failure
-- Backend execution exposed a real durable-command JSON error: the `isDefault`
-  convenience method on SkillSelection serialized as an unsupported `default`
-  property. It is now explicitly ignored; strict selection/internal-input JSON
-  roundtrip tests cover Auto, manual and manual-empty cases
-- Five disposable PostgreSQL test classes lacked schema creation in their fresh
-  container configuration. They now opt in inside the tests, while production
-  retains `spring.flyway.create-schemas=false`
-- One attachment Mockito restub invoked the existing answer with matcher nulls.
-  The fixture now uses doAnswer/doThrow without changing assertions
-- An OCR cancellation test raced a reaped process between `/proc` existence and
-  read. The probe now treats only missing/reaped processes as exited, and still
-  propagates permission failures, with deterministic regressions
-- The Agent CI language packages did not provide the Tesseract executable itself.
-  CI now installs it explicitly and requires Tesseract, Poppler and both English/
-  Korean language packs before tests. The zero-skip guard correctly rejected the
-  incomplete initial native-OCR run
-
-The initial remote run failed; corrected candidate verification is still pending.
-A local full backend rerun after the JSON/schema/fixture fixes passed. Neither the
-initial failures nor the pending corrected run are represented as a release pass.
-
-The short-height correction preserves the original strict viewport assertion,
-removes non-shrinkable conversation padding below 560px, keeps supplementary
-controls scrollable within 20dvh, and constrains the project title to its grid cell.
-The regression additionally covers expanded skill controls and an unsent attachment
-while offline. Local Node 22 typecheck, 294 tests and lint passed after that change.
-After the backend/OCR fixes, local checks passed again: Java 343 executed with 99
-Docker-dependent skips; Python 516 executed with 8 PostgreSQL skips; Ruff passed.
-The next remote run must confirm the complete corrected database and browser flows.
-
-## Second GitHub Actions run
-
-Candidate `a5abd1f585bb10f4aa6e8fbbda045f4c4ac40426` passed all Agent tests:
-524 passed, zero skips, including all eight PostgreSQL and 26 OCR tests. Both
-Docker images built. Frontend typecheck, lint, 294 tests and production build
-passed; synthetic browser execution passed all 41 tests, including the corrected
-short-height case. Attachment (19), member administration (8), pet/workspace (22)
-and notice (21) PostgreSQL cases passed.
-
-Backend overall remained failed: 23 cases in four older quota/spend fixture suites
-reused one synthetic email, violating the existing normalized-email uniqueness
-constraint. Fixture account creation now derives a unique @example.invalid email
-from each generated account UUID. The production uniqueness constraint is unchanged.
-The next candidate also captures the expanded offline 390x420 view as a browser
-artifact, while retaining the strict geometry checks and external-network block.
+이 기록의 원격 두 번째 후보도 Backend 전체 성공은 아니다. 이후 성공한 main 검사와 배포는 [제품 근거](../portfolio/product-evidence.md)로 연결한다. 실제 인증된 업로드 전체 흐름·제공사 접근·유료 결과 품질·일반 이미지 이해는 별도 확인 사항이다. 테스트와 문서 갱신으로 기본 지출 스위치를 켜거나 한도를 늘리지 않았다.

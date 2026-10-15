@@ -1,58 +1,37 @@
-# Fullscreen project conversation
+# 전체 화면 프로젝트 대화 검증
 
-Historical checks on the source revisions listed below. Later combined verification
-is recorded in [the integration report](cloud-feature-integration-2026-10-05.md).
+아래 소스의 당시 구현 기록이다. 이후 통합 결과는 [기능 통합 검증](cloud-feature-integration-2026-10-05.md), 최근 브라우저·배포 근거는 [제품 근거](../portfolio/product-evidence.md)를 따른다.
 
-## Scope
+## 범위
 
-- Based on main `4743d0d08676a60f373f4faaadb80c991c44d2ce`
-- Restores the prior workspace, real chat history, quota/authentication UI, and safe pipeline drag-and-drop from `31f9456f6466d513175c44fc1e5f46189da4ae96`
-- The project conversation occupies the available viewport. A centered reading column and bottom composer replace the boxed conversation
-- Desktop project navigation can be fully collapsed. Small screens use a keyboard-contained project drawer
-- Results, execution details, AI settings, and detailed usage open on demand. They do not occupy a permanent right column
-- Korean/English, light/dark, reduced motion, exact draft text, IME input, and unavailable-server states remain explicit
-- The composer toolbar exposes the existing model/key choice and advanced AI settings. Selection alone sends no request; active and clarification runs lock changes, while idle selections accurately label the next explicit Send
-- Review also fixed stale-send draft deletion, stacked-modal focus handling, and the icon-only mobile brand's accessible name
+기준은 `4743d0d08676a60f373f4faaadb80c991c44d2ce`이며 `31f9456f6466d513175c44fc1e5f46189da4ae96`의 실제 대화 이력·사용량·인증·프로젝트 보드 이동을 연결했다. 가운데 읽기 영역과 하단 입력창이 전체 대화 공간을 사용하고 결과·실행 상세·AI 설정·사용량은 필요할 때 연다. 데스크톱 탐색은 접고 작은 화면은 키보드 초점을 제한한 서랍을 사용한다.
 
-Public landing components, WebGL/scroll styles, both existing README files, package manifests/lockfile, backend, and deployment/security configuration are unchanged from the base. The one shared-stylesheet exception is the explicitly requested removal of the decorative left border from `.form-error`; its wording, alert semantics, readable color, and background remain intact. The new conversation error/attention styles also omit left accent bars. No production merge or deployment is included.
+모델·키 선택은 요청을 보내지 않으며 실행·추가 답변 중에는 변경을 잠근다. 뒤늦은 전송 완료로 다른 초안이 지워지는 문제, 중첩 대화상자의 초점, 아이콘 브랜드의 접근성 이름을 보완했다. 한글·영문·테마·동작 줄이기·IME·정확한 초안·서버 불가 상태를 유지했다.
 
-## Verified locally
+랜딩·패키지·Backend·배포·보안 설정은 당시 범위 밖이었다. 공용 `.form-error`의 장식 왼쪽 선만 제거하고 문구·알림 의미·대비는 유지했다. 이 구현 기록 자체는 운영 배포 근거가 아니다.
 
-On the final implementation:
+## 당시 실행 결과
 
-- `npm run ci:check`: passed TypeScript, **218 unit tests**, and ESLint
-- `npm run build`: passed optimized Next.js build and page generation
-- `npm run test:ui -- --list`: discovers **274 browser tests** across 16 files
-- `git diff --check`: passed
+| 검사                        | 결과                                              |
+| --------------------------- | ------------------------------------------------- |
+| `npm run ci:check`          | 타입·단위 218개·ESLint 통과                       |
+| `npm run build`             | 최적화 빌드·페이지 생성 통과                      |
+| `npm run test:ui -- --list` | 16개 파일에서 브라우저 274개 수집. 실행 통과 아님 |
+| `git diff --check`          | 통과                                              |
 
-The available runtime was Node 24.19.0. The repository declares Node 22.x and its existing CI uses Node 22; npm emitted the corresponding engine warning. No package dependency version was changed.
+환경은 Node.js 24.19.0이어서 저장소의 22.x 요구와 버전 경고가 있었다. 패키지 버전은 변경하지 않았다. 대화상자 단위 검사는 실제 변환한 초점 훅을 작은 DOM 환경에서 실행했으며 브라우저 접근성 검증을 대신하지 않는다.
 
-The modal-stack unit tests execute the real transpiled focus-trap hook against a small DOM harness. They cover topmost-only Tab/Escape handling, returning to the underlying dialog, out-of-order dismissal, and restoration of body/inert state. They are not browser accessibility verification.
+브라우저는 지정한 Chrome 실행 파일 부재와 Chromium 다운로드 실패로 실행하지 못했다. 이 후보의 새 검증 스크린샷은 없으며 테스트의 출력 경로도 생성된 증거가 아니다. 실제 Backend 전체 흐름·물리 키보드·스크린리더는 확인하지 않았다.
 
-## Browser and visual verification remains pending
+## 브라우저 회귀 범위
 
-The Playwright browser launch failed before running assertions because the configured Chrome executable was absent at `/opt/google/chrome/chrome`. Installing the official Playwright Chromium runtime also failed because its download was not a valid complete ZIP archive. No browser launch restriction was bypassed.
+합성 계정·응답과 외부 요청 차단으로 다음을 검사하도록 구성했다.
 
-There are **no new verified screenshots** for this implementation. The screenshot paths in the tests are intended outputs, not generated evidence. Backend end-to-end operation, physical mobile keyboard behavior, and real screen-reader behavior are also not verified by these local checks.
+- 320×568, 390×844, 640×800, 1280×800, 1440×900, 844×390에서 헤더·입력·전송 영역, 독립 이력 스크롤과 회전.
+- 긴 초안·오프라인 안내·지연된 전송, 프로젝트별 초안·뒤로/앞으로 이동.
+- 결과·설정·사용량 패널, Escape·초점 복귀, 모바일 서랍·예기치 않은 쓰기 차단.
+- 한글/영문·라이트/다크·동작 줄이기와 열린 패널 위의 사용량 안내.
 
-`tests/browser/fullscreen-chat.spec.mjs` adds synthetic-fixture coverage for:
+300% 확대의 393×252 화면에서 입력 제어가 잘리는 문제를 발견했다. 높이 320px 이하에서는 좁은 화면 구성·40px 스크롤 입력·작은 이력 최솟값·본문 내부 스크롤을 사용하고 모델 메뉴를 화면 안에 제한했다. 393×252, 472×303, 320×180을 추가 회귀 대상으로 뒀다.
 
-- 320×568, 390×844, 640×800, 1280×800, 1440×900, and 844×390
-- Header/input/send controls inside the viewport without scrolling them into view
-- Independently scrolling history with stable composer position
-- Long drafts and offline notices as the viewport shrinks and rotates
-- On-demand result/settings/usage panels, Escape, focus restoration, and no unintended writes
-- Mobile drawer dismissal, Back/Forward, and project-scoped drafts
-- Korean/English × light/dark, with reduced motion
-- Late send completion after leaving and returning to the same project
-- Quota notices appearing above an already-open panel
-
-All fixture names, email addresses, tokens, requests, and history are synthetic. Fixture tests do not establish that a deployed backend supports the relevant endpoints.
-
-## Browser configuration
-
-`PLAYWRIGHT_BROWSER_CHANNEL` can select an already-installed supported browser channel; it defaults to `chrome`. `PLAYWRIGHT_BASE_URL` retains the existing local preview configuration.
-
-## Short-height accessibility correction
-
-Native 300% zoom exposed a 393×252 CSS viewport where the prior conversation padding and composer minima placed toolbar buttons below the clipped viewport. At heights up to 320px, the workspace now uses compact chrome, a 40px scrolling textarea, a smaller history minimum, and an internally scrollable main surface. The model menu is bounded to the viewport and has an explicit Close action. Normal-height sizing is unchanged. Regression cases cover 393×252, 472×303, and 320×180 including long drafts/offline notices. Updated deployed-browser verification is separate from the local unit/build results.
+`PLAYWRIGHT_BROWSER_CHANNEL`은 설치된 채널을 선택하며 기본은 `chrome`이다. `PLAYWRIGHT_BASE_URL`은 기존 로컬 검수 주소를 사용한다. 최신 채널·프로젝트 구성은 실제 Playwright 설정을 확인한다.

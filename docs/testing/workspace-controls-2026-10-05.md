@@ -1,41 +1,29 @@
-# Workspace controls verification — 2026-10-05
+# 업무 공간 제어·사용량 표시 검증 — 2026-10-05
 
-## Scope and result
+검증 트리는 `b6dbe8c9a75be1cc11c5c72094b0452f0a720074`다. Docker·유료 모델 없이 수행한 UI 기록이며 운영 배포나 실제 과금을 증명하지 않는다. 이후 결합 검사는 [통합 기록](cloud-feature-integration-2026-10-05.md)을 따른다.
 
-Source tree: `b6dbe8c9a75be1cc11c5c72094b0452f0a720074`. Verification ran in a cloud environment without Docker or paid-provider requests. These results describe UI checks, not production deployment or live billing.
+## 화면과 계약
 
-The requested attachment was successfully materialized and its actual pixels inspected on this executor. It shows the compact model selector and outlined settings pill. The four prior screenshots below were also inspected; they remain historical synthetic-fixture evidence, not screenshots of this final revision or observed billing.
+작은 모델 선택기·테두리 설정 버튼, 키보드 초점·도구 설명, 사용량 원형 표시의 마우스/초점/터치 상세, 한글·영문 메뉴를 적용했다. 기존 유휴 Enter 안내와 지정된 소개 화면 스크롤 문구를 제거했다.
 
-- [Desktop composer](../../frontend/docs/assets/workspace-ui-20261005/composer-desktop.png)
-- [Keyboard focus and precise usage details](../../frontend/docs/assets/workspace-ui-20261005/usage-keyboard-focus.png)
-- [Usage history with an unconfirmed reservation](../../frontend/docs/assets/workspace-ui-20261005/usage-history.png)
-- [320px mobile language menu](../../frontend/docs/assets/workspace-ui-20261005/mobile-language.png)
+- 새 대화와 헤더는 이전 고정 크레딧을 조회하지 않는다. 새 START는 `creditQuote`를 생략하며 응답이 불명확한 재전송은 기존 요청·중복 방지 키를 보존한다.
+- 사용 가능 판정은 USD 상태·지출 스위치·서버 모델·지원 LOW 추론을 따른다. 카탈로그 등재만으로 지출이 활성화되지 않는다. 제공사 접근 미확인은 안내한다.
+- 적은 양의 양수 잔액도 서버 예약 심사를 받을 수 있다. 화면 비율로 지출을 승인하지 않는다.
+- 이력은 실제 `{items,nextCursor}`를 읽으며 없는 `workspaceId`를 가정하지 않는다. 삭제·미확정 이력도 유지하고 개인 키 토큰은 보수적 상한일 수 있음을 표시한다.
+- 보이는 화면은 15초마다·초점 복귀 때 갱신한다. 종료 뒤 정산이 남을 수 있어 갱신을 유지하며 숨긴 화면은 조회하지 않는다. 오류·일시 정지·빈 한도·알 수 없는 상태에서 잔액을 지어내지 않는다.
+- 운영 예산 거부는 오류를 먼저 알리고 사용량을 갱신한다. 초안은 보존하며 자동 재전송하지 않는다.
 
-The prior polish remains intact: quiet pointer states with keyboard focus, gear-only settings and tooltip, removed idle Enter/draft hint, circular remaining-usage meter with hover/focus/tap details, integrated KO/EN menu, and removal of the homepage's exact Korean/English scroll hint without altering its animation.
+계약은 원장 `bb7215848f1ae5a4d450fa421b51ce62a0411a79`와 [사용량 API](platform-usage-api-2026-10-05.md)에 맞췄다. 이 UI 검사에서는 실제 원장 API를 호출하지 않았다.
 
-## Actual-cost contract corrections
+## 화면 근거와 실행 결과
 
-- New chat starts and the header no longer query or depend on legacy fixed-credit balances. New starts omit `creditQuote`; an already-uncertain retry may retain its original metadata and idempotency key.
-- Eligibility uses the USD snapshot, spending switch, server model availability and supported LOW reasoning. Catalogue membership never implies that spending is enabled. `providerAccessVerified=false` is explicitly disclosed and is informational, as specified by the backend owner.
-- Small positive residual budgets are allowed for server admission. The backend clamps the reservation cap and remains authoritative about whether a request fits. No client percentage authorizes spend.
-- History accepts the real `{items,nextCursor}` DTO without a nonexistent `workspaceId`. Deleted and unconfirmed records remain visible. Unconfirmed BYOK token totals are labelled as conservative bounds.
-- Visible pages refresh account usage every 15 seconds and on focus, including after terminal status while settlement may still be pending. Hidden pages do not poll. Error, paused, empty-limit and unknown states never invent a 100% balance.
-- Operating-budget rejection refreshes usage without holding up the error message, preserves the draft and never automatically resends.
+다음 네 장은 직접 확인한 **이전 합성 응답 화면**이며 최종 트리의 캡처나 실제 청구 근거는 아니다.
 
-The contract matches ledger revision `bb7215848f1ae5a4d450fa421b51ce62a0411a79` and [its API verification record](platform-usage-api-2026-10-05.md). This UI-only verification did not exercise live ledger endpoints. Subsequent combined checks are recorded in [the integration report](cloud-feature-integration-2026-10-05.md).
+- [데스크톱 입력창](../../frontend/docs/assets/workspace-ui-20261005/composer-desktop.png)
+- [키보드 초점·정확한 사용량](../../frontend/docs/assets/workspace-ui-20261005/usage-keyboard-focus.png)
+- [미확정 예약이 있는 이력](../../frontend/docs/assets/workspace-ui-20261005/usage-history.png)
+- [320px 언어 메뉴](../../frontend/docs/assets/workspace-ui-20261005/mobile-language.png)
 
-## Verification
+Node.js 22.23.3과 잠금 파일에 맞는 기존 의존성에서 타입·단위 249개·린트(오류/경고 0)·`preview:check` 운영 빌드·변경 검사를 통과했다. 재연결 상태와 올바른 BYOK 안내 선택으로 오래된 테스트 기대값 두 곳을 수정했다. 실제 이력 형태·접근 메타데이터·잔액 경계·구형 크레딧 의존 제거를 회귀 검사했다.
 
-Node 22.23.3, locked existing dependencies matching this branch:
-
-- TypeScript: passed
-- Node unit/source tests: 249 passed, zero failed
-- ESLint: zero errors and zero warnings after the final hook cleanup
-- Standard `npm run preview:check`: passed, including the full production build
-- `git diff --check`: passed
-
-The expanded 71-case browser suite is **not verified on the final code**. A launch attempt and one approved retry could not create Chromium's process-singleton Unix socket (`Operation not permitted`), before any test reached the app. The supported cloud-browser fallback refused the local preview with `ERR_BLOCKED_BY_CLIENT`; the access restriction was not bypassed. These are environment launch/access failures, not 71 demonstrated product regressions.
-
-Two stale regression expectations were corrected: reconnect status replaces a raw fixture polling error, and BYOK settings assertions now select the intended note. Credit-flow tests were rewritten for actual-cost admission and exact retry identity. The original send/draft/locale timeout and landscape history-loading diagnostic still require browser execution. New tests cover real history shape, provider-access metadata, full/zero/unknown balances, residual budget and removal of old credit gating.
-
-At this revision, the 71 browser scenarios, physical mobile keyboard and assistive-technology checks, authenticated live-ledger/DB integration, and paid-provider access remained unverified.
+최종 코드의 브라우저 71개는 당시 실행되지 않았다. 앱 도달 전 Chromium 소켓 생성 제한과 대체 브라우저의 로컬 주소 차단이 발생했으며 이를 제품 회귀 71개로 세지 않았다. 실제 모바일 키보드·보조 기술·원장/DB 통합·유료 제공사 접근도 미검증이었다. 원래 전송·초안·언어 시간 초과와 가로 화면 이력 로딩 문제는 실제 브라우저 재실행이 필요했다.

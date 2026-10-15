@@ -10,15 +10,15 @@ workspace OWNER/ADMIN, JWT 역할, FREE_USAGE_ADMIN 또는 NOTICES_ADMIN만으�
 계정 비활성화·인증 대기·권한 회수는 즉시 거부한다. 검증한 계정/권한 행을 트랜잭션 종료까지 잠근다.
 V46은 capability의 허용 값만 추가하며 어떤 계정에도 권한을 부여하지 않는다.
 
-| API | 내용 |
-| --- | --- |
-| `GET /api/v2/admin/members?q=&status=&page=0&size=25` | 이메일/이름의 문자 그대로 검색, UUID 일치, 상태 필터, 신규 가입 순 목록 |
-| `GET /api/v2/admin/members/summary` | 전체·로그인 가능·인증 대기·최근 7일 가입·최근 7일 로그인한 고유 회원 수 |
-| `GET /api/v2/admin/members/{id}` | 계정 메타데이터와 기록된 최근 로그인 |
-| `GET /api/v2/admin/members/{id}/ai-usage` | 회원별 실제 USD 주간 스냅샷 |
-| `GET /api/v2/admin/members/{id}/ai-usage/history?cursor=&limit=20` | 회원별 실제 비용 원장, 1~100건의 커서 페이지 |
-| `GET /api/v2/admin/login-events?userId=&page=0&size=25` | 전체 또는 회원별 성공한 인증 기록 |
-| `GET /api/v2/admin/member-audit-events?page=0&size=25` | 기존 주간 크레딧·이전 월간 한도의 변경/초기화 원본 감사 기록 |
+| API                                                                | 내용                                                                    |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `GET /api/v2/admin/members?q=&status=&page=0&size=25`              | 이메일/이름의 문자 그대로 검색, UUID 일치, 상태 필터, 신규 가입 순 목록 |
+| `GET /api/v2/admin/members/summary`                                | 전체·로그인 가능·인증 대기·최근 7일 가입·최근 7일 로그인한 고유 회원 수 |
+| `GET /api/v2/admin/members/{id}`                                   | 계정 메타데이터와 기록된 최근 로그인                                    |
+| `GET /api/v2/admin/members/{id}/ai-usage`                          | 회원별 실제 USD 주간 스냅샷                                             |
+| `GET /api/v2/admin/members/{id}/ai-usage/history?cursor=&limit=20` | 회원별 실제 비용 원장, 1~100건의 커서 페이지                            |
+| `GET /api/v2/admin/login-events?userId=&page=0&size=25`            | 전체 또는 회원별 성공한 인증 기록                                       |
+| `GET /api/v2/admin/member-audit-events?page=0&size=25`             | 기존 주간 크레딧·이전 월간 한도의 변경/초기화 원본 감사 기록            |
 
 목록은 0부터 시작하는 페이지, 1~100건 크기, 최대 100자 검색을 받는다.
 상태는 `ACTIVE`, `DISABLED`, `PENDING_VERIFICATION` 또는 전체다.
@@ -61,7 +61,7 @@ BYOK 토큰은 플랫폼 USD와 분리하여 표시하고, 미확정 토큰에�
 
 이 Windows 환경은 Docker daemon이 없어 PostgreSQL 통합 검사를 건너뛴다.
 Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한다.
-최종 실행 결과와 원격 SHA는 작업 결과 보고에 기록한다.
+당시 로컬 결과와 이후 원격 검증은 아래 기록과 연결된 통합 보고서에서 구분한다.
 
 ### 이 작업의 실행 결과
 
@@ -71,8 +71,7 @@ Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한
 - Chrome 6개 중 감사 조회·390px 모바일 레이아웃·세션 해제 뒤 늦은 응답 차단 3개 통과. 모바일 스크린샷을 직접 확인했다.
 - Chrome 나머지 3개는 초기 개발 서버 탐색 timeout 1개, Next의 별도 route announcer와 `role=alert` 선택 충돌 2개로 실패했다. DOMContentLoaded 탐색과 `main [role=alert]` 선택으로 테스트를 수정했으나 재실행하지 않았다.
 - 최종 타입 검사/린트는 완료 전에 중단했다. 성공으로 보고하지 않는다.
-- 사용자의 노트북 부하 중단 요청으로 로컬 Next 개발 서버(3155), 타입 검사 및 브라우저 자동화를 종료했다. 추가 로컬 빌드·Docker 검사는 실행하지 않는다. 이후 DB·브라우저 검증과 비용원장 연결은 클라우드 환경에서 계속해야 한다.
-
+- 해당 로컬 점검은 중단돼 최종 타입·브라우저 재실행은 하지 않았다. 이후 통합 결과는 [기능 통합 기록](cloud-feature-integration-2026-10-05.md)과 구분한다.
 
 ## 클라우드 비용 원장 통합 검증 (2026-10-05)
 
@@ -81,7 +80,7 @@ Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한
 - PostgreSQL 검사는 USD 읽기의 무변경성, 비활성 대상 조회, 활성 요청자 요구, 없는 대상, 커서 오류와 트랜잭션 중 동시 권한 회수 차단을 추가한다.
 - 브라우저 fixture는 GET 전용 가상 API이며 외부 요청을 차단한다. 소액 USD, 확정/예약 분리, BYOK, 삭제된 실행, 커서 전후 이동, 새로고침, 원장 403, 늦은 응답·세션 해제, 390px 화면을 검사한다.
 - 프론트 단위 검사는 회원 ID 인코딩, opaque cursor 전달, no-store/취소 신호, 8자리 USD 표시를 검사한다.
-- 실행 결과는 클라우드 검증이 끝난 뒤 아래에 추가한다. 위 Windows 결과를 현재 통합 코드의 검증으로 간주하지 않는다.
+- 아래 클라우드 결과는 위 Windows 점검과 다른 후보의 기록이다. 통과·생략과 환경을 각각 확인한다.
 
 ### 클라우드 프론트 실행 결과
 
@@ -98,5 +97,5 @@ Gradle test worker는 저장소 README의 ASCII 드라이브 우회로 실행한
 
 - `AdminMemberControllerTest`: 2개 실행, 2개 통과, 실패/오류 0.
 - `AdminMemberServiceTest`: 4개 실행, 4개 통과, 실패/오류 0.
-- `AdminMemberPostgresTest`: 8개 모두 skipped. 실제 PostgreSQL 권한·잠금·조회 검증은 아직 완료되지 않았다.
+- `AdminMemberPostgresTest`: 8개 모두 skipped. 이 후보에서는 PostgreSQL 권한·잠금·조회 검증을 완료하지 않았다. 이후 원격 8개 통과는 [통합 기록](cloud-feature-integration-2026-10-05.md)을 따른다.
 - 위 결과는 예산 원장 의존성을 포함한 통합 브랜치의 컴파일/단위 검증이다. 브라우저와 실제 DB 검증의 제한은 그대로 남는다.

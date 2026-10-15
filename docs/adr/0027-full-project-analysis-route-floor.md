@@ -5,13 +5,13 @@
 - 보완: [ADR-0015](0015-llm-first-operational-routing.md)
 - 부분 대체: [ADR-0028](0028-trusted-contract-routing-fast-path.md)의 LLM 이전 route 확정과 4회 model call 예산
 
-## Context
+## 배경
 
 운영 route evaluator는 문의 원문을 보고 `DIRECT_TOOL`, `SIMPLE_LLM`, `REACT_AGENT`, `SUPERVISOR`, `HUMAN_REQUIRED` 중 하나를 선택한다. 그러나 공개 Workspace의 `분석 시작`은 일반 질의 응답이 아니라 요구사항 구조화, 프로젝트 맥락 조회, 근거 검토, 견적 설계와 검증을 모두 산출해야 하는 고정 제품 workflow다.
 
 Discord 운영 Bot처럼 데이터 구조, 명령어, CSV 입력과 운영 조건이 함께 포함된 최초 문의가 `SIMPLE_LLM`으로 분류되면 Requirements 부서 하나만 실행된다. 이 경우 모델 성능과 무관하게 제품이 약속한 근거·견적·검증 단계가 생략된다. 최초 분석 여부와 필수 산출물이 evaluator 입력에 명시되지 않았고, evaluator 결정을 제품 workflow의 최소 실행 범위보다 우선한 것이 원인이었다.
 
-## Decision
+## 결정
 
 - 내부 Agent 입력의 기본 `workflowMode`는 `PROJECT_ANALYSIS`다. 이전 Spring 버전이 값을 생략해도 동일한 기본값을 적용한다.
 - `PROJECT_ANALYSIS`이면서 결정적 직접 Tool 작업이 아닌 요청은 Safety Gate의 `HUMAN_REQUIRED` 결정을 제외하고 `SUPERVISOR`보다 낮은 경로로 실행하지 않는다.
@@ -21,7 +21,7 @@ Discord 운영 Bot처럼 데이터 구조, 명령어, CSV 입력과 운영 조�
 - Frontend는 네 부서를 수용하는 예산을 요청하고, 최근 활동에 최종 경로·정책 사유·evaluator 후보를 구분해 표시한다.
 - 실행 그래프는 선택 경로에서 실행하지 않는 단계를 `완료`로 표시하지 않고 `해당 없음`으로 표시한다.
 
-## Consequences
+## 영향
 
 ### 장점
 

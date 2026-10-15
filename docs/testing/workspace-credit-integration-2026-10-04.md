@@ -1,42 +1,35 @@
-# Fullscreen workspace / weekly-credit integration
+# 전체 화면 업무 공간·사용량 계약 통합 — 2026-10-04
 
-## Source and scope
+이 문서는 고정 주간 크레딧에서 실제 비용 원장으로 전환하기 전의 통합 기록이다. 현재 신규 실행은 [USD 사용량 API](platform-usage-api-2026-10-05.md)를 사용하며 개인 키 경계도 이후 V47로 달라졌다. 아래 모델·크레딧·플랫폼 라우팅 설명을 현재 사용 안내로 적용하지 않는다.
 
-This work branch combines the real fullscreen frontend (`3ea6816196dd4dc76fa69fbd8c7650ba64eef186`) and the weekly-credit/platform-spend backend and agent (`a8a764ce66dbb08d3752db929cb781bdc87ede7b`) on verified main `4743d0d08676a60f373f4faaadb80c991c44d2ce`.
+## 초기 UI 검증
 
-Combining those two trees alone left required APIs absent. The integration selectively restores the already-committed prerequisites from `11dab74` (history/internal progress), `0a07e33` (reviewed setting proposals), `7f2eeea` (release-disabled verification/notices), and the strict registration age field from `c2975a1`. Shared budget-sensitive files were reconciled rather than replaced with their older versions.
+전체 화면 입력창에 당시 주간 크레딧 계약을 연결했다. 알 수 없는·잘못된 잔액은 기본 제공 AI의 새 요청을 막고 개인 키는 플랫폼 크레딧 견적을 생략했다. 가격 거부는 새 가격을 확인한 뒤 사용자가 다시 보내게 했으며 응답이 불명확하면 원래 요청·가격·중복 방지 키를 보존했다.
 
-V36 is the estimation-policy proposal migration; V38 is email verification; V39 is the operational notice registry. V37, V40 and V41 retain the weekly-credit and monetary-reservation chain. Migration filenames V1–V41 are unique and contiguous. Database execution remains a separate gate.
+관리자 가격 변경은 변경 전후와 정확한 epoch/version 확인을 요구했다. 조회가 진행 중 변경이나 이전 계정 상태를 덮어쓰지 않도록 했고 별도 동료·가정 생성은 비활성으로 유지했다.
 
-The screenshot-only route and offline Research/DeepAgents changes are excluded. Main's landing, WebGL implementation and README files are unchanged. No policy text, administrator grant, production configuration, credential fallback change, CORS change or email delivery was added or executed.
+초기 UI는 타입·린트·단위 **234개**·최적화 빌드를 통과했다. 독립 검토에서는 잔액·관리자 응답 경합 보완 뒤 P1/P2 잔여 지적이 없었다. 새 브라우저 시나리오는 실행하지 않았으며 실제 크레딧 차감·DB·관리자 변경·운영 배포도 하지 않았다. 미리보기 전용 가상 데이터는 인증 우회 경로가 아니다.
 
-## Cross-language contract checks
+## 통합 소스와 계약
 
-`contracts/fixtures/workspace-credit-contract.json` contains synthetic data shared by:
+기준 main `4743d0d08676a60f373f4faaadb80c991c44d2ce`에 전체 화면 `3ea6816196dd4dc76fa69fbd8c7650ba64eef186`와 예산 Backend/Agent `a8a764ce66dbb08d3752db929cb781bdc87ede7b`를 합쳤다. 선행 계약은 `11dab74`의 이력·진행, `0a07e33`의 설정 제안, `7f2eeea`의 비활성 이메일/공지, `c2975a1`의 가입 나이 확인을 선별 반영했다. 공유 예산 파일을 이전 버전으로 덮어쓰지 않았다.
 
-- `frontend/tests/workspace-credit-contract.test.mjs`, which executes the actual TypeScript API builders and credit/retry policy
-- `WorkspaceCreditContractTest`, which exercises actual Java DTO validation, MockMvc controller boundaries and response serialization
+당시 V1–V41은 번호가 연속·고유했다. V36은 정책 제안, V38은 이메일 검증, V39는 공지, V37/V40/V41은 사용량·금액 예약이었다. DB 실행 검증은 별도였다.
 
-The shared fixture is included in the frontend CI path filters as well as the backend contracts checks.
+`contracts/fixtures/workspace-credit-contract.json`은 `frontend/tests/workspace-credit-contract.test.mjs`와 `WorkspaceCreditContractTest`가 함께 사용한다. 실제 TypeScript 요청·재전송 정책, Java DTO 검증·MockMvc·직렬화를 대조했다. START 공백·마이크로초 가격 버전·개인 키 견적 생략·모델 가격·관리자 검토·오류 구분·새 START 없는 재개를 다뤘다. 실패만으로 환불을 추정하지 않고 서버 정산 응답을 따른다.
 
-Checks cover exact START payload and whitespace, raw microsecond price versions, BYOK quote omission, model prices/remaining credits, reviewed administrator mutations/reset, quote-vs-credit-vs-operating errors, and resume without a second START quote. The frontend does not infer a refund from a failed run; the shared settled-usage response governs the changed balance.
+추가 검사는 새 예약 없는 재개, 권위 있는 종료 확인 뒤 정산, 내부 작업 진행의 같은 금액 원장 사용을 다뤘다. 관리자 공지·크레딧 권한의 독립성·선별 회수는 실제 DB 환경이 필요한 검사였다. 랜딩·WebGL·공개 정책·이메일 전송·관리자 부여·운영 설정은 통합 범위 밖이었다.
 
-Additional regressions exercise resume without a new reservation, terminal settlement only after authoritative acknowledgement, and internal task progress under the same monetary ledger. PostgreSQL tests cover isolated and dual notice/credit administrator capabilities, including selective revocation, but require a real database runtime to execute.
+## 당시 통합 실행 결과
 
-## Verification
+| 범위     | 결과                                             |
+| -------- | ------------------------------------------------ |
+| Frontend | 단위 242개·타입·린트·최적화 빌드 통과            |
+| Backend  | 372개 중 309개 통과·DB 63개 생략                 |
+| Agent    | 390개 통과·DB 8개 생략, Ruff·mypy 87개 소스 통과 |
 
-Final counts: frontend 242 passed; backend 372 total, 309 passed and 63 Docker/PostgreSQL-dependent skips; agent 390 passed and 8 PostgreSQL-dependent skips. Ruff passed and mypy passed across 87 source files. Frontend TypeScript, ESLint, all 242 unit tests and the optimized Next.js build passed. Java tests use verified Java 21 and Gradle 9.6.1 with an explicit official Mockito test agent; agent tests use the existing isolated Python 3.12 environment. Relevant package versions match the lockfile, but a complete `uv sync --locked` was not run.
+Java 21·Gradle 9.6.1·테스트용 공식 Mockito 에이전트, 격리된 Python 3.12를 사용했다. 관련 패키지 버전은 잠금 파일과 맞췄지만 전체 `uv sync --locked`는 실행하지 않았다. 독립 검토에서는 예약·미확정 금액 보존·재전송·같은 루트 위임·재개 종료·관리자 격리 완화를 발견하지 못했다.
 
-Independent read-only review found no weakening of credit reservations, non-refundable monetary holds, replay/snapshot checks, same-root delegation accounting, resume finality, or administrator capability isolation.
+DB 마이그레이션·실제 모델·차감/환불·이메일·운영 병합·배포는 실행하지 않았다. 당시 허용 분석 모델은 OpenAI Luna/Terra였고 개인 키도 플랫폼 라우팅 예산을 따랐다. 동료·가정·RAPTOR 생성, 유료 임베딩·조사와 분리 Research는 예산 연결 전까지 차단했다. 이메일 검증 강제·공지 발송은 기본 비활성이었다. 실제 세션/API·주간 청구·서버 간 취소는 이 합성 계약 검사로 확인하지 않았다.
 
-## Release gates
-
-- No actual database migration, real AI request, credit deduction/refund, administrator mutation, email send, main merge or production deployment occurred
-- Docker/PostgreSQL-dependent suites remain skipped, so their transactional/concurrency assertions are not claimed as executed
-- `platform.ai.spend.enabled` remains false by default. This applies to BYOK too: generation is charged to the user's provider account, but routing still consumes protected platform resources
-- Current server-priceable analysis models are OpenAI Luna/Terra. Personal keys do not bypass supported-model or operating-budget limits; the UI now states that explicitly
-- Standalone pet/assumption/RAPTOR generation, paid embeddings/web research and detached Research remain blocked until they have integrated budgets
-- Live provider names, service-tier behavior, monetary/token-envelope assumptions and cross-instance cancellation still require authorized deployment validation
-- Email verification enforcement and operational notice dispatch remain disabled by default; their mail adapter fails closed
-- Deployed frontend authentication/API-origin compatibility was not changed. A successful preview build does not prove the existing production backend runs this code
-- Existing actual-component browser screenshots verify the frontend layout, not the combined live API or real weekly billing. New contract tests do not substitute for browser or database end-to-end verification
+이후 가격표·USD 전환·독립 개인 키 실행은 [2026-10-05 통합 기록](cloud-feature-integration-2026-10-05.md), 최신 CI는 [제품 근거](../portfolio/product-evidence.md)를 따른다.

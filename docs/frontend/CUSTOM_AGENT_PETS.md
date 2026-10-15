@@ -1,42 +1,54 @@
-# Prompt-created personal agent pets
+# 나만의 작은 동료
 
-## Current behavior
+## 사용 방법
 
-The login page shows explicitly labelled, selectable examples. It does not load another user's pets or claim to have generated an AI image. After login, open a project's **AI settings → 나만의 작은 동료 만들기**. Enter one short prompt, review the free preview, and choose **저장하고 선택**. Add more pets, select one for the next run, refine it with another sentence, archive it, restore it, or permanently remove an archived pet. Creation and management do not execute any AI model or external tool.
+로그인 뒤 프로젝트의 **AI 설정 → 나만의 작은 동료 만들기**에서 짧은 설명을 입력하고 무료 미리보기를 확인한다. **저장하고 선택**하면 다음 실행에 사용할 동료가 된다. 추가 생성·수정·선택·보관·복원과 보관된 동료의 영구 삭제를 지원한다.
 
-Appearance uses existing SVG animals, colors and accessories. The deterministic composer recognizes a limited vocabulary; it does not pretend to understand arbitrary language. The preview displays both the recognized presets and the original requests. Arbitrary preferences are retained as data. Explicit `성향:`, `말투:`, `중점:`, `업무:` (or personality/tone/focus/role) clauses separated by semicolons or newlines populate independent free-text fields. Later edits preserve earlier requests and replace explicitly labelled fields. After six requests, the user must explicitly consolidate the preferences into a new description; no request is silently truncated. The existing appearance remains during consolidation.
+로그인 화면은 선택 가능한 예시를 보여주며 다른 사용자의 동료를 읽지 않는다. 생성·관리는 모델이나 외부 도구를 실행하지 않는다. 외형은 기존 SVG의 동물·색상·장식을 조합한다. 제한된 어휘만 해석하므로 임의의 이미지 생성이나 완전한 자연어 이해로 설명하지 않는다.
 
-Saving selects exactly one pet. Restoring does not select or execute it. Archiving the selected pet clears the selection. A run with no selected personal pet uses the normal workflow. Existing accounts with no personal-pet selection retain the old three quotation-scenario profiles until their first custom pet is saved; old run snapshots still render. The number of stored pets does not multiply model calls, workers or paid execution.
+미리보기는 인식한 설정과 원래 요청을 함께 표시한다. `성향:`, `말투:`, `중점:`, `업무:` 또는 대응하는 영문 구문을 세미콜론·줄바꿈으로 구분하면 각 선호 항목을 수정한다. 후속 수정은 이전 요청을 보존하고 명시한 항목만 바꾼다. 요청이 여섯 개 쌓이면 사용자가 하나의 설명으로 정리해야 하며 조용히 잘라내지 않는다. 정리 중 외형은 유지한다.
 
-## Data and runtime boundaries
+## 선택과 과거 실행
 
-- V44 adds `custom_agent_pet` and `custom_agent_pet_selection`, independently of V34's three quotation slots. Every read and write binds both workspace and authenticated user. Another workspace owner cannot access the personal pets. Current `agent.run` authorization is rechecked before every operation; a revoked membership cannot preview, save or select.
-- POST save carries client-generated pet and mutation UUIDs plus an expected revision. Owner-scoped advisory transaction locks serialize capacity checks, saves, lifecycle changes and selections. A repeated identical save returns the same pet; reused mutation IDs with changed bodies and stale revisions fail with 409. IDs belonging to another tenant never overwrite a record.
-- Counts are server enforced, including concurrent requests. Defaults: 8 active, 24 stored including archived, 500 characters per prompt and 6 preference requests. Configure `app.pets.max-active` (1–24), `app.pets.max-stored` (active limit–100), and `app.pets.max-prompt-length` (1–500). Limits are returned to the UI. Archiving frees an active slot; deletion frees storage. Existing API request throttling also covers the preview/save endpoints.
-- The server snapshots the selected `PetProfile` into the existing agent-run request/outbox. The client cannot choose an arbitrary foreign pet in a run request. Resume uses the stored snapshot; changing, archiving or deleting a pet does not mutate prior runs.
-- Appearance/name never become executable instructions. `PetPreferences` carries bounded personality, communication, focus, responsibility and ordered requests. Python passes these as `untrusted_pet_preferences` data, accompanied by a fixed rule limiting use to style and task emphasis in the current job. Fixed policy, authorization, tool allowlists, evidence rules, approval and run budgets stay independent. This boundary does not claim that natural-language prompt injection can be eliminated through wording alone; existing server authorization remains authoritative.
-- `skillMode: AUTO` is the integration seam for the separately maintained free skill catalog. This change does not implement a duplicate catalog, select arbitrary executable tools or grant capabilities through skill names.
+저장은 동료 하나를 선택한다. 복원만으로 선택·실행하지 않으며 선택한 동료를 보관하면 선택을 해제한다. 선택이 없으면 일반 실행 흐름을 사용한다. 개인 동료를 저장한 적 없는 기존 계정은 [세 견적안 프로필](PET_CUSTOMIZATION.md)을 호환 경로로 사용한다.
+
+Spring은 선택한 `PetProfile`을 실행 요청에 고정한다. 재개는 원래 스냅샷을 사용하며 이름·외형·보관·삭제 변경이 과거 실행을 수정하지 않는다. 저장한 동료 수가 모델 호출이나 작업자 수를 늘리지 않는다.
+
+## 저장과 권한
+
+V44의 `custom_agent_pet`, `custom_agent_pet_selection`은 V34의 견적 슬롯과 별도다. 모든 조회·변경은 사용자와 워크스페이스를 함께 검사하고 현재 `agent.run` 권한을 재검증한다. 다른 Owner도 개인 동료에 접근할 수 없다.
+
+저장은 클라이언트의 동료·변경 UUID와 예상 revision을 사용한다. 소유자별 트랜잭션 잠금으로 수량·수정·선택을 직렬화한다. 같은 요청의 재전송은 같은 결과를 돌려주며 변경 ID 재사용·오래된 revision은 409로 거부한다. 다른 사용자 ID로 기존 데이터를 덮어쓰지 않는다.
+
+| 제한           | 기본값 | 설정 범위                             |
+| -------------- | -----: | ------------------------------------- |
+| 활성 동료      |    8개 | `app.pets.max-active`, 1–24           |
+| 보관 포함 저장 |   24개 | `app.pets.max-stored`, 활성 한도–100  |
+| 설명           |  500자 | `app.pets.max-prompt-length`, 1–500   |
+| 선호 요청 이력 |    6개 | 설명을 명시적으로 정리한 뒤 계속 수정 |
+
+한도는 서버가 동시 요청에도 적용하고 UI에 반환한다. 보관은 활성 자리를, 삭제는 저장 자리를 확보한다. 기존 API 요청 제한도 적용한다.
+
+## 실행에 전달하는 정보
+
+이름·외형은 실행 명령이 아니다. `PetPreferences`의 성향·말투·중점·업무·요청 이력은 `untrusted_pet_preferences`라는 참고 데이터로 전달한다. 적용 범위는 현재 업무의 표현과 강조점이며 권한·도구·모델·자격 증명·근거·승인·예산은 서버 계약을 따른다. 문구 분리만으로 프롬프트 주입을 완전히 막는다고 주장하지 않는다.
+
+`skillMode: AUTO`는 기존 스킬 카탈로그의 자동 선택과 연결한다. 동료 이름이나 선호 내용만으로 도구 권한을 부여하거나 별도 카탈로그를 만들지 않는다.
 
 ## API
 
-All responses use `Cache-Control: no-store`; workspace prefix is `/api/v2/workspaces/{workspaceId}`.
+기본 경로는 `/api/v2/workspaces/{workspaceId}`이며 응답은 `Cache-Control: no-store`를 사용한다.
 
-| Method / path | Contract |
-| --- | --- |
-| GET `/agent-pets` | Personal collection, selection, limits and explicit free-preview/paid-generation availability |
-| POST `/agent-pets/preview` | `{id, mutationId, expectedRevision, description, resetPreferences}` → unsaved profile |
-| POST `/agent-pets` | Same input → saved pet and revision; explicitly selects this pet |
-| PATCH `/agent-pets/{id}` | `{action: SELECT/ARCHIVE/RESTORE, expectedRevision}` |
-| DELETE `/agent-pets/{id}?revision=…` | Deletes an archived, owner-scoped pet after UI confirmation |
+| 호출                                 | 계약                                                                                |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| GET `/agent-pets`                    | 본인 모음·선택·한도·무료 미리보기/유료 생성 가능 여부                               |
+| POST `/agent-pets/preview`           | `{id, mutationId, expectedRevision, description, resetPreferences}` → 미저장 프로필 |
+| POST `/agent-pets`                   | 같은 입력 → 저장한 동료·revision, 해당 동료 선택                                    |
+| PATCH `/agent-pets/{id}`             | `{action: SELECT/ARCHIVE/RESTORE, expectedRevision}`                                |
+| DELETE `/agent-pets/{id}?revision=…` | 확인 절차를 거친 본인 보관 동료 삭제                                                |
 
-Legacy `/pets` remains compatible for old profiles. The internal PetProfile contract adds optional petId/duty/skillMode/preferences; old payloads default safely. Free text is never used as a model/provider selection, permission code, credential, SQL fragment, URL or arbitrary SVG.
+## 유료 생성과 검증
 
-## Paid generation is still disabled
+UI의 `aiGenerationAvailable`은 false다. 기존 `/pet-generations`와 Agent의 예산 차단을 무료 미리보기로 우회하지 않는다. 유료 생성에는 인증된 작업 ID·가격 버전·영속 예약·사용량 대조·중복 정산 방지·취소·재시도 계약이 필요하다. 사용량이 불명확한 시간 초과를 미사용으로 간주해 환불하거나 자동 재시도하지 않는다.
 
-The existing standalone `/pet-generations` path and Python platform-spend guard are not bypassed. The new preview has no provider dependency and incurs no API cost. The UI reports `aiGenerationAvailable=false`. The current Spring legacy generation audit is not a durable reservation/settlement ledger and must not be treated as sufficient billing support.
-
-Before enabling paid generation, integrate with the platform cost-ledger owner: bind a durable operation ID, authenticated tenant/user and versioned tariff; reserve before dispatch; use durable queued execution; reconcile known usage and unresolved provider outcomes; release only confirmed unused reservations; make cancellation, retries and idempotent settlement explicit. A timed-out provider call with unknown usage must not be refunded or automatically retried as if unused. A confirmed cancellation before dispatch can release its reservation; after dispatch it requires reconciliation. Preview/save must remain separate. Paid images require their own supported pricing and resource limits. Do not add image calls merely to render existing SVG appearances.
-
-## Verification scope
-
-Meaningful tests cover arbitrary preference retention, labelled edits, history bounds, wire round trips, untrusted-data placement, old profile compatibility, runtime snapshots, save retries, owner/workspace isolation, concurrent limits and lifecycle transitions. Browser fixtures exercise preview/cancel, lost-response save retry, selection/archive/restore, draft preservation and mobile width. Browser fixtures do not replace real database tests or verify paid model behavior and deployed migrations. See [the integration report](../testing/cloud-feature-integration-2026-10-05.md) for executed checks and their limits.
+검사는 선호 보존·수정·이력 한도, 계약 왕복, 참고 데이터 분리, 과거 프로필 호환, 실행 스냅샷, 저장 재전송, 소유권·동시 수량·생명주기를 다룬다. 브라우저의 합성 응답 검사는 실제 DB·배포 마이그레이션·유료 모델 품질을 대신하지 않는다. 당시 실행 결과는 [통합 검증 기록](../testing/cloud-feature-integration-2026-10-05.md), 최근 배포 근거는 [제품 근거](../portfolio/product-evidence.md)를 따른다.

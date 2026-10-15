@@ -3,13 +3,13 @@
 - 상태: Accepted
 - 결정일: 2026-07-21
 
-## Context
+## 배경
 
 V2는 기업형 backend 역량과 Python Agent 생태계를 모두 활용해야 한다. Spring Boot만 사용하면 LangGraph의 checkpoint, HITL과 평가 자산을 포기하게 되고, FastAPI 하나만 사용하면 이번 V2에서 의도한 Spring Security, 관계형 domain, transaction과 Java portfolio의 비중이 낮아진다.
 
 두 runtime을 단순히 나누면 RBAC 중복, business DB의 공동 소유, 분산 transaction과 장애 처리가 새로운 복잡성이 된다.
 
-## Decision
+## 결정
 
 - Spring Boot를 public product backend이자 business system of record로 사용한다.
 - FastAPI + LangGraph를 Docker 내부 전용 AI runtime으로 사용한다.
@@ -21,7 +21,7 @@ V2는 기업형 backend 역량과 Python Agent 생태계를 모두 활용해야 
 - public Agent run 상태는 Spring이 저장하고 상세 LangGraph checkpoint는 `agent_runtime` schema에 저장한다.
 - 서비스 계약은 versioned OpenAPI와 구조화 DTO로 관리한다.
 
-## Consequences
+## 영향
 
 장점:
 
@@ -36,7 +36,7 @@ V2는 기업형 backend 역량과 Python Agent 생태계를 모두 활용해야 
 - Docker service와 contract test가 증가한다.
 - Spring의 제품 상태와 LangGraph runtime 상태를 correlation ID로 연결해야 한다.
 
-## Rejected alternatives
+## 검토한 대안
 
 - FastAPI 단일 backend: 더 단순하지만 V2의 Spring backend 목표를 충족하지 않는다.
 - Spring AI 단일 runtime: 운영은 단순하지만 LangGraph를 활용하려는 목표와 기존 Agent 자산의 재사용성이 낮다.

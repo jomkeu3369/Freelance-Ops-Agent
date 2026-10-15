@@ -3,7 +3,7 @@
 - 상태: Accepted
 - 결정일: 2026-08-14
 
-## Context
+## 배경
 
 ADR-0024는 Backend와 Agent의 image, 배포 marker와 rollback 단위를 분리했지만 Production CD의
 시작은 `workflow_dispatch`에 의존했다. 이 방식은 release 승인에는 유용하지만 `main`에 반영된
@@ -14,7 +14,7 @@ script 변경에서 두 서비스를 동시에 교체하면 안 되며, 최초 b
 Backend를 배포해야 한다. PostgreSQL infra 변경은 데이터 손실 위험이 있으므로 애플리케이션 CD와
 같은 자동 적용 범위로 취급할 수 없다.
 
-## Decision
+## 결정
 
 - `main`의 배포 관련 경로가 변경되면 `Production Auto CD`를 자동 실행한다.
 - Agent, Backend와 Contracts & Compose CI를 재사용 가능한 `workflow_call` gate로 실행하고 관련
@@ -33,7 +33,7 @@ Backend를 배포해야 한다. PostgreSQL infra 변경은 데이터 손실 위�
   재배포를 위해 유지한다.
 - Frontend는 ADR-0010에 따라 Vercel 배포를 유지한다.
 
-## Consequences
+## 영향
 
 - 배포 관련 `main` 변경은 CI Green 이후 별도 버튼 없이 Production에 반영된다.
 - CI 실패, image build 실패, Agent 배포 실패 시 후속 Backend 배포는 실행되지 않는다.

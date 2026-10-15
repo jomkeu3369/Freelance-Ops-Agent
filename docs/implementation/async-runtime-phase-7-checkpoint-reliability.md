@@ -1,7 +1,7 @@
 # Async Runtime 구현 Phase 7 Checkpoint·Retry Reliability
 
 > 기준일: 2026-09-01
-> 상태: 구현 및 로컬 단위 검증 완료, PostgreSQL CI 검증 대기
+> 당시 상태: 구현 및 로컬 단위 검증 완료, PostgreSQL CI 검증 대기
 
 ## 1. 범위
 

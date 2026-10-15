@@ -2,6 +2,8 @@
 
 > 후속 상태: 이 문서는 수정 전 점검 이력이다. 우선 문제 세 가지의 수정과 최신 검증 결과는 [운영 준비 보완 보고서](production-readiness-remediation-2026-09-05.md)를 따른다.
 
+> 최초 점검 당시의 실패·한계 기록이다. 수정 후 결과는 [보완 검증](production-readiness-remediation-2026-09-05.md), 이후 서비스 CI·배포는 [제품 근거](../portfolio/product-evidence.md)를 따른다.
+
 ## 판정
 
 **운영 적합 판정 보류.** 자동 회귀와 작은 합성 데이터의 로컬 부하는 통과했지만, DB 장애를 정상으로 표시하는 readiness와 서비스 권한을 복구하지 못하는 restore 경로가 실제로 재현됐다. PDF 의존성의 알려진 취약점도 정리해야 한다. 기능 수동 검수와 운영 환경의 장기 관측은 별도다.
@@ -10,16 +12,16 @@
 
 ## 자동 검증 결과
 
-| 항목 | 결과 | 범위 |
-|---|---|---|
-| Backend | 213 passed, 실패·skip 0 | 실제 pgvector Testcontainers 11건 포함; 인증·RBAC·workspace 격리·업무 무결성·Task 계약 |
-| Agent | 294 passed, 실패·skip 0 | 실제 PostgreSQL 통합 8건 포함; checkpoint·FIFO·cancel·redirect·outbox |
-| Frontend | 45 passed, 실패·skip 0 | TypeScript·ESLint·production build 통과; localhost HTTP shell smoke 4/4 |
-| 추가 검사 | 통과 | Agent Ruff, strict mypy 80개 파일, Python SDK 2건, 기존 고정 평가 release gate |
-| 계약·설정 | 통과 | OpenAPI 2개, infra/app/production Compose 3개, 운영 shell 문법 4개 |
-| 이미지 | 통과 | 최신 Backend Dockerfile fresh Linux build와 production profile 시작 |
-| Frontend dependency audit | 알려진 취약점 0 | npm lock 기준; 2026-09-05 registry 조회 |
-| Agent dependency audit | 실패 | 운영 lock 106개 버전, skip 0; `pypdf==6.15.0` 취약점 3건 |
+| 항목                      | 결과                    | 범위                                                                                   |
+| ------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| Backend                   | 213 passed, 실패·skip 0 | 실제 pgvector Testcontainers 11건 포함; 인증·RBAC·workspace 격리·업무 무결성·Task 계약 |
+| Agent                     | 294 passed, 실패·skip 0 | 실제 PostgreSQL 통합 8건 포함; checkpoint·FIFO·cancel·redirect·outbox                  |
+| Frontend                  | 45 passed, 실패·skip 0  | TypeScript·ESLint·production build 통과; localhost HTTP shell smoke 4/4                |
+| 추가 검사                 | 통과                    | Agent Ruff, strict mypy 80개 파일, Python SDK 2건, 기존 고정 평가 release gate         |
+| 계약·설정                 | 통과                    | OpenAPI 2개, infra/app/production Compose 3개, 운영 shell 문법 4개                     |
+| 이미지                    | 통과                    | 최신 Backend Dockerfile fresh Linux build와 production profile 시작                    |
+| Frontend dependency audit | 알려진 취약점 0         | npm lock 기준; 2026-09-05 registry 조회                                                |
+| Agent dependency audit    | 실패                    | 운영 lock 106개 버전, skip 0; `pypdf==6.15.0` 취약점 3건                               |
 
 Backend service 테스트 일부는 mock 기반이다. ACK 유실 mock 회귀는 실제 운영 네트워크 장애 훈련과 다르다. Agent DB 통합 8건은 postgres superuser로 실행했으므로 운영 app/agent credential의 최소권한까지 통과한 의미가 아니다. Frontend 테스트 상당수는 source/utility 검사이며 실제 로그인·견적 사용 흐름을 검증하지 않는다. 고정 평가 gate는 기존 보고서 검증이고 새 실모델 평가가 아니다. Java dependency 및 전체 컨테이너 OS vulnerability audit는 이번 범위에서 실행하지 않았다.
 
@@ -31,24 +33,24 @@ Windows에서는 Gradle ASCII drive와 저장소 cache를 사용했고 Python DB
 
 Backend 이미지: `sha256:3d91f15f2f263c7b913257bc274e6442f6e93be0e539be78dad46c939a23bc4f`.
 
-| 실행 | 요청 수 | p95 | p99 | 오류 / 누락 | 판정 |
-|---|---:|---:|---:|---|---|
-| readiness, 80초, 최고 50 RPS | 1,384 | 7.14ms | 11.43ms | 0 / 0 | 통과 |
-| 업무 혼합, 보강 전 예비 실행 | 4,384 | 30.27ms | 46.66ms | 0 / 0 | 참고; 최종 검증으로 사용하지 않음 |
-| 업무 혼합, 20 VU 사전 할당 | 4,382 | 33.14ms | 103.15ms | 0 / **3** | **실패, exit 99 보존** |
-| 업무 혼합, 50 VU 사전 할당 재검증 | 4,384 | 44.74ms | 165.55ms | 0 / 0 | 통과 |
+| 실행                              | 요청 수 |     p95 |      p99 | 오류 / 누락 | 판정                              |
+| --------------------------------- | ------: | ------: | -------: | ----------- | --------------------------------- |
+| readiness, 80초, 최고 50 RPS      |   1,384 |  7.14ms |  11.43ms | 0 / 0       | 통과                              |
+| 업무 혼합, 보강 전 예비 실행      |   4,384 | 30.27ms |  46.66ms | 0 / 0       | 참고; 최종 검증으로 사용하지 않음 |
+| 업무 혼합, 20 VU 사전 할당        |   4,382 | 33.14ms | 103.15ms | 0 / **3**   | **실패, exit 99 보존**            |
+| 업무 혼합, 50 VU 사전 할당 재검증 |   4,384 | 44.74ms | 165.55ms | 0 / 0       | 통과                              |
 
 업무 요청 수와 지연은 setup의 35건을 제외한 `scenario:business` 기준이다. 업무 실행은 140초, 최고 부하 유지 60초다. 50 VU는 미리 확보한 발생기 capacity이며 실제 동시 사용자 50명을 측정했다는 뜻은 아니다. 재검증에서 관측된 활성 VU 최댓값은 7이었다. 앞선 누락 원인을 애플리케이션 또는 발생기로 확정하지 않았고, 실패 기록을 삭제하거나 threshold를 완화하지 않았다.
 
 8개 경로를 균등 호출하므로 최고 50 RPS 중 정상 업무 조회는 약 31.25 RPS이고 나머지는 예상 401/404 접근 차단이다. 최종 실행은 각 경로 548회, checks 8,768/8,768 통과였다.
 
-| 최종 실행의 정상 업무 API | p95 | p99 |
-|---|---:|---:|
-| 내 정보 | 46.25ms | 210.76ms |
-| 프로젝트 목록 | 50.26ms | 173.48ms |
-| 프로젝트 검색 | 52.09ms | 156.72ms |
-| 프로젝트 상세 | 49.58ms | 193.22ms |
-| 고객 목록 | 49.11ms | 150.55ms |
+| 최종 실행의 정상 업무 API |     p95 |      p99 |
+| ------------------------- | ------: | -------: |
+| 내 정보                   | 46.25ms | 210.76ms |
+| 프로젝트 목록             | 50.26ms | 173.48ms |
+| 프로젝트 검색             | 52.09ms | 156.72ms |
+| 프로젝트 상세             | 49.58ms | 193.22ms |
+| 고객 목록                 | 49.11ms | 150.55ms |
 
 다른 workspace/resource는 404, 비인증은 401을 정확하게 반환했고 에러 응답에서 fixture 비공개 marker·토큰·요구사항·stack trace가 검출되지 않았다. 검색은 30개 중 1개만 반환하는 조건으로 확인했다. 각 경로 p95 <500ms, p99 <1,000ms, 실제 호출 수 >0 기준도 통과했다.
 
@@ -62,11 +64,11 @@ Backend 이미지: `sha256:3d91f15f2f263c7b913257bc274e6442f6e93be0e539be78dad46
 
 일회용 DB container를 pause하고 같은 API를 조회했다.
 
-| 상태 | 업무 DB 조회 | readiness | liveness |
-|---|---|---|---|
-| 정상 | 200, 36ms | 200 UP | 200 UP |
-| DB pause | **500, 30,323ms** | **200 UP, 6ms** | 200 UP |
-| DB unpause | 200, 23ms | 200 UP | 200 UP |
+| 상태       | 업무 DB 조회      | readiness       | liveness |
+| ---------- | ----------------- | --------------- | -------- |
+| 정상       | 200, 36ms         | 200 UP          | 200 UP   |
+| DB pause   | **500, 30,323ms** | **200 UP, 6ms** | 200 UP   |
+| DB unpause | 200, 23ms         | 200 UP          | 200 UP   |
 
 `backend/src/main/resources/application.yml`은 readiness probe를 켜지만 DB를 group에 포함하지 않는다. `docker-compose.yaml`, `infra/caddy/Caddyfile`과 CD가 이 readiness를 건강 판정에 사용하므로 실제 업무 장애 중에도 정상으로 판단한다. liveness가 UP인 것은 정상적인 분리이며, readiness에 필수 의존성을 반영하는 수정과 장애 회귀 검사가 필요하다. Agent `/health`도 정적 UP 응답이라는 별도 정적 검토 결과가 있다.
 
@@ -99,5 +101,3 @@ Backend 이미지: `sha256:3d91f15f2f263c7b913257bc274e6442f6e93be0e539be78dad46
 ## 로컬 원자료
 
 `output/readiness/2026-09-05/`에 서비스별 보고서, JUnit/로그, k6 JSON, 자원 표본, `db-outage.json`, `restore-probe.json`, dependency audit와 GitHub CI 조회를 보관한다. 이 폴더는 Git에서 제외된다. 일회용 DB·API container와 서명 키 파일을 제거했고 실제 고객 데이터나 provider credential은 사용하지 않았다. 검토한 변경 파일·보고서에서 알려진 credential prefix와 private-key marker는 검출되지 않았다(전체 이력 secret audit는 아님).
-
-종료 검사에서 접근 가능한 저장소 경로의 `__pycache__`는 0개였다. 기존 `.tmp/pytest-platform-full`·`.tmp/pytest-platform-release` 두 디렉터리는 OS 접근 거부로 내부를 확인할 수 없었고 ACL이나 기존 내용을 변경하지 않았다. 상세 결과는 `cache-cleanup.json`에 있다.

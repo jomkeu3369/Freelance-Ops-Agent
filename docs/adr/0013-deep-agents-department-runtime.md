@@ -4,7 +4,9 @@
 - 결정일: 2026-08-13
 - 관련 결정: ADR-0001, ADR-0004, ADR-0005, ADR-0006, ADR-0012
 
-## Context
+> 2026-10-16 구현 대조: `deepagents`는 개발 의존성이며 `agent/src/departments/research_deep_agent.py`는 비교 후보다. 운영 실행은 LangGraph·자체 제한 실행기를 사용한다. 이 결정의 승격 조건이 모두 충족됐다는 뜻은 아니다.
+
+## 배경
 
 V2는 `Global Orchestrator → Department Supervisor → Specialist/Tool`의 제한된 계층을
 목표로 한다. Requirements, Research, Deal Design 부문은 장기 작업을 계획하고, 중간
@@ -18,7 +20,7 @@ LangChain의 `deepagents`는 LangGraph runtime 위에서 planning, 가상 파일
 벗어날 수 있다. 또한 2026-08-13 기준 PyPI 패키지는 `0.7.5` Beta이므로 안정된 제품
 contract로 간주할 수 없다.
 
-## Decision
+## 결정
 
 Deep Agents를 전체 시스템의 오케스트레이터가 아니라 **부서 Agent의 내부 실행 하네스**로
 채택한다.
@@ -72,19 +74,19 @@ flowchart LR
 - 첫 spike의 `uv.lock`은 `deepagents 0.7.5`를 재현한다. pre-1.0 upgrade는 lock file diff,
   contract test, frozen evaluation과 보안 회귀 검사를 통과한 뒤 명시적으로 변경한다.
 
-## Runtime mapping
+## 기능별 적용
 
-| Deep Agents 기능 | V2 적용 |
-|---|---|
-| Planning | 부서 내부 작업 분해; 중앙 run budget의 하위 한도 적용 |
-| Context offloading | run 전용 가상 파일공간; 원본 evidence ID와 provenance 유지 |
-| Subagents | 사전 등록된 specialist만 허용; 재귀 위임 금지 |
-| Skills | Git에서 versioning한 부서·domain·jurisdiction skill을 명시적으로 주입 |
-| Long-term memory | workspace 격리된 승인 데이터만 저장; secret·사고 과정 제외 |
-| LangGraph runtime | checkpoint, streaming, interrupt/HITL과 resume |
-| Tools | delegation token을 사용하는 Spring internal REST client |
+| Deep Agents 기능   | V2 적용                                                               |
+| ------------------ | --------------------------------------------------------------------- |
+| Planning           | 부서 내부 작업 분해; 중앙 run budget의 하위 한도 적용                 |
+| Context offloading | run 전용 가상 파일공간; 원본 evidence ID와 provenance 유지            |
+| Subagents          | 사전 등록된 specialist만 허용; 재귀 위임 금지                         |
+| Skills             | Git에서 versioning한 부서·domain·jurisdiction skill을 명시적으로 주입 |
+| Long-term memory   | workspace 격리된 승인 데이터만 저장; secret·사고 과정 제외            |
+| LangGraph runtime  | checkpoint, streaming, interrupt/HITL과 resume                        |
+| Tools              | delegation token을 사용하는 Spring internal REST client               |
 
-## Acceptance criteria
+## 수용 기준
 
 첫 적용 부문은 Research로 하며 다음을 모두 만족해야 한다.
 
@@ -101,7 +103,7 @@ flowchart LR
 Requirements와 Deal Design은 Research의 운영·평가 결과를 검토한 뒤 같은 승격 절차를
 따른다.
 
-## Consequences
+## 영향
 
 장점:
 
@@ -117,7 +119,7 @@ Requirements와 Deal Design은 Research의 운영·평가 결과를 검토한 �
 - 기존 Langflow prototype은 설계·prompt 검증 기준선으로 보존하되 운영 runtime 계약은
   Deep Agents 기반 Python code와 versioned schema로 다시 검증해야 한다.
 
-## Rejected alternatives
+## 검토한 대안
 
 - Deep Agents가 Global Orchestrator까지 대체: 정책 routing, HITL과 부서 간 상태 전이를
   분리하기 어려워 거부한다.
@@ -126,7 +128,7 @@ Requirements와 Deal Design은 Research의 운영·평가 결과를 검토한 �
 - 운영 host filesystem과 shell 직접 사용: 격리와 감사가 불충분하므로 거부한다.
 - 모든 부서를 즉시 Deep Agent로 전환: baseline 비교 없이 복잡성과 비용을 늘리므로 거부한다.
 
-## References
+## 참고 자료
 
 - [Deep Agents overview](https://docs.langchain.com/oss/python/deepagents/overview)
 - [Deep Agents backends](https://docs.langchain.com/oss/python/deepagents/backends)

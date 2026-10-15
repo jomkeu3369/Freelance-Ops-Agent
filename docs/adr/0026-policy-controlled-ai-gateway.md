@@ -3,13 +3,13 @@
 - 상태: Accepted
 - 결정일: 2026-08-15
 
-## Context
+## 배경
 
 Agent runtime에는 provider 선택, retry, run budget, 비용 원장과 LangSmith trace가 있었지만 모델 호출을 공통으로 통제하는 admission 계층은 없었다. 모델 후보 실험도 문서화되어 있었으나 배포 workflow가 고정 평가 결과의 회귀를 자동 차단하지 않았다.
 
 초기 운영 서버는 1 vCPU·2GB RAM이므로 무제한 동시 모델 호출은 event loop, DB connection과 provider quota를 함께 압박할 수 있다. 반대로 Redis·Kubernetes를 먼저 도입하면 측정되지 않은 복잡도만 늘어난다.
 
-## Decision
+## 결정
 
 - Python Agent 내부에 `AIGateway`를 두고 부서 생성과 ReAct 모델 호출이 이 계층을 통과하게 한다.
 - Gateway는 model allowlist, 동시 실행 제한, bounded admission wait, provider/model별 circuit breaker를 적용한다.
@@ -23,7 +23,7 @@ Agent runtime에는 provider 선택, retry, run budget, 비용 원장과 LangSmi
 - semantic response cache는 고객 데이터 혼입과 권한 경계 재사용 위험 때문에 도입하지 않는다.
 - Redis와 Kubernetes는 실제 단일 instance 한계가 측정된 뒤 별도 ADR로 재검토한다.
 
-## Consequences
+## 영향
 
 ### 장점
 

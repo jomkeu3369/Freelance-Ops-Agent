@@ -1,44 +1,19 @@
-# OCR coverage and explicit options, first implementation
+# OCR 추출 범위와 명시적 옵션 설계 — 2026-10-07
 
-Base: remote `main` `988d7581e857ec74c0415a269939a9681d8c920a`.
-Branch: `codex/ocr-language-layout-coverage-20261007`.
+기준 main은 `988d7581e857ec74c0415a269939a9681d8c920a`, 당시 브랜치는 `codex/ocr-language-layout-coverage-20261007`이다. 실행 결과는 [별도 검증 기록](ocr-coverage-validation-2026-10-07.md)을 따른다.
 
-The observed failure was a PDF containing a native HEADER over a scanned body:
-the previous reader considered that page already read and skipped its body.
-The implementation preserves native text, checks bounded painted raster placement,
-and includes large/inconclusive raster pages in the existing three-unit OCR sample.
-It also exposes explicit Korean/English/mixed and general/single-block options
-through the UI, multipart controller, trusted reader request and stored extraction.
+## 해결한 문제
 
-Default mixed/general maps to the previous production eng+kor/PSM 3. No engine
-replacement, global PSM 6 switch, language-detection claim or external provider is
-introduced. Structured coverage distinguishes attempt from successful completion,
-including successful empty output. Native/earlier OCR text survives local failure.
-Changing an option invalidates the preview receipt and confirmation; reading must
-be repeated and confirmed. AbortSignal remains the sixth API argument.
+텍스트 제목 아래 스캔 본문이 있는 PDF에서 기존 판독기는 이미 읽은 페이지로 판단해 본문을 생략했다. 텍스트를 보존하면서 제한된 이미지 배치를 검사하고 큰 스캔·판정 불명 페이지를 기존 세 항목 OCR 후보에 포함했다.
 
-Limits remain 2 MiB input, 16 MP/frame, 32 MP decoded aggregate, 30 PDF pages,
-60 image frames, 2,000 px OCR edge, three OCR units, 40,000 output characters,
-three seconds/native command, eight shared OCR seconds, 12 CPU seconds,
-512 MiB worker address space, 15 seconds/API extraction and two workers. Originals
-and rasterized images stay in memory. Overflow is rejected without truncation.
+한글·영문·혼합과 일반·단일 블록 옵션을 UI·multipart·내부 요청·추출 결과에 연결했다. 기본 mixed/general은 기존 eng+kor/PSM 3이며 전역 PSM 6 전환이나 자동 언어 판별·외부 제공사 도입이 아니다. 시도·완료·빈 정상 결과를 구분하고 실패해도 기존 텍스트·먼저 성공한 OCR은 보존한다. 옵션 변경은 미리보기 ID와 확인을 무효화해 다시 읽고 확인해야 한다. AbortSignal은 API의 여섯 번째 인자를 유지했다.
 
-The raster threshold is a conservative heuristic, not proof of coverage. Inspection
-byte/operator checks follow decompression/parsing, so they are traversal limits,
-not strict preprocessing bounds. A whitespace-token preflight gate avoids a second
-raster parse of excessively dense streams, but prior native-text parsing and
-decompression remain protected by the unchanged worker limits. Small
-rasters/annotations and unsampled units may contain unread text. Clipped and
-overlapping raster bounding boxes can overestimate area. Existing searchable
-scans may be OCR-read again; exact native prefixes are removed once and residual
-OCR is explicitly marked as potentially overlapping, not corroborating evidence.
-Amounts/identifiers are never fuzzy-deduplicated. There is no full-document OCR.
+## 자원·품질 경계
 
-Historical JSON defaults and coordinated release/rollback limits are described in
-`agent/src/attachments/README.md`. SQL, authentication, DB, paid API/cost settings,
-login work, production main, PRs and deployment are outside this change.
+입력 2MiB, 프레임 1,600만 픽셀·합계 3,200만 픽셀, PDF 30페이지, 이미지 60프레임, OCR 변당 2,000픽셀·최대 세 항목, 출력 40,000자를 유지했다. 명령 3초·공유 OCR 8초·CPU 12초·주소 공간 512MiB·전체 추출 15초·작업자 2개가 경계다. 원본·변환 이미지는 메모리에만 두며 초과 입력을 잘라내지 않는다.
 
-Validation evidence is generated in the isolated task folder. The implementation
-handoff will state passed/failed/not-run checks and distinguish production source
-equivalence from an unknown deployed image digest. Synthetic input binaries and
-raw evaluation documents are excluded from Git.
+이미지 면적은 보수적 추정이며 읽기 완료 증명이 아니다. 바이트·연산자 검사는 압축 해제·파싱 뒤 적용하므로 전처리의 엄격한 한도는 아니다. 과도한 공백 토큰은 두 번째 이미지 파싱을 피하지만 앞선 텍스트 파싱·압축 해제는 기존 작업자 제한으로 보호한다. 작은 이미지·주석·선택되지 않은 항목은 읽지 못할 수 있고 잘림·겹친 영역은 면적을 과대 추정할 수 있다.
+
+이미 검색 가능한 스캔은 OCR로 다시 읽을 수 있다. 정확히 일치하는 원문 접두부를 한 번만 제거하며 남은 겹침은 독립적인 근거로 세지 않는다. 금액·식별자를 유사 문자열로 중복 제거하지 않는다. 문서 전체 OCR을 제공하지 않는다.
+
+과거 JSON 기본값과 서비스 간 배포·롤백 조건은 [판독기 안내](../../agent/src/attachments/README.md)를 따른다. 합성 입력 바이너리·평가 원문은 Git에서 제외하며 이 설계 기록은 DB·인증·유료 지출 설정·운영 배포 변경을 포함하지 않는다.

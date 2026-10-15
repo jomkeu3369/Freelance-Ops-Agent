@@ -1,27 +1,27 @@
-# AI Platform SLO
+# AI 플랫폼 운영 목표
 
 > 상태: 목표 정의 완료, 운영 측정 대기
 
 현재 수치는 달성 실적이 아니라 production pilot에서 검증할 목표다.
 
-| 신호 | SLI | 초기 목표 | 측정 위치 |
-|---|---|---:|---|
-| API 가용성 | readiness 성공률 | 월 99.5% 이상 | Spring Actuator·외부 probe |
-| Run 접수 | start API 성공률 | 5xx 1% 미만 | Spring HTTP metric |
-| Gateway admission | capacity/circuit 거절률 | 5분 평균 5% 미만 | `ai_gateway_outcomes_total` |
-| 모델 호출 | provider 실패율 | 15분 평균 2% 미만 | Gateway metric·LangSmith |
-| 모델 지연 | 최근 호출 p95 | 4.5초 이하 | `ai_gateway_latency_ms` |
-| 비용 추적 | 가격 미확정 run | 0건 목표 | Spring `agent_run_usage` |
-| 안전 | 권한 불명확 자동 실행 | 0건 | audit ledger·HITL 결과 |
-| 추적성 | trace ID 없는 run | 0건 | Spring·Agent·LangSmith 상관관계 |
-| 대기열 | oldest ready age | 120초 이하, 300초 hard alert | Agent runtime snapshot |
-| Claim | 만료 lease | 5분 합계 0건 목표 | Agent runtime snapshot |
-| Retry | retry queue depth | 평시 ready queue의 20% 이하 | Agent runtime snapshot |
-| 제공자 격리 | OPEN/HALF_OPEN circuit | 15분 지속 0건 목표 | Agent runtime snapshot |
-| Scheduler | actual/shadow rank 불일치 | 관측만 수행, 승격 전 원인별 검토 | Agent runtime snapshot·release report |
-| 학습 승격 | 증거 없는 APPROVED release | 0건 | `agent_runtime_release` |
+| 신호              | SLI                        |                        초기 목표 | 측정 위치                             |
+| ----------------- | -------------------------- | -------------------------------: | ------------------------------------- |
+| API 가용성        | readiness 성공률           |                    월 99.5% 이상 | Spring Actuator·외부 probe            |
+| Run 접수          | start API 성공률           |                      5xx 1% 미만 | Spring HTTP metric                    |
+| Gateway admission | capacity/circuit 거절률    |                 5분 평균 5% 미만 | `ai_gateway_outcomes_total`           |
+| 모델 호출         | provider 실패율            |                15분 평균 2% 미만 | Gateway metric·LangSmith              |
+| 모델 지연         | 최근 호출 p95              |                       4.5초 이하 | `ai_gateway_latency_ms`               |
+| 비용 추적         | 가격 미확정 run            |                         0건 목표 | Spring `agent_run_usage`              |
+| 안전              | 권한 불명확 자동 실행      |                              0건 | audit ledger·HITL 결과                |
+| 추적성            | trace ID 없는 run          |                              0건 | Spring·Agent·LangSmith 상관관계       |
+| 대기열            | oldest ready age           |     120초 이하, 300초 hard alert | Agent runtime snapshot                |
+| Claim             | 만료 lease                 |                5분 합계 0건 목표 | Agent runtime snapshot                |
+| Retry             | retry queue depth          |      평시 ready queue의 20% 이하 | Agent runtime snapshot                |
+| 제공자 격리       | OPEN/HALF_OPEN circuit     |               15분 지속 0건 목표 | Agent runtime snapshot                |
+| Scheduler         | actual/shadow rank 불일치  | 관측만 수행, 승격 전 원인별 검토 | Agent runtime snapshot·release report |
+| 학습 승격         | 증거 없는 APPROVED release |                              0건 | `agent_runtime_release`               |
 
-## Error budget 사용
+## 오류 허용 범위 관리
 
 - 5xx 또는 provider failure가 15분 동안 목표를 넘으면 새 모델·prompt 배포를 중단한다.
 - capacity 거절만 증가하면 provider 호출 수를 늘리기 전에 queue wait, run budget과 1 vCPU saturation을 확인한다.
@@ -33,6 +33,8 @@
 ## 검증 명령
 
 ```bash
-k6 run -e BASE_URL=https://api.freelance-ops.site infra/load/k6-readiness.js
-python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json
+k6 run --no-usage-report -e BASE_URL=http://127.0.0.1:18080 infra/load/k6-readiness.js
+uv run --project agent --locked python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json
 ```
+
+기본 부하 예시는 일회용 로컬 환경이다. 운영 대상·부하를 정한 경우에만 주소를 바꾼다. 실제 실행 조건은 [부하 안내](../../infra/load/README.md)를 따른다. 저장된 평가 보고서의 릴리스 검사와 실제 운영 SLO 측정은 별개다.

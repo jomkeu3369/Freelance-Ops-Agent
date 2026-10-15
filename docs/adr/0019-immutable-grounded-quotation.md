@@ -3,11 +3,11 @@
 - 상태: Accepted
 - 결정일: 2026-08-13
 
-## Context
+## 배경
 
 V1은 LLM이 만든 견적의 계산 근거와 변경 이력을 충분히 보존하지 못했다. V2는 AI 없이도 사용자가 수동 견적을 작성할 수 있어야 하고, 발행 후 변경 내역과 각 금액의 근거를 감사할 수 있어야 한다. 금액 계산을 LLM에 맡기지 않는 아키텍처 불변조건도 지켜야 한다.
 
-## Decision
+## 결정
 
 - Rate Card와 Estimation Policy는 workspace 범위로 저장한다.
 - 견적은 scenario와 series를 가지는 immutable version이다. 발행본을 변경하지 않고 최신 version에서만 새 revision을 만든다.
@@ -18,7 +18,7 @@ V1은 LLM이 만든 견적의 계산 근거와 변경 이력을 충분히 보존
 - 발행에는 `quotation.publish`, 작성과 revision에는 `quotation.write` permission을 요구한다.
 - 실제 결과는 별도 Outcome으로 기록하며 발행 견적과 WBS 항목을 선택적으로 연결한다.
 
-## Consequences
+## 영향
 
 - 견적 변경 이력과 항목별 근거를 재현할 수 있다.
 - LLM 출력과 실제 금액 계산의 책임이 분리된다.

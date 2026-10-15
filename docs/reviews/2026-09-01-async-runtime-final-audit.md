@@ -1,11 +1,23 @@
 # Async Runtime 전체 설계·구현 감사
 
-> 감사일: 2026-09-01  
-> 기준 커밋: `de70aeb3d0bbcb4a3eb4686f5aba0c25d5f6df10`  
+> 감사일: 2026-09-01\
+> 기준 커밋: `de70aeb3d0bbcb4a3eb4686f5aba0c25d5f6df10`\
 > 범위: Deep Agent 오케스트레이션, 요청 라우팅, Task 제어, 신뢰성, Scheduler shadow, 평가·학습 승격, 운영 준비
 
 > 후속 결정: 저장소 소유자의 명시적 승인으로 V1 source는 Git history로 이관했다. 운영
 > `AgentRun` fallback과 Scheduler shadow 경계는 그대로 유지한다.
+
+## 구현 전 기준선 — 2026-08-31
+
+Task Registry·작업 제어·이벤트·운영 연결 전의 비교 기준이다. 이후 구현은 아래 추적표와 감사 결과를 함께 읽는다.
+
+| 검사            | 당시 결과                                    |
+| --------------- | -------------------------------------------- |
+| Agent pytest    | 338개 통과·PostgreSQL 주소가 필요한 1개 생략 |
+| Agent Ruff·mypy | 통과·58개 소스 검사                          |
+| Backend Gradle  | 170개, 실패·오류 0, 조건부 생략 10개         |
+
+아래 감사 판정은 2026-09-01의 범위다. 최근 일반 애플리케이션 배포 성공이 연구 스케줄러의 운영 승격을 뜻하지 않는다. 현재 배포·전체 회귀 검사는 [제품 근거](../portfolio/product-evidence.md), 파일럿 승격은 [운영 절차](../operations/phase-11-limited-research-pilot.md)를 따른다.
 
 ## 1. 결론
 
@@ -21,21 +33,21 @@ Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되�
 
 ## 2. 설계 대 구현 추적표
 
-| 설계 영역 | 구현 근거 | 판정 |
-|---|---|---|
-| 공개 API·인증·역할 기반 제어 | Spring `agenttask` controller/service/security, workspace·run·task scope 재검증 | 완료 |
-| 의미·위험도 라우팅 | 결정론적 route/model/tool profile, 고위험 요청 `HUMAN_REQUIRED` fail-closed | 완료 |
-| 감독·전문 Agent | bounded Research specialist, read-only Tool, citation 독립 검증 | 첫 전문 경로 완료 |
-| Task 계약·권한·예산 | immutable execution profile, revision·정책·권한·예산 재검증 | 완료 |
-| 일시정지·수정·취소 | durable command, checkpoint 시 soft update, redirect/cancel fencing | 완료 |
-| 행동 관문 | read-only allowlist와 SSRF·prompt-injection 방어 적용 | 현재 read-only 범위 완료 |
-| 영속 Task·Attempt | Spring 업무 registry와 Agent 실행 registry 분리, versioned migration | 완료 |
-| 명령·이벤트 전달 | 양쪽 Outbox, lease·ACK fencing, idempotent projection | 완료 |
-| Checkpoint·Retry·Circuit | token hash, 계층형 token bucket, 다중 신호 분류, provider circuit | 완료 |
-| Queue·Scheduler | PostgreSQL FIFO claim/lease, resource pool 격리, PSJF+aging shadow | shadow 완료 |
-| Replay·학습 승격 | 권위 데이터 assembler, MAE/P95/R²·SLO·공정성 gate, immutable release evidence | 완료 |
-| 관측·운영 대응 | payload 없는 aggregate snapshot, SLO, 장애 대응·rollback runbook | 구현 완료 |
-| 자동 확장·보조 provider | shadow 신호와 circuit만 기록, 실제 자동 변경 없음 | 의도적 보류 |
+| 설계 영역                    | 구현 근거                                                                       | 판정                     |
+| ---------------------------- | ------------------------------------------------------------------------------- | ------------------------ |
+| 공개 API·인증·역할 기반 제어 | Spring `agenttask` controller/service/security, workspace·run·task scope 재검증 | 완료                     |
+| 의미·위험도 라우팅           | 결정론적 route/model/tool profile, 고위험 요청 `HUMAN_REQUIRED` fail-closed     | 완료                     |
+| 감독·전문 Agent              | bounded Research specialist, read-only Tool, citation 독립 검증                 | 첫 전문 경로 완료        |
+| Task 계약·권한·예산          | immutable execution profile, revision·정책·권한·예산 재검증                     | 완료                     |
+| 일시정지·수정·취소           | durable command, checkpoint 시 soft update, redirect/cancel fencing             | 완료                     |
+| 행동 관문                    | read-only allowlist와 SSRF·prompt-injection 방어 적용                           | 현재 read-only 범위 완료 |
+| 영속 Task·Attempt            | Spring 업무 registry와 Agent 실행 registry 분리, versioned migration            | 완료                     |
+| 명령·이벤트 전달             | 양쪽 Outbox, lease·ACK fencing, idempotent projection                           | 완료                     |
+| Checkpoint·Retry·Circuit     | token hash, 계층형 token bucket, 다중 신호 분류, provider circuit               | 완료                     |
+| Queue·Scheduler              | PostgreSQL FIFO claim/lease, resource pool 격리, PSJF+aging shadow              | shadow 완료              |
+| Replay·학습 승격             | 권위 데이터 assembler, MAE/P95/R²·SLO·공정성 gate, immutable release evidence   | 완료                     |
+| 관측·운영 대응               | payload 없는 aggregate snapshot, SLO, 장애 대응·rollback runbook                | 구현 완료                |
+| 자동 확장·보조 provider      | shadow 신호와 circuit만 기록, 실제 자동 변경 없음                               | 의도적 보류              |
 
 ## 3. 핵심 안전성 감사
 
@@ -69,17 +81,17 @@ Phase 0~10에서 계획한 소프트웨어 구현과 자동 검증은 완료되�
 
 ## 4. 검증 증거
 
-| 검증 | 최종 결과 |
-|---|---:|
-| Agent 전체 테스트 | 406 passed, 6 skipped |
-| Phase 10 대상 테스트 | 12 passed, 1 skipped |
-| Ruff | 통과 |
-| strict Mypy | 75 source files 통과 |
-| Python SDK | 2 tests 통과 |
-| 라우팅 릴리스 평가 gate | 통과 |
-| GitHub Python·PostgreSQL 통합 CI | 통과 |
-| GitHub Agent image | 통과 |
-| Phase별 PR | #4~#11, #13, #14 병합 완료 |
+| 검증                             |                  최종 결과 |
+| -------------------------------- | -------------------------: |
+| Agent 전체 테스트                |      406 passed, 6 skipped |
+| Phase 10 대상 테스트             |       12 passed, 1 skipped |
+| Ruff                             |                       통과 |
+| strict Mypy                      |       75 source files 통과 |
+| Python SDK                       |               2 tests 통과 |
+| 라우팅 릴리스 평가 gate          |                       통과 |
+| GitHub Python·PostgreSQL 통합 CI |                       통과 |
+| GitHub Agent image               |                       통과 |
+| Phase별 PR                       | #4~#11, #13, #14 병합 완료 |
 
 로컬 skip은 외부 PostgreSQL URL 등 조건이 필요한 테스트이며 PR CI에서 pgvector PostgreSQL 통합
 검증을 수행했다. Phase 10 병합 전 헤드 SHA는

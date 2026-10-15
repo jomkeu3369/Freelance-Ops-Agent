@@ -4,7 +4,7 @@
 - 결정일: 2026-08-27
 - 관련: [ADR-0028](0028-trusted-contract-routing-fast-path.md)
 
-## Context
+## 배경
 
 라우팅 정책을 실제 traffic으로 평가하려면 모든 `route.selected` 결과와 human gold label이
 필요하다. SSE relay나 UI 구독에 수집을 연결하면 사용자가 화면을 열지 않은 run이 누락되어
@@ -15,7 +15,7 @@ selection bias가 발생한다. Agent event DB를 Spring이 직접 읽으면 두
 workspace/project grouped holdout을 요구한다. 따라서 일회성 로그 export가 아니라 재시도와
 증분 cursor가 있는 지속적인 수집 경로가 필요하다.
 
-## Decision
+## 결정
 
 - Agent는 run-scoped delegation token으로만 읽을 수 있는 유한 snapshot API를 제공한다.
 - Spring은 `agent_run` 생성 transaction 뒤 DB trigger로 별도 수집 queue row를 만든다.
@@ -53,7 +53,7 @@ workspace/project grouped holdout을 요구한다. 따라서 일회성 로그 ex
 - Routing evaluator 비용은 event 발생 시점에 적용되는 workspace model pricing snapshot으로
   계산한다. 가격 또는 evaluator identity가 불완전하면 0원으로 대체하지 않고 export를 실패시킨다.
 
-## Consequences
+## 영향
 
 ### 장점
 

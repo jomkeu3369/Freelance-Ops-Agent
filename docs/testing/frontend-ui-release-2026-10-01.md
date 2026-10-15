@@ -25,6 +25,8 @@ Node 22에서 `npm run preview:check`의 typecheck·unit 61개·lint·production
 - Frontend는 기존 GitHub→Vercel 경로를 사용합니다. 프런트 파일만 변경하므로 Backend/Agent Production Auto CD를 새로 트리거하지 않습니다.
 - 장애 시 병합 커밋의 UI 변경을 revert한 복구 PR을 정상 CI/CD로 병합합니다. `main`을 강제로 이전 SHA로 이동하지 않습니다. Vercel 계정 접근이 가능한 운영자는 별도로 직전 성공 배포를 즉시 복구할 수 있으나 이번 변경에서 해당 설정을 바꾸지 않습니다.
 
+> 아래 보안 항목은 2026-10-01 당시 상태다. Next 16.3.8 패치와 2026-10-11 audit 결과는 [후속 의존성 점검](frontend-dependency-audit-2026-10-11.md)에 기록한다. 현재 소개 화면의 재생·수동 선택은 [구현 안내](../../frontend/features/home/README.md)를 따른다.
+
 ## 남은 사항
 
 - 실사용 AI 결과·Safari·물리적 모바일 기기 검증은 별도입니다.
