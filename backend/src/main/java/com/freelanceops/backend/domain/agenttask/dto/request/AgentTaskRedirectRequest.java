@@ -5,8 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record AgentTaskRedirectRequest(
-    @Min(1) int expectedRevision,
-    @NotBlank @Size(max = 128) String idempotencyKey,
-    @NotBlank @Size(max = 200) String objectiveReference
-) {
-}
+        @Min(1) int expectedRevision,
+        @NotBlank @Size(max = 128) String idempotencyKey,
+        @NotBlank @Size(max = 200) String objectiveReference) {}

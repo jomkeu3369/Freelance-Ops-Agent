@@ -1,18 +1,19 @@
 package com.freelanceops.backend.domain.workspace.service;
 
-import com.freelanceops.backend.domain.workspace.policy.SystemRole;
 import com.freelanceops.backend.domain.workspace.entity.MemberRoleEntity;
-import com.freelanceops.backend.domain.workspace.repository.MemberRoleRepository;
 import com.freelanceops.backend.domain.workspace.entity.RbacAuditEventEntity;
-import com.freelanceops.backend.domain.workspace.repository.RbacAuditEventRepository;
 import com.freelanceops.backend.domain.workspace.entity.RolePermissionEntity;
-import com.freelanceops.backend.domain.workspace.repository.RolePermissionRepository;
 import com.freelanceops.backend.domain.workspace.entity.WorkspaceEntity;
 import com.freelanceops.backend.domain.workspace.entity.WorkspaceMemberEntity;
+import com.freelanceops.backend.domain.workspace.entity.WorkspaceRoleEntity;
+import com.freelanceops.backend.domain.workspace.policy.SystemRole;
+import com.freelanceops.backend.domain.workspace.repository.MemberRoleRepository;
+import com.freelanceops.backend.domain.workspace.repository.RbacAuditEventRepository;
+import com.freelanceops.backend.domain.workspace.repository.RolePermissionRepository;
 import com.freelanceops.backend.domain.workspace.repository.WorkspaceMemberRepository;
 import com.freelanceops.backend.domain.workspace.repository.WorkspaceRepository;
-import com.freelanceops.backend.domain.workspace.entity.WorkspaceRoleEntity;
 import com.freelanceops.backend.domain.workspace.repository.WorkspaceRoleRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,13 +34,12 @@ public class WorkspaceProvisioningService {
     private final RbacAuditEventRepository auditEventRepository;
 
     public WorkspaceProvisioningService(
-        WorkspaceRepository workspaceRepository,
-        WorkspaceMemberRepository workspaceMemberRepository,
-        WorkspaceRoleRepository workspaceRoleRepository,
-        RolePermissionRepository rolePermissionRepository,
-        MemberRoleRepository memberRoleRepository,
-        RbacAuditEventRepository auditEventRepository
-    ) {
+            WorkspaceRepository workspaceRepository,
+            WorkspaceMemberRepository workspaceMemberRepository,
+            WorkspaceRoleRepository workspaceRoleRepository,
+            RolePermissionRepository rolePermissionRepository,
+            MemberRoleRepository memberRoleRepository,
+            RbacAuditEventRepository auditEventRepository) {
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceRoleRepository = workspaceRoleRepository;
@@ -53,18 +53,16 @@ public class WorkspaceProvisioningService {
         UUID workspaceId = UUID.randomUUID();
         UUID membershipId = UUID.randomUUID();
 
-        workspaceRepository.saveAndFlush(WorkspaceEntity.active(workspaceId, name, slug, creatorUserId));
+        workspaceRepository.saveAndFlush(
+                WorkspaceEntity.active(workspaceId, name, slug, creatorUserId));
         workspaceMemberRepository.saveAndFlush(
-            WorkspaceMemberEntity.activeOwner(membershipId, workspaceId, creatorUserId)
-        );
+                WorkspaceMemberEntity.activeOwner(membershipId, workspaceId, creatorUserId));
         Map<SystemRole, UUID> roleIds = createSystemRoles(workspaceId);
-        memberRoleRepository.saveAndFlush(MemberRoleEntity.assign(
-            workspaceId,
-            membershipId,
-            roleIds.get(SystemRole.OWNER),
-            creatorUserId
-        ));
-        auditEventRepository.save(RbacAuditEventEntity.workspaceCreated(workspaceId, creatorUserId));
+        memberRoleRepository.saveAndFlush(
+                MemberRoleEntity.assign(
+                        workspaceId, membershipId, roleIds.get(SystemRole.OWNER), creatorUserId));
+        auditEventRepository.save(
+                RbacAuditEventEntity.workspaceCreated(workspaceId, creatorUserId));
 
         return new WorkspaceProvisioningResult(workspaceId, membershipId);
     }
@@ -79,8 +77,8 @@ public class WorkspaceProvisioningService {
             roleIds.put(role, roleId);
             roles.add(WorkspaceRoleEntity.system(roleId, workspaceId, role));
             role.permissions().stream()
-                .map(permission -> RolePermissionEntity.of(workspaceId, roleId, permission))
-                .forEach(rolePermissions::add);
+                    .map(permission -> RolePermissionEntity.of(workspaceId, roleId, permission))
+                    .forEach(rolePermissions::add);
         }
 
         workspaceRoleRepository.saveAllAndFlush(roles);
@@ -88,5 +86,3 @@ public class WorkspaceProvisioningService {
         return roleIds;
     }
 }
-
-

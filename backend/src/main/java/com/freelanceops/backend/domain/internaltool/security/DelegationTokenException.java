@@ -10,5 +10,3 @@ public class DelegationTokenException extends RuntimeException {
         super(message, cause);
     }
 }
-
-

@@ -1,15 +1,16 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.freelanceops.backend.domain.agentrun.model.AgentRunCommandStatus;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunCommandType;
+
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AgentRunCommandEntityTest {
 
@@ -36,7 +37,7 @@ class AgentRunCommandEntityTest {
 
         assertThat(command.dispatchableAt(now.plus(Duration.ofDays(1)))).isFalse();
         assertThatThrownBy(() -> command.claim(now.plus(Duration.ofDays(1)), Duration.ofMinutes(2)))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -53,8 +54,13 @@ class AgentRunCommandEntityTest {
 
     private static AgentRunCommandEntity command(Instant now) {
         return new AgentRunCommandEntity(
-            UUID.randomUUID(), UUID.randomUUID(), AgentRunCommandType.START, "{}", UUID.randomUUID(),
-            "[]", "traceparent", now
-        );
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                AgentRunCommandType.START,
+                "{}",
+                UUID.randomUUID(),
+                "[]",
+                "traceparent",
+                now);
     }
 }

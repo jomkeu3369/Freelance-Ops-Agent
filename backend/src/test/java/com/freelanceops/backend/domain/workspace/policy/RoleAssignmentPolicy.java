@@ -4,33 +4,34 @@ import java.util.EnumSet;
 import java.util.Set;
 import java.util.UUID;
 
-/** Specification fixture for role-change invariants; no production caller uses this policy. */
+/** 역할 변경의 불변조건을 검증하는 테스트용 정책이다. */
 public class RoleAssignmentPolicy {
 
-    public void validate(SystemRole actorRole, UUID actorMembershipId, UUID targetMembershipId,
-                         Set<SystemRole> currentRoles, Set<SystemRole> requestedRoles, long activeOwnerCount) {
+    public void validate(
+            SystemRole actorRole,
+            UUID actorMembershipId,
+            UUID targetMembershipId,
+            Set<SystemRole> currentRoles,
+            Set<SystemRole> requestedRoles,
+            long activeOwnerCount) {
         if (currentRoles.contains(SystemRole.OWNER)
-            && !requestedRoles.contains(SystemRole.OWNER)
-            && activeOwnerCount <= 1) {
+                && !requestedRoles.contains(SystemRole.OWNER)
+                && activeOwnerCount <= 1) {
             throw new RbacInvariantViolationException(
-                "LAST_OWNER_REQUIRED",
-                "The last active OWNER cannot lose the OWNER role"
-            );
+                    "LAST_OWNER_REQUIRED", "The last active OWNER cannot lose the OWNER role");
         }
 
         if (actorRole == SystemRole.ADMIN && ownerRoleChanged(currentRoles, requestedRoles)) {
             throw new RbacInvariantViolationException(
-                "ADMIN_CANNOT_CHANGE_OWNER",
-                "ADMIN cannot grant or revoke the OWNER role"
-            );
+                    "ADMIN_CANNOT_CHANGE_OWNER", "ADMIN cannot grant or revoke the OWNER role");
         }
 
         if (actorMembershipId.equals(targetMembershipId)
-            && !effectivePermissions(currentRoles).containsAll(effectivePermissions(requestedRoles))) {
+                && !effectivePermissions(currentRoles)
+                        .containsAll(effectivePermissions(requestedRoles))) {
             throw new RbacInvariantViolationException(
-                "SELF_PRIVILEGE_ESCALATION",
-                "A member cannot increase their own effective permissions"
-            );
+                    "SELF_PRIVILEGE_ESCALATION",
+                    "A member cannot increase their own effective permissions");
         }
     }
 
@@ -44,5 +45,3 @@ public class RoleAssignmentPolicy {
         return permissions;
     }
 }
-
-

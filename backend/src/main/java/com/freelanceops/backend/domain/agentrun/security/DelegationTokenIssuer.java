@@ -3,6 +3,7 @@ package com.freelanceops.backend.domain.agentrun.security;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -37,31 +38,39 @@ public class DelegationTokenIssuer {
 
     @Autowired
     public DelegationTokenIssuer(
-        @Value("${agent.delegation.private-key:}") String privateKey,
-        @Value("${agent.delegation.public-key:}") String publicKey,
-        @Value("${agent.delegation.key-id:freelance-ops-v1}") String keyId,
-        @Value("${agent.delegation.issuer:freelance-ops-backend}") String issuer,
-        @Value("${agent.delegation.agent-audience:freelance-ops-agent}") String agentAudience,
-        @Value("${agent.delegation.tool-audience:freelance-ops-spring-tools}") String toolAudience,
-        @Value("${agent.delegation.ttl-seconds:60}") long ttlSeconds,
-        @Value("${app.environment:development}") String environment
-    ) {
+            @Value("${agent.delegation.private-key:}") String privateKey,
+            @Value("${agent.delegation.public-key:}") String publicKey,
+            @Value("${agent.delegation.key-id:freelance-ops-v1}") String keyId,
+            @Value("${agent.delegation.issuer:freelance-ops-backend}") String issuer,
+            @Value("${agent.delegation.agent-audience:freelance-ops-agent}") String agentAudience,
+            @Value("${agent.delegation.tool-audience:freelance-ops-spring-tools}")
+                    String toolAudience,
+            @Value("${agent.delegation.ttl-seconds:60}") long ttlSeconds,
+            @Value("${app.environment:development}") String environment) {
         this(
-            createEncoder(privateKey, publicKey, keyId),
-            issuer,
-            List.of(agentAudience, toolAudience),
-            Duration.ofSeconds(ttlSeconds),
-            Clock.systemUTC(),
-            keyId
-        );
+                createEncoder(privateKey, publicKey, keyId),
+                issuer,
+                List.of(agentAudience, toolAudience),
+                Duration.ofSeconds(ttlSeconds),
+                Clock.systemUTC(),
+                keyId);
         if ("production".equalsIgnoreCase(environment) && this.encoder == null) {
             throw new IllegalStateException("production requires delegation signing keys");
         }
     }
 
-    DelegationTokenIssuer(JwtEncoder encoder, String issuer, List<String> audiences, Duration lifetime, Clock clock, String keyId) {
-        if (lifetime.isZero() || lifetime.isNegative() || lifetime.compareTo(Duration.ofMinutes(5)) > 0) {
-            throw new IllegalArgumentException("delegation token lifetime must be between 1 second and 5 minutes");
+    DelegationTokenIssuer(
+            JwtEncoder encoder,
+            String issuer,
+            List<String> audiences,
+            Duration lifetime,
+            Clock clock,
+            String keyId) {
+        if (lifetime.isZero()
+                || lifetime.isNegative()
+                || lifetime.compareTo(Duration.ofMinutes(5)) > 0) {
+            throw new IllegalArgumentException(
+                    "delegation token lifetime must be between 1 second and 5 minutes");
         }
         this.encoder = encoder;
         this.issuer = issuer;
@@ -71,33 +80,58 @@ public class DelegationTokenIssuer {
         this.keyId = keyId;
     }
 
-    public String issue(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions) {
+    public String issue(
+            UUID runId,
+            UUID workspaceId,
+            UUID projectId,
+            UUID initiatedBy,
+            List<String> permissions) {
         return issueWithLifetime(runId, workspaceId, projectId, initiatedBy, permissions, lifetime);
     }
 
-    public String issueForPersonalRun(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions, int durationSeconds) {
-        if (durationSeconds < 1 || durationSeconds > 270) throw new IllegalArgumentException("personal run duration must be at most 270 seconds");
-        return issueWithLifetime(runId, workspaceId, projectId, initiatedBy, permissions, Duration.ofSeconds(durationSeconds + 30L));
+    public String issueForPersonalRun(
+            UUID runId,
+            UUID workspaceId,
+            UUID projectId,
+            UUID initiatedBy,
+            List<String> permissions,
+            int durationSeconds) {
+        if (durationSeconds < 1 || durationSeconds > 270)
+            throw new IllegalArgumentException("personal run duration must be at most 270 seconds");
+        return issueWithLifetime(
+                runId,
+                workspaceId,
+                projectId,
+                initiatedBy,
+                permissions,
+                Duration.ofSeconds(durationSeconds + 30L));
     }
 
-    private String issueWithLifetime(UUID runId, UUID workspaceId, UUID projectId, UUID initiatedBy, List<String> permissions, Duration tokenLifetime) {
+    private String issueWithLifetime(
+            UUID runId,
+            UUID workspaceId,
+            UUID projectId,
+            UUID initiatedBy,
+            List<String> permissions,
+            Duration tokenLifetime) {
         if (encoder == null) {
             throw new IllegalStateException("delegation signing key is unavailable");
         }
         Instant now = clock.instant();
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-            .issuer(issuer)
-            .audience(audiences)
-            .subject(initiatedBy.toString())
-            .id(UUID.randomUUID().toString())
-            .issuedAt(now)
-            .expiresAt(now.plus(tokenLifetime))
-            .claim("run_id", runId.toString())
-            .claim("workspace_id", workspaceId.toString())
-            .claim("project_id", projectId.toString())
-            .claim("initiated_by", initiatedBy.toString())
-            .claim("permissions", List.copyOf(permissions))
-            .build();
+        JwtClaimsSet claims =
+                JwtClaimsSet.builder()
+                        .issuer(issuer)
+                        .audience(audiences)
+                        .subject(initiatedBy.toString())
+                        .id(UUID.randomUUID().toString())
+                        .issuedAt(now)
+                        .expiresAt(now.plus(tokenLifetime))
+                        .claim("run_id", runId.toString())
+                        .claim("workspace_id", workspaceId.toString())
+                        .claim("project_id", projectId.toString())
+                        .claim("initiated_by", initiatedBy.toString())
+                        .claim("permissions", List.copyOf(permissions))
+                        .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(keyId).build();
         return encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
@@ -107,13 +141,15 @@ public class DelegationTokenIssuer {
             return null;
         }
         if (privateKey.isBlank() || publicKey.isBlank()) {
-            throw new IllegalStateException("delegation private and public keys must be configured together");
+            throw new IllegalStateException(
+                    "delegation private and public keys must be configured together");
         }
         try {
-            RSAKey jwk = new RSAKey.Builder(parsePublicKey(publicKey))
-                .privateKey(parsePrivateKey(privateKey))
-                .keyID(keyId)
-                .build();
+            RSAKey jwk =
+                    new RSAKey.Builder(parsePublicKey(publicKey))
+                            .privateKey(parsePrivateKey(privateKey))
+                            .keyID(keyId)
+                            .build();
             return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
         } catch (Exception error) {
             throw new IllegalStateException("delegation signing key is invalid", error);
@@ -122,20 +158,19 @@ public class DelegationTokenIssuer {
 
     private static RSAPublicKey parsePublicKey(String value) throws Exception {
         byte[] encoded = Base64.getDecoder().decode(normalizePem(value, "PUBLIC KEY"));
-        return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(encoded));
+        return (RSAPublicKey)
+                KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(encoded));
     }
 
     private static RSAPrivateKey parsePrivateKey(String value) throws Exception {
         byte[] encoded = Base64.getDecoder().decode(normalizePem(value, "PRIVATE KEY"));
-        return (RSAPrivateKey) KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(encoded));
+        return (RSAPrivateKey)
+                KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(encoded));
     }
 
     private static String normalizePem(String value, String label) {
-        return value
-            .replace("-----BEGIN " + label + "-----", "")
-            .replace("-----END " + label + "-----", "")
-            .replaceAll("\\s", "");
+        return value.replace("-----BEGIN " + label + "-----", "")
+                .replace("-----END " + label + "-----", "")
+                .replaceAll("\\s", "");
     }
 }
-
-

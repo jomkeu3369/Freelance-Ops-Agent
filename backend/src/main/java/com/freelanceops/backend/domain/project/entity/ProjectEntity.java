@@ -1,21 +1,23 @@
 package com.freelanceops.backend.domain.project.entity;
+
 import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
 @Table(name = "project", schema = "app")
 public class ProjectEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -55,20 +57,54 @@ public class ProjectEntity {
     @Column(name = "deletion_requested_at")
     private Instant deletionRequestedAt;
 
-    @Column(name = "requirement_updated_by") private UUID requirementUpdatedBy;
-    public void requirementUpdatedBy(UUID actor) { this.requirementUpdatedBy = actor; }
+    @Column(name = "requirement_updated_by")
+    private UUID requirementUpdatedBy;
 
-    @Version
-    private long version;
-
-    protected ProjectEntity() {
+    public void requirementUpdatedBy(UUID actor) {
+        this.requirementUpdatedBy = actor;
     }
 
-    public ProjectEntity(UUID id, UUID workspaceId, String title, String requirementText, String currency, LocalDate deadline, BigDecimal budgetMin, BigDecimal budgetMax) {
-        this(id, workspaceId, null, title, requirementText, currency, deadline, budgetMin, budgetMax, "LEAD", UUID.randomUUID(), Instant.now());
+    @Version private long version;
+
+    protected ProjectEntity() {}
+
+    public ProjectEntity(
+            UUID id,
+            UUID workspaceId,
+            String title,
+            String requirementText,
+            String currency,
+            LocalDate deadline,
+            BigDecimal budgetMin,
+            BigDecimal budgetMax) {
+        this(
+                id,
+                workspaceId,
+                null,
+                title,
+                requirementText,
+                currency,
+                deadline,
+                budgetMin,
+                budgetMax,
+                "LEAD",
+                UUID.randomUUID(),
+                Instant.now());
     }
 
-    public ProjectEntity(UUID id, UUID workspaceId, UUID clientId, String title, String requirementText, String currency, LocalDate deadline, BigDecimal budgetMin, BigDecimal budgetMax, String status, UUID createdBy, Instant now) {
+    public ProjectEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID clientId,
+            String title,
+            String requirementText,
+            String currency,
+            LocalDate deadline,
+            BigDecimal budgetMin,
+            BigDecimal budgetMax,
+            String status,
+            UUID createdBy,
+            Instant now) {
         this.id = id;
         this.workspaceId = workspaceId;
         this.clientId = clientId;
@@ -84,7 +120,16 @@ public class ProjectEntity {
         this.updatedAt = now;
     }
 
-    public void update(UUID clientId, String title, String requirementText, String currency, LocalDate deadline, BigDecimal budgetMin, BigDecimal budgetMax, String status, Instant now) {
+    public void update(
+            UUID clientId,
+            String title,
+            String requirementText,
+            String currency,
+            LocalDate deadline,
+            BigDecimal budgetMin,
+            BigDecimal budgetMax,
+            String status,
+            Instant now) {
         requireNotDeleting();
         this.clientId = clientId;
         this.title = title;
@@ -173,5 +218,3 @@ public class ProjectEntity {
         return version;
     }
 }
-
-

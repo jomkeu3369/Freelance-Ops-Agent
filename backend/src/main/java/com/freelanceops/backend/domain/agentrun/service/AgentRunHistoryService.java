@@ -11,6 +11,7 @@ import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -37,8 +39,12 @@ public class AgentRunHistoryService {
     private final AgentRunCommandRepository commands;
     private final ObjectReader historyReader;
 
-    public AgentRunHistoryService(WorkspacePermissionReader permissions, ProjectRepository projects,
-                                  AgentRunRepository runs, AgentRunCommandRepository commands, ObjectMapper mapper) {
+    public AgentRunHistoryService(
+            WorkspacePermissionReader permissions,
+            ProjectRepository projects,
+            AgentRunRepository runs,
+            AgentRunCommandRepository commands,
+            ObjectMapper mapper) {
         this.permissions = permissions;
         this.projects = projects;
         this.runs = runs;
@@ -48,39 +54,50 @@ public class AgentRunHistoryService {
 
     @Transactional(readOnly = true)
     public List<AgentChatTurn> list(UUID userId, UUID workspaceId, UUID projectId, int limit) {
-        if (limit < 1 || limit > 50) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be 1 to 50");
-        var membership = permissions.findActiveMembership(userId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (limit < 1 || limit > 50)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit must be 1 to 50");
+        var membership =
+                permissions
+                        .findActiveMembership(userId, workspaceId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (!membership.permissions().contains(PermissionCode.AGENT_RUN)
-            || !membership.permissions().contains(PermissionCode.PROJECT_READ)) {
+                || !membership.permissions().contains(PermissionCode.PROJECT_READ)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         if (projects.findByIdAndWorkspaceId(projectId, workspaceId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        return runs.findByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(workspaceId, projectId, PageRequest.of(0, limit))
-            .stream().map(this::readTurn).toList();
+        return runs
+                .findByWorkspaceIdAndProjectIdOrderByCreatedAtDesc(
+                        workspaceId, projectId, PageRequest.of(0, limit))
+                .stream()
+                .map(this::readTurn)
+                .toList();
     }
 
     private AgentChatTurn readTurn(AgentRunEntity run) {
-        // Repository failures deliberately propagate. Only historical data decoding is isolated per turn.
-        var command = commands.findFirstByRunIdAndCommandTypeOrderByCreatedAtAsc(run.id(), AgentRunCommandType.START);
+        // 저장소 오류는 호출자에게 전달하고, 과거 데이터 해석 실패만 대화별로 처리한다.
+        var command =
+                commands.findFirstByRunIdAndCommandTypeOrderByCreatedAtAsc(
+                        run.id(), AgentRunCommandType.START);
         if (command.isEmpty()) return unavailable(run, OriginalInputIssue.MISSING_START, List.of());
         String payload = command.get().payload();
-        if (payload == null || payload.isBlank()) return unavailable(run, OriginalInputIssue.MALFORMED_PAYLOAD, List.of());
+        if (payload == null || payload.isBlank())
+            return unavailable(run, OriginalInputIssue.MALFORMED_PAYLOAD, List.of());
         final JsonNode root;
         try {
             root = historyReader.readTree(payload);
         } catch (JacksonException error) {
-            // Never log the exception or payload: parser messages can contain private original input.
+            // 파싱 예외에 원문이 포함될 수 있으므로 예외와 입력 데이터를 기록하지 않는다.
             return unavailable(run, OriginalInputIssue.MALFORMED_PAYLOAD, List.of());
         }
-        if (root == null || !root.isObject()) return unavailable(run, OriginalInputIssue.MALFORMED_PAYLOAD, List.of());
+        if (root == null || !root.isObject())
+            return unavailable(run, OriginalInputIssue.MALFORMED_PAYLOAD, List.of());
         JsonNode input = root.get("input");
-        if (input == null || !input.isObject()) return unavailable(run, OriginalInputIssue.MISSING_INPUT, List.of());
+        if (input == null || !input.isObject())
+            return unavailable(run, OriginalInputIssue.MISSING_INPUT, List.of());
 
-        // Project display fields only; historical budgets, execution enums and extraction internals
-        // are not executable requests and must not be validated against today's execution DTOs.
+        // 화면에 필요한 필드만 읽는다. 과거 실행 한도와 추출 데이터에 현재 실행 요청의 검증 규칙을 적용하지 않는다.
         var attachments = new ArrayList<AttachmentSummary>();
         boolean invalidAttachments = false;
         JsonNode items = input.get("attachments");
@@ -89,32 +106,56 @@ public class AgentRunHistoryService {
                 invalidAttachments = true;
             } else {
                 for (JsonNode item : items) {
-                    JsonNode name = item.get("name"), status = item.get("status"), notice = item.get("notice");
-                    if (!item.isObject() || name == null || !name.isString() || name.stringValue().isBlank()
-                        || status == null || !status.isString() || status.stringValue().isBlank()
-                        || notice != null && !notice.isNull() && !notice.isString()) {
+                    JsonNode name = item.get("name"),
+                            status = item.get("status"),
+                            notice = item.get("notice");
+                    if (!item.isObject()
+                            || name == null
+                            || !name.isString()
+                            || name.stringValue().isBlank()
+                            || status == null
+                            || !status.isString()
+                            || status.stringValue().isBlank()
+                            || notice != null && !notice.isNull() && !notice.isString()) {
                         invalidAttachments = true;
                         continue;
                     }
-                    attachments.add(new AttachmentSummary(name.stringValue(), status.stringValue(),
-                        notice == null || notice.isNull() ? null : notice.stringValue()));
+                    attachments.add(
+                            new AttachmentSummary(
+                                    name.stringValue(),
+                                    status.stringValue(),
+                                    notice == null || notice.isNull()
+                                            ? null
+                                            : notice.stringValue()));
                 }
             }
         }
         JsonNode text = input.get("requirementText");
-        if (text == null || !text.isString()) return unavailable(run, OriginalInputIssue.INVALID_REQUIREMENT_TEXT, List.copyOf(attachments));
-        return turn(run, text.stringValue(), List.copyOf(attachments),
-            invalidAttachments ? OriginalInputStatus.PARTIAL : OriginalInputStatus.AVAILABLE,
-            invalidAttachments ? OriginalInputIssue.INVALID_ATTACHMENTS : null);
+        if (text == null || !text.isString())
+            return unavailable(
+                    run, OriginalInputIssue.INVALID_REQUIREMENT_TEXT, List.copyOf(attachments));
+        return turn(
+                run,
+                text.stringValue(),
+                List.copyOf(attachments),
+                invalidAttachments ? OriginalInputStatus.PARTIAL : OriginalInputStatus.AVAILABLE,
+                invalidAttachments ? OriginalInputIssue.INVALID_ATTACHMENTS : null);
     }
 
-    private AgentChatTurn unavailable(AgentRunEntity run, OriginalInputIssue issue, List<AttachmentSummary> attachments) {
+    private AgentChatTurn unavailable(
+            AgentRunEntity run, OriginalInputIssue issue, List<AttachmentSummary> attachments) {
         return turn(run, null, attachments, OriginalInputStatus.UNAVAILABLE, issue);
     }
 
-    private AgentChatTurn turn(AgentRunEntity run, String text, List<AttachmentSummary> attachments,
-                               OriginalInputStatus status, OriginalInputIssue issue) {
-        if (issue != null) log.warn("Agent run history input degraded: runId={} category={}", run.id(), issue);
-        return new AgentChatTurn(run.id(), text, run.status(), run.createdAt(), attachments, status, issue);
+    private AgentChatTurn turn(
+            AgentRunEntity run,
+            String text,
+            List<AttachmentSummary> attachments,
+            OriginalInputStatus status,
+            OriginalInputIssue issue) {
+        if (issue != null)
+            log.warn("Agent run history input degraded: runId={} category={}", run.id(), issue);
+        return new AgentChatTurn(
+                run.id(), text, run.status(), run.createdAt(), attachments, status, issue);
     }
 }

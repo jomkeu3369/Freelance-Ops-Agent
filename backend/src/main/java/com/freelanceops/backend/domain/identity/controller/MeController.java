@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.identity.controller;
 
 import com.freelanceops.backend.domain.identity.dto.response.MeResponse;
 import com.freelanceops.backend.domain.identity.service.AuthService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +27,8 @@ public class MeController {
         try {
             return authService.me(UUID.fromString(authentication.getName()));
         } catch (IllegalArgumentException error) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
         }
     }
 }

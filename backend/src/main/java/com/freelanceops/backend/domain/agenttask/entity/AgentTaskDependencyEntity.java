@@ -14,14 +14,19 @@ import java.util.UUID;
 public class AgentTaskDependencyEntity {
 
     @EmbeddedId private AgentTaskDependencyId id;
-    @Column(name = "dependency_type", nullable = false, length = 20) private String dependencyType;
-    @Column(name = "created_at", nullable = false) private Instant createdAt;
 
-    protected AgentTaskDependencyEntity() {
-    }
+    @Column(name = "dependency_type", nullable = false, length = 20)
+    private String dependencyType;
 
-    public AgentTaskDependencyEntity(UUID taskId, UUID dependsOnTaskId, String dependencyType, Instant now) {
-        if (taskId.equals(dependsOnTaskId)) throw new IllegalArgumentException("task cannot depend on itself");
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    protected AgentTaskDependencyEntity() {}
+
+    public AgentTaskDependencyEntity(
+            UUID taskId, UUID dependsOnTaskId, String dependencyType, Instant now) {
+        if (taskId.equals(dependsOnTaskId))
+            throw new IllegalArgumentException("task cannot depend on itself");
         this.id = new AgentTaskDependencyId(taskId, dependsOnTaskId);
         if (!"COMPLETION".equals(dependencyType) && !"SUCCESS".equals(dependencyType)) {
             throw new IllegalArgumentException("unsupported dependency type");
@@ -30,5 +35,7 @@ public class AgentTaskDependencyEntity {
         this.createdAt = Objects.requireNonNull(now);
     }
 
-    public AgentTaskDependencyId id() { return id; }
+    public AgentTaskDependencyId id() {
+        return id;
+    }
 }

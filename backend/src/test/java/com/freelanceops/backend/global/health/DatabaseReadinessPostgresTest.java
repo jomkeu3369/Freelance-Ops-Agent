@@ -1,5 +1,10 @@
 package com.freelanceops.backend.global.health;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,23 +21,18 @@ import org.testcontainers.utility.DockerImageName;
 import java.time.Duration;
 import java.time.Instant;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
 class DatabaseReadinessPostgresTest {
 
     @Container
-    private static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer(
-        DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres")
-    );
+    private static final PostgreSQLContainer POSTGRES =
+            new PostgreSQLContainer(
+                    DockerImageName.parse("pgvector/pgvector:pg17")
+                            .asCompatibleSubstituteFor("postgres"));
 
-    @Autowired
-    private MockMvc mvc;
+    @Autowired private MockMvc mvc;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
@@ -47,23 +47,27 @@ class DatabaseReadinessPostgresTest {
     @Test
     void databaseOutageFailsReadinessButNotLivenessAndRecovers() throws Exception {
         mvc.perform(get("/actuator/health/readiness"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
 
         var docker = DockerClientFactory.instance().client();
         docker.pauseContainerCmd(POSTGRES.getContainerId()).exec();
         try {
             Instant started = Instant.now();
             mvc.perform(get("/actuator/health/readiness"))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.status").value("DOWN"))
-                .andExpect(jsonPath("$.components").doesNotExist());
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.status").value("DOWN"))
+                    .andExpect(jsonPath("$.components").doesNotExist());
             assertThat(Duration.between(started, Instant.now())).isLessThan(Duration.ofSeconds(5));
             mvc.perform(get("/actuator/health/liveness"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("UP"));
         } finally {
             docker.unpauseContainerCmd(POSTGRES.getContainerId()).exec();
         }
 
         mvc.perform(get("/actuator/health/readiness"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
     }
 }

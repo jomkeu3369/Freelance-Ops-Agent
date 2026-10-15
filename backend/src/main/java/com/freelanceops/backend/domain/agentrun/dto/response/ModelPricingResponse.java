@@ -7,14 +7,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ModelPricingResponse(
-    UUID id,
-    Provider provider,
-    String model,
-    String versionLabel,
-    String currency,
-    BigDecimal inputPerMillion,
-    BigDecimal cachedInputPerMillion,
-    BigDecimal outputPerMillion,
-    Instant validFrom,
-    Instant validUntil
-) { }
+        UUID id,
+        Provider provider,
+        String model,
+        String versionLabel,
+        String currency,
+        BigDecimal inputPerMillion,
+        BigDecimal cachedInputPerMillion,
+        BigDecimal outputPerMillion,
+        Instant validFrom,
+        Instant validUntil) {}

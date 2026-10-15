@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.project.service;
 
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,8 @@ public class ProjectDeletionTransaction {
     private final ProjectRepository repository;
     private final ProjectAgentCommandFence commandFence;
 
-    public ProjectDeletionTransaction(ProjectRepository repository, ProjectAgentCommandFence commandFence) {
+    public ProjectDeletionTransaction(
+            ProjectRepository repository, ProjectAgentCommandFence commandFence) {
         this.repository = repository;
         this.commandFence = commandFence;
     }
@@ -38,7 +40,8 @@ public class ProjectDeletionTransaction {
     }
 
     private ProjectEntity lock(UUID workspaceId, UUID projectId) {
-        return repository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return repository
+                .findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 }

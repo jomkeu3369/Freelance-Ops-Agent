@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
 import com.freelanceops.backend.domain.agentrun.model.RouteCollectionStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,18 +17,38 @@ import java.util.UUID;
 @Entity
 @Table(name = "agent_route_collection", schema = "app")
 public class AgentRouteCollectionEntity {
-    @Id @Column(name = "agent_run_id") private UUID agentRunId;
-    @Column(name = "cursor_event_id", nullable = false) private long cursorEventId;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private RouteCollectionStatus status;
-    @Column(nullable = false) private int attempts;
-    @Column(name = "available_at", nullable = false) private Instant availableAt;
-    @Column(name = "lease_until") private Instant leaseUntil;
-    @Column(name = "last_error", length = 500) private String lastError;
-    @Column(name = "created_at", nullable = false) private Instant createdAt;
-    @Column(name = "updated_at", nullable = false) private Instant updatedAt;
+    @Id
+    @Column(name = "agent_run_id")
+    private UUID agentRunId;
+
+    @Column(name = "cursor_event_id", nullable = false)
+    private long cursorEventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private RouteCollectionStatus status;
+
+    @Column(nullable = false)
+    private int attempts;
+
+    @Column(name = "available_at", nullable = false)
+    private Instant availableAt;
+
+    @Column(name = "lease_until")
+    private Instant leaseUntil;
+
+    @Column(name = "last_error", length = 500)
+    private String lastError;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
     @Version private long version;
 
-    protected AgentRouteCollectionEntity() { }
+    protected AgentRouteCollectionEntity() {}
 
     public AgentRouteCollectionEntity(UUID agentRunId, Instant now) {
         this.agentRunId = agentRunId;
@@ -39,14 +60,20 @@ public class AgentRouteCollectionEntity {
     }
 
     public void claim(Instant now, Duration lease) {
-        if (!dispatchableAt(now)) throw new IllegalStateException("route collection is not dispatchable");
+        if (!dispatchableAt(now))
+            throw new IllegalStateException("route collection is not dispatchable");
         status = RouteCollectionStatus.PROCESSING;
         attempts++;
         leaseUntil = now.plus(lease);
         updatedAt = now;
     }
 
-    public boolean record(Instant now, long nextCursor, boolean complete, Duration nextDelay, int claimedAttempt) {
+    public boolean record(
+            Instant now,
+            long nextCursor,
+            boolean complete,
+            Duration nextDelay,
+            int claimedAttempt) {
         if (!ownsClaim(claimedAttempt) || nextCursor < cursorEventId) return false;
         cursorEventId = nextCursor;
         status = complete ? RouteCollectionStatus.COMPLETED : RouteCollectionStatus.PENDING;
@@ -69,7 +96,9 @@ public class AgentRouteCollectionEntity {
 
     private boolean dispatchableAt(Instant now) {
         return status == RouteCollectionStatus.PENDING && !availableAt.isAfter(now)
-            || status == RouteCollectionStatus.PROCESSING && leaseUntil != null && !leaseUntil.isAfter(now);
+                || status == RouteCollectionStatus.PROCESSING
+                        && leaseUntil != null
+                        && !leaseUntil.isAfter(now);
     }
 
     private boolean ownsClaim(int claimedAttempt) {
@@ -81,8 +110,19 @@ public class AgentRouteCollectionEntity {
         return value.length() <= 500 ? value : value.substring(0, 500);
     }
 
-    public UUID agentRunId() { return agentRunId; }
-    public long cursorEventId() { return cursorEventId; }
-    public int attempts() { return attempts; }
-    public RouteCollectionStatus status() { return status; }
+    public UUID agentRunId() {
+        return agentRunId;
+    }
+
+    public long cursorEventId() {
+        return cursorEventId;
+    }
+
+    public int attempts() {
+        return attempts;
+    }
+
+    public RouteCollectionStatus status() {
+        return status;
+    }
 }

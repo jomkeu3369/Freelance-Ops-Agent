@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.workspace.entity;
 
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -12,21 +13,20 @@ import java.util.UUID;
 @Table(name = "role_permission", schema = "app")
 public class RolePermissionEntity {
 
-    @EmbeddedId
-    private RolePermissionId id;
+    @EmbeddedId private RolePermissionId id;
 
     @Column(name = "workspace_id")
     private UUID workspaceId;
 
-    protected RolePermissionEntity() {
-    }
+    protected RolePermissionEntity() {}
 
     private RolePermissionEntity(UUID workspaceId, UUID roleId, PermissionCode permission) {
         this.id = new RolePermissionId(roleId, permission.code());
         this.workspaceId = workspaceId;
     }
 
-    public static RolePermissionEntity of(UUID workspaceId, UUID roleId, PermissionCode permission) {
+    public static RolePermissionEntity of(
+            UUID workspaceId, UUID roleId, PermissionCode permission) {
         return new RolePermissionEntity(workspaceId, roleId, permission);
     }
 
@@ -34,5 +34,3 @@ public class RolePermissionEntity {
         return id.permissionCode();
     }
 }
-
-

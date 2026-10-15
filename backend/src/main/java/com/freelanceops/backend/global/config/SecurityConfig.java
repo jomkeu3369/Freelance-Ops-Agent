@@ -1,30 +1,31 @@
 package com.freelanceops.backend.global.config;
 
+import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
+import com.freelanceops.backend.global.security.ApiRateLimitFilter;
+
 import jakarta.servlet.DispatcherType;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.freelanceops.backend.domain.internaltool.security.DelegationTokenFilter;
-import com.freelanceops.backend.global.security.ApiRateLimitFilter;
-
-import java.util.Arrays;
-import java.util.List;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -33,17 +34,17 @@ public class SecurityConfig {
 
     @Bean
     RestClient.Builder restClientBuilder(
-        @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs,
-        @Value("${app.http.read-timeout-ms:10000}") long readTimeoutMs
-    ) {
+            @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs,
+            @Value("${app.http.read-timeout-ms:10000}") long readTimeoutMs) {
         if (connectTimeoutMs <= 0 || readTimeoutMs <= 0) {
             throw new IllegalStateException("HTTP client timeouts must be positive");
         }
-        HttpClient client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofMillis(connectTimeoutMs))
-            .version(HttpClient.Version.HTTP_1_1)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .build();
+        HttpClient client =
+                HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build();
         JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(client);
         factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
         return RestClient.builder().requestFactory(factory);
@@ -51,73 +52,114 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain internalToolSecurityFilterChain(HttpSecurity http, DelegationTokenFilter delegationTokenFilter) throws Exception {
-        return http
-            .securityMatcher("/internal/v1/**")
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
-            .addFilterBefore(
-                delegationTokenFilter,
-                org.springframework.security.web.authentication.AnonymousAuthenticationFilter.class
-            )
-            .build();
+    SecurityFilterChain internalToolSecurityFilterChain(
+            HttpSecurity http, DelegationTokenFilter delegationTokenFilter) throws Exception {
+        return http.securityMatcher("/internal/v1/**")
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                .addFilterBefore(
+                        delegationTokenFilter,
+                        org.springframework.security.web.authentication
+                                .AnonymousAuthenticationFilter.class)
+                .build();
     }
 
     @Bean
-    FilterRegistrationBean<DelegationTokenFilter> delegationTokenFilterRegistration(DelegationTokenFilter delegationTokenFilter) {
-        FilterRegistrationBean<DelegationTokenFilter> registration = new FilterRegistrationBean<>(delegationTokenFilter);
+    FilterRegistrationBean<DelegationTokenFilter> delegationTokenFilterRegistration(
+            DelegationTokenFilter delegationTokenFilter) {
+        FilterRegistrationBean<DelegationTokenFilter> registration =
+                new FilterRegistrationBean<>(delegationTokenFilter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
-    FilterRegistrationBean<ApiRateLimitFilter> apiRateLimitFilterRegistration(ApiRateLimitFilter apiRateLimitFilter) {
-        FilterRegistrationBean<ApiRateLimitFilter> registration = new FilterRegistrationBean<>(apiRateLimitFilter);
+    FilterRegistrationBean<ApiRateLimitFilter> apiRateLimitFilterRegistration(
+            ApiRateLimitFilter apiRateLimitFilter) {
+        FilterRegistrationBean<ApiRateLimitFilter> registration =
+                new FilterRegistrationBean<>(apiRateLimitFilter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
     @Order(2)
-    SecurityFilterChain publicApiSecurityFilterChain(HttpSecurity http, ApiRateLimitFilter rateLimitFilter, JwtDecoder authJwtDecoder) throws Exception {
-        return http
-            .csrf(csrf -> csrf.disable())
-            .cors(Customizer.withDefaults())
-            .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers(request -> request.getDispatcherType() == DispatcherType.ERROR && "/error".equals(request.getServletPath())).permitAll()
-                .requestMatchers("/actuator/health/**").permitAll()
-                .requestMatchers("/actuator/metrics/**").denyAll()
-                .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/api/v2/auth/**").permitAll()
-                .requestMatchers("/api/v2/proposals/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v2/notices").permitAll()
-                .anyRequest().authenticated()
-            )
-            .addFilterAfter(rateLimitFilter, org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter.class)
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(authJwtDecoder)))
-            .build();
+    SecurityFilterChain publicApiSecurityFilterChain(
+            HttpSecurity http, ApiRateLimitFilter rateLimitFilter, JwtDecoder authJwtDecoder)
+            throws Exception {
+        return http.csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .authorizeHttpRequests(
+                        authorize ->
+                                authorize
+                                        .requestMatchers(
+                                                request ->
+                                                        request.getDispatcherType()
+                                                                        == DispatcherType.ERROR
+                                                                && "/error"
+                                                                        .equals(
+                                                                                request
+                                                                                        .getServletPath()))
+                                        .permitAll()
+                                        .requestMatchers("/actuator/health/**")
+                                        .permitAll()
+                                        .requestMatchers("/actuator/metrics/**")
+                                        .denyAll()
+                                        .requestMatchers(
+                                                "/swagger-ui.html",
+                                                "/swagger-ui/**",
+                                                "/v3/api-docs/**")
+                                        .permitAll()
+                                        .requestMatchers("/api/v2/auth/**")
+                                        .permitAll()
+                                        .requestMatchers("/api/v2/proposals/**")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                org.springframework.http.HttpMethod.GET,
+                                                "/api/v2/notices")
+                                        .permitAll()
+                                        .anyRequest()
+                                        .authenticated())
+                .addFilterAfter(
+                        rateLimitFilter,
+                        org.springframework.security.oauth2.server.resource.web.authentication
+                                .BearerTokenAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.decoder(authJwtDecoder)))
+                .build();
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-        @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173}") String configuredOrigins
-    ) {
-        List<String> origins = Arrays.stream(configuredOrigins.split(","))
-            .map(String::trim)
-            .filter(origin -> !origin.isBlank())
-            .distinct()
-            .toList();
+            @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
+                    String configuredOrigins) {
+        List<String> origins =
+                Arrays.stream(configuredOrigins.split(","))
+                        .map(String::trim)
+                        .filter(origin -> !origin.isBlank())
+                        .distinct()
+                        .toList();
         if (origins.isEmpty()) {
-            throw new IllegalStateException("APP_CORS_ALLOWED_ORIGINS must contain at least one exact origin");
+            throw new IllegalStateException(
+                    "APP_CORS_ALLOWED_ORIGINS must contain at least one exact origin");
         }
-        if (origins.stream().anyMatch(origin -> "*".equals(origin) || !origin.matches("https?://[^/]+"))) {
-            throw new IllegalStateException("CORS origins must be exact http or https origins without paths or wildcards");
+        if (origins.stream()
+                .anyMatch(origin -> "*".equals(origin) || !origin.matches("https?://[^/]+"))) {
+            throw new IllegalStateException(
+                    "CORS origins must be exact http or https origins without paths or wildcards");
         }
 
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(origins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Last-Event-ID", "traceparent", "Idempotency-Key"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(
+                List.of(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "Last-Event-ID",
+                        "traceparent",
+                        "Idempotency-Key"));
         configuration.setExposedHeaders(List.of("Location"));
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
@@ -127,5 +169,3 @@ public class SecurityConfig {
         return source;
     }
 }
-
-

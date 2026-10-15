@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agenttask.entity;
 
 import com.freelanceops.backend.domain.agenttask.model.AgentTaskCommandDeliveryStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,18 +18,35 @@ import java.util.UUID;
 @Table(name = "agent_task_command_delivery", schema = "app")
 public class AgentTaskCommandDeliveryEntity {
 
-    @Id @Column(name = "command_id") private UUID commandId;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private AgentTaskCommandDeliveryStatus status;
-    @Column(nullable = false) private int attempts;
-    @Column(name = "available_at", nullable = false) private Instant availableAt;
-    @Column(name = "lease_until") private Instant leaseUntil;
-    @Column(name = "last_error", length = 500) private String lastError;
-    @Column(name = "created_at", nullable = false) private Instant createdAt;
-    @Column(name = "updated_at", nullable = false) private Instant updatedAt;
+    @Id
+    @Column(name = "command_id")
+    private UUID commandId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AgentTaskCommandDeliveryStatus status;
+
+    @Column(nullable = false)
+    private int attempts;
+
+    @Column(name = "available_at", nullable = false)
+    private Instant availableAt;
+
+    @Column(name = "lease_until")
+    private Instant leaseUntil;
+
+    @Column(name = "last_error", length = 500)
+    private String lastError;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
     @Version private long version;
 
-    protected AgentTaskCommandDeliveryEntity() {
-    }
+    protected AgentTaskCommandDeliveryEntity() {}
 
     public AgentTaskCommandDeliveryEntity(UUID commandId, Instant now) {
         this.commandId = commandId;
@@ -40,10 +58,16 @@ public class AgentTaskCommandDeliveryEntity {
     }
 
     public void claim(Instant now, Duration lease) {
-        boolean pending = status == AgentTaskCommandDeliveryStatus.PENDING && !availableAt.isAfter(now);
-        boolean expired = status == AgentTaskCommandDeliveryStatus.PROCESSING && leaseUntil != null && !leaseUntil.isAfter(now);
-        if (!pending && !expired) throw new IllegalStateException("task command delivery is not claimable");
-        if (lease.isZero() || lease.isNegative()) throw new IllegalArgumentException("lease must be positive");
+        boolean pending =
+                status == AgentTaskCommandDeliveryStatus.PENDING && !availableAt.isAfter(now);
+        boolean expired =
+                status == AgentTaskCommandDeliveryStatus.PROCESSING
+                        && leaseUntil != null
+                        && !leaseUntil.isAfter(now);
+        if (!pending && !expired)
+            throw new IllegalStateException("task command delivery is not claimable");
+        if (lease.isZero() || lease.isNegative())
+            throw new IllegalArgumentException("lease must be positive");
         status = AgentTaskCommandDeliveryStatus.PROCESSING;
         attempts++;
         leaseUntil = now.plus(lease);
@@ -87,7 +111,15 @@ public class AgentTaskCommandDeliveryEntity {
         return value.length() <= 500 ? value : value.substring(0, 500);
     }
 
-    public UUID commandId() { return commandId; }
-    public AgentTaskCommandDeliveryStatus status() { return status; }
-    public int attempts() { return attempts; }
+    public UUID commandId() {
+        return commandId;
+    }
+
+    public AgentTaskCommandDeliveryStatus status() {
+        return status;
+    }
+
+    public int attempts() {
+        return attempts;
+    }
 }

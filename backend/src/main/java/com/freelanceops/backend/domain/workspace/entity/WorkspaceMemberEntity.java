@@ -13,8 +13,7 @@ import java.util.UUID;
 @Table(name = "workspace_member", schema = "app")
 public class WorkspaceMemberEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id")
     private UUID workspaceId;
@@ -27,8 +26,7 @@ public class WorkspaceMemberEntity {
     @Column(name = "joined_at")
     private OffsetDateTime joinedAt;
 
-    protected WorkspaceMemberEntity() {
-    }
+    protected WorkspaceMemberEntity() {}
 
     private WorkspaceMemberEntity(UUID id, UUID workspaceId, UUID userId) {
         this.id = id;
@@ -50,5 +48,3 @@ public class WorkspaceMemberEntity {
         return workspaceId;
     }
 }
-
-

@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.repository;
 
 import com.freelanceops.backend.domain.agentrun.entity.AgentRouteReviewVoteEntity;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,11 +10,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public interface AgentRouteReviewVoteRepository extends JpaRepository<AgentRouteReviewVoteEntity, UUID> {
+public interface AgentRouteReviewVoteRepository
+        extends JpaRepository<AgentRouteReviewVoteEntity, UUID> {
     boolean existsByObservationIdAndReviewerId(UUID observationId, UUID reviewerId);
-    List<AgentRouteReviewVoteEntity> findByObservationIdOrderByReviewedAtAscIdAsc(UUID observationId);
 
-    @Query(value = """
+    List<AgentRouteReviewVoteEntity> findByObservationIdOrderByReviewedAtAscIdAsc(
+            UUID observationId);
+
+    @Query(
+            value =
+                    """
         WITH ranked_votes AS (
             SELECT vote.observation_id, vote.gold_route,
                    ROW_NUMBER() OVER (
@@ -74,11 +80,14 @@ public interface AgentRouteReviewVoteRepository extends JpaRepository<AgentRoute
                   AND first_vote = second_vote AND third_vote IS DISTINCT FROM first_vote
             ) AS "naturalConsensusOverturns"
         FROM reviewed
-        """, nativeQuery = true)
-    RouteReviewCanaryStatsProjection canaryStats(@Param("workspaceId") UUID workspaceId,
-                                                   @Param("since") Instant since);
+        """,
+            nativeQuery = true)
+    RouteReviewCanaryStatsProjection canaryStats(
+            @Param("workspaceId") UUID workspaceId, @Param("since") Instant since);
 
-    @Query(value = """
+    @Query(
+            value =
+                    """
         WITH ranked_votes AS (
             SELECT vote.observation_id, vote.gold_route, vote.reviewed_at,
                    ROW_NUMBER() OVER (
@@ -127,8 +136,10 @@ public interface AgentRouteReviewVoteRepository extends JpaRepository<AgentRoute
                 WHERE NOT risk AND audit_number <= :checkpoint AND third_vote IS DISTINCT FROM first_vote
             ) AS "naturalOverturns"
         FROM consensus_audits
-        """, nativeQuery = true)
-    RouteReviewCheckpointStatsProjection checkpointStats(@Param("workspaceId") UUID workspaceId,
-                                                           @Param("since") Instant since,
-                                                           @Param("checkpoint") int checkpoint);
+        """,
+            nativeQuery = true)
+    RouteReviewCheckpointStatsProjection checkpointStats(
+            @Param("workspaceId") UUID workspaceId,
+            @Param("since") Instant since,
+            @Param("checkpoint") int checkpoint);
 }

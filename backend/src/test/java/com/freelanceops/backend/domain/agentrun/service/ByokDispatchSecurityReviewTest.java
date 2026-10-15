@@ -1,5 +1,12 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.freelanceops.backend.domain.agentrun.client.AgentRunClient;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
@@ -12,6 +19,7 @@ import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +29,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
+
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Instant;
@@ -28,14 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-/** Independent regression: expiry must stop new work without inventing a lost delivery outcome. */
+/** 만료 후 새 작업은 차단하되 전달 결과가 불명확한 실행의 상태를 임의로 정하지 않는지 확인한다. */
 @ExtendWith(MockitoExtension.class)
 class ByokDispatchSecurityReviewTest {
     @Mock private AgentRunCommandQueue queue;
@@ -55,27 +57,70 @@ class ByokDispatchSecurityReviewTest {
         UUID workspace = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         RunBudget budget = new RunBudget(30, 2, 3, 30000, 200, 1, 1, 0, 1, 0);
-        run = new AgentRunEntity(UUID.randomUUID(), workspace, projectId, UUID.randomUUID(), user,
-            Provider.OPENAI, "gpt-6-luna", ReasoningEffort.LOW, budget, AgentRunStatus.QUEUED, Instant.now());
+        run =
+                new AgentRunEntity(
+                        UUID.randomUUID(),
+                        workspace,
+                        projectId,
+                        UUID.randomUUID(),
+                        user,
+                        Provider.OPENAI,
+                        "gpt-6-luna",
+                        ReasoningEffort.LOW,
+                        budget,
+                        AgentRunStatus.QUEUED,
+                        Instant.now());
         run.useCredential(UUID.randomUUID());
         List<String> permissions = List.of("agent.run", "project.read");
-        command = new AgentRunCommandQueue.ClaimedCommand(UUID.randomUUID(), run.id(), AgentRunCommandType.START,
-            "{}", user, permissions, "synthetic-trace", 2);
+        command =
+                new AgentRunCommandQueue.ClaimedCommand(
+                        UUID.randomUUID(),
+                        run.id(),
+                        AgentRunCommandType.START,
+                        "{}",
+                        user,
+                        permissions,
+                        "synthetic-trace",
+                        2);
         when(runs.findById(run.id())).thenReturn(Optional.of(run));
-        when(projects.findByIdAndWorkspaceId(projectId, workspace)).thenReturn(Optional.of(
-            new ProjectEntity(projectId, workspace, "Synthetic project", "Synthetic input", "KRW", null, null, null)));
+        when(projects.findByIdAndWorkspaceId(projectId, workspace))
+                .thenReturn(
+                        Optional.of(
+                                new ProjectEntity(
+                                        projectId,
+                                        workspace,
+                                        "Synthetic project",
+                                        "Synthetic input",
+                                        "KRW",
+                                        null,
+                                        null,
+                                        null)));
         when(tokens.issueForPersonalRun(run.id(), workspace, projectId, user, permissions, 30))
-            .thenReturn("synthetic-delegation");
-        when(byok.validateRun(run)).thenThrow(new ByokExecutionException(HttpStatus.GONE,
-            "BYOK_SCOPE_EXPIRED", "Synthetic expired scope"));
-        dispatcher = new AgentRunCommandDispatcher(queue, runs, projects, client, tokens, projection,
-            JsonMapper.builder().findAndAddModules().build(), byok);
+                .thenReturn("synthetic-delegation");
+        when(byok.validateRun(run))
+                .thenThrow(
+                        new ByokExecutionException(
+                                HttpStatus.GONE, "BYOK_SCOPE_EXPIRED", "Synthetic expired scope"));
+        dispatcher =
+                new AgentRunCommandDispatcher(
+                        queue,
+                        runs,
+                        projects,
+                        client,
+                        tokens,
+                        projection,
+                        JsonMapper.builder().findAndAddModules().build(),
+                        byok);
     }
 
     @ParameterizedTest
-    @EnumSource(value = AgentRunStatus.class, names = {"COMPLETED", "RUNNING", "WAITING_FOR_USER"})
+    @EnumSource(
+            value = AgentRunStatus.class,
+            names = {"COMPLETED", "RUNNING", "WAITING_FOR_USER"})
     void expiredDeliveryRetryRetainsAnAuthoritativeExistingAgentOutcome(AgentRunStatus status) {
-        AgentRunView existing = new AgentRunView(run.id(), status, null, null, null, null, null, null, Instant.now());
+        AgentRunView existing =
+                new AgentRunView(
+                        run.id(), status, null, null, null, null, null, null, Instant.now());
         when(client.get(run.id(), "synthetic-delegation", "synthetic-trace")).thenReturn(existing);
 
         dispatcher.dispatch(command);
@@ -90,7 +135,7 @@ class ByokDispatchSecurityReviewTest {
     @Test
     void expiredUndeliveredStartCanFailOnlyAfterReadOnlyReconciliation() {
         when(client.get(run.id(), "synthetic-delegation", "synthetic-trace"))
-            .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
         when(queue.fail(eq(command.id()), eq(command.attempts()), any())).thenReturn(true);
 
         dispatcher.dispatch(command);

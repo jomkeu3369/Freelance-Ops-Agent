@@ -4,7 +4,9 @@ import com.freelanceops.backend.domain.agentrun.dto.request.CreateModelPricingRe
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunUsageResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.ModelPricingResponse;
 import com.freelanceops.backend.domain.agentrun.service.AgentCostService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,23 +25,34 @@ import java.util.UUID;
 public class AgentCostController {
     private final AgentCostService service;
 
-    public AgentCostController(AgentCostService service) { this.service = service; }
+    public AgentCostController(AgentCostService service) {
+        this.service = service;
+    }
 
     @GetMapping("/model-pricing")
-    public List<ModelPricingResponse> listPricing(@PathVariable UUID workspaceId, Authentication authentication) {
+    public List<ModelPricingResponse> listPricing(
+            @PathVariable UUID workspaceId, Authentication authentication) {
         return service.listPricing(userId(authentication), workspaceId);
     }
 
     @PostMapping("/model-pricing")
     @ResponseStatus(HttpStatus.CREATED)
-    public ModelPricingResponse createPricing(@PathVariable UUID workspaceId, @Valid @RequestBody CreateModelPricingRequest request, Authentication authentication) {
+    public ModelPricingResponse createPricing(
+            @PathVariable UUID workspaceId,
+            @Valid @RequestBody CreateModelPricingRequest request,
+            Authentication authentication) {
         return service.createPricing(userId(authentication), workspaceId, request);
     }
 
     @GetMapping("/agent-runs/{runId}/usage")
-    public AgentRunUsageResponse getUsage(@PathVariable UUID workspaceId, @PathVariable UUID runId, Authentication authentication) {
+    public AgentRunUsageResponse getUsage(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            Authentication authentication) {
         return service.getUsage(userId(authentication), workspaceId, runId);
     }
 
-    private static UUID userId(Authentication authentication) { return UUID.fromString(authentication.getName()); }
+    private static UUID userId(Authentication authentication) {
+        return UUID.fromString(authentication.getName());
+    }
 }

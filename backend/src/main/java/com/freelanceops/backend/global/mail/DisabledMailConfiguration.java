@@ -10,8 +10,13 @@ public class DisabledMailConfiguration {
     @ConditionalOnMissingBean(OperationalMailTransport.class)
     OperationalMailTransport disabledOperationalMailTransport() {
         return new OperationalMailTransport() {
-            public boolean ready() { return false; }
-            public Result send(String key, String recipient, String subject, String body) { return Result.BLOCKED_TRANSPORT; }
+            public boolean ready() {
+                return false;
+            }
+
+            public Result send(String key, String recipient, String subject, String body) {
+                return Result.BLOCKED_TRANSPORT;
+            }
         };
     }
 }

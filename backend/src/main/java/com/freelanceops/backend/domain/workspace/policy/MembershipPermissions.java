@@ -9,5 +9,3 @@ public record MembershipPermissions(UUID membershipId, Set<PermissionCode> permi
         permissions = Set.copyOf(permissions);
     }
 }
-
-

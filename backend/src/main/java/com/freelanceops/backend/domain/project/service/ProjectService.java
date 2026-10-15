@@ -1,4 +1,5 @@
 package com.freelanceops.backend.domain.project.service;
+
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.project.dto.request.CreateProjectRequest;
 import com.freelanceops.backend.domain.project.dto.request.UpdateProjectRequest;
@@ -6,13 +7,15 @@ import com.freelanceops.backend.domain.project.dto.response.ProjectResponse;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.model.ProjectStatus;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -27,7 +30,12 @@ public class ProjectService {
     private final ProjectAgentRunCleanup agentRunCleanup;
     private final ProjectDeletionTransaction deletionTransaction;
 
-    public ProjectService(ProjectRepository projectRepository, ClientRepository clientRepository, WorkspaceAuthorizationService authorizationService, ProjectAgentRunCleanup agentRunCleanup, ProjectDeletionTransaction deletionTransaction) {
+    public ProjectService(
+            ProjectRepository projectRepository,
+            ClientRepository clientRepository,
+            WorkspaceAuthorizationService authorizationService,
+            ProjectAgentRunCleanup agentRunCleanup,
+            ProjectDeletionTransaction deletionTransaction) {
         this.projectRepository = projectRepository;
         this.clientRepository = clientRepository;
         this.authorizationService = authorizationService;
@@ -39,12 +47,12 @@ public class ProjectService {
     public List<ProjectResponse> list(UUID userId, UUID workspaceId, String search) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
         String normalizedSearch = search == null ? "" : search.strip().toLowerCase(Locale.ROOT);
-        List<ProjectEntity> projects = normalizedSearch.isEmpty()
-            ? projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId)
-            : projectRepository.searchByWorkspaceId(workspaceId, "%" + normalizedSearch + "%");
-        return projects.stream()
-            .map(ProjectService::response)
-            .toList();
+        List<ProjectEntity> projects =
+                normalizedSearch.isEmpty()
+                        ? projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId)
+                        : projectRepository.searchByWorkspaceId(
+                                workspaceId, "%" + normalizedSearch + "%");
+        return projects.stream().map(ProjectService::response).toList();
     }
 
     @Transactional(readOnly = true)
@@ -58,51 +66,56 @@ public class ProjectService {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
         validateBudget(request.budgetMin(), request.budgetMax());
         validateClient(workspaceId, request.clientId());
-        ProjectEntity project = new ProjectEntity(
-            UUID.randomUUID(),
-            workspaceId,
-            request.clientId(),
-            request.title(),
-            request.requirementText(),
-            request.currency(),
-            request.deadline(),
-            request.budgetMin(),
-            request.budgetMax(),
-            ProjectStatus.LEAD.name(),
-            userId,
-            Instant.now()
-        );
+        ProjectEntity project =
+                new ProjectEntity(
+                        UUID.randomUUID(),
+                        workspaceId,
+                        request.clientId(),
+                        request.title(),
+                        request.requirementText(),
+                        request.currency(),
+                        request.deadline(),
+                        request.budgetMin(),
+                        request.budgetMax(),
+                        ProjectStatus.LEAD.name(),
+                        userId,
+                        Instant.now());
         return response(projectRepository.save(project));
     }
 
     @Transactional
-    public ProjectResponse update(UUID userId, UUID workspaceId, UUID projectId, UpdateProjectRequest request) {
+    public ProjectResponse update(
+            UUID userId, UUID workspaceId, UUID projectId, UpdateProjectRequest request) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
         validateBudget(request.budgetMin(), request.budgetMax());
         validateClient(workspaceId, request.clientId());
-        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ProjectEntity project =
+                projectRepository
+                        .findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         project.requireNotDeleting();
         project.requirementUpdatedBy(userId);
         project.update(
-            request.clientId(),
-            request.title(),
-            request.requirementText(),
-            request.currency(),
-            request.deadline(),
-            request.budgetMin(),
-            request.budgetMax(),
-            request.status().name(),
-            Instant.now()
-        );
+                request.clientId(),
+                request.title(),
+                request.requirementText(),
+                request.currency(),
+                request.deadline(),
+                request.budgetMin(),
+                request.budgetMax(),
+                request.status().name(),
+                Instant.now());
         return response(projectRepository.save(project));
     }
 
     @Transactional
-    public ProjectResponse updateStatus(UUID userId, UUID workspaceId, UUID projectId, ProjectStatus status) {
+    public ProjectResponse updateStatus(
+            UUID userId, UUID workspaceId, UUID projectId, ProjectStatus status) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
-        ProjectEntity project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ProjectEntity project =
+                projectRepository
+                        .findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         project.updateStatus(status.name(), Instant.now());
         return response(projectRepository.save(project));
     }
@@ -115,12 +128,14 @@ public class ProjectService {
     }
 
     private ProjectEntity find(UUID workspaceId, UUID projectId) {
-        return projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return projectRepository
+                .findByIdAndWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     private void authorize(UUID userId, UUID workspaceId, PermissionCode permission) {
-        AuthorizationDecision decision = authorizationService.authorize(userId, workspaceId, permission);
+        AuthorizationDecision decision =
+                authorizationService.authorize(userId, workspaceId, permission);
         if (decision == AuthorizationDecision.NOT_FOUND) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
@@ -130,35 +145,34 @@ public class ProjectService {
     }
 
     private void validateClient(UUID workspaceId, UUID clientId) {
-        if (clientId != null && clientRepository.findByIdAndWorkspaceId(clientId, workspaceId).isEmpty()) {
+        if (clientId != null
+                && clientRepository.findByIdAndWorkspaceId(clientId, workspaceId).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
     }
 
     private static void validateBudget(java.math.BigDecimal minimum, java.math.BigDecimal maximum) {
         if (minimum != null && maximum != null && minimum.compareTo(maximum) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "budgetMin must not exceed budgetMax");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "budgetMin must not exceed budgetMax");
         }
     }
 
     private static ProjectResponse response(ProjectEntity project) {
         return new ProjectResponse(
-            project.id(),
-            project.workspaceId(),
-            project.clientId(),
-            project.title(),
-            project.requirementText(),
-            project.currency(),
-            project.deadline(),
-            project.budgetMin(),
-            project.budgetMax(),
-            ProjectStatus.valueOf(project.status()),
-            project.createdBy(),
-            project.createdAt(),
-            project.updatedAt(),
-            project.version()
-        );
+                project.id(),
+                project.workspaceId(),
+                project.clientId(),
+                project.title(),
+                project.requirementText(),
+                project.currency(),
+                project.deadline(),
+                project.budgetMin(),
+                project.budgetMax(),
+                ProjectStatus.valueOf(project.status()),
+                project.createdBy(),
+                project.createdAt(),
+                project.updatedAt(),
+                project.version());
     }
 }
-
-

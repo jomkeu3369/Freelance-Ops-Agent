@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.entity;
 
 import com.freelanceops.backend.domain.agentrun.model.AgentRunCommandStatus;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunCommandType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,8 +19,7 @@ import java.util.UUID;
 @Table(name = "agent_run_command", schema = "app")
 public class AgentRunCommandEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "run_id", nullable = false)
     private UUID runId;
@@ -62,14 +62,19 @@ public class AgentRunCommandEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    protected AgentRunCommandEntity() {
-    }
+    protected AgentRunCommandEntity() {}
 
-    public AgentRunCommandEntity(UUID id, UUID runId, AgentRunCommandType commandType, String payload,
-                                 UUID requestedBy, String effectivePermissions, String traceparent, Instant now) {
+    public AgentRunCommandEntity(
+            UUID id,
+            UUID runId,
+            AgentRunCommandType commandType,
+            String payload,
+            UUID requestedBy,
+            String effectivePermissions,
+            String traceparent,
+            Instant now) {
         this.id = id;
         this.runId = runId;
         this.commandType = commandType;
@@ -85,7 +90,8 @@ public class AgentRunCommandEntity {
     }
 
     public void claim(Instant now, Duration lease) {
-        if (!dispatchableAt(now)) throw new IllegalStateException("agent command is not dispatchable");
+        if (!dispatchableAt(now))
+            throw new IllegalStateException("agent command is not dispatchable");
         status = AgentRunCommandStatus.PROCESSING;
         attempts++;
         leaseUntil = now.plus(lease);
@@ -94,7 +100,9 @@ public class AgentRunCommandEntity {
 
     public boolean dispatchableAt(Instant now) {
         return (status == AgentRunCommandStatus.PENDING && !availableAt.isAfter(now))
-            || (status == AgentRunCommandStatus.PROCESSING && leaseUntil != null && !leaseUntil.isAfter(now));
+                || (status == AgentRunCommandStatus.PROCESSING
+                        && leaseUntil != null
+                        && !leaseUntil.isAfter(now));
     }
 
     public boolean complete(Instant now, int claimedAttempt) {
@@ -134,13 +142,39 @@ public class AgentRunCommandEntity {
         return value.length() <= 500 ? value : value.substring(0, 500);
     }
 
-    public UUID id() { return id; }
-    public UUID runId() { return runId; }
-    public AgentRunCommandType commandType() { return commandType; }
-    public String payload() { return payload; }
-    public UUID requestedBy() { return requestedBy; }
-    public String effectivePermissions() { return effectivePermissions; }
-    public String traceparent() { return traceparent; }
-    public AgentRunCommandStatus status() { return status; }
-    public int attempts() { return attempts; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID runId() {
+        return runId;
+    }
+
+    public AgentRunCommandType commandType() {
+        return commandType;
+    }
+
+    public String payload() {
+        return payload;
+    }
+
+    public UUID requestedBy() {
+        return requestedBy;
+    }
+
+    public String effectivePermissions() {
+        return effectivePermissions;
+    }
+
+    public String traceparent() {
+        return traceparent;
+    }
+
+    public AgentRunCommandStatus status() {
+        return status;
+    }
+
+    public int attempts() {
+        return attempts;
+    }
 }

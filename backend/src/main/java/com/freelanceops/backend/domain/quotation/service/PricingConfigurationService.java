@@ -11,12 +11,14 @@ import com.freelanceops.backend.domain.quotation.repository.EstimationPolicyRepo
 import com.freelanceops.backend.domain.quotation.repository.RateCardRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import com.freelanceops.backend.domain.workspace.repository.WorkspaceRepository;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -30,8 +32,13 @@ public class PricingConfigurationService {
     private final WorkspaceAuthorizationService authorizationService;
     private final WorkspaceRepository workspaceRepository;
 
-    public PricingConfigurationService(RateCardRepository rateCardRepository, EstimationPolicyRepository policyRepository, WorkspaceAuthorizationService authorizationService, WorkspaceRepository workspaceRepository) {
-        this.rateCardRepository = rateCardRepository; this.policyRepository = policyRepository;
+    public PricingConfigurationService(
+            RateCardRepository rateCardRepository,
+            EstimationPolicyRepository policyRepository,
+            WorkspaceAuthorizationService authorizationService,
+            WorkspaceRepository workspaceRepository) {
+        this.rateCardRepository = rateCardRepository;
+        this.policyRepository = policyRepository;
         this.authorizationService = authorizationService;
         this.workspaceRepository = workspaceRepository;
     }
@@ -39,42 +46,91 @@ public class PricingConfigurationService {
     @Transactional(readOnly = true)
     public List<RateCardResponse> listRateCards(UUID userId, UUID workspaceId) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
-        return rateCardRepository.findAllByWorkspaceIdOrderByName(workspaceId).stream().map(PricingConfigurationService::response).toList();
+        return rateCardRepository.findAllByWorkspaceIdOrderByName(workspaceId).stream()
+                .map(PricingConfigurationService::response)
+                .toList();
     }
 
     @Transactional
-    public RateCardResponse upsertRateCard(UUID userId, UUID workspaceId, UUID rateCardId, UpsertRateCardRequest request) {
+    public RateCardResponse upsertRateCard(
+            UUID userId, UUID workspaceId, UUID rateCardId, UpsertRateCardRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
         lockWorkspace(workspaceId);
         Instant now = Instant.now();
-        RateCardEntity entity = rateCardRepository.findByIdAndWorkspaceId(rateCardId, workspaceId)
-            .orElseGet(() -> new RateCardEntity(rateCardId, workspaceId, request.name().trim(), request.unit().name(), request.rate(), request.minimumAmount(), request.currency(), userId, now));
-        entity.update(request.name().trim(), request.unit().name(), request.rate(), request.minimumAmount(), request.currency(), request.active(), now);
+        RateCardEntity entity =
+                rateCardRepository
+                        .findByIdAndWorkspaceId(rateCardId, workspaceId)
+                        .orElseGet(
+                                () ->
+                                        new RateCardEntity(
+                                                rateCardId,
+                                                workspaceId,
+                                                request.name().trim(),
+                                                request.unit().name(),
+                                                request.rate(),
+                                                request.minimumAmount(),
+                                                request.currency(),
+                                                userId,
+                                                now));
+        entity.update(
+                request.name().trim(),
+                request.unit().name(),
+                request.rate(),
+                request.minimumAmount(),
+                request.currency(),
+                request.active(),
+                now);
         return response(rateCardRepository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public EstimationPolicyResponse getPolicy(UUID userId, UUID workspaceId) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
-        return policyRepository.findById(workspaceId).map(PricingConfigurationService::response)
-            .orElse(new EstimationPolicyResponse(workspaceId, BigDecimal.ZERO, BigDecimal.ZERO, DEFAULT_MAXIMUM_DISCOUNT, 0));
+        return policyRepository
+                .findById(workspaceId)
+                .map(PricingConfigurationService::response)
+                .orElse(
+                        new EstimationPolicyResponse(
+                                workspaceId,
+                                BigDecimal.ZERO,
+                                BigDecimal.ZERO,
+                                DEFAULT_MAXIMUM_DISCOUNT,
+                                0));
     }
 
     @Transactional
-    public EstimationPolicyResponse updatePolicy(UUID userId, UUID workspaceId, UpdateEstimationPolicyRequest request) {
+    public EstimationPolicyResponse updatePolicy(
+            UUID userId, UUID workspaceId, UpdateEstimationPolicyRequest request) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_WRITE);
         lockWorkspace(workspaceId);
         Instant now = Instant.now();
-        EstimationPolicyEntity entity = policyRepository.findById(workspaceId)
-            .orElseGet(() -> new EstimationPolicyEntity(workspaceId, request.defaultTaxRate(), request.defaultRiskBufferRate(), request.maximumDiscountRate(), userId, now));
-        entity.update(request.defaultTaxRate(), request.defaultRiskBufferRate(), request.maximumDiscountRate(), now);
+        EstimationPolicyEntity entity =
+                policyRepository
+                        .findById(workspaceId)
+                        .orElseGet(
+                                () ->
+                                        new EstimationPolicyEntity(
+                                                workspaceId,
+                                                request.defaultTaxRate(),
+                                                request.defaultRiskBufferRate(),
+                                                request.maximumDiscountRate(),
+                                                userId,
+                                                now));
+        entity.update(
+                request.defaultTaxRate(),
+                request.defaultRiskBufferRate(),
+                request.maximumDiscountRate(),
+                now);
         return response(policyRepository.save(entity));
     }
 
     private void authorize(UUID userId, UUID workspaceId, PermissionCode permission) {
-        AuthorizationDecision decision = authorizationService.authorize(userId, workspaceId, permission);
-        if (decision == AuthorizationDecision.NOT_FOUND) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        if (decision == AuthorizationDecision.FORBIDDEN) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        AuthorizationDecision decision =
+                authorizationService.authorize(userId, workspaceId, permission);
+        if (decision == AuthorizationDecision.NOT_FOUND)
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (decision == AuthorizationDecision.FORBIDDEN)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
     }
 
     private void lockWorkspace(UUID workspaceId) {
@@ -84,10 +140,24 @@ public class PricingConfigurationService {
     }
 
     private static RateCardResponse response(RateCardEntity entity) {
-        return new RateCardResponse(entity.id(), entity.workspaceId(), entity.name(), WorkUnit.valueOf(entity.unit()), entity.rate(), entity.minimumAmount(), entity.currency(), entity.active(), entity.version());
+        return new RateCardResponse(
+                entity.id(),
+                entity.workspaceId(),
+                entity.name(),
+                WorkUnit.valueOf(entity.unit()),
+                entity.rate(),
+                entity.minimumAmount(),
+                entity.currency(),
+                entity.active(),
+                entity.version());
     }
 
     private static EstimationPolicyResponse response(EstimationPolicyEntity entity) {
-        return new EstimationPolicyResponse(entity.workspaceId(), entity.defaultTaxRate(), entity.defaultRiskBufferRate(), entity.maximumDiscountRate(), entity.version());
+        return new EstimationPolicyResponse(
+                entity.workspaceId(),
+                entity.defaultTaxRate(),
+                entity.defaultRiskBufferRate(),
+                entity.maximumDiscountRate(),
+                entity.version());
     }
 }

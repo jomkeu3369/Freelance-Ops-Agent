@@ -4,10 +4,4 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ProposalShareCreatedResponse(
-    UUID shareId,
-    String token,
-    String publicPath,
-    Instant expiresAt,
-    Instant createdAt
-) {
-}
+        UUID shareId, String token, String publicPath, Instant expiresAt, Instant createdAt) {}

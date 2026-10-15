@@ -12,6 +12,10 @@ public enum AgentTaskAttemptStatus {
     SUPERSEDED;
 
     public boolean terminal() {
-        return this == COMPLETED || this == FAILED || this == CANCELLED || this == TIMED_OUT || this == SUPERSEDED;
+        return this == COMPLETED
+                || this == FAILED
+                || this == CANCELLED
+                || this == TIMED_OUT
+                || this == SUPERSEDED;
     }
 }

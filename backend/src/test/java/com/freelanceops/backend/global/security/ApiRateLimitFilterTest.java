@@ -1,7 +1,15 @@
 package com.freelanceops.backend.global.security;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,18 +24,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 class ApiRateLimitFilterTest {
 
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-14T00:00:00Z"), ZoneOffset.UTC);
-    private static final String ATTACHMENTS = "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
-        + "00000000-0000-0000-0000-000000000002/attachments";
+    private static final Clock CLOCK =
+            Clock.fixed(Instant.parse("2026-08-14T00:00:00Z"), ZoneOffset.UTC);
+    private static final String ATTACHMENTS =
+            "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
+                    + "00000000-0000-0000-0000-000000000002/attachments";
 
     @AfterEach
     void clearSecurityContext() {
@@ -40,23 +43,27 @@ class ApiRateLimitFilterTest {
         FilterChain chain = mock(FilterChain.class);
 
         MockHttpServletResponse first = invoke(filter, chain, "/api/v2/auth/login", "203.0.113.10");
-        MockHttpServletResponse second = invoke(filter, chain, "/api/v2/auth/login", "203.0.113.10");
-        MockHttpServletResponse rejected = invoke(filter, chain, "/api/v2/auth/login", "203.0.113.10");
+        MockHttpServletResponse second =
+                invoke(filter, chain, "/api/v2/auth/login", "203.0.113.10");
+        MockHttpServletResponse rejected =
+                invoke(filter, chain, "/api/v2/auth/login", "203.0.113.10");
 
         assertThat(first.getStatus()).isEqualTo(200);
         assertThat(second.getStatus()).isEqualTo(200);
         assertThat(rejected.getStatus()).isEqualTo(429);
         assertThat(rejected.getHeader("Retry-After")).isEqualTo("60");
         assertThat(rejected.getContentAsString()).contains("RATE_LIMIT_EXCEEDED");
-        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(2))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void isolatesAuthenticatedAgentLimitsByUser() throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
-        String path = "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
-            + "00000000-0000-0000-0000-000000000002/agent-runs";
+        String path =
+                "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
+                        + "00000000-0000-0000-0000-000000000002/agent-runs";
 
         authenticate("user-a");
         assertThat(invoke(filter, chain, path, "203.0.113.10").getStatus()).isEqualTo(200);
@@ -70,8 +77,9 @@ class ApiRateLimitFilterTest {
     void appliesAgentLimitToAssumptionSuggestions() throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
-        String path = "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
-            + "00000000-0000-0000-0000-000000000002/quotations/assumption-suggestions";
+        String path =
+                "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
+                        + "00000000-0000-0000-0000-000000000002/quotations/assumption-suggestions";
 
         authenticate("user-a");
         assertThat(invoke(filter, chain, path, "203.0.113.10").getStatus()).isEqualTo(200);
@@ -79,11 +87,13 @@ class ApiRateLimitFilterTest {
     }
 
     @Test
-    void limitsAttachmentUploadsAcrossProjectsWorkspacesAndAddressesButIsolatesUsers() throws Exception {
+    void limitsAttachmentUploadsAcrossProjectsWorkspacesAndAddressesButIsolatesUsers()
+            throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 2, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
-        String otherProject = "/api/v2/workspaces/00000000-0000-0000-0000-000000000003/projects/"
-            + "00000000-0000-0000-0000-000000000004/attachments";
+        String otherProject =
+                "/api/v2/workspaces/00000000-0000-0000-0000-000000000003/projects/"
+                        + "00000000-0000-0000-0000-000000000004/attachments";
 
         authenticate("user-a");
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
@@ -96,7 +106,8 @@ class ApiRateLimitFilterTest {
 
         authenticate("user-b");
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
-        verify(chain, times(3)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(3))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -111,7 +122,8 @@ class ApiRateLimitFilterTest {
         authenticate("user-b");
         assertThat(invoke(filter, chain, runs, "203.0.113.10").getStatus()).isEqualTo(200);
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(429);
-        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(2))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @ParameterizedTest
@@ -119,15 +131,22 @@ class ApiRateLimitFilterTest {
     void failedAttachmentUploadsStillConsumeTheRequestBudget(int failureStatus) throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
-        doAnswer(invocation -> {
-            invocation.getArgument(1, HttpServletResponse.class).setStatus(failureStatus);
-            return null;
-        }).when(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        doAnswer(
+                        invocation -> {
+                            invocation
+                                    .getArgument(1, HttpServletResponse.class)
+                                    .setStatus(failureStatus);
+                            return null;
+                        })
+                .when(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
 
         authenticate("user-a");
-        assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(failureStatus);
+        assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus())
+                .isEqualTo(failureStatus);
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(429);
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -138,9 +157,11 @@ class ApiRateLimitFilterTest {
 
         authenticate("user-a");
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
-        assertThat(invoke(filter, chain, "DELETE", attachment, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, "DELETE", attachment, "203.0.113.10").getStatus())
+                .isEqualTo(200);
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(429);
-        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(2))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @ParameterizedTest
@@ -152,7 +173,8 @@ class ApiRateLimitFilterTest {
         "POST, /api/v2/workspaces/demo/attachments",
         "POST, /api/v2/projects/project/attachments"
     })
-    void attachmentLimitingOnlyCoversTheProjectUploadEndpoint(String method, String path) throws Exception {
+    void attachmentLimitingOnlyCoversTheProjectUploadEndpoint(String method, String path)
+            throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
 
@@ -160,7 +182,8 @@ class ApiRateLimitFilterTest {
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
         assertThat(invoke(filter, chain, method, path, "203.0.113.10").getStatus()).isEqualTo(200);
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(429);
-        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(2))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @ParameterizedTest
@@ -171,14 +194,23 @@ class ApiRateLimitFilterTest {
         "/projects/, /pro%6Aects/",
         "/attachments, /att%61chments"
     })
-    void encodedAttachmentRouteSegmentsCannotBypassTheRequestBudget(String segment, String encodedSegment) throws Exception {
+    void encodedAttachmentRouteSegmentsCannotBypassTheRequestBudget(
+            String segment, String encodedSegment) throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
 
         authenticate("user-a");
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
-        assertThat(invoke(filter, chain, ATTACHMENTS.replace(segment, encodedSegment), "203.0.113.10").getStatus()).isEqualTo(429);
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThat(
+                        invoke(
+                                        filter,
+                                        chain,
+                                        ATTACHMENTS.replace(segment, encodedSegment),
+                                        "203.0.113.10")
+                                .getStatus())
+                .isEqualTo(429);
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -194,13 +226,18 @@ class ApiRateLimitFilterTest {
             filter.doFilter(request, response, chain);
             assertThat(response.getStatus()).isEqualTo(attempt == 0 ? 200 : 429);
         }
-        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain)
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void attachmentUploadsResumeWhenTheExistingMinuteWindowExpires() throws Exception {
         Clock clock = mock(Clock.class);
-        when(clock.instant()).thenReturn(CLOCK.instant(), CLOCK.instant().plusSeconds(59), CLOCK.instant().plusSeconds(60));
+        when(clock.instant())
+                .thenReturn(
+                        CLOCK.instant(),
+                        CLOCK.instant().plusSeconds(59),
+                        CLOCK.instant().plusSeconds(60));
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, clock);
         FilterChain chain = mock(FilterChain.class);
 
@@ -210,14 +247,16 @@ class ApiRateLimitFilterTest {
         assertThat(rejected.getStatus()).isEqualTo(429);
         assertThat(rejected.getHeader("Retry-After")).isEqualTo("1");
         assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
-        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(chain, times(2))
+                .doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
     void ignoresReadOnlyAndUnrelatedRequests() throws Exception {
         ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 1, 1, 1, 100, CLOCK);
         FilterChain chain = mock(FilterChain.class);
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v2/workspaces/demo/projects");
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/api/v2/workspaces/demo/projects");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, chain);
@@ -232,20 +271,28 @@ class ApiRateLimitFilterTest {
         FilterChain chain = mock(FilterChain.class);
         authenticate("key-owner");
         for (int attempt = 0; attempt < 2; attempt++) {
-            var request = new MockHttpServletRequest("PUT", "/api/v2/workspaces/demo/ai-connections/OPENAI");
+            var request =
+                    new MockHttpServletRequest(
+                            "PUT", "/api/v2/workspaces/demo/ai-connections/OPENAI");
             var response = new MockHttpServletResponse();
             filter.doFilter(request, response, chain);
             assertThat(response.getStatus()).isEqualTo(attempt == 0 ? 200 : 429);
         }
     }
 
-    private static MockHttpServletResponse invoke(ApiRateLimitFilter filter, FilterChain chain, String path, String address)
-        throws Exception {
+    private static MockHttpServletResponse invoke(
+            ApiRateLimitFilter filter, FilterChain chain, String path, String address)
+            throws Exception {
         return invoke(filter, chain, "POST", path, address);
     }
 
-    private static MockHttpServletResponse invoke(ApiRateLimitFilter filter, FilterChain chain, String method, String path, String address)
-        throws Exception {
+    private static MockHttpServletResponse invoke(
+            ApiRateLimitFilter filter,
+            FilterChain chain,
+            String method,
+            String path,
+            String address)
+            throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(method, path);
         request.setRemoteAddr(address);
         MockHttpServletResponse response = new MockHttpServletResponse();

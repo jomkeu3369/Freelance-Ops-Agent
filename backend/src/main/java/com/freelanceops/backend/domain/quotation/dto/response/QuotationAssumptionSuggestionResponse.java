@@ -5,9 +5,4 @@ import com.freelanceops.backend.domain.agentrun.model.Provider;
 import java.util.UUID;
 
 public record QuotationAssumptionSuggestionResponse(
-    UUID requestId,
-    String content,
-    Provider provider,
-    String model
-) {
-}
+        UUID requestId, String content, Provider provider, String model) {}

@@ -1,7 +1,9 @@
 package com.freelanceops.backend.domain.internaltool.controller;
 
 import com.freelanceops.backend.domain.internaltool.service.ToolAccessException;
+
 import jakarta.validation.ConstraintViolationException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +23,8 @@ public class InternalToolExceptionHandler {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, ConstraintViolationException.class})
     public ResponseEntity<ProblemDetail> handleInvalidInput(Exception error) {
-        return ResponseEntity.badRequest().body(problem(HttpStatus.BAD_REQUEST, "TOOL_INPUT_INVALID"));
+        return ResponseEntity.badRequest()
+                .body(problem(HttpStatus.BAD_REQUEST, "TOOL_INPUT_INVALID"));
     }
 
     private static ProblemDetail problem(HttpStatus status, String code) {
@@ -32,5 +35,3 @@ public class InternalToolExceptionHandler {
         return problem;
     }
 }
-
-

@@ -6,10 +6,9 @@ import java.util.List;
 import java.util.UUID;
 
 public record RouteObservationBatch(
-    UUID runId,
-    AgentRunStatus status,
-    List<AgentRunEvent> events,
-    long nextEventId,
-    boolean hasMore,
-    boolean terminal
-) { }
+        UUID runId,
+        AgentRunStatus status,
+        List<AgentRunEvent> events,
+        long nextEventId,
+        boolean hasMore,
+        boolean terminal) {}

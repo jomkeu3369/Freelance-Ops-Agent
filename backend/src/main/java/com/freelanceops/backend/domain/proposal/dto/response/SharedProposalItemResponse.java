@@ -6,15 +6,13 @@ import com.freelanceops.backend.domain.quotation.model.WorkUnit;
 import java.math.BigDecimal;
 
 public record SharedProposalItemResponse(
-    String title,
-    String description,
-    BigDecimal quantity,
-    WorkUnit unit,
-    BigDecimal unitRate,
-    BigDecimal subtotal,
-    BigDecimal discountRate,
-    BigDecimal discountAmount,
-    BigDecimal total,
-    QuotationBasisResponse basis
-) {
-}
+        String title,
+        String description,
+        BigDecimal quantity,
+        WorkUnit unit,
+        BigDecimal unitRate,
+        BigDecimal subtotal,
+        BigDecimal discountRate,
+        BigDecimal discountAmount,
+        BigDecimal total,
+        QuotationBasisResponse basis) {}

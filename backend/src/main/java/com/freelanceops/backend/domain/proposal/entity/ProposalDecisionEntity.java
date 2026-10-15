@@ -12,8 +12,7 @@ import java.util.UUID;
 @Table(name = "quotation_decision", schema = "app")
 public class ProposalDecisionEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -39,10 +38,18 @@ public class ProposalDecisionEntity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected ProposalDecisionEntity() {
-    }
+    protected ProposalDecisionEntity() {}
 
-    public ProposalDecisionEntity(UUID id, UUID workspaceId, UUID quotationId, UUID shareId, String decision, String comment, String clientName, String clientEmail, Instant createdAt) {
+    public ProposalDecisionEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID quotationId,
+            UUID shareId,
+            String decision,
+            String comment,
+            String clientName,
+            String clientEmail,
+            Instant createdAt) {
         this.id = id;
         this.workspaceId = workspaceId;
         this.quotationId = quotationId;
@@ -54,13 +61,39 @@ public class ProposalDecisionEntity {
         this.createdAt = createdAt;
     }
 
-    public UUID id() { return id; }
-    public UUID workspaceId() { return workspaceId; }
-    public UUID quotationId() { return quotationId; }
-    public UUID shareId() { return shareId; }
-    public String decision() { return decision; }
-    public String comment() { return comment; }
-    public String clientName() { return clientName; }
-    public String clientEmail() { return clientEmail; }
-    public Instant createdAt() { return createdAt; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID workspaceId() {
+        return workspaceId;
+    }
+
+    public UUID quotationId() {
+        return quotationId;
+    }
+
+    public UUID shareId() {
+        return shareId;
+    }
+
+    public String decision() {
+        return decision;
+    }
+
+    public String comment() {
+        return comment;
+    }
+
+    public String clientName() {
+        return clientName;
+    }
+
+    public String clientEmail() {
+        return clientEmail;
+    }
+
+    public Instant createdAt() {
+        return createdAt;
+    }
 }

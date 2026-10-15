@@ -1,26 +1,5 @@
 package com.freelanceops.backend.domain.project.service;
 
-import com.freelanceops.backend.domain.client.repository.ClientRepository;
-import com.freelanceops.backend.domain.project.entity.ProjectEntity;
-import com.freelanceops.backend.domain.project.model.ProjectStatus;
-import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
-import com.freelanceops.backend.domain.project.repository.ProjectRepository;
-import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
-import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
-import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,28 +8,44 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.freelanceops.backend.domain.client.repository.ClientRepository;
+import com.freelanceops.backend.domain.project.entity.ProjectEntity;
+import com.freelanceops.backend.domain.project.model.ProjectDeletionInProgressException;
+import com.freelanceops.backend.domain.project.model.ProjectStatus;
+import com.freelanceops.backend.domain.project.repository.ProjectRepository;
+import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
+import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
+import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 @ExtendWith(MockitoExtension.class)
 class ProjectServiceTest {
 
-    @Mock
-    private ProjectRepository projectRepository;
-    @Mock
-    private ClientRepository clientRepository;
-    @Mock
-    private WorkspaceAuthorizationService authorizationService;
-    @Mock
-    private ProjectAgentRunCleanup agentRunCleanup;
-    @Mock
-    private ProjectDeletionTransaction deletionTransaction;
+    @Mock private ProjectRepository projectRepository;
+    @Mock private ClientRepository clientRepository;
+    @Mock private WorkspaceAuthorizationService authorizationService;
+    @Mock private ProjectAgentRunCleanup agentRunCleanup;
+    @Mock private ProjectDeletionTransaction deletionTransaction;
 
     @Test
     void listSearchesProjectAndClientNamesWithinWorkspace() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_READ))
-            .thenReturn(AuthorizationDecision.ALLOWED);
-        when(projectRepository.searchByWorkspaceId(workspaceId, "%고객 포털%"))
-            .thenReturn(List.of());
+                .thenReturn(AuthorizationDecision.ALLOWED);
+        when(projectRepository.searchByWorkspaceId(workspaceId, "%고객 포털%")).thenReturn(List.of());
         ProjectService service = service();
 
         assertThat(service.list(userId, workspaceId, "  고객 포털  ")).isEmpty();
@@ -64,15 +59,17 @@ class ProjectServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_READ))
-            .thenReturn(AuthorizationDecision.ALLOWED);
+                .thenReturn(AuthorizationDecision.ALLOWED);
         when(projectRepository.findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId))
-            .thenReturn(List.of());
+                .thenReturn(List.of());
         ProjectService service = service();
 
         assertThat(service.list(userId, workspaceId, "   ")).isEmpty();
 
         verify(projectRepository).findAllByWorkspaceIdOrderByUpdatedAtDesc(workspaceId);
-        verify(projectRepository, never()).searchByWorkspaceId(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(projectRepository, never())
+                .searchByWorkspaceId(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -81,7 +78,7 @@ class ProjectServiceTest {
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
-            .thenReturn(AuthorizationDecision.ALLOWED);
+                .thenReturn(AuthorizationDecision.ALLOWED);
         ProjectService service = service();
 
         service.delete(userId, workspaceId, projectId, "traceparent");
@@ -96,13 +93,16 @@ class ProjectServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
-            .thenReturn(AuthorizationDecision.FORBIDDEN);
+                .thenReturn(AuthorizationDecision.FORBIDDEN);
         ProjectService service = service();
 
-        assertThatThrownBy(() -> service.delete(userId, workspaceId, UUID.randomUUID(), "traceparent"))
-            .isInstanceOfSatisfying(ResponseStatusException.class, error ->
-                assertThat(error.getStatusCode().value()).isEqualTo(403));
-        verify(deletionTransaction, never()).begin(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        assertThatThrownBy(
+                        () -> service.delete(userId, workspaceId, UUID.randomUUID(), "traceparent"))
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(403));
+        verify(deletionTransaction, never())
+                .begin(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -111,12 +111,13 @@ class ProjectServiceTest {
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_DELETE))
-            .thenReturn(AuthorizationDecision.ALLOWED);
+                .thenReturn(AuthorizationDecision.ALLOWED);
         doThrow(new IllegalStateException("agent unavailable"))
-            .when(agentRunCleanup).cancelActiveRuns(userId, workspaceId, projectId, "traceparent");
+                .when(agentRunCleanup)
+                .cancelActiveRuns(userId, workspaceId, projectId, "traceparent");
 
         assertThatThrownBy(() -> service().delete(userId, workspaceId, projectId, "traceparent"))
-            .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class);
 
         verify(deletionTransaction).begin(workspaceId, projectId);
         verify(deletionTransaction, never()).finish(any(), any());
@@ -129,9 +130,24 @@ class ProjectServiceTest {
         UUID projectId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         Instant originalTime = Instant.parse("2026-01-01T00:00:00Z");
-        ProjectEntity project = new ProjectEntity(projectId, workspaceId, clientId, "Edited title", "Latest requirements", "USD", LocalDate.of(2026, 12, 1), new BigDecimal("100"), new BigDecimal("200"), "LEAD", userId, originalTime);
-        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project));
+        ProjectEntity project =
+                new ProjectEntity(
+                        projectId,
+                        workspaceId,
+                        clientId,
+                        "Edited title",
+                        "Latest requirements",
+                        "USD",
+                        LocalDate.of(2026, 12, 1),
+                        new BigDecimal("100"),
+                        new BigDecimal("200"),
+                        "LEAD",
+                        userId,
+                        originalTime);
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE))
+                .thenReturn(AuthorizationDecision.ALLOWED);
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
+                .thenReturn(Optional.of(project));
         when(projectRepository.save(project)).thenReturn(project);
 
         var updated = service().updateStatus(userId, workspaceId, projectId, ProjectStatus.QUOTING);
@@ -151,10 +167,20 @@ class ProjectServiceTest {
     void forbiddenStageChangeStopsBeforeProjectLookup() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
-        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE)).thenReturn(AuthorizationDecision.FORBIDDEN);
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE))
+                .thenReturn(AuthorizationDecision.FORBIDDEN);
 
-        assertThatThrownBy(() -> service().updateStatus(userId, workspaceId, UUID.randomUUID(), ProjectStatus.QUOTING))
-            .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(403));
+        assertThatThrownBy(
+                        () ->
+                                service()
+                                        .updateStatus(
+                                                userId,
+                                                workspaceId,
+                                                UUID.randomUUID(),
+                                                ProjectStatus.QUOTING))
+                .isInstanceOfSatisfying(
+                        ResponseStatusException.class,
+                        error -> assertThat(error.getStatusCode().value()).isEqualTo(403));
         verify(projectRepository, never()).findByIdAndWorkspaceIdForUpdate(any(), any());
     }
 
@@ -163,18 +189,34 @@ class ProjectServiceTest {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        ProjectEntity project = new ProjectEntity(projectId, workspaceId, "Title", "Requirements", "KRW", null, null, null);
+        ProjectEntity project =
+                new ProjectEntity(
+                        projectId, workspaceId, "Title", "Requirements", "KRW", null, null, null);
         project.requestDeletion(Instant.now());
-        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
-        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)).thenReturn(Optional.of(project));
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE))
+                .thenReturn(AuthorizationDecision.ALLOWED);
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
+                .thenReturn(Optional.of(project));
 
-        assertThatThrownBy(() -> service().updateStatus(userId, workspaceId, projectId, ProjectStatus.QUOTING)).isInstanceOf(ProjectDeletionInProgressException.class);
+        assertThatThrownBy(
+                        () ->
+                                service()
+                                        .updateStatus(
+                                                userId,
+                                                workspaceId,
+                                                projectId,
+                                                ProjectStatus.QUOTING))
+                .isInstanceOf(ProjectDeletionInProgressException.class);
         assertThat(project.status()).isEqualTo("LEAD");
         verify(projectRepository, never()).save(any());
     }
 
     private ProjectService service() {
-        return new ProjectService(projectRepository, clientRepository, authorizationService, agentRunCleanup, deletionTransaction);
+        return new ProjectService(
+                projectRepository,
+                clientRepository,
+                authorizationService,
+                agentRunCleanup,
+                deletionTransaction);
     }
-
 }

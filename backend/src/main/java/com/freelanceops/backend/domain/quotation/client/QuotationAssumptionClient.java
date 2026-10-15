@@ -4,5 +4,8 @@ import com.freelanceops.backend.domain.quotation.client.dto.request.InternalAssu
 import com.freelanceops.backend.domain.quotation.client.dto.response.InternalAssumptionSuggestionResponse;
 
 public interface QuotationAssumptionClient {
-    InternalAssumptionSuggestionResponse suggest(InternalAssumptionSuggestionRequest request, String delegationToken, String traceparent);
+    InternalAssumptionSuggestionResponse suggest(
+            InternalAssumptionSuggestionRequest request,
+            String delegationToken,
+            String traceparent);
 }

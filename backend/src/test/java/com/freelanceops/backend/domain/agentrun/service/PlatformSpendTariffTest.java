@@ -1,7 +1,10 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
+import static org.assertj.core.api.Assertions.*;
+
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -10,69 +13,138 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-
 class PlatformSpendTariffTest {
-    @Test void explicitModelTariffsAndHistoricalVersionsRemainIndependent() {
-        var expected = java.util.Map.of("gpt-6-luna", ".00033450", "gpt-6-sol", ".00669000",
-            "gpt-6.1-sol", ".00667000", "gpt-6-astra", ".03345000", "gpt-5.6-sol", ".01338000");
-        expected.forEach((model, cost) -> assertThat(PlatformSpendTariff.calculate(call(model, 1000, 500, 200, 100, true)))
-            .isEqualByComparingTo(cost));
+    @Test
+    void explicitModelTariffsAndHistoricalVersionsRemainIndependent() {
+        var expected =
+                java.util.Map.of(
+                        "gpt-6-luna",
+                        ".00033450",
+                        "gpt-6-sol",
+                        ".00669000",
+                        "gpt-6.1-sol",
+                        ".00667000",
+                        "gpt-6-astra",
+                        ".03345000",
+                        "gpt-5.6-sol",
+                        ".01338000");
+        expected.forEach(
+                (model, cost) ->
+                        assertThat(
+                                        PlatformSpendTariff.calculate(
+                                                call(model, 1000, 500, 200, 100, true)))
+                                .isEqualByComparingTo(cost));
         var old = call("gpt-5.6-luna", 1000, 500, 200, 100, true);
-        assertThat(PlatformSpendTariff.actualCost(List.of(old), 1, PlatformSpendTariff.LEGACY_VERSION)).isEqualByComparingTo(".000769");
-        assertThat(PlatformSpendTariff.actualCost(List.of(call("gpt-6-luna", 1000, 500, 0, 0, true)),
-            1, PlatformSpendTariff.LEGACY_VERSION)).isNull();
-        assertThat(PlatformSpendTariff.actualCost(List.of(old, old), 2, PlatformSpendService.TARIFF_VERSION)).isNull();
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(old), 1, PlatformSpendTariff.LEGACY_VERSION))
+                .isEqualByComparingTo(".000769");
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(call("gpt-6-luna", 1000, 500, 0, 0, true)),
+                                1,
+                                PlatformSpendTariff.LEGACY_VERSION))
+                .isNull();
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(old, old), 2, PlatformSpendService.TARIFF_VERSION))
+                .isNull();
     }
 
-    @Test void reasoningAndPromotionalExpiryFailClosed() {
+    @Test
+    void reasoningAndPromotionalExpiryFailClosed() {
         for (String model : List.of("gpt-6.1-sol", "gpt-6-astra")) {
-            assertThatThrownBy(() -> PlatformSpendTariff.validateSelection(
-                new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection(
-                    Provider.OPENAI, model, com.freelanceops.backend.domain.agentrun.model.ReasoningEffort.NONE)))
-                .isInstanceOf(ResponseStatusException.class);
+            assertThatThrownBy(
+                            () ->
+                                    PlatformSpendTariff.validateSelection(
+                                            new com.freelanceops.backend.domain.agentrun.dto.request
+                                                    .StartAgentRunRequest.ModelSelection(
+                                                    Provider.OPENAI,
+                                                    model,
+                                                    com.freelanceops.backend.domain.agentrun.model
+                                                            .ReasoningEffort.NONE)))
+                    .isInstanceOf(ResponseStatusException.class);
         }
-        assertThatThrownBy(() -> PlatformSpendTariff.requireCurrentPrice("gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT))
-            .isInstanceOf(ResponseStatusException.class);
-        PlatformSpendTariff.requireCurrentPrice("gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT.minusSeconds(1));
+        assertThatThrownBy(
+                        () ->
+                                PlatformSpendTariff.requireCurrentPrice(
+                                        "gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT))
+                .isInstanceOf(ResponseStatusException.class);
+        PlatformSpendTariff.requireCurrentPrice(
+                "gpt-5.6-sol", PlatformSpendTariff.PROMOTION_REVIEW_AT.minusSeconds(1));
         assertThatThrownBy(() -> PlatformSpendTariff.requirePriceable(Provider.OPENAI, "gpt-6"))
-            .isInstanceOf(ResponseStatusException.class);
+                .isInstanceOf(ResponseStatusException.class);
     }
-    @Test void mixedModelRoutingAndRetriesUsePerAttemptTariffs() {
+
+    @Test
+    void mixedModelRoutingAndRetriesUsePerAttemptTariffs() {
         var luna = call("gpt-5.6-luna", 1000, 500, 200, 100, true);
         var terra = call("gpt-5.6-terra", 1000, 500, 200, 100, true);
-        // Luna 700*.20+200*.02+100*.25+500*1.20 = 769 / million.
+        // Luna 단가 계산: (700×0.20 + 200×0.02 + 100×0.25 + 500×1.20) / 1,000,000.
         assertThat(PlatformSpendTariff.calculate(luna)).isEqualByComparingTo("0.00076900");
-        assertThat(PlatformSpendTariff.actualCost(List.of(luna, terra), 2, PlatformSpendService.TARIFF_VERSION))
-            .isEqualByComparingTo("0.00845900");
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(luna, terra), 2, PlatformSpendService.TARIFF_VERSION))
+                .isEqualByComparingTo("0.00845900");
     }
 
-    @Test void unknownAttemptIsNotReportedAsZeroOrAnActualPrice() {
+    @Test
+    void unknownAttemptIsNotReportedAsZeroOrAnActualPrice() {
         var unknown = call("gpt-5.6-luna", 1000, 500, 0, 0, false);
-        assertThat(PlatformSpendTariff.actualCost(List.of(unknown), 1, PlatformSpendService.TARIFF_VERSION)).isNull();
-        assertThat(PlatformSpendTariff.conservativeCost(List.of(unknown), 1, PlatformSpendService.TARIFF_VERSION))
-            .isEqualByComparingTo("0.01");
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(unknown), 1, PlatformSpendService.TARIFF_VERSION))
+                .isNull();
+        assertThat(
+                        PlatformSpendTariff.conservativeCost(
+                                List.of(unknown), 1, PlatformSpendService.TARIFF_VERSION))
+                .isEqualByComparingTo("0.01");
     }
 
-    @Test void missingAttemptsOrUnknownTariffCannotBePriced() {
+    @Test
+    void missingAttemptsOrUnknownTariffCannotBePriced() {
         var luna = call("gpt-5.6-luna", 1000, 500, 0, 0, true);
-        assertThat(PlatformSpendTariff.actualCost(List.of(luna), 2, PlatformSpendService.TARIFF_VERSION)).isNull();
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(luna), 2, PlatformSpendService.TARIFF_VERSION))
+                .isNull();
         assertThat(PlatformSpendTariff.actualCost(List.of(luna), 1, "user-pricing-v1")).isNull();
-        assertThatThrownBy(() -> PlatformSpendTariff.requirePriceable(Provider.OPENAI, "unpriced-model"))
-            .isInstanceOf(ResponseStatusException.class);
+        assertThatThrownBy(
+                        () ->
+                                PlatformSpendTariff.requirePriceable(
+                                        Provider.OPENAI, "unpriced-model"))
+                .isInstanceOf(ResponseStatusException.class);
     }
 
-    @Test void personalCredentialSpendDoesNotConsumePlatformBudget() {
+    @Test
+    void personalCredentialSpendDoesNotConsumePlatformBudget() {
         var route = call("gpt-5.6-luna", 1000, 500, 0, 0, true);
-        var byok = new ProviderCallUsage(UUID.randomUUID(), Provider.OPENAI, "gpt-5.6-terra", "responses.create",
-            5000, 1000, 0, 0, new BigDecimal("0.022"), BigDecimal.ZERO, false, "BYOK");
-        assertThat(PlatformSpendTariff.actualCost(List.of(route, byok), 2, PlatformSpendService.TARIFF_VERSION))
-            .isEqualByComparingTo("0.0008");
-        assertThat(PlatformSpendTariff.conservativeCost(List.of(route, byok), 2, PlatformSpendService.TARIFF_VERSION))
-            .isEqualByComparingTo("0.0008");
+        var byok =
+                new ProviderCallUsage(
+                        UUID.randomUUID(),
+                        Provider.OPENAI,
+                        "gpt-5.6-terra",
+                        "responses.create",
+                        5000,
+                        1000,
+                        0,
+                        0,
+                        new BigDecimal("0.022"),
+                        BigDecimal.ZERO,
+                        false,
+                        "BYOK");
+        assertThat(
+                        PlatformSpendTariff.actualCost(
+                                List.of(route, byok), 2, PlatformSpendService.TARIFF_VERSION))
+                .isEqualByComparingTo("0.0008");
+        assertThat(
+                        PlatformSpendTariff.conservativeCost(
+                                List.of(route, byok), 2, PlatformSpendService.TARIFF_VERSION))
+                .isEqualByComparingTo("0.0008");
     }
 
-    @Test void periodsUseMondayKoreaBoundaryAndExpireBeforeNewBudgetDay() {
+    @Test
+    void periodsUseMondayKoreaBoundaryAndExpireBeforeNewBudgetDay() {
         var sunday = PlatformSpendService.Period.at(Instant.parse("2026-10-04T14:59:59Z"));
         assertThat(sunday.week().toString()).isEqualTo("2026-09-28");
         assertThat(sunday.validUntil()).isEqualTo(Instant.parse("2026-10-04T15:00:00Z"));
@@ -81,8 +153,19 @@ class PlatformSpendTariffTest {
         assertThat(monday.day()).isEqualTo(monday.week());
     }
 
-    private static ProviderCallUsage call(String model, long input, long output, long cached, long written, boolean known) {
-        return new ProviderCallUsage(UUID.randomUUID(), Provider.OPENAI, model, "responses.create", input, output,
-            cached, written, BigDecimal.ZERO, new BigDecimal("0.01"), known);
+    private static ProviderCallUsage call(
+            String model, long input, long output, long cached, long written, boolean known) {
+        return new ProviderCallUsage(
+                UUID.randomUUID(),
+                Provider.OPENAI,
+                model,
+                "responses.create",
+                input,
+                output,
+                cached,
+                written,
+                BigDecimal.ZERO,
+                new BigDecimal("0.01"),
+                known);
     }
 }

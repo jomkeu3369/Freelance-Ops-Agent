@@ -6,6 +6,4 @@ import java.util.List;
 import java.util.UUID;
 
 public record RouteAdjudicationContextResponse(
-    UUID observationId,
-    List<AgentRouteLabel> priorVotes
-) { }
+        UUID observationId, List<AgentRouteLabel> priorVotes) {}

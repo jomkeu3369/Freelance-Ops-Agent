@@ -4,16 +4,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record EstimationPolicyProposalResponse(
-    UUID proposalId,
-    UUID workspaceId,
-    UUID projectId,
-    String sourceMessage,
-    String status,
-    EstimationPolicyResponse before,
-    EstimationPolicyResponse after,
-    UUID confirmationToken,
-    Instant createdAt,
-    Instant expiresAt,
-    Instant appliedAt
-) {
-}
+        UUID proposalId,
+        UUID workspaceId,
+        UUID projectId,
+        String sourceMessage,
+        String status,
+        EstimationPolicyResponse before,
+        EstimationPolicyResponse after,
+        UUID confirmationToken,
+        Instant createdAt,
+        Instant expiresAt,
+        Instant appliedAt) {}

@@ -1,9 +1,8 @@
 package com.freelanceops.backend.domain.workspace.repository;
 
-import com.freelanceops.backend.domain.workspace.policy.AuthorizationAuditEvent;
-import com.freelanceops.backend.domain.workspace.repository.AuthorizationAuditSink;
 import com.freelanceops.backend.domain.workspace.entity.RbacAuditEventEntity;
-import com.freelanceops.backend.domain.workspace.repository.RbacAuditEventRepository;
+import com.freelanceops.backend.domain.workspace.policy.AuthorizationAuditEvent;
+
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,5 +22,3 @@ public class JpaAuthorizationAuditSink implements AuthorizationAuditSink {
         auditEventRepository.save(RbacAuditEventEntity.authorizationCheck(event));
     }
 }
-
-

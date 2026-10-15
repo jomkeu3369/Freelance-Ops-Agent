@@ -1,7 +1,9 @@
 package com.freelanceops.backend.domain.agentrun.repository;
 
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunCommandEntity;
+
 import jakarta.persistence.LockModeType;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -16,11 +18,12 @@ import java.util.UUID;
 public interface AgentRunCommandRepository extends JpaRepository<AgentRunCommandEntity, UUID> {
 
     Optional<AgentRunCommandEntity> findFirstByRunIdAndCommandTypeOrderByCreatedAtAsc(
-        UUID runId, com.freelanceops.backend.domain.agentrun.model.AgentRunCommandType commandType
-    );
+            UUID runId,
+            com.freelanceops.backend.domain.agentrun.model.AgentRunCommandType commandType);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
+    @Query(
+            """
         select command from AgentRunCommandEntity command,
              AgentRunEntity run,
              ProjectEntity project
@@ -34,13 +37,15 @@ public interface AgentRunCommandRepository extends JpaRepository<AgentRunCommand
                 and command.leaseUntil <= :now))
         order by command.createdAt
         """)
-    List<AgentRunCommandEntity> findDispatchableForUpdate(@Param("now") Instant now, Pageable pageable);
+    List<AgentRunCommandEntity> findDispatchableForUpdate(
+            @Param("now") Instant now, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select command from AgentRunCommandEntity command where command.id = :id")
     Optional<AgentRunCommandEntity> findByIdForUpdate(@Param("id") UUID id);
 
-    @Query("""
+    @Query(
+            """
         select (count(command) > 0) from AgentRunCommandEntity command, AgentRunEntity run
         where command.runId = run.id
           and run.workspaceId = :workspaceId
@@ -49,8 +54,7 @@ public interface AgentRunCommandRepository extends JpaRepository<AgentRunCommand
           and command.leaseUntil > :now
         """)
     boolean existsInFlightForProject(
-        @Param("workspaceId") UUID workspaceId,
-        @Param("projectId") UUID projectId,
-        @Param("now") Instant now
-    );
+            @Param("workspaceId") UUID workspaceId,
+            @Param("projectId") UUID projectId,
+            @Param("now") Instant now);
 }

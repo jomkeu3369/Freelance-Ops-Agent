@@ -11,8 +11,7 @@ import java.util.UUID;
 @Table(name = "member_role", schema = "app")
 public class MemberRoleEntity {
 
-    @EmbeddedId
-    private MemberRoleId id;
+    @EmbeddedId private MemberRoleId id;
 
     @Column(name = "workspace_id")
     private UUID workspaceId;
@@ -20,8 +19,7 @@ public class MemberRoleEntity {
     @Column(name = "assigned_by")
     private UUID assignedBy;
 
-    protected MemberRoleEntity() {
-    }
+    protected MemberRoleEntity() {}
 
     private MemberRoleEntity(UUID workspaceId, UUID membershipId, UUID roleId, UUID assignedBy) {
         this.id = new MemberRoleId(membershipId, roleId);
@@ -30,11 +28,7 @@ public class MemberRoleEntity {
     }
 
     public static MemberRoleEntity assign(
-        UUID workspaceId,
-        UUID membershipId,
-        UUID roleId,
-        UUID assignedBy
-    ) {
+            UUID workspaceId, UUID membershipId, UUID roleId, UUID assignedBy) {
         return new MemberRoleEntity(workspaceId, membershipId, roleId, assignedBy);
     }
 
@@ -42,5 +36,3 @@ public class MemberRoleEntity {
         return id.roleId();
     }
 }
-
-

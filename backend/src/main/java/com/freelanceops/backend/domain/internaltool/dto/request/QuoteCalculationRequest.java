@@ -15,16 +15,13 @@ import java.util.List;
 import java.util.UUID;
 
 public record QuoteCalculationRequest(
-    @NotBlank @Pattern(regexp = "^[A-Z]{3}$") String currency,
-    @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal taxRate,
-    @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal discountRate,
-    @NotEmpty @Size(max = 500) List<@Valid QuoteCalculationItem> items
-) {
+        @NotBlank @Pattern(regexp = "^[A-Z]{3}$") String currency,
+        @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal taxRate,
+        @NotNull @DecimalMin("0") @DecimalMax("1") BigDecimal discountRate,
+        @NotEmpty @Size(max = 500) List<@Valid QuoteCalculationItem> items) {
 
     public record QuoteCalculationItem(
-        @NotNull UUID itemId,
-        @NotNull @Positive BigDecimal quantity,
-        @NotNull @DecimalMin("0") BigDecimal unitPrice
-    ) {
-    }
+            @NotNull UUID itemId,
+            @NotNull @Positive BigDecimal quantity,
+            @NotNull @DecimalMin("0") BigDecimal unitPrice) {}
 }

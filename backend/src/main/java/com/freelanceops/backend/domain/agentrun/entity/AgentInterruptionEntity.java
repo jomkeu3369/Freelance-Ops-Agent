@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.entity;
 
 import com.freelanceops.backend.domain.agentrun.model.InterruptionKind;
 import com.freelanceops.backend.domain.agentrun.model.InterruptionStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -21,8 +23,7 @@ import java.util.UUID;
 @Table(name = "agent_interruption", schema = "app")
 public class AgentInterruptionEntity {
 
-    @Id
-    private UUID id;
+    @Id private UUID id;
 
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
@@ -52,14 +53,19 @@ public class AgentInterruptionEntity {
     @Column(name = "responded_at")
     private Instant respondedAt;
 
-    @Version
-    private long version;
+    @Version private long version;
 
-    protected AgentInterruptionEntity() {
-    }
+    protected AgentInterruptionEntity() {}
 
-    public AgentInterruptionEntity(UUID id, UUID workspaceId, UUID agentRunId, InterruptionKind kind, List<String> questions, Instant createdAt) {
-        if (questions == null || questions.isEmpty()) throw new IllegalArgumentException("interruption requires questions");
+    public AgentInterruptionEntity(
+            UUID id,
+            UUID workspaceId,
+            UUID agentRunId,
+            InterruptionKind kind,
+            List<String> questions,
+            Instant createdAt) {
+        if (questions == null || questions.isEmpty())
+            throw new IllegalArgumentException("interruption requires questions");
         this.id = id;
         this.workspaceId = workspaceId;
         this.agentRunId = agentRunId;
@@ -70,8 +76,10 @@ public class AgentInterruptionEntity {
     }
 
     public void respond(List<Map<String, Object>> answers, Instant respondedAt) {
-        if (status != InterruptionStatus.PENDING) throw new IllegalStateException("interruption is not pending");
-        if (answers == null || answers.isEmpty()) throw new IllegalArgumentException("interruption response requires answers");
+        if (status != InterruptionStatus.PENDING)
+            throw new IllegalStateException("interruption is not pending");
+        if (answers == null || answers.isEmpty())
+            throw new IllegalArgumentException("interruption response requires answers");
         this.answers = List.copyOf(answers);
         this.status = InterruptionStatus.RESPONDED;
         this.respondedAt = respondedAt;
@@ -81,12 +89,35 @@ public class AgentInterruptionEntity {
         if (status == InterruptionStatus.PENDING) status = InterruptionStatus.CANCELLED;
     }
 
-    public UUID id() { return id; }
-    public UUID workspaceId() { return workspaceId; }
-    public UUID agentRunId() { return agentRunId; }
-    public InterruptionKind kind() { return kind; }
-    public InterruptionStatus status() { return status; }
-    public List<String> questions() { return List.copyOf(questions); }
-    public List<Map<String, Object>> answers() { return answers == null ? null : List.copyOf(answers); }
-    public Instant respondedAt() { return respondedAt; }
+    public UUID id() {
+        return id;
+    }
+
+    public UUID workspaceId() {
+        return workspaceId;
+    }
+
+    public UUID agentRunId() {
+        return agentRunId;
+    }
+
+    public InterruptionKind kind() {
+        return kind;
+    }
+
+    public InterruptionStatus status() {
+        return status;
+    }
+
+    public List<String> questions() {
+        return List.copyOf(questions);
+    }
+
+    public List<Map<String, Object>> answers() {
+        return answers == null ? null : List.copyOf(answers);
+    }
+
+    public Instant respondedAt() {
+        return respondedAt;
+    }
 }

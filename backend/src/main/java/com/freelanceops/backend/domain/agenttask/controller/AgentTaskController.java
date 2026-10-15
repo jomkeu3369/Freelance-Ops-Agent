@@ -6,7 +6,9 @@ import com.freelanceops.backend.domain.agenttask.dto.request.AgentTaskRedirectRe
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskCommandResponse;
 import com.freelanceops.backend.domain.agenttask.dto.response.AgentTaskResponse;
 import com.freelanceops.backend.domain.agenttask.service.AgentTaskGatewayService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,38 +34,64 @@ public class AgentTaskController {
     }
 
     @GetMapping
-    public List<AgentTaskResponse> list(@PathVariable UUID workspaceId, @PathVariable UUID runId, Authentication authentication) {
+    public List<AgentTaskResponse> list(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            Authentication authentication) {
         return gatewayService.list(authenticatedUserId(authentication), workspaceId, runId);
     }
 
     @GetMapping("/{taskId}")
-    public AgentTaskResponse get(@PathVariable UUID workspaceId, @PathVariable UUID runId, @PathVariable UUID taskId, Authentication authentication) {
+    public AgentTaskResponse get(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            @PathVariable UUID taskId,
+            Authentication authentication) {
         return gatewayService.get(authenticatedUserId(authentication), workspaceId, runId, taskId);
     }
 
     @PostMapping("/{taskId}/instructions")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public AgentTaskCommandResponse softUpdate(@PathVariable UUID workspaceId, @PathVariable UUID runId, @PathVariable UUID taskId, @Valid @RequestBody AgentTaskInstructionRequest request, Authentication authentication) {
-        return gatewayService.softUpdate(authenticatedUserId(authentication), workspaceId, runId, taskId, request);
+    public AgentTaskCommandResponse softUpdate(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            @PathVariable UUID taskId,
+            @Valid @RequestBody AgentTaskInstructionRequest request,
+            Authentication authentication) {
+        return gatewayService.softUpdate(
+                authenticatedUserId(authentication), workspaceId, runId, taskId, request);
     }
 
     @PostMapping("/{taskId}/redirect")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public AgentTaskCommandResponse hardRedirect(@PathVariable UUID workspaceId, @PathVariable UUID runId, @PathVariable UUID taskId, @Valid @RequestBody AgentTaskRedirectRequest request, Authentication authentication) {
-        return gatewayService.hardRedirect(authenticatedUserId(authentication), workspaceId, runId, taskId, request);
+    public AgentTaskCommandResponse hardRedirect(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            @PathVariable UUID taskId,
+            @Valid @RequestBody AgentTaskRedirectRequest request,
+            Authentication authentication) {
+        return gatewayService.hardRedirect(
+                authenticatedUserId(authentication), workspaceId, runId, taskId, request);
     }
 
     @PostMapping("/{taskId}/cancel")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public AgentTaskCommandResponse cancel(@PathVariable UUID workspaceId, @PathVariable UUID runId, @PathVariable UUID taskId, @Valid @RequestBody AgentTaskCancelRequest request, Authentication authentication) {
-        return gatewayService.cancel(authenticatedUserId(authentication), workspaceId, runId, taskId, request);
+    public AgentTaskCommandResponse cancel(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID runId,
+            @PathVariable UUID taskId,
+            @Valid @RequestBody AgentTaskCancelRequest request,
+            Authentication authentication) {
+        return gatewayService.cancel(
+                authenticatedUserId(authentication), workspaceId, runId, taskId, request);
     }
 
     private static UUID authenticatedUserId(Authentication authentication) {
         try {
             return UUID.fromString(authentication.getName());
         } catch (IllegalArgumentException error) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
         }
     }
 }

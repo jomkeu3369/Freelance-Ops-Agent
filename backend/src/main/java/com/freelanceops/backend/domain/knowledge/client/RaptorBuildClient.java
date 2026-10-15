@@ -4,5 +4,6 @@ import com.freelanceops.backend.domain.knowledge.client.dto.request.RaptorBuildR
 import com.freelanceops.backend.domain.knowledge.client.dto.response.RaptorBuildResponse;
 
 public interface RaptorBuildClient {
-    RaptorBuildResponse build(RaptorBuildRequest request, String delegationToken, String traceparent);
+    RaptorBuildResponse build(
+            RaptorBuildRequest request, String delegationToken, String traceparent);
 }

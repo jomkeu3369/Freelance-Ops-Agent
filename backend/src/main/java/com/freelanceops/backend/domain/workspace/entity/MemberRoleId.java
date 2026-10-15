@@ -16,8 +16,7 @@ public class MemberRoleId implements Serializable {
     @Column(name = "role_id")
     private UUID roleId;
 
-    protected MemberRoleId() {
-    }
+    protected MemberRoleId() {}
 
     public MemberRoleId(UUID membershipId, UUID roleId) {
         this.membershipId = membershipId;
@@ -40,7 +39,8 @@ public class MemberRoleId implements Serializable {
         if (!(other instanceof MemberRoleId that)) {
             return false;
         }
-        return Objects.equals(membershipId, that.membershipId) && Objects.equals(roleId, that.roleId);
+        return Objects.equals(membershipId, that.membershipId)
+                && Objects.equals(roleId, that.roleId);
     }
 
     @Override
@@ -48,5 +48,3 @@ public class MemberRoleId implements Serializable {
         return Objects.hash(membershipId, roleId);
     }
 }
-
-

@@ -2,6 +2,8 @@ package com.freelanceops.backend.domain.agentrun.controller;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentChatTurn;
 import com.freelanceops.backend.domain.agentrun.service.AgentRunHistoryService;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -9,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +25,11 @@ public class AgentRunHistoryController {
     }
 
     @GetMapping("/history")
-    public List<AgentChatTurn> list(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
-                                    @RequestParam(defaultValue = "20") int limit, Authentication authentication) {
+    public List<AgentChatTurn> list(
+            @PathVariable UUID workspaceId,
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "20") int limit,
+            Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
@@ -33,7 +37,8 @@ public class AgentRunHistoryController {
         try {
             userId = UUID.fromString(authentication.getName());
         } catch (IllegalArgumentException error) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "authenticated subject must be a UUID", error);
         }
         return history.list(userId, workspaceId, projectId, limit);
     }

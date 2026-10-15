@@ -9,5 +9,3 @@ public interface WorkspacePermissionReader {
 
     Optional<MembershipPermissions> findActiveMembership(UUID userId, UUID workspaceId);
 }
-
-

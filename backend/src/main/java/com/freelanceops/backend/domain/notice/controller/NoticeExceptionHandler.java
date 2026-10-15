@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice(assignableTypes = NoticeController.class)
 public class NoticeExceptionHandler {
-    @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
+    @ExceptionHandler({
+        MethodArgumentNotValidException.class,
+        HttpMessageNotReadableException.class
+    })
     ProblemDetail invalidInput() {
-        // A rejected draft must not appear in framework validation logs or a reflected response.
+        // 거부된 초안의 내용이 검증 로그나 응답에 포함되지 않도록 한다.
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid notice input");
     }
 }

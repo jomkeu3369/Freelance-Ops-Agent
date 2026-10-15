@@ -1,4 +1,5 @@
 package com.freelanceops.backend.domain.requirement.service;
+
 import com.freelanceops.backend.domain.memory.service.ProjectMemoryService;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.requirement.dto.request.CreateRequirementVersionRequest;
@@ -17,10 +18,12 @@ import com.freelanceops.backend.domain.requirement.repository.RequirementVersion
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +40,14 @@ public class RequirementService {
     private final WorkspaceAuthorizationService authorizationService;
     private final ProjectMemoryService memory;
 
-    public RequirementService(ProjectRepository projectRepository, RequirementVersionRepository versionRepository, RequirementFeatureRepository featureRepository, RequirementAssumptionRepository assumptionRepository, RequirementQuestionRepository questionRepository, WorkspaceAuthorizationService authorizationService, ProjectMemoryService memory) {
+    public RequirementService(
+            ProjectRepository projectRepository,
+            RequirementVersionRepository versionRepository,
+            RequirementFeatureRepository featureRepository,
+            RequirementAssumptionRepository assumptionRepository,
+            RequirementQuestionRepository questionRepository,
+            WorkspaceAuthorizationService authorizationService,
+            ProjectMemoryService memory) {
         this.projectRepository = projectRepository;
         this.versionRepository = versionRepository;
         this.featureRepository = featureRepository;
@@ -51,49 +61,112 @@ public class RequirementService {
     public List<RequirementVersionResponse> list(UUID userId, UUID workspaceId, UUID projectId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
         requireProject(workspaceId, projectId);
-        return versionRepository.findAllByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(workspaceId, projectId)
-            .stream().map(this::response).toList();
+        return versionRepository
+                .findAllByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(workspaceId, projectId)
+                .stream()
+                .map(this::response)
+                .toList();
     }
 
     @Transactional(readOnly = true)
-    public RequirementVersionResponse get(UUID userId, UUID workspaceId, UUID projectId, UUID requirementVersionId) {
+    public RequirementVersionResponse get(
+            UUID userId, UUID workspaceId, UUID projectId, UUID requirementVersionId) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_READ);
-        return response(versionRepository.findByIdAndWorkspaceIdAndProjectId(requirementVersionId, workspaceId, projectId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+        return response(
+                versionRepository
+                        .findByIdAndWorkspaceIdAndProjectId(
+                                requirementVersionId, workspaceId, projectId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
     }
 
     @Transactional
-    public RequirementVersionResponse create(UUID userId, UUID workspaceId, UUID projectId, CreateRequirementVersionRequest request) {
+    public RequirementVersionResponse create(
+            UUID userId,
+            UUID workspaceId,
+            UUID projectId,
+            CreateRequirementVersionRequest request) {
         authorize(userId, workspaceId, PermissionCode.PROJECT_WRITE);
-        var project = projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        var project =
+                projectRepository
+                        .findByIdAndWorkspaceIdForUpdate(projectId, workspaceId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         project.requireNotDeleting();
-        if (!project.requirementText().trim().equals(request.sourceText().trim())) throw new ResponseStatusException(HttpStatus.CONFLICT, "original requirements changed; review the latest source");
-        int versionNumber = versionRepository.findTopByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(workspaceId, projectId)
-            .map(current -> current.versionNumber() + 1).orElse(1);
+        if (!project.requirementText().trim().equals(request.sourceText().trim()))
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "original requirements changed; review the latest source");
+        int versionNumber =
+                versionRepository
+                        .findTopByWorkspaceIdAndProjectIdOrderByVersionNumberDesc(
+                                workspaceId, projectId)
+                        .map(current -> current.versionNumber() + 1)
+                        .orElse(1);
         Instant now = Instant.now();
         UUID versionId = UUID.randomUUID();
-        RequirementVersionEntity requirement = versionRepository.saveAndFlush(new RequirementVersionEntity(
-            versionId, workspaceId, projectId, versionNumber, request.sourceText().trim(), userId, now
-        ));
+        RequirementVersionEntity requirement =
+                versionRepository.saveAndFlush(
+                        new RequirementVersionEntity(
+                                versionId,
+                                workspaceId,
+                                projectId,
+                                versionNumber,
+                                request.sourceText().trim(),
+                                userId,
+                                now));
         List<RequirementFeatureEntity> features = new ArrayList<>();
         for (int index = 0; index < request.features().size(); index++) {
             var feature = request.features().get(index);
-            features.add(new RequirementFeatureEntity(UUID.randomUUID(), workspaceId, versionId, feature.title().trim(), feature.description().trim(), feature.priority().name(), trim(feature.acceptanceCriteria()), index, now));
+            features.add(
+                    new RequirementFeatureEntity(
+                            UUID.randomUUID(),
+                            workspaceId,
+                            versionId,
+                            feature.title().trim(),
+                            feature.description().trim(),
+                            feature.priority().name(),
+                            trim(feature.acceptanceCriteria()),
+                            index,
+                            now));
         }
         List<RequirementAssumptionEntity> assumptions = new ArrayList<>();
         for (int index = 0; index < request.assumptions().size(); index++) {
-            assumptions.add(new RequirementAssumptionEntity(UUID.randomUUID(), workspaceId, versionId, request.assumptions().get(index).trim(), index, now));
+            assumptions.add(
+                    new RequirementAssumptionEntity(
+                            UUID.randomUUID(),
+                            workspaceId,
+                            versionId,
+                            request.assumptions().get(index).trim(),
+                            index,
+                            now));
         }
         List<RequirementQuestionEntity> questions = new ArrayList<>();
         for (int index = 0; index < request.questions().size(); index++) {
-            questions.add(new RequirementQuestionEntity(UUID.randomUUID(), workspaceId, versionId, request.questions().get(index).trim(), index, now));
+            questions.add(
+                    new RequirementQuestionEntity(
+                            UUID.randomUUID(),
+                            workspaceId,
+                            versionId,
+                            request.questions().get(index).trim(),
+                            index,
+                            now));
         }
         featureRepository.saveAll(features);
         assumptionRepository.saveAll(assumptions);
         questionRepository.saveAll(questions);
-        String confirmed = "Confirmed features:\n" + request.features().stream().map(feature -> feature.title() + ": " + feature.description() + "\nAcceptance: " + feature.acceptanceCriteria()).collect(java.util.stream.Collectors.joining("\n"))
-            + "\nUNCONFIRMED assumptions:\n" + String.join("\n", request.assumptions()) + "\nOPEN questions:\n" + String.join("\n", request.questions());
+        String confirmed =
+                "Confirmed features:\n"
+                        + request.features().stream()
+                                .map(
+                                        feature ->
+                                                feature.title()
+                                                        + ": "
+                                                        + feature.description()
+                                                        + "\nAcceptance: "
+                                                        + feature.acceptanceCriteria())
+                                .collect(java.util.stream.Collectors.joining("\n"))
+                        + "\nUNCONFIRMED assumptions:\n"
+                        + String.join("\n", request.assumptions())
+                        + "\nOPEN questions:\n"
+                        + String.join("\n", request.questions());
         memory.confirmRequirement(workspaceId, projectId, versionId, confirmed, userId);
         return response(requirement, features, assumptions, questions);
     }
@@ -105,7 +178,8 @@ public class RequirementService {
     }
 
     private void authorize(UUID userId, UUID workspaceId, PermissionCode permission) {
-        AuthorizationDecision decision = authorizationService.authorize(userId, workspaceId, permission);
+        AuthorizationDecision decision =
+                authorizationService.authorize(userId, workspaceId, permission);
         if (decision == AuthorizationDecision.NOT_FOUND) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
@@ -116,21 +190,44 @@ public class RequirementService {
 
     private RequirementVersionResponse response(RequirementVersionEntity version) {
         return response(
-            version,
-            featureRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(version.workspaceId(), version.id()),
-            assumptionRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(version.workspaceId(), version.id()),
-            questionRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(version.workspaceId(), version.id())
-        );
+                version,
+                featureRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(
+                        version.workspaceId(), version.id()),
+                assumptionRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(
+                        version.workspaceId(), version.id()),
+                questionRepository.findAllByWorkspaceIdAndRequirementVersionIdOrderBySortOrder(
+                        version.workspaceId(), version.id()));
     }
 
-    private RequirementVersionResponse response(RequirementVersionEntity version, List<RequirementFeatureEntity> features, List<RequirementAssumptionEntity> assumptions, List<RequirementQuestionEntity> questions) {
+    private RequirementVersionResponse response(
+            RequirementVersionEntity version,
+            List<RequirementFeatureEntity> features,
+            List<RequirementAssumptionEntity> assumptions,
+            List<RequirementQuestionEntity> questions) {
         return new RequirementVersionResponse(
-            version.id(), version.workspaceId(), version.projectId(), version.versionNumber(), version.sourceText(),
-            features.stream().map(feature -> new RequirementFeatureResponse(feature.title(), feature.description(), RequirementPriority.valueOf(feature.priority()), feature.acceptanceCriteria())).toList(),
-            assumptions.stream().map(RequirementAssumptionEntity::content).toList(),
-            questions.stream().map(question -> new RequirementQuestionResponse(question.content(), question.status())).toList(),
-            version.createdBy(), version.createdAt()
-        );
+                version.id(),
+                version.workspaceId(),
+                version.projectId(),
+                version.versionNumber(),
+                version.sourceText(),
+                features.stream()
+                        .map(
+                                feature ->
+                                        new RequirementFeatureResponse(
+                                                feature.title(),
+                                                feature.description(),
+                                                RequirementPriority.valueOf(feature.priority()),
+                                                feature.acceptanceCriteria()))
+                        .toList(),
+                assumptions.stream().map(RequirementAssumptionEntity::content).toList(),
+                questions.stream()
+                        .map(
+                                question ->
+                                        new RequirementQuestionResponse(
+                                                question.content(), question.status()))
+                        .toList(),
+                version.createdBy(),
+                version.createdAt());
     }
 
     private static String trim(String value) {

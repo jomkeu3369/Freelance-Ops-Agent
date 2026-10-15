@@ -17,6 +17,10 @@ public enum AgentTaskStatus {
     TIMED_OUT;
 
     public boolean terminal() {
-        return this == CANCELLED || this == COMPLETED || this == COMPLETED_REUSED || this == FAILED || this == TIMED_OUT;
+        return this == CANCELLED
+                || this == COMPLETED
+                || this == COMPLETED_REUSED
+                || this == FAILED
+                || this == TIMED_OUT;
     }
 }

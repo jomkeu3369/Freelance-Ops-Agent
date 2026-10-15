@@ -5,18 +5,11 @@ import com.freelanceops.backend.domain.agentrun.model.Provider;
 import java.util.UUID;
 
 public record InternalAssumptionSuggestionResponse(
-    UUID runId,
-    String content,
-    Provider provider,
-    String model,
-    Usage usage
-) {
+        UUID runId, String content, Provider provider, String model, Usage usage) {
     public record Usage(
-        long modelCalls,
-        long inputTokens,
-        long outputTokens,
-        long retryCount,
-        long durationMs
-    ) {
-    }
+            long modelCalls,
+            long inputTokens,
+            long outputTokens,
+            long retryCount,
+            long durationMs) {}
 }

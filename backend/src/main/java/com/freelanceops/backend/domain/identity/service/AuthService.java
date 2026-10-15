@@ -19,6 +19,7 @@ import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionR
 import com.freelanceops.backend.domain.workspace.repository.WorkspaceRepository;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningResult;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,8 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -48,17 +49,16 @@ public class AuthService {
     private final LoginActivityService loginActivity;
 
     public AuthService(
-        UserAccountRepository userRepository,
-        RefreshTokenRepository refreshTokenRepository,
-        WorkspaceMemberRepository workspaceMemberRepository,
-        WorkspaceRepository workspaceRepository,
-        WorkspacePermissionReader permissionReader,
-        WorkspaceProvisioningService provisioningService,
-        PasswordEncoder passwordEncoder,
-        AuthTokenService tokenService,
-        EmailVerificationService verification,
-        LoginActivityService loginActivity
-    ) {
+            UserAccountRepository userRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            WorkspaceMemberRepository workspaceMemberRepository,
+            WorkspaceRepository workspaceRepository,
+            WorkspacePermissionReader permissionReader,
+            WorkspaceProvisioningService provisioningService,
+            PasswordEncoder passwordEncoder,
+            AuthTokenService tokenService,
+            EmailVerificationService verification,
+            LoginActivityService loginActivity) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -84,22 +84,23 @@ public class AuthService {
         }
         UUID userId = UUID.randomUUID();
         Instant now = tokenService.now();
-        UserAccountEntity user = UserAccountEntity.registerLocal(
-            userId,
-            email,
-            request.displayName().trim(),
-            passwordEncoder.encode(request.password()),
-            now
-        );
+        UserAccountEntity user =
+                UserAccountEntity.registerLocal(
+                        userId,
+                        email,
+                        request.displayName().trim(),
+                        passwordEncoder.encode(request.password()),
+                        now);
         try {
             userRepository.saveAndFlush(user);
-            WorkspaceProvisioningResult workspace = provisioningService.create(
-                userId,
-                request.workspaceName().trim(),
-                "workspace-" + UUID.randomUUID().toString().substring(0, 12)
-            );
+            WorkspaceProvisioningResult workspace =
+                    provisioningService.create(
+                            userId,
+                            request.workspaceName().trim(),
+                            "workspace-" + UUID.randomUUID().toString().substring(0, 12));
             AuthTokenResponse response = issueSession(user, workspace.workspaceId());
-            loginActivity.record(user.id(), LoginActivityService.Method.REGISTRATION, tokenService.now());
+            loginActivity.record(
+                    user.id(), LoginActivityService.Method.REGISTRATION, tokenService.now());
             return response;
         } catch (DataIntegrityViolationException error) {
             throw new IdentityException(HttpStatus.CONFLICT, "IDENTITY_ALREADY_EXISTS");
@@ -108,10 +109,17 @@ public class AuthService {
 
     @Transactional
     public AuthTokenResponse login(LoginRequest request) {
-        UserAccountEntity user = userRepository.findByEmailIgnoreCase(normalizeEmail(request.email())).orElse(null);
-        String storedHash = user == null || user.passwordHash() == null ? dummyPasswordHash : user.passwordHash();
+        UserAccountEntity user =
+                userRepository.findByEmailIgnoreCase(normalizeEmail(request.email())).orElse(null);
+        String storedHash =
+                user == null || user.passwordHash() == null
+                        ? dummyPasswordHash
+                        : user.passwordHash();
         boolean passwordMatches = passwordEncoder.matches(request.password(), storedHash);
-        if (user == null || user.passwordHash() == null || !passwordMatches || !user.canAuthenticate()) {
+        if (user == null
+                || user.passwordHash() == null
+                || !passwordMatches
+                || !user.canAuthenticate()) {
             throw new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS");
         }
         AuthTokenResponse response = issueSession(user, firstActiveWorkspaceId(user.id()));
@@ -121,8 +129,13 @@ public class AuthService {
 
     @Transactional(noRollbackFor = IdentityException.class)
     public AuthTokenResponse refresh(String rawRefreshToken) {
-        RefreshTokenEntity current = refreshTokenRepository.findByTokenHash(tokenService.hash(rawRefreshToken))
-            .orElseThrow(() -> new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
+        RefreshTokenEntity current =
+                refreshTokenRepository
+                        .findByTokenHash(tokenService.hash(rawRefreshToken))
+                        .orElseThrow(
+                                () ->
+                                        new IdentityException(
+                                                HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
         Instant now = tokenService.now();
         if (current.replacedByTokenId() != null) {
             revokeCompromisedFamily(current, now);
@@ -131,13 +144,22 @@ public class AuthService {
         if (!current.isUsableAt(now)) {
             throw new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
         }
-        UserAccountEntity user = userRepository.findById(current.userId())
-            .filter(UserAccountEntity::canAuthenticate)
-            .orElseThrow(() -> new IdentityException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
+        UserAccountEntity user =
+                userRepository
+                        .findById(current.userId())
+                        .filter(UserAccountEntity::canAuthenticate)
+                        .orElseThrow(
+                                () ->
+                                        new IdentityException(
+                                                HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
         UUID replacementId = UUID.randomUUID();
-        AuthTokenResponse response = issueSession(
-            user, firstActiveWorkspaceId(user.id()), replacementId, current.familyId(), current.id()
-        );
+        AuthTokenResponse response =
+                issueSession(
+                        user,
+                        firstActiveWorkspaceId(user.id()),
+                        replacementId,
+                        current.familyId(),
+                        current.id());
         current.rotateTo(replacementId, now);
         refreshTokenRepository.save(current);
         return response;
@@ -145,23 +167,32 @@ public class AuthService {
 
     @Transactional
     public void logout(String rawRefreshToken) {
-        refreshTokenRepository.findByTokenHash(tokenService.hash(rawRefreshToken))
-            .ifPresent(token -> {
-                token.revoke(tokenService.now());
-                refreshTokenRepository.save(token);
-            });
+        refreshTokenRepository
+                .findByTokenHash(tokenService.hash(rawRefreshToken))
+                .ifPresent(
+                        token -> {
+                            token.revoke(tokenService.now());
+                            refreshTokenRepository.save(token);
+                        });
     }
 
     @Transactional(readOnly = true)
     public MeResponse me(UUID userId) {
-        UserAccountEntity user = userRepository.findById(userId)
-            .orElseThrow(() -> new IdentityException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND"));
-        List<WorkspaceAccessResponse> workspaces = workspaceMemberRepository
-            .findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, "ACTIVE")
-            .stream()
-            .map(membership -> workspaceAccess(userId, membership))
-            .toList();
-        return new MeResponse(user.id(), user.email(), user.displayName(), user.status(), workspaces);
+        UserAccountEntity user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(
+                                () ->
+                                        new IdentityException(
+                                                HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND"));
+        List<WorkspaceAccessResponse> workspaces =
+                workspaceMemberRepository
+                        .findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, "ACTIVE")
+                        .stream()
+                        .map(membership -> workspaceAccess(userId, membership))
+                        .toList();
+        return new MeResponse(
+                user.id(), user.email(), user.displayName(), user.status(), workspaces);
     }
 
     private AuthTokenResponse issueSession(UserAccountEntity user, UUID workspaceId) {
@@ -169,58 +200,76 @@ public class AuthService {
         return issueSession(user, workspaceId, tokenId, tokenId, null);
     }
 
-    private AuthTokenResponse issueSession(UserAccountEntity user, UUID workspaceId, UUID tokenId, UUID familyId, UUID parentTokenId) {
+    private AuthTokenResponse issueSession(
+            UserAccountEntity user,
+            UUID workspaceId,
+            UUID tokenId,
+            UUID familyId,
+            UUID parentTokenId) {
         IssuedAccessToken accessToken = tokenService.issueAccessToken(user);
         IssuedRefreshToken refreshToken = tokenService.issueRefreshToken();
-        refreshTokenRepository.save(new RefreshTokenEntity(
-            tokenId,
-            user.id(),
-            refreshToken.hash(),
-            familyId,
-            parentTokenId,
-            refreshToken.expiresAt(),
-            tokenService.now()
-        ));
+        refreshTokenRepository.save(
+                new RefreshTokenEntity(
+                        tokenId,
+                        user.id(),
+                        refreshToken.hash(),
+                        familyId,
+                        parentTokenId,
+                        refreshToken.expiresAt(),
+                        tokenService.now()));
         return new AuthTokenResponse(
-            user.id(),
-            workspaceId,
-            accessToken.value(),
-            accessToken.expiresAt(),
-            refreshToken.value(),
-            refreshToken.expiresAt(),
-            "Bearer"
-        );
+                user.id(),
+                workspaceId,
+                accessToken.value(),
+                accessToken.expiresAt(),
+                refreshToken.value(),
+                refreshToken.expiresAt(),
+                "Bearer");
     }
 
     private void revokeCompromisedFamily(RefreshTokenEntity reused, Instant now) {
-        List<RefreshTokenEntity> family = new ArrayList<>(refreshTokenRepository.findAllByFamilyId(reused.familyId()));
+        List<RefreshTokenEntity> family =
+                new ArrayList<>(refreshTokenRepository.findAllByFamilyId(reused.familyId()));
         if (family.stream().noneMatch(token -> token.id().equals(reused.id()))) family.add(reused);
-        family.forEach(token -> {
-            if (token.id().equals(reused.id())) token.markReuseDetected(now);
-            else token.revoke(now, "REUSE_DETECTED");
-        });
+        family.forEach(
+                token -> {
+                    if (token.id().equals(reused.id())) token.markReuseDetected(now);
+                    else token.revoke(now, "REUSE_DETECTED");
+                });
         refreshTokenRepository.saveAll(family);
     }
 
     private WorkspaceAccessResponse workspaceAccess(UUID userId, WorkspaceMemberEntity membership) {
-        WorkspaceEntity workspace = workspaceRepository.findById(membership.workspaceId())
-            .orElseThrow(() -> new IllegalStateException("active membership references a missing workspace"));
-        List<String> permissions = permissionReader.findActiveMembership(userId, workspace.id())
-            .orElseThrow(() -> new IllegalStateException("active membership permissions are unavailable"))
-            .permissions()
-            .stream()
-            .sorted(Comparator.comparing(PermissionCode::code))
-            .map(PermissionCode::code)
-            .toList();
-        return new WorkspaceAccessResponse(workspace.id(), workspace.name(), workspace.slug(), permissions);
+        WorkspaceEntity workspace =
+                workspaceRepository
+                        .findById(membership.workspaceId())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "active membership references a missing workspace"));
+        List<String> permissions =
+                permissionReader
+                        .findActiveMembership(userId, workspace.id())
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "active membership permissions are unavailable"))
+                        .permissions()
+                        .stream()
+                        .sorted(Comparator.comparing(PermissionCode::code))
+                        .map(PermissionCode::code)
+                        .toList();
+        return new WorkspaceAccessResponse(
+                workspace.id(), workspace.name(), workspace.slug(), permissions);
     }
 
     private UUID firstActiveWorkspaceId(UUID userId) {
-        return workspaceMemberRepository.findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, "ACTIVE")
-            .stream()
-            .findFirst()
-            .map(WorkspaceMemberEntity::workspaceId)
-            .orElse(null);
+        return workspaceMemberRepository
+                .findAllByUserIdAndStatusOrderByJoinedAtAsc(userId, "ACTIVE")
+                .stream()
+                .findFirst()
+                .map(WorkspaceMemberEntity::workspaceId)
+                .orElse(null);
     }
 
     private static String normalizeEmail(String email) {

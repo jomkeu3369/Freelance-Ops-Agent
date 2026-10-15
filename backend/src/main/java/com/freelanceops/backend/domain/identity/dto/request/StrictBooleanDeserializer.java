@@ -5,7 +5,7 @@ import tools.jackson.core.JsonToken;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.deser.std.StdScalarDeserializer;
 
-/** Keeps explicit attestations from accepting coerced strings or numbers. */
+/** 동의 여부에는 문자열이나 숫자를 변환하지 않고 boolean 값만 허용한다. */
 public class StrictBooleanDeserializer extends StdScalarDeserializer<Boolean> {
 
     public StrictBooleanDeserializer() {

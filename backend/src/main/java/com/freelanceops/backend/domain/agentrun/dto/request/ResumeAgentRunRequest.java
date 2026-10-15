@@ -10,14 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 public record ResumeAgentRunRequest(
-    @NotNull UUID interruptionId,
-    @NotBlank @Size(min = 8, max = 128) String idempotencyKey,
-    @NotNull @Size(min = 1, max = 100) List<@Valid ResumeAnswer> answers
-) {
+        @NotNull UUID interruptionId,
+        @NotBlank @Size(min = 8, max = 128) String idempotencyKey,
+        @NotNull @Size(min = 1, max = 100) List<@Valid ResumeAnswer> answers) {
 
     public record ResumeAnswer(
-        @Min(0) int questionIndex,
-        @NotBlank @Size(max = 5000) String answer
-    ) {
-    }
+            @Min(0) int questionIndex, @NotBlank @Size(max = 5000) String answer) {}
 }
