@@ -1,9 +1,7 @@
 package com.freelanceops.backend.domain.quotation.service;
 
-import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
-import com.freelanceops.backend.domain.quotation.client.QuotationAssumptionClient;
 import com.freelanceops.backend.domain.quotation.dto.request.SuggestQuotationAssumptionRequest;
 import com.freelanceops.backend.domain.quotation.dto.response.QuotationAssumptionSuggestionResponse;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
@@ -20,21 +18,11 @@ import java.util.UUID;
 public class QuotationAssumptionService {
     private final WorkspacePermissionReader permissionReader;
     private final ProjectRepository projectRepository;
-    private final DelegationTokenIssuer tokenIssuer;
-    private final QuotationAssumptionClient client;
-    private final com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections;
 
     public QuotationAssumptionService(
-            WorkspacePermissionReader permissionReader,
-            ProjectRepository projectRepository,
-            DelegationTokenIssuer tokenIssuer,
-            QuotationAssumptionClient client,
-            com.freelanceops.backend.domain.agentrun.service.AIConnectionService connections) {
+            WorkspacePermissionReader permissionReader, ProjectRepository projectRepository) {
         this.permissionReader = permissionReader;
         this.projectRepository = projectRepository;
-        this.tokenIssuer = tokenIssuer;
-        this.client = client;
-        this.connections = connections;
     }
 
     public QuotationAssumptionSuggestionResponse suggest(
