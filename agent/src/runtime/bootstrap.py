@@ -9,7 +9,7 @@ from gateway import AIGateway, GatewayPolicy
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
 from integrations import SpringTaskEventClient, SpringTaskRegistrationClient, SpringToolClient, TaskEventPublisher
-from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
+from providers import OpenAIModelProvider, ScopedModelProvider
 from retrieval.knowledge_context import KnowledgeContextLoader, OpenAIQueryEmbedder
 from routing import build_operational_route_gateway
 from runtime import (
@@ -53,11 +53,8 @@ def build_run_runtime() -> RuntimeComponents:
         gateway = FailClosedOperationalGateway()
 
     model_gateway = AIGateway(
-        CompositeModelProvider(
+        ScopedModelProvider(
             OpenAIModelProvider(
-                timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
-            ),
-            GeminiModelProvider(
                 timeout_seconds=settings.model_timeout_seconds, max_attempts=settings.model_max_attempts
             )
         ),

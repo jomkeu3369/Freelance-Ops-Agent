@@ -161,8 +161,8 @@ OpenAI 연결 구현과 유료 기능의 활성화 상태는 별개입니다. �
 <details>
 <summary>의존성·과거 호환 코드의 구분과 근거 파일</summary>
 
-- **과거 제공사:** Google GenAI SDK·Gemini 어댑터와 이력 표시 코드는 남아 있지만 신규 연결·실행은 지원 종료 상태입니다.
-- **선언된 의존성:** LangChain(`langchain[all]`, `langchain-community`, `langchain-openai`)은 Deep Agents 관련 프레임워크 의존성에 포함됩니다. 애플리케이션의 ReAct·StructuredTool은 자체 구현입니다. `faiss-cpu`, `rank-bm25`, Python `pgvector` 패키지도 manifest에 남아 있으나 현재 애플리케이션의 직접 호출은 없습니다. 실제 벡터 저장·검색은 PostgreSQL 확장과 Hibernate Vector를 사용합니다.
+- **과거 제공사:** 지원이 종료된 Gemini 생성·RAPTOR 어댑터와 운영 Google GenAI SDK 의존성을 제거했습니다. 기존 데이터의 `GEMINI` 값과 이력 표시, 과거 연결 조회·삭제는 유지합니다.
+- **의존성 경계:** 애플리케이션의 ReAct·StructuredTool은 자체 구현입니다. Deep Agents와 `langchain-openai`는 검증 실험용 개발 의존성이며, Deep Agents의 전이 의존성에는 Google GenAI SDK가 포함됩니다. 운영 이미지는 개발 의존성을 설치하지 않습니다. 실제 벡터 저장·검색은 PostgreSQL 확장과 Hibernate Vector를 사용합니다.
 - **이전 구성:** MongoDB·Beanie·Kafka·운영 FAISS 제거와 Redis 도입 보류는 [ADR-0003](docs/adr/0003-remove-mongodb-kafka-faiss.md), [ADR-0023](docs/adr/0023-defer-redis-until-measured-v3-need.md)에 기록했습니다.
 - **구현 근거:** [프론트엔드 패키지](frontend/package.json) · [Agent 패키지](agent/pyproject.toml) · [Backend Gradle](backend/build.gradle.kts) · [검색 구현](backend/src/main/java/com/freelanceops/backend/domain/knowledge) · [첨부파일·OCR](agent/src/attachments) · [공유 API 계약](contracts) · [배포·운영](infra) · [CI/CD](.github/workflows) · [연구·벤치마크](experiments) · [Python SDK](sdk/python)
 

@@ -1,6 +1,6 @@
 """Agent 실행에서 사용하는 검색 구성 요소."""
 
-from .provider_services import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from .provider_services import OpenAIRaptorBuildService
 from .raptor import (
     CosineKMeansClusterer,
     RaptorBuildConfig,
@@ -16,8 +16,6 @@ from .raptor import (
 __all__ = [
     "CosineKMeansClusterer",
     "OpenAIRaptorBuildService",
-    "GeminiRaptorBuildService",
-    "CompositeRaptorBuildService",
     "RaptorBuildConfig",
     "RaptorIndex",
     "RaptorNode",

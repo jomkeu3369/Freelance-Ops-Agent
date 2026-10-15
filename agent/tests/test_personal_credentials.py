@@ -5,12 +5,11 @@ import httpx
 import pytest
 
 import personal_credentials
-import providers
-import providers.composite as composite_module
 from contracts import ModelSelection, Provider
 from gateway import AIGateway, GatewayPolicy
 from personal_credentials import credential_scope, resolve_credential
-from providers import CompositeModelProvider, ModelGeneration, ProviderCallError
+from platform_budget import PlatformBudgetError
+from providers import ModelGeneration, ProviderCallError, ScopedModelProvider
 
 
 def selection() -> ModelSelection:
@@ -42,47 +41,18 @@ async def test_credential_scope_is_reset_and_resolution_never_redirects(monkeypa
     assert "synthetic-key" not in str(requests[0].url)
 
 
-async def test_deleted_connection_fails_without_platform_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "operation", ["generate_structured", "generate_react_step", "generate_pet", "generate_assumption"]
+)
+async def test_unscoped_personal_connection_never_resolves_key_or_uses_platform(operation: str, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: E501
     platform = AsyncMock()
-    monkeypatch.setattr(
-        composite_module, "resolve_credential", AsyncMock(side_effect=ValueError("secret-provider-detail"))
-    )
-    composite = CompositeModelProvider(platform, platform)
-    with pytest.raises(ProviderCallError, match="Personal AI connection unavailable") as caught:
-        await composite.generate_structured(selection(), "test", max_output_tokens=10)
-    assert caught.value.__suppress_context__
-    platform.generate_structured.assert_not_awaited()
-
-
-async def test_personal_calls_use_fresh_clients_and_preserve_usage(monkeypatch: pytest.MonkeyPatch) -> None:
-    import openai
-
-    keys = []
-    clients = []
-    resolver = AsyncMock(side_effect=["synthetic-first", "synthetic-replacement"])
-    monkeypatch.setattr(composite_module, "resolve_credential", resolver)
-
-    def client(**kwargs: object) -> AsyncMock:
-        keys.append(kwargs["api_key"])
-        instance = AsyncMock()
-        clients.append(instance)
-        return instance
-
-    monkeypatch.setattr(openai, "AsyncOpenAI", client)
-    monkeypatch.setattr(
-        providers.OpenAIModelProvider,
-        "generate_assumption",
-        AsyncMock(
-            return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
-        )
-    )
-    composite = CompositeModelProvider(AsyncMock(), AsyncMock())
-    for _ in range(2):
-        result = await composite.generate_assumption(selection(), "test", max_output_tokens=10)
-        assert result.input_tokens == 2
-    assert keys == ["synthetic-first", "synthetic-replacement"]
-    for instance in clients:
-        instance.close.assert_awaited_once()
+    resolver = AsyncMock()
+    monkeypatch.setattr(personal_credentials, "resolve_credential", resolver)
+    provider = ScopedModelProvider(platform)
+    with pytest.raises(PlatformBudgetError, match="BYOK_BUDGET_REQUIRED"):
+        await getattr(provider, operation)(selection(), "test", max_output_tokens=10)
+    resolver.assert_not_awaited()
+    assert platform.mock_calls == []
 
 
 async def test_personal_failures_do_not_open_platform_circuit() -> None:
@@ -99,37 +69,3 @@ async def test_personal_failures_do_not_open_platform_circuit() -> None:
         ModelSelection(provider=Provider.OPENAI, model="test-model"), "test", max_output_tokens=10
     )
     assert provider.generate_structured.await_count == 2
-
-
-async def test_gemini_personal_client_closes_without_using_platform_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    from types import SimpleNamespace
-
-    from google import genai
-
-    client = AsyncMock()
-    keys = []
-
-    def create_client(**kwargs: object) -> SimpleNamespace:
-        keys.append(kwargs["api_key"])
-        assert kwargs["vertexai"] is False
-        return SimpleNamespace(aio=client)
-
-    monkeypatch.setattr(genai, "Client", create_client)
-    monkeypatch.setattr(composite_module, "resolve_credential", AsyncMock(return_value="synthetic-gemini-key"))
-    monkeypatch.setattr(
-        providers.GeminiModelProvider,
-        "generate_assumption",
-        AsyncMock(
-            return_value=ModelGeneration(payload={"content": "test"}, input_tokens=2, output_tokens=3, model_calls=1)
-        )
-    )
-    platform = AsyncMock()
-    composite = CompositeModelProvider(platform, platform)
-    await composite.generate_assumption(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-2.5-flash", credential_id=uuid4()),
-        "test",
-        max_output_tokens=10
-    )
-    assert keys == ["synthetic-gemini-key"]
-    client.aclose.assert_awaited_once()
-    platform.generate_assumption.assert_not_awaited()

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
 
 from contracts import Provider, RaptorBuildContext, RaptorBuildOptions, RaptorBuildRequest, RaptorSourceChunkInput
-from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from retrieval import OpenAIRaptorBuildService
 from retrieval.provider_services import _OpenAIEmbedder
 
 
@@ -24,37 +25,29 @@ def _request(provider: Provider) -> RaptorBuildRequest:
     )
 
 
-class FakeGeminiModels:
-    def __init__(self) -> None:
-        self.embed_calls = 0
-        self.summary_calls = 0
-
-    async def embed_content(self, **kwargs: object) -> object:
-        contents = kwargs["contents"]
-        assert isinstance(contents, list)
-        assert kwargs["config"] == {"task_type": "RETRIEVAL_DOCUMENT", "output_dimensionality": 1536}
-        self.embed_calls += 1
-        values = [[1.0, 0.0], [0.0, 1.0]] if len(contents) == 2 else [[0.7, 0.7]]
-        return SimpleNamespace(embeddings=[SimpleNamespace(values=value) for value in values])
-
-    async def generate_content(self, **kwargs: object) -> object:
-        del kwargs
-        self.summary_calls += 1
-        return SimpleNamespace(text="두 근거의 제한된 요약")
-
-
 class FakeOpenAIEmbeddings:
+    def __init__(self) -> None:
+        self.calls = 0
+
     async def create(self, **kwargs: object) -> object:
-        assert kwargs["dimensions"] == 1536
-        return SimpleNamespace(data=[SimpleNamespace(index=0, embedding=[1.0, 0.0])])
+        contents = kwargs["input"]
+        assert isinstance(contents, list)
+        if str(kwargs["model"]).startswith("text-embedding-3-"):
+            assert kwargs["dimensions"] == 1536
+        self.calls += 1
+        values = [[1.0, 0.0], [0.0, 1.0]] if len(contents) == 2 else [[0.7, 0.7]]
+        return SimpleNamespace(
+            data=[SimpleNamespace(index=index, embedding=value) for index, value in enumerate(values)]
+        )
 
 
 @pytest.mark.asyncio
-async def test_gemini_raptor_build_preserves_leaf_provenance() -> None:
-    models = FakeGeminiModels()
-    request = _request(Provider.GEMINI)
-    service = CompositeRaptorBuildService(
-        OpenAIRaptorBuildService(SimpleNamespace()), GeminiRaptorBuildService(SimpleNamespace(models=models))
+async def test_openai_raptor_build_preserves_leaf_provenance() -> None:
+    embeddings = FakeOpenAIEmbeddings()
+    summary_call = AsyncMock(return_value=SimpleNamespace(output_text="두 근거의 제한된 요약"))
+    request = _request(Provider.OPENAI)
+    service = OpenAIRaptorBuildService(
+        SimpleNamespace(embeddings=embeddings, responses=SimpleNamespace(create=summary_call))
     )
 
     response = await service.build(request)
@@ -64,12 +57,20 @@ async def test_gemini_raptor_build_preserves_leaf_provenance() -> None:
     assert len(leaves) == 2
     assert len(summaries) == 1
     assert {node.source_chunk_id for node in leaves} == {chunk.chunk_id for chunk in request.chunks}
-    assert models.embed_calls == 2
-    assert models.summary_calls == 1
+    assert embeddings.calls == 2
+    summary_call.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_retired_raptor_provider_rejected_without_client_io() -> None:
+    client = AsyncMock()
+    with pytest.raises(ValueError, match="does not select OpenAI"):
+        await OpenAIRaptorBuildService(client).build(_request(Provider.GEMINI))
+    assert client.mock_calls == []
 
 
 @pytest.mark.asyncio
 async def test_openai_v3_embedding_uses_storage_dimension() -> None:
     embedder = _OpenAIEmbedder(SimpleNamespace(embeddings=FakeOpenAIEmbeddings()), "text-embedding-3-large")
 
-    assert await embedder.embed(["근거"]) == [[1.0, 0.0]]
+    assert await embedder.embed(["근거"]) == [[0.7, 0.7]]

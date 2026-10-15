@@ -79,13 +79,15 @@ issuer·audience가 일치하는 단기 RSA 서명 JWT만 허용한다. 운영 �
 
 ## 모델과 실험 경계
 
-부서 생성과 RAPTOR는 요청에 기록된 `OPENAI` 또는 `GEMINI`를 사용한다. 공급자를 자동으로 바꾸지 않으며
-시간 초과·429·5xx만 제한적으로 재시도한다. Spring 도구는 버전이 지정된 OpenAPI의 프로젝트 문맥, 도메인 자료,
+부서 생성과 RAPTOR 어댑터는 `OPENAI`만 지원한다. 지원이 종료된 Gemini 어댑터와 운영 `google-genai` 의존성은
+제거했으며, 기존 데이터의 `GEMINI` 값은 계속 읽되 생성 요청은 외부 호출 없이 거부한다. 공급자를 자동으로 바꾸지
+않으며 시간 초과·429·5xx만 제한적으로 재시도한다. Spring 도구는 버전이 지정된 OpenAPI의 프로젝트 문맥, 도메인 자료,
 요구사항 검증과 결정적 견적 계산을 사용한다.
 
 `src/departments/research_deep_agent.py`는 ADR-0013 검증 실험이다. 실행별 파일 권한과 `StateBackend`를 사용하며
 범용 하위 Agent와 호스트 셸을 비활성화한다. 같은 평가 데이터의 단일 ReAct 기준보다 품질·비용·지연이 개선되기 전에는
 운영 실행기에 연결하지 않는다. `deepagents`와 동적으로 불러오는 `langchain-openai`는 개발 의존성에 둔다.
+Deep Agents가 요구하는 `google-genai` 전이 의존성도 개발 환경에만 설치되며 운영 이미지에는 포함하지 않는다.
 
 ## 개인 키 실행과 예산
 

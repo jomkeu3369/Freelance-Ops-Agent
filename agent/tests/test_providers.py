@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 
 from contracts import ModelSelection, Provider
-from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider, ProviderCallError
+from providers import OpenAIModelProvider, ProviderCallError, ProviderNotConfiguredError, ScopedModelProvider
 
 
 class FakeOpenAIResponses:
@@ -21,24 +23,11 @@ class FakeOpenAIResponses:
         )
 
 
-class FakeGeminiModels:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, object]] = []
-
-    async def generate_content(self, **kwargs: object) -> object:
-        self.calls.append(kwargs)
-        return SimpleNamespace(
-            text=json.dumps({"summary": "Gemini 결과", "open_questions": ["확인할까요?"]}),
-            usage_metadata=SimpleNamespace(prompt_token_count=13, candidates_token_count=5)
-        )
-
-
 @pytest.mark.asyncio
-async def test_composite_dispatches_openai_with_strict_non_stored_output() -> None:
+async def test_scoped_provider_dispatches_openai_with_strict_non_stored_output() -> None:
     responses = FakeOpenAIResponses()
     openai = OpenAIModelProvider(SimpleNamespace(responses=responses))
-    gemini = GeminiModelProvider(SimpleNamespace(models=FakeGeminiModels()))
-    provider = CompositeModelProvider(openai, gemini)
+    provider = ScopedModelProvider(openai)
 
     generation = await provider.generate_structured(
         ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "untrusted request", max_output_tokens=100
@@ -56,22 +45,21 @@ async def test_composite_dispatches_openai_with_strict_non_stored_output() -> No
 
 
 @pytest.mark.asyncio
-async def test_composite_dispatches_gemini_with_same_schema() -> None:
-    models = FakeGeminiModels()
-    provider = CompositeModelProvider(
-        OpenAIModelProvider(SimpleNamespace(responses=FakeOpenAIResponses())),
-        GeminiModelProvider(SimpleNamespace(models=models))
+@pytest.mark.parametrize(
+    "operation", ["generate_structured", "generate_react_step", "generate_pet", "generate_assumption"]
+)
+@pytest.mark.parametrize("personal", [False, True])
+async def test_retired_provider_history_is_readable_without_platform_calls(operation: str, personal: bool) -> None:
+    selection = ModelSelection.model_validate(
+        {"provider": "GEMINI", "model": "retired-model", "credentialId": str(uuid4()) if personal else None}
     )
+    assert selection.model_dump(mode="json", by_alias=True)["provider"] == "GEMINI"
+    platform = AsyncMock()
+    provider = ScopedModelProvider(platform)
 
-    generation = await provider.generate_structured(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"), "untrusted request", max_output_tokens=100
-    )
-
-    assert generation.payload["summary"] == "Gemini 결과"
-    assert generation.output_tokens == 5
-    config = models.calls[0]["config"]
-    assert isinstance(config, dict)
-    assert config["response_mime_type"] == "application/json"
+    with pytest.raises(ProviderNotConfiguredError, match="no longer supported: GEMINI"):
+        await getattr(provider, operation)(selection, "historical request", max_output_tokens=100)
+    assert platform.mock_calls == []
 
 
 @pytest.mark.asyncio
@@ -104,29 +92,6 @@ async def test_openai_react_step_uses_separate_strict_tool_decision_schema() -> 
     assert arguments_schema["required"] == ["query"]
     assert arguments_schema["additionalProperties"] is False
     assert "default" not in arguments_schema["properties"]["query"]
-
-
-@pytest.mark.asyncio
-async def test_gemini_react_step_uses_same_provider_neutral_contract() -> None:
-    class ReActModels(FakeGeminiModels):
-        async def generate_content(self, **kwargs: object) -> object:
-            self.calls.append(kwargs)
-            return SimpleNamespace(
-                text=json.dumps({"action": "FINAL", "summary": "완료", "arguments": {}}),
-                usage_metadata=SimpleNamespace(prompt_token_count=8, candidates_token_count=3)
-            )
-
-    models = ReActModels()
-    provider = GeminiModelProvider(SimpleNamespace(models=models))
-
-    generation = await provider.generate_react_step(
-        ModelSelection(provider=Provider.GEMINI, model="gemini-test"), "bounded step", max_output_tokens=100
-    )
-
-    assert generation.payload["action"] == "FINAL"
-    config = models.calls[0]["config"]
-    assert isinstance(config, dict)
-    assert config["response_json_schema"]["title"] == "ReActStep"
 
 
 @pytest.mark.asyncio
