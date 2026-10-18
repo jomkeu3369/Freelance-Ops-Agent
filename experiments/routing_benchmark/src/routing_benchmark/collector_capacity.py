@@ -61,7 +61,7 @@ def simulate_collector(concurrency: int, latency_ms: int, arrivals_per_minute: i
         "completed_in_hour": completed_by_horizon,
         "backlog_after_hour": backlog,
         "p95_collection_delay_seconds": float(np.quantile(delays, 0.95)) if delays else 0.0,
-        "stable": backlog <= BATCH_SIZE
+        "stable": backlog <= BATCH_SIZE,
     }
 
 
@@ -80,9 +80,9 @@ def evaluate_collector_capacity(output_dir: Path) -> list[Path]:
             "fixed_delay_seconds": FIXED_DELAY_SECONDS,
             "horizon_seconds": HORIZON_SECONDS,
             "claim_strategy": "up to 20 durable queue rows per scheduler cycle",
-            "execution_strategy": "one virtual thread per claimed run, bounded by batch size"
+            "execution_strategy": "one virtual thread per claimed run, bounded by batch size",
         },
-        "results": results
+        "results": results,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "route_collector_capacity.json"
@@ -109,9 +109,21 @@ def _plot_dashboard(path: Path, results: list[dict[str, Any]]) -> None:
     figure.suptitle("Durable Route Observation Collector Capacity", fontsize=17, fontweight="bold")
     colors = ("#DC2626", "#F97316", "#2563EB", "#059669")
     for concurrency, color in zip(CONCURRENCY_LEVELS, colors):
-        capacities = [theoretical_capacity_per_minute(concurrency, latency) for latency in LATENCY_MILLISECONDS]
-        axes[0].plot(LATENCY_MILLISECONDS, capacities, marker="o", linewidth=2, color=color, label=f"concurrency={concurrency}")
-    axes[0].axhline(max(ARRIVALS_PER_MINUTE), color="#111827", linestyle="--", label="400 arrivals/min")
+        capacities = [
+            theoretical_capacity_per_minute(concurrency, latency)
+            for latency in LATENCY_MILLISECONDS
+        ]
+        axes[0].plot(
+            LATENCY_MILLISECONDS,
+            capacities,
+            marker="o",
+            linewidth=2,
+            color=color,
+            label=f"concurrency={concurrency}"
+        )
+    axes[0].axhline(
+        max(ARRIVALS_PER_MINUTE), color="#111827", linestyle="--", label="400 arrivals/min"
+    )
     axes[0].set_xlabel("Agent snapshot request latency (ms)")
     axes[0].set_ylabel("Theoretical collection capacity / min")
     axes[0].set_title("Virtual-thread batch concurrency", loc="left", fontweight="bold")
@@ -127,7 +139,13 @@ def _plot_dashboard(path: Path, results: list[dict[str, Any]]) -> None:
             for result in worst_case
             if result["arrivals_per_minute"] == arrivals and result["concurrency"] == concurrency
         ]
-        axes[1].bar(x + (index - 1.5) * width, values, width, color=color, label=f"concurrency={concurrency}")
+        axes[1].bar(
+            x + (index - 1.5) * width,
+            values,
+            width,
+            color=color,
+            label=f"concurrency={concurrency}"
+        )
     axes[1].set_xticks(x, [str(value) for value in ARRIVALS_PER_MINUTE])
     axes[1].set_xlabel("Incoming completed runs / min")
     axes[1].set_ylabel("Uncollected observations after 1 hour")
@@ -144,13 +162,21 @@ def _plot_dashboard(path: Path, results: list[dict[str, Any]]) -> None:
 
 def _plot_table(path: Path) -> None:
     columns = ["Concurrency", *(f"{latency} ms" for latency in LATENCY_MILLISECONDS)]
-    rows = [[
-        str(concurrency),
-        *(f"{theoretical_capacity_per_minute(concurrency, latency):,.0f}/min" for latency in LATENCY_MILLISECONDS)
-    ] for concurrency in CONCURRENCY_LEVELS]
+    rows = [
+        [
+            str(concurrency),
+            *(
+                f"{theoretical_capacity_per_minute(concurrency, latency):,.0f}/min"
+                for latency in LATENCY_MILLISECONDS
+            ),
+        ]
+        for concurrency in CONCURRENCY_LEVELS
+    ]
     figure, axis = plt.subplots(figsize=(13.5, 4.5))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center")
+    table = axis.table(
+        cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center"
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(11)
     table.scale(1, 1.9)
@@ -161,6 +187,11 @@ def _plot_table(path: Path) -> None:
         for column in range(len(columns)):
             table[row, column].set_facecolor("#F0FDF4" if row == len(rows) else "#F9FAFB")
     figure.suptitle("Collector Capacity by Snapshot Latency", fontsize=16, fontweight="bold")
-    figure.text(0.5, 0.08, "20 claims/cycle · 1 second fixed delay · capacity values are runs/min", ha="center")
+    figure.text(
+        0.5,
+        0.08,
+        "20 claims/cycle · 1 second fixed delay · capacity values are runs/min",
+        ha="center"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

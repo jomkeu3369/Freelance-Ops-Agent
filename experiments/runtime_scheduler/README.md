@@ -1,7 +1,7 @@
-# Runtime Scheduler Experiment
+# 실행 시간 예측·스케줄러 실험
 
 이 디렉터리는 운영 Scheduler와 결합하기 전에 runtime regression의 효용과 데이터 경계를
-검증하는 실행 가능한 프로토타입이다. 운영 `src/runtime` 코드는 변경하지 않는다.
+검증하는 실행 가능한 프로토타입이다. 운영 실행기는 `agent/src/runtime`에 있다. 아래 수치는 고정 시드 합성 실험의 과거 결과이며 실제 운영 트래픽의 측정값이 아니다.
 
 사용하는 사전 실행 feature는 `task_type`, `model`, `input_tokens`, `context_tokens`,
 `file_count`, `subagent_depth`뿐이다. 실제 tool call, output token, retry, 성공 여부와 완료 시각은
@@ -18,19 +18,28 @@ uv run --project experiments/runtime_scheduler streamlit run experiments/runtime
 plot script가 만드는 PNG와 학습 model JSON은 재생성 가능한 로컬 산출물이므로 Git에 포함하지 않는다.
 
 실험은 고정 seed로 5,000개의 이력을 생성하고 동일 validation set에서 median baseline,
-LinearRegression, RandomForestRegressor의 MAE, RMSE, R²를 비교한다. 모델이 median baseline보다
+LinearRegression, RandomForestRegressor, XGBoost의 MAE, RMSE, R²를 비교한다. 모델이 median baseline보다
 낮은 MAE를 내지 못하면 predictor를 Scheduler에 연결할 근거가 부족한 것으로 판단한다.
 
-## Reproducible result
+## 코드 구성
+
+- `task_models.py`: 실행 전 입력, 실행 후 이력과 평가 지표의 데이터 구조
+- `runtime_prediction.py`: 전처리, 모델 학습·저장과 예측 품질 비교
+- `runtime_calibration.py`: EMA·온라인 학습과 완료 시각을 고려한 보정
+- `synthetic_history.py`: 고정 시드 이력 생성과 무작위·시간순 분할
+- `prototype.py`: 기존 import와 과거 저장 모델을 읽기 위한 공개 진입점
+- `*_simulation.py`·`plot_*.py`: 정책별 재현 실행과 결과 시각화
+
+## 고정 시드 기준 결과
 
 2026-08-24에 seed 42, train 3,750건, validation 1,250건으로 실행한 결과다.
 
-| Model | MAE | RMSE | R² |
-|---|---:|---:|---:|
-| Median baseline | 14.76 sec | 26.29 sec | -0.075 |
-| LinearRegression | 7.12 sec | 13.26 sec | 0.727 |
-| RandomForestRegressor | 4.64 sec | 8.88 sec | 0.877 |
-| XGBoost | 3.80 sec | 6.82 sec | 0.928 |
+| Model                 |       MAE |      RMSE |     R² |
+| --------------------- | --------: | --------: | -----: |
+| Median baseline       | 14.76 sec | 26.29 sec | -0.075 |
+| LinearRegression      |  7.12 sec | 13.26 sec |  0.727 |
+| RandomForestRegressor |  4.64 sec |  8.88 sec |  0.877 |
+| XGBoost               |  3.80 sec |  6.82 sec |  0.928 |
 
 LinearRegression은 baseline 대비 MAE를 약 52%, RandomForestRegressor는 약 69% 줄였다.
 XGBoost는 baseline 대비 MAE를 약 74% 줄였으며 세 모델 중 가장 낮은 오차를 기록했다.
@@ -42,49 +51,49 @@ history를 시간순 holdout으로 나누어 같은 baseline과 비교해야 한
 `plot_experiment.py`는 Matplotlib으로 실제 runtime histogram, 실제값과 세 모델의 예측값,
 예측 runtime 구간별 잔차 표준편차, 모델별 절대오차 box plot을 생성한다.
 
-## Causal EMA residual calibration
+## 과거 관측값을 사용하는 EMA 잔차 보정
 
 EMA는 base prediction 자체를 평균내지 않고, 이전 task들에서 관측된 residual을 보정값으로
 사용한다. 현재 task는 반드시 보정값으로 먼저 예측하고 실제 runtime이 확인된 후에만 EMA를
 업데이트하므로 미래 target 누수가 없다. 실험의 고정 alpha는 0.1이다.
 
-| Scenario | Model | Base MAE | EMA MAE | Base R² | EMA R² |
-|---|---|---:|---:|---:|---:|
-| Stationary | LinearRegression | 6.83 sec | 6.90 sec | 0.753 | 0.748 |
-| Stationary | RandomForest | 4.39 sec | 4.65 sec | 0.873 | 0.868 |
-| Stationary | XGBoost | 3.83 sec | 4.02 sec | 0.915 | 0.911 |
-| 30% latency drift | LinearRegression | 7.75 sec | 8.24 sec | 0.740 | 0.733 |
-| 30% latency drift | RandomForest | 5.98 sec | 6.23 sec | 0.835 | 0.843 |
-| 30% latency drift | XGBoost | 5.34 sec | 5.30 sec | 0.885 | 0.895 |
+| Scenario          | Model            | Base MAE |  EMA MAE | Base R² | EMA R² |
+| ----------------- | ---------------- | -------: | -------: | ------: | -----: |
+| Stationary        | LinearRegression | 6.83 sec | 6.90 sec |   0.753 |  0.748 |
+| Stationary        | RandomForest     | 4.39 sec | 4.65 sec |   0.873 |  0.868 |
+| Stationary        | XGBoost          | 3.83 sec | 4.02 sec |   0.915 |  0.911 |
+| 30% latency drift | LinearRegression | 7.75 sec | 8.24 sec |   0.740 |  0.733 |
+| 30% latency drift | RandomForest     | 5.98 sec | 6.23 sec |   0.835 |  0.843 |
+| 30% latency drift | XGBoost          | 5.34 sec | 5.30 sec |   0.885 |  0.895 |
 
 Stationary workload에서는 residual EMA가 noise까지 추적하여 모든 모델의 MAE를 악화시켰다.
 30% drift에서도 XGBoost만 소폭 개선됐다. 따라서 EMA를 기본 예측 경로에 무조건 적용할 근거는
 부족하며, drift 감지 후 제한적으로 활성화하거나 예측 오차 monitoring 용도로 사용하는 것이
 현재 결과에 부합한다.
 
-## Drift-gated correction experiment
+## 지연 변화 감지 후 보정 실험
 
 XGBoost base prediction을 유지하면서 상시 EMA, rolling-median residual, drift-gated clipped
 EMA를 시간순 validation에서 비교했다. Gate는 clipped signed-residual EMA가 1.5초를 25건
 연속 초과한 경우에만 열리며, 보정은 최대 5초이면서 base prediction의 20%를 넘지 않는다.
 
-| Scenario | Strategy | MAE | RMSE | R² | Gate activation |
-|---|---|---:|---:|---:|---:|
-| Stationary | Base XGBoost | 3.83 sec | 6.88 sec | 0.915 | - |
-| Stationary | Always EMA | 4.02 sec | 7.05 sec | 0.911 | - |
-| Stationary | Rolling median | 3.85 sec | 6.91 sec | 0.915 | - |
-| Stationary | Drift-gated EMA | 3.83 sec | 6.88 sec | 0.915 | None |
-| 30% latency drift | Base XGBoost | 5.34 sec | 10.04 sec | 0.885 | - |
-| 30% latency drift | Always EMA | 5.30 sec | 9.63 sec | 0.895 | - |
-| 30% latency drift | Rolling median | 4.89 sec | 9.50 sec | 0.897 | - |
-| 30% latency drift | Drift-gated EMA | 4.87 sec | 9.44 sec | 0.898 | Task 80 |
+| Scenario          | Strategy        |      MAE |      RMSE |    R² | Gate activation |
+| ----------------- | --------------- | -------: | --------: | ----: | --------------: |
+| Stationary        | Base XGBoost    | 3.83 sec |  6.88 sec | 0.915 |               - |
+| Stationary        | Always EMA      | 4.02 sec |  7.05 sec | 0.911 |               - |
+| Stationary        | Rolling median  | 3.85 sec |  6.91 sec | 0.915 |               - |
+| Stationary        | Drift-gated EMA | 3.83 sec |  6.88 sec | 0.915 |            None |
+| 30% latency drift | Base XGBoost    | 5.34 sec | 10.04 sec | 0.885 |               - |
+| 30% latency drift | Always EMA      | 5.30 sec |  9.63 sec | 0.895 |               - |
+| 30% latency drift | Rolling median  | 4.89 sec |  9.50 sec | 0.897 |               - |
+| 30% latency drift | Drift-gated EMA | 4.87 sec |  9.44 sec | 0.898 |         Task 80 |
 
 Drift-gated EMA는 stationary 환경에서 비활성 상태를 유지해 base 성능을 보존했고, drift
 환경에서는 gate 활성화 후 네 전략 중 가장 낮은 MAE를 기록했다. 다만 threshold는 synthetic
 workload 한 종류에서 정한 값이므로 실제 execution history의 시간순 calibration 구간에서 다시
 선정해야 한다.
 
-## Asynchronous online residual learning
+## 비동기 온라인 잔차 학습
 
 XGBoost는 serving model로 고정하고 `SGDRegressor.partial_fit()`이 완료된 task의 base residual을
 실시간 학습하는 hybrid 구조를 검증했다. Categorical feature는 고정 크기 hashing으로 변환하고,
@@ -95,12 +104,12 @@ Replay는 enqueue 시점마다 그 시각 이전에 `completed_at`에 도달한 
 반영한다. 따라서 동시에 실행 중이거나 아직 끝나지 않은 task의 target은 현재 예측에 사용되지
 않는다.
 
-| Scenario | Strategy | MAE | RMSE | R² |
-|---|---|---:|---:|---:|
-| Stationary | Base XGBoost | 3.83 sec | 6.88 sec | 0.915 |
-| Stationary | XGBoost + online residual SGD | 3.84 sec | 6.89 sec | 0.915 |
-| 30% latency drift | Base XGBoost | 5.34 sec | 10.04 sec | 0.885 |
-| 30% latency drift | XGBoost + online residual SGD | 4.78 sec | 9.30 sec | 0.901 |
+| Scenario          | Strategy                      |      MAE |      RMSE |    R² |
+| ----------------- | ----------------------------- | -------: | --------: | ----: |
+| Stationary        | Base XGBoost                  | 3.83 sec |  6.88 sec | 0.915 |
+| Stationary        | XGBoost + online residual SGD | 3.84 sec |  6.89 sec | 0.915 |
+| 30% latency drift | Base XGBoost                  | 5.34 sec | 10.04 sec | 0.885 |
+| 30% latency drift | XGBoost + online residual SGD | 4.78 sec |  9.30 sec | 0.901 |
 
 Online residual SGD는 stationary workload에서 성능을 사실상 유지했고, 30% drift에서 base 대비
 MAE를 약 10.5% 줄였다. 앞선 drift-gated EMA의 4.87초보다도 낮았다. 다만 online state의
@@ -109,7 +118,7 @@ persistence, checkpoint 복구, 업데이트 idempotency, correction rollback과
 
 `joblib` artifact는 pickle 계열 포맷이므로 신뢰할 수 있는 내부 파일만 로드해야 한다.
 
-## Multi-workspace scheduler simulation
+## 여러 작업 공간의 스케줄링 비교
 
 Runtime Predictor가 정확한지만 보는 데서 그치지 않고 예측값이 실제 queue에 유용한지 검증하기
 위해 event-driven scheduler simulator를 추가했다. 같은 task stream에서 다음 정책을 비교한다.
@@ -155,21 +164,21 @@ noise, cache hit rate, max wait, aging과 반복 seed 수를 바꾸면서 정책
 workspace별 결과를 확인할 수 있다. Streamlit의 `cache_data`를 사용해 동일 parameter 조합의
 반복 학습과 replay를 피한다.
 
-## Scheduler benchmark result
+## 스케줄러 비교 결과
 
 2026-08-26에 workspace 6개, worker 6개, workspace당 task 80개, cache hit 10%, latency drift
 30%와 seed 5개로 실행한 결과다. offered load는 `0.94 ± 0.02`로 Worker 용량에 가까운 조건이다.
 Prediction 성능은 MAE `5.84 ± 0.25초`, RMSE `10.86 ± 1.96초`, R² `0.845 ± 0.036`이었다.
 
-| Policy | Mean completion | P95 wait | P99 wait | Maximum wait | Fairness | Wait violations | Priority violations |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| FIFO | 123.33 sec | 198.49 sec | 214.28 sec | 226.98 sec | 0.941 | 41.21% | 59.73% |
-| Global Predicted-SJF | 63.49 sec | 172.69 sec | 637.18 sec | 1125.67 sec | 0.971 | 6.17% | 6.61% |
-| Global Predicted-SJF + Aging | 88.63 sec | 221.10 sec | 256.95 sec | 288.95 sec | 0.989 | 23.12% | 29.56% |
-| Fair FIFO | 120.79 sec | 626.10 sec | 1082.09 sec | 1366.53 sec | 0.688 | 15.83% | 9.71% |
-| Fair Predicted-SJF | 82.56 sec | 297.73 sec | 884.77 sec | 1322.77 sec | 0.798 | 10.08% | 13.32% |
-| Fair Predicted-SJF + Aging | 97.93 sec | 416.97 sec | 844.56 sec | 1036.36 sec | 0.762 | 15.58% | 19.46% |
-| Oracle-SJF | 61.91 sec | 168.34 sec | 597.87 sec | 1153.98 sec | 0.978 | 6.21% | 6.12% |
+| Policy                       | Mean completion |   P95 wait |    P99 wait | Maximum wait | Fairness | Wait violations | Priority violations |
+| ---------------------------- | --------------: | ---------: | ----------: | -----------: | -------: | --------------: | ------------------: |
+| FIFO                         |      123.33 sec | 198.49 sec |  214.28 sec |   226.98 sec |    0.941 |          41.21% |              59.73% |
+| Global Predicted-SJF         |       63.49 sec | 172.69 sec |  637.18 sec |  1125.67 sec |    0.971 |           6.17% |               6.61% |
+| Global Predicted-SJF + Aging |       88.63 sec | 221.10 sec |  256.95 sec |   288.95 sec |    0.989 |          23.12% |              29.56% |
+| Fair FIFO                    |      120.79 sec | 626.10 sec | 1082.09 sec |  1366.53 sec |    0.688 |          15.83% |               9.71% |
+| Fair Predicted-SJF           |       82.56 sec | 297.73 sec |  884.77 sec |  1322.77 sec |    0.798 |          10.08% |              13.32% |
+| Fair Predicted-SJF + Aging   |       97.93 sec | 416.97 sec |  844.56 sec |  1036.36 sec |    0.762 |          15.58% |              19.46% |
+| Oracle-SJF                   |       61.91 sec | 168.34 sec |  597.87 sec |  1153.98 sec |    0.978 |           6.21% |               6.12% |
 
 Global Predicted-SJF는 mean completion에서 Oracle에 가장 가까웠지만 p99와 maximum wait가 크게
 증가했다. Global Predicted-SJF + Aging은 maximum wait를 300초 아래로 제한했지만 mean과 priority
@@ -185,15 +194,15 @@ Fairness 값은 workspace별 inverse mean slowdown에 대한 Jain index다. burs
 공정성을 판정하지 않는다. max-wait violation, maximum wait와 workspace별 service share를 함께
 검토해야 한다.
 
-### Stress scenarios
+### 부하 시나리오
 
-| Scenario | Offered load | Predicted-SJF mean wait | Aging mean wait | Predicted maximum wait | Aging maximum wait |
-|---|---:|---:|---:|---:|---:|
-| Under capacity | 0.60 | 3.18 sec | 3.28 sec | 101.50 sec | 79.97 sec |
-| Near capacity | 0.95 | 53.31 sec | 72.16 sec | 1091.68 sec | 886.71 sec |
-| Overloaded | 1.99 | 199.67 sec | 265.77 sec | 1390.10 sec | 1204.98 sec |
-| Noisy prediction | 0.95 | 60.54 sec | 76.01 sec | 1099.63 sec | 940.85 sec |
-| High cache hit | 0.53 | 0.74 sec | 0.74 sec | 35.04 sec | 35.04 sec |
+| Scenario         | Offered load | Predicted-SJF mean wait | Aging mean wait | Predicted maximum wait | Aging maximum wait |
+| ---------------- | -----------: | ----------------------: | --------------: | ---------------------: | -----------------: |
+| Under capacity   |         0.60 |                3.18 sec |        3.28 sec |             101.50 sec |          79.97 sec |
+| Near capacity    |         0.95 |               53.31 sec |       72.16 sec |            1091.68 sec |         886.71 sec |
+| Overloaded       |         1.99 |              199.67 sec |      265.77 sec |            1390.10 sec |        1204.98 sec |
+| Noisy prediction |         0.95 |               60.54 sec |       76.01 sec |            1099.63 sec |         940.85 sec |
+| High cache hit   |         0.53 |                0.74 sec |        0.74 sec |              35.04 sec |          35.04 sec |
 
 부하가 낮으면 정책 차이는 작고, 용량 근처에서 runtime prediction의 효용이 가장 커졌다.
 추가 prediction noise는 mean wait를 악화시켰지만 Predicted-SJF의 이점이 즉시 사라지지는 않았다.
@@ -201,7 +210,7 @@ offered load가 1을 크게 넘는 경우 어떤 정렬 정책도 지속적인 q
 admission control, backpressure 또는 Worker 확장이 필요하다. 높은 cache hit 조건은 Worker에
 도달하는 service demand 자체를 줄여 가장 큰 대기시간 감소를 보였다.
 
-### SLO robustness result
+### 서비스 목표 충족 결과
 
 `scheduler_multidimensional_evaluation.png`는 mean completion, P95, maximum wait, fairness, wait
 위반율과 high-priority 위반율을 SLO 기준선과 함께 표시한다. `scheduler_slo_stress_heatmap.png`는
@@ -218,7 +227,7 @@ admission control, backpressure 또는 Worker 확장이 필요하다. 높은 cac
 workspace별 보장 service share, worst-workspace P99와 adversarial burst workload를 hard gate에
 추가해야 한다.
 
-## Overload admission experiment
+## 과부하 시 접수 제어 실험
 
 작업 순서만 변경해서는 `ρ > 1`인 지속 과부하를 해결할 수 없으므로 predicted backlog를 이용한
 Admission 실험을 추가했다. 동일한 Global Predicted-SJF + Aging 뒤에 Accept all, Bounded defer,
@@ -242,7 +251,7 @@ scheduler_admission_load_curve.png
 상세한 방법과 한계는
 `docs/testing/scheduler-overload-admission-experiment-2026-08-27.md`에 기록했다.
 
-## Autoscaling strategy experiment
+## 자동 확장 전략 실험
 
 동적 `WorkerCapacityEvent`를 Scheduler와 Admission detector에 추가하고, 부하율 1.96에서 정적
 수락, 정적 Priority shed, Reactive scale, Shed then scale과 Predictive scale 상한선을 비교했다.
@@ -265,7 +274,7 @@ scheduler_scale_delay_sensitivity.png
 
 상세 기록은 `docs/testing/scheduler-autoscaling-experiment-2026-08-27.md`에 있다.
 
-## Scale failure, fallback and cost experiment
+## 확장 실패·대체 처리·비용 실험
 
 Scale 성공·실패를 각 workload에서 모두 replay하고 지정한 성공확률로 가중하는 counterfactual
 평가를 추가했다. 부하율 1.88과 scale 성공률 80%에서 `Scale then fallback shed`는 Scale only 대비
@@ -286,7 +295,7 @@ scheduler_scaling_cost_sensitivity.png
 
 상세 기록은 `docs/testing/scheduler-scaling-reliability-cost-experiment-2026-08-27.md`에 있다.
 
-## Retry and checkpoint resume experiment
+## 재시도와 체크포인트 재개 실험
 
 Attempt-level failure와 correlated provider outage를 추가하고 Restart, Checkpoint resume, Backoff,
 Jitter와 Global retry budget을 비교했다. 기본 부하율 0.81과 독립 실패율 20%에서 Checkpoint
@@ -313,7 +322,7 @@ scheduler_retry_outage_comparison.png
 Autoscaling, reliability, retry, checkpoint, plot과 Streamlit AppTest를 포함한 pytest 65건과 작업
 범위 Ruff 검사가 통과했다.
 
-## Shadow replay pipeline
+## 관측 이력 재실행
 
 실제 TaskAttempt 이력을 시간순으로 재생하기 위한 versioned JSONL contract와 strict validator를
 추가했다. `queued_at`, `started_at`, `completed_at`을 분리하고, feature snapshot과 prediction이
@@ -341,7 +350,7 @@ scheduler_shadow_replay_pipeline_validation.png
 Shadow replay 확장 후 전체 Runtime Predictor prototype pytest 76건과 작업 범위 Ruff 검사가
 통과했다.
 
-## Multi-tenant fairness and priority SLO experiment
+## 작업 공간 간 공정성과 우선순위 목표 실험
 
 Noisy neighbor, sleep/wake burst와 elephant/mice workload에서 FIFO, Global PSJF + Aging, SLO-aware
 PSJF와 두 Fair Queue를 비교했다. 다섯 paired seed 전체에서 Global PSJF + Aging이 mean completion
@@ -365,7 +374,7 @@ scheduler_tenant_fairness_scenario_table.png
 Tenant fairness 확장 후 전체 Runtime Predictor prototype pytest 84건과 작업 범위 Ruff 검사가
 통과했다.
 
-## Adaptive hierarchical Scheduler experiment
+## 적응형 계층 스케줄러 실험
 
 Global predicted drain, workspace soft quota, priority best-case feasibility와 causal scale trigger를 하나의
 Admission 계층으로 결합했다. `Hierarchical + scale`은 noisy neighbor와 sleep/wake workload에서는
@@ -392,7 +401,7 @@ scheduler_hierarchical_sensitivity.png
 Adaptive hierarchical 확장 후 전체 Runtime Predictor prototype pytest 91건과 작업 범위 Ruff 검사가
 통과했다.
 
-## Hierarchical reliability boundary experiment
+## 계층 실행의 신뢰성 경계 실험
 
 Scale 성공·실패를 동일 workload seed에서 counterfactual pair로 실행하고 성공률, fallback, 최소 과금,
 scale-down cooldown과 runtime prediction drift를 결합했다. 기본 scale 성공률 90%에서 `Scale →
@@ -413,7 +422,7 @@ scheduler_hierarchical_prediction_drift.png
 
 상세 기록은 `docs/testing/scheduler-hierarchical-reliability-experiment-2026-08-27.md`에 있다.
 
-## Hierarchical retry, checkpoint and failover experiment
+## 계층 실행의 재시도·복구·제공사 전환 실험
 
 Hierarchical admission, scale success/failure counterfactual, attempt failure, checkpoint resume, provider outage,
 retry budget과 secondary provider failover를 하나의 simulator에 결합했다. 고정 retry 정책은 독립
@@ -434,7 +443,7 @@ scheduler_hierarchical_retry_sensitivity.png
 
 상세 기록은 `docs/testing/scheduler-hierarchical-retry-failover-experiment-2026-08-27.md`에 있다.
 
-## Failure classifier and secondary provider envelope
+## 실패 분류와 보조 제공사 사용 범위
 
 Failure-aware 정책의 classifier 오분류와 secondary provider penalty를 counterfactual로 결합했다.
 FP 5%, FN 10%, secondary latency 1.15배, 단가 1.25배와 quality failure 2%에서 completion 99.20%,
@@ -453,7 +462,7 @@ scheduler_secondary_provider_tradeoff.png
 
 상세 기록은 `docs/testing/scheduler-failure-classifier-provider-envelope-2026-08-27.md`에 있다.
 
-## Multi-signal failure classifier experiment
+## 여러 관측값을 결합한 실패 분류 실험
 
 단일 provider error threshold, cross-workspace burst threshold, weighted multi-signal rule과 temporal
 LogisticRegression을 비교한다. 예측에는 5xx, 429, timeout, workspace 확산, 영향 Worker, provider
@@ -474,7 +483,7 @@ scheduler_failure_signal_threshold_sensitivity.png
 
 상세 기록은 `docs/testing/scheduler-multi-signal-failure-classifier-experiment-2026-08-27.md`에 있다.
 
-## Workspace retry token bucket experiment
+## 작업 공간별 재시도 예산 실험
 
 Global-only retry budget, workspace token bucket, global + workspace hierarchical bucket과 bounded priority
 borrow를 비교한다. Healthy workspace failure 5%, noisy workspace failure 35%, scale 성공률 90%의 paired
@@ -495,7 +504,7 @@ scheduler_workspace_retry_budget_sensitivity.png
 
 상세 기록은 `docs/testing/scheduler-workspace-retry-token-bucket-experiment-2026-08-27.md`에 있다.
 
-## TaskAttempt telemetry shadow contract experiment
+## 실행 시도 관측 데이터 계약 실험
 
 `task-attempt-telemetry-v1` event envelope, lifecycle assembler와 strict validator를 추가했다. 20 seed ×
 60 task에서 clean과 receive reordering은 100% 수락하고 exact fidelity로 재구성했다. Duplicate, missing,

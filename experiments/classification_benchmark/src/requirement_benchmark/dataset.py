@@ -13,7 +13,7 @@ class RequirementExample:
 
 
 def load_requirement_dataset(dataset_config: dict[str, Any]) -> dict[str, list[RequirementExample]]:
-    """Download the configured Hugging Face dataset and normalize its three splits."""
+    """설정한 데이터셋을 내려받아 학습·검증·테스트 형식을 맞춘다."""
     from datasets import load_dataset
 
     dataset = load_dataset(dataset_config["id"])
@@ -28,7 +28,7 @@ def load_requirement_dataset(dataset_config: dict[str, Any]) -> dict[str, list[R
             RequirementExample(
                 id=f"{canonical}-{index}",
                 text=str(row[text_column]).strip(),
-                label=int(row[label_column]),
+                label=int(row[label_column])
             )
             for index, row in enumerate(dataset[split_name])
         ]
@@ -37,10 +37,8 @@ def load_requirement_dataset(dataset_config: dict[str, Any]) -> dict[str, list[R
     return normalized
 
 
-def stratified_limit(
-    rows: list[RequirementExample], limit: int | None, *, seed: int
-) -> list[RequirementExample]:
-    """Return a deterministic, label-balanced subset for smoke tests."""
+def stratified_limit(rows: list[RequirementExample], limit: int | None, *, seed: int) -> list[RequirementExample]:
+    """고정 시드로 레이블별 표본 수를 맞춘 소규모 검사 데이터를 만든다."""
     if limit is None or limit >= len(rows):
         return rows
     if limit < 2:

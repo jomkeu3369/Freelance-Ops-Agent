@@ -5,7 +5,9 @@ from run_answerability_verifier import PairExample, answer_texts, chunk_contains
 
 def test_answer_texts_ignores_annotations_on_impossible_rows() -> None:
     assert answer_texts({"answerable": False, "answers": {"text": ["annotation"]}}) == ()
-    assert answer_texts({"answerable": True, "answers": {"text": [" 실제 답 ", ""]}}) == ("실제 답",)
+    assert answer_texts({"answerable": True, "answers": {"text": [" 실제 답 ", ""]}}) == (
+        "실제 답",
+    )
 
 
 def test_chunk_contains_answer_normalizes_spacing_and_case() -> None:

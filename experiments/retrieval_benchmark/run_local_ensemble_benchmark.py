@@ -25,27 +25,14 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def ensemble_decisions(
-    verifier_scores: np.ndarray,
-    reader_scores: np.ndarray,
-    *,
-    verifier_reject: float,
-    verifier_accept: float,
-    reader_reject: float,
-    reader_accept: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def ensemble_decisions(verifier_scores: np.ndarray, reader_scores: np.ndarray, *, verifier_reject: float, verifier_accept: float, reader_reject: float, reader_accept: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:  # noqa: E501
     accepted = (verifier_scores >= verifier_accept) & (reader_scores >= reader_accept)
     rejected = (verifier_scores <= verifier_reject) & (reader_scores <= reader_reject)
     fallback = ~(accepted | rejected)
     return accepted, rejected, fallback
 
 
-def decision_metrics(
-    labels: np.ndarray,
-    accepted: np.ndarray,
-    rejected: np.ndarray,
-    fallback: np.ndarray,
-) -> dict[str, float | int]:
+def decision_metrics(labels: np.ndarray, accepted: np.ndarray, rejected: np.ndarray, fallback: np.ndarray) -> dict[str, float | int]:  # noqa: E501
     resolved = accepted | rejected
     correct = (accepted & labels) | (rejected & ~labels)
     false_accepts = int(np.sum(accepted & ~labels))
@@ -105,8 +92,11 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in rows]))
@@ -136,7 +126,7 @@ def main() -> None:
         retrieved,
         device=device,
         batch_size=args.batch_size,
-        max_length=384,
+        max_length=384
     )
     verifier_scores = verifier_matrix.max(axis=1)
     del verifier
@@ -155,7 +145,7 @@ def main() -> None:
         split="validation",
         device=device,
         batch_size=args.batch_size,
-        max_length=512,
+        max_length=512
     )
     test_labels, test_reader_scores, test_reader_ms = score_reader(
         reader,
@@ -166,7 +156,7 @@ def main() -> None:
         split="test",
         device=device,
         batch_size=args.batch_size,
-        max_length=512,
+        max_length=512
     )
     validation_verifier_scores = split_scores(verifier_scores, rows, "validation")
     test_verifier_scores = split_scores(verifier_scores, rows, "test")
@@ -205,10 +195,7 @@ def main() -> None:
                 rows, retrieved, chunks, split="test", k=args.candidate_k
             ),
         },
-        "models": {
-            "verifier": str(args.verifier_model_dir),
-            "reader": args.reader_model_id,
-        },
+        "models": {"verifier": str(args.verifier_model_dir), "reader": args.reader_model_id},
         "thresholds": thresholds,
         "validation": validation_metrics,
         "test": test_metrics,

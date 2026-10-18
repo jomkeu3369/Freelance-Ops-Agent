@@ -13,38 +13,81 @@ from .shadow_evaluation import CorrectionSource, Route, ShadowTrace
 
 
 class RouteObservationData(BaseModel):
-    """Exact allowlist persisted by Spring's route observation projection."""
+    """Spring의 라우팅 관측 저장소에서 허용하는 필드 목록."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     route: Route
     decision_source: str = Field(validation_alias=AliasChoices("decisionSource", "decision_source"))
-    reason_codes: list[str] = Field(default_factory=list, validation_alias=AliasChoices("reasonCodes", "reason_codes"))
-    evaluator_provider: str | None = Field(default=None, validation_alias=AliasChoices("evaluatorProvider", "evaluator_provider"))
-    evaluator_model: str | None = Field(default=None, validation_alias=AliasChoices("evaluatorModel", "evaluator_model"))
-    evaluator_suggested_route: Route | None = Field(default=None, validation_alias=AliasChoices("evaluatorSuggestedRoute", "evaluator_suggested_route"))
-    failure_code: str | None = Field(default=None, validation_alias=AliasChoices("failureCode", "failure_code"))
-    safety_code: str | None = Field(default=None, validation_alias=AliasChoices("safetyCode", "safety_code"))
-    policy_overrode_route: Route | None = Field(default=None, validation_alias=AliasChoices("policyOverrodeRoute", "policy_overrode_route"))
-    shadow_suggested_route: Route | None = Field(default=None, validation_alias=AliasChoices("shadowSuggestedRoute", "shadow_suggested_route"))
-    shadow_needs_fallback: bool | None = Field(default=None, validation_alias=AliasChoices("shadowNeedsFallback", "shadow_needs_fallback"))
-    shadow_fallback_reason: str | None = Field(default=None, validation_alias=AliasChoices("shadowFallbackReason", "shadow_fallback_reason"))
-    shadow_fused_share: float | None = Field(default=None, ge=0, le=1, validation_alias=AliasChoices("shadowFusedShare", "shadow_fused_share"))
-    shadow_margin: float | None = Field(default=None, ge=0, le=1, validation_alias=AliasChoices("shadowMargin", "shadow_margin"))
-    shadow_lane_agreement: bool | None = Field(default=None, validation_alias=AliasChoices("shadowLaneAgreement", "shadow_lane_agreement"))
-    shadow_latency_ms: float | None = Field(default=None, ge=0, validation_alias=AliasChoices("shadowLatencyMs", "shadow_latency_ms"))
-    routing_latency_ms: float = Field(ge=0, validation_alias=AliasChoices("routingLatencyMs", "routing_latency_ms"))
-    routing_input_tokens: int = Field(default=0, ge=0, validation_alias=AliasChoices("routingInputTokens", "routing_input_tokens"))
-    routing_output_tokens: int = Field(default=0, ge=0, validation_alias=AliasChoices("routingOutputTokens", "routing_output_tokens"))
-    policy_code: str | None = Field(default=None, validation_alias=AliasChoices("policyCode", "policy_code"))
+    reason_codes: list[str] = Field(
+        default_factory=list, validation_alias=AliasChoices("reasonCodes", "reason_codes")
+    )
+    evaluator_provider: str | None = Field(
+        default=None, validation_alias=AliasChoices("evaluatorProvider", "evaluator_provider")
+    )
+    evaluator_model: str | None = Field(
+        default=None, validation_alias=AliasChoices("evaluatorModel", "evaluator_model")
+    )
+    evaluator_suggested_route: Route | None = Field(
+        default=None,
+        validation_alias=AliasChoices("evaluatorSuggestedRoute", "evaluator_suggested_route")
+    )
+    failure_code: str | None = Field(
+        default=None, validation_alias=AliasChoices("failureCode", "failure_code")
+    )
+    safety_code: str | None = Field(
+        default=None, validation_alias=AliasChoices("safetyCode", "safety_code")
+    )
+    policy_overrode_route: Route | None = Field(
+        default=None, validation_alias=AliasChoices("policyOverrodeRoute", "policy_overrode_route")
+    )
+    shadow_suggested_route: Route | None = Field(
+        default=None,
+        validation_alias=AliasChoices("shadowSuggestedRoute", "shadow_suggested_route")
+    )
+    shadow_needs_fallback: bool | None = Field(
+        default=None, validation_alias=AliasChoices("shadowNeedsFallback", "shadow_needs_fallback")
+    )
+    shadow_fallback_reason: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("shadowFallbackReason", "shadow_fallback_reason")
+    )
+    shadow_fused_share: float | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        validation_alias=AliasChoices("shadowFusedShare", "shadow_fused_share")
+    )
+    shadow_margin: float | None = Field(
+        default=None, ge=0, le=1, validation_alias=AliasChoices("shadowMargin", "shadow_margin")
+    )
+    shadow_lane_agreement: bool | None = Field(
+        default=None, validation_alias=AliasChoices("shadowLaneAgreement", "shadow_lane_agreement")
+    )
+    shadow_latency_ms: float | None = Field(
+        default=None, ge=0, validation_alias=AliasChoices("shadowLatencyMs", "shadow_latency_ms")
+    )
+    routing_latency_ms: float = Field(
+        ge=0, validation_alias=AliasChoices("routingLatencyMs", "routing_latency_ms")
+    )
+    routing_input_tokens: int = Field(
+        default=0, ge=0, validation_alias=AliasChoices("routingInputTokens", "routing_input_tokens")
+    )
+    routing_output_tokens: int = Field(
+        default=0,
+        ge=0,
+        validation_alias=AliasChoices("routingOutputTokens", "routing_output_tokens")
+    )
+    policy_code: str | None = Field(
+        default=None, validation_alias=AliasChoices("policyCode", "policy_code")
+    )
 
 
 class RouteObservationExport(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         alias_generator=lambda name: "".join(
-            word if index == 0 else word.capitalize()
-            for index, word in enumerate(name.split("_"))
+            word if index == 0 else word.capitalize() for index, word in enumerate(name.split("_"))
         ),
         populate_by_name=True
     )
@@ -66,8 +109,7 @@ class RouteGoldReview(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         alias_generator=lambda name: "".join(
-            word if index == 0 else word.capitalize()
-            for index, word in enumerate(name.split("_"))
+            word if index == 0 else word.capitalize() for index, word in enumerate(name.split("_"))
         ),
         populate_by_name=True
     )
@@ -83,8 +125,7 @@ class RouteReviewExportPage(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         alias_generator=lambda name: "".join(
-            word if index == 0 else word.capitalize()
-            for index, word in enumerate(name.split("_"))
+            word if index == 0 else word.capitalize() for index, word in enumerate(name.split("_"))
         ),
         populate_by_name=True
     )
@@ -119,7 +160,11 @@ class ShadowPreparationManifest(BaseModel):
 
 
 def _read_models(path: Path, model: type[BaseModel]) -> list[BaseModel]:
-    return [model.model_validate_json(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return [
+        model.model_validate_json(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _digest(key: bytes, namespace: str, value: str) -> str:
@@ -128,18 +173,28 @@ def _digest(key: bytes, namespace: str, value: str) -> str:
 
 def _sampling_stratum(data: RouteObservationData) -> Literal["natural", "risk"]:
     risk_route = data.route in {"REACT_AGENT", "HUMAN_REQUIRED"}
-    disagreement = data.shadow_suggested_route is not None and data.shadow_suggested_route != data.route
+    disagreement = (
+        data.shadow_suggested_route is not None and data.shadow_suggested_route != data.route
+    )
     return "risk" if risk_route or disagreement else "natural"
 
 
 def prepare_shadow_traces(observation_path: Path, review_path: Path, output_path: Path, hash_key: str, hash_key_version: str = "test-v1") -> tuple[Path, Path]:
-    observations = [RouteObservationExport.model_validate(item) for item in _read_models(observation_path, RouteObservationExport)]
-    reviews = [RouteGoldReview.model_validate(item) for item in _read_models(review_path, RouteGoldReview)]
+    observations = [
+        RouteObservationExport.model_validate(item)
+        for item in _read_models(observation_path, RouteObservationExport)
+    ]
+    reviews = [
+        RouteGoldReview.model_validate(item) for item in _read_models(review_path, RouteGoldReview)
+    ]
     return _prepare_shadow_models(observations, reviews, output_path, hash_key, hash_key_version)
 
 
 def prepare_shadow_export_pages(page_path: Path, output_path: Path, hash_key: str, hash_key_version: str = "test-v1") -> tuple[Path, Path]:
-    pages = [RouteReviewExportPage.model_validate(item) for item in _read_models(page_path, RouteReviewExportPage)]
+    pages = [
+        RouteReviewExportPage.model_validate(item)
+        for item in _read_models(page_path, RouteReviewExportPage)
+    ]
     if not pages:
         raise ValueError("route review export page file is empty")
     cohort = (pages[0].since, pages[0].until, pages[0].snapshot_at)
@@ -155,7 +210,10 @@ def prepare_shadow_export_pages(page_path: Path, output_path: Path, hash_key: st
                 raise ValueError("empty export page cannot advance the cursor")
             continue
         last = page.observations[-1]
-        if page.next_occurred_at != last.occurred_at or page.next_observation_id != last.observation_id:
+        if (
+            page.next_occurred_at != last.occurred_at
+            or page.next_observation_id != last.observation_id
+        ):
             raise ValueError("route review export cursor does not match the final observation")
     observations = [observation for page in pages for observation in page.observations]
     reviews = [review for page in pages for review in page.reviews]
@@ -210,35 +268,41 @@ def _prepare_shadow_models(observations: list[RouteObservationExport], reviews: 
         policy_code = data.policy_code
         if policy_code is None and data.decision_source == "POLICY_GATE" and data.reason_codes:
             policy_code = data.reason_codes[0]
-        traces.append(ShadowTrace(
-            schema_version="1.1",
-            trace_hash=_digest(key_bytes, "trace", f"{observation.run_id}:{observation.event_id}"),
-            workspace_group_hash=_digest(key_bytes, "workspace", str(observation.workspace_id)),
-            project_group_hash=_digest(key_bytes, "project", str(observation.project_id)),
-            occurred_at=observation.occurred_at,
-            final_route=data.route,
-            shadow_suggested_route=data.shadow_suggested_route,
-            shadow_needs_fallback=data.shadow_needs_fallback,
-            shadow_fallback_reason=data.shadow_fallback_reason,
-            shadow_fused_share=data.shadow_fused_share,
-            shadow_margin=data.shadow_margin,
-            shadow_lane_agreement=data.shadow_lane_agreement,
-            gold_route=review.gold_route,
-            correction_source=review.correction_source,
-            llm_called=data.decision_source != "POLICY_GATE",
-            routing_latency_ms=data.routing_latency_ms,
-            shadow_latency_ms=data.shadow_latency_ms,
-            routing_input_tokens=data.routing_input_tokens,
-            routing_output_tokens=data.routing_output_tokens,
-            routing_cost_usd=observation.routing_cost_usd,
-            policy_code=policy_code,
-            sampling_stratum=stratum,
-            population_stratum_probability=population_strata[stratum] / len(observations),
-            review_inclusion_probability=inclusion_probability,
-            sample_weight=1 / inclusion_probability
-        ))
+        traces.append(
+            ShadowTrace(
+                schema_version="1.1",
+                trace_hash=_digest(
+                    key_bytes, "trace", f"{observation.run_id}:{observation.event_id}"
+                ),
+                workspace_group_hash=_digest(key_bytes, "workspace", str(observation.workspace_id)),
+                project_group_hash=_digest(key_bytes, "project", str(observation.project_id)),
+                occurred_at=observation.occurred_at,
+                final_route=data.route,
+                shadow_suggested_route=data.shadow_suggested_route,
+                shadow_needs_fallback=data.shadow_needs_fallback,
+                shadow_fallback_reason=data.shadow_fallback_reason,
+                shadow_fused_share=data.shadow_fused_share,
+                shadow_margin=data.shadow_margin,
+                shadow_lane_agreement=data.shadow_lane_agreement,
+                gold_route=review.gold_route,
+                correction_source=review.correction_source,
+                llm_called=data.decision_source != "POLICY_GATE",
+                routing_latency_ms=data.routing_latency_ms,
+                shadow_latency_ms=data.shadow_latency_ms,
+                routing_input_tokens=data.routing_input_tokens,
+                routing_output_tokens=data.routing_output_tokens,
+                routing_cost_usd=observation.routing_cost_usd,
+                policy_code=policy_code,
+                sampling_stratum=stratum,
+                population_stratum_probability=population_strata[stratum] / len(observations),
+                review_inclusion_probability=inclusion_probability,
+                sample_weight=1 / inclusion_probability
+            )
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("".join(f"{trace.model_dump_json()}\n" for trace in traces), encoding="utf-8")
+    output_path.write_text(
+        "".join(f"{trace.model_dump_json()}\n" for trace in traces), encoding="utf-8"
+    )
     manifest = ShadowPreparationManifest(
         hash_key_version=hash_key_version,
         observation_count=len(observations),
@@ -249,8 +313,12 @@ def _prepare_shadow_models(observations: list[RouteObservationExport], reviews: 
         population_strata=population_strata,
         reviewed_strata=reviewed_strata,
         weighting_method="inverse inclusion probability with holdout post-stratification",
-        pricing_snapshot_ids=sorted({str(item.pricing_snapshot_id) for item in observations if item.pricing_snapshot_id}),
-        pricing_versions=sorted({item.pricing_version for item in observations if item.pricing_version}),
+        pricing_snapshot_ids=sorted(
+            {str(item.pricing_snapshot_id) for item in observations if item.pricing_snapshot_id}
+        ),
+        pricing_versions=sorted(
+            {item.pricing_version for item in observations if item.pricing_version}
+        ),
         cost_currency="USD" if currencies else None,
         output_sha256=hashlib.sha256(output_path.read_bytes()).hexdigest()
     )

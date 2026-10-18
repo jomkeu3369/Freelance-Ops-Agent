@@ -111,7 +111,7 @@ def normalize_generated_data(config: RoutingConfig) -> Path:
         rng.shuffle(selected)
         path.write_text(
             "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in selected),
-            encoding="utf-8",
+            encoding="utf-8"
         )
         report["splits"][split] = split_report
 
@@ -120,13 +120,7 @@ def normalize_generated_data(config: RoutingConfig) -> Path:
     return report_path
 
 
-def _generation_prompt(
-    route: str,
-    routes: dict[str, str],
-    split: str,
-    count: int,
-    batch_number: int,
-) -> str:
+def _generation_prompt(route: str, routes: dict[str, str], split: str, count: int, batch_number: int) -> str:
     policy = "\n".join(f"- {name}: {description}" for name, description in routes.items())
     return f"""Create exactly {count} distinct user requests for a routing classifier.
 
@@ -159,15 +153,7 @@ Requirements:
 """
 
 
-def _request_batch(
-    client: Any,
-    model: str,
-    route: str,
-    routes: dict[str, str],
-    split: str,
-    count: int,
-    batch_number: int,
-) -> Any:
+def _request_batch(client: Any, model: str, route: str, routes: dict[str, str], split: str, count: int, batch_number: int) -> Any:
     return client.responses.create(
         model=model,
         reasoning={"effort": "none"},
@@ -189,7 +175,7 @@ def _request_batch(
                 "strict": True,
                 "schema": SyntheticBatch.model_json_schema(),
             }
-        },
+        }
     )
 
 
@@ -238,9 +224,9 @@ def generate_training_data(config: RoutingConfig) -> Path:
                                 config.routes,
                                 current_split,
                                 spec[0],
-                                spec[1],
+                                spec[1]
                             ),
-                            zip(counts, batch_numbers),
+                            zip(counts, batch_numbers)
                         )
                     )
                 batch_number += call_count
@@ -277,7 +263,7 @@ def generate_training_data(config: RoutingConfig) -> Path:
                 print(
                     f"generated {split} {route}: {len(by_route[route])}/{per_route} "
                     f"(accepted {len(accepted)})",
-                    flush=True,
+                    flush=True
                 )
                 if attempts_without_progress >= 3:
                     raise RuntimeError(f"No valid new cases generated for {split}/{route}")

@@ -23,6 +23,10 @@ def test_robustness_report_includes_plot_table(tmp_path: Path) -> None:
     assert len(outputs) == 4
     assert all(path.exists() for path in outputs)
     report = json.loads(outputs[0].read_text(encoding="utf-8"))
-    assert [row["scenario"] for row in report["selected"]] == ["independent", "expected_shared", "stressed_shared"]
+    assert [row["scenario"] for row in report["selected"]] == [
+        "independent",
+        "expected_shared",
+        "stressed_shared",
+    ]
     assert report["recommended_canary"]["natural_audit_fraction"] == 0.05
     assert report["recommended_canary"]["p95_label_error_rate"] <= 0.01

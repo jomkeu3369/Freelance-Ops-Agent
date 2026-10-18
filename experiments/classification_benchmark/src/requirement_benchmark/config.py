@@ -40,4 +40,3 @@ def load_config(path: str | Path) -> BenchmarkConfig:
     if len(raw["judges"]["models"]) != 3:
         raise ValueError("Exactly three independent judge models are required")
     return BenchmarkConfig(raw=raw, root=config_path.parent)
-

@@ -5,7 +5,25 @@ from pathlib import Path
 
 import pytest
 
-from .prototype import FEATURE_NAMES, POST_EXECUTION_METADATA, AgentTask, DriftGatedEmaCalibrator, EmaResidualCalibrator, ModelKind, OnlineResidualRegressor, RuntimePredictor, TaskExecutionLog, apply_causal_ema, apply_drift_gated_ema, apply_rolling_median_residual, compare_models, generate_synthetic_history, replay_online_residual_learning, split_history, with_post_execution_metadata
+from .prototype import (
+    FEATURE_NAMES,
+    POST_EXECUTION_METADATA,
+    AgentTask,
+    DriftGatedEmaCalibrator,
+    EmaResidualCalibrator,
+    ModelKind,
+    OnlineResidualRegressor,
+    RuntimePredictor,
+    TaskExecutionLog,
+    apply_causal_ema,
+    apply_drift_gated_ema,
+    apply_rolling_median_residual,
+    compare_models,
+    generate_synthetic_history,
+    replay_online_residual_learning,
+    split_history,
+    with_post_execution_metadata,
+)
 
 
 def test_synthetic_dataset_is_reproducible_and_has_requested_size() -> None:
@@ -29,7 +47,9 @@ def test_model_fits_and_predicts_a_positive_float(model_kind: ModelKind) -> None
     assert prediction > 0
 
 
-@pytest.mark.filterwarnings("ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning")
+@pytest.mark.filterwarnings(
+    "ignore:Setting the shape on a NumPy array has been deprecated:DeprecationWarning"
+)
 def test_save_and_load_preserve_prediction(tmp_path: Path) -> None:
     history = generate_synthetic_history(500)
     predictor = RuntimePredictor(ModelKind.RANDOM_FOREST).fit(history)
@@ -45,7 +65,14 @@ def test_save_and_load_preserve_prediction(tmp_path: Path) -> None:
 def test_unknown_categories_do_not_crash_prediction() -> None:
     history = generate_synthetic_history(500)
     predictor = RuntimePredictor(ModelKind.LINEAR).fit(history)
-    unseen = AgentTask(task_type="brand_new_specialist", model="future-model-v9", input_tokens=12_000, context_tokens=24_000, file_count=8, subagent_depth=1)
+    unseen = AgentTask(
+        task_type="brand_new_specialist",
+        model="future-model-v9",
+        input_tokens=12_000,
+        context_tokens=24_000,
+        file_count=8,
+        subagent_depth=1
+    )
 
     assert predictor.predict(unseen) > 0
 
@@ -54,18 +81,40 @@ def test_runtime_target_is_not_queue_wait_time() -> None:
     record = generate_synthetic_history(1, random_seed=9)[0]
     delayed_start = record.started_at + timedelta(seconds=90)
     delayed_completion = delayed_start + timedelta(seconds=record.runtime_seconds)
-    delayed = TaskExecutionLog(task_id=record.task_id, task=record.task, queued_at=record.queued_at, started_at=delayed_start, completed_at=delayed_completion, runtime_seconds=record.runtime_seconds, success=record.success)
+    delayed = TaskExecutionLog(
+        task_id=record.task_id,
+        task=record.task,
+        queued_at=record.queued_at,
+        started_at=delayed_start,
+        completed_at=delayed_completion,
+        runtime_seconds=record.runtime_seconds,
+        success=record.success
+    )
 
     assert delayed.queue_wait_time_seconds == pytest.approx(record.queue_wait_time_seconds + 90)
     assert delayed.runtime_seconds == record.runtime_seconds
 
     with pytest.raises(ValueError, match="completed_at - started_at"):
-        TaskExecutionLog(task_id=record.task_id, task=record.task, queued_at=record.queued_at, started_at=record.started_at, completed_at=record.completed_at, runtime_seconds=record.runtime_seconds + 1, success=True)
+        TaskExecutionLog(
+            task_id=record.task_id,
+            task=record.task,
+            queued_at=record.queued_at,
+            started_at=record.started_at,
+            completed_at=record.completed_at,
+            runtime_seconds=record.runtime_seconds + 1,
+            success=True
+        )
 
 
 def test_post_execution_metadata_is_excluded_from_features() -> None:
     record = generate_synthetic_history(1)[0]
-    changed = with_post_execution_metadata(record, actual_tool_calls=999, output_tokens=999_999, retry_count=99, success=not record.success)
+    changed = with_post_execution_metadata(
+        record,
+        actual_tool_calls=999,
+        output_tokens=999_999,
+        retry_count=99,
+        success=not record.success
+    )
 
     assert record.task.feature_row() == changed.task.feature_row()
     assert set(FEATURE_NAMES).isdisjoint(POST_EXECUTION_METADATA)
@@ -114,7 +163,9 @@ def test_drift_gated_ema_activates_after_sustained_bias_and_bounds_correction() 
 
 
 def test_rolling_median_residual_is_causal_and_bounded() -> None:
-    corrected = apply_rolling_median_residual([20.0] * 30, [10.0] * 30, window_size=20, minimum_samples=5)
+    corrected = apply_rolling_median_residual(
+        [20.0] * 30, [10.0] * 30, window_size=20, minimum_samples=5
+    )
 
     assert corrected[:5] == [10.0] * 5
     assert corrected[-1] == pytest.approx(12.0)
@@ -150,5 +201,12 @@ def test_online_replay_uses_only_completed_tasks() -> None:
     result = replay_online_residual_learning(history[100:], predictor)
 
     assert result.completed_updates_before_prediction[0] == 0
-    assert all(previous <= current for previous, current in zip(result.completed_updates_before_prediction, result.completed_updates_before_prediction[1:], strict=False))
+    assert all(
+        previous <= current
+        for previous, current in zip(
+            result.completed_updates_before_prediction,
+            result.completed_updates_before_prediction[1:],
+            strict=False
+        )
+    )
     assert result.completed_updates_before_prediction[-1] < len(history[100:])

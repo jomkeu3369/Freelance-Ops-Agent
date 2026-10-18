@@ -61,7 +61,7 @@ def evaluate_case(client: OpenAI, model: str, case_id: str, question: str, passa
                 "strict": True,
                 "schema": Verdict.model_json_schema(),
             }
-        },
+        }
     )
     verdict = Verdict.model_validate_json(response.output_text)
     usage = response.usage
@@ -104,8 +104,11 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in rows]))
@@ -124,12 +127,7 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         futures = {
             executor.submit(
-                evaluate_case,
-                client,
-                args.model,
-                row["case_id"],
-                row["question"],
-                passages,
+                evaluate_case, client, args.model, row["case_id"], row["question"], passages
             ): row["case_id"]
             for row, passages in pending
         }

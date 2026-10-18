@@ -6,9 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-
-def _load(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+from .report_io import load_json as _load
 
 
 def _router_summary(report: dict[str, Any]) -> pd.DataFrame:

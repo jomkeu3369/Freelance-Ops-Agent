@@ -21,14 +21,7 @@ class RoutingJudgeVerdict(BaseModel):
 
 
 @ls.traceable(name="routing-llm-judge", run_type="chain")
-def judge_prediction(
-    client: Any,
-    judge_model: str,
-    case: dict[str, Any],
-    prediction: dict[str, Any],
-    routes: dict[str, str],
-    pricing: dict[str, Any],
-) -> dict[str, Any]:
+def judge_prediction(client: Any, judge_model: str, case: dict[str, Any], prediction: dict[str, Any], routes: dict[str, str], pricing: dict[str, Any]) -> dict[str, Any]:
     payload = {
         "user_request": case["prompt"],
         "reference_route": case["expected_route"],
@@ -61,7 +54,7 @@ def judge_prediction(
                 "strict": True,
                 "schema": RoutingJudgeVerdict.model_json_schema(),
             }
-        },
+        }
     )
     latency_ms = (time.perf_counter() - started) * 1_000
     verdict = RoutingJudgeVerdict.model_validate_json(response.output_text)

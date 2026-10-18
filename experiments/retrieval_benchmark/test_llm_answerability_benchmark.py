@@ -16,5 +16,7 @@ def test_llm_payload_does_not_include_reference_label() -> None:
 
 
 def test_verdict_rejects_unknown_fields() -> None:
-    verdict = Verdict.model_validate({"answerable": False, "confidence": 0.9, "evidence_chunk": None})
+    verdict = Verdict.model_validate(
+        {"answerable": False, "confidence": 0.9, "evidence_chunk": None}
+    )
     assert verdict.answerable is False

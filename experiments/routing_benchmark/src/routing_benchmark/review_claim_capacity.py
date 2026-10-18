@@ -65,7 +65,7 @@ def simulate_review_day(reviewers: int, mean_minutes: int, leased: bool, seed: i
         "strategy": "leased_skip_locked" if leased else "read_then_submit",
         "unique_reviews_per_day": unique,
         "attempts_per_day": attempts,
-        "duplicate_work_rate": duplicates / attempts if attempts else 0.0
+        "duplicate_work_rate": duplicates / attempts if attempts else 0.0,
     }
 
 
@@ -76,23 +76,31 @@ def evaluate_review_claim_capacity(output_dir: Path, trials: int = 500, seed: in
             for strategy_index, strategy in enumerate(STRATEGIES):
                 rows = [
                     simulate_review_day(
-                        reviewers, mean_minutes, strategy == "leased_skip_locked",
-                        seed + trial + reviewers * 10_000 + mean_minutes * 100 + strategy_index * 1_000_000
+                        reviewers,
+                        mean_minutes,
+                        strategy == "leased_skip_locked",
+                        seed
+                        + trial
+                        + reviewers * 10_000
+                        + mean_minutes * 100
+                        + strategy_index * 1_000_000
                     )
                     for trial in range(trials)
                 ]
                 daily = float(np.mean([row["unique_reviews_per_day"] for row in rows]))
                 attempts = float(np.mean([row["attempts_per_day"] for row in rows]))
                 duplicate_rate = float(np.mean([row["duplicate_work_rate"] for row in rows]))
-                summaries.append({
-                    "reviewers": reviewers,
-                    "mean_review_minutes": mean_minutes,
-                    "strategy": strategy,
-                    "mean_unique_reviews_per_day": daily,
-                    "mean_attempts_per_day": attempts,
-                    "mean_duplicate_work_rate": duplicate_rate,
-                    "days_to_11000_reviews": math.ceil(TARGET_REVIEWS / daily)
-                })
+                summaries.append(
+                    {
+                        "reviewers": reviewers,
+                        "mean_review_minutes": mean_minutes,
+                        "strategy": strategy,
+                        "mean_unique_reviews_per_day": daily,
+                        "mean_attempts_per_day": attempts,
+                        "mean_duplicate_work_rate": duplicate_rate,
+                        "days_to_11000_reviews": math.ceil(TARGET_REVIEWS / daily),
+                    }
+                )
     payload = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
@@ -103,9 +111,9 @@ def evaluate_review_claim_capacity(output_dir: Path, trials: int = 500, seed: in
             "review_duration_distribution": "lognormal, sigma=0.35",
             "target_reviews": TARGET_REVIEWS,
             "baseline": "oldest unreviewed row remains visible until POST completes",
-            "candidate": "15-minute lease with PostgreSQL FOR UPDATE SKIP LOCKED"
+            "candidate": "15-minute lease with PostgreSQL FOR UPDATE SKIP LOCKED",
         },
-        "summaries": summaries
+        "summaries": summaries,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "review_claim_capacity.json"
@@ -129,8 +137,7 @@ def _write_csv(path: Path, summaries: list[dict[str, Any]]) -> None:
 
 def _five_minute(summaries: list[dict[str, Any]], strategy: str) -> list[dict[str, Any]]:
     return [
-        row for row in summaries
-        if row["mean_review_minutes"] == 5 and row["strategy"] == strategy
+        row for row in summaries if row["mean_review_minutes"] == 5 and row["strategy"] == strategy
     ]
 
 
@@ -141,20 +148,42 @@ def _plot_dashboard(path: Path, summaries: list[dict[str, Any]]) -> None:
     width = 0.34
     figure, axes = plt.subplots(1, 2, figsize=(15.5, 6.3), constrained_layout=True)
     figure.suptitle("Concurrent Human Review Claim Efficiency", fontsize=17, fontweight="bold")
-    axes[0].bar(x - width / 2, [row["mean_unique_reviews_per_day"] for row in baseline], width,
-                color="#DC2626", label="read then submit")
-    axes[0].bar(x + width / 2, [row["mean_unique_reviews_per_day"] for row in leased], width,
-                color="#059669", label="leased + SKIP LOCKED")
+    axes[0].bar(
+        x - width / 2,
+        [row["mean_unique_reviews_per_day"] for row in baseline],
+        width,
+        color="#DC2626",
+        label="read then submit"
+    )
+    axes[0].bar(
+        x + width / 2,
+        [row["mean_unique_reviews_per_day"] for row in leased],
+        width,
+        color="#059669",
+        label="leased + SKIP LOCKED"
+    )
     axes[0].set_xticks(x, [str(value) for value in REVIEWERS])
     axes[0].set_xlabel("Concurrent reviewers")
     axes[0].set_ylabel("Unique gold reviews / 8-hour day")
     axes[0].set_title("Mean review time = 5 minutes", loc="left", fontweight="bold")
     axes[0].legend(frameon=False)
 
-    axes[1].plot(REVIEWERS, [row["mean_duplicate_work_rate"] for row in baseline], marker="o",
-                 linewidth=2, color="#DC2626", label="read then submit")
-    axes[1].plot(REVIEWERS, [row["mean_duplicate_work_rate"] for row in leased], marker="o",
-                 linewidth=2, color="#059669", label="leased + SKIP LOCKED")
+    axes[1].plot(
+        REVIEWERS,
+        [row["mean_duplicate_work_rate"] for row in baseline],
+        marker="o",
+        linewidth=2,
+        color="#DC2626",
+        label="read then submit"
+    )
+    axes[1].plot(
+        REVIEWERS,
+        [row["mean_duplicate_work_rate"] for row in leased],
+        marker="o",
+        linewidth=2,
+        color="#059669",
+        label="leased + SKIP LOCKED"
+    )
     axes[1].set_xlabel("Concurrent reviewers")
     axes[1].set_ylabel("Duplicate work rate")
     axes[1].set_ylim(-0.02, 1.0)
@@ -171,21 +200,32 @@ def _plot_dashboard(path: Path, summaries: list[dict[str, Any]]) -> None:
 def _plot_table(path: Path, summaries: list[dict[str, Any]]) -> None:
     baseline = _five_minute(summaries, "read_then_submit")
     leased = _five_minute(summaries, "leased_skip_locked")
-    columns = ["Reviewers", "Baseline unique/day", "Leased unique/day", "Gain", "Duplicate saved", "Days to 11k items"]
+    columns = [
+        "Reviewers",
+        "Baseline unique/day",
+        "Leased unique/day",
+        "Gain",
+        "Duplicate saved",
+        "Days to 11k items",
+    ]
     rows = []
     for old, new in zip(baseline, leased):
         gain = new["mean_unique_reviews_per_day"] / old["mean_unique_reviews_per_day"]
-        rows.append([
-            str(old["reviewers"]),
-            f'{old["mean_unique_reviews_per_day"]:.1f}',
-            f'{new["mean_unique_reviews_per_day"]:.1f}',
-            f"{gain:.2f}x",
-            f'{old["mean_duplicate_work_rate"] - new["mean_duplicate_work_rate"]:.1%}',
-            str(new["days_to_11000_reviews"])
-        ])
+        rows.append(
+            [
+                str(old["reviewers"]),
+                f"{old['mean_unique_reviews_per_day']:.1f}",
+                f"{new['mean_unique_reviews_per_day']:.1f}",
+                f"{gain:.2f}x",
+                f"{old['mean_duplicate_work_rate'] - new['mean_duplicate_work_rate']:.1%}",
+                str(new["days_to_11000_reviews"]),
+            ]
+        )
     figure, axis = plt.subplots(figsize=(15.5, 4.7))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center")
+    table = axis.table(
+        cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center"
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10.5)
     table.scale(1, 1.9)

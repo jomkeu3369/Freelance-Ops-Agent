@@ -34,9 +34,7 @@ def test_estimate_judge_plan_counts_three_models() -> None:
         "estimated_input_tokens_per_call": 100,
         "estimated_output_tokens_per_call": 50,
     }
-    pricing = {
-        "models": {model: {"input": 1.0, "output": 2.0} for model in judges["models"]}
-    }
+    pricing = {"models": {model: {"input": 1.0, "output": 2.0} for model in judges["models"]}}
     result = estimate_judge_plan(judges, pricing)
     assert result["classifier_predictions"] == 20
     assert result["total_calls"] == 60
@@ -59,7 +57,7 @@ def test_evaluate_prediction_uses_strict_schema_and_usage() -> None:
                         "rationale": "The predicted label matches the explicit behavior.",
                     }
                 ),
-                usage=SimpleNamespace(input_tokens=100, output_tokens=20),
+                usage=SimpleNamespace(input_tokens=100, output_tokens=20)
             )
 
     client = SimpleNamespace(responses=Responses())

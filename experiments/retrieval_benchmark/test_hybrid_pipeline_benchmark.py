@@ -17,9 +17,7 @@ def test_wilson_upper_is_conservative_for_small_samples() -> None:
 
 def test_selective_thresholds_leave_uncertain_cases_for_fallback() -> None:
     labels = np.asarray([False] * 75 + [True] * 75)
-    scores = np.asarray(
-        [0.01] * 70 + [0.91, 0.92, 0.93, 0.94, 0.95] + [0.02] * 2 + [0.80] * 73
-    )
+    scores = np.asarray([0.01] * 70 + [0.91, 0.92, 0.93, 0.94, 0.95] + [0.02] * 2 + [0.80] * 73)
 
     accept = choose_accept_threshold(labels, scores, max_false_accept_rate=0.10)
     reject = choose_reject_threshold(labels, scores, max_false_reject_rate=0.10)

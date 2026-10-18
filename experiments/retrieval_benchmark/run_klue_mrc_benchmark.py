@@ -31,7 +31,7 @@ def load_dataset(path: Path) -> tuple[dict[str, str], list[QueryCase]]:
             split=row["benchmark_split"],
             answerable=row["answerable"],
             relevant_document_ids=(row["document_id"],) if row["answerable"] else (),
-            category="klue_answerable" if row["answerable"] else "klue_unanswerable",
+            category="klue_answerable" if row["answerable"] else "klue_unanswerable"
         )
         for row in rows
     ]
@@ -67,7 +67,10 @@ def bootstrap_intervals(report: dict[str, Any], *, samples: int = 2_000, seed: i
         method_metrics: dict[str, Any] = {}
         for metric in ("precision", "recall", "f1", "false_accept_rate"):
             values = np.asarray(
-                [metric_from_predictions(labels[index], predictions[index], metric) for index in indices]
+                [
+                    metric_from_predictions(labels[index], predictions[index], metric)
+                    for index in indices
+                ]
             )
             method_metrics[metric] = {
                 "low": float(np.quantile(values, 0.025)),
@@ -118,21 +121,20 @@ def main() -> None:
     load_dotenv(env_path, override=True)
     documents, cases = load_dataset(args.dataset)
     chunks = chunks_from_texts(documents, chunk_size=600, overlap=150)
-    cache_path = Path(env_path).parent / "agent" / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json"
+    cache_path = (
+        Path(env_path).parent
+        / "agent"
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json"
+    )
     embedder = OpenAIEmbedder(
-        model="text-embedding-3-small",
-        dimensions=1536,
-        cache_path=cache_path,
-        batch_size=128,
+        model="text-embedding-3-small", dimensions=1536, cache_path=cache_path, batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = embed_queries(cases, embedder)
     clusters = select_clusters(
-        corpus_vectors,
-        max_k=12,
-        min_cluster_size=10,
-        min_silhouette=0.05,
-        seed=42,
+        corpus_vectors, max_k=12, min_cluster_size=10, min_silhouette=0.05, seed=42
     )
     report = run_benchmark(
         chunks,
@@ -141,13 +143,12 @@ def main() -> None:
         query_vectors,
         clusters=clusters,
         max_false_accept_rate=0.10,
-        uncertain_band=0.10,
+        uncertain_band=0.10
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = serializable_report(report, embedder.usage_summary())
     (args.output_dir / "results.json").write_text(
-        json.dumps(output, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+        json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     plot_benchmark_report(report, output_dir=args.output_dir, show=False)
     print(json.dumps(output, ensure_ascii=False, indent=2))

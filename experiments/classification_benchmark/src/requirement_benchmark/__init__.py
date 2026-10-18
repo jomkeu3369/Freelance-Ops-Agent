@@ -1,4 +1,3 @@
-"""Requirement classification benchmark."""
+"""요구사항 분류 모델 비교 실험."""
 
 __version__ = "0.1.0"
-

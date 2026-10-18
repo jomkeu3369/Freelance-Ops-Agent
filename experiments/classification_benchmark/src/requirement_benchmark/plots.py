@@ -45,8 +45,12 @@ def plot_classifier_report(local_report: dict[str, Any], output_path: Path) -> N
     x = np.arange(len(names))
     width = 0.34
     quality = axes[0, 0]
-    quality.bar(x - width / 2, [run["metrics"]["accuracy"] for run in runs], width, label="Accuracy")
-    quality.bar(x + width / 2, [run["metrics"]["macro_f1"] for run in runs], width, label="Macro-F1")
+    quality.bar(
+        x - width / 2, [run["metrics"]["accuracy"] for run in runs], width, label="Accuracy"
+    )
+    quality.bar(
+        x + width / 2, [run["metrics"]["macro_f1"] for run in runs], width, label="Macro-F1"
+    )
     quality.set_xticks(x, names)
     quality.set_ylim(0, 1)
     quality.legend(frameon=False)
@@ -71,13 +75,13 @@ def plot_classifier_report(local_report: dict[str, Any], output_path: Path) -> N
         x - width / 2,
         [run["metrics"]["parameter_memory_mb"] for run in runs],
         width,
-        label="Parameters",
+        label="Parameters"
     )
     memory.bar(
         x + width / 2,
         [run["metrics"]["peak_cuda_memory_mb"] for run in runs],
         width,
-        label="Peak CUDA",
+        label="Peak CUDA"
     )
     memory.set_xticks(x, names)
     memory.legend(frameon=False)
@@ -104,19 +108,19 @@ def plot_judge_report(judge_report: dict[str, Any], output_path: Path) -> None:
         x - width,
         [summary["classification_pass_rate"] for summary in summaries],
         width,
-        label="Classification pass",
+        label="Classification pass"
     )
     quality.bar(
         x,
         [1 - summary["mean_groundless_rate"] for summary in summaries],
         width,
-        label="Groundedness",
+        label="Groundedness"
     )
     quality.bar(
         x + width,
         [summary["hallucination_rate"] for summary in summaries],
         width,
-        label="Hallucination",
+        label="Hallucination"
     )
     quality.set_xticks(x, names)
     quality.set_ylim(0, 1.08)
@@ -126,7 +130,9 @@ def plot_judge_report(judge_report: dict[str, Any], output_path: Path) -> None:
 
     cost = axes[1]
     model_colors = [JUDGE_COLORS.get(model, "#64748B") for model in models]
-    bars = cost.bar(models, [summary["total_cost_usd"] for summary in model_summaries], color=model_colors)
+    bars = cost.bar(
+        models, [summary["total_cost_usd"] for summary in model_summaries], color=model_colors
+    )
     _style_axis(cost, "Judge cost and latency", "Cost (USD per 60 calls)")
     cost.bar_label(bars, fmt="$%.4f", padding=3, fontsize=8)
     cost.tick_params(axis="x", rotation=15)
@@ -137,7 +143,7 @@ def plot_judge_report(judge_report: dict[str, Any], output_path: Path) -> None:
         color="#111827",
         marker="o",
         linewidth=2,
-        label="Mean latency",
+        label="Mean latency"
     )
     latency.set_ylabel("Mean latency (seconds)")
     latency.spines["top"].set_visible(False)

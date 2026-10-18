@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .report_io import load_json as _load
+
 plt.switch_backend("Agg")
 
 COLORS = {"A_liquid_encoder": "#2563EB", "B_prompt_llm": "#F97316"}
-
-
-def _load(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _style(axis: Any, title: str, ylabel: str = "") -> None:
@@ -71,7 +68,7 @@ def plot_router_dashboard(report_path: Path, output_path: Path) -> None:
             [router["metrics"]["per_route"][label]["f1-score"] for label in labels],
             width,
             label=router["name"],
-            color=colors[index],
+            color=colors[index]
         )
     per_route.set_xticks(route_x, labels, rotation=20, ha="right")
     per_route.set_ylim(0, 1.08)

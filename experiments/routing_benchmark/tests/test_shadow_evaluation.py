@@ -49,33 +49,39 @@ def test_schema_rejects_prompt_and_plain_identifiers() -> None:
 
 def test_schema_rejects_inconsistent_sampling_weight() -> None:
     payload = _trace(1, "group").model_dump(mode="json")
-    payload.update({
-        "schema_version": "1.1",
-        "sampling_stratum": "risk",
-        "population_stratum_probability": 0.1,
-        "review_inclusion_probability": 0.5,
-        "sample_weight": 1.0
-    })
+    payload.update(
+        {
+            "schema_version": "1.1",
+            "sampling_stratum": "risk",
+            "population_stratum_probability": 0.1,
+            "review_inclusion_probability": 0.5,
+            "sample_weight": 1.0,
+        }
+    )
 
     with pytest.raises(ValidationError, match="inverse"):
         ShadowTrace.model_validate(payload)
 
 
 def test_post_stratification_restores_population_accuracy() -> None:
-    natural = _trace(1, "natural", gold="HUMAN_REQUIRED").model_copy(update={
-        "schema_version": "1.1",
-        "sampling_stratum": "natural",
-        "population_stratum_probability": 0.9,
-        "review_inclusion_probability": 1 / 9,
-        "sample_weight": 9.0
-    })
-    risk = _trace(2, "risk", gold="DIRECT_TOOL").model_copy(update={
-        "schema_version": "1.1",
-        "sampling_stratum": "risk",
-        "population_stratum_probability": 0.1,
-        "review_inclusion_probability": 1.0,
-        "sample_weight": 1.0
-    })
+    natural = _trace(1, "natural", gold="HUMAN_REQUIRED").model_copy(
+        update={
+            "schema_version": "1.1",
+            "sampling_stratum": "natural",
+            "population_stratum_probability": 0.9,
+            "review_inclusion_probability": 1 / 9,
+            "sample_weight": 9.0,
+        }
+    )
+    risk = _trace(2, "risk", gold="DIRECT_TOOL").model_copy(
+        update={
+            "schema_version": "1.1",
+            "sampling_stratum": "risk",
+            "population_stratum_probability": 0.1,
+            "review_inclusion_probability": 1.0,
+            "sample_weight": 1.0,
+        }
+    )
 
     metrics = _evaluate("weighted", "actual", [natural, risk])
 

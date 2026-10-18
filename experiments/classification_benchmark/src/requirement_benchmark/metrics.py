@@ -15,9 +15,7 @@ def classification_metrics(y_true: Sequence[int], y_pred: Sequence[int]) -> dict
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         "weighted_f1": float(f1_score(y_true, y_pred, average="weighted", zero_division=0)),
-        "macro_precision": float(
-            precision_score(y_true, y_pred, average="macro", zero_division=0)
-        ),
+        "macro_precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
         "macro_recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
     }
 
@@ -33,7 +31,7 @@ def latency_metrics(latencies_ms: Sequence[float], elapsed_seconds: float) -> di
 
 
 def exact_mcnemar(y_true: Sequence[int], pred_a: Sequence[int], pred_b: Sequence[int]) -> dict[str, Any]:
-    """Two-sided exact McNemar test without a SciPy dependency."""
+    """SciPy 없이 양측 정확 McNemar 검정을 계산한다."""
     a_only = sum(a == truth and b != truth for truth, a, b in zip(y_true, pred_a, pred_b))
     b_only = sum(b == truth and a != truth for truth, a, b in zip(y_true, pred_a, pred_b))
     discordant = a_only + b_only
@@ -45,14 +43,7 @@ def exact_mcnemar(y_true: Sequence[int], pred_a: Sequence[int], pred_b: Sequence
     return {"a_only_correct": a_only, "b_only_correct": b_only, "p_value": p_value}
 
 
-def bootstrap_f1_delta(
-    y_true: Sequence[int],
-    pred_a: Sequence[int],
-    pred_b: Sequence[int],
-    *,
-    iterations: int = 2_000,
-    seed: int = 42,
-) -> dict[str, float]:
+def bootstrap_f1_delta(y_true: Sequence[int], pred_a: Sequence[int], pred_b: Sequence[int], *, iterations: int = 2_000, seed: int = 42) -> dict[str, float]:
     rng = random.Random(seed)
     size = len(y_true)
     deltas: list[float] = []
@@ -72,4 +63,3 @@ def bootstrap_f1_delta(
         "ci95_low": float(lower),
         "ci95_high": float(upper),
     }
-

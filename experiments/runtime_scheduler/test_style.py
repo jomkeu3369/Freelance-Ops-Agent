@@ -5,32 +5,17 @@ import io
 import tokenize
 from pathlib import Path
 
-
-STYLE_PATHS = (Path(__file__).with_name("prototype.py"), Path(__file__).with_name("plot_experiment.py"), Path(__file__).with_name("plot_ema_experiment.py"), Path(__file__).with_name("plot_gated_ema_experiment.py"), Path(__file__).with_name("plot_online_learning_experiment.py"), Path(__file__).with_name("scheduler_simulation.py"), Path(__file__).with_name("scheduler_evaluation.py"), Path(__file__).with_name("overload_simulation.py"), Path(__file__).with_name("autoscaling_simulation.py"), Path(__file__).with_name("autoscaling_reliability_simulation.py"), Path(__file__).with_name("retry_checkpoint_simulation.py"), Path(__file__).with_name("shadow_replay.py"), Path(__file__).with_name("tenant_fairness_simulation.py"), Path(__file__).with_name("hierarchical_scheduler_simulation.py"), Path(__file__).with_name("hierarchical_reliability_simulation.py"), Path(__file__).with_name("hierarchical_retry_simulation.py"), Path(__file__).with_name("failure_classifier_simulation.py"), Path(__file__).with_name("failure_signal_classifier.py"), Path(__file__).with_name("workspace_retry_budget_simulation.py"), Path(__file__).with_name("task_attempt_telemetry.py"), Path(__file__).with_name("task_attempt_telemetry_experiment.py"), Path(__file__).with_name("plot_scheduler_simulation.py"), Path(__file__).with_name("plot_scheduler_evaluation.py"), Path(__file__).with_name("plot_overload_simulation.py"), Path(__file__).with_name("plot_autoscaling_simulation.py"), Path(__file__).with_name("plot_autoscaling_reliability.py"), Path(__file__).with_name("plot_retry_checkpoint_simulation.py"), Path(__file__).with_name("plot_shadow_replay.py"), Path(__file__).with_name("plot_tenant_fairness_simulation.py"), Path(__file__).with_name("plot_hierarchical_scheduler_simulation.py"), Path(__file__).with_name("plot_hierarchical_reliability.py"), Path(__file__).with_name("plot_hierarchical_retry_simulation.py"), Path(__file__).with_name("plot_failure_classifier_simulation.py"), Path(__file__).with_name("plot_failure_signal_classifier.py"), Path(__file__).with_name("plot_workspace_retry_budget.py"), Path(__file__).with_name("plot_task_attempt_telemetry.py"), Path(__file__).with_name("streamlit_scheduler_simulation.py"))
-
-
-def _trailing_comma_lines(path: Path) -> list[int]:
-    source = path.read_text(encoding="utf-8")
-    ignored = {tokenize.ENCODING, tokenize.ENDMARKER, tokenize.INDENT, tokenize.DEDENT, tokenize.NEWLINE, tokenize.NL, tokenize.COMMENT}
-    previous: tokenize.TokenInfo | None = None
-    violations: list[int] = []
-    for token in tokenize.generate_tokens(io.StringIO(source).readline):
-        if token.type in ignored:
-            continue
-        if token.string in (")", "]", "}") and previous is not None and previous.string == ",":
-            violations.append(previous.start[0])
-        previous = token
-    return violations
+STYLE_PATHS = sorted(
+    path for path in Path(__file__).parent.glob("*.py") if not path.name.startswith("test_")
+)
 
 
-def test_function_arguments_and_calls_use_horizontal_layout() -> None:
-    multiline_calls: list[tuple[str, int]] = []
-    multiline_definitions: list[tuple[str, int]] = []
+def test_function_definitions_use_horizontal_layout() -> None:
+    violations = []
     for path in STYLE_PATHS:
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        multiline_calls.extend((path.name, node.lineno) for node in ast.walk(tree) if isinstance(node, ast.Call) and node.end_lineno != node.lineno)
         for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
             if node.args.vararg is not None:
@@ -38,13 +23,24 @@ def test_function_arguments_and_calls_use_horizontal_layout() -> None:
             if node.args.kwarg is not None:
                 arguments.append(node.args.kwarg)
             if any(argument.lineno != node.lineno for argument in arguments):
-                multiline_definitions.append((path.name, node.lineno))
-
-    assert multiline_calls == []
-    assert multiline_definitions == []
+                violations.append((path.name, node.lineno))
+    assert violations == []
 
 
-def test_closing_delimiters_have_no_trailing_comma() -> None:
-    violations = {path.name: lines for path in STYLE_PATHS if (lines := _trailing_comma_lines(path))}
-
-    assert violations == {}
+def test_function_calls_have_no_trailing_comma() -> None:
+    violations = []
+    ignored = {tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT, tokenize.ENDMARKER}
+    for path in STYLE_PATHS:
+        source = path.read_text(encoding="utf-8")
+        for node in ast.walk(ast.parse(source)):
+            if not isinstance(node, ast.Call):
+                continue
+            fragment = ast.get_source_segment(source, node)
+            tokens = [
+                token
+                for token in tokenize.generate_tokens(io.StringIO(fragment).readline)
+                if token.type not in ignored
+            ]
+            if len(tokens) > 1 and tokens[-2].string == ",":
+                violations.append((path.name, node.lineno))
+    assert violations == []

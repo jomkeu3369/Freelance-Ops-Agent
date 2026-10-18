@@ -16,6 +16,7 @@ from safetensors.torch import save_file
 
 from .config import RoutingConfig
 from .metrics import routing_metrics
+from .report_io import read_jsonl as _read_jsonl
 
 HEAD_KEYS = (
     "tok_proj.weight",
@@ -35,13 +36,7 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
-
-
-def _stratified_subset(
-    rows: list[dict[str, Any]], labels: list[str], size: int, seed: int
-) -> list[dict[str, Any]]:
+def _stratified_subset(rows: list[dict[str, Any]], labels: list[str], size: int, seed: int) -> list[dict[str, Any]]:
     if size % len(labels):
         raise ValueError("Learning curve sizes must be divisible by the route count")
     rng = random.Random(seed)
@@ -56,14 +51,7 @@ def _stratified_subset(
     return result
 
 
-def _encode_batch(
-    tokenizer: Any,
-    model: Any,
-    prompts: list[str],
-    route_lanes: list[str],
-    device: torch.device,
-    max_length: int,
-) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor]:
+def _encode_batch(tokenizer: Any, model: Any, prompts: list[str], route_lanes: list[str], device: torch.device, max_length: int) -> tuple[dict[str, torch.Tensor], torch.Tensor, torch.Tensor]:
     prefix = model._prefix(route_lanes)
     texts = [prefix + prompt for prompt in prompts]
     encoded = tokenizer(
@@ -72,7 +60,7 @@ def _encode_batch(
         truncation=True,
         max_length=max_length,
         return_offsets_mapping=True,
-        return_tensors="pt",
+        return_tensors="pt"
     )
     offsets = encoded.pop("offset_mapping")
     batch_size, sequence_length = encoded["input_ids"].shape
@@ -108,28 +96,14 @@ def _encode_batch(
 
 
 @torch.inference_mode()
-def _evaluate(
-    model: Any,
-    tokenizer: Any,
-    rows: list[dict[str, Any]],
-    labels: list[str],
-    route_lanes: list[str],
-    device: torch.device,
-    batch_size: int,
-    max_length: int,
-) -> dict[str, Any]:
+def _evaluate(model: Any, tokenizer: Any, rows: list[dict[str, Any]], labels: list[str], route_lanes: list[str], device: torch.device, batch_size: int, max_length: int) -> dict[str, Any]:
     model.eval()
     predictions: list[str] = []
     truth: list[str] = []
     for start in range(0, len(rows), batch_size):
         batch = rows[start : start + batch_size]
         encoded, text_pool, category_pool = _encode_batch(
-            tokenizer,
-            model,
-            [row["prompt"] for row in batch],
-            route_lanes,
-            device,
-            max_length,
+            tokenizer, model, [row["prompt"] for row in batch], route_lanes, device, max_length
         )
         with torch.autocast(device_type=device.type, dtype=torch.bfloat16):
             logits = model(**encoded, text_pool=text_pool, category_pool=category_pool)["logits"]
@@ -143,12 +117,7 @@ def _head_state(model: Any) -> dict[str, torch.Tensor]:
     return {key: state[key].detach().float().cpu().contiguous() for key in HEAD_KEYS}
 
 
-def _fit_one(
-    config: RoutingConfig,
-    train_rows: list[dict[str, Any]],
-    validation_rows: list[dict[str, Any]],
-    output_dir: Path,
-) -> dict[str, Any]:
+def _fit_one(config: RoutingConfig, train_rows: list[dict[str, Any]], validation_rows: list[dict[str, Any]], output_dir: Path) -> dict[str, Any]:
     from transformers import AutoModel, AutoTokenizer
 
     settings = config.training
@@ -160,22 +129,16 @@ def _fit_one(
     torch.manual_seed(int(config.seed))
     torch.cuda.manual_seed_all(int(config.seed))
     tokenizer = AutoTokenizer.from_pretrained(
-        config.router_a["model_id"],
-        revision=config.router_a["revision"],
-        trust_remote_code=True,
+        config.router_a["model_id"], revision=config.router_a["revision"], trust_remote_code=True
     )
     model = AutoModel.from_pretrained(
-        config.router_a["model_id"],
-        revision=config.router_a["revision"],
-        trust_remote_code=True,
+        config.router_a["model_id"], revision=config.router_a["revision"], trust_remote_code=True
     ).to(device=device, dtype=torch.bfloat16)
     model.lfm2.requires_grad_(False)
     model.eval()
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
-        trainable,
-        lr=float(settings["learning_rate"]),
-        weight_decay=float(settings["weight_decay"]),
+        trainable, lr=float(settings["learning_rate"]), weight_decay=float(settings["weight_decay"])
     )
     batch_size = int(settings["batch_size"])
     max_length = int(settings["max_length"])
@@ -195,16 +158,10 @@ def _fit_one(
             indices = order[start : start + batch_size]
             batch = [train_rows[index] for index in indices]
             encoded, text_pool, category_pool = _encode_batch(
-                tokenizer,
-                model,
-                [row["prompt"] for row in batch],
-                route_lanes,
-                device,
-                max_length,
+                tokenizer, model, [row["prompt"] for row in batch], route_lanes, device, max_length
             )
             targets = torch.tensor(
-                [labels.index(row["expected_route"]) for row in batch],
-                device=device,
+                [labels.index(row["expected_route"]) for row in batch], device=device
             )
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -218,14 +175,7 @@ def _fit_one(
             total_loss += float(loss.detach()) * len(batch)
 
         validation = _evaluate(
-            model,
-            tokenizer,
-            validation_rows,
-            labels,
-            route_lanes,
-            device,
-            batch_size,
-            max_length,
+            model, tokenizer, validation_rows, labels, route_lanes, device, batch_size, max_length
         )
         row = {
             "epoch": epoch,
@@ -237,7 +187,7 @@ def _fit_one(
         print(
             f"train={len(train_rows)} epoch={epoch} loss={row['train_loss']:.4f} "
             f"val_f1={row['validation_macro_f1']:.4f}",
-            flush=True,
+            flush=True
         )
         if validation["macro_f1"] > best_f1:
             best_f1 = float(validation["macro_f1"])
@@ -316,7 +266,7 @@ def train_router_a(config: RoutingConfig) -> Path:
         [row["train_size"] for row in results],
         [row["best_validation_macro_f1"] for row in results],
         marker="o",
-        color="#2563EB",
+        color="#2563EB"
     )
     axis.set_title("LiquidAI A1 learning curve", loc="left", fontweight="bold")
     axis.set_xlabel("Training examples")

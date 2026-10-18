@@ -9,9 +9,8 @@ SUPRA_REVISION = "458d9f67018a350ee84bfd5e936aeca6f2522341"
 ORCHESTRATION_DATASET = "rescommons/agent-orchestration-dataset"
 ORCHESTRATION_REVISION = "a6f62525d440030983dba2a61671d0e48177c100"
 
-# These indices were reviewed against the V2 execution policy using only the
-# visible user prompt. The datasets' original labels are deliberately not
-# translated into product routes.
+# 사용자에게 보이는 요청문만으로 V2 실행 정책에 맞는 행을 검토했다.
+# 원본 데이터셋의 레이블을 제품 실행 경로로 그대로 치환하지 않는다.
 SIMPLE_SUPRA_INDICES = (3, 5, 7, 19, 30, 32, 36, 40, 46, 50)
 REACT_ORCHESTRATION_INDICES = (0, 3, 5, 9, 10, 13, 17, 18, 22, 74)
 HUMAN_ORCHESTRATION_INDICES = (1, 4, 11, 12, 15, 19, 21, 23, 76, 90)
@@ -105,28 +104,22 @@ def _fixture_cases(prompts: list[str], route: str, rule: str) -> list[RoutingCas
             source_dataset="Freelance-Ops-Agent V2 routing policy",
             source_split="fixture",
             source_index=index,
-            mapping_rule=rule,
+            mapping_rule=rule
         )
         for index, prompt in enumerate(prompts)
     ]
 
 
 def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
-    """Build the frozen, human-reviewed V2 policy benchmark."""
+    """사람이 검토한 V2 정책 레이블로 고정 평가 데이터를 만든다."""
     from datasets import load_dataset
 
     if samples_per_route != 10:
         raise ValueError("The reviewed gold set is frozen at exactly 10 cases per route")
 
-    supra = load_dataset(
-        SUPRA_DATASET,
-        revision=SUPRA_REVISION,
-        split="train",
-    )
+    supra = load_dataset(SUPRA_DATASET, revision=SUPRA_REVISION, split="train")
     orchestration = load_dataset(
-        ORCHESTRATION_DATASET,
-        revision=ORCHESTRATION_REVISION,
-        split="train",
+        ORCHESTRATION_DATASET, revision=ORCHESTRATION_REVISION, split="train"
     )
 
     simple = [
@@ -137,7 +130,7 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=SUPRA_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: single language generation call; no tool or delegation",
+            mapping_rule="human-reviewed: single language generation call; no tool or delegation"
         )
         for index in SIMPLE_SUPRA_INDICES
     ]
@@ -149,7 +142,7 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=ORCHESTRATION_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: bounded transactional or incident workflow using tools",
+            mapping_rule="human-reviewed: bounded transactional or incident workflow using tools"
         )
         for index in REACT_ORCHESTRATION_INDICES
     ]
@@ -161,19 +154,19 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=ORCHESTRATION_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: leave approval or identity-document verification",
+            mapping_rule="human-reviewed: leave approval or identity-document verification"
         )
         for index in HUMAN_ORCHESTRATION_INDICES
     ]
     direct = _fixture_cases(
         DIRECT_TOOL_FIXTURES,
         "DIRECT_TOOL",
-        "V2 policy fixture: one exact deterministic calculation or structured lookup",
+        "V2 policy fixture: one exact deterministic calculation or structured lookup"
     )
     supervisor = _fixture_cases(
         SUPERVISOR_FIXTURES,
         "SUPERVISOR",
-        "V2 policy fixture: explicit multi-department coordination and synthesis",
+        "V2 policy fixture: explicit multi-department coordination and synthesis"
     )
 
     cases = direct + simple + react + supervisor + human

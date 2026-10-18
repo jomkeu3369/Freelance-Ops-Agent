@@ -1,4 +1,4 @@
-# Routing benchmark 결과 — 2026-08-10
+# 실행 경로 선택 실험 결과
 
 ## 2026-08-27 Shadow 운영 수집·검토 용량
 
@@ -97,24 +97,24 @@ GPT-5.6 Terra로 route별 학습 500건과 검증 100건을 생성하고 정규�
 재학습했다.
 
 | 학습 건수 | 검증 Macro-F1 |
-|---:|---:|
-| 250 | 0.330 |
-| 500 | 0.330 |
-| 1,000 | 0.372 |
-| 2,500 | 0.518 |
+| --------: | ------------: |
+|       250 |         0.330 |
+|       500 |         0.330 |
+|     1,000 |         0.372 |
+|     2,500 |         0.518 |
 
 데이터를 늘릴수록 성능이 계속 상승했지만, 2,500건에서도 제안 승격 기준 0.80에는
 미달했다. 2,500건 학습은 202.6초, peak CUDA memory는 약 919MB였다.
 
-| 항목 | LiquidAI A0 | LiquidAI A1 | GPT-5.6 Luna B |
-|---|---:|---:|---:|
-| Accuracy | 0.200 | 0.540 | 0.760 |
-| Macro-F1 | 0.067 | 0.522 | 0.688 |
-| p50 latency | 50.2 ms | 21.7 ms | 2,040.5 ms |
-| p95 latency | 143.1 ms | 26.2 ms | 4,045.0 ms |
-| 50건 라우팅 비용 | $0 | $0 | $0.044768 |
-| Judge route pass | 0.15 | 0.45 | 1.00 |
-| Judge groundedness | 0.771 | 0.829 | 0.988 |
+| 항목               | LiquidAI A0 | LiquidAI A1 | GPT-5.6 Luna B |
+| ------------------ | ----------: | ----------: | -------------: |
+| Accuracy           |       0.200 |       0.540 |          0.760 |
+| Macro-F1           |       0.067 |       0.522 |          0.688 |
+| p50 latency        |     50.2 ms |     21.7 ms |     2,040.5 ms |
+| p95 latency        |    143.1 ms |     26.2 ms |     4,045.0 ms |
+| 50건 라우팅 비용   |          $0 |          $0 |      $0.044768 |
+| Judge route pass   |        0.15 |        0.45 |           1.00 |
+| Judge groundedness |       0.771 |       0.829 |          0.988 |
 
 A1 route별 F1은 `DIRECT_TOOL 0.720`, `SIMPLE_LLM 0.750`, `REACT_AGENT 0.190`,
 `SUPERVISOR 0.333`, `HUMAN_REQUIRED 0.615`다. A0보다 실질적으로 개선됐지만 모든 route
@@ -151,15 +151,15 @@ billing을 기준으로 확인한다.
 RTX 5060 Ti에서 재학습 전 LiquidAI A0와 GPT-5.6 Luna B를 50건으로 비교하고, route별
 균형 표본 20건을 GPT-5.6 Sol·Terra·GPT-5.4 nano 3종 Judge로 평가했다.
 
-| 항목 | LiquidAI A0 | GPT-5.6 Luna B |
-|---|---:|---:|
-| Accuracy | 0.200 | 0.760 |
-| Macro-F1 | 0.067 | 0.688 |
-| p50 latency | 50 ms | 2,041 ms |
-| p95 latency | 143 ms | 4,045 ms |
-| 50건 라우팅 비용 | USD 0 | USD 0.044768 |
-| Judge route pass | 0.15 | 1.00 |
-| Judge groundedness | 0.771 | 0.992 |
+| 항목               | LiquidAI A0 | GPT-5.6 Luna B |
+| ------------------ | ----------: | -------------: |
+| Accuracy           |       0.200 |          0.760 |
+| Macro-F1           |       0.067 |          0.688 |
+| p50 latency        |       50 ms |       2,041 ms |
+| p95 latency        |      143 ms |       4,045 ms |
+| 50건 라우팅 비용   |       USD 0 |   USD 0.044768 |
+| Judge route pass   |        0.15 |           1.00 |
+| Judge groundedness |       0.771 |          0.992 |
 
 Luna는 기존 GPT-5.4 nano baseline의 accuracy `0.72`, macro-F1 `0.661`보다 각각 `0.04`,
 `0.027` 개선됐다. 그러나 `REACT_AGENT` recall과 F1은 여전히 `0`이며, 10건 중 7건을
@@ -201,15 +201,15 @@ GPT-5.4 nano의 우위는 이 표본에서 통계적으로 유의했다. 그러�
 
 ## Pandas 집계
 
-| 항목 | LiquidAI encoder | GPT-5.4 nano |
-|---|---:|---:|
-| Accuracy | 0.200 | 0.720 |
-| Macro-F1 | 0.067 | 0.661 |
-| p50 latency | 1,132 ms | 2,181 ms |
-| p95 latency | 1,262 ms | 5,571 ms |
-| Throughput | 0.886 req/s | 0.371 req/s |
-| 50건 라우팅 비용 | USD 0 | USD 0.010634 |
-| 1,000건 환산 라우팅 비용 | USD 0 | USD 0.212678 |
+| 항목                     | LiquidAI encoder | GPT-5.4 nano |
+| ------------------------ | ---------------: | -----------: |
+| Accuracy                 |            0.200 |        0.720 |
+| Macro-F1                 |            0.067 |        0.661 |
+| p50 latency              |         1,132 ms |     2,181 ms |
+| p95 latency              |         1,262 ms |     5,571 ms |
+| Throughput               |      0.886 req/s |  0.371 req/s |
+| 50건 라우팅 비용         |            USD 0 | USD 0.010634 |
+| 1,000건 환산 라우팅 비용 |            USD 0 | USD 0.212678 |
 
 LiquidAI는 API 비용이 없고 p50 기준 약 1.9배 빨랐지만, 모든 입력을
 `REACT_AGENT`로 예측해 실질적인 분류 기능을 하지 못했다. 측정 장치는 CPU였으며 모델
@@ -224,13 +224,13 @@ GPT-5.4 nano의 route별 F1은 `DIRECT_TOOL 0.947`, `SIMPLE_LLM 0.909`,
 각 라우터에서 동일한 route별 균형 표본 20건을 선택해 GPT-5.6 Luna 단일 평가자로
 판정했다.
 
-| 항목 | LiquidAI encoder | GPT-5.4 nano |
-|---|---:|---:|
-| Route pass rate | 0.20 | 0.70 |
-| Mean groundedness | 1.00 | 0.9125 |
-| Groundless rate | 0.00 | 0.0875 |
-| Hallucination rate | 0.00 | 0.10 |
-| Luna 평가 비용 | USD 0.004266 | USD 0.004557 |
+| 항목               | LiquidAI encoder | GPT-5.4 nano |
+| ------------------ | ---------------: | -----------: |
+| Route pass rate    |             0.20 |         0.70 |
+| Mean groundedness  |             1.00 |       0.9125 |
+| Groundless rate    |             0.00 |       0.0875 |
+| Hallucination rate |             0.00 |         0.10 |
+| Luna 평가 비용     |     USD 0.004266 | USD 0.004557 |
 
 Luna는 GPT-5.4 nano의 두 예측에서 사용자 입력에 없는 비가역성, 본인 확인, 권한 검토
 등을 근거로 추가한 점을 unsupported claim으로 판정했다. Luna 40회 전체 비용은
@@ -262,6 +262,7 @@ Luna는 GPT-5.4 nano의 두 예측에서 사용자 입력에 없는 비가역성
 - GPT-5.4 nano는 고위험 정책을 과도하게 적용했다. 특히 bounded write Tool과 실제 human
   approval이 필요한 작업의 경계를 prompt와 label에서 더 명시해야 한다.
 - 다음 비교에서도 데이터, seed, 모델 snapshot, 평가 코드는 고정하고 라우터 구성만 바꾼다.
+
 ## 2026-08-27 실서비스 route observation collector
 
 Agent의 run-scoped finite snapshot API와 Spring의 lease/cursor 기반 durable projection을 구현했다.

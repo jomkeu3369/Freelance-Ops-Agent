@@ -1,7 +1,7 @@
 [project]
 name = "retrieval-benchmark"
 version = "0.1.0"
-description = "Retrieval and answerability benchmarks"
+description = "검색 품질과 근거 기반 답변 가능성 평가"
 requires-python = "==3.12.*"
 dependencies = [
     "httpx>=0.28,<1",
@@ -11,6 +11,14 @@ dependencies = [
     "pydantic>=2.10,<3",
     "python-dotenv>=1.1,<2"
 ]
+
+[project.optional-dependencies]
+local-models = [
+    "datasets>=4.0,<5",
+    "torch>=2.6,<3",
+    "transformers>=5,<6"
+]
+pdf = ["pypdf>=6.16.1,<7"]
 
 [dependency-groups]
 dev = [

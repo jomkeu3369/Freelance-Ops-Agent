@@ -39,7 +39,9 @@ def windows(text: str, *, size: int = 600, stride: int = 450) -> list[str]:
 def lexical_best_window(question: str, context: str) -> str:
     question_tokens = set(tokenize(question))
     candidates = windows(context)
-    return max(candidates, key=lambda candidate: len(question_tokens.intersection(tokenize(candidate))))
+    return max(
+        candidates, key=lambda candidate: len(question_tokens.intersection(tokenize(candidate)))
+    )
 
 
 def answer_window(context: str, answer_start: int, answer_text: str, *, size: int = 600) -> str:
@@ -48,12 +50,7 @@ def answer_window(context: str, answer_start: int, answer_text: str, *, size: in
     return context[start : start + size]
 
 
-def build_full_training_pairs(
-    source_rows: list[dict[str, Any]],
-    *,
-    excluded_case_ids: set[str],
-    seed: int = 42,
-) -> list[PairExample]:
+def build_full_training_pairs(source_rows: list[dict[str, Any]], *, excluded_case_ids: set[str], seed: int = 42) -> list[PairExample]:  # noqa: E501
     positives: list[PairExample] = []
     negatives: list[PairExample] = []
     for row in source_rows:
@@ -63,7 +60,9 @@ def build_full_training_pairs(
         question = str(row["question"])
         context = str(row["context"])
         if bool(row["is_impossible"]):
-            negatives.append(PairExample(case_id, question, lexical_best_window(question, context), False))
+            negatives.append(
+                PairExample(case_id, question, lexical_best_window(question, context), False)
+            )
             continue
         texts = [text.strip() for text in row["answers"]["text"] if text.strip()]
         starts = [int(value) for value in row["answers"]["answer_start"]]
@@ -79,9 +78,11 @@ def build_full_training_pairs(
                     question,
                     max(
                         other_chunks,
-                        key=lambda candidate: len(set(tokenize(question)).intersection(tokenize(candidate))),
+                        key=lambda candidate: len(
+                            set(tokenize(question)).intersection(tokenize(candidate))
+                        )
                     ),
-                    False,
+                    False
                 )
             )
     rng = random.Random(seed)
@@ -112,18 +113,19 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
-    query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in benchmark_rows]))
+    query_vectors = normalize_rows(
+        embedder.embed_documents([row["question"] for row in benchmark_rows])
+    )
     retrieved = retrieve_indices(corpus_vectors, query_vectors, chunks)
     source = load_dataset("klue/klue", "mrc", split="train")
-    excluded = {
-        row["case_id"]
-        for row in benchmark_rows
-        if row["benchmark_split"] == "validation"
-    }
+    excluded = {row["case_id"] for row in benchmark_rows if row["benchmark_split"] == "validation"}
     pairs = build_full_training_pairs(list(source), excluded_case_ids=excluded)
     model, tokenizer, training = train_verifier(
         pairs,
@@ -133,7 +135,7 @@ def main() -> None:
         batch_size=args.batch_size,
         learning_rate=2e-5,
         max_length=args.max_length,
-        seed=42,
+        seed=42
     )
     device = next(model.parameters()).device
     validation_labels, validation_scores, validation_ms = score_cases(
@@ -145,10 +147,14 @@ def main() -> None:
         split="validation",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
-    strict_threshold = choose_threshold(validation_labels, validation_scores, max_false_accept_rate=0.10)
-    utility_threshold = choose_threshold(validation_labels, validation_scores, max_false_accept_rate=1.0)
+    strict_threshold = choose_threshold(
+        validation_labels, validation_scores, max_false_accept_rate=0.10
+    )
+    utility_threshold = choose_threshold(
+        validation_labels, validation_scores, max_false_accept_rate=1.0
+    )
     test_labels, test_scores, test_ms = score_cases(
         model,
         tokenizer,
@@ -158,12 +164,14 @@ def main() -> None:
         split="test",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     strict_metrics = classification_metrics(test_labels, test_scores, strict_threshold)
     utility_metrics = classification_metrics(test_labels, test_scores, utility_threshold)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model_dir = Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-full-verifier"
+    model_dir = (
+        Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-full-verifier"
+    )
     model.save_pretrained(model_dir)
     tokenizer.save_pretrained(model_dir)
     result = {
@@ -171,10 +179,14 @@ def main() -> None:
         "training": training,
         "excluded_calibration_cases": len(excluded),
         "strict_threshold": strict_threshold,
-        "strict_validation": classification_metrics(validation_labels, validation_scores, strict_threshold),
+        "strict_validation": classification_metrics(
+            validation_labels, validation_scores, strict_threshold
+        ),
         "strict_test": strict_metrics,
         "utility_threshold": utility_threshold,
-        "utility_validation": classification_metrics(validation_labels, validation_scores, utility_threshold),
+        "utility_validation": classification_metrics(
+            validation_labels, validation_scores, utility_threshold
+        ),
         "utility_test": utility_metrics,
         "latency": {
             "validation_ms_total": validation_ms,
@@ -192,7 +204,7 @@ def main() -> None:
         test_scores,
         strict_threshold,
         strict_metrics,
-        args.output_dir / "full_verifier_results.png",
+        args.output_dir / "full_verifier_results.png"
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

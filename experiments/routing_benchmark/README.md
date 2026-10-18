@@ -1,4 +1,4 @@
-# Agent execution routing benchmark
+# 실행 경로 선택 모델 비교
 
 사용자 요청을 실제 실행 전에 어떤 형태로 처리할지 결정하는 router 비교 실험이다.
 
@@ -13,7 +13,11 @@ CUDA 환경의 latency·VRAM은 서로 다른 측정 조건으로 구분한다.
 - Evaluators: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-nano-2026-03-17`
 - Trace: LangSmith project `freelance-ops-routing-benchmark`
 
-## Dataset
+CLI 인자 정의는 `cli_arguments.py`, 실행 분기는 `cli_commands.py`, 파일 저장 형식은 `report_io.py`에서 관리한다. `cli.py`는 환경과 설정을 읽고 명령을 연결한다.
+
+`reports/latest`도 과거 고정 결과이므로 새 평가에는 `--output-dir`로 별도 실행 폴더를 지정한다.
+
+## 평가 데이터
 
 각 route 10건, 총 50건의 균형 benchmark를 만든다. 공개 Hugging Face row를 그대로
 다른 의미의 label로 간주하지 않고 V2 route policy에 따라 변환하며 원본 dataset, split,
@@ -156,7 +160,7 @@ moving cohort에 만드는 누락·혼입, 고정 `captured_at` snapshot의 재�
 benchmark prompt와 모델의 판정 근거가 포함되므로 실제 고객 데이터로 실행한 결과를 이
 경로에 저장하면 안 된다. 로컬 절대 경로와 secret도 결과 schema에 기록하지 않는다.
 
-API key와 LangSmith 설정은 `experiments/.env`에서 자동으로 읽는다. 실제 고객 데이터는
+API 키와 LangSmith 설정은 셸 환경변수 또는 Git에서 제외한 `.env`로 제공한다. CLI는 시작할 때 `load_dotenv()`를 호출하며 이미 설정한 환경변수를 우선한다. 실제 고객 데이터는
 LangSmith로 보내지 않고 공개 benchmark와 프로젝트 fixture만 사용한다.
 
 2026-08-10 실행 결과와 제한사항은 [`RESULTS.md`](RESULTS.md)에 기록했다.
