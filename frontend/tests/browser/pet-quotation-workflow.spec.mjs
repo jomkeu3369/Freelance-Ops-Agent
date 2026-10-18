@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { petQuotationFixture, workflow } from "./helpers/pet-quotation-fixture.mjs";
+import { requestBarrier } from "./helpers/chat-fixture.mjs";
 
 async function captureWorkflow(page, stage) {
   const width = page.viewportSize()?.width;
@@ -210,4 +211,103 @@ test("mocked uncertain quotation start retries the same key, project source and 
   expect(state.resumes).toEqual([]);
   expect(state.quoteCreates).toEqual([]);
   expectClean(state);
+});
+
+async function startSlowPetSelection(page, state) {
+  const barrier = requestBarrier();
+  state.nextPetSelection = barrier;
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
+  await panel.getByRole("button", { name: "이 펫 선택", exact: true }).click();
+  await barrier.entered;
+  expect(state.pets.selectedPetId).toBeNull();
+  await panel.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  return barrier;
+}
+
+async function expectPetChangeBlocksBothRuns(page, state, draft) {
+  const start = page.getByRole("button", { name: "펫과 견적 만들기", exact: true });
+  const send = page.getByRole("button", { name: "보내기", exact: true });
+  await expect(start).toBeDisabled();
+  await expect(send).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  const steps = page.getByRole("navigation", { name: "프로젝트 진행 단계", exact: true });
+  await steps.getByRole("button", { name: /문의/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${workflow.projectId}/intake$`));
+  await steps.getByRole("button", { name: /AI 분석/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${workflow.projectId}/agent$`));
+  await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
+  await expect(start).toBeDisabled();
+  await expect(send).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  expect(state.starts).toEqual([]);
+}
+
+async function expectSelectedPetCanStart(page, state, draft) {
+  const start = page.getByRole("button", { name: "펫과 견적 만들기", exact: true });
+  await expect(start).toBeEnabled();
+  await expect(page.getByRole("button", { name: "보내기", exact: true })).toBeEnabled();
+  await expect(page.locator("#agent-chat-input")).toHaveValue(draft);
+  expect(state.starts).toEqual([]);
+  expect(state.pets.selectedPetId).toBe(workflow.petId);
+  await start.click();
+  await expect(page.getByRole("textbox", { name: workflow.question, exact: true })).toBeVisible();
+  expect(state.starts).toHaveLength(1);
+  expect(state.selectedPetAtStart).toEqual([workflow.petId]);
+  expect(state.run.metadata.petProfiles.map(pet => pet.petId)).toEqual([workflow.petId]);
+  expect(state.starts[0].workflowMode ?? "PROJECT_ANALYSIS").toBe("PROJECT_ANALYSIS");
+  expectClean(state);
+}
+
+test("mocked pending pet SELECT blocks quote and chat after closing its panel and switching steps", async ({ page }) => {
+  const state = await petQuotationFixture(page);
+  await createCustomerAndProject(page, state);
+  const draft = "펫 선택이 확인될 때까지 전송하지 않을 대화 초안";
+  await page.locator("#agent-chat-input").fill(draft);
+  const barrier = await startSlowPetSelection(page, state);
+  try {
+    await expectPetChangeBlocksBothRuns(page, state, draft);
+    expect(state.petSelections).toEqual([{ action: "SELECT", expectedRevision: 1 }]);
+    const response = page.waitForResponse(received => received.request().method() === "PATCH" && received.url().endsWith(`/agent-pets/${workflow.petId}`));
+    barrier.release();
+    expect((await response).status()).toBe(204);
+    await expectSelectedPetCanStart(page, state, draft);
+  } finally {
+    barrier.release();
+  }
+});
+
+test("mocked failed pet SELECT keeps quote and chat blocked until explicit successful reselection", async ({ page }) => {
+  const state = await petQuotationFixture(page);
+  await createCustomerAndProject(page, state);
+  const draft = "실패한 펫 변경을 확인하고 나서 보낼 대화 초안";
+  await page.locator("#agent-chat-input").fill(draft);
+  state.petSelectionFailures = 1;
+  const barrier = await startSlowPetSelection(page, state);
+  try {
+    await expectPetChangeBlocksBothRuns(page, state, draft);
+    const response = page.waitForResponse(received => received.request().method() === "PATCH" && received.url().endsWith(`/agent-pets/${workflow.petId}`));
+    barrier.release();
+    expect((await response).status()).toBe(503);
+    // A successful list GET on reopening is not confirmation of the failed
+    // selection. Only the user's successful retry may unlock paid execution.
+    await expectPetChangeBlocksBothRuns(page, state, draft);
+    expect(state.pets.selectedPetId).toBeNull();
+    await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+    const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
+    const choose = panel.getByRole("button", { name: "이 펫 선택", exact: true });
+    await expect(choose).toBeEnabled();
+    expect(state.pets.selectedPetId).toBeNull();
+    await choose.click();
+    await expect(panel.getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(state.petSelections).toEqual([
+      { action: "SELECT", expectedRevision: 1 },
+      { action: "SELECT", expectedRevision: 1 },
+    ]);
+    await panel.getByRole("button", { name: "닫기", exact: true }).click();
+    await expectSelectedPetCanStart(page, state, draft);
+  } finally {
+    barrier.release();
+  }
 });

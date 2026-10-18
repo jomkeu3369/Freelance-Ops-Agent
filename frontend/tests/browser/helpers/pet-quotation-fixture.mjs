@@ -43,6 +43,7 @@ export async function petQuotationFixture(page) {
     clients: [], clientCreates: [], projectCreates: [], petSelections: [], quoteCreates: [],
     publishes: [], shares: [], decisions: [], publicReads: [], unexpectedWrites: [], pageErrors: [],
     quote: null, saveFailures: 0, lostStartResponses: 0, startKeys: [], selectedPetAtStart: [],
+    nextPetSelection: null, petSelectionFailures: 0,
     pets: { pets: [{ id: workflow.petId, archived: false, revision: 1, profile: petProfile }], selectedPetId: null, maxActivePets: 2, maxStoredPets: 3, maxPromptLength: 500, maxPreferenceRequests: 6, generationMode: "RULE_BASED_PREVIEW", aiGenerationAvailable: false },
   });
   page.on("pageerror", error => state.pageErrors.push(error.message));
@@ -77,6 +78,10 @@ export async function petQuotationFixture(page) {
       const body = request.postDataJSON();
       state.petSelections.push(body);
       if (body.action !== "SELECT" || body.expectedRevision !== 1) return json({ message: "Synthetic pet selection conflict" }, 409);
+      const barrier = state.nextPetSelection;
+      state.nextPetSelection = null;
+      if (barrier) await barrier.wait();
+      if (state.petSelectionFailures-- > 0) return json({ message: "가상 서버: 펫 선택을 확인하지 못했습니다." }, 503);
       state.pets.selectedPetId = workflow.petId;
       return route.fulfill({ status: 204 });
     }

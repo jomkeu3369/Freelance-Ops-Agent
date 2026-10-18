@@ -32,6 +32,7 @@ interface AnalysisStepProps {
   retryCandidates: PendingRunRetry[];
   canSendAI: boolean;
   canStartQuotation: boolean;
+  canOpenPets: boolean;
   onStartQuotation: () => void;
   onOpenPets: () => void;
   quotationError: string | null;
@@ -44,7 +45,7 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, canOpenPets, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
@@ -77,7 +78,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
           <>
             {canRun && (
               <>
-                <button type="button" className="quiet-button chat-pet-trigger" disabled={busy || active} onClick={onOpenPets}>
+                <button type="button" className="quiet-button chat-pet-trigger" disabled={!canOpenPets || active} onClick={onOpenPets}>
                   <PawPrint size={18} aria-hidden="true" />
                   <span>{t("함께할 펫")}</span>
                 </button>

@@ -14,7 +14,7 @@ import {
   type PetProfile,
   type Provider
 } from "@/app/lib/api";
-import { petLibraryRevision, publishPetLibrary } from "./pet-library-events";
+import { beginPetMutation, petLibraryRevision, publishPetLibrary } from "./pet-library-events";
 import { PetArt } from "./pet-art";
 import { preferenceLabels, petDutyLabels } from "./pet-profile";
 
@@ -73,14 +73,18 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     !!editing && (editing.profile.preferences?.requests.length ?? 0) >= (collection?.maxPreferenceRequests ?? 6);
   const hasDraft = !!description.trim() || !!preview;
 
-  async function perform(action: () => Promise<void>) {
+  async function perform(action: () => Promise<void>, mutates = false) {
     if (pending.current || locked) return;
+    const finishMutation = mutates ? beginPetMutation(session) : null;
+    if (mutates && !finishMutation) return;
     pending.current = true;
     setBusy(true);
     setStatus("");
     try {
       await action();
+      finishMutation?.(true);
     } catch (error) {
+      finishMutation?.(false);
       setStatus(
         error instanceof ApiError && error.status === 409
           ? "다른 변경이나 개수 제한을 확인해 주세요. 입력은 유지됩니다. 목록을 다시 불러온 뒤 수정할 펫을 골라 주세요."
@@ -149,7 +153,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
       setFocusRequest({ target: "selected" });
       setResetPreferences(false);
       setStatus("저장하고 선택했습니다. 다음 실행에 이 펫 하나의 선호를 사용합니다.");
-    });
+    }, true);
   }
 
   function change(pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE") {
@@ -165,7 +169,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
             ? "보관했습니다. 이 펫은 다음 실행에 사용하지 않습니다."
             : "펫을 복원했습니다. 사용하려면 선택해 주세요."
       );
-    });
+    }, true);
   }
 
   return (
@@ -359,7 +363,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
                         setDeleteId(null);
                         await refreshCollection();
                         setStatus("펫을 삭제했습니다.");
-                      })
+                      }, true)
                     }
                   >
                     {t("영구 삭제")}

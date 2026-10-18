@@ -19,7 +19,7 @@ import {
 import { AIConnection, isSupportedProvider, listAIConnections } from "../../../app/lib/api";
 import { snapshotFromEvents } from "../../../app/components/live-workflow";
 import { StreamState, WorkbenchStep } from "../shared/types";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useSyncExternalStore } from "react";
 import {
   configuredModelOptions,
   terminalStatuses,
@@ -31,6 +31,7 @@ import { AddressBook, PencilSimple, Trash, CircleNotch, ArrowRight } from "@phos
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
+import { petMutationState, subscribeToPetMutations } from "../pets/pet-library-events";
 import { SkillSelector, useSkillSelection } from "../skills/skill-selector";
 import type { SkillSelection } from "../skills/skill-selection";
 import { matchesChatRetry } from "./analysis/chat-retry";
@@ -107,6 +108,11 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const [costUsage, setCostUsage] = useState<AgentRunUsage | null>(null);
   const [creditReviewRequired, setCreditReviewRequired] = useState(false);
   const canRun = permissions.has("agent.run");
+  const petMutation = useSyncExternalStore(
+    subscribeToPetMutations,
+    () => petMutationState(session),
+    () => "idle" as const
+  );
   const ledger = useAiUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
   const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
@@ -150,10 +156,11 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
   const personalCostKnown = !!chatModel?.credentialId && byokCostEstimate(chatModel.provider, chatModel.model) !== null;
   const canSendAI =
-    canRun && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
+    canRun && petMutation === "idle" && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
 
   async function sendMessage(message?: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
     if (!canRun || !chatModel) return false;
+    if (petMutationState(session) !== "idle") throw new Error(t("펫 변경을 확인한 뒤 실행할 수 있습니다. 함께할 펫에서 선택을 확인해 주세요."));
     if (chatModel.credentialId && !personalCostKnown)
       throw new Error(
         t("이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다.")
@@ -526,7 +533,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           run={run}
           runId={runId}
           events={events}
-          busy={busy}
+          busy={busy || petMutation !== "idle"}
           streamState={streamState}
           snapshot={snapshot}
           canCancel={canCancel}
@@ -537,13 +544,21 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           }
           modelAvailable={!!chatModel}
           canSendAI={canSendAI}
-          canStartQuotation={canSendAI || !!analysisRetry}
+          canStartQuotation={petMutation === "idle" && (canSendAI || !!analysisRetry)}
+          canOpenPets={!busy}
           onStartQuotation={() => void startQuotation()}
           onOpenPets={() => setShowPets(true)}
           quotationError={quotationError}
           retryCandidates={retryCandidates}
           composerInfo={(_draft, retry, policy) => (
             <>
+              {petMutation !== "idle" && (
+                <p className="model-selection-note" role="status">
+                  {t(petMutation === "pending"
+                    ? "펫 변경을 확인하고 있습니다. 완료 후 실행할 수 있습니다."
+                    : "펫 변경을 확인하지 못했습니다. 함께할 펫에서 다시 선택해 주세요.")}
+                </p>
+              )}
               <CreditCostNote
                 reviewRequired={creditReviewRequired}
                 policy={policy}
@@ -600,7 +615,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             key={`${session.workspaceId}:${session.userId}:${project.id}`}
             session={session}
             projectId={project.id}
-            disabled={selectionLocked}
+            disabled={selectionLocked || petMutation === "pending"}
             selection={chatModel}
           />
         </WorkspacePanel>

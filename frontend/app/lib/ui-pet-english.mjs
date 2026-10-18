@@ -2,6 +2,12 @@
 export const petEnglish = {
   "함께할 펫": "Your pet",
   "펫 사용 안내": "About your pet",
+  "펫 변경을 확인한 뒤 실행할 수 있습니다. 함께할 펫에서 선택을 확인해 주세요.":
+    "Confirm the pet change in Your pet before starting a request.",
+  "펫 변경을 확인하고 있습니다. 완료 후 실행할 수 있습니다.":
+    "Confirming your pet change. You can start a request when it finishes.",
+  "펫 변경을 확인하지 못했습니다. 함께할 펫에서 다시 선택해 주세요.":
+    "Could not confirm the pet change. Select your pet again in Your pet.",
   "펫과 견적 만들기": "Create a quote with your pet",
   "함께할 펫을 고른 뒤 견적 만들기를 눌러 주세요. 궁금한 내용은 대화로 물어볼 수 있습니다.":
     "Choose your pet, then create a quote. You can also ask questions in the conversation.",

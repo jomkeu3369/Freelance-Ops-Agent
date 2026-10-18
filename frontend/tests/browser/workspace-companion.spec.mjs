@@ -228,17 +228,21 @@ test("an old closed customizer refresh cannot overwrite a newer selection", asyn
   let studio = page.locator(".pet-prompt-studio");
   await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toBeEnabled();
   const barrier = requestBarrier(); server.nextRead = barrier;
-  await studio.getByRole("button", { name: "선택됨", exact: true }).click();
+  await studio.getByRole("button", { name: "목록 다시 불러오기", exact: true }).click();
   await barrier.entered;
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
-  studio = page.locator(".pet-prompt-studio");
-  await studio.locator(".pet-library article").filter({ hasText: "두 번째 친구" }).getByRole("button", { name: "이 펫 선택" }).click();
-  await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
-  const response = page.waitForResponse(value => value.url().endsWith("/agent-pets"));
-  barrier.release(); await (await response).finished();
-  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
+  try {
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+    studio = page.locator(".pet-prompt-studio");
+    await studio.locator(".pet-library article").filter({ hasText: "두 번째 친구" }).getByRole("button", { name: "이 펫 선택" }).click();
+    await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
+    const response = page.waitForResponse(value => value.url().endsWith("/agent-pets"));
+    barrier.release(); await (await response).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
+  } finally {
+    barrier.release();
+  }
 });
 
 test("a selection accepted after closing settings still refreshes the companion", async ({ page }) => {
