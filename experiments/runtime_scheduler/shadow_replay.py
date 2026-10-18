@@ -11,7 +11,13 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from .scheduler_simulation import SchedulerTask, SchedulingPolicy, _jain_index, _percentile, simulate_scheduler
+from .scheduler_simulation import (
+    SchedulerTask,
+    SchedulingPolicy,
+    _jain_index,
+    _percentile,
+    simulate_scheduler,
+)
 
 
 SHADOW_REPLAY_SCHEMA_VERSION = "scheduler-shadow-replay-v1"
@@ -90,7 +96,9 @@ class ShadowReplayValidationReport:
 class ShadowReplayValidationError(ValueError):
     def __init__(self, report: ShadowReplayValidationReport) -> None:
         self.report = report
-        messages = "; ".join(issue.message for issue in report.issues if issue.level is ValidationLevel.ERROR)
+        messages = "; ".join(
+            issue.message for issue in report.issues if issue.level is ValidationLevel.ERROR
+        )
         super().__init__(messages or "shadow replay validation failed")
 
 
@@ -132,24 +140,105 @@ def _parse_datetime(value: object, field_name: str) -> datetime:
 
 
 def shadow_attempt_from_mapping(value: Mapping[str, Any]) -> ShadowTaskAttempt:
-    required = ("schema_version", "attempt_id", "task_id", "attempt_number", "workspace_id", "task_type", "model", "input_tokens", "context_tokens", "file_count", "subagent_depth", "priority", "queued_at", "started_at", "completed_at", "feature_snapshot_at", "predicted_at", "predicted_runtime_seconds", "predictor_version", "runtime_seconds", "success")
+    required = (
+        "schema_version",
+        "attempt_id",
+        "task_id",
+        "attempt_number",
+        "workspace_id",
+        "task_type",
+        "model",
+        "input_tokens",
+        "context_tokens",
+        "file_count",
+        "subagent_depth",
+        "priority",
+        "queued_at",
+        "started_at",
+        "completed_at",
+        "feature_snapshot_at",
+        "predicted_at",
+        "predicted_runtime_seconds",
+        "predictor_version",
+        "runtime_seconds",
+        "success",
+    )
     missing = [name for name in required if name not in value]
     if missing:
         raise ValueError(f"missing required shadow replay fields: {', '.join(missing)}")
     metadata = value.get("metadata", {})
     if not isinstance(metadata, Mapping):
         raise ValueError("metadata must be an object")
-    if not isinstance(value["success"], bool) or not isinstance(value.get("cache_hit", False), bool):
+    if not isinstance(value["success"], bool) or not isinstance(
+        value.get("cache_hit", False), bool
+    ):
         raise ValueError("success and cache_hit must be booleans")
-    return ShadowTaskAttempt(schema_version=str(value["schema_version"]), attempt_id=str(value["attempt_id"]), task_id=str(value["task_id"]), attempt_number=int(value["attempt_number"]), workspace_id=str(value["workspace_id"]), task_type=str(value["task_type"]), model=str(value["model"]), input_tokens=int(value["input_tokens"]), context_tokens=int(value["context_tokens"]), file_count=int(value["file_count"]), subagent_depth=int(value["subagent_depth"]), priority=int(value["priority"]), queued_at=_parse_datetime(value["queued_at"], "queued_at"), started_at=_parse_datetime(value["started_at"], "started_at"), completed_at=_parse_datetime(value["completed_at"], "completed_at"), feature_snapshot_at=_parse_datetime(value["feature_snapshot_at"], "feature_snapshot_at"), predicted_at=_parse_datetime(value["predicted_at"], "predicted_at"), predicted_runtime_seconds=float(value["predicted_runtime_seconds"]), predictor_version=str(value["predictor_version"]), runtime_seconds=float(value["runtime_seconds"]), success=bool(value["success"]), cache_hit=bool(value.get("cache_hit", False)), workspace_weight=float(value.get("workspace_weight", 1.0)), retry_reason=None if value.get("retry_reason") is None else str(value["retry_reason"]), checkpoint_restored_seconds=float(value.get("checkpoint_restored_seconds", 0.0)), metadata=dict(metadata))
+    return ShadowTaskAttempt(
+        schema_version=str(value["schema_version"]),
+        attempt_id=str(value["attempt_id"]),
+        task_id=str(value["task_id"]),
+        attempt_number=int(value["attempt_number"]),
+        workspace_id=str(value["workspace_id"]),
+        task_type=str(value["task_type"]),
+        model=str(value["model"]),
+        input_tokens=int(value["input_tokens"]),
+        context_tokens=int(value["context_tokens"]),
+        file_count=int(value["file_count"]),
+        subagent_depth=int(value["subagent_depth"]),
+        priority=int(value["priority"]),
+        queued_at=_parse_datetime(value["queued_at"], "queued_at"),
+        started_at=_parse_datetime(value["started_at"], "started_at"),
+        completed_at=_parse_datetime(value["completed_at"], "completed_at"),
+        feature_snapshot_at=_parse_datetime(value["feature_snapshot_at"], "feature_snapshot_at"),
+        predicted_at=_parse_datetime(value["predicted_at"], "predicted_at"),
+        predicted_runtime_seconds=float(value["predicted_runtime_seconds"]),
+        predictor_version=str(value["predictor_version"]),
+        runtime_seconds=float(value["runtime_seconds"]),
+        success=bool(value["success"]),
+        cache_hit=bool(value.get("cache_hit", False)),
+        workspace_weight=float(value.get("workspace_weight", 1.0)),
+        retry_reason=None if value.get("retry_reason") is None else str(value["retry_reason"]),
+        checkpoint_restored_seconds=float(value.get("checkpoint_restored_seconds", 0.0)),
+        metadata=dict(metadata)
+    )
 
 
 def shadow_attempt_to_mapping(record: ShadowTaskAttempt) -> dict[str, Any]:
-    return {"schema_version": record.schema_version, "attempt_id": record.attempt_id, "task_id": record.task_id, "attempt_number": record.attempt_number, "workspace_id": record.workspace_id, "task_type": record.task_type, "model": record.model, "input_tokens": record.input_tokens, "context_tokens": record.context_tokens, "file_count": record.file_count, "subagent_depth": record.subagent_depth, "priority": record.priority, "queued_at": record.queued_at.isoformat(), "started_at": record.started_at.isoformat(), "completed_at": record.completed_at.isoformat(), "feature_snapshot_at": record.feature_snapshot_at.isoformat(), "predicted_at": record.predicted_at.isoformat(), "predicted_runtime_seconds": record.predicted_runtime_seconds, "predictor_version": record.predictor_version, "runtime_seconds": record.runtime_seconds, "success": record.success, "cache_hit": record.cache_hit, "workspace_weight": record.workspace_weight, "retry_reason": record.retry_reason, "checkpoint_restored_seconds": record.checkpoint_restored_seconds, "metadata": dict(record.metadata)}
+    return {
+        "schema_version": record.schema_version,
+        "attempt_id": record.attempt_id,
+        "task_id": record.task_id,
+        "attempt_number": record.attempt_number,
+        "workspace_id": record.workspace_id,
+        "task_type": record.task_type,
+        "model": record.model,
+        "input_tokens": record.input_tokens,
+        "context_tokens": record.context_tokens,
+        "file_count": record.file_count,
+        "subagent_depth": record.subagent_depth,
+        "priority": record.priority,
+        "queued_at": record.queued_at.isoformat(),
+        "started_at": record.started_at.isoformat(),
+        "completed_at": record.completed_at.isoformat(),
+        "feature_snapshot_at": record.feature_snapshot_at.isoformat(),
+        "predicted_at": record.predicted_at.isoformat(),
+        "predicted_runtime_seconds": record.predicted_runtime_seconds,
+        "predictor_version": record.predictor_version,
+        "runtime_seconds": record.runtime_seconds,
+        "success": record.success,
+        "cache_hit": record.cache_hit,
+        "workspace_weight": record.workspace_weight,
+        "retry_reason": record.retry_reason,
+        "checkpoint_restored_seconds": record.checkpoint_restored_seconds,
+        "metadata": dict(record.metadata),
+    }
 
 
 def write_shadow_replay_jsonl(records: Sequence[ShadowTaskAttempt], path: Path) -> Path:
-    serialized = "\n".join(json.dumps(shadow_attempt_to_mapping(record), ensure_ascii=False, separators=(",", ":")) for record in records)
+    serialized = "\n".join(
+        json.dumps(shadow_attempt_to_mapping(record), ensure_ascii=False, separators=(",", ":"))
+        for record in records
+    )
     path.write_text(serialized + "\n", encoding="utf-8")
     return path
 
@@ -165,8 +254,18 @@ def load_shadow_replay_jsonl(path: Path, *, worker_count: int, strict: bool = Tr
                 raise ValueError("JSONL row must be an object")
             records.append(shadow_attempt_from_mapping(value))
         except (json.JSONDecodeError, TypeError, ValueError) as error:
-            issue = ValidationIssue(level=ValidationLevel.ERROR, attempt_id=None, message=f"line {line_number}: {error}")
-            report = ShadowReplayValidationReport(record_count=len(records), error_count=1, warning_count=0, maximum_observed_concurrency=0, retry_attempt_rate=0.0, checkpoint_resume_rate=0.0, issues=tuple([issue]))
+            issue = ValidationIssue(
+                level=ValidationLevel.ERROR, attempt_id=None, message=f"line {line_number}: {error}"
+            )
+            report = ShadowReplayValidationReport(
+                record_count=len(records),
+                error_count=1,
+                warning_count=0,
+                maximum_observed_concurrency=0,
+                retry_attempt_rate=0.0,
+                checkpoint_resume_rate=0.0,
+                issues=tuple([issue])
+            )
             raise ShadowReplayValidationError(report) from error
     report = validate_shadow_replay(records, worker_count=worker_count)
     if strict and not report.is_valid:
@@ -190,62 +289,176 @@ def validate_shadow_replay(records: Sequence[ShadowTaskAttempt], *, worker_count
         raise ValueError("worker count must be positive")
     issues: list[ValidationIssue] = []
     if not records:
-        issues.append(ValidationIssue(ValidationLevel.ERROR, None, "shadow replay dataset must not be empty"))
+        issues.append(
+            ValidationIssue(ValidationLevel.ERROR, None, "shadow replay dataset must not be empty")
+        )
     attempt_ids: set[str] = set()
     task_attempt_keys: set[tuple[str, int]] = set()
     grouped: dict[str, list[ShadowTaskAttempt]] = defaultdict(list)
     for record in records:
         attempt_id = record.attempt_id or None
         if record.schema_version != SHADOW_REPLAY_SCHEMA_VERSION:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, f"unsupported schema version: {record.schema_version}"))
-        if not all(value.strip() for value in (record.attempt_id, record.task_id, record.workspace_id, record.task_type, record.model, record.predictor_version)):
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "identifier and categorical fields must not be blank"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    f"unsupported schema version: {record.schema_version}"
+                )
+            )
+        if not all(
+            value.strip()
+            for value in (
+                record.attempt_id,
+                record.task_id,
+                record.workspace_id,
+                record.task_type,
+                record.model,
+                record.predictor_version,
+            )
+        ):
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "identifier and categorical fields must not be blank"
+                )
+            )
         if record.attempt_id in attempt_ids:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "attempt_id must be unique"))
+            issues.append(
+                ValidationIssue(ValidationLevel.ERROR, attempt_id, "attempt_id must be unique")
+            )
         attempt_ids.add(record.attempt_id)
         task_attempt_key = (record.task_id, record.attempt_number)
         if task_attempt_key in task_attempt_keys:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "task_id and attempt_number pair must be unique"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "task_id and attempt_number pair must be unique"
+                )
+            )
         task_attempt_keys.add(task_attempt_key)
         if record.attempt_number < 1 or not 1 <= record.priority <= 5:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "attempt number and priority are invalid"))
-        if min(record.input_tokens, record.context_tokens, record.file_count, record.subagent_depth) < 0:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "pre-dispatch numeric features must be non-negative"))
-        if record.predicted_runtime_seconds <= 0 or record.runtime_seconds <= 0 or record.workspace_weight <= 0 or record.checkpoint_restored_seconds < 0:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "runtime, workspace weight and checkpoint values are invalid"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR, attempt_id, "attempt number and priority are invalid"
+                )
+            )
+        if (
+            min(
+                record.input_tokens, record.context_tokens, record.file_count, record.subagent_depth
+            )
+            < 0
+        ):
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "pre-dispatch numeric features must be non-negative"
+                )
+            )
+        if (
+            record.predicted_runtime_seconds <= 0
+            or record.runtime_seconds <= 0
+            or record.workspace_weight <= 0
+            or record.checkpoint_restored_seconds < 0
+        ):
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "runtime, workspace weight and checkpoint values are invalid"
+                )
+            )
         if not record.queued_at <= record.started_at <= record.completed_at:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "timestamps must satisfy queued_at <= started_at <= completed_at"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "timestamps must satisfy queued_at <= started_at <= completed_at"
+                )
+            )
         if record.feature_snapshot_at > record.queued_at or record.predicted_at > record.queued_at:
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "feature snapshot and prediction must exist no later than queued_at"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "feature snapshot and prediction must exist no later than queued_at"
+                )
+            )
         measured_runtime = (record.completed_at - record.started_at).total_seconds()
         if not math.isclose(record.runtime_seconds, measured_runtime, rel_tol=0.0, abs_tol=1e-6):
-            issues.append(ValidationIssue(ValidationLevel.ERROR, attempt_id, "runtime_seconds must equal completed_at - started_at"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    attempt_id,
+                    "runtime_seconds must equal completed_at - started_at"
+                )
+            )
         if record.attempt_number > 1 and record.retry_reason is None:
-            issues.append(ValidationIssue(ValidationLevel.WARNING, attempt_id, "retry attempt should include retry_reason"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.WARNING, attempt_id, "retry attempt should include retry_reason"
+                )
+            )
         if record.checkpoint_restored_seconds > 0 and record.attempt_number == 1:
-            issues.append(ValidationIssue(ValidationLevel.WARNING, attempt_id, "first attempt unexpectedly restores checkpoint progress"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.WARNING,
+                    attempt_id,
+                    "first attempt unexpectedly restores checkpoint progress"
+                )
+            )
         grouped[record.task_id].append(record)
     for task_records in grouped.values():
         ordered = sorted(task_records, key=lambda record: record.attempt_number)
         if [record.attempt_number for record in ordered] != list(range(1, len(ordered) + 1)):
-            issues.append(ValidationIssue(ValidationLevel.ERROR, ordered[0].attempt_id, "attempt numbers must be contiguous from one"))
+            issues.append(
+                ValidationIssue(
+                    ValidationLevel.ERROR,
+                    ordered[0].attempt_id,
+                    "attempt numbers must be contiguous from one"
+                )
+            )
         for previous, current in zip(ordered, ordered[1:], strict=False):
             if current.queued_at < previous.completed_at:
-                issues.append(ValidationIssue(ValidationLevel.ERROR, current.attempt_id, "retry must not queue before the previous attempt completes"))
+                issues.append(
+                    ValidationIssue(
+                        ValidationLevel.ERROR,
+                        current.attempt_id,
+                        "retry must not queue before the previous attempt completes"
+                    )
+                )
     maximum_concurrency = _maximum_concurrency(records)
     if maximum_concurrency > worker_count:
-        issues.append(ValidationIssue(ValidationLevel.ERROR, None, f"observed concurrency {maximum_concurrency} exceeds configured worker count {worker_count}"))
+        issues.append(
+            ValidationIssue(
+                ValidationLevel.ERROR,
+                None,
+                f"observed concurrency {maximum_concurrency} exceeds configured worker count {worker_count}"
+            )
+        )
     retry_attempt_count = sum(record.attempt_number > 1 for record in records)
     checkpoint_resume_count = sum(record.checkpoint_restored_seconds > 0 for record in records)
     errors = sum(issue.level is ValidationLevel.ERROR for issue in issues)
     warnings = len(issues) - errors
-    return ShadowReplayValidationReport(record_count=len(records), error_count=errors, warning_count=warnings, maximum_observed_concurrency=maximum_concurrency, retry_attempt_rate=0.0 if not records else retry_attempt_count / len(records), checkpoint_resume_rate=0.0 if not records else checkpoint_resume_count / len(records), issues=tuple(issues))
+    return ShadowReplayValidationReport(
+        record_count=len(records),
+        error_count=errors,
+        warning_count=warnings,
+        maximum_observed_concurrency=maximum_concurrency,
+        retry_attempt_rate=0.0 if not records else retry_attempt_count / len(records),
+        checkpoint_resume_rate=0.0 if not records else checkpoint_resume_count / len(records),
+        issues=tuple(issues)
+    )
 
 
 def _workspace_fairness(records: Sequence[ShadowTaskAttempt], completion_seconds: Mapping[str, float]) -> float:
     grouped: dict[str, list[float]] = defaultdict(list)
     for record in records:
-        grouped[record.workspace_id].append(completion_seconds[record.attempt_id] / record.runtime_seconds)
+        grouped[record.workspace_id].append(
+            completion_seconds[record.attempt_id] / record.runtime_seconds
+        )
     inverse_mean_slowdowns = [1 / mean(values) for values in grouped.values()]
     return _jain_index(inverse_mean_slowdowns)
 
@@ -254,25 +467,80 @@ def _metrics(records: Sequence[ShadowTaskAttempt], waits: Mapping[str, float], c
     wait_values = [waits[record.attempt_id] for record in records]
     completion_values = [completions[record.attempt_id] for record in records]
     success_count = sum(record.success for record in records)
-    slo_count = sum(record.success and completions[record.attempt_id] <= completion_slo_seconds for record in records)
-    return ReplayMetrics(task_count=len(records), success_rate=success_count / len(records), completion_slo_rate=slo_count / len(records), mean_wait_seconds=mean(wait_values), p95_wait_seconds=_percentile(wait_values, 95), maximum_wait_seconds=max(wait_values), mean_completion_seconds=mean(completion_values), p95_completion_seconds=_percentile(completion_values, 95), fairness_index=_workspace_fairness(records, completions))
+    slo_count = sum(
+        record.success and completions[record.attempt_id] <= completion_slo_seconds
+        for record in records
+    )
+    return ReplayMetrics(
+        task_count=len(records),
+        success_rate=success_count / len(records),
+        completion_slo_rate=slo_count / len(records),
+        mean_wait_seconds=mean(wait_values),
+        p95_wait_seconds=_percentile(wait_values, 95),
+        maximum_wait_seconds=max(wait_values),
+        mean_completion_seconds=mean(completion_values),
+        p95_completion_seconds=_percentile(completion_values, 95),
+        fairness_index=_workspace_fairness(records, completions)
+    )
 
 
-def run_shadow_replay(records: Sequence[ShadowTaskAttempt], *, worker_count: int, completion_slo_seconds: float = 300.0, policies: Sequence[SchedulingPolicy] = (SchedulingPolicy.FIFO, SchedulingPolicy.GLOBAL_PREDICTED_SJF, SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING), max_wait_seconds: float = 120.0, aging_rate: float = 0.02, aging_overdue_interval: int = 4) -> ShadowReplayResult:
+def run_shadow_replay(records: Sequence[ShadowTaskAttempt], *, worker_count: int, completion_slo_seconds: float = 300.0, policies: Sequence[SchedulingPolicy] = (SchedulingPolicy.FIFO, SchedulingPolicy.GLOBAL_PREDICTED_SJF, SchedulingPolicy.GLOBAL_PREDICTED_SJF_AGING, SchedulingPolicy.FAIR_PREDICTED_SJF_AGING,), max_wait_seconds: float = 120.0, aging_rate: float = 0.02, aging_overdue_interval: int = 4) -> ShadowReplayResult:
     if not records or not policies:
         raise ValueError("records and policies must not be empty")
     validation = validate_shadow_replay(records, worker_count=worker_count)
     if not validation.is_valid:
         raise ShadowReplayValidationError(validation)
     anchor = min(record.queued_at for record in records)
-    scheduler_tasks = [SchedulerTask(task_id=record.attempt_id, workspace_id=record.workspace_id, queued_at_seconds=(record.queued_at - anchor).total_seconds(), actual_runtime_seconds=record.runtime_seconds, predicted_runtime_seconds=record.predicted_runtime_seconds, priority=record.priority, workspace_weight=record.workspace_weight, cache_hit=record.cache_hit, cache_lookup_seconds=record.runtime_seconds if record.cache_hit else 0.02) for record in records]
+    scheduler_tasks = [
+        SchedulerTask(
+            task_id=record.attempt_id,
+            workspace_id=record.workspace_id,
+            queued_at_seconds=(record.queued_at - anchor).total_seconds(),
+            actual_runtime_seconds=record.runtime_seconds,
+            predicted_runtime_seconds=record.predicted_runtime_seconds,
+            priority=record.priority,
+            workspace_weight=record.workspace_weight,
+            cache_hit=record.cache_hit,
+            cache_lookup_seconds=record.runtime_seconds if record.cache_hit else 0.02
+        )
+        for record in records
+    ]
     observed_waits = {record.attempt_id: record.queue_wait_seconds for record in records}
     observed_completions = {record.attempt_id: record.completion_seconds for record in records}
-    results = [ReplayPolicyResult(name="Observed production order", source=ReplaySource.OBSERVED, metrics=_metrics(records, observed_waits, observed_completions, completion_slo_seconds))]
+    results = [
+        ReplayPolicyResult(
+            name="Observed production order",
+            source=ReplaySource.OBSERVED,
+            metrics=_metrics(records, observed_waits, observed_completions, completion_slo_seconds)
+        )
+    ]
     for policy in policies:
-        simulation = simulate_scheduler(scheduler_tasks, policy, worker_count=worker_count, max_wait_seconds=max_wait_seconds, aging_rate=aging_rate, aging_overdue_interval=aging_overdue_interval)
+        simulation = simulate_scheduler(
+            scheduler_tasks,
+            policy,
+            worker_count=worker_count,
+            max_wait_seconds=max_wait_seconds,
+            aging_rate=aging_rate,
+            aging_overdue_interval=aging_overdue_interval
+        )
         by_id = {result.task_id: result for result in simulation.task_results}
-        waits = {record.attempt_id: by_id[record.attempt_id].queue_wait_seconds for record in records}
-        completions = {record.attempt_id: by_id[record.attempt_id].completion_time_seconds for record in records}
-        results.append(ReplayPolicyResult(name=policy.value, source=ReplaySource.COUNTERFACTUAL, metrics=_metrics(records, waits, completions, completion_slo_seconds)))
-    return ShadowReplayResult(validation=validation, worker_count=worker_count, completion_slo_seconds=completion_slo_seconds, results=tuple(results))
+        waits = {
+            record.attempt_id: by_id[record.attempt_id].queue_wait_seconds for record in records
+        }
+        completions = {
+            record.attempt_id: by_id[record.attempt_id].completion_time_seconds
+            for record in records
+        }
+        results.append(
+            ReplayPolicyResult(
+                name=policy.value,
+                source=ReplaySource.COUNTERFACTUAL,
+                metrics=_metrics(records, waits, completions, completion_slo_seconds)
+            )
+        )
+    return ShadowReplayResult(
+        validation=validation,
+        worker_count=worker_count,
+        completion_slo_seconds=completion_slo_seconds,
+        results=tuple(results)
+    )

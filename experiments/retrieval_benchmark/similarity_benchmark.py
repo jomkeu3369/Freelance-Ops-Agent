@@ -61,7 +61,9 @@ class LinearGate:
     bias: float
 
     def predict_proba(self, rows: Sequence[dict[str, float]]) -> np.ndarray:
-        x = np.asarray([[row[name] for name in self.feature_names] for row in rows], dtype=np.float64)
+        x = np.asarray(
+            [[row[name] for name in self.feature_names] for row in rows], dtype=np.float64
+        )
         z = ((x - self.mean) / self.scale) @ self.weights + self.bias
         z = np.clip(z, -30.0, 30.0)
         return 1.0 / (1.0 + np.exp(-z))
@@ -126,13 +128,7 @@ def chunk_text(text: str, chunk_size: int = 600, overlap: int = 200) -> list[str
     return chunks
 
 
-def chunks_from_texts(
-    documents: dict[str, str],
-    *,
-    workspace_id: str = "offline-eval",
-    chunk_size: int = 600,
-    overlap: int = 200,
-) -> list[Chunk]:
+def chunks_from_texts(documents: dict[str, str], *, workspace_id: str = "offline-eval", chunk_size: int = 600, overlap: int = 200) -> list[Chunk]:
     result: list[Chunk] = []
     seen_hashes: set[str] = set()
     for document_id, text in documents.items():
@@ -152,7 +148,7 @@ def chunks_from_texts(
                         "workspace_id": workspace_id,
                         "content_hash": content_hash,
                         "total_chunks": len(pieces),
-                    },
+                    }
                 )
             )
     if not result:
@@ -160,23 +156,14 @@ def chunks_from_texts(
     return result
 
 
-def chunks_from_paths(
-    paths: Iterable[str | Path],
-    *,
-    workspace_id: str,
-    chunk_size: int = 600,
-    overlap: int = 200,
-) -> list[Chunk]:
+def chunks_from_paths(paths: Iterable[str | Path], *, workspace_id: str, chunk_size: int = 600, overlap: int = 200) -> list[Chunk]:
     documents: dict[str, str] = {}
     for raw_path in paths:
         path = Path(raw_path)
         digest = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:10]
         documents[f"{path.stem}-{digest}"] = read_text(path)
     return chunks_from_texts(
-        documents,
-        workspace_id=workspace_id,
-        chunk_size=chunk_size,
-        overlap=overlap,
+        documents, workspace_id=workspace_id, chunk_size=chunk_size, overlap=overlap
     )
 
 
@@ -208,15 +195,7 @@ class HashingEmbedder:
 class OpenAIEmbedder:
     """OpenAI embedding을 batch 호출하고 demo 재실행을 로컬 cache로 보호합니다."""
 
-    def __init__(
-        self,
-        *,
-        model: str = "text-embedding-3-small",
-        dimensions: int = 1536,
-        cache_path: str | Path | None = None,
-        price_per_million_tokens_usd: float = 0.02,
-        batch_size: int = 128,
-    ) -> None:
+    def __init__(self, *, model: str = "text-embedding-3-small", dimensions: int = 1536, cache_path: str | Path | None = None, price_per_million_tokens_usd: float = 0.02, batch_size: int = 128) -> None:
         from openai import OpenAI
 
         self.model = model
@@ -242,11 +221,7 @@ class OpenAIEmbedder:
         if not self.cache_path:
             return
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "model": self.model,
-            "dimensions": self.dimensions,
-            "embeddings": self._cache,
-        }
+        payload = {"model": self.model, "dimensions": self.dimensions, "embeddings": self._cache}
         self.cache_path.write_text(json.dumps(payload), encoding="utf-8")
 
     def _embed_many(self, texts: list[str]) -> list[list[float]]:
@@ -259,7 +234,7 @@ class OpenAIEmbedder:
                 model=self.model,
                 input=missing_texts,
                 dimensions=self.dimensions,
-                encoding_format="float",
+                encoding_format="float"
             )
             self.request_count += 1
             self.prompt_tokens += int(response.usage.prompt_tokens)
@@ -282,7 +257,9 @@ class OpenAIEmbedder:
             "api_requests": self.request_count,
             "prompt_tokens": self.prompt_tokens,
             "cache_hits": self.cache_hits,
-            "estimated_cost_usd": self.prompt_tokens / 1_000_000 * self.price_per_million_tokens_usd,
+            "estimated_cost_usd": self.prompt_tokens
+            / 1_000_000
+            * self.price_per_million_tokens_usd,
         }
 
 
@@ -294,13 +271,7 @@ def embed_queries(cases: Sequence[QueryCase], embedder: Embedder) -> np.ndarray:
     return normalize_rows(embedder.embed_documents([case.query for case in cases]))
 
 
-def _spherical_kmeans_once(
-    vectors: np.ndarray,
-    k: int,
-    *,
-    seed: int,
-    max_iter: int = 100,
-) -> tuple[np.ndarray, np.ndarray, float]:
+def _spherical_kmeans_once(vectors: np.ndarray, k: int, *, seed: int, max_iter: int = 100) -> tuple[np.ndarray, np.ndarray, float]:
     rng = np.random.default_rng(seed)
     first = int(rng.integers(len(vectors)))
     centers = [vectors[first]]
@@ -308,7 +279,11 @@ def _spherical_kmeans_once(
         similarities = vectors @ np.asarray(centers).T
         distances = np.maximum(0.0, 1.0 - similarities.max(axis=1))
         total = float(distances.sum())
-        index = int(rng.integers(len(vectors))) if total == 0 else int(rng.choice(len(vectors), p=distances / total))
+        index = (
+            int(rng.integers(len(vectors)))
+            if total == 0
+            else int(rng.choice(len(vectors), p=distances / total))
+        )
         centers.append(vectors[index])
     centroids = normalize_rows(np.asarray(centers))
     labels = np.full(len(vectors), -1, dtype=np.int32)
@@ -329,14 +304,10 @@ def _spherical_kmeans_once(
     return labels, centroids, objective
 
 
-def spherical_kmeans(
-    vectors: np.ndarray,
-    k: int,
-    *,
-    seed: int = 42,
-    n_init: int = 8,
-) -> tuple[np.ndarray, np.ndarray]:
-    attempts = [_spherical_kmeans_once(vectors, k, seed=seed + attempt) for attempt in range(n_init)]
+def spherical_kmeans(vectors: np.ndarray, k: int, *, seed: int = 42, n_init: int = 8) -> tuple[np.ndarray, np.ndarray]:
+    attempts = [
+        _spherical_kmeans_once(vectors, k, seed=seed + attempt) for attempt in range(n_init)
+    ]
     labels, centroids, _ = min(attempts, key=lambda item: item[2])
     return labels, centroids
 
@@ -354,19 +325,14 @@ def cosine_silhouette(vectors: np.ndarray, labels: np.ndarray) -> float:
             values.append(0.0)
             continue
         a = float(distances[index, same].mean())
-        b = min(float(distances[index, labels == other].mean()) for other in unique if other != label)
+        b = min(
+            float(distances[index, labels == other].mean()) for other in unique if other != label
+        )
         values.append((b - a) / max(a, b, 1e-12))
     return float(np.mean(values))
 
 
-def select_clusters(
-    vectors: np.ndarray,
-    *,
-    max_k: int = 12,
-    min_cluster_size: int = 2,
-    min_silhouette: float = 0.05,
-    seed: int = 42,
-) -> ClusterResult:
+def select_clusters(vectors: np.ndarray, *, max_k: int = 12, min_cluster_size: int = 2, min_silhouette: float = 0.05, seed: int = 42) -> ClusterResult:
     count = len(vectors)
     upper = min(max_k, count - 1, count // min_cluster_size)
     candidates: list[dict[str, float | int]] = []
@@ -389,14 +355,16 @@ def select_clusters(
     radii = np.zeros(len(centroids), dtype=np.float32)
     for cluster_id, centroid in enumerate(centroids):
         member_distances = 1.0 - vectors[labels == cluster_id] @ centroid
-        radii[cluster_id] = float(np.quantile(member_distances, 0.9)) if len(member_distances) else 0.0
+        radii[cluster_id] = (
+            float(np.quantile(member_distances, 0.9)) if len(member_distances) else 0.0
+        )
     return ClusterResult(
         labels=labels,
         centroids=centroids,
         radii=radii,
         chosen_k=len(centroids),
         silhouette=float(silhouette),
-        candidates=candidates,
+        candidates=candidates
     )
 
 
@@ -433,13 +401,7 @@ class BM25Index:
         return scores
 
 
-def _deduplicated_top_indices(
-    semantic_scores: np.ndarray,
-    chunks: Sequence[Chunk],
-    *,
-    k: int,
-    adjacent_window: int = 1,
-) -> list[int]:
+def _deduplicated_top_indices(semantic_scores: np.ndarray, chunks: Sequence[Chunk], *, k: int, adjacent_window: int = 1) -> list[int]:
     selected: list[int] = []
     for index in np.argsort(-semantic_scores):
         chunk = chunks[int(index)]
@@ -473,16 +435,7 @@ FEATURE_NAMES = (
 )
 
 
-def extract_features(
-    query: str,
-    query_vector: np.ndarray,
-    chunks: Sequence[Chunk],
-    corpus_vectors: np.ndarray,
-    clusters: ClusterResult,
-    bm25: BM25Index,
-    *,
-    top_k: int = 3,
-) -> tuple[dict[str, float], list[int]]:
+def extract_features(query: str, query_vector: np.ndarray, chunks: Sequence[Chunk], corpus_vectors: np.ndarray, clusters: ClusterResult, bm25: BM25Index, *, top_k: int = 3) -> tuple[dict[str, float], list[int]]:
     semantic = corpus_vectors @ query_vector
     selected = _deduplicated_top_indices(semantic, chunks, k=min(top_k, len(chunks)))
     top_semantic = [float(semantic[index]) for index in selected]
@@ -518,20 +471,13 @@ def extract_features(
         "cluster_margin": cluster_margin,
         "cluster_agreement": agreement,
         "centroid_radius_ratio": centroid_distance / radius,
-        "distinct_documents": float(len({chunks[index].document_id for index in selected})) / max(len(selected), 1),
+        "distinct_documents": float(len({chunks[index].document_id for index in selected}))
+        / max(len(selected), 1),
     }
     return row, selected
 
 
-def fit_linear_gate(
-    rows: Sequence[dict[str, float]],
-    labels: Sequence[bool],
-    feature_names: Sequence[str],
-    *,
-    learning_rate: float = 0.05,
-    steps: int = 2_000,
-    l2: float = 0.01,
-) -> LinearGate:
+def fit_linear_gate(rows: Sequence[dict[str, float]], labels: Sequence[bool], feature_names: Sequence[str], *, learning_rate: float = 0.05, steps: int = 2_000, l2: float = 0.01) -> LinearGate:
     x = np.asarray([[row[name] for name in feature_names] for row in rows], dtype=np.float64)
     y = np.asarray(labels, dtype=np.float64)
     if len(np.unique(y)) < 2:
@@ -551,12 +497,7 @@ def fit_linear_gate(
     return LinearGate(tuple(feature_names), mean, scale, weights, bias)
 
 
-def choose_threshold(
-    labels: Sequence[bool],
-    scores: Sequence[float],
-    *,
-    max_false_accept_rate: float = 0.10,
-) -> float:
+def choose_threshold(labels: Sequence[bool], scores: Sequence[float], *, max_false_accept_rate: float = 0.10) -> float:
     y = np.asarray(labels, dtype=bool)
     probabilities = np.asarray(scores, dtype=np.float64)
     candidates = np.unique(np.concatenate(([0.0], probabilities, [1.0 + 1e-9])))
@@ -578,11 +519,7 @@ def choose_threshold(
     return max(feasible, key=lambda item: (item[0], item[1], item[2]))[2]
 
 
-def classification_metrics(
-    labels: Sequence[bool],
-    scores: Sequence[float],
-    threshold: float,
-) -> dict[str, float | int]:
+def classification_metrics(labels: Sequence[bool], scores: Sequence[float], threshold: float) -> dict[str, float | int]:
     y = np.asarray(labels, dtype=bool)
     probabilities = np.asarray(scores, dtype=np.float64)
     accepted = probabilities >= threshold
@@ -610,29 +547,34 @@ def classification_metrics(
     }
 
 
-def retrieval_metrics(
-    cases: Sequence[QueryCase],
-    retrieved: Sequence[Sequence[int]],
-    chunks: Sequence[Chunk],
-) -> dict[str, float]:
+def retrieval_metrics(cases: Sequence[QueryCase], retrieved: Sequence[Sequence[int]], chunks: Sequence[Chunk]) -> dict[str, float]:
     recalls: list[float] = []
     evidence_coverages: list[float] = []
     reciprocal_ranks: list[float] = []
-    
+
     for case, indices in zip(cases, retrieved, strict=True):
         relevant = set(case.relevant_document_ids)
         if not relevant:
             continue
-        
+
         ranked_documents = [chunks[index].document_id for index in indices]
         recalls.append(float(any(document_id in relevant for document_id in ranked_documents)))
         evidence_coverages.append(len(relevant.intersection(ranked_documents)) / len(relevant))
-        rank = next((rank for rank, document_id in enumerate(ranked_documents, 1) if document_id in relevant), None)
+        rank = next(
+            (
+                rank
+                for rank, document_id in enumerate(ranked_documents, 1)
+                if document_id in relevant
+            ),
+            None
+        )
         reciprocal_ranks.append(0.0 if rank is None else 1.0 / rank)
-    
+
     return {
         "recall_at_3": float(np.mean(recalls)) if recalls else float("nan"),
-        "evidence_coverage_at_3": float(np.mean(evidence_coverages)) if evidence_coverages else float("nan"),
+        "evidence_coverage_at_3": float(np.mean(evidence_coverages))
+        if evidence_coverages
+        else float("nan"),
         "mrr": float(np.mean(reciprocal_ranks)) if reciprocal_ranks else float("nan"),
     }
 
@@ -654,106 +596,102 @@ METHOD_FEATURES: dict[str, tuple[str, ...]] = {
 }
 
 
-def run_benchmark(
-    chunks: Sequence[Chunk],
-    corpus_vectors: np.ndarray,
-    cases: Sequence[QueryCase],
-    query_vectors: np.ndarray,
-    *,
-    clusters: ClusterResult | None = None,
-    max_false_accept_rate: float = 0.10,
-    uncertain_band: float = 0.10,
-) -> dict[str, Any]:
+def run_benchmark(chunks: Sequence[Chunk], corpus_vectors: np.ndarray, cases: Sequence[QueryCase], query_vectors: np.ndarray, *, clusters: ClusterResult | None = None, max_false_accept_rate: float = 0.10, uncertain_band: float = 0.10) -> dict[str, Any]:
     if len(cases) != len(query_vectors):
         raise ValueError("case 수와 query embedding 수가 다릅니다.")
-    
+
     required = {"train", "validation", "test"}
     actual = {case.split for case in cases}
-    
+
     if not required.issubset(actual):
         raise ValueError("train, validation, test split이 모두 필요합니다.")
-    
+
     clusters = clusters or select_clusters(corpus_vectors)
-    
+
     bm25 = BM25Index([chunk.text for chunk in chunks])
     rows: list[dict[str, float]] = []
     retrieved: list[list[int]] = []
     feature_started = time.perf_counter()
-    
+
     for case, query_vector in zip(cases, query_vectors, strict=True):
-        row, indices = extract_features(case.query, query_vector, chunks, corpus_vectors, clusters, bm25)
+        row, indices = extract_features(
+            case.query, query_vector, chunks, corpus_vectors, clusters, bm25
+        )
         rows.append(row)
         retrieved.append(indices)
-    
+
     feature_ms = (time.perf_counter() - feature_started) * 1_000.0
-    indices_by_split = {split: [index for index, case in enumerate(cases) if case.split == split] for split in required}
-    
+    indices_by_split = {
+        split: [index for index, case in enumerate(cases) if case.split == split]
+        for split in required
+    }
+
     results: list[dict[str, Any]] = []
     method_details: dict[str, dict[str, Any]] = {}
     gates: dict[str, LinearGate] = {}
     test_probabilities: dict[str, np.ndarray] = {}
-    
+
     for method, feature_names in METHOD_FEATURES.items():
         train_indices = indices_by_split["train"]
         validation_indices = indices_by_split["validation"]
         test_indices = indices_by_split["test"]
-       
+
         gate = fit_linear_gate(
             [rows[index] for index in train_indices],
             [cases[index].answerable for index in train_indices],
-            feature_names,
+            feature_names
         )
         validation_scores = gate.predict_proba([rows[index] for index in validation_indices])
         threshold = choose_threshold(
             [cases[index].answerable for index in validation_indices],
             validation_scores,
-            max_false_accept_rate=max_false_accept_rate,
+            max_false_accept_rate=max_false_accept_rate
         )
         test_scores = gate.predict_proba([rows[index] for index in test_indices])
         metrics = classification_metrics(
-            [cases[index].answerable for index in test_indices],
-            test_scores,
-            threshold,
+            [cases[index].answerable for index in test_indices], test_scores, threshold
         )
         results.append({"method": method, **metrics})
-       
+
         method_details[method] = {
             "scores": test_scores.tolist(),
             "threshold": threshold,
             "accepted": (test_scores >= threshold).tolist(),
         }
-        
+
         gates[method] = gate
         test_probabilities[method] = test_scores
 
     test_indices = indices_by_split["test"]
     llm_available = all(cases[index].llm_accept is not None for index in test_indices)
-    
+
     if llm_available:
         labels = [cases[index].answerable for index in test_indices]
         llm_scores = np.asarray([float(bool(cases[index].llm_accept)) for index in test_indices])
-        results.append({"method": "F_llm_evaluator", **classification_metrics(labels, llm_scores, 0.5)})
-        
+        results.append(
+            {"method": "F_llm_evaluator", **classification_metrics(labels, llm_scores, 0.5)}
+        )
+
         method_details["F_llm_evaluator"] = {
             "scores": llm_scores.tolist(),
             "threshold": 0.5,
             "accepted": (llm_scores >= 0.5).tolist(),
         }
-        
+
         e_result = next(result for result in results if result["method"] == "E_calibrated_gate")
         threshold = float(e_result["threshold"])
         e_scores = test_probabilities["E_calibrated_gate"]
-        
+
         lower = max(0.0, threshold - uncertain_band)
         upper = min(1.0, threshold + uncertain_band)
-        
+
         hybrid_scores = e_scores.copy()
         fallback_count = 0
         for position, case_index in enumerate(test_indices):
             if lower <= e_scores[position] <= upper:
                 hybrid_scores[position] = float(bool(cases[case_index].llm_accept))
                 fallback_count += 1
-        
+
         hybrid_metrics = classification_metrics(labels, hybrid_scores, threshold)
         results.append(
             {
@@ -763,7 +701,7 @@ def run_benchmark(
                 "llm_fallback_rate": fallback_count / max(len(test_indices), 1),
             }
         )
-        
+
         method_details["G_gate_llm_fallback"] = {
             "scores": hybrid_scores.tolist(),
             "threshold": threshold,
@@ -790,7 +728,9 @@ def run_benchmark(
         "feature_extraction_ms_per_query": feature_ms / max(len(cases), 1),
         "llm_methods_included": llm_available,
         "features": rows,
-        "retrieved_chunk_ids": [[chunks[index].chunk_id for index in indices] for indices in retrieved],
+        "retrieved_chunk_ids": [
+            [chunks[index].chunk_id for index in indices] for indices in retrieved
+        ],
         "gates": gates,
     }
 
@@ -818,12 +758,7 @@ def compact_results(report: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def plot_benchmark_report(
-    report: dict[str, Any],
-    *,
-    output_dir: str | Path | None = None,
-    show: bool = True,
-) -> dict[str, Any]:
+def plot_benchmark_report(report: dict[str, Any], *, output_dir: str | Path | None = None, show: bool = True) -> dict[str, Any]:
     """평가 요약과 test score 분포를 그리고, 선택적으로 PNG로 저장합니다."""
     import matplotlib.pyplot as plt
 
@@ -847,7 +782,7 @@ def plot_benchmark_report(
             width=width,
             label=metric,
             color=color,
-            alpha=0.85,
+            alpha=0.85
         )
     axes[0, 0].set_title("Accept Decision Quality")
     axes[0, 0].set_xticks(positions, short_names)
@@ -865,7 +800,7 @@ def plot_benchmark_report(
         cmap="viridis",
         s=110,
         edgecolor="white",
-        linewidth=0.8,
+        linewidth=0.8
     )
     coordinate_labels: dict[tuple[float, float], list[str]] = {}
     for name, coverage, false_accept in zip(short_names, coverages, false_accepts, strict=True):
@@ -875,9 +810,11 @@ def plot_benchmark_report(
             ", ".join(labels_at_coordinate),
             (coverage, false_accept),
             xytext=(5, 5),
-            textcoords="offset points",
+            textcoords="offset points"
         )
-    axes[0, 1].axhline(0.10, color="#DC2626", linestyle="--", linewidth=1.2, label="FAR guardrail 0.10")
+    axes[0, 1].axhline(
+        0.10, color="#DC2626", linestyle="--", linewidth=1.2, label="FAR guardrail 0.10"
+    )
     axes[0, 1].set_title("Risk-Coverage Trade-off")
     axes[0, 1].set_xlabel("coverage (higher is better)")
     axes[0, 1].set_ylabel("false accept rate (lower is better)")
@@ -893,7 +830,7 @@ def plot_benchmark_report(
         width=width,
         label="false accept",
         color="#DC2626",
-        alpha=0.8,
+        alpha=0.8
     )
     axes[1, 0].bar(
         positions + width / 2,
@@ -901,7 +838,7 @@ def plot_benchmark_report(
         width=width,
         label="false reject",
         color="#7C3AED",
-        alpha=0.8,
+        alpha=0.8
     )
     axes[1, 0].plot(
         positions,
@@ -909,7 +846,7 @@ def plot_benchmark_report(
         color="#111827",
         marker="o",
         linewidth=1.5,
-        label="Brier",
+        label="Brier"
     )
     axes[1, 0].set_title("Error Rates and Calibration")
     axes[1, 0].set_xticks(positions, short_names)
@@ -926,7 +863,7 @@ def plot_benchmark_report(
             report["cluster"]["chosen_k"],
             color="#EA580C",
             linestyle="--",
-            label=f"chosen K={report['cluster']['chosen_k']}",
+            label=f"chosen K={report['cluster']['chosen_k']}"
         )
         axes[1, 1].legend(frameon=False)
         axes[1, 1].set_xticks(candidate_k)
@@ -940,7 +877,9 @@ def plot_benchmark_report(
     details = report["method_details"]
     labels = np.asarray(report["test_labels"], dtype=bool)
     score_figure, score_axis = plt.subplots(figsize=(16, 6), constrained_layout=True)
-    score_figure.suptitle("Test Score Separation and Validation Thresholds", fontsize=15, fontweight="bold")
+    score_figure.suptitle(
+        "Test Score Separation and Validation Thresholds", fontsize=15, fontweight="bold"
+    )
     box_width = 0.28
     legend_handles = None
     for index, name in enumerate(names):
@@ -953,17 +892,12 @@ def plot_benchmark_report(
             widths=box_width,
             patch_artist=True,
             manage_ticks=False,
-            medianprops={"color": "#111827"},
+            medianprops={"color": "#111827"}
         )
         boxes["boxes"][0].set_facecolor("#FCA5A5")
         boxes["boxes"][1].set_facecolor("#86EFAC")
         score_axis.scatter(
-            index,
-            details[name]["threshold"],
-            marker="D",
-            s=55,
-            color="#1D4ED8",
-            zorder=4,
+            index, details[name]["threshold"], marker="D", s=55, color="#1D4ED8", zorder=4
         )
         if legend_handles is None:
             legend_handles = [boxes["boxes"][0], boxes["boxes"][1]]
@@ -978,7 +912,7 @@ def plot_benchmark_report(
         frameon=False,
         ncol=3,
         loc="upper center",
-        bbox_to_anchor=(0.5, -0.10),
+        bbox_to_anchor=(0.5, -0.10)
     )
 
     saved_paths: dict[str, str] = {}

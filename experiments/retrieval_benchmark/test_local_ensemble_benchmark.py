@@ -15,7 +15,7 @@ def test_ensemble_only_resolves_when_both_models_agree() -> None:
         verifier_reject=0.1,
         verifier_accept=0.9,
         reader_reject=-5.0,
-        reader_accept=5.0,
+        reader_accept=5.0
     )
 
     assert accepted.tolist() == [True, False, False, False, False]

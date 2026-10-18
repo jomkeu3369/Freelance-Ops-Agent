@@ -56,7 +56,9 @@ def _parser() -> argparse.ArgumentParser:
 
     replay = commands.add_parser("operational-replay")
     replay.add_argument("--ab-report", default="reports/2026-08-11-a1-vs-luna/router_ab.json")
-    replay.add_argument("--hybrid-report", default="reports/2026-08-13-hybrid-rrf/hybrid_router_evaluation.json")
+    replay.add_argument(
+        "--hybrid-report", default="reports/2026-08-13-hybrid-rrf/hybrid_router_evaluation.json"
+    )
     replay.add_argument("--train", default="../../agent/resources/routing/examples.jsonl")
     replay.add_argument("--validation", default="data/generated-v1/validation.jsonl")
 
@@ -66,9 +68,16 @@ def _parser() -> argparse.ArgumentParser:
     shift.add_argument("--validation", default="data/generated-v1/validation.jsonl")
 
     shadow_fixture = commands.add_parser("shadow-fixture")
-    shadow_fixture.add_argument("--ab-report", default="reports/2026-08-11-a1-vs-luna/router_ab.json")
-    shadow_fixture.add_argument("--shift-report", default="reports/2026-08-27-distribution-shift/distribution_shift_evaluation.json")
-    shadow_fixture.add_argument("--trace-output", default="reports/latest/shadow_trace_fixture.jsonl")
+    shadow_fixture.add_argument(
+        "--ab-report", default="reports/2026-08-11-a1-vs-luna/router_ab.json"
+    )
+    shadow_fixture.add_argument(
+        "--shift-report",
+        default="reports/2026-08-27-distribution-shift/distribution_shift_evaluation.json"
+    )
+    shadow_fixture.add_argument(
+        "--trace-output", default="reports/latest/shadow_trace_fixture.jsonl"
+    )
 
     shadow = commands.add_parser("shadow-evaluate")
     shadow.add_argument("--traces", required=True)
@@ -85,7 +94,9 @@ def _parser() -> argparse.ArgumentParser:
     shadow_export_prepare.add_argument("--pages", required=True)
     shadow_export_prepare.add_argument("--trace-output", required=True)
     shadow_export_prepare.add_argument("--hash-key-env", default="ROUTING_SHADOW_HASH_KEY")
-    shadow_export_prepare.add_argument("--hash-key-version-env", default="ROUTING_SHADOW_HASH_KEY_VERSION")
+    shadow_export_prepare.add_argument(
+        "--hash-key-version-env", default="ROUTING_SHADOW_HASH_KEY_VERSION"
+    )
 
     collection_plan = commands.add_parser("collection-plan")
     collection_plan.add_argument("--trials", type=int, default=2_000)
@@ -174,23 +185,42 @@ def main() -> None:
         return
 
     if args.command == "operational-replay":
-        outputs = evaluate_operational_replay(Path(args.ab_report).resolve(), Path(args.hybrid_report).resolve(), Path(args.train).resolve(), Path(args.validation).resolve(), output_dir)
+        outputs = evaluate_operational_replay(
+            Path(args.ab_report).resolve(),
+            Path(args.hybrid_report).resolve(),
+            Path(args.train).resolve(),
+            Path(args.validation).resolve(),
+            output_dir
+        )
         for output in outputs:
             print(output)
         return
 
     if args.command == "distribution-shift":
-        outputs = evaluate_distribution_shift(Path(args.ab_report).resolve(), Path(args.train).resolve(), Path(args.validation).resolve(), output_dir)
+        outputs = evaluate_distribution_shift(
+            Path(args.ab_report).resolve(),
+            Path(args.train).resolve(),
+            Path(args.validation).resolve(),
+            output_dir
+        )
         for output in outputs:
             print(output)
         return
 
     if args.command == "shadow-fixture":
-        print(build_policy_replay_fixture(Path(args.ab_report).resolve(), Path(args.shift_report).resolve(), Path(args.trace_output).resolve()))
+        print(
+            build_policy_replay_fixture(
+                Path(args.ab_report).resolve(),
+                Path(args.shift_report).resolve(),
+                Path(args.trace_output).resolve()
+            )
+        )
         return
 
     if args.command == "shadow-evaluate":
-        for output in evaluate_shadow_traces(Path(args.traces).resolve(), output_dir, args.holdout_percent):
+        for output in evaluate_shadow_traces(
+            Path(args.traces).resolve(), output_dir, args.holdout_percent
+        ):
             print(output)
         return
 
@@ -200,8 +230,16 @@ def main() -> None:
             raise SystemExit(f"missing HMAC key environment variable: {args.hash_key_env}")
         hash_key_version = os.getenv(args.hash_key_version_env)
         if hash_key_version is None:
-            raise SystemExit(f"missing HMAC key version environment variable: {args.hash_key_version_env}")
-        for output in prepare_shadow_traces(Path(args.observations).resolve(), Path(args.reviews).resolve(), Path(args.trace_output).resolve(), hash_key, hash_key_version):
+            raise SystemExit(
+                f"missing HMAC key version environment variable: {args.hash_key_version_env}"
+            )
+        for output in prepare_shadow_traces(
+            Path(args.observations).resolve(),
+            Path(args.reviews).resolve(),
+            Path(args.trace_output).resolve(),
+            hash_key,
+            hash_key_version
+        ):
             print(output)
         return
 
@@ -211,8 +249,15 @@ def main() -> None:
             raise SystemExit(f"missing HMAC key environment variable: {args.hash_key_env}")
         hash_key_version = os.getenv(args.hash_key_version_env)
         if hash_key_version is None:
-            raise SystemExit(f"missing HMAC key version environment variable: {args.hash_key_version_env}")
-        for output in prepare_shadow_export_pages(Path(args.pages).resolve(), Path(args.trace_output).resolve(), hash_key, hash_key_version):
+            raise SystemExit(
+                f"missing HMAC key version environment variable: {args.hash_key_version_env}"
+            )
+        for output in prepare_shadow_export_pages(
+            Path(args.pages).resolve(),
+            Path(args.trace_output).resolve(),
+            hash_key,
+            hash_key_version
+        ):
             print(output)
         return
 

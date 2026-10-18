@@ -48,13 +48,17 @@ def _portable_path(path: Path) -> str:
     parts = path.resolve().parts
     for marker in ("experiments", "agent", "docs"):
         if marker in parts:
-            return Path(*parts[parts.index(marker):]).as_posix()
+            return Path(*parts[parts.index(marker) :]).as_posix()
     return path.name
 
 
 def _features() -> FeatureUnion:
-    word = TfidfVectorizer(analyzer="word", ngram_range=(1, 2), min_df=2, max_features=20_000, sublinear_tf=True)
-    character = TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), min_df=2, max_features=30_000, sublinear_tf=True)
+    word = TfidfVectorizer(
+        analyzer="word", ngram_range=(1, 2), min_df=2, max_features=20_000, sublinear_tf=True
+    )
+    character = TfidfVectorizer(
+        analyzer="char_wb", ngram_range=(3, 5), min_df=2, max_features=30_000, sublinear_tf=True
+    )
     return FeatureUnion([("word", word), ("character", character)])
 
 
@@ -72,9 +76,13 @@ def _fit_local_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
 
     best: tuple[float, float, LogisticRegression] | None = None
     for c_value in (0.25, 0.5, 1.0, 2.0, 4.0):
-        model = LogisticRegression(C=c_value, class_weight="balanced", max_iter=2_000, random_state=42)
+        model = LogisticRegression(
+            C=c_value, class_weight="balanced", max_iter=2_000, random_state=42
+        )
         model.fit(train_matrix, train_labels)
-        score = float(f1_score(validation_labels, model.predict(validation_matrix), average="macro"))
+        score = float(
+            f1_score(validation_labels, model.predict(validation_matrix), average="macro")
+        )
         candidate = (score, -c_value, model)
         if best is None or candidate[:2] > best[:2]:
             best = candidate
@@ -83,17 +91,32 @@ def _fit_local_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
         raise RuntimeError("local model selection produced no candidate")
     validation_macro_f1, negative_c, model = best
     validation_probabilities = model.predict_proba(validation_matrix)
-    thresholds = _calibrate_thresholds(validation_labels, list(model.classes_), validation_probabilities)
+    thresholds = _calibrate_thresholds(
+        validation_labels, list(model.classes_), validation_probabilities
+    )
     test_probabilities = model.predict_proba(test_matrix)
     test_indices = np.argmax(test_probabilities, axis=1)
-    predictions = {str(row["id"]): str(model.classes_[index]) for row, index in zip(test_rows, test_indices)}
-    confidence = {str(row["id"]): float(test_probabilities[row_index, class_index]) for row_index, (row, class_index) in enumerate(zip(test_rows, test_indices))}
+    predictions = {
+        str(row["id"]): str(model.classes_[index]) for row, index in zip(test_rows, test_indices)
+    }
+    confidence = {
+        str(row["id"]): float(test_probabilities[row_index, class_index])
+        for row_index, (row, class_index) in enumerate(zip(test_rows, test_indices))
+    }
     latency_ms: list[float] = []
     for text in test_text:
         started = time.perf_counter_ns()
         model.predict_proba(vectorizer.transform([text]))
         latency_ms.append((time.perf_counter_ns() - started) / 1_000_000)
-    return LocalModelResult(predictions=predictions, confidence=confidence, thresholds=thresholds, selected_c=-negative_c, validation_macro_f1=validation_macro_f1, mean_latency_ms=float(np.mean(latency_ms)), p95_latency_ms=float(np.percentile(latency_ms, 95)))
+    return LocalModelResult(
+        predictions=predictions,
+        confidence=confidence,
+        thresholds=thresholds,
+        selected_c=-negative_c,
+        validation_macro_f1=validation_macro_f1,
+        mean_latency_ms=float(np.mean(latency_ms)),
+        p95_latency_ms=float(np.percentile(latency_ms, 95))
+    )
 
 
 def _calibrate_thresholds(truth: list[str], classes: list[str], probabilities: np.ndarray) -> dict[str, float]:
@@ -103,17 +126,28 @@ def _calibrate_thresholds(truth: list[str], classes: list[str], probabilities: n
         if route == "HUMAN_REQUIRED":
             thresholds[route] = 0.0
             continue
-        candidates = sorted({float(probabilities[index, class_index]) for index in range(len(truth))}, reverse=True)
+        candidates = sorted(
+            {float(probabilities[index, class_index]) for index in range(len(truth))}, reverse=True
+        )
         selected: float | None = None
         selected_count = -1
         for threshold in candidates:
-            accepted = [index for index in range(len(truth)) if predicted_indices[index] == class_index and probabilities[index, class_index] >= threshold]
+            accepted = [
+                index
+                for index in range(len(truth))
+                if predicted_indices[index] == class_index
+                and probabilities[index, class_index] >= threshold
+            ]
             if len(accepted) < MIN_CALIBRATION_ACCEPTS:
                 continue
             correct = sum(truth[index] == route for index in accepted)
             false_automation = sum(truth[index] == "HUMAN_REQUIRED" for index in accepted)
             precision = correct / len(accepted)
-            if precision >= LOCAL_ACCEPT_PRECISION and false_automation == 0 and len(accepted) > selected_count:
+            if (
+                precision >= LOCAL_ACCEPT_PRECISION
+                and false_automation == 0
+                and len(accepted) > selected_count
+            ):
                 selected = threshold
                 selected_count = len(accepted)
         if selected is not None:
@@ -168,7 +202,11 @@ def _evaluate_policy(name: str, cases: list[dict[str, Any]], llm_predictions: di
             llm_cost += float(prediction["cost_usd"])
             latencies.append(float(prediction["latency_ms"]))
         elif source == "LOCAL_MODEL":
-            local_latency = hybrid_cases[case_id].get("local_latency_ms", 266.632512) if mode == "legacy_agreement" else local.mean_latency_ms
+            local_latency = (
+                hybrid_cases[case_id].get("local_latency_ms", 266.632512)
+                if mode == "legacy_agreement"
+                else local.mean_latency_ms
+            )
             latencies.append(float(local_latency))
         else:
             latencies.append(POLICY_LATENCY_MS)
@@ -180,7 +218,10 @@ def _evaluate_policy(name: str, cases: list[dict[str, Any]], llm_predictions: di
     metrics = routing_metrics(truth, predictions, ROUTES)
     human_indices = [index for index, route in enumerate(truth) if route == "HUMAN_REQUIRED"]
     false_automation = sum(predictions[index] != "HUMAN_REQUIRED" for index in human_indices)
-    over_escalation = sum(predicted == "HUMAN_REQUIRED" and expected != "HUMAN_REQUIRED" for expected, predicted in zip(truth, predictions))
+    over_escalation = sum(
+        predicted == "HUMAN_REQUIRED" and expected != "HUMAN_REQUIRED"
+        for expected, predicted in zip(truth, predictions)
+    )
     route_f1 = {route: float(metrics["per_route"][route]["f1-score"]) for route in ROUTES}
     human_recall = float(metrics["per_route"]["HUMAN_REQUIRED"]["recall"])
     return {
@@ -199,7 +240,9 @@ def _evaluate_policy(name: str, cases: list[dict[str, Any]], llm_predictions: di
         "mean_estimated_latency_ms": float(np.mean(latencies)),
         "p95_estimated_latency_ms": float(np.percentile(latencies, 95)),
         "decision_counts": decision_counts,
-        "passes_local_promotion_gate": min(route_f1.values()) >= 0.70 and human_recall >= 0.95 and false_automation == 0
+        "passes_local_promotion_gate": min(route_f1.values()) >= 0.70
+        and human_recall >= 0.95
+        and false_automation == 0,
     }
 
 
@@ -219,22 +262,34 @@ def evaluate_operational_replay(ab_report_path: Path, hybrid_report_path: Path, 
         ("Trusted contract → LLM", "policy_first"),
         ("Trusted contract → safe local escalation → LLM", "policy_escalation"),
         ("Trusted contract → calibrated local → LLM", "policy_calibrated"),
-        ("Legacy lane agreement → LLM", "legacy_agreement")
+        ("Legacy lane agreement → LLM", "legacy_agreement"),
     )
-    policies = [_evaluate_policy(name, cases, llm_predictions, local, hybrid_cases, mode) for name, mode in definitions]
+    policies = [
+        _evaluate_policy(name, cases, llm_predictions, local, hybrid_cases, mode)
+        for name, mode in definitions
+    ]
     baseline_cost = float(policies[0]["llm_cost_usd"])
     for policy in policies:
-        policy["llm_cost_savings_rate"] = 1.0 - float(policy["llm_cost_usd"]) / baseline_cost if baseline_cost else 0.0
+        policy["llm_cost_savings_rate"] = (
+            1.0 - float(policy["llm_cost_usd"]) / baseline_cost if baseline_cost else 0.0
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "operational_policy_replay.json"
     payload = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
-        "sources": {"ab_report": _portable_path(ab_report_path), "hybrid_report": _portable_path(hybrid_report_path), "train": _portable_path(train_path), "validation": _portable_path(validation_path)},
+        "sources": {
+            "ab_report": _portable_path(ab_report_path),
+            "hybrid_report": _portable_path(hybrid_report_path),
+            "train": _portable_path(train_path),
+            "validation": _portable_path(validation_path),
+        },
         "method": {
             "frozen_test_count": len(cases),
-            "trusted_contract_fixture_count": sum(_trusted_contract_route(case) is not None for case in cases),
+            "trusted_contract_fixture_count": sum(
+                _trusted_contract_route(case) is not None for case in cases
+            ),
             "local_model": "word+character TF-IDF with multinomial logistic regression",
             "selected_c": local.selected_c,
             "validation_macro_f1": local.validation_macro_f1,
@@ -245,9 +300,9 @@ def evaluate_operational_replay(ab_report_path: Path, hybrid_report_path: Path, 
             "threshold_min_accepts": MIN_CALIBRATION_ACCEPTS,
             "threshold_selection_used_frozen_test": False,
             "policy_latency_assumption_ms": POLICY_LATENCY_MS,
-            "local_latency_source": "2026-08-13 hybrid CPU mean"
+            "local_latency_source": "2026-08-13 hybrid CPU mean",
         },
-        "policies": policies
+        "policies": policies,
     }
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     table_path = output_dir / "operational_policy_summary.csv"
@@ -260,7 +315,21 @@ def evaluate_operational_replay(ab_report_path: Path, hybrid_report_path: Path, 
 
 
 def _write_table(path: Path, policies: list[dict[str, Any]]) -> None:
-    fields = ["name", "accuracy", "macro_f1", "minimum_route_f1", "human_required_recall", "false_automation_count", "over_escalation_count", "llm_call_rate", "llm_cost_usd", "llm_cost_savings_rate", "mean_estimated_latency_ms", "p95_estimated_latency_ms", "passes_local_promotion_gate"]
+    fields = [
+        "name",
+        "accuracy",
+        "macro_f1",
+        "minimum_route_f1",
+        "human_required_recall",
+        "false_automation_count",
+        "over_escalation_count",
+        "llm_call_rate",
+        "llm_cost_usd",
+        "llm_cost_savings_rate",
+        "mean_estimated_latency_ms",
+        "p95_estimated_latency_ms",
+        "passes_local_promotion_gate",
+    ]
     with path.open("w", encoding="utf-8-sig", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
@@ -268,7 +337,13 @@ def _write_table(path: Path, policies: list[dict[str, Any]]) -> None:
 
 
 def _plot_dashboard(path: Path, policies: list[dict[str, Any]]) -> None:
-    labels = ["LLM all", "Policy→LLM", "Policy→safe\nescalation→LLM", "Policy→calibrated\nlocal→LLM", "Legacy\nagreement→LLM"]
+    labels = [
+        "LLM all",
+        "Policy→LLM",
+        "Policy→safe\nescalation→LLM",
+        "Policy→calibrated\nlocal→LLM",
+        "Legacy\nagreement→LLM",
+    ]
     x = np.arange(len(policies))
     figure, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
     figure.suptitle("Operational Routing Policy Replay — Frozen 50", fontsize=17, fontweight="bold")
@@ -283,13 +358,29 @@ def _plot_dashboard(path: Path, policies: list[dict[str, Any]]) -> None:
     axes[0, 1].set_ylim(0, 1.05)
     _style_axis(axes[0, 1], labels, "LLM call exposure", "Call rate")
 
-    axes[1, 0].bar(x - 0.18, [item["human_required_recall"] for item in policies], 0.36, label="HUMAN recall", color="#059669")
-    axes[1, 0].bar(x + 0.18, [item["false_automation_count"] for item in policies], 0.36, label="False automation", color="#DC2626")
+    axes[1, 0].bar(
+        x - 0.18,
+        [item["human_required_recall"] for item in policies],
+        0.36,
+        label="HUMAN recall",
+        color="#059669"
+    )
+    axes[1, 0].bar(
+        x + 0.18,
+        [item["false_automation_count"] for item in policies],
+        0.36,
+        label="False automation",
+        color="#DC2626"
+    )
     axes[1, 0].legend(frameon=False)
     _style_axis(axes[1, 0], labels, "Safety outcomes", "Recall / count")
 
-    axes[1, 1].bar(x - 0.18, [item["mean_estimated_latency_ms"] for item in policies], 0.36, label="Mean")
-    axes[1, 1].bar(x + 0.18, [item["p95_estimated_latency_ms"] for item in policies], 0.36, label="p95")
+    axes[1, 1].bar(
+        x - 0.18, [item["mean_estimated_latency_ms"] for item in policies], 0.36, label="Mean"
+    )
+    axes[1, 1].bar(
+        x + 0.18, [item["p95_estimated_latency_ms"] for item in policies], 0.36, label="p95"
+    )
     axes[1, 1].set_yscale("log")
     axes[1, 1].legend(frameon=False)
     _style_axis(axes[1, 1], labels, "Estimated routing latency", "Milliseconds, log scale")
@@ -311,22 +402,37 @@ def _style_axis(axis: Any, labels: list[str], title: str, ylabel: str) -> None:
 
 
 def _plot_table(path: Path, policies: list[dict[str, Any]]) -> None:
-    columns = ["Policy", "Accuracy", "Macro-F1", "Human recall", "False auto", "LLM rate", "Cost saved"]
+    columns = [
+        "Policy",
+        "Accuracy",
+        "Macro-F1",
+        "Human recall",
+        "False auto",
+        "LLM rate",
+        "Cost saved",
+    ]
     rows = [
         [
             item["name"],
-            f'{item["accuracy"]:.3f}',
-            f'{item["macro_f1"]:.3f}',
-            f'{item["human_required_recall"]:.3f}',
+            f"{item['accuracy']:.3f}",
+            f"{item['macro_f1']:.3f}",
+            f"{item['human_required_recall']:.3f}",
             str(item["false_automation_count"]),
-            f'{item["llm_call_rate"]:.0%}',
-            f'{item["llm_cost_savings_rate"]:.1%}'
+            f"{item['llm_call_rate']:.0%}",
+            f"{item['llm_cost_savings_rate']:.1%}",
         ]
         for item in policies
     ]
     figure, axis = plt.subplots(figsize=(17, 4.8))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center", colWidths=[0.34, 0.10, 0.10, 0.12, 0.10, 0.10, 0.11])
+    table = axis.table(
+        cellText=rows,
+        colLabels=columns,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+        colWidths=[0.34, 0.10, 0.10, 0.12, 0.10, 0.10, 0.11]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 1.8)
@@ -337,6 +443,8 @@ def _plot_table(path: Path, policies: list[dict[str, Any]]) -> None:
         color = "#EFF6FF" if row % 2 else "#F9FAFB"
         for column in range(len(columns)):
             table[row, column].set_facecolor(color)
-    figure.suptitle("Operational Routing Policy Replay — Summary Table", fontsize=16, fontweight="bold")
+    figure.suptitle(
+        "Operational Routing Policy Replay — Summary Table", fontsize=16, fontweight="bold"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

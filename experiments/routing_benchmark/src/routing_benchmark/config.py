@@ -21,13 +21,7 @@ class RoutingConfig:
 def load_config(path: str | Path) -> RoutingConfig:
     config_path = Path(path).resolve()
     raw = json.loads(config_path.read_text(encoding="utf-8"))
-    expected_routes = {
-        "DIRECT_TOOL",
-        "SIMPLE_LLM",
-        "REACT_AGENT",
-        "SUPERVISOR",
-        "HUMAN_REQUIRED",
-    }
+    expected_routes = {"DIRECT_TOOL", "SIMPLE_LLM", "REACT_AGENT", "SUPERVISOR", "HUMAN_REQUIRED"}
     if set(raw["routes"]) != expected_routes:
         raise ValueError(f"Routes must be exactly {sorted(expected_routes)}")
 

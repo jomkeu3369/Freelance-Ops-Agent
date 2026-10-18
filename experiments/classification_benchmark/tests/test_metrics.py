@@ -15,4 +15,3 @@ def test_bootstrap_delta_direction() -> None:
     truth = [0, 0, 1, 1] * 10
     result = bootstrap_f1_delta(truth, [0] * 40, truth, iterations=100, seed=7)
     assert result["median_delta"] > 0
-

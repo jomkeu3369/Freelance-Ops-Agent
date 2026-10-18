@@ -11,8 +11,14 @@ from routing_benchmark.review_sampling_bias import (
 
 def test_post_stratification_reduces_oversampling_bias() -> None:
     _, summary = evaluate_sampling_bias(trials=500, seed=42)
-    naive = next(row for row in summary if row["strategy"] == "naive_50_50" and row["metric"] == "macro_f1")
-    weighted = next(row for row in summary if row["strategy"] == "post_stratified" and row["metric"] == "macro_f1")
+    naive = next(
+        row for row in summary if row["strategy"] == "naive_50_50" and row["metric"] == "macro_f1"
+    )
+    weighted = next(
+        row
+        for row in summary
+        if row["strategy"] == "post_stratified" and row["metric"] == "macro_f1"
+    )
 
     assert weighted["mean_absolute_error"] < naive["mean_absolute_error"] / 5
 

@@ -24,8 +24,22 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.linear_model import SGDRegressor
 from xgboost import XGBRegressor
 
-FEATURE_NAMES = ("task_type", "model", "input_tokens", "context_tokens", "file_count", "subagent_depth")
-POST_EXECUTION_METADATA = ("actual_tool_calls", "output_tokens", "retry_count", "runtime_seconds", "completed_at", "success")
+FEATURE_NAMES = (
+    "task_type",
+    "model",
+    "input_tokens",
+    "context_tokens",
+    "file_count",
+    "subagent_depth",
+)
+POST_EXECUTION_METADATA = (
+    "actual_tool_calls",
+    "output_tokens",
+    "retry_count",
+    "runtime_seconds",
+    "completed_at",
+    "success",
+)
 
 
 class ModelKind(StrEnum):
@@ -60,7 +74,7 @@ class AgentTask:
             self.input_tokens,
             self.context_tokens,
             self.file_count,
-            self.subagent_depth
+            self.subagent_depth,
         ]
 
 
@@ -90,11 +104,15 @@ class TaskExecutionLog:
         if not self.queued_at <= self.started_at <= self.completed_at:
             raise ValueError("timestamps must satisfy queued_at <= started_at <= completed_at")
 
-        if any(value < 0 for value in (self.actual_tool_calls, self.output_tokens, self.retry_count)):
+        if any(
+            value < 0 for value in (self.actual_tool_calls, self.output_tokens, self.retry_count)
+        ):
             raise ValueError("post-execution counters must be non-negative")
 
         measured = (self.completed_at - self.started_at).total_seconds()
-        if self.runtime_seconds <= 0 or not math.isclose(self.runtime_seconds, measured, rel_tol=0.0, abs_tol=1e-6):
+        if self.runtime_seconds <= 0 or not math.isclose(
+            self.runtime_seconds, measured, rel_tol=0.0, abs_tol=1e-6
+        ):
             raise ValueError("runtime_seconds must equal completed_at - started_at")
 
     @property
@@ -127,7 +145,11 @@ class EmaResidualCalibrator:
         return max(self.minimum_prediction_seconds, base_prediction + self.residual_ema)
 
     def update(self, actual_runtime: float, base_prediction: float) -> None:
-        if actual_runtime <= 0 or not math.isfinite(actual_runtime) or not math.isfinite(base_prediction):
+        if (
+            actual_runtime <= 0
+            or not math.isfinite(actual_runtime)
+            or not math.isfinite(base_prediction)
+        ):
             raise ValueError("actual_runtime must be positive and both values must be finite")
         residual = actual_runtime - base_prediction
         self.residual_ema = self.alpha * residual + (1 - self.alpha) * self.residual_ema
@@ -152,13 +174,25 @@ class OnlineResidualRegressor:
     def __init__(self, *, random_seed: int = 42, hash_dimensions: int = 16, residual_clip_seconds: float = 10.0, correction_limit_seconds: float = 5.0, correction_limit_ratio: float = 0.2) -> None:
         if hash_dimensions < 4:
             raise ValueError("hash_dimensions must be at least four")
-        if residual_clip_seconds <= 0 or correction_limit_seconds <= 0 or not 0 < correction_limit_ratio <= 1:
+        if (
+            residual_clip_seconds <= 0
+            or correction_limit_seconds <= 0
+            or not 0 < correction_limit_ratio <= 1
+        ):
             raise ValueError("online correction limits must be positive")
         self.hash_dimensions = hash_dimensions
         self.residual_clip_seconds = residual_clip_seconds
         self.correction_limit_seconds = correction_limit_seconds
         self.correction_limit_ratio = correction_limit_ratio
-        self.model = SGDRegressor(loss="huber", epsilon=1.35, penalty="l2", alpha=0.0005, learning_rate="constant", eta0=0.02, random_state=random_seed)
+        self.model = SGDRegressor(
+            loss="huber",
+            epsilon=1.35,
+            penalty="l2",
+            alpha=0.0005,
+            learning_rate="constant",
+            eta0=0.02,
+            random_state=random_seed
+        )
         self._fitted = False
 
     def feature_vector(self, task: AgentTask) -> list[float]:
@@ -172,7 +206,18 @@ class OnlineResidualRegressor:
         context_scale = math.log1p(task.context_tokens) / math.log1p(80_000)
         file_scale = task.file_count / 50
         depth_scale = task.subagent_depth / 2
-        numeric = [1.0, input_scale, context_scale, file_scale, depth_scale, input_scale**2, context_scale**2, file_scale**2, input_scale * file_scale, context_scale * depth_scale]
+        numeric = [
+            1.0,
+            input_scale,
+            context_scale,
+            file_scale,
+            depth_scale,
+            input_scale**2,
+            context_scale**2,
+            file_scale**2,
+            input_scale * file_scale,
+            context_scale * depth_scale,
+        ]
         return [*categorical, *numeric]
 
     def correction(self, task: AgentTask, base_prediction: float) -> float:
@@ -186,7 +231,10 @@ class OnlineResidualRegressor:
         return max(0.01, base_prediction + self.correction(task, base_prediction))
 
     def update(self, task: AgentTask, actual_runtime: float, base_prediction: float) -> None:
-        residual = max(-self.residual_clip_seconds, min(self.residual_clip_seconds, actual_runtime - base_prediction))
+        residual = max(
+            -self.residual_clip_seconds,
+            min(self.residual_clip_seconds, actual_runtime - base_prediction)
+        )
         self.model.partial_fit([self.feature_vector(task)], [residual])
         self._fitted = True
 
@@ -213,7 +261,11 @@ class DriftGatedEmaCalibrator:
             raise ValueError("sample thresholds must be positive")
         if self.bias_threshold_seconds <= 0:
             raise ValueError("bias_threshold_seconds must be positive")
-        if self.residual_clip_seconds <= 0 or self.correction_limit_seconds <= 0 or not 0 < self.correction_limit_ratio <= 1:
+        if (
+            self.residual_clip_seconds <= 0
+            or self.correction_limit_seconds <= 0
+            or not 0 < self.correction_limit_ratio <= 1
+        ):
             raise ValueError("correction limits must be positive")
 
     def correction(self, base_prediction: float) -> float:
@@ -228,15 +280,26 @@ class DriftGatedEmaCalibrator:
         return max(0.01, base_prediction + self.correction(base_prediction))
 
     def update(self, actual_runtime: float, base_prediction: float) -> None:
-        if actual_runtime <= 0 or not math.isfinite(actual_runtime) or not math.isfinite(base_prediction):
+        if (
+            actual_runtime <= 0
+            or not math.isfinite(actual_runtime)
+            or not math.isfinite(base_prediction)
+        ):
             raise ValueError("actual_runtime must be positive and both values must be finite")
         residual = actual_runtime - base_prediction
-        clipped_residual = max(-self.residual_clip_seconds, min(self.residual_clip_seconds, residual))
+        clipped_residual = max(
+            -self.residual_clip_seconds, min(self.residual_clip_seconds, residual)
+        )
         clipped_error = min(self.residual_clip_seconds, abs(residual))
         self.residual_ema = self.alpha * clipped_residual + (1 - self.alpha) * self.residual_ema
-        self.absolute_error_ema = self.alpha * clipped_error + (1 - self.alpha) * self.absolute_error_ema
+        self.absolute_error_ema = (
+            self.alpha * clipped_error + (1 - self.alpha) * self.absolute_error_ema
+        )
         self.sample_count += 1
-        breach = self.sample_count >= self.minimum_samples and abs(self.residual_ema) >= self.bias_threshold_seconds
+        breach = (
+            self.sample_count >= self.minimum_samples
+            and abs(self.residual_ema) >= self.bias_threshold_seconds
+        )
         self.breach_count = self.breach_count + 1 if breach else 0
         if self.breach_count >= self.consecutive_breaches:
             self.active = True
@@ -249,7 +312,10 @@ def _task_matrix(tasks: Sequence[AgentTask]) -> list[list[object]]:
 
 
 def _build_preprocessor() -> ColumnTransformer:
-    transformers = [("categorical", OneHotEncoder(handle_unknown="ignore", sparse_output=False), [0, 1]), ("numeric", StandardScaler(), [2, 3, 4, 5])]
+    transformers = [
+        ("categorical", OneHotEncoder(handle_unknown="ignore", sparse_output=False), [0, 1]),
+        ("numeric", StandardScaler(), [2, 3, 4, 5]),
+    ]
     return ColumnTransformer(transformers=transformers, remainder="drop")
 
 
@@ -258,9 +324,21 @@ def _build_estimator(model_kind: ModelKind, random_seed: int) -> RegressorMixin:
         return LinearRegression()
 
     if model_kind is ModelKind.RANDOM_FOREST:
-        return RandomForestRegressor(n_estimators=180, min_samples_leaf=2, random_state=random_seed, n_jobs=1)
+        return RandomForestRegressor(
+            n_estimators=180, min_samples_leaf=2, random_state=random_seed, n_jobs=1
+        )
     if model_kind is ModelKind.XGBOOST:
-        return XGBRegressor(n_estimators=300, max_depth=6, learning_rate=0.05, subsample=0.85, colsample_bytree=0.90, objective="reg:squarederror", random_state=random_seed, n_jobs=1, tree_method="hist")
+        return XGBRegressor(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.85,
+            colsample_bytree=0.90,
+            objective="reg:squarederror",
+            random_state=random_seed,
+            n_jobs=1,
+            tree_method="hist"
+        )
     raise ValueError(f"unsupported model kind: {model_kind}")
 
 
@@ -272,7 +350,10 @@ class RuntimePredictor:
         self.model_kind = model_kind
         self.random_seed = random_seed
         self.minimum_prediction_seconds = minimum_prediction_seconds
-        steps = [("preprocessor", _build_preprocessor()), ("regressor", _build_estimator(model_kind, random_seed))]
+        steps = [
+            ("preprocessor", _build_preprocessor()),
+            ("regressor", _build_estimator(model_kind, random_seed)),
+        ]
         self.pipeline = Pipeline(steps=steps)
         self._fitted = False
 
@@ -316,7 +397,11 @@ def regression_metrics(actual: Sequence[float], predicted: Sequence[float]) -> R
         raise ValueError("actual and predicted must have the same non-zero length")
 
     mse = float(mean_squared_error(actual, predicted))
-    return RegressionMetrics(mae_seconds=float(mean_absolute_error(actual, predicted)), rmse_seconds=math.sqrt(mse), r2=float(r2_score(actual, predicted)))
+    return RegressionMetrics(
+        mae_seconds=float(mean_absolute_error(actual, predicted)),
+        rmse_seconds=math.sqrt(mse),
+        r2=float(r2_score(actual, predicted))
+    )
 
 
 def apply_causal_ema(actual: Sequence[float], base_predictions: Sequence[float], *, alpha: float = 0.1) -> list[float]:
@@ -338,14 +423,21 @@ def apply_drift_gated_ema(actual: Sequence[float], base_predictions: Sequence[fl
     residual_ema_history: list[float] = []
     correction_history: list[float] = []
     activation_index: int | None = None
-    for index, (actual_runtime, base_prediction) in enumerate(zip(actual, base_predictions, strict=True)):
+    for index, (actual_runtime, base_prediction) in enumerate(
+        zip(actual, base_predictions, strict=True)
+    ):
         correction_history.append(calibrator.correction(base_prediction))
         predictions.append(calibrator.predict(base_prediction))
         calibrator.update(actual_runtime, base_prediction)
         residual_ema_history.append(calibrator.residual_ema)
         if calibrator.active and activation_index is None:
             activation_index = index + 1
-    return GatedCalibrationResult(predictions=predictions, residual_ema_history=residual_ema_history, correction_history=correction_history, activation_index=activation_index)
+    return GatedCalibrationResult(
+        predictions=predictions,
+        residual_ema_history=residual_ema_history,
+        correction_history=correction_history,
+        activation_index=activation_index
+    )
 
 
 def apply_rolling_median_residual(actual: Sequence[float], base_predictions: Sequence[float], *, window_size: int = 50, minimum_samples: int = 20, correction_limit_seconds: float = 5.0, correction_limit_ratio: float = 0.2) -> list[float]:
@@ -390,7 +482,11 @@ def replay_online_residual_learning(history: Sequence[TaskExecutionLog], predict
         predictions.append(online.predict(record.task, base_prediction))
         completed_updates_before_prediction.append(completed_updates)
         heappush(pending, (record.completed_at, index, record, base_prediction))
-    return OnlineLearningResult(predictions=predictions, correction_history=correction_history, completed_updates_before_prediction=completed_updates_before_prediction)
+    return OnlineLearningResult(
+        predictions=predictions,
+        correction_history=correction_history,
+        completed_updates_before_prediction=completed_updates_before_prediction
+    )
 
 
 def compare_models(training_history: Sequence[TaskExecutionLog], validation_history: Sequence[TaskExecutionLog], *, random_seed: int = 42) -> dict[str, RegressionMetrics]:
@@ -403,10 +499,16 @@ def compare_models(training_history: Sequence[TaskExecutionLog], validation_hist
 
     baseline = DummyRegressor(strategy="median")
     baseline.fit([[0.0]] * len(train_targets), train_targets)
-    baseline_predictions = [float(value) for value in baseline.predict([[0.0]] * len(validation_targets))]
+    baseline_predictions = [
+        float(value) for value in baseline.predict([[0.0]] * len(validation_targets))
+    ]
     results = {"MedianBaseline": regression_metrics(validation_targets, baseline_predictions)}
 
-    for kind, label in ((ModelKind.LINEAR, "LinearRegression"), (ModelKind.RANDOM_FOREST, "RandomForest"), (ModelKind.XGBOOST, "XGBoost")):
+    for kind, label in (
+        (ModelKind.LINEAR, "LinearRegression"),
+        (ModelKind.RANDOM_FOREST, "RandomForest"),
+        (ModelKind.XGBOOST, "XGBoost"),
+    ):
         predictor = RuntimePredictor(kind, random_seed=random_seed).fit(training_history)
         predictions = [predictor.predict(task) for task in validation_tasks]
         results[label] = regression_metrics(validation_targets, predictions)
@@ -450,13 +552,13 @@ def generate_synthetic_history(sample_count: int = 5_000, *, random_seed: int = 
         "documentation": 0.85,
         "code_review": 1.25,
         "data_analysis": 1.45,
-        "research": 1.70
+        "research": 1.70,
     }
     model_latency = {
         "gpt-fast": 0.72,
         "gemini-fast": 0.80,
         "gpt-balanced": 1.00,
-        "gpt-reasoning": 1.48
+        "gpt-reasoning": 1.48,
     }
 
     task_types = tuple(task_complexity)
@@ -472,7 +574,14 @@ def generate_synthetic_history(sample_count: int = 5_000, *, random_seed: int = 
         file_count = min(50, round(rng.expovariate(1 / 8)))
         subagent_depth = rng.choices((0, 1, 2), weights=(0.60, 0.32, 0.08), k=1)[0]
 
-        task = AgentTask(task_type=task_type, model=model, input_tokens=input_tokens, context_tokens=context_tokens, file_count=file_count, subagent_depth=subagent_depth)
+        task = AgentTask(
+            task_type=task_type,
+            model=model,
+            input_tokens=input_tokens,
+            context_tokens=context_tokens,
+            file_count=file_count,
+            subagent_depth=subagent_depth
+        )
 
         token_cost = 0.0028 * input_tokens**0.88
         context_cost = 0.00017 * context_tokens
@@ -497,7 +606,18 @@ def generate_synthetic_history(sample_count: int = 5_000, *, random_seed: int = 
         queue_wait_seconds = round(rng.expovariate(1 / 12), 6)
         started_at = queued_at + timedelta(seconds=queue_wait_seconds)
         completed_at = started_at + timedelta(seconds=runtime_seconds)
-        record = TaskExecutionLog(task_id=f"synthetic-{index:06d}", task=task, queued_at=queued_at, started_at=started_at, completed_at=completed_at, runtime_seconds=runtime_seconds, success=rng.random() >= 0.025, actual_tool_calls=max(0, round(file_count / 3 + rng.gauss(1.0, 1.5))), output_tokens=max(0, round(input_tokens * rng.uniform(0.05, 0.35))), retry_count=rng.choices((0, 1, 2), weights=(0.91, 0.08, 0.01), k=1)[0])
+        record = TaskExecutionLog(
+            task_id=f"synthetic-{index:06d}",
+            task=task,
+            queued_at=queued_at,
+            started_at=started_at,
+            completed_at=completed_at,
+            runtime_seconds=runtime_seconds,
+            success=rng.random() >= 0.025,
+            actual_tool_calls=max(0, round(file_count / 3 + rng.gauss(1.0, 1.5))),
+            output_tokens=max(0, round(input_tokens * rng.uniform(0.05, 0.35))),
+            retry_count=rng.choices((0, 1, 2), weights=(0.91, 0.08, 0.01), k=1)[0]
+        )
         history.append(record)
     return history
 
@@ -505,4 +625,10 @@ def generate_synthetic_history(sample_count: int = 5_000, *, random_seed: int = 
 def with_post_execution_metadata(record: TaskExecutionLog, *, actual_tool_calls: int, output_tokens: int, retry_count: int, success: bool) -> TaskExecutionLog:
     """Test helper proving post-execution metadata cannot alter the feature snapshot."""
 
-    return replace(record, actual_tool_calls=actual_tool_calls, output_tokens=output_tokens, retry_count=retry_count, success=success)
+    return replace(
+        record,
+        actual_tool_calls=actual_tool_calls,
+        output_tokens=output_tokens,
+        retry_count=retry_count,
+        success=success
+    )

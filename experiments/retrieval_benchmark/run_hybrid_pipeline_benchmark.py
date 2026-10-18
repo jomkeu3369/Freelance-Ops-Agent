@@ -24,15 +24,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def reciprocal_rank_fusion(
-    dense_scores: np.ndarray,
-    lexical_scores: np.ndarray,
-    chunks: list[Any],
-    *,
-    top_k: int,
-    pool_size: int = 50,
-    rank_constant: int = 60,
-) -> list[int]:
+def reciprocal_rank_fusion(dense_scores: np.ndarray, lexical_scores: np.ndarray, chunks: list[Any], *, top_k: int, pool_size: int = 50, rank_constant: int = 60) -> list[int]:
     fused: dict[int, float] = {}
     for scores in (dense_scores, lexical_scores):
         for rank, index in enumerate(np.argsort(-scores)[:pool_size], start=1):
@@ -53,37 +45,17 @@ def reciprocal_rank_fusion(
     return selected
 
 
-def build_hybrid_retrieval(
-    rows: list[dict[str, Any]],
-    chunks: list[Any],
-    corpus_vectors: np.ndarray,
-    query_vectors: np.ndarray,
-    *,
-    top_k: int,
-) -> list[list[int]]:
+def build_hybrid_retrieval(rows: list[dict[str, Any]], chunks: list[Any], corpus_vectors: np.ndarray, query_vectors: np.ndarray, *, top_k: int) -> list[list[int]]:
     bm25 = BM25Index([chunk.text for chunk in chunks])
     return [
         reciprocal_rank_fusion(
-            corpus_vectors @ query_vector,
-            bm25.score(row["question"]),
-            chunks,
-            top_k=top_k,
+            corpus_vectors @ query_vector, bm25.score(row["question"]), chunks, top_k=top_k
         )
         for row, query_vector in zip(rows, query_vectors, strict=True)
     ]
 
 
-def score_all_pairs(
-    model: Any,
-    tokenizer: Any,
-    rows: list[dict[str, Any]],
-    chunks: list[Any],
-    retrieved: list[list[int]],
-    *,
-    device: Any,
-    batch_size: int,
-    max_length: int,
-) -> tuple[np.ndarray, float]:
+def score_all_pairs(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, float]:
     import torch
 
     pairs = [
@@ -102,14 +74,17 @@ def score_all_pairs(
             padding=True,
             truncation=True,
             max_length=max_length,
-            return_tensors="pt",
+            return_tensors="pt"
         )
         encoded.pop("token_type_ids", None)
         encoded = encoded.to(device)
-        with torch.inference_mode(), torch.autocast(
-            device_type=device.type,
-            dtype=torch.bfloat16,
-            enabled=device.type == "cuda" and torch.cuda.is_bf16_supported(),
+        with (
+            torch.inference_mode(),
+            torch.autocast(
+                device_type=device.type,
+                dtype=torch.bfloat16,
+                enabled=device.type == "cuda" and torch.cuda.is_bf16_supported()
+            ),
         ):
             logits = model(**encoded).logits.float()
         probabilities.extend(torch.softmax(logits, dim=-1)[:, 1].cpu().tolist())
@@ -129,12 +104,7 @@ def wilson_upper(errors: int, total: int, *, z: float = 1.6448536269514722) -> f
     return min(1.0, (center + spread) / denominator)
 
 
-def choose_accept_threshold(
-    labels: np.ndarray,
-    scores: np.ndarray,
-    *,
-    max_false_accept_rate: float,
-) -> float:
+def choose_accept_threshold(labels: np.ndarray, scores: np.ndarray, *, max_false_accept_rate: float) -> float:
     negatives = ~labels
     candidates = sorted(set(scores.tolist()), reverse=True)
     valid: list[float] = []
@@ -145,12 +115,7 @@ def choose_accept_threshold(
     return min(valid) if valid else float(np.nextafter(scores.max(), math.inf))
 
 
-def choose_reject_threshold(
-    labels: np.ndarray,
-    scores: np.ndarray,
-    *,
-    max_false_reject_rate: float,
-) -> float:
+def choose_reject_threshold(labels: np.ndarray, scores: np.ndarray, *, max_false_reject_rate: float) -> float:
     candidates = sorted(set(scores.tolist()))
     valid: list[float] = []
     for threshold in candidates:
@@ -160,13 +125,7 @@ def choose_reject_threshold(
     return max(valid) if valid else float(np.nextafter(scores.min(), -math.inf))
 
 
-def selective_metrics(
-    labels: np.ndarray,
-    scores: np.ndarray,
-    *,
-    reject_threshold: float,
-    accept_threshold: float,
-) -> dict[str, float | int]:
+def selective_metrics(labels: np.ndarray, scores: np.ndarray, *, reject_threshold: float, accept_threshold: float) -> dict[str, float | int]:
     accepted = scores >= accept_threshold
     rejected = scores <= reject_threshold
     fallback = ~(accepted | rejected)
@@ -185,18 +144,13 @@ def selective_metrics(
         "local_accept_precision": float(np.sum(accepted & labels) / max(int(accepted.sum()), 1)),
         "false_accept_rate": false_accepts / max(int((~labels).sum()), 1),
         "false_reject_rate": false_rejects / max(int(labels.sum()), 1),
-        "perfect_fallback_accuracy_ceiling": float((local_correct.sum() + fallback.sum()) / len(labels)),
+        "perfect_fallback_accuracy_ceiling": float(
+            (local_correct.sum() + fallback.sum()) / len(labels)
+        ),
     }
 
 
-def retrieval_recall(
-    rows: list[dict[str, Any]],
-    retrieved: list[list[int]],
-    chunks: list[Any],
-    *,
-    split: str,
-    k: int,
-) -> float:
+def retrieval_recall(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], *, split: str, k: int) -> float:
     hits: list[bool] = []
     for row, indices in zip(rows, retrieved, strict=True):
         if row["benchmark_split"] != split or not row["answerable"]:
@@ -205,12 +159,7 @@ def retrieval_recall(
     return float(np.mean(hits)) if hits else 0.0
 
 
-def estimate_llm_cost(
-    rows: list[dict[str, Any]],
-    retrieved: list[list[int]],
-    chunks: list[Any],
-    fallback: np.ndarray,
-) -> dict[str, float | int]:
+def estimate_llm_cost(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], fallback: np.ndarray) -> dict[str, float | int]:
     characters = sum(
         len(row["question"]) + sum(len(chunks[index].text) for index in indices[:3])
         for row, indices, use_llm in zip(rows, retrieved, fallback, strict=True)
@@ -228,23 +177,22 @@ def estimate_llm_cost(
     }
 
 
-def plot_pipeline(
-    test_labels: np.ndarray,
-    test_scores: np.ndarray,
-    reject_threshold: float,
-    accept_threshold: float,
-    metrics: dict[str, float | int],
-    output: Path,
-) -> None:
+def plot_pipeline(test_labels: np.ndarray, test_scores: np.ndarray, reject_threshold: float, accept_threshold: float, metrics: dict[str, float | int], output: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    axes[0].hist(test_scores[~test_labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73")
+    axes[0].hist(
+        test_scores[~test_labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73"
+    )
     axes[0].hist(test_scores[test_labels], bins=20, alpha=0.65, label="answerable", color="#53d68b")
     axes[0].axvline(reject_threshold, color="#7b55d9", linestyle="--", label="local reject")
     axes[0].axvline(accept_threshold, color="#2457d6", linestyle="--", label="local accept")
     axes[0].set(title="Selective verifier bands", xlabel="answerability score", ylabel="count")
     axes[0].legend()
     names = ["local_coverage", "llm_fallback_rate", "local_resolved_accuracy", "false_accept_rate"]
-    axes[1].bar(names, [float(metrics[name]) for name in names], color=["#4777e6", "#edb22f", "#45b46f", "#e55353"])
+    axes[1].bar(
+        names,
+        [float(metrics[name]) for name in names],
+        color=["#4777e6", "#edb22f", "#45b46f", "#e55353"]
+    )
     axes[1].axhline(0.10, color="#e55353", linestyle="--", linewidth=1)
     axes[1].tick_params(axis="x", rotation=18)
     axes[1].set(title="Frozen-test selective policy", ylim=(0, 1), ylabel="rate")
@@ -269,19 +217,26 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in rows]))
-    retrieved = build_hybrid_retrieval(rows, chunks, corpus_vectors, query_vectors, top_k=args.candidate_k)
+    retrieved = build_hybrid_retrieval(
+        rows, chunks, corpus_vectors, query_vectors, top_k=args.candidate_k
+    )
 
     import torch
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = AutoTokenizer.from_pretrained(args.model_dir, local_files_only=True)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model_dir, local_files_only=True).to(device)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model_dir, local_files_only=True
+    ).to(device)
     score_matrix, latency_ms = score_all_pairs(
         model,
         tokenizer,
@@ -290,7 +245,7 @@ def main() -> None:
         retrieved,
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     validation_mask = np.asarray([row["benchmark_split"] == "validation" for row in rows])
     test_mask = np.asarray([row["benchmark_split"] == "test" for row in rows])
@@ -311,16 +266,20 @@ def main() -> None:
         validation_labels,
         validation_scores,
         reject_threshold=reject_threshold,
-        accept_threshold=accept_threshold,
+        accept_threshold=accept_threshold
     )
     test_metrics = selective_metrics(
         test_labels,
         test_scores,
         reject_threshold=reject_threshold,
-        accept_threshold=accept_threshold,
+        accept_threshold=accept_threshold
     )
     test_rows = [row for row in rows if row["benchmark_split"] == "test"]
-    test_retrieved = [indices for row, indices in zip(rows, retrieved, strict=True) if row["benchmark_split"] == "test"]
+    test_retrieved = [
+        indices
+        for row, indices in zip(rows, retrieved, strict=True)
+        if row["benchmark_split"] == "test"
+    ]
     fallback = (test_scores > reject_threshold) & (test_scores < accept_threshold)
     recall_by_k = {
         str(k): retrieval_recall(rows, retrieved, chunks, split="test", k=k)
@@ -329,7 +288,11 @@ def main() -> None:
     }
     result = {
         "dataset": "klue/klue:mrc",
-        "retrieval": {"method": "dense_bm25_rrf", "candidate_k": args.candidate_k, "recall_by_k": recall_by_k},
+        "retrieval": {
+            "method": "dense_bm25_rrf",
+            "candidate_k": args.candidate_k,
+            "recall_by_k": recall_by_k,
+        },
         "threshold_policy": {
             "confidence": 0.90,
             "max_validation_false_accept_rate_upper_bound": 0.10,
@@ -356,7 +319,7 @@ def main() -> None:
         reject_threshold,
         accept_threshold,
         test_metrics,
-        args.output_dir / "hybrid_pipeline_results.png",
+        args.output_dir / "hybrid_pipeline_results.png"
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 

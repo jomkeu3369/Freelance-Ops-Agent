@@ -34,13 +34,11 @@ def build_dataset_report(config: RoutingConfig, output_dir: Path) -> Path:
             "created_at": datetime.now(UTC).isoformat(),
             "routes": config.routes,
             "cases": [case.to_dict() for case in cases],
-        },
+        }
     )
 
 
-def run_router_ab(
-    config: RoutingConfig, output_dir: Path, cached_router_b_report: Path | None = None
-) -> Path:
+def run_router_ab(config: RoutingConfig, output_dir: Path, cached_router_b_report: Path | None = None) -> Path:
     if cached_router_b_report is None and not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required for prompt-LLM router B")
 
@@ -56,7 +54,7 @@ def run_router_ab(
                 "created_at": datetime.now(UTC).isoformat(),
                 "routes": config.routes,
                 "cases": cached["cases"],
-            },
+            }
         )
     else:
         dataset_path = build_dataset_report(config, output_dir)
@@ -97,9 +95,7 @@ def run_router_ab(
         def predict_router_b(case: dict[str, Any]) -> dict[str, Any]:
             return {
                 "case_id": case["id"],
-                **predict_with_llm(
-                    client, config.router_b, config.routes, case["prompt"], pricing
-                ),
+                **predict_with_llm(client, config.router_b, config.routes, case["prompt"], pricing),
             }
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -112,9 +108,7 @@ def run_router_ab(
                 if completed % 10 == 0:
                     print(f"routed {completed}/{len(cases)} cases", flush=True)
 
-        predictions[config.router_b["name"]] = [
-            indexed_rows[index] for index in range(len(cases))
-        ]
+        predictions[config.router_b["name"]] = [indexed_rows[index] for index in range(len(cases))]
 
     labels = list(config.routes)
     truth = [case["expected_route"] for case in cases]
@@ -156,7 +150,7 @@ def run_router_ab(
         "ab_test": exact_mcnemar(
             truth,
             [row["route"] for row in predictions[config.router_a["name"]]],
-            [row["route"] for row in predictions[config.router_b["name"]]],
+            [row["route"] for row in predictions[config.router_b["name"]]]
         ),
         "pricing_snapshot": pricing,
     }
@@ -212,9 +206,7 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
                 if key not in verdict_map:
                     tasks.append((*key, predictions[case_id]))
 
-    def evaluate(
-        task: tuple[str, str, str, dict[str, Any]],
-    ) -> tuple[tuple[str, str, str], dict[str, Any]]:
+    def evaluate(task: tuple[str, str, str, dict[str, Any]]) -> tuple[tuple[str, str, str], dict[str, Any]]:
         router_name, case_id, judge_model, prediction = task
         verdict = judge_prediction(
             client, judge_model, cases[case_id], prediction, config.routes, pricing
@@ -237,7 +229,7 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
                         "judge_model": key[2],
                         "verdict": verdict,
                     },
-                    ensure_ascii=False,
+                    ensure_ascii=False
                 )
                 + "\n"
             )
@@ -297,5 +289,5 @@ def run_judges(config: RoutingConfig, ab_report_path: Path, output_dir: Path) ->
             "judge_summaries": judge_summaries,
             "items": judged,
             "pricing_snapshot": pricing,
-        },
+        }
     )

@@ -20,9 +20,27 @@ plt.switch_backend("Agg")
 
 AUDIT_FRACTIONS = (0.0, 0.05, 0.10, 0.25, 0.50, 1.0)
 ROBUSTNESS_SCENARIOS = {
-    "independent": {"natural": 0.02, "risk": 0.08, "natural_common": 0.0, "risk_common": 0.0, "adjudicator": 0.005},
-    "expected_shared": {"natural": 0.02, "risk": 0.08, "natural_common": 0.10, "risk_common": 0.25, "adjudicator": 0.005},
-    "stressed_shared": {"natural": 0.05, "risk": 0.15, "natural_common": 0.25, "risk_common": 0.50, "adjudicator": 0.0075}
+    "independent": {
+        "natural": 0.02,
+        "risk": 0.08,
+        "natural_common": 0.0,
+        "risk_common": 0.0,
+        "adjudicator": 0.005,
+    },
+    "expected_shared": {
+        "natural": 0.02,
+        "risk": 0.08,
+        "natural_common": 0.10,
+        "risk_common": 0.25,
+        "adjudicator": 0.005,
+    },
+    "stressed_shared": {
+        "natural": 0.05,
+        "risk": 0.15,
+        "natural_common": 0.25,
+        "risk_common": 0.50,
+        "adjudicator": 0.0075,
+    },
 }
 
 
@@ -41,7 +59,7 @@ def _robust_stratum_trial(samples: int, reviewer_error: float, dual_fraction: fl
         correct_agreement * audit_fraction,
         wrong_agreement * (1 - audit_fraction),
         wrong_agreement * audit_fraction,
-        disagreement
+        disagreement,
     ]
     outcomes = rng.multinomial(dual, probabilities, size=trials)
     adjudicated = outcomes[:, 1] + outcomes[:, 3] + outcomes[:, 4]
@@ -55,8 +73,19 @@ def evaluate_robust_strategy(natural_error: float, risk_error: float, natural_co
     natural_samples = round(TOTAL_LABELS * (1 - RISK_FRACTION))
     risk_samples = TOTAL_LABELS - natural_samples
     rng = np.random.default_rng(seed)
-    natural = _robust_stratum_trial(natural_samples, natural_error, natural_dual, natural_common, natural_audit, adjudicator_error, trials, rng)
-    risk = _robust_stratum_trial(risk_samples, risk_error, 1.0, risk_common, risk_audit, adjudicator_error, trials, rng)
+    natural = _robust_stratum_trial(
+        natural_samples,
+        natural_error,
+        natural_dual,
+        natural_common,
+        natural_audit,
+        adjudicator_error,
+        trials,
+        rng
+    )
+    risk = _robust_stratum_trial(
+        risk_samples, risk_error, 1.0, risk_common, risk_audit, adjudicator_error, trials, rng
+    )
     errors = natural[0] + risk[0]
     reviews = natural[1] + risk[1]
     adjudications = natural[2] + risk[2]
@@ -68,7 +97,7 @@ def evaluate_robust_strategy(natural_error: float, risk_error: float, natural_co
         "mean_label_error_rate": float(np.mean(errors / TOTAL_LABELS)),
         "p95_label_error_rate": float(np.quantile(errors / TOTAL_LABELS, 0.95)),
         "mean_reviews_per_gold_label": float(np.mean(reviews / TOTAL_LABELS)),
-        "mean_adjudication_rate": float(np.mean(adjudications / TOTAL_LABELS))
+        "mean_adjudication_rate": float(np.mean(adjudications / TOTAL_LABELS)),
     }
 
 
@@ -81,7 +110,20 @@ def evaluate_consensus_robustness(output_dir: Path, trials: int = 5_000, seed: i
         for natural_dual in NATURAL_DUAL_FRACTIONS:
             for natural_audit in AUDIT_FRACTIONS:
                 for risk_audit in AUDIT_FRACTIONS:
-                    strategies.append(evaluate_robust_strategy(values["natural"], values["risk"], values["natural_common"], values["risk_common"], values["adjudicator"], natural_dual, natural_audit, risk_audit, trials, seed + scenario_index * 100_000 + strategy_index))
+                    strategies.append(
+                        evaluate_robust_strategy(
+                            values["natural"],
+                            values["risk"],
+                            values["natural_common"],
+                            values["risk_common"],
+                            values["adjudicator"],
+                            natural_dual,
+                            natural_audit,
+                            risk_audit,
+                            trials,
+                            seed + scenario_index * 100_000 + strategy_index
+                        )
+                    )
                     strategy_index += 1
         results[name] = strategies
         eligible = [row for row in strategies if row["p95_label_error_rate"] <= TARGET_LABEL_ERROR]
@@ -91,7 +133,18 @@ def evaluate_consensus_robustness(output_dir: Path, trials: int = 5_000, seed: i
     canary = {
         "scenario": "expected_canary",
         **expected,
-        **evaluate_robust_strategy(expected["natural"], expected["risk"], expected["natural_common"], expected["risk_common"], expected["adjudicator"], 0.50, 0.05, 1.0, trials, seed + 900_000)
+        **evaluate_robust_strategy(
+            expected["natural"],
+            expected["risk"],
+            expected["natural_common"],
+            expected["risk_common"],
+            expected["adjudicator"],
+            0.50,
+            0.05,
+            1.0,
+            trials,
+            seed + 900_000
+        ),
     }
     reported = [*selected, canary]
     payload = {
@@ -105,11 +158,11 @@ def evaluate_consensus_robustness(output_dir: Path, trials: int = 5_000, seed: i
             "common_error_definition": "fraction of each reviewer marginal error shared as the same wrong route",
             "audit_definition": "senior adjudicator independently decides a random fraction of dual-review agreements",
             "risk_dual_fraction": 1.0,
-            "selection_gate": "p95 accepted-label error <= 1%"
+            "selection_gate": "p95 accepted-label error <= 1%",
         },
         "selected": selected,
         "recommended_canary": canary,
-        "results": results
+        "results": results,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "review_consensus_robustness.json"
@@ -132,12 +185,21 @@ def _write_csv(path: Path, selected: list[dict[str, Any]]) -> None:
 
 def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
     figure, axes = plt.subplots(1, 2, figsize=(16, 6.5), constrained_layout=True)
-    figure.suptitle("Consensus Robustness to Shared Reviewer Errors", fontsize=17, fontweight="bold")
+    figure.suptitle(
+        "Consensus Robustness to Shared Reviewer Errors", fontsize=17, fontweight="bold"
+    )
     colors = {0.0: "#DC2626", 0.10: "#F97316", 0.25: "#2563EB", 0.50: "#7C3AED", 1.0: "#059669"}
     expected = payload["results"]["expected_shared"]
     for risk_audit, color in colors.items():
         rows = [row for row in expected if row["risk_audit_fraction"] == risk_audit]
-        axes[0].scatter([row["mean_reviews_per_gold_label"] for row in rows], [row["p95_label_error_rate"] for row in rows], s=24, alpha=0.65, color=color, label=f"risk audit={risk_audit:.0%}")
+        axes[0].scatter(
+            [row["mean_reviews_per_gold_label"] for row in rows],
+            [row["p95_label_error_rate"] for row in rows],
+            s=24,
+            alpha=0.65,
+            color=color,
+            label=f"risk audit={risk_audit:.0%}"
+        )
     axes[0].axhline(TARGET_LABEL_ERROR, color="#111827", linestyle="--", label="1% p95 gate")
     axes[0].set_xlabel("Human reviews per accepted gold label")
     axes[0].set_ylabel("p95 accepted-label error")
@@ -145,9 +207,21 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
     axes[0].legend(frameon=False, fontsize=8)
     selected = payload["selected"]
     x = np.arange(len(selected))
-    axes[1].bar(x - 0.18, [row["mean_reviews_per_gold_label"] for row in selected], 0.36, color="#2563EB", label="reviews / gold")
+    axes[1].bar(
+        x - 0.18,
+        [row["mean_reviews_per_gold_label"] for row in selected],
+        0.36,
+        color="#2563EB",
+        label="reviews / gold"
+    )
     error_axis = axes[1].twinx()
-    error_axis.bar(x + 0.18, [row["p95_label_error_rate"] for row in selected], 0.36, color="#059669", label="p95 label error")
+    error_axis.bar(
+        x + 0.18,
+        [row["p95_label_error_rate"] for row in selected],
+        0.36,
+        color="#059669",
+        label="p95 label error"
+    )
     axes[1].set_xticks(x, [row["scenario"] for row in selected])
     axes[1].set_ylabel("Reviews per accepted gold label")
     error_axis.set_ylabel("p95 label error")
@@ -164,11 +238,36 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _plot_table(path: Path, selected: list[dict[str, Any]]) -> None:
-    columns = ["Scenario", "Natural shared", "Risk shared", "Senior error", "Natural dual", "Natural audit", "Risk audit", "Reviews/gold", "p95 error"]
-    rows = [[row["scenario"], f'{row["natural_common"]:.0%}', f'{row["risk_common"]:.0%}', f'{row["adjudicator"]:.2%}', f'{row["natural_dual_fraction"]:.0%}', f'{row["natural_audit_fraction"]:.0%}', f'{row["risk_audit_fraction"]:.0%}', f'{row["mean_reviews_per_gold_label"]:.2f}', f'{row["p95_label_error_rate"]:.2%}'] for row in selected]
+    columns = [
+        "Scenario",
+        "Natural shared",
+        "Risk shared",
+        "Senior error",
+        "Natural dual",
+        "Natural audit",
+        "Risk audit",
+        "Reviews/gold",
+        "p95 error",
+    ]
+    rows = [
+        [
+            row["scenario"],
+            f"{row['natural_common']:.0%}",
+            f"{row['risk_common']:.0%}",
+            f"{row['adjudicator']:.2%}",
+            f"{row['natural_dual_fraction']:.0%}",
+            f"{row['natural_audit_fraction']:.0%}",
+            f"{row['risk_audit_fraction']:.0%}",
+            f"{row['mean_reviews_per_gold_label']:.2f}",
+            f"{row['p95_label_error_rate']:.2%}",
+        ]
+        for row in selected
+    ]
     figure, axis = plt.subplots(figsize=(18, 4.5))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center")
+    table = axis.table(
+        cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center"
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 1.9)
@@ -178,6 +277,10 @@ def _plot_table(path: Path, selected: list[dict[str, Any]]) -> None:
     for row in range(1, len(rows) + 1):
         for column in range(len(columns)):
             table[row, column].set_facecolor("#F0FDF4" if row == 2 else "#F9FAFB")
-    figure.suptitle("Shared-error Robustness — Minimum-cost Policies Passing 1% Gate", fontsize=16, fontweight="bold")
+    figure.suptitle(
+        "Shared-error Robustness — Minimum-cost Policies Passing 1% Gate",
+        fontsize=16,
+        fontweight="bold"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

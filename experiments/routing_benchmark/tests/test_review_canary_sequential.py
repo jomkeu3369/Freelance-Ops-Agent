@@ -16,7 +16,10 @@ def test_alpha_spending_reduces_boundary_optional_stopping_error() -> None:
     adjusted = next(row for row in boundary if row["policy"] == "alpha_spending")
 
     assert adjusted["accept_probability"] + adjusted["reject_probability"] <= 0.05
-    assert adjusted["accept_probability"] + adjusted["reject_probability"] < naive["accept_probability"] + naive["reject_probability"]
+    assert (
+        adjusted["accept_probability"] + adjusted["reject_probability"]
+        < naive["accept_probability"] + naive["reject_probability"]
+    )
 
 
 def test_sequential_report_includes_plot_table(tmp_path: Path) -> None:

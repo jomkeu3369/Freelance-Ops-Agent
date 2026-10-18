@@ -27,9 +27,7 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def select_paired_prediction_ids(
-    classifiers: list[dict[str, Any]], max_samples: int, *, seed: int
-) -> list[str]:
+def select_paired_prediction_ids(classifiers: list[dict[str, Any]], max_samples: int, *, seed: int) -> list[str]:
     """Select one deterministic set of IDs shared by every A/B classifier."""
     common_ids = set.intersection(
         *[{prediction["id"] for prediction in item["predictions"]} for item in classifiers]
@@ -61,7 +59,7 @@ def run_local_ab(config: BenchmarkConfig, output_dir: Path) -> Path:
         runs.append(run)
         _write_json(
             output_dir / f"partial_{run.name}.json",
-            {"name": run.name, "model_id": run.model_id, "metrics": run.metrics},
+            {"name": run.name, "model_id": run.model_id, "metrics": run.metrics}
         )
     truth = [item["reference_label_id"] for item in runs[0].predictions]
     pred_a = [item["predicted_label_id"] for item in runs[0].predictions]
@@ -69,7 +67,10 @@ def run_local_ab(config: BenchmarkConfig, output_dir: Path) -> Path:
     report = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
-        "dataset": {**config.dataset, "split_sizes": {key: len(value) for key, value in splits.items()}},
+        "dataset": {
+            **config.dataset,
+            "split_sizes": {key: len(value) for key, value in splits.items()},
+        },
         "environment": {"python": sys.version, "platform": platform.platform()},
         "classifiers": [
             {
@@ -93,12 +94,7 @@ def run_local_ab(config: BenchmarkConfig, output_dir: Path) -> Path:
     return path
 
 
-def run_judges(
-    config: BenchmarkConfig,
-    local_report_path: Path,
-    output_dir: Path,
-    resume_report_path: Path | None = None,
-) -> Path:
+def run_judges(config: BenchmarkConfig, local_report_path: Path, output_dir: Path, resume_report_path: Path | None = None) -> Path:
     if not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError("OPENAI_API_KEY is required for paid judge calls")
     report = json.loads(local_report_path.read_text(encoding="utf-8"))

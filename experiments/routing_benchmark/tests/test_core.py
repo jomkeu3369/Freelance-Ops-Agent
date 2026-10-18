@@ -144,8 +144,12 @@ def test_pandas_tables_export_numeric_summaries(tmp_path: Path) -> None:
 
 
 def test_trusted_contract_route_uses_only_product_fixture_contracts() -> None:
-    assert operational_replay._trusted_contract_route({"id": "direct_tool-project-1"}) == "DIRECT_TOOL"
-    assert operational_replay._trusted_contract_route({"id": "supervisor-project-1"}) == "SUPERVISOR"
+    assert (
+        operational_replay._trusted_contract_route({"id": "direct_tool-project-1"}) == "DIRECT_TOOL"
+    )
+    assert (
+        operational_replay._trusted_contract_route({"id": "supervisor-project-1"}) == "SUPERVISOR"
+    )
     assert operational_replay._trusted_contract_route({"id": "human-orchestration-1"}) is None
 
 
@@ -156,10 +160,14 @@ def test_report_source_path_does_not_leak_local_absolute_path() -> None:
 
 
 def test_threshold_calibration_rejects_false_automation() -> None:
-    probabilities = np.asarray([[0.90, 0.10], [0.85, 0.15], [0.80, 0.20], [0.75, 0.25], [0.70, 0.30], [0.95, 0.05]])
+    probabilities = np.asarray(
+        [[0.90, 0.10], [0.85, 0.15], [0.80, 0.20], [0.75, 0.25], [0.70, 0.30], [0.95, 0.05]]
+    )
     truth = ["SIMPLE_LLM"] * 5 + ["HUMAN_REQUIRED"]
 
-    thresholds = operational_replay._calibrate_thresholds(truth, ["SIMPLE_LLM", "HUMAN_REQUIRED"], probabilities)
+    thresholds = operational_replay._calibrate_thresholds(
+        truth, ["SIMPLE_LLM", "HUMAN_REQUIRED"], probabilities
+    )
 
     assert "SIMPLE_LLM" not in thresholds
     assert thresholds["HUMAN_REQUIRED"] == 0.0
@@ -175,7 +183,7 @@ def test_expected_calibration_error_is_zero_for_perfect_confidence() -> None:
 def test_risk_coverage_reduces_coverage_as_threshold_rises() -> None:
     rows = [
         {"confidence": 0.9, "correct": True, "expected": "A", "predicted": "A"},
-        {"confidence": 0.4, "correct": False, "expected": "HUMAN_REQUIRED", "predicted": "A"}
+        {"confidence": 0.4, "correct": False, "expected": "HUMAN_REQUIRED", "predicted": "A"},
     ]
 
     points = _risk_coverage(rows)

@@ -30,12 +30,7 @@ def _seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def train_and_benchmark(
-    model_config: dict[str, str],
-    splits: dict[str, list[RequirementExample]],
-    training: dict[str, Any],
-    label_names: dict[str, str],
-) -> ClassifierRun:
+def train_and_benchmark(model_config: dict[str, str], splits: dict[str, list[RequirementExample]], training: dict[str, Any], label_names: dict[str, str]) -> ClassifierRun:
     import torch
     from torch.optim import AdamW
     from torch.utils.data import DataLoader, Dataset
@@ -49,7 +44,9 @@ def train_and_benchmark(
             "CUDA was required by config but is unavailable. Install a CUDA-enabled Torch wheel."
         )
     device = torch.device(
-        "cuda" if requested_device == "cuda" or (requested_device == "auto" and torch.cuda.is_available()) else "cpu"
+        "cuda"
+        if requested_device == "cuda" or (requested_device == "auto" and torch.cuda.is_available())
+        else "cpu"
     )
     if device.type == "cuda":
         torch.set_float32_matmul_precision("high")
@@ -76,7 +73,7 @@ def train_and_benchmark(
                 truncation=True,
                 max_length=int(training["max_length"]),
                 padding="max_length",
-                return_tensors="pt",
+                return_tensors="pt"
             )
             return {
                 **{key: value.squeeze(0) for key, value in encoded.items()},
@@ -89,7 +86,7 @@ def train_and_benchmark(
         batch_size=int(training["batch_size"]),
         shuffle=True,
         generator=generator,
-        pin_memory=device.type == "cuda",
+        pin_memory=device.type == "cuda"
     )
     optimizer = AdamW(model.parameters(), lr=float(training["learning_rate"]))
     train_started = time.perf_counter()
@@ -112,17 +109,15 @@ def train_and_benchmark(
 
     def predict_one(text: str) -> tuple[int, float]:
         inputs = tokenizer(
-            text,
-            truncation=True,
-            max_length=int(training["max_length"]),
-            return_tensors="pt",
+            text, truncation=True, max_length=int(training["max_length"]), return_tensors="pt"
         )
         inputs = {
             key: value.to(device, non_blocking=device.type == "cuda")
             for key, value in inputs.items()
         }
-        with torch.inference_mode(), torch.autocast(
-            device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16
+        with (
+            torch.inference_mode(),
+            torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16),
         ):
             probabilities = torch.softmax(model(**inputs).logits.float(), dim=-1)[0]
         predicted = int(torch.argmax(probabilities).item())
@@ -159,12 +154,14 @@ def train_and_benchmark(
         )
     inference_seconds = time.perf_counter() - inference_started
     print(f"[{model_config['name']}] evaluated {len(predictions)} test rows")
-    model_bytes = sum(parameter.numel() * parameter.element_size() for parameter in model.parameters())
+    model_bytes = sum(
+        parameter.numel() * parameter.element_size() for parameter in model.parameters()
+    )
     hourly_rate = float(os.getenv("BENCHMARK_COMPUTE_USD_PER_HOUR", "0"))
     metrics = {
         **classification_metrics(
             [row.label for row in splits["test"]],
-            [prediction["predicted_label_id"] for prediction in predictions],
+            [prediction["predicted_label_id"] for prediction in predictions]
         ),
         **latency_metrics(latencies_ms, inference_seconds),
         "training_seconds": training_seconds,

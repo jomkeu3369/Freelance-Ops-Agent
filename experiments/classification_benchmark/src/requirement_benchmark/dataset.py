@@ -28,7 +28,7 @@ def load_requirement_dataset(dataset_config: dict[str, Any]) -> dict[str, list[R
             RequirementExample(
                 id=f"{canonical}-{index}",
                 text=str(row[text_column]).strip(),
-                label=int(row[label_column]),
+                label=int(row[label_column])
             )
             for index, row in enumerate(dataset[split_name])
         ]
@@ -37,9 +37,7 @@ def load_requirement_dataset(dataset_config: dict[str, Any]) -> dict[str, list[R
     return normalized
 
 
-def stratified_limit(
-    rows: list[RequirementExample], limit: int | None, *, seed: int
-) -> list[RequirementExample]:
+def stratified_limit(rows: list[RequirementExample], limit: int | None, *, seed: int) -> list[RequirementExample]:
     """Return a deterministic, label-balanced subset for smoke tests."""
     if limit is None or limit >= len(rows):
         return rows

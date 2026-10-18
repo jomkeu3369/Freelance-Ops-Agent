@@ -22,12 +22,12 @@ def _parser() -> argparse.ArgumentParser:
     judge.add_argument("--local-report", default="reports/latest/local_ab.json")
     judge.add_argument(
         "--resume-report",
-        help="Reuse matching classifier/prediction/judge rows from an earlier judge report",
+        help="Reuse matching classifier/prediction/judge rows from an earlier judge report"
     )
     judge.add_argument(
         "--confirm-paid-api",
         action="store_true",
-        help="Required acknowledgement that OpenAI judge calls incur cost",
+        help="Required acknowledgement that OpenAI judge calls incur cost"
     )
     all_run = subparsers.add_parser("all")
     all_run.add_argument("--confirm-paid-api", action="store_true")
@@ -58,13 +58,15 @@ def main() -> None:
         outputs = plot_dashboard(
             Path(args.local_report).resolve(),
             Path(args.judge_report).resolve(),
-            Path(args.plot_dir).resolve(),
+            Path(args.plot_dir).resolve()
         )
         for output in outputs:
             print(output)
         return
     if not args.confirm_paid_api:
-        raise SystemExit("Refusing paid judge calls: pass --confirm-paid-api after reviewing config")
+        raise SystemExit(
+            "Refusing paid judge calls: pass --confirm-paid-api after reviewing config"
+        )
     if args.command == "judge-ab":
         resume_report = Path(args.resume_report).resolve() if args.resume_report else None
         print(run_judges(config, Path(args.local_report).resolve(), output_dir, resume_report))

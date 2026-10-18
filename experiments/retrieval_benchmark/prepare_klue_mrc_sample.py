@@ -26,7 +26,7 @@ async def fetch_page(client: httpx.AsyncClient, split: str, offset: int) -> list
             "split": split,
             "offset": offset,
             "length": 100,
-        },
+        }
     )
     response.raise_for_status()
     return response.json()["rows"]
@@ -47,15 +47,7 @@ def context_id(source_split: str, context: str) -> str:
     return f"klue-mrc-{source_split}-{digest}"
 
 
-def select_balanced(
-    rows: list[dict[str, Any]],
-    *,
-    source_split: str,
-    benchmark_split: str,
-    per_label: int,
-    excluded_contexts: set[str],
-    rng: random.Random,
-) -> list[dict[str, Any]]:
+def select_balanced(rows: list[dict[str, Any]], *, source_split: str, benchmark_split: str, per_label: int, excluded_contexts: set[str], rng: random.Random) -> list[dict[str, Any]]:
     candidates: dict[bool, list[dict[str, Any]]] = defaultdict(list)
     shuffled = rows.copy()
     rng.shuffle(shuffled)
@@ -104,8 +96,7 @@ def select_balanced(
 
 async def build_sample() -> list[dict[str, Any]]:
     train_rows, validation_rows = await asyncio.gather(
-        fetch_rows("train", page_count=18),
-        fetch_rows("validation", page_count=12),
+        fetch_rows("train", page_count=18), fetch_rows("validation", page_count=12)
     )
     rng = random.Random(SEED)
     excluded_contexts: set[str] = set()
@@ -117,7 +108,7 @@ async def build_sample() -> list[dict[str, Any]]:
             benchmark_split="train",
             per_label=150,
             excluded_contexts=excluded_contexts,
-            rng=rng,
+            rng=rng
         )
     )
     selected.extend(
@@ -127,7 +118,7 @@ async def build_sample() -> list[dict[str, Any]]:
             benchmark_split="validation",
             per_label=75,
             excluded_contexts=excluded_contexts,
-            rng=rng,
+            rng=rng
         )
     )
     selected.extend(
@@ -137,7 +128,7 @@ async def build_sample() -> list[dict[str, Any]]:
             benchmark_split="test",
             per_label=100,
             excluded_contexts=excluded_contexts,
-            rng=rng,
+            rng=rng
         )
     )
     return selected
@@ -173,7 +164,9 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     content = "\n".join(json.dumps(row, ensure_ascii=False, sort_keys=True) for row in rows) + "\n"
     args.output.write_text(content, encoding="utf-8")
-    print(f"saved={args.output} rows={len(rows)} sha256={hashlib.sha256(content.encode()).hexdigest()}")
+    print(
+        f"saved={args.output} rows={len(rows)} sha256={hashlib.sha256(content.encode()).hexdigest()}"
+    )
 
 
 if __name__ == "__main__":

@@ -28,9 +28,9 @@ def _observation(run_id: str, workspace_id: str, project_id: str, event_id: int 
             "shadowLatencyMs": 2.5,
             "routingLatencyMs": 100.0,
             "routingInputTokens": 100,
-            "routingOutputTokens": 10
+            "routingOutputTokens": 10,
         },
-        "routing_cost_usd": 0.001
+        "routing_cost_usd": 0.001,
     }
 
 
@@ -46,14 +46,22 @@ def test_prepare_uses_keyed_hashes_and_writes_manifest(tmp_path: Path) -> None:
     observations = tmp_path / "observations.jsonl"
     reviews = tmp_path / "reviews.jsonl"
     output = tmp_path / "shadow.jsonl"
-    observations.write_text(json.dumps(_observation(run_id, workspace_id, project_id)) + "\n", encoding="utf-8")
-    reviews.write_text(json.dumps({
-        "run_id": run_id,
-        "event_id": 3,
-        "workspace_id": workspace_id,
-        "gold_route": "HUMAN_REQUIRED",
-        "correction_source": "HUMAN_REVIEW"
-    }) + "\n", encoding="utf-8")
+    observations.write_text(
+        json.dumps(_observation(run_id, workspace_id, project_id)) + "\n", encoding="utf-8"
+    )
+    reviews.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "event_id": 3,
+                "workspace_id": workspace_id,
+                "gold_route": "HUMAN_REQUIRED",
+                "correction_source": "HUMAN_REVIEW",
+            }
+        )
+        + "\n",
+        encoding="utf-8"
+    )
 
     trace_path, manifest_path = prepare_shadow_traces(observations, reviews, output, "k" * 32)
 
@@ -82,18 +90,23 @@ def test_policy_gate_reason_code_becomes_policy_code(tmp_path: Path) -> None:
         "reasonCodes": ["TRUSTED_DIRECT_TOOL_OPERATION"],
         "routingLatencyMs": 0.1,
         "routingInputTokens": 0,
-        "routingOutputTokens": 0
+        "routingOutputTokens": 0,
     }
     observations = tmp_path / "observations.jsonl"
     reviews = tmp_path / "reviews.jsonl"
     observations.write_text(json.dumps(observation), encoding="utf-8")
-    reviews.write_text(json.dumps({
-        "run_id": run_id,
-        "event_id": 3,
-        "workspace_id": workspace_id,
-        "gold_route": "DIRECT_TOOL",
-        "correction_source": "HUMAN_REVIEW"
-    }), encoding="utf-8")
+    reviews.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "event_id": 3,
+                "workspace_id": workspace_id,
+                "gold_route": "DIRECT_TOOL",
+                "correction_source": "HUMAN_REVIEW",
+            }
+        ),
+        encoding="utf-8"
+    )
 
     output, _ = prepare_shadow_traces(observations, reviews, tmp_path / "output.jsonl", "k" * 32)
 
@@ -112,20 +125,28 @@ def test_prepare_records_inverse_inclusion_weights_for_oversampled_reviews(tmp_p
         rows.append(observation)
     reviews = [
         {
-            "run_id": rows[0]["run_id"], "event_id": 1, "workspace_id": workspace_id,
-            "gold_route": "SIMPLE_LLM", "correction_source": "HUMAN_REVIEW"
+            "run_id": rows[0]["run_id"],
+            "event_id": 1,
+            "workspace_id": workspace_id,
+            "gold_route": "SIMPLE_LLM",
+            "correction_source": "HUMAN_REVIEW",
         },
         {
-            "run_id": rows[9]["run_id"], "event_id": 10, "workspace_id": workspace_id,
-            "gold_route": "HUMAN_REQUIRED", "correction_source": "HUMAN_REVIEW"
-        }
+            "run_id": rows[9]["run_id"],
+            "event_id": 10,
+            "workspace_id": workspace_id,
+            "gold_route": "HUMAN_REQUIRED",
+            "correction_source": "HUMAN_REVIEW",
+        },
     ]
     observations_path = tmp_path / "observations.jsonl"
     reviews_path = tmp_path / "reviews.jsonl"
     observations_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
     reviews_path.write_text("\n".join(json.dumps(row) for row in reviews), encoding="utf-8")
 
-    output, manifest_path = prepare_shadow_traces(observations_path, reviews_path, tmp_path / "weighted.jsonl", "k" * 32)
+    output, manifest_path = prepare_shadow_traces(
+        observations_path, reviews_path, tmp_path / "weighted.jsonl", "k" * 32
+    )
 
     traces = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
     by_stratum = {trace["sampling_stratum"]: trace for trace in traces}
@@ -142,14 +163,21 @@ def test_prepare_rejects_cross_workspace_review(tmp_path: Path) -> None:
     run_id, workspace_id, project_id = str(uuid4()), str(uuid4()), str(uuid4())
     observations = tmp_path / "observations.jsonl"
     reviews = tmp_path / "reviews.jsonl"
-    observations.write_text(json.dumps(_observation(run_id, workspace_id, project_id)), encoding="utf-8")
-    reviews.write_text(json.dumps({
-        "run_id": run_id,
-        "event_id": 3,
-        "workspace_id": str(uuid4()),
-        "gold_route": "SIMPLE_LLM",
-        "correction_source": "HUMAN_REVIEW"
-    }), encoding="utf-8")
+    observations.write_text(
+        json.dumps(_observation(run_id, workspace_id, project_id)), encoding="utf-8"
+    )
+    reviews.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "event_id": 3,
+                "workspace_id": str(uuid4()),
+                "gold_route": "SIMPLE_LLM",
+                "correction_source": "HUMAN_REVIEW",
+            }
+        ),
+        encoding="utf-8"
+    )
 
     with pytest.raises(ValueError, match="workspace"):
         prepare_shadow_traces(observations, reviews, tmp_path / "output.jsonl", "k" * 32)
@@ -163,37 +191,41 @@ def test_prepare_backend_export_pages_without_raw_intermediate_files(tmp_path: P
         "since": "2026-08-26T00:00:00Z",
         "until": "2026-08-27T00:00:00Z",
         "snapshotAt": "2026-08-27T01:00:00Z",
-        "observations": [{
-            "observationId": observation_id,
-            "runId": run_id,
-            "eventId": 3,
-            "workspaceId": workspace_id,
-            "projectId": project_id,
-            "occurredAt": "2026-08-26T12:00:00Z",
-            "routeData": {
-                "route": "SIMPLE_LLM",
-                "decisionSource": "LLM_EVALUATOR",
-                "evaluatorProvider": "OPENAI",
-                "evaluatorModel": "gpt-5.6-luna",
-                "routingLatencyMs": 100.0,
-                "routingInputTokens": 100,
-                "routingOutputTokens": 10
-            },
-            "routingCostUsd": 0.001,
-            "pricingSnapshotId": pricing_id,
-            "pricingVersion": "2026-08-27",
-            "costCurrency": "USD"
-        }],
-        "reviews": [{
-            "runId": run_id,
-            "eventId": 3,
-            "workspaceId": workspace_id,
-            "goldRoute": "SIMPLE_LLM",
-            "correctionSource": "HUMAN_REVIEW"
-        }],
+        "observations": [
+            {
+                "observationId": observation_id,
+                "runId": run_id,
+                "eventId": 3,
+                "workspaceId": workspace_id,
+                "projectId": project_id,
+                "occurredAt": "2026-08-26T12:00:00Z",
+                "routeData": {
+                    "route": "SIMPLE_LLM",
+                    "decisionSource": "LLM_EVALUATOR",
+                    "evaluatorProvider": "OPENAI",
+                    "evaluatorModel": "gpt-5.6-luna",
+                    "routingLatencyMs": 100.0,
+                    "routingInputTokens": 100,
+                    "routingOutputTokens": 10,
+                },
+                "routingCostUsd": 0.001,
+                "pricingSnapshotId": pricing_id,
+                "pricingVersion": "2026-08-27",
+                "costCurrency": "USD",
+            }
+        ],
+        "reviews": [
+            {
+                "runId": run_id,
+                "eventId": 3,
+                "workspaceId": workspace_id,
+                "goldRoute": "SIMPLE_LLM",
+                "correctionSource": "HUMAN_REVIEW",
+            }
+        ],
         "nextOccurredAt": "2026-08-26T12:00:00Z",
         "nextObservationId": observation_id,
-        "hasMore": False
+        "hasMore": False,
     }
     pages = tmp_path / "pages.jsonl"
     pages.write_text(json.dumps(page), encoding="utf-8")

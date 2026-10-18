@@ -20,7 +20,9 @@ LATE_CAPTURES = 200
 
 def scan_work_rows(cohort_size: int, page_size: int = PAGE_SIZE) -> tuple[int, int]:
     pages = math.ceil(cohort_size / page_size)
-    offset_work = sum(min(page_size, cohort_size - page * page_size) + page * page_size for page in range(pages))
+    offset_work = sum(
+        min(page_size, cohort_size - page * page_size) + page * page_size for page in range(pages)
+    )
     return offset_work, cohort_size
 
 
@@ -41,15 +43,15 @@ def simulate_cohort_stability(trials: int, seed: int) -> list[dict[str, float | 
             "mean_rows_outside_start_snapshot": float(np.mean(included_after_start)),
             "mean_final_population_omissions": float(np.mean(missed)),
             "p95_final_population_omissions": float(np.quantile(missed, 0.95)),
-            "reproducibility_failure_rate": float(np.mean(np.asarray(included_after_start) > 0))
+            "reproducibility_failure_rate": float(np.mean(np.asarray(included_after_start) > 0)),
         },
         {
             "strategy": "fixed_captured_at_snapshot",
             "mean_rows_outside_start_snapshot": 0.0,
             "mean_final_population_omissions": 0.0,
             "p95_final_population_omissions": 0.0,
-            "reproducibility_failure_rate": 0.0
-        }
+            "reproducibility_failure_rate": 0.0,
+        },
     ]
 
 
@@ -57,14 +59,16 @@ def evaluate_review_export_capacity(output_dir: Path, trials: int = 2_000, seed:
     scan_rows = []
     for cohort_size in COHORT_SIZES:
         offset_work, keyset_work = scan_work_rows(cohort_size)
-        scan_rows.append({
-            "cohort_size": cohort_size,
-            "page_size": PAGE_SIZE,
-            "pages": math.ceil(cohort_size / PAGE_SIZE),
-            "offset_rows_examined": offset_work,
-            "keyset_rows_examined": keyset_work,
-            "offset_to_keyset_work_ratio": offset_work / keyset_work
-        })
+        scan_rows.append(
+            {
+                "cohort_size": cohort_size,
+                "page_size": PAGE_SIZE,
+                "pages": math.ceil(cohort_size / PAGE_SIZE),
+                "offset_rows_examined": offset_work,
+                "keyset_rows_examined": keyset_work,
+                "offset_to_keyset_work_ratio": offset_work / keyset_work,
+            }
+        )
     stability_rows = simulate_cohort_stability(trials, seed)
     payload = {
         "schema_version": "1.0",
@@ -76,10 +80,10 @@ def evaluate_review_export_capacity(output_dir: Path, trials: int = 2_000, seed:
             "initial_events": INITIAL_EVENTS,
             "late_captures_during_export": LATE_CAPTURES,
             "late_capture_occurrence": "uniform across the cohort window",
-            "late_capture_arrival": "uniform after one of the export page reads"
+            "late_capture_arrival": "uniform after one of the export page reads",
         },
         "scan_work": scan_rows,
-        "cohort_stability": stability_rows
+        "cohort_stability": stability_rows,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "route_review_export_capacity.json"
@@ -97,25 +101,29 @@ def _write_csv(path: Path, scan_rows: list[dict[str, Any]], stability_rows: list
     fields = ["category", "name", "value", "unit"]
     rows = []
     for row in scan_rows:
-        rows.append({
-            "category": "scan_work",
-            "name": f'{row["cohort_size"]}_offset_to_keyset_ratio',
-            "value": row["offset_to_keyset_work_ratio"],
-            "unit": "ratio"
-        })
+        rows.append(
+            {
+                "category": "scan_work",
+                "name": f"{row['cohort_size']}_offset_to_keyset_ratio",
+                "value": row["offset_to_keyset_work_ratio"],
+                "unit": "ratio",
+            }
+        )
     for row in stability_rows:
         for metric in (
             "mean_rows_outside_start_snapshot",
             "mean_final_population_omissions",
             "p95_final_population_omissions",
-            "reproducibility_failure_rate"
+            "reproducibility_failure_rate",
         ):
-            rows.append({
-                "category": "cohort_stability",
-                "name": f'{row["strategy"]}_{metric}',
-                "value": row[metric],
-                "unit": "rate" if metric.endswith("rate") else "rows"
-            })
+            rows.append(
+                {
+                    "category": "cohort_stability",
+                    "name": f"{row['strategy']}_{metric}",
+                    "value": row[metric],
+                    "unit": "rate" if metric.endswith("rate") else "rows",
+                }
+            )
     with path.open("w", encoding="utf-8-sig", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
@@ -126,7 +134,13 @@ def _plot_dashboard(path: Path, scan_rows: list[dict[str, Any]], stability_rows:
     figure, axes = plt.subplots(1, 2, figsize=(16, 6.5), constrained_layout=True)
     figure.suptitle("Fixed-snapshot Route Review Export", fontsize=17, fontweight="bold")
     sizes = [row["cohort_size"] for row in scan_rows]
-    axes[0].plot(sizes, [row["offset_to_keyset_work_ratio"] for row in scan_rows], marker="o", linewidth=2.5, color="#2563EB")
+    axes[0].plot(
+        sizes,
+        [row["offset_to_keyset_work_ratio"] for row in scan_rows],
+        marker="o",
+        linewidth=2.5,
+        color="#2563EB"
+    )
     axes[0].set_xscale("log")
     axes[0].set_yscale("log")
     axes[0].set_xlabel("Cohort observations")
@@ -135,8 +149,20 @@ def _plot_dashboard(path: Path, scan_rows: list[dict[str, Any]], stability_rows:
     strategies = [row["strategy"].replace("_", " ") for row in stability_rows]
     x = np.arange(len(strategies))
     width = 0.34
-    axes[1].bar(x - width / 2, [row["mean_rows_outside_start_snapshot"] for row in stability_rows], width, color="#DC2626", label="rows outside start snapshot")
-    axes[1].bar(x + width / 2, [row["mean_final_population_omissions"] for row in stability_rows], width, color="#F59E0B", label="final-population omissions")
+    axes[1].bar(
+        x - width / 2,
+        [row["mean_rows_outside_start_snapshot"] for row in stability_rows],
+        width,
+        color="#DC2626",
+        label="rows outside start snapshot"
+    )
+    axes[1].bar(
+        x + width / 2,
+        [row["mean_final_population_omissions"] for row in stability_rows],
+        width,
+        color="#F59E0B",
+        label="final-population omissions"
+    )
     axes[1].set_xticks(x, strategies, rotation=8)
     axes[1].set_ylabel("Mean rows per export")
     axes[1].set_title("200 late captures during 10-page export", loc="left", fontweight="bold")
@@ -153,22 +179,31 @@ def _plot_table(path: Path, scan_rows: list[dict[str, Any]], stability_rows: lis
     rows = [
         [
             "Scan work",
-            f'{row["cohort_size"]:,} rows / {row["pages"]:,} pages',
-            f'{row["offset_to_keyset_work_ratio"]:.1f}x',
-            "offset work relative to keyset"
+            f"{row['cohort_size']:,} rows / {row['pages']:,} pages",
+            f"{row['offset_to_keyset_work_ratio']:.1f}x",
+            "offset work relative to keyset",
         ]
         for row in scan_rows
     ]
     for row in stability_rows:
-        rows.append([
-            "Cohort stability",
-            row["strategy"].replace("_", " "),
-            f'{row["mean_final_population_omissions"]:.1f} omitted; {row["mean_rows_outside_start_snapshot"]:.1f} late',
-            f'{row["reproducibility_failure_rate"]:.1%} non-reproducible'
-        ])
+        rows.append(
+            [
+                "Cohort stability",
+                row["strategy"].replace("_", " "),
+                f"{row['mean_final_population_omissions']:.1f} omitted; {row['mean_rows_outside_start_snapshot']:.1f} late",
+                f"{row['reproducibility_failure_rate']:.1%} non-reproducible",
+            ]
+        )
     figure, axis = plt.subplots(figsize=(16.5, 5.2))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center", colWidths=[0.18, 0.27, 0.25, 0.30])
+    table = axis.table(
+        cellText=rows,
+        colLabels=columns,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+        colWidths=[0.18, 0.27, 0.25, 0.30]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10.5)
     table.scale(1, 1.85)
@@ -179,6 +214,10 @@ def _plot_table(path: Path, scan_rows: list[dict[str, Any]], stability_rows: lis
         color = "#F0FDF4" if "fixed" in rows[row_index - 1][1] else "#F9FAFB"
         for column in range(len(columns)):
             table[row_index, column].set_facecolor(color)
-    figure.suptitle("Route Review Export — Scan Efficiency and Snapshot Stability", fontsize=16, fontweight="bold")
+    figure.suptitle(
+        "Route Review Export — Scan Efficiency and Snapshot Stability",
+        fontsize=16,
+        fontweight="bold"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

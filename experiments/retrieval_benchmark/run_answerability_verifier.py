@@ -50,26 +50,14 @@ def chunk_contains_answer(chunk: str, answers: tuple[str, ...]) -> bool:
     return any("".join(answer.split()).casefold() in compact_chunk for answer in answers)
 
 
-def retrieve_indices(
-    corpus_vectors: np.ndarray,
-    query_vectors: np.ndarray,
-    chunks: list[Any],
-    *,
-    top_k: int = 3,
-) -> list[list[int]]:
+def retrieve_indices(corpus_vectors: np.ndarray, query_vectors: np.ndarray, chunks: list[Any], *, top_k: int = 3) -> list[list[int]]:
     return [
         _deduplicated_top_indices(corpus_vectors @ query_vector, chunks, k=top_k)
         for query_vector in query_vectors
     ]
 
 
-def build_training_pairs(
-    rows: list[dict[str, Any]],
-    chunks: list[Any],
-    retrieved: list[list[int]],
-    *,
-    seed: int = 42,
-) -> list[PairExample]:
+def build_training_pairs(rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, seed: int = 42) -> list[PairExample]:
     rng = random.Random(seed)
     chunks_by_document: dict[str, list[int]] = {}
     for index, chunk in enumerate(chunks):
@@ -109,22 +97,17 @@ def build_training_pairs(
     return pairs
 
 
-def score_cases(
-    model: Any,
-    tokenizer: Any,
-    rows: list[dict[str, Any]],
-    chunks: list[Any],
-    retrieved: list[list[int]],
-    *,
-    split: str,
-    device: Any,
-    batch_size: int,
-    max_length: int,
-) -> tuple[np.ndarray, np.ndarray, float]:
+def score_cases(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:
     import torch
 
-    selected = [(row, indices) for row, indices in zip(rows, retrieved, strict=True) if row["benchmark_split"] == split]
-    flat_pairs = [(row["question"], chunks[index].text) for row, indices in selected for index in indices]
+    selected = [
+        (row, indices)
+        for row, indices in zip(rows, retrieved, strict=True)
+        if row["benchmark_split"] == split
+    ]
+    flat_pairs = [
+        (row["question"], chunks[index].text) for row, indices in selected for index in indices
+    ]
     started = time.perf_counter()
     probabilities: list[float] = []
     model.eval()
@@ -136,14 +119,17 @@ def score_cases(
             padding=True,
             truncation=True,
             max_length=max_length,
-            return_tensors="pt",
+            return_tensors="pt"
         )
         encoded.pop("token_type_ids", None)
         encoded = encoded.to(device)
-        with torch.inference_mode(), torch.autocast(
-            device_type=device.type,
-            dtype=torch.bfloat16,
-            enabled=device.type == "cuda" and torch.cuda.is_bf16_supported(),
+        with (
+            torch.inference_mode(),
+            torch.autocast(
+                device_type=device.type,
+                dtype=torch.bfloat16,
+                enabled=device.type == "cuda" and torch.cuda.is_bf16_supported()
+            ),
         ):
             logits = model(**encoded).logits.float()
         probabilities.extend(torch.softmax(logits, dim=-1)[:, 1].cpu().tolist())
@@ -156,17 +142,7 @@ def score_cases(
     return labels, scores, elapsed_ms
 
 
-def train_verifier(
-    pairs: list[PairExample],
-    *,
-    model_id: str,
-    device_name: str,
-    epochs: int,
-    batch_size: int,
-    learning_rate: float,
-    max_length: int,
-    seed: int,
-) -> tuple[Any, Any, dict[str, Any]]:
+def train_verifier(pairs: list[PairExample], *, model_id: str, device_name: str, epochs: int, batch_size: int, learning_rate: float, max_length: int, seed: int) -> tuple[Any, Any, dict[str, Any]]:
     import torch
     from torch.optim import AdamW
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -176,7 +152,9 @@ def train_verifier(
     np.random.seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    device = torch.device("cuda" if device_name == "auto" and torch.cuda.is_available() else device_name)
+    device = torch.device(
+        "cuda" if device_name == "auto" and torch.cuda.is_available() else device_name
+    )
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForSequenceClassification.from_pretrained(model_id, num_labels=2).to(device)
     optimizer = AdamW(model.parameters(), lr=learning_rate)
@@ -185,7 +163,9 @@ def train_verifier(
     started = time.perf_counter()
     for epoch in range(epochs):
         model.train()
-        order = torch.randperm(len(pairs), generator=torch.Generator().manual_seed(seed + epoch)).tolist()
+        order = torch.randperm(
+            len(pairs), generator=torch.Generator().manual_seed(seed + epoch)
+        ).tolist()
         losses: list[float] = []
         for offset in range(0, len(order), batch_size):
             batch = [pairs[index] for index in order[offset : offset + batch_size]]
@@ -195,11 +175,13 @@ def train_verifier(
                 padding=True,
                 truncation=True,
                 max_length=max_length,
-                return_tensors="pt",
+                return_tensors="pt"
             )
             encoded.pop("token_type_ids", None)
             encoded = encoded.to(device)
-            labels = torch.tensor([int(item.label) for item in batch], dtype=torch.long, device=device)
+            labels = torch.tensor(
+                [int(item.label) for item in batch], dtype=torch.long, device=device
+            )
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
                 loss = model(**encoded, labels=labels).loss
@@ -226,21 +208,19 @@ def train_verifier(
     return model, tokenizer, metadata
 
 
-def plot_results(
-    labels: np.ndarray,
-    scores: np.ndarray,
-    threshold: float,
-    metrics: dict[str, float],
-    output: Path,
-) -> None:
+def plot_results(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     axes[0].hist(scores[~labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73")
     axes[0].hist(scores[labels], bins=20, alpha=0.65, label="answerable", color="#53d68b")
     axes[0].axvline(threshold, color="#2457d6", linestyle="--", label=f"threshold={threshold:.3f}")
-    axes[0].set(title="Verifier score separation", xlabel="answerability probability", ylabel="count")
+    axes[0].set(
+        title="Verifier score separation", xlabel="answerability probability", ylabel="count"
+    )
     axes[0].legend()
     names = ["precision", "recall", "f1", "false_accept_rate"]
-    axes[1].bar(names, [metrics[name] for name in names], color=["#4777e6", "#45b46f", "#ed7d31", "#e55353"])
+    axes[1].bar(
+        names, [metrics[name] for name in names], color=["#4777e6", "#45b46f", "#ed7d31", "#e55353"]
+    )
     axes[1].axhline(0.10, color="#e55353", linestyle="--", linewidth=1)
     axes[1].set(title="Frozen-test decision quality", ylim=(0, 1), ylabel="score")
     fig.tight_layout()
@@ -266,8 +246,11 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in rows]))
@@ -281,7 +264,7 @@ def main() -> None:
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         max_length=args.max_length,
-        seed=42,
+        seed=42
     )
     import torch
 
@@ -295,7 +278,7 @@ def main() -> None:
         split="validation",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     threshold = choose_threshold(validation_labels, validation_scores, max_false_accept_rate=0.10)
     test_labels, test_scores, test_ms = score_cases(
@@ -307,11 +290,16 @@ def main() -> None:
         split="test",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     metrics = classification_metrics(test_labels, test_scores, threshold)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    model_dir = Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-answerability-verifier"
+    model_dir = (
+        Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-answerability-verifier"
+    )
     model.save_pretrained(model_dir)
     tokenizer.save_pretrained(model_dir)
     output = {
@@ -332,7 +320,9 @@ def main() -> None:
     (args.output_dir / "verifier_results.json").write_text(
         json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    plot_results(test_labels, test_scores, threshold, metrics, args.output_dir / "verifier_results.png")
+    plot_results(
+        test_labels, test_scores, threshold, metrics, args.output_dir / "verifier_results.png"
+    )
     print(json.dumps(output, ensure_ascii=False, indent=2))
     del model
     if torch.cuda.is_available():

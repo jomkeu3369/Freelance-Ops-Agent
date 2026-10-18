@@ -19,9 +19,7 @@ class LLMRouteDecision(BaseModel):
     rationale: str = Field(max_length=400)
 
 
-def calculate_cost(
-    model: str, input_tokens: int, output_tokens: int, pricing: dict[str, Any]
-) -> float:
+def calculate_cost(model: str, input_tokens: int, output_tokens: int, pricing: dict[str, Any]) -> float:
     rates = pricing["models"][model]
     return (input_tokens * rates["input"] + output_tokens * rates["output"]) / 1_000_000
 
@@ -125,13 +123,7 @@ def build_openai_client() -> Any:
 
 
 @ls.traceable(name="prompt-llm-router", run_type="chain")
-def predict_with_llm(
-    client: Any,
-    model_config: dict[str, Any],
-    routes: dict[str, str],
-    prompt: str,
-    pricing: dict[str, Any],
-) -> dict[str, Any]:
+def predict_with_llm(client: Any, model_config: dict[str, Any], routes: dict[str, str], prompt: str, pricing: dict[str, Any]) -> dict[str, Any]:
     policy = "\n".join(f"- {label}: {description}" for label, description in routes.items())
     user_input = json.dumps({"user_request": prompt}, ensure_ascii=False)
     started = time.perf_counter()
@@ -154,7 +146,7 @@ def predict_with_llm(
                 "strict": True,
                 "schema": LLMRouteDecision.model_json_schema(),
             }
-        },
+        }
     )
     latency_ms = (time.perf_counter() - started) * 1_000
     decision = LLMRouteDecision.model_validate_json(response.output_text)

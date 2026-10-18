@@ -21,7 +21,7 @@ STRATEGIES = {
     "natural_only": 1.0,
     "70pct_natural_30pct_risk": 0.70,
     "50pct_natural_50pct_risk": 0.50,
-    "30pct_natural_70pct_risk": 0.30
+    "30pct_natural_70pct_risk": 0.30,
 }
 
 
@@ -32,8 +32,12 @@ def _strategy_probability(total_reviews: int, natural_fraction: float, trials: i
     risk_holdout_groups = rng.binomial(math.ceil(risk_reviews / 4), 0.20, size=trials)
     natural_samples = np.minimum(natural_reviews, natural_holdout_groups * 4)
     risk_samples = np.minimum(risk_reviews, risk_holdout_groups * 4)
-    natural_counts = np.vstack([rng.multinomial(int(count), NATURAL_PRIORS) for count in natural_samples])
-    risk_counts = np.vstack([rng.multinomial(int(count), RISK_STRATUM_PRIORS) for count in risk_samples])
+    natural_counts = np.vstack(
+        [rng.multinomial(int(count), NATURAL_PRIORS) for count in natural_samples]
+    )
+    risk_counts = np.vstack(
+        [rng.multinomial(int(count), RISK_STRATUM_PRIORS) for count in risk_samples]
+    )
     route_counts = natural_counts + risk_counts
     human_counts = route_counts[:, ROUTES.index("HUMAN_REQUIRED")]
     passes = (
@@ -52,24 +56,38 @@ def evaluate_review_sampling(output_dir: Path, trials: int = 2_000, seed: int = 
     for index, (name, natural_fraction) in enumerate(STRATEGIES.items()):
         rng = np.random.default_rng(seed + index)
         points = [
-            {"total_reviews": count, "gate_probability": _strategy_probability(count, natural_fraction, trials, rng)}
+            {
+                "total_reviews": count,
+                "gate_probability": _strategy_probability(count, natural_fraction, trials, rng),
+            }
             for count in counts
         ]
         curves[name] = points
-        required = next((int(point["total_reviews"]) for point in points if float(point["gate_probability"]) >= 0.95), None)
-        summaries.append({
-            "strategy": name,
-            "natural_fraction": natural_fraction,
-            "risk_stratum_fraction": 1 - natural_fraction,
-            "minimum_reviews_for_95pct_gate": required,
-            "estimated_days": {
-                str(rate): math.ceil(required / rate) if required is not None else None
-                for rate in DAILY_REVIEW_RATES
+        required = next(
+            (
+                int(point["total_reviews"])
+                for point in points
+                if float(point["gate_probability"]) >= 0.95
+            ),
+            None
+        )
+        summaries.append(
+            {
+                "strategy": name,
+                "natural_fraction": natural_fraction,
+                "risk_stratum_fraction": 1 - natural_fraction,
+                "minimum_reviews_for_95pct_gate": required,
+                "estimated_days": {
+                    str(rate): math.ceil(required / rate) if required is not None else None
+                    for rate in DAILY_REVIEW_RATES
+                },
             }
-        })
+        )
     baseline = int(summaries[0]["minimum_reviews_for_95pct_gate"])
     for summary in summaries:
-        summary["review_reduction_vs_natural"] = 1 - int(summary["minimum_reviews_for_95pct_gate"]) / baseline
+        summary["review_reduction_vs_natural"] = (
+            1 - int(summary["minimum_reviews_for_95pct_gate"]) / baseline
+        )
     payload = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
@@ -79,10 +97,10 @@ def evaluate_review_sampling(output_dir: Path, trials: int = 2_000, seed: int = 
             "natural_traffic_priors": dict(zip(ROUTES, NATURAL_PRIORS)),
             "risk_stratum_priors": dict(zip(ROUTES, RISK_STRATUM_PRIORS)),
             "natural_holdout_minimum": 1_000,
-            "warning": "traffic-weighted quality and cost must be estimated from the natural stratum only"
+            "warning": "traffic-weighted quality and cost must be estimated from the natural stratum only",
         },
         "summaries": summaries,
-        "curves": curves
+        "curves": curves,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "review_sampling_evaluation.json"
@@ -97,15 +115,27 @@ def evaluate_review_sampling(output_dir: Path, trials: int = 2_000, seed: int = 
 
 
 def _write_csv(path: Path, summaries: list[dict[str, Any]]) -> None:
-    fields = ["strategy", "natural_fraction", "risk_stratum_fraction", "minimum_reviews_for_95pct_gate", "review_reduction_vs_natural", *(f"days_at_{rate}_reviews_per_day" for rate in DAILY_REVIEW_RATES)]
+    fields = [
+        "strategy",
+        "natural_fraction",
+        "risk_stratum_fraction",
+        "minimum_reviews_for_95pct_gate",
+        "review_reduction_vs_natural",
+        *(f"days_at_{rate}_reviews_per_day" for rate in DAILY_REVIEW_RATES),
+    ]
     with path.open("w", encoding="utf-8-sig", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
         for summary in summaries:
-            writer.writerow({
-                **{field: summary[field] for field in fields[:5]},
-                **{f"days_at_{rate}_reviews_per_day": summary["estimated_days"][str(rate)] for rate in DAILY_REVIEW_RATES}
-            })
+            writer.writerow(
+                {
+                    **{field: summary[field] for field in fields[:5]},
+                    **{
+                        f"days_at_{rate}_reviews_per_day": summary["estimated_days"][str(rate)]
+                        for rate in DAILY_REVIEW_RATES
+                    },
+                }
+            )
 
 
 def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
@@ -114,7 +144,13 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
     colors = ("#DC2626", "#F97316", "#059669", "#2563EB")
     for color, summary in zip(colors, payload["summaries"]):
         points = payload["curves"][summary["strategy"]]
-        axes[0].plot([point["total_reviews"] for point in points], [point["gate_probability"] for point in points], label=summary["strategy"], color=color, linewidth=2)
+        axes[0].plot(
+            [point["total_reviews"] for point in points],
+            [point["gate_probability"] for point in points],
+            label=summary["strategy"],
+            color=color,
+            linewidth=2
+        )
     axes[0].axhline(0.95, color="#111827", linestyle="--", linewidth=1.5)
     axes[0].set_xlabel("Total human-reviewed observations")
     axes[0].set_ylabel("P(evidence gate passes)")
@@ -122,7 +158,10 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
     axes[0].set_title("Natural + risk-stratum allocation", loc="left", fontweight="bold")
     axes[0].legend(frameon=False, fontsize=9)
 
-    names = [summary["strategy"].replace("pct_", "/").replace("_", " ") for summary in payload["summaries"]]
+    names = [
+        summary["strategy"].replace("pct_", "/").replace("_", " ")
+        for summary in payload["summaries"]
+    ]
     required = [summary["minimum_reviews_for_95pct_gate"] for summary in payload["summaries"]]
     bars = axes[1].bar(names, required, color=colors)
     axes[1].bar_label(bars, labels=[f"{value:,}" for value in required], padding=3)
@@ -139,15 +178,25 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
 
 def _plot_table(path: Path, summaries: list[dict[str, Any]]) -> None:
     columns = ["Review allocation", "Required", "Reduction", "50/day", "100/day", "200/day"]
-    rows = [[
-        summary["strategy"],
-        f'{summary["minimum_reviews_for_95pct_gate"]:,}',
-        f'{summary["review_reduction_vs_natural"]:.1%}',
-        *(f'{summary["estimated_days"][str(rate)]} days' for rate in (50, 100, 200))
-    ] for summary in summaries]
+    rows = [
+        [
+            summary["strategy"],
+            f"{summary['minimum_reviews_for_95pct_gate']:,}",
+            f"{summary['review_reduction_vs_natural']:.1%}",
+            *(f"{summary['estimated_days'][str(rate)]} days" for rate in (50, 100, 200)),
+        ]
+        for summary in summaries
+    ]
     figure, axis = plt.subplots(figsize=(16, 4.7))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center", colWidths=[0.31, 0.14, 0.13, 0.13, 0.13, 0.13])
+    table = axis.table(
+        cellText=rows,
+        colLabels=columns,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+        colWidths=[0.31, 0.14, 0.13, 0.13, 0.13, 0.13]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 1.9)
@@ -157,6 +206,8 @@ def _plot_table(path: Path, summaries: list[dict[str, Any]]) -> None:
     for row in range(1, len(rows) + 1):
         for column in range(len(columns)):
             table[row, column].set_facecolor("#F0FDF4" if row % 2 else "#F9FAFB")
-    figure.suptitle("Risk-stratified Review Allocation — Evidence Gate", fontsize=16, fontweight="bold")
+    figure.suptitle(
+        "Risk-stratified Review Allocation — Evidence Gate", fontsize=16, fontweight="bold"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

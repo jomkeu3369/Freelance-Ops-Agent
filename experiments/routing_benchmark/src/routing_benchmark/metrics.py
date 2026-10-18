@@ -10,14 +10,29 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 
 def routing_metrics(truth: Sequence[str], predictions: Sequence[str], labels: Sequence[str], sample_weight: Sequence[float] | None = None) -> dict[str, Any]:
     report = classification_report(
-        truth, predictions, labels=list(labels), output_dict=True, zero_division=0,
+        truth,
+        predictions,
+        labels=list(labels),
+        output_dict=True,
+        zero_division=0,
         sample_weight=sample_weight
     )
     return {
         "accuracy": float(accuracy_score(truth, predictions, sample_weight=sample_weight)),
-        "macro_f1": float(f1_score(truth, predictions, labels=list(labels), average="macro", zero_division=0, sample_weight=sample_weight)),
+        "macro_f1": float(
+            f1_score(
+                truth,
+                predictions,
+                labels=list(labels),
+                average="macro",
+                zero_division=0,
+                sample_weight=sample_weight
+            )
+        ),
         "per_route": {label: report[label] for label in labels},
-        "confusion_matrix": confusion_matrix(truth, predictions, labels=list(labels), sample_weight=sample_weight).tolist(),
+        "confusion_matrix": confusion_matrix(
+            truth, predictions, labels=list(labels), sample_weight=sample_weight
+        ).tolist(),
     }
 
 
@@ -31,9 +46,7 @@ def latency_metrics(values_ms: Sequence[float]) -> dict[str, float]:
     }
 
 
-def exact_mcnemar(
-    truth: Sequence[str], prediction_a: Sequence[str], prediction_b: Sequence[str]
-) -> dict[str, Any]:
+def exact_mcnemar(truth: Sequence[str], prediction_a: Sequence[str], prediction_b: Sequence[str]) -> dict[str, Any]:
     a_only = sum(
         a == expected and b != expected for expected, a, b in zip(truth, prediction_a, prediction_b)
     )

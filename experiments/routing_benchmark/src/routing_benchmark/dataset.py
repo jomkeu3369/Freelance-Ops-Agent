@@ -105,7 +105,7 @@ def _fixture_cases(prompts: list[str], route: str, rule: str) -> list[RoutingCas
             source_dataset="Freelance-Ops-Agent V2 routing policy",
             source_split="fixture",
             source_index=index,
-            mapping_rule=rule,
+            mapping_rule=rule
         )
         for index, prompt in enumerate(prompts)
     ]
@@ -118,15 +118,9 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
     if samples_per_route != 10:
         raise ValueError("The reviewed gold set is frozen at exactly 10 cases per route")
 
-    supra = load_dataset(
-        SUPRA_DATASET,
-        revision=SUPRA_REVISION,
-        split="train",
-    )
+    supra = load_dataset(SUPRA_DATASET, revision=SUPRA_REVISION, split="train")
     orchestration = load_dataset(
-        ORCHESTRATION_DATASET,
-        revision=ORCHESTRATION_REVISION,
-        split="train",
+        ORCHESTRATION_DATASET, revision=ORCHESTRATION_REVISION, split="train"
     )
 
     simple = [
@@ -137,7 +131,7 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=SUPRA_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: single language generation call; no tool or delegation",
+            mapping_rule="human-reviewed: single language generation call; no tool or delegation"
         )
         for index in SIMPLE_SUPRA_INDICES
     ]
@@ -149,7 +143,7 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=ORCHESTRATION_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: bounded transactional or incident workflow using tools",
+            mapping_rule="human-reviewed: bounded transactional or incident workflow using tools"
         )
         for index in REACT_ORCHESTRATION_INDICES
     ]
@@ -161,19 +155,19 @@ def build_routing_cases(samples_per_route: int, seed: int) -> list[RoutingCase]:
             source_dataset=ORCHESTRATION_DATASET,
             source_split="train",
             source_index=index,
-            mapping_rule="human-reviewed: leave approval or identity-document verification",
+            mapping_rule="human-reviewed: leave approval or identity-document verification"
         )
         for index in HUMAN_ORCHESTRATION_INDICES
     ]
     direct = _fixture_cases(
         DIRECT_TOOL_FIXTURES,
         "DIRECT_TOOL",
-        "V2 policy fixture: one exact deterministic calculation or structured lookup",
+        "V2 policy fixture: one exact deterministic calculation or structured lookup"
     )
     supervisor = _fixture_cases(
         SUPERVISOR_FIXTURES,
         "SUPERVISOR",
-        "V2 policy fixture: explicit multi-department coordination and synthesis",
+        "V2 policy fixture: explicit multi-department coordination and synthesis"
     )
 
     cases = direct + simple + react + supervisor + human

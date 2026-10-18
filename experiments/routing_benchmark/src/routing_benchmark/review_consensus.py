@@ -19,27 +19,27 @@ RISK_DUAL_FRACTIONS = (0.0, 0.50, 1.0)
 ERROR_SCENARIOS = {
     "optimistic": {"natural": 0.01, "risk": 0.05},
     "expected": {"natural": 0.02, "risk": 0.08},
-    "stressed": {"natural": 0.05, "risk": 0.15}
+    "stressed": {"natural": 0.05, "risk": 0.15},
 }
 
 
-def _stratum_trial(samples: int, reviewer_error: float, dual_fraction: float,
-                    trials: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _stratum_trial(samples: int, reviewer_error: float, dual_fraction: float, trials: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     dual = round(samples * dual_fraction)
     single = samples - dual
     single_errors = rng.binomial(single, reviewer_error, size=trials)
     wrong_agreement = reviewer_error * reviewer_error / 4
     correct_agreement = (1 - reviewer_error) ** 2
     disagreement = 1 - correct_agreement - wrong_agreement
-    outcomes = rng.multinomial(dual, [correct_agreement, wrong_agreement, disagreement], size=trials)
+    outcomes = rng.multinomial(
+        dual, [correct_agreement, wrong_agreement, disagreement], size=trials
+    )
     errors = single_errors + outcomes[:, 1]
     reviews = np.full(trials, single + dual * 2) + outcomes[:, 2]
     adjudications = outcomes[:, 2]
     return errors, reviews, adjudications
 
 
-def evaluate_strategy(natural_error: float, risk_error: float, natural_dual: float,
-                      risk_dual: float, trials: int, seed: int) -> dict[str, float]:
+def evaluate_strategy(natural_error: float, risk_error: float, natural_dual: float, risk_dual: float, trials: int, seed: int) -> dict[str, float]:
     natural_samples = round(TOTAL_LABELS * (1 - RISK_FRACTION))
     risk_samples = TOTAL_LABELS - natural_samples
     rng = np.random.default_rng(seed)
@@ -54,7 +54,7 @@ def evaluate_strategy(natural_error: float, risk_error: float, natural_dual: flo
         "mean_label_error_rate": float(np.mean(errors / TOTAL_LABELS)),
         "p95_label_error_rate": float(np.quantile(errors / TOTAL_LABELS, 0.95)),
         "mean_reviews_per_gold_label": float(np.mean(reviews / TOTAL_LABELS)),
-        "mean_adjudication_rate": float(np.mean(adjudications / TOTAL_LABELS))
+        "mean_adjudication_rate": float(np.mean(adjudications / TOTAL_LABELS)),
     }
 
 
@@ -64,8 +64,12 @@ def evaluate_review_consensus(output_dir: Path, trials: int = 5_000, seed: int =
     for scenario_index, (name, errors) in enumerate(ERROR_SCENARIOS.items()):
         strategies = [
             evaluate_strategy(
-                errors["natural"], errors["risk"], natural_dual, risk_dual,
-                trials, seed + scenario_index * 100_000 + natural_index * 100 + risk_index
+                errors["natural"],
+                errors["risk"],
+                natural_dual,
+                risk_dual,
+                trials,
+                seed + scenario_index * 100_000 + natural_index * 100 + risk_index
             )
             for natural_index, natural_dual in enumerate(NATURAL_DUAL_FRACTIONS)
             for risk_index, risk_dual in enumerate(RISK_DUAL_FRACTIONS)
@@ -73,12 +77,14 @@ def evaluate_review_consensus(output_dir: Path, trials: int = 5_000, seed: int =
         results[name] = strategies
         eligible = [row for row in strategies if row["p95_label_error_rate"] <= TARGET_LABEL_ERROR]
         choice = min(eligible, key=lambda row: row["mean_reviews_per_gold_label"])
-        selected.append({
-            "scenario": name,
-            "natural_reviewer_error": errors["natural"],
-            "risk_reviewer_error": errors["risk"],
-            **choice
-        })
+        selected.append(
+            {
+                "scenario": name,
+                "natural_reviewer_error": errors["natural"],
+                "risk_reviewer_error": errors["risk"],
+                **choice,
+            }
+        )
     payload = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
@@ -89,10 +95,10 @@ def evaluate_review_consensus(output_dir: Path, trials: int = 5_000, seed: int =
             "seed": seed,
             "wrong_label_assumption": "uniform across the other four routes",
             "adjudicator_assumption": "resolves every disagreement correctly",
-            "selection_gate": "p95 accepted-label error <= 1%"
+            "selection_gate": "p95 accepted-label error <= 1%",
         },
         "selected": selected,
-        "results": results
+        "results": results,
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "review_consensus_evaluation.json"
@@ -124,7 +130,10 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
         axes[0].plot(
             [row["mean_reviews_per_gold_label"] for row in rows],
             [row["p95_label_error_rate"] for row in rows],
-            marker="o", color=color, linewidth=2, label=f"risk dual={risk_dual:.0%}"
+            marker="o",
+            color=color,
+            linewidth=2,
+            label=f"risk dual={risk_dual:.0%}"
         )
     axes[0].axhline(TARGET_LABEL_ERROR, color="#111827", linestyle="--", label="1% p95 gate")
     axes[0].set_xlabel("Human reviews per accepted gold label")
@@ -134,11 +143,21 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
 
     selected = payload["selected"]
     x = np.arange(len(selected))
-    axes[1].bar(x - 0.18, [row["mean_reviews_per_gold_label"] for row in selected], 0.36,
-                color="#2563EB", label="reviews / gold")
+    axes[1].bar(
+        x - 0.18,
+        [row["mean_reviews_per_gold_label"] for row in selected],
+        0.36,
+        color="#2563EB",
+        label="reviews / gold"
+    )
     error_axis = axes[1].twinx()
-    error_axis.bar(x + 0.18, [row["p95_label_error_rate"] for row in selected], 0.36,
-                   color="#059669", label="p95 label error")
+    error_axis.bar(
+        x + 0.18,
+        [row["p95_label_error_rate"] for row in selected],
+        0.36,
+        color="#059669",
+        label="p95 label error"
+    )
     axes[1].set_xticks(x, [row["scenario"] for row in selected])
     axes[1].set_ylabel("Reviews per accepted gold label")
     error_axis.set_ylabel("p95 label error")
@@ -155,19 +174,32 @@ def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _plot_table(path: Path, selected: list[dict[str, Any]]) -> None:
-    columns = ["Scenario", "Natural error", "Risk error", "Natural dual", "Risk dual", "Reviews/gold", "p95 label error"]
-    rows = [[
-        row["scenario"],
-        f'{row["natural_reviewer_error"]:.0%}',
-        f'{row["risk_reviewer_error"]:.0%}',
-        f'{row["natural_dual_fraction"]:.0%}',
-        f'{row["risk_dual_fraction"]:.0%}',
-        f'{row["mean_reviews_per_gold_label"]:.2f}',
-        f'{row["p95_label_error_rate"]:.2%}'
-    ] for row in selected]
+    columns = [
+        "Scenario",
+        "Natural error",
+        "Risk error",
+        "Natural dual",
+        "Risk dual",
+        "Reviews/gold",
+        "p95 label error",
+    ]
+    rows = [
+        [
+            row["scenario"],
+            f"{row['natural_reviewer_error']:.0%}",
+            f"{row['risk_reviewer_error']:.0%}",
+            f"{row['natural_dual_fraction']:.0%}",
+            f"{row['risk_dual_fraction']:.0%}",
+            f"{row['mean_reviews_per_gold_label']:.2f}",
+            f"{row['p95_label_error_rate']:.2%}",
+        ]
+        for row in selected
+    ]
     figure, axis = plt.subplots(figsize=(16.5, 4.5))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center")
+    table = axis.table(
+        cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center"
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10.5)
     table.scale(1, 1.9)
@@ -177,6 +209,8 @@ def _plot_table(path: Path, selected: list[dict[str, Any]]) -> None:
     for row in range(1, len(rows) + 1):
         for column in range(len(columns)):
             table[row, column].set_facecolor("#F0FDF4" if row == 2 else "#F9FAFB")
-    figure.suptitle("Review Consensus — Minimum-cost Policies Passing 1% Gate", fontsize=16, fontweight="bold")
+    figure.suptitle(
+        "Review Consensus — Minimum-cost Policies Passing 1% Gate", fontsize=16, fontweight="bold"
+    )
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

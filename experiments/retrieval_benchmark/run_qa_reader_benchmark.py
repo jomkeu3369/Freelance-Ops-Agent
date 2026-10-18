@@ -24,40 +24,30 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def best_span_margin(
-    start_logits: np.ndarray,
-    end_logits: np.ndarray,
-    context_positions: list[int],
-    *,
-    null_position: int = 0,
-    max_answer_tokens: int = 30,
-) -> float:
+def best_span_margin(start_logits: np.ndarray, end_logits: np.ndarray, context_positions: list[int], *, null_position: int = 0, max_answer_tokens: int = 30) -> float:
     null_score = float(start_logits[null_position] + end_logits[null_position])
     best_score = -float("inf")
     for start in context_positions:
         end_limit = min(start + max_answer_tokens, len(end_logits))
         valid_ends = [position for position in context_positions if start <= position < end_limit]
         if valid_ends:
-            best_score = max(best_score, float(start_logits[start] + np.max(end_logits[valid_ends])))
+            best_score = max(
+                best_score, float(start_logits[start] + np.max(end_logits[valid_ends]))
+            )
     return best_score - null_score
 
 
-def score_reader(
-    model: Any,
-    tokenizer: Any,
-    rows: list[dict[str, Any]],
-    chunks: list[Any],
-    retrieved: list[list[int]],
-    *,
-    split: str,
-    device: Any,
-    batch_size: int,
-    max_length: int,
-) -> tuple[np.ndarray, np.ndarray, float]:
+def score_reader(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:
     import torch
 
-    selected = [(row, indices) for row, indices in zip(rows, retrieved, strict=True) if row["benchmark_split"] == split]
-    pairs = [(row["question"], chunks[index].text) for row, indices in selected for index in indices]
+    selected = [
+        (row, indices)
+        for row, indices in zip(rows, retrieved, strict=True)
+        if row["benchmark_split"] == split
+    ]
+    pairs = [
+        (row["question"], chunks[index].text) for row, indices in selected for index in indices
+    ]
     margins: list[float] = []
     started = time.perf_counter()
     model.eval()
@@ -69,20 +59,25 @@ def score_reader(
             padding=True,
             truncation=True,
             max_length=max_length,
-            return_tensors="pt",
+            return_tensors="pt"
         )
         sequence_ids = [encoded.sequence_ids(index) for index in range(len(batch))]
         device_inputs = encoded.to(device)
-        with torch.inference_mode(), torch.autocast(
-            device_type=device.type,
-            dtype=torch.bfloat16,
-            enabled=device.type == "cuda" and torch.cuda.is_bf16_supported(),
+        with (
+            torch.inference_mode(),
+            torch.autocast(
+                device_type=device.type,
+                dtype=torch.bfloat16,
+                enabled=device.type == "cuda" and torch.cuda.is_bf16_supported()
+            ),
         ):
             output = model(**device_inputs)
         starts = output.start_logits.float().cpu().numpy()
         ends = output.end_logits.float().cpu().numpy()
         for index, ids in enumerate(sequence_ids):
-            context_positions = [position for position, sequence_id in enumerate(ids) if sequence_id == 0]
+            context_positions = [
+                position for position, sequence_id in enumerate(ids) if sequence_id == 0
+            ]
             margins.append(best_span_margin(starts[index], ends[index], context_positions))
     if device.type == "cuda":
         torch.cuda.synchronize()
@@ -92,13 +87,7 @@ def score_reader(
     return labels, case_scores, elapsed_ms
 
 
-def plot_reader(
-    labels: np.ndarray,
-    scores: np.ndarray,
-    threshold: float,
-    metrics: dict[str, float],
-    output: Path,
-) -> None:
+def plot_reader(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     axes[0].hist(scores[~labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73")
     axes[0].hist(scores[labels], bins=20, alpha=0.65, label="answerable", color="#53d68b")
@@ -106,7 +95,9 @@ def plot_reader(
     axes[0].set(title="QA reader: best span minus null", xlabel="logit margin", ylabel="count")
     axes[0].legend()
     names = ["precision", "recall", "f1", "false_accept_rate"]
-    axes[1].bar(names, [metrics[name] for name in names], color=["#4777e6", "#45b46f", "#ed7d31", "#e55353"])
+    axes[1].bar(
+        names, [metrics[name] for name in names], color=["#4777e6", "#45b46f", "#ed7d31", "#e55353"]
+    )
     axes[1].axhline(0.10, color="#e55353", linestyle="--", linewidth=1)
     axes[1].set(title="Frozen-test decision quality", ylim=(0, 1), ylabel="score")
     fig.tight_layout()
@@ -130,8 +121,11 @@ def main() -> None:
     embedder = OpenAIEmbedder(
         model="text-embedding-3-small",
         dimensions=1536,
-        cache_path=Path(__file__).parents[2] / ".uv-cache" / "similarity-benchmark" / "klue-mrc-1536.json",
-        batch_size=128,
+        cache_path=Path(__file__).parents[2]
+        / ".uv-cache"
+        / "similarity-benchmark"
+        / "klue-mrc-1536.json",
+        batch_size=128
     )
     corpus_vectors = embed_corpus(chunks, embedder)
     query_vectors = normalize_rows(embedder.embed_documents([row["question"] for row in rows]))
@@ -153,10 +147,12 @@ def main() -> None:
         split="validation",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     threshold = choose_threshold(validation_labels, validation_scores, max_false_accept_rate=0.10)
-    utility_threshold = choose_threshold(validation_labels, validation_scores, max_false_accept_rate=1.0)
+    utility_threshold = choose_threshold(
+        validation_labels, validation_scores, max_false_accept_rate=1.0
+    )
     test_labels, test_scores, test_ms = score_reader(
         model,
         tokenizer,
@@ -166,7 +162,7 @@ def main() -> None:
         split="test",
         device=device,
         batch_size=args.batch_size,
-        max_length=args.max_length,
+        max_length=args.max_length
     )
     validation_metrics = classification_metrics(validation_labels, validation_scores, threshold)
     test_metrics = classification_metrics(test_labels, test_scores, threshold)
@@ -196,7 +192,9 @@ def main() -> None:
     (args.output_dir / "qa_reader_results.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    plot_reader(test_labels, test_scores, threshold, test_metrics, args.output_dir / "qa_reader_results.png")
+    plot_reader(
+        test_labels, test_scores, threshold, test_metrics, args.output_dir / "qa_reader_results.png"
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 

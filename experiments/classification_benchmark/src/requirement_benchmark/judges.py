@@ -35,9 +35,7 @@ its stated basis introduces unsupported meaning. Keep rationale concise; do not 
 reasoning or chain-of-thought."""
 
 
-def calculate_openai_cost(
-    model: str, input_tokens: int, output_tokens: int, pricing: dict[str, Any]
-) -> float:
+def calculate_openai_cost(model: str, input_tokens: int, output_tokens: int, pricing: dict[str, Any]) -> float:
     rates = pricing["models"][model]
     return (input_tokens * rates["input"] + output_tokens * rates["output"]) / 1_000_000
 
@@ -77,12 +75,7 @@ def build_openai_client() -> Any:
 
 
 @ls.traceable(name="requirement-classifier-judge", run_type="chain")
-def evaluate_prediction(
-    client: Any,
-    model: str,
-    prediction: dict[str, Any],
-    pricing: dict[str, Any],
-) -> dict[str, Any]:
+def evaluate_prediction(client: Any, model: str, prediction: dict[str, Any], pricing: dict[str, Any]) -> dict[str, Any]:
     user_input = json.dumps(
         {
             "requirement": prediction["text"],
@@ -90,7 +83,7 @@ def evaluate_prediction(
             "candidate_label": prediction["predicted_label"],
             "candidate_confidence": prediction["confidence"],
         },
-        ensure_ascii=False,
+        ensure_ascii=False
     )
     started = time.perf_counter()
     response = client.responses.create(
@@ -106,7 +99,7 @@ def evaluate_prediction(
                 "strict": True,
                 "schema": JudgeVerdict.model_json_schema(),
             }
-        },
+        }
     )
     elapsed_ms = (time.perf_counter() - started) * 1_000
     verdict = JudgeVerdict.model_validate_json(response.output_text)

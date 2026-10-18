@@ -43,7 +43,11 @@ def _expected_calibration_error(truth: list[str], predictions: list[str], confid
     total = len(truth)
     error = 0.0
     for lower, upper in pairwise(edges):
-        members = [index for index, value in enumerate(confidence) if lower <= value < upper or upper == 1.0 and value == 1.0]
+        members = [
+            index
+            for index, value in enumerate(confidence)
+            if lower <= value < upper or upper == 1.0 and value == 1.0
+        ]
         if not members:
             continue
         accuracy = sum(truth[index] == predictions[index] for index in members) / len(members)
@@ -61,17 +65,29 @@ def _fit_shift_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
     selection_train = [row for row in train_rows if 1 <= int(row["generator_batch"]) <= 16]
     selection_holdout = [row for row in train_rows if 17 <= int(row["generator_batch"]) <= 20]
     selection_vectorizer = replay._features()
-    selection_train_matrix = selection_vectorizer.fit_transform([str(row["prompt"]) for row in selection_train])
-    selection_holdout_matrix = selection_vectorizer.transform([str(row["prompt"]) for row in selection_holdout])
+    selection_train_matrix = selection_vectorizer.fit_transform(
+        [str(row["prompt"]) for row in selection_train]
+    )
+    selection_holdout_matrix = selection_vectorizer.transform(
+        [str(row["prompt"]) for row in selection_holdout]
+    )
     selection_train_labels = [str(row["expected_route"]) for row in selection_train]
     selection_holdout_labels = [str(row["expected_route"]) for row in selection_holdout]
 
     selected_c = 0.25
     group_holdout_macro_f1 = -1.0
     for c_value in (0.25, 0.5, 1.0, 2.0, 4.0):
-        candidate = LogisticRegression(C=c_value, class_weight="balanced", max_iter=2_000, random_state=42)
+        candidate = LogisticRegression(
+            C=c_value, class_weight="balanced", max_iter=2_000, random_state=42
+        )
         candidate.fit(selection_train_matrix, selection_train_labels)
-        score = float(f1_score(selection_holdout_labels, candidate.predict(selection_holdout_matrix), average="macro"))
+        score = float(
+            f1_score(
+                selection_holdout_labels,
+                candidate.predict(selection_holdout_matrix),
+                average="macro"
+            )
+        )
         if score > group_holdout_macro_f1:
             selected_c = c_value
             group_holdout_macro_f1 = score
@@ -86,7 +102,9 @@ def _fit_shift_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
     train_matrix = vectorizer.fit_transform(train_text)
     validation_matrix = vectorizer.transform(validation_text)
     frozen_matrix = vectorizer.transform(frozen_text)
-    model = LogisticRegression(C=selected_c, class_weight="balanced", max_iter=2_000, random_state=42)
+    model = LogisticRegression(
+        C=selected_c, class_weight="balanced", max_iter=2_000, random_state=42
+    )
     model.fit(train_matrix, train_labels)
 
     validation_probabilities = model.predict_proba(validation_matrix)
@@ -99,8 +117,13 @@ def _fit_shift_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
     frozen_confidence = np.max(frozen_probabilities, axis=1)
     validation_similarity = _max_train_similarity(validation_matrix, train_matrix)
     frozen_similarity = _max_train_similarity(frozen_matrix, train_matrix)
-    thresholds = replay._calibrate_thresholds(validation_labels, list(model.classes_), validation_probabilities)
-    similarity_floors = {"p05": float(np.percentile(validation_similarity, 5)), "p10": float(np.percentile(validation_similarity, 10))}
+    thresholds = replay._calibrate_thresholds(
+        validation_labels, list(model.classes_), validation_probabilities
+    )
+    similarity_floors = {
+        "p05": float(np.percentile(validation_similarity, 5)),
+        "p10": float(np.percentile(validation_similarity, 10)),
+    }
 
     latency_ms: list[float] = []
     for _ in range(5):
@@ -116,22 +139,34 @@ def _fit_shift_model(train_rows: list[dict[str, Any]], validation_rows: list[dic
             "predicted": frozen_predictions[index],
             "confidence": float(frozen_confidence[index]),
             "nearest_train_similarity": float(frozen_similarity[index]),
-            "correct": frozen_labels[index] == frozen_predictions[index]
+            "correct": frozen_labels[index] == frozen_predictions[index],
         }
         for index, row in enumerate(frozen_rows)
     ]
     return ShiftDiagnostics(
-        predictions={str(row["id"]): frozen_predictions[index] for index, row in enumerate(frozen_rows)},
-        confidence={str(row["id"]): float(frozen_confidence[index]) for index, row in enumerate(frozen_rows)},
-        similarity={str(row["id"]): float(frozen_similarity[index]) for index, row in enumerate(frozen_rows)},
+        predictions={
+            str(row["id"]): frozen_predictions[index] for index, row in enumerate(frozen_rows)
+        },
+        confidence={
+            str(row["id"]): float(frozen_confidence[index]) for index, row in enumerate(frozen_rows)
+        },
+        similarity={
+            str(row["id"]): float(frozen_similarity[index]) for index, row in enumerate(frozen_rows)
+        },
         thresholds=thresholds,
         similarity_floors=similarity_floors,
         selected_c=selected_c,
         group_holdout_macro_f1=group_holdout_macro_f1,
-        validation_macro_f1=float(f1_score(validation_labels, validation_predictions, average="macro")),
+        validation_macro_f1=float(
+            f1_score(validation_labels, validation_predictions, average="macro")
+        ),
         frozen_macro_f1=float(f1_score(frozen_labels, frozen_predictions, average="macro")),
-        validation_ece=_expected_calibration_error(validation_labels, validation_predictions, validation_confidence),
-        frozen_ece=_expected_calibration_error(frozen_labels, frozen_predictions, frozen_confidence),
+        validation_ece=_expected_calibration_error(
+            validation_labels, validation_predictions, validation_confidence
+        ),
+        frozen_ece=_expected_calibration_error(
+            frozen_labels, frozen_predictions, frozen_confidence
+        ),
         latency_median_ms=float(np.median(latency_ms)),
         latency_p95_ms=float(np.percentile(latency_ms, 95)),
         frozen_rows=diagnostic_rows
@@ -163,7 +198,11 @@ def _evaluate_cascade(name: str, mode: str, cases: list[dict[str, Any]], llm_pre
         expected = str(case["expected_route"])
         selected = replay._trusted_contract_route(case) if mode != "llm_all" else None
         source = "TRUSTED_POLICY" if selected else ""
-        if selected is None and mode not in {"llm_all", "policy_only"} and _accept_local(mode, case_id, diagnostics):
+        if (
+            selected is None
+            and mode not in {"llm_all", "policy_only"}
+            and _accept_local(mode, case_id, diagnostics)
+        ):
             selected = diagnostics.predictions[case_id]
             source = "LOCAL_MODEL"
         if selected is None:
@@ -184,7 +223,10 @@ def _evaluate_cascade(name: str, mode: str, cases: list[dict[str, Any]], llm_pre
     metrics = routing_metrics(truth, predictions, replay.ROUTES)
     route_f1 = {route: float(metrics["per_route"][route]["f1-score"]) for route in replay.ROUTES}
     human_recall = float(metrics["per_route"]["HUMAN_REQUIRED"]["recall"])
-    false_automation = sum(expected == "HUMAN_REQUIRED" and predicted != "HUMAN_REQUIRED" for expected, predicted in zip(truth, predictions))
+    false_automation = sum(
+        expected == "HUMAN_REQUIRED" and predicted != "HUMAN_REQUIRED"
+        for expected, predicted in zip(truth, predictions)
+    )
     return {
         "name": name,
         "mode": mode,
@@ -193,14 +235,19 @@ def _evaluate_cascade(name: str, mode: str, cases: list[dict[str, Any]], llm_pre
         "minimum_route_f1": min(route_f1.values()),
         "human_required_recall": human_recall,
         "false_automation_count": false_automation,
-        "over_escalation_count": sum(expected != "HUMAN_REQUIRED" and predicted == "HUMAN_REQUIRED" for expected, predicted in zip(truth, predictions)),
+        "over_escalation_count": sum(
+            expected != "HUMAN_REQUIRED" and predicted == "HUMAN_REQUIRED"
+            for expected, predicted in zip(truth, predictions)
+        ),
         "llm_calls": llm_calls,
         "llm_call_rate": llm_calls / len(cases),
         "llm_cost_usd": llm_cost,
         "mean_estimated_latency_ms": float(np.mean(latencies)),
         "p95_estimated_latency_ms": float(np.percentile(latencies, 95)),
         "decision_counts": sources,
-        "passes_local_promotion_gate": min(route_f1.values()) >= 0.70 and human_recall >= 0.95 and false_automation == 0
+        "passes_local_promotion_gate": min(route_f1.values()) >= 0.70
+        and human_recall >= 0.95
+        and false_automation == 0,
     }
 
 
@@ -211,8 +258,18 @@ def _risk_coverage(rows: list[dict[str, Any]]) -> list[dict[str, float]]:
         if not accepted:
             continue
         accuracy = sum(bool(row["correct"]) for row in accepted) / len(accepted)
-        false_automation = sum(row["expected"] == "HUMAN_REQUIRED" and row["predicted"] != "HUMAN_REQUIRED" for row in accepted)
-        points.append({"threshold": float(threshold), "coverage": len(accepted) / len(rows), "selective_accuracy": accuracy, "false_automation_count": float(false_automation)})
+        false_automation = sum(
+            row["expected"] == "HUMAN_REQUIRED" and row["predicted"] != "HUMAN_REQUIRED"
+            for row in accepted
+        )
+        points.append(
+            {
+                "threshold": float(threshold),
+                "coverage": len(accepted) / len(rows),
+                "selective_accuracy": accuracy,
+                "false_automation_count": float(false_automation),
+            }
+        )
     return points
 
 
@@ -221,26 +278,37 @@ def evaluate_distribution_shift(ab_report_path: Path, train_path: Path, validati
     cases = list(ab_report["cases"])
     llm_router = next(router for router in ab_report["routers"] if router["name"] == "B_prompt_llm")
     llm_predictions = {str(item["case_id"]): item for item in llm_router["predictions"]}
-    diagnostics = _fit_shift_model(replay._read_jsonl(train_path), replay._read_jsonl(validation_path), cases)
+    diagnostics = _fit_shift_model(
+        replay._read_jsonl(train_path), replay._read_jsonl(validation_path), cases
+    )
     definitions = (
         ("LLM for every request", "llm_all"),
         ("Trusted contract → LLM", "policy_only"),
         ("Policy → safe escalation → LLM", "safe_escalation"),
         ("Policy → confidence gate → LLM", "confidence"),
         ("Policy → OOD p05 gate → LLM", "ood_p05"),
-        ("Policy → OOD p10 gate → LLM", "ood_p10")
+        ("Policy → OOD p10 gate → LLM", "ood_p10"),
     )
-    cascades = [_evaluate_cascade(name, mode, cases, llm_predictions, diagnostics) for name, mode in definitions]
+    cascades = [
+        _evaluate_cascade(name, mode, cases, llm_predictions, diagnostics)
+        for name, mode in definitions
+    ]
     baseline_cost = float(cascades[0]["llm_cost_usd"])
     for cascade in cascades:
-        cascade["llm_cost_savings_rate"] = 1.0 - float(cascade["llm_cost_usd"]) / baseline_cost if baseline_cost else 0.0
+        cascade["llm_cost_savings_rate"] = (
+            1.0 - float(cascade["llm_cost_usd"]) / baseline_cost if baseline_cost else 0.0
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "distribution_shift_evaluation.json"
     payload = {
         "schema_version": "1.0",
         "created_at": datetime.now(UTC).isoformat(),
-        "sources": {"ab_report": replay._portable_path(ab_report_path), "train": replay._portable_path(train_path), "validation": replay._portable_path(validation_path)},
+        "sources": {
+            "ab_report": replay._portable_path(ab_report_path),
+            "train": replay._portable_path(train_path),
+            "validation": replay._portable_path(validation_path),
+        },
         "method": {
             "model_selection_train_batches": "1-16",
             "model_selection_holdout_batches": "17-20",
@@ -251,7 +319,7 @@ def evaluate_distribution_shift(ab_report_path: Path, train_path: Path, validati
             "thresholds": diagnostics.thresholds,
             "similarity_floors": diagnostics.similarity_floors,
             "latency_median_ms": diagnostics.latency_median_ms,
-            "latency_p95_ms": diagnostics.latency_p95_ms
+            "latency_p95_ms": diagnostics.latency_p95_ms,
         },
         "distribution_metrics": {
             "group_holdout_macro_f1": diagnostics.group_holdout_macro_f1,
@@ -259,11 +327,11 @@ def evaluate_distribution_shift(ab_report_path: Path, train_path: Path, validati
             "frozen_macro_f1": diagnostics.frozen_macro_f1,
             "validation_ece": diagnostics.validation_ece,
             "frozen_ece": diagnostics.frozen_ece,
-            "macro_f1_transfer_gap": diagnostics.validation_macro_f1 - diagnostics.frozen_macro_f1
+            "macro_f1_transfer_gap": diagnostics.validation_macro_f1 - diagnostics.frozen_macro_f1,
         },
         "cascades": cascades,
         "risk_coverage": _risk_coverage(diagnostics.frozen_rows),
-        "frozen_cases": diagnostics.frozen_rows
+        "frozen_cases": diagnostics.frozen_rows,
     }
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     csv_path = output_dir / "distribution_shift_summary.csv"
@@ -276,7 +344,21 @@ def evaluate_distribution_shift(ab_report_path: Path, train_path: Path, validati
 
 
 def _write_csv(path: Path, cascades: list[dict[str, Any]]) -> None:
-    fields = ["name", "accuracy", "macro_f1", "minimum_route_f1", "human_required_recall", "false_automation_count", "over_escalation_count", "llm_call_rate", "llm_cost_usd", "llm_cost_savings_rate", "mean_estimated_latency_ms", "p95_estimated_latency_ms", "passes_local_promotion_gate"]
+    fields = [
+        "name",
+        "accuracy",
+        "macro_f1",
+        "minimum_route_f1",
+        "human_required_recall",
+        "false_automation_count",
+        "over_escalation_count",
+        "llm_call_rate",
+        "llm_cost_usd",
+        "llm_cost_savings_rate",
+        "mean_estimated_latency_ms",
+        "p95_estimated_latency_ms",
+        "passes_local_promotion_gate",
+    ]
     with path.open("w", encoding="utf-8-sig", newline="") as output:
         writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
@@ -288,10 +370,16 @@ def _plot_dashboard(path: Path, report: dict[str, Any]) -> None:
     rows = report["frozen_cases"]
     risk = report["risk_coverage"]
     figure, axes = plt.subplots(2, 2, figsize=(16, 10), constrained_layout=True)
-    figure.suptitle("Local Router Distribution Shift — Synthetic to Frozen", fontsize=17, fontweight="bold")
+    figure.suptitle(
+        "Local Router Distribution Shift — Synthetic to Frozen", fontsize=17, fontweight="bold"
+    )
 
     names = ["Group holdout", "Synthetic validation", "Frozen test"]
-    values = [metrics["group_holdout_macro_f1"], metrics["validation_macro_f1"], metrics["frozen_macro_f1"]]
+    values = [
+        metrics["group_holdout_macro_f1"],
+        metrics["validation_macro_f1"],
+        metrics["frozen_macro_f1"],
+    ]
     bars = axes[0, 0].bar(names, values, color=["#2563EB", "#059669", "#DC2626"])
     axes[0, 0].bar_label(bars, fmt="%.3f", padding=3)
     axes[0, 0].set_ylim(0, 1.05)
@@ -313,7 +401,12 @@ def _plot_dashboard(path: Path, report: dict[str, Any]) -> None:
     axes[1, 0].legend(frameon=False)
     _style(axes[1, 0], "Nearest-train similarity", "Cases")
 
-    axes[1, 1].plot([point["coverage"] for point in risk], [point["selective_accuracy"] for point in risk], color="#7C3AED", linewidth=2)
+    axes[1, 1].plot(
+        [point["coverage"] for point in risk],
+        [point["selective_accuracy"] for point in risk],
+        color="#7C3AED",
+        linewidth=2
+    )
     axes[1, 1].set_xlim(0, 1.02)
     axes[1, 1].set_ylim(0, 1.02)
     axes[1, 1].set_xlabel("Coverage")
@@ -323,11 +416,37 @@ def _plot_dashboard(path: Path, report: dict[str, Any]) -> None:
 
 
 def _plot_table(path: Path, cascades: list[dict[str, Any]]) -> None:
-    columns = ["Policy", "Accuracy", "Macro-F1", "Human recall", "False auto", "LLM rate", "Cost saved"]
-    rows = [[item["name"], f'{item["accuracy"]:.3f}', f'{item["macro_f1"]:.3f}', f'{item["human_required_recall"]:.3f}', str(item["false_automation_count"]), f'{item["llm_call_rate"]:.0%}', f'{item["llm_cost_savings_rate"]:.1%}'] for item in cascades]
+    columns = [
+        "Policy",
+        "Accuracy",
+        "Macro-F1",
+        "Human recall",
+        "False auto",
+        "LLM rate",
+        "Cost saved",
+    ]
+    rows = [
+        [
+            item["name"],
+            f"{item['accuracy']:.3f}",
+            f"{item['macro_f1']:.3f}",
+            f"{item['human_required_recall']:.3f}",
+            str(item["false_automation_count"]),
+            f"{item['llm_call_rate']:.0%}",
+            f"{item['llm_cost_savings_rate']:.1%}",
+        ]
+        for item in cascades
+    ]
     figure, axis = plt.subplots(figsize=(17, 5.2))
     axis.axis("off")
-    table = axis.table(cellText=rows, colLabels=columns, cellLoc="center", colLoc="center", loc="center", colWidths=[0.34, 0.10, 0.10, 0.12, 0.10, 0.10, 0.11])
+    table = axis.table(
+        cellText=rows,
+        colLabels=columns,
+        cellLoc="center",
+        colLoc="center",
+        loc="center",
+        colWidths=[0.34, 0.10, 0.10, 0.12, 0.10, 0.10, 0.11]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 1.8)
