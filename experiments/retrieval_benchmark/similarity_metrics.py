@@ -4,7 +4,10 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from similarity_types import Chunk, LinearGate, QueryCase
+if __package__:
+    from .similarity_types import Chunk, LinearGate, QueryCase
+else:
+    from similarity_types import Chunk, LinearGate, QueryCase
 
 FEATURE_NAMES = (
     "s1",

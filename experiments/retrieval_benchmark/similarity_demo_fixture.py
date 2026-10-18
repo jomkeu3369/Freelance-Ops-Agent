@@ -3,7 +3,10 @@ from __future__ import annotations
 
 from collections import Counter
 
-from similarity_benchmark import QueryCase
+if __package__:
+    from .similarity_benchmark import QueryCase
+else:
+    from similarity_benchmark import QueryCase
 
 demo_documents = {
     "contract_termination": """

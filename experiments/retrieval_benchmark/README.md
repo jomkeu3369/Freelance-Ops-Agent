@@ -16,6 +16,8 @@
 
 `similarity_demo_fixture.py`의 `llm_accept`는 경로 검사에 쓰는 모의 판정이다. 해시 임베딩과 함께 실제 모델 품질·유료 API 성공 근거로 해석하지 않는다. 실제 평가 표본의 출처·분할·해시는 [데이터 안내](data/README.md)에 있다.
 
+저장소 루트에서는 `experiments.retrieval_benchmark.similarity_benchmark`로 불러올 수 있다. 기존 스크립트의 `from similarity_benchmark import ...` 방식도 유지한다.
+
 ## 실행과 의존성
 
 저장소 루트에서 실행한다.

@@ -5,7 +5,10 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
-from similarity_types import Chunk
+if __package__:
+    from .similarity_types import Chunk
+else:
+    from similarity_types import Chunk
 
 TOKEN_PATTERN = re.compile(r"[가-힣A-Za-z0-9_]+")
 

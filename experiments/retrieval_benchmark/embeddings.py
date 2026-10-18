@@ -7,8 +7,12 @@ from pathlib import Path
 
 import numpy as np
 
-from similarity_types import Chunk, Embedder, QueryCase
-from text_chunks import tokenize
+if __package__:
+    from .similarity_types import Chunk, Embedder, QueryCase
+    from .text_chunks import tokenize
+else:
+    from similarity_types import Chunk, Embedder, QueryCase
+    from text_chunks import tokenize
 
 
 def normalize_rows(values: Sequence[Sequence[float]] | np.ndarray) -> np.ndarray:

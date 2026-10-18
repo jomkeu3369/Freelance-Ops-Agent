@@ -6,9 +6,14 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from embeddings import normalize_rows
-from similarity_types import Chunk, ClusterResult
-from text_chunks import tokenize
+if __package__:
+    from .embeddings import normalize_rows
+    from .similarity_types import Chunk, ClusterResult
+    from .text_chunks import tokenize
+else:
+    from embeddings import normalize_rows
+    from similarity_types import Chunk, ClusterResult
+    from text_chunks import tokenize
 
 
 def _spherical_kmeans_once(vectors: np.ndarray, k: int, *, seed: int, max_iter: int = 100) -> tuple[np.ndarray, np.ndarray, float]:  # noqa: E501

@@ -8,36 +8,68 @@ from typing import Any
 
 import numpy as np
 
-from embeddings import HashingEmbedder as HashingEmbedder
-from embeddings import OpenAIEmbedder as OpenAIEmbedder
-from embeddings import embed_corpus as embed_corpus
-from embeddings import embed_queries as embed_queries
-from embeddings import normalize_rows as normalize_rows
-from similarity_index import BM25Index as BM25Index
-from similarity_index import _deduplicated_top_indices as _deduplicated_top_indices
-from similarity_index import _spherical_kmeans_once as _spherical_kmeans_once
-from similarity_index import cosine_silhouette as cosine_silhouette
-from similarity_index import extract_features as extract_features
-from similarity_index import select_clusters as select_clusters
-from similarity_index import spherical_kmeans as spherical_kmeans
-from similarity_metrics import FEATURE_NAMES as FEATURE_NAMES
-from similarity_metrics import METHOD_FEATURES as METHOD_FEATURES
-from similarity_metrics import choose_threshold as choose_threshold
-from similarity_metrics import classification_metrics as classification_metrics
-from similarity_metrics import fit_linear_gate as fit_linear_gate
-from similarity_metrics import retrieval_metrics as retrieval_metrics
-from similarity_plots import plot_benchmark_report as plot_benchmark_report
-from similarity_types import Chunk as Chunk
-from similarity_types import ClusterResult as ClusterResult
-from similarity_types import Embedder as Embedder
-from similarity_types import LinearGate as LinearGate
-from similarity_types import QueryCase as QueryCase
-from text_chunks import TOKEN_PATTERN as TOKEN_PATTERN
-from text_chunks import chunk_text as chunk_text
-from text_chunks import chunks_from_paths as chunks_from_paths
-from text_chunks import chunks_from_texts as chunks_from_texts
-from text_chunks import read_text as read_text
-from text_chunks import tokenize as tokenize
+if __package__:
+    from .embeddings import HashingEmbedder as HashingEmbedder
+    from .embeddings import OpenAIEmbedder as OpenAIEmbedder
+    from .embeddings import embed_corpus as embed_corpus
+    from .embeddings import embed_queries as embed_queries
+    from .embeddings import normalize_rows as normalize_rows
+    from .similarity_index import BM25Index as BM25Index
+    from .similarity_index import _deduplicated_top_indices as _deduplicated_top_indices
+    from .similarity_index import _spherical_kmeans_once as _spherical_kmeans_once
+    from .similarity_index import cosine_silhouette as cosine_silhouette
+    from .similarity_index import extract_features as extract_features
+    from .similarity_index import select_clusters as select_clusters
+    from .similarity_index import spherical_kmeans as spherical_kmeans
+    from .similarity_metrics import FEATURE_NAMES as FEATURE_NAMES
+    from .similarity_metrics import METHOD_FEATURES as METHOD_FEATURES
+    from .similarity_metrics import choose_threshold as choose_threshold
+    from .similarity_metrics import classification_metrics as classification_metrics
+    from .similarity_metrics import fit_linear_gate as fit_linear_gate
+    from .similarity_metrics import retrieval_metrics as retrieval_metrics
+    from .similarity_plots import plot_benchmark_report as plot_benchmark_report
+    from .similarity_types import Chunk as Chunk
+    from .similarity_types import ClusterResult as ClusterResult
+    from .similarity_types import Embedder as Embedder
+    from .similarity_types import LinearGate as LinearGate
+    from .similarity_types import QueryCase as QueryCase
+    from .text_chunks import TOKEN_PATTERN as TOKEN_PATTERN
+    from .text_chunks import chunk_text as chunk_text
+    from .text_chunks import chunks_from_paths as chunks_from_paths
+    from .text_chunks import chunks_from_texts as chunks_from_texts
+    from .text_chunks import read_text as read_text
+    from .text_chunks import tokenize as tokenize
+else:
+    from embeddings import HashingEmbedder as HashingEmbedder
+    from embeddings import OpenAIEmbedder as OpenAIEmbedder
+    from embeddings import embed_corpus as embed_corpus
+    from embeddings import embed_queries as embed_queries
+    from embeddings import normalize_rows as normalize_rows
+    from similarity_index import BM25Index as BM25Index
+    from similarity_index import _deduplicated_top_indices as _deduplicated_top_indices
+    from similarity_index import _spherical_kmeans_once as _spherical_kmeans_once
+    from similarity_index import cosine_silhouette as cosine_silhouette
+    from similarity_index import extract_features as extract_features
+    from similarity_index import select_clusters as select_clusters
+    from similarity_index import spherical_kmeans as spherical_kmeans
+    from similarity_metrics import FEATURE_NAMES as FEATURE_NAMES
+    from similarity_metrics import METHOD_FEATURES as METHOD_FEATURES
+    from similarity_metrics import choose_threshold as choose_threshold
+    from similarity_metrics import classification_metrics as classification_metrics
+    from similarity_metrics import fit_linear_gate as fit_linear_gate
+    from similarity_metrics import retrieval_metrics as retrieval_metrics
+    from similarity_plots import plot_benchmark_report as plot_benchmark_report
+    from similarity_types import Chunk as Chunk
+    from similarity_types import ClusterResult as ClusterResult
+    from similarity_types import Embedder as Embedder
+    from similarity_types import LinearGate as LinearGate
+    from similarity_types import QueryCase as QueryCase
+    from text_chunks import TOKEN_PATTERN as TOKEN_PATTERN
+    from text_chunks import chunk_text as chunk_text
+    from text_chunks import chunks_from_paths as chunks_from_paths
+    from text_chunks import chunks_from_texts as chunks_from_texts
+    from text_chunks import read_text as read_text
+    from text_chunks import tokenize as tokenize
 
 
 def run_benchmark(chunks: Sequence[Chunk], corpus_vectors: np.ndarray, cases: Sequence[QueryCase], query_vectors: np.ndarray, *, clusters: ClusterResult | None = None, max_false_accept_rate: float = 0.10, uncertain_band: float = 0.10) -> dict[str, Any]:  # noqa: E501
