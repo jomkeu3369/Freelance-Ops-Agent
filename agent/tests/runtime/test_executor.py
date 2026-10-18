@@ -562,6 +562,82 @@ async def test_agent_result_contains_three_editable_quotation_drafts_without_pri
     assert [item.items[0].quantity for item in outcome.result.quotation_drafts] == [8, 16, 24]
 
 
+@pytest.mark.parametrize("react", [False, True])
+async def test_long_department_results_preserve_completed_quotation_drafts(react: bool) -> None:
+    summary = "상세 분석 " * 1500
+    drafts = [
+        {
+            "scenario": scenario,
+            "items": [{
+                "title": "예약 화면", "quantity": quantity, "unit": "DAY",
+                "basis": {"type": "ASSUMPTION", "content": "기본 예약 기능만 포함합니다."}
+            }]
+        }
+        for scenario, quantity in [("LEAN", 2), ("RECOMMENDED", 4), ("EXPANDED", 6)]
+    ]
+
+    class LongSummaryProvider(FixedProvider):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            generation = await super().generate_structured(*args, **kwargs)  # type: ignore[arg-type]
+            generation.payload["summary"] = summary
+            return generation
+
+    request = _request(model_calls=12, tool_calls=4)
+    request.input.workflow_mode = AgentWorkflowMode.PROJECT_ANALYSIS
+    request.budget.max_hierarchy_depth = 2
+    provider = (
+        SequenceReActProvider([
+            {"action": "FINAL", "summary": summary, "arguments": {}, "quotation_drafts": drafts}
+            for _ in range(4)
+        ])
+        if react else LongSummaryProvider(quotation_drafts=drafts)
+    )
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), OperationalAgentExecutor(
+        FixedGateway(RouteLabel.SUPERVISOR), provider, FixedProjectContextTool(request)
+    ))
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("delegation-token"))
+    view = await coordinator.view(request.context.run_id)
+
+    assert view.status is AgentRunStatus.COMPLETED, view.error_code
+    assert view.result is not None
+    assert len(view.result.project_summary) <= 10000
+    assert "전체 내용은 상세 결과" in view.result.project_summary
+    assert len(view.result.department_results) == 4
+    for department in view.result.department_results:
+        assert department.summary == summary
+        assert f"[{department.department.value}]" in view.result.project_summary
+    assert [draft.scenario for draft in view.result.quotation_drafts] == ["LEAN", "RECOMMENDED", "EXPANDED"]
+
+
+async def test_long_completed_department_survives_a_later_react_failure() -> None:
+    summary = "분석" * 5000
+    request = _request(model_calls=5, tool_calls=1)
+
+    class LongSummaryBudgetProvider(BudgetExhaustingReActProvider):
+        async def generate_react_step(self, *args: object, **kwargs: object) -> ModelGeneration:
+            generation = await super().generate_react_step(*args, **kwargs)  # type: ignore[arg-type]
+            if generation.payload.get("action") == "FINAL":
+                generation.payload["summary"] = summary
+            return generation
+
+    provider = LongSummaryBudgetProvider()
+    coordinator = RunCoordinator(InMemoryAgentRunStore(), OperationalAgentExecutor(
+        FixedGateway(RouteLabel.REACT_AGENT), provider, FixedProjectContextTool(request)
+    ))
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("delegation-token"))
+    view = await coordinator.view(request.context.run_id)
+
+    assert view.status is AgentRunStatus.PARTIAL
+    assert view.error_code == "MODEL_CALL_BUDGET_EXCEEDED"
+    assert view.result is not None
+    assert len(view.result.project_summary) <= 10000
+    assert view.result.project_summary.startswith("일부 분석 단계만 완료되었습니다.")
+    assert view.result.department_results[0].summary == summary
+    assert view.result.department_results[1].status == "FAILED"
+
+
 async def test_clarification_questions_are_deduplicated_and_limited_to_three() -> None:
     executor = OperationalAgentExecutor(
         FixedGateway(RouteLabel.SIMPLE_LLM), FixedProvider(questions=["질문 1", "질문 2", "질문 1", "질문 3", "질문 4"])

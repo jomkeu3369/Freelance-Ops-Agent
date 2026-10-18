@@ -464,14 +464,11 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                 <ChatCircleText size={30} weight="duotone" />
               </span>
               <strong>{t("무엇을 도와드릴까요?")}</strong>
-              <p>{t("요구사항 검토나 견적 초안 작성을 요청해 보세요.")}</p>
+              <p>{t("함께할 펫을 고른 뒤 견적 만들기를 눌러 주세요. 궁금한 내용은 대화로 물어볼 수 있습니다.")}</p>
               <small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small>
               {!draft && canRun && (
                 <div className="agent-chat-starters">
-                  {[
-                    "이 프로젝트의 요구사항과 확인할 질문을 정리해 줘",
-                    "이 프로젝트의 작업 범위와 견적 초안을 만들어 줘"
-                  ].map((message) => (
+                  {["이 프로젝트의 요구사항과 확인할 질문을 정리해 줘"].map((message) => (
                     <button
                       type="button"
                       key={message}
@@ -713,7 +710,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           onChange={(event) => updateDraft(event.target.value)}
           maxLength={50000}
           rows={2}
-          placeholder={t("예: 이 프로젝트의 요구사항을 검토하고 견적 초안을 만들어 줘")}
+          placeholder={t("예: 이 프로젝트에서 먼저 확인할 질문을 알려 줘")}
           disabled={!canRun && !canEditPolicy}
           readOnly={sending}
           onCompositionStart={() => {

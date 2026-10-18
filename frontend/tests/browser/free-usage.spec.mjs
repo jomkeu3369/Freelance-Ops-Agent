@@ -83,8 +83,9 @@ test("English quota dialog and usage counter localize; generic 429 does not open
   await exhaust(page);
   await expect(page.locator(".agent-chat .form-error")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button", {name: "Weekly credits", exact: true}).click();
-  await expect(page.getByRole("dialog", {name: "Weekly credits", exact: true})).toContainText("10 / 100 credits remaining this week");
+  await page.getByRole("button", {name: /^Weekly usage:/}).click();
+  await expect(page.getByRole("dialog", {name: "Weekly usage", exact: true})).toContainText("80% remaining this week");
+  await expect(page.getByRole("dialog", {name: "Weekly usage", exact: true})).toContainText("Reserved for pending requests: 10%");
   await page.keyboard.press("Escape");
   state.startCode = "FREE_USAGE_EXHAUSTED";
   await page.locator('.agent-chat-composer button[type="submit"]').click();

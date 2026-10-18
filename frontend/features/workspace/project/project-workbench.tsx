@@ -92,6 +92,9 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const deleteInFlight = useRef(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [showAISettings, setShowAISettings] = useState(false);
+  const [showPets, setShowPets] = useState(false);
+  const [quotationError, setQuotationError] = useState<string | null>(null);
+  const quotationStartInFlight = useRef(false);
   const [settingsDraft, setSettingsDraft] = useState("");
   const [skillSelection, setSkillSelection] = useSkillSelection(
     `freelance-ops-chat-draft-v1:${session.userId}:${session.workspaceId}:${project.id}:skills`
@@ -123,6 +126,18 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       item.model === chatModel.model &&
       (item.credentialId ?? "") === (chatModel.credentialId ?? "")
   );
+  const analysisRetry = pendingRetries.find(
+    (item) =>
+      !!chatModel &&
+      item.userId === session.userId &&
+      item.workspaceId === session.workspaceId &&
+      item.projectId === project.id &&
+      (item.workflowMode ?? "PROJECT_ANALYSIS") === "PROJECT_ANALYSIS" &&
+      item.provider === chatModel.provider &&
+      item.model === chatModel.model &&
+      (item.credentialId ?? "") === (chatModel.credentialId ?? "") &&
+      matchesChatRetry(item, project.requirementText, [], skillSelection)
+  );
   const ledgerBlocker = includedUsageBlocker(ledger.data, chatModel?.provider ?? provider, chatModel?.model ?? model);
   const ledgerMessage = ledger.loading
     ? t("사용량 확인 중…")
@@ -137,13 +152,15 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const canSendAI =
     canRun && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
 
-  async function sendMessage(message: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
+  async function sendMessage(message?: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
     if (!canRun || !chatModel) return false;
     if (chatModel.credentialId && !personalCostKnown)
       throw new Error(
         t("이 개인 키 모델의 비용 기준을 확인하지 못했습니다. 다른 지원 모델을 직접 선택하기 전에는 실행하지 않습니다.")
       );
-    const retry = retryCandidates.find((item) => matchesChatRetry(item, message, attachmentIds, skillSelection));
+    const retry = message === undefined
+      ? analysisRetry
+      : retryCandidates.find((item) => matchesChatRetry(item, message, attachmentIds, skillSelection));
     if (!retry && !chatModel.credentialId && (ledger.loading || ledgerBlocker)) throw new Error(ledgerMessage);
     try {
       const accepted = await onRun(
@@ -179,6 +196,21 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     }
   }
 
+  async function startQuotation() {
+    if (quotationStartInFlight.current) return;
+    quotationStartInFlight.current = true;
+    const operation = projectViewOperation.current;
+    setQuotationError(null);
+    try {
+      await sendMessage(undefined, [], skillSelection);
+    } catch (cause) {
+      if (operation === projectViewOperation.current)
+        setQuotationError(cause instanceof Error ? cause.message : t("Agent 실행을 시작하지 못했습니다."));
+    } finally {
+      quotationStartInFlight.current = false;
+    }
+  }
+
   useEffect(() => {
     if (!canRun) return;
     let cancelled = false;
@@ -206,6 +238,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       deleteInFlight.current = false;
       setDeletingProject(false);
       setShowAISettings(false);
+      setShowPets(false);
+      setQuotationError(null);
       setShowDeleteConfirmation(false);
       setDeleteConfirmation("");
       setDeleteError(null);
@@ -335,15 +369,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
                 disabled={selectionLocked}
               />
             </section>
-          )}
-          {!runId && (
-            <PetCustomizer
-              key={`${session.workspaceId}:${session.userId}:${project.id}`}
-              session={session}
-              projectId={project.id}
-              disabled={busy}
-              selection={chatModel}
-            />
           )}
           {runId && !selectionLocked && (
             <button type="button" className="secondary-button chat-prepare-analysis" onClick={prepareNextAnalysis}>
@@ -512,6 +537,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           }
           modelAvailable={!!chatModel}
           canSendAI={canSendAI}
+          canStartQuotation={canSendAI || !!analysisRetry}
+          onStartQuotation={() => void startQuotation()}
+          onOpenPets={() => setShowPets(true)}
+          quotationError={quotationError}
           retryCandidates={retryCandidates}
           composerInfo={(_draft, retry, policy) => (
             <>
@@ -565,6 +594,17 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         <p role="status">{t("이전 AI 제공사는 지원이 종료되었습니다. 새 분석을 시작해 주세요.")}</p>
       )}
       {aiSettings}
+      {activeStep === "agent" && canRun && showPets && (
+        <WorkspacePanel title={t("함께할 펫")} className="agent-chat-settings" onClose={() => setShowPets(false)}>
+          <PetCustomizer
+            key={`${session.workspaceId}:${session.userId}:${project.id}`}
+            session={session}
+            projectId={project.id}
+            disabled={selectionLocked}
+            selection={chatModel}
+          />
+        </WorkspacePanel>
+      )}
 
       {activeStep === "quote" && (
         <QuoteBuilder

@@ -82,6 +82,7 @@ jobs:
               tests/browser/settings-mutations.spec.mjs \
               tests/browser/skills-integrated.spec.mjs \
               tests/browser/custom-agent-pets.spec.mjs \
+              tests/browser/pet-quotation-workflow.spec.mjs \
               tests/browser/workspace-companion.spec.mjs \
               tests/browser/chat-attachments.spec.mjs \
               tests/browser/attachment-cards.spec.mjs \
@@ -106,7 +107,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: synthetic-browser-reports-${{ github.sha }}
-          path: frontend/outputs/ui-ux/
+          path: |
+            frontend/outputs/ui-ux/
+            frontend/outputs/pet-readiness/screenshots/
           if-no-files-found: warn
           retention-days: 7
 

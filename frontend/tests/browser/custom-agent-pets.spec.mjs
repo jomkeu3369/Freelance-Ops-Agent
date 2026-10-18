@@ -97,7 +97,7 @@ async function petsFixture(page, options = {}) {
 
 async function openStudio(page) {
   await page.goto("/workspace/projects/project-one/agent");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   const studio = page.locator(".pet-prompt-studio");
   await expect(studio.getByRole("textbox")).toBeEnabled();
   return studio;
@@ -108,6 +108,42 @@ function expectNoGeneration(state) {
   expect(state.writes).toEqual([]);
   expect(state.blocked).toEqual([]);
 }
+
+for (const width of [390, 1440]) {
+  test(`${width}px: pet preview and back keep the next action in keyboard focus`, async ({ page }) => {
+    const { state, calls } = await petsFixture(page);
+    await page.setViewportSize({ width, height: 844 });
+    const studio = await openStudio(page);
+    const prompt = studio.getByRole("textbox");
+    await studio.getByRole("button", { name: "새 펫 추가", exact: true }).click();
+    await expect(prompt).toBeFocused();
+    await prompt.fill("말투: 차분하게; 중점: 견적에서 빠뜨린 일 찾기");
+    await studio.getByRole("button", { name: "펫 미리보기", exact: true }).click();
+    const preview = studio.getByRole("region", { name: "저장 전 펫 확인", exact: true });
+    await expect(preview).toBeFocused();
+    await expect(preview).toBeInViewport();
+    await page.keyboard.press("Tab");
+    await expect(preview.getByRole("button", { name: "저장하고 선택", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(preview.getByRole("button", { name: "입력으로 돌아가기", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(prompt).toBeFocused();
+    await expect(prompt).toHaveValue("말투: 차분하게; 중점: 견적에서 빠뜨린 일 찾기");
+    await expect(prompt).toBeInViewport();
+    expect(calls).toHaveLength(1);
+    expect(calls[0].path).toMatch(/\/preview$/);
+    expectNoGeneration(state);
+  });
+}
+
+test("editing an existing pet brings its preference input into focus", async ({ page }) => {
+  const { state, calls } = await petsFixture(page, { pets: [storedPet("pet-one", "견적 친구")] });
+  const studio = await openStudio(page);
+  await studio.getByRole("button", { name: "대화로 수정", exact: true }).click();
+  await expect(studio.getByRole("textbox", { name: "견적 친구 · 어떻게 바꿀까요?", exact: true })).toBeFocused();
+  expect(calls).toHaveLength(0);
+  expectNoGeneration(state);
+});
 
 test("lost save refresh keeps its mutation at capacity, then retries once, archives and restores", async ({ page }) => {
   const { state, library, calls } = await petsFixture(page, { maxActivePets: 1 });
@@ -133,6 +169,7 @@ test("lost save refresh keeps its mutation at capacity, then retries once, archi
   expect(writes).toHaveLength(2);
   expect(writes[0].body).toEqual(writes[1].body);
   expect(library.pets).toHaveLength(1);
+  await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toBeFocused();
   expect(state.starts).toHaveLength(0);
   await studio.getByRole("button", { name: "보관", exact: true }).click();
   await expect(studio.locator(".pet-library article")).toHaveCount(0);
@@ -150,7 +187,7 @@ test("cancelled preview never saves, draft is protected and mobile fits", async 
   const { library, calls } = await petsFixture(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/workspace/projects/project-one/agent");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   const studio = page.locator(".pet-prompt-studio");
   await studio.getByRole("textbox").fill("말투: 느긋하고 다정하게; 중점: 번역의 뉘앙스");
   await expect(studio.getByRole("button", { name: "새 펫 추가" })).toBeDisabled();
@@ -211,10 +248,10 @@ test("closing an in-flight preview does not resurrect it when settings reopen", 
   await studio.getByRole("button", { name: "펫 미리보기", exact: true }).click();
   await barrier.entered;
   try {
-    await page.getByRole("dialog", { name: "AI 설정", exact: true }).getByRole("button", { name: "닫기", exact: true }).click();
+    await page.getByRole("dialog", { name: "함께할 펫", exact: true }).getByRole("button", { name: "닫기", exact: true }).click();
     await expect(studio).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "AI 설정 열기" })).toBeFocused();
-    await page.getByRole("button", { name: "AI 설정 열기" }).click();
+    await expect(page.getByRole("button", { name: "함께할 펫", exact: true })).toBeFocused();
+    await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
     await expect(studio.getByRole("textbox")).toBeEnabled();
   } finally {
     const latePreview = page.waitForResponse(response => response.url().endsWith("/agent-pets/preview"));

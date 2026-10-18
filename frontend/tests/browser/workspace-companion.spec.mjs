@@ -130,7 +130,7 @@ test("customizer changes update the companion and accepted archive clears it eve
   server.libraries["local-space"].pets.push(pet("second", "두 번째 친구"));
   await page.goto(path);
   await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 나만의 친구");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   const studio = page.locator(".pet-prompt-studio");
   const second = studio.locator(".pet-library article").filter({ hasText: "두 번째 친구" });
   await second.getByRole("button", { name: "이 펫 선택" }).click();
@@ -224,14 +224,14 @@ test("an old closed customizer refresh cannot overwrite a newer selection", asyn
   server.libraries["local-space"].pets.push(pet("second", "두 번째 친구"));
   await page.goto(path);
   await expect(companion(page)).toHaveAttribute("data-companion", "selected");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   let studio = page.locator(".pet-prompt-studio");
   await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toBeEnabled();
   const barrier = requestBarrier(); server.nextRead = barrier;
   await studio.getByRole("button", { name: "선택됨", exact: true }).click();
   await barrier.entered;
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   studio = page.locator(".pet-prompt-studio");
   await studio.locator(".pet-library article").filter({ hasText: "두 번째 친구" }).getByRole("button", { name: "이 펫 선택" }).click();
   await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
@@ -246,7 +246,7 @@ test("a selection accepted after closing settings still refreshes the companion"
   server.libraries["local-space"].pets.push(pet("second", "두 번째 친구"));
   await page.goto(path);
   await expect(companion(page)).toHaveAttribute("data-companion", "selected");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   const barrier = requestBarrier(); server.nextMutation = barrier;
   await page.locator(".pet-library article").filter({ hasText: "두 번째 친구" }).getByRole("button", { name: "이 펫 선택" }).click();
   await barrier.entered;
@@ -261,7 +261,7 @@ test("closing settings during an accepted selection's reload still updates the h
   server.libraries["local-space"].pets.push(pet("second", "두 번째 친구"));
   await page.goto(path);
   await expect(companion(page)).toHaveAttribute("data-companion", "selected");
-  await page.getByRole("button", { name: "AI 설정 열기" }).click();
+  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   await expect(page.locator(".pet-library article")).toHaveCount(2);
   const barrier = requestBarrier(); server.nextRead = barrier;
   await page.locator(".pet-library article").filter({ hasText: "두 번째 친구" }).getByRole("button", { name: "이 펫 선택" }).click();

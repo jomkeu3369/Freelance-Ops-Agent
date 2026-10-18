@@ -411,10 +411,9 @@ class OperationalAgentExecutor:
                 events=(route_event, *tool_events)
             )
 
-        project_summary = "\n\n".join(f"[{result.department.value}] {result.summary}" for result in results)
         return ExecutionOutcome(
             result=AgentRunResult(
-                project_summary=project_summary,
+                project_summary=self._project_summary(results),
                 open_questions=bounded_questions,
                 department_results=results,
                 quotation_draft=self._recommended_draft(quotation_drafts),
@@ -646,7 +645,7 @@ class OperationalAgentExecutor:
             )
         return ExecutionOutcome(
             result=AgentRunResult(
-                project_summary="\n\n".join(f"[{result.department.value}] {result.summary}" for result in results),
+                project_summary=self._project_summary(results),
                 open_questions=bounded_questions,
                 department_results=results,
                 quotation_draft=self._recommended_draft(quotation_drafts),
@@ -672,7 +671,6 @@ class OperationalAgentExecutor:
             for index, department in enumerate(departments)
             if index >= failed_index
         ]
-        completed_summary = "\n\n".join(f"[{result.department.value}] {result.summary}" for result in results)
         bounded_questions = self._bounded_questions(questions)
         safe_quotation_drafts = (
             quotation_drafts if any(result.department is DepartmentName.DEAL_DESIGN for result in results) else []
@@ -690,8 +688,8 @@ class OperationalAgentExecutor:
         )
         return ExecutionOutcome(
             result=AgentRunResult(
-                project_summary=(
-                    f"일부 분석 단계만 완료되었습니다. 완료된 결과는 다음과 같습니다.\n\n{completed_summary}"
+                project_summary=self._project_summary(
+                    results, prefix="일부 분석 단계만 완료되었습니다. 완료된 결과는 다음과 같습니다.\n\n"
                 ),
                 open_questions=bounded_questions,
                 department_results=[*results, *unfinished],
@@ -703,6 +701,21 @@ class OperationalAgentExecutor:
             events=(build_route_event(request, decision), *tool_events),
             partial_error_code=error_code
         )
+
+    @staticmethod
+    def _project_summary(results: list[DepartmentResult], prefix: str = "") -> str:
+        """전체 부서 원문을 보존하고 공개 요약만 응답 계약 길이 안으로 줄인다."""
+        sections = [f"[{result.department.value}] {result.summary}" for result in results]
+        summary = prefix + "\n\n".join(sections)
+        if len(summary) <= 10000:
+            return summary
+        notice = "\n\n부서별 전체 내용은 상세 결과에서 확인할 수 있습니다."
+        available = 10000 - len(prefix) - len(notice) - 2 * (len(sections) - 1)
+        section_limit = available // len(sections)
+        return prefix + "\n\n".join(
+            section if len(section) <= section_limit else section[:section_limit - 1] + "…"
+            for section in sections
+        ) + notice
 
     @staticmethod
     def _validated_task_summary(payload: dict[str, object]) -> str:

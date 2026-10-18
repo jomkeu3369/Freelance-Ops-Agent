@@ -155,6 +155,7 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await page.getByRole("button", { name: locale === "en" ? "Load older quotations" : "이전 견적 더 보기", exact: true }).click();
     await pending.entered;
     await page.locator(".workbench-steps button").nth(1).click();
+    await expect(page).toHaveURL(/\/agent$/);
     await expectPrivateShell(1);
     const chatDraft = `Retain unsent chat ${locale}`;
     await page.locator("#agent-chat-input").fill(chatDraft);
