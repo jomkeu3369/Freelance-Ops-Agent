@@ -24,9 +24,11 @@ function seedSavedRun(state, status) {
     createdAt: "2026-10-01T00:01:00Z" }];
 }
 
-test("accepted asynchronous clarification ignores the prior question until delivery completes", async ({ page }) => {
+for (const hasSavedResult of [false, true]) {
+test(`accepted asynchronous clarification ${hasSavedResult ? "with" : "without"} a saved result ignores the prior question until delivery completes`, async ({ page }) => {
   const state = await fixture(page);
   seedSavedRun(state, "WAITING_FOR_USER");
+  if (!hasSavedResult) state.run.result = null;
   state.run.interruption = { interruptionId: "prior-question", kind: "CLARIFICATION", questions: ["Confirm source data?"] };
   let accepted = false, reads = 0;
   await page.route("**/agent-runs/run-one/responses", route => {
@@ -49,4 +51,5 @@ test("accepted asynchronous clarification ignores the prior question until deliv
   await expect(form).toHaveCount(0);
   expect(state.resumes).toHaveLength(1); expect(state.starts).toEqual([]); expect(state.blocked).toEqual([]);
 });
+}
 

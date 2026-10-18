@@ -625,9 +625,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                         <ArrowUpRight size={17} aria-hidden="true" />
                       </button>
                     </div>
-                  ) : status === "WAITING_FOR_USER" && item.runId === runId ? (
-                    clarification
-                  ) : (
+                  ) : status === "WAITING_FOR_USER" && item.runId === runId ? null : (
                     <p className="agent-chat-muted">
                       {resultLoading
                         ? t("작업 기록을 불러오는 중입니다.")
@@ -640,6 +638,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                               : t(resultPendingMessage(status))}
                     </p>
                   )}
+                  {status === "WAITING_FOR_USER" && item.runId === runId && clarification}
                   {view && resultFailed && (
                     <p className="agent-chat-muted">
                       {t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.")}
