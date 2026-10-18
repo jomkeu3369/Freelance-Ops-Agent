@@ -22,12 +22,12 @@ class AgentBudgetPolicyTest {
                         context -> {
                             var defaults = context.getBean(AgentBudgetPolicy.class);
                             defaults.enforce(
-                                    new RunBudget(180, 50, 12, 100000, 48000, 4, 2, 2, 2, 3));
+                                    new RunBudget(180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3));
                             assertThatThrownBy(
                                             () ->
                                                     defaults.enforce(
                                                             new RunBudget(
-                                                                    180, 50, 12, 100001, 48000, 4,
+                                                                    180, 50, 12, 150001, 48000, 4,
                                                                     2, 2, 2, 3)))
                                     .isInstanceOf(ResponseStatusException.class)
                                     .hasMessageContaining("422 UNPROCESSABLE_CONTENT");
@@ -45,7 +45,7 @@ class AgentBudgetPolicyTest {
                         context.getBean(AgentBudgetPolicy.class)
                                 .enforce(
                                         new RunBudget(
-                                                180, 50, 12, 100000, 48000, 4, 2, 2, 2, 3)));
+                                                180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3)));
         application
                 .withPropertyValues("AGENT_QUOTA_MAX_INPUT_TOKENS=50000")
                 .run(

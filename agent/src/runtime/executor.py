@@ -30,7 +30,7 @@ from contracts import (
 )
 from integrations import SpringToolError
 from personal_credentials import credential_scope
-from platform_budget import PlatformBudgetError
+from platform_budget import PlatformBudgetError, current_ledger
 from providers import ModelGeneration, ModelProvider, ProviderCallError
 from providers.openai import preflight_byok_react_plan
 from retrieval.knowledge_context import KnowledgeContext, KnowledgeContextLoader
@@ -878,7 +878,10 @@ class OperationalAgentExecutor:
         remaining_model_calls = request.budget.max_model_calls - model_calls
         remaining_tool_calls = request.budget.max_tool_calls - tool_calls
         remaining_input_tokens = request.budget.max_input_tokens - input_tokens
-        remaining_output_tokens = request.budget.max_output_tokens - output_tokens
+        ledger = current_ledger()
+        previous_output_tokens = ledger.previous.output_tokens if ledger is not None and ledger.previous else 0
+        # 재개 전 사용량도 같은 실행의 출력 한도를 사용한다. 현재 활성화의 출력은 인자에서 한 번만 차감한다.
+        remaining_output_tokens = request.budget.max_output_tokens - previous_output_tokens - output_tokens
 
         if remaining_model_calls <= reserved_model_calls:
             raise AgentExecutionError("MODEL_CALL_BUDGET_EXCEEDED")

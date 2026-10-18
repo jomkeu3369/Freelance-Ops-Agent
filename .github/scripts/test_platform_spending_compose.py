@@ -60,7 +60,7 @@ class PlatformSpendingComposeTest(unittest.TestCase):
         flag = configuration["services"]["backend"]["environment"]["PLATFORM_AI_SPEND_ENABLED"]
         self.assertEqual(flag, "true" if enabled else "false")
         quota = configuration["services"]["backend"]["environment"]["AGENT_QUOTA_MAX_INPUT_TOKENS"]
-        self.assertEqual(quota, str(input_quota if input_quota is not None else 100000))
+        self.assertEqual(quota, str(input_quota if input_quota is not None else 150000))
 
     def test_base_defaults_to_disabled(self):
         self.assert_spending_flag(production=False, enabled=False)

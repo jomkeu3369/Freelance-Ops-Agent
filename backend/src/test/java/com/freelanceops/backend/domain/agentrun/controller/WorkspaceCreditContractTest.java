@@ -143,7 +143,7 @@ class WorkspaceCreditContractTest {
         assertThat(captured.getValue())
                 .isEqualTo(fixture("projectAnalysisStart", StartAgentRunRequest.class));
         assertThat(captured.getValue().workflowMode()).isEqualTo("PROJECT_ANALYSIS");
-        assertThat(captured.getValue().budget().maxInputTokens()).isEqualTo(100000);
+        assertThat(captured.getValue().budget().maxInputTokens()).isEqualTo(150000);
         assertThat(captured.getValue().creditQuote())
                 .isEqualTo(fixture("start", StartAgentRunRequest.class).creditQuote());
         assertThat(captured.getValue().modelSelection().credentialId()).isNull();

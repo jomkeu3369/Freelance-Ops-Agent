@@ -18,7 +18,7 @@ public class AgentBudgetPolicy {
             @Value("${agent.quota.max-duration-seconds:180}") int maxDurationSeconds,
             @Value("${agent.quota.max-model-calls:50}") int maxModelCalls,
             @Value("${agent.quota.max-tool-calls:12}") int maxToolCalls,
-            @Value("${agent.quota.max-input-tokens:100000}") int maxInputTokens,
+            @Value("${agent.quota.max-input-tokens:150000}") int maxInputTokens,
             @Value("${agent.quota.max-output-tokens:48000}") int maxOutputTokens,
             @Value("${agent.quota.max-departments:4}") int maxDepartments,
             @Value("${agent.quota.max-hierarchy-depth:2}") int maxHierarchyDepth,

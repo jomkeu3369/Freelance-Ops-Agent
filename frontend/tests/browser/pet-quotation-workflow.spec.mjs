@@ -71,7 +71,7 @@ async function analyzeWithPet(page, state) {
   await expect.poll(() => state.starts.length).toBe(1);
   // This CTA explicitly requests the full workflow and its platform input budget.
   expect(state.starts[0].workflowMode).toBe("PROJECT_ANALYSIS");
-  expect(state.starts[0].budget.maxInputTokens).toBe(100000);
+  expect(state.starts[0].budget.maxInputTokens).toBe(150000);
   expect(state.starts[0].requirementText).toBe(workflow.requirement);
   expect(state.selectedPetAtStart).toEqual([workflow.petId]);
   expect(state.quoteCreates).toEqual([]);
@@ -206,7 +206,7 @@ test("mocked uncertain quotation start retries the same key, project source and 
   expect(state.starts[1]).toEqual(state.starts[0]);
   expect(state.starts[1].requirementText).toBe(workflow.requirement);
   expect(state.starts[1].workflowMode).toBe("PROJECT_ANALYSIS");
-  expect(state.starts[1].budget.maxInputTokens).toBe(100000);
+  expect(state.starts[1].budget.maxInputTokens).toBe(150000);
   expect(state.starts[1].skillSelection).toMatchObject({ mode: "AUTO", manualIds: [], excludedIds: [] });
   await expect(composer).toHaveValue("수정한 별도 대화 초안도 견적 원문을 대체하지 않음");
   expect(state.resumes).toEqual([]);
@@ -258,7 +258,7 @@ async function expectSelectedPetCanStart(page, state, draft) {
   expect(state.selectedPetAtStart).toEqual([workflow.petId]);
   expect(state.run.metadata.petProfiles.map(pet => pet.petId)).toEqual([workflow.petId]);
   expect(state.starts[0].workflowMode).toBe("PROJECT_ANALYSIS");
-  expect(state.starts[0].budget.maxInputTokens).toBe(100000);
+  expect(state.starts[0].budget.maxInputTokens).toBe(150000);
   expectClean(state);
 }
 

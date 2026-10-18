@@ -28,6 +28,8 @@ from contracts import (
     PlatformBudget,
     ProjectContext,
     Provider,
+    ResumeAgentRunRequest,
+    ResumeAnswer,
     RunBudget,
     SafetyContextInput,
     SkillSelection,
@@ -1078,8 +1080,8 @@ def project_analysis_reply(department, step):
     }
 
 
-@pytest.mark.parametrize("input_limit", [50000, 100000])
-async def test_default_platform_project_analysis_uses_full_payload_and_preserves_spend_guards(input_limit, monkeypatch):
+@pytest.mark.parametrize("input_limit, resume", [(50000, False), (150000, False), (100000, True), (150000, True)])
+async def test_default_platform_project_analysis_uses_full_payload_and_preserves_spend_guards(input_limit, resume, monkeypatch):  # noqa: E501
     monkeypatch.setenv("LANGSMITH_TRACING", "false")
     monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
     from jsonschema import Draft202012Validator
@@ -1090,7 +1092,7 @@ async def test_default_platform_project_analysis_uses_full_payload_and_preserves
         (Path(__file__).resolve().parents[2] / "contracts/fixtures/workspace-credit-contract.json").read_text()
     )
     default_budget = RunBudget.model_validate(fixtures["projectAnalysisStart"]["budget"])
-    assert default_budget.max_input_tokens == 100000
+    assert default_budget.max_input_tokens == 150000
     assert default_budget.max_duration_seconds == 180 and default_budget.max_model_calls == 50
     assert default_budget.max_output_tokens == 48000 and default_budget.max_tool_calls == 12
     request = incoming()
@@ -1138,15 +1140,23 @@ async def test_default_platform_project_analysis_uses_full_payload_and_preserves
         bound = len(json.dumps(body, ensure_ascii=False).encode("utf-8")) + 8192
         assert recorded.input_tokens == bound and not recorded.usage_known
         assert ledger.previous_cost + ledger.cost <= request.platform_budget.max_cost_usd
-        assert sum(call.input_tokens for call in ledger.calls) <= input_limit
+        previous_input = ledger.previous.input_tokens if ledger.previous is not None else 0
+        assert previous_input + sum(call.input_tokens for call in ledger.calls) <= input_limit
         bounds.append(bound)
         requests.append(body)
         index = len(requests) - 1
-        department = tuple(DepartmentName)[index // 3]
-        reply = project_analysis_reply(department, index % 3)
+        activation, step_index = divmod(index, 12)
+        department = tuple(DepartmentName)[step_index // 3]
+        reply = project_analysis_reply(department, step_index % 3)
+        if resume and index == 2:
+            reply["open_questions"] = ["공유 문서는 링크를 가진 고객만 읽도록 제한할까요?"]
         Draft202012Validator(body["text"]["format"]["schema"]).validate(reply)
+        input_tokens, output_tokens = PROJECT_ANALYSIS_USAGE[step_index]
+        # 답변을 포함한 재개 요청의 known input 증가분은 호출당 80토큰으로 합성한다.
+        # 원래 100k가 마지막 예약에서 간신히 실패할 수 있는 경계를 검증한다.
         return response(
-            *PROJECT_ANALYSIS_USAGE[index], output_text=json.dumps(reply, ensure_ascii=False), model="gpt-6-luna"
+            input_tokens + activation * 80, output_tokens,
+            output_text=json.dumps(reply, ensure_ascii=False), model="gpt-6-luna"
         )
 
     fake = client()
@@ -1160,11 +1170,34 @@ async def test_default_platform_project_analysis_uses_full_payload_and_preserves
     )
     await coordinator.accept(request)
     await coordinator.execute(request, ExecutionAuthorization("synthetic-offline-delegation"))
+    if resume:
+        initial = await coordinator.view(request.context.run_id)
+        assert initial.status is AgentRunStatus.WAITING_FOR_USER
+        assert initial.usage.model_calls == 12 and initial.usage.input_tokens == 39570
+        assert initial.usage.output_tokens == 10442 and initial.usage.execution_closed
+        assert initial.usage.platform_reservation_id == request.context.run_id
+        command = ResumeAgentRunRequest(
+            interruption_id=initial.interruption.interruption_id,
+            idempotency_key="offline-same-run-resume",
+            answers=[ResumeAnswer(
+                question_index=0, answer="네. 링크를 가진 해당 고객만 읽고 다른 사람에게는 공개하지 않습니다."
+            )]
+        )
+        accepted, resumed = await coordinator.accept_resume(request.context.run_id, command)
+        assert accepted.run_id == resumed.context.run_id == request.context.run_id
+        assert resumed.platform_budget == request.platform_budget
+        assert resumed.clarification_history[-1].answer == command.answers[0].answer
+        await coordinator.resume(resumed, command, ExecutionAuthorization("synthetic-offline-delegation"))
+        # 이전 활성화 출력만 차감한다. 현재 활성화 출력은 기존 loop 인자에서 한 번 차감한다.
+        assert requests[12]["max_output_tokens"] == (48000 - initial.usage.output_tokens) // 4
+        assert requests[13]["max_output_tokens"] == requests[12]["max_output_tokens"] - 77
     final = await coordinator.view(request.context.run_id)
+    assert final.run_id == request.context.run_id
     assert final.usage.execution_closed and all(ledger.closed for ledger in ledgers)
     assert final.usage.platform_reservation_id == request.context.run_id
     assert Decimal("0") < final.usage.platform_cost_usd < request.platform_budget.max_cost_usd == Decimal("0.10")
     assert final.usage.model_calls == len(requests) == len(final.usage.provider_calls) <= 50
+    assert len({call.call_id for call in final.usage.provider_calls}) == len(requests)
     assert final.usage.output_tokens <= 48000
     assert all(call.usage_known and call.cost_usd <= call.reserved_cost_usd for call in final.usage.provider_calls)
     assert {(call.operation, call.funding_source) for call in final.usage.provider_calls} == {
@@ -1193,14 +1226,19 @@ async def test_default_platform_project_analysis_uses_full_payload_and_preserves
         assert 8 <= len(requests) < 12
         assert sum(call.input_tokens for call in final.usage.provider_calls[:8]) == 25942
         assert sum(call.output_tokens for call in final.usage.provider_calls[:8]) == 5797
+    elif resume and input_limit == 100000:
+        assert final.status is AgentRunStatus.FAILED and final.error_code == "INPUT_TOKEN_BUDGET_EXCEEDED"
+        assert len(requests) == 23 and final.usage.input_tokens == 76288
+        assert final.usage.output_tokens == 18984
     else:
         assert final.status is AgentRunStatus.COMPLETED and final.error_code is None
-        assert len(requests) == 12
-        assert final.usage.input_tokens == sum(pair[0] for pair in PROJECT_ANALYSIS_USAGE)
-        assert final.usage.output_tokens == sum(pair[1] for pair in PROJECT_ANALYSIS_USAGE)
+        assert len(requests) == (24 if resume else 12)
+        assert final.usage.input_tokens == (80100 if resume else 39570)
+        assert final.usage.output_tokens == (20884 if resume else 10442)
+        assert final.usage.platform_cost_usd == Decimal("0.01845200" if resume else "0.00917800")
         assert [result.department for result in final.result.department_results] == list(DepartmentName)
         assert all(result.status == "COMPLETED" for result in final.result.department_results)
         assert [draft.scenario for draft in final.result.quotation_drafts] == ["LEAN", "RECOMMENDED", "EXPANDED"]
         assert [draft.items[0].quantity for draft in final.result.quotation_drafts] == [40, 72, 96]
         assert final.result.quotation_draft.scenario == "RECOMMENDED"
-        assert tools.get_project_context.await_count == 5
+        assert tools.get_project_context.await_count == (10 if resume else 5)

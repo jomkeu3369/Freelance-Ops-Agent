@@ -33,12 +33,12 @@ test("real START client emits the exact shared server DTO including reviewed mic
   assert.equal(new Headers(requests[0].headers).get("Idempotency-Key"), "shared-start-key");
   assert.equal(requests[0].url, `https://contract.example.invalid/api/v2/workspaces/${session.workspaceId}/projects/${project.id}/agent-runs`);
 });
-test("explicit PROJECT_ANALYSIS client matches the shared 100000-token full workflow DTO", async () => {
+test("explicit PROJECT_ANALYSIS client matches the shared 150000-token full workflow DTO", async () => {
   const requests = capture({ runId: "synthetic", status: "QUEUED" }, 202);
   await api.startAgentRun(session, project, contract.projectAnalysisStart.modelSelection, undefined, "shared-project-analysis-key", contract.projectAnalysisStart.creditQuote, undefined, undefined, "PROJECT_ANALYSIS");
   assert.equal(requests.length, 1);
   assert.deepEqual(requests[0].body, contract.projectAnalysisStart);
-  assert.equal(requests[0].body.budget.maxInputTokens, 100000);
+  assert.equal(requests[0].body.budget.maxInputTokens, 150000);
   assert.equal(new Headers(requests[0].headers).get("Idempotency-Key"), "shared-project-analysis-key");
 });
 

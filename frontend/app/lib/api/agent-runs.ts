@@ -40,7 +40,7 @@ export function startAgentRun(session: AuthSession, project: Project, input: { p
           maxDurationSeconds: 180,
           maxModelCalls: 50,
           maxToolCalls: 12,
-          maxInputTokens: input.credentialId ? 150000 : workflowMode === "PROJECT_ANALYSIS" ? 100000 : 50000,
+          maxInputTokens: input.credentialId ? 150000 : workflowMode === "PROJECT_ANALYSIS" ? 150000 : 50000,
           maxOutputTokens: 48000,
           maxDepartments: 4,
           maxHierarchyDepth: 2,

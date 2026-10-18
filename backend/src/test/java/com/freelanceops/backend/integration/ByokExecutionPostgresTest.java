@@ -521,7 +521,7 @@ class ByokExecutionPostgresTest {
                         "en",
                         null,
                         selection(null),
-                        fullBudget(100001),
+                        fullBudget(150001),
                         safety);
         assertThatThrownBy(() -> gateway.start(user, workspace, project, platformRequest, null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
@@ -532,7 +532,7 @@ class ByokExecutionPostgresTest {
                         "en",
                         null,
                         selection(null),
-                        fullBudget(100000),
+                        fullBudget(150000),
                         safety);
         // 기술적 입력 상한을 통과해도 명시적으로 꺼진 플랫폼 비용 집행은 허용하지 않는다.
         assertThatThrownBy(

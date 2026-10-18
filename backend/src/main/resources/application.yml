@@ -104,7 +104,7 @@ agent:
     max-duration-seconds: ${AGENT_QUOTA_MAX_DURATION_SECONDS:180}
     max-model-calls: ${AGENT_QUOTA_MAX_MODEL_CALLS:50}
     max-tool-calls: ${AGENT_QUOTA_MAX_TOOL_CALLS:12}
-    max-input-tokens: ${AGENT_QUOTA_MAX_INPUT_TOKENS:100000}
+    max-input-tokens: ${AGENT_QUOTA_MAX_INPUT_TOKENS:150000}
     max-output-tokens: ${AGENT_QUOTA_MAX_OUTPUT_TOKENS:48000}
     max-departments: ${AGENT_QUOTA_MAX_DEPARTMENTS:4}
     max-hierarchy-depth: ${AGENT_QUOTA_MAX_HIERARCHY_DEPTH:2}

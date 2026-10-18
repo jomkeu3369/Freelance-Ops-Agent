@@ -53,7 +53,7 @@
       "maxDurationSeconds": 180,
       "maxModelCalls": 50,
       "maxToolCalls": 12,
-      "maxInputTokens": 100000,
+      "maxInputTokens": 150000,
       "maxOutputTokens": 48000,
       "maxDepartments": 4,
       "maxHierarchyDepth": 2,
