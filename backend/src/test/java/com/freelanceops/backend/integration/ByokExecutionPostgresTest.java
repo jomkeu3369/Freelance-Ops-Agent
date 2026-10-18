@@ -522,7 +522,11 @@ class ByokExecutionPostgresTest {
                         null,
                         selection(null),
                         fullBudget(150001),
-                        safety);
+                        safety,
+                        null,
+                        List.of(),
+                        null,
+                        "PROJECT_ANALYSIS");
         assertThatThrownBy(() -> gateway.start(user, workspace, project, platformRequest, null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("422");
@@ -533,12 +537,34 @@ class ByokExecutionPostgresTest {
                         null,
                         selection(null),
                         fullBudget(150000),
-                        safety);
+                        safety,
+                        null,
+                        List.of(),
+                        null,
+                        "PROJECT_ANALYSIS");
         // 기술적 입력 상한을 통과해도 명시적으로 꺼진 플랫폼 비용 집행은 허용하지 않는다.
         assertThatThrownBy(
                         () -> gateway.start(user, workspace, project, withinPlatformInputCap, null))
                 .isInstanceOf(PlatformSpendUnavailableException.class)
                 .hasMessageContaining("503 SERVICE_UNAVAILABLE");
+        for (String workflowMode : new String[] {null, "AD_HOC"}) {
+            var tooLargeAdHoc =
+                    new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest(
+                            "Synthetic analysis",
+                            "en",
+                            null,
+                            selection(null),
+                            fullBudget(50001),
+                            safety,
+                            null,
+                            List.of(),
+                            null,
+                            workflowMode);
+            assertThatThrownBy(
+                            () -> gateway.start(user, workspace, project, tooLargeAdHoc, null))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                    .hasMessageContaining("422");
+        }
         for (var unauthorized :
                 List.of(
                         selection(UUID.randomUUID()),
