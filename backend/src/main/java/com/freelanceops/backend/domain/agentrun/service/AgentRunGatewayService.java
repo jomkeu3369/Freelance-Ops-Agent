@@ -309,7 +309,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             ResumeAgentRunRequest request,
             String traceparent) {
         AuthorizedRun authorized =
-                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND, true);
         if (authorized.run().credentialId() != null) {
             if (!userId.equals(authorized.run().initiatedBy()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
@@ -362,14 +362,19 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
 
     private AuthorizedRun authorizeRun(
             UUID userId, UUID workspaceId, UUID runId, PermissionCode permission) {
+        return authorizeRun(userId, workspaceId, runId, permission, false);
+    }
+
+    private AuthorizedRun authorizeRun(
+            UUID userId, UUID workspaceId, UUID runId, PermissionCode permission, boolean lockRun) {
         MembershipPermissions membership =
                 permissionReader
                         .findActiveMembership(userId, workspaceId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, permission);
         AgentRunEntity run =
-                agentRunRepository
-                        .findByIdAndWorkspaceId(runId, workspaceId)
+                (lockRun ? agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId)
+                        : agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new AuthorizedRun(run, permissionCodes(membership));
     }

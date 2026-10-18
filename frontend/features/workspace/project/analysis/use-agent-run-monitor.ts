@@ -4,13 +4,17 @@ import { useEffect, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import { ApiError, getAgentRun, streamRunEvents } from "../../../../app/lib/api";
 import type { AgentRunView, AuthSession, WorkflowEvent } from "../../../../app/lib/api";
-import { isActiveStreamStatus, nextStreamCursor, streamReconnectDelay } from "../../../../app/lib/stream-retry.mjs";
+import {
+  isActiveStreamStatus,
+  nextStreamCursor,
+  streamReconnectDelay
+} from "../../../../app/lib/stream-retry.mjs";
 import { isPendingResumeSnapshot } from "../../../../app/lib/run-resume-state.mjs";
 import { terminalStatuses } from "../../shared/constants";
 import type { StreamState } from "../../shared/types";
 
 interface AgentRunMonitorOptions {
-  pendingResume: RefObject<{ runId: string; interruptionId: string } | null>;
+  pendingResumeRef: RefObject<{ runId: string; interruptionId: string } | null>;
   session: AuthSession | null;
   runId: string | null;
   runStatus: string | undefined;
@@ -23,17 +27,28 @@ interface AgentRunMonitorOptions {
 }
 
 // 이벤트 재연결과 상태 조회의 수명을 실행 단위로 관리한다.
-export function useAgentRunMonitor({ pendingResume, session, runId, runStatus, executionRevision, setRun, setEvents, setStreamState, setStreamRetryCount, setError }: AgentRunMonitorOptions) {
+export function useAgentRunMonitor({
+  pendingResumeRef,
+  session,
+  runId,
+  runStatus,
+  executionRevision,
+  setRun,
+  setEvents,
+  setStreamState,
+  setStreamRetryCount,
+  setError
+}: AgentRunMonitorOptions) {
   const lastEventIdRef = useRef(0);
   const previousRunIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (previousRunIdRef.current !== runId) {
       previousRunIdRef.current = runId;
-      if (pendingResume.current?.runId !== runId) pendingResume.current = null;
+      if (pendingResumeRef.current?.runId !== runId) pendingResumeRef.current = null;
       lastEventIdRef.current = 0;
     }
-  }, [pendingResume, runId]);
+  }, [pendingResumeRef, runId]);
 
   useEffect(() => {
     if (!session || !runId) return;
@@ -103,14 +118,16 @@ export function useAgentRunMonitor({ pendingResume, session, runId, runStatus, e
     const poll = async () => {
       try {
         const view = await getAgentRun(session, runId);
-        const awaitingResumeDelivery = isPendingResumeSnapshot(pendingResume.current, view);
+        const awaitingResumeDelivery = isPendingResumeSnapshot(pendingResumeRef.current, view);
         if (!cancelled) {
           if (!awaitingResumeDelivery) {
-            if (pendingResume.current?.runId === view.runId) pendingResume.current = null;
+            if (pendingResumeRef.current?.runId === view.runId) pendingResumeRef.current = null;
             setRun((current) =>
-            current?.runId === view.runId && terminalStatuses.has(current.status) && !terminalStatuses.has(view.status)
-              ? current
-              : view
+              current?.runId === view.runId &&
+              terminalStatuses.has(current.status) &&
+              !terminalStatuses.has(view.status)
+                ? current
+                : view
             );
           }
           if (pollingError) {
@@ -138,5 +155,5 @@ export function useAgentRunMonitor({ pendingResume, session, runId, runStatus, e
       cancelled = true;
       if (timer != null) window.clearTimeout(timer);
     };
-  }, [executionRevision, pendingResume, runId, session, setError, setRun]);
+  }, [executionRevision, pendingResumeRef, runId, session, setError, setRun]);
 }

@@ -91,6 +91,29 @@ class AgentRunGatewayServiceTest {
     }
 
     @Test
+    void locksTheFirstRunVersionBeforeValidatingAPersonalResume() {
+        UUID actor = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID(), id = UUID.randomUUID();
+        var waiting = run(id, workspace, project, actor);
+        waiting.useCredential(UUID.randomUUID());
+        waiting.updateStatus(AgentRunStatus.WAITING_FOR_USER, Instant.now());
+        when(permissionReader.findActiveMembership(actor, workspace)).thenReturn(Optional.of(new MembershipPermissions(
+            UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(id, workspace)).thenReturn(Optional.of(waiting));
+        when(projectRepository.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(project(project, workspace)));
+        var response = new ResumeAgentRunRequest(UUID.randomUUID(), "locked-resume", List.of(new ResumeAgentRunRequest.ResumeAnswer(0, "Synthetic")));
+
+        assertThat(service.resume(actor, workspace, id, response, "trace").status()).isEqualTo(AgentRunStatus.QUEUED);
+
+        var order = org.mockito.Mockito.inOrder(agentRunRepository, byok, projectionService, commandQueue);
+        order.verify(agentRunRepository).findByIdAndWorkspaceIdForUpdate(id, workspace);
+        order.verify(byok).validateRun(waiting);
+        order.verify(projectionService).validateResume(id, workspace, response);
+        order.verify(commandQueue).enqueueResume(id, response, actor, List.of("agent.respond"), "trace");
+        order.verify(projectionService).acceptResume(id, workspace, response, AgentRunStatus.QUEUED);
+        verify(agentRunRepository, never()).findByIdAndWorkspaceId(any(), any());
+    }
+
+    @Test
     void validatesWorkspacePermissionsAndPersistsAStartCommandWithTheRun() {
         UUID userId = UUID.randomUUID();
         UUID workspaceId = UUID.randomUUID();
@@ -746,7 +769,7 @@ class AgentRunGatewayServiceTest {
                         Optional.of(
                                 new MembershipPermissions(
                                         UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId))
                 .thenReturn(Optional.of(run));
         when(projectRepository.findByIdAndWorkspaceIdForUpdate(projectId, workspaceId))
                 .thenReturn(Optional.of(project(projectId, workspaceId)));
@@ -802,7 +825,7 @@ class AgentRunGatewayServiceTest {
                         Optional.of(
                                 new MembershipPermissions(
                                         UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspace))
                 .thenReturn(Optional.of(run));
         var request =
                 new ResumeAgentRunRequest(
@@ -828,7 +851,7 @@ class AgentRunGatewayServiceTest {
                         Optional.of(
                                 new MembershipPermissions(
                                         UUID.randomUUID(), Set.of(PermissionCode.AGENT_RESPOND))));
-        when(agentRunRepository.findByIdAndWorkspaceId(runId, workspace))
+        when(agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspace))
                 .thenReturn(Optional.of(run));
         org.mockito.Mockito.doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND))
                 .when(connections)

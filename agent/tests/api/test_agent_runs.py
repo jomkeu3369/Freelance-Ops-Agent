@@ -139,7 +139,7 @@ def _request(run_id: UUID, workspace_id: UUID, project_id: UUID, user_id: UUID) 
     )
 
 
-def _client_and_token(request: AgentRunRequest, executor: AgentRunExecutor | None = None, raptor_service: RecordingRaptorService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None, token_ttl_seconds: int = 120) -> tuple[TestClient, str]:  # noqa: E501
+def _client_and_token(request: AgentRunRequest, executor: AgentRunExecutor | None = None, raptor_service: RecordingRaptorService | None = None, task_command_inbox: PostgresTaskCommandInbox | None = None) -> tuple[TestClient, str]:  # noqa: E501
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_pem = (
         private_key.public_key()
@@ -158,7 +158,7 @@ def _client_and_token(request: AgentRunRequest, executor: AgentRunExecutor | Non
             "sub": str(context.initiated_by),
             "jti": str(uuid4()),
             "iat": now,
-            "exp": now + timedelta(seconds=token_ttl_seconds),
+            "exp": now + timedelta(minutes=2),
             "run_id": str(context.run_id),
             "workspace_id": str(context.workspace_id),
             "project_id": str(context.project_id),

@@ -91,3 +91,7 @@ or a fresh inspection of live monetary configuration.
    viewports without a production account or provider request
 5. Run final frontend type checks, unit tests, lint, build, and selected synthetic
    browser suites; require backend PostgreSQL suites without skips in CI
+
+## 2026-10-18 integration
+
+The earlier checks describe the historical branch. Integration targets current main and uses V49 because V48 is the quotation keyset index. Existing defaults, exposure and the deployment spending switch remain unchanged. Fresh integrated CI is required; see `retained-branch-integration-2026-10-18.md` and its pull request.

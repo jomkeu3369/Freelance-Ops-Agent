@@ -31,10 +31,11 @@ function scaledDigits(value: string) {
 }
 /** No exponent syntax, signs, whitespace, locale separators, rounding or floating-point math. */
 export function parseUsdAmount(value: string, maximum = MAX_BUDGET_USD): string | null {
-  if (!/^(0|[1-9]\d{0,10})(\.\d{1,8})?$/.test(value) || !/^(0|[1-9]\d{0,10})(\.\d{1,8})?$/.test(maximum)) return null;
+  if (!/^(0|[1-9]\d{0,10})(\.\d{1,8})?$/.test(value) || !/^(0|[1-9]\d{0,10})(\.\d{1,8})?$/.test(maximum))
+    return null;
   const amount = scaledDigits(value);
   const max = scaledDigits(maximum);
-  if (amount.length > max.length || amount.length === max.length && amount > max) return null;
+  if (amount.length > max.length || (amount.length === max.length && amount > max)) return null;
   return value;
 }
 export function canonicalUsd(value: string): string {
@@ -64,31 +65,68 @@ export function spendingModelKey(model: Pick<AiSpendingModel, "provider" | "mode
 export function parseAiSpendingSettings(value: unknown): AiSpendingSettings | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const data = value as Record<string, unknown>;
-  const maxBudgetUsd = data.maxBudgetUsd === undefined ? MAX_BUDGET_USD : responseDecimal(data.maxBudgetUsd, MAX_BUDGET_USD);
-  const maxModelRunUsd = data.maxModelRunUsd === undefined ? MAX_MODEL_RUN_USD : responseDecimal(data.maxModelRunUsd, MAX_MODEL_RUN_USD);
+  const maxBudgetUsd =
+    data.maxBudgetUsd === undefined ? MAX_BUDGET_USD : responseDecimal(data.maxBudgetUsd, MAX_BUDGET_USD);
+  const maxModelRunUsd =
+    data.maxModelRunUsd === undefined
+      ? MAX_MODEL_RUN_USD
+      : responseDecimal(data.maxModelRunUsd, MAX_MODEL_RUN_USD);
   if (maxBudgetUsd === null || maxModelRunUsd === null) return null;
   const accountWeekUsd = responseDecimal(data.accountWeekUsd, MAX_STORED_BUDGET_USD);
   const globalDayUsd = responseDecimal(data.globalDayUsd, MAX_STORED_BUDGET_USD);
   const globalWeekUsd = responseDecimal(data.globalWeekUsd, MAX_STORED_BUDGET_USD);
-  if (data.currency !== "USD" || accountWeekUsd === null || globalDayUsd === null || globalWeekUsd === null
-    || typeof data.revision !== "number" || !Number.isSafeInteger(data.revision) || data.revision < 0
-    || typeof data.updatedAt !== "string" || !Number.isFinite(Date.parse(data.updatedAt))
-    || typeof data.spendingEnabled !== "boolean" || !Array.isArray(data.models)) return null;
+  if (
+    data.currency !== "USD" ||
+    accountWeekUsd === null ||
+    globalDayUsd === null ||
+    globalWeekUsd === null ||
+    typeof data.revision !== "number" ||
+    !Number.isSafeInteger(data.revision) ||
+    data.revision < 0 ||
+    typeof data.updatedAt !== "string" ||
+    !Number.isFinite(Date.parse(data.updatedAt)) ||
+    typeof data.spendingEnabled !== "boolean" ||
+    !Array.isArray(data.models)
+  )
+    return null;
   const models: AiSpendingModel[] = [];
   for (const model of data.models) {
-    if (!model || typeof model !== "object" || typeof model.provider !== "string" || !model.provider.trim()
-      || typeof model.model !== "string" || !model.model.trim() || typeof model.enabled !== "boolean") return null;
+    if (
+      !model ||
+      typeof model !== "object" ||
+      typeof model.provider !== "string" ||
+      !model.provider.trim() ||
+      typeof model.model !== "string" ||
+      !model.model.trim() ||
+      typeof model.enabled !== "boolean"
+    )
+      return null;
     const maxRunUsd = responseDecimal(model.maxRunUsd, maxModelRunUsd);
     if (maxRunUsd === null) return null;
     models.push({ provider: model.provider, model: model.model, maxRunUsd, enabled: model.enabled });
   }
   if (new Set(models.map(spendingModelKey)).size !== models.length) return null;
-  return { currency: "USD", accountWeekUsd, globalDayUsd, globalWeekUsd, maxBudgetUsd, maxModelRunUsd,
-    revision: data.revision, updatedAt: data.updatedAt, spendingEnabled: data.spendingEnabled, models };
+  return {
+    currency: "USD",
+    accountWeekUsd,
+    globalDayUsd,
+    globalWeekUsd,
+    maxBudgetUsd,
+    maxModelRunUsd,
+    revision: data.revision,
+    updatedAt: data.updatedAt,
+    spendingEnabled: data.spendingEnabled,
+    models
+  };
 }
 export function modelStartsPaused(model: AiSpendingModel): boolean {
   return !model.enabled || canonicalUsd(model.maxRunUsd) === "0";
 }
 export function platformStartsPaused(settings: AiSpendingSettings): boolean {
-  return !settings.spendingEnabled || [settings.accountWeekUsd, settings.globalDayUsd, settings.globalWeekUsd].some(value => canonicalUsd(value) === "0");
+  return (
+    !settings.spendingEnabled ||
+    [settings.accountWeekUsd, settings.globalDayUsd, settings.globalWeekUsd].some(
+      (value) => canonicalUsd(value) === "0"
+    )
+  );
 }
