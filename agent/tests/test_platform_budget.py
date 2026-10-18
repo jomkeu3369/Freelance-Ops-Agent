@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -18,12 +19,18 @@ from contracts import (
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
+    AgentWorkflowMode,
+    DepartmentName,
     InterruptionKind,
+    MemorySourceMessage,
     ModelSelection,
+    PetProfile,
     PlatformBudget,
+    ProjectContext,
     Provider,
     RunBudget,
     SafetyContextInput,
+    SkillSelection,
     TrustedRunContext,
 )
 from platform_budget import (
@@ -38,7 +45,14 @@ from platform_budget import (
 )
 from providers import OpenAIModelProvider, ProviderNotConfiguredError, ScopedModelProvider
 from routing.llm_evaluator import OpenAIRouteEvaluator, SecretSystemPrompt
-from runtime import ExecutionOutcome, InMemoryAgentRunStore, PostgresAgentRunStore, RunCoordinator
+from runtime import (
+    ExecutionAuthorization,
+    ExecutionOutcome,
+    InMemoryAgentRunStore,
+    OperationalAgentExecutor,
+    PostgresAgentRunStore,
+    RunCoordinator,
+)
 from runtime.run_contracts import NullCheckpointJournal
 from runtime.run_state import merge_usage
 
@@ -1002,3 +1016,191 @@ def test_per_attempt_rounding_cannot_exceed_backend_reservation():
     with pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_EXCEEDED"):
         ledger.reserve(selection("gpt-6-luna"), "test", {"a": ""}, 1)
     assert len(ledger.calls) == 1
+
+
+PROJECT_ANALYSIS_REQUIREMENT = (
+    "프리랜서가 고객과 프로젝트를 관리하고 세 가지 견적안을 작성하는 웹서비스가 필요합니다. "
+    "핵심 기능은 회원 로그인, 고객 목록, 프로젝트 등록, AI 질문과 답변, 견적 검토와 발행, 공유 링크입니다. "
+    "펫은 친근한 설명을 돕고 근거와 가정을 구분합니다. 온라인 결제와 문자 발송은 이번 범위에서 제외합니다. "
+    "고객이 제공한 자료만 사용하고 미확정 일정은 가정으로 표시해 주세요. 단가는 등록된 기준으로 서버에서 계산합니다. "
+    "관리자는 발행 전 항목별 수량과 단위를 확인하고, 고객은 공유 문서를 읽을 수 있어야 합니다. "
+    "승인이나 외부 전송은 자동으로 처리하지 말고 고객 확인이 필요한 부분을 별도로 알려 주세요. "
+    "계약 범위와 일정의 위험을 설명하고 민감한 개인정보를 요청하지 마세요. "
+    "Mobile first. Include login, projects, AI questions, PDF and share links. Use existing rates."
+)
+
+# 첫 여덟 호출의 사용량만 운영 진단 수치와 같다. 원문과 공급자 응답은 수집하지 않는다.
+# 나머지 사용량과 TOOL 계약 수정 → TOOL → FINAL 응답은 명시적인 오프라인 합성 자료다.
+PROJECT_ANALYSIS_USAGE = (
+    (3042, 77), (3119, 60), (3730, 3117),
+    (3041, 89), (3118, 65), (3729, 2240),
+    (3043, 82), (3120, 67), (3731, 2600),
+    (3044, 80), (3121, 65), (3732, 1900),
+)
+
+
+def project_analysis_reply(department, step):
+    drafts = [
+        {
+            "scenario": scenario,
+            "items": [{
+                "title": title,
+                "description": title,
+                "quantity": hours,
+                "unit": "HOUR",
+                "rateCardHint": "웹 개발",
+                "basis": {
+                    "type": "ASSUMPTION",
+                    "content": "고객의 상세 범위와 검수 기준 확인을 전제로 한 추정",
+                    "sourceReference": None,
+                    "sourceTitle": None,
+                },
+            }],
+            "petPerspective": {
+                "proposal": title,
+                "rationale": "확인할 가정을 표시한 단계별 제안",
+                "tradeoff": "추가 기능은 일정과 작업량을 늘리므로 별도 확인 필요",
+            },
+        }
+        for scenario, title, hours in (
+            ("LEAN", "로그인과 기본 견적 작성", 40),
+            ("RECOMMENDED", "고객 관리와 견적 검토 및 발행", 72),
+            ("EXPANDED", "권장 범위와 공유 및 접근성 검수", 96),
+        )
+    ] if department in {DepartmentName.REQUIREMENTS, DepartmentName.DEAL_DESIGN} and step == 2 else []
+    return {
+        "action": "FINAL" if step == 2 else "TOOL",
+        "tool_name": None if step == 2 else "get_project_context",
+        "arguments": {"query": None},
+        "summary": None if step == 1 else "고객 자료에 근거한 범위와 가정 정리",
+        "open_questions": [],
+        "quotation_drafts": drafts,
+    }
+
+
+@pytest.mark.parametrize("input_limit", [50000, 100000])
+async def test_default_platform_project_analysis_uses_full_payload_and_preserves_spend_guards(input_limit, monkeypatch):
+    monkeypatch.setenv("LANGSMITH_TRACING", "false")
+    monkeypatch.setenv("LANGCHAIN_TRACING_V2", "false")
+    from jsonschema import Draft202012Validator
+
+    from retrieval.knowledge_context import KnowledgeContextLoader, OpenAIQueryEmbedder
+
+    fixtures = json.loads(
+        (Path(__file__).resolve().parents[2] / "contracts/fixtures/workspace-credit-contract.json").read_text()
+    )
+    default_budget = RunBudget.model_validate(fixtures["projectAnalysisStart"]["budget"])
+    assert default_budget.max_input_tokens == 100000
+    assert default_budget.max_duration_seconds == 180 and default_budget.max_model_calls == 50
+    assert default_budget.max_output_tokens == 48000 and default_budget.max_tool_calls == 12
+    request = incoming()
+    request.budget = default_budget.model_copy(update={"max_input_tokens": input_limit})
+    request.model_selection = selection("gpt-6-luna")
+    request.context.effective_permissions = ["agent.run", "project.read", "document.read"]
+    request.input = AgentInput(
+        requirement_text=PROJECT_ANALYSIS_REQUIREMENT,
+        workflow_mode=AgentWorkflowMode.PROJECT_ANALYSIS,
+        jurisdiction_code="KR",
+        skill_selection=SkillSelection(),
+        pet_profiles=[PetProfile(
+            pet_id=uuid4(), slot="RECOMMENDED", name="도움이", animal="owl", color="sage", accessory="glasses",
+            tone="WARM", value_priority="BALANCED", delivery_priority="BALANCED", scope_priority="CAUTIOUS",
+            preferences={"requests": [
+                "친근하고 간결하게 설명하고, 필수 범위와 선택 기능을 구분하며, 없는 근거와 금액을 만들지 말아 주세요."
+            ]}
+        )]
+    )
+    # 약 1KB의 원문이 PROJECT_INPUT과 RUN_INPUT에 각각 저장된 새 프로젝트 규모다.
+    assert 400 <= len(request.input.requirement_text) <= 500
+    assert 1000 <= len(request.input.requirement_text.encode("utf-8")) <= 1050
+    tools = AsyncMock()
+    tools.get_project_context.return_value = ProjectContext(
+        project_id=request.context.project_id, workspace_id=request.context.workspace_id,
+        title="고객 관리와 견적 작성", requirement_text=request.input.requirement_text, currency="KRW",
+        source_messages=[MemorySourceMessage(
+            id=uuid4(), event_order=index, kind=kind, content=request.input.requirement_text,
+            created_at=datetime.now(UTC)
+        ) for index, kind in enumerate(("PROJECT_INPUT", "RUN_INPUT"), start=1)]
+    )
+    tools.search_knowledge.return_value = []
+    router, research = AsyncMock(), AsyncMock()
+    # 임베딩의 유료 호출도 운영 ledger가 차단해야 한다. SDK 생성 자체를 실패시킨다.
+    ambient_sdk = MagicMock(side_effect=AssertionError("unexpected external SDK client"))
+    monkeypatch.setattr("openai.AsyncOpenAI", ambient_sdk)
+    store = InMemoryAgentRunStore()
+    requests, bounds, ledgers = [], [], []
+
+    async def offline_create(**body):
+        ledger = current_ledger()
+        assert ledger is not None
+        ledgers.append(ledger)
+        recorded = (await store.get(request.context.run_id)).usage.provider_calls[-1]
+        bound = len(json.dumps(body, ensure_ascii=False).encode("utf-8")) + 8192
+        assert recorded.input_tokens == bound and not recorded.usage_known
+        assert ledger.previous_cost + ledger.cost <= request.platform_budget.max_cost_usd
+        assert sum(call.input_tokens for call in ledger.calls) <= input_limit
+        bounds.append(bound)
+        requests.append(body)
+        index = len(requests) - 1
+        department = tuple(DepartmentName)[index // 3]
+        reply = project_analysis_reply(department, index % 3)
+        Draft202012Validator(body["text"]["format"]["schema"]).validate(reply)
+        return response(
+            *PROJECT_ANALYSIS_USAGE[index], output_text=json.dumps(reply, ensure_ascii=False), model="gpt-6-luna"
+        )
+
+    fake = client()
+    fake.responses.create.side_effect = offline_create
+    executor = OperationalAgentExecutor(
+        router, OpenAIModelProvider(fake), tools, research,
+        knowledge_loader=KnowledgeContextLoader(tools, OpenAIQueryEmbedder("offline-only"), "offline-only")
+    )
+    coordinator = RunCoordinator(
+        store, executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
+    )
+    await coordinator.accept(request)
+    await coordinator.execute(request, ExecutionAuthorization("synthetic-offline-delegation"))
+    final = await coordinator.view(request.context.run_id)
+    assert final.usage.execution_closed and all(ledger.closed for ledger in ledgers)
+    assert final.usage.platform_reservation_id == request.context.run_id
+    assert Decimal("0") < final.usage.platform_cost_usd < request.platform_budget.max_cost_usd == Decimal("0.10")
+    assert final.usage.model_calls == len(requests) == len(final.usage.provider_calls) <= 50
+    assert final.usage.output_tokens <= 48000
+    assert all(call.usage_known and call.cost_usd <= call.reserved_cost_usd for call in final.usage.provider_calls)
+    assert {(call.operation, call.funding_source) for call in final.usage.provider_calls} == {
+        ("bounded_react_step", "PLATFORM")
+    }
+    assert max(bounds) > 20000  # 전체 system/schema, 펫, 원문 2개와 관찰값을 포함한다.
+    router.route.assert_not_awaited()
+    research.collect.assert_not_awaited()
+    ambient_sdk.assert_not_called()
+    assert tools.search_knowledge.await_args.kwargs["request"].embedding is None
+    for body in requests:
+        assert body["tools"] == [] and body["store"] is False and body["service_tier"] == "default"
+        prompt = body["input"][1]["content"]
+        parsed = json.loads(prompt)
+        assert prompt == json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+        objective = parsed["objective"]
+        assert request.input.requirement_text in objective["untrusted_user_request"]
+        assert objective["constraints"]["no_price_or_tax_invention"] is True
+        assert objective["untrusted_pet_preferences"][0]["preferences"] == (
+            request.input.pet_profiles[0].preferences.model_dump()
+        )
+        assert objective["builtin_skills"]["selection_rules"]
+        assert "title" not in body["text"]["format"]["schema"]
+    if input_limit == 50000:
+        assert final.status is AgentRunStatus.FAILED and final.error_code == "INPUT_TOKEN_BUDGET_EXCEEDED"
+        assert 8 <= len(requests) < 12
+        assert sum(call.input_tokens for call in final.usage.provider_calls[:8]) == 25942
+        assert sum(call.output_tokens for call in final.usage.provider_calls[:8]) == 5797
+    else:
+        assert final.status is AgentRunStatus.COMPLETED and final.error_code is None
+        assert len(requests) == 12
+        assert final.usage.input_tokens == sum(pair[0] for pair in PROJECT_ANALYSIS_USAGE)
+        assert final.usage.output_tokens == sum(pair[1] for pair in PROJECT_ANALYSIS_USAGE)
+        assert [result.department for result in final.result.department_results] == list(DepartmentName)
+        assert all(result.status == "COMPLETED" for result in final.result.department_results)
+        assert [draft.scenario for draft in final.result.quotation_drafts] == ["LEAN", "RECOMMENDED", "EXPANDED"]
+        assert [draft.items[0].quantity for draft in final.result.quotation_drafts] == [40, 72, 96]
+        assert final.result.quotation_draft.scenario == "RECOMMENDED"
+        assert tools.get_project_context.await_count == 5

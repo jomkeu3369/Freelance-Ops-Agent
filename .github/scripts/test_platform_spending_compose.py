@@ -28,7 +28,7 @@ PRODUCTION_ENV = {
 
 
 class PlatformSpendingComposeTest(unittest.TestCase):
-    def assert_spending_flag(self, *, production: bool, enabled: bool):
+    def assert_spending_flag(self, *, production: bool, enabled: bool, input_quota: int | None = None):
         # CLI 실행과 플러그인 탐색 경로만 상속하고 실제 Compose 치환 값은 배제한다.
         environment = {
             name: os.environ[name]
@@ -41,6 +41,8 @@ class PlatformSpendingComposeTest(unittest.TestCase):
         environment.update(PRODUCTION_ENV)
         if enabled:
             environment["PLATFORM_AI_SPEND_ENABLED"] = "true"
+        if input_quota is not None:
+            environment["AGENT_QUOTA_MAX_INPUT_TOKENS"] = str(input_quota)
         with TemporaryDirectory(prefix="compose-spending-test-") as directory:
             empty_env = Path(directory) / "empty.env"
             empty_env.write_text("", encoding="utf-8")
@@ -57,6 +59,8 @@ class PlatformSpendingComposeTest(unittest.TestCase):
         configuration = json.loads(result.stdout)
         flag = configuration["services"]["backend"]["environment"]["PLATFORM_AI_SPEND_ENABLED"]
         self.assertEqual(flag, "true" if enabled else "false")
+        quota = configuration["services"]["backend"]["environment"]["AGENT_QUOTA_MAX_INPUT_TOKENS"]
+        self.assertEqual(quota, str(input_quota if input_quota is not None else 100000))
 
     def test_base_defaults_to_disabled(self):
         self.assert_spending_flag(production=False, enabled=False)
@@ -69,6 +73,11 @@ class PlatformSpendingComposeTest(unittest.TestCase):
 
     def test_production_forwards_explicit_enable(self):
         self.assert_spending_flag(production=True, enabled=True)
+
+    def test_explicit_lower_operator_quota_is_preserved(self):
+        for production in (False, True):
+            with self.subTest(production=production):
+                self.assert_spending_flag(production=production, enabled=True, input_quota=50000)
 
 
 if __name__ == "__main__":

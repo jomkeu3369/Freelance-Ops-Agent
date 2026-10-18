@@ -34,10 +34,9 @@ from .schema import compact_prompt_and_schema, strict_json_schema
 logger = logging.getLogger(__name__)
 
 
-def openai_generation_payload(selection: ModelSelection, prompt: str, schema: type[BaseModel], schema_name: str, system_instruction: str, max_output_tokens: int, personal: bool) -> dict[str, Any]:  # noqa: E501
+def openai_generation_payload(selection: ModelSelection, prompt: str, schema: type[BaseModel], schema_name: str, system_instruction: str, max_output_tokens: int) -> dict[str, Any]:  # noqa: E501
     output_schema = strict_json_schema(schema.model_json_schema())
-    if personal:
-        prompt, output_schema = compact_prompt_and_schema(prompt, output_schema)
+    prompt, output_schema = compact_prompt_and_schema(prompt, output_schema)
     return dict(
         model=selection.model,
         service_tier="default",
@@ -66,8 +65,7 @@ def preflight_byok_react_plan(selection: ModelSelection, prompts: list[str], out
             ReActStep,
             "bounded_react_step",
             _REACT_SYSTEM_INSTRUCTION,
-            ledger.output_limit(output_limit),
-            True
+            ledger.output_limit(output_limit)
         )
         for prompt in prompts
     ]
@@ -148,8 +146,7 @@ class OpenAIModelProvider(ResilientProvider):
                 schema,
                 schema_name,
                 system_instruction,
-                max_output_tokens,
-                personal_scope is not None
+                max_output_tokens
             )
             if personal_scope is not None:
                 return await byok_openai_attempt(selection, schema_name, payload)

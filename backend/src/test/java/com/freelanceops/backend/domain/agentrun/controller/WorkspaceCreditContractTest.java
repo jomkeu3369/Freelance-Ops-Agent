@@ -114,6 +114,43 @@ class WorkspaceCreditContractTest {
     }
 
     @Test
+    void projectAnalysisStartPreservesItsFullTechnicalInputBudget() throws Exception {
+        when(gateway.start(
+                        eq(USER),
+                        eq(WORKSPACE),
+                        eq(PROJECT),
+                        any(),
+                        anyString(),
+                        eq("synthetic-project-analysis-001")))
+                .thenReturn(accepted());
+        mvc.perform(
+                        post(START_PATH)
+                                .principal(user())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .header("Idempotency-Key", "synthetic-project-analysis-001")
+                                .content(fixture.get("projectAnalysisStart").toString()))
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("runId").value(RUN.toString()));
+        var captured = ArgumentCaptor.forClass(StartAgentRunRequest.class);
+        verify(gateway)
+                .start(
+                        eq(USER),
+                        eq(WORKSPACE),
+                        eq(PROJECT),
+                        captured.capture(),
+                        anyString(),
+                        eq("synthetic-project-analysis-001"));
+        assertThat(captured.getValue())
+                .isEqualTo(fixture("projectAnalysisStart", StartAgentRunRequest.class));
+        assertThat(captured.getValue().workflowMode()).isEqualTo("PROJECT_ANALYSIS");
+        assertThat(captured.getValue().budget().maxInputTokens()).isEqualTo(100000);
+        assertThat(captured.getValue().creditQuote())
+                .isEqualTo(fixture("start", StartAgentRunRequest.class).creditQuote());
+        assertThat(captured.getValue().modelSelection().credentialId()).isNull();
+        verifyNoInteractions(usage);
+    }
+
+    @Test
     void personalCredentialStartNeedsNoCustomerCreditQuote() throws Exception {
         when(gateway.start(eq(USER), eq(WORKSPACE), eq(PROJECT), any(), anyString(), isNull()))
                 .thenReturn(accepted());

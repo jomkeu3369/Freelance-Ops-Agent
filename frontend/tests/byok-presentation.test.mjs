@@ -57,18 +57,19 @@ test('per-run personal cost estimates use exact conservative Standard arithmetic
   assert.equal(byokCostEstimate('OPENAI','gpt-5.6-sol',Date.parse('2026-11-22T00:00:00Z')),null);
 });
 
-test('actual START caps differ only for explicitly selected personal credentials', async () => {
+test('full analysis and personal START retain the shared non-input caps', async () => {
   const contract=JSON.parse(await readFile(new URL('../../contracts/fixtures/workspace-credit-contract.json',import.meta.url),'utf8'));
   assert.equal(contract.start.budget.maxInputTokens,50000);
+  assert.equal(contract.projectAnalysisStart.budget.maxInputTokens,100000);
   assert.equal(contract.byokStart.budget.maxInputTokens,150000);
   assert.deepEqual({...contract.start.budget,maxInputTokens:150000},contract.byokStart.budget);
   const source=await readFile(new URL('../app/lib/api/agent-runs.ts',import.meta.url),'utf8');
-  assert.match(source,/maxInputTokens:\s*input.credentialId\s*\?\s*150000\s*:\s*50000/);
+  // 실제 입력 한도 분기는 workspace-credit-contract.test.mjs에서 전송 본문으로 검사한다.
   const block=source.match(/budget:\s*\{\s*maxDurationSeconds:\s*180,(.*?)\n\s*\},/s)?.[0];
   assert.ok(block);
   const values=Object.fromEntries([...block.matchAll(/(max\w+):\s*(\d+)/g)].map(([,key,value])=>[key,Number(value)]));
-  for(const [personal,key] of [[false,'start'],[true,'byokStart']]){
-    assert.deepEqual({...values,maxInputTokens:personal?150000:50000},contract[key].budget);
+  for(const [key,inputTokens] of [['start',50000],['projectAnalysisStart',100000],['byokStart',150000]]){
+    assert.deepEqual({...values,maxInputTokens:inputTokens},contract[key].budget);
   }
   assert.match(source,/input.credentialId\s*&&\s*!byokCostEstimate\(input.provider,\s*input.model\)/);
   assert.match(source,/input.credentialId\s*\?\s*\{\s*byokCostNoticeVersion\s*\}\s*:\s*\{\}/);
