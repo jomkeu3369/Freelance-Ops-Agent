@@ -64,6 +64,8 @@ DEPLOY_ROOT=/opt/freelance-ops ./infra/scripts/deploy-service.sh backend backend
 
 최초 구성에서는 내부 Agent를 먼저 배포한 뒤 Backend를 배포한다. Agent CD는 Agent 컨테이너만 교체하고 `/health/readiness`를 내부에서 확인한다. Backend CD는 Backend와 Caddy를 반영하고 Spring 준비 상태를 확인한다. 각 서비스는 `.agent-deployed-tag`와 `.backend-deployed-tag`에 성공한 태그를 별도로 기록하며 실패 시 해당 서비스만 이전 태그로 되돌린다. 두 배포의 서버 반영 단계는 공통 GitHub 동시 실행 그룹으로 직렬화한다.
 
+플랫폼 비용으로 실행하는 AI 작업은 `PLATFORM_AI_SPEND_ENABLED=false`로 기본 차단한다. 운영에서 활성화하려면 승인된 기존 계정별 주간·전체 일간/주간 USD 예산과 모델별 실행 상한을 유지한 채 `/opt/freelance-ops/.env`에 `PLATFORM_AI_SPEND_ENABLED=true`를 명시하고 Backend를 재생성해야 한다. `.env`는 Compose 변수 치환용 입력이며 모든 값을 컨테이너에 자동으로 전달하지 않는다. 이 값은 기본 Compose의 `backend.environment`에서 명시적으로 전달하며, 환경 파일 수정이나 기존 컨테이너 재시작만으로는 반영되지 않는다. 활성화는 예산·예약액·모델 상한을 초기화하거나 늘리지 않는다.
+
 Spring `/actuator/health/readiness`는 애플리케이션 준비 상태와 필수 DB 연결을 검사하며 장애 시 `503 DOWN`을 반환한다. `/actuator/health/liveness`는 DB 장애로 프로세스를 재시작하지 않도록 분리한다. Agent `/health`는 프로세스 생존 여부를, `/health/readiness`는 시작 완료·체크포인트 연결·실제 DB 쿼리를 확인한다. Agent DB 점검은 프로세스당 하나만 진행하며 HTTP 대기는 1초로 제한해 DB 드라이버의 취소 지연이 준비 상태 응답을 붙잡지 않게 한다. Spring의 전체 상태는 Agent 준비 상태도 관측하지만 CRM 준비 상태는 Agent 장애와 분리한다. 모델 API의 정상 처리 여부는 별도로 확인해야 한다.
 
 Spring의 기본 DB 풀 획득 제한은 2초, 연결 검증 제한은 1초다. PostgreSQL 연결 제한은 3초, 소켓 응답 제한은 10초이며 `.env`의 `DB_POOL_CONNECTION_TIMEOUT_MS`, `DB_POOL_VALIDATION_TIMEOUT_MS`, `DB_CONNECT_TIMEOUT_SECONDS`, `DB_SOCKET_TIMEOUT_SECONDS`로 조정한다. 소켓 제한만으로 전체 HTTP 요청의 최대 시간을 보장할 수는 없다. 긴 쿼리나 마이그레이션이 필요한 배포에서는 운영 측정에 맞게 조정한다.

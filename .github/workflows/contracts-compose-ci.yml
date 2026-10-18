@@ -8,6 +8,7 @@ on:
       - "infra/**"
       - ".github/actions/deploy-service/**"
       - ".github/scripts/deployment_scope.py"
+      - ".github/scripts/test_platform_spending_compose.py"
       - ".github/workflows/production-auto-cd.yml"
       - "docker-compose-infra.yaml"
       - "docker-compose.yaml"
@@ -34,6 +35,8 @@ jobs:
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
       - run: docker compose -f docker-compose-infra.yaml config
       - run: docker compose -f docker-compose.yaml config
+      - name: 플랫폼 비용 집행 Compose 환경 전달 회귀 검사
+        run: python3 .github/scripts/test_platform_spending_compose.py
       - name: 인프라 셸 스크립트 검사
         run: |
           shellcheck -x infra/postgres/init/*.sh infra/scripts/*.sh infra/scripts/lib/*.sh infra/tests/*.sh
