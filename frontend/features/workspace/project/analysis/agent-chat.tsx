@@ -638,7 +638,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                               : t(resultPendingMessage(status))}
                     </p>
                   )}
-                  {status === "WAITING_FOR_USER" && item.runId === runId && clarification}
+                  {status === "WAITING_FOR_USER" && item.runId === runId ? clarification : null}
                   {view && resultFailed && (
                     <p className="agent-chat-muted">
                       {t("저장된 결과를 확인할 수 없습니다. 기록을 다시 불러와 주세요.")}

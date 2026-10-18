@@ -244,8 +244,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             traceparent
         );
         requireMatchingRun(runId, response == null ? null : response.runId());
-        projectionService.synchronize(runId, workspaceId, response);
-        return response;
+        return projectionService.synchronize(runId, workspaceId, response);
     }
 
     public Optional<AgentRunView> latestForProject(
@@ -341,8 +340,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                         issueToken(authorized.run(), userId, authorized.permissions()),
                         traceparent);
         requireMatchingRun(runId, response == null ? null : response.runId());
-        projectionService.synchronize(runId, workspaceId, response);
-        return response;
+        return projectionService.synchronize(runId, workspaceId, response);
     }
 
     public AgentEventStream events(UUID userId, UUID workspaceId, UUID runId, Long lastEventId, String traceparent) {
