@@ -2,16 +2,13 @@ name: Contracts & Compose CI
 
 on:
   workflow_call:
-  push:
-    branches:
-      - "codex/auth-ocr-integration-20261007"
-      - "codex/ocr-language-layout-coverage-20261007"
-      - "codex/byok-release-integration-20261005"
-      - "codex/login-pet-motion-20261005"
   pull_request:
     paths:
       - "contracts/**"
       - "infra/**"
+      - ".github/actions/deploy-service/**"
+      - ".github/scripts/deployment_scope.py"
+      - ".github/workflows/production-auto-cd.yml"
       - "docker-compose-infra.yaml"
       - "docker-compose.yaml"
       - "docker-compose.production.yaml"
@@ -37,19 +34,19 @@ jobs:
       - run: uvx --from openapi-spec-validator openapi-spec-validator contracts/openapi/agent-internal-api.yaml contracts/openapi/spring-tool-api.yaml
       - run: docker compose -f docker-compose-infra.yaml config
       - run: docker compose -f docker-compose.yaml config
-      - name: Check infrastructure shell scripts
+      - name: 인프라 셸 스크립트 검사
         run: |
           shellcheck -x infra/postgres/init/*.sh infra/scripts/*.sh infra/scripts/lib/*.sh infra/tests/*.sh
-      - name: Verify service deployment and rollback
+      - name: 서비스 배포·롤백 회귀 검사
         run: sh infra/tests/test-deploy.sh
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Verify load scenario contracts without external calls
+      - name: 외부 호출 없이 부하 시나리오 계약 검사
         run: node --experimental-vm-modules --test infra/tests/test-load.mjs
-      - name: Verify backup ownership and service-role recovery
+      - name: 백업 소유권과 서비스 권한 복구 검사
         run: sh infra/tests/test-backup-restore.sh
-      - name: Verify persistent personal-key encryption configuration
+      - name: 개인 키 암호화 설정 유지 검사
         run: sh infra/tests/test-byok-key.sh
       - run: docker compose -f docker-compose.yaml -f docker-compose.production.yaml config
         env:

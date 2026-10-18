@@ -9,15 +9,10 @@ on:
       - "backend/**"
       - "contracts/**"
       - "infra/**"
+      - ".github/**"
       - "docker-compose-infra.yaml"
       - "docker-compose.yaml"
       - "docker-compose.production.yaml"
-      - ".github/workflows/agent-ci.yml"
-      - ".github/workflows/backend-ci.yml"
-      - ".github/workflows/contracts-compose-ci.yml"
-      - ".github/workflows/agent-cd.yml"
-      - ".github/workflows/backend-cd.yml"
-      - ".github/workflows/production-auto-cd.yml"
 
 permissions:
   contents: read
@@ -40,49 +35,13 @@ jobs:
         with:
           fetch-depth: 0
       - id: filter
-        name: Classify changed paths
+        name: 변경 경로별 검증·배포 범위 분류
         env:
           BASE_SHA: ${{ github.event.before }}
-        run: |
-          if printf '%s' "$BASE_SHA" | grep -Eq '^0+$'; then
-            BASE_SHA="$(git rev-list --max-parents=0 "$GITHUB_SHA")"
-          fi
+        run: python3 .github/scripts/deployment_scope.py --base "$BASE_SHA" --head "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
-          agent=false
-          backend=false
-          contracts=false
-
-          while IFS= read -r path; do
-            case "$path" in
-              agent/*|.github/workflows/agent-ci.yml|.github/workflows/agent-cd.yml)
-                agent=true
-                ;;
-              backend/*|.github/workflows/backend-ci.yml|.github/workflows/backend-cd.yml)
-                backend=true
-                ;;
-              contracts/*|docker-compose.yaml|docker-compose.production.yaml|infra/scripts/*)
-                agent=true
-                backend=true
-                contracts=true
-                ;;
-              infra/caddy/*)
-                backend=true
-                contracts=true
-                ;;
-              docker-compose-infra.yaml|infra/postgres/*|.github/workflows/contracts-compose-ci.yml)
-                contracts=true
-                ;;
-              .github/workflows/production-auto-cd.yml)
-                agent=true
-                backend=true
-                contracts=true
-                ;;
-            esac
-          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$GITHUB_SHA")
-
-          echo "agent=$agent" >> "$GITHUB_OUTPUT"
-          echo "backend=$backend" >> "$GITHUB_OUTPUT"
-          echo "contracts=$contracts" >> "$GITHUB_OUTPUT"
+  automation-ci:
+    uses: ./.github/workflows/actions-ci.yml
 
   agent-ci:
     needs: changes
@@ -102,11 +61,13 @@ jobs:
   deploy-agent:
     needs:
       - changes
+      - automation-ci
       - agent-ci
       - backend-ci
       - contracts-ci
     if: >-
       always() &&
+      needs.automation-ci.result == 'success' &&
       needs.changes.outputs.agent == 'true' &&
       needs.agent-ci.result == 'success' &&
       (needs.changes.outputs.backend != 'true' || needs.backend-ci.result == 'success') &&
@@ -119,11 +80,13 @@ jobs:
   deploy-backend:
     needs:
       - changes
+      - automation-ci
       - backend-ci
       - contracts-ci
       - deploy-agent
     if: >-
       always() &&
+      needs.automation-ci.result == 'success' &&
       needs.changes.outputs.backend == 'true' &&
       needs.backend-ci.result == 'success' &&
       (needs.contracts-ci.result == 'success' || needs.contracts-ci.result == 'skipped') &&

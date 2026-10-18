@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Fail CI when database/native-attachment suites were not actually executed.
+"""JUnit 보고서로 필수 DB·첨부파일 검사의 실행·실패·생략 여부를 확인한다.
 
-Reads only generated JUnit reports and committed test source paths. No database,
-provider, or production credentials are used by this report check.
+검사 소스와 생성된 XML만 읽으며 DB나 외부 제공사에 접속하지 않는다.
 """
+
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
 import sys
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 def expected_suites(root: Path, component: str) -> set[str]:
@@ -22,12 +22,14 @@ def expected_suites(root: Path, component: str) -> set[str]:
                 continue
             package = re.search(r"^package\s+([\w.]+);", source, re.MULTILINE)
             if package is None:
-                raise ValueError(f"Missing Java test package: {path}")
+                raise ValueError(f"Java 검사 패키지가 없습니다: {path}")
             expected.add(f"{package[1]}.{path.stem}")
         return expected
+    if component != "agent":
+        raise ValueError(f"지원하지 않는 검사 대상입니다: {component}")
     test_root = root / "agent"
     paths = set((test_root / "tests/integration").glob("test_*.py"))
-    # Native attachment/OCR tests must also run, rather than skip absent tools.
+    # 도구가 없다는 이유로 첨부파일·OCR 필수 검사가 생략되는 것도 차단한다.
     paths.update((test_root / "tests").glob("test_attachment*.py"))
     return {".".join(path.relative_to(test_root).with_suffix("").parts) for path in paths}
 
@@ -35,27 +37,35 @@ def expected_suites(root: Path, component: str) -> set[str]:
 def validate(expected: set[str], reports: list[Path]) -> list[str]:
     errors = []
     if not expected:
-        errors.append("No required database test sources were found")
+        errors.append("필수 검사 소스를 찾지 못했습니다.")
     if not reports:
-        errors.append("No JUnit XML reports were found")
+        errors.append("JUnit XML 보고서를 찾지 못했습니다.")
     counts = {name: {"tests": 0, "skipped": 0, "failed": 0} for name in expected}
     for report in reports:
         for case in ET.parse(report).getroot().iter("testcase"):
             classname = case.get("classname", "")
             for name, summary in counts.items():
-                if classname == name or classname.startswith(name + ".") or classname.startswith(name + "$"):
+                if (
+                    classname == name
+                    or classname.startswith(name + ".")
+                    or classname.startswith(name + "$")
+                ):
                     summary["tests"] += 1
                     summary["skipped"] += case.find("skipped") is not None
-                    summary["failed"] += case.find("failure") is not None or case.find("error") is not None
+                    summary["failed"] += (
+                        case.find("failure") is not None or case.find("error") is not None
+                    )
                     break
     for name, summary in sorted(counts.items()):
-        print(f"{name}: tests={summary['tests']}, skipped={summary['skipped']}, failed={summary['failed']}")
+        print(
+            f"{name}: tests={summary['tests']}, skipped={summary['skipped']}, failed={summary['failed']}"
+        )
         if not summary["tests"]:
-            errors.append(f"Required suite is missing or collected no tests: {name}")
+            errors.append(f"필수 검사 묶음이 없거나 수집된 검사가 없습니다: {name}")
         if summary["skipped"]:
-            errors.append(f"Required suite skipped {summary['skipped']} test(s): {name}")
+            errors.append(f"필수 검사 {summary['skipped']}개가 생략됐습니다: {name}")
         if summary["failed"]:
-            errors.append(f"Required suite failed {summary['failed']} test(s): {name}")
+            errors.append(f"필수 검사 {summary['failed']}개가 실패했습니다: {name}")
     return errors
 
 
@@ -72,7 +82,7 @@ def main() -> int:
     try:
         errors = validate(expected_suites(root, args.component), reports)
     except (OSError, ValueError, ET.ParseError) as error:
-        errors = [f"Cannot validate test evidence: {error}"]
+        errors = [f"검사 근거를 확인할 수 없습니다: {error}"]
     for error in errors:
         print(f"ERROR: {error}", file=sys.stderr)
     return int(bool(errors))
