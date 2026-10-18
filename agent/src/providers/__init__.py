@@ -1,6 +1,5 @@
 """모델 생성의 공통 계약과 공급자별 어댑터."""
 
-from .composite import CompositeModelProvider
 from .contracts import (
     AssumptionSuggestion,
     DepartmentWorkProduct,
@@ -11,12 +10,11 @@ from .contracts import (
     ReActArguments,
     ReActStep,
 )
-from .gemini import GeminiModelProvider
 from .openai import OpenAIModelProvider
+from .scoped import ScopedModelProvider
 
 __all__ = [
-    "CompositeModelProvider",
-    "GeminiModelProvider",
+    "ScopedModelProvider",
     "OpenAIModelProvider",
     "DepartmentWorkProduct",
     "AssumptionSuggestion",

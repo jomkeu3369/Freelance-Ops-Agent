@@ -42,7 +42,11 @@ public class AdminMemberService {
                 CASE WHEN action='RESET_ALL' THEN 'epoch' ELSE 'monthly_limit' END AS target,
                 CASE WHEN action='RESET_ALL' THEN previous_epoch::text ELSE previous_limit::text END AS previous_value,
                 CASE WHEN action='RESET_ALL' THEN new_epoch::text ELSE new_limit::text END AS new_value,
-                previous_epoch, new_epoch, created_at FROM app.free_usage_admin_audit) audit
+                previous_epoch, new_epoch, created_at FROM app.free_usage_admin_audit
+         UNION ALL
+         SELECT id, 'PLATFORM_SPEND' AS source, actor_user_id, action, target, previous_value, new_value,
+                previous_revision AS previous_epoch, new_revision AS new_epoch, created_at
+         FROM app.platform_spend_admin_audit) audit
         """;
 
     @Transactional

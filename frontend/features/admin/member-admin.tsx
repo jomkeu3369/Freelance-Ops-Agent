@@ -2,7 +2,13 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ApiError, AuthSession, loadSession, saveSession, subscribeToSessionRecovery } from "../../app/lib/api";
+import {
+  ApiError,
+  AuthSession,
+  loadSession,
+  saveSession,
+  subscribeToSessionRecovery
+} from "../../app/lib/api";
 import {
   AdminAudit,
   AdminMember,
@@ -18,6 +24,7 @@ import {
   getMemberUsage,
   getMemberUsageHistory
 } from "../../app/lib/admin-members-api";
+import { useT } from "../../app/lib/ui-language";
 import { MemberUsage } from "./member-usage";
 import { AuthGate } from "../workspace/auth/auth-gate";
 import "../workspace/auth/auth.css";
@@ -30,10 +37,13 @@ type Data =
   | { tab: "audit"; page: AdminPage<AdminAudit> }
   | { tab: "usage"; usage: AdminMemberUsage; history: AdminUsageHistory };
 function date(value: string | null) {
-  return value ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "기록 없음";
+  return value
+    ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false })
+    : "기록 없음";
 }
 
 export function MemberAdmin() {
+  const t = useT();
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [tab, setTab] = useState<Tab>("members");
@@ -88,7 +98,9 @@ export function MemberAdmin() {
       tab === "members"
         ? getMembers(session, query, status, page, signal).then((page) => ({ tab: "members", page }) as Data)
         : tab === "logins"
-          ? getLoginEvents(session, selected?.id ?? "", page, signal).then((page) => ({ tab: "logins", page }) as Data)
+          ? getLoginEvents(session, selected?.id ?? "", page, signal).then(
+              (page) => ({ tab: "logins", page }) as Data
+            )
           : tab === "usage" && selected
             ? Promise.all([
                 getMemberUsage(session, selected.id, signal),
@@ -253,7 +265,9 @@ export function MemberAdmin() {
             )}
             {tab === "logins" && (
               <div>
-                <h2>{selected ? `${selected.displayName ?? selected.email}의 로그인 기록` : "전체 로그인 기록"}</h2>
+                <h2>
+                  {selected ? `${selected.displayName ?? selected.email}의 로그인 기록` : "전체 로그인 기록"}
+                </h2>
                 {selected && (
                   <button
                     type="button"
@@ -266,22 +280,27 @@ export function MemberAdmin() {
                     모든 회원 보기
                   </button>
                 )}
-                <p>성공한 비밀번호 로그인과 가입 세션만 표시합니다. 토큰 갱신은 로그인 횟수에 포함하지 않습니다.</p>
+                <p>
+                  성공한 비밀번호 로그인과 가입 세션만 표시합니다. 토큰 갱신은 로그인 횟수에 포함하지
+                  않습니다.
+                </p>
               </div>
             )}
             {summary && (tab === "members" || tab === "logins") && (
               <p className="member-note">
-                로그인 기록 시작: {date(summary.recordingStartedAt)}. 이전 기록이 없는 회원은 최근 로그인을 알 수
-                없습니다.
+                로그인 기록 시작: {date(summary.recordingStartedAt)}. 이전 기록이 없는 회원은 최근 로그인을 알
+                수 없습니다.
               </p>
             )}
             {tab === "audit" && (
               <div>
                 <h2>관리자 변경 기록</h2>
                 <p>
-                  주간 크레딧·이전 월간 한도 변경과 전체 초기화 기록입니다. 과거 값을 새 API 비용으로 환산하지 않습니다.
+                  {t(
+                    "USD 비용 예산·모델 설정과 이전 크레딧 한도·초기화 기록입니다. 과거 값을 새 API 비용으로 환산하지 않습니다."
+                  )}
                 </p>
-                <Link href="/admin">한도 설정 및 초기화 검토</Link>
+                <Link href="/admin">{t("기본 AI 비용 설정 검토")}</Link>
               </div>
             )}
             {tab === "usage" && selected && (
@@ -369,7 +388,9 @@ export function MemberAdmin() {
                                 <small>{member.id}</small>
                               </td>
                               <td>
-                                <span className="member-badge">{member.status === "ACTIVE" ? "활성" : "비활성"}</span>
+                                <span className="member-badge">
+                                  {member.status === "ACTIVE" ? "활성" : "비활성"}
+                                </span>
                                 {member.emailVerificationRequired && <small>이메일 인증 대기</small>}
                               </td>
                               <td>{date(member.joinedAt)}</td>
@@ -425,7 +446,7 @@ export function MemberAdmin() {
                             <th>작업</th>
                             <th>대상 / 원장</th>
                             <th>이전 → 변경</th>
-                            <th>초기화 세대</th>
+                            <th>{t("설정 버전 / 이전 초기화 세대")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -437,10 +458,16 @@ export function MemberAdmin() {
                               </td>
                               <td>
                                 {event.action === "RESET_ALL"
-                                  ? "전체 초기화"
+                                  ? t("전체 초기화")
                                   : event.action === "CHANGE_LIMIT"
-                                    ? "한도 변경"
-                                    : "모델 가격 변경"}
+                                    ? t("한도 변경")
+                                    : event.action === "CHANGE_BUDGETS"
+                                      ? t("비용 예산 변경")
+                                      : event.source === "PLATFORM_SPEND" && event.action === "CHANGE_MODEL"
+                                        ? t("모델 비용 한도·사용 가능 여부 변경")
+                                        : event.action === "CHANGE_MODEL"
+                                          ? t("모델 가격 변경")
+                                          : event.action}
                               </td>
                               <td>
                                 {event.target}
@@ -450,6 +477,9 @@ export function MemberAdmin() {
                                 {event.previousValue} → {event.newValue}
                               </td>
                               <td>
+                                <small>
+                                  {event.source === "PLATFORM_SPEND" ? t("설정 버전") : t("초기화 세대")}
+                                </small>
                                 {event.previousEpoch} → {event.newEpoch}
                               </td>
                             </tr>

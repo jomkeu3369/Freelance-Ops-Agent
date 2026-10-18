@@ -36,7 +36,7 @@ from platform_budget import (
     platform_budget_scope,
     reject_unbounded_operation,
 )
-from providers import GeminiModelProvider, OpenAIModelProvider
+from providers import OpenAIModelProvider, ProviderNotConfiguredError, ScopedModelProvider
 from routing.llm_evaluator import OpenAIRouteEvaluator, SecretSystemPrompt
 from runtime import ExecutionOutcome, InMemoryAgentRunStore, PostgresAgentRunStore, RunCoordinator
 from runtime.run_contracts import NullCheckpointJournal
@@ -455,8 +455,8 @@ async def test_embedding_and_platform_gemini_rejected_before_client_io():
     with platform_budget_scope(PlatformSpendLedger(budget())):
         with pytest.raises(PlatformBudgetError, match="PLATFORM_EMBEDDING_UNPRICED"):
             await OpenAIQueryEmbedder("text-embedding-3-small").embed("hello")
-        with pytest.raises(PlatformBudgetError):
-            await GeminiModelProvider(fake).generate_structured(
+        with pytest.raises(ProviderNotConfiguredError):
+            await ScopedModelProvider(fake).generate_structured(
                 ModelSelection(provider=Provider.GEMINI, model="gemini"), "text", max_output_tokens=100
             )
     fake.models.generate_content.assert_not_awaited()
@@ -789,16 +789,14 @@ async def test_postgres_claim_never_requeues_or_restarts_nonqueued_run(status):
 
 
 async def test_raptor_leaf_adapters_cannot_bypass_unpriced_entry_guard():
-    from retrieval.provider_services import _GeminiEmbedder, _GeminiSummarizer, _OpenAIEmbedder, _OpenAISummarizer
+    from retrieval.provider_services import _OpenAIEmbedder, _OpenAISummarizer
 
     fake = MagicMock()
     with platform_budget_scope(PlatformSpendLedger(budget())):
-        for adapter in (_OpenAIEmbedder, _GeminiEmbedder):
-            with pytest.raises(PlatformBudgetError, match="PLATFORM_RAPTOR_EMBEDDING_UNPRICED"):
-                await adapter(fake, "unpriced").embed(["offline"])
-        for adapter in (_OpenAISummarizer, _GeminiSummarizer):
-            with pytest.raises(PlatformBudgetError, match="PLATFORM_RAPTOR_SUMMARY_UNPRICED"):
-                await adapter(fake, "unpriced").summarize(["offline"])
+        with pytest.raises(PlatformBudgetError, match="PLATFORM_RAPTOR_EMBEDDING_UNPRICED"):
+            await _OpenAIEmbedder(fake, "unpriced").embed(["offline"])
+        with pytest.raises(PlatformBudgetError, match="PLATFORM_RAPTOR_SUMMARY_UNPRICED"):
+            await _OpenAISummarizer(fake, "unpriced").summarize(["offline"])
     assert fake.mock_calls == []
 
 

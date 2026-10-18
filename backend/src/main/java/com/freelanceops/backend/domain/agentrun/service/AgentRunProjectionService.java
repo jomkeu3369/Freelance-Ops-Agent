@@ -46,13 +46,25 @@ public class AgentRunProjectionService {
         this.byok = byok;
     }
 
+    /** Read only Spring's pending receipt; no Agent result, usage or version has been acknowledged yet. */
+    public AgentRunView pendingDelivery(AgentRunEntity run) {
+        return new AgentRunView(run.id(), run.status(), null, null, null, null,
+            new AgentRunView.AgentRunMetadata(run.provider(), run.model(), null, null, null, run.credentialId()),
+            null, run.updatedAt());
+    }
+
     @Transactional
-    public void synchronize(UUID runId, UUID workspaceId, AgentRunView view) {
+    public AgentRunView synchronize(UUID runId, UUID workspaceId, AgentRunView view) {
         AgentRunEntity run = lock(runId, workspaceId);
-        interruptionService.synchronize(run, view);
+        boolean staleAnsweredQuestion = view.status() == AgentRunStatus.WAITING_FOR_USER
+                && (run.status() == AgentRunStatus.QUEUED || run.status() == AgentRunStatus.RUNNING)
+                && interruptionService.alreadyResponded(run, view.interruption());
+        if (!staleAnsweredQuestion) run.synchronizeStatus(view.status(), Instant.now());
+        AgentRunView publicView = durableView(run, view);
+        interruptionService.synchronize(run, publicView);
         costService.synchronize(run, view);
         freeUsage.settleConfirmed(run.id(), view.status());
-        if (view.status() == AgentRunStatus.COMPLETED && view.result() != null) {
+        if (run.status() == AgentRunStatus.COMPLETED && view.status() == AgentRunStatus.COMPLETED && view.result() != null) {
             view.result().departmentResults().stream()
                     .filter(
                             result ->
@@ -71,8 +83,20 @@ public class AgentRunProjectionService {
                                                     view.result().referencedDocumentIds())));
         }
         byok.closeIfTerminal(run.id(), view.status());
-        run.synchronizeStatus(view.status(), Instant.now());
         run.scheduleReconciliation(Instant.now().plus(RECONCILIATION_INTERVAL));
+        return publicView;
+    }
+
+    private static AgentRunView durableView(AgentRunEntity run, AgentRunView view) {
+        if (run.status() == view.status()) return view;
+        // Keep unsuccessful-run snapshots and late usage readable without reopening
+        // a stale question or presenting them as a completed source.
+        return new AgentRunView(view.runId(), run.status(),
+            run.status() == AgentRunStatus.RUNNING ? view.activeDepartment() : null,
+            run.status() == AgentRunStatus.WAITING_FOR_USER ? view.interruption() : null,
+            // A durable completion does not make an older incomplete payload complete.
+            run.status() == AgentRunStatus.COMPLETED ? null : view.result(),
+            view.errorCode(), view.metadata(), view.usage(), view.updatedAt());
     }
 
     @Transactional

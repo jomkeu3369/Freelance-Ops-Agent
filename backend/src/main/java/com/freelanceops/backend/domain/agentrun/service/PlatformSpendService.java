@@ -101,7 +101,7 @@ public class PlatformSpendService {
                         (row, n) -> row.getBigDecimal(1),
                         selection.provider().name(),
                         selection.model());
-        if (caps.isEmpty()) throw new PlatformSpendUnavailableException();
+        if (caps.isEmpty() || caps.getFirst().signum() <= 0) throw new PlatformSpendUnavailableException();
         BigDecimal amount =
                 caps.getFirst()
                         .min(remaining("GLOBAL_DAY", GLOBAL, period.day(), settings.globalDayUsd()))

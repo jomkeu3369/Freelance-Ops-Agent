@@ -11,6 +11,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunRespon
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -29,26 +30,33 @@ public class HttpAgentRunClient implements AgentRunClient {
     private final RestClient restClient;
     private final URI baseUri;
     private final HttpClient eventClient;
+    private final Duration eventResponseTimeout;
 
     @Autowired
     public HttpAgentRunClient(
             RestClient.Builder builder,
             @Value("${agent.base-url:http://localhost:8000}") String baseUrl,
-            @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs) {
+            @Value("${app.http.connect-timeout-ms:2000}") long connectTimeoutMs,
+            @Value("${app.http.read-timeout-ms:10000}") long readTimeoutMs) {
+        if (readTimeoutMs <= 0) throw new IllegalArgumentException("readTimeout must be positive");
         HttpClient httpClient = http11Client(Duration.ofMillis(connectTimeoutMs));
-        this.restClient = builder.baseUrl(baseUrl).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+        this.restClient = builder.clone().requestFactory(requestFactory).baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = httpClient;
+        this.eventResponseTimeout = Duration.ofMillis(readTimeoutMs);
     }
 
     public HttpAgentRunClient(RestClient.Builder builder, String baseUrl) {
-        this(builder, baseUrl, 2000);
+        this(builder, baseUrl, 2000, 10000);
     }
 
     HttpAgentRunClient(RestClient.Builder builder, String baseUrl, HttpClient eventClient) {
-        this.restClient = builder.baseUrl(baseUrl).build();
+        this.restClient = builder.clone().baseUrl(baseUrl).build();
         this.baseUri = URI.create(baseUrl.endsWith("/") ? baseUrl : baseUrl + "/");
         this.eventClient = eventClient;
+        this.eventResponseTimeout = Duration.ofSeconds(10);
     }
 
     @Override
@@ -108,6 +116,7 @@ public class HttpAgentRunClient implements AgentRunClient {
                 HttpRequest.newBuilder(
                                 baseUri.resolve("internal/v1/agent-runs/" + runId + "/events"))
                         .GET()
+                        .timeout(eventResponseTimeout)
                         .header("Accept", MediaType.TEXT_EVENT_STREAM_VALUE)
                         .header("Authorization", "Bearer " + delegationToken)
                         .header("traceparent", traceparent);
@@ -117,8 +126,7 @@ public class HttpAgentRunClient implements AgentRunClient {
                     eventClient.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 response.body().close();
-                throw new IllegalStateException(
-                        "agent event stream returned status " + response.statusCode());
+                throw new AgentEventStreamResponseException(response.statusCode());
             }
             return new AgentEventStream(response.body());
         } catch (InterruptedException error) {

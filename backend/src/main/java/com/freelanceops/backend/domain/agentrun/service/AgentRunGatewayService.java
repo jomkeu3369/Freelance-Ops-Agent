@@ -11,6 +11,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunReques
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
+import com.freelanceops.backend.domain.agentrun.client.AgentEventStreamResponseException;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
@@ -223,16 +224,27 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     }
 
     public AgentRunView get(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
-        AuthorizedRun authorized =
-                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
-        AgentRunView response =
-                agentRunClient.get(
-                        runId,
-                        issueToken(authorized.run(), userId, authorized.permissions()),
-                        traceparent);
+        try {
+            return getRemote(userId, workspaceId, runId, traceparent);
+        } catch (RestClientResponseException error) {
+            if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) throw error;
+            // Spring commits the run/outbox before the dispatcher creates the
+            // Agent record. A read in that interval still has a durable QUEUED run.
+            AgentRunEntity pending = agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)
+                .filter(run -> run.status() == AgentRunStatus.QUEUED).orElseThrow(() -> error);
+            return projectionService.pendingDelivery(pending);
+        }
+    }
+
+    private AgentRunView getRemote(UUID userId, UUID workspaceId, UUID runId, String traceparent) {
+        AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
+        AgentRunView response = agentRunClient.get(
+            runId,
+            issueToken(authorized.run(), userId, authorized.permissions()),
+            traceparent
+        );
         requireMatchingRun(runId, response == null ? null : response.runId());
-        projectionService.synchronize(runId, workspaceId, response);
-        return response;
+        return projectionService.synchronize(runId, workspaceId, response);
     }
 
     public Optional<AgentRunView> latestForProject(
@@ -278,7 +290,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
     private Optional<AgentRunView> synchronizeForProjectDeletion(
             UUID userId, UUID workspaceId, AgentRunEntity activeRun, String traceparent) {
         try {
-            return Optional.of(get(userId, workspaceId, activeRun.id(), traceparent));
+            return Optional.of(getRemote(userId, workspaceId, activeRun.id(), traceparent));
         } catch (RestClientResponseException error) {
             if (!error.getStatusCode().equals(HttpStatus.NOT_FOUND)) {
                 throw error;
@@ -296,7 +308,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             ResumeAgentRunRequest request,
             String traceparent) {
         AuthorizedRun authorized =
-                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND);
+                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RESPOND, true);
         if (authorized.run().credentialId() != null) {
             if (!userId.equals(authorized.run().initiatedBy()))
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN);
@@ -328,31 +340,39 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                         issueToken(authorized.run(), userId, authorized.permissions()),
                         traceparent);
         requireMatchingRun(runId, response == null ? null : response.runId());
-        projectionService.synchronize(runId, workspaceId, response);
-        return response;
+        return projectionService.synchronize(runId, workspaceId, response);
     }
 
-    public AgentEventStream events(
-            UUID userId, UUID workspaceId, UUID runId, Long lastEventId, String traceparent) {
-        AuthorizedRun authorized =
-                authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
-        return agentRunClient.events(
-                runId,
-                lastEventId,
-                issueToken(authorized.run(), userId, authorized.permissions()),
-                traceparent);
+    public AgentEventStream events(UUID userId, UUID workspaceId, UUID runId, Long lastEventId, String traceparent) {
+        AuthorizedRun authorized = authorizeRun(userId, workspaceId, runId, PermissionCode.AGENT_RUN);
+        try {
+            return agentRunClient.events(
+                runId, lastEventId, issueToken(authorized.run(), userId, authorized.permissions()), traceparent);
+        } catch (AgentEventStreamResponseException error) {
+            if (error.statusCode() != 404) throw error;
+            agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId)
+                .filter(run -> run.status() == AgentRunStatus.QUEUED).orElseThrow(() -> error);
+            // Delivery has not created the upstream stream yet. End without
+            // emitting a synthetic event or advancing the browser's cursor.
+            return new AgentEventStream(java.io.InputStream.nullInputStream());
+        }
     }
 
     private AuthorizedRun authorizeRun(
             UUID userId, UUID workspaceId, UUID runId, PermissionCode permission) {
+        return authorizeRun(userId, workspaceId, runId, permission, false);
+    }
+
+    private AuthorizedRun authorizeRun(
+            UUID userId, UUID workspaceId, UUID runId, PermissionCode permission, boolean lockRun) {
         MembershipPermissions membership =
                 permissionReader
                         .findActiveMembership(userId, workspaceId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         requirePermission(membership, permission);
         AgentRunEntity run =
-                agentRunRepository
-                        .findByIdAndWorkspaceId(runId, workspaceId)
+                (lockRun ? agentRunRepository.findByIdAndWorkspaceIdForUpdate(runId, workspaceId)
+                        : agentRunRepository.findByIdAndWorkspaceId(runId, workspaceId))
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new AuthorizedRun(run, permissionCodes(membership));
     }

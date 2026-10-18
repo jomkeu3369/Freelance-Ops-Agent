@@ -1,22 +1,31 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ApiError,
   AuthSession,
-  CreditModelRate,
-  getFreeUsageSettings,
   loadSession,
-  resetAllFreeUsage,
   saveSession,
-  subscribeToSessionRecovery,
-  updateFreeModelRate,
-  updateFreeUsageLimit
+  subscribeToSessionRecovery
 } from "../../app/lib/api";
 import { AdminSettingsRequests } from "../../app/lib/admin-settings-requests";
-import { isWeeklyCreditSettings, WeeklyCreditSettings } from "../../app/lib/credit-policy";
-import { parseFreeUsageLimit } from "../../app/lib/free-usage.mjs";
+import {
+  AiSpendingBudgets,
+  AiSpendingModel,
+  AiSpendingSettings,
+  canonicalUsd,
+  modelStartsPaused,
+  parseAiSpendingSettings,
+  parseUsdAmount,
+  platformStartsPaused,
+  spendingModelKey
+} from "../../app/lib/admin-ai-spending";
+import {
+  getAiSpendingSettings,
+  updateAiSpendingBudgets,
+  updateAiSpendingModel
+} from "../../app/lib/admin-ai-spending-api";
 import { LanguageSelector, useT } from "../../app/lib/ui-language";
 import { AuthGate } from "../workspace/auth/auth-gate";
 import { useDialogFocusTrap } from "../workspace/shared/use-dialog-focus-trap";
@@ -24,18 +33,25 @@ import "../workspace/auth/auth.css";
 import "../workspace/usage/free-usage.css";
 
 type Change = (
-  | { kind: "limit"; limit: number }
-  | { kind: "reset" }
-  | { kind: "rate"; before: CreditModelRate; after: CreditModelRate }
-) & { reviewed: WeeklyCreditSettings };
+  | { kind: "budgets"; after: AiSpendingBudgets }
+  | { kind: "model"; before: AiSpendingModel; after: AiSpendingModel }
+) & { reviewed: AiSpendingSettings };
+const emptyBudgets = { accountWeekUsd: "", globalDayUsd: "", globalWeekUsd: "" };
+const budgetFields = [
+  { key: "accountWeekUsd", id: "admin-account-week-usd", label: "계정당 주간 예산 (USD)" },
+  { key: "globalDayUsd", id: "admin-global-day-usd", label: "전체 일간 예산 (USD)" },
+  { key: "globalWeekUsd", id: "admin-global-week-usd", label: "전체 주간 예산 (USD)" }
+] as const;
+const staleMessage = "다른 관리자가 설정을 변경했습니다. 최신 값을 확인한 뒤 다시 승인해 주세요.";
 
+// Keep the route/export stable; this page now controls monetary platform guards, not legacy credits.
 export function FreeUsageAdmin() {
   const t = useT();
   const [hydrated, setHydrated] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
-  const [settings, setSettings] = useState<WeeklyCreditSettings | null>(null);
-  const [limit, setLimit] = useState("");
-  const [rateDrafts, setRateDrafts] = useState<Record<string, { credits: string; enabled: boolean }>>({});
+  const [settings, setSettings] = useState<AiSpendingSettings | null>(null);
+  const [budgets, setBudgets] = useState<AiSpendingBudgets>(emptyBudgets);
+  const [modelDrafts, setModelDrafts] = useState<Record<string, { maxRunUsd: string; enabled: boolean }>>({});
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,24 +64,63 @@ export function FreeUsageAdmin() {
   const dialog = useRef<HTMLElement>(null);
   useDialogFocusTrap(dialog, () => setChange(null), busy, change !== null, true);
 
-  useEffect(() => {
-    Promise.resolve().then(() => {
-      const next = loadSession();
-      requests.current.setScope(next ? `${next.userId}:${next.workspaceId}` : null);
-      setSession(next);
-      setHydrated(true);
+  const installSettings = useCallback((next: AiSpendingSettings) => {
+    setSettings(next);
+    setBudgets({
+      accountWeekUsd: next.accountWeekUsd,
+      globalDayUsd: next.globalDayUsd,
+      globalWeekUsd: next.globalWeekUsd
     });
-    return subscribeToSessionRecovery((next) => {
-      const changed = requests.current.setScope(next ? `${next.userId}:${next.workspaceId}` : null);
+    setModelDrafts(
+      Object.fromEntries(
+        next.models.map((model) => [
+          spendingModelKey(model),
+          { maxRunUsd: model.maxRunUsd, enabled: model.enabled }
+        ])
+      )
+    );
+    setChange(null);
+    setAcknowledged(false);
+    setForbidden(false);
+    setError(null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const guard = requests.current;
+    const receiveSession = (next: AuthSession | null) => {
+      if (!active) return;
+      const changed = guard.setScope(next ? `${next.userId}:${next.workspaceId}` : null);
       setSession(next);
       if (changed) {
         setSettings(null);
+        setBudgets(emptyBudgets);
+        setModelDrafts({});
         setChange(null);
+        setAcknowledged(false);
         setBusy(false);
         setLoading(!!next);
         setMessage(null);
+        setError(null);
+        setForbidden(false);
+      }
+    };
+    Promise.resolve().then(() => {
+      if (active) {
+        receiveSession(loadSession());
+        setHydrated(true);
       }
     });
+    const unsubscribe = subscribeToSessionRecovery(receiveSession);
+    const cleared = () => receiveSession(null);
+    window.addEventListener("freelance-ops-session-cleared", cleared);
+    return () => {
+      active = false;
+      unsubscribe();
+      window.removeEventListener("freelance-ops-session-cleared", cleared);
+      guard.setScope(null);
+    };
   }, []);
 
   useEffect(() => {
@@ -73,30 +128,18 @@ export function FreeUsageAdmin() {
     const request = requests.current.beginRead();
     if (request === null) return;
     let cancelled = false;
-    getFreeUsageSettings(session)
+    getAiSpendingSettings(session)
       .then((value) => {
         if (cancelled || !requests.current.acceptsRead(request)) return;
-        if (!isWeeklyCreditSettings(value)) throw new Error("주간 크레딧 관리자 계약을 확인하지 못했습니다.");
-        setRateDrafts(
-          Object.fromEntries(
-            value.modelRates.map((rate) => [
-              `${rate.provider}:${rate.model}`,
-              { credits: String(rate.credits), enabled: rate.enabled }
-            ])
-          )
-        );
-        setChange(null);
-        setAcknowledged(false);
-        setSettings(value);
-        setLimit(String(value.limit));
-        setForbidden(false);
-        setError(null);
-        setLoading(false);
+        const next = parseAiSpendingSettings(value);
+        if (!next) throw new Error("Invalid monetary settings contract");
+        installSettings(next);
       })
       .catch((cause) => {
         if (cancelled || !requests.current.acceptsRead(request)) return;
         setSettings(null);
         setChange(null);
+        setAcknowledged(false);
         setLoading(false);
         if (cause instanceof ApiError && cause.status === 403) setForbidden(true);
         else setError("관리자 설정을 확인하지 못했습니다. 다시 확인해 주세요.");
@@ -104,45 +147,62 @@ export function FreeUsageAdmin() {
     return () => {
       cancelled = true;
     };
-  }, [session, retry]);
+  }, [session, retry, installSettings]);
 
-  function prepareLimit(event: FormEvent) {
+  function prepareBudgets(event: FormEvent) {
     event.preventDefault();
     if (!settings || busy) return;
-    const value = parseFreeUsageLimit(limit, settings.maxLimit);
     setMessage(null);
-    if (value === null) {
-      setError("허용 범위 안의 정수만 입력해 주세요.");
+    if (budgetFields.some(({ key }) => parseUsdAmount(budgets[key], settings.maxBudgetUsd) === null)) {
+      const legacyBudgetRemains = budgetFields.some(
+        ({ key }) =>
+          parseUsdAmount(settings[key], settings.maxBudgetUsd) === null &&
+          canonicalUsd(budgets[key]) === canonicalUsd(settings[key])
+      );
+      setError(
+        legacyBudgetRemains
+          ? "수정 상한을 초과한 기존 예산이 남아 있습니다. 저장하려면 세 예산을 모두 0~{max} USD 범위로 조정해 주세요."
+          : "예산은 0~{max} USD, 소수점 이하 최대 8자리로 입력해 주세요."
+      );
       return;
     }
-    if (value === settings.limit) return;
+    if (budgetFields.every(({ key }) => canonicalUsd(budgets[key]) === canonicalUsd(settings[key]))) return;
     setError(null);
     setAcknowledged(false);
-    setChange({ kind: "limit", limit: value, reviewed: settings });
+    setChange({ kind: "budgets", after: { ...budgets }, reviewed: settings });
   }
 
-  function prepareRate(event: FormEvent, rate: CreditModelRate) {
+  function prepareModel(event: FormEvent, model: AiSpendingModel) {
     event.preventDefault();
     if (!settings || busy) return;
-    const draft = rateDrafts[`${rate.provider}:${rate.model}`];
-    const credits = draft ? parseFreeUsageLimit(draft.credits, 100000) : null;
-    if (!draft || credits === null || credits < 1) {
-      setError("모델 가격은 1~100000 크레딧 사이의 정수여야 합니다.");
+    const draft = modelDrafts[spendingModelKey(model)];
+    if (!draft || parseUsdAmount(draft.maxRunUsd, settings.maxModelRunUsd) === null) {
+      setError("모델 한도는 0~{max} USD, 소수점 이하 최대 8자리로 입력해 주세요.");
       return;
     }
-    if (credits === rate.credits && draft.enabled === rate.enabled) return;
+    if (canonicalUsd(draft.maxRunUsd) === canonicalUsd(model.maxRunUsd) && draft.enabled === model.enabled)
+      return;
     setError(null);
     setMessage(null);
     setAcknowledged(false);
-    setChange({ kind: "rate", before: rate, after: { ...rate, credits, enabled: draft.enabled }, reviewed: settings });
+    setChange({ kind: "model", before: model, after: { ...model, ...draft }, reviewed: settings });
+  }
+
+  function reload() {
+    if (busy) return;
+    setSettings(null);
+    setChange(null);
+    setAcknowledged(false);
+    setError(null);
+    setLoading(true);
+    setRetry((value) => value + 1);
   }
 
   async function applyChange() {
     if (!session || !settings || !change || !acknowledged) return;
-    if (settings.epoch !== change.reviewed.epoch || settings.updatedAt !== change.reviewed.updatedAt) {
-      setChange(null);
-      setAcknowledged(false);
-      setMessage("다른 관리자가 설정을 변경했습니다. 최신 값을 확인한 뒤 다시 승인해 주세요.");
+    if (settings.revision !== change.reviewed.revision) {
+      setMessage(staleMessage);
+      reload();
       return;
     }
     const mutation = requests.current.beginMutation();
@@ -151,49 +211,28 @@ export function FreeUsageAdmin() {
     setError(null);
     setMessage(null);
     try {
-      const next =
-        change.kind === "limit"
-          ? await updateFreeUsageLimit(session, change.reviewed, change.limit)
-          : change.kind === "rate"
-            ? await updateFreeModelRate(session, change.reviewed, change.after)
-            : await resetAllFreeUsage(session, change.reviewed);
+      const value =
+        change.kind === "budgets"
+          ? await updateAiSpendingBudgets(session, change.reviewed.revision, change.after)
+          : await updateAiSpendingModel(session, change.reviewed.revision, change.after);
       if (!requests.current.acceptsMutation(mutation)) return;
-      if (!isWeeklyCreditSettings(next)) throw new Error("주간 크레딧 관리자 계약을 확인하지 못했습니다.");
-      setRateDrafts(
-        Object.fromEntries(
-          next.modelRates.map((rate) => [
-            `${rate.provider}:${rate.model}`,
-            { credits: String(rate.credits), enabled: rate.enabled }
-          ])
-        )
-      );
-      setSettings(next);
-      setLimit(String(next.limit));
-      setChange(null);
-      setAcknowledged(false);
+      const next = parseAiSpendingSettings(value);
+      if (!next) throw new Error("Invalid monetary settings contract");
+      installSettings(next);
       setMessage(
-        change.kind === "limit"
-          ? "주간 크레딧 한도를 변경했습니다."
-          : change.kind === "rate"
-            ? "모델별 크레딧 가격을 변경했습니다."
-            : "모든 계정의 이번 주 크레딧 사용량을 초기화했습니다."
+        change.kind === "budgets" ? "기본 AI 비용 예산을 변경했습니다." : "기본 AI 모델 설정을 변경했습니다."
       );
     } catch (cause) {
       if (!requests.current.acceptsMutation(mutation)) return;
       setChange(null);
       setAcknowledged(false);
-      if (cause instanceof ApiError && cause.status === 403) {
-        setSettings(null);
-        setForbidden(true);
-      } else if (cause instanceof ApiError && cause.status === 409) {
-        setSettings(null);
+      setSettings(null);
+      if (cause instanceof ApiError && cause.status === 403) setForbidden(true);
+      else if (cause instanceof ApiError && cause.status === 409) {
         setLoading(true);
         setRetry((value) => value + 1);
-        setMessage("다른 관리자가 설정을 변경했습니다. 최신 값을 확인한 뒤 다시 승인해 주세요.");
-      } else {
-        setSettings(null);
-        setError("변경 결과를 확인하지 못했습니다. 다시 확인해 현재 값을 검토한 뒤 진행하세요.");
-      }
+        setMessage(staleMessage);
+      } else setError("변경 결과를 확인하지 못했습니다. 다시 확인해 현재 값을 검토한 뒤 진행하세요.");
     } finally {
       if (requests.current.acceptsMutation(mutation)) {
         requests.current.finishMutation(mutation);
@@ -202,6 +241,13 @@ export function FreeUsageAdmin() {
     }
   }
 
+  const budgetsUnchanged =
+    settings &&
+    budgetFields.every(
+      ({ key }) =>
+        parseUsdAmount(budgets[key], settings.maxBudgetUsd) !== null &&
+        canonicalUsd(budgets[key]) === canonicalUsd(settings[key])
+    );
   if (!hydrated)
     return (
       <main className="free-usage-admin">
@@ -217,6 +263,10 @@ export function FreeUsageAdmin() {
           requests.current.setScope(`${next.userId}:${next.workspaceId}`);
           saveSession(next);
           setSettings(null);
+          setChange(null);
+          setAcknowledged(false);
+          setMessage(null);
+          setError(null);
           setLoading(true);
           setForbidden(false);
           setSession(next);
@@ -243,91 +293,144 @@ export function FreeUsageAdmin() {
           {loading && <p role="status">{t("관리자 권한 확인 중…")}</p>}
           {error && (
             <p className="free-usage-warning" role="alert">
-              {t(error)}
+              {t(error, {
+                max: error.startsWith("모델")
+                  ? (settings?.maxModelRunUsd ?? "100")
+                  : (settings?.maxBudgetUsd ?? "100000")
+              })}
             </p>
           )}
           {message && <p role="status">{t(message)}</p>}
           {!loading && (
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={busy}
-              onClick={() => {
-                setSettings(null);
-                setChange(null);
-                setLoading(true);
-                setRetry((value) => value + 1);
-              }}
-            >
+            <button type="button" className="secondary-button" disabled={busy} onClick={reload}>
               {t("다시 확인")}
             </button>
           )}
           {settings && !loading && (
-            <section className="free-usage-admin-card" aria-labelledby="admin-quota-title">
-              <h2 id="admin-quota-title">{t("주간 크레딧 관리")}</h2>
-              <p>{t("모든 계정에 적용됩니다. 계정별 크레딧은 매주 월요일 00:00 (Asia/Seoul)에 초기화됩니다.")}</p>
-              <p className="free-usage-warning">
+            <section className="free-usage-admin-card" aria-labelledby="admin-spending-title">
+              <h2 id="admin-spending-title">{t("기본 AI 비용 관리")}</h2>
+              <p>
                 {t(
-                  "한도·모델 가격·사용 가능 여부를 바꾸거나 사용량을 초기화하면 기본 AI 호출과 운영 비용이 달라질 수 있습니다."
+                  "모든 금액은 USD(미국 달러)입니다. 계정당 주간 예산과 전체 계정 합산 일간·주간 예산을 관리합니다."
                 )}
               </p>
-              <form onSubmit={prepareLimit} noValidate>
-                <label htmlFor="admin-free-limit">
-                  {t("계정당 주간 크레딧 한도")}
-                  <input
-                    id="admin-free-limit"
-                    type="number"
-                    min={0}
-                    max={settings.maxLimit}
-                    step={1}
-                    inputMode="numeric"
-                    value={limit}
-                    disabled={busy}
-                    aria-describedby="admin-limit-help"
-                    onChange={(event) => setLimit(event.target.value)}
-                  />
-                </label>
-                <p id="admin-limit-help">
+              <p>
+                {t(
+                  "일간 예산은 매일 00:00, 주간 예산은 매주 월요일 00:00 (Asia/Seoul)에 새 기간이 시작됩니다."
+                )}
+              </p>
+              <p>
+                {t("비용 집행 상태 (읽기 전용): {state}", {
+                  state: settings.spendingEnabled ? t("켜짐") : t("꺼짐")
+                })}
+              </p>
+              {!settings.spendingEnabled && (
+                <p className="free-usage-warning">
                   {t(
-                    "0~{max} 크레딧 사이의 정수. 0은 새 기본 AI 시작을 일시 중지합니다. 이미 사용한 크레딧은 유지됩니다.",
-                    { max: settings.maxLimit }
+                    "서버에서 기본 AI 비용 집행이 꺼져 있습니다. 예산·모델 설정을 저장해도 비용 집행은 켜지지 않습니다."
                   )}
                 </p>
-                <button
-                  type="submit"
-                  className="primary-button"
-                  disabled={busy || parseFreeUsageLimit(limit, settings.maxLimit) === settings.limit}
-                >
-                  {t("한도 변경 검토")}
+              )}
+              {platformStartsPaused(settings) && <p>{t("새 기본 AI 시작이 일시 중지된 상태입니다.")}</p>}
+              <p>
+                {t(
+                  "0 예산, 0 모델 한도 또는 모델 사용 중지는 새 기본 AI 시작에만 적용됩니다. 이미 진행 중인 실행을 취소하지 않습니다."
+                )}
+              </p>
+              <p>
+                {t(
+                  "이미 확정된 비용과 진행 중·비용 미확인 실행의 예약액은 유지됩니다. 한도를 낮춰도 사용량이나 예약액은 초기화·환불되지 않습니다."
+                )}
+              </p>
+              <p>{t("개인 API 키(BYOK)의 개인 비용 한도와 제공사 청구는 별도로 적용됩니다.")}</p>
+              {budgetFields.some(
+                ({ key }) => parseUsdAmount(settings[key], settings.maxBudgetUsd) === null
+              ) && (
+                <p className="free-usage-warning">
+                  {t(
+                    "기존 예산 중 현재 수정 상한을 초과한 값이 있습니다. 저장된 값은 그대로 표시하며, 예산 변경 시 세 예산을 모두 0~{max} USD 범위로 조정해야 합니다.",
+                    { max: settings.maxBudgetUsd }
+                  )}
+                </p>
+              )}
+              <form onSubmit={prepareBudgets} noValidate>
+                <div className="admin-budget-fields">
+                  {budgetFields.map(({ key, id, label }) => (
+                    <label key={key} htmlFor={id}>
+                      {t(label)}
+                      <input
+                        id={id}
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={budgets[key]}
+                        disabled={busy}
+                        aria-describedby="admin-budget-help"
+                        onChange={(event) =>
+                          setBudgets((current) => ({ ...current, [key]: event.target.value }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p id="admin-budget-help">
+                  {t(
+                    "각 예산은 0~{max} USD, 소수점 이하 최대 8자리입니다. 하나라도 0이면 새 기본 AI 시작을 일시 중지합니다.",
+                    { max: settings.maxBudgetUsd }
+                  )}
+                </p>
+                <button type="submit" className="primary-button" disabled={busy || !!budgetsUnchanged}>
+                  {t("예산 변경 검토")}
                 </button>
               </form>
               <hr />
-              <h3>{t("모델별 크레딧 가격")}</h3>
-              <p>{t("기본 제공 AI에만 적용됩니다. 개인 API 키는 크레딧 대신 제공사 계정에 청구됩니다.")}</p>
-              {settings.modelRates.map((rate) => {
-                const key = `${rate.provider}:${rate.model}`;
-                const draft = rateDrafts[key] ?? { credits: String(rate.credits), enabled: rate.enabled };
+              <h3>{t("모델별 실행 한도·사용 가능 여부")}</h3>
+              <p>
+                {t(
+                  "실행당 최대 비용은 실제 요금이나 정액 가격이 아닌 비용 예약 한도입니다. 0 또는 사용 중지는 해당 모델의 새 기본 AI 시작을 일시 중지합니다."
+                )}
+              </p>
+              <p id="admin-model-help">
+                {t("모델 한도는 0~{max} USD, 소수점 이하 최대 8자리입니다.", {
+                  max: settings.maxModelRunUsd
+                })}
+              </p>
+              {settings.models.map((model) => {
+                const key = spendingModelKey(model);
+                const draft = modelDrafts[key] ?? { maxRunUsd: model.maxRunUsd, enabled: model.enabled };
+                const unchanged =
+                  parseUsdAmount(draft.maxRunUsd, settings.maxModelRunUsd) !== null &&
+                  canonicalUsd(draft.maxRunUsd) === canonicalUsd(model.maxRunUsd) &&
+                  draft.enabled === model.enabled;
                 return (
                   <form
                     key={key}
                     className="admin-model-rate"
-                    onSubmit={(event) => prepareRate(event, rate)}
+                    onSubmit={(event) => prepareModel(event, model)}
                     noValidate
                   >
                     <strong>
-                      {rate.provider} · {rate.model}
+                      {model.provider} · {model.model}
                     </strong>
+                    <p>
+                      {modelStartsPaused(model)
+                        ? t("이 모델의 새 기본 AI 시작: 일시 중지")
+                        : t("이 모델의 새 기본 AI 시작: 예산·서버 상태에 따라 사용 가능")}
+                    </p>
                     <label>
-                      {t("요청당 크레딧")}
+                      {t("실행당 최대 비용 (USD)")}
                       <input
-                        type="number"
-                        min={1}
-                        max={100000}
-                        step={1}
-                        value={draft.credits}
+                        type="text"
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={draft.maxRunUsd}
                         disabled={busy}
+                        aria-describedby="admin-model-help"
                         onChange={(event) =>
-                          setRateDrafts((current) => ({ ...current, [key]: { ...draft, credits: event.target.value } }))
+                          setModelDrafts((current) => ({
+                            ...current,
+                            [key]: { ...draft, maxRunUsd: event.target.value }
+                          }))
                         }
                       />
                     </label>
@@ -337,7 +440,7 @@ export function FreeUsageAdmin() {
                         checked={draft.enabled}
                         disabled={busy}
                         onChange={(event) =>
-                          setRateDrafts((current) => ({
+                          setModelDrafts((current) => ({
                             ...current,
                             [key]: { ...draft, enabled: event.target.checked }
                           }))
@@ -345,38 +448,12 @@ export function FreeUsageAdmin() {
                       />
                       {t("기본 제공 AI에서 사용 가능")}
                     </label>
-                    <button
-                      type="submit"
-                      className="secondary-button"
-                      disabled={busy || (draft.credits === String(rate.credits) && draft.enabled === rate.enabled)}
-                    >
-                      {t("모델 가격 변경 검토")}
+                    <button type="submit" className="secondary-button" disabled={busy || unchanged}>
+                      {t("모델 설정 변경 검토")}
                     </button>
                   </form>
                 );
               })}
-              <hr />
-              <h3>{t("전체 계정 사용량 초기화")}</h3>
-              <p>{t("이번 주 모든 계정의 사용·예약 크레딧을 새로 시작합니다. 실행 기록은 삭제하지 않습니다.")}</p>
-              <p>
-                {t(
-                  "이미 진행 중인 분석은 계속 실행되며 이전 사용량에 기록됩니다. 새 할당량에서 다시 차감하지 않아 추가 비용이 발생할 수 있습니다."
-                )}
-              </p>
-              {settings.lastResetAt && <p>{t("최근 전체 초기화: {date}", { date: settings.lastResetAt })}</p>}
-              <button
-                type="button"
-                className="danger-button"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setMessage(null);
-                  setAcknowledged(false);
-                  setChange({ kind: "reset", reviewed: settings });
-                }}
-              >
-                {t("전체 초기화 검토")}
-              </button>
             </section>
           )}
         </>
@@ -393,51 +470,64 @@ export function FreeUsageAdmin() {
             aria-busy={busy}
           >
             <h2 id="admin-confirm-title">
-              {change.kind === "reset"
-                ? t("전체 계정 사용량을 초기화할까요?")
-                : change.kind === "rate"
-                  ? t("모델 가격을 변경할까요?")
-                  : t("주간 한도를 변경할까요?")}
+              {change.kind === "budgets"
+                ? t("기본 AI 예산을 변경할까요?")
+                : t("기본 AI 모델 설정을 변경할까요?")}
             </h2>
             <p id="admin-confirm-description">
-              {change.kind === "limit"
-                ? t("모든 계정의 주간 크레딧 한도: {before} → {after}", {
-                    before: change.reviewed.limit,
-                    after: change.limit
-                  })
-                : change.kind === "rate"
-                  ? t("{model}: {before} → {after} 크레딧", {
-                      model: change.after.model,
-                      before: change.before.credits,
-                      after: change.after.credits
-                    })
-                  : t("이번 주 모든 계정의 사용·예약 크레딧을 새로 시작합니다. 실행 기록은 삭제하지 않습니다.")}
+              {t("검토한 USD 설정과 새 실행에 미치는 영향을 확인해 주세요.")}
             </p>
-            <p className="free-usage-warning">
-              {t(
-                "한도·모델 가격·사용 가능 여부를 바꾸거나 사용량을 초기화하면 기본 AI 호출과 운영 비용이 달라질 수 있습니다."
-              )}
-            </p>
-            {change.kind === "rate" && (
-              <p>
-                {t("사용 가능 여부: {before} → {after}", {
-                  before: change.before.enabled ? t("사용 가능") : t("사용 중지"),
-                  after: change.after.enabled ? t("사용 가능") : t("사용 중지")
-                })}
-              </p>
-            )}
-            {change.kind === "reset" && (
+            {change.kind === "budgets" ? (
+              budgetFields.map(({ key, label }) => (
+                <p key={key}>
+                  {t(label)}: {change.reviewed[key]} → {change.after[key]}
+                </p>
+              ))
+            ) : (
               <>
-                <p>{t("초기화 후 계정당 이번 주 한도는 {limit} 크레딧입니다.", { limit: change.reviewed.limit })}</p>
                 <p>
-                  {t(
-                    "이미 진행 중인 분석은 계속 실행되며 이전 사용량에 기록됩니다. 새 할당량에서 다시 차감하지 않아 추가 비용이 발생할 수 있습니다."
-                  )}
+                  {change.after.provider} · {change.after.model}
+                </p>
+                <p>
+                  {t("실행당 최대 비용: {before} → {after} USD", {
+                    before: change.before.maxRunUsd,
+                    after: change.after.maxRunUsd
+                  })}
+                </p>
+                <p>
+                  {t("사용 가능 여부: {before} → {after}", {
+                    before: change.before.enabled ? t("사용 가능") : t("사용 중지"),
+                    after: change.after.enabled ? t("사용 가능") : t("사용 중지")
+                  })}
                 </p>
               </>
             )}
-            {change.kind === "limit" && change.limit === 0 && (
-              <p>{t("0으로 변경하면 새 기본 AI 시작이 일시 중지됩니다.")}</p>
+            {(change.kind === "budgets"
+              ? budgetFields.some(({ key }) => canonicalUsd(change.after[key]) === "0")
+              : modelStartsPaused(change.after)) && (
+              <p className="free-usage-warning">
+                {change.kind === "budgets"
+                  ? t("0 예산으로 새 기본 AI 시작을 일시 중지합니다.")
+                  : t("이 모델의 새 기본 AI 시작을 일시 중지합니다.")}
+              </p>
+            )}
+            <p className="free-usage-warning">
+              {t(
+                "예산·모델 한도·사용 가능 여부를 변경하면 모든 계정의 새 기본 AI 실행과 운영 비용에 영향을 줄 수 있습니다."
+              )}
+            </p>
+            <p>
+              {t(
+                "이미 확정된 비용과 진행 중·비용 미확인 실행의 예약액은 유지됩니다. 한도를 낮춰도 사용량이나 예약액은 초기화·환불되지 않습니다."
+              )}
+            </p>
+            <p>{t("개인 API 키(BYOK)의 개인 비용 한도와 제공사 청구는 별도로 적용됩니다.")}</p>
+            {!change.reviewed.spendingEnabled && (
+              <p>
+                {t(
+                  "서버에서 기본 AI 비용 집행이 꺼져 있습니다. 예산·모델 설정을 저장해도 비용 집행은 켜지지 않습니다."
+                )}
+              </p>
             )}
             <label className="free-usage-checkbox">
               <input
@@ -460,17 +550,11 @@ export function FreeUsageAdmin() {
               </button>
               <button
                 type="button"
-                className={change.kind === "reset" ? "danger-button" : "primary-button"}
+                className="primary-button"
                 disabled={!acknowledged || busy}
                 onClick={applyChange}
               >
-                {busy
-                  ? t("처리 중…")
-                  : change.kind === "reset"
-                    ? t("전체 초기화 승인")
-                    : change.kind === "rate"
-                      ? t("모델 가격 변경 승인")
-                      : t("한도 변경 승인")}
+                {busy ? t("처리 중…") : t("변경 승인")}
               </button>
             </div>
           </section>

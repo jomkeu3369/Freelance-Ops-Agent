@@ -132,6 +132,8 @@ jobs:
             tests/browser/chat-attachments.spec.mjs \
             tests/browser/attachment-cards.spec.mjs \
             tests/browser/admin-members.spec.mjs \
+            tests/browser/admin-costs.spec.mjs \
+            tests/browser/run-continuity.spec.mjs \
             tests/browser/composer-toolbar.spec.mjs \
             tests/browser/fullscreen-chat.spec.mjs \
             tests/browser/short-height-chat.spec.mjs \

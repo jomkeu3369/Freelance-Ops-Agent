@@ -26,6 +26,15 @@ public class AgentInterruptionService {
         this.repository = repository;
     }
 
+    public boolean alreadyResponded(AgentRunEntity run, AgentRunView.AgentInterruption incoming) {
+        if (incoming == null) return false;
+        return repository.findByIdAndWorkspaceIdAndAgentRunId(incoming.interruptionId(), run.workspaceId(), run.id())
+            .map(existing -> {
+                requireSamePayload(existing, incoming);
+                return existing.status() == InterruptionStatus.RESPONDED;
+            }).orElse(false);
+    }
+
     public void synchronize(AgentRunEntity run, AgentRunView view) {
         AgentRunView.AgentInterruption interruption = view.interruption();
         if (interruption == null) {

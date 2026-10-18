@@ -283,7 +283,7 @@ public class PlatformUsageService {
                             String reason =
                                     !enabled
                                             ? "SPENDING_DISABLED"
-                                            : !active
+                                            : (!active || row.getBigDecimal(2).signum() <= 0)
                                                     ? "MODEL_DISABLED"
                                                     : (id.equals("gpt-5.6-sol")
                                                                     && !now.isBefore(

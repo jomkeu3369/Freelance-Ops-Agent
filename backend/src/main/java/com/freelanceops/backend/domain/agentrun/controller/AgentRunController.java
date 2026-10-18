@@ -9,6 +9,8 @@ import com.freelanceops.backend.domain.agentrun.service.AgentRunGatewayService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,10 +37,19 @@ public class AgentRunController {
             Pattern.compile("^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$");
     private final AgentRunGatewayService gatewayService;
     private final AgentEventRelay eventRelay;
+    private final long eventStreamTimeoutMs;
 
-    public AgentRunController(AgentRunGatewayService gatewayService, AgentEventRelay eventRelay) {
+    @Autowired
+    public AgentRunController(AgentRunGatewayService gatewayService, AgentEventRelay eventRelay,
+                             @Value("${agent.event-stream-timeout-ms:30000}") long eventStreamTimeoutMs) {
+        if (eventStreamTimeoutMs <= 0) throw new IllegalArgumentException("event stream timeout must be positive");
         this.gatewayService = gatewayService;
         this.eventRelay = eventRelay;
+        this.eventStreamTimeoutMs = eventStreamTimeoutMs;
+    }
+
+    public AgentRunController(AgentRunGatewayService gatewayService, AgentEventRelay eventRelay) {
+        this(gatewayService, eventRelay, 30000);
     }
 
     @PostMapping("/projects/{projectId}/agent-runs")
@@ -120,7 +131,7 @@ public class AgentRunController {
                         runId,
                         lastEventId,
                         trustedTraceparent(traceparent));
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = new SseEmitter(eventStreamTimeoutMs);
         emitter.onCompletion(() -> closeQuietly(stream));
         emitter.onTimeout(() -> closeQuietly(stream));
         Thread.startVirtualThread(() -> eventRelay.relay(stream, runId, cursor, emitter));

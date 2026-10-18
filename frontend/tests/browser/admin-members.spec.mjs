@@ -191,3 +191,45 @@ test("session loss during ledger refresh cannot restore a selected member or cos
   await expect(page.getByRole("table")).toHaveCount(0);
   await expect(page.getByText("member1@example.invalid", { exact: true })).toHaveCount(0);
 });
+
+test("monetary audits preserve USD values and revision labels while legacy credits retain epochs", async ({ page }) => {
+  const state = await fixture(page);
+  // Audit values are serialized backend snapshots, displayed without parsing/rounding.
+  const previousBudgets = '{"accountWeekUsd":99999999999.99999999,"globalDayUsd":20.12345678,"globalWeekUsd":100.00000001}';
+  const nextBudgets = '{"accountWeekUsd":1E-8,"globalDayUsd":20.12345678,"globalWeekUsd":100.00000001}';
+  const previousModel = '{"provider":"OPENAI","model":"gpt-6-luna","maxRunUsd":0.25000001,"enabled":true}';
+  const nextModel = '{"provider":"OPENAI","model":"gpt-6-luna","maxRunUsd":1E-8,"enabled":false}';
+  const events = [
+    { id: "spend-budget", source: "PLATFORM_SPEND", actorUserId: "synthetic-admin", action: "CHANGE_BUDGETS", target: "budgets", previousValue: previousBudgets, newValue: nextBudgets, previousEpoch: 7, newEpoch: 8, createdAt: "2026-10-05T00:00:00Z" },
+    { id: "spend-model", source: "PLATFORM_SPEND", actorUserId: "synthetic-admin", action: "CHANGE_MODEL", target: "OPENAI:gpt-6-luna", previousValue: previousModel, newValue: nextModel, previousEpoch: 8, newEpoch: 9, createdAt: "2026-10-05T00:01:00Z" },
+    { id: "legacy-reset", source: "WEEKLY_CREDITS", actorUserId: "synthetic-admin", action: "RESET_ALL", target: "weekly_credits", previousValue: "100", newValue: "100", previousEpoch: 2, newEpoch: 3, createdAt: "2026-10-04T00:00:00Z" },
+    { id: "legacy-model", source: "WEEKLY_CREDITS", actorUserId: "synthetic-admin", action: "CHANGE_MODEL", target: "OPENAI:gpt-5.6-luna", previousValue: "10", newValue: "15", previousEpoch: 3, newEpoch: 3, createdAt: "2026-10-04T00:01:00Z" },
+  ];
+  await page.route("**/api/v2/admin/member-audit-events**", route => {
+    state.requests.push({ path: "/api/v2/admin/member-audit-events", method: route.request().method() });
+    return route.fulfill({ json: { items: events, total: events.length, page: 0, size: 25, recordingStartedAt: null } });
+  });
+  await page.goto("/admin/members", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "관리자 변경 기록", exact: true }).click();
+  const budgets = page.getByRole("row").filter({ hasText: "budgets" });
+  await expect(budgets.getByRole("cell", { name: "비용 예산 변경", exact: true })).toBeVisible();
+  await expect(budgets).toContainText(`${previousBudgets} → ${nextBudgets}`);
+  await expect(budgets.getByRole("cell").last()).toContainText("설정 버전");
+  await expect(budgets.getByRole("cell").last()).toContainText("7 → 8");
+  const model = page.getByRole("row").filter({ hasText: "OPENAI:gpt-6-luna" });
+  await expect(model.getByRole("cell", { name: "모델 비용 한도·사용 가능 여부 변경", exact: true })).toBeVisible();
+  await expect(model).toContainText(`${previousModel} → ${nextModel}`);
+  await expect(model.getByRole("cell").last()).toContainText("설정 버전");
+  await expect(model.getByRole("cell").last()).toContainText("8 → 9");
+  // String hasText is case-insensitive: "weekly_credits" also matches both rows
+  // through their WEEKLY_CREDITS source. Select the actual reset action instead.
+  const legacyReset = page.getByRole("row").filter({ has: page.getByRole("cell", { name: "전체 초기화", exact: true }) });
+  await expect(legacyReset).toHaveCount(1);
+  await expect(legacyReset.getByRole("cell", { name: "전체 초기화", exact: true })).toBeVisible();
+  await expect(legacyReset.getByRole("cell").last()).toContainText("초기화 세대");
+  await expect(legacyReset.getByRole("cell").last()).toContainText("2 → 3");
+  const legacyModel = page.getByRole("row").filter({ hasText: "OPENAI:gpt-5.6-luna" });
+  await expect(legacyModel.getByRole("cell", { name: "모델 가격 변경", exact: true })).toBeVisible();
+  await expect(legacyModel.getByRole("cell", { name: "10 → 15", exact: true })).toBeVisible();
+  expect(state.requests.every(request => request.method === "GET")).toBe(true);
+});

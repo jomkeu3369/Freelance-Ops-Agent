@@ -38,3 +38,11 @@ test("MP4 faststart metadata precedes video payload and poster is a WebP", async
   assert.equal(poster.toString("ascii", 0, 4), "RIFF");
   assert.equal(poster.toString("ascii", 8, 12), "WEBP");
 });
+
+test("the still-mode fallback remains the original approved same-origin WebP", async () => {
+  const still = await readFile(new URL("login/pet-path-poster-v1.webp", root));
+  assert.equal(still.length, 113720);
+  assert.equal(createHash("sha256").update(still).digest("hex"), "65b8c168cbc9e53ab9a837eba46f60ca3d518e3dd6d455c1b7ee96e8f474eb9b");
+  assert.equal(still.toString("ascii", 0, 4), "RIFF");
+  assert.equal(still.toString("ascii", 8, 12), "WEBP");
+});

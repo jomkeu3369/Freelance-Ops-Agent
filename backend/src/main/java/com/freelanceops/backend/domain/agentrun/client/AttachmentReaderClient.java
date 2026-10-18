@@ -31,9 +31,9 @@ public class AttachmentReaderClient {
             @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
         var factory =
                 new JdkClientHttpRequestFactory(
-                        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build());
+                        HttpAgentRunClient.http11Client(Duration.ofSeconds(2)));
         factory.setReadTimeout(Duration.ofSeconds(20));
-        client = builder.baseUrl(baseUrl).requestFactory(factory).build();
+        client = builder.clone().baseUrl(baseUrl).requestFactory(factory).build();
     }
 
     public AttachmentText read(Input input, String token) {

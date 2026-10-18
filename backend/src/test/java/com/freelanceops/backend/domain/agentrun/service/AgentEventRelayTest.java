@@ -7,11 +7,17 @@ import org.junit.jupiter.api.Test;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
-
+import com.freelanceops.backend.domain.agentrun.client.AgentEventStream;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 class AgentEventRelayTest {
     private final ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules().build();
@@ -101,6 +107,40 @@ class AgentEventRelayTest {
 
         assertThat(event.type()).isEqualTo("run.partial");
         assertThat(event.data()).containsEntry("errorCode", "MODEL_CALL_BUDGET_EXCEEDED");
+    }
+
+    @Test
+    void allowsRealTaskProgressAndSavedDepartmentsBeforeLaterTerminalEvents() throws Exception {
+        UUID runId = UUID.randomUUID();
+        long cursor = 1;
+        for (String type : new String[] {"task.delegated", "task.completed", "department.saved", "task.failed", "run.failed"}) {
+            long eventId = cursor + 1;
+            String data = objectMapper.writeValueAsString(Map.of(
+                "eventId", eventId, "runId", runId, "type", type, "occurredAt", Instant.now(),
+                "data", Map.of("department", "REQUIREMENTS")
+            ));
+            var event = relay.parse(Long.toString(eventId), type, data, runId, cursor);
+            assertThat(event.type()).isEqualTo(type);
+            cursor = event.eventId();
+        }
+        assertThat(cursor).isEqualTo(6);
+    }
+
+    @Test
+    void relaysKnowledgeRetrievalAndTheFollowingCompletionWithoutBreakingTheStream() throws Exception {
+        UUID runId = UUID.randomUUID();
+        String knowledge = objectMapper.writeValueAsString(Map.of(
+            "eventId", 1, "runId", runId, "type", "knowledge.retrieved", "occurredAt", Instant.now(),
+            "data", Map.of("document_ids", java.util.List.of(), "mode", "keyword", "confirmed_only", true)));
+        String complete = objectMapper.writeValueAsString(Map.of(
+            "eventId", 2, "runId", runId, "type", "run.completed", "occurredAt", Instant.now(), "data", Map.of()));
+        String body = "id: 1\nevent: knowledge.retrieved\ndata: " + knowledge
+            + "\n\nid: 2\nevent: run.completed\ndata: " + complete + "\n\n";
+        var emitter = mock(SseEmitter.class);
+        relay.relay(new AgentEventStream(new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8))), runId, 0, emitter);
+        verify(emitter, times(2)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(emitter).complete();
+        verify(emitter, never()).completeWithError(any());
     }
 
     @Test

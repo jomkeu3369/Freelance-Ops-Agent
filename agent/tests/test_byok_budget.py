@@ -30,7 +30,7 @@ from contracts import (
 )
 from personal_credentials import credential_scope
 from platform_budget import PlatformBudgetError, budgeted_openai_attempt, reject_unbounded_operation
-from providers import CompositeModelProvider, GeminiModelProvider, OpenAIModelProvider
+from providers import OpenAIModelProvider, ProviderNotConfiguredError, ScopedModelProvider
 from runtime import ExecutionAuthorization, ExecutionOutcome, InMemoryAgentRunStore, RunCoordinator
 from runtime.executor import OperationalAgentExecutor
 from runtime.run_state import merge_usage
@@ -234,7 +234,7 @@ def scoped(request):
 async def call(request, *, max_attempts=2):
     platform = AsyncMock()
     with credential_scope("delegated-offline", request.context.run_id):
-        result = await CompositeModelProvider(platform, platform).generate_structured(
+        result = await ScopedModelProvider(platform).generate_structured(
             request.model_selection, "offline only", max_output_tokens=100, max_attempts=max_attempts
         )
     platform.generate_structured.assert_not_awaited()
@@ -419,9 +419,11 @@ async def test_ambient_and_direct_supplied_clients_cannot_use_byok_scope():
             await OpenAIModelProvider(fake).generate_structured(
                 request.model_selection.model_copy(update={"credential_id": None}), "offline", max_output_tokens=100
             )
-        with pytest.raises(PlatformBudgetError, match="BYOK_GEMINI_UNSUPPORTED"):
-            await GeminiModelProvider(fake).generate_structured(
-                request.model_selection, "offline", max_output_tokens=100
+        with pytest.raises(ProviderNotConfiguredError, match="no longer supported: GEMINI"):
+            await ScopedModelProvider(fake).generate_structured(
+                request.model_selection.model_copy(update={"provider": Provider.GEMINI}),
+                "offline",
+                max_output_tokens=100
             )
     fake.responses.create.assert_not_awaited()
 
@@ -439,7 +441,7 @@ async def test_ad_hoc_run_routes_locally_and_persists_closed_scope(monkeypatch):
     http.install(monkeypatch)
     router = AsyncMock()
     platform = AsyncMock()
-    executor = OperationalAgentExecutor(router, CompositeModelProvider(platform, platform))
+    executor = OperationalAgentExecutor(router, ScopedModelProvider(platform))
     store = InMemoryAgentRunStore()
     coordinator = RunCoordinator(
         store, executor, require_platform_budget=True, allow_memory_platform_budget_for_tests=True
@@ -680,7 +682,7 @@ async def test_shared_defaults_complete_without_upgrading_legacy_scopes(monkeypa
     platform = AsyncMock()
     executor = OperationalAgentExecutor(
         router,
-        CompositeModelProvider(platform, platform),
+        ScopedModelProvider(platform),
         tools,
         research,
         shadow,
@@ -943,7 +945,7 @@ async def run_realistic_project(monkeypatch, *, needs_tools=False, oversized=Fal
     embedder, router, platform, research, shadow = [AsyncMock() for _ in range(5)]
     executor = OperationalAgentExecutor(
         router,
-        CompositeModelProvider(platform, platform),
+        ScopedModelProvider(platform),
         tools,
         research,
         shadow,

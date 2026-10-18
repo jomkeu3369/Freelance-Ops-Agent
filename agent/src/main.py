@@ -14,7 +14,7 @@ from attachments.router import router as attachments_router
 from config import get_settings
 from infrastructure.readiness import DatabaseReadinessProbe
 from observability import configure_langsmith_privacy, trace_context_middleware
-from retrieval import CompositeRaptorBuildService, GeminiRaptorBuildService, OpenAIRaptorBuildService
+from retrieval import OpenAIRaptorBuildService
 from runtime import PostgresTaskCommandInbox, RunCoordinator
 from runtime.bootstrap import RuntimeComponents, build_delegation_token_verifier, build_run_runtime
 from runtime.lifespan import lifespan
@@ -44,9 +44,7 @@ def create_app(*, run_coordinator: RunCoordinator | None = None, delegation_toke
         components.services.task_command_inbox if components.services is not None else None
     )
     app.state.ai_gateway = components.model_gateway
-    app.state.raptor_build_service = raptor_build_service or CompositeRaptorBuildService(
-        OpenAIRaptorBuildService(), GeminiRaptorBuildService()
-    )
+    app.state.raptor_build_service = raptor_build_service or OpenAIRaptorBuildService()
     app.state.delegation_token_verifier = delegation_token_verifier or build_delegation_token_verifier()
     for router in (
         health_router,

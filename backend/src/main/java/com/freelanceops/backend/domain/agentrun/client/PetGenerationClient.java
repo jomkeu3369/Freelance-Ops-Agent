@@ -37,9 +37,9 @@ public class PetGenerationClient {
             @Value("${agent.base-url:http://localhost:8000}") String baseUrl) {
         var factory =
                 new JdkClientHttpRequestFactory(
-                        HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
+                        HttpAgentRunClient.http11Client(Duration.ofSeconds(5)));
         factory.setReadTimeout(Duration.ofSeconds(35));
-        client = builder.baseUrl(baseUrl).requestFactory(factory).build();
+        client = builder.clone().baseUrl(baseUrl).requestFactory(factory).build();
     }
 
     public Output generate(Input input, String token) {
