@@ -474,7 +474,7 @@ class ByokExecutionPostgresTest {
     }
 
     @Test
-    void authenticatedPersonalStartGets150kWhilePlatformAndHigherPersonalRequestsRemainDenied() {
+    void authenticatedPersonalStartGets150kWhilePlatformDisableAndCurrentInputCapsRemainEnforced() {
         var safety =
                 new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
                         .SafetyContext(false, false, false, false, false, false, false);
@@ -521,11 +521,24 @@ class ByokExecutionPostgresTest {
                         "en",
                         null,
                         selection(null),
-                        fullBudget(50001),
+                        fullBudget(100001),
                         safety);
         assertThatThrownBy(() -> gateway.start(user, workspace, project, platformRequest, null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("422");
+        var withinPlatformInputCap =
+                new com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest(
+                        "Synthetic analysis",
+                        "en",
+                        null,
+                        selection(null),
+                        fullBudget(100000),
+                        safety);
+        // 기술적 입력 상한을 통과해도 명시적으로 꺼진 플랫폼 비용 집행은 허용하지 않는다.
+        assertThatThrownBy(
+                        () -> gateway.start(user, workspace, project, withinPlatformInputCap, null))
+                .isInstanceOf(PlatformSpendUnavailableException.class)
+                .hasMessageContaining("503 SERVICE_UNAVAILABLE");
         for (var unauthorized :
                 List.of(
                         selection(UUID.randomUUID()),
