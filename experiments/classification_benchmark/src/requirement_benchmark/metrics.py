@@ -31,7 +31,7 @@ def latency_metrics(latencies_ms: Sequence[float], elapsed_seconds: float) -> di
 
 
 def exact_mcnemar(y_true: Sequence[int], pred_a: Sequence[int], pred_b: Sequence[int]) -> dict[str, Any]:
-    """Two-sided exact McNemar test without a SciPy dependency."""
+    """SciPy 없이 양측 정확 McNemar 검정을 계산한다."""
     a_only = sum(a == truth and b != truth for truth, a, b in zip(y_true, pred_a, pred_b))
     b_only = sum(b == truth and a != truth for truth, a, b in zip(y_true, pred_a, pred_b))
     discordant = a_only + b_only

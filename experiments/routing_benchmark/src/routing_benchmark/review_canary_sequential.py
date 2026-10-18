@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .report_io import write_csv as _write_csv
 from .review_canary_power import CONFIDENCE_Z, SAMPLE_SIZES, TARGET_RATE, wilson_bounds
 
 plt.switch_backend("Agg")
@@ -101,13 +101,6 @@ def evaluate_review_canary_sequential(output_dir: Path, trials: int = 20_000, se
     table_path = output_dir / "review_canary_sequential_table.png"
     _plot_table(table_path, summaries)
     return [json_path, csv_path, dashboard_path, table_path]
-
-
-def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:

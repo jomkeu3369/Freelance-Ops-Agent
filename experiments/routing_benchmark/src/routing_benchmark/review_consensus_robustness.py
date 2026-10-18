@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,6 +8,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .report_io import write_csv as _write_csv
 from .review_consensus import (
     NATURAL_DUAL_FRACTIONS,
     RISK_FRACTION,
@@ -174,13 +174,6 @@ def evaluate_consensus_robustness(output_dir: Path, trials: int = 5_000, seed: i
     table_path = output_dir / "review_consensus_robustness_table.png"
     _plot_table(table_path, reported)
     return [report_path, csv_path, dashboard_path, table_path]
-
-
-def _write_csv(path: Path, selected: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=list(selected[0]))
-        writer.writeheader()
-        writer.writerows(selected)
 
 
 def _plot_dashboard(path: Path, payload: dict[str, Any]) -> None:

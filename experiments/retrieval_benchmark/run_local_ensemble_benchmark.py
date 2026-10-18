@@ -25,14 +25,14 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def ensemble_decisions(verifier_scores: np.ndarray, reader_scores: np.ndarray, *, verifier_reject: float, verifier_accept: float, reader_reject: float, reader_accept: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def ensemble_decisions(verifier_scores: np.ndarray, reader_scores: np.ndarray, *, verifier_reject: float, verifier_accept: float, reader_reject: float, reader_accept: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:  # noqa: E501
     accepted = (verifier_scores >= verifier_accept) & (reader_scores >= reader_accept)
     rejected = (verifier_scores <= verifier_reject) & (reader_scores <= reader_reject)
     fallback = ~(accepted | rejected)
     return accepted, rejected, fallback
 
 
-def decision_metrics(labels: np.ndarray, accepted: np.ndarray, rejected: np.ndarray, fallback: np.ndarray) -> dict[str, float | int]:
+def decision_metrics(labels: np.ndarray, accepted: np.ndarray, rejected: np.ndarray, fallback: np.ndarray) -> dict[str, float | int]:  # noqa: E501
     resolved = accepted | rejected
     correct = (accepted & labels) | (rejected & ~labels)
     false_accepts = int(np.sum(accepted & ~labels))

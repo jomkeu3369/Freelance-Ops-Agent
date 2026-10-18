@@ -28,7 +28,7 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def select_paired_prediction_ids(classifiers: list[dict[str, Any]], max_samples: int, *, seed: int) -> list[str]:
-    """Select one deterministic set of IDs shared by every A/B classifier."""
+    """모든 비교 모델에 공통으로 존재하는 ID에서 같은 평가 표본을 고른다."""
     common_ids = set.intersection(
         *[{prediction["id"] for prediction in item["predictions"]} for item in classifiers]
     )

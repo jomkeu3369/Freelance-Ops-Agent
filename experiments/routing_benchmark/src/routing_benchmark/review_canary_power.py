@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import json
 import math
 from datetime import UTC, datetime
@@ -9,6 +8,8 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from .report_io import write_csv as _write_csv
 
 plt.switch_backend("Agg")
 
@@ -119,13 +120,6 @@ def evaluate_review_canary_power(output_dir: Path, trials: int = 5_000, seed: in
     table_path = output_dir / "review_canary_power_table.png"
     _plot_table(table_path, selected)
     return [json_path, csv_path, dashboard_path, table_path]
-
-
-def _write_csv(path: Path, selected: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8-sig", newline="") as output:
-        writer = csv.DictWriter(output, fieldnames=list(selected[0]))
-        writer.writeheader()
-        writer.writerows(selected)
 
 
 def _plot_dashboard(path: Path, rows: list[dict[str, float | int | str]]) -> None:

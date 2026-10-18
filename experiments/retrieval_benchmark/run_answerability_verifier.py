@@ -50,14 +50,14 @@ def chunk_contains_answer(chunk: str, answers: tuple[str, ...]) -> bool:
     return any("".join(answer.split()).casefold() in compact_chunk for answer in answers)
 
 
-def retrieve_indices(corpus_vectors: np.ndarray, query_vectors: np.ndarray, chunks: list[Any], *, top_k: int = 3) -> list[list[int]]:
+def retrieve_indices(corpus_vectors: np.ndarray, query_vectors: np.ndarray, chunks: list[Any], *, top_k: int = 3) -> list[list[int]]:  # noqa: E501
     return [
         _deduplicated_top_indices(corpus_vectors @ query_vector, chunks, k=top_k)
         for query_vector in query_vectors
     ]
 
 
-def build_training_pairs(rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, seed: int = 42) -> list[PairExample]:
+def build_training_pairs(rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, seed: int = 42) -> list[PairExample]:  # noqa: E501
     rng = random.Random(seed)
     chunks_by_document: dict[str, list[int]] = {}
     for index, chunk in enumerate(chunks):
@@ -97,7 +97,7 @@ def build_training_pairs(rows: list[dict[str, Any]], chunks: list[Any], retrieve
     return pairs
 
 
-def score_cases(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:
+def score_cases(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:  # noqa: E501
     import torch
 
     selected = [
@@ -142,7 +142,7 @@ def score_cases(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: 
     return labels, scores, elapsed_ms
 
 
-def train_verifier(pairs: list[PairExample], *, model_id: str, device_name: str, epochs: int, batch_size: int, learning_rate: float, max_length: int, seed: int) -> tuple[Any, Any, dict[str, Any]]:
+def train_verifier(pairs: list[PairExample], *, model_id: str, device_name: str, epochs: int, batch_size: int, learning_rate: float, max_length: int, seed: int) -> tuple[Any, Any, dict[str, Any]]:  # noqa: E501
     import torch
     from torch.optim import AdamW
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -208,7 +208,7 @@ def train_verifier(pairs: list[PairExample], *, model_id: str, device_name: str,
     return model, tokenizer, metadata
 
 
-def plot_results(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:
+def plot_results(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:  # noqa: E501
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     axes[0].hist(scores[~labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73")
     axes[0].hist(scores[labels], bins=20, alpha=0.65, label="answerable", color="#53d68b")

@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def reciprocal_rank_fusion(dense_scores: np.ndarray, lexical_scores: np.ndarray, chunks: list[Any], *, top_k: int, pool_size: int = 50, rank_constant: int = 60) -> list[int]:
+def reciprocal_rank_fusion(dense_scores: np.ndarray, lexical_scores: np.ndarray, chunks: list[Any], *, top_k: int, pool_size: int = 50, rank_constant: int = 60) -> list[int]:  # noqa: E501
     fused: dict[int, float] = {}
     for scores in (dense_scores, lexical_scores):
         for rank, index in enumerate(np.argsort(-scores)[:pool_size], start=1):
@@ -45,7 +45,7 @@ def reciprocal_rank_fusion(dense_scores: np.ndarray, lexical_scores: np.ndarray,
     return selected
 
 
-def build_hybrid_retrieval(rows: list[dict[str, Any]], chunks: list[Any], corpus_vectors: np.ndarray, query_vectors: np.ndarray, *, top_k: int) -> list[list[int]]:
+def build_hybrid_retrieval(rows: list[dict[str, Any]], chunks: list[Any], corpus_vectors: np.ndarray, query_vectors: np.ndarray, *, top_k: int) -> list[list[int]]:  # noqa: E501
     bm25 = BM25Index([chunk.text for chunk in chunks])
     return [
         reciprocal_rank_fusion(
@@ -55,7 +55,7 @@ def build_hybrid_retrieval(rows: list[dict[str, Any]], chunks: list[Any], corpus
     ]
 
 
-def score_all_pairs(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, float]:
+def score_all_pairs(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, float]:  # noqa: E501
     import torch
 
     pairs = [
@@ -125,7 +125,7 @@ def choose_reject_threshold(labels: np.ndarray, scores: np.ndarray, *, max_false
     return max(valid) if valid else float(np.nextafter(scores.min(), -math.inf))
 
 
-def selective_metrics(labels: np.ndarray, scores: np.ndarray, *, reject_threshold: float, accept_threshold: float) -> dict[str, float | int]:
+def selective_metrics(labels: np.ndarray, scores: np.ndarray, *, reject_threshold: float, accept_threshold: float) -> dict[str, float | int]:  # noqa: E501
     accepted = scores >= accept_threshold
     rejected = scores <= reject_threshold
     fallback = ~(accepted | rejected)
@@ -150,7 +150,7 @@ def selective_metrics(labels: np.ndarray, scores: np.ndarray, *, reject_threshol
     }
 
 
-def retrieval_recall(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], *, split: str, k: int) -> float:
+def retrieval_recall(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], *, split: str, k: int) -> float:  # noqa: E501
     hits: list[bool] = []
     for row, indices in zip(rows, retrieved, strict=True):
         if row["benchmark_split"] != split or not row["answerable"]:
@@ -159,7 +159,7 @@ def retrieval_recall(rows: list[dict[str, Any]], retrieved: list[list[int]], chu
     return float(np.mean(hits)) if hits else 0.0
 
 
-def estimate_llm_cost(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], fallback: np.ndarray) -> dict[str, float | int]:
+def estimate_llm_cost(rows: list[dict[str, Any]], retrieved: list[list[int]], chunks: list[Any], fallback: np.ndarray) -> dict[str, float | int]:  # noqa: E501
     characters = sum(
         len(row["question"]) + sum(len(chunks[index].text) for index in indices[:3])
         for row, indices, use_llm in zip(rows, retrieved, fallback, strict=True)
@@ -177,7 +177,7 @@ def estimate_llm_cost(rows: list[dict[str, Any]], retrieved: list[list[int]], ch
     }
 
 
-def plot_pipeline(test_labels: np.ndarray, test_scores: np.ndarray, reject_threshold: float, accept_threshold: float, metrics: dict[str, float | int], output: Path) -> None:
+def plot_pipeline(test_labels: np.ndarray, test_scores: np.ndarray, reject_threshold: float, accept_threshold: float, metrics: dict[str, float | int], output: Path) -> None:  # noqa: E501
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     axes[0].hist(
         test_scores[~test_labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73"

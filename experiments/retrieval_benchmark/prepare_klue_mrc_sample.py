@@ -47,7 +47,7 @@ def context_id(source_split: str, context: str) -> str:
     return f"klue-mrc-{source_split}-{digest}"
 
 
-def select_balanced(rows: list[dict[str, Any]], *, source_split: str, benchmark_split: str, per_label: int, excluded_contexts: set[str], rng: random.Random) -> list[dict[str, Any]]:
+def select_balanced(rows: list[dict[str, Any]], *, source_split: str, benchmark_split: str, per_label: int, excluded_contexts: set[str], rng: random.Random) -> list[dict[str, Any]]:  # noqa: E501
     candidates: dict[bool, list[dict[str, Any]]] = defaultdict(list)
     shuffled = rows.copy()
     rng.shuffle(shuffled)

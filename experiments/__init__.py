@@ -1,1 +1,1 @@
-"""Freelance Ops Agent prototype and evaluation package."""
+"""운영 코드와 분리한 실험·평가 패키지."""

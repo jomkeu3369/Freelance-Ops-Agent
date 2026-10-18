@@ -1,1 +1,1 @@
-"""Executable prototype for pre-execution task runtime prediction."""
+"""작업 실행 전에 소요 시간을 예측하는 실험 패키지."""

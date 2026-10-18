@@ -23,7 +23,7 @@ CorrectionSource = Literal["HUMAN_REVIEW", "USER_EDIT", "POLICY_REPLAY"]
 
 
 class ShadowTrace(BaseModel):
-    """Privacy-safe join of a route event and a separately reviewed gold label."""
+    """요청 원문을 노출하지 않고 라우팅 이벤트와 검토된 정답을 연결한다."""
 
     model_config = ConfigDict(extra="forbid")
 

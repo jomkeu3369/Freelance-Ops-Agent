@@ -1,4 +1,4 @@
-# Requirement classifier A/B benchmark
+# 요구사항 분류 모델 A/B 비교
 
 Hugging Face의 FR/NFR 요구사항 데이터로 두 encoder를 같은 조건에서 fine-tuning하고,
 정확도·F1·속도·메모리·추정 compute 비용을 비교한다. 이어서 서로 다른 OpenAI 모델
@@ -30,7 +30,7 @@ python -m venv .venv
 ```
 
 RTX 5060 Ti를 포함한 NVIDIA GPU 환경에서는 PyPI 기본 설치가 CPU wheel을 선택할 수 있다.
-이 저장소의 Windows/Python 3.12 검증 환경은 공식 CUDA 13.2 wheel을 사용한다.
+당시 Windows/Python 3.12 평가에는 아래 CUDA 13.2 wheel을 사용했다. 재현할 때는 해당 환경과 구분해 기록한다.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install --force-reinstall --no-deps `
@@ -40,10 +40,6 @@ RTX 5060 Ti를 포함한 NVIDIA GPU 환경에서는 PyPI 기본 설치가 CPU wh
 
 기본 config는 `device=cuda`를 강제하므로 CUDA가 없으면 CPU로 조용히 전환하지 않고 즉시
 실패한다. CPU benchmark가 필요할 때만 별도 config에서 `device`를 `cpu`로 명시한다.
-
-기존 `.venv-transformers`에서 `No module named pip`가 발생했다면 해당 환경의 Python으로
-`-m ensurepip --upgrade`를 먼저 실행하면 된다. 이 프로젝트는 `gtts`를 설치하지 않으므로
-기존 환경의 `click` 충돌과 격리된다.
 
 ## 실행
 
@@ -97,9 +93,9 @@ full run은 CPU에서 오래 걸릴 수 있다. 실행 중에는 모델·epoch �
 
 ## LangSmith
 
-`.env.example`의 환경변수를 PowerShell 세션에 설정한다. `LANGSMITH_TRACING=true`이면
+`../../.env.example`의 환경변수를 PowerShell 세션에 설정한다. `LANGSMITH_TRACING=true`이면
 wrapped OpenAI client가 각 judge 호출의 입력·출력·token usage·latency를 기록한다.
-또는 `.env.example`을 `.env`로 복사해 값을 입력하면 CLI가 시작할 때 자동으로 로드한다.
+또는 `../../.env.example`을 `.env`로 복사해 값을 입력하면 CLI가 시작할 때 자동으로 로드한다.
 요구사항 문장이 외부 SaaS trace로 전송되므로 실제 고객 데이터 대신 공개 benchmark만
 사용한다. 프로젝트의 민감 데이터에는 tracing을 그대로 적용하지 않는다.
 

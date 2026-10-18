@@ -13,7 +13,7 @@ from .shadow_evaluation import CorrectionSource, Route, ShadowTrace
 
 
 class RouteObservationData(BaseModel):
-    """Exact allowlist persisted by Spring's route observation projection."""
+    """Spring의 라우팅 관측 저장소에서 허용하는 필드 목록."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

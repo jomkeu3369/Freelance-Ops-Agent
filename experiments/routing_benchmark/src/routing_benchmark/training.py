@@ -16,6 +16,7 @@ from safetensors.torch import save_file
 
 from .config import RoutingConfig
 from .metrics import routing_metrics
+from .report_io import read_jsonl as _read_jsonl
 
 HEAD_KEYS = (
     "tok_proj.weight",
@@ -33,10 +34,6 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
 def _stratified_subset(rows: list[dict[str, Any]], labels: list[str], size: int, seed: int) -> list[dict[str, Any]]:

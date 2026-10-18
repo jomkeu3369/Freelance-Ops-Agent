@@ -99,7 +99,7 @@ ESTIMATOR는 견적 초안을 작성할 수 있지만 발행할 수 없다. MANA
 }
 
 
-def _case(case_id: str, query: str, split: str, answerable: bool, relevant: tuple[str, ...] = (), *, category: str, llm_accept: bool | None = None) -> QueryCase:
+def _case(case_id: str, query: str, split: str, answerable: bool, relevant: tuple[str, ...] = (), *, category: str, llm_accept: bool | None = None) -> QueryCase:  # noqa: E501
     return QueryCase(
         case_id=case_id,
         query=query,
@@ -113,7 +113,7 @@ def _case(case_id: str, query: str, split: str, answerable: bool, relevant: tupl
 
 def build_demo_cases() -> list[QueryCase]:
     cases = [
-        # train: 직접 일치, 패러프레이즈, 수치, 정책 조합
+        # 학습: 직접 일치, 바꿔 쓴 표현, 수치와 정책 조합을 포함한다.
         _case(
             "tr-01",
             "계약을 해지하려면 며칠 전에 어떤 방식으로 통보해야 하나요?",
@@ -286,7 +286,7 @@ def build_demo_cases() -> list[QueryCase]:
             False,
             category="missing_sensitive_fact"
         ),
-        # validation: threshold 선택에 사용하며 train 표현을 그대로 반복하지 않음
+        # 검증: 임계값 선택에 사용하며 학습 문장을 그대로 반복하지 않는다.
         _case(
             "va-01",
             "30일을 기다리지 않고 즉시 계약을 끝낼 수 있는 사유가 있나요?",
@@ -467,7 +467,7 @@ def build_demo_cases() -> list[QueryCase]:
             False,
             category="missing_sensitive_fact"
         ),
-        # test: 최종 비교 전용. llm_accept은 실제 LLM이 아닌 fallback 경로 검증용 모의 판정이다.
+        # 테스트: 최종 비교에만 사용한다. llm_accept는 후속 경로를 검사하기 위한 모의 판정이다.
         _case(
             "te-01",
             "계약 종료 때 정리해야 하는 항목을 알려주세요.",

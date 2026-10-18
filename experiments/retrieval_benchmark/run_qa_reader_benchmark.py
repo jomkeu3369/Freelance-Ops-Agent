@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt  # noqa: E402
 
 
-def best_span_margin(start_logits: np.ndarray, end_logits: np.ndarray, context_positions: list[int], *, null_position: int = 0, max_answer_tokens: int = 30) -> float:
+def best_span_margin(start_logits: np.ndarray, end_logits: np.ndarray, context_positions: list[int], *, null_position: int = 0, max_answer_tokens: int = 30) -> float:  # noqa: E501
     null_score = float(start_logits[null_position] + end_logits[null_position])
     best_score = -float("inf")
     for start in context_positions:
@@ -37,7 +37,7 @@ def best_span_margin(start_logits: np.ndarray, end_logits: np.ndarray, context_p
     return best_score - null_score
 
 
-def score_reader(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:
+def score_reader(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks: list[Any], retrieved: list[list[int]], *, split: str, device: Any, batch_size: int, max_length: int) -> tuple[np.ndarray, np.ndarray, float]:  # noqa: E501
     import torch
 
     selected = [
@@ -87,7 +87,7 @@ def score_reader(model: Any, tokenizer: Any, rows: list[dict[str, Any]], chunks:
     return labels, case_scores, elapsed_ms
 
 
-def plot_reader(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:
+def plot_reader(labels: np.ndarray, scores: np.ndarray, threshold: float, metrics: dict[str, float], output: Path) -> None:  # noqa: E501
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     axes[0].hist(scores[~labels], bins=20, alpha=0.65, label="unanswerable", color="#ef6c73")
     axes[0].hist(scores[labels], bins=20, alpha=0.65, label="answerable", color="#53d68b")

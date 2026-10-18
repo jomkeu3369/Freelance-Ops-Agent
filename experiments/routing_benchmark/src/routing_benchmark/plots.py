@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+from .report_io import load_json as _load
+
 plt.switch_backend("Agg")
 
 COLORS = {"A_liquid_encoder": "#2563EB", "B_prompt_llm": "#F97316"}
-
-
-def _load(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _style(axis: Any, title: str, ylabel: str = "") -> None:

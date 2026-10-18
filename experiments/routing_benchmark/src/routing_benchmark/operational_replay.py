@@ -16,6 +16,7 @@ from sklearn.metrics import f1_score
 from sklearn.pipeline import FeatureUnion
 
 from .metrics import routing_metrics
+from .report_io import read_jsonl as _read_jsonl
 
 plt.switch_backend("Agg")
 
@@ -38,10 +39,6 @@ class LocalModelResult:
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
 def _portable_path(path: Path) -> str:

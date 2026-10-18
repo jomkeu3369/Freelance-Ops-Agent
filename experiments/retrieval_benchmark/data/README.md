@@ -1,4 +1,4 @@
-# KLUE-MRC answerability benchmark sample
+# KLUE-MRC 답변 가능성 평가 표본
 
 `klue_mrc_answerability_650.jsonl`은 Hugging Face의 [`klue/klue`](https://huggingface.co/datasets/klue/klue)
 MRC subset에서 재현 가능한 seed `20260812`로 추출한 평가 표본이다.

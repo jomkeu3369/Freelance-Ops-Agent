@@ -50,7 +50,7 @@ def answer_window(context: str, answer_start: int, answer_text: str, *, size: in
     return context[start : start + size]
 
 
-def build_full_training_pairs(source_rows: list[dict[str, Any]], *, excluded_case_ids: set[str], seed: int = 42) -> list[PairExample]:
+def build_full_training_pairs(source_rows: list[dict[str, Any]], *, excluded_case_ids: set[str], seed: int = 42) -> list[PairExample]:  # noqa: E501
     positives: list[PairExample] = []
     negatives: list[PairExample] = []
     for row in source_rows:

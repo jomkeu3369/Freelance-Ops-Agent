@@ -5,11 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "freelance-ops-classification-benchmark"
 version = "0.1.0"
-description = "Reproducible Hugging Face classifier A/B benchmark with multi-model LLM judges"
+description = "요구사항 분류 모델의 재현 가능한 A/B 비교와 다중 모델 평가"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "datasets>=4.0,<5",
-  "huggingface-hub>=1.0,<2",
   "langsmith>=0.4,<1",
   "matplotlib>=3.10,<4",
   "numpy>=2.0,<3",

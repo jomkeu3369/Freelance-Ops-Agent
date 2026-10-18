@@ -229,7 +229,7 @@ def _contains_forbidden_key(value: object) -> bool:
             str(key).lower() in FORBIDDEN_DATA_KEYS or _contains_forbidden_key(item)
             for key, item in value.items()
         )
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return any(_contains_forbidden_key(item) for item in value)
     return False
 

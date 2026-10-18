@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "freelance-ops-routing-benchmark"
 version = "0.1.0"
-description = "LiquidAI encoder router versus prompt-based OpenAI router benchmark"
+description = "LiquidAI 인코더와 OpenAI 기반 실행 경로 선택 비교"
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "datasets>=4.0,<5",

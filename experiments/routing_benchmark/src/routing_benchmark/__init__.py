@@ -1,3 +1,3 @@
-"""Agent execution routing benchmark."""
+"""요청별 실행 경로를 선택하는 모델과 정책 비교 실험."""
 
 __version__ = "0.1.0"

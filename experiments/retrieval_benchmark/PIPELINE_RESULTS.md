@@ -1,6 +1,8 @@
-# Retrieval answerability pipeline 결과
+# 검색·답변 가능성 평가 결과
 
-## 채택 구조
+코드·설치 조건은 [실험 안내](README.md)를 따른다. 아래는 보관된 KLUE 실험 결과이며 현재 운영 검색 경로의 측정값이 아니다. 모델 가중치와 로컬 출력 폴더는 Git에 포함하지 않는다.
+
+## 실험에서 선택한 구조
 
 ```text
 Dense + BM25 RRF retrieval
@@ -13,16 +15,16 @@ Dense + BM25 RRF retrieval
 클러스터 중심 유사도는 answerability gate에서 제외한다. 클러스터는 corpus 분석과 검색 결과
 다양화에만 사용할 수 있다.
 
-## Frozen-test 결과
+## 고정 테스트 결과
 
 KLUE-MRC test 200건(answerable 100, unanswerable 100)을 사용했다.
 
-| 구성 | Retrieval | Local coverage | Fallback | FAR | FRR | Local accept precision |
-|---|---:|---:|---:|---:|---:|---:|
-| Top-3 hybrid + cross-encoder | Recall@3 0.82 | 0.195 | 0.805 | 0.04 | 0.07 | 0.733 |
-| Top-5 hybrid + cross-encoder | Recall@5 0.87 | 0.170 | 0.830 | 0.04 | 0.03 | 0.750 |
-| Top-10 hybrid + cross-encoder | Recall@10 0.91 | 0.165 | 0.835 | 0.03 | 0.04 | 0.800 |
-| Top-5 cross-encoder + QA reader 교집합 | Recall@5 0.87 | 0.030 | 0.970 | 0.00 | 0.01 | 1.000 |
+| 구성                                   |      Retrieval | Local coverage | Fallback |  FAR |  FRR | Local accept precision |
+| -------------------------------------- | -------------: | -------------: | -------: | ---: | ---: | ---------------------: |
+| Top-3 hybrid + cross-encoder           |  Recall@3 0.82 |          0.195 |    0.805 | 0.04 | 0.07 |                  0.733 |
+| Top-5 hybrid + cross-encoder           |  Recall@5 0.87 |          0.170 |    0.830 | 0.04 | 0.03 |                  0.750 |
+| Top-10 hybrid + cross-encoder          | Recall@10 0.91 |          0.165 |    0.835 | 0.03 | 0.04 |                  0.800 |
+| Top-5 cross-encoder + QA reader 교집합 |  Recall@5 0.87 |          0.030 |    0.970 | 0.00 | 0.01 |                  1.000 |
 
 FAR/FRR threshold는 validation 150건에서 90% Wilson upper bound가 각각 0.10 이하가 되도록
 선택했다. Frozen test는 threshold 선택에 사용하지 않았다.
@@ -45,11 +47,11 @@ provider usage token으로 다시 집계해야 한다.
 ## 실행
 
 ```powershell
-uv sync --project experiments/retrieval_benchmark --group dev
+uv sync --project experiments/retrieval_benchmark --group dev --extra local-models
 $env:HF_HOME="$PWD\agent\.uv-cache\huggingface"
 $env:HF_HUB_OFFLINE="1"
 
-uv run --project experiments/retrieval_benchmark python `
+uv run --project experiments/retrieval_benchmark --extra local-models python `
   experiments/retrieval_benchmark/run_hybrid_pipeline_benchmark.py `
   --dataset experiments/retrieval_benchmark/data/klue_mrc_answerability_650.jsonl `
   --model-dir agent/.uv-cache/similarity-benchmark/klue-full-verifier `

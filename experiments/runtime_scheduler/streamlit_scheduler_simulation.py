@@ -6,27 +6,27 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import streamlit as st
 
-AGENT_ROOT = Path(__file__).resolve().parents[2]
-if str(AGENT_ROOT) not in sys.path:
-    sys.path.insert(0, str(AGENT_ROOT))
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from experiments.runtime_scheduler.scheduler_evaluation import (
+from experiments.runtime_scheduler.scheduler_evaluation import (  # noqa: E402
     SchedulerSLO,
     evaluation_rows,
     run_multidimensional_evaluation,
-)  # noqa: E402
-from experiments.runtime_scheduler.overload_simulation import (
+)
+from experiments.runtime_scheduler.overload_simulation import (  # noqa: E402
     ADMISSION_LABELS,
     AdmissionConfig,
     run_admission_benchmark,
-)  # noqa: E402
-from experiments.runtime_scheduler.scheduler_simulation import (
+)
+from experiments.runtime_scheduler.scheduler_simulation import (  # noqa: E402
     POLICY_LABELS,
     SchedulerExperimentConfig,
     SchedulingPolicy,
     generate_scheduler_workload,
     run_policy_comparison,
-)  # noqa: E402
+)
 
 
 @st.cache_data(show_spinner=False)
