@@ -2,16 +2,6 @@ name: Agent CI
 
 on:
   workflow_call:
-  push:
-    branches:
-      - "work/integrate-chat-settings-project-20261010"
-      - "work/attachment-history-boundaries-20261010"
-      - "codex/auth-ocr-integration-20261007"
-      - "codex/ocr-language-layout-coverage-20261007"
-      - "codex/byok-release-integration-20261005"
-      - "fix/bounded-byok-agent-runtime"
-      - "codex/cloud-feature-integration-20261005"
-      - "codex/login-pet-motion-20261005"
   pull_request:
     paths:
       - "agent/**"
@@ -19,7 +9,9 @@ on:
       - "contracts/**"
       - "infra/postgres/init/**"
       - ".github/workflows/agent-ci.yml"
-      - ".github/scripts/**"
+      - ".github/scripts/verify_database_test_reports.py"
+      - ".github/actions/deploy-service/**"
+      - ".github/workflows/agent-cd.yml"
   workflow_dispatch:
 
 permissions:
@@ -56,9 +48,9 @@ jobs:
         with:
           version: "0.11.26"
           enable-cache: true
-      - name: Install bounded local OCR test dependencies
+      - name: 로컬 OCR 검사 의존성 설치
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor fonts-noto-cjk
-      - name: Require native OCR executables and language data
+      - name: OCR 실행 파일과 한글·영문 데이터 확인
         run: |
           command -v pdftoppm
           command -v pdftotext
@@ -66,22 +58,22 @@ jobs:
           tesseract --list-langs | grep -Fx eng
           tesseract --list-langs | grep -Fx kor
       - run: uv sync --locked
-      - name: Initialize Agent integration database
+      - name: Agent 통합 검사 DB 초기화
         run: |
           docker exec -i -e APP_DB_PASSWORD=ci-app-password -e AGENT_DB_PASSWORD=ci-agent-password \
             ${{ job.services.postgres.id }} bash -s < ../infra/postgres/init/001-init.sh
-      - name: Apply Agent runtime migrations
+      - name: Agent 실행 스키마 마이그레이션
         run: uv run --locked alembic upgrade head
         env:
           AGENT_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
-      - name: Run unit, PostgreSQL and native attachment tests
+      - name: 단위·PostgreSQL·첨부파일 검사
         run: uv run --locked pytest -ra --junitxml=test-results/pytest.xml
         env:
           AGENT_INTEGRATION_DATABASE_URL: postgresql://agent_user:ci-agent-password@127.0.0.1:5432/freelance_ops
-      - name: Require executed PostgreSQL and attachment suites without skips
+      - name: DB·첨부파일 필수 검사 실행 여부 확인
         if: always()
         run: python3 ../.github/scripts/verify_database_test_reports.py agent
-      - name: Preserve Agent test evidence
+      - name: Agent 검사 근거 보존
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -89,10 +81,10 @@ jobs:
           path: agent/test-results/
           if-no-files-found: error
           retention-days: 7
-      - name: Enforce pinned model release policy
+      - name: 고정 모델의 배포 기준 검사
         working-directory: ${{ github.workspace }}
         run: uv run --project agent --locked python agent/scripts/evaluation_gate.py --repository-root . --policy agent/evaluation/release-policy.json
-      - name: Test Python platform SDK
+      - name: Python SDK 검사
         working-directory: ${{ github.workspace }}/sdk/python
         run: python -m unittest discover -s tests
       - run: uv run --locked ruff check src tests

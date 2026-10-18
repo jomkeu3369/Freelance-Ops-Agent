@@ -1,0 +1,79 @@
+name: 서비스 운영 배포
+description: SSH 신뢰 설정과 배포 파일 전송 후 지정한 서비스만 교체한다.
+inputs:
+  service:
+    description: 배포 대상 서비스(agent 또는 backend)
+    required: true
+  image-tag:
+    description: 변경 불가능한 이미지 태그
+    required: true
+  host:
+    description: 배포 서버 주소
+    required: true
+  user:
+    description: SSH 접속 계정
+    required: true
+  ssh-private-key:
+    description: SSH 개인 키
+    required: true
+  ssh-host-key:
+    description: 검증된 서버 호스트 키
+    required: true
+  registry-user:
+    description: 이미지 저장소 계정
+    required: true
+  registry-token:
+    description: 이미지 읽기 권한 토큰
+    required: true
+  public-base-url:
+    description: Backend 공개 상태 확인 주소
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: 서비스와 배포 태그 확인
+      shell: bash
+      env:
+        DEPLOY_SERVICE: ${{ inputs.service }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+      run: bash "$GITHUB_ACTION_PATH/release.sh" validate
+    - name: SSH 키와 서버 신뢰 설정
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.ssh-private-key }}
+        SSH_HOST_KEY: ${{ inputs.ssh-host-key }}
+      run: bash "$GITHUB_ACTION_PATH/ssh-trust.sh"
+    - name: 배포 파일 전송
+      shell: bash
+      env:
+        DEPLOY_SERVICE: ${{ inputs.service }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        DEPLOY_HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+      run: bash "$GITHUB_ACTION_PATH/release.sh" upload
+    - name: Backend에 필요한 PostgreSQL 확장 준비
+      if: inputs.service == 'backend'
+      shell: bash
+      env:
+        DEPLOY_HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+      run: bash "$GITHUB_ACTION_PATH/prepare-postgres.sh"
+    - name: 저장소 인증과 서비스 교체
+      shell: bash
+      env:
+        DEPLOY_SERVICE: ${{ inputs.service }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        DEPLOY_HOST: ${{ inputs.host }}
+        DEPLOY_USER: ${{ inputs.user }}
+        GHCR_USER: ${{ inputs.registry-user }}
+        GHCR_TOKEN: ${{ inputs.registry-token }}
+      run: bash "$GITHUB_ACTION_PATH/release.sh" deploy
+    - name: Backend 공개 준비 상태 확인
+      if: inputs.service == 'backend'
+      shell: bash
+      env:
+        PRODUCTION_BASE_URL: ${{ inputs.public-base-url }}
+      run: |
+        curl --fail --silent --show-error --retry 18 --retry-all-errors \
+          --retry-delay 5 --retry-max-time 120 \
+          "$PRODUCTION_BASE_URL/actuator/health/readiness"

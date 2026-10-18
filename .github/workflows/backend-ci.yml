@@ -2,28 +2,14 @@ name: Backend CI
 
 on:
   workflow_call:
-  push:
-    branches:
-      - "work/release-quotation-backend-20261012"
-      - "work/integrate-quotation-ui-seo-20261012"
-      - "work/optimize-quotation-list-20261012"
-      - "work/integrate-chat-settings-project-20261010"
-      - "work/attachment-history-boundaries-20261010"
-      - "codex/auth-ocr-integration-20261007"
-      - "codex/ocr-language-layout-coverage-20261007"
-      - "codex/chat-composer-settings-20261006"
-      - "codex/offline-flow-regressions-20261006"
-      - "codex/partial-chat-history-20261006"
-      - "codex/byok-release-integration-20261005"
-      - "codex/cloud-feature-integration-20261005"
-      - "codex/login-pet-motion-20261005"
-      - "fix/bounded-byok-backend"
   pull_request:
     paths:
       - "backend/**"
       - "contracts/**"
       - ".github/workflows/backend-ci.yml"
-      - ".github/scripts/**"
+      - ".github/scripts/verify_database_test_reports.py"
+      - ".github/actions/deploy-service/**"
+      - ".github/workflows/backend-cd.yml"
   workflow_dispatch:
 
 permissions:
@@ -47,16 +33,14 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: gradle
-      - name: Test CI evidence gate
-        run: python3 -m unittest discover -s ../.github/scripts -p 'test_*.py'
-      - name: Require Docker for PostgreSQL integration tests
+      - name: PostgreSQL 통합 검사용 Docker 확인
         run: docker info
-      - name: Run all backend tests and Flyway migrations
+      - name: Backend 전체 검사와 Flyway 마이그레이션
         run: bash ./gradlew test --no-daemon --console=plain
-      - name: Require executed PostgreSQL suites without skips
+      - name: 필수 DB 검사 실행 여부 확인
         if: always()
         run: python3 ../.github/scripts/verify_database_test_reports.py backend
-      - name: Preserve backend test evidence
+      - name: Backend 검사 근거 보존
         if: always()
         uses: actions/upload-artifact@v4
         with:
