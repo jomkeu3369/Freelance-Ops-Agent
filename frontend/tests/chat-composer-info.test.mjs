@@ -21,7 +21,7 @@ async function composerInfo(credentialId) {
   const exports = {};
   const node = (type, props) => ({ type, props });
   vm.runInNewContext(outputText, { exports, require: name => { assert.equal(name, "react/jsx-runtime"); return { jsx: node, jsxs: node, Fragment: "fragment" }; }, parseChatPolicyIntent,
-    CreditCostNote: "cost", ByokCostNotice: "byok", AiUsageMeter: "usage", creditReviewRequired: false, runInProgress: false, retryCandidates: [], chatModel: { provider: "OPENAI", model: "gpt-6-luna", credentialId }, ledgerBlocker: "paused", ledgerMessage: "spending paused", ledger: { loading: false, refresh() {} }, session: {}, t: value => value });
+    CreditCostNote: "cost", ByokCostNotice: "byok", AiUsageMeter: "usage", creditReviewRequired: false, runInProgress: false, petMutation: "idle", retryCandidates: [], chatModel: { provider: "OPENAI", model: "gpt-6-luna", credentialId }, ledgerBlocker: "paused", ledgerMessage: "spending paused", ledger: { loading: false, refresh() {} }, session: {}, t: value => value });
   return exports.info;
 }
 function flatten(value) {

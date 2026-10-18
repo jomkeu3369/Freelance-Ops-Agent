@@ -1,5 +1,17 @@
 // 서비스가 제공하는 도우미 라벨만 번역한다. 사용자 이름과 생성된 결과는 유지한다.
 export const petEnglish = {
+  "함께할 펫": "Your pet",
+  "펫 사용 안내": "About your pet",
+  "펫 변경을 확인한 뒤 실행할 수 있습니다. 함께할 펫에서 선택을 확인해 주세요.":
+    "Confirm the pet change in Your pet before starting a request.",
+  "펫 변경을 확인하고 있습니다. 완료 후 실행할 수 있습니다.":
+    "Confirming your pet change. You can start a request when it finishes.",
+  "펫 변경을 확인하지 못했습니다. 함께할 펫에서 다시 선택해 주세요.":
+    "Could not confirm the pet change. Select your pet again in Your pet.",
+  "펫과 견적 만들기": "Create a quote with your pet",
+  "함께할 펫을 고른 뒤 견적 만들기를 눌러 주세요. 궁금한 내용은 대화로 물어볼 수 있습니다.":
+    "Choose your pet, then create a quote. You can also ask questions in the conversation.",
+  "예: 이 프로젝트에서 먼저 확인할 질문을 알려 줘": "Example: What should I clarify about this project first?",
   "함께하는 동료: {name}": "Your companion: {name}",
   "로그인에서 함께 온 친구": "Your friend from the login page",
   "늘 함께하는 작은 동료": "Always by your side",

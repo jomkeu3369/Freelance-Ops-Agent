@@ -388,6 +388,14 @@
   color: var(--muted);
   font-weight: 400;
 }
+.pet-usage-help {
+  margin: 14px 0;
+}
+.pet-usage-help > summary {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
 .pet-customizer-intro,
 .pet-generation p,
 .pet-preview p {

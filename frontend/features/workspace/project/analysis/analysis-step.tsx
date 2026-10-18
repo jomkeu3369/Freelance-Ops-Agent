@@ -1,6 +1,6 @@
 import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
 import type { SkillSelection } from "../../skills/skill-selection";
-import { ListChecks, CaretRight } from "@phosphor-icons/react";
+import { ListChecks, CaretRight, PawPrint, Receipt } from "@phosphor-icons/react";
 import { ReactNode, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
@@ -31,6 +31,11 @@ interface AnalysisStepProps {
   composerInfo?: ReactNode | ((draft: string, retry: PendingRunRetry | undefined, policy: boolean) => ReactNode);
   retryCandidates: PendingRunRetry[];
   canSendAI: boolean;
+  canStartQuotation: boolean;
+  canOpenPets: boolean;
+  onStartQuotation: () => void;
+  onOpenPets: () => void;
+  quotationError: string | null;
   streamState: StreamState;
   onOpenAISettings: (draft: string) => void;
   onSendMessage: (message: string, attachmentIds?: string[], skillSelection?: SkillSelection) => Promise<boolean>;
@@ -40,11 +45,12 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, canOpenPets, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
   const [showWorkDetails, setShowWorkDetails] = useState(false);
   const resultView = reviewedRun?.runId === run?.runId ? run : reviewedRun;
+  const active = !!runId && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status));
 
   function openResult(view: AgentRunView) {
     setReviewedRun(view);
@@ -70,6 +76,18 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
         composerTools={composerTools}
         headerTools={
           <>
+            {canRun && (
+              <>
+                <button type="button" className="quiet-button chat-pet-trigger" disabled={!canOpenPets || active} onClick={onOpenPets}>
+                  <PawPrint size={18} aria-hidden="true" />
+                  <span>{t("함께할 펫")}</span>
+                </button>
+                <button type="button" className="primary-button chat-quotation-start" disabled={busy || active || !canStartQuotation} onClick={onStartQuotation}>
+                  <Receipt size={17} aria-hidden="true" />
+                  <span>{t("펫과 견적 만들기")}</span>
+                </button>
+              </>
+            )}
             {runId && (
               <button
                 type="button"
@@ -110,6 +128,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
           )
         }
       />
+      {quotationError && <p className="form-error" role="alert">{quotationError}</p>}
       {resultView?.result && (
         <WorkspacePanel title={t("분석 결과")} className="agent-chat-result-panel" onClose={() => setReviewedRun(null)}>
           <AnalysisResult

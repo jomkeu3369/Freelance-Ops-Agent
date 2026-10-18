@@ -14,7 +14,7 @@ import {
   type PetProfile,
   type Provider
 } from "@/app/lib/api";
-import { petLibraryRevision, publishPetLibrary } from "./pet-library-events";
+import { beginPetMutation, petLibraryRevision, publishPetLibrary } from "./pet-library-events";
 import { PetArt } from "./pet-art";
 import { preferenceLabels, petDutyLabels } from "./pet-profile";
 
@@ -23,6 +23,10 @@ const tones = { WARM: "친근하게", DIRECT: "간결하게", FORMAL: "정중하
 export function PetCustomizer({ session, disabled }: { session: AuthSession; projectId: string; selection: { provider: Provider; model: string; credentialId?: string } | null; disabled: boolean; }) {
   const t = useT();
   const prefix = useId();
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLElement>(null);
+  const selectedPetRef = useRef<HTMLButtonElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: "prompt" | "preview" | "selected" } | null>(null);
   const pending = useRef(false);
   const listVersion = useRef(0);
   const [collection, setCollection] = useState<AgentPetCollection | null>(null);
@@ -35,6 +39,11 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const target = { prompt: promptRef, preview: previewRef, selected: selectedPetRef }[focusRequest.target];
+    target.current?.focus();
+  }, [focusRequest]);
   useEffect(() => {
     let current = true;
     const version = ++listVersion.current;
@@ -64,14 +73,18 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     !!editing && (editing.profile.preferences?.requests.length ?? 0) >= (collection?.maxPreferenceRequests ?? 6);
   const hasDraft = !!description.trim() || !!preview;
 
-  async function perform(action: () => Promise<void>) {
+  async function perform(action: () => Promise<void>, mutates = false) {
     if (pending.current || locked) return;
+    const finishMutation = mutates ? beginPetMutation(session) : null;
+    if (mutates && !finishMutation) return;
     pending.current = true;
     setBusy(true);
     setStatus("");
     try {
       await action();
+      finishMutation?.(true);
     } catch (error) {
+      finishMutation?.(false);
       setStatus(
         error instanceof ApiError && error.status === 409
           ? "다른 변경이나 개수 제한을 확인해 주세요. 입력은 유지됩니다. 목록을 다시 불러온 뒤 수정할 펫을 골라 주세요."
@@ -89,6 +102,12 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     setPreview(null);
     setStatus("");
     setResetPreferences(false);
+    setFocusRequest({ target: "prompt" });
+  }
+
+  function backToInput() {
+    setPreview(null);
+    setFocusRequest({ target: "prompt" });
   }
 
   async function refreshCollection() {
@@ -116,6 +135,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
       };
       const profile = await previewAgentPet(session, input);
       setPreview({ input, profile });
+      setFocusRequest({ target: "preview" });
       setStatus("무료 미리보기입니다. 해석된 설정과 보존된 요청을 확인한 뒤 저장하세요.");
     });
   }
@@ -130,9 +150,10 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
       setEditing(pet);
       setDescription("");
       setPreview(null);
+      setFocusRequest({ target: "selected" });
       setResetPreferences(false);
       setStatus("저장하고 선택했습니다. 다음 실행에 이 펫 하나의 선호를 사용합니다.");
-    });
+    }, true);
   }
 
   function change(pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE") {
@@ -148,7 +169,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
             ? "보관했습니다. 이 펫은 다음 실행에 사용하지 않습니다."
             : "펫을 복원했습니다. 사용하려면 선택해 주세요."
       );
-    });
+    }, true);
   }
 
   return (
@@ -171,6 +192,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
             <small>{t(petDutyLabels[pet.profile.duty ?? "GENERAL"])}</small>
             <button
               type="button"
+              ref={collection?.selectedPetId === pet.id ? selectedPetRef : undefined}
               disabled={locked || hasDraft}
               aria-pressed={collection?.selectedPetId === pet.id}
               onClick={() => change(pet, "SELECT")}
@@ -186,7 +208,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
           </article>
         ))}
       </div>
-      {collection && (
+      {collection && collection.pets.length > 0 && (
         <p className="pet-customizer-intro">
           {t("사용 가능")} {active.length}/{collection.maxActivePets} · {t("보관 포함")} {collection.pets.length}/
           {collection.maxStoredPets}
@@ -226,6 +248,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
         </label>
         <textarea
           id={`${prefix}-prompt`}
+          ref={promptRef}
           maxLength={collection?.maxPromptLength ?? 500}
           disabled={locked || !!preview}
           value={description}
@@ -263,7 +286,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
         </button>
       </div>
       {preview && (
-        <section className="pet-composed-preview" aria-label={t("저장 전 펫 확인")}>
+        <section className="pet-composed-preview" aria-label={t("저장 전 펫 확인")} ref={previewRef} tabIndex={-1}>
           <PetArt kind={preview.profile.animal} profile={preview.profile} />
           <div>
             <h4>{preview.profile.name}</h4>
@@ -303,7 +326,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
             <button type="button" className="primary-button" disabled={locked} onClick={save}>
               {t("저장하고 선택")}
             </button>
-            <button type="button" className="quiet-button" disabled={locked} onClick={() => setPreview(null)}>
+            <button type="button" className="quiet-button" disabled={locked} onClick={backToInput}>
               {t("입력으로 돌아가기")}
             </button>
           </div>
@@ -340,7 +363,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
                         setDeleteId(null);
                         await refreshCollection();
                         setStatus("펫을 삭제했습니다.");
-                      })
+                      }, true)
                     }
                   >
                     {t("영구 삭제")}
@@ -354,11 +377,14 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
           ))}
         </details>
       )}
-      <p className="pet-customizer-intro">
-        {t(
-          "유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성입니다. 저장한 선호는 다음 업무 실행부터 적용되며 해당 실행의 모델 사용량이 적용됩니다."
-        )}
-      </p>
+      <details className="pet-usage-help">
+        <summary>{t("펫 사용 안내")}</summary>
+        <p className="pet-customizer-intro">
+          {t(
+            "유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성입니다. 저장한 선호는 다음 업무 실행부터 적용되며 해당 실행의 모델 사용량이 적용됩니다."
+          )}
+        </p>
+      </details>
       <button
         type="button"
         className="quiet-button"

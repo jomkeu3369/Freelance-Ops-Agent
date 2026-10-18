@@ -90,14 +90,15 @@ const usagePresentation = {};
 runInNewContext(await compile("../app/lib/ai-usage-presentation.ts"), { exports: usagePresentation });
 const availableModel = { provider: "OPENAI", model: "gpt-5.6-luna", catalogued: true, enabled: true, available: true, maxRunUsd: "1", reasoningEfforts: ["LOW"] };
 const availableUsage = { spendingEnabled: true, remainingUsd: "10", models: [availableModel] };
-function workbench(modelSelection, connections = [], connectionError = false, { permissions = ["agent.run"], usage = availableUsage } = {}) {
+function workbench(modelSelection, connections = [], connectionError = false, { permissions = ["agent.run"], usage = availableUsage, petMutation = "idle" } = {}) {
   const starts = [], changes = [];
   let stateIndex = 0;
   const overrides = [connections, connectionError];
   const imports = {
     react: {
       useState(initial) { const index = stateIndex++; return [index in overrides ? overrides[index] : typeof initial === "function" ? initial() : initial, () => {}]; },
-      useRef: current => ({ current }), useEffect() {}, useCallback: fn => fn
+      useRef: current => ({ current }), useEffect() {}, useCallback: fn => fn,
+      useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot()
     },
     "react/jsx-runtime": { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
     "../../../app/lib/ui-language": { useT: () => value => value },
@@ -107,6 +108,7 @@ function workbench(modelSelection, connections = [], connectionError = false, { 
     "../shared/constants": constants,
     "../shared/formatters": { projectClientLabel: () => "Synthetic client" },
     "../shared/use-dialog-focus-trap": { useDialogFocusTrap() {} },
+    "../pets/pet-library-events": { petMutationState: () => petMutation, subscribeToPetMutations: () => () => {} },
     "../skills/skill-selector": { useSkillSelection: () => [{ mode: "AUTO" }, () => {}] },
     "../usage/use-ai-usage": { useAiUsage: () => ({ data: usage, loading: false }) },
     "./analysis/analysis-step": { AnalysisStep: "AnalysisStep" },
@@ -179,5 +181,23 @@ test("losing agent.run permission blocks restored model and personal-key choices
     assert.equal(restored.controls.model, selection.model);
     assert.equal(restored.controls.credentialId, credentialId);
     assert.equal(restored.starts.length, 0);
+  }
+});
+
+test("unconfirmed pet mutations block restored platform and personal-key execution without resetting choices", async () => {
+  for (const petMutation of ["pending", "failed"]) for (const credentialId of ["", "chosen"]) {
+    const f = workbench(
+      { provider: "OPENAI", model: "gpt-5.6-luna", credentialId },
+      [{ id: "chosen", provider: "OPENAI", model: "gpt-5.6-sol" }],
+      false,
+      { petMutation }
+    );
+    assert.equal(f.analysis.canSendAI, false);
+    assert.equal(f.analysis.canStartQuotation, false);
+    assert.equal(f.analysis.canOpenPets, true, "the user can reopen the pet panel to confirm or retry");
+    assert.equal(f.controls.credentialId, credentialId);
+    await assert.rejects(f.analysis.onSendMessage("Synthetic message"), /펫 변경을 확인한 뒤 실행할 수 있습니다/);
+    assert.equal(f.starts.length, 0);
+    assert.equal(f.changes.length, 0);
   }
 });
