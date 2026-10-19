@@ -93,13 +93,13 @@ async function petsFixture(page, options = {}) {
           if (archive && library.selectedPetId === pet.id) library.selectedPetId = null;
         }
       } else return json({}, 422);
-      return json(null);
+      return route.fulfill({ status: 200, body: "" });
     }
     if (req.method() === "DELETE") {
       if (!pet.archived || Number(url.searchParams.get("revision")) !== pet.revision) return json({ message: "PET_DELETE_CONFLICT" }, 409);
       library.pets = library.pets.filter(value => value.id !== pet.id);
       if (library.selectedPetId === pet.id) library.selectedPetId = null;
-      return json(null);
+      return route.fulfill({ status: 200, body: "" });
     }
     return json({}, 404);
   });
@@ -126,6 +126,25 @@ function expectNoAnalysis(state) {
   expect(state.writes).toEqual([]);
   expect(state.blocked).toEqual([]);
 }
+
+test("빈 성공 응답을 받은 펫 선택은 오류 없이 갱신되고 다시 불러와도 유지된다", async ({ page }) => {
+  const { state, library, calls } = await petsFixture(page, {
+    pets: [storedPet("pet-one", "기존 동료"), storedPet("pet-two", "새 동료")],
+    selectedPetId: "pet-one"
+  });
+  const studio = await openStudio(page, { create: false });
+  await studio.getByRole("button", { name: "새 동료 · 이 펫 선택", exact: true }).click();
+  const selected = studio.getByRole("button", { name: "새 동료 · 선택됨", exact: true });
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  await expect(studio.getByText("다음 실행에 사용할 펫을 선택했습니다.", { exact: true })).toBeVisible();
+  await expect(studio.getByText(/완료하지 못했습니다/)).toHaveCount(0);
+  await studio.getByRole("button", { name: "목록 다시 불러오기", exact: true }).click();
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  expect(library.selectedPetId).toBe("pet-two");
+  expect(calls).toHaveLength(1);
+  expect(calls[0].method).toBe("PATCH");
+  expectNoAnalysis(state);
+});
 
 for (const width of [390, 1440]) {
   test(`${width}px: generation and edit return keyboard focus to the next step`, async ({ page }) => {

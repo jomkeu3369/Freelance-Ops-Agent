@@ -216,9 +216,9 @@ export async function request<T>(path: string, init: RequestInit = {}, token?: s
     throw error;
   }
   if (response.status === 204) return undefined as T;
-  const result = (await response.json()) as T;
+  const body = await response.text();
   if (token && generation !== sessionGeneration) throw sessionChangedError();
-  return result;
+  return body.length === 0 ? (undefined as T) : (JSON.parse(body) as T);
 }
 
 export function register(input: { email: string; password: string; displayName: string; workspaceName: string; ageAtLeast14: boolean; }): Promise<RegistrationResult> {
