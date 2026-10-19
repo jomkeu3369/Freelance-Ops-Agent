@@ -99,12 +99,14 @@ for (const screen of [
     await mkdir("outputs/ui-ux/pixel-pets", { recursive: true });
     const capture = async (step) => page.screenshot({ path: `outputs/ui-ux/pixel-pets/${screen.width}-${screen.theme}-${step}.png` });
     await capture("input");
+    await panel.locator(".pet-creation-stage").evaluate(element => { element.scrollTop = element.scrollHeight; });
     const barrier = requestBarrier();
     server.nextGeneration = barrier;
     await primary.evaluate((button) => { button.click(); button.click(); });
     await barrier.entered;
     try {
       await expect(panel.getByRole("region", { name: "펫 생성 중", exact: true })).toBeFocused();
+      expect(await panel.locator(".pet-creation-stage").evaluate(element => element.scrollTop)).toBe(0);
       await expect(primary).toBeDisabled();
       await expect(primary).toHaveText("생성 중…");
       await expect(panel.getByRole("textbox")).toHaveCount(0);
@@ -114,6 +116,7 @@ for (const screen of [
       await capture("loading");
     } finally { barrier.release(); }
     await expect(panel.getByRole("region", { name: "생성된 펫 확인", exact: true })).toBeFocused();
+    expect(await panel.locator(".pet-creation-stage").evaluate(element => element.scrollTop)).toBe(0);
     await expect(panel.locator(".pet-creation-result")).toContainText("펭귄");
     await expect(panel.locator(".pet-creation-result")).toContainText("꼼꼼이");
     await expect(panel.locator(".pet-pixel")).toBeVisible();

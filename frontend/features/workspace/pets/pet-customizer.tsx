@@ -71,8 +71,10 @@ export function PetCustomizer({
       focusRequest.target
     ];
     const element = target.current;
-    if (element && !element.matches(":disabled")) element.focus();
-    else refreshPetRef.current?.focus();
+    if (element && !element.matches(":disabled")) {
+      if (focusRequest.target === "preview") element.scrollTop = 0;
+      element.focus();
+    } else refreshPetRef.current?.focus();
   }, [focusRequest]);
   useEffect(() => {
     let current = true;
