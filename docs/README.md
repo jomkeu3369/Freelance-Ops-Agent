@@ -11,6 +11,7 @@
 | 기술 선택과 변경 이유         | [설계 결정 기록](adr/README.md)                                                                                                                |
 | 현재 화면·개인 키·동료 설정   | [프런트엔드 안내](frontend/README.md)                                                                                                          |
 | 배포·롤백·백업·복구           | [인프라 안내](../infra/README.md)                                                                                                              |
+| CI/CD 구성과 검사 조건       | [워크플로 안내](../.github/CI_CD.md)                                                                                                           |
 | 장애 대응과 운영 기준         | [AI Gateway](operations/RUNBOOK_AI_GATEWAY.md), [비동기 실행](operations/RUNBOOK_ASYNC_AGENT_RUNTIME.md), [SLO](operations/AI_PLATFORM_SLO.md) |
 | 실험·회귀 검사와 검증 한계    | [검증 기록](testing/README.md)                                                                                                                 |
 | 포트폴리오와 공개 화면의 출처 | [기술 사례](portfolio/README.md), [제품 근거](portfolio/product-evidence.md)                                                                   |
