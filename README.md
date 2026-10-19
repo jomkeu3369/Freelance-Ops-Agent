@@ -145,7 +145,7 @@
 | 로컬 라우터 | **LiquidAI LFM2.5-Encoder-350M-Prompt-Router · PyTorch · Hugging Face Transformers · Safetensors · 자체 BM25 / RRF** | local-router 추가 설치와 shadow/진단 실행용. 기본 이미지에 모델 런타임을 설치하지 않으며 shadow 기본값은 OFF |
 | 추적·대시보드 | **LangSmith · Prometheus 호환 지표 · Grafana 대시보드** | 추적·지표 endpoint는 기본 OFF. 대시보드 정의 제공; Prometheus·Grafana 서버는 별도 구성 |
 
-OpenAI 연결 구현과 유료 기능의 활성화 상태는 별개입니다. 신규 제품 실행은 OpenAI를 지원하며, 플랫폼 비용·개인 키 실행에는 각각 예산 승인과 호출 한도를 적용합니다. [개인 키 실행 경계](agent/README.md#bounded-personal-key-execution) · [관측 구성](infra/observability/README.md)
+OpenAI 연결 구현과 유료 기능의 활성화 상태는 별개입니다. 신규 제품 실행은 OpenAI를 지원하며, 플랫폼 비용·개인 키 실행에는 각각 예산 승인과 호출 한도를 적용합니다. [개인 키 실행 경계](agent/README.md#개인-키-실행과-예산) · [관측 구성](infra/observability/README.md)
 
 #### 테스트·품질·연구
 
@@ -175,6 +175,8 @@ OpenAI 연결 구현과 유료 기능의 활성화 상태는 별개입니다. �
 
 Docker Compose와 Node.js 22가 필요합니다. [.env.example](.env.example)과 [frontend/.env.example](frontend/.env.example)을 각각 `.env`, `frontend/.env.local`로 복사하고 환경 변수를 설정합니다.
 
+루트 `.env`는 Compose의 변수 치환에 사용합니다. 컨테이너에는 각 서비스의 `environment`에 명시한 항목만 전달합니다. Agent·Backend를 직접 실행할 때는 필요한 환경 변수를 해당 프로세스에 설정합니다.
+
 ```bash
 docker compose -f docker-compose-infra.yaml up -d --wait
 docker compose -f docker-compose.yaml up --build -d --wait
@@ -188,13 +190,15 @@ npm ci
 npm run dev
 ```
 
+서비스를 따로 실행하거나 운영에 배포할 때는 [Backend 안내](backend/README.md), [Agent 안내](agent/README.md), [인프라 안내](infra/README.md)를 따릅니다. 기본 서비스·DB·운영 덮어쓰기 설정은 각각 `docker-compose.yaml`, `docker-compose-infra.yaml`, `docker-compose.production.yaml`에 나눠 둡니다.
+
 </details>
 
 ## 트러블슈팅
 
 - **로컬 API가 연결되지 않을 때:** 두 Compose 구성이 정상 실행 중인지, 프론트엔드 API 주소가 `frontend/.env.example`과 맞는지 확인합니다.
-- **Swagger에서 인증 오류가 날 때:** 로그인으로 발급한 access token을 `Authorize`에 입력합니다. [인증·권한 안내](backend/README.md#user-authentication)
-- **분석이 중단됐을 때:** 표시된 오류와 실행 한도를 먼저 확인합니다. 개인 키 실행의 한도는 재개해도 초기화되지 않습니다. [실행 한도 설명](agent/README.md#bounded-personal-key-execution)
+- **Swagger에서 인증 오류가 날 때:** 로그인으로 발급한 access token을 `Authorize`에 입력합니다. [인증·권한 안내](backend/README.md#사용자-인증)
+- **분석이 중단됐을 때:** 표시된 오류와 실행 한도를 먼저 확인합니다. 개인 키 실행의 한도는 재개해도 초기화되지 않습니다. [실행 한도 설명](agent/README.md#개인-키-실행과-예산)
 
 ## 문서
 
