@@ -71,8 +71,6 @@ async def generate_pixel_pet(body: GeneratePixelPetRequest, request: Request, cr
     except TokenVerificationError:
         return problem_response(403, "Invalid delegation", "DELEGATION_FORBIDDEN")
     gateway = cast(AIGateway | None, request.app.state.ai_gateway)
-    if gateway is None:
-        return problem_response(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")
     ledger = PlatformSpendLedger(body.platform_budget, run_budget=body.budget)
 
     async def persist(usage: AgentRunUsage) -> None:
@@ -87,6 +85,8 @@ async def generate_pixel_pet(body: GeneratePixelPetRequest, request: Request, cr
 
     ledger.persist_usage = persist
     try:
+        if gateway is None:
+            return problem_response(503, "AI unavailable", "AI_GATEWAY_UNAVAILABLE")
         with platform_budget_scope(ledger), tracing_context(enabled=False):
             async with asyncio.timeout(body.budget.max_duration_seconds):
                 generated = await gateway.generate_pixel_pet(

@@ -106,6 +106,18 @@ def test_records_usage_and_penguin_before_response(monkeypatch: pytest.MonkeyPat
     assert all(item["headers"]["X-Run-Id"] == body["context"]["runId"] for item in callbacks)
 
 
+def test_unavailable_gateway_closes_an_unused_reservation(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, body, create, callbacks = client_fixture(monkeypatch)
+    client.app.state.ai_gateway = None
+    response = client.post("/internal/v1/pets/generate-pixel", json=body, headers={"Authorization": "Bearer synthetic"})
+    assert response.status_code == 503
+    create.assert_not_awaited()
+    assert len(callbacks) == 1
+    assert callbacks[0]["json"]["executionClosed"] is True
+    assert callbacks[0]["json"]["modelCalls"] == 0
+    assert callbacks[0]["json"]["providerCalls"] == []
+
+
 @pytest.mark.parametrize("field", ["workspaceId", "projectId", "initiatedBy", "runId"])
 def test_context_mismatch_never_reaches_model(monkeypatch: pytest.MonkeyPatch, field: str) -> None:
     client, body, create, callbacks = client_fixture(monkeypatch)
