@@ -1,0 +1,362 @@
+schemas:
+  RunBudget:
+    type: object
+    additionalProperties: false
+    required:
+      - maxDurationSeconds
+      - maxModelCalls
+      - maxToolCalls
+      - maxInputTokens
+      - maxOutputTokens
+      - maxDepartments
+      - maxHierarchyDepth
+      - maxSearchCredits
+      - maxRetries
+      - maxHandoffs
+    properties:
+      maxDurationSeconds:
+        type: integer
+        minimum: 1
+        maximum: 900
+      maxModelCalls:
+        type: integer
+        minimum: 0
+        maximum: 50
+      maxToolCalls:
+        type: integer
+        minimum: 0
+        maximum: 100
+      maxInputTokens:
+        type: integer
+        minimum: 0
+      maxOutputTokens:
+        type: integer
+        minimum: 0
+      maxDepartments:
+        type: integer
+        minimum: 1
+        maximum: 4
+      maxHierarchyDepth:
+        type: integer
+        minimum: 1
+        maximum: 2
+      maxSearchCredits:
+        type: integer
+        minimum: 0
+        maximum: 100
+        default: 0
+      maxRetries:
+        type: integer
+        minimum: 0
+        maximum: 5
+        default: 1
+      maxHandoffs:
+        type: integer
+        minimum: 0
+        maximum: 10
+        default: 3
+  ModelSelection:
+    type: object
+    additionalProperties: false
+    required:
+      - provider
+      - model
+    properties:
+      credentialId:
+        type:
+          - string
+          - "null"
+        format: uuid
+        description: 개인 AI 연결의 식별자다. 생략하면 기본 제공 연결을 사용하며 API 키 자체를 전달하지 않는다.
+      provider:
+        type: string
+        enum:
+          - OPENAI
+        description: 새 실행은 OpenAI만 지원한다. 과거 응답 기록에는 Gemini가 남아 있을 수 있다.
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      reasoningEffort:
+        default: LOW
+        $ref: "#/schemas/ReasoningEffort"
+  PlatformBudget:
+    type: object
+    additionalProperties: false
+    required:
+      - reservationId
+      - maxCostUsd
+      - tariffVersion
+      - validUntil
+    properties:
+      reservationId:
+        type: string
+        format: uuid
+        description: context.runId와 같아야 하며 Backend에서 발급한 비용 예약에 연결된다.
+      maxCostUsd:
+        type:
+          - number
+          - string
+        exclusiveMinimum: 0
+        maximum: 100
+        pattern: ^(0|[1-9][0-9]*)(\.[0-9]+)?$
+        description: 유한한 양수 USD 한도다. 환불 가능한 사용자 크레딧과 별도로 관리한다.
+      tariffVersion:
+        type: string
+        minLength: 1
+        maxLength: 100
+      validUntil:
+        type: string
+        format: date-time
+        description: 서울 시각 다음 자정에 만료되며 시간대 정보가 필요하다. 유료 호출 시도와 재개 전에 확인한다.
+  ByokBudget:
+    type: object
+    additionalProperties: false
+    description:
+      Backend가 발급한 개인 키 실행 범위다. 이 정보만으로 모델을 호출할 수 없으며, 매 시도마다 실행에 연결된 위임 토큰으로 Backend의 원자적 접수·저장을
+      거쳐야 한다. 최초 만료 시각과 보수적으로 예약한 호출·토큰 한도는 갱신하거나 환급하지 않는다.
+    required:
+      - scopeId
+      - runId
+      - workspaceId
+      - projectId
+      - initiatedBy
+      - credentialId
+      - provider
+      - model
+      - reasoningEffort
+      - fundingSource
+      - serviceTier
+      - validUntil
+      - maxModelCalls
+      - maxInputTokens
+      - maxOutputTokens
+      - budget
+    properties:
+      scopeId:
+        type: string
+        format: uuid
+      runId:
+        type: string
+        format: uuid
+      workspaceId:
+        type: string
+        format: uuid
+      projectId:
+        type: string
+        format: uuid
+      initiatedBy:
+        type: string
+        format: uuid
+      credentialId:
+        type: string
+        format: uuid
+      provider:
+        type: string
+        enum:
+          - OPENAI
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      reasoningEffort:
+        $ref: "#/schemas/ReasoningEffort"
+      fundingSource:
+        type: string
+        const: BYOK
+      serviceTier:
+        type: string
+        const: default
+      costNoticeVersion:
+        type:
+          - string
+          - "null"
+        enum:
+          - byok-standard-150k-48k-2026-10-05-v1
+          - null
+        default: null
+        description:
+          Backend가 접수 시 확정한 비용 안내 버전이다. 새 실행 범위에는 서버가 검증한 버전을 넣는다. 생략·null은 이미 접수된 과거 범위만 나타내며 새
+          범위·한도 확대·만료 연장·모델 호출 권한을 부여하지 않는다. 모든 시도는 Backend의 영속 승인 절차를 거친다.
+      validUntil:
+        type: string
+        format: date-time
+        description: 최초 접수 시각에 maxDurationSeconds를 더한 만료 시각이다. 시간대 정보가 필요하며 일시정지·재개로 연장하지 않는다.
+      maxModelCalls:
+        type: integer
+        minimum: 1
+        maximum: 50
+      maxInputTokens:
+        type: integer
+        minimum: 1
+      maxOutputTokens:
+        type: integer
+        minimum: 1
+      budget:
+        $ref: "#/schemas/RunBudget"
+  ProviderCallUsage:
+    type: object
+    additionalProperties: false
+    required:
+      - callId
+      - fundingSource
+      - provider
+      - model
+      - operation
+      - inputTokens
+      - outputTokens
+      - cachedReadTokens
+      - cacheWriteTokens
+      - costUsd
+      - reservedCostUsd
+      - usageKnown
+    properties:
+      callId:
+        type: string
+        format: uuid
+      fundingSource:
+        type: string
+        enum:
+          - PLATFORM
+          - BYOK
+      provider:
+        $ref: "#/schemas/Provider"
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      operation:
+        type: string
+        minLength: 1
+        maxLength: 100
+      inputTokens:
+        type: integer
+        minimum: 0
+        description: 캐시 읽기·쓰기를 포함한 전체 입력 토큰 수다. usageKnown이 false이면 보수적인 상한을 기록한다.
+      outputTokens:
+        type: integer
+        minimum: 0
+      cachedReadTokens:
+        type: integer
+        minimum: 0
+      cacheWriteTokens:
+        type: integer
+        minimum: 0
+      costUsd:
+        type:
+          - number
+          - string
+        minimum: 0
+        pattern: ^(0|[1-9][0-9]*)(\.[0-9]+)?$
+        description: 고정된 요금표로 계산한 플랫폼 부담액이다. 개인 키 호출은 0으로 기록한다.
+      reservedCostUsd:
+        type:
+          - number
+          - string
+        minimum: 0
+        pattern: ^(0|[1-9][0-9]*)(\.[0-9]+)?$
+      usageKnown:
+        type: boolean
+        description: 사용량 누락·형식 오류·응답 유실·불확실한 실패·한도 이탈이면 false다. 사용량이 0이라는 뜻으로 해석하지 않는다.
+  AgentRunUsage:
+    type: object
+    additionalProperties: false
+    required:
+      - requestTier
+      - modelCalls
+      - toolCalls
+      - inputTokens
+      - outputTokens
+      - cachedTokens
+      - searchCredits
+      - crawledPages
+      - retryCount
+      - durationMs
+      - providerCalls
+      - platformCostUsd
+    properties:
+      providerCalls:
+        type: array
+        default: []
+        description: 실제 모델 호출 시도마다 기록한다. 라우팅·명시적 재시도·실패·결과가 불확실한 시도도 포함한다.
+        items:
+          $ref: "#/schemas/ProviderCallUsage"
+      platformCostUsd:
+        type:
+          - number
+          - string
+        minimum: 0
+        pattern: ^(0|[1-9][0-9]*)(\.[0-9]+)?$
+        description: 보수적으로 계산한 플랫폼 부담액이다. 결과가 불확실한 시도는 예약 상한을 유지하고 개인 키 호출은 0으로 기록한다.
+      platformReservationId:
+        type:
+          - string
+          - "null"
+        format: uuid
+      byokScopeId:
+        type:
+          - string
+          - "null"
+        format: uuid
+        description: 개인 키 사용량을 중복 없이 합산하기 위한 영속 실행 범위 ID다. 플랫폼 비용 예약 ID가 아니다.
+      tariffVersion:
+        type:
+          - string
+          - "null"
+      executionClosed:
+        type: boolean
+        default: false
+        description: 작업자가 비용 범위를 닫았음을 나타낸다. 실행이 종료됐고 이 값도 확인된 경우에만 미사용 예약액을 해제한다.
+      unpricedExposure:
+        type: boolean
+        default: false
+        description: 모델·서비스 등급·사용량이 예상 범위를 벗어나면 작업자가 종료한 뒤에도 실행 한도 전액을 유지한다.
+      requestTier:
+        type: string
+        enum:
+          - DIRECT_TOOL
+          - SINGLE_AGENT
+          - DEPARTMENT
+          - MULTI_DEPARTMENT
+          - HUMAN_REQUIRED
+      modelCalls:
+        type: integer
+        minimum: 0
+      toolCalls:
+        type: integer
+        minimum: 0
+      inputTokens:
+        type: integer
+        minimum: 0
+      outputTokens:
+        type: integer
+        minimum: 0
+      cachedTokens:
+        type: integer
+        minimum: 0
+      searchCredits:
+        type: integer
+        minimum: 0
+      crawledPages:
+        type: integer
+        minimum: 0
+      retryCount:
+        type: integer
+        minimum: 0
+      durationMs:
+        type: integer
+        minimum: 0
+  Provider:
+    enum:
+      - OPENAI
+      - GEMINI
+    title: Provider
+    type: string
+  ReasoningEffort:
+    enum:
+      - NONE
+      - LOW
+      - MEDIUM
+      - HIGH
+    title: ReasoningEffort
+    type: string

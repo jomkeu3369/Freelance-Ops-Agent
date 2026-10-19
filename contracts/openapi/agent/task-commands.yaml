@@ -1,0 +1,110 @@
+schemas:
+  AgentTaskCommand:
+    type: object
+    additionalProperties: false
+    required:
+      - commandId
+      - taskId
+      - runId
+      - workspaceId
+      - expectedRevision
+      - type
+      - status
+      - idempotencyKey
+      - requestedBy
+      - requestedAt
+      - payload
+      - authorizationRevision
+      - budgetRevision
+      - schemaVersion
+    properties:
+      commandId:
+        type: string
+        format: uuid
+      taskId:
+        type: string
+        format: uuid
+      runId:
+        type: string
+        format: uuid
+      workspaceId:
+        type: string
+        format: uuid
+      attemptId:
+        type:
+          - string
+          - "null"
+        format: uuid
+      expectedRevision:
+        type: integer
+        minimum: 1
+      type:
+        type: string
+        enum:
+          - PAUSE
+          - RESUME
+          - SOFT_UPDATE
+          - HARD_REDIRECT
+          - CANCEL
+      status:
+        type: string
+        enum:
+          - PENDING
+          - PROCESSING
+          - APPLIED
+          - REJECTED
+          - SUPERSEDED
+      idempotencyKey:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: ^[A-Za-z0-9._:-]+$
+      requestedBy:
+        type: string
+        format: uuid
+      requestedAt:
+        type: string
+        format: date-time
+      payload:
+        type: object
+        maxProperties: 50
+        additionalProperties: true
+      authorizationRevision:
+        type: integer
+        minimum: 1
+      budgetRevision:
+        type: integer
+        minimum: 1
+      schemaVersion:
+        type: string
+        const: async-task-contract-v1
+  AgentTaskCommandAcceptance:
+    type: object
+    additionalProperties: false
+    required:
+      - commandId
+      - taskId
+      - taskRevision
+      - status
+      - targetRevision
+    properties:
+      commandId:
+        type: string
+        format: uuid
+      taskId:
+        type: string
+        format: uuid
+      taskRevision:
+        type: integer
+        minimum: 1
+      status:
+        type: string
+        enum:
+          - PENDING
+          - PROCESSING
+          - APPLIED
+          - REJECTED
+          - SUPERSEDED
+      targetRevision:
+        type: integer
+        minimum: 1

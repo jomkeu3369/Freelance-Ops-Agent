@@ -1,0 +1,236 @@
+schemas:
+  TrustedRunContext:
+    type: object
+    additionalProperties: false
+    required:
+      - runId
+      - threadId
+      - traceId
+      - workspaceId
+      - projectId
+      - initiatedBy
+      - effectivePermissions
+    properties:
+      runId:
+        type: string
+        format: uuid
+      threadId:
+        type: string
+        format: uuid
+      traceId:
+        type: string
+        minLength: 1
+        maxLength: 128
+      workspaceId:
+        type: string
+        format: uuid
+      projectId:
+        type: string
+        format: uuid
+      initiatedBy:
+        type: string
+        format: uuid
+      effectivePermissions:
+        type: array
+        uniqueItems: true
+        items:
+          type: string
+          minLength: 1
+          maxLength: 100
+  AgentRunRequest:
+    type: object
+    additionalProperties: false
+    required:
+      - context
+      - budget
+      - modelSelection
+      - safetyContext
+      - input
+    description:
+      새 실행에는 비용 범위가 정확히 하나 필요하다. 기본 제공 연결은 platformBudget, 선택한 개인 키는 byokBudget을 사용한다. 실행 맥락·모델
+      선택·한도는 Backend의 범위와 일치해야 한다. 과거 저장 기록은 재개 시 새 범위를 얻을 수 없다. 개인 키 실행은 로컬 라우팅과 키워드 검색을 사용하며 추가 유료 기능과 Gemini는
+      지원하지 않는다.
+    oneOf:
+      - required:
+          - platformBudget
+        properties:
+          platformBudget:
+            $ref: execution-policy.yaml#/schemas/PlatformBudget
+          byokBudget:
+            type: "null"
+      - required:
+          - byokBudget
+        properties:
+          byokBudget:
+            $ref: execution-policy.yaml#/schemas/ByokBudget
+          platformBudget:
+            type: "null"
+    properties:
+      platformBudget:
+        oneOf:
+          - $ref: execution-policy.yaml#/schemas/PlatformBudget
+          - type: "null"
+      byokBudget:
+        oneOf:
+          - $ref: execution-policy.yaml#/schemas/ByokBudget
+          - type: "null"
+      context:
+        $ref: "#/schemas/TrustedRunContext"
+      budget:
+        $ref: execution-policy.yaml#/schemas/RunBudget
+      modelSelection:
+        $ref: execution-policy.yaml#/schemas/ModelSelection
+      safetyContext:
+        $ref: "#/schemas/SafetyContext"
+      clarificationHistory:
+        type: array
+        maxItems: 30
+        default: []
+        items:
+          $ref: "#/schemas/ClarificationAnswer"
+      input:
+        type: object
+        additionalProperties: false
+        required:
+          - requirementText
+        properties:
+          skillSelection:
+            oneOf:
+              - $ref: "#/schemas/SkillSelection"
+              - type: "null"
+          attachments:
+            type: array
+            maxItems: 6
+            default: []
+            description: 신뢰할 수 없는 참고 자료로만 사용한다. 전체 추출 텍스트는 40,000자, 원본 합계는 8 MiB 이하로 제한한다.
+            items:
+              $ref: attachments.yaml#/schemas/AttachmentText
+          petProfiles:
+            type: array
+            maxItems: 3
+            items:
+              $ref: pets.yaml#/schemas/PetProfile
+          requirementText:
+            type: string
+            minLength: 1
+            maxLength: 50000
+          locale:
+            type: string
+            default: ko-KR
+          jurisdictionCode:
+            type: string
+            minLength: 2
+            maxLength: 32
+          directToolOperation:
+            type: string
+            enum:
+              - GET_PROJECT_CONTEXT
+          workflowMode:
+            type: string
+            enum:
+              - PROJECT_ANALYSIS
+              - AD_HOC
+            default: PROJECT_ANALYSIS
+            description: 기본값은 전체 프로젝트 분석이다. AD_HOC는 일반 프로젝트 대화나 선택한 스킬 작업에 사용하며 견적 분석을 강제하지 않는다.
+  ClarificationAnswer:
+    type: object
+    additionalProperties: false
+    required:
+      - question
+      - answer
+    properties:
+      question:
+        type: string
+        minLength: 1
+        maxLength: 5000
+      answer:
+        type: string
+        minLength: 1
+        maxLength: 5000
+  SafetyContext:
+    type: object
+    additionalProperties: false
+    properties:
+      externalSideEffect:
+        type: boolean
+        default: false
+      sensitiveData:
+        type: boolean
+        default: false
+      financialAuthorityRequired:
+        type: boolean
+        default: false
+      legalAuthorityRequired:
+        type: boolean
+        default: false
+      irreversibleAction:
+        type: boolean
+        default: false
+      approvalRequired:
+        type: boolean
+        default: false
+      authorityVerified:
+        type: boolean
+        default: false
+  SkillSelection:
+    type: object
+    additionalProperties: false
+    description: 지정한 버전의 프롬프트 조합에만 사용한다. 도구 실행·데이터 접근·비용 지출 권한을 부여하지 않는다. ID는 해당 버전의 카탈로그에 속해야 한다.
+    properties:
+      mode:
+        type: string
+        enum:
+          - AUTO
+          - MANUAL
+        default: AUTO
+      catalogVersion:
+        type: string
+        enum:
+          - 1.0.0
+        default: 1.0.0
+      manualIds:
+        type: array
+        maxItems: 3
+        uniqueItems: true
+        default: []
+        items:
+          type: string
+      excludedIds:
+        type: array
+        maxItems: 60
+        uniqueItems: true
+        default: []
+        items:
+          type: string
+  ResumeAgentRunRequest:
+    type: object
+    additionalProperties: false
+    required:
+      - interruptionId
+      - idempotencyKey
+      - answers
+    properties:
+      interruptionId:
+        type: string
+        format: uuid
+      idempotencyKey:
+        type: string
+        minLength: 8
+        maxLength: 128
+      answers:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          additionalProperties: false
+          required:
+            - questionIndex
+            - answer
+          properties:
+            questionIndex:
+              type: integer
+              minimum: 0
+            answer:
+              type: string
+              minLength: 1
+              maxLength: 5000

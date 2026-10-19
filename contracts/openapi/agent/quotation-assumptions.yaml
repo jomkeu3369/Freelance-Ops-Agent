@@ -1,0 +1,89 @@
+schemas:
+  AssumptionSuggestionRequest:
+    type: object
+    additionalProperties: false
+    required:
+      - context
+      - modelSelection
+      - projectRequirement
+      - itemTitle
+      - quantity
+      - unit
+    properties:
+      context:
+        $ref: run-requests.yaml#/schemas/TrustedRunContext
+      modelSelection:
+        $ref: execution-policy.yaml#/schemas/ModelSelection
+      projectRequirement:
+        type: string
+        minLength: 1
+        maxLength: 50000
+      itemTitle:
+        type: string
+        minLength: 1
+        maxLength: 200
+      itemDescription:
+        type: string
+        maxLength: 5000
+        default: ""
+      quantity:
+        type: number
+        exclusiveMinimum: 0
+      unit:
+        type: string
+        minLength: 1
+        maxLength: 20
+      currentAssumption:
+        type: string
+        maxLength: 3000
+        default: ""
+  AssumptionSuggestionResponse:
+    type: object
+    additionalProperties: false
+    required:
+      - runId
+      - content
+      - provider
+      - model
+      - usage
+    properties:
+      runId:
+        type: string
+        format: uuid
+      content:
+        type: string
+        minLength: 1
+        maxLength: 3000
+      provider:
+        $ref: execution-policy.yaml#/schemas/Provider
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      usage:
+        $ref: "#/schemas/AssumptionSuggestionUsage"
+  AssumptionSuggestionUsage:
+    type: object
+    additionalProperties: false
+    required:
+      - modelCalls
+      - inputTokens
+      - outputTokens
+      - retryCount
+      - durationMs
+    properties:
+      modelCalls:
+        type: integer
+        minimum: 0
+      inputTokens:
+        type: integer
+        minimum: 0
+      outputTokens:
+        type: integer
+        minimum: 0
+      retryCount:
+        type: integer
+        minimum: 0
+      durationMs:
+        type: integer
+        minimum: 0

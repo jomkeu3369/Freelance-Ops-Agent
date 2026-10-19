@@ -2,10 +2,10 @@ openapi: 3.1.0
 info:
   title: Freelance Ops Agent Internal API
   version: 0.7.0
-  description: Spring Boot가 FastAPI/LangGraph run을 제어하는 내부 전용 계약
+  description: Spring Boot가 Agent 실행을 시작·조회·제어하는 내부 API 계약이다.
 servers:
   - url: http://agent:8000
-    description: Docker internal network
+    description: Docker 내부 네트워크 주소. 호출에는 별도 인증이 필요하다.
 tags:
   - name: Health
   - name: AgentRuns
@@ -16,11 +16,14 @@ tags:
 paths:
   /internal/v1/attachments/extract:
     post:
-      tags: [Attachments]
+      tags:
+        - Attachments
       operationId: extractChatAttachment
       security:
         - delegationToken: []
-      description: Authenticated local extraction only. At most 2 MiB source bytes, 15 seconds, two readers. OCR is bounded and PARTIAL; no external model call.
+      description:
+        인증된 요청에 한해 로컬에서 추출한다. 원본은 최대 2 MiB, 처리 시간은 15초, 동시 추출은 2건으로 제한한다. OCR 결과는 부분 추출(PARTIAL)로
+        표시하며 외부 모델을 호출하지 않는다.
       requestBody:
         required: true
         content:
@@ -28,95 +31,133 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [context, file]
+              required:
+                - context
+                - file
               properties:
                 context:
-                  $ref: '#/components/schemas/TrustedRunContext'
+                  $ref: "#/components/schemas/TrustedRunContext"
                 file:
                   type: object
                   additionalProperties: false
-                  required: [name, mediaType, base64]
+                  required:
+                    - name
+                    - mediaType
+                    - base64
                   properties:
-                    name: {type: string, minLength: 1, maxLength: 180}
-                    mediaType: {type: string, maxLength: 100}
-                    base64: {type: string, minLength: 1, maxLength: 2796204}
-                    encoding: {type: string, maxLength: 10, default: auto}
-                    delimiter: {type: string, maxLength: 4, default: auto}
-                    ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
-                    ocrLayout: {type: string, enum: [general, singleblock], default: general}
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 180
+                    mediaType:
+                      type: string
+                      maxLength: 100
+                    base64:
+                      type: string
+                      minLength: 1
+                      maxLength: 2796204
+                    encoding:
+                      type: string
+                      maxLength: 10
+                      default: auto
+                    delimiter:
+                      type: string
+                      maxLength: 4
+                      default: auto
+                    ocrLanguage:
+                      type: string
+                      enum:
+                        - mixed
+                        - ko
+                        - en
+                      default: mixed
+                    ocrLayout:
+                      type: string
+                      enum:
+                        - general
+                        - singleblock
+                      default: general
       responses:
-        '200':
-          description: Bounded text with explicit extraction coverage
+        "200":
+          description: 추출 범위와 처리 한도를 함께 표시한 텍스트
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttachmentText'
-        '400': {description: Invalid context or file request}
-        '401': {description: Delegation token required}
-        '403': {description: Delegation or project scope mismatch}
-        '413': {description: Input or output limits exceeded}
-        '422': {description: 'Invalid file, extraction failure, timeout or parser resource limit'}
-        '429': {description: Reader busy}
+                $ref: "#/components/schemas/AttachmentText"
+        "400":
+          description: 실행 맥락이나 파일 요청이 올바르지 않다.
+        "401":
+          description: 위임 토큰이 필요하다.
+        "403":
+          description: 위임 권한이나 프로젝트 범위가 일치하지 않는다.
+        "413":
+          description: 입력 또는 출력 한도를 초과했다.
+        "422":
+          description: 파일 형식, 추출 실패, 시간 초과 또는 파서 자원 제한으로 처리할 수 없다.
+        "429":
+          description: 동시 추출 한도에 도달했다.
   /internal/v1/pets/generate:
     post:
       tags:
-      - Pets
+        - Pets
       operationId: generatePetProfile
       security:
-      - delegationToken: []
+        - delegationToken: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GeneratePetRequest'
+              $ref: "#/components/schemas/GeneratePetRequest"
       responses:
         "409":
-          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
-        '200':
-          description: Reviewable profile, not persisted; max 1 call / 1000 output tokens
-            / 30 seconds
+          description: 독립 호출의 비용 예약 절차가 마련되지 않아 현재는 모델 제공사에 요청하기 전에 409로 거부한다. 아래 성공 응답은 기존 계약 호환을 위해 보존한다.
+        "200":
+          description: 기존 생성 응답 형식. 검토용 프로필이며 저장하지 않는다. 호출 1회·출력 1,000토큰·30초 한도를 사용한다.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GeneratePetResponse'
-        '403':
-          description: Delegation scope mismatch
-        '502':
-          description: Generation failed; no fallback
-        '503':
-          description: Gateway unavailable
+                $ref: "#/components/schemas/GeneratePetResponse"
+        "403":
+          description: 위임 범위가 일치하지 않는다.
+        "502":
+          description: 생성에 실패했다. 다른 모델이나 키로 자동 전환하지 않는다.
+        "503":
+          description: AI Gateway를 사용할 수 없다.
   /health:
     get:
-      tags: [Health]
+      tags:
+        - Health
       operationId: getAgentHealth
       responses:
         "200":
-          description: Agent process is alive; dependency readiness is checked separately
+          description: Agent 프로세스가 응답한다. DB 등 의존 서비스의 준비 상태는 별도로 확인한다.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
   /health/readiness:
     get:
-      tags: [Health]
+      tags:
+        - Health
       operationId: getAgentReadiness
       responses:
         "200":
-          description: Runtime startup completed and the configured database is reachable
+          description: 실행기 초기화가 끝났고 설정된 DB에 접근할 수 있다.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
         "503":
-          description: Runtime is starting, stopping, or its required database is unavailable
+          description: 초기화·종료 중이거나 필수 DB에 접근할 수 없다. 본문의 status는 DOWN이다.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
   /internal/v1/agent-runs:
     post:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: startAgentRun
       security:
         - delegationToken: []
@@ -128,7 +169,7 @@ paths:
               $ref: "#/components/schemas/AgentRunRequest"
       responses:
         "202":
-          description: Run accepted
+          description: 실행 요청을 접수했다.
           content:
             application/json:
               schema:
@@ -143,7 +184,8 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}:
     get:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: getAgentRun
       security:
         - delegationToken: []
@@ -151,7 +193,7 @@ paths:
         - $ref: "#/components/parameters/RunId"
       responses:
         "200":
-          description: Current public run state
+          description: 외부에 공개할 수 있는 현재 실행 상태
           content:
             application/json:
               schema:
@@ -162,7 +204,8 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/resume:
     post:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: resumeAgentRun
       security:
         - delegationToken: []
@@ -176,7 +219,7 @@ paths:
               $ref: "#/components/schemas/ResumeAgentRunRequest"
       responses:
         "202":
-          description: Resume command accepted
+          description: 재개 요청을 접수했다.
           content:
             application/json:
               schema:
@@ -189,9 +232,10 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/events:
     get:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: streamAgentRunEvents
-      description: Streams ordered run events as server-sent events and supports reconnect cursors.
+      description: 실행 이벤트를 순서대로 SSE로 전송한다. 재연결 시 마지막 이벤트 ID부터 이어 받을 수 있다.
       security:
         - delegationToken: []
       parameters:
@@ -204,7 +248,7 @@ paths:
             minimum: 0
       responses:
         "200":
-          description: Ordered Agent run event stream
+          description: 실행 순서에 따른 Agent 이벤트 스트림
           content:
             text/event-stream:
               schema:
@@ -217,9 +261,10 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/route-observations:
     get:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: getRouteObservations
-      description: Returns a finite, cursor-based snapshot of persisted route.selected events.
+      description: 저장된 route.selected 이벤트를 커서 기준으로 조회한다. 스트림이 아닌 개수 제한이 있는 응답이다.
       security:
         - delegationToken: []
       parameters:
@@ -233,7 +278,7 @@ paths:
             default: 0
       responses:
         "200":
-          description: At most 100 route observations after the supplied cursor
+          description: 지정한 커서 이후의 라우팅 기록. 최대 100건을 반환한다.
           content:
             application/json:
               schema:
@@ -248,7 +293,8 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/cancel:
     post:
-      tags: [AgentRuns]
+      tags:
+        - AgentRuns
       operationId: cancelAgentRun
       security:
         - delegationToken: []
@@ -256,7 +302,7 @@ paths:
         - $ref: "#/components/parameters/RunId"
       responses:
         "200":
-          description: Cancelled run state
+          description: 취소된 실행 상태
           content:
             application/json:
               schema:
@@ -269,9 +315,10 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/agent-runs/{runId}/task-commands:
     post:
-      tags: [AgentTaskCommands]
+      tags:
+        - AgentTaskCommands
       operationId: acceptAgentTaskCommand
-      description: Accepts one durable, revision-fenced Task control command.
+      description: 대상 리비전을 확인한 작업 제어 명령 1건을 영속 저장한다.
       security:
         - delegationToken: []
       parameters:
@@ -284,7 +331,7 @@ paths:
               $ref: "#/components/schemas/AgentTaskCommand"
       responses:
         "202":
-          description: Task command was durably accepted or replayed idempotently
+          description: 명령을 영속 저장했거나 같은 요청의 기존 접수 결과를 반환했다.
           content:
             application/json:
               schema:
@@ -301,9 +348,10 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/quotation-assumptions/suggest:
     post:
-      tags: [QuotationAssumptions]
+      tags:
+        - QuotationAssumptions
       operationId: suggestQuotationAssumption
-      description: Suggests one reviewable assumption without changing quotation quantities or prices.
+      description: 견적 수량·금액을 바꾸지 않고 검토용 가정 문장 1개를 제안하는 기존 계약이다. 현재는 독립 유료 호출을 차단한다.
       security:
         - delegationToken: []
       requestBody:
@@ -314,9 +362,9 @@ paths:
               $ref: "#/components/schemas/AssumptionSuggestionRequest"
       responses:
         "409":
-          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
+          description: 독립 호출의 비용 예약 절차가 마련되지 않아 현재는 모델 제공사에 요청하기 전에 409로 거부한다. 아래 성공 응답은 기존 계약 호환을 위해 보존한다.
         "200":
-          description: Reviewable assumption suggestion
+          description: 기존 성공 응답 형식인 검토용 가정 문장
           content:
             application/json:
               schema:
@@ -333,9 +381,10 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/raptor/build:
     post:
-      tags: [Raptor]
+      tags:
+        - Raptor
       operationId: buildRaptorIndex
-      description: Builds storage-neutral RAPTOR nodes; Spring owns persistence and publication.
+      description: Spring에서 저장·공개할 RAPTOR 노드를 만드는 기존 계약이다. 저장소 구현에 의존하지 않으며 현재는 독립 유료 호출을 차단한다.
       security:
         - delegationToken: []
       requestBody:
@@ -346,9 +395,9 @@ paths:
               $ref: "#/components/schemas/RaptorBuildRequest"
       responses:
         "409":
-          description: Standalone operation has no approved monetary reservation protocol and is disabled before provider I/O.
+          description: 독립 호출의 비용 예약 절차가 마련되지 않아 현재는 모델 제공사에 요청하기 전에 409로 거부한다. 아래 성공 응답은 기존 계약 호환을 위해 보존한다.
         "200":
-          description: RAPTOR nodes ready for Spring persistence
+          description: Spring에서 저장할 RAPTOR 노드의 기존 성공 응답 형식
           content:
             application/json:
               schema:
@@ -365,14 +414,15 @@ paths:
           $ref: "#/components/responses/ProblemResponse"
   /internal/v1/platform/metrics:
     get:
-      tags: [AIPlatform]
+      tags:
+        - AIPlatform
       operationId: getAiGatewayMetrics
-      description: Returns prompt-free AI Gateway metrics for an internal Prometheus scraper.
+      description: 내부 Prometheus 수집기에 AI Gateway 지표를 제공한다. 프롬프트 내용은 포함하지 않는다.
       security:
         - metricsToken: []
       responses:
         "200":
-          description: Prometheus text exposition
+          description: Prometheus 텍스트 형식의 지표
           content:
             text/plain:
               schema:
@@ -393,7 +443,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
-      description: Short-lived audience-bound token issued by Spring Boot
+      description: 운영 설정으로 주입하는 지표 수집 전용 Bearer 토큰. 실행 위임 JWT와 구분한다.
   parameters:
     RunId:
       name: runId
@@ -404,7 +454,7 @@ components:
         format: uuid
   responses:
     ProblemResponse:
-      description: RFC 9457 compatible problem response
+      description: RFC 9457 형식의 오류 응답
       content:
         application/problem+json:
           schema:
@@ -413,1030 +463,106 @@ components:
     HealthResponse:
       type: object
       additionalProperties: false
-      required: [status, service, version]
+      required:
+        - status
+        - service
+        - version
       properties:
         status:
           type: string
-          const: UP
+          enum:
+            - UP
+            - DOWN
         service:
           type: string
           const: agent
         version:
           type: string
     TrustedRunContext:
-      type: object
-      additionalProperties: false
-      required:
-        - runId
-        - threadId
-        - traceId
-        - workspaceId
-        - projectId
-        - initiatedBy
-        - effectivePermissions
-      properties:
-        runId:
-          type: string
-          format: uuid
-        threadId:
-          type: string
-          format: uuid
-        traceId:
-          type: string
-          minLength: 1
-          maxLength: 128
-        workspaceId:
-          type: string
-          format: uuid
-        projectId:
-          type: string
-          format: uuid
-        initiatedBy:
-          type: string
-          format: uuid
-        effectivePermissions:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-            minLength: 1
-            maxLength: 100
+      $ref: ./agent/run-requests.yaml#/schemas/TrustedRunContext
     RunBudget:
-      type: object
-      additionalProperties: false
-      required:
-        - maxDurationSeconds
-        - maxModelCalls
-        - maxToolCalls
-        - maxInputTokens
-        - maxOutputTokens
-        - maxDepartments
-        - maxHierarchyDepth
-        - maxSearchCredits
-        - maxRetries
-        - maxHandoffs
-      properties:
-        maxDurationSeconds:
-          type: integer
-          minimum: 1
-          maximum: 900
-        maxModelCalls:
-          type: integer
-          minimum: 0
-          maximum: 50
-        maxToolCalls:
-          type: integer
-          minimum: 0
-          maximum: 100
-        maxInputTokens:
-          type: integer
-          minimum: 0
-        maxOutputTokens:
-          type: integer
-          minimum: 0
-        maxDepartments:
-          type: integer
-          minimum: 1
-          maximum: 4
-        maxHierarchyDepth:
-          type: integer
-          minimum: 1
-          maximum: 2
-        maxSearchCredits:
-          type: integer
-          minimum: 0
-          maximum: 100
-          default: 0
-        maxRetries:
-          type: integer
-          minimum: 0
-          maximum: 5
-          default: 1
-        maxHandoffs:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 3
+      $ref: ./agent/execution-policy.yaml#/schemas/RunBudget
     ModelSelection:
-      type: object
-      additionalProperties: false
-      required: [provider, model]
-      properties:
-        credentialId:
-          type: [string, "null"]
-          format: uuid
-          description: Personal connection identifier; absent means platform credentials. Never an API key.
-        provider:
-          type: string
-          enum: [OPENAI]
-          description: New executions support OpenAI only; Gemini may remain in historical response records.
-        model:
-          type: string
-          minLength: 1
-          maxLength: 100
-        reasoningEffort:
-          type: string
-          enum: [NONE, LOW, MEDIUM, HIGH]
-          default: LOW
+      $ref: ./agent/execution-policy.yaml#/schemas/ModelSelection
     AssumptionSuggestionRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - context
-        - modelSelection
-        - projectRequirement
-        - itemTitle
-        - quantity
-        - unit
-      properties:
-        context:
-          $ref: "#/components/schemas/TrustedRunContext"
-        modelSelection:
-          $ref: "#/components/schemas/ModelSelection"
-        projectRequirement:
-          type: string
-          minLength: 1
-          maxLength: 50000
-        itemTitle:
-          type: string
-          minLength: 1
-          maxLength: 200
-        itemDescription:
-          type: string
-          maxLength: 5000
-          default: ""
-        quantity:
-          type: number
-          exclusiveMinimum: 0
-        unit:
-          type: string
-          minLength: 1
-          maxLength: 20
-        currentAssumption:
-          type: string
-          maxLength: 3000
-          default: ""
+      $ref: ./agent/quotation-assumptions.yaml#/schemas/AssumptionSuggestionRequest
     AssumptionSuggestionResponse:
-      type: object
-      additionalProperties: false
-      required: [runId, content, provider, model, usage]
-      properties:
-        runId:
-          type: string
-          format: uuid
-        content:
-          type: string
-          minLength: 1
-          maxLength: 3000
-        provider:
-          type: string
-          enum: [OPENAI, GEMINI]
-        model:
-          type: string
-          minLength: 1
-          maxLength: 100
-        usage:
-          $ref: "#/components/schemas/AssumptionSuggestionUsage"
+      $ref: ./agent/quotation-assumptions.yaml#/schemas/AssumptionSuggestionResponse
     AssumptionSuggestionUsage:
-      type: object
-      additionalProperties: false
-      required: [modelCalls, inputTokens, outputTokens, retryCount, durationMs]
-      properties:
-        modelCalls: {type: integer, minimum: 0}
-        inputTokens: {type: integer, minimum: 0}
-        outputTokens: {type: integer, minimum: 0}
-        retryCount: {type: integer, minimum: 0}
-        durationMs: {type: integer, minimum: 0}
+      $ref: ./agent/quotation-assumptions.yaml#/schemas/AssumptionSuggestionUsage
     PlatformBudget:
-      type: object
-      additionalProperties: false
-      required: [reservationId, maxCostUsd, tariffVersion, validUntil]
-      properties:
-        reservationId:
-          type: string
-          format: uuid
-          description: Must equal context.runId; bound to the immutable backend monetary reservation.
-        maxCostUsd:
-          type: [number, string]
-          exclusiveMinimum: 0
-          maximum: 100
-          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
-          description: Positive finite decimal USD cap, independent of refundable user credits.
-        tariffVersion:
-          type: string
-          minLength: 1
-          maxLength: 100
-        validUntil:
-          type: string
-          format: date-time
-          description: Timezone-aware expiry at the next Seoul midnight; checked before every paid attempt and resume.
+      $ref: ./agent/execution-policy.yaml#/schemas/PlatformBudget
     ByokBudget:
-      type: object
-      additionalProperties: false
-      description: >-
-        Immutable backend-issued personal-key execution scope. Scope data alone never authorizes provider I/O.
-        Every attempt requires atomic durable backend admission using the existing run-bound delegation token.
-        The initial wall-clock deadline and conservative call/token reservations are never renewed or refunded.
-      required: [scopeId, runId, workspaceId, projectId, initiatedBy, credentialId, provider, model,
-                 reasoningEffort, fundingSource, serviceTier, validUntil, maxModelCalls, maxInputTokens,
-                 maxOutputTokens, budget]
-      properties:
-        scopeId: {type: string, format: uuid}
-        runId: {type: string, format: uuid}
-        workspaceId: {type: string, format: uuid}
-        projectId: {type: string, format: uuid}
-        initiatedBy: {type: string, format: uuid}
-        credentialId: {type: string, format: uuid}
-        provider: {type: string, enum: [OPENAI]}
-        model: {type: string, minLength: 1, maxLength: 100}
-        reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
-        fundingSource: {type: string, const: BYOK}
-        serviceTier: {type: string, const: default}
-        costNoticeVersion:
-          type: [string, "null"]
-          enum: [byok-standard-150k-48k-2026-10-05-v1, null]
-          default: null
-          description: >-
-            Immutable backend notice binding. New scopes carry the supported marker after server-side
-            admission checks. Absent/null only represents an already-admitted legacy scope and never
-            grants a new scope, larger limits, a renewed deadline or authority to call a provider.
-            Every attempt still requires the backend's durable scope authorization.
-        validUntil:
-          type: string
-          format: date-time
-          description: Initial admission plus maxDurationSeconds; timezone required, pause and resume do not extend it.
-        maxModelCalls: {type: integer, minimum: 1, maximum: 50}
-        maxInputTokens: {type: integer, minimum: 1}
-        maxOutputTokens: {type: integer, minimum: 1}
-        budget:
-          $ref: "#/components/schemas/RunBudget"
+      $ref: ./agent/execution-policy.yaml#/schemas/ByokBudget
     AgentRunRequest:
-      type: object
-      additionalProperties: false
-      required: [context, budget, modelSelection, safetyContext, input]
-      description: >-
-        Live executions require exactly one trusted funding scope: platformBudget for ambient platform
-        generation, or byokBudget for the exact selected personal credential. All context/selection/budget
-        fields must match the backend scope. Legacy persisted records cannot gain a scope on resume.
-        BYOK uses local routing and keyword-only retrieval; paid extras and Gemini remain unsupported.
-      oneOf:
-        - required: [platformBudget]
-          properties:
-            platformBudget: {$ref: "#/components/schemas/PlatformBudget"}
-            byokBudget: {type: 'null'}
-        - required: [byokBudget]
-          properties:
-            byokBudget: {$ref: "#/components/schemas/ByokBudget"}
-            platformBudget: {type: 'null'}
-      properties:
-        platformBudget:
-          oneOf:
-            - $ref: "#/components/schemas/PlatformBudget"
-            - type: 'null'
-        byokBudget:
-          oneOf:
-            - $ref: "#/components/schemas/ByokBudget"
-            - type: 'null'
-        context:
-          $ref: "#/components/schemas/TrustedRunContext"
-        budget:
-          $ref: "#/components/schemas/RunBudget"
-        modelSelection:
-          $ref: "#/components/schemas/ModelSelection"
-        safetyContext:
-          $ref: "#/components/schemas/SafetyContext"
-        clarificationHistory:
-          type: array
-          maxItems: 30
-          default: []
-          items:
-            $ref: "#/components/schemas/ClarificationAnswer"
-        input:
-          type: object
-          additionalProperties: false
-          required: [requirementText]
-          properties:
-            skillSelection:
-              oneOf:
-                - $ref: '#/components/schemas/SkillSelection'
-                - type: 'null'
-            attachments:
-              type: array
-              maxItems: 6
-              default: []
-              description: Untrusted reference data only, at most 40000 aggregate text characters and 8 MiB source bytes.
-              items:
-                $ref: '#/components/schemas/AttachmentText'
-            petProfiles:
-              type: array
-              maxItems: 3
-              items:
-                $ref: '#/components/schemas/PetProfile'
-            requirementText:
-              type: string
-              minLength: 1
-              maxLength: 50000
-            locale:
-              type: string
-              default: ko-KR
-            jurisdictionCode:
-              type: string
-              minLength: 2
-              maxLength: 32
-            directToolOperation:
-              type: string
-              enum: [GET_PROJECT_CONTEXT]
-            workflowMode:
-              type: string
-              enum: [PROJECT_ANALYSIS, AD_HOC]
-              default: PROJECT_ANALYSIS
-              description: Full project analysis is the default; AD_HOC is used for ordinary project chat and selected skill tasks without mandatory quotation analysis.
+      $ref: ./agent/run-requests.yaml#/schemas/AgentRunRequest
     ClarificationAnswer:
-      type: object
-      additionalProperties: false
-      required: [question, answer]
-      properties:
-        question:
-          type: string
-          minLength: 1
-          maxLength: 5000
-        answer:
-          type: string
-          minLength: 1
-          maxLength: 5000
+      $ref: ./agent/run-requests.yaml#/schemas/ClarificationAnswer
     SafetyContext:
-      type: object
-      additionalProperties: false
-      properties:
-        externalSideEffect:
-          type: boolean
-          default: false
-        sensitiveData:
-          type: boolean
-          default: false
-        financialAuthorityRequired:
-          type: boolean
-          default: false
-        legalAuthorityRequired:
-          type: boolean
-          default: false
-        irreversibleAction:
-          type: boolean
-          default: false
-        approvalRequired:
-          type: boolean
-          default: false
-        authorityVerified:
-          type: boolean
-          default: false
+      $ref: ./agent/run-requests.yaml#/schemas/SafetyContext
     AgentRunAccepted:
-      type: object
-      additionalProperties: false
-      required: [runId, status, acceptedAt]
-      properties:
-        runId:
-          type: string
-          format: uuid
-        status:
-          type: string
-          const: QUEUED
-        acceptedAt:
-          type: string
-          format: date-time
+      $ref: ./agent/run-state.yaml#/schemas/AgentRunAccepted
     AgentTaskCommand:
-      type: object
-      additionalProperties: false
-      required: [commandId, taskId, runId, workspaceId, expectedRevision, type, status, idempotencyKey, requestedBy, requestedAt, payload, authorizationRevision, budgetRevision, schemaVersion]
-      properties:
-        commandId: {type: string, format: uuid}
-        taskId: {type: string, format: uuid}
-        runId: {type: string, format: uuid}
-        workspaceId: {type: string, format: uuid}
-        attemptId:
-          type: [string, "null"]
-          format: uuid
-        expectedRevision: {type: integer, minimum: 1}
-        type:
-          type: string
-          enum: [PAUSE, RESUME, SOFT_UPDATE, HARD_REDIRECT, CANCEL]
-        status:
-          type: string
-          enum: [PENDING, PROCESSING, APPLIED, REJECTED, SUPERSEDED]
-        idempotencyKey:
-          type: string
-          minLength: 1
-          maxLength: 128
-          pattern: "^[A-Za-z0-9._:-]+$"
-        requestedBy: {type: string, format: uuid}
-        requestedAt: {type: string, format: date-time}
-        payload:
-          type: object
-          maxProperties: 50
-          additionalProperties: true
-        authorizationRevision: {type: integer, minimum: 1}
-        budgetRevision: {type: integer, minimum: 1}
-        schemaVersion:
-          type: string
-          const: async-task-contract-v1
+      $ref: ./agent/task-commands.yaml#/schemas/AgentTaskCommand
     AgentTaskCommandAcceptance:
-      type: object
-      additionalProperties: false
-      required: [commandId, taskId, taskRevision, status, targetRevision]
-      properties:
-        commandId: {type: string, format: uuid}
-        taskId: {type: string, format: uuid}
-        taskRevision: {type: integer, minimum: 1}
-        status:
-          type: string
-          enum: [PENDING, PROCESSING, APPLIED, REJECTED, SUPERSEDED]
-        targetRevision: {type: integer, minimum: 1}
+      $ref: ./agent/task-commands.yaml#/schemas/AgentTaskCommandAcceptance
     AgentRunStatus:
-      type: string
-      enum:
-        - QUEUED
-        - RUNNING
-        - WAITING_FOR_USER
-        - COMPLETED
-        - PARTIAL
-        - FAILED
-        - CANCELLED
+      $ref: ./agent/run-state.yaml#/schemas/AgentRunStatus
     AgentRunEvent:
-      type: object
-      additionalProperties: false
-      required: [eventId, runId, type, occurredAt, data]
-      properties:
-        eventId:
-          type: integer
-          minimum: 1
-        runId:
-          type: string
-          format: uuid
-        type:
-          type: string
-          pattern: "^[a-z]+(?:\\.[a-z]+)+$"
-          maxLength: 100
-        occurredAt:
-          type: string
-          format: date-time
-        data:
-          type: object
-          additionalProperties: true
+      $ref: ./agent/run-state.yaml#/schemas/AgentRunEvent
     RouteObservationBatch:
-      type: object
-      additionalProperties: false
-      required: [runId, status, events, nextEventId, hasMore, terminal]
-      properties:
-        runId:
-          type: string
-          format: uuid
-        status:
-          $ref: "#/components/schemas/AgentRunStatus"
-        events:
-          type: array
-          maxItems: 100
-          items:
-            $ref: "#/components/schemas/AgentRunEvent"
-        nextEventId:
-          type: integer
-          minimum: 0
-        hasMore:
-          type: boolean
-        terminal:
-          type: boolean
+      $ref: ./agent/run-state.yaml#/schemas/RouteObservationBatch
     DepartmentName:
-      type: string
-      enum: [REQUIREMENTS, RESEARCH, DEAL_DESIGN, VERIFICATION]
+      $ref: ./agent/analysis-results.yaml#/schemas/DepartmentName
     SourceReference:
-      type: object
-      additionalProperties: false
-      required: [title, url, provider, contentSha256, fetchedAt, authorityLevel, excerpt]
-      properties:
-        title:
-          type: string
-          maxLength: 500
-        url:
-          type: string
-          format: uri
-          maxLength: 2048
-        provider:
-          type: string
-          maxLength: 50
-        contentSha256:
-          type: string
-          pattern: "^[0-9a-f]{64}$"
-        fetchedAt:
-          type: string
-          format: date-time
-        authorityLevel:
-          type: string
-          maxLength: 50
-        jurisdiction:
-          type: string
-          maxLength: 32
-        excerpt:
-          type: string
-          minLength: 1
-          maxLength: 4000
+      $ref: ./agent/analysis-results.yaml#/schemas/SourceReference
     DepartmentResult:
-      type: object
-      additionalProperties: false
-      required: [department, status, summary, evidenceIds, assumptionIds, sources]
-      properties:
-        department:
-          $ref: "#/components/schemas/DepartmentName"
-        status:
-          type: string
-          enum: [COMPLETED, PARTIAL, FAILED, SKIPPED]
-        summary:
-          type: string
-          maxLength: 10000
-        evidenceIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-        assumptionIds:
-          type: array
-          items:
-            type: string
-            format: uuid
-        sources:
-          type: array
-          maxItems: 10
-          items:
-            $ref: "#/components/schemas/SourceReference"
-        errorCode:
-          type: string
-          maxLength: 100
+      $ref: ./agent/analysis-results.yaml#/schemas/DepartmentResult
     AgentRunResult:
-      type: object
-      additionalProperties: false
-      required: [projectSummary, openQuestions, departmentResults, quotationDraft, quotationDrafts]
-      properties:
-        projectSummary:
-          type: string
-          maxLength: 10000
-        openQuestions:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
-        departmentResults:
-          type: array
-          maxItems: 4
-          items:
-            $ref: "#/components/schemas/DepartmentResult"
-        quotationDraft:
-          oneOf:
-            - $ref: "#/components/schemas/QuotationDraft"
-            - type: "null"
-          description: Deprecated compatibility view of the RECOMMENDED draft.
-        quotationDrafts:
-          type: array
-          maxItems: 3
-          description: AI-generated LEAN, RECOMMENDED, and EXPANDED drafts with distinct scope and effort.
-          items:
-            $ref: "#/components/schemas/QuotationDraft"
-        referencedDocumentIds:
-          type: array
-          maxItems: 50
-          description: Confirmed document IDs actually supplied by the runtime, never invented by the model.
-          items:
-            type: string
-            format: uuid
+      $ref: ./agent/analysis-results.yaml#/schemas/AgentRunResult
     QuotationDraft:
-      type: object
-      additionalProperties: false
-      required: [scenario, items]
-      properties:
-        petPerspective:
-          anyOf:
-            - $ref: '#/components/schemas/PetPerspective'
-            - type: 'null'
-        scenario:
-          type: string
-          enum: [LEAN, RECOMMENDED, EXPANDED]
-        items:
-          type: array
-          minItems: 1
-          maxItems: 50
-          items:
-            $ref: "#/components/schemas/QuotationDraftItem"
+      $ref: ./agent/analysis-results.yaml#/schemas/QuotationDraft
     PetPerspective:
-      type: object
-      additionalProperties: false
-      required: [proposal, rationale, tradeoff]
-      properties:
-        proposal:
-          type: string
-          minLength: 1
-          maxLength: 600
-        rationale:
-          type: string
-          minLength: 1
-          maxLength: 1000
-        tradeoff:
-          type: string
-          minLength: 1
-          maxLength: 600
+      $ref: ./agent/analysis-results.yaml#/schemas/PetPerspective
     QuotationDraftItem:
-      type: object
-      additionalProperties: false
-      required: [title, description, quantity, unit, rateCardHint, basis]
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 200
-        description:
-          type: string
-          maxLength: 5000
-        quantity:
-          type: number
-          exclusiveMinimum: 0
-        unit:
-          type: string
-          enum: [HOUR, DAY, FIXED]
-        rateCardHint:
-          type: [string, "null"]
-          maxLength: 200
-        basis:
-          $ref: "#/components/schemas/QuotationDraftBasis"
+      $ref: ./agent/analysis-results.yaml#/schemas/QuotationDraftItem
     QuotationDraftBasis:
-      type: object
-      additionalProperties: false
-      required: [type, content, sourceReference, sourceTitle]
-      properties:
-        type:
-          type: string
-          enum: [ASSUMPTION, EVIDENCE]
-        content:
-          type: string
-          minLength: 1
-          maxLength: 3000
-        sourceReference:
-          type: [string, "null"]
-          maxLength: 2048
-        sourceTitle:
-          type: [string, "null"]
-          maxLength: 300
+      $ref: ./agent/analysis-results.yaml#/schemas/QuotationDraftBasis
     AgentRunView:
-      type: object
-      additionalProperties: false
-      required: [runId, status, metadata, updatedAt]
-      properties:
-        runId:
-          type: string
-          format: uuid
-        status:
-          $ref: "#/components/schemas/AgentRunStatus"
-        activeDepartment:
-          $ref: "#/components/schemas/DepartmentName"
-        interruption:
-          $ref: "#/components/schemas/AgentInterruption"
-        result:
-          $ref: "#/components/schemas/AgentRunResult"
-        errorCode:
-          type: string
-          maxLength: 100
-        metadata:
-          $ref: "#/components/schemas/AgentRunMetadata"
-        usage:
-          $ref: "#/components/schemas/AgentRunUsage"
-        updatedAt:
-          type: string
-          format: date-time
+      $ref: ./agent/run-state.yaml#/schemas/AgentRunView
     AttachmentText:
-      type: object
-      additionalProperties: false
-      required: [name, mediaType, size, sha256, status, text, notice, units]
-      properties:
-        name: {type: string, minLength: 1, maxLength: 180}
-        mediaType: {type: string, maxLength: 100}
-        size: {type: integer, minimum: 1, maximum: 2097152}
-        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
-        status: {type: string, enum: [COMPLETE, PARTIAL, UNSUPPORTED]}
-        text: {type: string, maxLength: 40000}
-        notice: {type: string, maxLength: 1000}
-        encoding: {type: [string, 'null']}
-        delimiter: {type: [string, 'null']}
-        units: {type: integer, minimum: 1, maximum: 5000}
-        ocrLanguage: {type: string, enum: [mixed, ko, en], default: mixed}
-        ocrLayout: {type: string, enum: [general, singleblock], default: general}
-        coverage:
-          type: array
-          maxItems: 60
-          default: []
-          description: One ordered entry per page/frame. Empty for text/CSV and historical results without structured coverage. OCR attempt includes a failed read; completion requires a returned result, which may be empty.
-          items:
-            $ref: '#/components/schemas/AttachmentCoverage'
+      $ref: ./agent/attachments.yaml#/schemas/AttachmentText
     AttachmentCoverage:
-      type: object
-      additionalProperties: false
-      required: [index, kind, nativeStatus, rasterStatus, ocrAttempted, ocrCompleted, ocrStatus, reason]
-      properties:
-        index: {type: integer, minimum: 1, maximum: 60}
-        kind: {type: string, enum: [PAGE, FRAME]}
-        nativeStatus: {type: string, enum: [TEXT, EMPTY, FAILED, NOT_APPLICABLE]}
-        rasterStatus: {type: string, enum: [NONE, SMALL, LARGE, UNKNOWN, NOT_APPLICABLE]}
-        ocrAttempted: {type: boolean}
-        ocrCompleted: {type: boolean}
-        ocrStatus: {type: string, enum: [READ, EMPTY, FAILED, SKIPPED]}
-        reason:
-          type: string
-          enum: [TEXT_ONLY, SMALL_RASTER, SAMPLED_OUT, BUDGET_EXHAUSTED, TOOL_UNAVAILABLE, LANGUAGE_UNAVAILABLE, TOOL_FAILED, EMPTY_RESULT, TEXT_FOUND, DUPLICATE_ONLY]
+      $ref: ./agent/attachments.yaml#/schemas/AttachmentCoverage
     SkillSelection:
-      type: object
-      additionalProperties: false
-      description: Version-pinned prompt composition only; never authorizes tools, data access or spending. IDs must belong to the pinned catalog.
-      properties:
-        mode: {type: string, enum: [AUTO, MANUAL], default: AUTO}
-        catalogVersion: {type: string, enum: ['1.0.0'], default: '1.0.0'}
-        manualIds:
-          type: array
-          maxItems: 3
-          uniqueItems: true
-          default: []
-          items: {type: string}
-        excludedIds:
-          type: array
-          maxItems: 60
-          uniqueItems: true
-          default: []
-          items: {type: string}
+      $ref: ./agent/run-requests.yaml#/schemas/SkillSelection
     AgentRunMetadata:
-      type: object
-      additionalProperties: false
-      required: [provider, model, promptVersion, toolSchemaVersion, traceId]
-      properties:
-        skillSelection:
-          oneOf:
-            - $ref: '#/components/schemas/SkillSelection'
-            - type: 'null'
-        resolvedSkillIds:
-          type: array
-          maxItems: 3
-          default: []
-          items: {type: string}
-        deferredSkillIds:
-          type: array
-          maxItems: 60
-          default: []
-          items: {type: string}
-        petProfiles:
-          type: array
-          maxItems: 3
-          items:
-            $ref: '#/components/schemas/PetProfile'
-        credentialId:
-          type: [string, "null"]
-          format: uuid
-        provider:
-          type: string
-          enum: [OPENAI, GEMINI]
-        model:
-          type: string
-          minLength: 1
-          maxLength: 100
-        promptVersion:
-          type: string
-          minLength: 1
-          maxLength: 100
-        toolSchemaVersion:
-          type: string
-          minLength: 1
-          maxLength: 100
-        traceId:
-          type: string
-          minLength: 1
-          maxLength: 128
+      $ref: ./agent/run-state.yaml#/schemas/AgentRunMetadata
     ProviderCallUsage:
-      type: object
-      additionalProperties: false
-      required: [callId, fundingSource, provider, model, operation, inputTokens, outputTokens, cachedReadTokens, cacheWriteTokens, costUsd, reservedCostUsd, usageKnown]
-      properties:
-        callId: {type: string, format: uuid}
-        fundingSource: {type: string, enum: [PLATFORM, BYOK]}
-        provider: {type: string, enum: [OPENAI, GEMINI]}
-        model: {type: string, minLength: 1, maxLength: 100}
-        operation: {type: string, minLength: 1, maxLength: 100}
-        inputTokens:
-          type: integer
-          minimum: 0
-          description: Total prompt tokens inclusive of cached reads and cache writes; conservative bound when usageKnown is false.
-        outputTokens: {type: integer, minimum: 0}
-        cachedReadTokens: {type: integer, minimum: 0}
-        cacheWriteTokens: {type: integer, minimum: 0}
-        costUsd:
-          type: [number, string]
-          minimum: 0
-          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
-          description: Platform exposure at the pinned tariff; BYOK contributes zero.
-        reservedCostUsd:
-          type: [number, string]
-          minimum: 0
-          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
-        usageKnown:
-          type: boolean
-          description: False for absent/malformed usage, lost responses, uncertain failures, or bound drift. Never interpreted as zero usage.
+      $ref: ./agent/execution-policy.yaml#/schemas/ProviderCallUsage
     AgentRunUsage:
-      type: object
-      additionalProperties: false
-      required:
-        - requestTier
-        - modelCalls
-        - toolCalls
-        - inputTokens
-        - outputTokens
-        - cachedTokens
-        - searchCredits
-        - crawledPages
-        - retryCount
-        - durationMs
-        - providerCalls
-        - platformCostUsd
-      properties:
-        providerCalls:
-          type: array
-          default: []
-          description: One record per actual provider attempt, including routing, explicit retries, failures and unknown outcomes.
-          items:
-            $ref: "#/components/schemas/ProviderCallUsage"
-        platformCostUsd:
-          type: [number, string]
-          minimum: 0
-          pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
-          description: Conservative platform-funded exposure; unknown attempts keep their bound and BYOK contributes zero.
-        platformReservationId:
-          type: [string, "null"]
-          format: uuid
-        byokScopeId:
-          type: [string, "null"]
-          format: uuid
-          description: Durable BYOK attempt identity for idempotent usage merge; never a platform reservation.
-        tariffVersion:
-          type: [string, "null"]
-        executionClosed:
-          type: boolean
-          default: false
-          description: Worker has closed its monetary scope; only terminal runs with this evidence can release unused exposure.
-        unpricedExposure:
-          type: boolean
-          default: false
-          description: Unexpected model, tier or usage drift requires retaining the full run cap even after worker closure.
-        requestTier:
-          type: string
-          enum: [DIRECT_TOOL, SINGLE_AGENT, DEPARTMENT, MULTI_DEPARTMENT, HUMAN_REQUIRED]
-        modelCalls: {type: integer, minimum: 0}
-        toolCalls: {type: integer, minimum: 0}
-        inputTokens: {type: integer, minimum: 0}
-        outputTokens: {type: integer, minimum: 0}
-        cachedTokens: {type: integer, minimum: 0}
-        searchCredits: {type: integer, minimum: 0}
-        crawledPages: {type: integer, minimum: 0}
-        retryCount: {type: integer, minimum: 0}
-        durationMs: {type: integer, minimum: 0}
+      $ref: ./agent/execution-policy.yaml#/schemas/AgentRunUsage
     AgentInterruption:
-      type: object
-      additionalProperties: false
-      required: [interruptionId, kind, questions]
-      properties:
-        interruptionId:
-          type: string
-          format: uuid
-        kind:
-          type: string
-          enum: [CLARIFICATION, RISK_DECISION, QUOTE_APPROVAL]
-        questions:
-          type: array
-          minItems: 1
-          maxItems: 3
-          items:
-            type: string
-            maxLength: 1000
+      $ref: ./agent/run-state.yaml#/schemas/AgentInterruption
     ResumeAgentRunRequest:
-      type: object
-      additionalProperties: false
-      required: [interruptionId, idempotencyKey, answers]
-      properties:
-        interruptionId:
-          type: string
-          format: uuid
-        idempotencyKey:
-          type: string
-          minLength: 8
-          maxLength: 128
-        answers:
-          type: array
-          minItems: 1
-          items:
-            type: object
-            additionalProperties: false
-            required: [questionIndex, answer]
-            properties:
-              questionIndex:
-                type: integer
-                minimum: 0
-              answer:
-                type: string
-                minLength: 1
-                maxLength: 5000
+      $ref: ./agent/run-requests.yaml#/schemas/ResumeAgentRunRequest
     RaptorBuildRequest:
-      type: object
-      additionalProperties: false
-      required: [context, provider, embeddingModel, summaryModel, chunks]
-      properties:
-        context:
-          type: object
-          additionalProperties: false
-          required: [runId, workspaceId, projectId, snapshotId]
-          properties:
-            runId: {type: string, format: uuid}
-            workspaceId: {type: string, format: uuid}
-            projectId: {type: string, format: uuid}
-            snapshotId: {type: string, format: uuid}
-        provider:
-          type: string
-          enum: [OPENAI]
-        embeddingModel:
-          type: string
-          minLength: 1
-          maxLength: 100
-        summaryModel:
-          type: string
-          minLength: 1
-          maxLength: 100
-        chunks:
-          type: array
-          minItems: 1
-          maxItems: 500
-          items:
-            $ref: "#/components/schemas/RaptorSourceChunk"
-        options:
-          $ref: "#/components/schemas/RaptorBuildOptions"
+      $ref: ./agent/raptor.yaml#/schemas/RaptorBuildRequest
     RaptorSourceChunk:
-      type: object
-      additionalProperties: false
-      required: [chunkId, documentId, text]
-      properties:
-        chunkId: {type: string, format: uuid}
-        documentId: {type: string, format: uuid}
-        text:
-          type: string
-          minLength: 1
-          maxLength: 20000
-        metadata:
-          type: object
-          additionalProperties:
-            type: string
+      $ref: ./agent/raptor.yaml#/schemas/RaptorSourceChunk
     RaptorBuildOptions:
-      type: object
-      additionalProperties: false
-      properties:
-        targetClusterSize: {type: integer, minimum: 2, maximum: 50, default: 4}
-        maxSummaryLevels: {type: integer, minimum: 1, maximum: 8, default: 4}
-        kmeansIterations: {type: integer, minimum: 1, maximum: 100, default: 20}
+      $ref: ./agent/raptor.yaml#/schemas/RaptorBuildOptions
     RaptorBuildResponse:
-      type: object
-      additionalProperties: false
-      required: [workspaceId, snapshotId, embeddingModel, summaryModel, nodes, rootIds]
-      properties:
-        workspaceId: {type: string, format: uuid}
-        snapshotId: {type: string, format: uuid}
-        embeddingModel: {type: string}
-        summaryModel: {type: string}
-        nodes:
-          type: array
-          items:
-            $ref: "#/components/schemas/RaptorNode"
-        rootIds:
-          type: array
-          items: {type: string, format: uuid}
+      $ref: ./agent/raptor.yaml#/schemas/RaptorBuildResponse
     RaptorNode:
-      type: object
-      additionalProperties: false
-      required: [nodeId, kind, level, text, embedding, childIds, metadata]
-      properties:
-        nodeId: {type: string, format: uuid}
-        kind: {type: string, enum: [LEAF, SUMMARY]}
-        level: {type: integer, minimum: 0}
-        text: {type: string}
-        embedding:
-          type: array
-          minItems: 1
-          items: {type: number}
-        childIds:
-          type: array
-          items: {type: string, format: uuid}
-        sourceChunkId: {type: string, format: uuid}
-        documentId: {type: string, format: uuid}
-        metadata:
-          type: object
-          additionalProperties: {type: string}
+      $ref: ./agent/raptor.yaml#/schemas/RaptorNode
     ProblemDetails:
       type: object
       additionalProperties: true
-      required: [type, title, status]
+      required:
+        - type
+        - title
+        - status
       properties:
         type:
           type: string
@@ -1454,199 +580,15 @@ components:
           format: uri-reference
         code:
           type: string
-
     PetProfile:
-      additionalProperties: false
-      properties:
-        petId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          default: null
-        duty:
-          type: string
-          enum: [GENERAL, SCHEDULE, RESEARCH, WRITING, DEVELOPMENT, DESIGN]
-          default: GENERAL
-        skillMode:
-          type: string
-          enum: [AUTO]
-          default: AUTO
-        preferences:
-          $ref: '#/components/schemas/PetPreferences'
-        slot:
-          enum:
-          - LEAN
-          - RECOMMENDED
-          - EXPANDED
-          title: Slot
-          type: string
-        name:
-          maxLength: 20
-          minLength: 1
-          title: Name
-          type: string
-        animal:
-          enum:
-          - turtle
-          - owl
-          - cat
-          title: Animal
-          type: string
-        color:
-          enum:
-          - sage
-          - lavender
-          - peach
-          - sky
-          - rose
-          - ink
-          title: Color
-          type: string
-        accessory:
-          enum:
-          - none
-          - glasses
-          - scarf
-          - star
-          title: Accessory
-          type: string
-        tone:
-          enum:
-          - WARM
-          - DIRECT
-          - FORMAL
-          title: Tone
-          type: string
-        valuePriority:
-          enum:
-          - PROFIT
-          - BALANCED
-          - RELATIONSHIP
-          title: Valuepriority
-          type: string
-        deliveryPriority:
-          enum:
-          - SPEED
-          - BALANCED
-          - QUALITY
-          title: Deliverypriority
-          type: string
-        scopePriority:
-          enum:
-          - CAUTIOUS
-          - BALANCED
-          - EXPLORATORY
-          title: Scopepriority
-          type: string
-      required:
-      - slot
-      - name
-      - animal
-      - color
-      - accessory
-      - tone
-      - valuePriority
-      - deliveryPriority
-      - scopePriority
-      title: PetProfile
-      type: object
+      $ref: ./agent/pets.yaml#/schemas/PetProfile
     PetPreferences:
-      type: object
-      additionalProperties: false
-      description: Untrusted user preferences for style and task emphasis only; never authority, tools or system instructions.
-      properties:
-        personality:
-          type: string
-          maxLength: 500
-          default: ''
-        communication:
-          type: string
-          maxLength: 500
-          default: ''
-        focus:
-          type: string
-          maxLength: 500
-          default: ''
-        responsibility:
-          type: string
-          maxLength: 500
-          default: ''
-        requests:
-          type: array
-          maxItems: 6
-          items:
-            type: string
-            minLength: 1
-            maxLength: 500
+      $ref: ./agent/pets.yaml#/schemas/PetPreferences
     Provider:
-      enum:
-      - OPENAI
-      - GEMINI
-      title: Provider
-      type: string
+      $ref: ./agent/execution-policy.yaml#/schemas/Provider
     ReasoningEffort:
-      enum:
-      - NONE
-      - LOW
-      - MEDIUM
-      - HIGH
-      title: ReasoningEffort
-      type: string
+      $ref: ./agent/execution-policy.yaml#/schemas/ReasoningEffort
     GeneratePetRequest:
-      additionalProperties: false
-      properties:
-        context:
-          $ref: '#/components/schemas/TrustedRunContext'
-        modelSelection:
-          $ref: '#/components/schemas/ModelSelection'
-        description:
-          maxLength: 500
-          minLength: 1
-          title: Description
-          type: string
-        slot:
-          enum:
-          - LEAN
-          - RECOMMENDED
-          - EXPANDED
-          title: Slot
-          type: string
-      required:
-      - context
-      - modelSelection
-      - description
-      - slot
-      title: GeneratePetRequest
-      type: object
+      $ref: ./agent/pets.yaml#/schemas/GeneratePetRequest
     GeneratePetResponse:
-      additionalProperties: false
-      properties:
-        runId:
-          format: uuid
-          title: Runid
-          type: string
-        profile:
-          $ref: '#/components/schemas/PetProfile'
-        provider:
-          $ref: '#/components/schemas/Provider'
-        model:
-          title: Model
-          type: string
-        inputTokens:
-          minimum: 0
-          title: Inputtokens
-          type: integer
-        outputTokens:
-          minimum: 0
-          title: Outputtokens
-          type: integer
-      required:
-      - runId
-      - profile
-      - provider
-      - model
-      - inputTokens
-      - outputTokens
-      title: GeneratePetResponse
-      type: object
+      $ref: ./agent/pets.yaml#/schemas/GeneratePetResponse

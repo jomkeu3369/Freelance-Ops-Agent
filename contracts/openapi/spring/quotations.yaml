@@ -1,0 +1,67 @@
+schemas:
+  QuoteCalculationRequest:
+    type: object
+    additionalProperties: false
+    required:
+      - currency
+      - taxRate
+      - discountRate
+      - items
+    properties:
+      currency:
+        type: string
+        pattern: ^[A-Z]{3}$
+      taxRate:
+        type: number
+        minimum: 0
+        maximum: 1
+      discountRate:
+        type: number
+        minimum: 0
+        maximum: 1
+      items:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/schemas/QuoteCalculationItem"
+  QuoteCalculationItem:
+    type: object
+    additionalProperties: false
+    required:
+      - itemId
+      - quantity
+      - unitPrice
+    properties:
+      itemId:
+        type: string
+        format: uuid
+      quantity:
+        type: number
+        exclusiveMinimum: 0
+      unitPrice:
+        type: number
+        minimum: 0
+  QuoteCalculationResult:
+    type: object
+    additionalProperties: false
+    required:
+      - currency
+      - subtotal
+      - discountAmount
+      - taxAmount
+      - total
+      - formulaVersion
+    properties:
+      currency:
+        type: string
+        pattern: ^[A-Z]{3}$
+      subtotal:
+        type: number
+      discountAmount:
+        type: number
+      taxAmount:
+        type: number
+      total:
+        type: number
+      formulaVersion:
+        type: string
