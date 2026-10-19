@@ -11,7 +11,7 @@ async function pixelFixture(page) {
   const library = { pets: [], selectedPetId: null, maxActivePets: 8, maxStoredPets: 24, maxPromptLength: 500,
     maxPreferenceRequests: 6, generationMode: "MODEL_PIXEL", aiGenerationAvailable: true };
   const server = { modelCalls: 0, calls: [], jobs: new Map(), nextGeneration: null, lostGenerationResponses: 0,
-    lostSaveResponses: 0, failures: 0 };
+    lostSaveResponses: 0, failures: 0, unknownResult: false };
   const saves = new Map();
   await page.route("**/api/v2/workspaces/local-space/agent-pets**", async (route) => {
     const req = route.request();
@@ -37,6 +37,7 @@ async function pixelFixture(page) {
       job.profile = structuredClone(penguin);
       job.profile.petId = input.id;
       job.profile.preferences.requests = [input.description];
+      if (server.unknownResult) job.status = "UNKNOWN";
       if (server.lostGenerationResponses > 0) { server.lostGenerationResponses--; return json({ message: "Synthetic lost response" }, 503); }
       return json(job);
     }
@@ -107,6 +108,7 @@ for (const screen of [
     await expect(panel.locator(".pet-creation-result")).toContainText("펭귄");
     await expect(panel.locator(".pet-creation-result")).toContainText("꼼꼼이");
     await expect(panel.locator(".pet-pixel")).toBeVisible();
+    await expect(panel.locator(".pet-creation-result h4")).toBeInViewport({ ratio: 1 });
     await expect(primary).toHaveText("이 펫과 함께하기");
     const resultPosition = await primary.boundingBox();
     expect(Math.abs(resultPosition.y - inputPosition.y)).toBeLessThan(2);
@@ -140,6 +142,47 @@ test("lost generation and save responses recover the same model result and save 
   expect(server.modelCalls).toBe(1);
   expect(library.pets).toHaveLength(1);
   expect(state.starts).toHaveLength(0);
+});
+
+test("an uncertain result is read again without a second model request", async ({ page }) => {
+  const { server } = await pixelFixture(page);
+  server.unknownResult = true;
+  const panel = await open(page);
+  await panel.getByRole("textbox").fill(description);
+  await panel.getByRole("button", { name: "펫 생성하기", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("같은 요청을 다시 확인", { timeout: 30_000 });
+  await expect(panel.getByRole("textbox")).toHaveValue(description);
+  expect(server.modelCalls).toBe(1);
+  server.jobs.values().next().value.status = "COMPLETED";
+  await panel.getByRole("button", { name: "생성 결과 확인", exact: true }).click();
+  await expect(panel.locator(".pet-creation-result")).toBeVisible();
+  expect(server.modelCalls).toBe(1);
+  expect(server.calls.filter(call => call.method === "POST" && call.path.endsWith("/generations"))).toHaveLength(1);
+});
+
+test("English mobile controls fit and reduced motion keeps a static loading indicator", async ({ page }) => {
+  const { server } = await pixelFixture(page);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
+  await page.goto("/workspace/projects/project-one/agent");
+  await page.getByRole("button", { name: "Your pet", exact: true }).click();
+  const panel = page.locator(".pet-library-panel");
+  await panel.getByRole("button", { name: "Create a pet", exact: true }).click();
+  await panel.locator(".pet-creation-examples button").first().click();
+  await expect(panel.getByRole("textbox")).not.toHaveValue(/[가-힣]/);
+  const barrier = requestBarrier();
+  server.nextGeneration = barrier;
+  await panel.locator(".pet-creation-primary").click();
+  await barrier.entered;
+  try {
+    expect(await panel.locator(".pet-creation-pixels i").first().evaluate(element => getComputedStyle(element).animationName)).toBe("none");
+  } finally { barrier.release(); }
+  await expect(panel.locator(".pet-creation-result")).toBeVisible();
+  const primary = await panel.locator(".pet-creation-primary").boundingBox();
+  const secondary = await panel.locator(".pet-creation-secondary").boundingBox();
+  expect(secondary.x + secondary.width).toBeLessThanOrEqual(primary.x);
+  expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
 test("closing during generation and reopening recovers by GET without starting another model", async ({ page }) => {

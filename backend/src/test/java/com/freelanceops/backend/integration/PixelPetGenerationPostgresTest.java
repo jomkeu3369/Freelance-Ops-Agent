@@ -8,6 +8,7 @@ import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.*;
 import com.freelanceops.backend.domain.agentrun.model.*;
+import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.agentrun.service.*;
 import com.freelanceops.backend.domain.workspace.policy.*;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
@@ -66,12 +67,15 @@ class PixelPetGenerationPostgresTest {
     @MockitoBean PixelPetGenerationClient client;
     @MockitoBean AIConnectionService authorization;
     @MockitoBean WorkspacePermissionReader permissions;
+    @MockitoBean DelegationTokenIssuer tokens;
     UUID user, workspace, project;
     PetProfile draft;
 
     @BeforeEach
     void setup() throws Exception {
-        reset(client, authorization, permissions);
+        reset(client, authorization, permissions, tokens);
+        when(tokens.issueForPersonalRun(any(), any(), any(), any(), anyList(), eq(60)))
+                .thenReturn("synthetic-delegation");
         user = UUID.randomUUID();
         workspace = UUID.randomUUID();
         project = UUID.randomUUID();

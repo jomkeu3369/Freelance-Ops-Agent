@@ -204,7 +204,8 @@ public class PixelPetGenerationService {
                     client.generate(
                             new PixelPetGenerationClient.Input(
                                     context, model, input.description(), previous, budget, limits),
-                            tokens.issue(id, workspace, request.projectId(), user, codes));
+                            tokens.issueForPersonalRun(
+                                    id, workspace, request.projectId(), user, codes, 60));
             transaction.executeWithoutResult(status -> persistResult(user, workspace, id, output));
         } catch (RuntimeException error) {
             // 같은 식별자는 실패 후에도 재호출하지 않는다. 모델 응답이 불명확하면 금액 예약도 유지한다.
@@ -258,7 +259,7 @@ public class PixelPetGenerationService {
                         id);
         for (var call : report.providerCalls()) {
             if (call.provider() != Provider.OPENAI
-                    || !call.model().equals(stored.model())
+                    || !stored.model().equals(call.model())
                     || !"pixel_pet_profile".equals(call.operation())
                     || !"PLATFORM".equals(call.fundingSource())
                     || call.callId() == null
@@ -276,8 +277,21 @@ public class PixelPetGenerationService {
             if (!attempts.isEmpty() && !attempts.contains(call.callId()))
                 throw failure(HttpStatus.CONFLICT, "PET_CALL_LIMIT");
         }
+        if (report.inputTokens()
+                        != report.providerCalls().stream()
+                                .mapToInt(call -> call.inputTokens())
+                                .sum()
+                || report.outputTokens()
+                        != report.providerCalls().stream()
+                                .mapToInt(call -> call.outputTokens())
+                                .sum())
+            throw failure(HttpStatus.FORBIDDEN, "PET_USAGE_BINDING_MISMATCH");
         if (attempts.isEmpty() && !report.providerCalls().isEmpty()) {
             authorization.authorize(principal.initiatedBy(), principal.workspaceId());
+            if (!permissions
+                    .findActiveMembership(principal.initiatedBy(), principal.workspaceId())
+                    .map(member -> member.permissions().contains(PermissionCode.PROJECT_READ))
+                    .orElse(false)) throw failure(HttpStatus.FORBIDDEN, "PET_PROJECT_UNAVAILABLE");
             projects.findByIdAndWorkspaceId(principal.projectId(), principal.workspaceId())
                     .orElseThrow(() -> failure(HttpStatus.NOT_FOUND, "PET_PROJECT_UNAVAILABLE"))
                     .requireNotDeleting();
@@ -311,6 +325,7 @@ public class PixelPetGenerationService {
                 || !"pixel".equals(output.profile().animal())
                 || !validator.validate(output.profile()).isEmpty()
                 || output.usage() == null
+                || output.usage().modelCalls() != 1
                 || !id.equals(output.usage().platformReservationId()))
             throw failure(HttpStatus.BAD_REQUEST, "PET_INVALID_GENERATION");
         var generated = output.profile();

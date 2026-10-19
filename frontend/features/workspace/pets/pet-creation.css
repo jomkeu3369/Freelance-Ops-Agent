@@ -329,6 +329,8 @@
 .pet-library-panel .pet-creation-footer .pet-creation-secondary {
   color: var(--muted);
   background: transparent;
+  padding-inline: 8px;
+  white-space: nowrap;
 }
 .pet-library-panel .pet-creation-footer .pet-creation-secondary:hover:not(:disabled) {
   color: var(--ink);
@@ -453,17 +455,102 @@
   }
 }
 @media (max-height: 800px) {
-  .pet-creation-portrait { width: 156px; height: 156px; }
-  .pet-creation-portrait .pet-art { width: 128px; height: 128px; }
-  .pet-library-panel .pet-creation-heading { margin-bottom: 18px; }
-  .pet-creation-back { margin-bottom: 16px; }
+  .pet-creation-portrait {
+    width: 156px;
+    height: 156px;
+  }
+  .pet-creation-portrait .pet-art {
+    width: 128px;
+    height: 128px;
+  }
+  .pet-library-panel .pet-creation-heading {
+    margin-bottom: 18px;
+  }
+  .pet-creation-back {
+    margin-bottom: 16px;
+  }
 }
 @media (max-height: 560px) {
-  .pet-creation-eyebrow, .pet-creation-heading > p, .pet-creation-examples { display: none; }
-  .pet-library-panel .pet-creation-heading h3 { font-size: 20px; margin-bottom: 0; }
-  .pet-creation-back { margin-bottom: 8px; }
-  .pet-library-panel .pet-creation-input textarea { min-height: 90px; }
-  .pet-creation-footer { margin-top: 12px; padding-top: 12px; }
+  .pet-creation-eyebrow,
+  .pet-creation-heading > p,
+  .pet-creation-examples {
+    display: none;
+  }
+  .pet-library-panel .pet-creation-heading h3 {
+    font-size: 20px;
+    margin-bottom: 0;
+  }
+  .pet-creation-back {
+    margin-bottom: 8px;
+  }
+  .pet-library-panel .pet-creation-input textarea {
+    min-height: 90px;
+  }
+  .pet-creation-footer {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+}
+
+/* 화면 높이가 짧으면 외형과 이름을 나란히 보여 준다. */
+@media (max-height: 650px) {
+  .pet-library-panel .pet-creation-heading {
+    margin-bottom: 14px;
+  }
+  .pet-library-panel .pet-creation-heading h3 {
+    font-size: 22px;
+  }
+  .pet-creation-back {
+    margin-bottom: 10px;
+  }
+  .pet-creation-eyebrow {
+    margin-bottom: 8px;
+  }
+  .pet-creation-result {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    align-content: start;
+    column-gap: 14px;
+    text-align: left;
+  }
+  .pet-creation-portrait {
+    grid-row: 1 / 5;
+    width: 104px;
+    height: 104px;
+    margin: 0;
+    border-radius: 16px;
+  }
+  .pet-creation-portrait .pet-art {
+    width: 96px;
+    height: 96px;
+  }
+  .pet-creation-species {
+    justify-self: start;
+  }
+  .pet-creation-result h4 {
+    margin: 7px 0;
+    font-size: 20px;
+  }
+  .pet-creation-result > p {
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .pet-creation-result > p.pet-creation-focus {
+    font-size: 10px;
+  }
+  .pet-creation-request-details {
+    grid-column: 1 / -1;
+    margin-top: 12px;
+  }
+  .pet-creation-request-details summary {
+    margin: 0;
+  }
+  .pet-creation-loading {
+    min-height: 200px;
+  }
+  .pet-creation-loading strong {
+    margin-top: 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

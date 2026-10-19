@@ -9,6 +9,69 @@ servers:
 security:
   - delegationToken: []
 paths:
+  /internal/v1/pet-generations/{generationId}/usage:
+    post:
+      operationId: recordPixelPetUsage
+      description: >-
+        모델 호출 전후의 시도와 최종 사용량을 기록한다. 생성 ID는 위임 실행과 X-Run-Id,
+        사용자·작업 공간·프로젝트·서버 모델·금액 예약에 일치해야 한다.
+        agent.run과 project.read가 필요하며 호출 시도는 하나만 접수한다.
+        불명확한 사용량의 예약은 유지하고 같은 보고의 재전송은 중복 정산하지 않는다.
+      parameters:
+        - $ref: "#/components/parameters/GenerationId"
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PixelPetUsage"
+      responses:
+        "200":
+          description: 사용량을 영속 기록했다. 응답 본문은 없으며 캐시하지 않는다.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/pet-generations/{generationId}/complete:
+    post:
+      operationId: completePixelPetGeneration
+      description: >-
+        Agent의 HTTP 응답 전에 픽셀 외형과 사용량을 저장한다. usage와 같은 위임·예약 경계를
+        검사한다. 서버가 원래 입력과 이전 요청 이력을 결합하며 클라이언트 외형을 신뢰하지 않는다.
+        같은 결과의 재전송은 허용하고 다른 결과로 바꾸려는 요청은 거부한다.
+      parameters:
+        - $ref: "#/components/parameters/GenerationId"
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PixelPetCompletion"
+      responses:
+        "200":
+          description: 생성 결과를 저장했다. 사용자 저장·선택은 별도 공개 API에서 수행한다.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/byok-executions/{scopeId}/attempts:
     post:
       operationId: admitByokProviderAttempt
@@ -247,6 +310,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    GenerationId:
+      name: generationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ProjectId:
       name: projectId
       in: path
@@ -269,6 +339,10 @@ components:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
   schemas:
+    PixelPetUsage:
+      $ref: ./agent/execution-policy.yaml#/schemas/AgentRunUsage
+    PixelPetCompletion:
+      $ref: ./agent/pets.yaml#/schemas/GeneratePixelPetResponse
     ByokAttempt:
       $ref: ./spring/byok-executions.yaml#/schemas/ByokAttempt
     ByokAdmission:

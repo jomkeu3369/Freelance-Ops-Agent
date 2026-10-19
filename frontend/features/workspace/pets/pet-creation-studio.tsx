@@ -92,8 +92,12 @@ export function PetCreationStudio({
           )}
         </p>
       </header>
-      <section className={`pet-creation-stage${generating ? " is-generating" : ""}`} ref={stageRef} tabIndex={-1}
-        aria-label={t(generating ? "펫 생성 중" : result ? "생성된 펫 확인" : "펫 설명 입력")}>
+      <section
+        className={`pet-creation-stage${generating ? " is-generating" : ""}`}
+        ref={stageRef}
+        tabIndex={-1}
+        aria-label={t(generating ? "펫 생성 중" : result ? "생성된 펫 확인" : "펫 설명 입력")}
+      >
         {generating ? (
           <div className="pet-creation-loading" role="status" aria-live="polite">
             <div className="pet-creation-pixels" aria-hidden="true">
@@ -169,9 +173,11 @@ export function PetCreationStudio({
               </label>
             )}
             <p id={`${prefix}-creation-help`} className="pet-creation-help">
-              {t(pendingResult
-                ? "이전 요청의 결과를 확인해요. AI를 다시 호출하지 않아요."
-                : "기본 제공 AI 사용량에 포함돼요. 생성 후 마음에 드는 결과만 저장하세요.")}
+              {t(
+                pendingResult
+                  ? "이전 요청의 결과를 확인해요. AI를 다시 호출하지 않아요."
+                  : "기본 제공 AI 사용량에 포함돼요. 생성 후 마음에 드는 결과만 저장하세요."
+              )}
             </p>
           </div>
         )}
@@ -187,8 +193,15 @@ export function PetCreationStudio({
         )}
       </div>
       <footer className="pet-creation-footer">
-        <button type="button" className="pet-creation-secondary" onClick={result || (pendingResult && status && !generating) ? onEdit : onBack} disabled={saving}>
-          {t(result ? "설명 수정" : generating ? "목록 보기" : pendingResult && status ? "새로 만들기" : "나중에 만들기")}
+        <button
+          type="button"
+          className="pet-creation-secondary"
+          onClick={result || (pendingResult && status && !generating) ? onEdit : onBack}
+          disabled={saving}
+        >
+          {t(
+            result ? "설명 수정" : generating ? "목록 보기" : pendingResult && status ? "새로 만들기" : "나중에 만들기"
+          )}
         </button>
         <button
           type="button"
@@ -196,7 +209,8 @@ export function PetCreationStudio({
           onClick={result ? onSave : onGenerate}
           disabled={
             locked ||
-            (!result && !pendingResult &&
+            (!result &&
+              !pendingResult &&
               (!available || !description.trim() || (atLimit && !editingName) || (fullHistory && !resetPreferences)))
           }
           aria-busy={generating || saving}

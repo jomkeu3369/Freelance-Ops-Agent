@@ -28,7 +28,7 @@ export function generatePixelPet(
 ): Promise<PixelPetGeneration> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/agent-pets/generations`,
-    { method: "POST", body: JSON.stringify({ projectId, input }) },
+    { method: "POST", body: JSON.stringify({ projectId, input }), signal: AbortSignal.timeout(75_000) },
     session.accessToken,
     false
   );
@@ -37,7 +37,7 @@ export function generatePixelPet(
 export function getPixelPetGeneration(session: AuthSession, generationId: string): Promise<PixelPetGeneration> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/agent-pets/generations/${generationId}`,
-    { cache: "no-store" },
+    { cache: "no-store", signal: AbortSignal.timeout(10_000) },
     session.accessToken,
     false
   );

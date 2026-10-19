@@ -247,13 +247,13 @@ export function PetCustomizer({
           ? "기본 제공 AI 사용량이 부족해요. 사용량이 갱신되면 다시 만들 수 있어요."
           : error instanceof ApiError && error.code === "PLATFORM_SPEND_DISABLED"
             ? "지금은 기본 제공 AI를 사용할 수 없어요. 사용량과 연결 상태를 확인해 주세요."
-          : error instanceof ApiError && error.status === 429
-          ? "오늘 생성할 수 있는 횟수를 모두 사용했어요. 기존 펫은 계속 사용할 수 있어요."
-          : error instanceof ApiError && error.status === 409
-            ? "진행 중인 생성이나 펫 개수 제한을 확인해 주세요. 설명은 그대로 보관했어요."
-          : error instanceof ApiError && error.status === 404 && resumeOnly
-            ? "이전 생성 결과를 찾지 못했어요. 설명은 그대로예요. 버튼을 눌러 다시 진행해 주세요."
-            : "생성 결과를 확인하지 못했어요. 설명은 그대로예요. 같은 요청의 결과를 다시 확인할 수 있어요."
+            : error instanceof ApiError && error.status === 429
+              ? "오늘 생성할 수 있는 횟수를 모두 사용했어요. 기존 펫은 계속 사용할 수 있어요."
+              : error instanceof ApiError && error.status === 409
+                ? "진행 중인 생성이나 펫 개수 제한을 확인해 주세요. 설명은 그대로 보관했어요."
+                : error instanceof ApiError && error.status === 404 && resumeOnly
+                  ? "이전 생성 결과를 찾지 못했어요. 설명은 그대로예요. 버튼을 눌러 다시 진행해 주세요."
+                  : "생성 결과를 확인하지 못했어요. 설명은 그대로예요. 같은 요청의 결과를 다시 확인할 수 있어요."
       );
       setFocusRequest({ target: "prompt" });
     } finally {
@@ -405,6 +405,7 @@ export function PetCustomizer({
                 pendingGeneration.current = null;
                 setPendingResult(false);
                 rememberPetGeneration(session, projectId, null);
+                setFocusRequest({ target: "create" });
               }}
             >
               {t("입력 취소")}
