@@ -279,11 +279,11 @@ public class PixelPetGenerationService {
         }
         if (report.inputTokens()
                         != report.providerCalls().stream()
-                                .mapToInt(call -> call.inputTokens())
+                                .mapToLong(call -> call.inputTokens())
                                 .sum()
                 || report.outputTokens()
                         != report.providerCalls().stream()
-                                .mapToInt(call -> call.outputTokens())
+                                .mapToLong(call -> call.outputTokens())
                                 .sum())
             throw failure(HttpStatus.FORBIDDEN, "PET_USAGE_BINDING_MISMATCH");
         if (attempts.isEmpty() && !report.providerCalls().isEmpty()) {
