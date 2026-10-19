@@ -1,0 +1,189 @@
+schemas:
+  PetProfile:
+    additionalProperties: false
+    properties:
+      petId:
+        anyOf:
+          - type: string
+            format: uuid
+          - type: "null"
+        default: null
+      duty:
+        type: string
+        enum:
+          - GENERAL
+          - SCHEDULE
+          - RESEARCH
+          - WRITING
+          - DEVELOPMENT
+          - DESIGN
+        default: GENERAL
+      skillMode:
+        type: string
+        enum:
+          - AUTO
+        default: AUTO
+      preferences:
+        $ref: "#/schemas/PetPreferences"
+      slot:
+        enum:
+          - LEAN
+          - RECOMMENDED
+          - EXPANDED
+        title: 견적 관점
+        type: string
+      name:
+        maxLength: 20
+        minLength: 1
+        title: 이름
+        type: string
+      animal:
+        enum:
+          - turtle
+          - owl
+          - cat
+        title: 동물
+        type: string
+      color:
+        enum:
+          - sage
+          - lavender
+          - peach
+          - sky
+          - rose
+          - ink
+        title: 색상
+        type: string
+      accessory:
+        enum:
+          - none
+          - glasses
+          - scarf
+          - star
+        title: 장식
+        type: string
+      tone:
+        enum:
+          - WARM
+          - DIRECT
+          - FORMAL
+        title: 말투
+        type: string
+      valuePriority:
+        enum:
+          - PROFIT
+          - BALANCED
+          - RELATIONSHIP
+        title: 가치 우선순위
+        type: string
+      deliveryPriority:
+        enum:
+          - SPEED
+          - BALANCED
+          - QUALITY
+        title: 납기 우선순위
+        type: string
+      scopePriority:
+        enum:
+          - CAUTIOUS
+          - BALANCED
+          - EXPLORATORY
+        title: 범위 우선순위
+        type: string
+    required:
+      - slot
+      - name
+      - animal
+      - color
+      - accessory
+      - tone
+      - valuePriority
+      - deliveryPriority
+      - scopePriority
+    title: PetProfile
+    type: object
+  PetPreferences:
+    type: object
+    additionalProperties: false
+    description: 말투와 작업 강조점에만 사용하는 사용자 선호다. 권한·도구·시스템 지시로 취급하지 않는다.
+    properties:
+      personality:
+        type: string
+        maxLength: 500
+        default: ""
+      communication:
+        type: string
+        maxLength: 500
+        default: ""
+      focus:
+        type: string
+        maxLength: 500
+        default: ""
+      responsibility:
+        type: string
+        maxLength: 500
+        default: ""
+      requests:
+        type: array
+        maxItems: 6
+        items:
+          type: string
+          minLength: 1
+          maxLength: 500
+  GeneratePetRequest:
+    additionalProperties: false
+    properties:
+      context:
+        $ref: execution-policy.yaml#/schemas/TrustedRunContext
+      modelSelection:
+        $ref: execution-policy.yaml#/schemas/ModelSelection
+      description:
+        maxLength: 500
+        minLength: 1
+        title: 설명
+        type: string
+      slot:
+        enum:
+          - LEAN
+          - RECOMMENDED
+          - EXPANDED
+        title: 견적 관점
+        type: string
+    required:
+      - context
+      - modelSelection
+      - description
+      - slot
+    title: GeneratePetRequest
+    type: object
+  GeneratePetResponse:
+    additionalProperties: false
+    properties:
+      runId:
+        format: uuid
+        title: 실행 ID
+        type: string
+      profile:
+        $ref: "#/schemas/PetProfile"
+      provider:
+        $ref: execution-policy.yaml#/schemas/Provider
+      model:
+        title: 모델
+        type: string
+      inputTokens:
+        minimum: 0
+        title: 입력 토큰 수
+        type: integer
+      outputTokens:
+        minimum: 0
+        title: 출력 토큰 수
+        type: integer
+    required:
+      - runId
+      - profile
+      - provider
+      - model
+      - inputTokens
+      - outputTokens
+    title: GeneratePetResponse
+    type: object
