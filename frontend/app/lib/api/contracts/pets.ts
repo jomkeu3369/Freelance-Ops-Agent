@@ -1,3 +1,9 @@
+export interface PixelPetSprite {
+  species: string;
+  palette: string[];
+  rows: string[];
+}
+
 export interface PetProfile {
   petId?: string | null;
   duty?: "GENERAL" | "SCHEDULE" | "RESEARCH" | "WRITING" | "DEVELOPMENT" | "DESIGN";
@@ -11,7 +17,8 @@ export interface PetProfile {
   };
   slot: "LEAN" | "RECOMMENDED" | "EXPANDED";
   name: string;
-  animal: "turtle" | "owl" | "cat";
+  animal: "turtle" | "owl" | "cat" | "pixel";
+  sprite?: PixelPetSprite | null;
   color: "sage" | "lavender" | "peach" | "sky" | "rose" | "ink";
   accessory: "none" | "glasses" | "scarf" | "star";
   tone: "WARM" | "DIRECT" | "FORMAL";
@@ -34,7 +41,7 @@ export interface AgentPetCollection {
   maxStoredPets: number;
   maxPromptLength: number;
   maxPreferenceRequests: number;
-  generationMode: "RULE_BASED_PREVIEW";
+  generationMode: "RULE_BASED_PREVIEW" | "MODEL_PIXEL";
   aiGenerationAvailable: boolean;
 }
 
@@ -44,4 +51,12 @@ export interface ComposeAgentPet {
   expectedRevision: number;
   description: string;
   resetPreferences: boolean;
+  generationId?: string | null;
+}
+
+export interface PixelPetGeneration {
+  id: string;
+  status: "REQUESTED" | "COMPLETED" | "FAILED" | "UNKNOWN";
+  profile: PetProfile | null;
+  errorCode: string | null;
 }

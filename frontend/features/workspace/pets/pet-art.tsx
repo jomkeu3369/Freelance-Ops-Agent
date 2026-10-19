@@ -1,4 +1,5 @@
 import type { PetProfile } from "@/app/lib/api";
+import { PixelPetArt } from "./pixel-pet-art";
 const palettes = {
   sage: ["#d2e4b7", "#a2c5a1", "#79a982"],
   lavender: ["#e8e0f4", "#b8a9dd", "#9583bf"],
@@ -8,6 +9,7 @@ const palettes = {
   ink: ["#89919f", "#555f72", "#354055"]
 };
 export function PetArt({ kind, state = "idle", profile }: { kind: string; state?: string; profile?: PetProfile }) {
+  if (profile?.sprite) return <PixelPetArt sprite={profile.sprite} state={state} />;
   const [light, body, accent] =
     palettes[profile?.color ?? (kind === "cat" ? "peach" : kind === "turtle" ? "sage" : "lavender")];
   return (

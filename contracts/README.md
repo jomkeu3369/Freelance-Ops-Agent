@@ -19,7 +19,7 @@ Spring Boot와 Python Agent가 주고받는 요청·응답의 기준이다. Lang
 | `openapi/agent/task-commands.yaml`         | 작업 제어 명령과 접수 결과                        |
 | `openapi/agent/analysis-results.yaml`      | 부문별 분석·근거·견적 초안                        |
 | `openapi/agent/attachments.yaml`           | 첨부 추출 결과와 페이지·프레임별 처리 범위        |
-| `openapi/agent/pets.yaml`                  | 동료 프로필·선호와 이전 생성 요청·응답            |
+| `openapi/agent/pets.yaml`                  | 동료 프로필·선호·픽셀 외형과 예산을 연결한 생성 요청·응답 |
 | `openapi/agent/quotation-assumptions.yaml` | 이전 견적 가정 제안 요청·응답                     |
 | `openapi/agent/raptor.yaml`                | 이전 RAPTOR 노드 생성 요청·응답                   |
 | `openapi/spring/byok-executions.yaml`      | 개인 키 호출 시도의 예약·접수·오류                |

@@ -26,7 +26,17 @@ public class CustomAgentPetService {
             @NotNull UUID mutationId,
             @Min(0) long expectedRevision,
             @NotBlank @Size(max = 500) String description,
-            boolean resetPreferences) {}
+            boolean resetPreferences,
+            UUID generationId) {
+        public Compose(
+                UUID id,
+                UUID mutationId,
+                long expectedRevision,
+                String description,
+                boolean resetPreferences) {
+            this(id, mutationId, expectedRevision, description, resetPreferences, null);
+        }
+    }
 
     public record Pet(UUID id, PetProfile profile, boolean archived, long revision) {}
 
@@ -52,6 +62,12 @@ public class CustomAgentPetService {
     private final int maxActive;
     private final int maxStored;
     private final int maxPrompt;
+
+    @Value("${platform.ai.spend.enabled:false}")
+    private boolean generationEnabled;
+
+    @Value("${app.pets.generation-model:gpt-6.1-sol}")
+    private String generationModel;
 
     public CustomAgentPetService(
             JdbcTemplate jdbc,
@@ -83,7 +99,8 @@ public class CustomAgentPetService {
         authorization.authorize(user, workspace);
         var pets =
                 jdbc.query(
-                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? ORDER BY created_at, id",
+                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
+                                + " WHERE workspace_id = ? AND user_id = ? ORDER BY created_at, id",
                         (row, n) ->
                                 new Pet(
                                         row.getObject(1, UUID.class),
@@ -94,7 +111,8 @@ public class CustomAgentPetService {
                         user);
         var selected =
                 jdbc.query(
-                        "SELECT pet_id FROM app.custom_agent_pet_selection WHERE workspace_id = ? AND user_id = ?",
+                        "SELECT pet_id FROM app.custom_agent_pet_selection WHERE workspace_id = ?"
+                                + " AND user_id = ?",
                         (row, n) -> Optional.ofNullable(row.getObject(1, UUID.class)),
                         workspace,
                         user);
@@ -105,8 +123,15 @@ public class CustomAgentPetService {
                 maxStored,
                 maxPrompt,
                 6,
-                "RULE_BASED_PREVIEW",
-                false);
+                "MODEL_PIXEL",
+                generationEnabled
+                        && Boolean.TRUE.equals(
+                                jdbc.queryForObject(
+                                        "SELECT EXISTS (SELECT 1 FROM app.platform_spend_model_cap"
+                                            + " WHERE provider='OPENAI' AND model=? AND enabled AND"
+                                            + " max_run_usd>0)",
+                                        Boolean.class,
+                                        generationModel)));
     }
 
     public PetProfile preview(UUID user, UUID workspace, Compose input) {
@@ -123,7 +148,8 @@ public class CustomAgentPetService {
         String fingerprint = fingerprint(input);
         var replay =
                 jdbc.query(
-                        "SELECT mutation_hash FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND id = ? AND mutation_id = ?",
+                        "SELECT mutation_hash FROM app.custom_agent_pet WHERE workspace_id = ? AND"
+                                + " user_id = ? AND id = ? AND mutation_id = ?",
                         (row, n) -> row.getString(1),
                         workspace,
                         user,
@@ -149,9 +175,9 @@ public class CustomAgentPetService {
             int inserted =
                     jdbc.update(
                             """
-                INSERT INTO app.custom_agent_pet(id, workspace_id, user_id, profile_json, mutation_id, mutation_hash)
-                VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING
-                """,
+                            INSERT INTO app.custom_agent_pet(id, workspace_id, user_id, profile_json, mutation_id, mutation_hash)
+                            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING
+                            """,
                             input.id(),
                             workspace,
                             user,
@@ -162,9 +188,9 @@ public class CustomAgentPetService {
         } else {
             jdbc.update(
                     """
-                UPDATE app.custom_agent_pet SET profile_json = ?, revision = revision + 1, mutation_id = ?, mutation_hash = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE workspace_id = ? AND user_id = ? AND id = ?
-                """,
+                    UPDATE app.custom_agent_pet SET profile_json = ?, revision = revision + 1, mutation_id = ?, mutation_hash = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE workspace_id = ? AND user_id = ? AND id = ?
+                    """,
                     serialized,
                     input.mutationId(),
                     fingerprint,
@@ -197,12 +223,15 @@ public class CustomAgentPetService {
                 if (!archive) enforceCapacity(user, workspace, false);
                 if (archive)
                     jdbc.update(
-                            "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE workspace_id = ? AND user_id = ? AND pet_id = ?",
+                            "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE"
+                                    + " workspace_id = ? AND user_id = ? AND pet_id = ?",
                             workspace,
                             user,
                             id);
                 jdbc.update(
-                        "UPDATE app.custom_agent_pet SET archived = ?, revision = revision + 1, updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND user_id = ? AND id = ?",
+                        "UPDATE app.custom_agent_pet SET archived = ?, revision = revision + 1,"
+                            + " updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND user_id ="
+                            + " ? AND id = ?",
                         archive,
                         workspace,
                         user,
@@ -221,12 +250,14 @@ public class CustomAgentPetService {
             throw failure(HttpStatus.CONFLICT, "PET_REVISION_CHANGED");
         if (!pet.archived()) throw failure(HttpStatus.CONFLICT, "PET_ARCHIVE_BEFORE_DELETE");
         jdbc.update(
-                "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE workspace_id = ? AND user_id = ? AND pet_id = ?",
+                "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE workspace_id = ? AND"
+                        + " user_id = ? AND pet_id = ?",
                 workspace,
                 user,
                 id);
         jdbc.update(
-                "DELETE FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND id = ?",
+                "DELETE FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND id ="
+                        + " ?",
                 workspace,
                 user,
                 id);
@@ -238,10 +269,10 @@ public class CustomAgentPetService {
         var rows =
                 jdbc.query(
                         """
-            SELECT p.profile_json FROM app.custom_agent_pet_selection s
-            LEFT JOIN app.custom_agent_pet p ON p.workspace_id = s.workspace_id AND p.user_id = s.user_id AND p.id = s.pet_id AND NOT p.archived
-            WHERE s.workspace_id = ? AND s.user_id = ?
-            """,
+                        SELECT p.profile_json FROM app.custom_agent_pet_selection s
+                        LEFT JOIN app.custom_agent_pet p ON p.workspace_id = s.workspace_id AND p.user_id = s.user_id AND p.id = s.pet_id AND NOT p.archived
+                        WHERE s.workspace_id = ? AND s.user_id = ?
+                        """,
                         (row, n) ->
                                 row.getString(1) == null
                                         ? List.<PetProfile>of()
@@ -254,6 +285,13 @@ public class CustomAgentPetService {
     }
 
     private PetProfile compose(UUID user, UUID workspace, Compose input) {
+        if (input.generationId() != null) return generatedProfile(user, workspace, input);
+        return composer.compose(
+                input.id(), input.description(), generationBase(user, workspace, input));
+    }
+
+    PetProfile generationBase(UUID user, UUID workspace, Compose input) {
+        validate(input);
         PetProfile base = null;
         if (input.expectedRevision() > 0) {
             var pet = find(user, workspace, input.id());
@@ -276,15 +314,48 @@ public class CustomAgentPetService {
                                 base.petId(),
                                 base.duty(),
                                 base.skillMode(),
-                                PetPreferences.empty());
+                                PetPreferences.empty(),
+                                base.sprite());
         }
-        return composer.compose(input.id(), input.description(), base);
+        return base;
+    }
+
+    void checkGenerationCapacity(UUID user, UUID workspace, Compose input) {
+        lock(user, workspace);
+        if (input.expectedRevision() == 0) enforceCapacity(user, workspace, true);
+    }
+
+    private PetProfile generatedProfile(UUID user, UUID workspace, Compose input) {
+        generationBase(user, workspace, input);
+        String requestHash =
+                fingerprint(
+                        new Compose(
+                                input.id(),
+                                input.mutationId(),
+                                input.expectedRevision(),
+                                input.description(),
+                                input.resetPreferences()));
+        return jdbc
+                .query(
+                        """
+                        SELECT profile_json FROM app.pet_generation
+                        WHERE id=? AND workspace_id=? AND user_id=? AND status='COMPLETED' AND request_hash=?
+                        """,
+                        (row, n) -> mapper.readValue(row.getString(1), PetProfile.class),
+                        input.generationId(),
+                        workspace,
+                        user,
+                        requestHash)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> failure(HttpStatus.CONFLICT, "PET_GENERATION_NOT_READY"));
     }
 
     private Pet find(UUID user, UUID workspace, UUID id) {
         return jdbc
                 .query(
-                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND id = ?",
+                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
+                                + " WHERE workspace_id = ? AND user_id = ? AND id = ?",
                         (row, n) ->
                                 new Pet(
                                         row.getObject(1, UUID.class),
@@ -307,13 +378,15 @@ public class CustomAgentPetService {
     private void enforceCapacity(UUID user, UUID workspace, boolean adding) {
         Long active =
                 jdbc.queryForObject(
-                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND NOT archived",
+                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND"
+                                + " user_id = ? AND NOT archived",
                         Long.class,
                         workspace,
                         user);
         Long stored =
                 jdbc.queryForObject(
-                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ?",
+                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND"
+                                + " user_id = ?",
                         Long.class,
                         workspace,
                         user);
@@ -325,7 +398,9 @@ public class CustomAgentPetService {
 
     private void select(UUID user, UUID workspace, UUID id) {
         jdbc.update(
-                "INSERT INTO app.custom_agent_pet_selection(workspace_id, user_id, pet_id) VALUES (?, ?, ?) ON CONFLICT (workspace_id, user_id) DO UPDATE SET pet_id = EXCLUDED.pet_id",
+                "INSERT INTO app.custom_agent_pet_selection(workspace_id, user_id, pet_id) VALUES"
+                        + " (?, ?, ?) ON CONFLICT (workspace_id, user_id) DO UPDATE SET pet_id ="
+                        + " EXCLUDED.pet_id",
                 workspace,
                 user,
                 id);
@@ -338,13 +413,21 @@ public class CustomAgentPetService {
                 workspace + ":custom-pets:" + user);
     }
 
-    private String fingerprint(Compose input) {
+    String fingerprint(Compose input) {
         try {
+            // 기존 클라이언트의 저장 재전송 지문은 선택 필드가 생겨도 유지한다.
+            var values = new LinkedHashMap<String, Object>();
+            values.put("id", input.id());
+            values.put("mutationId", input.mutationId());
+            values.put("expectedRevision", input.expectedRevision());
+            values.put("description", input.description());
+            values.put("resetPreferences", input.resetPreferences());
+            if (input.generationId() != null) values.put("generationId", input.generationId());
             return HexFormat.of()
                     .formatHex(
                             MessageDigest.getInstance("SHA-256")
                                     .digest(
-                                            mapper.writeValueAsString(input)
+                                            mapper.writeValueAsString(values)
                                                     .getBytes(StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);

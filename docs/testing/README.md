@@ -10,6 +10,7 @@
 
 ## 화면·개인 연결·사용량 통합
 
+- [실제 모델의 픽셀 펫 생성·화면 검증 — 2026-10-19](pixel-pet-generation-2026-10-19.md)
 - [펫과 함께하는 견적 작성 검증 — 2026-10-19](pet-quotation-readiness-2026-10-19.md)
 - [개인 AI 연결 검증 — 2026-09-12](byok-connections-2026-09-12.md)
 - [업무 공간 기능 통합 검증 — 2026-10-05](cloud-feature-integration-2026-10-05.md)

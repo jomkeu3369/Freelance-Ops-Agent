@@ -7,7 +7,7 @@ import java.util.List;
 public record PetProfile(
         @NotNull @Pattern(regexp = "LEAN|RECOMMENDED|EXPANDED") String slot,
         @NotBlank @Size(max = 20) @Pattern(regexp = "[\\p{L}\\p{N} _-]+") String name,
-        @NotNull @Pattern(regexp = "turtle|owl|cat") String animal,
+        @NotNull @Pattern(regexp = "turtle|owl|cat|pixel") String animal,
         @NotNull @Pattern(regexp = "sage|lavender|peach|sky|rose|ink") String color,
         @NotNull @Pattern(regexp = "none|glasses|scarf|star") String accessory,
         @NotNull @Pattern(regexp = "WARM|DIRECT|FORMAL") String tone,
@@ -18,11 +18,45 @@ public record PetProfile(
         @NotNull @Pattern(regexp = "GENERAL|SCHEDULE|RESEARCH|WRITING|DEVELOPMENT|DESIGN")
                 String duty,
         @NotNull @Pattern(regexp = "AUTO") String skillMode,
-        @NotNull @jakarta.validation.Valid PetPreferences preferences) {
+        @NotNull @jakarta.validation.Valid PetPreferences preferences,
+        @jakarta.validation.Valid PixelPetSprite sprite) {
     public PetProfile {
         duty = duty == null ? "GENERAL" : duty;
         skillMode = skillMode == null ? "AUTO" : skillMode;
         preferences = preferences == null ? PetPreferences.empty() : preferences;
+        if ("pixel".equals(animal) && sprite == null)
+            throw new IllegalArgumentException("Generated pets require their pixel artwork");
+    }
+
+    public PetProfile(
+            String slot,
+            String name,
+            String animal,
+            String color,
+            String accessory,
+            String tone,
+            String valuePriority,
+            String deliveryPriority,
+            String scopePriority,
+            java.util.UUID petId,
+            String duty,
+            String skillMode,
+            PetPreferences preferences) {
+        this(
+                slot,
+                name,
+                animal,
+                color,
+                accessory,
+                tone,
+                valuePriority,
+                deliveryPriority,
+                scopePriority,
+                petId,
+                duty,
+                skillMode,
+                preferences,
+                null);
     }
 
     public PetProfile(
