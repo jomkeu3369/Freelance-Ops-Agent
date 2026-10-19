@@ -47,9 +47,10 @@ V2의 중요한 기술 결정을 짧고 변경 이력이 남는 문서로 관리
 - [ADR-0030: 제한된 AI 펫 관점과 사용자 검토 후 견적 반영](0030-bounded-pet-advisors.md)
 - [ADR-0031: 개인 소유 AI 연결과 호출 직전 자격 증명 확인](0031-personal-ai-connections.md)
 
-- [ADR-0032: 개인 펫 프로필과 제한된 자연어 생성](0032-personal-pet-profiles.md) — 초기 세 견적안 프로필, 현재 별도 유료 생성은 차단
+- [ADR-0032: 개인 펫 프로필과 제한된 자연어 생성](0032-personal-pet-profiles.md) — 초기 세 견적안 프로필의 호환 계약
 - [ADR-0033: 대화 첨부파일의 제한된 텍스트 추출](0033-bounded-chat-attachments.md)
 - [ADR-0044: 개인 동료 모음과 신뢰하지 않는 선호 데이터](0044-personal-agent-pet-library.md) — Proposed 상태 보존
+- [ADR-0045: 모델로 생성하는 픽셀 펫과 단계별 생성 화면](0045-generated-pixel-pets.md)
 
 ## 현재 구현을 읽을 때
 

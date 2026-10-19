@@ -13,8 +13,7 @@ import {
   type AgentPetCollection,
   type ComposeAgentPet,
   type CustomAgentPet,
-  type PetProfile,
-  type Provider
+  type PetProfile
 } from "@/app/lib/api";
 import { beginPetMutation, petLibraryRevision, publishPetLibrary } from "./pet-library-events";
 import { PetLibrary } from "./pet-library";
@@ -28,7 +27,6 @@ export function PetCustomizer({
 }: {
   session: AuthSession;
   projectId: string;
-  selection: { provider: Provider; model: string; credentialId?: string } | null;
   disabled: boolean;
 }) {
   const t = useT();
@@ -357,7 +355,7 @@ export function PetCustomizer({
           <h3>{t("나의 작은 동료")}</h3>
           <p>{t("다음 작업을 함께할 펫을 골라 주세요.")}</p>
         </div>
-        <span className="pet-free-badge">{t("AI 픽셀 펫")}</span>
+        <span className="pet-library-badge">{t("AI 픽셀 펫")}</span>
       </header>
       <div className="pet-library-toolbar">
         <h4>{t("내 펫")}</h4>

@@ -616,7 +616,6 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
             session={session}
             projectId={project.id}
             disabled={selectionLocked || petMutation === "pending"}
-            selection={chatModel}
           />
         </WorkspacePanel>
       )}

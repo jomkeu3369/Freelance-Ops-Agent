@@ -259,24 +259,6 @@
   font-size: 11px;
 }
 
-.pet-library-editor:not([hidden]) {
-  display: block;
-  margin: 24px 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-
-.pet-library-back {
-  margin: 0 10px 12px 0;
-  padding-left: 0;
-  background: transparent;
-  color: var(--muted);
-}
-
-.pet-library-editor .pet-generation {
-  margin-top: 12px;
-}
-
 .pet-library-panel .pet-prompt-studio > [role="status"]:empty {
   display: none;
 }
