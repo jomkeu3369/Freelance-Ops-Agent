@@ -121,7 +121,7 @@ public class PlatformUsageService {
     public void synchronizeOperation(
             UUID operationId,
             UUID user,
-            com.freelanceops.backend.domain.agentrun.model.Provider provider,
+            Provider provider,
             String model,
             UUID credentialId,
             AgentRunView.AgentRunUsage usage,
@@ -415,7 +415,9 @@ public class PlatformUsageService {
         var items =
                 jdbc.query(
                         """
-                        SELECT r.run_id,r.model,COALESCE(a.status,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
+                        SELECT r.run_id,r.model,COALESCE(a.status,
+                               CASE WHEN g.status='REQUESTED' AND g.updated_at < clock_timestamp() - interval '90 seconds'
+                                    THEN 'UNKNOWN' ELSE g.status END,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
                                r.execution_closed,r.byok_scope_id,r.byok_input_tokens,r.byok_output_tokens
                         FROM (
                             SELECT p.run_id,p.model,p.created_at,s.settled_usd,s.reserved_usd,s.execution_closed,
@@ -426,6 +428,7 @@ public class PlatformUsageService {
                                    b.scope_id,b.input_tokens,b.output_tokens
                             FROM app.byok_execution_scope b WHERE b.payload->>'initiatedBy'=?
                         ) r LEFT JOIN app.agent_run a ON a.id=r.run_id
+                        LEFT JOIN app.pet_generation g ON g.id=r.run_id AND g.user_id=? AND g.request_hash IS NOT NULL
                         WHERE (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
                         """,
                         (row, n) -> {
@@ -463,6 +466,7 @@ public class PlatformUsageService {
                         },
                         userId,
                         userId.toString(),
+                        userId,
                         Timestamp.from(before),
                         beforeId,
                         limit + 1);

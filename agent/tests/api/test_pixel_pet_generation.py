@@ -9,8 +9,11 @@ from uuid import uuid4
 
 import httpx
 import pytest
+import yaml
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
+from jsonschema import ValidationError as SchemaValidationError
 from pydantic import ValidationError
 
 from api.pets.pixel_generation import router
@@ -22,6 +25,18 @@ from security import DelegationPrincipal
 
 PROFILE_PATH = Path(__file__).parents[3] / "contracts/fixtures/pixel-pet-profile.json"
 PROFILE = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+
+
+def test_shared_contract_requires_artwork_for_pixel_pets_and_keeps_legacy_profiles() -> None:
+    path = PROFILE_PATH.parents[1] / "openapi/agent/pets.yaml"
+    schema = yaml.safe_load(path.read_text(encoding="utf-8"))
+    validator = Draft202012Validator({**schema, "$ref": "#/schemas/PetProfile"})
+    validator.validate(PROFILE)
+    without_sprite = {key: value for key, value in PROFILE.items() if key != "sprite"}
+    validator.validate({**without_sprite, "animal": "cat"})
+    for invalid in [without_sprite, {**PROFILE, "sprite": None}]:
+        with pytest.raises(SchemaValidationError):
+            validator.validate(invalid)
 
 
 def client_fixture(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, dict, AsyncMock, list]:

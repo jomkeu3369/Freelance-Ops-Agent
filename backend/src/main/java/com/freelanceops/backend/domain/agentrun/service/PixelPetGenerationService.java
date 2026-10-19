@@ -1,6 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
+import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.dto.PetPreferences;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
@@ -50,6 +51,8 @@ public class PixelPetGenerationService {
             Set<String> permissions) {}
 
     public record Generation(UUID id, String status, PetProfile profile, String errorCode) {}
+
+    private record Prepared(PlatformBudget budget, PetProfile previous) {}
 
     private record Stored(
             Generation value,
@@ -109,7 +112,6 @@ public class PixelPetGenerationService {
         var input = request.input();
         if (input.generationId() != null)
             throw failure(HttpStatus.BAD_REQUEST, "PET_INVALID_GENERATION");
-        PetProfile previous = pets.generationBase(user, workspace, input);
         var membership =
                 permissions
                         .findActiveMembership(user, workspace)
@@ -122,7 +124,7 @@ public class PixelPetGenerationService {
                 .requireNotDeleting();
         UUID id = input.mutationId();
         String fingerprint = pets.fingerprint(input);
-        var budget =
+        var prepared =
                 transaction.execute(
                         status -> {
                             jdbc.query(
@@ -136,7 +138,15 @@ public class PixelPetGenerationService {
                                     throw failure(HttpStatus.CONFLICT, "PET_REQUEST_REUSED");
                                 return null;
                             }
+                            if (Boolean.TRUE.equals(
+                                    jdbc.queryForObject(
+                                            "SELECT EXISTS (SELECT 1 FROM"
+                                                + " app.platform_spend_reservation WHERE run_id=?)",
+                                            Boolean.class,
+                                            id)))
+                                throw failure(HttpStatus.CONFLICT, "PET_ID_UNAVAILABLE");
                             pets.checkGenerationCapacity(user, workspace, input);
+                            PetProfile previous = pets.generationBase(user, workspace, input);
                             Long count =
                                     jdbc.queryForObject(
                                             "SELECT count(*) FROM app.pet_generation WHERE"
@@ -185,9 +195,11 @@ public class PixelPetGenerationService {
                                                     : mapper.writeValueAsString(previous));
                             if (inserted != 1)
                                 throw failure(HttpStatus.CONFLICT, "PET_ID_UNAVAILABLE");
-                            return spending.reserve(user, id, model, new BigDecimal("0.10"));
+                            return new Prepared(
+                                    spending.reserve(user, id, model, new BigDecimal("0.10")),
+                                    previous);
                         });
-        if (budget == null) return get(user, workspace, id);
+        if (prepared == null) return get(user, workspace, id);
         var codes = membership.permissions().stream().map(PermissionCode::code).sorted().toList();
         var context =
                 new TrustedRunContext(
@@ -203,7 +215,12 @@ public class PixelPetGenerationService {
             var output =
                     client.generate(
                             new PixelPetGenerationClient.Input(
-                                    context, model, input.description(), previous, budget, limits),
+                                    context,
+                                    model,
+                                    input.description(),
+                                    prepared.previous(),
+                                    prepared.budget(),
+                                    limits),
                             tokens.issueForPersonalRun(
                                     id, workspace, request.projectId(), user, codes, 60));
             transaction.executeWithoutResult(status -> persistResult(user, workspace, id, output));

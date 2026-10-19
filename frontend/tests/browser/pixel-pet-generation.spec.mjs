@@ -6,10 +6,10 @@ import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 const penguin = JSON.parse(await readFile(new URL("../../../contracts/fixtures/pixel-pet-profile.json", import.meta.url), "utf8"));
 const description = "꼼꼼하게 실현 가능성을 판단하는 펭귄";
 
-async function pixelFixture(page) {
+async function pixelFixture(page, options = {}) {
   const state = await fixture(page);
   const library = { pets: [], selectedPetId: null, maxActivePets: 8, maxStoredPets: 24, maxPromptLength: 500,
-    maxPreferenceRequests: 6, generationMode: "MODEL_PIXEL", aiGenerationAvailable: true };
+    maxPreferenceRequests: 6, generationMode: "MODEL_PIXEL", aiGenerationAvailable: true, ...options };
   const server = { modelCalls: 0, calls: [], jobs: new Map(), nextGeneration: null, lostGenerationResponses: 0,
     lostSaveResponses: 0, failures: 0, unknownResult: false };
   const saves = new Map();
@@ -69,6 +69,15 @@ async function open(page) {
   await panel.getByRole("button", { name: "펫 만들기", exact: true }).click();
   return panel;
 }
+
+test("an older backend keeps generation disabled until the pixel API is available", async ({ page }) => {
+  const { server } = await pixelFixture(page, { generationMode: "RULE_BASED_PREVIEW", aiGenerationAvailable: true });
+  const panel = await open(page);
+  await panel.getByRole("textbox").fill(description);
+  await expect(panel.getByRole("button", { name: "펫 생성하기", exact: true })).toBeDisabled();
+  await expect(panel.getByText("지금은 기본 제공 AI를 사용할 수 없어요. 사용량과 연결 상태를 확인해 주세요.", { exact: true })).toBeVisible();
+  expect(server.modelCalls).toBe(0);
+});
 
 for (const screen of [
   { width: 1440, height: 1000, theme: "dark" },

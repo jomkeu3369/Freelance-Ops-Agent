@@ -63,6 +63,8 @@ V44의 `custom_agent_pet`, `custom_agent_pet_selection`은 V34의 견적 슬롯�
 
 기존 `/projects/{projectId}/pet-generations`와 Agent `/pets/generate`의 예산 차단은 유지한다. 새 경로는 Spring `/agent-pets/generations` → Agent `/pets/generate-pixel` → Spring 내부 사용량·결과 콜백이다. 위임 JWT·`X-Run-Id`·소유자·프로젝트·모델·금액 예약을 대조한다.
 
-배포는 Agent → V50 포함 Backend → 승인된 Frontend 순서로 진행한다. 기존 API를 유지하므로 앞선 단계에서 기존 화면도 동작한다. Frontend만 있는 Vercel Preview에서는 아직 배포하지 않은 Backend 생성 API를 사용할 수 없다. 운영 반영 전 화면 검수에는 실제 모델 출력으로 만든 [검증 기록](../testing/pixel-pet-generation-2026-10-19.md)도 함께 사용한다.
+배포는 Agent → V50 포함 Backend → 승인된 Frontend 순서로 진행한다. 기존 API를 유지하므로 앞선 단계에서 기존 화면도 동작한다. Vercel 자동 배포가 먼저 완료되더라도 `generationMode: MODEL_PIXEL`을 확인하기 전에는 생성 요청을 보내지 않는다. Frontend만 있는 Vercel Preview에서는 아직 배포하지 않은 Backend 생성 API를 사용할 수 없다. 운영 반영 전 화면 검수에는 실제 모델 출력으로 만든 [검증 기록](../testing/pixel-pet-generation-2026-10-19.md)도 함께 사용한다.
+
+픽셀 동료를 저장한 뒤에는 해당 프로필을 읽을 수 있는 Agent·Backend 버전을 유지한다. 문제가 생기면 먼저 해당 모델의 생성을 비활성화하고 호환 버전으로 복구한다. V50 이전 서비스로 단순히 되돌리거나 생성 결과를 지우는 방법을 복구 절차로 사용하지 않는다.
 
 검사는 선호 보존·수정·이력 한도, 계약 왕복, 참고 데이터 분리, 과거 프로필 호환, 실행 스냅샷, 저장 재전송, 소유권·동시 수량·생명주기를 다룬다. 브라우저의 합성 응답 검사는 실제 DB·배포 마이그레이션·유료 모델 품질을 대신하지 않는다. 당시 실행 결과는 [통합 검증 기록](../testing/cloud-feature-integration-2026-10-05.md), 최근 배포 근거는 [제품 근거](../portfolio/product-evidence.md)를 따른다.

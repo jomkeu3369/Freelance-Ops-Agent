@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.*;
 import com.freelanceops.backend.domain.agentrun.model.*;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
@@ -22,6 +23,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 import org.testcontainers.junit.jupiter.Container;
@@ -64,6 +67,9 @@ class PixelPetGenerationPostgresTest {
     @Autowired ObjectMapper mapper;
     @Autowired PixelPetGenerationService generation;
     @Autowired CustomAgentPetService pets;
+    @Autowired PlatformSpendService spending;
+    @Autowired PlatformUsageService usage;
+    @Autowired PlatformTransactionManager transactions;
     @MockitoBean PixelPetGenerationClient client;
     @MockitoBean AIConnectionService authorization;
     @MockitoBean WorkspacePermissionReader permissions;
@@ -210,6 +216,10 @@ class PixelPetGenerationPostgresTest {
         assertThat(pets.runtimeProfiles(user, workspace).orElseThrow().getFirst().sprite())
                 .isEqualTo(draft.sprite());
         verify(client, times(1)).generate(any(), anyString());
+        var entry = usage.history(user, null, 20).items().getFirst();
+        assertThat(entry.status()).isEqualTo("COMPLETED");
+        assertThat(entry.platformCostUsd()).isEqualByComparingTo(".007");
+        assertThat(entry.usageKnown()).isTrue();
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT settled_usd FROM app.platform_spend_settlement WHERE"
@@ -235,6 +245,61 @@ class PixelPetGenerationPostgresTest {
         assertThat(generation.get(user, workspace, result.id())).isEqualTo(result);
         assertThat(generation.generate(user, workspace, request(input))).isEqualTo(result);
         verify(client, times(1)).generate(any(), anyString());
+    }
+
+    @Test
+    void anotherOperationReservationCannotBeReusedForPetGeneration() {
+        var input = input();
+        new TransactionTemplate(transactions)
+                .execute(
+                        status ->
+                                spending.reserve(
+                                        user,
+                                        input.mutationId(),
+                                        new ModelSelection(
+                                                Provider.OPENAI,
+                                                "gpt-6.1-sol",
+                                                ReasoningEffort.LOW),
+                                        new BigDecimal(".10")));
+        assertThatThrownBy(() -> generation.generate(user, workspace, request(input)))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("PET_ID_UNAVAILABLE");
+        verifyNoInteractions(client);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM app.pet_generation WHERE id=?",
+                                Integer.class,
+                                input.mutationId()))
+                .isZero();
+    }
+
+    @Test
+    void completedEditCanBeReplayedAfterSavingItsNewRevision() {
+        successfulModel(false);
+        var original = input();
+        var first = generation.generate(user, workspace, request(original));
+        pets.save(
+                user,
+                workspace,
+                new CustomAgentPetService.Compose(
+                        original.id(),
+                        original.mutationId(),
+                        0,
+                        original.description(),
+                        false,
+                        first.id()));
+        var edit =
+                new CustomAgentPetService.Compose(
+                        original.id(), UUID.randomUUID(), 1, "말투를 더 다정하게", false);
+        var second = generation.generate(user, workspace, request(edit));
+        pets.save(
+                user,
+                workspace,
+                new CustomAgentPetService.Compose(
+                        edit.id(), edit.mutationId(), 1, edit.description(), false, second.id()));
+        assertThat(generation.generate(user, workspace, request(edit))).isEqualTo(second);
+        assertThat(pets.list(user, workspace).pets().getFirst().revision()).isEqualTo(2);
+        verify(client, times(2)).generate(any(), anyString());
     }
 
     @Test

@@ -313,7 +313,7 @@ export function PetCustomizer({
           generating={generating}
           saving={busy && !generating}
           locked={locked}
-          available={!!collection?.aiGenerationAvailable}
+          available={collection?.generationMode === "MODEL_PIXEL" && collection.aiGenerationAvailable}
           atLimit={atLimit}
           profile={preview?.profile ?? null}
           status={status}

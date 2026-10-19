@@ -1,6 +1,18 @@
 schemas:
   PetProfile:
     additionalProperties: false
+    description: 이전 SVG 동료와 픽셀 동료를 함께 읽는다. animal이 pixel이면 검증한 sprite가 반드시 필요하다.
+    allOf:
+      - if:
+          required: [animal]
+          properties:
+            animal:
+              const: pixel
+        then:
+          required: [sprite]
+          properties:
+            sprite:
+              $ref: "#/schemas/PixelPetSprite"
     properties:
       petId:
         anyOf:
