@@ -11,7 +11,7 @@ schemas:
       - unit
     properties:
       context:
-        $ref: run-requests.yaml#/schemas/TrustedRunContext
+        $ref: execution-policy.yaml#/schemas/TrustedRunContext
       modelSelection:
         $ref: execution-policy.yaml#/schemas/ModelSelection
       projectRequirement:

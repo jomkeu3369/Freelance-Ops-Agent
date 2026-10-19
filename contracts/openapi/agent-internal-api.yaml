@@ -479,7 +479,7 @@ components:
         version:
           type: string
     TrustedRunContext:
-      $ref: ./agent/run-requests.yaml#/schemas/TrustedRunContext
+      $ref: ./agent/execution-policy.yaml#/schemas/TrustedRunContext
     RunBudget:
       $ref: ./agent/execution-policy.yaml#/schemas/RunBudget
     ModelSelection:

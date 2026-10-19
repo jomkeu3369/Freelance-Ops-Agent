@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from functools import cache
+from graphlib import TopologicalSorter
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -51,6 +52,17 @@ def test_contract_references_resolve_locally_and_every_module_is_used() -> None:
             assert not uri.fragment or uri.fragment.startswith("/"), reference
             pending.append((target, uri.fragment))
     assert {path for path, _ in visited} == set(CONTRACT_ROOT.rglob("*.yaml"))
+
+
+def test_feature_modules_have_no_dependency_cycles() -> None:
+    dependencies = {}
+    for source in CONTRACT_ROOT.glob("*/*.yaml"):
+        dependencies[source] = {
+            (source.parent / uri.path).resolve()
+            for reference in _references(_load_document(source))
+            if (uri := urlsplit(reference)).path
+        }
+    TopologicalSorter(dependencies).prepare()
 
 
 @pytest.mark.parametrize("ready", [False, True])

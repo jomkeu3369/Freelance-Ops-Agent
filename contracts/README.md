@@ -13,9 +13,9 @@ Spring Boot와 Python Agent가 주고받는 요청·응답의 기준이다. Lang
 
 | 자료형 위치                                | 책임                                              |
 | ------------------------------------------ | ------------------------------------------------- |
-| `openapi/agent/run-requests.yaml`          | 실행 맥락·요청·확인 답변·재개·스킬 선택           |
+| `openapi/agent/run-requests.yaml`          | 실행 요청·확인 답변·재개·스킬 선택                |
 | `openapi/agent/run-state.yaml`             | 접수·현재 상태·이벤트·라우팅 관측·실행 메타데이터 |
-| `openapi/agent/execution-policy.yaml`      | 모델 선택·비용 범위·호출 한도·사용량              |
+| `openapi/agent/execution-policy.yaml`      | 위임 실행 맥락·모델 선택·비용 범위·한도·사용량    |
 | `openapi/agent/task-commands.yaml`         | 작업 제어 명령과 접수 결과                        |
 | `openapi/agent/analysis-results.yaml`      | 부문별 분석·근거·견적 초안                        |
 | `openapi/agent/attachments.yaml`           | 첨부 추출 결과와 페이지·프레임별 처리 범위        |

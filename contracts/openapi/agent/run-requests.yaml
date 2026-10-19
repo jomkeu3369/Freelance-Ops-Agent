@@ -1,42 +1,4 @@
 schemas:
-  TrustedRunContext:
-    type: object
-    additionalProperties: false
-    required:
-      - runId
-      - threadId
-      - traceId
-      - workspaceId
-      - projectId
-      - initiatedBy
-      - effectivePermissions
-    properties:
-      runId:
-        type: string
-        format: uuid
-      threadId:
-        type: string
-        format: uuid
-      traceId:
-        type: string
-        minLength: 1
-        maxLength: 128
-      workspaceId:
-        type: string
-        format: uuid
-      projectId:
-        type: string
-        format: uuid
-      initiatedBy:
-        type: string
-        format: uuid
-      effectivePermissions:
-        type: array
-        uniqueItems: true
-        items:
-          type: string
-          minLength: 1
-          maxLength: 100
   AgentRunRequest:
     type: object
     additionalProperties: false
@@ -75,7 +37,7 @@ schemas:
           - $ref: execution-policy.yaml#/schemas/ByokBudget
           - type: "null"
       context:
-        $ref: "#/schemas/TrustedRunContext"
+        $ref: execution-policy.yaml#/schemas/TrustedRunContext
       budget:
         $ref: execution-policy.yaml#/schemas/RunBudget
       modelSelection:
