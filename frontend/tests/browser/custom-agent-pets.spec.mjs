@@ -516,6 +516,10 @@ for (const [width, theme] of [[1440, "dark"], [768, "light"], [390, "dark"], [32
     await studio.getByRole("button", { name: "목록으로 돌아가기", exact: true }).click();
     await expect(studio.getByRole("textbox")).toHaveCount(0);
     await expect(studio.getByRole("button", { name: "펫 만들기", exact: true })).toBeFocused();
+    await summary.focus();
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "함께할 펫", exact: true })).toBeFocused();
     expectNoGeneration(state);
   });
 }

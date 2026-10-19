@@ -19,7 +19,7 @@ interface PetLibraryProps {
 function closeActionsOnEscape(event: KeyboardEvent<HTMLElement>) {
   if (event.key !== "Escape") return;
   const actions = event.currentTarget.closest("details");
-  if (!actions) return;
+  if (!actions?.open) return;
   event.preventDefault();
   event.stopPropagation();
   actions.open = false;
