@@ -423,28 +423,6 @@
   background: var(--surface-2);
   font-size: 11px;
 }
-.pet-library {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin: 16px 0;
-}
-.pet-library article {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-}
-.pet-library article.is-selected {
-  border: 2px solid var(--ink);
-}
-.pet-library .pet-art {
-  width: 90px;
-  height: 82px;
-}
-.pet-library button,
 .pet-archive button {
   min-height: 36px;
   padding: 6px 10px;

@@ -1,5 +1,6 @@
 import { useT } from "../../../app/lib/ui-language";
 import { useEffect, useId, useRef, useState } from "react";
+import { ArrowClockwise, ArrowLeft, Plus } from "@phosphor-icons/react";
 import {
   ApiError,
   listAgentPets,
@@ -16,21 +17,34 @@ import {
 } from "@/app/lib/api";
 import { beginPetMutation, petLibraryRevision, publishPetLibrary } from "./pet-library-events";
 import { PetArt } from "./pet-art";
+import { PetLibrary } from "./pet-library";
 import { preferenceLabels, petDutyLabels } from "./pet-profile";
 
 const tones = { WARM: "친근하게", DIRECT: "간결하게", FORMAL: "정중하게" };
 
-export function PetCustomizer({ session, disabled }: { session: AuthSession; projectId: string; selection: { provider: Provider; model: string; credentialId?: string } | null; disabled: boolean; }) {
+export function PetCustomizer({
+  session,
+  disabled
+}: {
+  session: AuthSession;
+  projectId: string;
+  selection: { provider: Provider; model: string; credentialId?: string } | null;
+  disabled: boolean;
+}) {
   const t = useT();
   const prefix = useId();
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLElement>(null);
   const selectedPetRef = useRef<HTMLButtonElement>(null);
-  const [focusRequest, setFocusRequest] = useState<{ target: "prompt" | "preview" | "selected" } | null>(null);
+  const createPetRef = useRef<HTMLButtonElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ target: "prompt" | "preview" | "selected" | "create" } | null>(
+    null
+  );
   const pending = useRef(false);
   const listVersion = useRef(0);
   const [collection, setCollection] = useState<AgentPetCollection | null>(null);
   const [editing, setEditing] = useState<CustomAgentPet | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [description, setDescription] = useState("");
   const [resetPreferences, setResetPreferences] = useState(false);
   const [preview, setPreview] = useState<{ input: ComposeAgentPet; profile: PetProfile } | null>(null);
@@ -41,7 +55,9 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   const [deleteId, setDeleteId] = useState<string | null>(null);
   useEffect(() => {
     if (!focusRequest) return;
-    const target = { prompt: promptRef, preview: previewRef, selected: selectedPetRef }[focusRequest.target];
+    const target = { prompt: promptRef, preview: previewRef, selected: selectedPetRef, create: createPetRef }[
+      focusRequest.target
+    ];
     target.current?.focus();
   }, [focusRequest]);
   useEffect(() => {
@@ -97,6 +113,7 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   }
 
   function edit(pet: CustomAgentPet | null) {
+    setEditorOpen(true);
     setEditing(pet);
     setDescription("");
     setPreview(null);
@@ -144,10 +161,11 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
     if (!preview) return;
     void perform(async () => {
       // 응답이 유실돼도 다른 펫을 만들지 않도록 실패 시 변경 요청 ID를 유지한다.
-      const pet = await saveAgentPet(session, preview.input);
+      await saveAgentPet(session, preview.input);
       publishPetLibrary(session, null);
       await refreshCollection();
-      setEditing(pet);
+      setEditing(null);
+      setEditorOpen(false);
       setDescription("");
       setPreview(null);
       setFocusRequest({ target: "selected" });
@@ -161,7 +179,10 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
       await changeAgentPet(session, pet, action);
       publishPetLibrary(session, null);
       await refreshCollection();
-      if (editing?.id === pet.id) edit(null);
+      if (editing?.id === pet.id) {
+        setEditing(null);
+        setEditorOpen(false);
+      }
       setStatus(
         action === "SELECT"
           ? "다음 실행에 사용할 펫을 선택했습니다."
@@ -173,41 +194,51 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
   }
 
   return (
-    <section className="pet-customizer pet-prompt-studio" aria-label={t("나만의 작은 동료 만들기")}>
+    <section className="pet-customizer pet-prompt-studio" aria-label={t("함께할 펫 고르기")}>
       <header>
         <div>
-          <h3>{t("나만의 작은 동료 만들기")}</h3>
-          <p>{t("원하는 동료를 한 문장으로 설명해 주세요.")}</p>
+          <h3>{t("나의 작은 동료")}</h3>
+          <p>{t("다음 작업을 함께할 펫을 골라 주세요.")}</p>
         </div>
         <span className="pet-free-badge">{t("무료 미리보기")}</span>
       </header>
-      <p className="pet-customizer-intro">
-        {t("여러 펫을 저장하고 하나를 선택합니다. 펫을 추가해도 AI 실행이 시작되거나 병렬로 과금되지 않습니다.")}
-      </p>
-      <div className="pet-library" aria-label={t("내 펫")}>
-        {active.map((pet) => (
-          <article key={pet.id} className={collection?.selectedPetId === pet.id ? "is-selected" : ""}>
-            <PetArt kind={pet.profile.animal} profile={pet.profile} />
-            <strong>{pet.profile.name}</strong>
-            <small>{t(petDutyLabels[pet.profile.duty ?? "GENERAL"])}</small>
-            <button
-              type="button"
-              ref={collection?.selectedPetId === pet.id ? selectedPetRef : undefined}
-              disabled={locked || hasDraft}
-              aria-pressed={collection?.selectedPetId === pet.id}
-              onClick={() => change(pet, "SELECT")}
-            >
-              {t(collection?.selectedPetId === pet.id ? "선택됨" : "이 펫 선택")}
-            </button>
-            <button type="button" disabled={locked || hasDraft} onClick={() => edit(pet)}>
-              {t("대화로 수정")}
-            </button>
-            <button type="button" disabled={locked || hasDraft} onClick={() => change(pet, "ARCHIVE")}>
-              {t("보관")}
-            </button>
-          </article>
-        ))}
+      <div className="pet-library-toolbar">
+        <h4>{t("내 펫")}</h4>
+        <div>
+          <button
+            type="button"
+            className="pet-library-refresh"
+            disabled={busy || disabled}
+            aria-label={t("목록 다시 불러오기")}
+            title={t("목록 다시 불러오기")}
+            onClick={() => setReload((value) => value + 1)}
+          >
+            <ArrowClockwise size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="pet-library-create"
+            ref={createPetRef}
+            disabled={locked || atLimit || hasDraft}
+            onClick={() => edit(null)}
+          >
+            <Plus size={16} aria-hidden="true" />
+            {t("펫 만들기")}
+          </button>
+        </div>
       </div>
+      {(collection || !loadError) && (
+        <PetLibrary
+          pets={active}
+          selectedId={collection?.selectedPetId ?? null}
+          selectedRef={selectedPetRef}
+          disabled={locked || hasDraft}
+          loading={!collection && !loadError}
+          onSelect={(pet) => change(pet, "SELECT")}
+          onEdit={edit}
+          onArchive={(pet) => change(pet, "ARCHIVE")}
+        />
+      )}
       {collection && collection.pets.length > 0 && (
         <p className="pet-customizer-intro">
           {t("사용 가능")} {active.length}/{collection.maxActivePets} · {t("보관 포함")} {collection.pets.length}/
@@ -216,122 +247,133 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
           {t("보관하면 사용 가능 수가 줄고, 보관함에서 삭제하면 저장 공간이 늘어납니다.")}
         </p>
       )}
-      <button
-        type="button"
-        className="quiet-button"
-        disabled={locked || atLimit || hasDraft}
-        onClick={() => edit(null)}
-      >
-        {t("새 펫 추가")}
-      </button>
-      {hasDraft && !preview && (
-        <button type="button" className="quiet-button" disabled={locked} onClick={() => edit(editing)}>
-          {t("입력 취소")}
-        </button>
-      )}
-      {editing && (
-        <details>
-          <summary>{t("저장된 선호 보기")}</summary>
-          <ol>
-            {editing.profile.preferences?.requests.map((value, index) => (
-              <li key={index}>{value}</li>
-            ))}
-          </ol>
-        </details>
-      )}
-      {atLimit && !editing && (
-        <p role="status">{t("펫 개수 한도에 도달했습니다. 사용 중인 펫을 보관하거나 보관함에서 삭제해 주세요.")}</p>
-      )}
-      <div className="pet-generation">
-        <label htmlFor={`${prefix}-prompt`}>
-          {editing ? `${editing.profile.name} · ${t("어떻게 바꿀까요?")}` : t("어떤 펫을 만들까요?")}
-        </label>
-        <textarea
-          id={`${prefix}-prompt`}
-          ref={promptRef}
-          maxLength={collection?.maxPromptLength ?? 500}
-          disabled={locked || !!preview}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder={t("친근하게 말하고 일정 관리를 꼼꼼히 챙기는 펫 만들어줘")}
-          aria-describedby={`${prefix}-prompt-help`}
-        />
-        <p id={`${prefix}-prompt-help`}>
-          {t("외형은 준비된 동물·색·장식을 조합합니다. 자유로운 요청은 그대로 보존하며, 저장 전에 확인할 수 있습니다.")}{" "}
-          {description.length}/{collection?.maxPromptLength ?? 500}
-        </p>
-        {editing && (
-          <label className="pet-reset-preferences">
-            <input
-              type="checkbox"
-              disabled={locked || !!preview}
-              checked={resetPreferences}
-              onChange={(event) => setResetPreferences(event.target.checked)}
-            />
-            {t("이전 선호 요청 대신 이 설명으로 새로 정리")}
-          </label>
-        )}
-        {fullHistory && !resetPreferences && (
-          <p role="status">{t("수정 기록 한도에 도달했습니다. 이전 선호를 포함한 새 설명으로 정리해 주세요.")}</p>
-        )}
+      <section className="pet-library-editor" hidden={!editorOpen} aria-label={t("펫 만들기와 수정")}>
         <button
           type="button"
-          className="primary-button"
-          disabled={
-            locked || !!preview || !description.trim() || (!editing && atLimit) || (fullHistory && !resetPreferences)
-          }
-          onClick={makePreview}
+          className="pet-library-back"
+          disabled={locked || hasDraft}
+          onClick={() => {
+            setEditorOpen(false);
+            setEditing(null);
+            setFocusRequest({ target: "create" });
+          }}
         >
-          {t("펫 미리보기")}
+          <ArrowLeft size={16} aria-hidden="true" />
+          {t("목록으로 돌아가기")}
         </button>
-      </div>
-      {preview && (
-        <section className="pet-composed-preview" aria-label={t("저장 전 펫 확인")} ref={previewRef} tabIndex={-1}>
-          <PetArt kind={preview.profile.animal} profile={preview.profile} />
-          <div>
-            <h4>{preview.profile.name}</h4>
-            <p>
-              {t(tones[preview.profile.tone])} · {t(petDutyLabels[preview.profile.duty ?? "GENERAL"])} ·{" "}
-              {t(preferenceLabels[preview.profile.deliveryPriority])}
-            </p>
-            <p>
-              {t(
-                "위 설정은 규칙으로 찾은 기본값입니다. 아래 자유 요청을 모두 이해해 분류했다는 뜻은 아닙니다. 실행 시 허용된 말투와 업무 선호로 참고하며 권한을 부여하지 않습니다."
-              )}
-            </p>
-            {Object.entries(preview.profile.preferences ?? {})
-              .filter(([key, value]) => key !== "requests" && value)
-              .map(([key, value]) => (
-                <p key={key}>
-                  <strong>
-                    {t(
-                      (
-                        { personality: "성향", communication: "말투", focus: "중점", responsibility: "업무" } as Record<
-                          string,
-                          string
-                        >
-                      )[key]
-                    )}
-                    :{" "}
-                  </strong>
-                  {String(value)}
-                </p>
-              ))}
-            <ol aria-label={t("보존된 선호 요청")}>
-              {preview.profile.preferences?.requests.map((value, index) => (
+        {hasDraft && !preview && (
+          <button type="button" className="quiet-button" disabled={locked} onClick={() => edit(editing)}>
+            {t("입력 취소")}
+          </button>
+        )}
+        {editing && (
+          <details>
+            <summary>{t("저장된 선호 보기")}</summary>
+            <ol>
+              {editing.profile.preferences?.requests.map((value, index) => (
                 <li key={index}>{value}</li>
               ))}
             </ol>
-            <p>{t("분류를 바꾸려면 ‘말투: 차분한 선생님처럼; 중점: 빠뜨린 일 찾기’처럼 수정할 수 있습니다.")}</p>
-            <button type="button" className="primary-button" disabled={locked} onClick={save}>
-              {t("저장하고 선택")}
-            </button>
-            <button type="button" className="quiet-button" disabled={locked} onClick={backToInput}>
-              {t("입력으로 돌아가기")}
-            </button>
-          </div>
-        </section>
-      )}
+          </details>
+        )}
+        {atLimit && !editing && (
+          <p role="status">{t("펫 개수 한도에 도달했습니다. 사용 중인 펫을 보관하거나 보관함에서 삭제해 주세요.")}</p>
+        )}
+        <div className="pet-generation">
+          <label htmlFor={`${prefix}-prompt`}>
+            {editing ? `${editing.profile.name} · ${t("어떻게 바꿀까요?")}` : t("어떤 펫을 만들까요?")}
+          </label>
+          <textarea
+            id={`${prefix}-prompt`}
+            ref={promptRef}
+            maxLength={collection?.maxPromptLength ?? 500}
+            disabled={locked || !!preview}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder={t("친근하게 말하고 일정 관리를 꼼꼼히 챙기는 펫 만들어줘")}
+            aria-describedby={`${prefix}-prompt-help`}
+          />
+          <p id={`${prefix}-prompt-help`}>
+            {t(
+              "외형은 준비된 동물·색·장식을 조합합니다. 자유로운 요청은 그대로 보존하며, 저장 전에 확인할 수 있습니다."
+            )}{" "}
+            {description.length}/{collection?.maxPromptLength ?? 500}
+          </p>
+          {editing && (
+            <label className="pet-reset-preferences">
+              <input
+                type="checkbox"
+                disabled={locked || !!preview}
+                checked={resetPreferences}
+                onChange={(event) => setResetPreferences(event.target.checked)}
+              />
+              {t("이전 선호 요청 대신 이 설명으로 새로 정리")}
+            </label>
+          )}
+          {fullHistory && !resetPreferences && (
+            <p role="status">{t("수정 기록 한도에 도달했습니다. 이전 선호를 포함한 새 설명으로 정리해 주세요.")}</p>
+          )}
+          <button
+            type="button"
+            className="primary-button"
+            disabled={
+              locked || !!preview || !description.trim() || (!editing && atLimit) || (fullHistory && !resetPreferences)
+            }
+            onClick={makePreview}
+          >
+            {t("펫 미리보기")}
+          </button>
+        </div>
+        {preview && (
+          <section className="pet-composed-preview" aria-label={t("저장 전 펫 확인")} ref={previewRef} tabIndex={-1}>
+            <PetArt kind={preview.profile.animal} profile={preview.profile} />
+            <div>
+              <h4>{preview.profile.name}</h4>
+              <p>
+                {t(tones[preview.profile.tone])} · {t(petDutyLabels[preview.profile.duty ?? "GENERAL"])} ·{" "}
+                {t(preferenceLabels[preview.profile.deliveryPriority])}
+              </p>
+              <p>
+                {t(
+                  "위 설정은 규칙으로 찾은 기본값입니다. 아래 자유 요청을 모두 이해해 분류했다는 뜻은 아닙니다. 실행 시 허용된 말투와 업무 선호로 참고하며 권한을 부여하지 않습니다."
+                )}
+              </p>
+              {Object.entries(preview.profile.preferences ?? {})
+                .filter(([key, value]) => key !== "requests" && value)
+                .map(([key, value]) => (
+                  <p key={key}>
+                    <strong>
+                      {t(
+                        (
+                          {
+                            personality: "성향",
+                            communication: "말투",
+                            focus: "중점",
+                            responsibility: "업무"
+                          } as Record<string, string>
+                        )[key]
+                      )}
+                      :{" "}
+                    </strong>
+                    {String(value)}
+                  </p>
+                ))}
+              <ol aria-label={t("보존된 선호 요청")}>
+                {preview.profile.preferences?.requests.map((value, index) => (
+                  <li key={index}>{value}</li>
+                ))}
+              </ol>
+              <p>{t("분류를 바꾸려면 ‘말투: 차분한 선생님처럼; 중점: 빠뜨린 일 찾기’처럼 수정할 수 있습니다.")}</p>
+              <button type="button" className="primary-button" disabled={locked} onClick={save}>
+                {t("저장하고 선택")}
+              </button>
+              <button type="button" className="quiet-button" disabled={locked} onClick={backToInput}>
+                {t("입력으로 돌아가기")}
+              </button>
+            </div>
+          </section>
+        )}
+      </section>
       {archived.length > 0 && (
         <details className="pet-archive">
           <summary>
@@ -385,14 +427,6 @@ export function PetCustomizer({ session, disabled }: { session: AuthSession; pro
           )}
         </p>
       </details>
-      <button
-        type="button"
-        className="quiet-button"
-        disabled={busy || disabled}
-        onClick={() => setReload((value) => value + 1)}
-      >
-        {t("목록 다시 불러오기")}
-      </button>
       {loadError && <p role="alert">{t(loadError)}</p>}
       <p role="status" aria-live="polite">
         {t(status)}

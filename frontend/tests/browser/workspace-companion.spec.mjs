@@ -136,6 +136,7 @@ test("customizer changes update the companion and accepted archive clears it eve
   await second.getByRole("button", { name: "이 펫 선택" }).click();
   await expect(companion(page)).toHaveAttribute("aria-label", "함께하는 동료: 두 번째 친구");
   server.readFailures = 1;
+  await second.locator(".pet-library-actions > summary").click();
   await second.getByRole("button", { name: "보관", exact: true }).click();
   await expect(studio.getByRole("status").last()).toContainText("입력은 유지");
   await expect(companion(page)).toHaveAttribute("data-companion", "login");
