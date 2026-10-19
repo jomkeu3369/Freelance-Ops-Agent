@@ -58,8 +58,8 @@ async function selectPet(page, state) {
   const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
   await expect(panel.locator(".pet-library")).toContainText("견적 친구");
   await captureWorkflow(page, "pet-selection");
-  await panel.getByRole("button", { name: "이 펫 선택", exact: true }).click();
-  await expect(panel.getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await panel.getByRole("button", { name: /이 펫 선택$/, exact: true }).click();
+  await expect(panel.getByRole("button", { name: /선택됨$/, exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(state.petSelections).toEqual([{ action: "SELECT", expectedRevision: 1 }]);
   expect(state.starts).toEqual([]);
   await panel.getByRole("button", { name: "닫기", exact: true }).click();
@@ -218,7 +218,7 @@ async function startSlowPetSelection(page, state) {
   state.nextPetSelection = barrier;
   await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
-  await panel.getByRole("button", { name: "이 펫 선택", exact: true }).click();
+  await panel.getByRole("button", { name: /이 펫 선택$/, exact: true }).click();
   await barrier.entered;
   expect(state.pets.selectedPetId).toBeNull();
   await panel.getByRole("button", { name: "닫기", exact: true }).click();
@@ -296,11 +296,11 @@ test("mocked failed pet SELECT keeps quote and chat blocked until explicit succe
     expect(state.pets.selectedPetId).toBeNull();
     await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
     const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
-    const choose = panel.getByRole("button", { name: "이 펫 선택", exact: true });
+    const choose = panel.getByRole("button", { name: /이 펫 선택$/, exact: true });
     await expect(choose).toBeEnabled();
     expect(state.pets.selectedPetId).toBeNull();
     await choose.click();
-    await expect(panel.getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(panel.getByRole("button", { name: /선택됨$/, exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(state.petSelections).toEqual([
       { action: "SELECT", expectedRevision: 1 },
       { action: "SELECT", expectedRevision: 1 },

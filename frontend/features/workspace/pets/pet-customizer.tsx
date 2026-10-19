@@ -37,6 +37,7 @@ export function PetCustomizer({
   const previewRef = useRef<HTMLElement>(null);
   const selectedPetRef = useRef<HTMLButtonElement>(null);
   const createPetRef = useRef<HTMLButtonElement>(null);
+  const refreshPetRef = useRef<HTMLButtonElement>(null);
   const [focusRequest, setFocusRequest] = useState<{ target: "prompt" | "preview" | "selected" | "create" } | null>(
     null
   );
@@ -58,7 +59,9 @@ export function PetCustomizer({
     const target = { prompt: promptRef, preview: previewRef, selected: selectedPetRef, create: createPetRef }[
       focusRequest.target
     ];
-    target.current?.focus();
+    const element = target.current;
+    if (element && !element.matches(":disabled")) element.focus();
+    else refreshPetRef.current?.focus();
   }, [focusRequest]);
   useEffect(() => {
     let current = true;
@@ -208,6 +211,7 @@ export function PetCustomizer({
           <button
             type="button"
             className="pet-library-refresh"
+            ref={refreshPetRef}
             disabled={busy || disabled}
             aria-label={t("목록 다시 불러오기")}
             title={t("목록 다시 불러오기")}

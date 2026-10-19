@@ -177,7 +177,7 @@ test("lost save refresh keeps its mutation at capacity, then retries once, archi
   expect(writes).toHaveLength(2);
   expect(writes[0].body).toEqual(writes[1].body);
   expect(library.pets).toHaveLength(1);
-  await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toBeFocused();
+  await expect(studio.getByRole("button", { name: /선택됨$/, exact: true })).toBeFocused();
   expect(state.starts).toHaveLength(0);
   await openPetActions(studio);
   await studio.getByRole("button", { name: "보관", exact: true }).click();
@@ -187,8 +187,8 @@ test("lost save refresh keeps its mutation at capacity, then retries once, archi
   await studio.getByRole("button", { name: "복원", exact: true }).click();
   await expect(studio.locator(".pet-library article")).toHaveCount(1);
   expect(library.selectedPetId).toBeNull();
-  await studio.getByRole("button", { name: "이 펫 선택", exact: true }).click();
-  await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await studio.getByRole("button", { name: /이 펫 선택$/, exact: true }).click();
+  await expect(studio.getByRole("button", { name: /선택됨$/, exact: true })).toHaveAttribute("aria-pressed", "true");
   expectNoGeneration(state);
 });
 
@@ -415,7 +415,7 @@ for (const staleFailure of [false, true]) {
     }
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await expect(studio.locator(".pet-library article")).toHaveCount(1);
-    await expect(studio.getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(studio.getByRole("button", { name: /선택됨$/, exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(studio.getByRole("status").last()).toContainText("저장하고 선택했습니다");
     expect(library.pets).toHaveLength(1);
     expectNoGeneration(state);
@@ -481,15 +481,17 @@ for (const [width, theme] of [[1440, "dark"], [768, "light"], [390, "dark"], [32
     await expect(studio.locator(".pet-library article")).toHaveCount(6);
     await expect(studio.getByRole("button", { name: "펫 만들기", exact: true })).toBeVisible();
     const cards = studio.locator(".pet-library article");
+    await expect(cards.first().getByRole("button", { name: "차근 · 선택됨", exact: true })).toBeVisible();
+    await expect(cards.nth(1).getByRole("button", { name: "달빛 · 이 펫 선택", exact: true })).toBeVisible();
     if (width === 1440) {
       const columns = await studio.locator(".pet-library").evaluate(element => getComputedStyle(element).gridTemplateColumns.split(" ").length);
       expect(columns).toBe(3);
     }
     await cards.nth(1).getByText("달빛", { exact: true }).click();
-    await expect(cards.nth(1).getByRole("button", { name: "선택됨", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(cards.nth(1).getByRole("button", { name: /선택됨$/, exact: true })).toHaveAttribute("aria-pressed", "true");
     expect(library.selectedPetId).toBe("pet-1");
     expect(calls).toHaveLength(1);
-    await cards.nth(1).getByRole("button", { name: "선택됨", exact: true }).click();
+    await cards.nth(1).getByRole("button", { name: /선택됨$/, exact: true }).click();
     await expect.poll(() => calls.length).toBe(2);
     const summary = cards.nth(1).locator(".pet-library-actions > summary");
     await summary.focus();
@@ -508,12 +510,38 @@ for (const [width, theme] of [[1440, "dark"], [768, "light"], [390, "dark"], [32
     await cards.nth(1).getByRole("button", { name: "대화로 수정", exact: true }).click();
     await expect(studio.getByRole("textbox")).toBeFocused();
     await studio.getByRole("textbox").fill("말투: 차분하게");
-    await expect(cards.first().getByRole("button", { name: "이 펫 선택", exact: true })).toBeDisabled();
+    await expect(cards.first().getByRole("button", { name: /이 펫 선택$/, exact: true })).toBeDisabled();
     await expect(studio.getByRole("button", { name: "목록으로 돌아가기", exact: true })).toBeDisabled();
     await studio.getByRole("button", { name: "입력 취소", exact: true }).click();
     await studio.getByRole("button", { name: "목록으로 돌아가기", exact: true }).click();
     await expect(studio.getByRole("textbox")).toHaveCount(0);
     await expect(studio.getByRole("button", { name: "펫 만들기", exact: true })).toBeFocused();
+    expectNoGeneration(state);
+  });
+}
+
+for (const capacity of ["active", "stored"]) {
+  test(`${capacity} capacity: leaving an empty editor returns focus to an enabled library control`, async ({ page }) => {
+    const pets = [storedPet("pet-one", "견적 친구")];
+    if (capacity === "stored") pets.push(storedPet("pet-archived", "보관 친구", { archived: true }));
+    const { state, calls } = await petsFixture(page, {
+      pets,
+      maxActivePets: capacity === "active" ? 1 : 2,
+      maxStoredPets: capacity === "active" ? 3 : 2
+    });
+    const studio = await openStudio(page, { create: false });
+    await expect(studio.getByRole("button", { name: "펫 만들기", exact: true })).toBeDisabled();
+    await openPetActions(studio);
+    await studio.getByRole("button", { name: "대화로 수정", exact: true }).click();
+    await expect(studio.getByRole("textbox")).toBeFocused();
+    await studio.getByRole("button", { name: "목록으로 돌아가기", exact: true }).click();
+    const refresh = studio.getByRole("button", { name: "목록 다시 불러오기", exact: true });
+    await expect(refresh).toBeEnabled();
+    await expect(refresh).toBeFocused();
+    await expect(studio.getByRole("textbox")).toHaveCount(0);
+    await page.keyboard.press("Tab");
+    await expect(studio.getByRole("button", { name: "견적 친구 · 이 펫 선택", exact: true })).toBeFocused();
+    expect(calls).toEqual([]);
     expectNoGeneration(state);
   });
 }

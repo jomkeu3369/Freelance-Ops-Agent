@@ -38,7 +38,7 @@ export function PetLibrary({
 }: PetLibraryProps) {
   const t = useT();
   return (
-    <div className="pet-library" role={pets.length ? "list" : undefined} aria-label={t("내 펫")} aria-busy={loading}>
+    <div className="pet-library" role={pets.length ? "list" : "group"} aria-label={t("내 펫")} aria-busy={loading}>
       {loading ? (
         <p className="pet-library-empty" role="status">
           {t("펫을 불러오고 있어요.")}
@@ -63,7 +63,7 @@ export function PetLibrary({
                 ref={selected ? selectedRef : undefined}
                 disabled={disabled}
                 aria-pressed={selected}
-                aria-label={t(selected ? "선택됨" : "이 펫 선택")}
+                aria-label={`${pet.profile.name} · ${t(selected ? "선택됨" : "이 펫 선택")}`}
                 aria-describedby={descriptionId}
                 onClick={() => onSelect(pet)}
               >
@@ -77,7 +77,6 @@ export function PetLibrary({
                 </span>
                 <strong>{pet.profile.name}</strong>
                 <span className="pet-library-description" id={descriptionId}>
-                  <span className="sr-only">{pet.profile.name}. </span>
                   {description || t(petDutyLabels[pet.profile.duty ?? "GENERAL"])}
                 </span>
               </button>
