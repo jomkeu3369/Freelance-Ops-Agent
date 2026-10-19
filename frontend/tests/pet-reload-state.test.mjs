@@ -27,7 +27,8 @@ async function harness() {
     if (name.endsWith("ui-language")) return { useT: () => value => value };
     if (name.endsWith("/api")) return api;
     if (name.endsWith("pet-library-events")) return { petLibraryRevision: () => 0, publishPetLibrary() {} };
-    if (name.endsWith("pet-art") || name.endsWith("pet-profile") || name.endsWith("pet-library")) return {};
+    if (name.endsWith("pet-generation-session")) return { readPetGeneration: () => null, rememberPetGeneration() {} };
+    if (name.endsWith("pet-art") || name.endsWith("pet-profile") || name.endsWith("pet-library") || name.endsWith("pet-creation-studio")) return {};
     throw new Error(`Unexpected import: ${name}`);
   } });
   const props = { session: { userId: "user", workspaceId: "workspace" }, disabled: false };
@@ -46,12 +47,12 @@ test("successful pet reload removes the prior read error and re-enables editing"
   const h = await harness(); h.render(); await tick();
   const failed = h.render();
   assert.match(text(failed), /펫을 불러오지 못했습니다/);
-  assert.equal(all(failed, node => node.type === "textarea")[0].props.disabled, true);
+  assert.equal(all(failed, node => node.type === "button" && Array.isArray(node.props.children) && node.props.children.includes("펫 만들기"))[0].props.disabled, true);
   h.state.fail = false;
   all(failed, node => node.type === "button" && node.props["aria-label"] === "목록 다시 불러오기")[0].props.onClick();
   h.render(); await tick();
   const recovered = h.render();
   assert.equal(h.reads(), 2);
-  assert.equal(all(recovered, node => node.type === "textarea")[0].props.disabled, false);
+  assert.equal(all(recovered, node => node.type === "button" && Array.isArray(node.props.children) && node.props.children.includes("펫 만들기"))[0].props.disabled, false);
   assert.doesNotMatch(text(recovered), /펫을 불러오지 못했습니다/);
 });

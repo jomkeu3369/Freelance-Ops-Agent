@@ -42,8 +42,14 @@ schemas:
           - turtle
           - owl
           - cat
+          - pixel
         title: 동물
         type: string
+      sprite:
+        anyOf:
+          - $ref: "#/schemas/PixelPetSprite"
+          - type: "null"
+        default: null
       color:
         enum:
           - sage
@@ -102,6 +108,74 @@ schemas:
       - scopePriority
     title: PetProfile
     type: object
+  PixelPetSprite:
+    type: object
+    additionalProperties: false
+    description: 모델이 그린 32×32 픽셀 외형이다. 점은 투명, 0–9·A–E는 색상표의 순서다. 보이는 픽셀은 48–900개다.
+    required: [species, palette, rows]
+    properties:
+      species:
+        type: string
+        minLength: 1
+        maxLength: 32
+      palette:
+        type: array
+        minItems: 15
+        maxItems: 15
+        items:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+      rows:
+        type: array
+        minItems: 32
+        maxItems: 32
+        items:
+          type: string
+          minLength: 32
+          maxLength: 32
+          pattern: '^[.0-9A-E]{32}$'
+  GeneratedPixelPet:
+    allOf:
+      - $ref: "#/schemas/PetProfile"
+      - type: object
+        required: [sprite]
+        properties:
+          animal:
+            type: string
+            const: pixel
+          sprite:
+            $ref: "#/schemas/PixelPetSprite"
+  GeneratePixelPetRequest:
+    type: object
+    additionalProperties: false
+    required: [context, modelSelection, description, platformBudget, budget]
+    properties:
+      context:
+        $ref: execution-policy.yaml#/schemas/TrustedRunContext
+      modelSelection:
+        $ref: execution-policy.yaml#/schemas/ModelSelection
+      description:
+        type: string
+        minLength: 1
+        maxLength: 500
+      previous:
+        anyOf:
+          - $ref: "#/schemas/PetProfile"
+          - type: "null"
+        default: null
+      platformBudget:
+        $ref: execution-policy.yaml#/schemas/PlatformBudget
+      budget:
+        $ref: execution-policy.yaml#/schemas/RunBudget
+  GeneratePixelPetResponse:
+    type: object
+    additionalProperties: false
+    required: [profile, usage]
+    properties:
+      profile:
+        $ref: "#/schemas/GeneratedPixelPet"
+      usage:
+        $ref: execution-policy.yaml#/schemas/AgentRunUsage
   PetPreferences:
     type: object
     additionalProperties: false

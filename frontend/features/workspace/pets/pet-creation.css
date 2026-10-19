@@ -1,0 +1,477 @@
+/* 목록과 생성 단계를 분리하고 주 동작의 위치를 고정한다. */
+.figma-workspace .workspace-panel.pet-library-panel:has(.pet-creation) {
+  width: min(780px, 100%);
+  height: min(760px, calc(100dvh - 56px));
+}
+.pet-library-panel .workspace-panel-content:has(.pet-creation) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pet-library-panel .pet-prompt-studio:has(> .pet-creation) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.pet-library-panel .pet-creation {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.pet-creation-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  flex-shrink: 0;
+  gap: 7px;
+  min-height: 36px;
+  margin: -4px 0 24px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pet-library-panel .pet-creation-heading {
+  display: block;
+  flex-shrink: 0;
+  margin-bottom: 28px;
+}
+.pet-creation-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.pet-library-panel .pet-creation-heading h3 {
+  margin: 0 0 10px;
+  font-size: 29px;
+  line-height: 1.3;
+  letter-spacing: -0.045em;
+}
+.pet-creation-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.pet-creation-stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  outline: 0;
+}
+.pet-creation-stage:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+.pet-creation-input > label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pet-library-panel .pet-creation-input textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 160px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-solid);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.8;
+  resize: vertical;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.pet-creation-input textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.72;
+}
+.pet-creation-input textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.pet-creation-input-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.pet-creation-input-meta > span:last-child {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.pet-creation-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 22px 0;
+}
+.pet-creation-examples button {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.pet-creation-examples button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.pet-creation-help {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.pet-creation-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.pet-creation-reset input {
+  accent-color: var(--accent);
+}
+.pet-creation-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 315px;
+  text-align: center;
+}
+.pet-creation-loading strong {
+  margin: 25px 0 8px;
+  font-size: 15px;
+}
+.pet-creation-loading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.pet-creation-request {
+  max-width: 80%;
+  margin-top: 22px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.pet-creation-pixels {
+  display: grid;
+  grid-template-columns: repeat(3, 14px);
+  gap: 5px;
+  padding: 22px;
+}
+.pet-creation-pixels i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--accent);
+  animation: pet-pixel-build 1.8s ease-in-out infinite;
+}
+.pet-creation-pixels i:nth-child(2n) {
+  animation-delay: 0.2s;
+}
+.pet-creation-pixels i:nth-child(3n) {
+  animation-delay: 0.4s;
+}
+.pet-creation-pixels i:nth-child(4n) {
+  animation-delay: 0.6s;
+}
+.pet-creation-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 24px 0;
+  text-align: center;
+}
+.pet-creation-portrait {
+  display: grid;
+  place-items: center;
+  width: 208px;
+  height: 208px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 50% 80%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%),
+    var(--surface-2);
+}
+.pet-creation-portrait .pet-art {
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+}
+.pet-creation-species {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.pet-creation-result h4 {
+  margin: 9px 0;
+  font-size: 24px;
+  letter-spacing: -0.035em;
+}
+.pet-creation-result > p {
+  max-width: 400px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.pet-creation-result > p.pet-creation-focus {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pet-creation-request-details {
+  width: 100%;
+  margin-top: 16px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 11px;
+}
+.pet-creation-request-details summary {
+  width: fit-content;
+  margin: 0 auto;
+  cursor: pointer;
+}
+.pet-creation-request-details p {
+  margin: 10px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.pet-creation-feedback {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.pet-creation-feedback:empty {
+  display: none;
+}
+.pet-creation-feedback p {
+  margin: 16px 0 0;
+}
+.pet-creation-footer {
+  position: relative;
+  flex-shrink: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 20px 0 4px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-solid);
+}
+.pet-creation-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 11px 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.pet-library-panel .pet-creation-footer .pet-creation-secondary {
+  color: var(--muted);
+  background: transparent;
+}
+.pet-library-panel .pet-creation-footer .pet-creation-secondary:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+.pet-creation-primary {
+  min-width: 165px;
+  color: var(--surface-solid);
+  background: var(--ink);
+}
+.pet-creation-primary:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.pet-creation button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pet-creation button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.pet-creation-spinner {
+  animation: pet-creation-spin 1s linear infinite;
+}
+.pet-library-draft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pet-library-draft button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pet-library-draft > span {
+  overflow-wrap: anywhere;
+}
+
+@keyframes pet-pixel-build {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes pet-creation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@container (max-width: 540px) {
+  .pet-library-panel .pet-creation {
+    min-height: 0;
+  }
+  .pet-creation-back {
+    margin-bottom: 18px;
+  }
+  .pet-library-panel .pet-creation-heading h3 {
+    font-size: 24px;
+  }
+  .pet-creation-heading p {
+    font-size: 12px;
+  }
+  .pet-creation-stage {
+    min-height: 0;
+  }
+  .pet-library-panel .pet-creation-input textarea {
+    min-height: 145px;
+    padding: 15px;
+    font-size: 16px;
+  }
+  .pet-creation-input-meta {
+    font-size: 10px;
+  }
+  .pet-creation-examples {
+    margin: 16px 0;
+  }
+  .pet-creation-footer {
+    gap: 8px;
+    padding-top: 16px;
+  }
+  .pet-creation-footer button {
+    padding-inline: 12px;
+    font-size: 12px;
+  }
+  .pet-creation-primary {
+    min-width: 150px;
+  }
+  .pet-creation-portrait {
+    width: 180px;
+    height: 180px;
+  }
+  .pet-creation-portrait .pet-art {
+    width: 144px;
+    height: 144px;
+  }
+  .pet-creation-result {
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .figma-workspace .workspace-panel.pet-library-panel:has(.pet-creation) {
+    height: min(760px, calc(100dvh - 24px));
+  }
+}
+@media (max-height: 800px) {
+  .pet-creation-portrait { width: 156px; height: 156px; }
+  .pet-creation-portrait .pet-art { width: 128px; height: 128px; }
+  .pet-library-panel .pet-creation-heading { margin-bottom: 18px; }
+  .pet-creation-back { margin-bottom: 16px; }
+}
+@media (max-height: 560px) {
+  .pet-creation-eyebrow, .pet-creation-heading > p, .pet-creation-examples { display: none; }
+  .pet-library-panel .pet-creation-heading h3 { font-size: 20px; margin-bottom: 0; }
+  .pet-creation-back { margin-bottom: 8px; }
+  .pet-library-panel .pet-creation-input textarea { min-height: 90px; }
+  .pet-creation-footer { margin-top: 12px; padding-top: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-creation-pixels i,
+  .pet-creation-spinner {
+    animation: none;
+  }
+  .pet-creation-input textarea {
+    transition: none;
+  }
+}

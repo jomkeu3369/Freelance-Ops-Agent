@@ -9,6 +9,8 @@ interface PetLibraryProps {
   pets: CustomAgentPet[];
   selectedId: string | null;
   disabled: boolean;
+  hasDraft?: boolean;
+  editingId?: string;
   loading: boolean;
   selectedRef: Ref<HTMLButtonElement>;
   onSelect: (pet: CustomAgentPet) => void;
@@ -30,6 +32,8 @@ export function PetLibrary({
   pets,
   selectedId,
   disabled,
+  hasDraft = false,
+  editingId,
   loading,
   selectedRef,
   onSelect,
@@ -61,7 +65,7 @@ export function PetLibrary({
                 type="button"
                 className="pet-library-choice"
                 ref={selected ? selectedRef : undefined}
-                disabled={disabled}
+                disabled={disabled || hasDraft}
                 aria-pressed={selected}
                 aria-label={`${pet.profile.name} · ${t(selected ? "선택됨" : "이 펫 선택")}`}
                 aria-describedby={descriptionId}
@@ -92,7 +96,7 @@ export function PetLibrary({
                 <div className="pet-library-menu">
                   <button
                     type="button"
-                    disabled={disabled}
+                    disabled={disabled || hasDraft}
                     onKeyDown={closeActionsOnEscape}
                     onClick={(event) => {
                       event.currentTarget.closest("details")?.removeAttribute("open");
@@ -104,7 +108,7 @@ export function PetLibrary({
                   </button>
                   <button
                     type="button"
-                    disabled={disabled}
+                    disabled={disabled || (hasDraft && pet.id === editingId)}
                     onKeyDown={closeActionsOnEscape}
                     onClick={(event) => {
                       event.currentTarget.closest("details")?.removeAttribute("open");

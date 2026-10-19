@@ -105,17 +105,41 @@ public class PlatformUsageService {
         if (usage == null || usage.platformReservationId() == null) return;
         if (!run.id().equals(usage.platformReservationId()) || !run.id().equals(view.runId()))
             throw new IllegalArgumentException("Usage reservation identity mismatch");
+        synchronizeOperation(
+                run.id(),
+                run.initiatedBy(),
+                run.provider(),
+                run.model(),
+                run.credentialId(),
+                usage,
+                view.updatedAt(),
+                TERMINAL.contains(view.status()));
+    }
+
+    /** 펫 생성도 분석 실행과 같은 금액 예약·사용량 정산을 사용한다. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void synchronizeOperation(
+            UUID operationId,
+            UUID user,
+            com.freelanceops.backend.domain.agentrun.model.Provider provider,
+            String model,
+            UUID credentialId,
+            AgentRunView.AgentRunUsage usage,
+            Instant observedAt,
+            boolean terminal) {
+        if (usage == null || !operationId.equals(usage.platformReservationId()))
+            throw new IllegalArgumentException("Usage reservation identity mismatch");
         // 예약과 같은 순서로 잠가 반환 처리와 새 예약을 직렬화한다.
         jdbc.queryForObject(
                 "SELECT id FROM app.platform_spend_settings WHERE id=1 FOR UPDATE", Integer.class);
         var rows =
                 jdbc.query(
                         """
-            SELECT r.user_id,r.max_cost_usd,r.tariff_version,r.day_period,r.week_period,
-                   s.settled_usd,s.reserved_usd,s.execution_closed,s.observed_at
-            FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
-            WHERE r.run_id=? FOR UPDATE OF s
-            """,
+                        SELECT r.user_id,r.max_cost_usd,r.tariff_version,r.day_period,r.week_period,
+                               s.settled_usd,s.reserved_usd,s.execution_closed,s.observed_at
+                        FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
+                        WHERE r.run_id=? FOR UPDATE OF s
+                        """,
                         (r, n) ->
                                 new Hold(
                                         r.getObject(1, UUID.class),
@@ -129,22 +153,22 @@ public class PlatformUsageService {
                                         r.getTimestamp(9) == null
                                                 ? null
                                                 : r.getTimestamp(9).toInstant()),
-                        run.id());
+                        operationId);
         if (rows.isEmpty()) throw new IllegalArgumentException("Usage reservation is missing");
         Hold hold = rows.getFirst();
-        if (!hold.user().equals(run.initiatedBy()) || !hold.version().equals(usage.tariffVersion()))
+        if (!hold.user().equals(user) || !hold.version().equals(usage.tariffVersion()))
             throw new IllegalArgumentException("Usage tariff or account mismatch");
-        if (hold.observed() != null && view.updatedAt().isBefore(hold.observed())) return;
+        if (hold.observed() != null && observedAt.isBefore(hold.observed())) return;
         if (usage.providerCalls().size() != usage.modelCalls())
             return; // 사용량 정보가 불완전하면 예약 금액을 유지한다.
-        var previous = attempts(run.id());
+        var previous = attempts(operationId);
         Map<UUID, ProviderCallUsage> merged = new LinkedHashMap<>();
         previous.forEach(call -> merged.put(call.callId(), call));
         for (var call : usage.providerCalls()) {
             if ("BYOK".equals(call.fundingSource())
-                    && (run.credentialId() == null
-                            || call.provider() != run.provider()
-                            || !call.model().equals(run.model())))
+                    && (credentialId == null
+                            || call.provider() != provider
+                            || !call.model().equals(model)))
                 throw new IllegalArgumentException("Personal usage binding mismatch");
             var prior = merged.get(call.callId());
             if (prior != null) {
@@ -166,12 +190,12 @@ public class PlatformUsageService {
             int changed =
                     jdbc.update(
                             """
-                INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)
-                ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()
-                WHERE platform_provider_attempt.run_id=EXCLUDED.run_id
-                """,
+                            INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)
+                            ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()
+                            WHERE platform_provider_attempt.run_id=EXCLUDED.run_id
+                            """,
                             call.callId(),
-                            run.id(),
+                            operationId,
                             mapper.writeValueAsString(call));
             if (changed != 1) throw new IllegalArgumentException("Attempt belongs to another run");
         }
@@ -188,8 +212,7 @@ public class PlatformUsageService {
             if (call.usageKnown()) settled = settled.add(cost);
             else unknown = unknown.add(cost);
         }
-        boolean closed =
-                hold.closed() || (usage.executionClosed() && TERMINAL.contains(view.status()));
+        boolean closed = hold.closed() || (usage.executionClosed() && terminal);
         // 기존 형식의 예약과 누락되거나 금액을 산정할 수 없는 보고는 예약 전액을 유지한다. 확인된 사용 금액은 별도로 표시한다.
         BigDecimal exposure = settled.add(unknown);
         if (!closed || !priceable || PlatformSpendTariff.LEGACY_VERSION.equals(hold.version()))
@@ -201,14 +224,14 @@ public class PlatformUsageService {
         adjust("ACCOUNT_WEEK", hold.user(), hold.week(), delta);
         jdbc.update(
                 """
-            UPDATE app.platform_spend_settlement SET settled_usd=?,reserved_usd=?,execution_closed=?,
-                observed_at=?,updated_at=clock_timestamp() WHERE run_id=?
-            """,
+                UPDATE app.platform_spend_settlement SET settled_usd=?,reserved_usd=?,execution_closed=?,
+                    observed_at=?,updated_at=clock_timestamp() WHERE run_id=?
+                """,
                 settled,
                 reserved,
                 closed,
-                Timestamp.from(view.updatedAt()),
-                run.id());
+                Timestamp.from(observedAt),
+                operationId);
     }
 
     private static boolean sameUsage(ProviderCallUsage a, ProviderCallUsage b) {
@@ -222,9 +245,9 @@ public class PlatformUsageService {
         if (delta.signum() == 0) return;
         if (jdbc.update(
                         """
-            UPDATE app.platform_spend_bucket SET held_usd=held_usd+?
-            WHERE scope=? AND subject_id=? AND period=? AND held_usd+? >= 0
-            """,
+                        UPDATE app.platform_spend_bucket SET held_usd=held_usd+?
+                        WHERE scope=? AND subject_id=? AND period=? AND held_usd+? >= 0
+                        """,
                         delta,
                         scope,
                         subject,
@@ -235,7 +258,8 @@ public class PlatformUsageService {
 
     private List<ProviderCallUsage> attempts(UUID run) {
         return jdbc.query(
-                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? ORDER BY call_id",
+                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? ORDER BY"
+                        + " call_id",
                 (row, n) -> mapper.readValue(row.getString(1), ProviderCallUsage.class),
                 run);
     }
@@ -248,8 +272,8 @@ public class PlatformUsageService {
         var settings =
                 jdbc.queryForObject(
                         """
-            SELECT account_week_usd, global_day_usd, global_week_usd FROM app.platform_spend_settings WHERE id=1 FOR SHARE
-            """,
+                        SELECT account_week_usd, global_day_usd, global_week_usd FROM app.platform_spend_settings WHERE id=1 FOR SHARE
+                        """,
                         (row, n) ->
                                 List.of(
                                         row.getBigDecimal(1),
@@ -259,10 +283,10 @@ public class PlatformUsageService {
         var totals =
                 jdbc.queryForObject(
                         """
-            SELECT COALESCE(SUM(s.settled_usd),0), COALESCE(SUM(s.reserved_usd),0)
-            FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
-            WHERE r.user_id=? AND r.week_period=?
-            """,
+                        SELECT COALESCE(SUM(s.settled_usd),0), COALESCE(SUM(s.reserved_usd),0)
+                        FROM app.platform_spend_reservation r JOIN app.platform_spend_settlement s USING(run_id)
+                        WHERE r.user_id=? AND r.week_period=?
+                        """,
                         (row, n) -> List.of(row.getBigDecimal(1), row.getBigDecimal(2)),
                         userId,
                         Date.valueOf(period.start()));
@@ -276,7 +300,8 @@ public class PlatformUsageService {
                         .min(available("GLOBAL_WEEK", GLOBAL, period.start(), settings.get(2)));
         List<Model> models =
                 jdbc.query(
-                        "SELECT model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER BY model",
+                        "SELECT model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER"
+                                + " BY model",
                         (row, n) -> {
                             String id = row.getString(1);
                             boolean active = row.getBoolean(3);
@@ -328,7 +353,8 @@ public class PlatformUsageService {
     private BigDecimal available(String scope, UUID subject, LocalDate period, BigDecimal limit) {
         var held =
                 jdbc.query(
-                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND subject_id=? AND period=?",
+                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND"
+                                + " subject_id=? AND period=?",
                         (row, n) -> row.getBigDecimal(1),
                         scope,
                         subject,
@@ -348,7 +374,8 @@ public class PlatformUsageService {
     private List<ProviderCallUsage> personalAttempts(UUID scope, String model) {
         // 예약 상한을 계산한 값이며 실제 청구액이나 확정 사용량을 뜻하지 않는다.
         return jdbc.query(
-                "SELECT call_id,operation,input_tokens,output_tokens FROM app.byok_provider_attempt WHERE scope_id=? ORDER BY created_at,call_id",
+                "SELECT call_id,operation,input_tokens,output_tokens FROM app.byok_provider_attempt"
+                        + " WHERE scope_id=? ORDER BY created_at,call_id",
                 (row, n) ->
                         new ProviderCallUsage(
                                 row.getObject(1, UUID.class),
@@ -388,19 +415,19 @@ public class PlatformUsageService {
         var items =
                 jdbc.query(
                         """
-            SELECT r.run_id,r.model,COALESCE(a.status,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
-                   r.execution_closed,r.byok_scope_id,r.byok_input_tokens,r.byok_output_tokens
-            FROM (
-                SELECT p.run_id,p.model,p.created_at,s.settled_usd,s.reserved_usd,s.execution_closed,
-                       NULL::uuid AS byok_scope_id,0::bigint AS byok_input_tokens,0::bigint AS byok_output_tokens
-                FROM app.platform_spend_reservation p JOIN app.platform_spend_settlement s USING(run_id) WHERE p.user_id=?
-                UNION ALL
-                SELECT b.run_id,b.payload->>'model',b.created_at,0::numeric,0::numeric,b.closed,
-                       b.scope_id,b.input_tokens,b.output_tokens
-                FROM app.byok_execution_scope b WHERE b.payload->>'initiatedBy'=?
-            ) r LEFT JOIN app.agent_run a ON a.id=r.run_id
-            WHERE (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
-            """,
+                        SELECT r.run_id,r.model,COALESCE(a.status,'DELETED'),r.created_at,r.settled_usd,r.reserved_usd,
+                               r.execution_closed,r.byok_scope_id,r.byok_input_tokens,r.byok_output_tokens
+                        FROM (
+                            SELECT p.run_id,p.model,p.created_at,s.settled_usd,s.reserved_usd,s.execution_closed,
+                                   NULL::uuid AS byok_scope_id,0::bigint AS byok_input_tokens,0::bigint AS byok_output_tokens
+                            FROM app.platform_spend_reservation p JOIN app.platform_spend_settlement s USING(run_id) WHERE p.user_id=?
+                            UNION ALL
+                            SELECT b.run_id,b.payload->>'model',b.created_at,0::numeric,0::numeric,b.closed,
+                                   b.scope_id,b.input_tokens,b.output_tokens
+                            FROM app.byok_execution_scope b WHERE b.payload->>'initiatedBy'=?
+                        ) r LEFT JOIN app.agent_run a ON a.id=r.run_id
+                        WHERE (r.created_at,r.run_id) < (?,?) ORDER BY r.created_at DESC,r.run_id DESC LIMIT ?
+                        """,
                         (row, n) -> {
                             UUID run = row.getObject(1, UUID.class),
                                     byokScope = row.getObject(8, UUID.class);

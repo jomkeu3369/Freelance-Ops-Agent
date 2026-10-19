@@ -60,6 +60,8 @@ class ModelProvider(Protocol):
 
     async def generate_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501
 
+    async def generate_pixel_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501
+
     async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501
 
 

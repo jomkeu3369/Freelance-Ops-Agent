@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 from unicodedata import category
 from uuid import UUID
 
@@ -104,6 +104,33 @@ class PetPreferences(StrictModel):
         return value
 
 
+class PixelPetSprite(StrictModel):
+    species: str = Field(min_length=1, max_length=32)
+    palette: list[Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]] = Field(min_length=15, max_length=15)
+    rows: list[Annotated[str, Field(min_length=32, max_length=32, pattern=r"^[.0-9A-E]{32}$")]] = Field(
+        min_length=32, max_length=32
+    )
+
+    @field_validator("palette")
+    @classmethod
+    def validate_palette(cls, colors: list[str]) -> list[str]:
+        import re
+
+        if any(re.fullmatch(r"#[0-9a-fA-F]{6}", color) is None for color in colors):
+            raise ValueError("Pixel colors must be RGB hex values")
+        return colors
+
+    @field_validator("rows")
+    @classmethod
+    def validate_rows(cls, rows: list[str]) -> list[str]:
+        if any(len(row) != 32 or set(row) - set(".0123456789ABCDE") for row in rows):
+            raise ValueError("Pixel art must contain 32 rows of 32 palette symbols")
+        visible = sum(char != "." for row in rows for char in row)
+        if visible < 48 or visible > 900:
+            raise ValueError("Pixel character must have a visible silhouette and transparent margin")
+        return rows
+
+
 class PetProfile(StrictModel):
     pet_id: UUID | None = None
     duty: Literal["GENERAL", "SCHEDULE", "RESEARCH", "WRITING", "DEVELOPMENT", "DESIGN"] = "GENERAL"
@@ -111,13 +138,20 @@ class PetProfile(StrictModel):
     preferences: PetPreferences = Field(default_factory=PetPreferences)
     slot: Literal["LEAN", "RECOMMENDED", "EXPANDED"]
     name: str = Field(min_length=1, max_length=20)
-    animal: Literal["turtle", "owl", "cat"]
+    animal: Literal["turtle", "owl", "cat", "pixel"]
+    sprite: PixelPetSprite | None = None
     color: Literal["sage", "lavender", "peach", "sky", "rose", "ink"]
     accessory: Literal["none", "glasses", "scarf", "star"]
     tone: Literal["WARM", "DIRECT", "FORMAL"]
     value_priority: Literal["PROFIT", "BALANCED", "RELATIONSHIP"]
     delivery_priority: Literal["SPEED", "BALANCED", "QUALITY"]
     scope_priority: Literal["CAUTIOUS", "BALANCED", "EXPLORATORY"]
+
+    @model_validator(mode="after")
+    def require_pixel_sprite(self) -> "PetProfile":
+        if self.animal == "pixel" and self.sprite is None:
+            raise ValueError("Generated pixel pets require their artwork")
+        return self
 
     @field_validator("name")
     @classmethod

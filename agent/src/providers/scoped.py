@@ -58,6 +58,12 @@ class ScopedModelProvider:
                 selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
 
+    async def generate_pixel_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        async with self._selected_provider(selection) as provider:
+            return await provider.generate_pixel_pet(
+                selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+            )
+
     async def generate_assumption(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         async with self._selected_provider(selection) as provider:
             return await provider.generate_assumption(

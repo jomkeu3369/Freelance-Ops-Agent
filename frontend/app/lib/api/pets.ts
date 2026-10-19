@@ -1,5 +1,11 @@
 import type { AuthSession } from "./contracts/auth";
-import type { AgentPetCollection, ComposeAgentPet, CustomAgentPet, PetProfile } from "./contracts/pets";
+import type {
+  AgentPetCollection,
+  ComposeAgentPet,
+  CustomAgentPet,
+  PetProfile,
+  PixelPetGeneration
+} from "./contracts/pets";
 import { request } from "./http";
 
 export function listAgentPets(session: AuthSession): Promise<AgentPetCollection> {
@@ -15,6 +21,28 @@ export function previewAgentPet(session: AuthSession, input: ComposeAgentPet): P
   );
 }
 
+export function generatePixelPet(
+  session: AuthSession,
+  projectId: string,
+  input: ComposeAgentPet
+): Promise<PixelPetGeneration> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/agent-pets/generations`,
+    { method: "POST", body: JSON.stringify({ projectId, input }) },
+    session.accessToken,
+    false
+  );
+}
+
+export function getPixelPetGeneration(session: AuthSession, generationId: string): Promise<PixelPetGeneration> {
+  return request(
+    `/api/v2/workspaces/${session.workspaceId}/agent-pets/generations/${generationId}`,
+    { cache: "no-store" },
+    session.accessToken,
+    false
+  );
+}
+
 export function saveAgentPet(session: AuthSession, input: ComposeAgentPet): Promise<CustomAgentPet> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/agent-pets`,
@@ -24,7 +52,11 @@ export function saveAgentPet(session: AuthSession, input: ComposeAgentPet): Prom
   );
 }
 
-export function changeAgentPet(session: AuthSession, pet: CustomAgentPet, action: "SELECT" | "ARCHIVE" | "RESTORE"): Promise<void> {
+export function changeAgentPet(
+  session: AuthSession,
+  pet: CustomAgentPet,
+  action: "SELECT" | "ARCHIVE" | "RESTORE"
+): Promise<void> {
   return request(
     `/api/v2/workspaces/${session.workspaceId}/agent-pets/${pet.id}`,
     { method: "PATCH", body: JSON.stringify({ action, expectedRevision: pet.revision }) },

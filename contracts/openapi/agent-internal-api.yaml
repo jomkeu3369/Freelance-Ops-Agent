@@ -124,6 +124,31 @@ paths:
           description: 생성에 실패했다. 다른 모델이나 키로 자동 전환하지 않는다.
         "503":
           description: AI Gateway를 사용할 수 없다.
+  /internal/v1/pets/generate-pixel:
+    post:
+      tags: [Pets]
+      operationId: generatePixelPet
+      security:
+        - delegationToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePixelPetRequest"
+      responses:
+        "200":
+          description: 생성된 픽셀 외형과 사용량. 호출 전후 사용량과 결과를 Spring에 영속화한다. 호출 1회·출력 4096토큰·전체 60초·USD 0.10 예약 상한을 적용한다.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratePixelPetResponse"
+        "403":
+          description: 위임 범위 또는 금액·호출 상한이 일치하지 않는다.
+        "502":
+          description: 생성 또는 결과 보관에 실패했다. 모델을 재시도하거나 프리셋으로 대체하지 않는다.
+        "503":
+          description: AI Gateway를 사용할 수 없다.
   /health:
     get:
       tags:
@@ -582,6 +607,14 @@ components:
           type: string
     PetProfile:
       $ref: ./agent/pets.yaml#/schemas/PetProfile
+    PixelPetSprite:
+      $ref: ./agent/pets.yaml#/schemas/PixelPetSprite
+    GeneratedPixelPet:
+      $ref: ./agent/pets.yaml#/schemas/GeneratedPixelPet
+    GeneratePixelPetRequest:
+      $ref: ./agent/pets.yaml#/schemas/GeneratePixelPetRequest
+    GeneratePixelPetResponse:
+      $ref: ./agent/pets.yaml#/schemas/GeneratePixelPetResponse
     PetPreferences:
       $ref: ./agent/pets.yaml#/schemas/PetPreferences
     Provider:

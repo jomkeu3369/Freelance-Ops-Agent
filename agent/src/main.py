@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from api.agent_runs.router import router as agent_runs_router
 from api.assumptions.router import router as assumptions_router
 from api.health import router as health_router
+from api.pets.pixel_generation import router as pixel_pets_router
 from api.pets.router import router as pets_router
 from api.platform.router import router as platform_router
 from api.raptor.router import RaptorBuildService
@@ -51,6 +52,7 @@ def create_app(*, run_coordinator: RunCoordinator | None = None, delegation_toke
         agent_runs_router,
         assumptions_router,
         pets_router,
+        pixel_pets_router,
         attachments_router,
         raptor_router,
         platform_router,
