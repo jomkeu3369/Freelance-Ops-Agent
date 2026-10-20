@@ -269,7 +269,11 @@ export function useHomeAnimation() {
           else mark.setAttribute("style", originalMarkStyle);
         };
       });
-      const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());
+      const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => {
+        // scroll 이벤트 전에 갱신하더라도 캐시에 남은 이전 위치로 돌아가지 않게 한다.
+        ScrollTrigger.getScrollFunc(window)(window.scrollY);
+        ScrollTrigger.refresh();
+      });
       return () => {
         cancelInitialAnchor();
         ambientObserver.disconnect();

@@ -4,7 +4,7 @@
 
 ## 화면 순서
 
-짧은 브랜드 축소 등장 → 고정 내비 → 문의/업무 흐름 히어로 → 다섯 단계 스트립 → 세 개의 교차형 기능 행 → 로고/플레이트 변환 → 두 개의 제품 원칙 패널 → 프로젝트 대시보드 모자이크 → 열린 세 열의 예시 숫자 → 범위 비교 슬라이더와 세 열 → 분할 CTA → 하단 링크.
+고정 내비 → 문의/업무 흐름 히어로 → 다섯 단계 스트립 → 세 개의 교차형 기능 행 → 로고/플레이트 변환 → 두 개의 제품 원칙 패널 → 프로젝트 대시보드 모자이크 → 열린 세 열의 예시 숫자 → 범위 비교 슬라이더와 세 열 → 분할 CTA → 하단 링크. 첫 화면 표시 전에 준비가 끝나면 짧은 브랜드 축소 효과를 더합니다.
 
 | 수정 내용 | 파일 |
 |---|---|
@@ -59,6 +59,8 @@
 ## 검증
 
 Node 22에서 `npm run preview:check`를 실행합니다. Playwright 테스트는 `tests/browser/ui-ux.spec.mjs`, 계산/상태/번역 검사는 `tests/product-demo.test.mjs`, `tests/spatial-home.test.mjs`에 있습니다. 지원되는 브라우저 환경에서 production 서버를 127.0.0.1:3100으로 시작하고 `npm run test:ui`를 실행합니다. 외부 API 요청은 fixture로 격리됩니다.
+
+첫 진입·늦은 스크립트 도착·GPU 준비 중 조작·한글과 영문 앵커 진입은 `tests/browser/landing-startup.spec.mjs`, 실제 GPU와 크기 변경은 `tests/browser/landing-webgl.spec.mjs`에서 확인합니다. 준비 순서와 취소는 `tests/scene-startup-queue.test.mjs`에서 검사합니다.
 
 브라우저 discovery는 실제 실행 통과가 아닙니다. 클라우드 런타임의 기존 브라우저 실행 제한은 우회하지 않으며, 허용된 작업 브랜치 Preview의 실제 화면 확인과 자동 테스트 결과를 구분해 보고합니다.
 

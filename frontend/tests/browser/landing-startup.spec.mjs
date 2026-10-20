@@ -88,7 +88,10 @@ test("GPU 준비를 기다리는 동안에도 첫 화면과 언어 선택을 사
     window.__sceneIdle.clear();
     callbacks.forEach(callback => callback({ didTimeout: false, timeRemaining: () => 50 }));
   });
-  await expect(page.locator(".webgl-hero")).toHaveAttribute("data-webgl-state", /ready|fallback/, { timeout: 20_000 });
+  // 교차 관찰 순서는 브라우저마다 달라질 수 있으므로 먼저 준비된 장면을 확인한다.
+  await expect.poll(() => page.locator(".webgl-scene, .spatial-flow").evaluateAll(scenes =>
+    scenes.some(scene => /^(ready|fallback)$/.test(scene.dataset.webglState ?? scene.dataset.workflowState ?? ""))
+  ), { timeout: 20_000 }).toBe(true);
   expect(await page.evaluate(() => window.__gpuContexts)).toBeGreaterThan(0);
 });
 
@@ -107,3 +110,24 @@ test("숨겨진 탭은 대기 중인 GPU 준비를 취소하고 복귀한 뒤 �
   await expect.poll(() => page.evaluate(() => window.__sceneIdle.size)).toBeGreaterThan(0);
   expect(await page.evaluate(() => window.__gpuContexts)).toBe(0);
 });
+
+for (const language of ["ko", "en"]) {
+  for (const section of ["review", "evidence"]) {
+    test(`${language} #${section} 첫 진입과 새로고침은 초기화가 끝난 뒤에도 제목 위치를 유지한다`, async ({ page }) => {
+      await page.addInitScript(value => localStorage.setItem("freelance-ops-ui-locale-v1", value), language);
+      await page.goto(`/#${section}`);
+      for (const reload of [false, true]) {
+        if (reload) await page.reload();
+        await expect(page.locator("html")).toHaveAttribute("lang", language);
+        await page.evaluate(() => document.fonts.ready);
+        await expect(page.locator(".spatial-story-run")).toHaveAttribute("data-motion-ready", "true");
+        await expect.poll(() => page.locator(`#${section}-title`).evaluate(element => {
+          const heading = element.getBoundingClientRect();
+          const nav = document.querySelector(".nav-shell").getBoundingClientRect();
+          return heading.top >= nav.bottom + 8 && heading.bottom <= innerHeight;
+        })).toBe(true);
+        await expect(page).toHaveURL(new RegExp(`#${section}$`));
+      }
+    });
+  }
+}
