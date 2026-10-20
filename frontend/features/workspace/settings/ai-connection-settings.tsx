@@ -1,5 +1,6 @@
-import { useT } from "../../../app/lib/ui-language";
+import { useT, useUiLocale } from "../../../app/lib/ui-language";
 import { useEffect, useState } from "react";
+import { CircleNotch, Info, Key, LockSimple, Plug, Shield, Trash, User } from "@phosphor-icons/react";
 import {
   AIConnections,
   AuthSession,
@@ -12,6 +13,7 @@ import {
 
 export function AIConnectionSettings({ session }: { session: AuthSession }) {
   const t = useT();
+  const locale = useUiLocale();
   const [data, setData] = useState<AIConnections | null>(null);
   const [provider, setProvider] = useState<Provider>("OPENAI");
   const [model, setModel] = useState("");
@@ -81,134 +83,174 @@ export function AIConnectionSettings({ session }: { session: AuthSession }) {
     }
   }
 
+  const connectionState = !data
+    ? error ? "error" : "loading"
+    : !data.available ? "unavailable" : data.connections.length ? "registered" : "empty";
+  const connectionLabel = !data
+    ? error ? t("연결 확인 필요") : t("연결 확인 중…")
+    : !data.available ? t("지금은 연결을 등록할 수 없습니다")
+      : data.connections.length ? t("등록된 연결 {count}개", { count: data.connections.length }) : t("아직 연결된 키가 없습니다");
+
   return (
-    <section id="ai-connections">
-      <header>
-        <span>04</span>
-        <div>
-          <h2>{t("AI 연결")}</h2>
-          <p>{t("내 OpenAI 키로 텍스트와 프로젝트를 분석하세요.")}</p>
-        </div>
-      </header>
-      <p>{t("연결은 현재 작업 공간에서 나만 사용할 수 있습니다. 키는 암호화해 보관하며 다시 표시하지 않습니다.")}</p>
-      <p className="permission-note">
-        {t(
-          "개인 키 호출 요금은 제공사 계정에 청구됩니다. 로컬 라우팅과 키워드 자료 조회를 사용하며, 유료 웹 검색·임베딩·별도 AI 생성은 지원하지 않습니다."
-        )}
-      </p>
-      {error && (
-        <p role="alert" className="form-error">
-          {t(error)}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="settings-saved">
-          {t(message)}
-        </p>
-      )}
-      {!data && !error && <p role="status">{t("연결 확인 중…")}</p>}
-      {data && (
-        <>
-          <div className="ai-connection-list">
-            {data.connections.length === 0 ? (
-              <p>
-                {t("아직 연결한 키가 없습니다. 개인 키를 연결하거나 기본 제공 AI의 사용 가능 상태를 확인해 주세요.")}
-              </p>
-            ) : (
-              data.connections.map((connection) => (
-                <article key={connection.id}>
-                  <div>
-                    <strong>
-                      {connection.provider} · {connection.model}
-                    </strong>
-                    {!isSupportedProvider(connection.provider) && (
-                      <p>{t("지원이 종료된 연결입니다. 새 실행에 사용할 수 없습니다.")}</p>
-                    )}
-                    <p>
-                      {connection.maskedKey} · {new Date(connection.updatedAt).toLocaleDateString("ko-KR")} {t("확인")}
-                    </p>
-                  </div>
-                  {confirmDelete === connection.id ? (
-                    <div>
-                      <p>{t("이 연결을 삭제할까요? 진행 중인 호출은 취소되지 않습니다.")}</p>
-                      <button className="danger-button" disabled={busy} onClick={() => remove(connection.id)}>
-                        {t("연결 삭제")}
-                      </button>
-                      <button className="quiet-button" disabled={busy} onClick={() => setConfirmDelete(null)}>
-                        {t("취소")}
-                      </button>
-                    </div>
-                  ) : (
-                    <button className="quiet-button" disabled={busy} onClick={() => setConfirmDelete(connection.id)}>
-                      {t("삭제")}
-                    </button>
-                  )}
-                </article>
-              ))
-            )}
+    <section id="ai-connections" className="ai-connection-card" aria-labelledby="ai-connections-title">
+      <header className="ai-connection-header">
+        <div className="ai-connection-heading">
+          <span className="ai-connection-icon">
+            <Plug size={28} aria-hidden="true" />
+          </span>
+          <div>
+            <h2 id="ai-connections-title">{t("AI 연결")}</h2>
+            <p>{t("내 OpenAI 키로 텍스트와 프로젝트를 분석하세요.")}</p>
           </div>
-          {data.available ? (
-            <form className="ai-connection-form" onSubmit={save}>
-              <label>
-                {t("제공사")}
-                <select
-                  value={provider}
-                  disabled={busy}
-                  onChange={(event) => {
-                    const next = event.target.value as Provider;
-                    setProvider(next);
-                    setModel(data.models[next][0] ?? "");
-                    setApiKey("");
-                  }}
-                >
-                  <option value="OPENAI">OpenAI</option>
-                </select>
-              </label>
-              <label>
-                {t("모델")}
-                <select value={model} disabled={busy} onChange={(event) => setModel(event.target.value)}>
-                  {data.models[provider].map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {t("API 키")}
-                <input
-                  type="password"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={apiKey}
-                  minLength={16}
-                  maxLength={512}
-                  required
-                  disabled={busy}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={t("새 키를 입력하세요")}
-                />
-              </label>
-              <button className="primary-button" disabled={busy || !model || !apiKey}>
-                {busy
-                  ? t("연결 확인 중…")
-                  : data.connections.some((item) => item.provider === provider)
-                    ? t("확인 후 연결 교체")
-                    : t("확인 후 연결")}
-              </button>
-              <small>
-                {t(
-                  "모델 접근만 확인합니다. 잔여 크레딧이나 생성 성공을 보장하지 않습니다. 같은 제공사에 등록하면 기존 키와 모델을 교체합니다."
-                )}
-              </small>
-            </form>
-          ) : (
-            <p role="status">
-              {t(
-                "현재 개인 키 연결을 사용할 수 없습니다. 연결 상태를 다시 확인해 주세요. 다른 AI로 자동 전환하지 않습니다."
-              )}
+        </div>
+        <p className="ai-connection-status" data-state={connectionState}>
+          <span aria-hidden="true" />{connectionLabel}
+        </p>
+      </header>
+
+      <div className="ai-connection-layout">
+        <div className="ai-connection-editor">
+          {error && (
+            <p role="alert" className="form-error ai-connection-feedback">{t(error)}</p>
+          )}
+          {message && (
+            <p role="status" className="settings-saved ai-connection-feedback">{t(message)}</p>
+          )}
+          {!data && !error && (
+            <p role="status" className="ai-connection-state">
+              <CircleNotch size={22} className="spin" aria-hidden="true" />{t("연결 확인 중…")}
             </p>
           )}
-        </>
-      )}
+          {data && (
+            <>
+              {data.connections.length > 0 && (
+                <div className="ai-connection-list">
+                  <h3>{t("등록된 연결")}</h3>
+                  {data.connections.map((connection) => (
+                    <article key={connection.id}>
+                      <div className="ai-connection-record">
+                        <Plug size={20} aria-hidden="true" />
+                        <div>
+                          <strong>{connection.provider} · {connection.model}</strong>
+                          <p>
+                            {connection.maskedKey} · {new Date(connection.updatedAt).toLocaleDateString(locale === "en" ? "en-US" : "ko-KR")} {t("확인")}
+                          </p>
+                          {!isSupportedProvider(connection.provider) && (
+                            <p className="ai-connection-retired">{t("지원이 종료된 연결입니다. 새 실행에 사용할 수 없습니다.")}</p>
+                          )}
+                        </div>
+                      </div>
+                      {confirmDelete === connection.id ? (
+                        <div className="ai-connection-delete-confirm">
+                          <p>{t("이 연결을 삭제할까요? 진행 중인 호출은 취소되지 않습니다.")}</p>
+                          <div>
+                            <button type="button" className="danger-button" disabled={busy} onClick={() => remove(connection.id)}>
+                              {t("연결 삭제")}
+                            </button>
+                            <button type="button" className="quiet-button" disabled={busy} onClick={() => setConfirmDelete(null)}>
+                              {t("취소")}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button type="button" className="quiet-button ai-connection-remove" disabled={busy} onClick={() => setConfirmDelete(connection.id)}>
+                          <Trash size={17} aria-hidden="true" />{t("삭제")}
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+              {data.available ? (
+                <form className="ai-connection-form" aria-busy={busy} onSubmit={save}>
+                  <label>
+                    {t("제공사")}
+                    <select
+                      value={provider}
+                      disabled={busy}
+                      onChange={(event) => {
+                        const next = event.target.value as Provider;
+                        setProvider(next);
+                        setModel(data.models[next][0] ?? "");
+                        setApiKey("");
+                      }}
+                    >
+                      <option value="OPENAI">OpenAI</option>
+                    </select>
+                  </label>
+                  <label>
+                    {t("모델")}
+                    <select value={model} disabled={busy} onChange={(event) => setModel(event.target.value)}>
+                      {data.models[provider].map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="ai-connection-key-label">
+                    {t("API 키")}
+                    <span className="ai-connection-key-field">
+                      <Key size={21} aria-hidden="true" />
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        value={apiKey}
+                        minLength={16}
+                        maxLength={512}
+                        required
+                        disabled={busy}
+                        onChange={(event) => setApiKey(event.target.value)}
+                        placeholder={t("새 키를 입력하세요")}
+                      />
+                    </span>
+                  </label>
+                  <button type="submit" className="primary-button ai-connection-submit" disabled={busy || !model || !apiKey}>
+                    {busy && <CircleNotch size={20} className="spin" aria-hidden="true" />}
+                    {busy
+                      ? t("연결 확인 중…")
+                      : data.connections.some((item) => item.provider === provider)
+                        ? t("확인 후 연결 교체")
+                        : t("확인 후 연결")}
+                  </button>
+                  <small className="ai-connection-form-note">
+                    <span>{t("모델 접근만 확인하며, 잔여 크레딧이나 생성 성공을 보장하지 않습니다.")}</span>
+                    <span>{t("같은 제공사에 등록하면 기존 키와 모델을 교체합니다.")}</span>
+                  </small>
+                </form>
+              ) : (
+                <p role="status" className="ai-connection-state">
+                  {t("현재 개인 키 연결을 사용할 수 없습니다. 연결 상태를 다시 확인해 주세요. 다른 AI로 자동 전환하지 않습니다.")}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+        <aside className="ai-connection-guide" aria-labelledby="ai-connection-guide-title">
+          <div className="ai-connection-guide-heading">
+            <LockSimple size={26} aria-hidden="true" />
+            <h3 id="ai-connection-guide-title">{t("개인 키 안내")}</h3>
+          </div>
+          <ul>
+            <li>
+              <User size={21} aria-hidden="true" /><span>{t("이 작업 공간에서 나만 사용할 수 있습니다.")}</span>
+            </li>
+            <li>
+              <Shield size={21} aria-hidden="true" /><span>{t("키는 암호화해 보관하며 다시 표시하지 않습니다.")}</span>
+            </li>
+          </ul>
+          <p>{t("개인 키를 연결하거나 기본 제공 AI의 사용 가능 상태를 확인해 주세요.")}</p>
+        </aside>
+      </div>
+      <div className="ai-connection-billing">
+        <Info size={26} aria-hidden="true" />
+        <div>
+          <strong>{t("개인 키 호출 요금은 제공사 계정에 청구됩니다.")}</strong>
+          <p>
+            <span>{t("로컬 라우팅·키워드 자료 조회 지원")}</span>
+            <span>{t("유료 웹 검색·임베딩·별도 AI 생성은 지원하지 않습니다.")}</span>
+          </p>
+        </div>
+      </div>
     </section>
   );
 }
