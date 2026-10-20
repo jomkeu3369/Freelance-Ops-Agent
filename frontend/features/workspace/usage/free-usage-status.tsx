@@ -7,6 +7,7 @@ import { isWeeklyCreditUsage } from "../../../app/lib/credit-policy";
 import { useT, useUiLocale } from "../../../app/lib/ui-language";
 import { WorkspacePanel } from "../shared/workspace-panel";
 import { CreditUsageState, useCreditUsage } from "./use-credit-usage";
+import { WeeklyCreditSummary } from "./weekly-credit-summary";
 
 export function FreeUsageStatus({ session, revision = "", compact = false, state }: { session: AuthSession; revision?: string; compact?: boolean; state?: CreditUsageState; }) {
   const t = useT();
@@ -83,10 +84,5 @@ export function FreeUsageStatus({ session, revision = "", compact = false, state
         )}
       </div>
     );
-  return (
-    <section className="free-usage-status" aria-label={t("주간 크레딧")}>
-      <strong>{t("주간 크레딧")}</strong>
-      {content}
-    </section>
-  );
+  return <WeeklyCreditSummary usage={usage} loading={loading} failed={failed} refresh={refresh} />;
 }

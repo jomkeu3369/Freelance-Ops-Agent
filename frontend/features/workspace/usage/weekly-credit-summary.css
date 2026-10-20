@@ -1,0 +1,351 @@
+.figma-workspace .settings-page .settings-heading {
+  margin-bottom: 32px;
+}
+.figma-workspace .settings-page .settings-heading > span {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: 0;
+}
+.figma-workspace .settings-page .settings-heading h1 {
+  margin: 12px 0 14px;
+  font-size: clamp(32px, 3.1vw, 44px);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -.055em;
+}
+.figma-workspace .settings-page .settings-heading p {
+  font-size: 16px;
+}
+.figma-workspace .settings-content > .weekly-credit-summary {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-card {
+  padding: clamp(22px, 3vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-solid);
+  box-shadow: 0 8px 30px rgb(36 35 50 / 3%);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-header,
+.figma-workspace .weekly-credit-summary .weekly-credit-heading {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-header {
+  justify-content: space-between;
+  margin: 0;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-heading {
+  min-width: 0;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 58px;
+  height: 58px;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-solid));
+  color: var(--accent);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-heading h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -.035em;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 9px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 11px;
+  background: var(--surface-solid);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-refresh:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-solid));
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-refresh:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, .58fr);
+  align-items: center;
+  gap: 32px;
+  margin: 36px 0 30px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-balance {
+  min-width: 0;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-label {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 17px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-amount {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 18px;
+  margin: 0 0 24px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-amount > strong {
+  min-width: 0;
+  font-size: clamp(64px, 6.8vw, 100px);
+  font-weight: 750;
+  line-height: 1.08;
+  letter-spacing: -.065em;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-limit {
+  color: var(--muted);
+  font-size: clamp(18px, 2.2vw, 25px);
+  font-weight: 450;
+  letter-spacing: -.025em;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-metrics > div {
+  min-width: 0;
+  padding: 0 16px 0 0;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-metrics > div + div {
+  padding: 0 0 0 24px;
+  border-left: 1px solid var(--line);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-metrics dt {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-metrics dd {
+  margin: 7px 0 0;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-visual {
+  display: grid;
+  align-self: stretch;
+  place-items: center;
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-gauge {
+  position: relative;
+  width: clamp(200px, 18vw, 236px);
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 4%, transparent), transparent);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-gauge > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke-width: 10;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-track {
+  stroke: var(--surface-2);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-fill {
+  stroke: var(--accent);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-gauge-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 26px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-gauge-label > strong {
+  color: var(--ink);
+  font-size: 38px;
+  line-height: 1.2;
+  font-weight: 750;
+  letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-gauge-label strong > span {
+  font-size: .82em;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid));
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset strong {
+  font-size: 17px;
+  font-weight: 600;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-reset > p {
+  margin: 0 0 0 8px;
+  padding: 8px 0 8px 24px;
+  border-left: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  color: var(--muted);
+  font-size: 14px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-notes {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 18px;
+  padding: 0 6px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-note {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-note > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-notes > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font-size: 14px;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 270px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-state p,
+.figma-workspace .weekly-credit-summary .weekly-credit-paused {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.figma-workspace .weekly-credit-summary .weekly-credit-paused {
+  margin-top: 18px;
+  color: var(--muted);
+}
+@media (max-width: 600px) {
+  .figma-workspace .weekly-credit-summary .weekly-credit-card {
+    padding: 22px 20px;
+    border-radius: 18px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-heading {
+    gap: 12px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-icon {
+    flex-basis: 42px;
+    height: 46px;
+    border-radius: 12px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-icon > svg {
+    width: 24px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-heading h2 {
+    font-size: 20px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-heading p {
+    font-size: 13px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-refresh {
+    width: 44px;
+    padding: 10px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-refresh > span {
+    display: none;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-overview {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+    margin-top: 30px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-visual {
+    padding: 0;
+    border: 0;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-gauge {
+    width: 184px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-reset {
+    align-items: start;
+    gap: 12px;
+    padding: 16px;
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-reset > p {
+    flex-basis: 100%;
+    margin: 0;
+    padding: 12px 0 0;
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  }
+  .figma-workspace .weekly-credit-summary .weekly-credit-reset strong {
+    font-size: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .weekly-credit-summary .spin {
+    animation: none;
+  }
+}
