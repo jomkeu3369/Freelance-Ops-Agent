@@ -84,6 +84,7 @@ jobs:
               tests/browser/composer-design.spec.mjs \
               tests/browser/settings-mutations.spec.mjs \
               tests/browser/settings-credit-summary.spec.mjs \
+              tests/browser/ai-connection-design.spec.mjs \
               tests/browser/skills-integrated.spec.mjs \
               tests/browser/custom-agent-pets.spec.mjs \
               tests/browser/pixel-pet-generation.spec.mjs \

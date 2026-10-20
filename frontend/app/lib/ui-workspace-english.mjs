@@ -1,4 +1,18 @@
 export const workspaceEnglish = {
+  "연결 확인 필요": "Check connection",
+  "지금은 연결을 등록할 수 없습니다": "Connection registration is unavailable",
+  "등록된 연결 {count}개": "Saved connections: {count}",
+  "아직 연결된 키가 없습니다": "No key connected yet",
+  "등록된 연결": "Saved connections",
+  "개인 키 안내": "About your personal key",
+  "이 작업 공간에서 나만 사용할 수 있습니다.": "Only you can use this connection in this workspace.",
+  "키는 암호화해 보관하며 다시 표시하지 않습니다.": "Your key is stored encrypted and is not displayed again.",
+  "개인 키를 연결하거나 기본 제공 AI의 사용 가능 상태를 확인해 주세요.": "Connect a personal key or check the availability of included AI.",
+  "개인 키 호출 요금은 제공사 계정에 청구됩니다.": "Personal-key API usage is billed to your provider account.",
+  "로컬 라우팅·키워드 자료 조회 지원": "Local routing and keyword lookup supported",
+  "유료 웹 검색·임베딩·별도 AI 생성은 지원하지 않습니다.": "Paid web search, embeddings and separate AI generation are not supported.",
+  "모델 접근만 확인하며, 잔여 크레딧이나 생성 성공을 보장하지 않습니다.": "Only model access is checked; remaining credits and successful generation are not guaranteed.",
+  "같은 제공사에 등록하면 기존 키와 모델을 교체합니다.": "Registering the same provider replaces its existing key and model.",
   "세율, 위험 대비율과 할인 한도를 0~100 사이의 숫자로 입력해 주세요.":
     "Enter tax, contingency and discount percentages between 0 and 100.",
   "프로젝트 상태를 저장하고 있습니다.": "Saving the project stage.",
