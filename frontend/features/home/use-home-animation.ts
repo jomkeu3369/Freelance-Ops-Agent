@@ -13,6 +13,7 @@ export function useHomeAnimation() {
   const pageRef = useRef<HTMLDivElement>(null);
   useGSAP(
     () => {
+      const beforeFirstPaint = !performance.getEntriesByName("first-contentful-paint").length;
       const ambientObserver = new IntersectionObserver(
         (entries) => {
           for (const entry of entries)
@@ -27,9 +28,12 @@ export function useHomeAnimation() {
       motion.add("(prefers-reduced-motion: no-preference)", () => {
         // 가로 중앙 정렬은 CSS의 백분율 계산에 맡긴다. GSAP이 픽셀 오프셋을 저장하면
         // 화면 크기나 확대 비율이 바뀔 때 메뉴가 화면 밖으로 밀릴 수 있다.
-        gsap.from(".nav-shell", { opacity: 0, duration: 0.6, ease: "power3.out" });
-        gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: 0.8, stagger: 0.08, ease: "power3.out" });
-        gsap.from(".pointer-depth-hero", { y: 25, opacity: 0, duration: 1.1, delay: 0.2, ease: "power3.out" });
+        // 서버가 이미 보여 준 제목과 버튼을 늦게 도착한 스크립트가 다시 가리지 않는다.
+        if (beforeFirstPaint) {
+          gsap.from(".nav-shell", { opacity: 0, duration: 0.6, ease: "power3.out" });
+          gsap.from(".spatial-heading > *", { y: 14, opacity: 0, duration: 0.8, stagger: 0.08, ease: "power3.out" });
+          gsap.from(".pointer-depth-hero", { y: 25, opacity: 0, duration: 1.1, delay: 0.2, ease: "power3.out" });
+        }
         gsap.utils
           .toArray<HTMLElement>(
             "[data-story-reveal], .spatial-comparison-heading, .spatial-comparison-grid article, .spatial-closing > div"
@@ -62,7 +66,7 @@ export function useHomeAnimation() {
           if (intro) gsap.set(intro, { display: "none" });
         };
         if (
-          intro &&
+          beforeFirstPaint && intro &&
           window.scrollY < 16 &&
           (!window.location.hash || window.location.hash === "#top") &&
           !document.hidden
@@ -265,7 +269,11 @@ export function useHomeAnimation() {
           else mark.setAttribute("style", originalMarkStyle);
         };
       });
-      const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => ScrollTrigger.refresh());
+      const cancelInitialAnchor = restoreInitialAnchor(pageRef.current, () => {
+        // scroll 이벤트 전에 갱신하더라도 캐시에 남은 이전 위치로 돌아가지 않게 한다.
+        ScrollTrigger.getScrollFunc(window)(window.scrollY);
+        ScrollTrigger.refresh();
+      });
       return () => {
         cancelInitialAnchor();
         ambientObserver.disconnect();

@@ -27,6 +27,9 @@ export function createScene(canvas: HTMLCanvasElement, kind: SceneKind, compact:
   let halfHeight = Math.tan(THREE.MathUtils.degToRad(22)) * 20;
   let disposed = false;
   return {
+    prepare() {
+      return renderer.compileAsync(scene, camera);
+    },
     resize(width: number, height: number) {
       if (disposed || width < 1 || height < 1) return;
       renderer.setSize(width, height, false);

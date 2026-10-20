@@ -79,6 +79,7 @@ jobs:
             npx playwright test --forbid-only \
               tests/browser/search-metadata.spec.mjs \
               tests/browser/landing-header.spec.mjs \
+              tests/browser/landing-startup.spec.mjs \
               tests/browser/readme-screenshots.spec.mjs \
               tests/browser/composer-design.spec.mjs \
               tests/browser/settings-mutations.spec.mjs \
