@@ -1,5 +1,5 @@
 {
-  "description": "Synthetic cross-language contract only. Never credentials or a live account.",
+  "description": "Frontend·Backend·Agent가 공유하는 합성 계약 검사 데이터다. 실제 계정이나 인증 정보를 포함하지 않는다.",
   "start": {
     "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
     "locale": "ko-KR",

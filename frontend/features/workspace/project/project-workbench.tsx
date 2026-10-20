@@ -610,13 +610,12 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       )}
       {aiSettings}
       {activeStep === "agent" && canRun && showPets && (
-        <WorkspacePanel title={t("함께할 펫")} className="agent-chat-settings" onClose={() => setShowPets(false)}>
+        <WorkspacePanel title={t("함께할 펫")} className="agent-chat-settings pet-library-panel" onClose={() => setShowPets(false)}>
           <PetCustomizer
             key={`${session.workspaceId}:${session.userId}:${project.id}`}
             session={session}
             projectId={project.id}
             disabled={selectionLocked || petMutation === "pending"}
-            selection={chatModel}
           />
         </WorkspacePanel>
       )}

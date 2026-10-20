@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import type { SceneController, SceneKind } from "../webgl/scene-renderer";
+import { queueSceneStartup } from "../webgl/startup-queue.mjs";
 
 type Props = { kind: SceneKind; children: ReactNode; paused?: boolean };
 
@@ -25,6 +26,8 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     let lastFrame = 0;
     let elapsed = 3;
     let rendered = 0;
+    let cancelStartup: (() => void) | undefined;
+    let resizePending = false;
     const pointer = { x: 0, y: 0, active: false };
     let pointerBounds: DOMRect | null = null;
     const canMove = () =>
@@ -51,7 +54,7 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     const draw = (now: number) => {
       frame = 0;
       const controller = controllerRef.current;
-      if (!controller || disposed || !visible || document.hidden) return;
+      if (!controller || loading || disposed || !visible || document.hidden) return;
       const moving = canMove();
       // 최대 40fps로 제한하고 탭 복귀 시 지나치게 큰 시간 간격을 제한한다.
       if (moving && lastFrame && now - lastFrame < 25) {
@@ -77,19 +80,26 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
       if (controllerRef.current && visible && !document.hidden && !disposed) frame = requestAnimationFrame(draw);
     };
     const start = async () => {
-      if (loading || failed || disposed || controllerRef.current) return;
+      if (loading || failed || disposed || controllerRef.current || !visible || document.hidden) return;
       loading = true;
       try {
-        const { createScene } = await import("../webgl/scene-renderer");
-        if (disposed) return;
+        const [{ createScene }] = await Promise.all([import("../webgl/scene-renderer"), document.fonts.ready]);
+        if (disposed || !visible || document.hidden) return;
         // 기존 렌더러를 유지해 시각 비교와 복구에 사용한다.
         const variant =
           kind === "footer" || new URLSearchParams(window.location.search).get("hero-light") === "classic"
             ? "classic"
             : "electric";
-        controllerRef.current = createScene(canvas, kind, mobile.matches, variant);
+        const controller = createScene(canvas, kind, mobile.matches, variant);
+        controllerRef.current = controller;
         host.dataset.webglVariant = variant;
-        controllerRef.current.resize(host.clientWidth, host.clientHeight);
+        controller.resize(host.clientWidth, host.clientHeight);
+        await controller.prepare();
+        if (disposed || controllerRef.current !== controller) return;
+        if (resizePending) {
+          resizePending = false;
+          controller.resize(host.clientWidth, host.clientHeight);
+        }
         invalidate();
       } catch {
         if (!disposed) fail();
@@ -97,10 +107,16 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
         loading = false;
       }
     };
+    const requestStartup = () => {
+      cancelStartup?.();
+      cancelStartup = undefined;
+      if (visible && !document.hidden && !controllerRef.current && !loading && !failed && !disposed)
+        cancelStartup = queueSceneStartup(start, fail);
+    };
     const observer = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
-        if (visible) void start();
+        requestStartup();
         invalidate();
       },
       { threshold: 0.01 }
@@ -110,6 +126,10 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
       try {
         pointerBounds = null;
         pointer.active = false;
+        if (loading) {
+          resizePending = true;
+          return;
+        }
         controllerRef.current?.resize(host.clientWidth, host.clientHeight);
         invalidate();
       } catch {
@@ -141,6 +161,7 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     };
     const onVisibility = () => {
       resetPointer();
+      requestStartup();
       invalidate();
     };
     const pointerHost = host.closest(".spatial-world");
@@ -159,6 +180,7 @@ export function WebGLScene({ kind, children, paused = false }: Props) {
     mobile.addEventListener("change", onVisibility);
     return () => {
       disposed = true;
+      cancelStartup?.();
       stop();
       observer.disconnect();
       resize.disconnect();

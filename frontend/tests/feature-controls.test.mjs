@@ -71,7 +71,7 @@ test("partial OCR controls localize UI while preserving source text and requirin
   assert.match(render(ChatAttachments, { state: { ...state, error: "파일은 1바이트 이상, 2 MiB 이하여야 합니다." }, disabled: false }), /Each file must be at least 1 byte/);
 });
 test("dynamic pet and attachment labels have English copy, with no unmarked Korean JSX", async () => {
-  for (const path of ["../features/workspace/pets/pet-customizer.tsx", "../features/workspace/pets/pet-profile.ts", "../features/workspace/pets/pet-workspace.tsx", "../features/workspace/project/analysis/chat-attachments.tsx", "../features/workspace/project/analysis/attachment-draft.ts"]) {
+  for (const path of ["../features/workspace/pets/pet-customizer.tsx", "../features/workspace/pets/pet-creation-studio.tsx", "../features/workspace/pets/pixel-pet-art.tsx", "../features/workspace/pets/pet-library.tsx", "../features/workspace/pets/pet-profile.ts", "../features/workspace/pets/pet-workspace.tsx", "../features/workspace/project/analysis/chat-attachments.tsx", "../features/workspace/project/analysis/attachment-draft.ts"]) {
     const source = ts.createSourceFile(path, await readFile(new URL(path, import.meta.url), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     function visit(node) {
       if (ts.isStringLiteral(node) && /[가-힣]/.test(node.text)) assert.doesNotMatch(translateUi(node.text, "en"), /[가-힣]/, `${path}: ${node.text}`);

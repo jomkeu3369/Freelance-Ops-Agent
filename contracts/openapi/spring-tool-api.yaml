@@ -2,28 +2,90 @@ openapi: 3.1.0
 info:
   title: Freelance Ops Spring Internal Tool API
   version: 0.3.0
-  description: Python Agent Tool이 Spring Boot 업무 기능을 호출하는 내부 전용 계약
+  description: Python Agent가 Spring Boot의 업무 기능을 호출하는 내부 API 계약이다.
 servers:
   - url: http://backend:8080
-    description: Docker internal network
+    description: Docker 내부 네트워크 주소. 호출에는 별도 인증이 필요하다.
 security:
   - delegationToken: []
 paths:
+  /internal/v1/pet-generations/{generationId}/usage:
+    post:
+      operationId: recordPixelPetUsage
+      description: >-
+        모델 호출 전후의 시도와 최종 사용량을 기록한다. 생성 ID는 위임 실행과 X-Run-Id,
+        사용자·작업 공간·프로젝트·서버 모델·금액 예약에 일치해야 한다.
+        agent.run과 project.read가 필요하며 호출 시도는 하나만 접수한다.
+        불명확한 사용량의 예약은 유지하고 같은 보고의 재전송은 중복 정산하지 않는다.
+      parameters:
+        - $ref: "#/components/parameters/GenerationId"
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PixelPetUsage"
+      responses:
+        "200":
+          description: 사용량을 영속 기록했다. 응답 본문은 없으며 캐시하지 않는다.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+  /internal/v1/pet-generations/{generationId}/complete:
+    post:
+      operationId: completePixelPetGeneration
+      description: >-
+        Agent의 HTTP 응답 전에 픽셀 외형과 사용량을 저장한다. usage와 같은 위임·예약 경계를
+        검사한다. 서버가 원래 입력과 이전 요청 이력을 결합하며 클라이언트 외형을 신뢰하지 않는다.
+        같은 결과의 재전송은 허용하고 다른 결과로 바꾸려는 요청은 거부한다.
+      parameters:
+        - $ref: "#/components/parameters/GenerationId"
+        - $ref: "#/components/parameters/RunIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PixelPetCompletion"
+      responses:
+        "200":
+          description: 생성 결과를 저장했다. 사용자 저장·선택은 별도 공개 API에서 수행한다.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
   /internal/v1/byok-executions/{scopeId}/attempts:
     post:
       operationId: admitByokProviderAttempt
-      description: >-
-        Atomically consumes one attempt and conservative input/output tokens from the immutable BYOK run scope
-        before any personal credential/provider I/O. Requires current run-bound delegation and a live selected
-        credential. Run, workspace, project, user, model, reasoning, funding and service tier must match.
-        Every retry has a new callId; duplicate IDs are rejected, never treated as permission to call twice.
-        Reservations are never refunded. Lost/ambiguous responses fail closed and must not be retried blindly.
-        Closed, expired, cancelled, missing, forged or legacy scopes cannot admit new work.
+      description:
+        개인 키 조회·모델 호출 전에 BYOK 실행 범위에서 호출 1회와 보수적인 입출력 토큰을 원자적으로 예약한다. 유효한 실행 위임과 선택한 개인 키가 필요하며
+        실행·작업 공간·프로젝트·사용자·모델·추론 수준·비용 출처·서비스 등급이 일치해야 한다. 재시도마다 새 callId를 사용하고 중복 ID는 거부한다. 예약은 환급하지 않으며 응답
+        유실·불명확한 결과는 실패로 닫고 무작정 재시도하지 않는다. 닫힘·만료·취소·누락·위조·과거 형식의 범위로는 새 작업을 접수할 수 없다.
       parameters:
         - name: scopeId
           in: path
           required: true
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
         - $ref: "#/components/parameters/RunIdHeader"
       requestBody:
         required: true
@@ -33,10 +95,12 @@ paths:
               $ref: "#/components/schemas/ByokAttempt"
       responses:
         "200":
-          description: Exactly one attempt durably reserved; Cache-Control no-store
+          description: "호출 시도 1건의 예약을 영속 저장했다. 응답은 캐시하지 않는다(Cache-Control: no-store)."
           headers:
             Cache-Control:
-              schema: {type: string, const: no-store}
+              schema:
+                type: string
+                const: no-store
           content:
             application/json:
               schema:
@@ -50,19 +114,19 @@ paths:
         "404":
           $ref: "#/components/responses/ProblemResponse"
         "410":
-          description: Original immutable scope deadline expired
+          description: 최초에 확정한 실행 범위의 만료 시각을 지났다.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ByokAdmissionError"
         "429":
-          description: Immutable conservative run call/token budget exhausted
+          description: 실행에 고정된 보수적 호출·토큰 한도를 소진했다.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ByokAdmissionError"
         "409":
-          description: Scope binding mismatch, closed/paused scope or duplicate attempt
+          description: 범위 연결이 일치하지 않거나 범위가 닫힘·일시정지 상태 또는 중복 시도다.
           content:
             application/json:
               schema:
@@ -70,35 +134,49 @@ paths:
   /internal/v1/ai-connections/{id}/credential:
     get:
       operationId: resolvePersonalCredential
-      description: Current delegated permission, owner, workspace, project and model are revalidated against an existing active BYOK run scope. Legacy/missing run IDs cannot retrieve a key. Response is ephemeral, never audited as a tool observation or persisted.
+      description:
+        현재 위임 권한·소유자·작업 공간·프로젝트·모델을 활성 BYOK 실행 범위와 다시 대조한다. 과거 형식이거나 실행 ID가 없으면 키를 조회할 수 없다. 응답은
+        해당 호출에서만 사용하며 도구 실행 기록이나 저장소에 남기지 않는다.
       parameters:
         - name: id
           in: path
           required: true
-          schema: {type: string, format: uuid}
+          schema:
+            type: string
+            format: uuid
         - name: provider
           in: query
           required: true
-          schema: {type: string, enum: [OPENAI, GEMINI]}
+          schema:
+            type: string
+            enum:
+              - OPENAI
+              - GEMINI
         - name: model
           in: query
           required: true
-          schema: {type: string, maxLength: 100}
+          schema:
+            type: string
+            maxLength: 100
         - $ref: "#/components/parameters/RunIdHeader"
       responses:
         "200":
-          description: Call-local credential; Cache-Control no-store
+          description: "해당 호출에서만 사용할 키. 응답은 캐시하지 않는다(Cache-Control: no-store)."
           headers:
             Cache-Control:
-              schema: {type: string, const: no-store}
+              schema:
+                type: string
+                const: no-store
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [apiKey]
+                required:
+                  - apiKey
                 properties:
-                  apiKey: {type: string}
+                  apiKey:
+                    type: string
         "401":
           $ref: "#/components/responses/ProblemResponse"
         "403":
@@ -113,7 +191,7 @@ paths:
         - $ref: "#/components/parameters/RunIdHeader"
       responses:
         "200":
-          description: Workspace-scoped project context
+          description: 위임된 작업 공간에 속한 프로젝트 맥락
           content:
             application/json:
               schema:
@@ -138,7 +216,7 @@ paths:
         - $ref: "#/components/parameters/RunIdHeader"
       responses:
         "200":
-          description: Versioned domain pack
+          description: 버전이 지정된 도메인 팩
           content:
             application/json:
               schema:
@@ -162,7 +240,7 @@ paths:
               $ref: "#/components/schemas/RequirementDraft"
       responses:
         "200":
-          description: Deterministic requirement validation result
+          description: 정해진 규칙으로 검증한 요구사항 결과
           content:
             application/json:
               schema:
@@ -188,7 +266,7 @@ paths:
               $ref: "#/components/schemas/QuoteCalculationRequest"
       responses:
         "200":
-          description: Deterministically calculated quotation totals
+          description: 정해진 계산 규칙으로 산출한 견적 합계
           content:
             application/json:
               schema:
@@ -212,7 +290,7 @@ paths:
               $ref: "#/components/schemas/KnowledgeSearchRequest"
       responses:
         "200":
-          description: Workspace-scoped hybrid retrieval results
+          description: 위임된 작업 공간의 키워드·벡터 결합 검색 결과
           content:
             application/json:
               schema:
@@ -232,6 +310,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    GenerationId:
+      name: generationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     ProjectId:
       name: projectId
       in: path
@@ -248,332 +333,51 @@ components:
         format: uuid
   responses:
     ProblemResponse:
-      description: RFC 9457 compatible problem response
+      description: RFC 9457 형식의 오류 응답
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
   schemas:
+    PixelPetUsage:
+      $ref: ./agent/execution-policy.yaml#/schemas/AgentRunUsage
+    PixelPetCompletion:
+      $ref: ./agent/pets.yaml#/schemas/GeneratePixelPetResponse
     ByokAttempt:
-      type: object
-      additionalProperties: false
-      required: [callId, credentialId, provider, model, reasoningEffort, operation, fundingSource,
-                 serviceTier, inputTokens, maxOutputTokens]
-      properties:
-        callId: {type: string, format: uuid}
-        credentialId: {type: string, format: uuid}
-        provider: {type: string, enum: [OPENAI]}
-        model: {type: string, minLength: 1, maxLength: 100}
-        reasoningEffort: {type: string, enum: [NONE, LOW, MEDIUM, HIGH]}
-        operation: {type: string, enum: [department_work_product, bounded_react_step]}
-        fundingSource: {type: string, const: BYOK}
-        serviceTier: {type: string, const: default}
-        inputTokens: {type: integer, minimum: 1, maximum: 272000}
-        maxOutputTokens: {type: integer, minimum: 1}
+      $ref: ./spring/byok-executions.yaml#/schemas/ByokAttempt
     ByokAdmission:
-      type: object
-      additionalProperties: false
-      required: [callId, admitted, validUntil, fundingSource, serviceTier]
-      properties:
-        callId: {type: string, format: uuid}
-        admitted: {type: boolean, const: true}
-        validUntil: {type: string, format: date-time}
-        fundingSource: {type: string, const: BYOK}
-        serviceTier: {type: string, const: default}
+      $ref: ./spring/byok-executions.yaml#/schemas/ByokAdmission
     ByokAdmissionError:
-      type: object
-      additionalProperties: false
-      required: [code, message]
-      properties:
-        code: {type: string}
-        message: {type: string}
+      $ref: ./spring/byok-executions.yaml#/schemas/ByokAdmissionError
     ProjectContext:
-      type: object
-      additionalProperties: false
-      required: [projectId, workspaceId, title, requirementText, currency]
-      properties:
-        projectId:
-          type: string
-          format: uuid
-        workspaceId:
-          type: string
-          format: uuid
-        title:
-          type: string
-          maxLength: 200
-        requirementText:
-          type: string
-          maxLength: 50000
-        currency:
-          type: string
-          pattern: "^[A-Z]{3}$"
-        deadline:
-          type: string
-          format: date
-        budgetMin:
-          type: number
-          minimum: 0
-        budgetMax:
-          type: number
-          minimum: 0
-        sourceMessages:
-          type: array
-          description: Immutable original statements and explicit user decisions; generated summaries are separate.
-          items:
-            $ref: "#/components/schemas/MemorySourceMessage"
+      $ref: ./spring/project-context.yaml#/schemas/ProjectContext
     MemorySourceMessage:
-      type: object
-      additionalProperties: false
-      required: [id, eventOrder, kind, content, createdAt]
-      properties:
-        id:
-          type: string
-          format: uuid
-        eventOrder:
-          type: integer
-          format: int64
-        kind:
-          type: string
-        content:
-          type: string
-        prompt:
-          type: [string, "null"]
-          description: Model-authored clarification question, separate from the user's answer.
-        createdAt:
-          type: string
-          format: date-time
+      $ref: ./spring/project-context.yaml#/schemas/MemorySourceMessage
     DomainPack:
-      type: object
-      additionalProperties: false
-      required: [code, version, jurisdictionCode, professionCode, scope, requiredFields, questionTemplates, sourceReferences, effectiveFrom, effectiveUntil]
-      properties:
-        code:
-          type: string
-        version:
-          type: string
-        jurisdictionCode:
-          type: string
-        professionCode:
-          type: string
-        scope:
-          type: string
-        requiredFields:
-          type: array
-          items:
-            type: string
-        questionTemplates:
-          type: array
-          items:
-            type: string
-        sourceReferences:
-          type: array
-          items:
-            $ref: '#/components/schemas/DomainPackSourceReference'
-        effectiveFrom:
-          type: string
-          format: date
-        effectiveUntil:
-          type: [string, 'null']
-          format: date
+      $ref: ./spring/domain-packs.yaml#/schemas/DomainPack
     DomainPackSourceReference:
-      type: object
-      additionalProperties: false
-      required: [title, url]
-      properties:
-        title:
-          type: string
-        url:
-          type: string
-          format: uri
+      $ref: ./spring/domain-packs.yaml#/schemas/DomainPackSourceReference
     RequirementDraft:
-      type: object
-      additionalProperties: false
-      required: [projectId, summary, features, constraints, assumptions, openQuestions]
-      properties:
-        projectId:
-          type: string
-          format: uuid
-        summary:
-          type: string
-          maxLength: 10000
-        features:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
-        constraints:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
-        assumptions:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
-        openQuestions:
-          type: array
-          items:
-            type: string
-            maxLength: 1000
+      $ref: ./spring/requirements.yaml#/schemas/RequirementDraft
     RequirementValidationResult:
-      type: object
-      additionalProperties: false
-      required: [valid, errors, warnings]
-      properties:
-        valid:
-          type: boolean
-        errors:
-          type: array
-          items:
-            type: string
-        warnings:
-          type: array
-          items:
-            type: string
+      $ref: ./spring/requirements.yaml#/schemas/RequirementValidationResult
     QuoteCalculationRequest:
-      type: object
-      additionalProperties: false
-      required: [currency, taxRate, discountRate, items]
-      properties:
-        currency:
-          type: string
-          pattern: "^[A-Z]{3}$"
-        taxRate:
-          type: number
-          minimum: 0
-          maximum: 1
-        discountRate:
-          type: number
-          minimum: 0
-          maximum: 1
-        items:
-          type: array
-          minItems: 1
-          items:
-            $ref: "#/components/schemas/QuoteCalculationItem"
+      $ref: ./spring/quotations.yaml#/schemas/QuoteCalculationRequest
     QuoteCalculationItem:
-      type: object
-      additionalProperties: false
-      required: [itemId, quantity, unitPrice]
-      properties:
-        itemId:
-          type: string
-          format: uuid
-        quantity:
-          type: number
-          exclusiveMinimum: 0
-        unitPrice:
-          type: number
-          minimum: 0
+      $ref: ./spring/quotations.yaml#/schemas/QuoteCalculationItem
     QuoteCalculationResult:
-      type: object
-      additionalProperties: false
-      required: [currency, subtotal, discountAmount, taxAmount, total, formulaVersion]
-      properties:
-        currency:
-          type: string
-          pattern: "^[A-Z]{3}$"
-        subtotal:
-          type: number
-        discountAmount:
-          type: number
-        taxAmount:
-          type: number
-        total:
-          type: number
-        formulaVersion:
-          type: string
+      $ref: ./spring/quotations.yaml#/schemas/QuoteCalculationResult
     KnowledgeSearchRequest:
-      type: object
-      additionalProperties: false
-      required: [query, limit]
-      properties:
-        query:
-          type: string
-          minLength: 1
-          maxLength: 2000
-        embedding:
-          type: array
-          minItems: 1536
-          maxItems: 1536
-          items:
-            type: number
-            format: float
-        limit:
-          type: integer
-          minimum: 1
-          maximum: 50
-        embeddingModel:
-          type: [string, "null"]
-          maxLength: 120
-          description: Required with embedding; must match the indexed model.
+      $ref: ./spring/knowledge-search.yaml#/schemas/KnowledgeSearchRequest
     KnowledgeSearchResult:
-      type: object
-      additionalProperties: false
-      required: [chunkId, documentId, documentTitle, sourceType, content, rrfScore, keywordRank]
-      properties:
-        chunkId:
-          type: string
-          format: uuid
-        documentId:
-          type: string
-          format: uuid
-        documentTitle:
-          type: string
-          maxLength: 300
-        sourceType:
-          type: string
-          enum: [PAST_PROJECT, POLICY, PLATFORM_TERMS, USER_TEMPLATE, EXTERNAL_SOURCE]
-        sourceUri:
-          type: string
-          maxLength: 2000
-        sourceVersion:
-          type: string
-          maxLength: 120
-        jurisdiction:
-          type: string
-          maxLength: 120
-        effectiveFrom:
-          type: string
-          format: date
-        effectiveUntil:
-          type: string
-          format: date
-        content:
-          type: string
-          maxLength: 20000
-        rrfScore:
-          type: number
-        keywordRank:
-          type: integer
-          minimum: 0
-        vectorRank:
-          type: integer
-          minimum: 1
-        origin:
-          type: string
-          enum: [user, agent, external]
-        memoryType:
-          type: string
-          enum: [requirement, decision, summary, assumption, response, reference]
-        confirmationStatus:
-          type: string
-          enum: [confirmed, unconfirmed, superseded]
-        projectId:
-          type: [string, "null"]
-          format: uuid
-        revisionNumber:
-          type: integer
-          minimum: 1
-        sourceMessages:
-          type: array
-          items:
-            $ref: "#/components/schemas/MemorySourceMessage"
+      $ref: ./spring/knowledge-search.yaml#/schemas/KnowledgeSearchResult
     ProblemDetails:
       type: object
       additionalProperties: true
-      required: [type, title, status]
+      required:
+        - type
+        - title
+        - status
       properties:
         type:
           type: string

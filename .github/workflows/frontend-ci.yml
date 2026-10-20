@@ -5,6 +5,7 @@ on:
     paths:
       - "frontend/**"
       - "contracts/fixtures/workspace-credit-contract.json"
+      - "contracts/fixtures/pixel-pet-profile.json"
       - ".github/workflows/frontend-ci.yml"
       - ".github/scripts/with-frontend-server.sh"
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - "frontend/**"
       - "contracts/fixtures/workspace-credit-contract.json"
+      - "contracts/fixtures/pixel-pet-profile.json"
       - ".github/workflows/frontend-ci.yml"
       - ".github/scripts/with-frontend-server.sh"
   workflow_dispatch:
@@ -77,11 +79,13 @@ jobs:
             npx playwright test --forbid-only \
               tests/browser/search-metadata.spec.mjs \
               tests/browser/landing-header.spec.mjs \
+              tests/browser/landing-startup.spec.mjs \
               tests/browser/readme-screenshots.spec.mjs \
               tests/browser/composer-design.spec.mjs \
               tests/browser/settings-mutations.spec.mjs \
               tests/browser/skills-integrated.spec.mjs \
               tests/browser/custom-agent-pets.spec.mjs \
+              tests/browser/pixel-pet-generation.spec.mjs \
               tests/browser/pet-quotation-workflow.spec.mjs \
               tests/browser/workspace-companion.spec.mjs \
               tests/browser/chat-attachments.spec.mjs \

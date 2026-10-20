@@ -41,6 +41,12 @@ public class PlatformSpendService {
     /** 사용자 크레딧·실행·발송 대기 명령과 같은 트랜잭션에서 처리한다. */
     @Transactional(propagation = Propagation.MANDATORY)
     public PlatformBudget reserve(UUID userId, UUID runId, ModelSelection selection) {
+        return reserve(userId, runId, selection, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public PlatformBudget reserve(
+            UUID userId, UUID runId, ModelSelection selection, BigDecimal operationCap) {
         if (!enabled) throw new PlatformSpendUnavailableException();
         if (userId == null || runId == null || selection == null)
             throw new IllegalArgumentException("Admission identity is required");
@@ -49,9 +55,9 @@ public class PlatformSpendService {
         Settings settings =
                 jdbc.queryForObject(
                         """
-            SELECT luna_run_usd, terra_run_usd, account_week_usd, global_day_usd, global_week_usd
-            FROM app.platform_spend_settings WHERE id = 1 FOR UPDATE
-            """,
+                        SELECT luna_run_usd, terra_run_usd, account_week_usd, global_day_usd, global_week_usd
+                        FROM app.platform_spend_settings WHERE id = 1 FOR UPDATE
+                        """,
                         (row, n) ->
                                 new Settings(
                                         row.getBigDecimal(1),
@@ -64,9 +70,9 @@ public class PlatformSpendService {
         var existing =
                 jdbc.query(
                         """
-            SELECT user_id, provider, model, max_cost_usd, tariff_version, valid_until
-            FROM app.platform_spend_reservation WHERE run_id = ?
-            """,
+                        SELECT user_id, provider, model, max_cost_usd, tariff_version, valid_until
+                        FROM app.platform_spend_reservation WHERE run_id = ?
+                        """,
                         (row, n) ->
                                 new Reservation(
                                         row.getObject(1, UUID.class),
@@ -96,12 +102,13 @@ public class PlatformSpendService {
         var caps =
                 jdbc.query(
                         """
-            SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
-            """,
+                        SELECT max_run_usd FROM app.platform_spend_model_cap WHERE provider = ? AND model = ? AND enabled FOR SHARE
+                        """,
                         (row, n) -> row.getBigDecimal(1),
                         selection.provider().name(),
                         selection.model());
-        if (caps.isEmpty() || caps.getFirst().signum() <= 0) throw new PlatformSpendUnavailableException();
+        if (caps.isEmpty() || caps.getFirst().signum() <= 0)
+            throw new PlatformSpendUnavailableException();
         BigDecimal amount =
                 caps.getFirst()
                         .min(remaining("GLOBAL_DAY", GLOBAL, period.day(), settings.globalDayUsd()))
@@ -117,16 +124,21 @@ public class PlatformSpendService {
                                         userId,
                                         period.week(),
                                         settings.accountWeekUsd()));
+        if (operationCap != null) {
+            if (operationCap.signum() <= 0)
+                throw new IllegalArgumentException("Invalid operation cap");
+            amount = amount.min(operationCap);
+        }
         // 라우팅 비용이 발생하므로 플랫폼 호출이 있는 기존 개인 키 실행도 플랫폼 금액을 예약한다.
         hold("GLOBAL_DAY", GLOBAL, period.day(), amount, settings.globalDayUsd());
         hold("GLOBAL_WEEK", GLOBAL, period.week(), amount, settings.globalWeekUsd());
         hold("ACCOUNT_WEEK", userId, period.week(), amount, settings.accountWeekUsd());
         jdbc.update(
                 """
-            INSERT INTO app.platform_spend_reservation
-                (run_id, user_id, provider, model, max_cost_usd, tariff_version, day_period, week_period, valid_until)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+                INSERT INTO app.platform_spend_reservation
+                    (run_id, user_id, provider, model, max_cost_usd, tariff_version, day_period, week_period, valid_until)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 runId,
                 userId,
                 selection.provider().name(),
@@ -146,7 +158,8 @@ public class PlatformSpendService {
     private BigDecimal remaining(String scope, UUID subject, LocalDate period, BigDecimal limit) {
         var held =
                 jdbc.query(
-                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND subject_id=? AND period=?",
+                        "SELECT held_usd FROM app.platform_spend_bucket WHERE scope=? AND"
+                                + " subject_id=? AND period=?",
                         (row, n) -> row.getBigDecimal(1),
                         scope,
                         subject,
@@ -160,18 +173,18 @@ public class PlatformSpendService {
             String scope, UUID subject, LocalDate period, BigDecimal amount, BigDecimal limit) {
         jdbc.update(
                 """
-            INSERT INTO app.platform_spend_bucket(scope, subject_id, period, held_usd)
-            VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING
-            """,
+                INSERT INTO app.platform_spend_bucket(scope, subject_id, period, held_usd)
+                VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING
+                """,
                 scope,
                 subject,
                 Date.valueOf(period));
         int changed =
                 jdbc.update(
                         """
-            UPDATE app.platform_spend_bucket SET held_usd = held_usd + ?
-            WHERE scope = ? AND subject_id = ? AND period = ? AND held_usd + ? <= ?
-            """,
+                        UPDATE app.platform_spend_bucket SET held_usd = held_usd + ?
+                        WHERE scope = ? AND subject_id = ? AND period = ? AND held_usd + ? <= ?
+                        """,
                         amount,
                         scope,
                         subject,

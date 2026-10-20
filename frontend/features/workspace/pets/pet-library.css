@@ -1,0 +1,298 @@
+/* 선택은 카드 전체에서, 수정과 보관은 카드의 관리 메뉴에서 처리한다. */
+.figma-workspace .workspace-panel.agent-chat-settings.pet-library-panel {
+  width: min(920px, 100%);
+}
+
+.pet-library-panel .pet-prompt-studio {
+  margin: 0;
+  padding: 8px 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  container-type: inline-size;
+}
+
+.pet-library-panel .pet-prompt-studio > header {
+  margin-bottom: 30px;
+  align-items: center;
+}
+
+.pet-library-panel .pet-prompt-studio h3 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: -0.035em;
+}
+
+.pet-library-panel .pet-prompt-studio > header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pet-library-toolbar,
+.pet-library-toolbar > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pet-library-toolbar {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.pet-library-toolbar h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pet-library-toolbar button,
+.pet-library-back {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--ink);
+  background: var(--surface-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.pet-library-toolbar .pet-library-refresh {
+  width: 38px;
+  padding: 8px;
+  color: var(--muted);
+  background: transparent;
+}
+
+.pet-library-toolbar button:hover:not(:disabled),
+.pet-library-back:hover:not(:disabled) {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.pet-library-panel .pet-library {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+.pet-library-panel .pet-library-card {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: transparent;
+}
+
+.pet-library-panel .pet-library-card.is-selected {
+  border: 1px solid var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.pet-library-panel .pet-library-choice {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 246px;
+  padding: 30px 18px 24px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pet-library-panel .pet-library-choice:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
+}
+
+.pet-library-choice > strong {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.pet-library-portrait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 108px;
+  margin-bottom: 5px;
+}
+
+.pet-library-panel .pet-library-portrait .pet-art {
+  width: 88px;
+  height: auto;
+}
+
+.pet-library-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 25ch;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.pet-library-check {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--surface-solid);
+}
+
+.pet-library-actions {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 1;
+}
+
+.pet-library-actions > summary {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--muted);
+  list-style: none;
+}
+
+.pet-library-actions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pet-library-actions > summary:hover,
+.pet-library-actions[open] > summary {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.pet-library-menu {
+  position: absolute;
+  top: 39px;
+  right: 0;
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-solid);
+  box-shadow: 0 8px 24px #00000018;
+}
+
+.pet-library-panel .pet-library-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pet-library-menu button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.pet-library-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  min-height: 245px;
+  margin: 0;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 15px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.pet-library-empty strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.pet-library-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.pet-library-panel .pet-customizer-intro {
+  margin: 12px 0;
+  font-size: 11px;
+}
+
+.pet-library-panel .pet-prompt-studio > [role="status"]:empty {
+  display: none;
+}
+
+@container (max-width: 640px) {
+  .pet-library-panel .pet-library {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@container (max-width: 280px) {
+  .pet-library-panel .pet-library {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .pet-library-panel .pet-prompt-studio {
+    padding: 0;
+  }
+  .pet-library-panel .pet-prompt-studio h3 {
+    font-size: 23px;
+  }
+  .pet-library-panel .pet-prompt-studio > header {
+    margin-bottom: 24px;
+  }
+  .pet-library-panel .pet-library-choice {
+    min-height: 225px;
+    padding: 24px 12px 18px;
+  }
+  .pet-library-toolbar button,
+  .pet-library-actions > summary,
+  .pet-library-panel .pet-library-menu button {
+    min-height: 44px;
+  }
+}

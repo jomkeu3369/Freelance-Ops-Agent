@@ -22,6 +22,7 @@ from .contracts import (
     ProviderNotConfiguredError,
     ReActStep,
 )
+from .pixel_pets import PIXEL_PET_INSTRUCTION, GeneratedPixelPet
 from .prompts import (
     _ASSUMPTION_SYSTEM_INSTRUCTION,
     _PET_SYSTEM_INSTRUCTION,
@@ -109,6 +110,17 @@ class OpenAIModelProvider(ResilientProvider):
             PetProfile,
             "pet_profile",
             _PET_SYSTEM_INSTRUCTION,
+            max_output_tokens=max_output_tokens,
+            max_attempts=max_attempts
+        )
+
+    async def generate_pixel_pet(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        return await self._generate(
+            selection,
+            prompt,
+            GeneratedPixelPet,
+            "pixel_pet_profile",
+            PIXEL_PET_INSTRUCTION,
             max_output_tokens=max_output_tokens,
             max_attempts=max_attempts
         )

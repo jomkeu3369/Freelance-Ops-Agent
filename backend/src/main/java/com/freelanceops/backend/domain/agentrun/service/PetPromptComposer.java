@@ -145,7 +145,8 @@ public class PetPromptComposer {
                         communication,
                         focus,
                         responsibility,
-                        java.util.List.copyOf(requests)));
+                        java.util.List.copyOf(requests)),
+                animal.equals(base.animal()) ? base.sprite() : null);
     }
 
     private static String labelled(String text, String label, String fallback) {

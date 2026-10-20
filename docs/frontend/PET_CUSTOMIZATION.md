@@ -14,6 +14,6 @@ V34의 프로필·생성 요청 이력은 V44의 개인 동료 모음과 별개�
 
 ## 별도 유료 생성
 
-이전 설계의 `POST /projects/{projectId}/pet-generations`는 현재 활성 기능으로 안내하지 않는다. UI는 생성 불가를 표시하고 Agent는 예산 경계가 없는 `PETS` 요청을 모델 호출 전에 거부한다. 과거 `pet_generation` 이력은 요청 감사 자료이며 완성된 예약·정산 원장이 아니다.
+이전 설계의 `POST /projects/{projectId}/pet-generations`는 활성 기능으로 안내하지 않는다. Agent는 예산 경계가 없는 `PETS` 요청을 모델 호출 전에 거부한다. 과거 `pet_generation` 이력만으로 금액 예약·정산을 증명하지 않는다.
 
-재활성화하려면 영속 예약·사용량 대조·중복 정산 방지·취소·재시도 계약을 연결해야 한다. 무료 SVG 미리보기는 이 유료 경로를 사용하지 않는다. 초기 설계와 검증의 근거는 [ADR-0032](../adr/0032-personal-pet-profiles.md), [동료 검증 기록](../testing/frontend-ai-pets-2026-09-12.md)에 보존한다.
+새 개인 동료는 별도 `/agent-pets/generations` 경로에서 플랫폼 공통 원장으로 금액을 예약·정산하고 픽셀 외형을 생성한다. 상세 계약은 [개인 동료 안내](CUSTOM_AGENT_PETS.md)와 [ADR-0045](../adr/0045-generated-pixel-pets.md)을 따른다. 초기 설계와 검증의 근거는 [ADR-0032](../adr/0032-personal-pet-profiles.md), [동료 검증 기록](../testing/frontend-ai-pets-2026-09-12.md)에 보존한다.

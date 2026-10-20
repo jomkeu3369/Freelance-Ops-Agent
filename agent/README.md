@@ -54,9 +54,11 @@ uv run --locked python resources/builtin-skills/validate_catalog.py --output cat
 - `GET /internal/v1/agent-runs/{runId}/events`: 재연결 커서를 지원하는 SSE 이벤트 조회
 - `POST /internal/v1/agent-runs/{runId}/resume`: 중복 적용을 방지하는 사용자 응답 접수
 - `POST /internal/v1/agent-runs/{runId}/cancel`: 대기·진행·사용자 확인 대기 실행 취소
+- `POST /internal/v1/pets/generate-pixel`: 위임·금액 예약을 검증한 뒤 픽셀 외형과 성향 생성. 호출 전후 사용량과 응답 전 결과를 Spring에 기록
 - `POST /internal/v1/raptor/build`: Spring이 제공한 원문 조각으로 RAPTOR 노드 생성
 
 DB 준비 상태 점검의 HTTP 대기는 최대 1초이며 프로세스에서 진행 중인 점검 하나를 공유한다.
+픽셀 펫 생성의 예산·저장·재시도 계약은 [개인 동료 안내](../docs/frontend/CUSTOM_AGENT_PETS.md)를 따른다. 이전 `/pets/generate`의 예산 차단을 우회하지 않는다.
 장애 중 드라이버 취소가 늦어져도 후속 점검을 계속 생성하지 않는다. `/health`는 DB 장애와 별개로 동작한다.
 모델의 실제 답변 품질은 이 상태 검사로 판단하지 않는다.
 

@@ -98,14 +98,17 @@ test("account changes invalidate settings mutations and cannot restore old accou
   requests.finishMutation(mutation);
   assert.equal(requests.acceptsMutation(next), true);
 });
-test("paid generation stays absent while rule-based pet previews and manual quote editors remain", async () => {
+test("pixel pets use bounded generation while quotation assumptions remain manual", async () => {
   const pet = await readFile(new URL("../features/workspace/pets/pet-customizer.tsx", import.meta.url), "utf8");
+  const studio = await readFile(new URL("../features/workspace/pets/pet-creation-studio.tsx", import.meta.url), "utf8");
   const basis = await readFile(new URL("../features/workspace/project/quotation/quote-item-basis.tsx", import.meta.url), "utf8");
   const builder = await readFile(new URL("../features/workspace/project/quotation/use-quote-builder.ts", import.meta.url), "utf8");
   assert.doesNotMatch(pet, /generatePet|onClick=.*generate\(/);
-  assert.match(pet, /previewAgentPet\(session, input\)/);
+  assert.match(pet, /generatePixelPet\(session, projectId, input\)/);
+  assert.match(pet, /getPixelPetGeneration\(session, input.mutationId\)/);
   assert.match(pet, /saveAgentPet\(session, preview.input\)/);
-  assert.match(pet, /유료 AI 프로필·이미지 생성은 비용 예약·정산 연결 전까지 비활성/);
+  assert.match(studio, /기본 제공 AI 사용량에 포함돼요/);
+  assert.match(pet, /available=\{collection\?\.generationMode === "MODEL_PIXEL" && collection.aiGenerationAvailable\}/);
   assert.match(basis, /className="ai-assumption-button"\s+disabled/);
   assert.doesNotMatch(builder, /suggestQuotationAssumption/);
   assert.match(basis, /readOnly=\{!canWrite\}/);

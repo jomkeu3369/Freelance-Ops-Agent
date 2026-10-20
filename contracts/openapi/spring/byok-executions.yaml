@@ -1,0 +1,91 @@
+schemas:
+  ByokAttempt:
+    type: object
+    additionalProperties: false
+    required:
+      - callId
+      - credentialId
+      - provider
+      - model
+      - reasoningEffort
+      - operation
+      - fundingSource
+      - serviceTier
+      - inputTokens
+      - maxOutputTokens
+    properties:
+      callId:
+        type: string
+        format: uuid
+      credentialId:
+        type: string
+        format: uuid
+      provider:
+        type: string
+        enum:
+          - OPENAI
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      reasoningEffort:
+        type: string
+        enum:
+          - NONE
+          - LOW
+          - MEDIUM
+          - HIGH
+      operation:
+        type: string
+        enum:
+          - department_work_product
+          - bounded_react_step
+      fundingSource:
+        type: string
+        const: BYOK
+      serviceTier:
+        type: string
+        const: default
+      inputTokens:
+        type: integer
+        minimum: 1
+        maximum: 272000
+      maxOutputTokens:
+        type: integer
+        minimum: 1
+  ByokAdmission:
+    type: object
+    additionalProperties: false
+    required:
+      - callId
+      - admitted
+      - validUntil
+      - fundingSource
+      - serviceTier
+    properties:
+      callId:
+        type: string
+        format: uuid
+      admitted:
+        type: boolean
+        const: true
+      validUntil:
+        type: string
+        format: date-time
+      fundingSource:
+        type: string
+        const: BYOK
+      serviceTier:
+        type: string
+        const: default
+  ByokAdmissionError:
+    type: object
+    additionalProperties: false
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: string
+      message:
+        type: string

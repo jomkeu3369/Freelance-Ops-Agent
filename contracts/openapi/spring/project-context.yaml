@@ -1,0 +1,68 @@
+schemas:
+  ProjectContext:
+    type: object
+    additionalProperties: false
+    required:
+      - projectId
+      - workspaceId
+      - title
+      - requirementText
+      - currency
+    properties:
+      projectId:
+        type: string
+        format: uuid
+      workspaceId:
+        type: string
+        format: uuid
+      title:
+        type: string
+        maxLength: 200
+      requirementText:
+        type: string
+        maxLength: 50000
+      currency:
+        type: string
+        pattern: ^[A-Z]{3}$
+      deadline:
+        type: string
+        format: date
+      budgetMin:
+        type: number
+        minimum: 0
+      budgetMax:
+        type: number
+        minimum: 0
+      sourceMessages:
+        type: array
+        description: 원문과 사용자가 명시한 결정을 보존한다. 생성된 요약은 별도로 관리한다.
+        items:
+          $ref: "#/schemas/MemorySourceMessage"
+  MemorySourceMessage:
+    type: object
+    additionalProperties: false
+    required:
+      - id
+      - eventOrder
+      - kind
+      - content
+      - createdAt
+    properties:
+      id:
+        type: string
+        format: uuid
+      eventOrder:
+        type: integer
+        format: int64
+      kind:
+        type: string
+      content:
+        type: string
+      prompt:
+        type:
+          - string
+          - "null"
+        description: 모델이 작성한 확인 질문이다. 사용자의 답변과 구분한다.
+      createdAt:
+        type: string
+        format: date-time

@@ -1,32 +1,28 @@
-# env File
-
+# 비밀값과 로컬 환경 설정
 .env
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
 
-# Data Security
+# 비공개 입력과 로컬 데이터
 data/raw_specs/*
 data/vector_store/*
 user_profile.json
 *.pdf
 
-
-# Other Files
-
+# 개인 환경에서만 사용하는 Compose와 검색 인덱스
 docker-compose-local.yaml
 faiss_index/
 
-# Local IDE settings
+# 개발 도구의 개인 설정
 .vscode/
 .idea/
 *.iml
 backend/.metadata/
 
-# Local AI assistant and handoff files
+# 로컬 작업 지침과 인수인계 기록
 AGENTS.md
-frontend/AGENTS.md
 frontend/CLAUDE.md
 .agents/
 .worktrees/
@@ -35,7 +31,7 @@ docs/adr/템플릿.md
 docs/operations/ai-server-pc-handoff-2026-08-13.md
 docs/operations/local-compose-and-swagger-handoff.md
 
-# Local application and test artifacts
+# 실행·검사 중 생성되는 파일
 .DS_Store
 Thumbs.db
 *.log
@@ -48,7 +44,7 @@ output/
 tmp/
 agent/.tmp-pytest-*/
 
-# Local-only experiment inputs and generated artifacts
+# 실험의 로컬 입력과 생성 결과. 공개 검증 근거는 계속 추적한다.
 experiments/local_archive/
 experiments/**/reports/
 !experiments/routing_benchmark/reports/
@@ -61,17 +57,14 @@ experiments/**/*.faiss
 experiments/**/*.pkl
 experiments/runtime_scheduler/*.png
 experiments/runtime_scheduler/model*.json
-experiments/retrieval_benchmark/output/
 
-# V2 build outputs
+# 빌드 결과와 패키지·검사 캐시
 backend/.gradle/
 backend/build/
 agent/.venv/
 .venv-*/
 .uv-tools/
 agent/.langgraph_api/
-agent/.uv-cache/
-agent/.uv-python/
 .uv-cache/
 .uv-*-cache/
 .uv-python/
@@ -87,9 +80,9 @@ agent/model.json
 agent/model_updated.json
 agent/tests/model_test/artifacts/
 
-# Local infrastructure state and secrets
+# 로컬 인프라 상태와 비밀 설정
 infra/**/*.local
 infra/**/*.secret
 
-# Removed README demo; keep any local copy untracked
+# 공개 데모에서 제외한 원본 영상의 로컬 사본
 docs/assets/readme/product-walkthrough-1080p60.mp4

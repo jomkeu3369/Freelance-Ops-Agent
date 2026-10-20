@@ -1,48 +1,21 @@
-"""Dependency-free client for starting and inspecting bounded Agent runs."""
+"""Spring 공개 API를 통한 Agent 실행 시작·조회·취소."""
 
 from __future__ import annotations
 
 import json
 import secrets
-import urllib.error
-import urllib.request
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from typing import Protocol
 from uuid import UUID
 
+from .errors import AIPlatformError
+from .transport import Transport, TransportResponse, UrlLibTransport
 
-class AIPlatformError(RuntimeError):
-    """Sanitized platform error that does not expose authorization data."""
-
-    def __init__(self, status: int, code: str) -> None:
-        super().__init__(f"AI platform request failed: status={status} code={code}")
-        self.status = status
-        self.code = code
-
-
-@dataclass(frozen=True, slots=True)
-class TransportResponse:
-    status: int
-    body: bytes
-
-
-class Transport(Protocol):
-    def request(self, method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> TransportResponse: ...  # noqa: E501
-
-
-class UrlLibTransport:
-    def request(self, method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> TransportResponse:
-        request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                return TransportResponse(status=response.status, body=response.read())
-        except urllib.error.HTTPError as error:
-            return TransportResponse(status=error.code, body=error.read())
+# 기존 client 모듈에서 가져오던 이름도 계속 제공한다.
+__all__ = ["AIPlatformClient", "AIPlatformError", "Transport", "TransportResponse", "UrlLibTransport"]
 
 
 class AIPlatformClient:
-    """Call the Spring-owned public API; never call the private Agent container directly."""
+    """인증 토큰을 받아 Spring이 소유한 공개 API를 호출한다."""
 
     def __init__(self, base_url: str, access_token: Callable[[], str], transport: Transport | None = None) -> None:
         if not base_url.startswith(("http://", "https://")):
@@ -79,7 +52,10 @@ class AIPlatformClient:
             },
             body
         )
-        decoded = json.loads(response.body.decode("utf-8")) if response.body else {}
+        try:
+            decoded = json.loads(response.body.decode("utf-8")) if response.body else {}
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            decoded = None
         if not 200 <= response.status < 300:
             code = decoded.get("code") if isinstance(decoded, dict) else None
             raise AIPlatformError(response.status, str(code or "UNKNOWN"))

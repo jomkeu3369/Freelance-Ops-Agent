@@ -1,0 +1,190 @@
+schemas:
+  AgentRunAccepted:
+    type: object
+    additionalProperties: false
+    required:
+      - runId
+      - status
+      - acceptedAt
+    properties:
+      runId:
+        type: string
+        format: uuid
+      status:
+        type: string
+        const: QUEUED
+      acceptedAt:
+        type: string
+        format: date-time
+  AgentRunStatus:
+    type: string
+    enum:
+      - QUEUED
+      - RUNNING
+      - WAITING_FOR_USER
+      - COMPLETED
+      - PARTIAL
+      - FAILED
+      - CANCELLED
+  AgentRunEvent:
+    type: object
+    additionalProperties: false
+    required:
+      - eventId
+      - runId
+      - type
+      - occurredAt
+      - data
+    properties:
+      eventId:
+        type: integer
+        minimum: 1
+      runId:
+        type: string
+        format: uuid
+      type:
+        type: string
+        pattern: ^[a-z]+(?:\.[a-z]+)+$
+        maxLength: 100
+      occurredAt:
+        type: string
+        format: date-time
+      data:
+        type: object
+        additionalProperties: true
+  RouteObservationBatch:
+    type: object
+    additionalProperties: false
+    required:
+      - runId
+      - status
+      - events
+      - nextEventId
+      - hasMore
+      - terminal
+    properties:
+      runId:
+        type: string
+        format: uuid
+      status:
+        $ref: "#/schemas/AgentRunStatus"
+      events:
+        type: array
+        maxItems: 100
+        items:
+          $ref: "#/schemas/AgentRunEvent"
+      nextEventId:
+        type: integer
+        minimum: 0
+      hasMore:
+        type: boolean
+      terminal:
+        type: boolean
+  AgentRunView:
+    type: object
+    additionalProperties: false
+    required:
+      - runId
+      - status
+      - metadata
+      - updatedAt
+    properties:
+      runId:
+        type: string
+        format: uuid
+      status:
+        $ref: "#/schemas/AgentRunStatus"
+      activeDepartment:
+        $ref: analysis-results.yaml#/schemas/DepartmentName
+      interruption:
+        $ref: "#/schemas/AgentInterruption"
+      result:
+        $ref: analysis-results.yaml#/schemas/AgentRunResult
+      errorCode:
+        type: string
+        maxLength: 100
+      metadata:
+        $ref: "#/schemas/AgentRunMetadata"
+      usage:
+        $ref: execution-policy.yaml#/schemas/AgentRunUsage
+      updatedAt:
+        type: string
+        format: date-time
+  AgentRunMetadata:
+    type: object
+    additionalProperties: false
+    required:
+      - provider
+      - model
+      - promptVersion
+      - toolSchemaVersion
+      - traceId
+    properties:
+      skillSelection:
+        oneOf:
+          - $ref: run-requests.yaml#/schemas/SkillSelection
+          - type: "null"
+      resolvedSkillIds:
+        type: array
+        maxItems: 3
+        default: []
+        items:
+          type: string
+      deferredSkillIds:
+        type: array
+        maxItems: 60
+        default: []
+        items:
+          type: string
+      petProfiles:
+        type: array
+        maxItems: 3
+        items:
+          $ref: pets.yaml#/schemas/PetProfile
+      credentialId:
+        type:
+          - string
+          - "null"
+        format: uuid
+      provider:
+        $ref: execution-policy.yaml#/schemas/Provider
+      model:
+        type: string
+        minLength: 1
+        maxLength: 100
+      promptVersion:
+        type: string
+        minLength: 1
+        maxLength: 100
+      toolSchemaVersion:
+        type: string
+        minLength: 1
+        maxLength: 100
+      traceId:
+        type: string
+        minLength: 1
+        maxLength: 128
+  AgentInterruption:
+    type: object
+    additionalProperties: false
+    required:
+      - interruptionId
+      - kind
+      - questions
+    properties:
+      interruptionId:
+        type: string
+        format: uuid
+      kind:
+        type: string
+        enum:
+          - CLARIFICATION
+          - RISK_DECISION
+          - QUOTE_APPROVAL
+      questions:
+        type: array
+        minItems: 1
+        maxItems: 3
+        items:
+          type: string
+          maxLength: 1000
