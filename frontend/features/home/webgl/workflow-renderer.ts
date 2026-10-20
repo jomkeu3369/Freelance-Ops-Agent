@@ -253,8 +253,11 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
       }
     },
     resize() {
-      width = host.clientWidth;
-      height = host.clientHeight;
+      const nextWidth = host.clientWidth;
+      const nextHeight = host.clientHeight;
+      if (width !== nextWidth || height !== nextHeight) renderer.setSize(nextWidth, nextHeight, false);
+      width = nextWidth;
+      height = nextHeight;
       const nodeBounds = nodes.map(node => bounds(node.element!));
       const laneBounds = lanes.map(lane => bounds(lane.element!));
       const board = bounds(boardElement);
@@ -262,7 +265,6 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
       const layout = JSON.stringify([width, height, nodeBounds, laneBounds, board, cardBounds]);
       if (layout === previousLayout) return;
       previousLayout = layout;
-      renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.position.set(0, 0, height / (2 * Math.tan(THREE.MathUtils.degToRad(19))));
       camera.updateProjectionMatrix();
