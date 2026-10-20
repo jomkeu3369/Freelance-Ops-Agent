@@ -107,8 +107,9 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             StartAgentRunRequest request,
             String traceparent,
             String idempotencyKey) {
-        // 개인 키의 실행 한도는 권한 확인 후 검증한다. 공용 입력 토큰 상한은 50,000개다.
-        if (request.modelSelection().credentialId() == null) budgetPolicy.enforce(request.budget());
+        // 개인 키의 실행 한도는 권한 확인 후 검증한다. 공용 실행은 운영 정책의 상한을 따른다.
+        if (request.modelSelection().credentialId() == null)
+            budgetPolicy.enforce(request.budget(), request.workflowMode());
         if (request.modelSelection().credentialId() != null
                 && request.budget().maxDurationSeconds() > 270) {
             throw new ResponseStatusException(

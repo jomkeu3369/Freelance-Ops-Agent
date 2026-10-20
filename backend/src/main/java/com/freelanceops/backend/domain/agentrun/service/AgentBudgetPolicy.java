@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class AgentBudgetPolicy {
 
+    private static final int AD_HOC_MAX_INPUT_TOKENS = 50000;
     // 사용자가 선택한 개인 키에만 적용하는 상한이다. 공용 한도나 별도 작업 실행 설정에 적용하지 않는다.
     private static final int PERSONAL_MAX_INPUT_TOKENS = 150000;
     private final RunBudget maximum;
@@ -18,7 +19,7 @@ public class AgentBudgetPolicy {
             @Value("${agent.quota.max-duration-seconds:180}") int maxDurationSeconds,
             @Value("${agent.quota.max-model-calls:50}") int maxModelCalls,
             @Value("${agent.quota.max-tool-calls:12}") int maxToolCalls,
-            @Value("${agent.quota.max-input-tokens:50000}") int maxInputTokens,
+            @Value("${agent.quota.max-input-tokens:150000}") int maxInputTokens,
             @Value("${agent.quota.max-output-tokens:48000}") int maxOutputTokens,
             @Value("${agent.quota.max-departments:4}") int maxDepartments,
             @Value("${agent.quota.max-hierarchy-depth:2}") int maxHierarchyDepth,
@@ -41,6 +42,14 @@ public class AgentBudgetPolicy {
 
     public void enforce(RunBudget requested) {
         enforce(requested, maximum.maxInputTokens());
+    }
+
+    public void enforce(RunBudget requested, String workflowMode) {
+        int maxInputTokens =
+                "PROJECT_ANALYSIS".equals(workflowMode)
+                        ? maximum.maxInputTokens()
+                        : Math.min(maximum.maxInputTokens(), AD_HOC_MAX_INPUT_TOKENS);
+        enforce(requested, maxInputTokens);
     }
 
     /** 개인 키의 현재 사용 권한을 확인한 뒤 실행 범위 발급 과정에서만 호출한다. */

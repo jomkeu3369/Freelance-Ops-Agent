@@ -83,6 +83,15 @@ const statusCopy: Record<WorkflowSnapshot["status"], string> = {
   CANCELLED: "사용자 중단"
 };
 
+// 폴링으로 확인한 실행 상태는 늦거나 누락된 마지막 이벤트보다 우선한다.
+const statusEventCopy: Partial<Record<WorkflowSnapshot["status"], string>> = {
+  WAITING_FOR_USER: "사용자 확인을 기다리고 있습니다",
+  COMPLETED: "분석을 완료했습니다",
+  PARTIAL: "완료된 단계의 부분 결과를 준비했습니다",
+  FAILED: "실행을 안전하게 중단했습니다",
+  CANCELLED: "사용자가 실행을 중단했습니다."
+};
+
 export function snapshotFromEvents(events: WorkflowEvent[], status: AgentRunStatus | "PREVIEW" | "IDLE"): WorkflowSnapshot {
   if (events.length === 0) {
     return {
@@ -90,7 +99,7 @@ export function snapshotFromEvents(events: WorkflowEvent[], status: AgentRunStat
       completedNodes: status === "IDLE" ? [] : ["intake"],
       skippedNodes: [],
       status,
-      eventLabel: status === "IDLE" ? "실행을 기다리고 있습니다" : "실행 경로를 준비하고 있습니다",
+      eventLabel: statusEventCopy[status] ?? (status === "IDLE" ? "실행을 기다리고 있습니다" : "실행 경로를 준비하고 있습니다"),
       eventCount: 0
     };
   }
@@ -119,7 +128,7 @@ export function snapshotFromEvents(events: WorkflowEvent[], status: AgentRunStat
     skippedNodes: nodes.map((node) => node.id).filter((node) => !expectedNodes.includes(node)),
     failedNode,
     status,
-    eventLabel: publicEventLabel(last.type),
+    eventLabel: statusEventCopy[status] ?? publicEventLabel(last.type),
     eventCount: events.length
   };
 }

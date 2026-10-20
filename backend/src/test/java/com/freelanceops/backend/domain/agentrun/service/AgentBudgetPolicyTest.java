@@ -5,12 +5,110 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.web.server.ResponseStatusException;
 
 class AgentBudgetPolicyTest {
 
     private final AgentBudgetPolicy policy =
             new AgentBudgetPolicy(180, 12, 12, 50000, 48000, 4, 2, 2, 2, 3);
+
+    @Test
+    void explicitProjectAnalysisUsesTheConfiguredFullInputCeiling() {
+        var fullAnalysis = new AgentBudgetPolicy(180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3);
+        fullAnalysis.enforce(
+                new RunBudget(180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3), "PROJECT_ANALYSIS");
+        assertThatThrownBy(
+                        () ->
+                                fullAnalysis.enforce(
+                                        new RunBudget(180, 50, 12, 150001, 48000, 4, 2, 2, 2, 3),
+                                        "PROJECT_ANALYSIS"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("422 UNPROCESSABLE_CONTENT");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"AD_HOC"})
+    void adHocAndOmittedModesKeepTheOriginalInputCeiling(String workflowMode) {
+        var fullAnalysis = new AgentBudgetPolicy(180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3);
+        fullAnalysis.enforce(
+                new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3), workflowMode);
+        assertThatThrownBy(
+                        () ->
+                                fullAnalysis.enforce(
+                                        new RunBudget(180, 50, 12, 50001, 48000, 4, 2, 2, 2, 3),
+                                        workflowMode))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("422 UNPROCESSABLE_CONTENT");
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"PROJECT_ANALYSIS", "AD_HOC"})
+    void everyPublicWorkflowRespectsALowerOperatorInputCeiling(String workflowMode) {
+        var lower = new AgentBudgetPolicy(180, 50, 12, 40000, 48000, 4, 2, 2, 2, 3);
+        lower.enforce(new RunBudget(180, 50, 12, 40000, 48000, 4, 2, 2, 2, 3), workflowMode);
+        assertThatThrownBy(
+                        () ->
+                                lower.enforce(
+                                        new RunBudget(180, 50, 12, 40001, 48000, 4, 2, 2, 2, 3),
+                                        workflowMode))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void defaultPolicyAllowsFullAnalysisInputButRejectsOneTokenAboveItsCeiling() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(AgentBudgetPolicy.class)
+                .run(
+                        context -> {
+                            var defaults = context.getBean(AgentBudgetPolicy.class);
+                            defaults.enforce(
+                                    new RunBudget(180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3));
+                            assertThatThrownBy(
+                                            () ->
+                                                    defaults.enforce(
+                                                            new RunBudget(
+                                                                    180, 50, 12, 150001, 48000, 4,
+                                                                    2, 2, 2, 3)))
+                                    .isInstanceOf(ResponseStatusException.class)
+                                    .hasMessageContaining("422 UNPROCESSABLE_CONTENT");
+                        });
+    }
+
+    @Test
+    void applicationConfigurationKeepsAnExplicitLowerOperatorInputQuota() {
+        var application =
+                new ApplicationContextRunner()
+                        .withInitializer(new ConfigDataApplicationContextInitializer())
+                        .withUserConfiguration(AgentBudgetPolicy.class);
+        application.run(
+                context ->
+                        context.getBean(AgentBudgetPolicy.class)
+                                .enforce(
+                                        new RunBudget(
+                                                180, 50, 12, 150000, 48000, 4, 2, 2, 2, 3)));
+        application
+                .withPropertyValues("AGENT_QUOTA_MAX_INPUT_TOKENS=50000")
+                .run(
+                        context -> {
+                            var configured = context.getBean(AgentBudgetPolicy.class);
+                            configured.enforce(
+                                    new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3));
+                            assertThatThrownBy(
+                                            () ->
+                                                    configured.enforce(
+                                                            new RunBudget(
+                                                                    180, 50, 12, 50001, 48000, 4, 2,
+                                                                    2, 2, 3)))
+                                    .isInstanceOf(ResponseStatusException.class);
+                        });
+    }
 
     @Test
     void acceptsBudgetWithinOperationalCaps() {
@@ -26,7 +124,7 @@ class AgentBudgetPolicyTest {
     }
 
     @Test
-    void separatesApprovedPersonalInputCeilingFromUnchangedPlatformCeiling() {
+    void separatesApprovedPersonalInputCeilingFromConfiguredPlatformCeiling() {
         policy.enforce(new RunBudget(180, 12, 12, 50000, 48000, 4, 2, 2, 2, 3));
         assertThatThrownBy(
                         () ->

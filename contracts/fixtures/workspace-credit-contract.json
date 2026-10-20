@@ -35,6 +35,42 @@
       "authorityVerified": false
     }
   },
+  "projectAnalysisStart": {
+    "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",
+    "locale": "ko-KR",
+    "jurisdictionCode": "KR",
+    "workflowMode": "PROJECT_ANALYSIS",
+    "modelSelection": {
+      "provider": "OPENAI",
+      "model": "gpt-5.6-luna",
+      "reasoningEffort": "LOW"
+    },
+    "creditQuote": {
+      "credits": 10,
+      "pricingUpdatedAt": "2026-10-04T12:00:00.123456Z"
+    },
+    "budget": {
+      "maxDurationSeconds": 180,
+      "maxModelCalls": 50,
+      "maxToolCalls": 12,
+      "maxInputTokens": 150000,
+      "maxOutputTokens": 48000,
+      "maxDepartments": 4,
+      "maxHierarchyDepth": 2,
+      "maxSearchCredits": 2,
+      "maxRetries": 2,
+      "maxHandoffs": 3
+    },
+    "safetyContext": {
+      "externalSideEffect": false,
+      "sensitiveData": false,
+      "financialAuthorityRequired": false,
+      "legalAuthorityRequired": false,
+      "irreversibleAction": false,
+      "approvalRequired": false,
+      "authorityVerified": false
+    }
+  },
   "byokStart": {
     "byokCostNoticeVersion": "byok-standard-150k-48k-2026-10-05-v1",
     "requirementText": "  Synthetic requirement\nKeep exact spacing.  ",

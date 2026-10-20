@@ -590,7 +590,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       creditQuote,
       attachmentIds,
       skillSelection,
-      workflowMode: message === undefined ? undefined : "AD_HOC"
+      workflowMode: message === undefined ? "PROJECT_ANALYSIS" : "AD_HOC"
     });
     const idempotencyKey = pending.id;
     setBusy(true);
