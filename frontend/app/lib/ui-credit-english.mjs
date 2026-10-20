@@ -1,4 +1,14 @@
 export const creditEnglish = {
+  "이번 주 사용 현황": "This week's usage",
+  "이번 주 남은 크레딧": "Credits remaining this week",
+  "사용한 크레딧": "Used credits",
+  "예약된 크레딧": "Reserved credits",
+  "일시 중지": "Paused",
+  "남은 크레딧 비율": "Remaining credit percentage",
+  "다음 초기화": "Next reset",
+  "매주 월요일 00:00 · 한국 시간": "Every Monday, 00:00 · Korea time",
+  "크레딧은 계정 전체에서 공유됩니다.": "Credits are shared across your account.",
+  "모델별 차감량은 보내기 전에 표시됩니다.": "Each model's credit cost is shown before sending.",
   "개인 키 비용 안내가 변경되었습니다. 페이지를 새로고침하고 비용 한도를 확인한 뒤 직접 다시 보내 주세요. 입력은 보존되며 자동 재실행하지 않습니다.":
     "The personal-key cost notice has changed. Refresh the page, review the limits, then send again yourself. Your draft is preserved; there is no automatic retry.",
   "크레딧 상세": "Credit details",
@@ -65,7 +75,7 @@ export const creditEnglish = {
   "모든 계정의 주간 크레딧 한도: {before} → {after}": "Weekly credit limit for all accounts: {before} → {after}",
   "{model}: {before} → {after} 크레딧": "{model}: {before} → {after} credits",
   "사용 가능 여부: {before} → {after}": "Availability: {before} → {after}",
-  "사용 가능": "Enabled",
+  "사용 가능": "Available",
   "초기화 후 계정당 이번 주 한도는 {limit} 크레딧입니다.":
     "After reset, each account has a weekly limit of {limit} credits.",
   "0으로 변경하면 새 기본 AI 시작이 일시 중지됩니다.": "Setting zero pauses new included AI runs.",
