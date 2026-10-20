@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { WorkflowRenderer } from "./webgl/workflow-renderer";
+import { queueSceneStartup } from "./webgl/startup-queue.mjs";
 
 export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, selected: number, column: number) {
   const [ready, setReady] = useState(false);
@@ -28,6 +29,8 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
       time = 0,
       frames = 0;
     let pointerBounds: DOMRect | undefined;
+    let cancelStartup: (() => void) | undefined;
+    let resizePending = false;
     const pointer = { x: 0, y: 0 };
     const moving = () =>
       !document.hidden && !reduced.matches && !compact.matches && root?.dataset.motionPaused !== "true";
@@ -48,7 +51,7 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
     };
     const draw = (now: number) => {
       frame = 0;
-      if (disposed || !visible || document.hidden || !controller.current) return;
+      if (loading || disposed || !visible || document.hidden || !controller.current) return;
       const animate = moving();
       if (animate && last && now - last < 25) {
         frame = requestAnimationFrame(draw);
@@ -77,14 +80,21 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
     };
     invalidateRef.current = invalidate;
     const start = async () => {
-      if (loading || failed || disposed || controller.current) return;
+      if (loading || failed || disposed || controller.current || !visible || document.hidden) return;
       loading = true;
       try {
-        const { createWorkflowRenderer } = await import("./webgl/workflow-renderer");
-        if (disposed) return;
-        controller.current = createWorkflowRenderer(host, canvas, compact.matches);
-        controller.current.setState(input.current.selected, input.current.column);
-        controller.current.resize();
+        const [{ createWorkflowRenderer }] = await Promise.all([import("./webgl/workflow-renderer"), document.fonts.ready]);
+        if (disposed || !visible || document.hidden) return;
+        const renderer = createWorkflowRenderer(host, canvas, compact.matches);
+        controller.current = renderer;
+        renderer.setState(input.current.selected, input.current.column);
+        renderer.resize();
+        await renderer.prepare();
+        if (disposed || controller.current !== renderer) return;
+        if (resizePending) {
+          resizePending = false;
+          renderer.resize();
+        }
         invalidate();
       } catch {
         if (!disposed) fail();
@@ -92,10 +102,20 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
         loading = false;
       }
     };
+    const requestStartup = () => {
+      cancelStartup?.();
+      cancelStartup = undefined;
+      if (visible && !document.hidden && !controller.current && !loading && !failed && !disposed)
+        cancelStartup = queueSceneStartup(start, fail);
+    };
+    const onVisibility = () => {
+      requestStartup();
+      invalidate();
+    };
     const intersection = new IntersectionObserver(
       ([entry]) => {
         visible = entry.isIntersecting;
-        if (visible) void start();
+        requestStartup();
         invalidate();
       },
       { threshold: 0.01 }
@@ -103,6 +123,10 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
     intersection.observe(host);
     const resize = new ResizeObserver(() => {
       pointerBounds = undefined;
+      if (loading) {
+        resizePending = true;
+        return;
+      }
       try {
         controller.current?.resize();
         // 캔버스가 화면 밖에 있어도 투영된 DOM은 새 배치에 맞춘다.
@@ -138,12 +162,13 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
     host.addEventListener("pointerleave", reset);
     host.addEventListener("focusin", reset);
     window.addEventListener("scroll", reset, { passive: true });
-    document.addEventListener("visibilitychange", invalidate);
+    document.addEventListener("visibilitychange", onVisibility);
     reduced.addEventListener("change", invalidate);
     compact.addEventListener("change", invalidate);
     canvas.addEventListener("webglcontextlost", lost);
     return () => {
       disposed = true;
+      cancelStartup?.();
       stop();
       intersection.disconnect();
       resize.disconnect();
@@ -152,7 +177,7 @@ export function useWorkflowDepth(sceneRef: RefObject<HTMLDivElement | null>, sel
       host.removeEventListener("pointerleave", reset);
       host.removeEventListener("focusin", reset);
       window.removeEventListener("scroll", reset);
-      document.removeEventListener("visibilitychange", invalidate);
+      document.removeEventListener("visibilitychange", onVisibility);
       reduced.removeEventListener("change", invalidate);
       compact.removeEventListener("change", invalidate);
       canvas.removeEventListener("webglcontextlost", lost);

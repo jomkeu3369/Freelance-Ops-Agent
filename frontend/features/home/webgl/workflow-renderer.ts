@@ -67,6 +67,7 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
   const beamGroup = new THREE.Group();
   group.add(beamGroup);
   const beamMaterials: THREE.ShaderMaterial[] = [];
+  let beamMaterialIndex = 0;
   const beamGeometry: THREE.BufferGeometry[] = [];
   const transform = new THREE.Matrix4();
   const local = new THREE.Matrix4();
@@ -82,6 +83,7 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
   let disposed = false;
   let pointerX = 0;
   let pointerY = 0;
+  let previousLayout = "";
 
   const bounds = (element: HTMLElement): Box => {
     let x = 0,
@@ -144,9 +146,13 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
   const clearBeams = () => {
     beamGeometry.forEach((value) => value.dispose());
     beamGeometry.length = 0;
-    beamMaterials.forEach((value) => value.dispose());
-    beamMaterials.length = 0;
+    beamMaterialIndex = 0;
     beamGroup.clear();
+  };
+  const beamMaterial = (parameters: THREE.ShaderMaterialParameters) => {
+    // 크기 변경은 곡선 좌표만 바꾼다. 이미 컴파일한 셰이더는 계속 사용한다.
+    const index = beamMaterialIndex++;
+    return (beamMaterials[index] ??= new THREE.ShaderMaterial(parameters));
   };
   const connect = (start: THREE.Vector3, end: THREE.Vector3, target: number) => {
     const dx = Math.max(22, (end.x - start.x) * 0.56);
@@ -159,7 +165,7 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
     // 빛줄기를 끊지 않고 넓은 광량 파동을 적용한다.
     for (const halo of [true, false]) {
       const geometry = new THREE.TubeGeometry(curve, compact ? 32 : 56, halo ? 3 : 0.7, 8, false);
-      const material = new THREE.ShaderMaterial({
+      const material = beamMaterial({
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -171,12 +177,11 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
           gl_FragColor=vec4(color*brightness, mix(.68,.055,halo));}`
       });
       material.userData.target = target;
-      beamMaterials.push(material);
       beamGeometry.push(geometry);
       beamGroup.add(new THREE.Mesh(geometry, material));
     }
     const glowGeometry = new THREE.PlaneGeometry(18, 18);
-    const glowMaterial = new THREE.ShaderMaterial({
+    const glowMaterial = beamMaterial({
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -188,7 +193,6 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
     const port = new THREE.Mesh(glowGeometry, glowMaterial);
     port.position.copy(end);
     port.position.z += 2;
-    beamMaterials.push(glowMaterial);
     beamGeometry.push(glowGeometry);
     beamGroup.add(port);
   };
@@ -237,6 +241,9 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
   };
 
   return {
+    prepare() {
+      return renderer.compileAsync(scene, camera);
+    },
     setState(nextStep: number, nextColumn: number) {
       selected = nextStep;
       if (nextColumn !== column) {
@@ -248,19 +255,25 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
     resize() {
       width = host.clientWidth;
       height = host.clientHeight;
+      const nodeBounds = nodes.map(node => bounds(node.element!));
+      const laneBounds = lanes.map(lane => bounds(lane.element!));
+      const board = bounds(boardElement);
+      const cardBounds = bounds(cardElement);
+      const layout = JSON.stringify([width, height, nodeBounds, laneBounds, board, cardBounds]);
+      if (layout === previousLayout) return;
+      previousLayout = layout;
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.position.set(0, 0, height / (2 * Math.tan(THREE.MathUtils.degToRad(19))));
       camera.updateProjectionMatrix();
       camera.updateMatrixWorld();
-      nodes.forEach((node) => place(node, bounds(node.element!)));
-      const board = bounds(boardElement);
-      lanes.forEach((lane) => {
-        const label = bounds(lane.element!);
+      nodes.forEach((node, index) => place(node, nodeBounds[index]));
+      lanes.forEach((lane, index) => {
+        const label = laneBounds[index];
         labelBounds.set(lane, label);
         place(lane, { ...label, height: board.height });
       });
-      place(card, bounds(cardElement));
+      place(card, cardBounds);
       toX = column ? (window.innerWidth <= 580 ? 30 : lanes[1].box.x - lanes[0].box.x) : 0;
       if (!initialized) {
         currentX = toX;
@@ -323,6 +336,8 @@ export function createWorkflowRenderer(host: HTMLElement, canvas: HTMLCanvasElem
       if (disposed) return;
       disposed = true;
       clearBeams();
+      beamMaterials.forEach((value) => value.dispose());
+      beamMaterials.length = 0;
       geometries.forEach((value) => value.dispose());
       materials.forEach((value) => value.dispose());
       scene.clear();
