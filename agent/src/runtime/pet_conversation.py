@@ -64,15 +64,21 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
     if context.accepted_draft:
         accepted_items = context.accepted_draft.get("items", [])
         accepted_items = accepted_items if isinstance(accepted_items, list) else []
+        accepted_lines = []
+        for item in accepted_items:
+            if not isinstance(item, dict):
+                continue
+            basis = item.get("basis", {})
+            basis_content = basis.get("content", "") if isinstance(basis, dict) else ""
+            accepted_lines.append(
+                f"{item.get('title', '')}: {item.get('quantity', '')} {item.get('unit', '')}\n"
+                f"범위: {excerpt(str(item.get('description', '')), 600)}\n"
+                f"근거/가정: {excerpt(str(basis_content), 600)}"
+            )
         evidence["draft"] = PetEvidence(
             id="draft",
             title="사용자가 반영한 견적 초안",
-            content="\n".join(
-                f"{item.get('title', '')}: {item.get('quantity', '')} {item.get('unit', '')}"
-                for item in accepted_items
-                if isinstance(item, dict)
-            )
-            or "반영한 초안"
+            content=excerpt("\n".join(accepted_lines), 12000) or "반영한 초안"
         )
     messages: list[PetMessage] = []
     model_calls = input_tokens = output_tokens = 0

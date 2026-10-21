@@ -214,3 +214,15 @@ async def test_large_public_replies_do_not_break_the_summary_contract() -> None:
     result = await execute_conversation(LongProvider(), run, project(run), run.input.requirement_text)
     assert len(result.result.pet_messages) == 3
     assert len(result.result.project_summary) == 10000
+
+
+async def test_accepted_scope_and_assumptions_remain_in_the_next_model_context() -> None:
+    run = request(debate=False)
+    run.input.conversation.accepted_draft = {"items": [{
+        "title": "예약 개발", "quantity": 18, "unit": "HOUR",
+        "description": "이메일 알림만 포함한다", "basis": {"content": "문자 발송과 결제는 제외한다"}
+    }]}
+    provider = ProviderStub()
+    await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert "이메일 알림만 포함한다" in provider.prompts[0]["accepted_draft"]
+    assert "문자 발송과 결제는 제외한다" in provider.prompts[0]["accepted_draft"]
