@@ -18,6 +18,7 @@ CREATE UNIQUE INDEX uq_rate_card_folder_root_name
 CREATE UNIQUE INDEX uq_rate_card_folder_child_name
     ON app.rate_card_folder(workspace_id, parent_id, lower(name)) WHERE parent_id IS NOT NULL;
 CREATE INDEX ix_rate_card_folder_parent ON app.rate_card_folder(workspace_id, parent_id);
+CREATE INDEX ix_rate_card_folder_list ON app.rate_card_folder(workspace_id, name, id);
 
 ALTER TABLE app.rate_card ADD COLUMN folder_id UUID;
 ALTER TABLE app.rate_card ADD CONSTRAINT fk_rate_card_folder_scope

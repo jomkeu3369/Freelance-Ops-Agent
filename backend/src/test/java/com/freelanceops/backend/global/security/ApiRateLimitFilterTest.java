@@ -31,6 +31,8 @@ class ApiRateLimitFilterTest {
     private static final String ATTACHMENTS =
             "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/projects/"
                     + "00000000-0000-0000-0000-000000000002/attachments";
+    private static final String FOLDERS =
+            "/api/v2/workspaces/00000000-0000-0000-0000-000000000001/rate-card-folders";
 
     @AfterEach
     void clearSecurityContext() {
@@ -278,6 +280,130 @@ class ApiRateLimitFilterTest {
             filter.doFilter(request, response, chain);
             assertThat(response.getStatus()).isEqualTo(attempt == 0 ? 200 : 429);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, /api/v2/workspaces/demo/rate-card-folders",
+        "HEAD, /api/v2/workspaces/demo/rate-card-folders",
+        "PUT, /api/v2/workspaces/demo/rate-card-folders/folder",
+        "DELETE, /api/v2/workspaces/demo/rate-card-folders/folder",
+        "PUT, /api/v2/workspaces/demo/rate-cards/card/folder"
+    })
+    void limitsEveryFolderReadAndMutationEndpoint(String method, String path) throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, method, path, "203.0.113.10").getStatus()).isEqualTo(200);
+        MockHttpServletResponse rejected = invoke(filter, chain, method, path, "203.0.113.11");
+        assertThat(rejected.getStatus()).isEqualTo(429);
+        assertThat(rejected.getHeader("Retry-After")).isEqualTo("60");
+        assertThat(rejected.getContentAsString()).contains("RATE_LIMIT_EXCEEDED");
+        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void folderEndpointsShareAUserBudgetAcrossWorkspacesWithoutConsumingAgentRequests()
+            throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 2, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, "PUT", FOLDERS + "/folder", "203.0.113.11").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, "DELETE", FOLDERS + "/folder", "203.0.113.12").getStatus()).isEqualTo(429);
+        assertThat(invoke(filter, chain, "PUT", "/api/v2/workspaces/other/rate-cards/card/folder", "203.0.113.13").getStatus()).isEqualTo(429);
+        assertThat(invoke(filter, chain, ATTACHMENTS, "203.0.113.10").getStatus()).isEqualTo(200);
+        authenticate("other-owner");
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GET, HEAD", "HEAD, GET"})
+    void folderHeadAndGetRequestsShareTheSameBudget(String firstMethod, String secondMethod)
+            throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, firstMethod, FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, secondMethod, FOLDERS, "203.0.113.11").getStatus()).isEqualTo(429);
+        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, /%61pi/v2/workspaces/demo/rate-card-folders",
+        "HEAD, /%61pi/v2/workspaces/demo/rate-card-folders",
+        "GET, /api/v%32/workspaces/demo/rate-card-folders",
+        "HEAD, /api/v%32/workspaces/demo/rate-card-folders",
+        "HEAD, /api/v2/work%73paces/demo/rate-card-folders",
+        "HEAD, /api/v2/workspaces/demo/rate-card-%66olders",
+        "PUT, /api/v2/work%73paces/demo/rate-card-folders/folder",
+        "DELETE, /api/v2/workspaces/demo/rate-card-%66olders/folder",
+        "PUT, /api/v2/workspaces/demo/rate-%63ards/card/fol%64er"
+    })
+    void encodedFolderRoutesCannotBypassTheSharedBudget(String method, String path)
+            throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, method, path, "203.0.113.10").getStatus()).isEqualTo(429);
+        verify(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET, /api/v2/workspaces/demo/rate-cards",
+        "PUT, /api/v2/workspaces/demo/rate-cards/card",
+        "POST, /api/v2/workspaces/demo/rate-card-folders",
+        "GET, /api/v2/workspaces/demo/rate-card-folders/folder",
+        "PUT, /api/v2/workspaces/demo/rate-card-folders/folder/extra",
+        "DELETE, /api/v2/workspaces/demo/rate-card-folders-extra/folder"
+    })
+    void folderLimitsDoNotChangeExistingRateCardOrUnrelatedEndpoints(String method, String path)
+            throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, method, path, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void folderRetriesResumeAfterTheMinuteWindowEvenWhenTheFirstRequestFails() throws Exception {
+        Clock clock = mock(Clock.class);
+        when(clock.instant()).thenReturn(CLOCK.instant(), CLOCK.instant().plusSeconds(59), CLOCK.instant().plusSeconds(60));
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, clock);
+        FilterChain chain = mock(FilterChain.class);
+        doAnswer(invocation -> {
+            invocation.getArgument(1, HttpServletResponse.class).setStatus(409);
+            return null;
+        }).when(chain).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        authenticate("folder-owner");
+        assertThat(invoke(filter, chain, "PUT", FOLDERS + "/folder", "203.0.113.10").getStatus()).isEqualTo(409);
+        MockHttpServletResponse rejected = invoke(filter, chain, "GET", FOLDERS, "203.0.113.10");
+        assertThat(rejected.getStatus()).isEqualTo(429);
+        assertThat(rejected.getHeader("Retry-After")).isEqualTo("1");
+        assertThat(invoke(filter, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(409);
+        verify(chain, times(2)).doFilter(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void folderMatchingUsesTheApplicationContextAndHonorsTheDisabledConfiguration() throws Exception {
+        ApiRateLimitFilter filter = new ApiRateLimitFilter(true, 5, 5, 1, 100, CLOCK);
+        FilterChain chain = mock(FilterChain.class);
+        authenticate("folder-owner");
+        for (int attempt = 0; attempt < 2; attempt++) {
+            var request = new MockHttpServletRequest("GET", "/app" + FOLDERS);
+            request.setContextPath("/app");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            assertThat(response.getStatus()).isEqualTo(attempt == 0 ? 200 : 429);
+        }
+        ApiRateLimitFilter disabled = new ApiRateLimitFilter(false, 5, 5, 1, 100, CLOCK);
+        assertThat(invoke(disabled, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
+        assertThat(invoke(disabled, chain, "GET", FOLDERS, "203.0.113.10").getStatus()).isEqualTo(200);
     }
 
     private static MockHttpServletResponse invoke(

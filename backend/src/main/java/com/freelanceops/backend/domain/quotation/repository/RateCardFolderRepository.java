@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface RateCardFolderRepository extends JpaRepository<RateCardFolderEntity, UUID> {
-    List<RateCardFolderEntity> findAllByWorkspaceIdOrderByName(UUID workspaceId);
+    List<RateCardFolderEntity> findTop201ByWorkspaceIdOrderByNameAscIdAsc(UUID workspaceId);
 
     Optional<RateCardFolderEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 

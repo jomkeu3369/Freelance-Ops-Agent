@@ -19,11 +19,13 @@ import com.freelanceops.backend.domain.quotation.dto.response.RateCardResponse;
 import com.freelanceops.backend.domain.quotation.model.BasisType;
 import com.freelanceops.backend.domain.quotation.model.QuotationScenario;
 import com.freelanceops.backend.domain.quotation.model.WorkUnit;
+import com.freelanceops.backend.domain.quotation.repository.RateCardFolderRepository;
 import com.freelanceops.backend.domain.quotation.service.PricingConfigurationService;
 import com.freelanceops.backend.domain.quotation.service.QuotationService;
 import com.freelanceops.backend.domain.quotation.service.RateCardFolderService;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
 
+import org.hibernate.resource.jdbc.spi.StatementInspector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -43,6 +45,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -58,11 +61,12 @@ import java.util.concurrent.TimeUnit;
             "agent.command-dispatch-enabled=false",
             "agent.task-command-dispatch-enabled=false",
             "agent.reconciliation-enabled=false",
-            "app.rate-limit.enabled=false"
+            "app.rate-limit.enabled=false",
+            "spring.jpa.properties.hibernate.session_factory.statement_inspector=com.freelanceops.backend.integration.RateCardFolderPostgresTest$FolderQueries"
         })
 @AutoConfigureMockMvc
 @Timeout(90)
-class RateCardFolderPostgresTest {
+public class RateCardFolderPostgresTest {
     @Container
     static final PostgreSQLContainer POSTGRES =
             new PostgreSQLContainer(
@@ -77,6 +81,7 @@ class RateCardFolderPostgresTest {
     }
 
     @Autowired RateCardFolderService folders;
+    @Autowired RateCardFolderRepository folderRepository;
     @Autowired PricingConfigurationService pricing;
     @Autowired QuotationService quotations;
     @Autowired WorkspaceProvisioningService workspaces;
@@ -86,10 +91,29 @@ class RateCardFolderPostgresTest {
     private UUID user;
     private UUID workspace;
 
+    public static class FolderQueries implements StatementInspector {
+        private static final ThreadLocal<List<String>> QUERIES = ThreadLocal.withInitial(ArrayList::new);
+
+        @Override
+        public String inspect(String sql) {
+            if (sql.startsWith("select ") && sql.contains(" from app.rate_card_folder ")) QUERIES.get().add(sql);
+            return sql;
+        }
+
+        static void reset() {
+            QUERIES.get().clear();
+        }
+
+        static List<String> queries() {
+            return List.copyOf(QUERIES.get());
+        }
+    }
+
     @BeforeEach
     void setup() {
         user = account();
         workspace = workspaces.create(user, "Folder fixture", "folders-" + UUID.randomUUID()).workspaceId();
+        FolderQueries.reset();
     }
 
     @Test
@@ -235,6 +259,88 @@ class RateCardFolderPostgresTest {
         UUID empty = folder(null, "Delete over HTTP");
         mvc.perform(delete(base + "/rate-card-folders/" + empty).with(jwt().jwt(token -> token.subject(user.toString()))))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void quotaAllowsExistingRetriesEditsAndDeletionRecoveryWithoutAffectingOtherWorkspaces() {
+        seedFolders(199);
+        UUID last = folder(null, "Last allowed");
+        assertThat(folders.listFolders(user, workspace)).hasSize(200);
+        var original = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null));
+        assertThat(folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null))).isEqualTo(original);
+        var renamed = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Renamed at capacity", null));
+        assertThat(renamed.version()).isGreaterThan(original.version());
+        assertStatus(409, () -> folder(null, "One too many"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.rate_card_folder WHERE workspace_id=?", Integer.class, workspace)).isEqualTo(200);
+
+        UUID other = workspaces.create(user, "Separate quota", "quota-" + UUID.randomUUID()).workspaceId();
+        folders.upsertFolder(user, other, UUID.randomUUID(), new UpsertRateCardFolderRequest("Independent", null));
+        assertThat(folders.listFolders(user, other)).hasSize(1);
+        UUID card = rate(false).id();
+        assertThat(folders.moveRateCard(user, workspace, card, new MoveRateCardRequest(last)).folderId()).isEqualTo(last);
+        folders.moveRateCard(user, workspace, card, new MoveRateCardRequest(null));
+        folders.deleteFolder(user, workspace, last);
+        folder(null, "Recovered slot");
+        assertThat(folders.listFolders(user, workspace)).hasSize(200);
+    }
+
+    @Test
+    void legacyOverflowUsesAnIndexedLimitedQueryAndFailsInsteadOfReturningAPartialTree() {
+        seedFolders(1000);
+        FolderQueries.reset();
+        assertThat(folderRepository.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).hasSize(201);
+        assertThat(FolderQueries.queries()).singleElement().satisfies(sql -> assertThat(sql)
+                .contains("workspace_id=?", "order by", ".name", ".id", "fetch first ? rows only")
+                .doesNotContain("count("));
+        assertThat(jdbc.queryForObject("SELECT indexdef FROM pg_indexes WHERE schemaname='app' AND indexname='ix_rate_card_folder_list'", String.class))
+                .contains("(workspace_id, name, id)");
+        assertStatus(409, () -> folders.listFolders(user, workspace));
+        assertStatus(409, () -> folder(null, "Overflow"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.rate_card_folder WHERE workspace_id=?", Integer.class, workspace)).isEqualTo(1000);
+        UUID removable = jdbc.queryForObject("SELECT id FROM app.rate_card_folder WHERE workspace_id=? ORDER BY name,id LIMIT 1", UUID.class, workspace);
+        folders.deleteFolder(user, workspace, removable);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.rate_card_folder WHERE workspace_id=?", Integer.class, workspace)).isEqualTo(999);
+    }
+
+    @Test
+    void depthChecksIncludeEveryMovedDescendantAndAllowAnEighthLevelRetry() {
+        List<UUID> chain = new ArrayList<>();
+        for (int depth = 0; depth < 8; depth++) {
+            chain.add(folder(chain.isEmpty() ? null : chain.getLast(), "Depth " + depth));
+        }
+        UUID leaf = chain.getLast();
+        long revision = version(leaf);
+        assertThat(folders.upsertFolder(user, workspace, leaf, new UpsertRateCardFolderRequest("Depth 7", chain.get(6))).version()).isEqualTo(revision);
+        assertStatus(409, () -> folder(leaf, "Ninth level"));
+        UUID moving = folder(null, "Moving subtree");
+        UUID child = folder(moving, "Moving child");
+        assertStatus(409, () -> folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(6))));
+        assertThat(jdbc.queryForObject("SELECT parent_id FROM app.rate_card_folder WHERE id=?", UUID.class, moving)).isNull();
+        var accepted = folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(5)));
+        assertThat(accepted.parentId()).isEqualTo(chain.get(5));
+        assertThat(folders.listFolders(user, workspace)).filteredOn(item -> item.id().equals(child)).singleElement()
+                .satisfies(item -> assertThat(item.parentId()).isEqualTo(moving));
+    }
+
+    @Test
+    void concurrentCreationsCannotBothConsumeTheFinalSlot() throws Exception {
+        seedFolders(199);
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var first = executor.submit(() -> after(start, () -> folder(null, "First contender")));
+            var second = executor.submit(() -> after(start, () -> folder(null, "Second contender")));
+            start.countDown();
+            assertThat(List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS))).containsExactlyInAnyOrder(200, 409);
+        }
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.rate_card_folder WHERE workspace_id=?", Integer.class, workspace)).isEqualTo(200);
+    }
+
+    private void seedFolders(int count) {
+        jdbc.update("""
+                INSERT INTO app.rate_card_folder(id,workspace_id,name,created_by,created_at,updated_at,version)
+                SELECT gen_random_uuid(),?,'Seed ' || lpad(n::text,4,'0'),?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,0
+                FROM generate_series(1,?) AS n
+                """, workspace, user, count);
     }
 
     private UUID folder(UUID parentId, String name) {

@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,6 +31,9 @@ import java.util.UUID;
 
 @Service
 public class RateCardFolderService {
+    private static final int MAX_FOLDERS = 200;
+    private static final int MAX_DEPTH = 8;
+
     private final RateCardFolderRepository folderRepository;
     private final RateCardRepository rateCardRepository;
     private final WorkspaceAuthorizationService authorizationService;
@@ -48,7 +53,7 @@ public class RateCardFolderService {
     @Transactional(readOnly = true)
     public List<RateCardFolderResponse> listFolders(UUID userId, UUID workspaceId) {
         authorize(userId, workspaceId, PermissionCode.QUOTATION_READ);
-        return folderRepository.findAllByWorkspaceIdOrderByName(workspaceId).stream()
+        return boundedFolders(workspaceId).stream()
                 .map(RateCardFolderService::response)
                 .toList();
     }
@@ -64,8 +69,10 @@ public class RateCardFolderService {
         if (current != null && !current.workspaceId().equals(workspaceId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        List<RateCardFolderEntity> folders =
-                folderRepository.findAllByWorkspaceIdOrderByName(workspaceId);
+        List<RateCardFolderEntity> folders = boundedFolders(workspaceId);
+        if (current == null && folders.size() >= MAX_FOLDERS) {
+            throw folderLimit();
+        }
         validateParent(folderId, request.parentId(), folders);
         if (folders.stream()
                 .anyMatch(
@@ -143,9 +150,18 @@ public class RateCardFolderService {
     private static void validateParent(
             UUID folderId, UUID parentId, List<RateCardFolderEntity> folders) {
         Map<UUID, RateCardFolderEntity> byId = new HashMap<>();
-        folders.forEach(folder -> byId.put(folder.id(), folder));
+        Map<UUID, List<UUID>> children = new HashMap<>();
+        folders.forEach(
+                folder -> {
+                    byId.put(folder.id(), folder);
+                    if (folder.parentId() != null) {
+                        children.computeIfAbsent(folder.parentId(), ignored -> new ArrayList<>())
+                                .add(folder.id());
+                    }
+                });
         HashSet<UUID> visited = new HashSet<>();
         UUID ancestor = parentId;
+        int parentDepth = 0;
         while (ancestor != null) {
             if (ancestor.equals(folderId) || !visited.add(ancestor)) {
                 throw new ResponseStatusException(
@@ -154,8 +170,43 @@ public class RateCardFolderService {
             }
             RateCardFolderEntity parent = byId.get(ancestor);
             if (parent == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            if (++parentDepth >= MAX_DEPTH) throw depthLimit();
             ancestor = parent.parentId();
         }
+        // 이동할 폴더의 자손도 새 위치에서 최대 깊이를 넘지 않아야 한다.
+        visited.clear();
+        ArrayDeque<FolderDepth> pending = new ArrayDeque<>();
+        pending.add(new FolderDepth(folderId, parentDepth + 1));
+        while (!pending.isEmpty()) {
+            FolderDepth current = pending.remove();
+            if (current.depth() > MAX_DEPTH) throw depthLimit();
+            if (!visited.add(current.id())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "a folder cannot be moved into itself or its descendants");
+            }
+            for (UUID child : children.getOrDefault(current.id(), List.of())) {
+                pending.add(new FolderDepth(child, current.depth() + 1));
+            }
+        }
+    }
+
+    private List<RateCardFolderEntity> boundedFolders(UUID workspaceId) {
+        // 초과 데이터도 정렬 인덱스에서 201개까지만 읽고 부분 목록 대신 충돌을 반환한다.
+        List<RateCardFolderEntity> folders =
+                folderRepository.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspaceId);
+        if (folders.size() > MAX_FOLDERS) throw folderLimit();
+        return folders;
+    }
+
+    private static ResponseStatusException folderLimit() {
+        return new ResponseStatusException(
+                HttpStatus.CONFLICT, "a workspace can contain at most 200 rate-card folders");
+    }
+
+    private static ResponseStatusException depthLimit() {
+        return new ResponseStatusException(
+                HttpStatus.CONFLICT, "rate-card folders can be nested at most 8 levels");
     }
 
     private RateCardFolderEntity folder(UUID workspaceId, UUID folderId) {
@@ -183,4 +234,6 @@ public class RateCardFolderService {
         return new RateCardFolderResponse(
                 folder.id(), folder.workspaceId(), folder.parentId(), folder.name(), folder.version());
     }
+
+    private record FolderDepth(UUID id, int depth) {}
 }
