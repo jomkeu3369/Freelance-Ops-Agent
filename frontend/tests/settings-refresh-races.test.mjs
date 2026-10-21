@@ -35,6 +35,7 @@ async function settings() {
   const nextReads = new Map(), nextWrites = new Map();
   const server = {
     cards: [card("one", "Original service")],
+    folders: [],
     policy: { workspaceId: "workspace", defaultTaxRate: .1, defaultRiskBufferRate: .1, maximumDiscountRate: .1, version: 1 },
     profile: { displayName: "Test", email: "test@example.invalid", status: "ACTIVE", workspaces: [{ workspaceId: "workspace", name: "Test workspace" }] },
     writes: [],
@@ -62,7 +63,7 @@ async function settings() {
     const route = new URL(url).pathname;
     const resource = route.endsWith("/me") ? "profile" : route.includes("/rate-cards") ? "cards" : "policy";
     const method = init.method ?? "GET";
-    if (route.endsWith("/rate-card-folders") && method === "GET") return new Response("[]");
+    if (route.endsWith("/rate-card-folders") && method === "GET") return new Response(JSON.stringify(server.folders));
     if (method === "GET") {
       const snapshot = structuredClone(server[resource]);
       const pending = nextReads.get(resource); nextReads.delete(resource);
@@ -70,16 +71,17 @@ async function settings() {
       if (pending?.error) return new Response(JSON.stringify({ message: pending.error }), { status: 503 });
       return new Response(JSON.stringify(snapshot));
     }
-    const input = JSON.parse(init.body); server.writes.push({ resource, input });
-    const pending = nextWrites.get(resource); nextWrites.delete(resource);
+    const input = JSON.parse(init.body); server.writes.push({ resource, path: route, input });
+    const writeResource = route.endsWith("/folder") ? "moves" : resource;
+    const pending = nextWrites.get(writeResource); nextWrites.delete(writeResource);
     if (pending) await pending.wait();
     if (pending?.error) return new Response(JSON.stringify({ message: pending.error }), { status: 503 });
     if (resource === "policy") {
       server.policy = { ...server.policy, ...input, version: server.policy.version + 1 };
       return new Response(JSON.stringify(server.policy));
     }
-    const id = route.split("/").at(-1), prior = server.cards.find(item => item.id === id);
-    const saved = { ...card(id), ...input, version: (prior?.version ?? 0) + 1 };
+    const id = route.split("/").at(route.endsWith("/folder") ? -2 : -1), prior = server.cards.find(item => item.id === id);
+    const saved = { ...card(id), ...prior, ...input, version: (prior?.version ?? 0) + 1 };
     server.cards = server.cards.filter(item => item.id !== id).concat(saved);
     return new Response(JSON.stringify(saved));
   };
@@ -167,18 +169,20 @@ test("a delayed policy GET cannot undo a saved policy or contaminate the next sa
 
 for (const create of [false, true]) test(`a delayed rate GET preserves a confirmed ${create ? "create" : "edit"}`, async () => {
   const h = await settings();
-  if (!create) button(h.rate(), "Original service").props.onClick();
+  button(h.rate(), create ? "새 단가" : "Original service").props.onClick();
   const held = h.hold("cards");
   try {
     h.refresh(); await held.entered;
     await submit(h.rate(), rateInput);
-    assert.equal(field(h.rate(), "rate"), 250);
+    if (create) assert.equal(form(h.rate()), undefined, "a confirmed creation returns to the list");
+    else assert.equal(field(h.rate(), "rate"), 250);
   } finally { held.release(); }
   await flush();
-  assert.equal(field(h.rate(), "name"), "Saved service");
-  assert.equal(field(h.rate(), "rate"), 250);
   const list = all(h.rate(), node => node.props.className === "rate-card-list")[0];
   assert.equal(all(list, node => node.type === "button").length, create ? 2 : 1);
+  if (create) button(h.rate(), "Saved service").props.onClick();
+  assert.equal(field(h.rate(), "name"), "Saved service");
+  assert.equal(field(h.rate(), "rate"), 250);
   // 이후 활성화 변경 시 되돌린 이전 가격을 제출하지 않아야 한다.
   button(h.rate(), "비활성화").props.onClick();
   button(h.rate(), "비활성화").props.onClick();
@@ -188,6 +192,7 @@ for (const create of [false, true]) test(`a delayed rate GET preserves a confirm
 
 for (const resource of ["policy", "cards"]) test(`a delayed ${resource} read error is superseded by its confirmed save`, async () => {
   const h = await settings(), held = h.hold(resource, `Stale ${resource} read failed`);
+  if (resource === "cards") button(h.rate(), "Original service").props.onClick();
   try {
     h.refresh(); await held.entered;
     await submit(resource === "policy" ? h.policy() : h.rate(), resource === "policy" ? policyInput : rateInput);
@@ -225,6 +230,7 @@ test("a rate save preserves newer unrelated cards loaded while the save was pend
 test("newer reads after a save are accepted, including read-only settings", async () => {
   const h = await settings();
   await submit(h.policy(), policyInput);
+  button(h.rate(), "Original service").props.onClick();
   await submit(h.rate(), rateInput);
   h.server.policy = { ...h.server.policy, defaultTaxRate: .4, version: 3 };
   h.server.cards = h.server.cards.map(item => ({ ...item, rate: 500, version: item.version + 1 }));
@@ -235,6 +241,190 @@ test("newer reads after a save are accepted, including read-only settings", asyn
   assert.equal(form(h.rate()), undefined);
   const policySection = all(h.panel(), node => node.props.id === "estimation-policy")[0];
   assert.equal(all(policySection, node => node.type === "strong")[0].props.children[0], 40);
+});
+
+test("a background rate replacement cannot remount a dirty editor before its first save", async () => {
+  const h = await settings(); button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Changed on another PC"), rate: 500, version: 2 }];
+  h.refresh(); await flush();
+  assert.equal(form(h.rate()).key, initial.key, "unsaved native inputs keep their original form identity");
+  assert.equal(field(h.rate(), "name"), "Original service");
+  assert.equal(field(h.rate(), "rate"), 100);
+  assert.match(JSON.stringify(h.rate()), /Changed on another PC/);
+  await submit(h.rate(), rateInput);
+  assert.equal(field(h.rate(), "name"), "Saved service");
+  assert.equal(field(h.rate(), "rate"), 250);
+  assert.notEqual(form(h.rate()).key, initial.key);
+});
+
+test("a dirty rate moved to another folder by a background read still saves its original identity", async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Moved on another PC"), folderId: "other-folder", version: 2 }];
+  h.refresh(); await flush();
+  assert.equal(form(h.rate()).key, initial.key);
+  assert.equal(form(h.rate()).props["aria-label"], "단가 편집");
+  assert.ok(button(h.rate(), "변경 저장"), "a displaced saved rate must not become a new-rate form");
+  assert.equal(all(h.rate(), node => node.props.className === "rate-card-list").length, 0);
+  await submit(h.rate(), rateInput);
+  assert.deepEqual(h.server.writes.map(write => write.path), [
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one/folder"
+  ]);
+  assert.equal(h.server.writes[1].input.folderId, null);
+  assert.equal(h.server.cards.length, 1);
+  assert.equal(h.server.cards[0].id, "one");
+  assert.equal(h.server.cards[0].name, "Saved service");
+  assert.equal(field(h.rate(), "name"), "Saved service");
+});
+
+test("toggling a displaced dirty rate preserves its saved active status for the next submission", async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Original service"), folderId: "other-folder", version: 2 }];
+  h.refresh(); await flush();
+  button(h.rate(), "비활성화").props.onClick();
+  button(h.rate(), "비활성화").props.onClick();
+  await flush();
+  assert.equal(h.server.cards[0].active, false);
+  assert.equal(form(h.rate()).key, initial.key, "a toggle must not replace the dirty form");
+  assert.ok(button(h.rate(), "다시 사용"), "the fallback snapshot reflects the confirmed inactive status");
+  await submit(h.rate(), rateInput);
+  assert.equal(h.server.writes[1].input.active, false, "saving the draft must not reactivate the displaced rate");
+  assert.equal(h.server.cards.length, 1);
+  assert.equal(h.server.cards[0].id, "one");
+  assert.equal(h.server.cards[0].active, false);
+  assert.equal(h.server.cards[0].name, "Saved service");
+  assert.deepEqual(h.server.writes.map(write => write.path), [
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one/folder"
+  ]);
+});
+
+for (const operation of ["toggle", "save"]) test(`a displaced dirty rate uses the latest global metadata for ${operation}`, async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Latest global service"), rate: 700, minimumAmount: 50, unit: "DAY", currency: "USD", active: false, folderId: "other-folder", version: 2 }];
+  h.refresh(); await flush();
+  assert.equal(form(h.rate()).key, initial.key);
+  assert.equal(field(h.rate(), "name"), "Original service");
+  assert.equal(field(h.rate(), "rate"), 100);
+  assert.equal(all(h.rate(), node => node.props.className === "rate-card-list").length, 0);
+  if (operation === "toggle") {
+    assert.ok(button(h.rate(), "다시 사용"), "status controls must reflect the latest global inactive rate");
+    button(h.rate(), "다시 사용").props.onClick(); await flush();
+    assert.equal(form(h.rate()).key, initial.key);
+    assert.deepEqual(h.server.writes[0].input, { name: "Latest global service", rate: 700, minimumAmount: 50, unit: "DAY", currency: "USD", active: true });
+    assert.equal(field(h.rate(), "name"), "Original service", "a status change must not replace the dirty input snapshot");
+  } else {
+    await submit(h.rate(), rateInput);
+    assert.equal(h.server.writes[0].input.active, false, "saving a draft must preserve the newer inactive state");
+    assert.equal(h.server.cards[0].name, "Saved service");
+    assert.equal(h.server.cards[0].rate, 250);
+    assert.equal(h.server.cards[0].active, false);
+  }
+  assert.equal(h.server.writes[0].path, "/api/v2/workspaces/workspace/rate-cards/one");
+  assert.equal(h.server.cards.length, 1);
+  assert.equal(h.server.cards[0].id, "one");
+});
+
+test("a displaced rate keeps confirmed metadata through a failed move, toggle and retry", async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Original service"), folderId: "other-folder", version: 2 }];
+  h.refresh(); await flush();
+  const failedMove = h.hold("moves", "Move failed", true), saving = submit(h.rate(), rateInput);
+  try {
+    await failedMove.entered;
+    assert.equal(form(h.rate()).key, initial.key);
+    assert.equal(h.server.cards[0].name, "Saved service");
+    assert.equal(h.server.cards[0].rate, 250);
+  } finally { failedMove.release(); }
+  await saving;
+  assert.match(JSON.stringify(h.rate()), /단가는 저장했지만 폴더를 옮기지 못했습니다/);
+  button(h.rate(), "비활성화").props.onClick();
+  button(h.rate(), "비활성화").props.onClick();
+  await flush();
+  assert.equal(form(h.rate()).key, initial.key);
+  assert.equal(h.server.writes[2].input.name, "Saved service");
+  assert.equal(h.server.writes[2].input.rate, 250);
+  assert.equal(h.server.writes[2].input.active, false);
+  assert.equal(h.server.cards[0].folderId, "other-folder");
+  await submit(h.rate(), rateInput);
+  assert.equal(h.server.cards.length, 1);
+  assert.equal(h.server.cards[0].id, "one");
+  assert.equal(h.server.cards[0].name, "Saved service");
+  assert.equal(h.server.cards[0].rate, 250);
+  assert.equal(h.server.cards[0].active, false);
+  assert.equal(h.server.cards[0].folderId, null);
+  assert.deepEqual(h.server.writes.map(write => write.path), [
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one/folder",
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one",
+    "/api/v2/workspaces/workspace/rate-cards/one/folder"
+  ]);
+});
+
+for (const restoreBeforeFailure of [false, true]) test(`a late folder move failure cannot restore a discarded draft when permission returns ${restoreBeforeFailure ? "before" : "after"} the failure`, async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  form(h.rate()).props.onChange();
+  const failedMove = h.hold("moves", "Permission changed during folder move", true);
+  const saving = submit(h.rate(), { ...rateInput, folderId: "other-folder" });
+  try {
+    await failedMove.entered;
+    h.props.permissions = new Set(["quotation.read"]);
+    h.rate();
+    assert.equal(form(h.rate()), undefined);
+    if (restoreBeforeFailure) {
+      h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+      assert.equal(form(h.rate()), undefined);
+    }
+  } finally { failedMove.release(); }
+  await saving; h.rate();
+  h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+  assert.equal(form(h.rate()), undefined);
+  button(h.rate(), "새 단가").props.onClick();
+  assert.ok(form(h.rate()), "a new editor must open without a phantom dirty confirmation");
+  assert.equal(button(h.rate(), "변경 버리고 이동"), undefined);
+});
+
+for (const restoreBeforeSuccess of [false, true]) test(`a late save success cannot reopen a discarded editor when permission returns ${restoreBeforeSuccess ? "before" : "after"} the response`, async () => {
+  const h = await settings();
+  button(h.rate(), "Original service").props.onClick();
+  form(h.rate()).props.onChange();
+  const held = h.hold("cards", undefined, true), saving = submit(h.rate(), rateInput);
+  try {
+    await held.entered;
+    h.props.permissions = new Set(["quotation.read"]);
+    h.rate();
+    assert.equal(form(h.rate()), undefined);
+    if (restoreBeforeSuccess) {
+      h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+      assert.equal(form(h.rate()), undefined);
+    }
+  } finally { held.release(); }
+  await saving; h.rate();
+  h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+  assert.equal(form(h.rate()), undefined, "a confirmed server save must not reopen the discarded native form");
+  assert.match(JSON.stringify(h.rate()), /단가 변경을 저장했습니다/);
+  assert.equal(h.server.cards[0].name, "Saved service");
+  assert.equal(h.server.cards.length, 1);
+  button(h.rate(), "새 단가").props.onClick();
+  assert.ok(form(h.rate()));
+  assert.equal(button(h.rate(), "변경 버리고 이동"), undefined);
 });
 
 test("failed writes do not supersede a legitimate read or remount the failed form", async () => {
@@ -280,6 +470,8 @@ for (const overrides of [{ workspaceId: "other-workspace" }, { userId: "other-us
   h.refresh(overrides);
   assert.equal(h.panel().props.className, "section-loading", "old workspace/account values are never rendered for the new owner");
   await flush();
+  assert.equal(form(h.rate()), undefined, "the new owner starts with a closed editor");
+  button(h.rate(), "새 단가").props.onClick();
   assert.equal(field(h.rate(), "name"), "", "old owner editor is discarded");
 });
 

@@ -3,7 +3,7 @@ import { Folder, FolderOpen, FolderPlus, PencilSimple, Trash, Warning, CheckCirc
 import { ApiError, AuthSession, RateCard, RateCardFolder, listRateCardFolders, saveRateCardFolder, deleteRateCardFolder } from "../../../app/lib/api";
 import { useT } from "../../../app/lib/ui-language";
 import { RateCardManager } from "./rate-card-manager";
-import { rateCardFolderOptions, rateCardFolderPath } from "./rate-card-folders";
+import { rateCardFolderOptions, rateCardFolderPath, rateCardFolderRateCounts } from "./rate-card-folders";
 
 function folderError(cause: unknown, fallback: string) {
   const message = cause instanceof Error ? cause.message : fallback;
@@ -49,6 +49,15 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   const missingFolder = folderId !== null && !current && !loading && !loadError;
   const children = folders.filter((folder) => folder.parentId === folderId).sort((left, right) => left.name.localeCompare(right.name, "ko"));
   const path = rateCardFolderPath(folders, folderId);
+  const currentCards = rateCards.filter((card) => (card.folderId ?? null) === folderId);
+  const folderCounts = rateCardFolderRateCounts(folders, rateCards);
+  const emptyMessage = currentCards.length > 0 || rateCards.length === 0
+    ? undefined
+    : folderId === null
+      ? "모든 단가가 폴더에 정리되어 있습니다."
+      : (folderCounts.get(folderId) ?? 0) > 0
+        ? "이 폴더의 단가는 하위 폴더에 정리되어 있습니다."
+        : "이 폴더에 등록된 단가가 없습니다.";
   const locked = busy || cardBusy;
 
   useEffect(() => {
@@ -184,7 +193,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
         {children.length > 0 && <div className="rate-folder-list" role="region" aria-label={t("하위 단가 폴더")}>
           {children.map((folder) => <button type="button" key={folder.id} disabled={locked || Boolean(editing)} onClick={() => navigate(folder.id)}>
             <Folder size={25} aria-hidden="true" /><strong>{folder.name}</strong>
-            <small>{t("폴더 {folders}개 · 단가 {rates}개", { folders: folders.filter((child) => child.parentId === folder.id).length, rates: rateCards.filter((card) => card.folderId === folder.id).length })}</small><CaretRight size={17} aria-hidden="true" />
+            <small>{t("전체 단가 {rates}개 · 하위 폴더 {folders}개", { rates: folderCounts.get(folder.id) ?? 0, folders: folders.filter((child) => child.parentId === folder.id).length })}</small><CaretRight size={17} aria-hidden="true" />
           </button>)}
         </div>}
       </>}
@@ -193,7 +202,9 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
         <RateCardManager
           key={folderId ?? "root"}
           session={session}
-          rateCards={rateCards.filter((card) => (card.folderId ?? null) === folderId)}
+          rateCards={currentCards}
+          allRateCards={rateCards}
+          emptyMessage={emptyMessage}
           canWrite={canWrite}
           onChange={onChange}
           folders={folders}
