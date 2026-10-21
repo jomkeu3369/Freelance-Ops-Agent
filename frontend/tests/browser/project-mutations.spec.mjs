@@ -123,11 +123,10 @@ async function expectRunPreserved(page, state, projectId, runId) {
   await expect(page).toHaveURL(new RegExp(`${projectPath(projectId)}$`));
   await expect(page.locator(`[data-run-id="${runId}"]`)).toBeVisible();
   // 과거 대화만으로 현재 실행을 판단하지 않는다. 실행 중 취소가 가능하고
-  // 새 초안이 있어도 다음 전송은 불가능한지 확인한다.
+  // 명시적인 말 끊기 동작을 제공하되 편집 응답만으로 실행을 바꾸지 않는다.
   await expect(page.getByRole("button", { name: "작업 취소", exact: true })).toBeVisible();
-  await expect(sendButton(page)).toBeDisabled();
+  await expect(page.getByRole("button", { name: "말 끊고 보내기", exact: true })).toBeEnabled();
   await expect(input(page)).toHaveValue(`Unsent next request for ${projectId}`);
-  await input(page).press("Control+Enter");
   expect(state.startProjects).toEqual([projectId]);
   expect(state.cancels).toEqual([]);
   expect(state.blocked).toEqual([]);
