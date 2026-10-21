@@ -228,7 +228,7 @@ test("newer reads after a save are accepted, including read-only settings", asyn
   h.props.permissions = new Set(["quotation.read"]);
   assert.equal(form(h.rate()), undefined);
   const policySection = all(h.panel(), node => node.props.id === "estimation-policy")[0];
-  assert.equal(all(policySection, node => node.type === "dd")[0].props.children.join(""), "40%");
+  assert.equal(all(policySection, node => node.type === "strong")[0].props.children[0], 40);
 });
 
 test("failed writes do not supersede a legitimate read or remount the failed form", async () => {

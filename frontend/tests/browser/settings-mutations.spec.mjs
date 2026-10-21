@@ -120,7 +120,7 @@ async function fillPolicy(page, { tax = "25", buffer = "15", discount = "5" } = 
 async function savePolicy(page, values) {
   const policy = await fillPolicy(page, values);
   await policy.getByRole("button", { name: "계산 기준 저장", exact: true }).click();
-  await expect(page.locator(".settings-page > .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
+  await expect(page.locator("#estimation-policy .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
 }
 
 async function expectPolicy(page, { tax = "25", buffer = "15", discount = "5" } = {}) {
@@ -184,11 +184,11 @@ test("mobile English policy requires every percentage, preserves failed edits an
   expect(server.policyWrites).toHaveLength(0);
   await tax.fill("0"); server.failPolicy = true;
   await policy.getByRole("button", { name: "Save defaults", exact: true }).click();
-  await expect(page.locator(".settings-page > .inline-error")).toBeVisible();
-  await expect(page.locator(".settings-page > .settings-saved")).toHaveCount(0);
+  await expect(policy.getByRole("alert")).toBeVisible();
+  await expect(page.locator("#estimation-policy .settings-saved")).toHaveCount(0);
   await expect(tax).toHaveValue("0");
   await policy.getByRole("button", { name: "Save defaults", exact: true }).click();
-  await expect(page.locator(".settings-page > .settings-saved")).toHaveText("Estimate policy saved.");
+  await expect(page.locator("#estimation-policy .settings-saved")).toHaveText("Estimate policy saved.");
   expect(server.policyWrites).toHaveLength(2);
   expect(server.policyWrites[1].defaultTaxRate).toBe(0);
   expect(state.policy.defaultTaxRate).toBe(0);
@@ -221,7 +221,7 @@ test("a policy save wins over an older refresh snapshot and a later refresh stil
   expect(state.policy.version).toBe(2);
   await expectPolicy(page);
   await expect(page.locator(".settings-page > .inline-error")).toHaveCount(0);
-  await expect(page.locator(".settings-page > .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
+  await expect(page.locator("#estimation-policy .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
 
   // 이전 요청만 반영을 막고 이후 모든 갱신을 막지 않아야 한다.
   state.policy = { ...state.policy, defaultTaxRate: .3, defaultRiskBufferRate: .2, maximumDiscountRate: .1, version: 3 };
@@ -245,7 +245,7 @@ test("a delayed policy read failure cannot replace a successful policy save with
     expect(server.reads.policy.at(-1).status).toBe(503);
     await expectPolicy(page);
     await expect(page.locator(".settings-page > .inline-error")).toHaveCount(0);
-    await expect(page.locator(".settings-page > .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
+    await expect(page.locator("#estimation-policy .settings-saved")).toHaveText("견적 정책이 저장되었습니다.");
     expect(state.blocked).toEqual([]);
   } finally { server.policyReadStatus = 200; }
 });
@@ -372,10 +372,10 @@ test("a newer policy read cannot reset submitted fields while their save is pend
     await expect(page.locator("#estimation-policy form")).toHaveAttribute("aria-busy", "true");
     await expect(page.locator(".rate-card-list")).toContainText("Refreshed unrelated service");
     saveBarrier.release();
-    await expect(page.locator(".settings-page > .inline-error")).toHaveText("Synthetic policy save failure");
+    await expect(page.locator("#estimation-policy").getByRole("alert")).toHaveText("Synthetic policy save failure");
     await expect(page.locator("#estimation-policy form")).toHaveAttribute("aria-busy", "false");
     await expectPolicy(page);
-    await expect(page.locator(".settings-page > .settings-saved")).toHaveCount(0);
+    await expect(page.locator("#estimation-policy .settings-saved")).toHaveCount(0);
     expect(state.policy.version).toBe(2);
     expect(server.policyWrites).toHaveLength(1);
     expect(state.blocked).toEqual([]);

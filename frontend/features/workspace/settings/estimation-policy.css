@@ -1,0 +1,266 @@
+.figma-workspace .settings-content > .estimation-policy-card {
+  container: estimation-policy / inline-size;
+  padding: clamp(22px, 3vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface-solid);
+  box-shadow: 0 8px 30px rgb(36 35 50 / 3%);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px 24px;
+  margin: 0 0 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-heading {
+  display: flex;
+  align-items: start;
+  flex: 1 1 360px;
+  min-width: 0;
+  gap: 18px;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 58px;
+  height: 58px;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-solid));
+  color: var(--accent);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-heading h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -.035em;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-heading p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid));
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-form {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.figma-workspace .estimation-policy-card .settings-fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-grid,
+.figma-workspace .estimation-policy-card .estimation-policy-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-solid));
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field :is(label, dt) {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field :is(label, dt) > svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--surface-solid);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-control:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  outline-offset: 2px;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-control input {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.4;
+  outline: none;
+  box-shadow: none;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-control > span {
+  color: var(--muted);
+  font-size: 20px;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-control:has(input:disabled) {
+  background: var(--surface);
+  cursor: wait;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-footer > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 52px;
+  margin: 0;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 650;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-feedback {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-feedback > svg {
+  flex-shrink: 0;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-values .estimation-policy-field {
+  grid-template-rows: auto 1fr;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field dd {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field dd strong {
+  color: var(--ink);
+  font-size: 32px;
+  line-height: 1.4;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-field dd strong > span {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 20px;
+  font-weight: 400;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-note {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-note > svg,
+.figma-workspace .estimation-policy-card .estimation-policy-state > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.figma-workspace .estimation-policy-card .estimation-policy-note p,
+.figma-workspace .estimation-policy-card .estimation-policy-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.figma-workspace .estimation-policy-card .estimation-policy-state {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+  padding: 22px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-solid));
+}
+@container estimation-policy (max-width: 760px) {
+  .figma-workspace .estimation-policy-card .estimation-policy-grid,
+  .figma-workspace .estimation-policy-card .estimation-policy-values {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@container estimation-policy (max-width: 480px) {
+  .figma-workspace .estimation-policy-card .estimation-policy-heading {
+    gap: 14px;
+  }
+  .figma-workspace .estimation-policy-card .estimation-policy-icon {
+    flex-basis: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+  .figma-workspace .estimation-policy-card .estimation-policy-heading h2 {
+    font-size: 21px;
+  }
+  .figma-workspace .estimation-policy-card .estimation-policy-heading p {
+    font-size: 14px;
+  }
+  .figma-workspace .estimation-policy-card .estimation-policy-field {
+    padding: 18px;
+  }
+  .figma-workspace .estimation-policy-card .estimation-policy-submit {
+    width: 100%;
+  }
+}

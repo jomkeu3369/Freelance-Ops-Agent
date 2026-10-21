@@ -1,4 +1,11 @@
 export const workspaceEnglish = {
+  "읽기 전용": "Read only",
+  "세금·위험 대비·항목별 할인 한도를 관리합니다.": "Manage tax, contingency and per-item discount limits.",
+  "견적에 세율을 따로 지정하지 않았을 때 사용하는 기준입니다.": "Used when no tax rate is specified for the estimate.",
+  "위험 대비 적용 시, 할인 후 항목 합계에 더합니다.": "Added to the discounted item subtotal when contingency is applied.",
+  "각 견적 항목에 적용할 수 있는 할인 한도입니다.": "The maximum discount allowed for each estimate item.",
+  "각 비율은 0~100% 범위에서 입력할 수 있습니다.": "Enter each percentage between 0 and 100%.",
+  "이 작업 공간의 계산 기준입니다. 저장된 견적의 금액은 자동으로 바뀌지 않습니다.": "These defaults belong to this workspace. Saved estimate amounts do not change automatically.",
   "{v0} / 건": "{v0} / item",
   "연결 확인 필요": "Check connection",
   "지금은 연결을 등록할 수 없습니다": "Connection registration is unavailable",
