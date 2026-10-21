@@ -18,6 +18,9 @@ public class RateCardEntity {
     @Column(name = "workspace_id", nullable = false)
     private UUID workspaceId;
 
+    @Column(name = "folder_id")
+    private UUID folderId;
+
     @Column(nullable = false, length = 120)
     private String name;
 
@@ -95,6 +98,15 @@ public class RateCardEntity {
 
     public UUID workspaceId() {
         return workspaceId;
+    }
+
+    public UUID folderId() {
+        return folderId;
+    }
+
+    public void moveToFolder(UUID folderId, Instant now) {
+        this.folderId = folderId;
+        this.updatedAt = now;
     }
 
     public String name() {

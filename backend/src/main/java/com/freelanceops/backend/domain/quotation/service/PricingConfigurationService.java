@@ -80,7 +80,7 @@ public class PricingConfigurationService {
                 request.currency(),
                 request.active(),
                 now);
-        return response(rateCardRepository.save(entity));
+        return response(rateCardRepository.saveAndFlush(entity));
     }
 
     @Transactional(readOnly = true)
@@ -139,7 +139,7 @@ public class PricingConfigurationService {
         }
     }
 
-    private static RateCardResponse response(RateCardEntity entity) {
+    static RateCardResponse response(RateCardEntity entity) {
         return new RateCardResponse(
                 entity.id(),
                 entity.workspaceId(),
@@ -149,7 +149,8 @@ public class PricingConfigurationService {
                 entity.minimumAmount(),
                 entity.currency(),
                 entity.active(),
-                entity.version());
+                entity.version(),
+                entity.folderId());
     }
 
     private static EstimationPolicyResponse response(EstimationPolicyEntity entity) {

@@ -896,9 +896,16 @@ PUT    /workspaces/{workspaceId}/members/{memberId}/roles
 GET    /workspaces/{workspaceId}/permissions
 GET    /workspaces/{workspaceId}/rate-cards
 PUT    /workspaces/{workspaceId}/rate-cards/{rateCardId}
+GET    /workspaces/{workspaceId}/rate-card-folders
+PUT    /workspaces/{workspaceId}/rate-card-folders/{folderId}
+DELETE /workspaces/{workspaceId}/rate-card-folders/{folderId}
+PUT    /workspaces/{workspaceId}/rate-cards/{rateCardId}/folder
 ```
 
 - role·member 변경 API는 현재 사용자의 permission뿐 아니라 대상 role의 등급 제한을 검사한다.
+- 서비스 단가 폴더는 작업 공간 범위의 중첩 구조다. 목록은 `id`, `workspaceId`, `parentId`, `name`, `version`의 평면 배열이며, 폴더 PUT은 `{name, parentId}`로 생성·이름 변경·부모 이동을 수행한다. `parentId: null`은 최상위다. 같은 부모의 폴더 이름은 대소문자를 구분하지 않고 중복을 허용하지 않는다.
+- 폴더 조회는 `quotation.read`, 생성·이동·삭제와 단가 분류 이동은 `quotation.write`를 요구한다. 자기 자신·하위 폴더로의 이동과 다른 작업 공간의 부모·폴더 참조를 거부한다. 직접 단가(비활성 포함)나 하위 폴더가 남아 있는 폴더의 삭제는 `409`로 거부한다.
+- 단가 분류 이동은 `{folderId}`를 별도 PUT하며 `null`이면 미분류로 옮긴다. 기존 단가 PUT은 분류를 유지하고, 전체 단가 GET은 계속 모든 단가를 반환한다. 폴더를 이동해도 단가 ID·금액·활성 상태와 기존 견적 참조는 바뀌지 않는다. 폴더·단가 이동은 같은 작업 공간 행을 잠가 순환·삭제 경합을 직렬화한다.
 - 마지막 Owner 제거, 자기 권한 상승, ADMIN의 OWNER 부여는 domain rule에서 차단한다.
 - 로그인 응답 또는 `/me`는 현재 선택된 workspace의 effective permission code를 제공할 수 있지만, frontend의 숨김 처리는 보안 경계가 아니다.
 - permission이 없어도 resource 존재 여부가 노출되지 않도록 workspace 밖 resource는 `404`, 같은 workspace의 권한 부족은 `403`으로 응답한다.
