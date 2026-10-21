@@ -1,5 +1,13 @@
 // 서비스가 제공하는 도우미 라벨만 번역한다. 사용자 이름과 생성된 결과는 유지한다.
 export const petEnglish = {
+  "금액은 계산된 견적에서 확인해 주세요.": "See the calculated quotation for amounts.",
+  "위험 대비 금액과 세금을 포함하며, 같은 계산 기준으로 저장합니다.": "Includes contingency and tax. Saving uses the same calculation.",
+  "견적을 계산하고 있습니다.": "Calculating the quotation.",
+  "항목과 계산 기준을 확인해 주세요.": "Check the items and calculation settings.",
+  "계산 확인 중": "Checking calculation",
+  "금액 확인 필요": "Amount needs verification",
+  "할인 금액": "Discount",
+  "계산 기준이 바뀌었습니다. 최신 금액을 확인한 뒤 다시 저장해 주세요.": "Calculation settings changed. Review the updated amount before saving again.",
   "현재 초안과 비교": "Compare with the current draft",
   "다른 창에서 대화 설정이 변경되었습니다. 다시 확인 후 보내 주세요.": "Conversation settings changed in another window. Refresh before sending.",
   "진행 중인 응답을 먼저 멈춰 주세요.": "Stop the current reply first.",

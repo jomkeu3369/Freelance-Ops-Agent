@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
+import { quotationPreview } from "./browser/helpers/quotation-preview.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -72,6 +73,7 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
         return json({ items: server.first, nextCursor: cursorToken });
       }
       if (route.endsWith("/rate-cards")) return json([]);
+      if (route.endsWith("/estimation-policy")) return json({ defaultTaxRate: .1, defaultRiskBufferRate: .1 });
       if (route.endsWith("/outcome")) return json(server.outcome);
       if (route.endsWith("/latest")) return json(server.latest);
       const selected = server.details.get(route.split("/").at(-1));
@@ -82,6 +84,7 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
       throw new Error(`Unexpected or unbounded read: ${url}`);
     }
     const input = init.body ? JSON.parse(init.body) : null;
+    if (route.endsWith("/quotations/preview")) return json(quotationPreview(input, { defaultTaxRate: .1, defaultRiskBufferRate: .1 }));
     server.writes.push({ route, input });
     if (route.endsWith("/revisions")) return server.conflict ? json({ message: "Conflict" }, 409) : json(quote(101, { ...input, seriesId: "series-5" }));
     if (route.endsWith("/publish")) return json(quote(100, { status: "PUBLISHED" }));
@@ -121,7 +124,8 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
   const render = () => { slotIndex = 0; effects = []; const result = component(props); for (const effect of effects) effect(); return result; };
   const pages = () => server.reads.filter(url => url.pathname.endsWith("/quotations/page"));
   render();
-  return { api, server, props, render, pages, storage, draftKey, persist() { for (const callback of timers.values()) callback(); timers.clear(); } };
+  const flushTimers = () => { const pending = [...timers.values()]; timers.clear(); for (const callback of pending) callback(); };
+  return { api, server, props, render, pages, storage, draftKey, persist: flushTimers, async calculated() { render(); flushTimers(); await tick(); return render(); } };
 }
 
 test("quote builder reads one bounded page; explicit older-page loads preserve the current selection and draft", async () => {
@@ -155,7 +159,7 @@ test("restoring an older quotation draft fetches its base by ID without scanning
   assert.equal(h.server.reads.filter(url => url.pathname.endsWith("/quotations/quote-5")).length, 1);
   h.persist();
   assert.equal(JSON.parse(h.storage.get(h.draftKey)).baseQuotationId, "quote-5");
-  await model.save();
+  await (await h.calculated()).save();
   assert.match(h.server.writes[0].route, /\/quote-5\/revisions$/);
   assert.equal(h.render().items[0].title, "Restored working draft");
 });
@@ -212,7 +216,7 @@ test("late pages from the previous project are ignored", async () => {
 
 test("revision conflict resolves the exact series with one bounded latest lookup without touching the draft", async () => {
   const h = harness("builder", { draft: {} }); h.server.conflict = true; await tick();
-  await h.render().save();
+  await (await h.calculated()).save();
   const model = h.render();
   assert.equal(model.conflictLatest.id, "quote-6");
   assert.equal(model.saved.id, "quote-5");
@@ -269,6 +273,7 @@ test("failed off-page draft-base lookup restores and persists the draft but prev
   assert.equal(persisted.items[0].title, "Continued editing safely");
   model = h.render(); model.resetQuotation();
   h.render().setItems([item("Explicit new quotation")]); model = h.render();
+  model = await h.calculated();
   assert.equal(model.canSave, true);
   await model.save();
   assert.match(h.server.writes[0].route, /\/projects\/project\/quotations$/);
@@ -327,7 +332,7 @@ test("fresh empty AI-draft props during an off-page detail read do not cancel an
   h.render(); await tick();
   assert.equal(h.server.reads.filter(url => url.pathname.endsWith("/quotations/quote-5")).length, 1);
   h.server.holdDetail.release(); await tick();
-  const model = h.render();
+  const model = await h.calculated();
   assert.equal(model.saved.id, "quote-5");
   assert.equal(model.items[0].title, "Restored working draft");
   assert.equal(model.canSave, true);

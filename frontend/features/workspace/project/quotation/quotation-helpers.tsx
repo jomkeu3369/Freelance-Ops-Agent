@@ -1,5 +1,16 @@
-import { AgentQuotationDraft, Quotation, QuotationItemInput, RateCard } from "../../../../app/lib/api";
+import { AgentQuotationDraft, Quotation, QuotationItemInput, QuotationPreview, RateCard, type createQuotation } from "../../../../app/lib/api";
 import { selectRateCardForDraftItem } from "../../../../app/lib/rate-card-match.mjs";
+
+export function quotationCalculationInput(input: Omit<Parameters<typeof createQuotation>[2], "applyDefaultRiskBuffer">) {
+  return {...input, applyDefaultRiskBuffer: true};
+}
+
+export function sameQuotationCalculation(left: QuotationPreview, right: QuotationPreview) {
+  const values = (value: QuotationPreview) => [value.subtotal, value.discountTotal, value.riskBufferRate,
+    value.riskBufferAmount, value.taxRate, value.taxAmount, value.total,
+    value.items?.map(item => [item.subtotal, item.discountAmount, item.total])];
+  return JSON.stringify(values(left)) === JSON.stringify(values(right));
+}
 
 export const emptyQuoteItem = (): QuotationItemInput => ({
   rateCardId: null,

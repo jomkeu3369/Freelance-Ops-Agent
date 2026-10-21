@@ -1,3 +1,5 @@
+import {quotationPreview} from "./quotation-preview.mjs";
+
 const localOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3100").origin;
 const apiOrigin = "http://localhost:8080";
 const project = {
@@ -43,6 +45,7 @@ export async function fixture(page) {
     if (path === "/api/v2/me/ai-usage" && method === "GET") return json(state.aiUsage, state.aiUsageStatus);
     if (path === "/api/v2/me/ai-usage/history" && method === "GET") return json(state.aiHistory, state.aiHistoryStatus);
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
+    if (path.endsWith("/quotations/preview") && method === "POST") return json(quotationPreview(req.postDataJSON(),state.policy));
     if (method !== "GET") state.writes.push({ path, method });
     if (path.endsWith("/pet-conversation") && method === "GET") return json({version:0,settings:{petMode:false,debateEnabled:true,participantPetIds:[],acceptedDraft:null,draftSourceRunId:null}});
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });

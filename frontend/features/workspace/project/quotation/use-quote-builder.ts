@@ -14,6 +14,8 @@ import {
   getProjectQuotation,
   getLatestQuotation,
   listRateCards,
+  getEstimationPolicy,
+  previewQuotation,
   publishQuotation,
   reviseQuotation,
   revokeProposalShare
@@ -32,7 +34,8 @@ import { hydrateMissingDraftRates } from "@/app/lib/rate-card-match.mjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { quotationScenarioLabels } from "../../shared/constants";
 import { useQuotationHistory } from "./use-quotation-history";
-import { copyToClipboard, emptyQuoteItem, quotationDraftItems, quotationItemsAsInput } from "./quotation-helpers";
+import { copyToClipboard, emptyQuoteItem, quotationDraftItems, quotationItemsAsInput, quotationCalculationInput, sameQuotationCalculation } from "./quotation-helpers";
+import { useQuotationPreview } from "./use-quotation-preview";
 
 export type QuoteDraftStatus = {
   kind: "generated" | "restored" | "saved" | "unavailable";
@@ -59,6 +62,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   const [scenario, setScenario] = useState<QuotationScenario>("RECOMMENDED");
   const [items, setItems] = useState<QuotationItemInput[]>([emptyQuoteItem()]);
   const [taxRate, setTaxRate] = useState(0.1);
+  const [defaultTaxRate, setDefaultTaxRate] = useState(0.1);
   const [validUntil, setValidUntil] = useState("");
   const [selectedBasisIndex, setSelectedBasisIndex] = useState(0);
   const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } =
@@ -89,7 +93,9 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   // 사용량·연결 상태 갱신 때 부모가 새 빈 배열을 전달할 수 있다.
   // 이 때문에 복원을 다시 시작하거나 저장 전 편집 내용을 덮어쓰면 안 된다.
   const fallbackAIDrafts = useMemo(() => (quotationDraft ? [quotationDraft] : EMPTY_AI_DRAFTS), [quotationDraft]);
-  const rawAIDrafts = quotationDrafts.length > 0 ? quotationDrafts : fallbackAIDrafts;
+  // 같은 초안을 담은 새 배열 때문에 금액 조회나 선택 항목 변경 시 편집기를 복원하지 않는다.
+  const rawAIDraftsJSON = JSON.stringify(quotationDrafts.length > 0 ? quotationDrafts : fallbackAIDrafts);
+  const rawAIDrafts = useMemo<AgentQuotationDraft[]>(() => JSON.parse(rawAIDraftsJSON), [rawAIDraftsJSON]);
   const availableAIDrafts = useMemo(
     () => rawAIDrafts.filter((draft) => !dismissedAIDraftFingerprints.includes(quotationAIDraftFingerprint(draft))),
     [dismissedAIDraftFingerprints, rawAIDrafts]
@@ -116,12 +122,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   useEffect(() => {
     if (!canRead) return;
     let cancelled = false;
-    Promise.all([loadFirstPage(), listRateCards(session)])
-      .then(async ([result, nextRateCards]) => {
+    Promise.all([loadFirstPage(), listRateCards(session), getEstimationPolicy(session)])
+      .then(async ([result, nextRateCards, policy]) => {
         if (!cancelled) {
           setDraftStatus(null);
           const activeRateCards = nextRateCards.filter((card) => card.active);
           setRateCards(activeRateCards);
+          setDefaultTaxRate(policy.defaultTaxRate);
           const latest = result[0] ?? null;
           const defaultAIDraft =
             availableAIDrafts.find((draft) => draft.scenario === "RECOMMENDED") ?? availableAIDrafts[0] ?? null;
@@ -130,7 +137,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             : null;
           const defaultScenario = defaultAIDraft?.scenario ?? latest?.scenario ?? "RECOMMENDED";
           const defaultItems = generatedItems ?? (latest ? quotationItemsAsInput(latest) : [emptyQuoteItem()]);
-          const defaultTaxRate = latest?.taxRate ?? 0.1;
+          const initialTaxRate = generatedItems ? policy.defaultTaxRate : (latest?.taxRate ?? policy.defaultTaxRate);
           const defaultValidUntil = latest?.validUntil ?? "";
           let restored = null;
           if (canWrite) {
@@ -186,7 +193,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
               fingerprint(
                 baseQuotation?.scenario ?? "RECOMMENDED",
                 baseQuotation?.id ?? null,
-                baseQuotation?.taxRate ?? 0.1,
+                baseQuotation?.taxRate ?? policy.defaultTaxRate,
                 baseQuotation?.validUntil ?? "",
                 baselineItems
               )
@@ -198,12 +205,12 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
             setSaved(generatedItems ? null : latest);
             setScenario(defaultScenario);
             setItems(defaultItems);
-            setTaxRate(defaultTaxRate);
+            setTaxRate(initialTaxRate);
             setValidUntil(defaultValidUntil);
             const baseline = fingerprint(
               defaultScenario,
               generatedItems ? null : (latest?.id ?? null),
-              defaultTaxRate,
+              initialTaxRate,
               defaultValidUntil,
               defaultItems
             );
@@ -284,11 +291,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [hasUnsavedDraft]);
 
-  const estimatedSubtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitRate * (1 - item.discountRate),
-    0
-  );
-  const canSave =
+  const validItems =
     canWrite &&
     !unresolvedBaseId &&
     items.length > 0 &&
@@ -300,6 +303,11 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
         item.basis.content.trim() &&
         (item.basis.type === "ASSUMPTION" || Boolean(item.basis.sourceType && item.basis.sourceReference?.trim()))
     );
+  const calculationInput = useMemo(() => quotationCalculationInput({scenario, currency: project.currency,
+    taxRate, validUntil: validUntil || null, items}), [scenario, project.currency, taxRate, validUntil, items]);
+  const calculation = useQuotationPreview(session, project.id, calculationInput, validItems);
+  const preview = canWrite ? calculation.preview : saved;
+  const canSave = validItems && !!calculation.preview;
   const selectedBasis = items[Math.min(selectedBasisIndex, items.length - 1)]?.basis ?? null;
   const latestByScenario = useMemo(
     () =>
@@ -383,13 +391,13 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setScenario("RECOMMENDED");
     setItems(nextItems);
     setSelectedBasisIndex(0);
-    setTaxRate(0.1);
+    setTaxRate(defaultTaxRate);
     setValidUntil("");
     setProposalShare(null);
     setShareCopyState(null);
     setConflictLatest(null);
     setError(null);
-    const baseline = fingerprint("RECOMMENDED", null, 0.1, "", nextItems);
+    const baseline = fingerprint("RECOMMENDED", null, defaultTaxRate, "", nextItems);
     setDraftBaseline(baseline);
     lastPersistedDraftRef.current = baseline;
     clearStoredDraft();
@@ -468,18 +476,17 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   };
 
   const save = async () => {
-    if (unresolvedBaseId || busy) return;
+    if (unresolvedBaseId || busy || !canSave || !calculation.preview) return;
     setBusy(true);
     setError(null);
     try {
-      const input = {
-        scenario,
-        currency: project.currency,
-        taxRate,
-        applyDefaultRiskBuffer: true,
-        validUntil: validUntil || null,
-        items
-      };
+      const input = calculationInput;
+      const fresh = await previewQuotation(session, project.id, input);
+      if (!sameQuotationCalculation(fresh, calculation.preview)) {
+        calculation.refresh();
+        setError("계산 기준이 바뀌었습니다. 최신 금액을 확인한 뒤 다시 저장해 주세요.");
+        return;
+      }
       const quotation = saved
         ? await reviseQuotation(session, saved.id, input)
         : await createQuotation(session, project.id, input);
@@ -575,6 +582,7 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
   };
 
   return {
+    session,
     canRead,
     hasUnsavedDraft,
     availableAIDrafts,
@@ -603,7 +611,8 @@ export function useQuoteBuilder({ session, project, permissions, quotationDraft,
     setItems,
     modelSelection,
     petProfiles,
-    estimatedSubtotal,
+    preview,
+    calculation,
     setTaxRate,
     validUntil,
     setValidUntil,

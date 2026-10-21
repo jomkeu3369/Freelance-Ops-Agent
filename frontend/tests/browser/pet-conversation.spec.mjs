@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { fixture } from "./helpers/chat-fixture.mjs";
+import {quotationPreview} from "./helpers/quotation-preview.mjs";
 
 const profiles = ["꼼꼼이","든든","차근","또렷"].map((name,index) => ({petId:`pet-${index}`,name,
   slot:"RECOMMENDED",animal:index===1?"cat":index===2?"turtle":"owl",color:"lavender",accessory:"none",tone:"WARM",
@@ -11,7 +12,7 @@ const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message
 async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
-  const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],cancelStatus:200,saveStatus:200,loadStatus};
+  const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
   const completed = (status="COMPLETED", petMessages=messages) => ({runId:"run-one",status,activeDepartment:null,interruption:null,errorCode:null,
     result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[],quotationDraft:draft,quotationDrafts:[draft],petMessages},
     metadata:{provider:"OPENAI",model:"gpt-6-luna",petProfiles:profiles.slice(0,3)},usage:null,updatedAt:"2026-10-21T10:00:00Z"});
@@ -35,7 +36,10 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
     return route.fulfill({json:server.view});
   });
   await page.route("**/rate-cards",route=>route.fulfill({json:missingRate?[]:[{id:"rate-one",workspaceId:"local-space",name:"예약 개발",unit:"HOUR",rate:50000,minimumAmount:0,currency:"KRW",active:true,version:1}]}));
-  await page.route("**/quotations/preview",route=>route.fulfill({json:{subtotal:900000,discountTotal:0,riskBufferRate:0,riskBufferAmount:0,taxRate:.1,taxAmount:90000,total:990000}}));
+  await page.route("**/quotations/preview",route=>{
+    const input=route.request().postDataJSON();server.previews.push(input);
+    return route.fulfill({status:server.previewStatus,json:server.previewStatus===200?quotationPreview(input,state.policy):{message:"Calculation unavailable"}});
+  });
   await page.route("**/agent-runs",route=>{
     if(route.request().method()!=="POST")return route.fallback();
     const body=route.request().postDataJSON();server.starts.push(body);server.order.push("start");
@@ -154,6 +158,74 @@ test("an unknown rate is not presented as zero or free",async({page})=>{
   await open(page,{missingRate:true});
   await expect(page.getByText("연결할 단가를 확인해야 합니다. 미정 항목은 무료로 계산하지 않습니다.",{exact:true})).toBeVisible();
   await expect(page.locator(".pet-conversation-total")).toHaveCount(0);
+});
+
+test("pet brief, review and saved draft use the same server minimum, contingency and tax",async({page})=>{
+  const {server}=await open(page);
+  const authoritative={subtotal:1000000,discountTotal:0,riskBufferRate:.1,riskBufferAmount:100000,
+    taxRate:.1,taxAmount:110000,total:1210000,items:[{subtotal:1000000,discountAmount:0,total:1000000}]};
+  const previews=[],creates=[];
+  await page.route("**/quotations/preview",route=>{previews.push(route.request().postDataJSON());return route.fulfill({json:authoritative});});
+  await page.route("**/quotations",route=>{
+    const input=route.request().postDataJSON();creates.push(input);
+    return route.fulfill({status:201,json:{...input,...authoritative,id:"quote-pricing",workspaceId:"local-space",
+      projectId:"project-one",seriesId:"quote-pricing",previousVersionId:null,versionNumber:1,version:0,status:"DRAFT",
+      items:input.items.map((item,index)=>({...item,...authoritative.items[index]})),publishedAt:null,createdAt:"2026-10-22T00:00:00Z"}});
+  });
+  await page.reload();
+  await expect(page.locator(".pet-conversation-total")).toContainText("₩1,210,000");
+  await expect(page.locator(".pet-conversation-brief")).toContainText("₩100,000");
+  await page.getByRole("button",{name:"초안에 반영",exact:true}).click();
+  await page.getByRole("button",{name:"견적 검토하기",exact:true}).click();
+  await expect(page.locator(".quote-summary .quote-total")).toContainText("₩1,210,000");
+  await expect(page.locator(".quote-item-disclosure").first()).toContainText("₩1,000,000");
+  await page.getByRole("button",{name:"검토용 초안 저장",exact:true}).click();
+  await expect.poll(()=>creates.length).toBe(1);
+  expect(creates[0]).toEqual(previews.at(-1));
+  expect(previews.every(input=>input.applyDefaultRiskBuffer)).toBe(true);
+  await expect(page.locator(".saved-quote")).toContainText("₩1,210,000");
+  expect(server.accepts).toHaveLength(1);
+});
+
+test("legacy monetary guesses are hidden while effort and reply links remain",async({page})=>{
+  const {state}=await open(page);
+  state.run.result.petMessages=state.run.result.petMessages.map((message,index)=>index===2
+    ? {...message,text:"API는 1.5일로 가정해. 부가세 포함 277만7,500원입니다. 중복 예약 검증은 남겨 두자!"}:message);
+  state.events=[];
+  await page.reload();
+  const reply=page.locator(".pet-conversation-message").last();
+  await expect(reply).toContainText("1.5일");
+  await expect(reply).toContainText("중복 예약 검증");
+  await expect(reply).not.toContainText("277");
+  await expect(page.locator(".pet-conversation-reply")).toHaveCount(2);
+});
+
+test("calculation failure disables saving without showing a fabricated zero and can retry",async({page})=>{
+  const {server}=await open(page);server.previewStatus=503;
+  await page.getByRole("button",{name:"초안에 반영",exact:true}).click();
+  await page.getByRole("button",{name:"견적 검토하기",exact:true}).click();
+  await expect(page.locator(".quote-summary").getByRole("alert")).toContainText("견적 금액을 확인하지 못했습니다.");
+  await expect(page.getByRole("button",{name:"검토용 초안 저장",exact:true})).toBeDisabled();
+  await expect(page.locator(".quote-summary")).not.toContainText("₩0");
+  server.previewStatus=200;
+  await page.locator(".quote-summary").getByRole("button",{name:"다시 확인",exact:true}).click();
+  await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
+  await expect(page.getByRole("button",{name:"검토용 초안 저장",exact:true})).toBeEnabled();
+});
+
+test("a policy change before saving refreshes the displayed amount without creating a quotation",async({page})=>{
+  const {server,state}=await open(page);
+  const creates=[];
+  await page.route("**/quotations",route=>{creates.push(route.request().postDataJSON());return route.fulfill({status:500,json:{message:"Unexpected save"}});});
+  await page.getByRole("button",{name:"초안에 반영",exact:true}).click();
+  await page.getByRole("button",{name:"견적 검토하기",exact:true}).click();
+  await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
+  state.policy.defaultRiskBufferRate=.2;
+  await page.getByRole("button",{name:"검토용 초안 저장",exact:true}).click();
+  await expect(page.getByRole("alert").filter({hasText:"계산 기준이 바뀌었습니다."})).toBeVisible();
+  expect(creates).toEqual([]);
+  await expect(page.locator(".quote-total")).toContainText("₩1,188,000");
+  expect(server.previews.at(-1).applyDefaultRiskBuffer).toBe(true);
 });
 
 for(const [width,locale,theme] of [[390,"ko","light"],[320,"en","dark"],[1024,"en","light"]]) {
