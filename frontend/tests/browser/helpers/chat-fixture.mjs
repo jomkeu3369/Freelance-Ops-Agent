@@ -44,6 +44,7 @@ export async function fixture(page) {
     if (path === "/api/v2/me/ai-usage/history" && method === "GET") return json(state.aiHistory, state.aiHistoryStatus);
     if (url.origin !== apiOrigin || !path.includes("/local-space/") && path !== "/api/v2/me") return json({}, 404);
     if (method !== "GET") state.writes.push({ path, method });
+    if (path.endsWith("/pet-conversation") && method === "GET") return json({version:0,settings:{petMode:false,debateEnabled:true,participantPetIds:[],acceptedDraft:null,draftSourceRunId:null}});
     if (path === "/api/v2/me") return json({ id: "local-user", email: "fixture@example.invalid", displayName: "Fixture", status: "ACTIVE", workspaces: [{ workspaceId: "local-space", name: "Fixture", slug: "fixture", effectivePermissions: state.permissions }] });
     if (path.endsWith("/projects") && method === "GET") return json(state.projects);
     if (path.endsWith("/clients") && method === "GET") return json([]);

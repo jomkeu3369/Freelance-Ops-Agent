@@ -35,7 +35,18 @@ public record StartAgentRunRequest(
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
                 @Size(max = 100)
-                String byokCostNoticeVersion) {
+                String byokCostNoticeVersion,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                @Valid com.freelanceops.backend.domain.agentrun.dto.PetConversation.Command conversation) {
+
+    public StartAgentRunRequest(String requirementText, String locale, String jurisdictionCode,
+            ModelSelection modelSelection, RunBudget budget, SafetyContext safetyContext, CreditQuote creditQuote,
+            java.util.List<UUID> attachmentIds, com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection,
+            String workflowMode, String byokCostNoticeVersion) {
+        this(requirementText, locale, jurisdictionCode, modelSelection, budget, safetyContext, creditQuote,
+                attachmentIds, skillSelection, workflowMode, byokCostNoticeVersion, null);
+    }
 
     public StartAgentRunRequest {
         skillSelection =

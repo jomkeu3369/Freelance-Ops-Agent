@@ -14,7 +14,7 @@ import { byokCostEstimate, byokCostNoticeVersion, byokFailureMessage } from "../
 import { invalidateQueries } from "../query-cache";
 import { ApiError, request } from "./http";
 
-export function startAgentRun(session: AuthSession, project: Project, input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null }, message?: string, idempotencyKey: string = crypto.randomUUID(), creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection, workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC"): Promise<RunAccepted> {
+export function startAgentRun(session: AuthSession, project: Project, input: { provider: Provider; model: string; reasoningEffort: ReasoningEffort; credentialId?: string | null }, message?: string, idempotencyKey: string = crypto.randomUUID(), creditQuote?: CreditQuote, attachmentIds?: string[], skillSelection?: SkillSelection, workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC", conversation?: import("./pet-conversation").PetConversationCommand): Promise<RunAccepted> {
   if (input.credentialId && !byokCostEstimate(input.provider, input.model)) {
     return Promise.reject(
       new ApiError(byokFailureMessage("BYOK_COST_NOTICE_REFRESH_REQUIRED")!, 409, "BYOK_COST_NOTICE_REFRESH_REQUIRED")
@@ -31,6 +31,7 @@ export function startAgentRun(session: AuthSession, project: Project, input: { p
         ...(attachmentIds?.length ? { attachmentIds } : {}),
         ...(skillSelection ? { skillSelection } : {}),
         ...(workflowMode ? { workflowMode } : {}),
+        ...(conversation ? { conversation } : {}),
         locale: "ko-KR",
         jurisdictionCode: "KR",
         modelSelection: input,
@@ -40,7 +41,7 @@ export function startAgentRun(session: AuthSession, project: Project, input: { p
           maxDurationSeconds: 180,
           maxModelCalls: 50,
           maxToolCalls: 12,
-          maxInputTokens: input.credentialId ? 150000 : workflowMode === "PROJECT_ANALYSIS" ? 150000 : 50000,
+          maxInputTokens: input.credentialId || conversation ? 150000 : workflowMode === "PROJECT_ANALYSIS" ? 150000 : 50000,
           maxOutputTokens: 48000,
           maxDepartments: 4,
           maxHierarchyDepth: 2,

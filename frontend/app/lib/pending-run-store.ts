@@ -12,6 +12,7 @@ export interface PendingRunInput {
   attachmentIds?: string[];
   skillSelection?: SkillSelection;
   workflowMode?: "PROJECT_ANALYSIS" | "AD_HOC";
+  conversation?: import("./api").PetConversationCommand;
 }
 export interface PendingRunRetry extends PendingRunInput {
   id: string;
@@ -36,7 +37,8 @@ export class PendingRunStore {
       input.message,
       input.attachmentIds ?? [],
       input.skillSelection ?? null,
-      input.workflowMode ?? "PROJECT_ANALYSIS"
+      input.workflowMode ?? "PROJECT_ANALYSIS",
+      input.conversation ?? null
     ]);
     const previous = this.entries.get(signature);
     if (previous) return structuredClone(previous.request);
@@ -44,6 +46,7 @@ export class PendingRunStore {
       ...input,
       attachmentIds: [...(input.attachmentIds ?? [])],
       skillSelection: input.skillSelection ? structuredClone(input.skillSelection) : undefined,
+      conversation: input.conversation ? structuredClone(input.conversation) : undefined,
       id: crypto.randomUUID(),
       creditQuote: input.credentialId ? undefined : input.creditQuote ? { ...input.creditQuote } : undefined
     };

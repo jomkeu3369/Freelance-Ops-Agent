@@ -23,3 +23,4 @@ export * from "./api/agent-events";
 export * from "./api/ai-connections";
 export * from "./api/contracts/pets";
 export * from "./api/pets";
+export * from "./api/pet-conversation";

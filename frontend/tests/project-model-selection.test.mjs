@@ -109,6 +109,8 @@ function workbench(modelSelection, connections = [], connectionError = false, { 
     "../shared/formatters": { projectClientLabel: () => "Synthetic client" },
     "../shared/use-dialog-focus-trap": { useDialogFocusTrap() {} },
     "../pets/pet-library-events": { petMutationState: () => petMutation, subscribeToPetMutations: () => () => {} },
+    "../pets/use-pet-conversation": { usePetConversation: () => ({view:{version:0,settings:{petMode:false,participantPetIds:[]}},loading:false,saving:false,recipient:""}) },
+    "../pets/pet-conversation-error": { petConversationError: () => null },
     "../skills/skill-selector": { useSkillSelection: () => [{ mode: "AUTO" }, () => {}] },
     "../usage/use-ai-usage": { useAiUsage: () => ({ data: usage, loading: false }) },
     "./analysis/analysis-step": { AnalysisStep: "AnalysisStep" },
@@ -174,6 +176,7 @@ test("losing agent.run permission blocks restored model and personal-key choices
     assert.equal(f.analysis.canRun, false);
     assert.equal(f.analysis.canSendAI, false);
     assert.equal(f.analysis.composerTools, null);
+    assert.equal(f.analysis.conversationTools, null);
     assert.equal(await f.analysis.onSendMessage("Synthetic message"), false);
     assert.equal(f.starts.length, 0);
     assert.equal(f.changes.length, 0);

@@ -280,7 +280,7 @@ test("workspace calls Spring only and renders a live event-driven graph", async 
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /streamRunEvents/);
-  assert.match(workspace, /LiveWorkflow/);
+  assert.match(workspace, /PetConversationMessages/);
   assert.match(graph, /role="progressbar"/);
   assert.match(graph, /statusCopy\[snapshot\.status\]/);
   assert.match(graph, /workflow-track-progress/);
@@ -614,7 +614,7 @@ test("completed AI analysis prices its editable draft from active server rate ca
   ]);
   assert.match(api, /quotationDraft:\s*AgentQuotationDraft\s*\|\s*null/);
   assert.match(api, /quotationDrafts:\s*AgentQuotationDraft\[\]/);
-  assert.match(workspace, /quotationDrafts=\{run\?\.result\?\.quotationDrafts\s*\?\?\s*\[\]\}/);
+  assert.match(workspace, /quotationDrafts=\{conversation.view\?\.settings.acceptedDraft/);
   assert.match(workspace, /function\s*quotationDraftItems\(draft:\s*AgentQuotationDraft,\s*rateCards:\s*RateCard\[\],\s*currency:\s*string\)/);
   assert.match(workspace, /핵심·권장·확장\s*3개\s*견적안을\s*준비했습니다/);
   assert.match(workspace, /aiDraftByScenario/);
@@ -867,15 +867,15 @@ test("agent runs request enough model calls and output tokens for the four-depar
   assert.match(workflow, /PARTIAL:\s*"부분\s*결과\s*제공"/);
 });
 
-test("waiting agent runs prioritize inline questions and open work detail on demand", async () => {
+test("waiting agent runs prioritize inline questions and fold execution history", async () => {
   const [workspace, css] = await Promise.all([
     read("../app/workspace/page.tsx"),
     read("../app/globals.css"),
   ]);
   assert.match(workspace, /status\s*===\s*"WAITING_FOR_USER"\s*&&\s*item\.runId\s*===\s*runId\s*\?\s*\(?\s*clarification/);
   assert.match(workspace, /clarification=\{\s*run\?\.interruption\s*\?\s*\(?\s*<InterruptionForm/);
-  assert.match(workspace, /showWorkDetails\s*&&\s*\(?\s*<WorkspacePanel/);
-  assert.match(workspace, /<LiveWorkflow\s*snapshot=\{snapshot\}/);
+  assert.match(workspace, /<details className="pet-conversation-history">/);
+  assert.doesNotMatch(workspace, /showWorkDetails/);
   assert.match(workspace, /onOpenResult=\{openResult\}/);
   assert.doesNotMatch(css, /\.graph-restore/);
   assert.match(css, /\.interruption-form\s*label\s*\{[^}]*font-size:\s*1rem/);

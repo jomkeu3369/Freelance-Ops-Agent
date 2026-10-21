@@ -22,7 +22,8 @@ public class AgentEventRelay {
     private static final Set<String> ALLOWED_EVENT_TYPES = Set.of(
         "run.accepted", "run.started", "run.completed", "run.partial", "run.failed", "run.cancelled",
         "clarification.requested", "clarification.responded", "route.selected", "tool.completed", "knowledge.retrieved",
-        "task.delegated", "task.completed", "task.failed", "department.saved"
+        "task.delegated", "task.completed", "task.failed", "department.saved",
+        "pet.message.started", "pet.message.completed"
     );
     private final ObjectMapper objectMapper;
 

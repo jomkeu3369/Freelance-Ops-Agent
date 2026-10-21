@@ -53,9 +53,10 @@ for (const theme of ["light", "dark"]) for (const [width, height] of [[320, 568]
     await model.press("ArrowDown"); const menu = page.getByRole("dialog", { name: "AI 모델 선택", exact: true });
     await inViewport(page, menu);
     await page.keyboard.press("Escape"); await expect(model).toBeFocused();
-    await page.getByRole("button", { name: "작업 자세히 보기", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "작업 자세히 보기", exact: true })).toBeVisible();
-    await page.keyboard.press("Escape");
+    const history = page.locator(".pet-conversation-history");
+    await history.locator("summary").first().click();
+    await expect(history).toHaveAttribute("open", "");
+    await history.locator("summary").first().click();
     expect(state.starts).toEqual([]); expect(state.writes).toEqual([]); expect(state.blocked).toEqual([]);
   });
 }

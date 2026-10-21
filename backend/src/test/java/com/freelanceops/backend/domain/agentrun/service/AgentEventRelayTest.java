@@ -144,6 +144,24 @@ class AgentEventRelayTest {
     }
 
     @Test
+    void relaysPetRepliesAndCompletionInOneAuthenticatedStream() throws Exception {
+        UUID runId = UUID.randomUUID();
+        var body = new StringBuilder();
+        int eventId = 0;
+        for (String type : new String[] {"pet.message.started", "pet.message.completed", "run.completed"}) {
+            eventId++;
+            String data = objectMapper.writeValueAsString(Map.of("eventId", eventId, "runId", runId,
+                    "type", type, "occurredAt", Instant.now(), "data", Map.of("speakerName", "동료", "text", "공개 답변")));
+            body.append("id: ").append(eventId).append("\nevent: ").append(type).append("\ndata: ").append(data).append("\n\n");
+        }
+        var emitter = mock(SseEmitter.class);
+        relay.relay(new AgentEventStream(new ByteArrayInputStream(body.toString().getBytes(StandardCharsets.UTF_8))), runId, 0, emitter);
+        verify(emitter, times(3)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(emitter).complete();
+        verify(emitter, never()).completeWithError(any());
+    }
+
+    @Test
     void rejectsPrivateOrMismatchedEvents() {
         UUID runId = UUID.randomUUID();
         String data =

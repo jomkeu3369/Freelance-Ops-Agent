@@ -20,6 +20,10 @@ import java.util.UUID;
 
 @Service
 public class AgentRunProjectionService {
+    private ProjectPetConversationService conversations;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setConversations(ProjectPetConversationService value) { this.conversations = value; }
 
     private static final java.time.Duration RECONCILIATION_INTERVAL =
             java.time.Duration.ofSeconds(5);
@@ -61,6 +65,7 @@ public class AgentRunProjectionService {
                 && interruptionService.alreadyResponded(run, view.interruption());
         if (!staleAnsweredQuestion) run.synchronizeStatus(view.status(), Instant.now());
         AgentRunView publicView = durableView(run, view);
+        if (conversations != null) conversations.recordResult(run, publicView);
         interruptionService.synchronize(run, publicView);
         costService.synchronize(run, view);
         freeUsage.settleConfirmed(run.id(), view.status());

@@ -152,7 +152,17 @@ public record InternalAgentRunRequest(
             List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
             List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments,
             com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection,
-            String workflowMode) {
+            String workflowMode,
+            @com.fasterxml.jackson.annotation.JsonInclude(
+                            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                    com.freelanceops.backend.domain.agentrun.dto.PetConversation conversation) {
+        public AgentInput(String requirementText, String locale, String jurisdictionCode, String directToolOperation,
+                List<com.freelanceops.backend.domain.agentrun.dto.PetProfile> petProfiles,
+                List<com.freelanceops.backend.domain.agentrun.dto.AttachmentText> attachments,
+                com.freelanceops.backend.domain.agentrun.dto.SkillSelection skillSelection, String workflowMode) {
+            this(requirementText, locale, jurisdictionCode, directToolOperation, petProfiles, attachments,
+                    skillSelection, workflowMode, null);
+        }
         public AgentInput {
             workflowMode = workflowMode == null ? "PROJECT_ANALYSIS" : workflowMode;
             if (!(workflowMode.equals("PROJECT_ANALYSIS") || workflowMode.equals("AD_HOC")))

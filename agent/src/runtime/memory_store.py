@@ -21,6 +21,7 @@ from contracts import (
 )
 from platform_budget import PlatformSpendLedger
 
+from .pet_conversation import append_message
 from .run_contracts import AgentRunNotFoundError, AgentRunStateError, ExecutionEvent, ExecutionOutcome
 from .run_state import append_clarification_history, merge_usage, run_metadata
 
@@ -181,6 +182,7 @@ class InMemoryAgentRunStore:
             if record.status is not AgentRunStatus.RUNNING:
                 raise AgentRunStateError("only a running Agent run can publish progress")
             self._append_event(record, event.type, event.data)
+            record.result = append_message(record.result, event)
 
     async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
         async with self._lock:

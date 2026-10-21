@@ -1,0 +1,96 @@
+.figma-workspace .pet-conversation-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  flex: 1 0 auto;
+  gap: 20px;
+  min-width: 0;
+  padding: 22px;
+  background: var(--bg);
+}
+.figma-workspace .pet-conversation-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 560px;
+  height: calc(100dvh - 280px);
+}
+.figma-workspace .is-chat .pet-conversation-main .agent-chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--surface-solid);
+}
+.figma-workspace .pet-conversation-main .agent-chat-heading { padding: 18px 22px; }
+.figma-workspace .pet-conversation-main .agent-chat-identity h2 { font-size: 18px; }
+.figma-workspace .pet-conversation-controls { padding: 10px 20px; border-block: 1px solid var(--line); background: var(--surface); }
+.figma-workspace .pet-conversation-team,
+.figma-workspace .pet-conversation-switches { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.figma-workspace .pet-conversation-team strong { font-size: 13px; }
+.figma-workspace .pet-conversation-portraits { display: flex; }
+.figma-workspace .pet-conversation-portraits .pet-art { width: 35px; height: 35px; margin: 0; }
+.figma-workspace .pet-conversation-switches { justify-content: space-between; }
+.figma-workspace .pet-conversation-switches label { display: flex; align-items: center; gap: 8px; min-height: 42px; color: var(--muted); font-size: 13px; }
+.figma-workspace .pet-conversation-switches input { appearance: none; flex-shrink: 0; position: relative; margin: 0; width: 32px; height: 20px; border: 0; border-radius: 12px; background: var(--line); cursor: pointer; }
+.figma-workspace .pet-conversation-switches input:checked { background: var(--accent); }
+.figma-workspace .pet-conversation-switches input::before { content: ""; position: absolute; width: 14px; height: 14px; top: 3px; left: 3px; border-radius: 50%; background: var(--surface-solid); transition: transform .15s; }
+.figma-workspace .pet-conversation-switches input:checked::before { transform: translateX(12px); }
+.figma-workspace .pet-conversation-switches input:disabled { opacity: .45; cursor: not-allowed; }
+.figma-workspace .pet-conversation-switches select { max-width: 160px; min-height: 34px; padding: 4px 8px; color: var(--ink); background: var(--surface-solid); border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.figma-workspace .pet-conversation-picker { width: min(700px, calc(100vw - 32px)); }
+.figma-workspace .pet-conversation-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-block: 20px; }
+.figma-workspace .pet-conversation-choice { display: grid; grid-template-columns: 64px minmax(0,1fr); align-items: center; text-align: start; gap: 6px 12px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-solid); }
+.figma-workspace .pet-conversation-choice[aria-pressed="true"] { border-color: var(--accent); background: var(--surface); }
+.figma-workspace .pet-conversation-choice .pet-art { grid-row: span 2; width: 64px; height: 64px; }
+.figma-workspace .pet-conversation-choice span { font-size: 13px; line-height: 1.6; color: var(--muted); }
+.figma-workspace .pet-conversation-picker-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.figma-workspace .pet-conversation-message { display: flex; gap: 12px; margin: 22px 0; color: var(--ink); }
+.figma-workspace .pet-conversation-message > .pet-art { flex: 0 0 42px; width: 42px; height: 48px; margin: 0; padding: 3px; border-radius: 12px; background: var(--surface); }
+.figma-workspace .pet-conversation-message > div { min-width: 0; max-width: 100%; }
+.figma-workspace .pet-conversation-message strong { font-size: 14px; }
+.figma-workspace .pet-conversation-message .chat-markdown { margin-top: 7px; padding: 12px 16px; border-radius: 0 12px 12px 12px; background: var(--surface); font-size: 15px; line-height: 1.8; }
+.figma-workspace .pet-conversation-reply { margin: 5px 0; color: var(--accent); font-size: 13px; }
+.figma-workspace .pet-conversation-evidence { margin-top: 9px; color: var(--muted); font-size: 13px; }
+.figma-workspace .pet-conversation-evidence summary { cursor: pointer; width: fit-content; min-height: 30px; }
+.figma-workspace .pet-conversation-evidence p { white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; line-height: 1.7; }
+.figma-workspace .pet-conversation-status { padding: 8px 0; background: transparent; border: 0; }
+.figma-workspace .pet-conversation-history { color: var(--muted); margin-top: 12px; font-size: 13px; }
+.figma-workspace .pet-conversation-history > summary { cursor: pointer; min-height: 32px; }
+.figma-workspace .pet-conversation-brief { min-width: 0; max-height: max(560px, calc(100dvh - 280px)); overflow-y: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--surface-solid); }
+.figma-workspace .pet-conversation-brief > header { padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.figma-workspace .pet-conversation-brief h2 { margin: 0; font-size: 17px; }
+.figma-workspace .pet-conversation-brief h3 { margin: 0 0 12px; font-size: 14px; }
+.figma-workspace .pet-conversation-brief header span { color: var(--accent); font-size: 12px; }
+.figma-workspace .pet-conversation-brief-body { padding: 20px; }
+.figma-workspace .pet-conversation-brief dl { display: grid; gap: 10px; margin: 12px 0; font-size: 13px; }
+.figma-workspace .pet-conversation-brief dl > div { display: flex; justify-content: space-between; gap: 14px; }
+.figma-workspace .pet-conversation-brief dt { color: var(--muted); }
+.figma-workspace .pet-conversation-brief dd { margin: 0; text-align: end; overflow-wrap: anywhere; }
+.figma-workspace .pet-conversation-brief hr { margin: 22px 0; border: 0; border-top: 1px solid var(--line); }
+.figma-workspace .pet-conversation-brief ul { list-style: none; padding: 0; margin: 0; }
+.figma-workspace .pet-conversation-brief li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 14px; font-size: 14px; }
+.figma-workspace .pet-conversation-brief li details { flex-basis: 100%; color: var(--muted); font-size: 13px; }
+.figma-workspace .pet-conversation-brief li details p { overflow-wrap: anywhere; line-height: 1.7; }
+.figma-workspace .pet-conversation-question,
+.figma-workspace .pet-conversation-proposal { margin-block: 18px; padding: 14px; background: var(--surface); border-radius: 12px; font-size: 14px; line-height: 1.7; }
+.figma-workspace .pet-conversation-total { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px; font-size: 13px; }
+.figma-workspace .pet-conversation-total strong { font-size: 25px; }
+.figma-workspace .pet-conversation-brief-body > .primary-button { width: 100%; margin-top: 18px; }
+@media (max-width: 1100px) {
+  .figma-workspace .pet-conversation-brief { max-height: none; overflow: visible; }
+  .figma-workspace .pet-conversation-workspace { grid-template-columns: minmax(0,1fr); padding: 14px; }
+  .figma-workspace .pet-conversation-main { height: max(650px, calc(100dvh - 190px)); }
+}
+@media (max-width: 550px) {
+  .figma-workspace .pet-conversation-workspace { padding: 10px; gap: 16px; }
+  .figma-workspace .pet-conversation-controls { padding: 10px 12px; }
+  .figma-workspace .pet-conversation-main .agent-chat-heading { padding: 16px 12px; }
+  .figma-workspace .pet-conversation-grid { grid-template-columns: minmax(0,1fr); }
+  .figma-workspace .pet-conversation-message { gap: 8px; }
+  .figma-workspace .pet-conversation-message > .pet-art { flex-basis: 32px; width: 32px; height: 38px; }
+  .figma-workspace .pet-conversation-message .chat-markdown { padding: 10px 12px; font-size: 14px; }
+  .figma-workspace .pet-conversation-brief > header,
+  .figma-workspace .pet-conversation-brief-body { padding: 18px; }
+}

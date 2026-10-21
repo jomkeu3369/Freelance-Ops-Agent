@@ -17,8 +17,9 @@ class FakeOpenAIResponses:
 
     async def create(self, **kwargs: object) -> object:
         self.calls.append(kwargs)
+        payload = {"summary": "OpenAI 결과", "open_questions": [], "quotation_drafts": [], "evidence_refs": []}
         return SimpleNamespace(
-            output_text=json.dumps({"summary": "OpenAI 결과", "open_questions": []}),
+            output_text=json.dumps(payload),
             usage=SimpleNamespace(input_tokens=11, output_tokens=7)
         )
 
@@ -40,7 +41,8 @@ async def test_scoped_provider_dispatches_openai_with_strict_non_stored_output()
     assert responses.calls[0]["text"]["verbosity"] == "low"
     output_format = responses.calls[0]["text"]["format"]
     schema = output_format["schema"]
-    assert schema["required"] == ["summary", "open_questions", "quotation_drafts"]
+    assert schema["required"] == ["summary", "open_questions", "quotation_drafts", "evidence_refs"]
+    assert schema["properties"]["evidence_refs"]["maxItems"] == 10
     assert schema["additionalProperties"] is False
 
 

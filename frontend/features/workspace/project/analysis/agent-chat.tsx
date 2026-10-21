@@ -11,6 +11,7 @@ import {
   useSyncExternalStore
 } from "react";
 import { useAgentHistory } from "./use-agent-history";
+import { PetConversationMessages, conversationMessages } from "../../pets/pet-conversation-messages";
 import { ChatMarkdown } from "../../shared/chat-markdown";
 import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import {
@@ -50,6 +51,8 @@ import { SkillNames, useSkillSelection } from "../../skills/skill-selector";
 import { ChatAttachmentButton, ChatAttachments, useChatAttachments } from "./chat-attachments";
 
 interface AgentChatProps {
+  conversationTools?: ReactNode;
+  onInterrupt?: () => Promise<void>;
   session: AuthSession;
   projectId: string;
   run: AgentRunView | null;
@@ -106,7 +109,7 @@ function eventText(event: WorkflowEvent, t: (source: string) => string): string 
   return label;
 }
 
-export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryCandidates, onOpenAISettings, onOpenResult, onSend, onCancel }: AgentChatProps) {
+export function AgentChat({ session, projectId, run, runId, events, busy, canRun, canEditPolicy, canCancel, modelAvailable, streamState, clarification, headerTools, composerTools, composerInfo, canSendAI, retryCandidates, onOpenAISettings, onOpenResult, onSend, onCancel, conversationTools, onInterrupt }: AgentChatProps) {
   const t = useT();
   const locale = useUiLocale();
   const { history, pastRuns, resultReads, loading, error, refreshHistory } = useAgentHistory({
@@ -308,7 +311,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!online || !message.trim() || sendLock.current || busy || active || composing.current) return;
+    if (!online || !message.trim() || sendLock.current || busy || active && (!onInterrupt || !canCancel) || composing.current) return;
     sendLock.current = true;
     setSending(true);
     setPolicyError(null);
@@ -317,6 +320,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
       if (policyIntent) {
         if (!canEditPolicy) throw new Error(t("견적 설정 변경 권한이 없습니다."));
         if (!policyIntent.valid) throw new Error(t("예: 기본 세율 10%, 위험 버퍼 15%, 최대 할인 20%로 변경"));
+        if (active && onInterrupt) await onInterrupt();
         const current = await getCurrentEstimationPolicy(session);
         const next = await proposeEstimationPolicy(session, {
           projectId,
@@ -348,6 +352,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         if (!canSendAI && !retryingDraft) throw new Error(t("사용량과 모델 지원 상태를 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
         if (!(await attachments.prepare())) return;
+        if (active && onInterrupt) await onInterrupt();
         const accepted = await onSend(message, attachments.ids, skillSelection);
         if (!mounted.current) return;
         if (accepted) {
@@ -371,6 +376,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     setCancelling(true);
     try {
       await onCancel();
+    } catch (cause) {
+      setPolicyError(cause instanceof Error ? cause.message : t("실행을 중단하지 못했습니다."));
     } finally {
       cancelLock.current = false;
       setCancelling(false);
@@ -432,6 +439,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
           {t(presentation.label)}
         </span>
       </header>
+      {conversationTools}
       {/* 키보드 사용자가 방향키로 이전 메시지를 읽도록 스크롤 기록에 포커스를 허용한다. */}
       <div
         ref={viewport}
@@ -464,7 +472,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                 <ChatCircleText size={30} weight="duotone" />
               </span>
               <strong>{t("무엇을 도와드릴까요?")}</strong>
-              <p>{t("함께할 펫을 고른 뒤 견적 만들기를 눌러 주세요. 궁금한 내용은 대화로 물어볼 수 있습니다.")}</p>
+              <p>{t("펫들과 이야기하며 범위와 근거를 정리해 보세요. 펫 없이 대화할 수도 있습니다.")}</p>
               <small>{t("견적 설정을 바꿀 때는 적용 전에 확인을 받습니다.")}</small>
               {!draft && canRun && (
                 <div className="agent-chat-starters">
@@ -551,6 +559,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
             const view = item.runId === runId ? run : pastRuns[item.runId];
             const status = view?.status ?? item.status;
             const liveEvents = item.runId === runId ? events : [];
+            const petMessages = conversationMessages(view?.result?.petMessages, liveEvents);
             const state = chatState(
               status,
               item.runId === runId ? { online, reconnecting: active && streamState === "reconnecting" } : {}
@@ -583,7 +592,9 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                     {file.name} · {file.status} {file.notice}
                   </p>
                 ))}
-                <div className="agent-chat-message assistant" data-state={needsResultRetry ? "offline" : state.tone}>
+                <PetConversationMessages messages={petMessages} />
+                {item.runId === runId && active && liveEvents.at(-1)?.type === "pet.message.started" && <p className="agent-chat-muted" role="status">{t("{name}가 이야기하고 있어요…",{name:String(liveEvents.at(-1)?.data.speakerName ?? t("프로젝트 AI"))})}</p>}
+                <div className={`agent-chat-message assistant${petMessages.length ? " pet-conversation-status" : ""}`} data-state={needsResultRetry ? "offline" : state.tone}>
                   <span className="agent-chat-message-label">
                     {needsResultRetry ? (
                       <WarningCircle size={17} aria-hidden="true" />
@@ -613,7 +624,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                       </ol>
                     </details>
                   )}
-                  {view?.result ? (
+                  {view?.result && !petMessages.length ? (
                     <div className="agent-chat-result">
                       <strong>{t("검토할 결과")}</strong>
                       <ChatMarkdown locale={locale}>{view.result.projectSummary}</ChatMarkdown>
@@ -622,7 +633,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                         <ArrowUpRight size={17} aria-hidden="true" />
                       </button>
                     </div>
-                  ) : status === "WAITING_FOR_USER" && item.runId === runId ? null : (
+                  ) : petMessages.length && !["FAILED","CANCELLED","PARTIAL"].includes(status) ? null : status === "WAITING_FOR_USER" && item.runId === runId ? null : (
                     <p className="agent-chat-muted">
                       {resultLoading
                         ? t("작업 기록을 불러오는 중입니다.")
@@ -734,7 +745,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         />
         {active && (
           <p id="agent-chat-input-help" className="agent-chat-muted">
-            {t("작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.")}
+            {t(onInterrupt ? "다음 요청을 보내면 현재 응답을 멈추고 이어서 이야기합니다." : "작업 중에도 다음 요청을 작성할 수 있습니다. 완료 후 보내 주세요.")}
           </p>
         )}
         <div className="agent-chat-actions">
@@ -764,14 +775,14 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                 ? t("요청 중...")
                 : attachments.items.length && !attachments.ready
                   ? t("파일 읽고 확인")
-                  : t("보내기")
+                  : active && onInterrupt && canCancel ? t("말 끊고 보내기") : t("보내기")
             }
             disabled={
               !online ||
               (!draft.trim() && !attachments.items.length) ||
               attachments.tooLarge ||
               (attachments.items.length > 0 && attachments.ready && !attachments.confirmed) ||
-              active ||
+              active && (!onInterrupt || !canCancel) ||
               busy ||
               sending ||
               (!mayReadAttachments && !maySendDraft) ||
@@ -788,7 +799,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                 ? t("요청 중...")
                 : attachments.items.length && !attachments.ready
                   ? t("파일 읽고 확인")
-                  : t("보내기")}
+                  : active && onInterrupt && canCancel ? t("말 끊고 보내기") : t("보내기")}
             </span>
           </button>
         </div>

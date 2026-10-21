@@ -23,7 +23,8 @@ test("panels mount on demand, name their dialogs and restore focus through the s
   assert.match(panel, /useDialogFocusTrap\(panel,\s*onClose,\s*false,\s*true,\s*true\)/);
   assert.match(panel, /role="dialog"\s*aria-modal="true"\s*aria-labelledby=\{titleId\}/);
   assert.match(panel, /aria-label=\{t\("닫기"\)\}/);
-  assert.match(step, /showWorkDetails\s*&&\s*\(?\s*<WorkspacePanel/);
+  assert.match(step, /<details className="pet-conversation-history">/);
+  assert.doesNotMatch(step, /showWorkDetails/);
   assert.match(step, /resultView\?\.result\s*&&\s*\(?\s*<WorkspacePanel/);
   assert.match(workbench, /canRun\s*&&\s*showAISettings/);
   assert.match(workbench, /setShowAISettings\(false\)/);

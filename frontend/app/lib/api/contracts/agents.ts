@@ -47,6 +47,7 @@ export interface AgentRunView {
   activeDepartment: string | null;
   interruption: AgentInterruption | null;
   result: {
+    petMessages?: import("../pet-conversation").PetMessage[];
     projectSummary: string;
     openQuestions: string[];
     departmentResults: Array<{

@@ -239,6 +239,7 @@ class OperationalAgentExecutor:
         if (
             request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS
             and request.input.direct_tool_operation is None
+            and request.input.conversation is None
         ):
             self._enforce_project_analysis_budget(request)
 
@@ -282,6 +283,11 @@ class OperationalAgentExecutor:
         if knowledge.text:
             text += "\n\nGrounded project memory (separate from the current user request):\n" + knowledge.text
         departments = _ROUTE_DEPARTMENTS[decision.route][: request.budget.max_departments]
+        if request.input.conversation is not None:
+            from .pet_conversation import execute_conversation
+
+            context = await self._load_project_context(request, authorization)
+            return await execute_conversation(self._provider, request, context, text)
         if (
             request.byok_budget is None
             and DepartmentName.RESEARCH in departments
@@ -743,6 +749,14 @@ class OperationalAgentExecutor:
                 local_decision=None,
                 safety_decision=safety,
                 policy_code="TRUSTED_DIRECT_TOOL_OPERATION"
+            )
+        if request.input.conversation is not None:
+            return FinalRouteDecision(
+                route=RouteLabel.SIMPLE_LLM,
+                source=RouteDecisionSource.POLICY_GATE,
+                local_decision=None,
+                safety_decision=safety,
+                policy_code="PROJECT_PET_CONVERSATION"
             )
         if request.input.workflow_mode is AgentWorkflowMode.PROJECT_ANALYSIS:
             return FinalRouteDecision(

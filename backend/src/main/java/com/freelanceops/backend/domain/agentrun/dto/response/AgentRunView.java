@@ -30,7 +30,13 @@ public record AgentRunView(
             List<DepartmentResult> departmentResults,
             QuotationDraft quotationDraft,
             List<QuotationDraft> quotationDrafts,
-            List<UUID> referencedDocumentIds) {
+            List<UUID> referencedDocumentIds,
+            List<PetMessage> petMessages) {
+        public AgentRunResult(String projectSummary, List<String> openQuestions,
+                List<DepartmentResult> departmentResults, QuotationDraft quotationDraft,
+                List<QuotationDraft> quotationDrafts, List<UUID> referencedDocumentIds) {
+            this(projectSummary, openQuestions, departmentResults, quotationDraft, quotationDrafts, referencedDocumentIds, List.of());
+        }
         public AgentRunResult(
                 String projectSummary,
                 List<String> openQuestions,
@@ -47,6 +53,7 @@ public record AgentRunView(
         }
 
         public AgentRunResult {
+            petMessages = petMessages == null ? List.of() : List.copyOf(petMessages);
             referencedDocumentIds =
                     referencedDocumentIds == null ? List.of() : List.copyOf(referencedDocumentIds);
             openQuestions = openQuestions == null ? List.of() : List.copyOf(openQuestions);
@@ -58,6 +65,12 @@ public record AgentRunView(
                             : List.copyOf(quotationDrafts);
         }
     }
+
+    public record PetMessage(UUID messageId, UUID speakerPetId,
+            com.freelanceops.backend.domain.agentrun.dto.PetProfile speaker,
+            UUID replyToMessageId, String text, List<String> evidenceRefs, List<PetEvidence> evidence) {}
+
+    public record PetEvidence(String id, String title, String content) {}
 
     public record QuotationDraft(
             String scenario, List<QuotationDraftItem> items, PetPerspective petPerspective) {

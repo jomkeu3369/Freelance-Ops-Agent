@@ -218,7 +218,38 @@ class SkillSelection(StrictModel):
         return values
 
 
+class PetEvidence(StrictModel):
+    id: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1, max_length=50000)
+
+
+class PetMessage(StrictModel):
+    message_id: UUID
+    speaker_pet_id: UUID | None = None
+    speaker: PetProfile | None = None
+    reply_to_message_id: UUID | None = None
+    text: str = Field(min_length=1, max_length=10000)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=10)
+    evidence: list[PetEvidence] = Field(default_factory=list, max_length=10)
+
+
+class PetConversationTurn(StrictModel):
+    user_text: str = Field(max_length=50000)
+    messages: list[PetMessage] = Field(default_factory=list, max_length=3)
+
+
+class PetConversation(StrictModel):
+    pet_mode: bool
+    debate_enabled: bool
+    recipient_pet_id: UUID | None = None
+    history: list[PetConversationTurn] = Field(default_factory=list, max_length=6)
+    accepted_draft: dict[str, object] | None = None
+    rate_cards: list[dict[str, object]] = Field(default_factory=list, max_length=100)
+
+
 class AgentInput(StrictModel):
+    conversation: PetConversation | None = None
     skill_selection: SkillSelection | None = None
     attachments: list[AttachmentText] = Field(default_factory=list, max_length=6)
 
@@ -539,6 +570,7 @@ class QuotationDraft(StrictModel):
 
 
 class AgentRunResult(StrictModel):
+    pet_messages: list[PetMessage] = Field(default_factory=list, max_length=3)
     referenced_document_ids: list[UUID] = Field(default_factory=list, max_length=50)
     project_summary: str = Field(max_length=10000)
     open_questions: list[str] = Field(default_factory=list)

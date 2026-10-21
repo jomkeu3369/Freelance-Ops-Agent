@@ -98,6 +98,13 @@ schemas:
       projectSummary:
         type: string
         maxLength: 10000
+      petMessages:
+        type: array
+        maxItems: 3
+        default: []
+        description: 실제 모델 호출로 완성되어 저장된 공개 발화. 시나리오 슬롯과 독립적인 참여자 ID를 사용한다.
+        items:
+          $ref: "#/schemas/PetMessage"
       openQuestions:
         type: array
         items:
@@ -126,6 +133,67 @@ schemas:
         items:
           type: string
           format: uuid
+  PetEvidence:
+    type: object
+    additionalProperties: false
+    required: [id, title, content]
+    properties:
+      id: {type: string, minLength: 1, maxLength: 100}
+      title: {type: string, minLength: 1, maxLength: 200}
+      content: {type: string, minLength: 1, maxLength: 50000}
+  PetMessage:
+    type: object
+    additionalProperties: false
+    required: [messageId, text]
+    properties:
+      messageId: {type: string, format: uuid}
+      speakerPetId: {type: [string, "null"], format: uuid}
+      speaker:
+        oneOf:
+          - $ref: pets.yaml#/schemas/PetProfile
+          - type: "null"
+      replyToMessageId: {type: [string, "null"], format: uuid}
+      text: {type: string, minLength: 1, maxLength: 10000}
+      evidenceRefs:
+        type: array
+        maxItems: 10
+        items: {type: string}
+      evidence:
+        type: array
+        maxItems: 10
+        items:
+          $ref: "#/schemas/PetEvidence"
+  PetConversation:
+    type: object
+    additionalProperties: false
+    required: [petMode, debateEnabled]
+    description: Backend가 권한·설정 버전·소유권을 확인하여 고정한 실행 문맥. 브라우저가 이력이나 단가를 직접 지정하지 않는다.
+    properties:
+      petMode: {type: boolean}
+      debateEnabled: {type: boolean}
+      recipientPetId: {type: [string, "null"], format: uuid}
+      history:
+        type: array
+        maxItems: 6
+        items:
+          type: object
+          additionalProperties: false
+          required: [userText]
+          properties:
+            userText: {type: string, maxLength: 50000}
+            messages:
+              type: array
+              maxItems: 3
+              items:
+                $ref: "#/schemas/PetMessage"
+      acceptedDraft:
+        oneOf:
+          - $ref: "#/schemas/QuotationDraft"
+          - type: "null"
+      rateCards:
+        type: array
+        maxItems: 100
+        items: {type: object}
   QuotationDraft:
     type: object
     additionalProperties: false
