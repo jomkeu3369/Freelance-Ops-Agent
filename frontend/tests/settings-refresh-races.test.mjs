@@ -62,6 +62,7 @@ async function settings() {
     const route = new URL(url).pathname;
     const resource = route.endsWith("/me") ? "profile" : route.includes("/rate-cards") ? "cards" : "policy";
     const method = init.method ?? "GET";
+    if (route.endsWith("/rate-card-folders") && method === "GET") return new Response("[]");
     if (method === "GET") {
       const snapshot = structuredClone(server[resource]);
       const pending = nextReads.get(resource); nextReads.delete(resource);
@@ -101,7 +102,7 @@ async function settings() {
         if (name.endsWith("formatters")) return { formatMoney: value => String(value) };
         if (["free-usage-status", "analysis-return-link", "ai-connection-settings"].some(value => name.endsWith(value))) return {};
         let resolved = path.resolve(path.dirname(file), name);
-        if (!path.extname(resolved)) resolved += /(?:settings-panel|rate-card-manager|estimation-policy-form)$/.test(name) ? ".tsx" : ".ts";
+        if (!path.extname(resolved)) resolved += /(?:settings-panel|rate-card-manager|rate-card-library|estimation-policy-form)$/.test(name) ? ".tsx" : ".ts";
         return load(resolved);
       },
     }, { filename: file });
@@ -126,7 +127,12 @@ async function settings() {
     return render(node.type, node.props, identity);
   }
   function child(name) {
-    const node = all(panel(), node => node.type?.name === name)[0];
+    let tree = panel();
+    if (name === "RateCardManager") {
+      const library = all(tree, node => node.type?.name === "RateCardLibrary")[0];
+      tree = render(library.type, library.props, `${panelIdentity}:RateCardLibrary`);
+    }
+    const node = all(tree, node => node.type?.name === name)[0];
     assert.ok(node, `Missing ${name}`);
     return render(node.type, node.props, `${panelIdentity}:${name}`);
   }

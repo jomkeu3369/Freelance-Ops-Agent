@@ -1,5 +1,5 @@
 import type { AuthSession } from "./contracts/auth";
-import type { EstimationPolicy, EstimationPolicyProposal, RateCard } from "./contracts/quotations";
+import type { EstimationPolicy, EstimationPolicyProposal, RateCard, RateCardFolder } from "./contracts/quotations";
 import { invalidateQueries, queryCached } from "../query-cache";
 import { request } from "./http";
 
@@ -9,7 +9,7 @@ export function listRateCards(session: AuthSession): Promise<RateCard[]> {
   );
 }
 
-export function saveRateCard(session: AuthSession, rateCardId: string, input: Omit<RateCard, "id" | "workspaceId" | "version">): Promise<RateCard> {
+export function saveRateCard(session: AuthSession, rateCardId: string, input: Omit<RateCard, "id" | "workspaceId" | "version" | "folderId">): Promise<RateCard> {
   return request<RateCard>(
     `/api/v2/workspaces/${session.workspaceId}/rate-cards/${rateCardId}`,
     { method: "PUT", body: JSON.stringify(input) },
@@ -18,6 +18,26 @@ export function saveRateCard(session: AuthSession, rateCardId: string, input: Om
     invalidateQueries(`rate-cards:${session.workspaceId}`);
     return card;
   });
+}
+
+export function listRateCardFolders(session: AuthSession): Promise<RateCardFolder[]> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/rate-card-folders`, { cache: "no-store" }, session.accessToken);
+}
+
+export function saveRateCardFolder(session: AuthSession, folderId: string, input: { name: string; parentId: string | null }): Promise<RateCardFolder> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/rate-card-folders/${folderId}`, { method: "PUT", body: JSON.stringify(input) }, session.accessToken);
+}
+
+export function deleteRateCardFolder(session: AuthSession, folderId: string): Promise<void> {
+  return request(`/api/v2/workspaces/${session.workspaceId}/rate-card-folders/${folderId}`, { method: "DELETE" }, session.accessToken);
+}
+
+export function moveRateCardToFolder(session: AuthSession, rateCardId: string, folderId: string | null): Promise<RateCard> {
+  return request<RateCard>(`/api/v2/workspaces/${session.workspaceId}/rate-cards/${rateCardId}/folder`, { method: "PUT", body: JSON.stringify({ folderId }) }, session.accessToken)
+    .then((card) => {
+      invalidateQueries(`rate-cards:${session.workspaceId}`);
+      return card;
+    });
 }
 
 export function getEstimationPolicy(session: AuthSession): Promise<EstimationPolicy> {

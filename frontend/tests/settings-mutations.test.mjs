@@ -31,6 +31,7 @@ async function harness(file, component, props, api) {
       if (name.endsWith("ui-language")) return { useT: () => value => value };
       if (name.endsWith("/api")) return api;
       if (name.endsWith("formatters")) return { formatMoney: value => String(value) };
+      if (name.endsWith("rate-card-folders")) return { rateCardFolderOptions: () => [] };
       if (name === "@phosphor-icons/react") return {};
       throw new Error(`Unexpected import: ${name}`);
     },
