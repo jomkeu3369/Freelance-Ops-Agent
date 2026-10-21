@@ -127,7 +127,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
         <FreeUsageStatus session={session} />
         {canConnectAI && <AIConnectionSettings key={`${session.userId}:${session.workspaceId}`} session={session} />}
       </div>
-      {canReadQuotation && !visibleError && (
+      {canReadQuotation && !visibleError && !onboardingComplete && (
         <details className="workspace-disclosure settings-quick-start">
           <summary>
             {t("빠른 시작")}

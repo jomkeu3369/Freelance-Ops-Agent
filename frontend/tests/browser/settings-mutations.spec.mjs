@@ -134,6 +134,38 @@ async function expectPolicy(page, { tax = "25", buffer = "15", discount = "5" } 
   await expect(policy.getByLabel("최대 할인율 (%)", { exact: true })).toHaveValue(discount);
 }
 
+for (const [locale, width] of [["ko", 1440], ["en", 390]]) test(`${locale}: completed setup hides quick start while settings stay available`, async ({ page }) => {
+  const { state, server } = await settingsFixture(page, [rate("one", "Configured service")]);
+  await page.setViewportSize({ width, height: 1000 });
+  await page.addInitScript(locale => localStorage.setItem("freelance-ops-ui-locale-v1", locale), locale);
+  await page.goto(path);
+  await expect(page.locator(".rate-card-list > button")).toHaveCount(1);
+  await expect(page.locator(".settings-quick-start")).toHaveCount(0);
+  await expect(page.locator("#workspace-profile")).toBeVisible();
+  await expect(page.locator("#rate-cards")).toBeVisible();
+  await expect(page.locator("#estimation-policy")).toBeVisible();
+  await expect(page.locator("#ai-connections")).toBeVisible();
+  expect(server.writes).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
+test("incomplete setup remains available and hides immediately after its last step is saved", async ({ page }) => {
+  const { state, server } = await settingsFixture(page);
+  await page.goto(path);
+  const quickStart = page.locator(".settings-quick-start");
+  await expect(quickStart.locator("summary")).toContainText("온보딩 3/4 완료");
+  await quickStart.locator("summary").click();
+  await expect(quickStart.getByRole("heading", { name: "첫 견적을 만들 준비", exact: true })).toBeVisible();
+  const form = await fillRate(page, "First configured service");
+  await form.getByRole("button", { name: "단가 등록", exact: true }).click();
+  await expect(page.locator(".rate-card-manager .settings-saved")).toContainText("새 단가를 등록했습니다");
+  await expect(quickStart).toHaveCount(0);
+  await expect(page.locator("#estimation-policy")).toBeVisible();
+  expect(server.writes).toHaveLength(1);
+  expect(state.starts).toEqual([]);
+  expect(state.blocked).toEqual([]);
+});
+
 test("lost rate save retries the same identity without duplicate registration", async ({ page }) => {
   const { state, server } = await settingsFixture(page); server.loseRateResponse = true;
   await page.goto(path);
