@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,6 +30,28 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
                     .matcher(
                             HttpMethod.POST,
                             "/api/v2/workspaces/{workspaceId}/projects/{projectId}/attachments");
+    private static final List<PathPatternRequestMatcher> RATE_CARD_FOLDER_PATHS =
+            List.of(
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(
+                                    HttpMethod.GET,
+                                    "/api/v2/workspaces/{workspaceId}/rate-card-folders"),
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(
+                                    HttpMethod.HEAD,
+                                    "/api/v2/workspaces/{workspaceId}/rate-card-folders"),
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(
+                                    HttpMethod.PUT,
+                                    "/api/v2/workspaces/{workspaceId}/rate-card-folders/{folderId}"),
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(
+                                    HttpMethod.DELETE,
+                                    "/api/v2/workspaces/{workspaceId}/rate-card-folders/{folderId}"),
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(
+                                    HttpMethod.PUT,
+                                    "/api/v2/workspaces/{workspaceId}/rate-cards/{rateCardId}/folder"));
 
     private final boolean enabled;
     private final int authLimit;
@@ -104,11 +127,14 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
         return switch (category) {
             case AUTH -> authLimit;
             case PUBLIC_PROPOSAL -> proposalLimit;
-            case AGENT -> agentLimit;
+            case AGENT, RATE_CARD_FOLDER -> agentLimit;
         };
     }
 
     private static Category category(HttpServletRequest request) {
+        if (RATE_CARD_FOLDER_PATHS.stream().anyMatch(path -> path.matches(request))) {
+            return Category.RATE_CARD_FOLDER;
+        }
         if ("PUT".equalsIgnoreCase(request.getMethod())
                 && request.getRequestURI().startsWith("/api/v2/workspaces/")
                 && request.getRequestURI().contains("/ai-connections/")) return Category.AGENT;
@@ -151,7 +177,8 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
     private enum Category {
         AUTH,
         PUBLIC_PROPOSAL,
-        AGENT
+        AGENT,
+        RATE_CARD_FOLDER
     }
 
     private static final class WindowCounter {

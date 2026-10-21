@@ -12,4 +12,6 @@ public interface RateCardRepository extends JpaRepository<RateCardEntity, UUID> 
     List<RateCardEntity> findAllByWorkspaceIdOrderByName(UUID workspaceId);
 
     Optional<RateCardEntity> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    boolean existsByWorkspaceIdAndFolderId(UUID workspaceId, UUID folderId);
 }

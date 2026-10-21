@@ -14,4 +14,5 @@ public record RateCardResponse(
         BigDecimal minimumAmount,
         String currency,
         boolean active,
-        long version) {}
+        long version,
+        UUID folderId) {}
