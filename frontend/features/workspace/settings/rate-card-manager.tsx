@@ -1,7 +1,7 @@
 import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent, Dispatch, SetStateAction } from "react";
 import { AuthSession, RateCard, saveRateCard } from "../../../app/lib/api";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
 
@@ -16,6 +16,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   const t = useT();
   const [editorId, setEditorId] = useState<string>("new");
   const [newDraftVersion, setNewDraftVersion] = useState(0);
+  const [editorFocus, setEditorFocus] = useState(0);
+  const editor = useRef<HTMLFormElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -27,6 +29,12 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
   const formCard = submittedCard ?? selected;
+
+  useEffect(() => {
+    if (editorFocus === 0) return;
+    editor.current?.focus({ preventScroll: true });
+    editor.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [editorFocus]);
 
   const replaceCard = (card: RateCard) => {
     onChange((current) => {
@@ -111,7 +119,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   }
 
   return (
-    <div className="rate-card-manager">
+    <div className={`rate-card-manager${canWrite ? "" : " read-only"}`}>
       <div className="rate-card-toolbar">
         <p>
           {rateCards.length === 0
@@ -135,6 +143,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               setError(null);
               setNotice(null);
               setConfirmDeactivate(false);
+              setEditorFocus((value) => value + 1);
             }}
           >
             <Plus size={17} /> {t("새 단가")}
@@ -142,13 +151,14 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         )}
       </div>
       {rateCards.length > 0 && (
-        <div className="rate-card-list" aria-label={t("등록된 서비스 단가")}>
+        <div className="rate-card-list" role="region" aria-label={t("등록된 서비스 단가")}>
           {rateCards.map((card) => (
             <button
               type="button"
               key={card.id}
               disabled={busy}
               aria-pressed={editorId === card.id}
+              aria-controls={canWrite ? "rate-card-editor" : undefined}
               className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`}
               onClick={() => {
                 if (pending.current) return;
@@ -157,6 +167,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                 setError(null);
                 setNotice(null);
                 setConfirmDeactivate(false);
+                if (canWrite) setEditorFocus((value) => value + 1);
               }}
             >
               <div>
@@ -164,8 +175,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
                 <small>{card.active ? t("사용 중") : t("비활성 · 기존 견적에는 유지")}</small>
               </div>
               <span>
-                {formatMoney(card.rate, card.currency)} /{" "}
-                {card.unit === "HOUR" ? t("시간") : card.unit === "DAY" ? t("일") : t("건")}
+                {card.unit === "FIXED" ? (
+                  t("{v0} / 건", { v0: formatMoney(card.rate, card.currency) })
+                ) : (
+                  <>{formatMoney(card.rate, card.currency)} / {card.unit === "HOUR" ? t("시간") : t("일")}</>
+                )}
                 <small>
                   {t("최소")}
                   {formatMoney(card.minimumAmount, card.currency)}
@@ -178,9 +192,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
 
       {canWrite ? (
         <form
+          ref={editor}
+          id="rate-card-editor"
           className="settings-form rate-card-form"
           key={formCard ? `${formCard.id}-${formCard.version}` : `new-${newDraftVersion}`}
+          aria-label={selected ? t("단가 편집") : t("새 단가 등록")}
           aria-busy={busy}
+          tabIndex={-1}
           onSubmit={handleSubmit}
         >
           <div className="rate-card-form-heading">

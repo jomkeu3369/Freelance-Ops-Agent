@@ -15,6 +15,7 @@ async function harness(file, component, props, api) {
       return [slots[index], value => { slots[index] = typeof value === "function" ? value(slots[index]) : value; }];
     },
     useRef(initial) { const index = cursor++; return slots[index] ??= { current: initial }; },
+    useEffect() {},
   };
   const jsx = (type, value, key) => ({ type, props: value ?? {}, key });
   const source = await readFile(new URL(`../features/workspace/settings/${file}`, import.meta.url), "utf8");
