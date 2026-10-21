@@ -8,6 +8,15 @@ export interface RateCard {
   currency: string;
   active: boolean;
   version: number;
+  folderId?: string | null;
+}
+
+export interface RateCardFolder {
+  id: string;
+  workspaceId: string;
+  parentId: string | null;
+  name: string;
+  version: number;
 }
 
 export interface EstimationPolicy {

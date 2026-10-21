@@ -1,18 +1,23 @@
 import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent, Dispatch, SetStateAction } from "react";
-import { AuthSession, RateCard, saveRateCard } from "../../../app/lib/api";
+import { AuthSession, RateCard, RateCardFolder, saveRateCard, moveRateCardToFolder } from "../../../app/lib/api";
 import { useEffect, useRef, useState } from "react";
 import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
+import { rateCardFolderOptions } from "./rate-card-folders";
 
 interface RateCardManagerProps {
   session: AuthSession;
   rateCards: RateCard[];
   canWrite: boolean;
   onChange: Dispatch<SetStateAction<RateCard[]>>;
+  folders?: RateCardFolder[];
+  folderId?: string | null;
+  onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
 }
 
-export function RateCardManager({ session, rateCards, canWrite, onChange }: RateCardManagerProps) {
+export function RateCardManager({ session, rateCards, canWrite, onChange, folders, folderId, onDirtyChange, onPendingChange }: RateCardManagerProps) {
   const t = useT();
   const [editorId, setEditorId] = useState<string>("new");
   const [newDraftVersion, setNewDraftVersion] = useState(0);
@@ -25,6 +30,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   // 변경 대기·실패 중에도 비제어 입력의 식별자를 유지한다.
   const [submittedCard, setSubmittedCard] = useState<RateCard | null>(null);
   const pending = useRef(false);
+  const dirty = useRef(false);
   // 서버 저장 후 응답이 유실돼도 같은 PUT 대상으로 다시 확인한다.
   const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
@@ -47,6 +53,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
   const toggleActive = async () => {
     if (!canWrite || !selected || busy || pending.current) return;
     pending.current = true;
+    onPendingChange?.(true);
     setSubmittedCard(formCard);
     setBusy(true);
     setError(null);
@@ -61,7 +68,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         active: !selected.active
       });
       replaceCard(card);
-      setSubmittedCard(null);
+      if (!dirty.current) setSubmittedCard(null);
       setConfirmDeactivate(false);
       setNotice(
         card.active
@@ -73,6 +80,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
     } finally {
       pending.current = false;
       setBusy(false);
+      onPendingChange?.(false);
     }
   };
 
@@ -94,11 +102,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
       return;
     }
     pending.current = true;
+    onPendingChange?.(true);
     setSubmittedCard(formCard);
     setBusy(true);
+    let detailsSaved = false;
     try {
       const id = selected?.id ?? (newCardId.current ??= crypto.randomUUID());
-      const card = await saveRateCard(session, id, {
+      let card = await saveRateCard(session, id, {
         name,
         unit: String(data.get("unit")) as RateCard["unit"],
         rate,
@@ -106,15 +116,27 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
         currency: String(data.get("currency")),
         active: selected?.active ?? true
       });
+      detailsSaved = true;
+      replaceCard(card);
+      const destination = String(data.get("folderId") ?? "") || null;
+      if (folders && (card.folderId ?? null) !== destination) card = await moveRateCardToFolder(session, id, destination);
       replaceCard(card);
       setSubmittedCard(null);
-      setEditorId(card.id);
+      if (folders && (card.folderId ?? null) !== (folderId ?? null)) {
+        setEditorId("new");
+        setNewDraftVersion((value) => value + 1);
+      } else setEditorId(card.id);
+      newCardId.current = null;
+      dirty.current = false;
+      onDirtyChange?.(false);
       setNotice(selected ? "단가 변경을 저장했습니다." : "새 단가를 등록했습니다.");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
+      if (detailsSaved) { dirty.current = true; onDirtyChange?.(true); }
+      setError(detailsSaved ? "단가는 저장했지만 폴더를 옮기지 못했습니다. 다시 저장해 주세요." : cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
     } finally {
       pending.current = false;
       setBusy(false);
+      onPendingChange?.(false);
     }
   }
 
@@ -140,6 +162,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               setSubmittedCard(null);
               setNewDraftVersion((value) => value + 1);
               setEditorId("new");
+              dirty.current = false;
+              onDirtyChange?.(false);
               setError(null);
               setNotice(null);
               setConfirmDeactivate(false);
@@ -162,7 +186,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`}
               onClick={() => {
                 if (pending.current) return;
+                if (editorId === card.id) {
+                  if (canWrite) setEditorFocus((value) => value + 1);
+                  return;
+                }
                 setEditorId(card.id);
+                dirty.current = false;
+                onDirtyChange?.(false);
                 setSubmittedCard(null);
                 setError(null);
                 setNotice(null);
@@ -200,6 +230,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
           aria-busy={busy}
           tabIndex={-1}
           onSubmit={handleSubmit}
+          onChange={() => { dirty.current = true; onDirtyChange?.(true); }}
         >
           <div className="rate-card-form-heading">
             <div>
@@ -216,6 +247,10 @@ export function RateCardManager({ session, rateCards, canWrite, onChange }: Rate
               </span>
             )}
           </div>
+          {folders && folders.length > 0 && <label>{t("단가 폴더")}<select name="folderId" aria-label={t("단가 폴더")} defaultValue={(formCard ? formCard.folderId : folders.some((folder) => folder.id === folderId) ? folderId : null) ?? ""} disabled={busy}>
+            <option value="">{t("미분류")}</option>
+            {rateCardFolderOptions(folders).map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+          </select></label>}
           {error && (
             <div className="inline-error" role="alert">
               <Warning size={17} />

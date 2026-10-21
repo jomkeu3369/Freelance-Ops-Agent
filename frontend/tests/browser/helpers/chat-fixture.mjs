@@ -108,6 +108,7 @@ export async function fixture(page) {
       if (state.events) return route.fulfill({status: 200, contentType: "text/event-stream", body: state.events.map(e => `id: ${e.eventId}\ndata: ${JSON.stringify(e)}\n\n`).join("")});
       return route.fulfill({ status: 200, contentType: "text/event-stream", body: 'id: 1\ndata: {"eventId":1,"runId":"run-one","type":"task.delegated","occurredAt":"2026-10-01T00:01:00Z","data":{"taskId":"task-one","department":"Requirements"}}\n\n' });
     }
+    if (path.endsWith("/rate-card-folders") && method === "GET") return json([]);
     if (path.endsWith("/estimation-policy") && method === "GET") return json(state.policy);
     if (projectId && path.endsWith("/estimation-policy/proposals") && method === "GET") return json(state.proposal?.projectId === projectId ? [state.proposal] : []);
     if (path.endsWith("/estimation-policy/proposals") && method === "POST") {

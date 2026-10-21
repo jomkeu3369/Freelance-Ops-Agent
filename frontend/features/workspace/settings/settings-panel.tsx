@@ -11,7 +11,7 @@ import {
 import { useState, useEffect, useRef, type SetStateAction } from "react";
 import { CircleNotch, Warning, CheckCircle, ArrowRight, Calculator, Info, LockSimple, Receipt, ShieldCheck, Tag } from "@phosphor-icons/react";
 import { accountStatusLabels } from "../shared/constants";
-import { RateCardManager } from "./rate-card-manager";
+import { RateCardLibrary } from "./rate-card-library";
 import { EstimationPolicyForm } from "./estimation-policy-form";
 
 import { FreeUsageStatus } from "../usage/free-usage-status";
@@ -301,7 +301,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               </div>
             </header>
             {canReadQuotation ? (
-              <RateCardManager
+              <RateCardLibrary
                 session={session}
                 rateCards={rateCards}
                 canWrite={canWriteQuotation}

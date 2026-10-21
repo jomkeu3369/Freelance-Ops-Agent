@@ -36,16 +36,19 @@ for (const locale of ["ko", "en"]) test(`${locale} landing copy fits desktop/mob
     await expect(description).toContainText(locale === "ko" ? "프리랜서를 위한 AI 견적서 작성." : "AI quote drafting for freelancers.");
     await expect(page.locator("h1")).toHaveCount(1);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", publicOrigin);
-    const geometry = await page.locator("#product").evaluate(node => {
-      const description = node.querySelectorAll("p")[1];
-      const rect = description.getBoundingClientRect();
-      const actions = node.querySelector(".hero-actions").getBoundingClientRect();
-      return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, left: rect.left, right: rect.right, viewport: innerWidth, gap: actions.top - rect.bottom };
-    });
-    expect(geometry.overflow).toBeLessThanOrEqual(1);
-    expect(geometry.left).toBeGreaterThanOrEqual(0);
-    expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1);
-    expect(geometry.gap).toBeGreaterThanOrEqual(0);
+    // ResizeObserver가 요청한 WebGL 투영도 새 화면 크기에 반영된 뒤 측정한다.
+    await expect(async () => {
+      const geometry = await page.locator("#product").evaluate(node => {
+        const description = node.querySelectorAll("p")[1];
+        const rect = description.getBoundingClientRect();
+        const actions = node.querySelector(".hero-actions").getBoundingClientRect();
+        return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, left: rect.left, right: rect.right, viewport: innerWidth, gap: actions.top - rect.bottom };
+      });
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
+      expect(geometry.left).toBeGreaterThanOrEqual(0);
+      expect(geometry.right).toBeLessThanOrEqual(geometry.viewport + 1);
+      expect(geometry.gap).toBeGreaterThanOrEqual(0);
+    }).toPass({ timeout: 3000 });
     if ([1440, 390].includes(width)) await page.screenshot({ path: testInfo.outputPath(`search-copy-${locale}-${width}.png`), fullPage: true });
   }
 });
