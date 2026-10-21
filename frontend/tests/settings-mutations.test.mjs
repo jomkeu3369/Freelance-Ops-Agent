@@ -43,7 +43,7 @@ async function harness(file, component, props, api) {
       if (name.endsWith("ui-language")) return { useT: () => value => value };
       if (name.endsWith("/api")) return api;
       if (name.endsWith("formatters")) return { formatMoney: value => String(value) };
-      if (name.endsWith("rate-card-folders")) return { rateCardFolderOptions: () => [] };
+      if (name.endsWith("rate-card-folders")) return { rateCardFolderOptions: () => [], rateCardFolderPath: () => [] };
       if (name === "@phosphor-icons/react") return {};
       throw new Error(`Unexpected import: ${name}`);
     },
@@ -277,4 +277,71 @@ test("policy saves serialize same-tick submissions and preserve valid explicit z
   assert.equal(calls.length, 1);
   assert.equal(calls[0].defaultTaxRate, 0);
   assert.equal(h.props.busy, false);
+});
+
+class MoveError extends Error { constructor(status) { super(`Move failed: ${status}`); this.status = status; } }
+async function bulk(moveRateCardToFolder) {
+  const pendingChanges = [];
+  const props = {
+    session, rateCards: [card("one"), card("two"), card("three")], visibleCards: [], folders: [{ id: "target", name: "Target", parentId: null }], canWrite: true,
+    onChange: value => { props.rateCards = typeof value === "function" ? value(props.rateCards) : value; },
+    onPendingChange: value => pendingChanges.push(value),
+  };
+  props.visibleCards = props.rateCards;
+  const h = await harness("rate-card-bulk-move.tsx", "RateCardBulkMove", props, { moveRateCardToFolder, ApiError: MoveError });
+  button(h.render(), "현재 목록 모두 선택").props.onClick();
+  all(h.render(), node => node.type === "select")[0].props.onChange({ target: { value: "target" } });
+  return { ...h, pendingChanges };
+}
+
+test("bulk moves serialize repeated submissions, protect unload and retain only failed selection for retry", async () => {
+  const held = barrier(), calls = []; let fail = true;
+  const h = await bulk(async (_session, id, folderId) => {
+    calls.push({ id, folderId });
+    if (id === "one") await held.promise;
+    if (id === "two" && fail) throw new MoveError(503);
+    return { ...card(id), folderId, version: 2 };
+  });
+  const tree = h.render(), first = submit(tree), duplicate = submit(tree);
+  let protectedUnload = false;
+  h.dispatch("beforeunload", { preventDefault() { protectedUnload = true; } });
+  assert.equal(protectedUnload, true);
+  assert.equal(calls.length, 1);
+  held.release(); await Promise.all([first, duplicate]);
+  assert.deepEqual(calls.map(value => value.id), ["one", "two", "three"]);
+  assert.deepEqual(h.props.rateCards.map(value => value.folderId), ["target", undefined, "target"]);
+  const checks = all(h.render(), node => node.type === "input" && node.props.type === "checkbox");
+  assert.deepEqual(checks.map(node => node.props.checked), [false, true, false]);
+  fail = false; await submit(h.render());
+  assert.deepEqual(calls.map(value => value.id), ["one", "two", "three", "two"]);
+  assert.ok(all(h.render(), node => node.type === "input").every(node => !node.props.checked));
+  protectedUnload = false;
+  h.dispatch("beforeunload", { preventDefault() { protectedUnload = true; } });
+  assert.equal(protectedUnload, false);
+  assert.deepEqual(h.pendingChanges, [true, false, true, false]);
+});
+
+for (const status of [401, 403, 429]) test(`bulk stops its queue after ${status} and keeps failed and unattempted rates selected`, async () => {
+  const calls = [];
+  const h = await bulk(async (_session, id) => { calls.push(id); throw new MoveError(status); });
+  await submit(h.render());
+  assert.deepEqual(calls, ["one"]);
+  assert.equal(all(h.render(), node => node.type === "input" && node.props.checked).length, 3);
+});
+
+test("bulk stops after permission revocation and never rolls back a newer rate response", async () => {
+  const held = barrier(), calls = [];
+  const h = await bulk(async (_session, id, folderId) => { calls.push(id); await held.promise; return { ...card(id), folderId, version: 2 }; });
+  const saving = submit(h.render());
+  h.props.canWrite = false;
+  h.props.rateCards = h.props.rateCards.map(value => value.id === "one" ? { ...value, name: "Newer metadata", version: 3, folderId: "other" } : value);
+  h.render();
+  assert.equal(all(h.render(), node => node.type === "form").length, 0, "revoked permissions hide mutation controls without unmounting the pending queue");
+  h.props.canWrite = true; h.render();
+  assert.equal(form(h.render()).props.onSubmit !== undefined, true);
+  held.release(); await saving;
+  assert.deepEqual(calls, ["one"]);
+  assert.equal(h.props.rateCards[0].name, "Newer metadata");
+  assert.equal(h.props.rateCards[0].folderId, "other");
+  assert.equal(all(h.render(), node => node.type === "input" && node.props.checked).length, 2);
 });

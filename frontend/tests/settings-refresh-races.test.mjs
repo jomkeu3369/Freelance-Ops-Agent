@@ -104,7 +104,7 @@ async function settings() {
         if (name.endsWith("formatters")) return { formatMoney: value => String(value) };
         if (["free-usage-status", "analysis-return-link", "ai-connection-settings"].some(value => name.endsWith(value))) return {};
         let resolved = path.resolve(path.dirname(file), name);
-        if (!path.extname(resolved)) resolved += /(?:settings-panel|rate-card-manager|rate-card-library|estimation-policy-form)$/.test(name) ? ".tsx" : ".ts";
+        if (!path.extname(resolved)) resolved += /(?:settings-panel|rate-card-manager|rate-card-library|rate-card-bulk-move|estimation-policy-form)$/.test(name) ? ".tsx" : ".ts";
         return load(resolved);
       },
     }, { filename: file });
