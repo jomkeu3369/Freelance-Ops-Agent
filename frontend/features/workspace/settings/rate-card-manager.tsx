@@ -91,6 +91,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
   function requestEditor(id: string | null) {
     if (busy || pending.current) return;
     if (id === editorId && id !== "new") {
+      setNextEditor(null);
       if (canWrite && id !== null) setEditorFocus((value) => value + 1);
       return;
     }

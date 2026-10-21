@@ -181,6 +181,36 @@ test("pending rate mutations serialize rapid submit and cannot discard another e
   await expect(form.getByLabel("서비스 이름", { exact: true })).toHaveValue("Second service");
 });
 
+test("reselecting the dirty current rate cancels a pending transition and requires a fresh confirmation", async ({ page }) => {
+  const { server } = await settingsFixture(page, [rate("one", "First service"), rate("two", "Second service")]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(path);
+  const first = page.locator(".rate-card-list > button").filter({ hasText: "First service" });
+  const second = page.locator(".rate-card-list > button").filter({ hasText: "Second service" });
+  await first.click();
+  const form = await fillRate(page, "재선택 후에도 보존할 입력");
+  await form.getByLabel("기본 단가", { exact: true }).fill("250");
+  const confirmation = page.locator(".rate-card-switch-confirm");
+  for (const destination of ["another rate", "new rate", "close"]) {
+    if (destination === "another rate") await second.click();
+    else if (destination === "new rate") await page.getByRole("button", { name: "새 단가", exact: true }).click();
+    else await form.getByRole("button", { name: "닫기", exact: true }).click();
+    await expect(confirmation).toBeVisible();
+    await first.click();
+    await expect(confirmation).toHaveCount(0);
+    await expect(form).toBeFocused();
+    await expect(form.getByLabel("서비스 이름", { exact: true })).toHaveValue("재선택 후에도 보존할 입력");
+    await expect(form.getByLabel("기본 단가", { exact: true })).toHaveValue("250");
+    await second.click();
+    await expect(confirmation).toContainText("저장하지 않은 단가 변경이 있습니다. 다른 단가로 이동할까요?");
+    await expect(first).toHaveAttribute("aria-pressed", "true");
+    await expect(second).toHaveAttribute("aria-pressed", "false");
+    await page.getByRole("button", { name: "계속 편집", exact: true }).click();
+    await expect(confirmation).toHaveCount(0);
+  }
+  expect(server.writes).toEqual([]);
+});
+
 test("mobile English policy requires every percentage, preserves failed edits and accepts explicit zero", async ({ page }) => {
   const { state, server } = await settingsFixture(page);
   await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));

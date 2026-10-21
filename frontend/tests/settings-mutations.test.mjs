@@ -145,6 +145,24 @@ test("same rate selection and a background replacement keep a dirty editor ident
   assert.ok(button(h.render(), "변경 버리고 이동"), "the same selection must not clear dirty state");
 });
 
+test("reselecting the current dirty rate cancels a pending switch without discarding its draft", async () => {
+  const calls = [];
+  const h = await rates(async (...args) => { calls.push(args); return card("first"); }, [card("first"), card("second")]);
+  button(h.render(), "first").props.onClick();
+  const initial = form(h.render()); initial.props.onChange();
+  for (const action of ["second", "새 단가", "닫기"]) {
+    button(h.render(), action).props.onClick();
+    assert.ok(button(h.render(), "변경 버리고 이동"));
+    button(h.render(), "first").props.onClick();
+    assert.equal(button(h.render(), "변경 버리고 이동"), undefined, "the current selection cancels the pending destination");
+    assert.equal(form(h.render()).key, initial.key, "the dirty form must stay mounted");
+    button(h.render(), "second").props.onClick();
+    assert.ok(button(h.render(), "변경 버리고 이동"), "a later switch still requires confirmation");
+    button(h.render(), "계속 편집").props.onClick();
+  }
+  assert.equal(calls.length, 0);
+});
+
 test("beforeunload only warns while an unsaved rate draft is dirty", async () => {
   const h = await rates(async (_session, id, input) => ({ ...card(id), ...input }));
   const warns = () => {
