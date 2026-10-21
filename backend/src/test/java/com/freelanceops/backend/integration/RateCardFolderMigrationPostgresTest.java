@@ -68,6 +68,7 @@ class RateCardFolderMigrationPostgresTest {
             assertThat(count(connection, "SELECT count(*) FROM app.quotation_item WHERE quotation_id=? AND rate_card_id=? AND unit_rate=123456.78 AND total=123456.78", quotation, rate)).isEqualTo(1);
             assertThat(count(connection, "SELECT count(*) FROM app.quotation WHERE id=? AND total=123456.78 AND version_number=1", quotation)).isEqualTo(1);
             assertThat(count(connection, "SELECT count(*) FROM app.rate_card_folder")).isZero();
+            assertThat(count(connection, "SELECT count(*) FROM pg_indexes WHERE schemaname='app' AND indexname='ix_rate_card_folder_list' AND indexdef LIKE '%(workspace_id, name, id)%'")).isEqualTo(1);
         }
         assertThat(current.migrate().migrationsExecuted).isZero();
         current.validate();
