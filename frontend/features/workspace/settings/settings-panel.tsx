@@ -9,7 +9,7 @@ import {
   getEstimationPolicy
 } from "../../../app/lib/api";
 import { useState, useEffect, useRef, type SetStateAction } from "react";
-import { CircleNotch, Warning, CheckCircle, ArrowRight } from "@phosphor-icons/react";
+import { CircleNotch, Warning, CheckCircle, ArrowRight, Calculator, Info, LockSimple, Receipt, ShieldCheck, Tag } from "@phosphor-icons/react";
 import { accountStatusLabels } from "../shared/constants";
 import { RateCardManager } from "./rate-card-manager";
 import { EstimationPolicyForm } from "./estimation-policy-form";
@@ -45,7 +45,7 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
   // 캐시를 무효화해도 이미 진행 중인 GET 응답을 기다리는 호출자는 취소되지 않는다.
   const cardRevision = useRef(0);
   const policyRevision = useRef(0);
-  const visibleError = error ?? readErrors.profile ?? readErrors.cards ?? readErrors.policy;
+  const visibleError = readErrors.profile ?? readErrors.cards ?? readErrors.policy;
 
   function handleCardsSaved(update: SetStateAction<RateCard[]>) {
     cardRevision.current += 1;
@@ -121,12 +121,6 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
         <div className="inline-error" role="alert">
           <Warning size={18} />
           {t(visibleError)}
-        </div>
-      )}
-      {saved && (
-        <div className="settings-saved" role="status">
-          <CheckCircle size={18} />
-          {t(saved)}
         </div>
       )}
       <div className="settings-essentials settings-content">
@@ -317,48 +311,59 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               <p>{t("서비스 단가를 볼 권한이 없습니다.")}</p>
             )}
           </section>
-          <section id="estimation-policy">
-            <header>
-              <span>03</span>
-              <div>
-                <h2>{t("견적 계산 기준")}</h2>
-                <p>{t("견적에 기본으로 반영할 세금, 위험 대비율과 할인 한도를 정합니다.")}</p>
+          <section id="estimation-policy" className="estimation-policy-card" aria-labelledby="estimation-policy-title">
+            <header className="estimation-policy-header">
+              <div className="estimation-policy-heading">
+                <span className="estimation-policy-icon"><Calculator size={28} aria-hidden="true" /></span>
+                <div>
+                  <h2 id="estimation-policy-title">{t("견적 계산 기준")}</h2>
+                  <p>{t("세금·위험 대비·항목별 할인 한도를 관리합니다.")}</p>
+                </div>
               </div>
+              {canReadQuotation && policy && !canWriteQuotation && <p className="estimation-policy-status"><LockSimple size={17} aria-hidden="true" />{t("읽기 전용")}</p>}
             </header>
+            {error && !(canReadQuotation && policy && canWriteQuotation) && <div className="inline-error estimation-policy-feedback" role="alert"><Warning size={20} aria-hidden="true" />{t(error)}</div>}
+            {saved && !(canReadQuotation && policy && canWriteQuotation) && <div className="settings-saved estimation-policy-feedback" role="status"><CheckCircle size={20} aria-hidden="true" />{t(saved)}</div>}
             {canReadQuotation && policy ? (
               canWriteQuotation ? (
                 <EstimationPolicyForm
                   session={session}
                   policy={policy}
                   busy={busy}
+                  error={error}
+                  saved={saved}
                   setBusy={setBusy}
                   setError={setError}
                   setSaved={setSaved}
                   onSaved={handlePolicySaved}
                 />
               ) : (
-                <dl>
-                  <div>
-                    <dt>{t("기본 세율")}</dt>
-                    <dd>{Math.round(policy.defaultTaxRate * 100)}%</dd>
+                <dl className="estimation-policy-values">
+                  <div className="estimation-policy-field">
+                    <dt><Receipt size={21} aria-hidden="true" />{t("기본 세율")}</dt>
+                    <dd><strong>{Math.round(policy.defaultTaxRate * 100)}<span>%</span></strong><p>{t("견적에 세율을 따로 지정하지 않았을 때 사용하는 기준입니다.")}</p></dd>
                   </div>
-                  <div>
-                    <dt>{t("위험 대비율")}</dt>
-                    <dd>{Math.round(policy.defaultRiskBufferRate * 100)}%</dd>
+                  <div className="estimation-policy-field">
+                    <dt><ShieldCheck size={21} aria-hidden="true" />{t("위험 대비율")}</dt>
+                    <dd><strong>{Math.round(policy.defaultRiskBufferRate * 100)}<span>%</span></strong><p>{t("위험 대비 적용 시, 할인 후 항목 합계에 더합니다.")}</p></dd>
                   </div>
-                  <div>
-                    <dt>{t("최대 할인율")}</dt>
-                    <dd>{Math.round(policy.maximumDiscountRate * 100)}%</dd>
+                  <div className="estimation-policy-field">
+                    <dt><Tag size={21} aria-hidden="true" />{t("최대 할인율")}</dt>
+                    <dd><strong>{Math.round(policy.maximumDiscountRate * 100)}<span>%</span></strong><p>{t("각 견적 항목에 적용할 수 있는 할인 한도입니다.")}</p></dd>
                   </div>
                 </dl>
               )
             ) : (
-              <p>
-                {canReadQuotation
-                  ? t("계산 기준을 불러오지 못했습니다. 설정을 다시 열어 주세요.")
-                  : t("계산 기준을 볼 권한이 없습니다.")}
-              </p>
+              <div className="estimation-policy-state" role="status">
+                <Info size={26} aria-hidden="true" />
+                <p>
+                  {canReadQuotation
+                    ? t("계산 기준을 불러오지 못했습니다. 설정을 다시 열어 주세요.")
+                    : t("계산 기준을 볼 권한이 없습니다.")}
+                </p>
+              </div>
             )}
+            {canReadQuotation && policy && <div className="estimation-policy-note"><Info size={21} aria-hidden="true" /><p>{t("이 작업 공간의 계산 기준입니다. 저장된 견적의 금액은 자동으로 바뀌지 않습니다.")}</p></div>}
           </section>
         </div>
       </div>

@@ -228,7 +228,7 @@ test("newer reads after a save are accepted, including read-only settings", asyn
   h.props.permissions = new Set(["quotation.read"]);
   assert.equal(form(h.rate()), undefined);
   const policySection = all(h.panel(), node => node.props.id === "estimation-policy")[0];
-  assert.equal(all(policySection, node => node.type === "dd")[0].props.children.join(""), "40%");
+  assert.equal(all(policySection, node => node.type === "strong")[0].props.children[0], 40);
 });
 
 test("failed writes do not supersede a legitimate read or remount the failed form", async () => {
@@ -313,4 +313,17 @@ for (const operation of ["toggle", "retry"]) test(`a rate ${operation} after a f
     assert.equal(h.server.cards[0].rate, 250);
   }
   assert.equal(h.server.cards[0].active, false);
+});
+
+for (const permissions of [["quotation.read"], []]) test(`failed policy saves stay visible after permission changes: ${permissions.join(",") || "none"}`, async () => {
+  const h = await settings(), failure = h.hold("policy", "Policy permission changed", true);
+  const saving = submit(h.policy(), policyInput);
+  try {
+    await failure.entered;
+    h.props.permissions = new Set(permissions);
+    assert.equal(all(h.panel(), node => node.type?.name === "EstimationPolicyForm").length, 0);
+  } finally { failure.release(); }
+  await saving;
+  const errors = all(h.panel(), node => node.props.role === "alert");
+  assert.ok(errors.some(node => JSON.stringify(node.props.children).includes("Policy permission changed")));
 });
