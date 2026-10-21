@@ -115,6 +115,9 @@ async def test_three_real_generations_see_earlier_replies_and_publish_completed_
     with progress_scope(persist):
         outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
     assert [len(prompt["earlier_speakers"]) for prompt in provider.prompts] == [0, 1, 2]
+    assert [prompt["conversation_turn"]["number"] for prompt in provider.prompts] == [1, 2, 3]
+    assert all(prompt["conversation_turn"]["count"] == 3 for prompt in provider.prompts)
+    assert [pet["name"] for pet in provider.prompts[2]["participants"]] == ["꼼꼼이", "든든", "차근"]
     assert outcome.usage.model_calls == 3
     assert len(outcome.result.pet_messages) == 3
     assert outcome.result.pet_messages[1].reply_to_message_id == outcome.result.pet_messages[0].message_id
@@ -226,3 +229,40 @@ async def test_accepted_scope_and_assumptions_remain_in_the_next_model_context()
     await execute_conversation(provider, run, project(run), run.input.requirement_text)
     assert "이메일 알림만 포함한다" in provider.prompts[0]["accepted_draft"]
     assert "문자 발송과 결제는 제외한다" in provider.prompts[0]["accepted_draft"]
+
+
+async def test_model_price_guesses_are_never_published_or_passed_to_the_next_speaker() -> None:
+    run = request()
+
+    class PriceProvider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            return ModelGeneration(payload={
+                "summary": "결제를 2차로 미루자. 부가세 포함 277만7,500원입니다. 예약 API는 1.5일로 가정해.",
+                "open_questions": ["예산 300만원 이내일까요?", "중복 신청을 막아야 할까?"]
+            })
+
+    provider = PriceProvider()
+    outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert len(outcome.result.pet_messages) == 3
+    assert all("277" not in message.text and "1.5일" in message.text for message in outcome.result.pet_messages)
+    assert "277" not in json.dumps(provider.prompts[1]["earlier_speakers"])
+    assert outcome.result.open_questions == ["중복 신청을 막아야 할까?"]
+
+
+async def test_resolved_questions_are_replaced_instead_of_accumulated() -> None:
+    run = request()
+
+    class QuestionProvider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            return ModelGeneration(payload={
+                "summary": "결제를 다음 단계로 미루고 예약 신청만 남기자.",
+                "open_questions": ["결제도 넣을까?"] if len(self.prompts) == 1 else []
+            })
+
+    provider = QuestionProvider()
+    outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert provider.prompts[1]["unresolved_questions"] == ["결제도 넣을까?"]
+    assert provider.prompts[2]["unresolved_questions"] == []
+    assert outcome.result.open_questions == []

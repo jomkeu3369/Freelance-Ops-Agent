@@ -8,7 +8,8 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
   const {
-    estimatedSubtotal,
+    preview,
+    calculation,
     project,
     taxRate,
     canWrite,
@@ -27,20 +28,24 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
         <span>
           <Receipt size={18} /> {t("계산 미리보기")}
         </span>
-        <dl>
+        {preview ? <dl>
           <div>
             <dt>{t("항목 합계")}</dt>
-            <dd>{formatMoney(estimatedSubtotal, project.currency)}</dd>
+            <dd>{formatMoney(preview.subtotal, project.currency)}</dd>
           </div>
+          {preview.discountTotal > 0 && <div><dt>{t("할인 금액")}</dt><dd>{formatMoney(preview.discountTotal, project.currency)}</dd></div>}
+          <div><dt>{t("위험 대비 금액")} ({Math.round(preview.riskBufferRate * 100)}%)</dt><dd>{formatMoney(preview.riskBufferAmount, project.currency)}</dd></div>
           <div>
             <dt>{t("부가세")}</dt>
-            <dd>{formatMoney(estimatedSubtotal * taxRate, project.currency)}</dd>
+            <dd>{formatMoney(preview.taxAmount, project.currency)}</dd>
           </div>
           <div className="quote-total">
             <dt>{t("예상 합계")}</dt>
-            <dd>{formatMoney(estimatedSubtotal * (1 + taxRate), project.currency)}</dd>
+            <dd>{formatMoney(preview.total, project.currency)}</dd>
           </div>
-        </dl>
+        </dl> : <p role="status">{t(calculation.loading ? "견적을 계산하고 있습니다." : "항목과 계산 기준을 확인해 주세요.")}</p>}
+        {calculation.error && <p role="alert">{t(calculation.error)}<button type="button" className="quiet-button" onClick={calculation.refresh}>{t("다시 확인")}</button></p>}
+        {preview && project.budgetMax != null && preview.total > project.budgetMax && <p className="permission-note">{t("예산을 넘습니다. 범위나 예산을 다시 맞춰 주세요.")}</p>}
         <details className="quote-summary-controls workspace-disclosure">
           <summary id="quote-calculation-settings">
             {t("계산 조건")}
@@ -82,7 +87,7 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
             />
           </label>
         </details>
-        <p>{t("저장할 때 위험 대비 금액과 세금까지 반영한 최종 합계를 다시 확인합니다.")}</p>
+        <p>{t("위험 대비 금액과 세금을 포함하며, 같은 계산 기준으로 저장합니다.")}</p>
         {selectedBasis && (
           <details className="evidence-inspector workspace-disclosure">
             <summary>{t("선택 항목 근거")}</summary>
@@ -119,7 +124,7 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
         ) : (
           <small className="validation-hint">{t("읽기 전용 견적입니다.")}</small>
         )}
-        {canWrite && !canSave && (
+        {canWrite && !canSave && !calculation.loading && !calculation.error && (
           <small className="validation-hint">
             {t("모든 항목에 이름, 수량, 단가와 근거 또는 가정을 입력하세요. 근거는 출처 유형과 참조가 필수입니다.")}
           </small>

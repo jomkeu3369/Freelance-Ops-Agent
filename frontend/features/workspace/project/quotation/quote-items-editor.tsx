@@ -9,7 +9,9 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems } = model;
+  const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems, preview } = model;
+  const amount = (index: number) => preview?.items?.[index]
+    ? formatMoney(preview.items[index].total, project.currency) : t("계산 확인 중");
 
   const removeItem = (index: number) => {
     setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
@@ -35,7 +37,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                 <strong>{item.title || "새 작업 항목"}</strong>
               </span>
               <span>
-                {formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}
+                {amount(index)}
                 <small>{t("상세·근거")}</small>
               </span>
             </summary>
@@ -114,7 +116,7 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                 <span className="quote-field-label">{t("예상 금액")}</span>
                 <div className="quote-amount">
                   <strong>
-                    {formatMoney(item.quantity * item.unitRate * (1 - item.discountRate), project.currency)}
+                    {amount(index)}
                   </strong>
                 </div>
               </div>

@@ -42,6 +42,7 @@ async function quotations(page, { restored = false, failDetail = false } = {}) {
       return json({ message: "Quotation conflict" }, 409);
     }
     if (path === "/api/v2/workspaces/local-space/projects/project-one/outcome" && request.method() === "GET") return json(savedOutcome);
+    if (path.endsWith("/quotations/preview") && request.method() === "POST") return route.fallback();
     if (path.includes("/quotations")) {
       state.unexpectedQuotations.push(`${request.method()} ${path}`);
       return json({ message: "Unexpected quotation fixture request" }, 404);

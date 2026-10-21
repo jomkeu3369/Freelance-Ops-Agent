@@ -2,6 +2,7 @@ import type { PetMessage, WorkflowEvent } from "../../../app/lib/api";
 import { useT, useUiLocale } from "../../../app/lib/ui-language";
 import { ChatMarkdown } from "../shared/chat-markdown";
 import { PetArt } from "./pet-art";
+import { conversationText } from "./pet-conversation-text.mjs";
 
 export function conversationMessages(saved: PetMessage[] | undefined, events: WorkflowEvent[]) {
   const messages = new Map((saved ?? []).map(message => [message.messageId,message]));
@@ -19,7 +20,7 @@ export function PetConversationMessages({ messages }: { messages: PetMessage[] }
       {message.speaker && <PetArt kind={message.speaker.animal} profile={message.speaker} />}
       <div><strong>{message.speaker?.name ?? t("프로젝트 AI")}</strong>
         {previous && <p className="pet-conversation-reply">{t("{name}에게 답변",{name:previous.speaker?.name ?? t("프로젝트 AI")})}</p>}
-        <ChatMarkdown locale={locale}>{message.text}</ChatMarkdown>
+        <ChatMarkdown locale={locale}>{conversationText(message.text) || t("금액은 계산된 견적에서 확인해 주세요.")}</ChatMarkdown>
         {message.evidence?.map(source => <details className="pet-conversation-evidence" key={source.id}><summary>{source.title}</summary><p>{source.content}</p></details>)}
       </div>
     </article>;
