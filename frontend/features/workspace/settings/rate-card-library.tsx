@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
 import { Folder, FolderOpen, FolderPlus, PencilSimple, Trash, Warning, CheckCircle, CircleNotch, CaretRight } from "@phosphor-icons/react";
-import { AuthSession, RateCard, RateCardFolder, listRateCardFolders, saveRateCardFolder, deleteRateCardFolder } from "../../../app/lib/api";
+import { ApiError, AuthSession, RateCard, RateCardFolder, listRateCardFolders, saveRateCardFolder, deleteRateCardFolder } from "../../../app/lib/api";
 import { useT } from "../../../app/lib/ui-language";
 import { RateCardManager } from "./rate-card-manager";
 import { rateCardFolderOptions, rateCardFolderPath } from "./rate-card-folders";
@@ -42,6 +42,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   const revision = useRef(0);
   const pending = useRef(false);
   const newFolderId = useRef<string | null>(null);
+  const editingVersion = useRef<number | undefined>(undefined);
   const location = useRef<HTMLElement>(null);
   const locationMounted = useRef(false);
   const current = folders.find((folder) => folder.id === folderId);
@@ -81,8 +82,9 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   }
 
   function openEditor(mode: "new" | "edit") {
-    if (locked || pending.current) return;
+    if (locked || pending.current || editing === mode) return;
     newFolderId.current = null;
+    editingVersion.current = mode === "edit" ? current?.version : undefined;
     setEditing(mode);
     setConfirmDelete(false);
     setError(null);
@@ -102,7 +104,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
     setNotice(null);
     try {
       const id = editing === "edit" && current ? current.id : (newFolderId.current ??= crypto.randomUUID());
-      const saved = await saveRateCardFolder(session, id, { name, parentId: String(data.get("parentId") ?? "") || null });
+      const saved = await saveRateCardFolder(session, id, { name, parentId: String(data.get("parentId") ?? "") || null, ...(editing === "edit" ? { expectedVersion: editingVersion.current } : {}) });
       revision.current += 1;
       setFolders((values) => [...values.filter((folder) => folder.id !== saved.id), saved]);
       setEditing(null);
@@ -119,10 +121,18 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
     setError(null);
     setNotice(null);
     try {
-      await deleteRateCardFolder(session, current.id);
+      let refreshed: RateCardFolder[] | null = null;
+      try {
+        await deleteRateCardFolder(session, current.id);
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status !== 404 && cause.status < 500) throw cause;
+        // 응답 유실이나 다른 PC의 삭제는 실제 목록에서 부재를 확인한 뒤 완료한다.
+        try { refreshed = await listRateCardFolders(session); } catch { throw cause; }
+        if (refreshed.some((folder) => folder.id === current.id)) throw cause;
+      }
       revision.current += 1;
-      setFolders((values) => values.filter((folder) => folder.id !== current.id));
-      setFolderId(current.parentId);
+      setFolders((values) => refreshed ?? values.filter((folder) => folder.id !== current.id));
+      setFolderId(refreshed && current.parentId && !refreshed.some((folder) => folder.id === current.parentId) ? null : current.parentId);
       setEditing(null);
       setConfirmDelete(false);
       setNotice("빈 폴더를 삭제했습니다.");

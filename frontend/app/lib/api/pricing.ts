@@ -24,7 +24,7 @@ export function listRateCardFolders(session: AuthSession): Promise<RateCardFolde
   return request(`/api/v2/workspaces/${session.workspaceId}/rate-card-folders`, { cache: "no-store" }, session.accessToken);
 }
 
-export function saveRateCardFolder(session: AuthSession, folderId: string, input: { name: string; parentId: string | null }): Promise<RateCardFolder> {
+export function saveRateCardFolder(session: AuthSession, folderId: string, input: { name: string; parentId: string | null; expectedVersion?: number }): Promise<RateCardFolder> {
   return request(`/api/v2/workspaces/${session.workspaceId}/rate-card-folders/${folderId}`, { method: "PUT", body: JSON.stringify(input) }, session.accessToken);
 }
 

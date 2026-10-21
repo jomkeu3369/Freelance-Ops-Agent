@@ -30,6 +30,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
   // 변경 대기·실패 중에도 비제어 입력의 식별자를 유지한다.
   const [submittedCard, setSubmittedCard] = useState<RateCard | null>(null);
   const pending = useRef(false);
+  const dirty = useRef(false);
   // 서버 저장 후 응답이 유실돼도 같은 PUT 대상으로 다시 확인한다.
   const newCardId = useRef<string | null>(null);
   const selected = rateCards.find((card) => card.id === editorId) ?? null;
@@ -67,7 +68,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         active: !selected.active
       });
       replaceCard(card);
-      setSubmittedCard(null);
+      if (!dirty.current) setSubmittedCard(null);
       setConfirmDeactivate(false);
       setNotice(
         card.active
@@ -126,9 +127,11 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         setNewDraftVersion((value) => value + 1);
       } else setEditorId(card.id);
       newCardId.current = null;
+      dirty.current = false;
       onDirtyChange?.(false);
       setNotice(selected ? "단가 변경을 저장했습니다." : "새 단가를 등록했습니다.");
     } catch (cause) {
+      if (detailsSaved) { dirty.current = true; onDirtyChange?.(true); }
       setError(detailsSaved ? "단가는 저장했지만 폴더를 옮기지 못했습니다. 다시 저장해 주세요." : cause instanceof Error ? cause.message : "단가를 저장하지 못했습니다.");
     } finally {
       pending.current = false;
@@ -159,6 +162,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
               setSubmittedCard(null);
               setNewDraftVersion((value) => value + 1);
               setEditorId("new");
+              dirty.current = false;
               onDirtyChange?.(false);
               setError(null);
               setNotice(null);
@@ -187,6 +191,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
                   return;
                 }
                 setEditorId(card.id);
+                dirty.current = false;
                 onDirtyChange?.(false);
                 setSubmittedCard(null);
                 setError(null);
@@ -225,7 +230,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
           aria-busy={busy}
           tabIndex={-1}
           onSubmit={handleSubmit}
-          onChange={() => onDirtyChange?.(true)}
+          onChange={() => { dirty.current = true; onDirtyChange?.(true); }}
         >
           <div className="rate-card-form-heading">
             <div>

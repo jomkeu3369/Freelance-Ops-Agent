@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
-const folder = (id, name, parentId = null) => ({ id, name, parentId, workspaceId: "local-space", version: 1 });
+const folder = (id, name, parentId = null) => ({ id, name, parentId, workspaceId: "local-space", version: 0 });
 const rate = (id, name, folderId = null) => ({ id, name, folderId, workspaceId: "local-space", unit: "HOUR", rate: 100, minimumAmount: 0, currency: "KRW", active: true, version: 1 });
 async function openLibrary(page, { width = 1440, locale = "ko", theme = "light", readOnly = false, longNames = false } = {}) {
   const state = await fixture(page);
@@ -9,7 +9,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
   const server = {
     folders: [folder("dev", longNames ? "Development and implementation ".repeat(4) : "개발"), folder("design", "디자인"), folder("web", "웹", "dev"), folder("front", "프론트엔드", "web")],
     cards: [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")],
-    folderWrites: [], rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, failMove: false, barrier: null, folderError: null
+    folderWrites: [], folderDeletes: [], folderReads: 0, rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, loseDeleteResponse: false, failDelete: false, failMove: false, barrier: null, folderError: null
   };
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ locale, theme }) => {
@@ -18,15 +18,22 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
   }, { locale, theme });
   await page.route("**/api/v2/workspaces/local-space/rate-card-folders**", async route => {
     const request = route.request(), id = new URL(request.url()).pathname.split("/").at(-1);
-    if (request.method() === "GET") return route.fulfill({ status: server.failRead ? 503 : 200, json: server.failRead ? { message: "Synthetic folder read failure" } : server.folders });
+    if (request.method() === "GET") { server.folderReads += 1; return route.fulfill({ status: server.failRead ? 503 : 200, json: server.failRead ? { message: "Synthetic folder read failure" } : server.folders }); }
     if (request.method() === "DELETE") {
+      server.folderDeletes.push(id);
+      if (server.failDelete) return route.fulfill({ status: 503, json: { message: "Synthetic folder delete failure" } });
+      if (!server.folders.some(item => item.id === id)) return route.fulfill({ status: 404, json: { message: "Not Found" } });
       if (server.folders.some(item => item.parentId === id) || server.cards.some(item => item.folderId === id)) return route.fulfill({ status: 409, json: { message: "only empty folders can be deleted" } });
       server.folders = server.folders.filter(item => item.id !== id);
+      if (server.loseDeleteResponse) { server.loseDeleteResponse = false; return route.fulfill({ status: 503, json: { message: "Synthetic lost delete response" } }); }
       return route.fulfill({ status: 204 });
     }
     const input = request.postDataJSON(); server.folderWrites.push({ id, input });
     if (server.folderError) return route.fulfill({ status: 409, json: { message: server.folderError } });
-    const saved = { ...folder(id), ...input, version: (server.folders.find(item => item.id === id)?.version ?? 0) + 1 };
+    const previous = server.folders.find(item => item.id === id);
+    const unchanged = previous && previous.name === input.name && previous.parentId === input.parentId;
+    if (input.expectedVersion !== undefined && (!previous || previous.version !== input.expectedVersion && !unchanged)) return route.fulfill({ status: 409, json: { message: "folder changed; reload and try again" } });
+    const saved = unchanged ? previous : { ...folder(id), name: input.name, parentId: input.parentId, version: previous ? previous.version + 1 : 0 };
     server.folders = [...server.folders.filter(item => item.id !== id), saved];
     if (server.loseFolderResponse) { server.loseFolderResponse = false; return route.fulfill({ status: 503, json: { message: "Synthetic lost folder response" } }); }
     return route.fulfill({ json: saved });
@@ -64,6 +71,14 @@ async function saveFolder(library, name) {
   await form.getByLabel("폴더 이름", { exact: true }).fill(name);
   await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
   await expect(form).toHaveCount(0);
+}
+async function refreshFolders(page, accessToken) {
+  await page.evaluate(accessToken => {
+    const key = "freelance-ops-session-v1", session = JSON.parse(sessionStorage.getItem(key));
+    const recovered = { ...session, accessToken, refreshToken: accessToken };
+    sessionStorage.setItem(key, JSON.stringify(recovered));
+    window.dispatchEvent(new CustomEvent("freelance-ops-session-recovery", { detail: recovered }));
+  }, accessToken);
 }
 
 test("nested folders show only immediate children and their rates, with a return path", async ({ page }) => {
@@ -183,8 +198,89 @@ test("lost folder creation responses retry the same folder identity", async ({ p
   await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
   await expect(form).toHaveCount(0);
   expect(server.folderWrites[0].id).toBe(server.folderWrites[1].id);
+  expect(server.folderWrites[0].input).not.toHaveProperty("expectedVersion");
   expect(server.folders.filter(item => item.name === "재시도 폴더")).toHaveLength(1);
 });
+
+test("a stale rename and reparent cannot recreate a folder deleted by another PC", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await folders(library).filter({ hasText: "디자인" }).click();
+  await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+  const form = library.locator(".rate-folder-form");
+  await form.getByLabel("폴더 이름", { exact: true }).fill("삭제 후 수정");
+  await form.getByLabel("상위 폴더", { exact: true }).selectOption("dev");
+  server.folders = server.folders.filter(item => item.id !== "design");
+  await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+  await expect(library.getByRole("alert")).toContainText("폴더가 변경되었습니다");
+  await expect(form.getByLabel("폴더 이름", { exact: true })).toHaveValue("삭제 후 수정");
+  await expect(form.getByLabel("상위 폴더", { exact: true })).toHaveValue("dev");
+  expect(server.folderWrites).toEqual([{ id: "design", input: { name: "삭제 후 수정", parentId: "dev", expectedVersion: 0 } }]);
+  expect(server.folders.some(item => item.id === "design")).toBe(false);
+});
+
+test("an open edit keeps its original version across a background folder refresh", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await folders(library).filter({ hasText: "디자인" }).click();
+  await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+  const form = library.locator(".rate-folder-form");
+  await form.getByLabel("폴더 이름", { exact: true }).fill("열린 초안");
+  await form.getByLabel("상위 폴더", { exact: true }).selectOption("dev");
+  server.folders = server.folders.map(item => item.id === "design" ? { ...item, name: "다른 PC 최신 이름", version: 1 } : item);
+  await refreshFolders(page, "changed-folder-token");
+  await expect(library.locator(".rate-folder-breadcrumb")).toContainText("다른 PC 최신 이름");
+  await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+  await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+  await expect(library.getByRole("alert")).toContainText("폴더가 변경되었습니다");
+  expect(server.folderWrites[0].input.expectedVersion).toBe(0);
+  expect(server.folders.find(item => item.id === "design")).toMatchObject({ name: "다른 PC 최신 이름", parentId: null, version: 1 });
+  await expect(form.getByLabel("폴더 이름", { exact: true })).toHaveValue("열린 초안");
+  await expect(form.getByLabel("상위 폴더", { exact: true })).toHaveValue("dev");
+  await form.getByRole("button", { name: "취소", exact: true }).click();
+  await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+  await saveFolder(library, "최신 버전에서 편집");
+  expect(server.folderWrites[1].input.expectedVersion).toBe(1);
+});
+
+test("a lost folder edit response retries its original version without another revision", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await folders(library).filter({ hasText: "디자인" }).click();
+  await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+  const form = library.locator(".rate-folder-form");
+  await form.getByLabel("폴더 이름", { exact: true }).fill("편집 응답 재시도");
+  server.loseFolderResponse = true;
+  await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+  await expect(library.getByRole("alert")).toContainText("Synthetic lost folder response");
+  await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+  await expect(form).toHaveCount(0);
+  expect(server.folderWrites.map(item => item.input.expectedVersion)).toEqual([0, 0]);
+  expect(server.folders.find(item => item.id === "design").version).toBe(1);
+});
+
+for (const scenario of ["deleted elsewhere", "lost response", "lost response and failed read", "failed deletion"]) {
+  test(`folder deletion verifies absence after ${scenario}`, async ({ page }) => {
+    const { library, server } = await openLibrary(page);
+    await folders(library).filter({ hasText: "디자인" }).click();
+    await library.getByRole("button", { name: "폴더 관리", exact: true }).click();
+    await library.getByRole("button", { name: "폴더 삭제", exact: true }).click();
+    if (scenario === "deleted elsewhere") server.folders = server.folders.filter(item => item.id !== "design");
+    else if (scenario === "failed deletion") server.failDelete = true;
+    else server.loseDeleteResponse = true;
+    if (scenario === "lost response and failed read") server.failRead = true;
+    await library.getByRole("button", { name: "삭제 확인", exact: true }).click();
+    if (scenario === "lost response and failed read" || scenario === "failed deletion") {
+      await expect(library.getByRole("alert").filter({ hasText: "Synthetic" })).toBeVisible();
+      await expect(library.locator(".rate-folder-form")).toBeVisible();
+      server.failRead = false; server.failDelete = false;
+      await library.getByRole("button", { name: "삭제 확인", exact: true }).click();
+    }
+    await expect(library.locator(".rate-folder-form")).toHaveCount(0);
+    await expect(library.locator(".rate-folder-breadcrumb")).toHaveText("전체 폴더");
+    await expect(folders(library).filter({ hasText: "디자인" })).toHaveCount(0);
+    await expect(library.getByRole("status")).toContainText("빈 폴더를 삭제했습니다");
+    expect(server.folderReads).toBeGreaterThan(1);
+    expect(server.folderDeletes).toHaveLength(scenario === "lost response and failed read" || scenario === "failed deletion" ? 2 : 1);
+  });
+}
 
 for (const [message, expected] of [
   ["a workspace can contain at most 200 rate-card folders", "이 작업 공간에는 폴더를 최대 200개까지 만들 수 있습니다."],
@@ -217,6 +313,31 @@ test("deactivation after a partial folder save preserves the newly saved name an
   await editor(library).locator(".archive-confirm").getByRole("button", { name: "비활성화", exact: true }).click();
   await expect(editor(library).getByRole("status")).toContainText("선택 항목에서 제외했습니다");
   expect(server.rateWrites.at(-1).input).toMatchObject({ name: "이미 저장한 이름", rate: 250, active: false });
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
+  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("이미 저장한 이름");
+  await folders(library).filter({ hasText: "개발" }).click();
+  await expect(library.getByRole("button", { name: "변경 버리고 이동", exact: true })).toBeVisible();
+  await library.getByRole("button", { name: "계속 편집", exact: true }).click();
+  server.failMove = false;
+  await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "이미 저장한 이름", rate: 250, active: false, folderId: "design" });
+});
+
+test("toggling a dirty rate preserves every unsaved field and selected destination", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await rates(library).first().click();
+  await fillRate(library, "토글 중 유지할 초안", "design");
+  await editor(library).getByRole("button", { name: "비활성화", exact: true }).click();
+  await editor(library).locator(".archive-confirm").getByRole("button", { name: "비활성화", exact: true }).click();
+  await expect(editor(library).getByRole("status")).toContainText("선택 항목에서 제외했습니다");
+  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("토글 중 유지할 초안");
+  await expect(editor(library).getByLabel("기본 단가", { exact: true })).toHaveValue("250");
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "미분류 서비스", rate: 100, active: false, folderId: null });
+  await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "토글 중 유지할 초안", rate: 250, active: false, folderId: "design" });
 });
 
 test("a folder deleted elsewhere does not discard a new rate draft on refresh", async ({ page }) => {
