@@ -4,7 +4,7 @@ import { AuthSession, RateCard, RateCardFolder, saveRateCard, moveRateCardToFold
 import { useEffect, useRef, useState } from "react";
 import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight, X } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
-import { rateCardFolderOptions } from "./rate-card-folders";
+import { rateCardFolderOptions, rateCardFolderPath } from "./rate-card-folders";
 
 interface RateCardManagerProps {
   session: AuthSession;
@@ -15,11 +15,12 @@ interface RateCardManagerProps {
   folders?: RateCardFolder[];
   folderId?: string | null;
   emptyMessage?: string;
+  showFolderPath?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
   onPendingChange?: (pending: boolean) => void;
 }
 
-export function RateCardManager({ session, rateCards, allRateCards, canWrite, onChange, folders, folderId, emptyMessage, onDirtyChange, onPendingChange }: RateCardManagerProps) {
+export function RateCardManager({ session, rateCards, allRateCards, canWrite, onChange, folders, folderId, emptyMessage, showFolderPath, onDirtyChange, onPendingChange }: RateCardManagerProps) {
   const t = useT();
   const [editorId, setEditorId] = useState<string | null>(null);
   const [nextEditor, setNextEditor] = useState<{ id: string | null } | null>(null);
@@ -192,7 +193,7 @@ export function RateCardManager({ session, rateCards, allRateCards, canWrite, on
       if (folders && (card.folderId ?? null) !== destination) card = await moveRateCardToFolder(session, id, destination);
       replaceCard(card);
       setSubmittedCard(null);
-      setEditorId((current) => current === null || !selected || folders && (card.folderId ?? null) !== (folderId ?? null) ? null : card.id);
+      setEditorId((current) => current === null || !selected || folders && (card.folderId ?? null) !== (showFolderPath ? selected.folderId ?? null : folderId ?? null) ? null : card.id);
       setNextEditor(null);
       newCardId.current = null;
       dirty.current = false;
@@ -258,6 +259,7 @@ export function RateCardManager({ session, rateCards, allRateCards, canWrite, on
               <div>
                 <strong>{card.name}</strong>
                 <small>{card.active ? t("사용 중") : t("비활성 · 기존 견적에는 유지")}</small>
+                {showFolderPath && <small>{rateCardFolderPath(folders ?? [], card.folderId ?? null).map((folder) => folder.name).join(" / ") || t("미분류")}</small>}
               </div>
               <span>
                 {card.unit === "FIXED" ? (

@@ -9,7 +9,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
   const server = {
     folders: initialFolders ?? [folder("dev", longNames ? "Development and implementation ".repeat(4) : "개발"), folder("design", "디자인"), folder("web", "웹", "dev"), folder("front", "프론트엔드", "web")],
     cards: initialCards ?? [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")],
-    folderWrites: [], folderDeletes: [], folderReads: 0, rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, loseDeleteResponse: false, failDelete: false, failMove: false, barrier: null, folderError: null
+    folderWrites: [], folderDeletes: [], folderReads: 0, rateWrites: [], moves: [], moveErrors: new Map(), loseMoveResponses: new Set(), failRead: false, loseFolderResponse: false, loseDeleteResponse: false, failDelete: false, failMove: false, barrier: null, folderError: null
   };
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ locale, theme }) => {
@@ -45,11 +45,15 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
     if (moving) {
       server.moves.push({ id, input });
       if (server.failMove) return route.fulfill({ status: 503, json: { message: "Synthetic move failure" } });
+      const status = server.moveErrors.get(id)?.shift();
+      if (status) return route.fulfill({ status, headers: status === 429 ? { "Retry-After": "1" } : {}, json: { message: `Synthetic move failure ${status}` } });
     } else server.rateWrites.push({ id, input });
     if (server.barrier) await server.barrier.wait();
     const previous = server.cards.find(item => item.id === id);
-    const saved = { ...rate(id, id), ...previous, ...input, version: (previous?.version ?? 0) + 1 };
+    if (moving && !previous) return route.fulfill({ status: 404, json: { message: "Not Found" } });
+    const saved = moving && (previous.folderId ?? null) === input.folderId ? previous : { ...rate(id, id), ...previous, ...input, version: (previous?.version ?? 0) + 1 };
     server.cards = [...server.cards.filter(item => item.id !== id), saved];
+    if (moving && server.loseMoveResponses.delete(id)) return route.fulfill({ status: 503, json: { message: "Synthetic lost move response" } });
     return route.fulfill({ json: saved });
   });
   await page.goto("/workspace/settings");
@@ -472,5 +476,273 @@ for (const locale of ["ko", "en"]) {
     await expect(folders(library).filter({ hasText: "프론트엔드" }).locator("small")).toHaveText(count(2, 0));
     await expect(editor(library)).toHaveCount(0);
     expect(server.rateWrites).toEqual([]);
+  });
+}
+
+const searchRates = library => library.getByRole("searchbox");
+const bulkMove = library => library.locator(".rate-bulk-move");
+const rateCheckbox = (library, name) => bulkMove(library).locator(".rate-bulk-list > label").filter({ hasText: name }).getByRole("checkbox");
+async function selectAllRates(library) {
+  await searchRates(library).fill("서비스");
+  await library.getByRole("button", { name: "여러 단가 이동", exact: true }).click();
+  await bulkMove(library).getByRole("button", { name: "현재 목록 모두 선택", exact: true }).click();
+  return bulkMove(library);
+}
+
+test("rate search covers every folder path and inactive name, normalizes text and explains empty results", async ({ page }) => {
+  const { library, server } = await openLibrary(page, { initialCards: [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), { ...rate("front-rate", "API 연결 서비스", "front"), active: false }] });
+  await folders(library).filter({ hasText: "디자인" }).click();
+  await searchRates(library).fill("  ＡＰＩ  ");
+  await expect(rates(library)).toHaveText([/API 연결 서비스/]);
+  await expect(rates(library).first()).toContainText("비활성");
+  await expect(rates(library).first()).toContainText("개발 / 웹 / 프론트엔드");
+  await expect(library.locator(".rate-library-tools [role=status]")).toHaveText("전체 폴더에서 1개 검색됨");
+  await expect(library.locator(".rate-folder-breadcrumb")).toContainText("디자인");
+  await searchRates(library).fill("개발 / 웹");
+  await expect(rates(library)).toHaveCount(2);
+  await expect(folders(library)).toHaveCount(0);
+  await searchRates(library).fill("존재하지 않는 서비스");
+  await expect(rates(library)).toHaveCount(0);
+  await expect(library.locator(".rate-card-toolbar")).toContainText("검색 결과가 없습니다. 서비스 이름이나 폴더 경로를 확인해 주세요.");
+  await expect(library.locator(".rate-library-tools [role=status]")).toHaveText("전체 폴더에서 0개 검색됨");
+  await searchRates(library).fill("");
+  await expect(library.locator(".rate-card-toolbar")).toContainText("이 폴더에 등록된 단가가 없습니다.");
+  expect(server.moves).toEqual([]);
+  expect(server.rateWrites).toEqual([]);
+});
+
+test("searching away from a dirty rate preserves its complete draft and prevents entering bulk mode", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await rates(library).first().click();
+  await fillRate(library, "검색 중 유지할 편집", "design");
+  await editor(library).locator('[name="unit"]').selectOption("DAY");
+  await editor(library).locator('[name="currency"]').selectOption("USD");
+  await editor(library).getByLabel("최소 금액", { exact: true }).fill("12.5");
+  await searchRates(library).fill("프론트엔드");
+  await expect(rates(library)).toHaveText([/프론트엔드 서비스/]);
+  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("검색 중 유지할 편집");
+  await expect(editor(library).getByLabel("기본 단가", { exact: true })).toHaveValue("250");
+  await expect(editor(library).getByLabel("최소 금액", { exact: true })).toHaveValue("12.5");
+  await expect(editor(library).locator('[name="unit"]')).toHaveValue("DAY");
+  await expect(editor(library).locator('[name="currency"]')).toHaveValue("USD");
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
+  await expect(library.getByRole("button", { name: "여러 단가 이동", exact: true })).toBeDisabled();
+  await expect(library.locator(".rate-library-hint").filter({ hasText: "편집 중인 변경을 먼저" })).toBeVisible();
+  await searchRates(library).fill("검색 결과 없음");
+  await expect(rates(library)).toHaveCount(0);
+  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("검색 중 유지할 편집");
+  await searchRates(library).fill("");
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
+  expect(server.rateWrites).toEqual([]);
+  expect(server.moves).toEqual([]);
+});
+
+test("editing a nested rate from root search keeps its editor when the saved folder is unchanged", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await searchRates(library).fill("웹 서비스");
+  await rates(library).first().click();
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("web");
+  await editor(library).getByLabel("서비스 이름", { exact: true }).fill("웹 서비스 검색 수정");
+  await editor(library).getByLabel("기본 단가", { exact: true }).fill("625.75");
+  await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
+  await expect(editor(library)).toBeVisible();
+  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("웹 서비스 검색 수정");
+  await expect(editor(library).getByLabel("기본 단가", { exact: true })).toHaveValue("625.75");
+  await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("web");
+  await expect(searchRates(library)).toHaveValue("웹 서비스");
+  await expect(library.locator(".rate-folder-breadcrumb button")).toHaveCount(1);
+  expect(server.cards.find(item => item.id === "web-rate")).toMatchObject({ name: "웹 서비스 검색 수정", rate: 625.75, folderId: "web", version: 2 });
+  expect(server.rateWrites.map(item => item.id)).toEqual(["web-rate"]);
+  expect(server.moves).toEqual([]);
+  await editor(library).getByLabel("단가 폴더", { exact: true }).selectOption("design");
+  await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(editor(library)).toHaveCount(0);
+  expect(server.moves).toEqual([{ id: "web-rate", input: { folderId: "design" } }]);
+  expect(server.cards.find(item => item.id === "web-rate")).toMatchObject({ name: "웹 서비스 검색 수정", rate: 625.75, folderId: "design" });
+});
+
+test("bulk selections survive searches and folder navigation while visible-list deselection keeps hidden choices", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  await library.getByRole("button", { name: "여러 단가 이동", exact: true }).click();
+  const bulk = bulkMove(library);
+  await rateCheckbox(library, "미분류 서비스").check();
+  await searchRates(library).fill("프론트엔드");
+  await rateCheckbox(library, "프론트엔드 서비스").check();
+  await expect(bulk.locator("form > [role=status]")).toHaveText("2개 선택 · 현재 목록 밖 1개");
+  await searchRates(library).fill("개발 / 웹");
+  await bulk.getByRole("button", { name: "현재 목록 모두 선택", exact: true }).click();
+  await expect(bulk.locator("form > [role=status]")).toHaveText("3개 선택 · 현재 목록 밖 1개");
+  await bulk.getByRole("button", { name: "현재 목록 선택 해제", exact: true }).click();
+  await expect(bulk.locator("form > [role=status]")).toHaveText("1개 선택 · 현재 목록 밖 1개");
+  await searchRates(library).fill("프론트엔드");
+  await rateCheckbox(library, "프론트엔드 서비스").check();
+  await searchRates(library).fill("검색 결과 없음");
+  await expect(bulk.getByRole("checkbox")).toHaveCount(0);
+  await expect(bulk.locator("form > [role=status]")).toHaveText("2개 선택 · 현재 목록 밖 2개");
+  await expect(bulk.getByRole("button", { name: "현재 목록 모두 선택", exact: true })).toBeDisabled();
+  await library.getByRole("button", { name: "전체 폴더", exact: true }).click();
+  await expect(searchRates(library)).toHaveValue("");
+  await expect(rateCheckbox(library, "미분류 서비스")).toBeChecked();
+  await folders(library).filter({ hasText: "개발" }).click();
+  await folders(library).filter({ hasText: "웹" }).click();
+  await expect(bulk.locator("form > [role=status]")).toHaveText("2개 선택 · 현재 목록 밖 2개");
+  await bulk.locator("summary").click();
+  await expect(bulk.locator(".rate-bulk-selection li")).toHaveText([/미분류 서비스.*미분류/, /프론트엔드 서비스.*개발 \/ 웹 \/ 프론트엔드/]);
+  await bulk.getByRole("button", { name: "전체 선택 해제", exact: true }).click();
+  await expect(bulk.locator("form > [role=status]")).toHaveText("0개 선택 · 현재 목록 밖 0개");
+  await expect(bulk.locator('button[type="submit"]')).toBeDisabled();
+  expect(server.moves).toEqual([]);
+});
+
+test("bulk moves into a nested folder and back to unclassified preserve every price field and active state", async ({ page }) => {
+  const initialCards = [rate("root", "미분류 서비스"), { ...rate("web-rate", "웹 서비스", "web"), unit: "DAY", rate: 975.5, minimumAmount: 40, currency: "USD", active: false }, { ...rate("front-rate", "프론트엔드 서비스", "front"), unit: "FIXED", rate: 42000, minimumAmount: 3000, currency: "JPY" }];
+  const { library, server } = await openLibrary(page, { initialCards });
+  const bulk = await selectAllRates(library);
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("front");
+  await bulk.getByRole("button", { name: "선택한 3개 이동", exact: true }).click();
+  await expect(bulk.locator(".settings-saved")).toHaveText("2개 이동 완료 · 1개는 이미 같은 폴더입니다.");
+  for (const original of initialCards) expect(server.cards.find(item => item.id === original.id)).toEqual({ ...original, folderId: "front", version: original.version + (original.folderId === "front" ? 0 : 1) });
+  expect(server.moves.map(item => item.id)).toEqual(["root", "web-rate", "front-rate"]);
+  await bulk.getByRole("button", { name: "현재 목록 모두 선택", exact: true }).click();
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("");
+  const classified = structuredClone(server.cards);
+  await bulk.getByRole("button", { name: "선택한 3개 이동", exact: true }).click();
+  await expect(bulk.locator(".settings-saved")).toHaveText("3개 이동 완료 · 0개는 이미 같은 폴더입니다.");
+  for (const original of classified) expect(server.cards.find(item => item.id === original.id)).toEqual({ ...original, folderId: null, version: original.version + 1 });
+  await library.getByRole("button", { name: "선택 끝내기", exact: true }).click();
+  await searchRates(library).fill("");
+  await expect(rates(library)).toHaveCount(3);
+  expect(server.rateWrites).toEqual([]);
+});
+
+test("partial bulk move failures retain only failed selections and retry without repeating successful or unchanged rates", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  const bulk = await selectAllRates(library);
+  server.moveErrors.set("web-rate", [503]);
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("front");
+  await bulk.getByRole("button", { name: "선택한 3개 이동", exact: true }).click();
+  await expect(bulk.getByRole("alert")).toContainText("웹 서비스: Synthetic move failure 503");
+  await expect(bulk.locator(".settings-saved")).toHaveText("1개 이동 완료 · 1개는 이미 같은 폴더입니다.");
+  await expect(bulk.locator("form > [role=status]")).toHaveText("1개 선택 · 현재 목록 밖 0개");
+  await expect(rateCheckbox(library, "웹 서비스")).toBeChecked();
+  await expect(rateCheckbox(library, "미분류 서비스")).not.toBeChecked();
+  await expect(rateCheckbox(library, "프론트엔드 서비스")).not.toBeChecked();
+  await bulk.getByRole("button", { name: "선택한 1개 이동", exact: true }).click();
+  await expect(bulk.getByRole("alert")).toHaveCount(0);
+  await expect(bulk.locator("form > [role=status]")).toHaveText("0개 선택 · 현재 목록 밖 0개");
+  expect(server.moves.map(item => item.id)).toEqual(["root", "web-rate", "front-rate", "web-rate"]);
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ folderId: "front", version: 2 });
+  expect(server.cards.find(item => item.id === "web-rate")).toMatchObject({ folderId: "front", version: 2 });
+  expect(server.cards.find(item => item.id === "front-rate")).toMatchObject({ folderId: "front", version: 1 });
+  expect(server.rateWrites).toEqual([]);
+});
+
+test("a bulk move stops on 429 and retries the failed and unattempted rates without repeating completed work", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  const bulk = await selectAllRates(library);
+  server.moveErrors.set("web-rate", [429]);
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("design");
+  await bulk.getByRole("button", { name: "선택한 3개 이동", exact: true }).click();
+  await expect(bulk.getByRole("alert")).toContainText("요청이 많아 이동을 잠시 멈췄습니다. 잠시 후 남은 항목을 다시 이동해 주세요.");
+  await expect(bulk.locator("form > [role=status]")).toHaveText("2개 선택 · 현재 목록 밖 0개");
+  expect(server.moves.map(item => item.id)).toEqual(["root", "web-rate"]);
+  await expect(rateCheckbox(library, "웹 서비스")).toBeChecked();
+  await expect(rateCheckbox(library, "프론트엔드 서비스")).toBeChecked();
+  await expect(rateCheckbox(library, "미분류 서비스")).not.toBeChecked();
+  await bulk.getByRole("button", { name: "선택한 2개 이동", exact: true }).click();
+  await expect(bulk.locator(".settings-saved")).toHaveText("2개 이동 완료 · 0개는 이미 같은 폴더입니다.");
+  await expect(bulk.locator("form > [role=status]")).toHaveText("0개 선택 · 현재 목록 밖 0개");
+  expect(server.moves.map(item => item.id)).toEqual(["root", "web-rate", "web-rate", "front-rate"]);
+  expect(server.cards.every(item => item.folderId === "design" && item.version === 2)).toBe(true);
+});
+
+test("a lost bulk move response retries the same rate without an additional persisted revision", async ({ page }) => {
+  const { library, server } = await openLibrary(page);
+  const bulk = await selectAllRates(library);
+  server.loseMoveResponses.add("root");
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("design");
+  await bulk.getByRole("button", { name: "선택한 3개 이동", exact: true }).click();
+  await expect(bulk.getByRole("alert")).toContainText("Synthetic lost move response");
+  await expect(bulk.locator("form > [role=status]")).toHaveText("1개 선택 · 현재 목록 밖 0개");
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ folderId: "design", version: 2 });
+  await bulk.getByRole("button", { name: "선택한 1개 이동", exact: true }).click();
+  await expect(bulk.getByRole("alert")).toHaveCount(0);
+  await expect(bulk.locator("form > [role=status]")).toHaveText("0개 선택 · 현재 목록 밖 0개");
+  expect(server.moves.map(item => item.id)).toEqual(["root", "web-rate", "front-rate", "root"]);
+  expect(server.cards.find(item => item.id === "root")).toMatchObject({ folderId: "design", version: 2 });
+  expect(server.rateWrites).toEqual([]);
+});
+
+test("pending bulk moves serialize duplicate submissions and lock search, navigation, selection and destination", async ({ page }) => {
+  const { library, server } = await openLibrary(page, { initialCards: [rate("first", "첫 서비스"), rate("second", "둘째 서비스")] });
+  const bulk = await selectAllRates(library);
+  await bulk.getByLabel("이동할 폴더", { exact: true }).selectOption("front");
+  const barrier = requestBarrier(); server.barrier = barrier;
+  try {
+    await bulk.locator("form").evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
+    await barrier.entered;
+    await expect(bulk).toHaveAttribute("aria-busy", "true");
+    await expect(searchRates(library)).toBeDisabled();
+    await expect(library.getByRole("button", { name: "선택 끝내기", exact: true })).toBeDisabled();
+    await expect(library.getByRole("button", { name: "전체 폴더", exact: true })).toBeDisabled();
+    await expect(library.getByRole("button", { name: "폴더 추가", exact: true })).toBeDisabled();
+    await expect(bulk.getByLabel("이동할 폴더", { exact: true })).toBeDisabled();
+    for (const checkbox of await bulk.getByRole("checkbox").all()) await expect(checkbox).toBeDisabled();
+    for (const button of await bulk.getByRole("button").all()) await expect(button).toBeDisabled();
+    expect(server.moves.map(item => item.id)).toEqual(["first"]);
+  } finally { barrier.release(); server.barrier = null; }
+  await expect(bulk.locator(".settings-saved")).toHaveText("2개 이동 완료 · 0개는 이미 같은 폴더입니다.");
+  await expect(searchRates(library)).toBeEnabled();
+  await expect(library.getByRole("button", { name: "선택 끝내기", exact: true })).toBeEnabled();
+  expect(server.moves.map(item => item.id)).toEqual(["first", "second"]);
+  expect(server.cards.every(item => item.folderId === "front" && item.version === 2)).toBe(true);
+});
+
+test("read-only users can search inactive rates across nested folders without exposing bulk move controls", async ({ page }) => {
+  const { library, server } = await openLibrary(page, { width: 320, readOnly: true, initialCards: [rate("root", "미분류 서비스"), { ...rate("front-rate", "비활성 서비스", "front"), active: false }] });
+  await searchRates(library).fill("개발 / 웹");
+  await expect(rates(library)).toHaveText([/비활성 서비스/]);
+  await expect(rates(library).first()).toContainText("개발 / 웹 / 프론트엔드");
+  await rates(library).first().click();
+  await expect(editor(library)).toHaveCount(0);
+  await expect(library.getByRole("button", { name: "여러 단가 이동", exact: true })).toHaveCount(0);
+  await expect(library.getByRole("checkbox")).toHaveCount(0);
+  await expect(bulkMove(library)).toHaveCount(0);
+  expect(server.moves).toEqual([]);
+  expect(server.rateWrites).toEqual([]);
+  expect(server.folderWrites).toEqual([]);
+});
+
+for (const [width, locale, theme] of [[390, "ko", "light"], [320, "en", "dark"]]) {
+  test(`${width}px ${locale}: search and bulk move controls contain long names, paths, selections and feedback`, async ({ page }) => {
+    const name = `Service ${"Long service name ".repeat(6)}`.slice(0, 120);
+    const { library, state, server } = await openLibrary(page, { width, locale, theme, longNames: true, initialCards: [rate("root", `${name} 1`), { ...rate("web-rate", `${name} 2`, "web"), active: false }, { ...rate("front-rate", `${name} 3`, "front"), unit: "FIXED" }] });
+    const en = locale === "en";
+    await expect(searchRates(library)).toHaveAccessibleName(en ? "Search service rates" : "서비스 단가 검색");
+    await searchRates(library).fill("Service");
+    await expect(rates(library)).toHaveCount(3);
+    await library.getByRole("button", { name: en ? "Move multiple rates" : "여러 단가 이동", exact: true }).click();
+    const bulk = bulkMove(library);
+    await bulk.getByRole("button", { name: en ? "Select this list" : "현재 목록 모두 선택", exact: true }).click();
+    await bulk.locator("summary").click();
+    await expect(bulk.locator(".rate-bulk-selection li")).toHaveCount(3);
+    await expect(bulk.locator(".rate-bulk-list > label").last()).toContainText(en ? "/ item" : "/ 건");
+    await bulk.getByLabel(en ? "Destination folder" : "이동할 폴더", { exact: true }).selectOption("front");
+    const expectContained = async () => {
+      const clipped = await library.locator(".rate-library-tools, .rate-library-tools label, .rate-library-tools input, .rate-library-tools button, .rate-bulk-move, .rate-bulk-move form, .rate-bulk-move label, .rate-bulk-move input, .rate-bulk-move select, .rate-bulk-move button, .rate-bulk-move strong, .rate-bulk-move small, .rate-bulk-selection, .rate-bulk-selection summary, .rate-bulk-selection li, .rate-bulk-move .settings-saved").evaluateAll(elements => {
+        const bounds = elements[0].closest("#rate-cards").getBoundingClientRect();
+        return elements.filter(element => { const rect = element.getBoundingClientRect(); return rect.width > 0 && (rect.left < bounds.left - 1 || rect.right > bounds.right + 1); }).map(element => ({ tag: element.tagName, text: element.textContent?.slice(0, 40) }));
+      });
+      expect(clipped).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    };
+    await expectContained();
+    await library.screenshot({ path: `outputs/ui-ux/rate-bulk-move-${width}-${locale}.png` });
+    await bulk.getByRole("button", { name: en ? "Move 3 selected rates" : "선택한 3개 이동", exact: true }).click();
+    await expect(bulk.locator(".settings-saved")).toHaveText(en ? "2 moved · 1 already in this folder." : "2개 이동 완료 · 1개는 이미 같은 폴더입니다.");
+    await expectContained();
+    expect(server.moves).toHaveLength(3);
+    expect(state.blocked).toEqual([]);
   });
 }

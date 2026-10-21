@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent, type Dispatch, type SetStateAction } from "react";
-import { Folder, FolderOpen, FolderPlus, PencilSimple, Trash, Warning, CheckCircle, CircleNotch, CaretRight } from "@phosphor-icons/react";
+import { Folder, FolderOpen, FolderPlus, PencilSimple, Trash, Warning, CheckCircle, CircleNotch, CaretRight, MagnifyingGlass, Selection, X } from "@phosphor-icons/react";
 import { ApiError, AuthSession, RateCard, RateCardFolder, listRateCardFolders, saveRateCardFolder, deleteRateCardFolder } from "../../../app/lib/api";
 import { useT } from "../../../app/lib/ui-language";
 import { RateCardManager } from "./rate-card-manager";
+import { RateCardBulkMove } from "./rate-card-bulk-move";
 import { rateCardFolderOptions, rateCardFolderPath, rateCardFolderRateCounts } from "./rate-card-folders";
 
 function folderError(cause: unknown, fallback: string) {
@@ -34,6 +35,8 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   const [busy, setBusy] = useState(false);
   const [cardBusy, setCardBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selecting, setSelecting] = useState(false);
   const [navigation, setNavigation] = useState<{ id: string | null } | null>(null);
   const [editing, setEditing] = useState<"new" | "edit" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -49,9 +52,10 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   const missingFolder = folderId !== null && !current && !loading && !loadError;
   const children = folders.filter((folder) => folder.parentId === folderId).sort((left, right) => left.name.localeCompare(right.name, "ko"));
   const path = rateCardFolderPath(folders, folderId);
-  const currentCards = rateCards.filter((card) => (card.folderId ?? null) === folderId);
+  const search = query.normalize("NFKC").trim().toLocaleLowerCase();
+  const currentCards = search ? rateCards.filter((card) => `${card.name} ${rateCardFolderPath(folders, card.folderId ?? null).map((folder) => folder.name).join(" / ")}`.normalize("NFKC").toLocaleLowerCase().includes(search)) : rateCards.filter((card) => (card.folderId ?? null) === folderId);
   const folderCounts = rateCardFolderRateCounts(folders, rateCards);
-  const emptyMessage = currentCards.length > 0 || rateCards.length === 0
+  const emptyMessage = search ? "검색 결과가 없습니다. 서비스 이름이나 폴더 경로를 확인해 주세요." : currentCards.length > 0 || rateCards.length === 0
     ? undefined
     : folderId === null
       ? "모든 단가가 폴더에 정리되어 있습니다."
@@ -82,8 +86,10 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
   }, [session, retry]);
 
   function navigate(id: string | null) {
-    if (locked || pending.current || id === folderId) return;
+    if (locked || pending.current) return;
+    if (id === folderId) { setQuery(""); return; }
     if (dirty) { setNavigation({ id }); return; }
+    setQuery("");
     setFolderId(id);
     setEditing(null);
     setError(null);
@@ -154,7 +160,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
     <div className="rate-card-library">
       <div className="rate-folder-heading">
         <div><FolderOpen size={22} aria-hidden="true" /><p>{t("폴더로 단가를 정리하고 필요한 항목만 확인하세요.")}</p></div>
-        {canWrite && <button type="button" className="secondary-button" disabled={locked || loading || Boolean(loadError) || missingFolder} onClick={() => openEditor("new")}><FolderPlus size={18} aria-hidden="true" />{t(folderId ? "하위 폴더 추가" : "폴더 추가")}</button>}
+        {canWrite && <button type="button" className="secondary-button" disabled={locked || selecting || loading || Boolean(loadError) || missingFolder} onClick={() => openEditor("new")}><FolderPlus size={18} aria-hidden="true" />{t(folderId ? "하위 폴더 추가" : "폴더 추가")}</button>}
       </div>
       {loading && <p role="status"><CircleNotch size={18} className="spin" aria-hidden="true" />{t("폴더를 불러오고 있습니다.")}</p>}
       {loadError && <div className="inline-error" role="alert"><Warning size={18} aria-hidden="true" /><span>{t("폴더를 불러오지 못했습니다.")}</span><button type="button" className="secondary-button" disabled={locked} onClick={() => setRetry((value) => value + 1)}>{t("다시 시도")}</button></div>}
@@ -162,17 +168,25 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
       {notice && <div className="settings-saved" role="status"><CheckCircle size={18} aria-hidden="true" />{t(notice)}</div>}
       {missingFolder && <p className="permission-note" role="status">{t("다른 곳에서 이 폴더를 삭제했습니다. 입력 중인 단가는 유지되며 저장하면 미분류에 등록됩니다.")}</p>}
       {!loading && !loadError && <>
+        <div className="rate-library-tools">
+          <label className="rate-library-search"><span>{t("서비스 단가 검색")}</span><span><MagnifyingGlass size={18} aria-hidden="true" /><input type="search" value={query} disabled={locked || Boolean(editing)} placeholder={t("모든 폴더에서 이름·경로 검색")} onChange={(event) => setQuery(event.target.value)} /></span></label>
+          {(canWrite || selecting) && <button type="button" className="secondary-button" disabled={locked || dirty || Boolean(editing)} aria-pressed={selecting} onClick={() => { if (locked || dirty || pending.current) return; setSelecting((value) => !value); }}>
+            {selecting ? <X size={18} aria-hidden="true" /> : <Selection size={18} aria-hidden="true" />}{t(selecting ? "선택 끝내기" : "여러 단가 이동")}
+          </button>}
+          {dirty && <p className="rate-library-hint">{t("여러 단가를 이동하려면 편집 중인 변경을 먼저 저장하거나 닫아 주세요.")}</p>}
+          {search && <p className="rate-library-hint" role="status">{t("전체 폴더에서 {count}개 검색됨", { count: currentCards.length })}</p>}
+        </div>
         <div className="rate-folder-location">
           <nav ref={location} className="rate-folder-breadcrumb" aria-label={t("단가 폴더 경로")}>
             <button type="button" disabled={locked || Boolean(editing)} aria-current={!folderId ? "page" : undefined} onClick={() => navigate(null)}>{t("전체 폴더")}</button>
             {path.map((folder) => <span key={folder.id}><CaretRight size={15} aria-hidden="true" /><button type="button" disabled={locked || Boolean(editing)} aria-current={folder.id === folderId ? "page" : undefined} onClick={() => navigate(folder.id)}>{folder.name}</button></span>)}
           </nav>
-          {canWrite && current && <button type="button" className="secondary-button" disabled={locked} onClick={() => openEditor("edit")}><PencilSimple size={17} aria-hidden="true" />{t("폴더 관리")}</button>}
+          {canWrite && current && <button type="button" className="secondary-button" disabled={locked || selecting} onClick={() => openEditor("edit")}><PencilSimple size={17} aria-hidden="true" />{t("폴더 관리")}</button>}
         </div>
         {navigation && <div className="rate-folder-confirm" role="alert">
           <p>{t("저장하지 않은 단가 변경이 있습니다. 다른 폴더로 이동할까요?")}</p>
           <button type="button" className="secondary-button" disabled={locked} onClick={() => setNavigation(null)}>{t("계속 편집")}</button>
-          <button type="button" className="secondary-button" disabled={locked} onClick={() => { if (locked || pending.current) return; setFolderId(navigation.id); setDirty(false); setNavigation(null); setEditing(null); setError(null); setNotice(null); }}>{t("변경 버리고 이동")}</button>
+          <button type="button" className="secondary-button" disabled={locked} onClick={() => { if (locked || pending.current) return; setFolderId(navigation.id); setQuery(""); setDirty(false); setNavigation(null); setEditing(null); setError(null); setNotice(null); }}>{t("변경 버리고 이동")}</button>
         </div>}
         {editing && <form className="rate-folder-form" key={`${editing}:${folderId}`} onSubmit={saveFolder} aria-label={t(editing === "new" ? "폴더 추가" : "폴더 관리")} aria-busy={busy}>
           <fieldset disabled={locked}>
@@ -190,7 +204,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
           </div>
           {confirmDelete && <div className="rate-folder-confirm" role="alert"><p>{t("빈 폴더만 삭제할 수 있습니다. 이 폴더를 삭제할까요?")}</p><button type="button" className="secondary-button" disabled={locked} onClick={() => setConfirmDelete(false)}>{t("취소")}</button><button type="button" className="secondary-button" disabled={locked} onClick={removeFolder}>{t("삭제 확인")}</button></div>}
         </form>}
-        {children.length > 0 && <div className="rate-folder-list" role="region" aria-label={t("하위 단가 폴더")}>
+        {!search && children.length > 0 && <div className="rate-folder-list" role="region" aria-label={t("하위 단가 폴더")}>
           {children.map((folder) => <button type="button" key={folder.id} disabled={locked || Boolean(editing)} onClick={() => navigate(folder.id)}>
             <Folder size={25} aria-hidden="true" /><strong>{folder.name}</strong>
             <small>{t("전체 단가 {rates}개 · 하위 폴더 {folders}개", { rates: folderCounts.get(folder.id) ?? 0, folders: folders.filter((child) => child.parentId === folder.id).length })}</small><CaretRight size={17} aria-hidden="true" />
@@ -198,8 +212,8 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
         </div>}
       </>}
       <fieldset className="rate-card-library-fields" disabled={busy || loading || Boolean(loadError)}>
-        <legend>{folderId ? current?.name ?? t("삭제된 폴더") : t("미분류 단가")}</legend>
-        <RateCardManager
+        <legend>{search ? t("검색 결과") : folderId ? current?.name ?? t("삭제된 폴더") : t("미분류 단가")}</legend>
+        {selecting ? <RateCardBulkMove session={session} rateCards={rateCards} visibleCards={currentCards} folders={folders} canWrite={canWrite} onChange={onChange} onPendingChange={setCardBusy} /> : <RateCardManager
           key={folderId ?? "root"}
           session={session}
           rateCards={currentCards}
@@ -209,9 +223,10 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
           onChange={onChange}
           folders={folders}
           folderId={folderId}
+          showFolderPath={Boolean(search)}
           onDirtyChange={setDirty}
           onPendingChange={setCardBusy}
-        />
+        />}
       </fieldset>
     </div>
   );

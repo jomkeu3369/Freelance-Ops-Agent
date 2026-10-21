@@ -194,6 +194,137 @@
 .figma-workspace .rate-card-library .settings-saved {
   margin: 0;
 }
+.figma-workspace :is(.rate-library-tools, .rate-bulk-actions) {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+.figma-workspace .rate-library-search {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+.figma-workspace .rate-library-search > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-left: 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 9px;
+  background: var(--surface-solid);
+}
+.figma-workspace .rate-library-search svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.figma-workspace .rate-library-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 12px 10px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 15px;
+}
+.figma-workspace .rate-library-hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.figma-workspace .rate-bulk-move,
+.figma-workspace .rate-bulk-move > form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.figma-workspace .rate-bulk-move > form {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.figma-workspace .rate-bulk-move :is(p, ul) {
+  margin: 0;
+}
+.figma-workspace .rate-bulk-move :is(li, summary) {
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.figma-workspace .rate-bulk-selection summary {
+  cursor: pointer;
+  font-size: 14px;
+}
+.figma-workspace .rate-bulk-selection ul {
+  max-height: 12rem;
+  overflow-y: auto;
+  padding-left: 20px;
+}
+.figma-workspace .rate-bulk-destination {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  font-size: 14px;
+}
+.figma-workspace .rate-bulk-destination select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 9px;
+  background: var(--surface-solid);
+  color: var(--ink);
+  font-size: 15px;
+}
+.figma-workspace .rate-bulk-list {
+  display: grid;
+  gap: 10px;
+  max-height: 24rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+.figma-workspace .rate-bulk-list > label {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.figma-workspace .rate-bulk-list > label:has(:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-solid));
+}
+.figma-workspace .rate-bulk-list input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 3px 0;
+  accent-color: var(--accent);
+}
+.figma-workspace .rate-bulk-list span,
+.figma-workspace .rate-bulk-errors > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.figma-workspace .rate-bulk-move small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
 @container rate-cards (max-width: 480px) {
   .figma-workspace .rate-folder-form fieldset {
     grid-template-columns: minmax(0, 1fr);
