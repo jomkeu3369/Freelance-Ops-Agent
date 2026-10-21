@@ -16,6 +16,32 @@
   grid-column: 1 / -1;
   flex-wrap: wrap;
   gap: 12px;
+  scroll-margin-block: 80px 24px;
+}
+.figma-workspace .rate-card-manager > :is(.inline-error, .settings-saved, .rate-card-switch-confirm) {
+  grid-column: 1 / -1;
+}
+.figma-workspace .rate-card-switch-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.figma-workspace .rate-card-switch-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.figma-workspace .rate-card-form-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.figma-workspace .rate-card-form-heading > button {
+  flex-shrink: 0;
 }
 .figma-workspace .rate-card-manager .rate-card-list {
   max-height: 24rem;
@@ -60,12 +86,13 @@
   outline-offset: 3px;
 }
 @media (max-width: 820px) {
+  .figma-workspace .rate-card-manager .rate-card-toolbar,
   .figma-workspace .rate-card-manager .rate-card-form {
     scroll-margin-block-start: 16px;
   }
 }
 @container rate-cards (min-width: 760px) {
-  .figma-workspace .rate-card-manager:not(.read-only):has(.rate-card-list) {
+  .figma-workspace .rate-card-manager:not(.read-only):has(.rate-card-list):has(.rate-card-form) {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 }

@@ -2,7 +2,7 @@ import { useT } from "../../../app/lib/ui-language";
 import type { FormEvent, Dispatch, SetStateAction } from "react";
 import { AuthSession, RateCard, RateCardFolder, saveRateCard, moveRateCardToFolder } from "../../../app/lib/api";
 import { useEffect, useRef, useState } from "react";
-import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight } from "@phosphor-icons/react";
+import { Plus, Warning, CheckCircle, CircleNotch, Archive, ArrowRight, X } from "@phosphor-icons/react";
 import { formatMoney } from "../shared/formatters";
 import { rateCardFolderOptions } from "./rate-card-folders";
 
@@ -13,16 +13,21 @@ interface RateCardManagerProps {
   onChange: Dispatch<SetStateAction<RateCard[]>>;
   folders?: RateCardFolder[];
   folderId?: string | null;
+  emptyMessage?: string;
   onDirtyChange?: (dirty: boolean) => void;
   onPendingChange?: (pending: boolean) => void;
 }
 
-export function RateCardManager({ session, rateCards, canWrite, onChange, folders, folderId, onDirtyChange, onPendingChange }: RateCardManagerProps) {
+export function RateCardManager({ session, rateCards, canWrite, onChange, folders, folderId, emptyMessage, onDirtyChange, onPendingChange }: RateCardManagerProps) {
   const t = useT();
-  const [editorId, setEditorId] = useState<string>("new");
+  const [editorId, setEditorId] = useState<string | null>(null);
+  const [nextEditor, setNextEditor] = useState<{ id: string | null } | null>(null);
   const [newDraftVersion, setNewDraftVersion] = useState(0);
   const [editorFocus, setEditorFocus] = useState(0);
   const editor = useRef<HTMLFormElement>(null);
+  const newButton = useRef<HTMLButtonElement>(null);
+  const confirmation = useRef<HTMLDivElement>(null);
+  const feedback = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -33,14 +38,65 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
   const dirty = useRef(false);
   // 서버 저장 후 응답이 유실돼도 같은 PUT 대상으로 다시 확인한다.
   const newCardId = useRef<string | null>(null);
-  const selected = rateCards.find((card) => card.id === editorId) ?? null;
+  const selected = rateCards.find((card) => card.id === editorId)
+    ?? (editorId !== null && editorId !== "new" && submittedCard?.id === editorId ? submittedCard : null);
   const formCard = submittedCard ?? selected;
 
   useEffect(() => {
     if (editorFocus === 0) return;
+    if (editorId === null) {
+      newButton.current?.focus({ preventScroll: true });
+      newButton.current?.parentElement?.scrollIntoView({ block: "start", behavior: "instant" });
+      return;
+    }
     editor.current?.focus({ preventScroll: true });
     editor.current?.scrollIntoView({ block: "start", behavior: "instant" });
-  }, [editorFocus]);
+  }, [editorFocus, editorId]);
+
+  useEffect(() => {
+    if (!nextEditor) return;
+    confirmation.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    confirmation.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [nextEditor]);
+
+  useEffect(() => {
+    if (error || notice) feedback.current?.scrollIntoView({ block: "nearest", behavior: "instant" });
+  }, [error, notice]);
+
+  useEffect(() => {
+    const protectDraft = (event: BeforeUnloadEvent) => {
+      if (!dirty.current && !pending.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectDraft);
+    return () => window.removeEventListener("beforeunload", protectDraft);
+  }, []);
+
+  function changeEditor(id: string | null) {
+    if (busy || pending.current) return;
+    newCardId.current = null;
+    setSubmittedCard(null);
+    setNewDraftVersion((value) => value + 1);
+    setEditorId(id);
+    dirty.current = false;
+    onDirtyChange?.(false);
+    setNextEditor(null);
+    setError(null);
+    setNotice(null);
+    setConfirmDeactivate(false);
+    setEditorFocus((value) => value + 1);
+  }
+
+  function requestEditor(id: string | null) {
+    if (busy || pending.current) return;
+    if (id === editorId && id !== "new") {
+      if (canWrite && id !== null) setEditorFocus((value) => value + 1);
+      return;
+    }
+    if (dirty.current) { setNextEditor({ id }); return; }
+    changeEditor(id);
+  }
 
   const replaceCard = (card: RateCard) => {
     onChange((current) => {
@@ -68,7 +124,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         active: !selected.active
       });
       replaceCard(card);
-      if (!dirty.current) setSubmittedCard(null);
+      if (dirty.current) setSubmittedCard((current) => current ? { ...current, active: card.active } : current);
+      else setSubmittedCard(null);
       setConfirmDeactivate(false);
       setNotice(
         card.active
@@ -117,15 +174,14 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         active: selected?.active ?? true
       });
       detailsSaved = true;
+      setSubmittedCard((current) => current ? { ...card, folderId: current.folderId, version: current.version } : current);
       replaceCard(card);
       const destination = String(data.get("folderId") ?? "") || null;
       if (folders && (card.folderId ?? null) !== destination) card = await moveRateCardToFolder(session, id, destination);
       replaceCard(card);
       setSubmittedCard(null);
-      if (folders && (card.folderId ?? null) !== (folderId ?? null)) {
-        setEditorId("new");
-        setNewDraftVersion((value) => value + 1);
-      } else setEditorId(card.id);
+      setEditorId(!selected || folders && (card.folderId ?? null) !== (folderId ?? null) ? null : card.id);
+      setNextEditor(null);
       newCardId.current = null;
       dirty.current = false;
       onDirtyChange?.(false);
@@ -140,12 +196,16 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
     }
   }
 
+  const feedbackMessage = error
+    ? <div ref={feedback} className="inline-error" role="alert"><Warning size={17} />{t(error)}</div>
+    : notice ? <div ref={feedback} className="settings-saved" role="status"><CheckCircle size={17} />{t(notice)}</div> : null;
+
   return (
     <div className={`rate-card-manager${canWrite ? "" : " read-only"}`}>
       <div className="rate-card-toolbar">
         <p>
           {rateCards.length === 0
-            ? t("등록된 단가가 없습니다. 첫 단가를 추가하세요.")
+            ? t(emptyMessage ?? "등록된 단가가 없습니다. 첫 단가를 추가하세요.")
             : t("{v0}개 사용 중 · {v1}개 전체", {
                 v0: rateCards.filter((card) => card.active).length,
                 v1: rateCards.length
@@ -154,26 +214,23 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         {canWrite && (
           <button
             type="button"
+            ref={newButton}
             className="secondary-button"
             disabled={busy}
-            onClick={() => {
-              if (pending.current) return;
-              newCardId.current = null;
-              setSubmittedCard(null);
-              setNewDraftVersion((value) => value + 1);
-              setEditorId("new");
-              dirty.current = false;
-              onDirtyChange?.(false);
-              setError(null);
-              setNotice(null);
-              setConfirmDeactivate(false);
-              setEditorFocus((value) => value + 1);
-            }}
+            aria-expanded={editorId === "new"}
+            aria-controls={editorId !== null ? "rate-card-editor" : undefined}
+            onClick={() => requestEditor("new")}
           >
             <Plus size={17} /> {t("새 단가")}
           </button>
         )}
       </div>
+      {nextEditor && <div ref={confirmation} className="rate-card-switch-confirm" role="alert">
+        <p>{t(nextEditor.id === null ? "저장하지 않은 단가 변경이 있습니다. 편집을 닫을까요?" : nextEditor.id === "new" ? "저장하지 않은 단가 변경이 있습니다. 새 단가를 등록할까요?" : "저장하지 않은 단가 변경이 있습니다. 다른 단가로 이동할까요?")}</p>
+        <button type="button" className="secondary-button" disabled={busy} onClick={() => { if (pending.current) return; setNextEditor(null); setEditorFocus((value) => value + 1); }}>{t("계속 편집")}</button>
+        <button type="button" className="secondary-button" disabled={busy} onClick={() => changeEditor(nextEditor.id)}>{t("변경 버리고 이동")}</button>
+      </div>}
+      {(!canWrite || editorId === null) && feedbackMessage}
       {rateCards.length > 0 && (
         <div className="rate-card-list" role="region" aria-label={t("등록된 서비스 단가")}>
           {rateCards.map((card) => (
@@ -182,23 +239,9 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
               key={card.id}
               disabled={busy}
               aria-pressed={editorId === card.id}
-              aria-controls={canWrite ? "rate-card-editor" : undefined}
+              aria-controls={canWrite && editorId !== null ? "rate-card-editor" : undefined}
               className={`${editorId === card.id ? "active" : ""}${card.active ? "" : " inactive"}`}
-              onClick={() => {
-                if (pending.current) return;
-                if (editorId === card.id) {
-                  if (canWrite) setEditorFocus((value) => value + 1);
-                  return;
-                }
-                setEditorId(card.id);
-                dirty.current = false;
-                onDirtyChange?.(false);
-                setSubmittedCard(null);
-                setError(null);
-                setNotice(null);
-                setConfirmDeactivate(false);
-                if (canWrite) setEditorFocus((value) => value + 1);
-              }}
+              onClick={() => requestEditor(card.id)}
             >
               <div>
                 <strong>{card.name}</strong>
@@ -220,7 +263,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
         </div>
       )}
 
-      {canWrite ? (
+      {canWrite && editorId !== null && (
         <form
           ref={editor}
           id="rate-card-editor"
@@ -230,7 +273,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
           aria-busy={busy}
           tabIndex={-1}
           onSubmit={handleSubmit}
-          onChange={() => { dirty.current = true; onDirtyChange?.(true); }}
+          onChange={() => { if (!dirty.current) setSubmittedCard(formCard); dirty.current = true; onDirtyChange?.(true); }}
         >
           <div className="rate-card-form-heading">
             <div>
@@ -246,23 +289,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
                 {selected.active ? t("사용 중") : t("비활성")}
               </span>
             )}
+            <button type="button" className="quiet-button" disabled={busy} onClick={() => requestEditor(null)}><X size={17} aria-hidden="true" />{t("닫기")}</button>
           </div>
           {folders && folders.length > 0 && <label>{t("단가 폴더")}<select name="folderId" aria-label={t("단가 폴더")} defaultValue={(formCard ? formCard.folderId : folders.some((folder) => folder.id === folderId) ? folderId : null) ?? ""} disabled={busy}>
             <option value="">{t("미분류")}</option>
             {rateCardFolderOptions(folders).map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
           </select></label>}
-          {error && (
-            <div className="inline-error" role="alert">
-              <Warning size={17} />
-              {t(error)}
-            </div>
-          )}
-          {notice && (
-            <div className="settings-saved" role="status">
-              <CheckCircle size={17} />
-              {t(notice)}
-            </div>
-          )}
+          {feedbackMessage}
           <fieldset disabled={busy}>
             <div className="form-row">
               <label>
@@ -339,7 +372,8 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
             </div>
           </fieldset>
         </form>
-      ) : (
+      )}
+      {!canWrite && (
         <p className="permission-note">
           {t("단가를 변경할 권한이 없습니다. 등록된 단가와 활성 상태만 확인할 수 있습니다.")}
         </p>

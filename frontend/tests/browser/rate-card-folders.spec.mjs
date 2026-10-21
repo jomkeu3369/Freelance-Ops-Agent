@@ -3,12 +3,12 @@ import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 const folder = (id, name, parentId = null) => ({ id, name, parentId, workspaceId: "local-space", version: 0 });
 const rate = (id, name, folderId = null) => ({ id, name, folderId, workspaceId: "local-space", unit: "HOUR", rate: 100, minimumAmount: 0, currency: "KRW", active: true, version: 1 });
-async function openLibrary(page, { width = 1440, locale = "ko", theme = "light", readOnly = false, longNames = false } = {}) {
+async function openLibrary(page, { width = 1440, locale = "ko", theme = "light", readOnly = false, longNames = false, initialFolders, initialCards } = {}) {
   const state = await fixture(page);
   if (readOnly) state.permissions = ["project.read", "quotation.read"];
   const server = {
-    folders: [folder("dev", longNames ? "Development and implementation ".repeat(4) : "개발"), folder("design", "디자인"), folder("web", "웹", "dev"), folder("front", "프론트엔드", "web")],
-    cards: [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")],
+    folders: initialFolders ?? [folder("dev", longNames ? "Development and implementation ".repeat(4) : "개발"), folder("design", "디자인"), folder("web", "웹", "dev"), folder("front", "프론트엔드", "web")],
+    cards: initialCards ?? [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")],
     folderWrites: [], folderDeletes: [], folderReads: 0, rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, loseDeleteResponse: false, failDelete: false, failMove: false, barrier: null, folderError: null
   };
   await page.setViewportSize({ width, height: 900 });
@@ -54,7 +54,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
   });
   await page.goto("/workspace/settings");
   const library = page.locator(".rate-card-library");
-  await expect(library.locator(".rate-folder-list > button")).toHaveCount(2);
+  await expect(library.locator(".rate-folder-list > button")).toHaveCount(server.folders.filter(item => item.parentId === null).length);
   await page.evaluate(() => document.fonts.ready);
   return { library, state, server };
 }
@@ -62,6 +62,7 @@ const folders = library => library.locator(".rate-folder-list > button");
 const rates = library => library.locator(".rate-card-list > button");
 const editor = library => library.locator(".rate-card-form");
 async function fillRate(library, name, destination = "") {
+  if (await editor(library).count() === 0) await library.getByRole("button", { name: "새 단가", exact: true }).click();
   await editor(library).getByLabel("서비스 이름", { exact: true }).fill(name);
   await editor(library).getByLabel("기본 단가", { exact: true }).fill("250");
   await editor(library).getByLabel("단가 폴더", { exact: true }).selectOption(destination);
@@ -137,8 +138,8 @@ test("a rate saved into another folder never reuses its identity for the next ne
   const { library, server } = await openLibrary(page);
   await fillRate(library, "분류한 서비스", "front");
   await editor(library).getByRole("button", { name: "단가 등록", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("새 단가를 등록했습니다");
-  await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("새 단가를 등록했습니다");
+  await expect(editor(library)).toHaveCount(0);
   await fillRate(library, "다음 서비스");
   await editor(library).getByRole("button", { name: "단가 등록", exact: true }).click();
   await expect(rates(library)).toHaveCount(2);
@@ -169,7 +170,7 @@ test("same selection keeps a dirty draft and navigation confirmation cannot bypa
     await expect(library.getByRole("button", { name: "변경 버리고 이동", exact: true })).toBeDisabled();
     await expect(folders(library).first()).toBeDisabled();
   } finally { barrier.release(); server.barrier = null; }
-  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
   await library.getByRole("button", { name: "계속 편집", exact: true }).click();
   expect(server.rateWrites).toHaveLength(1);
 });
@@ -179,11 +180,11 @@ test("a failed folder move preserves the saved rate metadata and a retry uses th
   await rates(library).first().click();
   await fillRate(library, "저장된 새 이름", "design"); server.failMove = true;
   await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
-  await expect(editor(library).getByRole("alert")).toContainText("단가는 저장했지만 폴더를 옮기지 못했습니다");
+  await expect(library.locator(".rate-card-manager .inline-error")).toContainText("단가는 저장했지만 폴더를 옮기지 못했습니다");
   await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("저장된 새 이름");
   server.failMove = false;
   await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
   expect(server.rateWrites.map(item => item.id)).toEqual(["root", "root"]);
   expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "저장된 새 이름", rate: 250, folderId: "design" });
 });
@@ -308,10 +309,10 @@ test("deactivation after a partial folder save preserves the newly saved name an
   await rates(library).first().click();
   await fillRate(library, "이미 저장한 이름", "design"); server.failMove = true;
   await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
-  await expect(editor(library).getByRole("alert")).toBeVisible();
+  await expect(library.locator(".rate-card-manager .inline-error")).toBeVisible();
   await editor(library).getByRole("button", { name: "비활성화", exact: true }).click();
   await editor(library).locator(".archive-confirm").getByRole("button", { name: "비활성화", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("선택 항목에서 제외했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("선택 항목에서 제외했습니다");
   expect(server.rateWrites.at(-1).input).toMatchObject({ name: "이미 저장한 이름", rate: 250, active: false });
   await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
   await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("이미 저장한 이름");
@@ -320,7 +321,7 @@ test("deactivation after a partial folder save preserves the newly saved name an
   await library.getByRole("button", { name: "계속 편집", exact: true }).click();
   server.failMove = false;
   await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
   expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "이미 저장한 이름", rate: 250, active: false, folderId: "design" });
 });
 
@@ -330,13 +331,13 @@ test("toggling a dirty rate preserves every unsaved field and selected destinati
   await fillRate(library, "토글 중 유지할 초안", "design");
   await editor(library).getByRole("button", { name: "비활성화", exact: true }).click();
   await editor(library).locator(".archive-confirm").getByRole("button", { name: "비활성화", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("선택 항목에서 제외했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("선택 항목에서 제외했습니다");
   await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("토글 중 유지할 초안");
   await expect(editor(library).getByLabel("기본 단가", { exact: true })).toHaveValue("250");
   await expect(editor(library).getByLabel("단가 폴더", { exact: true })).toHaveValue("design");
   expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "미분류 서비스", rate: 100, active: false, folderId: null });
   await editor(library).getByRole("button", { name: "변경 저장", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("단가 변경을 저장했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
   expect(server.cards.find(item => item.id === "root")).toMatchObject({ name: "토글 중 유지할 초안", rate: 250, active: false, folderId: "design" });
 });
 
@@ -354,7 +355,7 @@ test("a folder deleted elsewhere does not discard a new rate draft on refresh", 
   await expect(library.getByRole("status")).toContainText("다른 곳에서 이 폴더를 삭제했습니다");
   await expect(editor(library).getByLabel("서비스 이름", { exact: true })).toHaveValue("다른 PC 변경에도 보존");
   await editor(library).getByRole("button", { name: "단가 등록", exact: true }).click();
-  await expect(editor(library).getByRole("status")).toContainText("새 단가를 등록했습니다");
+  await expect(library.locator(".rate-card-manager .settings-saved")).toContainText("새 단가를 등록했습니다");
   expect(server.cards.find(item => item.name === "다른 PC 변경에도 보존").folderId).toBeNull();
 });
 
@@ -422,3 +423,54 @@ test("read-only nested folder browsing exposes saved rates without mutation cont
   expect(server.folderWrites).toEqual([]);
   expect(server.rateWrites).toEqual([]);
 });
+
+for (const [width, locale, theme] of [[1440, "ko", "light"], [390, "ko", "dark"], [320, "en", "dark"]]) {
+  test(`${width}px ${locale}: a truly empty library starts collapsed and opens only on request`, async ({ page }) => {
+    const { library, server } = await openLibrary(page, { width, locale, theme, initialFolders: [], initialCards: [] });
+    await expect(editor(library)).toHaveCount(0);
+    await expect(library.locator(".rate-card-toolbar")).toHaveText(locale === "en" ? /No rates yet\. Add your first rate\./ : /등록된 단가가 없습니다\. 첫 단가를 추가하세요\./);
+    await library.getByRole("button", { name: locale === "en" ? "New rate" : "새 단가", exact: true }).click();
+    await expect(editor(library)).toBeVisible();
+    await expect(editor(library).getByRole("textbox")).toHaveValue("");
+    await editor(library).getByRole("button", { name: locale === "en" ? "Close" : "닫기", exact: true }).click();
+    await expect(editor(library)).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(server.rateWrites).toEqual([]);
+  });
+
+  test(`${width}px ${locale}: organized rates and empty folders explain their actual contents`, async ({ page }) => {
+    const { library, server } = await openLibrary(page, { width, locale, theme, initialCards: [rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")] });
+    await expect(editor(library)).toHaveCount(0);
+    await expect(rates(library)).toHaveCount(0);
+    await expect(library.locator(".rate-card-toolbar")).toContainText(locale === "en" ? "All rates are organized into folders." : "모든 단가가 폴더에 정리되어 있습니다.");
+    const development = folders(library).filter({ hasText: "개발" });
+    await expect(development.locator("small")).toHaveText(locale === "en" ? "Total rates 2 · Subfolders 1" : "전체 단가 2개 · 하위 폴더 1개");
+    await development.click();
+    await expect(editor(library)).toHaveCount(0);
+    await expect(library.locator(".rate-card-toolbar")).toContainText(locale === "en" ? "The rates in this folder are organized into subfolders." : "이 폴더의 단가는 하위 폴더에 정리되어 있습니다.");
+    await library.getByRole("button", { name: locale === "en" ? "All folders" : "전체 폴더", exact: true }).click();
+    await folders(library).filter({ hasText: "디자인" }).click();
+    await expect(editor(library)).toHaveCount(0);
+    await expect(library.locator(".rate-card-toolbar")).toContainText(locale === "en" ? "No rates are registered in this folder." : "이 폴더에 등록된 단가가 없습니다.");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(server.rateWrites).toEqual([]);
+  });
+}
+
+for (const locale of ["ko", "en"]) {
+  test(`${locale}: folder totals include every nested and inactive rate without counting another branch`, async ({ page }) => {
+    const { library, server } = await openLibrary(page, { locale, initialCards: [
+      rate("root", "미분류 서비스"), rate("dev-rate", "개발 직접 단가", "dev"), rate("web-rate", "웹 서비스", "web"),
+      rate("front-rate", "프론트엔드 서비스", "front"), { ...rate("inactive-rate", "비활성 프론트엔드", "front"), active: false }, rate("design-rate", "디자인 서비스", "design")
+    ] });
+    const count = (rates, folders) => locale === "en" ? `Total rates ${rates} · Subfolders ${folders}` : `전체 단가 ${rates}개 · 하위 폴더 ${folders}개`;
+    await expect(folders(library).filter({ hasText: "개발" }).locator("small")).toHaveText(count(4, 1));
+    await expect(folders(library).filter({ hasText: "디자인" }).locator("small")).toHaveText(count(1, 0));
+    await folders(library).filter({ hasText: "개발" }).click();
+    await expect(folders(library).filter({ hasText: "웹" }).locator("small")).toHaveText(count(3, 1));
+    await folders(library).filter({ hasText: "웹" }).click();
+    await expect(folders(library).filter({ hasText: "프론트엔드" }).locator("small")).toHaveText(count(2, 0));
+    await expect(editor(library)).toHaveCount(0);
+    expect(server.rateWrites).toEqual([]);
+  });
+}
