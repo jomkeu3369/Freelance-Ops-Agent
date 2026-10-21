@@ -568,7 +568,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canOpenPets={!busy}
           onStartQuotation={() => void startQuotation()}
           onOpenPets={() => setShowPets(true)}
-          conversationTools={<PetConversationControls state={conversation} beforeChange={ensureConversationIdle} onManageLibrary={() => setShowPets(true)} />}
+          conversationTools={canRun ? <PetConversationControls state={conversation} beforeChange={ensureConversationIdle} onManageLibrary={() => setShowPets(true)} /> : null}
           onInterrupt={ensureConversationIdle}
           quotationError={quotationError}
           retryCandidates={retryCandidates}

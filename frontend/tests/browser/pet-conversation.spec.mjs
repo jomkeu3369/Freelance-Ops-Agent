@@ -129,6 +129,16 @@ test("direct cancellation failure is handled without an unhandled browser reject
   expect(server.starts).toEqual([]);expect(errors).toEqual([]);
 });
 
+test("an ineligible keyboard send never cancels the current reply",async({page})=>{
+  const {state,server}=await open(page,{active:true});state.aiUsage.spendingEnabled=false;
+  await page.reload();
+  await page.locator("#agent-chat-input").fill("보낼 수 없는 요청");
+  await expect(page.locator('.agent-chat-composer button[type="submit"]')).toBeDisabled();
+  await page.locator("#agent-chat-input").press("Control+Enter");
+  await expect(page.getByRole("alert").filter({hasText:/사용량|모델/}).first()).toBeVisible();
+  expect(server.order).toEqual([]);expect(server.starts).toEqual([]);
+});
+
 test("a proposed quote remains unapplied until explicit acceptance; review does not publish",async({page})=>{
   const {server,state}=await open(page);
   await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeVisible();

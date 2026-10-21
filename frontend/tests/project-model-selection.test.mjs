@@ -176,6 +176,7 @@ test("losing agent.run permission blocks restored model and personal-key choices
     assert.equal(f.analysis.canRun, false);
     assert.equal(f.analysis.canSendAI, false);
     assert.equal(f.analysis.composerTools, null);
+    assert.equal(f.analysis.conversationTools, null);
     assert.equal(await f.analysis.onSendMessage("Synthetic message"), false);
     assert.equal(f.starts.length, 0);
     assert.equal(f.changes.length, 0);

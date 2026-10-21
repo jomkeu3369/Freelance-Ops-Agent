@@ -317,10 +317,10 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     setPolicyError(null);
     try {
       const policyIntent = attachments.items.length ? null : parseChatPolicyIntent(message);
-      if (active && onInterrupt) await onInterrupt();
       if (policyIntent) {
         if (!canEditPolicy) throw new Error(t("견적 설정 변경 권한이 없습니다."));
         if (!policyIntent.valid) throw new Error(t("예: 기본 세율 10%, 위험 버퍼 15%, 최대 할인 20%로 변경"));
+        if (active && onInterrupt) await onInterrupt();
         const current = await getCurrentEstimationPolicy(session);
         const next = await proposeEstimationPolicy(session, {
           projectId,
@@ -352,6 +352,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
         if (!canSendAI && !retryingDraft) throw new Error(t("사용량과 모델 지원 상태를 확인한 뒤 다시 보내 주세요."));
         if (!modelAvailable) throw new Error(t("먼저 사용할 AI 모델을 선택해 주세요."));
         if (!(await attachments.prepare())) return;
+        if (active && onInterrupt) await onInterrupt();
         const accepted = await onSend(message, attachments.ids, skillSelection);
         if (!mounted.current) return;
         if (accepted) {
