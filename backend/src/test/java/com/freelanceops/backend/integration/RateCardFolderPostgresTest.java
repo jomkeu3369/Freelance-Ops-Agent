@@ -117,11 +117,13 @@ class RateCardFolderPostgresTest {
         UUID child = folder(root, "Child");
         RateCardResponse card = rate(true);
         UUID project = project();
-        var quotation = quotations.create(user, workspace, project, new CreateQuotationRequest(
+        var created = quotations.create(user, workspace, project, new CreateQuotationRequest(
                 QuotationScenario.RECOMMENDED, "KRW", BigDecimal.ZERO, false, null,
                 List.of(new QuotationItemRequest(card.id(), "Stored item", "", BigDecimal.ONE,
                         null, null, BigDecimal.ZERO, new QuotationBasisRequest(
                                 BasisType.ASSUMPTION, "Synthetic basis", null, null, null, null)))));
+        // DB의 시각 정밀도·소수 자릿수 정규화가 끝난 저장본을 이동 전 기준으로 삼는다.
+        var quotation = quotations.get(user, workspace, created.id());
         var moved = folders.moveRateCard(user, workspace, card.id(), new MoveRateCardRequest(child));
         assertThat(moved.folderId()).isEqualTo(child);
         assertThat(moved.version()).isGreaterThan(card.version());
