@@ -160,7 +160,7 @@ public class SecurityConfig {
                         "Last-Event-ID",
                         "traceparent",
                         "Idempotency-Key"));
-        configuration.setExposedHeaders(List.of("Location"));
+        configuration.setExposedHeaders(List.of("Location", "Retry-After"));
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 

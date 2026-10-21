@@ -69,11 +69,15 @@ public class RateCardFolderService {
         if (current != null && !current.workspaceId().equals(workspaceId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
-        if (request.expectedVersion() != null
-                && (current == null
-                        || (current.version() != request.expectedVersion()
-                                && (!current.name().equals(name)
-                                        || !Objects.equals(current.parentId(), request.parentId()))))) {
+        boolean unchanged =
+                current != null
+                        && current.name().equals(name)
+                        && Objects.equals(current.parentId(), request.parentId());
+        if ((current == null && request.expectedVersion() != null)
+                || (current != null
+                        && !unchanged
+                        && (request.expectedVersion() == null
+                                || current.version() != request.expectedVersion()))) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "folder changed; reload and try again");
         }
@@ -91,9 +95,7 @@ public class RateCardFolderService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "a folder with this name already exists in the parent folder");
         }
-        if (current != null
-                && current.name().equals(name)
-                && Objects.equals(current.parentId(), request.parentId())) {
+        if (unchanged) {
             return response(current);
         }
         Instant now = Instant.now();
