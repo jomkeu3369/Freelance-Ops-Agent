@@ -66,6 +66,58 @@ class RateCardFolderServiceTest {
     }
 
     @Test
+    void anEditCannotRecreateAFolderDeletedByAnotherClient() {
+        allowWrite();
+        UUID id = UUID.randomUUID();
+
+        assertStatus(409, () -> service().upsertFolder(user, workspace, id,
+                new UpsertRateCardFolderRequest("Stale rename", null, 0L)));
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void aStaleVersionCannotOverwriteAnotherClientsFolderChange() {
+        allowWrite();
+        var current = folder(UUID.randomUUID(), null, "Other clients rename");
+        when(folders.findById(current.id())).thenReturn(Optional.of(current));
+
+        assertStatus(409, () -> service().upsertFolder(user, workspace, current.id(),
+                new UpsertRateCardFolderRequest("Stale rename", null, 1L)));
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void anUnversionedEditCannotRenameOrMoveAnExistingFolder(boolean moving) {
+        allowWrite();
+        var current = folder(UUID.randomUUID(), null, "Original");
+        when(folders.findById(current.id())).thenReturn(Optional.of(current));
+
+        assertReason("folder changed; reload and try again", () -> service().upsertFolder(
+                user, workspace, current.id(), request(moving ? current.name() : "Overwritten", moving ? UUID.randomUUID() : null)));
+
+        assertThat(current.name()).isEqualTo("Original");
+        assertThat(current.parentId()).isNull();
+        verify(folders, never()).findTop201ByWorkspaceIdOrderByNameAscIdAsc(any());
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void anIdenticalEditRetrySucceedsEvenAfterTheVersionAdvanced() {
+        allowWrite();
+        var current = folder(UUID.randomUUID(), null, "Saved rename");
+        when(folders.findById(current.id())).thenReturn(Optional.of(current));
+        when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(List.of(current));
+
+        assertThat(service().upsertFolder(user, workspace, current.id(),
+                new UpsertRateCardFolderRequest("Saved rename", null, 1L)).name()).isEqualTo("Saved rename");
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
     void repeatingAnIdenticalPutDoesNotInsertOrAdvanceTheRevision() {
         allowWrite();
         var folder = folder(UUID.randomUUID(), null, "Existing");
@@ -88,7 +140,8 @@ class RateCardFolderServiceTest {
         when(folders.findById(root.id())).thenReturn(Optional.of(root));
         when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(List.of(root, child, leaf));
 
-        assertStatus(409, () -> service().upsertFolder(user, workspace, root.id(), request("Root", leaf.id())));
+        assertReason("a folder cannot be moved into itself or its descendants",
+                () -> service().upsertFolder(user, workspace, root.id(), request("Root", leaf.id(), root.version())));
 
         verify(folders, never()).saveAndFlush(any());
     }
@@ -277,7 +330,7 @@ class RateCardFolderServiceTest {
         when(folders.findById(current.id())).thenReturn(Optional.of(current));
         when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(existing);
         when(folders.saveAndFlush(current)).thenReturn(current);
-        var result = service().upsertFolder(user, workspace, current.id(), request("Renamed", parent.id()));
+        var result = service().upsertFolder(user, workspace, current.id(), request("Renamed", parent.id(), current.version()));
         assertThat(result.name()).isEqualTo("Renamed");
         assertThat(result.parentId()).isEqualTo(parent.id());
     }
@@ -331,7 +384,7 @@ class RateCardFolderServiceTest {
         when(folders.findById(moving.id())).thenReturn(Optional.of(moving));
         when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(existing);
         assertReason("rate-card folders can be nested at most 8 levels",
-                () -> service().upsertFolder(user, workspace, moving.id(), request("Moving", existing.get(6).id())));
+                () -> service().upsertFolder(user, workspace, moving.id(), request("Moving", existing.get(6).id(), moving.version())));
         assertThat(moving.parentId()).isNull();
         verify(folders, never()).saveAndFlush(any());
     }
@@ -346,7 +399,7 @@ class RateCardFolderServiceTest {
         when(folders.findById(moving.id())).thenReturn(Optional.of(moving));
         when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(existing);
         when(folders.saveAndFlush(moving)).thenReturn(moving);
-        assertThat(service().upsertFolder(user, workspace, moving.id(), request("Moving", existing.get(5).id())).parentId()).isEqualTo(existing.get(5).id());
+        assertThat(service().upsertFolder(user, workspace, moving.id(), request("Moving", existing.get(5).id(), moving.version())).parentId()).isEqualTo(existing.get(5).id());
     }
 
     @Test
@@ -368,7 +421,7 @@ class RateCardFolderServiceTest {
         when(folders.findById(moving.id())).thenReturn(Optional.of(moving));
         when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(existing);
         when(folders.saveAndFlush(moving)).thenReturn(moving);
-        assertThat(service().upsertFolder(user, workspace, moving.id(), request(moving.name(), null)).parentId()).isNull();
+        assertThat(service().upsertFolder(user, workspace, moving.id(), request(moving.name(), null, moving.version())).parentId()).isNull();
     }
 
     private List<RateCardFolderEntity> roots(int count) {
@@ -409,7 +462,11 @@ class RateCardFolderServiceTest {
     }
 
     private static UpsertRateCardFolderRequest request(String name, UUID parentId) {
-        return new UpsertRateCardFolderRequest(name, parentId);
+        return new UpsertRateCardFolderRequest(name, parentId, null);
+    }
+
+    private static UpsertRateCardFolderRequest request(String name, UUID parentId, long expectedVersion) {
+        return new UpsertRateCardFolderRequest(name, parentId, expectedVersion);
     }
 
     private static void assertStatus(int status, Runnable operation) {

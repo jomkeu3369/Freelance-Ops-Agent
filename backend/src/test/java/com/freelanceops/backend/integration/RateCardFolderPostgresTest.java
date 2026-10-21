@@ -122,17 +122,65 @@ public class RateCardFolderPostgresTest {
         UUID child = folder(root, "Child");
         UUID leaf = folder(child, "Leaf");
         assertThat(folders.listFolders(user, workspace)).hasSize(3);
-        var renamed = folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest(" Renamed ", root));
+        var renamed = folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest(" Renamed ", root, version(child)));
         assertThat(renamed.name()).isEqualTo("Renamed");
         assertThat(renamed.version()).isEqualTo(version(child));
-        var repeated = folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", root));
+        var repeated = folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", root, renamed.version()));
         assertThat(repeated).isEqualTo(renamed);
-        assertStatus(409, () -> folders.upsertFolder(user, workspace, root, new UpsertRateCardFolderRequest("Root", leaf)));
-        assertStatus(409, () -> folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", child)));
-        folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", null));
+        assertReason("a folder cannot be moved into itself or its descendants", () -> folders.upsertFolder(user, workspace, root, new UpsertRateCardFolderRequest("Root", leaf, version(root))));
+        assertReason("a folder cannot be moved into itself or its descendants", () -> folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", child, version(child))));
+        folders.upsertFolder(user, workspace, child, new UpsertRateCardFolderRequest("Renamed", null, version(child)));
         assertThat(folders.listFolders(user, workspace)).filteredOn(item -> item.id().equals(child)).singleElement()
                 .satisfies(item -> assertThat(item.parentId()).isNull());
         assertStatus(409, () -> folder(null, "root"));
+    }
+
+    @Test
+    void versionedEditsCannotResurrectDeletedFoldersOrOverwriteOtherClients() throws Exception {
+        UUID target = folder(null, "Original");
+        long originalVersion = version(target);
+        var saved = folders.upsertFolder(user, workspace, target,
+                new UpsertRateCardFolderRequest("First client", null, originalVersion));
+        assertThat(saved.version()).isGreaterThan(originalVersion);
+        assertThat(folders.upsertFolder(user, workspace, target,
+                new UpsertRateCardFolderRequest("First client", null, originalVersion))).isEqualTo(saved);
+        assertStatus(409, () -> folders.upsertFolder(user, workspace, target,
+                new UpsertRateCardFolderRequest("Stale second client", null, originalVersion)));
+        folders.deleteFolder(user, workspace, target);
+
+        mvc.perform(put("/api/v2/workspaces/" + workspace + "/rate-card-folders/" + target).with(jwt().jwt(token -> token.subject(user.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Stale rename\",\"parentId\":null,\"expectedVersion\":" + saved.version() + "}"))
+                .andExpect(status().isConflict());
+        assertThat(folderRepository.findById(target)).isEmpty();
+    }
+
+    @Test
+    void httpRequiresAVersionForChangesButAllowsAnIdenticalCreationRetry() throws Exception {
+        UUID target = folder(null, "Original");
+        UUID parent = folder(null, "Destination");
+        long originalVersion = version(target);
+        String path = "/api/v2/workspaces/" + workspace + "/rate-card-folders/" + target;
+        mvc.perform(put(path).with(jwt().jwt(token -> token.subject(user.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Original\",\"parentId\":null}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(originalVersion));
+        for (String body : List.of(
+                "{\"name\":\"Unversioned rename\",\"parentId\":null}",
+                "{\"name\":\"Original\",\"parentId\":\"" + parent + "\",\"expectedVersion\":null}")) {
+            mvc.perform(put(path).with(jwt().jwt(token -> token.subject(user.toString())))
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isConflict());
+        }
+        var unchanged = folderRepository.findById(target).orElseThrow();
+        assertThat(unchanged.name()).isEqualTo("Original");
+        assertThat(unchanged.parentId()).isNull();
+        assertThat(unchanged.version()).isEqualTo(originalVersion);
+        mvc.perform(put(path).with(jwt().jwt(token -> token.subject(user.toString())))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Versioned rename\",\"parentId\":\"" + parent + "\",\"expectedVersion\":" + originalVersion + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("Versioned rename"))
+                .andExpect(jsonPath("$.parentId").value(parent.toString()))
+                .andExpect(jsonPath("$.version").value(originalVersion + 1));
     }
 
     @Test
@@ -179,12 +227,12 @@ public class RateCardFolderPostgresTest {
         UUID target = folder(null, "Local");
         UUID other = workspaces.create(user, "Other", "other-" + UUID.randomUUID()).workspaceId();
         UUID foreign = UUID.randomUUID();
-        folders.upsertFolder(user, other, foreign, new UpsertRateCardFolderRequest("Private", null));
+        folders.upsertFolder(user, other, foreign, new UpsertRateCardFolderRequest("Private", null, null));
         UUID card = rate(false).id();
         UUID otherRoot = folder(null, "Other root");
         assertThatThrownBy(() -> jdbc.update("UPDATE app.rate_card_folder SET name='local' WHERE id=?", otherRoot)).isInstanceOf(DataAccessException.class);
-        assertStatus(404, () -> folders.upsertFolder(user, workspace, target, new UpsertRateCardFolderRequest("Local", foreign)));
-        assertStatus(404, () -> folders.upsertFolder(user, workspace, foreign, new UpsertRateCardFolderRequest("Overwrite", null)));
+        assertStatus(404, () -> folders.upsertFolder(user, workspace, target, new UpsertRateCardFolderRequest("Local", foreign, version(target))));
+        assertStatus(404, () -> folders.upsertFolder(user, workspace, foreign, new UpsertRateCardFolderRequest("Overwrite", null, null)));
         assertStatus(404, () -> folders.moveRateCard(user, workspace, card, new MoveRateCardRequest(foreign)));
         assertThatThrownBy(() -> jdbc.update("UPDATE app.rate_card_folder SET parent_id=? WHERE id=?", foreign, target)).isInstanceOf(DataAccessException.class);
         assertThatThrownBy(() -> jdbc.update("UPDATE app.rate_card_folder SET parent_id=id WHERE id=?", target)).isInstanceOf(DataAccessException.class);
@@ -205,8 +253,9 @@ public class RateCardFolderPostgresTest {
         UUID second = folder(null, "Second");
         CountDownLatch start = new CountDownLatch(1);
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            var a = executor.submit(() -> after(start, () -> folders.upsertFolder(user, workspace, first, new UpsertRateCardFolderRequest("First", second))));
-            var b = executor.submit(() -> after(start, () -> folders.upsertFolder(user, workspace, second, new UpsertRateCardFolderRequest("Second", first))));
+            long firstVersion = version(first), secondVersion = version(second);
+            var a = executor.submit(() -> after(start, () -> folders.upsertFolder(user, workspace, first, new UpsertRateCardFolderRequest("First", second, firstVersion))));
+            var b = executor.submit(() -> after(start, () -> folders.upsertFolder(user, workspace, second, new UpsertRateCardFolderRequest("Second", first, secondVersion))));
             start.countDown();
             assertThat(List.of(a.get(20, TimeUnit.SECONDS), b.get(20, TimeUnit.SECONDS))).containsExactlyInAnyOrder(200, 409);
         }
@@ -266,15 +315,15 @@ public class RateCardFolderPostgresTest {
         seedFolders(199);
         UUID last = folder(null, "Last allowed");
         assertThat(folders.listFolders(user, workspace)).hasSize(200);
-        var original = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null));
-        assertThat(folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null))).isEqualTo(original);
-        var renamed = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Renamed at capacity", null));
+        var original = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null, null));
+        assertThat(folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Last allowed", null, null))).isEqualTo(original);
+        var renamed = folders.upsertFolder(user, workspace, last, new UpsertRateCardFolderRequest("Renamed at capacity", null, original.version()));
         assertThat(renamed.version()).isGreaterThan(original.version());
         assertStatus(409, () -> folder(null, "One too many"));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM app.rate_card_folder WHERE workspace_id=?", Integer.class, workspace)).isEqualTo(200);
 
         UUID other = workspaces.create(user, "Separate quota", "quota-" + UUID.randomUUID()).workspaceId();
-        folders.upsertFolder(user, other, UUID.randomUUID(), new UpsertRateCardFolderRequest("Independent", null));
+        folders.upsertFolder(user, other, UUID.randomUUID(), new UpsertRateCardFolderRequest("Independent", null, null));
         assertThat(folders.listFolders(user, other)).hasSize(1);
         UUID card = rate(false).id();
         assertThat(folders.moveRateCard(user, workspace, card, new MoveRateCardRequest(last)).folderId()).isEqualTo(last);
@@ -310,13 +359,13 @@ public class RateCardFolderPostgresTest {
         }
         UUID leaf = chain.getLast();
         long revision = version(leaf);
-        assertThat(folders.upsertFolder(user, workspace, leaf, new UpsertRateCardFolderRequest("Depth 7", chain.get(6))).version()).isEqualTo(revision);
+        assertThat(folders.upsertFolder(user, workspace, leaf, new UpsertRateCardFolderRequest("Depth 7", chain.get(6), null)).version()).isEqualTo(revision);
         assertStatus(409, () -> folder(leaf, "Ninth level"));
         UUID moving = folder(null, "Moving subtree");
         UUID child = folder(moving, "Moving child");
-        assertStatus(409, () -> folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(6))));
+        assertReason("rate-card folders can be nested at most 8 levels", () -> folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(6), version(moving))));
         assertThat(jdbc.queryForObject("SELECT parent_id FROM app.rate_card_folder WHERE id=?", UUID.class, moving)).isNull();
-        var accepted = folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(5)));
+        var accepted = folders.upsertFolder(user, workspace, moving, new UpsertRateCardFolderRequest("Moving subtree", chain.get(5), version(moving)));
         assertThat(accepted.parentId()).isEqualTo(chain.get(5));
         assertThat(folders.listFolders(user, workspace)).filteredOn(item -> item.id().equals(child)).singleElement()
                 .satisfies(item -> assertThat(item.parentId()).isEqualTo(moving));
@@ -345,7 +394,7 @@ public class RateCardFolderPostgresTest {
 
     private UUID folder(UUID parentId, String name) {
         UUID id = UUID.randomUUID();
-        return folders.upsertFolder(user, workspace, id, new UpsertRateCardFolderRequest(name, parentId)).id();
+        return folders.upsertFolder(user, workspace, id, new UpsertRateCardFolderRequest(name, parentId, null)).id();
     }
 
     private RateCardResponse rate(boolean active) {
@@ -390,5 +439,12 @@ public class RateCardFolderPostgresTest {
     private static void assertStatus(int status, Runnable operation) {
         assertThatThrownBy(operation::run).isInstanceOfSatisfying(ResponseStatusException.class,
                 error -> assertThat(error.getStatusCode().value()).isEqualTo(status));
+    }
+
+    private static void assertReason(String reason, Runnable operation) {
+        assertThatThrownBy(operation::run).isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+            assertThat(error.getStatusCode().value()).isEqualTo(409);
+            assertThat(error.getReason()).isEqualTo(reason);
+        });
     }
 }
