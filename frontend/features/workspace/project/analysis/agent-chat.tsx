@@ -375,6 +375,8 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
     setCancelling(true);
     try {
       await onCancel();
+    } catch (cause) {
+      setPolicyError(cause instanceof Error ? cause.message : t("실행을 중단하지 못했습니다."));
     } finally {
       cancelLock.current = false;
       setCancelling(false);

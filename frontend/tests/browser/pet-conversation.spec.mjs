@@ -119,6 +119,16 @@ test("cancel failure preserves the user's draft and never starts another run",as
   expect(server.starts).toEqual([]);
 });
 
+test("direct cancellation failure is handled without an unhandled browser rejection",async({page})=>{
+  const errors=[];page.on("pageerror",error=>errors.push(error.message));
+  const {server}=await open(page,{active:true});server.cancelStatus=503;
+  await page.locator("#agent-chat-input").fill("작성 중인 내용");
+  await page.getByRole("button",{name:"작업 취소",exact:true}).click();
+  await expect(page.getByRole("alert").filter({hasText:/Synthetic|중단/}).first()).toBeVisible();
+  await expect(page.locator("#agent-chat-input")).toHaveValue("작성 중인 내용");
+  expect(server.starts).toEqual([]);expect(errors).toEqual([]);
+});
+
 test("a proposed quote remains unapplied until explicit acceptance; review does not publish",async({page})=>{
   const {server,state}=await open(page);
   await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeVisible();
