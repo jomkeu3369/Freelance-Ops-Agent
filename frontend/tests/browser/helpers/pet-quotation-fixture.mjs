@@ -1,4 +1,5 @@
 import { fixture } from "./chat-fixture.mjs";
+import { quotationPreview } from "./quotation-preview.mjs";
 
 // Browser-only contract fixture: authentication is seeded and every business/AI
 // response below is synthetic. This does not exercise Spring, PostgreSQL, LLMs,
@@ -117,6 +118,9 @@ export async function petQuotationFixture(page) {
     }
     if (path === `${prefix}/agent-runs/run-one/usage` && method === "GET") return json({ message: "Synthetic fixture has no settled provider usage" }, 404);
     if (path === `${prefix}/rate-cards` && method === "GET") return json([]);
+    if (path === `${prefix}/projects/${workflow.projectId}/quotations/preview` && method === "POST") {
+      return json(quotationPreview(request.postDataJSON(), state.policy));
+    }
     if (path === `${prefix}/projects/${workflow.projectId}/quotations/page` && method === "GET") return json({ items: state.quote ? [state.quote] : [], nextCursor: null });
     if (path === `${prefix}/projects/${workflow.projectId}/quotations` && method === "POST") {
       const body = request.postDataJSON();
