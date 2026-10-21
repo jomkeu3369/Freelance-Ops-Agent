@@ -32,7 +32,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
     if (server.folderError) return route.fulfill({ status: 409, json: { message: server.folderError } });
     const previous = server.folders.find(item => item.id === id);
     const unchanged = previous && previous.name === input.name && previous.parentId === input.parentId;
-    if (input.expectedVersion !== undefined && (!previous || previous.version !== input.expectedVersion && !unchanged)) return route.fulfill({ status: 409, json: { message: "folder changed; reload and try again" } });
+    if (!previous && input.expectedVersion != null || previous && !unchanged && (input.expectedVersion == null || previous.version !== input.expectedVersion)) return route.fulfill({ status: 409, json: { message: "folder changed; reload and try again" } });
     const saved = unchanged ? previous : { ...folder(id), name: input.name, parentId: input.parentId, version: previous ? previous.version + 1 : 0 };
     server.folders = [...server.folders.filter(item => item.id !== id), saved];
     if (server.loseFolderResponse) { server.loseFolderResponse = false; return route.fulfill({ status: 503, json: { message: "Synthetic lost folder response" } }); }
