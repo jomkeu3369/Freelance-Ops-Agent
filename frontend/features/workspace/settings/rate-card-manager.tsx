@@ -65,6 +65,16 @@ export function RateCardManager({ session, rateCards, allRateCards, canWrite, on
   }, [error, notice]);
 
   useEffect(() => {
+    // 권한 회수로 닫힌 편집을 늦은 저장 응답이 다시 초안으로 만들지 않는다.
+    if (!dirty.current || canWrite && editorId !== null) return;
+    dirty.current = false;
+    onDirtyChange?.(false);
+    setSubmittedCard(null);
+    setNextEditor(null);
+    setEditorId(null);
+  }, [busy, canWrite, editorId, onDirtyChange]);
+
+  useEffect(() => {
     const protectDraft = (event: BeforeUnloadEvent) => {
       if (!canWrite || !dirty.current && !pending.current) return;
       event.preventDefault();
@@ -182,7 +192,7 @@ export function RateCardManager({ session, rateCards, allRateCards, canWrite, on
       if (folders && (card.folderId ?? null) !== destination) card = await moveRateCardToFolder(session, id, destination);
       replaceCard(card);
       setSubmittedCard(null);
-      setEditorId(!selected || folders && (card.folderId ?? null) !== (folderId ?? null) ? null : card.id);
+      setEditorId((current) => current === null || !selected || folders && (card.folderId ?? null) !== (folderId ?? null) ? null : card.id);
       setNextEditor(null);
       newCardId.current = null;
       dirty.current = false;

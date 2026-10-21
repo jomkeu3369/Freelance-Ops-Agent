@@ -178,8 +178,10 @@ test("beforeunload only warns while an unsaved rate draft is dirty", async () =>
   await submit(h.render()); h.render(); assert.equal(warns(), false);
 });
 
-test("beforeunload stops warning for a hidden read-only draft and resumes when write permission returns", async () => {
+test("revoking write permission closes a dirty editor without restoring a phantom draft", async () => {
   const h = await rates(async () => { throw new Error("No save expected"); }, [card("first")]);
+  const dirtyStates = [];
+  h.props.onDirtyChange = value => dirtyStates.push(value);
   const warns = () => {
     let prevented = false;
     h.dispatch("beforeunload", { preventDefault() { prevented = true; }, returnValue: undefined });
@@ -188,12 +190,23 @@ test("beforeunload stops warning for a hidden read-only draft and resumes when w
   button(h.render(), "first").props.onClick();
   form(h.render()).props.onChange(); h.render();
   assert.equal(warns(), true);
+  assert.equal(dirtyStates.at(-1), true);
+  button(h.render(), "닫기").props.onClick();
+  assert.ok(button(h.render(), "변경 버리고 이동"));
   h.props.canWrite = false;
   assert.equal(form(h.render()), undefined);
+  assert.equal(button(h.render(), "변경 버리고 이동"), undefined);
+  assert.equal(dirtyStates.at(-1), false, "the parent folder guard must also release the inaccessible draft");
   assert.equal(warns(), false, "a hidden form must not prevent a read-only user from leaving");
   h.props.canWrite = true;
+  assert.equal(form(h.render()), undefined, "restoring permission must not restore discarded native inputs");
+  assert.equal(warns(), false);
+  button(h.render(), "새 단가").props.onClick();
   assert.ok(form(h.render()));
-  assert.equal(warns(), true, "restoring the dirty editor restores its departure protection");
+  assert.equal(button(h.render(), "변경 버리고 이동"), undefined);
+  assert.equal(warns(), false);
+  form(h.render()).props.onChange(); h.render();
+  assert.equal(warns(), true, "only an actually edited replacement draft restores departure protection");
 });
 
 test("a pending save locks editor switching and new-card actions", async () => {

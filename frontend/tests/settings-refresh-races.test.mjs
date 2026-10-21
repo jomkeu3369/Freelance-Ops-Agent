@@ -376,6 +376,57 @@ test("a displaced rate keeps confirmed metadata through a failed move, toggle an
   ]);
 });
 
+for (const restoreBeforeFailure of [false, true]) test(`a late folder move failure cannot restore a discarded draft when permission returns ${restoreBeforeFailure ? "before" : "after"} the failure`, async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  form(h.rate()).props.onChange();
+  const failedMove = h.hold("moves", "Permission changed during folder move", true);
+  const saving = submit(h.rate(), { ...rateInput, folderId: "other-folder" });
+  try {
+    await failedMove.entered;
+    h.props.permissions = new Set(["quotation.read"]);
+    h.rate();
+    assert.equal(form(h.rate()), undefined);
+    if (restoreBeforeFailure) {
+      h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+      assert.equal(form(h.rate()), undefined);
+    }
+  } finally { failedMove.release(); }
+  await saving; h.rate();
+  h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+  assert.equal(form(h.rate()), undefined);
+  button(h.rate(), "새 단가").props.onClick();
+  assert.ok(form(h.rate()), "a new editor must open without a phantom dirty confirmation");
+  assert.equal(button(h.rate(), "변경 버리고 이동"), undefined);
+});
+
+for (const restoreBeforeSuccess of [false, true]) test(`a late save success cannot reopen a discarded editor when permission returns ${restoreBeforeSuccess ? "before" : "after"} the response`, async () => {
+  const h = await settings();
+  button(h.rate(), "Original service").props.onClick();
+  form(h.rate()).props.onChange();
+  const held = h.hold("cards", undefined, true), saving = submit(h.rate(), rateInput);
+  try {
+    await held.entered;
+    h.props.permissions = new Set(["quotation.read"]);
+    h.rate();
+    assert.equal(form(h.rate()), undefined);
+    if (restoreBeforeSuccess) {
+      h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+      assert.equal(form(h.rate()), undefined);
+    }
+  } finally { held.release(); }
+  await saving; h.rate();
+  h.props.permissions = new Set(["quotation.read", "quotation.write"]);
+  assert.equal(form(h.rate()), undefined, "a confirmed server save must not reopen the discarded native form");
+  assert.match(JSON.stringify(h.rate()), /단가 변경을 저장했습니다/);
+  assert.equal(h.server.cards[0].name, "Saved service");
+  assert.equal(h.server.cards.length, 1);
+  button(h.rate(), "새 단가").props.onClick();
+  assert.ok(form(h.rate()));
+  assert.equal(button(h.rate(), "변경 버리고 이동"), undefined);
+});
+
 test("failed writes do not supersede a legitimate read or remount the failed form", async () => {
   const h = await settings(), held = h.hold("policy"), failure = h.hold("policy", "Policy write failed", true);
   const key = form(h.policy()).key;
