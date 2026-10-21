@@ -16,6 +16,7 @@ class DepartmentWorkProduct(BaseModel):
     summary: str = Field(max_length=10000)
     open_questions: list[str] = Field(default_factory=list, max_length=10)
     quotation_drafts: list[QuotationDraft] = Field(default_factory=list, max_length=3)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=10)
 
 
 class AssumptionSuggestion(BaseModel):

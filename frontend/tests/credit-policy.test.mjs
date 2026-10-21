@@ -117,19 +117,21 @@ test("pixel pets use bounded generation while quotation assumptions remain manua
 test("ambiguous START retains independent skill, attachment and workflow snapshots", () => {
   const store = new PendingRunStore();
   const choice = { mode: "MANUAL", manualIds: ["writing-proposal"], excludedIds: ["dev-bug-triage"], catalogVersion: "1.0.0" };
-  const original = { ...input, attachmentIds: ["attachment-one"], skillSelection: structuredClone(choice), workflowMode: "AD_HOC" };
+  const original = { ...input, attachmentIds: ["attachment-one"], skillSelection: structuredClone(choice), workflowMode: "AD_HOC", conversation:{settingsVersion:3,recipientPetId:"pet-one"} };
   const snapshot = structuredClone(original);
   const first = store.getOrCreate(original);
   store.settle(first.id, "uncertain");
   original.skillSelection.manualIds.push("dev-api-contract");
   original.attachmentIds.push("attachment-two");
+  original.conversation.settingsVersion = 4;
+  original.conversation.recipientPetId = "pet-two";
   first.skillSelection.excludedIds.length = 0;
   first.workflowMode = "PROJECT_ANALYSIS";
   const retry = store.getOrCreate({ ...snapshot, creditQuote: { credits: 100, pricingUpdatedAt: "new" } });
   assert.deepEqual(retry, { ...snapshot, id: first.id });
   const displayed = store.retries(); displayed[0].skillSelection.manualIds.length = 0;
   assert.deepEqual(store.retries()[0], retry);
-  for (const change of [{ workflowMode: "PROJECT_ANALYSIS" }, { skillSelection: undefined }, { skillSelection: { ...choice, mode: "MANUAL", manualIds: [] } }, { skillSelection: { ...choice, mode: "AUTO" } }]) {
+  for (const change of [{conversation:{settingsVersion:4,recipientPetId:"pet-one"}}, {conversation:{settingsVersion:3,recipientPetId:"pet-two"}}, { workflowMode: "PROJECT_ANALYSIS" }, { skillSelection: undefined }, { skillSelection: { ...choice, mode: "MANUAL", manualIds: [] } }, { skillSelection: { ...choice, mode: "AUTO" } }]) {
     assert.notEqual(store.getOrCreate({ ...snapshot, ...change }).id, first.id);
   }
   assert.equal(store.getOrCreate(snapshot).id, first.id);

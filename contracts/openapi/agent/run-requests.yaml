@@ -56,6 +56,10 @@ schemas:
         required:
           - requirementText
         properties:
+          conversation:
+            oneOf:
+              - $ref: analysis-results.yaml#/schemas/PetConversation
+              - type: "null"
           skillSelection:
             oneOf:
               - $ref: "#/schemas/SkillSelection"

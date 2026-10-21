@@ -76,6 +76,7 @@ import "./settings/rate-card-library.css";
 import "./settings/estimation-policy.css";
 import "./fullscreen-chat.css";
 import "./pets/workspace-companion.css";
+import "./pets/pet-conversation.css";
 
 const compactNavigationQuery = "(max-width: 820px)";
 function subscribeToCompactNavigation(onChange: () => void) {
@@ -579,7 +580,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
     message?: string,
     creditQuote?: CreditQuote,
     attachmentIds?: string[],
-    skillSelection?: SkillSelection
+    skillSelection?: SkillSelection,
+    conversation?: import("../../app/lib/api").PetConversationCommand
   ): Promise<boolean> => {
     if (!session || !selectedProject) return false;
     const operation = ++runOperation.current;
@@ -595,7 +597,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       creditQuote,
       attachmentIds,
       skillSelection,
-      workflowMode: message === undefined ? "PROJECT_ANALYSIS" : "AD_HOC"
+      workflowMode: conversation ? "AD_HOC" : message === undefined ? "PROJECT_ANALYSIS" : "AD_HOC",
+      conversation
     });
     const idempotencyKey = pending.id;
     setBusy(true);
@@ -615,7 +618,8 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
         pending.creditQuote,
         pending.attachmentIds,
         pending.skillSelection,
-        pending.workflowMode
+        pending.workflowMode,
+        pending.conversation
       );
       pendingStart.current.settle(idempotencyKey, "accepted");
       setPendingRetries(pendingStart.current.retries());
@@ -928,6 +932,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
             } catch (cause) {
               if (operation === runOperation.current)
                 setError(cause instanceof Error ? cause.message : "실행을 중단하지 못했습니다.");
+              throw cause;
             } finally {
               if (operation === runOperation.current) setBusy(false);
             }

@@ -1,20 +1,21 @@
 import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
 import type { SkillSelection } from "../../skills/skill-selection";
-import { ListChecks, CaretRight, PawPrint, Receipt } from "@phosphor-icons/react";
+import { PawPrint, Receipt } from "@phosphor-icons/react";
 import { ReactNode, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
-import { LiveWorkflow, snapshotFromEvents } from "../../../../app/components/live-workflow";
+import { snapshotFromEvents } from "../../../../app/components/live-workflow";
 import { interruptionDraftKey } from "../../../../app/lib/interruption-draft.mjs";
 import { StreamState } from "../../shared/types";
 import { InterruptionForm } from "./interruption-form";
 import { AnalysisTimeline } from "./analysis-timeline";
 import { AnalysisResult } from "./analysis-result";
-import { PetWorkspace } from "../../pets/pet-workspace";
 import { WorkspacePanel } from "../../shared/workspace-panel";
 import { AgentChat } from "./agent-chat";
 
 interface AnalysisStepProps {
+  conversationTools?: ReactNode;
+  onInterrupt?: () => Promise<void>;
   session: AuthSession;
   projectId: string;
   run: AgentRunView | null;
@@ -45,10 +46,9 @@ interface AnalysisStepProps {
   onCompareQuotes: () => void;
 }
 
-export function AnalysisStep({ session, projectId, run, runId, events, busy, snapshot, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, canOpenPets, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes }: AnalysisStepProps) {
+export function AnalysisStep({ session, projectId, run, runId, events, busy, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, canOpenPets, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes, conversationTools, onInterrupt }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
-  const [showWorkDetails, setShowWorkDetails] = useState(false);
   const resultView = reviewedRun?.runId === run?.runId ? run : reviewedRun;
   const active = !!runId && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status));
 
@@ -57,7 +57,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
   }
 
   return (
-    <>
+    <section className="pet-conversation-main">
       <AgentChat
         key={`${session.userId}:${session.workspaceId}:${projectId}`}
         session={session}
@@ -80,28 +80,19 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
               <>
                 <button type="button" className="quiet-button chat-pet-trigger" disabled={!canOpenPets || active} onClick={onOpenPets}>
                   <PawPrint size={18} aria-hidden="true" />
-                  <span>{t("함께할 펫")}</span>
+                  <span>{t("펫 만들기·관리")}</span>
                 </button>
                 <button type="button" className="primary-button chat-quotation-start" disabled={busy || active || !canStartQuotation} onClick={onStartQuotation}>
                   <Receipt size={17} aria-hidden="true" />
-                  <span>{t("펫과 견적 만들기")}</span>
+                  <span>{t("문의로 대화 시작")}</span>
                 </button>
               </>
-            )}
-            {runId && (
-              <button
-                type="button"
-                className="quiet-button chat-work-details-trigger"
-                onClick={() => setShowWorkDetails(true)}
-              >
-                <ListChecks size={18} aria-hidden="true" />
-                <span>{t("작업 자세히 보기")}</span>
-                <CaretRight size={13} aria-hidden="true" />
-              </button>
             )}
           </>
         }
         streamState={streamState}
+        conversationTools={conversationTools}
+        onInterrupt={onInterrupt}
         onOpenAISettings={onOpenAISettings}
         onSend={onSendMessage}
         onCancel={onCancel}
@@ -139,23 +130,7 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, sna
           />
         </WorkspacePanel>
       )}
-      {runId && showWorkDetails && (
-        <WorkspacePanel
-          title={t("작업 자세히 보기")}
-          className="agent-chat-work-details"
-          onClose={() => setShowWorkDetails(false)}
-        >
-          {run?.metadata && (
-            <p className="model-selection-note">
-              {run.metadata.credentialId ? t("개인 API 키") : t("기본 제공 AI")} · {run.metadata.provider} ·{" "}
-              {run.metadata.model}
-            </p>
-          )}
-          <PetWorkspace key={runId} run={run} />
-          <LiveWorkflow snapshot={snapshot} />
-          <AnalysisTimeline events={events} run={run} />
-        </WorkspacePanel>
-      )}
-    </>
+      {runId && <details className="pet-conversation-history"><summary>{t("실행 기록")}</summary><AnalysisTimeline events={events} run={run} /></details>}
+    </section>
   );
 }

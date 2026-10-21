@@ -39,6 +39,10 @@ import java.util.UUID;
 
 @Service
 public class AgentRunGatewayService implements ProjectAgentRunCleanup {
+    private ProjectPetConversationService conversations;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setConversations(ProjectPetConversationService value) { this.conversations = value; }
 
     private static final EnumSet<AgentRunStatus> ACTIVE_STATUSES =
             EnumSet.of(
@@ -109,7 +113,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
             String idempotencyKey) {
         // 개인 키의 실행 한도는 권한 확인 후 검증한다. 공용 실행은 운영 정책의 상한을 따른다.
         if (request.modelSelection().credentialId() == null)
-            budgetPolicy.enforce(request.budget(), request.workflowMode());
+            budgetPolicy.enforce(request.budget(), request.conversation() == null ? request.workflowMode() : "PROJECT_ANALYSIS");
         if (request.modelSelection().credentialId() != null
                 && request.budget().maxDurationSeconds() > 270) {
             throw new ResponseStatusException(
@@ -134,6 +138,11 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
         Optional<StartAgentRunResponse> replay =
                 idempotency.replay(userId, idempotencyKey, workspaceId, projectId, request);
         if (replay.isPresent()) return replay.get();
+        var conversation = request.conversation() == null ? null
+                : conversations.snapshot(userId, workspaceId, projectId, request.conversation());
+        if (conversation != null && !agentRunRepository.findAllByWorkspaceIdAndProjectIdAndStatusIn(
+                workspaceId, projectId, ACTIVE_STATUSES).isEmpty())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_RUN_ACTIVE");
         var attachmentText =
                 request.attachmentIds().isEmpty()
                         ? List.<AttachmentText>of()
@@ -192,12 +201,13 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                                 request.locale(),
                                 request.jurisdictionCode(),
                                 null,
-                                pets.list(userId, workspaceId),
+                                conversation == null ? pets.list(userId, workspaceId) : conversation.profiles(),
                                 attachmentText,
                                 request.skillSelection() == null
                                         ? new SkillSelection(null, null, null, null)
                                         : request.skillSelection(),
-                                request.workflowMode()),
+                                conversation == null ? request.workflowMode() : "AD_HOC",
+                                conversation == null ? null : conversation.context()),
                         platformBudget,
                         byokBudget);
         AgentRunEntity run =
@@ -215,6 +225,7 @@ public class AgentRunGatewayService implements ProjectAgentRunCleanup {
                         Instant.now());
         run.useCredential(request.modelSelection().credentialId());
         agentRunRepository.saveAndFlush(run);
+        if (conversation != null) conversations.recordStart(userId, workspaceId, projectId, runId, request.requirementText());
         commandQueue.enqueueStart(runId, internalRequest, userId, permissions, traceparent);
         StartAgentRunResponse accepted =
                 new StartAgentRunResponse(runId, AgentRunStatus.QUEUED, Instant.now());

@@ -109,6 +109,8 @@ function workbench(modelSelection, connections = [], connectionError = false, { 
     "../shared/formatters": { projectClientLabel: () => "Synthetic client" },
     "../shared/use-dialog-focus-trap": { useDialogFocusTrap() {} },
     "../pets/pet-library-events": { petMutationState: () => petMutation, subscribeToPetMutations: () => () => {} },
+    "../pets/use-pet-conversation": { usePetConversation: () => ({view:{version:0,settings:{petMode:false,participantPetIds:[]}},loading:false,saving:false,recipient:""}) },
+    "../pets/pet-conversation-error": { petConversationError: () => null },
     "../skills/skill-selector": { useSkillSelection: () => [{ mode: "AUTO" }, () => {}] },
     "../usage/use-ai-usage": { useAiUsage: () => ({ data: usage, loading: false }) },
     "./analysis/analysis-step": { AnalysisStep: "AnalysisStep" },

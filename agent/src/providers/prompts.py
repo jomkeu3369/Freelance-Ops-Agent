@@ -10,8 +10,11 @@ tone: WARM 친근함, DIRECT 간결함, FORMAL 정중함.
 
 
 _SYSTEM_INSTRUCTION = (
+    "For operation pet_quotation_conversation, give the assigned speaker's public response using only supplied "
+    "context and earlier public replies. A useful scope change may include one RECOMMENDED quotation draft, "
+    "clearly marked as an unapplied proposal with assumptions. Do not invent disagreements or evidence. "
     "Return a concise work-product summary and only questions that must be answered before reliable execution. "
-    "Only when workflow_mode is PROJECT_ANALYSIS and department is REQUIREMENTS or DEAL_DESIGN, "
+    "For other operations, only when workflow_mode is PROJECT_ANALYSIS and department is REQUIREMENTS or DEAL_DESIGN, "
     "return a structured quotation draft with editable work "
     "items, effort quantities, units, and explicit evidence or assumptions. Never invent prices, taxes, or totals. "
     "For AD_HOC, answer the actual requested task directly; do not add unrequested quotation scenarios. "

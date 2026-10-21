@@ -63,7 +63,7 @@ async function pixelFixture(page, options = {}) {
 
 async function open(page) {
   await page.goto("/workspace/projects/project-one/agent");
-  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+  await page.getByRole("button", { name: "펫 만들기·관리", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
   await expect(panel.locator(".pet-library")).toHaveAttribute("aria-busy", "false");
   await panel.getByRole("button", { name: "펫 만들기", exact: true }).click();
@@ -178,7 +178,7 @@ test("English mobile controls fit and reduced motion keeps a static loading indi
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => localStorage.setItem("freelance-ops-ui-locale-v1", "en"));
   await page.goto("/workspace/projects/project-one/agent");
-  await page.getByRole("button", { name: "Your pet", exact: true }).click();
+  await page.getByRole("button", { name: "Create and manage pets", exact: true }).click();
   const panel = page.locator(".pet-library-panel");
   await panel.getByRole("button", { name: "Create a pet", exact: true }).click();
   await panel.locator(".pet-creation-examples button").first().click();
@@ -207,7 +207,7 @@ test("closing during generation and reopening recovers by GET without starting a
   await barrier.entered;
   try {
     await panel.getByRole("button", { name: "닫기", exact: true }).click();
-    await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+    await page.getByRole("button", { name: "펫 만들기·관리", exact: true }).click();
     panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
     await expect(panel.locator(".pet-creation-loading")).toBeVisible();
   } finally { barrier.release(); }
@@ -223,7 +223,7 @@ test("page reload recovers a completed result without paying for another generat
   await panel.getByRole("button", { name: "펫 생성하기", exact: true }).click();
   await expect(panel.locator(".pet-creation-result")).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "함께할 펫", exact: true }).click();
+  await page.getByRole("button", { name: "펫 만들기·관리", exact: true }).click();
   panel = page.getByRole("dialog", { name: "함께할 펫", exact: true });
   await expect(panel.locator(".pet-creation-result")).toBeVisible();
   expect(server.modelCalls).toBe(1);

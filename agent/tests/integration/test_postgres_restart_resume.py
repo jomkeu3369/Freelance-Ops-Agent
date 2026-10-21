@@ -13,6 +13,7 @@ from contracts import (
     AgentRunStatus,
     InterruptionKind,
     ModelSelection,
+    PetMessage,
     Provider,
     ResumeAgentRunRequest,
     ResumeAnswer,
@@ -22,10 +23,39 @@ from contracts import (
 )
 from infrastructure import PostgresCheckpointJournal
 from infrastructure.database import PgVectorConnectionManager, PgVectorPoolConfig
-from runtime import ExecutionAuthorization, ExecutionOutcome, PostgresAgentRunStore, RunCoordinator
+from runtime import ExecutionAuthorization, ExecutionEvent, ExecutionOutcome, PostgresAgentRunStore, RunCoordinator
 
 DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
+
+
+async def test_completed_pet_message_survives_cancel_and_a_fresh_database_connection() -> None:
+    assert DATABASE_URL is not None
+    request = agent_request()
+    database = PgVectorConnectionManager(PgVectorPoolConfig(database_url=DATABASE_URL))
+    await database.open()
+    await database.create_runtime_tables()
+    message = PetMessage(message_id=uuid4(), text="먼저 완성된 공개 답변")
+    try:
+        store = PostgresAgentRunStore(database)
+        await store.create(request)
+        await store.mark_running(request.context.run_id)
+        await store.append_progress(
+            request.context.run_id,
+            ExecutionEvent("pet.message.completed", message.model_dump(mode="json", by_alias=True))
+        )
+        await store.cancel(request.context.run_id)
+    finally:
+        await database.close()
+    recovered_database = PgVectorConnectionManager(PgVectorPoolConfig(database_url=DATABASE_URL))
+    await recovered_database.open()
+    try:
+        recovered = await PostgresAgentRunStore(recovered_database).get(request.context.run_id)
+        assert recovered.status is AgentRunStatus.CANCELLED
+        assert recovered.result is not None
+        assert recovered.result.pet_messages == [message]
+    finally:
+        await recovered_database.close()
 
 
 class InterruptThenCompleteExecutor:

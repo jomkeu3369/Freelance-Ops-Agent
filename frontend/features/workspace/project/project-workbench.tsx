@@ -31,6 +31,11 @@ import { AddressBook, PencilSimple, Trash, CircleNotch, ArrowRight } from "@phos
 import { projectClientLabel } from "../shared/formatters";
 import { IntakeReview } from "./intake/intake-review";
 import { PetCustomizer } from "../pets/pet-customizer";
+import { usePetConversation } from "../pets/use-pet-conversation";
+import { PetConversationControls } from "../pets/pet-conversation-controls";
+import { PetConversationBrief } from "../pets/pet-conversation-brief";
+import { petConversationError } from "../pets/pet-conversation-error";
+import { getAgentRun } from "../../../app/lib/api";
 import { petMutationState, subscribeToPetMutations } from "../pets/pet-library-events";
 import { SkillSelector, useSkillSelection } from "../skills/skill-selector";
 import type { SkillSelection } from "../skills/skill-selection";
@@ -73,7 +78,8 @@ interface ProjectWorkbenchProps {
     message?: string,
     creditQuote?: CreditQuote,
     attachmentIds?: string[],
-    skillSelection?: SkillSelection
+    skillSelection?: SkillSelection,
+    conversation?: import("../../../app/lib/api").PetConversationCommand
   ) => Promise<boolean>;
   pendingRetries: PendingRunRetry[];
   onResetRun: () => void;
@@ -116,6 +122,15 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
   const ledger = useAiUsage(session, `${runId ?? ""}:${run?.status ?? ""}`);
   const canRespond = permissions.has("agent.respond") && (!run?.metadata || isSupportedProvider(run.metadata.provider));
   const canCancel = permissions.has("agent.cancel");
+  const conversation = usePetConversation(session, project.id, canRun);
+  async function ensureConversationIdle() {
+    if (!runId || run && terminalStatuses.has(run.status)) return;
+    if (!canCancel) throw new Error(t("진행 중인 대화를 멈출 권한이 없습니다."));
+    await onCancel();
+    const confirmed = await getAgentRun(session, runId);
+    if (!["COMPLETED","PARTIAL","CANCELLED","FAILED"].includes(confirmed.status))
+      throw new Error(t("이전 대화의 중단을 확인하지 못했습니다. 입력을 보존하고 다시 확인해 주세요."));
+  }
   const chatModel = credentialId
     ? connection && isSupportedProvider(connection.provider) && !connectionError
       ? { provider: connection.provider, model: connection.model, credentialId: connection.id }
@@ -138,7 +153,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       item.userId === session.userId &&
       item.workspaceId === session.workspaceId &&
       item.projectId === project.id &&
-      (item.workflowMode ?? "PROJECT_ANALYSIS") === "PROJECT_ANALYSIS" &&
+      (item.conversation ? item.workflowMode === "AD_HOC" : (item.workflowMode ?? "PROJECT_ANALYSIS") === "PROJECT_ANALYSIS") &&
       item.provider === chatModel.provider &&
       item.model === chatModel.model &&
       (item.credentialId ?? "") === (chatModel.credentialId ?? "") &&
@@ -156,10 +171,11 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           : t("사용량과 비용 상한을 확인한 뒤 기본 제공 AI를 보낼 수 있습니다.");
   const personalCostKnown = !!chatModel?.credentialId && byokCostEstimate(chatModel.provider, chatModel.model) !== null;
   const canSendAI =
-    canRun && petMutation === "idle" && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
+    canRun && !!conversation.view && !conversation.loading && !conversation.saving && petMutation === "idle" && !!chatModel && (chatModel.credentialId ? personalCostKnown : !ledgerBlocker && !ledger.loading);
 
   async function sendMessage(message?: string, attachmentIds: string[] = [], skillSelection?: SkillSelection) {
     if (!canRun || !chatModel) return false;
+    if (!conversation.view || conversation.loading || conversation.saving) throw new Error(t("대화 설정을 확인한 뒤 다시 보내 주세요."));
     if (petMutationState(session) !== "idle") throw new Error(t("펫 변경을 확인한 뒤 실행할 수 있습니다. 함께할 펫에서 선택을 확인해 주세요."));
     if (chatModel.credentialId && !personalCostKnown)
       throw new Error(
@@ -177,7 +193,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
         message,
         retry?.creditQuote,
         attachmentIds,
-        skillSelection
+        skillSelection,
+        retry?.conversation ?? {settingsVersion:conversation.view.version,recipientPetId:conversation.recipient || null}
       );
       if (accepted) setCreditReviewRequired(false);
       return accepted;
@@ -199,6 +216,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           t("AI 실행이 중지되었거나 계정·운영 예산이 부족해 요청을 시작하지 못했습니다. 자동으로 다시 보내지 않습니다.")
         );
       }
+      const conversationMessage = petConversationError(cause);
+      if (conversationMessage) throw new Error(t(conversationMessage));
       throw cause;
     }
   }
@@ -526,6 +545,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       )}
 
       {activeStep === "agent" && (
+        <div className="pet-conversation-workspace">
         <AnalysisStep
           key={`${session.userId}:${session.workspaceId}:${project.id}`}
           session={session}
@@ -548,6 +568,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           canOpenPets={!busy}
           onStartQuotation={() => void startQuotation()}
           onOpenPets={() => setShowPets(true)}
+          conversationTools={<PetConversationControls state={conversation} beforeChange={ensureConversationIdle} onManageLibrary={() => setShowPets(true)} />}
+          onInterrupt={ensureConversationIdle}
           quotationError={quotationError}
           retryCandidates={retryCandidates}
           composerInfo={(_draft, retry, policy) => (
@@ -603,6 +625,10 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           onResume={onResume}
           onCompareQuotes={openQuotations}
         />
+        <PetConversationBrief session={session} project={project} state={conversation} run={run}
+          canRead={permissions.has("quotation.read")} canWrite={permissions.has("quotation.write")}
+          onReview={openQuotations} />
+        </div>
       )}
 
       {run?.metadata && !isSupportedProvider(run.metadata.provider) && (
@@ -610,7 +636,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
       )}
       {aiSettings}
       {activeStep === "agent" && canRun && showPets && (
-        <WorkspacePanel title={t("함께할 펫")} className="agent-chat-settings pet-library-panel" onClose={() => setShowPets(false)}>
+        <WorkspacePanel title={t("함께할 펫")} className="agent-chat-settings pet-library-panel" onClose={() => { setShowPets(false); conversation.refresh(); }}>
           <PetCustomizer
             key={`${session.workspaceId}:${session.userId}:${project.id}`}
             session={session}
@@ -626,8 +652,8 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
           session={session}
           project={project}
           permissions={permissions}
-          quotationDraft={run?.result?.quotationDraft ?? null}
-          quotationDrafts={run?.result?.quotationDrafts ?? []}
+          quotationDraft={conversation.view?.settings.acceptedDraft ?? (run?.result?.petMessages?.length ? null : run?.result?.quotationDraft ?? null)}
+          quotationDrafts={conversation.view?.settings.acceptedDraft ? [conversation.view.settings.acceptedDraft] : run?.result?.petMessages?.length ? [] : run?.result?.quotationDrafts ?? []}
           petProfiles={run?.metadata?.petProfiles}
           modelSelection={
             run?.metadata

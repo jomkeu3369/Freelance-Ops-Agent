@@ -25,6 +25,7 @@ from contracts import (
 from infrastructure.database import PgVectorConnectionManager
 from infrastructure.database.models import AgentRunEventModel, AgentRunStateModel
 
+from .pet_conversation import append_message
 from .run_contracts import AgentRunNotFoundError, AgentRunStateError, ExecutionEvent, ExecutionOutcome
 from .run_state import append_clarification_history, merge_usage, run_metadata
 
@@ -195,6 +196,9 @@ class PostgresAgentRunStore:
             if model.status != AgentRunStatus.RUNNING.value:
                 raise AgentRunStateError("only a running Agent run can publish progress")
             await self._append_event(session, run_id, event.type, event.data)
+            if event.type == "pet.message.completed":
+                current = AgentRunResult.model_validate(model.result_json) if model.result_json else None
+                model.result_json = self._json(append_message(current, event))
 
     async def record_usage(self, run_id: UUID, usage: AgentRunUsage) -> None:
         async with self._database.session() as session:
