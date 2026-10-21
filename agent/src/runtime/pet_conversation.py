@@ -139,6 +139,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                     "반영 전 제안이라는 안내와 승인 절차는 화면이 제공한다. 매번 면책 문구·계산 불가 설명·RECOMMENDED 같은 내부 용어를 반복하지 않는다. 추정 공수의 전제는 구체적으로 밝힌다.",  # noqa: E501
                     "open_questions에는 지금도 해결되지 않은 질문만 최대 3개 남긴다. 앞선 발화의 제안이 바뀌거나 사용자가 이미 정한 조건을 다시 묻지 않는다. 마지막 발화는 이번 대화의 단일 제안과 남은 질문을 정리한다.",  # noqa: E501
                     "When a scope change is useful, propose exactly one RECOMMENDED quotation_draft with explicit ASSUMPTION basis for unconfirmed effort. Otherwise return an empty quotation_drafts array. Do not create three scenarios unless the user asks.",  # noqa: E501
+                    "quotation_draft는 기존 초안 전체를 교체하는 완전한 견적이다. 부분 수정 요청에서도 accepted_draft의 변경하지 않은 모든 항목·범위·공수·근거를 유지하고 요청된 변경만 반영한다. 사용자가 삭제나 대체를 요청하지 않은 항목을 빼거나 변경한 항목만 반환하지 않는다. 전체 초안을 유지할 정보가 부족하면 빈 배열과 필요한 질문을 반환한다.",  # noqa: E501
                     "Proposed changes are not accepted or saved. The user must explicitly review and apply them. Never claim a proposal is an agreed requirement.",  # noqa: E501
                     PET_PREFERENCE_RULES,
                 ],
@@ -156,7 +157,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                     {"speaker": m.speaker.name if m.speaker else "AI", "text": excerpt(m.text, 2500)} for m in messages
                 ],
                 "evidence_catalog": [source.model_dump() for source in evidence.values()],
-                "accepted_draft": evidence["draft"].content if "draft" in evidence else None,
+                "accepted_draft": context.accepted_draft,
                 "previous_proposal_this_turn": draft.model_dump(mode="json") if draft else None,
                 "unresolved_questions": questions,
             },

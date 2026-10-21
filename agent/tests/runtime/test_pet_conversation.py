@@ -224,11 +224,15 @@ async def test_accepted_scope_and_assumptions_remain_in_the_next_model_context()
     run.input.conversation.accepted_draft = {"items": [{
         "title": "예약 개발", "quantity": 18, "unit": "HOUR",
         "description": "이메일 알림만 포함한다", "basis": {"content": "문자 발송과 결제는 제외한다"}
+    }, {
+        "title": "관리자 화면", "quantity": 1, "unit": "DAY",
+        "description": "수동 확정과 취소", "basis": {"content": "기본 템플릿을 사용한다"}
     }]}
     provider = ProviderStub()
     await execute_conversation(provider, run, project(run), run.input.requirement_text)
-    assert "이메일 알림만 포함한다" in provider.prompts[0]["accepted_draft"]
-    assert "문자 발송과 결제는 제외한다" in provider.prompts[0]["accepted_draft"]
+    assert provider.prompts[0]["accepted_draft"] == run.input.conversation.accepted_draft
+    assert provider.prompts[0]["accepted_draft"]["items"][0]["description"] == "이메일 알림만 포함한다"
+    assert provider.prompts[0]["accepted_draft"]["items"][0]["basis"]["content"] == "문자 발송과 결제는 제외한다"
 
 
 async def test_model_price_guesses_are_never_published_or_passed_to_the_next_speaker() -> None:
