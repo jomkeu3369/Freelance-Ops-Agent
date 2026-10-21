@@ -307,6 +307,35 @@ test("toggling a displaced dirty rate preserves its saved active status for the 
   ]);
 });
 
+for (const operation of ["toggle", "save"]) test(`a displaced dirty rate uses the latest global metadata for ${operation}`, async () => {
+  const h = await settings();
+  h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];
+  button(h.rate(), "Original service").props.onClick();
+  const initial = form(h.rate()); initial.props.onChange();
+  h.server.cards = [{ ...card("one", "Latest global service"), rate: 700, minimumAmount: 50, unit: "DAY", currency: "USD", active: false, folderId: "other-folder", version: 2 }];
+  h.refresh(); await flush();
+  assert.equal(form(h.rate()).key, initial.key);
+  assert.equal(field(h.rate(), "name"), "Original service");
+  assert.equal(field(h.rate(), "rate"), 100);
+  assert.equal(all(h.rate(), node => node.props.className === "rate-card-list").length, 0);
+  if (operation === "toggle") {
+    assert.ok(button(h.rate(), "다시 사용"), "status controls must reflect the latest global inactive rate");
+    button(h.rate(), "다시 사용").props.onClick(); await flush();
+    assert.equal(form(h.rate()).key, initial.key);
+    assert.deepEqual(h.server.writes[0].input, { name: "Latest global service", rate: 700, minimumAmount: 50, unit: "DAY", currency: "USD", active: true });
+    assert.equal(field(h.rate(), "name"), "Original service", "a status change must not replace the dirty input snapshot");
+  } else {
+    await submit(h.rate(), rateInput);
+    assert.equal(h.server.writes[0].input.active, false, "saving a draft must preserve the newer inactive state");
+    assert.equal(h.server.cards[0].name, "Saved service");
+    assert.equal(h.server.cards[0].rate, 250);
+    assert.equal(h.server.cards[0].active, false);
+  }
+  assert.equal(h.server.writes[0].path, "/api/v2/workspaces/workspace/rate-cards/one");
+  assert.equal(h.server.cards.length, 1);
+  assert.equal(h.server.cards[0].id, "one");
+});
+
 test("a displaced rate keeps confirmed metadata through a failed move, toggle and retry", async () => {
   const h = await settings();
   h.server.folders = [{ id: "other-folder", parentId: null, name: "Other folder", workspaceId: "workspace", version: 0 }];

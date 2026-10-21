@@ -9,6 +9,7 @@ import { rateCardFolderOptions } from "./rate-card-folders";
 interface RateCardManagerProps {
   session: AuthSession;
   rateCards: RateCard[];
+  allRateCards?: RateCard[];
   canWrite: boolean;
   onChange: Dispatch<SetStateAction<RateCard[]>>;
   folders?: RateCardFolder[];
@@ -18,7 +19,7 @@ interface RateCardManagerProps {
   onPendingChange?: (pending: boolean) => void;
 }
 
-export function RateCardManager({ session, rateCards, canWrite, onChange, folders, folderId, emptyMessage, onDirtyChange, onPendingChange }: RateCardManagerProps) {
+export function RateCardManager({ session, rateCards, allRateCards, canWrite, onChange, folders, folderId, emptyMessage, onDirtyChange, onPendingChange }: RateCardManagerProps) {
   const t = useT();
   const [editorId, setEditorId] = useState<string | null>(null);
   const [nextEditor, setNextEditor] = useState<{ id: string | null } | null>(null);
@@ -38,7 +39,7 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
   const dirty = useRef(false);
   // 서버 저장 후 응답이 유실돼도 같은 PUT 대상으로 다시 확인한다.
   const newCardId = useRef<string | null>(null);
-  const selected = rateCards.find((card) => card.id === editorId)
+  const selected = (allRateCards ?? rateCards).find((card) => card.id === editorId)
     ?? (editorId !== null && editorId !== "new" && submittedCard?.id === editorId ? submittedCard : null);
   const formCard = submittedCard ?? selected;
 
@@ -65,13 +66,13 @@ export function RateCardManager({ session, rateCards, canWrite, onChange, folder
 
   useEffect(() => {
     const protectDraft = (event: BeforeUnloadEvent) => {
-      if (!dirty.current && !pending.current) return;
+      if (!canWrite || !dirty.current && !pending.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", protectDraft);
     return () => window.removeEventListener("beforeunload", protectDraft);
-  }, []);
+  }, [canWrite]);
 
   function changeEditor(id: string | null) {
     if (busy || pending.current) return;

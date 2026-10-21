@@ -178,6 +178,24 @@ test("beforeunload only warns while an unsaved rate draft is dirty", async () =>
   await submit(h.render()); h.render(); assert.equal(warns(), false);
 });
 
+test("beforeunload stops warning for a hidden read-only draft and resumes when write permission returns", async () => {
+  const h = await rates(async () => { throw new Error("No save expected"); }, [card("first")]);
+  const warns = () => {
+    let prevented = false;
+    h.dispatch("beforeunload", { preventDefault() { prevented = true; }, returnValue: undefined });
+    return prevented;
+  };
+  button(h.render(), "first").props.onClick();
+  form(h.render()).props.onChange(); h.render();
+  assert.equal(warns(), true);
+  h.props.canWrite = false;
+  assert.equal(form(h.render()), undefined);
+  assert.equal(warns(), false, "a hidden form must not prevent a read-only user from leaving");
+  h.props.canWrite = true;
+  assert.ok(form(h.render()));
+  assert.equal(warns(), true, "restoring the dirty editor restores its departure protection");
+});
+
 test("a pending save locks editor switching and new-card actions", async () => {
   const pending = barrier();
   const h = await rates(async (_session, id, input) => { await pending.promise; return { ...card(id), ...input, version: 2 }; }, [card("first"), card("second")]);

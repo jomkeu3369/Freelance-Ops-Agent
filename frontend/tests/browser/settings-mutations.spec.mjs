@@ -523,14 +523,14 @@ for (const protection of ["dirty", "pending"]) {
   });
 }
 
-async function openMovedRateDraft(page, name) {
+async function openMovedRateDraft(page, name, external = {}) {
   const { server } = await settingsFixture(page, [rate("one", "Original rate")]);
   await page.route("**/api/v2/workspaces/local-space/rate-card-folders", route => route.fulfill({ json: [{ id: "external-folder", workspaceId: "local-space", parentId: null, name: "다른 PC 폴더", version: 0 }] }));
   await page.goto(path);
   await page.locator(".rate-card-list > button").first().click();
   const form = await fillRate(page, name);
   await form.getByLabel("기본 단가", { exact: true }).fill("250");
-  server.cards = [{ ...rate("one", "Original rate"), folderId: "external-folder", version: 2 }];
+  server.cards = [{ ...rate("one", "Original rate"), folderId: "external-folder", version: 2, ...external }];
   const refreshed = await refreshSettings(page, server);
   await expect(page.locator("#workspace-profile")).toContainText(refreshed.profileName);
   await expect(page.locator(".rate-card-list > button")).toHaveCount(0);
@@ -586,6 +586,35 @@ test("an externally moved rate preserves saved metadata and status after a parti
   expect(server.moves.map(item => item.id)).toEqual(["one", "one"]);
   expect(server.cards).toHaveLength(1);
   expect(server.cards[0]).toMatchObject({ id: "one", name: "외부 이동 후 저장된 이름", rate: 250, folderId: null, active: false });
+});
+
+test("toggling an externally moved rate preserves the latest global metadata and the separate draft", async ({ page }) => {
+  const external = { name: "다른 PC의 최신 이름", unit: "DAY", rate: 975.5, minimumAmount: 40, currency: "USD", active: false };
+  const { server, form } = await openMovedRateDraft(page, "상태 변경 중 유지할 초안", external);
+  await expect(form.getByRole("button", { name: "다시 사용", exact: true })).toBeVisible();
+  await form.getByRole("button", { name: "다시 사용", exact: true }).click();
+  await expect(page.locator(".rate-card-manager .settings-saved")).toContainText("다시 사용할 수 있습니다");
+  expect(server.writes).toHaveLength(1);
+  expect(server.writes[0]).toEqual({ id: "one", input: { ...external, active: true } });
+  expect(server.cards).toHaveLength(1);
+  expect(server.cards[0]).toMatchObject({ id: "one", folderId: "external-folder", ...external, active: true });
+  await expect(form.getByLabel("서비스 이름", { exact: true })).toHaveValue("상태 변경 중 유지할 초안");
+  await expect(form.getByLabel("기본 단가", { exact: true })).toHaveValue("250");
+  await expect(form.locator('[name="unit"]')).toHaveValue("HOUR");
+  await expect(form.locator('[name="currency"]')).toHaveValue("KRW");
+  expect(server.moves).toEqual([]);
+});
+
+test("saving an externally moved draft preserves the latest globally inactive state", async ({ page }) => {
+  const { server, form } = await openMovedRateDraft(page, "최신 비활성 상태를 유지할 편집", { name: "다른 PC의 비활성 단가", rate: 900, active: false });
+  await expect(form.getByLabel("서비스 이름", { exact: true })).toHaveValue("최신 비활성 상태를 유지할 편집");
+  await form.getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(page.locator(".rate-card-manager .settings-saved")).toContainText("단가 변경을 저장했습니다");
+  expect(server.writes).toHaveLength(1);
+  expect(server.writes[0]).toMatchObject({ id: "one", input: { name: "최신 비활성 상태를 유지할 편집", rate: 250, active: false } });
+  expect(server.cards).toHaveLength(1);
+  expect(server.cards[0]).toMatchObject({ id: "one", name: "최신 비활성 상태를 유지할 편집", rate: 250, folderId: null, active: false });
+  expect(server.moves.map(item => item.id)).toEqual(["one"]);
 });
 
 for (const [width, height, locale] of [[390, 640, "ko"], [320, 568, "en"]]) {

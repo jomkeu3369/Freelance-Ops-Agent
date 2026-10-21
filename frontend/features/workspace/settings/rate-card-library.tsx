@@ -203,6 +203,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
           key={folderId ?? "root"}
           session={session}
           rateCards={currentCards}
+          allRateCards={rateCards}
           emptyMessage={emptyMessage}
           canWrite={canWrite}
           onChange={onChange}
