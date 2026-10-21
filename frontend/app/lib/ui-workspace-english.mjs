@@ -1,4 +1,7 @@
 export const workspaceEnglish = {
+  "이 작업 공간에는 폴더를 최대 200개까지 만들 수 있습니다.": "This workspace can contain up to 200 folders.",
+  "폴더는 루트를 포함해 최대 8단계까지 중첩할 수 있습니다.": "Folders can be nested up to 8 levels, including root folders.",
+  "폴더는 작업 공간당 200개, 루트를 포함해 8단계까지 만들 수 있습니다.": "Create up to 200 folders per workspace and 8 levels, including root folders.",
   "삭제된 폴더는 수정할 수 없습니다. 취소 후 다른 폴더를 선택해 주세요.": "This folder was deleted and cannot be edited. Cancel and choose another folder.",
   "폴더가 변경되었습니다. 다시 불러온 뒤 시도해 주세요.": "The folder changed. Reload it and try again.",
   "폴더 이름은 1~120자의 일반 문자로 입력해 주세요.": "Use 1 to 120 printable characters for the folder name.",

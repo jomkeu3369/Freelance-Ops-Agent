@@ -9,7 +9,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
   const server = {
     folders: [folder("dev", longNames ? "Development and implementation ".repeat(4) : "개발"), folder("design", "디자인"), folder("web", "웹", "dev"), folder("front", "프론트엔드", "web")],
     cards: [rate("root", "미분류 서비스"), rate("web-rate", "웹 서비스", "web"), rate("front-rate", "프론트엔드 서비스", "front")],
-    folderWrites: [], rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, failMove: false, barrier: null
+    folderWrites: [], rateWrites: [], moves: [], failRead: false, loseFolderResponse: false, failMove: false, barrier: null, folderError: null
   };
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript(({ locale, theme }) => {
@@ -25,6 +25,7 @@ async function openLibrary(page, { width = 1440, locale = "ko", theme = "light",
       return route.fulfill({ status: 204 });
     }
     const input = request.postDataJSON(); server.folderWrites.push({ id, input });
+    if (server.folderError) return route.fulfill({ status: 409, json: { message: server.folderError } });
     const saved = { ...folder(id), ...input, version: (server.folders.find(item => item.id === id)?.version ?? 0) + 1 };
     server.folders = [...server.folders.filter(item => item.id !== id), saved];
     if (server.loseFolderResponse) { server.loseFolderResponse = false; return route.fulfill({ status: 503, json: { message: "Synthetic lost folder response" } }); }
@@ -184,6 +185,27 @@ test("lost folder creation responses retry the same folder identity", async ({ p
   expect(server.folderWrites[0].id).toBe(server.folderWrites[1].id);
   expect(server.folders.filter(item => item.name === "재시도 폴더")).toHaveLength(1);
 });
+
+for (const [message, expected] of [
+  ["a workspace can contain at most 200 rate-card folders", "이 작업 공간에는 폴더를 최대 200개까지 만들 수 있습니다."],
+  ["rate-card folders can be nested at most 8 levels", "폴더는 루트를 포함해 최대 8단계까지 중첩할 수 있습니다."]
+]) {
+  test(`folder capacity errors keep the draft retryable: ${message}`, async ({ page }) => {
+    const { library, server } = await openLibrary(page); server.folderError = message;
+    await library.getByRole("button", { name: "폴더 추가", exact: true }).click();
+    const form = library.locator(".rate-folder-form");
+    await form.getByLabel("폴더 이름", { exact: true }).fill("재시도할 분류");
+    await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+    await expect(library.getByRole("alert")).toHaveText(expected);
+    await expect(form.getByLabel("폴더 이름", { exact: true })).toHaveValue("재시도할 분류");
+    await expect(form.locator(".rate-folder-limits")).toContainText("200개");
+    expect(server.folders).toHaveLength(4);
+    server.folderError = null;
+    await form.getByRole("button", { name: "폴더 저장", exact: true }).click();
+    await expect(form).toHaveCount(0);
+    expect(server.folderWrites[0].id).toBe(server.folderWrites[1].id);
+  });
+}
 
 test("deactivation after a partial folder save preserves the newly saved name and price", async ({ page }) => {
   const { library, server } = await openLibrary(page);

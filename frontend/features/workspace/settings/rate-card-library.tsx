@@ -12,6 +12,8 @@ function folderError(cause: unknown, fallback: string) {
   if (message.includes("cannot be moved into itself or its descendants")) return "자신이나 하위 폴더 안으로 이동할 수 없습니다.";
   if (message.includes("folder changed; reload and try again")) return "폴더가 변경되었습니다. 다시 불러온 뒤 시도해 주세요.";
   if (message.includes("folder name must contain")) return "폴더 이름은 1~120자의 일반 문자로 입력해 주세요.";
+  if (message.includes("at most 200 rate-card folders")) return "이 작업 공간에는 폴더를 최대 200개까지 만들 수 있습니다.";
+  if (message.includes("nested at most 8 levels")) return "폴더는 루트를 포함해 최대 8단계까지 중첩할 수 있습니다.";
   return message;
 }
 
@@ -161,6 +163,7 @@ export function RateCardLibrary({ session, rateCards, canWrite, onChange }: Rate
               {rateCardFolderOptions(folders, editing === "edit" ? folderId ?? undefined : undefined).map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
             </select></label>
           </fieldset>
+          <p className="rate-folder-limits">{t("폴더는 작업 공간당 200개, 루트를 포함해 8단계까지 만들 수 있습니다.")}</p>
           <div className="rate-folder-actions">
             <button type="submit" className="primary-button" disabled={locked || (editing === "edit" && !current)}>{busy ? <CircleNotch size={17} className="spin" aria-hidden="true" /> : <CheckCircle size={17} aria-hidden="true" />}{t("폴더 저장")}</button>
             <button type="button" className="secondary-button" disabled={locked} onClick={() => { setEditing(null); setConfirmDelete(false); setError(null); }}>{t("취소")}</button>
