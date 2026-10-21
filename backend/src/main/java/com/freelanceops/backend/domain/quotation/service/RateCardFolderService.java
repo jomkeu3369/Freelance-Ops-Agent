@@ -69,6 +69,14 @@ public class RateCardFolderService {
         if (current != null && !current.workspaceId().equals(workspaceId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
+        if (request.expectedVersion() != null
+                && (current == null
+                        || (current.version() != request.expectedVersion()
+                                && (!current.name().equals(name)
+                                        || !Objects.equals(current.parentId(), request.parentId()))))) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "folder changed; reload and try again");
+        }
         List<RateCardFolderEntity> folders = boundedFolders(workspaceId);
         if (current == null && folders.size() >= MAX_FOLDERS) {
             throw folderLimit();

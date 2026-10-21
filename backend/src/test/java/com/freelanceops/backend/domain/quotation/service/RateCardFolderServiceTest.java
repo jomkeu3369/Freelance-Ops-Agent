@@ -66,6 +66,42 @@ class RateCardFolderServiceTest {
     }
 
     @Test
+    void anEditCannotRecreateAFolderDeletedByAnotherClient() {
+        allowWrite();
+        UUID id = UUID.randomUUID();
+
+        assertStatus(409, () -> service().upsertFolder(user, workspace, id,
+                new UpsertRateCardFolderRequest("Stale rename", null, 0L)));
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void aStaleVersionCannotOverwriteAnotherClientsFolderChange() {
+        allowWrite();
+        var current = folder(UUID.randomUUID(), null, "Other clients rename");
+        when(folders.findById(current.id())).thenReturn(Optional.of(current));
+
+        assertStatus(409, () -> service().upsertFolder(user, workspace, current.id(),
+                new UpsertRateCardFolderRequest("Stale rename", null, 1L)));
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void anIdenticalEditRetrySucceedsEvenAfterTheVersionAdvanced() {
+        allowWrite();
+        var current = folder(UUID.randomUUID(), null, "Saved rename");
+        when(folders.findById(current.id())).thenReturn(Optional.of(current));
+        when(folders.findTop201ByWorkspaceIdOrderByNameAscIdAsc(workspace)).thenReturn(List.of(current));
+
+        assertThat(service().upsertFolder(user, workspace, current.id(),
+                new UpsertRateCardFolderRequest("Saved rename", null, 1L)).name()).isEqualTo("Saved rename");
+
+        verify(folders, never()).saveAndFlush(any());
+    }
+
+    @Test
     void repeatingAnIdenticalPutDoesNotInsertOrAdvanceTheRevision() {
         allowWrite();
         var folder = folder(UUID.randomUUID(), null, "Existing");
@@ -409,7 +445,7 @@ class RateCardFolderServiceTest {
     }
 
     private static UpsertRateCardFolderRequest request(String name, UUID parentId) {
-        return new UpsertRateCardFolderRequest(name, parentId);
+        return new UpsertRateCardFolderRequest(name, parentId, null);
     }
 
     private static void assertStatus(int status, Runnable operation) {
