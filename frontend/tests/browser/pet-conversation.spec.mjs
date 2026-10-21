@@ -191,6 +191,7 @@ test("legacy monetary guesses are hidden while effort and reply links remain",as
   const {state}=await open(page);
   state.run.result.petMessages=state.run.result.petMessages.map((message,index)=>index===2
     ? {...message,text:"API는 1.5일로 가정해. 부가세 포함 277만7,500원입니다. 중복 예약 검증은 남겨 두자!"}:message);
+  state.run.result.openQuestions=["총액 277만7,500원은 맞을까요?", "중복 신청을 막을까요?"];
   state.events=[];
   await page.reload();
   const reply=page.locator(".pet-conversation-message").last();
@@ -198,6 +199,8 @@ test("legacy monetary guesses are hidden while effort and reply links remain",as
   await expect(reply).toContainText("중복 예약 검증");
   await expect(reply).not.toContainText("277");
   await expect(page.locator(".pet-conversation-reply")).toHaveCount(2);
+  await expect(page.locator(".pet-conversation-question")).not.toContainText("277");
+  await expect(page.locator(".pet-conversation-question")).toContainText("중복 신청");
 });
 
 test("calculation failure disables saving without showing a fabricated zero and can retry",async({page})=>{

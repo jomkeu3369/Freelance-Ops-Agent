@@ -5,6 +5,7 @@ import { useT } from "../../../app/lib/ui-language";
 import { quotationDraftItems, quotationCalculationInput } from "../project/quotation/quotation-helpers";
 import { useQuotationPreview } from "../project/quotation/use-quotation-preview";
 import type { PetConversationState } from "./use-pet-conversation";
+import { conversationText } from "./pet-conversation-text.mjs";
 
 export function PetConversationBrief({ session, project, state, run, canRead, canWrite, onReview }: {
   session: AuthSession; project: Project; state: PetConversationState; run: AgentRunView | null;
@@ -33,6 +34,7 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
     currency:project.currency,taxRate:pricing.tax,validUntil:null,items}) : null,[draft,pricing,project.currency,items]);
   const calculation = useQuotationPreview(session,project.id,input,!!draft && !missing && canWrite);
   const preview = calculation.preview;
+  const questions = (run?.result?.openQuestions ?? []).map(conversationText).filter(Boolean);
   const money = (value:number) => new Intl.NumberFormat("ko-KR",{style:"currency",currency:project.currency,maximumFractionDigits:2}).format(value);
   const unit = (value:string) => ({HOUR:t("시간"),DAY:t("일"),FIXED:t("건")}[value] ?? value);
   return <aside className="pet-conversation-brief" aria-label={t("함께 정리한 견적")}>
@@ -40,7 +42,7 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
     <div className="pet-conversation-brief-body"><h3>{t("확인한 내용")}</h3>
       <dl><div><dt>{t("만들 것")}</dt><dd>{project.title}</dd></div><div><dt>{t("예산 상한")}</dt><dd>{project.budgetMax == null ? t("미정") : money(project.budgetMax)}</dd></div><div><dt>{t("희망 일정")}</dt><dd>{project.deadline ?? t("미정")}</dd></div></dl>
       <details className="pet-conversation-evidence"><summary>{t("문의 원문 확인")}</summary><p>{project.requirementText}</p></details>
-      {run?.result?.openQuestions?.length ? <div className="pet-conversation-question"><h3>{t("아직 맞춰볼 것")}</h3>{run.result.openQuestions.map(question => <p key={question}>{question}</p>)}</div> : null}
+      {questions.length ? <div className="pet-conversation-question"><h3>{t("아직 맞춰볼 것")}</h3>{questions.map(question => <p key={question}>{question}</p>)}</div> : null}
       <hr/><h3>{t("범위와 공수")}</h3>
       {proposal && canRead && state.view?.settings.acceptedDraft && <details className="pet-conversation-evidence"><summary>{t("현재 초안과 비교")}</summary><p>{state.view.settings.acceptedDraft.items.map(item => `${item.title} · ${item.quantity} ${unit(item.unit)}`).join("\n")}</p></details>}
       {!draft && <p className="model-selection-note">{t("대화에서 범위를 정리하면 견적 변경안이 여기에 모입니다.")}</p>}
