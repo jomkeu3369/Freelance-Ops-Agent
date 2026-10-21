@@ -71,6 +71,7 @@ import "./project/analysis/agent-chat.css";
 import "./professional-workspace.css";
 import "./usage/weekly-credit-summary.css";
 import "./settings/ai-connection-settings.css";
+import "./settings/rate-card-manager.css";
 import "./fullscreen-chat.css";
 import "./pets/workspace-companion.css";
 

@@ -7,6 +7,12 @@ import { englishUi as workspaceEnglish } from '../app/lib/ui-english.mjs';
 import { englishUi as landingEnglish } from '../features/home/ui-english.mjs';
 const englishUi = { ...workspaceEnglish, ...landingEnglish };
 
+test('fixed rate units remain visible in English', () => {
+  assert.equal(translateUi('{v0} / 건', 'en', {v0: '₩350,000'}), '₩350,000 / item');
+  assert.equal(translateUi('{v0} / 건', 'ko', {v0: '₩350,000'}), '₩350,000 / 건');
+  assert.equal(translateUi('건', 'en'), '');
+});
+
 test('unsupported language falls back to Korean; interpolation preserves user-provided content', () => {
   for (const value of [null, '', 'fr', 'EN', 'ko-KR']) assert.equal(normalizeLocale(value), 'ko');
   assert.equal(normalizeLocale('en'), 'en');

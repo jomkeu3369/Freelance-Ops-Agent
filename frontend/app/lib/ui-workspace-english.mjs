@@ -1,4 +1,5 @@
 export const workspaceEnglish = {
+  "{v0} / 건": "{v0} / item",
   "연결 확인 필요": "Check connection",
   "지금은 연결을 등록할 수 없습니다": "Connection registration is unavailable",
   "등록된 연결 {count}개": "Saved connections: {count}",
