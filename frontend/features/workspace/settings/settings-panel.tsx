@@ -322,6 +322,8 @@ export function SettingsPanel({ session, permissions, projectCount, canCreatePro
               </div>
               {canReadQuotation && policy && !canWriteQuotation && <p className="estimation-policy-status"><LockSimple size={17} aria-hidden="true" />{t("읽기 전용")}</p>}
             </header>
+            {error && !(canReadQuotation && policy && canWriteQuotation) && <div className="inline-error estimation-policy-feedback" role="alert"><Warning size={20} aria-hidden="true" />{t(error)}</div>}
+            {saved && !(canReadQuotation && policy && canWriteQuotation) && <div className="settings-saved estimation-policy-feedback" role="status"><CheckCircle size={20} aria-hidden="true" />{t(saved)}</div>}
             {canReadQuotation && policy ? (
               canWriteQuotation ? (
                 <EstimationPolicyForm
