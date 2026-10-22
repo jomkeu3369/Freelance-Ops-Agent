@@ -9,16 +9,21 @@ const draft = {scenario:"RECOMMENDED",items:[{title:"예약 개발",description:
 const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message-${index}`,speakerPetId:speaker.petId,
   speaker,replyToMessageId:index?`message-${index-1}`:null,text:["결제까지 넣으면 검증할 시간이 더 필요해.","예약만 받고 돈은 누가 받냥? 범위를 같이 정하자!","예산과 작업 범위를 확인하고 결정해줘."][index],evidenceRefs:["project"],evidence:[{id:"project",title:"고객 문의",content:"사용자가 작성한 원문"}]}));
 
-async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages}={}) {
+async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,corrections=[],verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks",phaseEvent=null}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
   const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
   const completed = (status="COMPLETED", petMessages=savedMessages) => ({runId:"run-one",status,activeDepartment:null,interruption:null,errorCode:null,
-    result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[],quotationDraft:draft,quotationDrafts:[draft],petMessages},
+    result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[
+      {department:"RESEARCH",status:"COMPLETED",summary:"공개 기술 자료 1개를 조회했습니다.",errorCode:null,sources:[{title:"웹훅 사양 · 합성 검사 자료",url:sourceUrl,contentSha256:"a".repeat(64),fetchedAt:"2026-10-22T09:00:00Z",excerpt:"화면 검증용 합성 본문입니다."}]},
+      {department:"VERIFICATION",status:verification,summary:verification==="COMPLETED"?"범위와 공수 가정을 검토했습니다.":"요구사항 누락: 취소 처리",errorCode:verification==="COMPLETED"?null:"CONVERSATION_VERIFICATION_FAILED",sources:[]}
+    ],quotationDraft:draft,quotationDrafts:[draft],petMessages},
     metadata:{provider:"OPENAI",model:"gpt-6-luna",petProfiles:profiles.slice(0,3)},usage:null,updatedAt:"2026-10-21T10:00:00Z"});
   state.run = completed(active?"RUNNING":"COMPLETED");
   state.history = [{runId:"run-one",requirementText:"예약 웹사이트를 만들고 싶어",status:state.run.status,createdAt:"2026-10-21T10:00:00Z"}];
   state.events = eventMessages.map((message,index)=>({eventId:index+1,runId:"run-one",type:"pet.message.completed",occurredAt:"2026-10-21T10:00:00Z",data:message}));
+  for(const message of corrections) state.events.push({eventId:state.events.length+1,runId:"run-one",type:"pet.message.corrected",occurredAt:"2026-10-21T10:00:01Z",data:message});
+  if(phaseEvent) state.events.push({eventId:state.events.length+1,runId:"run-one",type:phaseEvent,occurredAt:"2026-10-21T10:00:01Z",data:{}});
   await page.addInitScript(({locale,theme}) => {localStorage.setItem("freelance-ops-ui-locale-v1",locale);localStorage.setItem("theme",theme);},{locale,theme});
   await page.route("**/agent-pets",route=>route.fulfill({json:{pets:profiles.map(profile=>({id:profile.petId,profile,archived:false,revision:1})),selectedPetId:"pet-0",maxActivePets:8,maxStoredPets:24,maxPromptLength:500,maxPreferenceRequests:6,generationMode:"MODEL_PIXEL",aiGenerationAvailable:false}}));
   await page.route("**/pet-conversation",route=>{
@@ -58,6 +63,50 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
   return {state,server};
 }
 
+test("independent verification blocks apply and shows the missing requirement",async({page})=>{
+  const {server}=await open(page,{verification:"PARTIAL"});
+  await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeDisabled();
+  const quality=page.getByRole("region",{name:"조사와 독립 검증"});
+  await expect(quality).toContainText("요구사항 누락: 취소 처리");
+  expect(server.accepts).toHaveLength(0);
+});
+
+for(const [phase,label] of [["conversation.research.started","필요한 근거를 확인하고 있어요…"],
+  ["conversation.revision.started","검토 결과를 반영해 보완하고 있어요…"],
+  ["conversation.verification.started","범위·공수·인용을 따로 검토하고 있어요…"]]) {
+  test(`conversation phase is announced: ${phase}`,async({page})=>{
+    await open(page,{active:true,verification:"PENDING",phaseEvent:phase});
+    await expect(page.getByRole("status").filter({hasText:label})).toBeVisible();
+  });
+}
+
+test("a verified saved correction wins over the earlier streamed claim",async({page})=>{
+  const corrected=messages.map((message,index)=>index?message:{...message,text:"검토 후 정정: 운영 모드의 재전송 조건을 확인했어요."});
+  await open(page,{savedMessages:corrected,eventMessages:messages});
+  await expect(page.locator(".pet-conversation-message").first()).toContainText("검토 후 정정");
+  await expect(page.locator(".pet-conversation-message").first()).not.toContainText("결제까지 넣으면");
+});
+
+test("a streamed correction updates the same speaker while the saved snapshot catches up",async({page})=>{
+  await open(page,{active:true,corrections:[{...messages[0],text:"검토 후 정정: 실제 자료로 다시 확인했어요."}]});
+  await expect(page.locator(".pet-conversation-message")).toHaveCount(3);
+  await expect(page.locator(".pet-conversation-message").first()).toContainText("검토 후 정정");
+});
+
+test("verified sources show the original link and collection time without allowing script URLs",async({page})=>{
+  await open(page);
+  const quality=page.getByRole("region",{name:"조사와 독립 검증"});
+  await quality.locator(".pet-conversation-quality-report > summary").click();
+  await quality.locator("summary").filter({hasText:"웹훅 사양"}).click();
+  await expect(quality.getByRole("link",{name:"원문 보기"})).toHaveAttribute("href","https://docs.stripe.com/webhooks");
+  await expect(quality).toContainText("조회 시각");
+  await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeEnabled();
+  await open(page,{sourceUrl:"javascript:alert(1)"});
+  await page.locator(".pet-conversation-quality-report > summary").click();
+  await page.locator(".pet-conversation-quality summary").filter({hasText:"웹훅 사양"}).click();
+  await expect(page.locator(".pet-conversation-quality a")).toHaveCount(0);
+});
+
 test("three persisted speakers and replies appear once; work details are replaced by folded history",async({page})=>{
   await open(page);
   await expect(page.locator(".pet-conversation-message")).toHaveCount(3);
@@ -72,7 +121,7 @@ test("three persisted speakers and replies appear once; work details are replace
 test("persisted and duplicate event replies use their actual recipients and preserve bodies after reload",async({page})=>{
   const savedMessages=messages.map((message,index)=>({...message,text:[
     "차근, 결제 실패 경로부터 검토하자.",
-    "**차근**아, 꼼꼼이의 검증 항목은 유지하자. 든든의 결제 검토도 필요해.",
+    "**차근**아, **꼼꼼이의 검증 항목**은 유지하자. 든든의 결제 검토도 필요해.",
     "꼼꼼이님： 차근의 일정은 1.5일로 가정하자. 총액은 300만원이야. 든든의 확인 항목은 보존하자."
   ][index]}));
   savedMessages[1].evidence=[{id:"reply-source",title:"호칭 근거",content:"고객 원문: 예산 300만원과 꼼꼼이의 요청"}];

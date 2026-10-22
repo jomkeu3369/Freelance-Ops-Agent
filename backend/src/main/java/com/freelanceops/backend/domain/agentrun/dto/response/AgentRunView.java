@@ -175,6 +175,9 @@ public record AgentRunView(
         }
     }
 
+    public record ExternalToolCallUsage(UUID callId, String provider, String operation, String tariffVersion,
+            int credits, java.math.BigDecimal reservedCostUsd, java.math.BigDecimal costUsd, boolean usageKnown) {}
+
     public record AgentRunUsage(
             RequestTier requestTier,
             long modelCalls,
@@ -192,7 +195,17 @@ public record AgentRunView(
             String tariffVersion,
             Boolean executionClosed,
             Boolean unpricedExposure,
-            UUID byokScopeId) {
+            UUID byokScopeId,
+            List<ExternalToolCallUsage> externalToolCalls) {
+        public AgentRunUsage(RequestTier requestTier, long modelCalls, long toolCalls, long inputTokens,
+                long outputTokens, long cachedTokens, long searchCredits, long crawledPages, long retryCount,
+                long durationMs, List<ProviderCallUsage> providerCalls, java.math.BigDecimal platformCostUsd,
+                UUID platformReservationId, String tariffVersion, Boolean executionClosed, Boolean unpricedExposure,
+                UUID byokScopeId) {
+            this(requestTier, modelCalls, toolCalls, inputTokens, outputTokens, cachedTokens, searchCredits,
+                    crawledPages, retryCount, durationMs, providerCalls, platformCostUsd, platformReservationId,
+                    tariffVersion, executionClosed, unpricedExposure, byokScopeId, List.of());
+        }
         public AgentRunUsage(
                 RequestTier requestTier,
                 long modelCalls,
@@ -333,6 +346,15 @@ public record AgentRunView(
             executionClosed = Boolean.TRUE.equals(executionClosed);
             unpricedExposure = Boolean.TRUE.equals(unpricedExposure);
             providerCalls = providerCalls == null ? List.of() : List.copyOf(providerCalls);
+            externalToolCalls = externalToolCalls == null ? List.of() : List.copyOf(externalToolCalls);
+            var attemptIds = new java.util.HashSet<UUID>();
+            for (var call : providerCalls) attemptIds.add(call.callId());
+            for (var call : externalToolCalls) {
+                if (call.callId() == null || !attemptIds.add(call.callId()))
+                    throw new IllegalArgumentException("Duplicate external attempt identity");
+            }
+            if (byokScopeId != null && !externalToolCalls.isEmpty())
+                throw new IllegalArgumentException("Personal execution cannot use paid external tools");
             if ((platformReservationId == null) != (tariffVersion == null)) {
                 throw new IllegalArgumentException("Platform usage provenance must be complete");
             }

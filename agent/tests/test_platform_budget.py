@@ -38,9 +38,11 @@ from contracts import (
 from platform_budget import (
     LEGACY_TARIFF_VERSION,
     TARIFF_VERSION,
+    TEXT_TARIFF_VERSION,
     PlatformBudgetError,
     PlatformSpendLedger,
     budgeted_openai_attempt,
+    budgeted_tavily_search,
     current_ledger,
     platform_budget_scope,
     reject_unbounded_operation,
@@ -70,6 +72,55 @@ def budget(amount="0.10", **updates):
 
 def selection(model="gpt-5.6-luna", **updates):
     return ModelSelection(provider=Provider.OPENAI, model=model, **updates)
+
+
+async def test_search_reserves_before_io_and_keeps_unknown_cost_after_cancellation():
+    limits = RunBudget(max_duration_seconds=30, max_model_calls=2, max_tool_calls=5, max_input_tokens=50000,
+                       max_output_tokens=4000, max_departments=1, max_hierarchy_depth=1, max_search_credits=1)
+    ledger = PlatformSpendLedger(budget(), run_budget=limits)
+    observed = []
+
+    async def call():
+        observed.append(ledger.report(None))
+        raise asyncio.CancelledError()
+
+    with platform_budget_scope(ledger):
+        with pytest.raises(asyncio.CancelledError):
+            await budgeted_tavily_search(call)
+        assert observed[0].external_tool_calls[0].reserved_cost_usd == Decimal("0.008")
+        assert not ledger.external_calls[0].usage_known
+        assert ledger.cost == Decimal("0.008")
+        with pytest.raises(PlatformBudgetError, match="SEARCH_CREDIT_BUDGET_EXCEEDED"):
+            await budgeted_tavily_search(AsyncMock())
+
+
+async def test_search_without_money_reservation_never_reaches_provider():
+    call = AsyncMock()
+    with pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_REQUIRED"):
+        await budgeted_tavily_search(call)
+    call.assert_not_awaited()
+
+
+async def test_old_text_tariff_cannot_admit_paid_search():
+    ledger = PlatformSpendLedger(budget(tariff_version=TEXT_TARIFF_VERSION))
+    call = AsyncMock()
+    with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="PLATFORM_TOOL_TARIFF_UNSUPPORTED"):
+        await budgeted_tavily_search(call)
+    call.assert_not_awaited()
+
+
+async def test_search_success_and_repeated_reports_do_not_duplicate_cost():
+    limits = RunBudget(max_duration_seconds=30, max_model_calls=2, max_tool_calls=5, max_input_tokens=50000,
+                       max_output_tokens=4000, max_departments=1, max_hierarchy_depth=1, max_search_credits=1)
+    ledger = PlatformSpendLedger(budget(), run_budget=limits)
+    with platform_budget_scope(ledger):
+        await budgeted_tavily_search(AsyncMock(return_value={"results": []}))
+        report = ledger.report(None)
+        merged = merge_usage(report, report)
+        assert merged.search_credits == 1
+        assert merged.platform_cost_usd == Decimal("0.008")
+        assert len(merged.external_tool_calls) == 1
+        assert merged.external_tool_calls[0].usage_known
 
 
 def response(input_tokens=100, output_tokens=10, cached=0, written=0, **updates):

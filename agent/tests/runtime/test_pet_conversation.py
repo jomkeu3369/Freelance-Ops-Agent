@@ -20,7 +20,7 @@ from contracts import (
 from providers import ModelGeneration, ProviderCallError
 from runtime.executor import OperationalAgentExecutor
 from runtime.memory_store import InMemoryAgentRunStore
-from runtime.pet_conversation import execute_conversation
+from runtime.pet_conversation import NO_ADDITIONAL_POINT, execute_conversation
 from runtime.run_contracts import AgentExecutionError, ExecutionAuthorization
 from runtime.run_progress import progress_scope
 
@@ -86,6 +86,20 @@ class ProviderStub:
         self.prompts: list[dict[str, object]] = []
         self.fail_at = fail_at
         self.invalid_evidence = invalid_evidence
+
+    async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+        data = json.loads(prompt)
+        return ModelGeneration(payload={
+            "summary": "합성 검증 응답", "open_questions": [], "effort_checks": [],
+            "requirements": [{"requirement": "원문 검토", "original_quote": data["original"].splitlines()[0],
+                              "disposition": "INCLUDED", "item_indexes": [], "rationale": "상담 응답"}],
+            "message_checks": [{"message_index": index, "verdict": "GROUNDED", "rationale": "검사 대상"}
+                               for index, _ in enumerate(data["messages"])],
+            "evidence_checks": [{"source_id": ref, "claim": "문의에 응답", "supporting_quote": source["content"],
+                                 "verdict": "SUPPORTED", "message_indexes": [index], "item_indexes": []}
+                                for index, message in enumerate(data["messages"]) for ref in message["evidence_refs"]
+                                for source in data["evidence_catalog"] if source["id"] == ref]
+        })
 
     async def generate_structured(self, selection: object, prompt: str, *, max_output_tokens: int, max_attempts: int = 1 ) -> ModelGeneration:  # noqa: E501
         del selection, max_output_tokens
@@ -165,6 +179,17 @@ async def test_unknown_evidence_is_never_presented_as_a_real_source() -> None:
     run = request()
     with pytest.raises(AgentExecutionError):
         await execute_conversation(ProviderStub(invalid_evidence=True), run, project(run), run.input.requirement_text)
+
+
+async def test_server_defined_no_addition_reply_does_not_falsely_cite_project_evidence() -> None:
+    run = request()
+
+    class Provider(ProviderStub):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": NO_ADDITIONAL_POINT, "evidence_refs": ["project"]})
+
+    outcome = await execute_conversation(Provider(), run, project(run), run.input.requirement_text)
+    assert all(not message.evidence_refs and not message.evidence for message in outcome.result.pet_messages)
 
 
 async def test_call_budget_is_shared_by_the_team_and_checked_before_a_call() -> None:

@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     delegation_token_leeway_seconds: int = Field(default=5, ge=0, le=60)
 
     web_research_enabled: bool = False
+    conversation_documentation_enabled: bool = True
     web_research_allowed_domains: str = ""
     web_research_max_results: int = Field(default=5, ge=1, le=20)
     web_research_max_fetches: int = Field(default=3, ge=1, le=10)

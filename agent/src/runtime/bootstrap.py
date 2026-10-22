@@ -29,8 +29,10 @@ from runtime import (
     RunCoordinator,
     build_async_runtime_services,
 )
+from runtime.executor import ResearchTool
 from security import DelegationTokenVerifier
 from web_research import BoundedWebResearchService, DirectHttpProvider, TavilySearchProvider
+from web_research.official_documentation import ConversationWebResearch, OfficialDocumentationResearch
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +72,7 @@ def build_run_runtime() -> RuntimeComponents:
         settings.backend_internal_url, timeout_seconds=settings.backend_tool_timeout_seconds
     )
     research_tool = build_web_research_service(settings)
+    conversation_research = build_conversation_research_service(settings)
     knowledge_loader = KnowledgeContextLoader(
         project_context_tool,
         OpenAIQueryEmbedder(settings.knowledge_embedding_model, settings.knowledge_embedding_timeout_seconds),
@@ -77,7 +80,8 @@ def build_run_runtime() -> RuntimeComponents:
     )
     if settings.run_store_backend == "memory":
         executor = OperationalAgentExecutor(
-            gateway, model_gateway, project_context_tool, research_tool, knowledge_loader=knowledge_loader
+            gateway, model_gateway, project_context_tool, research_tool, knowledge_loader=knowledge_loader,
+            conversation_research_tool=conversation_research
         )
         return RuntimeComponents(
             coordinator=RunCoordinator(InMemoryAgentRunStore(), executor, require_platform_budget=True),
@@ -140,7 +144,8 @@ def build_run_runtime() -> RuntimeComponents:
         else None
     )
     executor = OperationalAgentExecutor(
-        gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar, knowledge_loader
+        gateway, model_gateway, project_context_tool, research_tool, task_shadow_registrar, knowledge_loader,
+        conversation_research_tool=conversation_research
     )
     checkpoint = (
         PostgresCheckpointJournal(
@@ -159,6 +164,12 @@ def build_run_runtime() -> RuntimeComponents:
         services=services,
         research_worker=research_worker_sink
     )
+
+
+def build_conversation_research_service(settings: Settings) -> ResearchTool | None:
+    paid = build_web_research_service(settings)
+    official = OfficialDocumentationResearch() if settings.conversation_documentation_enabled else None
+    return ConversationWebResearch(paid, official) if paid and official else paid or official
 
 
 def build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:

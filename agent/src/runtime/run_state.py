@@ -87,6 +87,17 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
                     raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
                 continue
         calls[call.call_id] = call
+    external = {call.call_id: call for call in current.external_tool_calls}
+    for tool in incoming.external_tool_calls:
+        prior_tool = external.get(tool.call_id)
+        if tool.call_id in calls:
+            raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
+        if prior_tool is not None:
+            if prior_tool.model_dump(exclude={"usage_known"}) != tool.model_dump(exclude={"usage_known"}):
+                raise PlatformBudgetError("PLATFORM_ATTEMPT_MISMATCH")
+            if prior_tool.usage_known:
+                continue
+        external[tool.call_id] = tool
     protected = any(
         value is not None
         for value in (
@@ -117,12 +128,14 @@ def merge_usage(current: AgentRunUsage | None, incoming: AgentRunUsage | None) -
         cached_tokens=sum(call.cached_read_tokens for call in calls.values())
         if protected
         else current.cached_tokens + incoming.cached_tokens,
-        search_credits=current.search_credits + incoming.search_credits,
+        search_credits=sum(call.credits for call in external.values()) if external else current.search_credits + incoming.search_credits,  # noqa: E501
         crawled_pages=current.crawled_pages + incoming.crawled_pages,
         retry_count=current.retry_count + incoming.retry_count,
         duration_ms=current.duration_ms + incoming.duration_ms,
         provider_calls=list(calls.values()),
-        platform_cost_usd=sum((call.cost_usd for call in calls.values()), current.platform_cost_usd * 0)
+        external_tool_calls=list(external.values()),
+        platform_cost_usd=(sum((call.cost_usd for call in calls.values()), current.platform_cost_usd * 0)
+                           + sum((tool.cost_usd for tool in external.values()), current.platform_cost_usd * 0))
         if protected
         else current.platform_cost_usd + incoming.platform_cost_usd,
         platform_reservation_id=incoming.platform_reservation_id or current.platform_reservation_id,

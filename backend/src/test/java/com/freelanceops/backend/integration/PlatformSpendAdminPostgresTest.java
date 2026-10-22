@@ -110,7 +110,7 @@ class PlatformSpendAdminPostgresTest {
         tx = new TransactionTemplate(manager);
         // Fixture cleanup is limited to this class's disposable database. Immutable production
         // ledger and audit tables are never deleted through the application under test.
-        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, "
+        jdbc.execute("TRUNCATE app.agent_run_usage, app.platform_external_tool_attempt, app.platform_provider_attempt, app.platform_spend_settlement, "
             + "app.platform_spend_reservation, app.platform_spend_bucket, app.platform_spend_admin_audit");
         jdbc.update("""
             UPDATE app.platform_spend_settings SET luna_run_usd=.10,terra_run_usd=1,

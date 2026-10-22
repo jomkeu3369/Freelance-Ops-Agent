@@ -109,11 +109,12 @@ _RECOVERABLE_PARTIAL_CODES = frozenset(
 
 
 class OperationalAgentExecutor:
-    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None, task_shadow_registrar: ResearchTaskShadowRegistrar | None = None, knowledge_loader: KnowledgeContextLoader | None = None) -> None:  # noqa: E501
+    def __init__(self, gateway: OperationalGateway, provider: ModelProvider, project_context_tool: ProjectContextTool | None = None, research_tool: ResearchTool | None = None, task_shadow_registrar: ResearchTaskShadowRegistrar | None = None, knowledge_loader: KnowledgeContextLoader | None = None, conversation_research_tool: ResearchTool | None = None) -> None:  # noqa: E501
         self._gateway = gateway
         self._provider = provider
         self._project_context_tool = project_context_tool
         self._research_tool = research_tool
+        self._conversation_research_tool = conversation_research_tool or research_tool
         self._task_shadow_registrar = task_shadow_registrar
         self._knowledge_loader = knowledge_loader
 
@@ -287,7 +288,7 @@ class OperationalAgentExecutor:
             from .pet_conversation import execute_conversation
 
             context = await self._load_project_context(request, authorization)
-            return await execute_conversation(self._provider, request, context, text)
+            return await execute_conversation(self._provider, request, context, text, self._conversation_research_tool)
         if (
             request.byok_budget is None
             and DepartmentName.RESEARCH in departments

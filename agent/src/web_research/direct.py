@@ -20,7 +20,7 @@ class DirectFetchError(RuntimeError):
 
 
 class DirectHttpProvider:
-    _ALLOWED_CONTENT_TYPES = {"text/html", "text/plain", "application/pdf"}
+    _ALLOWED_CONTENT_TYPES = {"text/html", "text/plain", "text/markdown", "application/pdf"}
 
     def __init__(self, client: httpx.AsyncClient | None = None, security: UrlSecurityPolicy | None = None, max_bytes: int = 5000000, max_pdf_pages: int = 200) -> None:  # noqa: E501
         if max_bytes < 1 or max_pdf_pages < 1:
@@ -68,7 +68,7 @@ class DirectHttpProvider:
 
     async def _download(self, client: httpx.AsyncClient, source_url: str, allowed_domains: list[str]) -> tuple[str, str, bytes]:  # noqa: E501
         current_url = source_url
-        accept_headers = {"Accept": "text/html,text/plain,application/pdf"}
+        accept_headers = {"Accept": "text/markdown,text/html,text/plain,application/pdf"}
         for _ in range(4):
             current_url = await self._security.validate(current_url, allowed_domains)
             async with client.stream("GET", current_url, headers=accept_headers) as response:
@@ -115,7 +115,7 @@ class DirectHttpProvider:
             return self._parse_pdf(payload)
 
         text = payload.decode("utf-8", errors="replace")
-        if content_type == "text/plain":
+        if content_type in {"text/plain", "text/markdown"}:
             return "", text, "plain-text-v1"
 
         parser = _VisibleTextParser()
@@ -150,14 +150,14 @@ class _VisibleTextParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         del attrs
 
-        if tag in {"script", "style", "noscript", "svg"}:
+        if tag in {"script", "style", "noscript", "svg", "nav", "footer"}:
             self._ignored_depth += 1
 
         if tag == "title":
             self._in_title = True
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in {"script", "style", "noscript", "svg"} and self._ignored_depth > 0:
+        if tag in {"script", "style", "noscript", "svg", "nav", "footer"} and self._ignored_depth > 0:
             self._ignored_depth -= 1
 
         if tag == "title":

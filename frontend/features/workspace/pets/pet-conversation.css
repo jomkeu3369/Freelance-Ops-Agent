@@ -69,6 +69,12 @@
 .figma-workspace .pet-conversation-brief dt { color: var(--muted); }
 .figma-workspace .pet-conversation-brief dd { margin: 0; text-align: end; overflow-wrap: anywhere; }
 .figma-workspace .pet-conversation-brief hr { margin: 22px 0; border: 0; border-top: 1px solid var(--line); }
+.figma-workspace .pet-conversation-quality { margin-block: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.figma-workspace .pet-conversation-quality details p { white-space: pre-wrap; max-height: 320px; overflow: auto; }
+.figma-workspace .pet-conversation-quality a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.figma-workspace .pet-conversation-quality-report > summary { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; cursor: pointer; }
+.figma-workspace .pet-conversation-quality-report > summary strong { color: var(--accent); font-size: 12px; white-space: nowrap; }
+.figma-workspace .pet-conversation-quality-body { margin-top: 14px; }
 .figma-workspace .pet-conversation-brief ul { list-style: none; padding: 0; margin: 0; }
 .figma-workspace .pet-conversation-brief li { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-bottom: 14px; font-size: 14px; }
 .figma-workspace .pet-conversation-brief li details { flex-basis: 100%; color: var(--muted); font-size: 13px; }

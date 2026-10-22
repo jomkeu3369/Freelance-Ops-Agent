@@ -565,6 +565,8 @@ components:
       $ref: ./agent/run-state.yaml#/schemas/AgentRunMetadata
     ProviderCallUsage:
       $ref: ./agent/execution-policy.yaml#/schemas/ProviderCallUsage
+    ExternalToolCallUsage:
+      $ref: ./agent/execution-policy.yaml#/schemas/ExternalToolCallUsage
     AgentRunUsage:
       $ref: ./agent/execution-policy.yaml#/schemas/AgentRunUsage
     AgentInterruption:

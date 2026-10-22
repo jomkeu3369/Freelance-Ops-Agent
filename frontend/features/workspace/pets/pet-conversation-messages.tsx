@@ -5,10 +5,15 @@ import { PetArt } from "./pet-art";
 import { conversationReplyText, conversationText } from "./pet-conversation-text.mjs";
 
 export function conversationMessages(saved: PetMessage[] | undefined, events: WorkflowEvent[]) {
-  const messages = new Map((saved ?? []).map(message => [message.messageId,message]));
+  const messages = new Map<string,PetMessage>();
   for (const event of events) if (event.type === "pet.message.completed") {
     const message = event.data as unknown as PetMessage;
     if (typeof message.messageId === "string" && typeof message.text === "string") messages.set(message.messageId,message);
+  }
+  for (const message of saved ?? []) messages.set(message.messageId,message);
+  for (const event of events) if (event.type === "pet.message.corrected") {
+    const message = event.data as unknown as PetMessage;
+    if (typeof message.messageId === "string" && typeof message.text === "string" && messages.has(message.messageId)) messages.set(message.messageId,message);
   }
   return [...messages.values()];
 }

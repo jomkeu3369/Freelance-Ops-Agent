@@ -34,7 +34,7 @@ import java.util.UUID;
 @Service
 public class ByokExecutionService {
     private static final Set<String> OPERATIONS =
-            Set.of("department_work_product", "bounded_react_step");
+            Set.of("department_work_product", "bounded_react_step", "conversation_review", "conversation_revision");
     private static final Set<AgentRunStatus> TERMINAL =
             Set.of(
                     AgentRunStatus.COMPLETED,

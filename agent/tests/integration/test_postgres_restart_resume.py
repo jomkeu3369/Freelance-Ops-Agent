@@ -29,7 +29,8 @@ DATABASE_URL = os.getenv("AGENT_INTEGRATION_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="AGENT_INTEGRATION_DATABASE_URL is not configured")
 
 
-async def test_completed_pet_message_survives_cancel_and_a_fresh_database_connection() -> None:
+@pytest.mark.parametrize("corrected", [False, True])
+async def test_completed_pet_message_survives_cancel_and_a_fresh_database_connection(corrected: bool) -> None:
     assert DATABASE_URL is not None
     request = agent_request()
     database = PgVectorConnectionManager(PgVectorPoolConfig(database_url=DATABASE_URL))
@@ -44,6 +45,12 @@ async def test_completed_pet_message_survives_cancel_and_a_fresh_database_connec
             request.context.run_id,
             ExecutionEvent("pet.message.completed", message.model_dump(mode="json", by_alias=True))
         )
+        if corrected:
+            message = message.model_copy(update={"text": "검토 후 정정: 근거를 보완한 답변"})
+            await store.append_progress(
+                request.context.run_id,
+                ExecutionEvent("pet.message.corrected", message.model_dump(mode="json", by_alias=True))
+            )
         await store.cancel(request.context.run_id)
     finally:
         await database.close()

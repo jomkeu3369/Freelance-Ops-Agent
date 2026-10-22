@@ -69,7 +69,7 @@ class PlatformUsagePostgresTest {
         workspace = UUID.randomUUID();
         project = UUID.randomUUID();
         jdbc.execute(
-                "TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
+                "TRUNCATE app.agent_run_usage, app.platform_external_tool_attempt, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
         jdbc.update(
                 "UPDATE app.platform_spend_settings SET account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");
         jdbc.update(
@@ -159,6 +159,31 @@ class PlatformUsagePostgresTest {
             AgentRunStatus status,
             Instant at) {
         tx.executeWithoutResult(s -> usage.synchronize(run, view(run, calls, closed, status, at)));
+    }
+
+    @Test
+    void externalSearchAttemptSharesTheCapAndDoesNotInflateModelCallCount() {
+        var run = reserve(null);
+        UUID id = UUID.randomUUID();
+        Instant at = Instant.now();
+        for (int step = 0; step < 3; step++) {
+            boolean known = step > 0;
+            var call = new AgentRunView.ExternalToolCallUsage(id, "TAVILY", "SEARCH_BASIC",
+                    "tavily-basic-2026-10-22-v1", 1, new BigDecimal("0.008"), new BigDecimal("0.008"), known);
+            var report = new AgentRunView.AgentRunUsage(RequestTier.SINGLE_AGENT, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+                    List.of(), new BigDecimal("0.008"), run.id(), PlatformSpendTariff.VERSION,
+                    known, false, null, List.of(call));
+            var view = new AgentRunView(run.id(), known ? AgentRunStatus.COMPLETED : AgentRunStatus.RUNNING,
+                    null, null, null, null, null, report, at.plusSeconds(step));
+            tx.executeWithoutResult(status -> usage.synchronize(run, view));
+            if (!known) assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".10");
+        }
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".008");
+        assertThat(usage.snapshot(user).reservedUsd()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_external_tool_attempt WHERE run_id=?",
+                Integer.class, run.id())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",
+                Integer.class, run.id())).isZero();
     }
 
     @Test

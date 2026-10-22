@@ -87,7 +87,7 @@ class PixelPetGenerationPostgresTest {
         project = UUID.randomUUID();
         jdbc.execute(
                 "TRUNCATE"
-                    + " app.agent_run_usage,app.platform_provider_attempt,app.platform_spend_settlement,app.platform_spend_reservation,app.platform_spend_bucket,app.pet_generation");
+                    + " app.agent_run_usage,app.platform_external_tool_attempt,app.platform_provider_attempt,app.platform_spend_settlement,app.platform_spend_reservation,app.platform_spend_bucket,app.pet_generation");
         jdbc.update(
                 "UPDATE app.platform_spend_settings SET"
                     + " account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");

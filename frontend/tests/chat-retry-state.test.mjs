@@ -41,6 +41,7 @@ async function render({ selection = auto, attachmentIds = [], ready = true, hasA
     "../../skills/skill-selector": { useSkillSelection: () => [selection, noop], SkillNames: "SkillNames" },
     "./chat-attachments": { useChatAttachments: () => attachments, ChatAttachmentButton: "ChatAttachmentButton", ChatAttachments: "ChatAttachments" },
     "../../pets/pet-conversation-messages": { conversationMessages: saved => saved ?? [], PetConversationMessages: "PetConversationMessages" },
+    "../../pets/pet-conversation-quality": { PetConversationProgress: "PetConversationProgress" },
   };
   // 효과와 API만 대체하고 실제 재시도 비교와 컴포넌트 판단을 실행한다.
   {

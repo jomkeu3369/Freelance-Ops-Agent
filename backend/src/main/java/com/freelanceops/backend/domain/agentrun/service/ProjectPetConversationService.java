@@ -91,6 +91,10 @@ public class ProjectPetConversationService {
         if (result.result() == null || result.result().petMessages().isEmpty()
                 || result.result().quotationDraft() == null || !Set.of("COMPLETED", "PARTIAL").contains(result.status().name()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_DRAFT_UNAVAILABLE");
+        if (result.result().departmentResults().stream().noneMatch(department ->
+                department.department() == com.freelanceops.backend.domain.agentrun.model.DepartmentName.VERIFICATION
+                        && "COMPLETED".equals(department.status()) && department.errorCode() == null))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_VERIFICATION_REQUIRED");
         lock(project, workspace);
         var current = load(user, workspace, project);
         checkVersion(current, input.expectedVersion());

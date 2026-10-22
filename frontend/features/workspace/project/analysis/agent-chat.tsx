@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useAgentHistory } from "./use-agent-history";
 import { PetConversationMessages, conversationMessages } from "../../pets/pet-conversation-messages";
+import { PetConversationProgress } from "../../pets/pet-conversation-quality";
 import { ChatMarkdown } from "../../shared/chat-markdown";
 import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import {
@@ -593,6 +594,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                   </p>
                 ))}
                 <PetConversationMessages messages={petMessages} />
+                {item.runId === runId && active && <PetConversationProgress events={liveEvents}/>}
                 {item.runId === runId && active && liveEvents.at(-1)?.type === "pet.message.started" && <p className="agent-chat-muted" role="status">{t("{name}가 이야기하고 있어요…",{name:String(liveEvents.at(-1)?.data.speakerName ?? t("프로젝트 AI"))})}</p>}
                 <div className={`agent-chat-message assistant${petMessages.length ? " pet-conversation-status" : ""}`} data-state={needsResultRetry ? "offline" : state.tone}>
                   <span className="agent-chat-message-label">

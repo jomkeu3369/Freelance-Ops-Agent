@@ -196,7 +196,7 @@ class PostgresAgentRunStore:
             if model.status != AgentRunStatus.RUNNING.value:
                 raise AgentRunStateError("only a running Agent run can publish progress")
             await self._append_event(session, run_id, event.type, event.data)
-            if event.type == "pet.message.completed":
+            if event.type in {"pet.message.completed", "pet.message.corrected"}:
                 current = AgentRunResult.model_validate(model.result_json) if model.result_json else None
                 model.result_json = self._json(append_message(current, event))
 

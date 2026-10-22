@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from platform_budget import PlatformBudgetError, budgeted_tavily_search
+
 from .contracts import SearchRequest, SearchResult, WebProvider, web_url
 from .security import UrlSecurityPolicy
 
@@ -19,17 +21,25 @@ class TavilySearchProvider:
         self._security = security or UrlSecurityPolicy()
 
     async def search(self, request: SearchRequest) -> list[SearchResult]:
-        response = await self._client.search(
-            query=request.query,
-            search_depth="basic",
-            topic=request.topic,
-            max_results=request.max_results,
-            include_domains=request.allowed_domains,
-            exclude_domains=request.excluded_domains,
-            include_answer=False,
-            include_raw_content=False,
-            include_images=False
-        )
+        async def call() -> Any:
+            return await self._client.search(
+                query=request.query,
+                search_depth="basic",
+                topic=request.topic,
+                max_results=request.max_results,
+                include_domains=request.allowed_domains,
+                exclude_domains=request.excluded_domains,
+                include_answer=False,
+                include_raw_content=False,
+                include_images=False
+            )
+
+        try:
+            response = await budgeted_tavily_search(call)
+        except PlatformBudgetError:
+            raise
+        except Exception:
+            raise TavilyProviderError("WEB_SEARCH_FAILED") from None
         rows = self._rows(response)
         results: list[SearchResult] = []
         for row in rows[: request.max_results]:

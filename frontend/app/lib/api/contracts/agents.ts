@@ -62,6 +62,9 @@ export interface AgentRunView {
         provider: string;
         jurisdiction: string | null;
         excerpt: string;
+          contentSha256?: string;
+          fetchedAt?: string;
+          authorityLevel?: string;
       }>;
       errorCode: string | null;
     }>;

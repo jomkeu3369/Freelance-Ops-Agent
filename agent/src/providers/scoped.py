@@ -13,6 +13,7 @@ from contracts import ModelSelection, Provider
 from platform_budget import PlatformBudgetError
 
 from .contracts import ModelGeneration, ModelProvider, ProviderNotConfiguredError
+from .conversation_quality import QualityOperation
 from .openai import OpenAIModelProvider
 
 
@@ -44,6 +45,12 @@ class ScopedModelProvider:
         async with self._selected_provider(selection) as provider:
             return await provider.generate_structured(
                 selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+            )
+
+    async def generate_conversation_quality(self, selection: ModelSelection, prompt: str, *, operation: QualityOperation, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        async with self._selected_provider(selection) as provider:
+            return await provider.generate_conversation_quality(
+                selection, prompt, operation=operation, max_output_tokens=max_output_tokens, max_attempts=max_attempts
             )
 
     async def generate_react_step(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
