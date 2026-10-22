@@ -48,6 +48,16 @@ def test_equivalent_scope_and_schedule_questions_pass_but_unrelated_questions_fa
     assert not score_case(case, result)["passed"]
 
 
+@pytest.mark.parametrize("question", ["완료 일정을 조정할 수 있나요?", "첫 범위를 축소할 수 있나요?"])
+def test_impossible_deadline_respects_the_requested_scope_or_schedule_alternative(question):
+    case = next(case for case in CASES if case["id"] == "impossible-deadline")
+    result = baseline(case)
+    result["open_questions"] = [question]
+    assert score_case(case, result)["passed"]
+    result["open_questions"] = []
+    assert not score_case(case, result)["passed"]
+
+
 def baseline(case):
     # 평가기 자체의 양성 대조군이다. 실제 모델 성능으로 집계하지 않는다.
     items = [] if case["effortDays"] is None else [{
