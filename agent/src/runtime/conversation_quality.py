@@ -315,10 +315,11 @@ class ConversationQuality:
                                           if accepted and item in accepted.items],
                 "messages": [message.model_dump(mode="json", exclude={"evidence"}) for message in messages],
                 "citation_targets": [
-                    {"source_id": ref, "message_indexes": [index], "item_indexes": []}
+                    {"source_id": ref, "message_indexes": [index], "item_indexes": [], "cited_text": message.text}
                     for index, message in enumerate(messages) for ref in message.evidence_refs
                 ] + [
-                    {"source_id": item.basis.source_reference, "message_indexes": [], "item_indexes": [index]}
+                    {"source_id": item.basis.source_reference, "message_indexes": [], "item_indexes": [index],
+                     "cited_text": item.basis.content, "basis_type": item.basis.type}
                     for index, item in enumerate(draft.items if draft else []) if item.basis.source_reference
                 ],
                 "draft": draft.model_dump(mode="json") if draft else None,
@@ -331,6 +332,14 @@ class ConversationQuality:
                 "research_status": self.research.model_dump(mode="json", exclude={"sources"}),
                 "research_execution": {"query": self.research_query, "query_policy": "FIXED_PUBLIC_VOCABULARY_ONLY"},
                 "history_requests": [turn.user_text for turn in context.history],
+                "grounding_focus": (
+                    "검사 대상은 cited_text가 실제로 주장한 사실이다. 명시한 규모·환경·공수 가정을 "
+                    "'고객이 확정했다'나 '문서가 구현·검수 전체를 입증한다'는 주장으로 바꿔 만들지 않는다. "
+                    "근거가 붙지 않은 ASSUMPTION 항목의 조건부 작업 계획은 작업·가정 타당성을 검사하며 "
+                    "이미 구현되거나 합의된 사실의 증거를 요구하지 않는다. 단, 문서와 반대되는 기술 보장을 "
+                    "가정이라고 포장한 것은 여전히 실패다. 혼합 발화의 인용은 실제 사실 문장에 연결하고 "
+                    "별도 가정 문장을 그 출처가 입증해야 한다고 하지 않는다."
+                ),
                 "current_request": text,
             }, "conversation_review", consumed)
             review = ConversationReview.model_validate(generated.payload)
@@ -386,6 +395,13 @@ class ConversationQuality:
                 "evidence_catalog": [source.model_dump(mode="json") for source in evidence.values()],
                 "review": self.last_review.model_dump() if self.last_review else None,
                 "validation_feedback": self.verification.summary,
+                "correction_focus": (
+                    "인용을 고칠 때 가정에 출처를 억지로 붙이지 않는다. 자료 참고가 요청됐다면 실제 본문이 "
+                    "확인해 주는 구체적인 기술 사실 한 문장을 발화에 쓰고 그 문장에 맞는 web:* ID를 연결한다. "
+                    "견적의 규모·환경·공수 가정은 다음 문장에서 별도로 말한다. 실제 사용자 원문 사실을 "
+                    "인용하는 문장이 없다면 project/request 인용을 제거한다. 공수·범위가 이미 타당하고 "
+                    "인용 연결만 문제라면 draft_action=KEEP으로 정상 초안을 보존한다."
+                ),
                 "current_request": text,
             }, "conversation_revision", consumed)
             return ConversationRevision.model_validate(generated.payload)

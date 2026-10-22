@@ -242,6 +242,13 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                         "다른 펫의 제안이나 전체 합의안을 요약하는 문장은 출력하지 않는다."
                     )
                 ),
+                "current_turn_grounding": (
+                    "외부 문서 참고를 요청받았다면 summary의 첫 문장에 실제 본문에서 확인한 구체적인 기술 사실 "
+                    "하나를 설명하고 그 사실을 뒷받침하는 web:* ID만 evidence_refs에 넣는다. "
+                    "다음 문장에 견적 제안·규모·환경 가정을 별도로 말한다. 가정이나 제안만 말하는 답변은 "
+                    "evidence_refs=[]이다. 프로젝트명·요구 범위를 반복하지 않았다면 project/request를 "
+                    "의례적으로 인용하지 않는다. 앞선 펫이 이미 설명한 사실을 반복할 필요는 없다."
+                ),
             },
             ensure_ascii=False,
             separators=(",", ":")
