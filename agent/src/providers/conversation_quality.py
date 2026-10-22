@@ -38,6 +38,7 @@ class EvidenceCheck(QualityModel):
     supporting_quotes: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(
         default_factory=list, max_length=5
     )
+    supporting_passage_indexes: list[Annotated[int, Field(ge=0)]] = Field(default_factory=list, max_length=5)
     verdict: Literal["SUPPORTED", "UNSUPPORTED"]
     message_indexes: list[int] = Field(max_length=3)
     item_indexes: list[int] = Field(max_length=50)

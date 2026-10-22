@@ -99,6 +99,48 @@ def test_disjoint_source_quotes_are_checked_separately_and_no_word_can_be_invent
     assert review_failures(ConversationReview.model_validate(data), draft(), evidence, "예약", messages)
 
 
+@pytest.mark.parametrize("mutation", [None, "missing_passage", "wrong_source", "unsupported", "invented_quote"])
+def test_passage_references_use_exact_source_content_and_preserve_all_failure_gates(mutation: str | None) -> None:
+    data = review_payload()
+    data["evidence_checks"] = [{"source_id": "web:1", "claim": "이전 모델 안내 참조",
+                               "supporting_passage_indexes": [1], "verdict": "SUPPORTED",
+                               "message_indexes": [0], "item_indexes": []}]
+    content = "x" * 1000 + "See the [previous model](/docs/app/guides/caching-without-cache-components)."
+    evidence = {"web:1": PetEvidence(id="web:1", title="사양", content=content)}
+    messages = [PetMessage(message_id=request().context.run_id, text="이전 모델 안내 참조", evidence_refs=["web:1"])]
+    check = data["evidence_checks"][0]
+    if mutation == "missing_passage":
+        check["supporting_passage_indexes"] = [2]
+    elif mutation == "wrong_source":
+        check["source_id"] = "web:2"
+    elif mutation == "unsupported":
+        check["verdict"] = "UNSUPPORTED"
+    elif mutation == "invented_quote":
+        check["supporting_quote"] = "The previous model guarantees success."
+    failures = review_failures(ConversationReview.model_validate(data), draft(), evidence, "예약", messages)
+    assert bool(failures) == (mutation is not None)
+
+
+async def test_reviewer_suggestions_cannot_displace_the_actual_unresolved_scope_question() -> None:
+    run = request(debate=False)
+    run.budget.max_model_calls = 2
+
+    class Provider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": "기능부터 정하자.",
+                                            "open_questions": ["사용자와 운영자에게 어떤 기능이 필요한가요?"]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            result = await super().generate_conversation_quality(selection, prompt, **kwargs)
+            result.payload["open_questions"] = ["출시 지역은?", "기사 배정 방식은?", "결제 방식은?"]
+            return result
+
+    outcome = await execute_conversation(Provider(), run, project(run), "먼저 기능 범위를 질문해")
+    assert outcome.result.open_questions == [
+        "사용자와 운영자에게 어떤 기능이 필요한가요?", "출시 지역은?", "기사 배정 방식은?", "결제 방식은?"
+    ]
+
+
 @pytest.mark.parametrize("repair_passes", [True, False])
 async def test_one_bounded_revision_is_reverified_and_published_as_a_correction(repair_passes: bool) -> None:
     run = request(debate=False)

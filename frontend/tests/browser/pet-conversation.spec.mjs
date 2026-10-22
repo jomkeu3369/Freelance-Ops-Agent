@@ -121,7 +121,7 @@ test("three persisted speakers and replies appear once; work details are replace
 test("persisted and duplicate event replies use their actual recipients and preserve bodies after reload",async({page})=>{
   const savedMessages=messages.map((message,index)=>({...message,text:[
     "차근, 결제 실패 경로부터 검토하자.",
-    "**차근**아, 꼼꼼이의 검증 항목은 유지하자. 든든의 결제 검토도 필요해.",
+    "**차근**아, **꼼꼼이의 검증 항목**은 유지하자. 든든의 결제 검토도 필요해.",
     "꼼꼼이님： 차근의 일정은 1.5일로 가정하자. 총액은 300만원이야. 든든의 확인 항목은 보존하자."
   ][index]}));
   savedMessages[1].evidence=[{id:"reply-source",title:"호칭 근거",content:"고객 원문: 예산 300만원과 꼼꼼이의 요청"}];

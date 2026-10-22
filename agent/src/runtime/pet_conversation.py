@@ -195,6 +195,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                     "금액·단가·세율·합계·예산 초과액은 문장으로 쓰거나 계산하지 않는다. 그 값과 예산 적합성은 견적 서버가 표시한다. 대화에서는 범위·공수·일정·근거와 선택의 이유만 다룬다. 저장·발행했다고 주장하지 않는다.",  # noqa: E501
                     "반영 전 제안이라는 안내와 승인 절차는 화면이 제공한다. 매번 면책 문구·계산 불가 설명·RECOMMENDED 같은 내부 용어를 반복하지 않는다. 추정 공수의 전제는 구체적으로 밝힌다.",  # noqa: E501
                     "open_questions에는 지금도 해결되지 않은 질문만 최대 3개 남긴다. 앞선 발화의 제안이 바뀌거나 사용자가 이미 정한 조건을 다시 묻지 않는다. 마지막 발화도 앞선 발화 전체를 요약하지 말고 새로운 판단 근거와 남은 선택만 말한다.",  # noqa: E501
+                    "사용자가 기능 범위 자체를 미정이라고 했다면 어떤 사용자에게 어떤 기능이 필요한지 먼저 묻고 그 핵심 질문을 open_questions의 첫 항목에도 남긴다. 발화에서 묻는 핵심 질문을 지역·운영 방식 같은 부가 질문으로 대체하지 않는다.",  # noqa: E501
                     "When a scope change is useful, propose exactly one RECOMMENDED quotation_draft with explicit ASSUMPTION basis for unconfirmed effort. Otherwise return an empty quotation_drafts array. Do not create three scenarios unless the user asks.",  # noqa: E501
                     "사용자가 초안 작성·견적 산정·견적에 항목 포함·기존 견적 변경을 요청하면 첫 화자가 전체 초안을 제공한다. 먼저 질문하라는 요청이나 기능 범위 자체가 없는 경우는 질문을 우선한다. 버전·기존 환경·구현 세부가 미정이어도 기능 범위를 알면 구체적인 규모·기술 전제를 가정으로 밝힌 조건부 초안과 질문을 함께 제공한다. 뒤 화자의 새 쟁점이 없다는 말이 앞선 초안을 삭제하지 않는다.",  # noqa: E501
                     "새 공수는 항목마다 description 또는 basis.content에 작업 분해와 합산, 가정한 대상 규모, 포함·제외 범위를 구체적으로 쓴다. 예: '화면 1개·기존 인증 재사용 가정, 설계 2h+구현 4h+예외 검증 2h=8h'. 같은 일수를 모든 항목에 기계적으로 붙이지 않는다. 이는 초기 추정이며 가정이 바뀌면 재산정한다. 기존 유지 항목은 설명이나 수량을 임의로 다시 쓰지 않는다.",  # noqa: E501
@@ -364,8 +365,8 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
         await publish_progress(ExecutionEvent(
             "conversation.revision.completed", {"status": quality.verification.status}
         ))
-    questions = list(dict.fromkeys(safe for question in [*review_questions, *questions]
-                                  if (safe := conversation_text(question))))[:3]
+    questions = list(dict.fromkeys(safe for question in [*questions, *review_questions]
+                                  if (safe := conversation_text(question))))[:10]
     if draft:
         for item in draft.items:
             ref = item.basis.source_reference or ""
