@@ -18,6 +18,10 @@ on:
         description: 운영 키로 합성 문의 품질 평가 실행 (고객 데이터 변경 없음, 최대 2.40 USD)
         type: boolean
         default: false
+      pet_quality_cases:
+        description: 선택 문의 ID (쉼표 구분, 비우면 12종 전체 및 부정 대조 3종)
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -130,6 +134,7 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
           DEPLOY_USER: ${{ secrets.VULTR_USER }}
+          PET_QUALITY_CASES: ${{ inputs.pet_quality_cases }}
         run: bash .github/scripts/run_pet_quality_remote.sh
       - name: 실제 모델 평가 결과 보존
         if: always()

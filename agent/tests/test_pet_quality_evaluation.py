@@ -16,8 +16,9 @@ def baseline(case):
     }]
     return {"quotation_draft": {"items": items} if items else None,
             "open_questions": [" · ".join(words[0] for words in case["concepts"])] if case["questionsRequired"] else [],
+            "pet_messages": [{"evidence_refs": ["web:1"]}],
             "department_results": [{"department": "VERIFICATION", "status": "COMPLETED", "error_code": None},
-                                   {"department": "RESEARCH", "status": "COMPLETED", "sources": [{}]}]}
+                                   {"department": "RESEARCH", "status": "COMPLETED", "sources": [{"url": "https://docs.example.test"}]}]}  # noqa: E501
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["id"])
