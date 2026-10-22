@@ -20,7 +20,7 @@ from contracts import (
 from providers import ModelGeneration, ProviderCallError
 from runtime.executor import OperationalAgentExecutor
 from runtime.memory_store import InMemoryAgentRunStore
-from runtime.pet_conversation import execute_conversation
+from runtime.pet_conversation import NO_ADDITIONAL_POINT, execute_conversation
 from runtime.run_contracts import AgentExecutionError, ExecutionAuthorization
 from runtime.run_progress import progress_scope
 
@@ -179,6 +179,17 @@ async def test_unknown_evidence_is_never_presented_as_a_real_source() -> None:
     run = request()
     with pytest.raises(AgentExecutionError):
         await execute_conversation(ProviderStub(invalid_evidence=True), run, project(run), run.input.requirement_text)
+
+
+async def test_server_defined_no_addition_reply_does_not_falsely_cite_project_evidence() -> None:
+    run = request()
+
+    class Provider(ProviderStub):
+        async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": NO_ADDITIONAL_POINT, "evidence_refs": ["project"]})
+
+    outcome = await execute_conversation(Provider(), run, project(run), run.input.requirement_text)
+    assert all(not message.evidence_refs and not message.evidence for message in outcome.result.pet_messages)
 
 
 async def test_call_budget_is_shared_by_the_team_and_checked_before_a_call() -> None:

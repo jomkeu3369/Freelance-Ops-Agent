@@ -9,7 +9,7 @@ const draft = {scenario:"RECOMMENDED",items:[{title:"예약 개발",description:
 const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message-${index}`,speakerPetId:speaker.petId,
   speaker,replyToMessageId:index?`message-${index-1}`:null,text:["결제까지 넣으면 검증할 시간이 더 필요해.","예약만 받고 돈은 누가 받냥? 범위를 같이 정하자!","예산과 작업 범위를 확인하고 결정해줘."][index],evidenceRefs:["project"],evidence:[{id:"project",title:"고객 문의",content:"사용자가 작성한 원문"}]}));
 
-async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks"}={}) {
+async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks",phaseEvent=null}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
   const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
@@ -22,6 +22,7 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
   state.run = completed(active?"RUNNING":"COMPLETED");
   state.history = [{runId:"run-one",requirementText:"예약 웹사이트를 만들고 싶어",status:state.run.status,createdAt:"2026-10-21T10:00:00Z"}];
   state.events = eventMessages.map((message,index)=>({eventId:index+1,runId:"run-one",type:"pet.message.completed",occurredAt:"2026-10-21T10:00:00Z",data:message}));
+  if(phaseEvent) state.events.push({eventId:state.events.length+1,runId:"run-one",type:phaseEvent,occurredAt:"2026-10-21T10:00:01Z",data:{}});
   await page.addInitScript(({locale,theme}) => {localStorage.setItem("freelance-ops-ui-locale-v1",locale);localStorage.setItem("theme",theme);},{locale,theme});
   await page.route("**/agent-pets",route=>route.fulfill({json:{pets:profiles.map(profile=>({id:profile.petId,profile,archived:false,revision:1})),selectedPetId:"pet-0",maxActivePets:8,maxStoredPets:24,maxPromptLength:500,maxPreferenceRequests:6,generationMode:"MODEL_PIXEL",aiGenerationAvailable:false}}));
   await page.route("**/pet-conversation",route=>{
@@ -68,6 +69,14 @@ test("independent verification blocks apply and shows the missing requirement",a
   await expect(quality).toContainText("요구사항 누락: 취소 처리");
   expect(server.accepts).toHaveLength(0);
 });
+
+for(const [phase,label] of [["conversation.research.started","필요한 근거를 확인하고 있어요…"],
+  ["conversation.verification.started","범위·공수·인용을 따로 검토하고 있어요…"]]) {
+  test(`conversation phase is announced: ${phase}`,async({page})=>{
+    await open(page,{active:true,verification:"PENDING",phaseEvent:phase});
+    await expect(page.getByRole("status").filter({hasText:label})).toBeVisible();
+  });
+}
 
 test("verified sources show the original link and collection time without allowing script URLs",async({page})=>{
   await open(page);

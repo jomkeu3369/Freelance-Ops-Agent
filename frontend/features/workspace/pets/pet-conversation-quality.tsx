@@ -1,9 +1,17 @@
-import type { AgentRunView } from "../../../app/lib/api";
+import type { AgentRunView, WorkflowEvent } from "../../../app/lib/api";
 import { useT } from "../../../app/lib/ui-language";
 
 export function conversationVerified(run: AgentRunView | null): boolean {
   return !!run?.result?.departmentResults.some(result => result.department === "VERIFICATION"
     && result.status === "COMPLETED" && !result.errorCode);
+}
+
+export function PetConversationProgress({ events }: { events: WorkflowEvent[] }) {
+  const t = useT();
+  const phase = events.filter(event => event.type.startsWith("conversation.") || event.type.startsWith("pet.message.")).at(-1)?.type;
+  const label = phase === "conversation.research.started" ? t("필요한 근거를 확인하고 있어요…")
+    : phase === "conversation.verification.started" ? t("범위·공수·인용을 따로 검토하고 있어요…") : null;
+  return label ? <p className="agent-chat-muted" role="status">{label}</p> : null;
 }
 
 function sourceUrl(value: string): string | null {
