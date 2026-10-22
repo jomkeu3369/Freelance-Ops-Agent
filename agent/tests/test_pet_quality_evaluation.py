@@ -3,9 +3,20 @@ import json
 
 import pytest
 
-from evaluation.pet_quality import DATASET, score_case
+from evaluation.pet_quality import DATASET, evaluation_failure, score_case
+from runtime.run_contracts import AgentExecutionError
 
 CASES = json.loads(DATASET.read_text(encoding="utf-8"))["cases"]
+
+
+def test_evaluation_failure_keeps_known_codes_without_dumping_arbitrary_exception_content():
+    error = AgentExecutionError("MODEL_PROVIDER_FAILED")
+    error.__cause__ = ValueError("Unsupported quotation evidence")
+    assert evaluation_failure(error)["causeCode"] == "Unsupported quotation evidence"
+    error.__cause__ = ValueError("private-provider-token-must-not-be-logged")
+    details = evaluation_failure(error)
+    assert details["errorCode"] == "MODEL_PROVIDER_FAILED"
+    assert "private-provider-token" not in json.dumps(details)
 
 
 def baseline(case):

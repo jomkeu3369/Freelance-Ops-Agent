@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from contracts import (
     AgentInput,
     AgentRunRequest,
@@ -34,6 +36,7 @@ from providers.conversation_quality import ConversationReview, QualityOperation
 from runtime.bootstrap import build_conversation_research_service
 from runtime.conversation_quality import ConversationQuality
 from runtime.pet_conversation import execute_conversation
+from runtime.run_contracts import AgentExecutionError
 
 DATASET = Path(__file__).resolve().parents[2] / "evaluation/pet-inquiries-v1.json"
 TOTAL_CAP = Decimal("2.40")
@@ -42,6 +45,17 @@ TOTAL_CAP = Decimal("2.40")
 class RecordingProvider(OpenAIModelProvider):
     last_review: ConversationReview | None = None
     reviews: list[ConversationReview] | None = None
+    work_products: list[dict[str, object]] | None = None
+    evidence_ids: list[str] | None = None
+
+    async def generate_structured(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
+        context = json.loads(prompt)
+        self.evidence_ids = [item["id"] for item in context.get("evidence_catalog", [])]
+        result = await super().generate_structured(
+            selection, prompt, max_output_tokens=max_output_tokens, max_attempts=max_attempts
+        )
+        self.work_products = [*(self.work_products or []), result.payload]
+        return result
 
     async def generate_conversation_quality(self, selection: ModelSelection, prompt: str, *, operation: QualityOperation, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         result = await super().generate_conversation_quality(
@@ -51,6 +65,26 @@ class RecordingProvider(OpenAIModelProvider):
             self.last_review = ConversationReview.model_validate(result.payload)
             self.reviews = [*(self.reviews or []), self.last_review]
         return result
+
+
+def evaluation_failure(error: Exception) -> dict[str, Any]:
+    """예외의 임의 본문·입력값 대신 검증된 코드와 필드 위치만 기록한다."""
+    cause = error.__cause__
+    known_reasons = {
+        "Unsupported quotation evidence", "Invalid conversation evidence or empty message",
+        "Conversation must propose one working quotation", "Conversation usage exceeded its admitted budget",
+        "MODEL_CALL_BUDGET_EXCEEDED", "model provider returned incomplete output",
+        "model provider returned invalid structured output"
+    }
+    details: dict[str, Any] = {"errorType": type(error).__name__,
+                               "errorCode": error.code if isinstance(error, AgentExecutionError) else None,
+                               "causeType": type(cause).__name__ if cause else None}
+    if cause is not None and str(cause) in known_reasons:
+        details["causeCode"] = str(cause)
+    if isinstance(cause, ValidationError):
+        details["validationErrors"] = [{"loc": item["loc"], "type": item["type"]}
+                                       for item in cause.errors(include_input=False, include_url=False)]
+    return details
 
 
 def score_case(case: dict[str, Any], result: dict[str, Any], review: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -155,6 +189,8 @@ async def calibration_controls(provider: RecordingProvider, model: str, spent: D
         ledger = evaluation_ledger(request, spent)
         provider.last_review = None
         provider.reviews = []
+        provider.work_products = []
+        provider.evidence_ids = []
         evidence = {"attachment:0": PetEvidence(id="attachment:0", title="가상 API · 합성 평가 명세",
                     content="이 평가용 API는 같은 event_id를 여러 번 전송할 수 있다. 수신자는 중복 처리를 해야 한다.")}
         draft = QuotationDraft.model_validate({"items": [{"title": "구현", "description": description,
@@ -215,7 +251,8 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
             score["usage"] = ledger.report(outcome.usage).model_dump(mode="json")
             score["costUpperBoundUsd"] = str(ledger.cost)
         except Exception as error:
-            score = {"id": case["id"], "passed": False, "errorType": type(error).__name__,
+            score = {"id": case["id"], "passed": False, **evaluation_failure(error),
+                     "workProducts": provider.work_products, "availableEvidenceIds": provider.evidence_ids,
                      "costUpperBoundUsd": str(ledger.cost)}
         report["cases"].append(score)
         spent += ledger.cost
