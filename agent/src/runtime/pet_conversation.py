@@ -155,11 +155,6 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                 "pet_mode": context.pet_mode,
                 "speaker": speaker.model_dump(mode="json") if speaker else None,
                 "participants": [{"name": pet.name, "pet_id": str(pet.pet_id)} for pet in request.input.pet_profiles] if context.pet_mode else [],  # noqa: E501
-                "conversation_turn": {"number": index + 1, "count": len(turns), "discussion": len(turns) > 1},
-                "turn_task": turn_tasks[index],
-                "reply_target": {"message_id": str(reply.message_id), "speaker": recipient, "text": excerpt(reply.text, 2500)} if reply else None,  # noqa: E501
-                "covered_points": [excerpt(message.text, 1500) for message in messages],
-                "user_request": text,
                 "project": {
                     **project.model_dump(mode="json", exclude={"source_messages"}),
                     "requirement_text": excerpt(project.requirement_text, 6000),
@@ -172,6 +167,28 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                 "accepted_draft": context.accepted_draft,
                 "previous_proposal_this_turn": draft.model_dump(mode="json") if draft else None,
                 "unresolved_questions": questions,
+                "user_request": text,
+                "conversation_turn": {"number": index + 1, "count": len(turns), "discussion": len(turns) > 1},
+                "turn_task": turn_tasks[index],
+                "reply_target": {"message_id": str(reply.message_id), "speaker": recipient, "text": excerpt(reply.text, 2500)} if reply else None,  # noqa: E501
+                "covered_points": [excerpt(message.text, 1500) for message in messages],
+                "current_turn_output": (
+                    "history의 발화도 이미 설명한 내용이다. "
+                    "사용자가 재비교·요약을 요청한 경우 외에는 되풀이하지 않는다. "
+                    "unresolved_questions는 유지·해결 여부를 갱신할 상태이지 "
+                    "summary에서 읽어줄 대본이 아니다. "
+                    "이미 나온 질문은 사용자가 재설명을 요청하거나 새 조건으로 선택이 달라질 때만 다시 묻는다. "
+                    + (
+                        "현재 user_request에 직접 답한다. history의 마지막 질문을 대신 답하거나 "
+                        "과거 답변의 형식을 복사하지 않는다."
+                        if not reply else
+                        "직전 reply_target에 답하되 covered_points가 이미 다룬 장단점·조건·질문은 "
+                        "바꿔 말해도 반복이다. 사용자가 결정하거나 검증할 사항을 실제로 바꾸는 차이가 있을 때만 "
+                        "그 한 가지와 이유를 1~2문장으로 쓴다. "
+                        "새 차이가 없으면 '이미 나온 검토 외에 더할 쟁점은 없어.' 한 문장만 쓴다. "
+                        "다른 펫의 제안이나 전체 합의안을 요약하는 문장은 출력하지 않는다."
+                    )
+                ),
             },
             ensure_ascii=False,
             separators=(",", ":")
