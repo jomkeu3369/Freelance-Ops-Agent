@@ -18,8 +18,10 @@ export function PetConversationQuality({ run }: { run: AgentRunView | null }) {
   const review = run.result.departmentResults.find(result => result.department === "VERIFICATION");
   const verified = conversationVerified(run);
   return <section className="pet-conversation-quality" aria-label={t("조사와 독립 검증")}>
-    <h3>{t("조사와 독립 검증")}</h3>
-    <p role="status">{verified ? t("요구사항·공수·근거 검토 완료") : t("검증이 완료되어야 제안을 반영할 수 있습니다.")}</p>
+    <details className="pet-conversation-quality-report" open={!verified}>
+    <summary><span>{t("조사와 독립 검증")}</span><strong role="status">{verified ? t("검토 완료") : t("확인 필요")}</strong></summary>
+    <div className="pet-conversation-quality-body">
+    <p>{verified ? t("요구사항·공수·근거 검토 완료") : t("검증이 완료되어야 제안을 반영할 수 있습니다.")}</p>
     {research && <><p className="model-selection-note">{research.summary}</p>
       {research.sources?.map(source => {
         const href = sourceUrl(source.url);
@@ -35,5 +37,6 @@ export function PetConversationQuality({ run }: { run: AgentRunView | null }) {
       <summary>{t("검증 결과 확인")}</summary><p>{review.summary}</p>
     </details>}
     <p className="model-selection-note">{t("별도의 AI 호출로 검토한 초기 추정입니다. 최종 범위와 공수는 직접 확인해 주세요.")}</p>
+    </div></details>
   </section>;
 }

@@ -72,11 +72,13 @@ test("independent verification blocks apply and shows the missing requirement",a
 test("verified sources show the original link and collection time without allowing script URLs",async({page})=>{
   await open(page);
   const quality=page.getByRole("region",{name:"조사와 독립 검증"});
+  await quality.locator(".pet-conversation-quality-report > summary").click();
   await quality.locator("summary").filter({hasText:"웹훅 사양"}).click();
   await expect(quality.getByRole("link",{name:"원문 보기"})).toHaveAttribute("href","https://docs.stripe.com/webhooks");
   await expect(quality).toContainText("조회 시각");
   await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeEnabled();
   await open(page,{sourceUrl:"javascript:alert(1)"});
+  await page.locator(".pet-conversation-quality-report > summary").click();
   await page.locator(".pet-conversation-quality summary").filter({hasText:"웹훅 사양"}).click();
   await expect(page.locator(".pet-conversation-quality a")).toHaveCount(0);
 });

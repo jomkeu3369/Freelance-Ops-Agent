@@ -112,7 +112,7 @@ jobs:
   live-pet-quality:
     name: 운영 키로 합성 문의 12종 평가
     if: github.event_name == 'workflow_dispatch' && inputs.live_pet_quality
-    needs: [quality, image]
+    needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: production
