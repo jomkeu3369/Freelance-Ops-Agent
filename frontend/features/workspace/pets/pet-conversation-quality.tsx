@@ -10,6 +10,7 @@ export function PetConversationProgress({ events }: { events: WorkflowEvent[] })
   const t = useT();
   const phase = events.filter(event => event.type.startsWith("conversation.") || event.type.startsWith("pet.message.")).at(-1)?.type;
   const label = phase === "conversation.research.started" ? t("필요한 근거를 확인하고 있어요…")
+    : phase === "conversation.revision.started" ? t("검토 결과를 반영해 보완하고 있어요…")
     : phase === "conversation.verification.started" ? t("범위·공수·인용을 따로 검토하고 있어요…") : null;
   return label ? <p className="agent-chat-muted" role="status">{label}</p> : null;
 }

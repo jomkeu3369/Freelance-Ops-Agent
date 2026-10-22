@@ -1,8 +1,10 @@
 """펫 발화와 분리한 조사 계획·견적 심사 출력 계약."""
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from contracts import QuotationDraft
 
 
 class QualityModel(BaseModel):
@@ -32,7 +34,10 @@ class EffortCheck(QualityModel):
 class EvidenceCheck(QualityModel):
     source_id: str = Field(min_length=1, max_length=100)
     claim: str = Field(min_length=1, max_length=1000)
-    supporting_quote: str = Field(max_length=1000)
+    supporting_quote: str = Field(default="", max_length=1000)
+    supporting_quotes: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(
+        default_factory=list, max_length=5
+    )
     verdict: Literal["SUPPORTED", "UNSUPPORTED"]
     message_indexes: list[int] = Field(max_length=3)
     item_indexes: list[int] = Field(max_length=50)
@@ -46,6 +51,7 @@ class MessageCheck(QualityModel):
 
 class ConversationReview(QualityModel):
     summary: str = Field(min_length=1, max_length=1500)
+    draft_disposition: Literal["APPROPRIATE", "DEFER_REQUIRED", "NOT_REQUESTED"] = "APPROPRIATE"
     requirements: list[RequirementCheck] = Field(min_length=1, max_length=50)
     effort_checks: list[EffortCheck] = Field(max_length=50)
     evidence_checks: list[EvidenceCheck] = Field(max_length=50)
@@ -53,4 +59,16 @@ class ConversationReview(QualityModel):
     open_questions: list[str] = Field(max_length=3)
 
 
-QualityOperation = Literal["conversation_research_plan", "conversation_review"]
+class MessageRevision(QualityModel):
+    message_index: int = Field(ge=0, le=2)
+    text: str = Field(min_length=1, max_length=5000)
+    evidence_refs: list[str] = Field(max_length=10)
+
+
+class ConversationRevision(QualityModel):
+    messages: list[MessageRevision] = Field(max_length=3)
+    draft: QuotationDraft | None
+    open_questions: list[str] = Field(max_length=3)
+
+
+QualityOperation = Literal["conversation_research_plan", "conversation_review", "conversation_revision"]

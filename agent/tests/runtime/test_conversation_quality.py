@@ -13,6 +13,7 @@ from providers import ModelGeneration, ProviderCallError
 from providers.conversation_quality import ConversationReview
 from runtime.conversation_quality import ConversationQuality, review_failures, safe_research_query, valid_sources
 from runtime.pet_conversation import execute_conversation
+from runtime.run_progress import progress_scope
 from web_research import ResearchCollection
 
 
@@ -76,6 +77,70 @@ def test_process_requirements_do_not_need_a_fictional_quotation_item() -> None:
     ])
     data["requirements"][0]["target"] = "QUOTATION"
     assert review_failures(ConversationReview.model_validate(data), draft(), {}, "예약", [])
+
+
+def test_drafting_before_the_requested_clarification_is_not_verified() -> None:
+    data = review_payload()
+    data["draft_disposition"] = "DEFER_REQUIRED"
+    assert review_failures(ConversationReview.model_validate(data), draft(), {}, "예약", [])
+
+
+def test_disjoint_source_quotes_are_checked_separately_and_no_word_can_be_invented() -> None:
+    data = review_payload()
+    data["evidence_checks"] = [{"source_id": "web:1", "claim": "중복·재시도 가능",
+                               "supporting_quotes": ["Duplicate events can occur.", "Retry after a delay."],
+                               "verdict": "SUPPORTED", "message_indexes": [0], "item_indexes": []}]
+    evidence = {"web:1": PetEvidence(id="web:1", title="사양", content=(
+        "Duplicate events can occur.\n\nUnrelated text.\n\nRetry after a delay."
+    ))}
+    messages = [PetMessage(message_id=request().context.run_id, text="중복·재시도 가능", evidence_refs=["web:1"])]
+    assert not review_failures(ConversationReview.model_validate(data), draft(), evidence, "예약", messages)
+    data["evidence_checks"][0]["supporting_quotes"][0] = "Duplicate events never occur."
+    assert review_failures(ConversationReview.model_validate(data), draft(), evidence, "예약", messages)
+
+
+@pytest.mark.parametrize("repair_passes", [True, False])
+async def test_one_bounded_revision_is_reverified_and_published_as_a_correction(repair_passes: bool) -> None:
+    run = request(debate=False)
+    run.budget.max_model_calls = 4
+    run.budget.max_duration_seconds = 180
+
+    class Provider(ProviderStub):
+        reviews = 0
+        revisions = 0
+
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": "기존 DB에서는 반드시 실패해.",
+                                            "quotation_drafts": [draft().model_dump()]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            if data["operation"] == "conversation_revision":
+                self.revisions += 1
+                return ModelGeneration(payload={"messages": [{"message_index": 0,
+                    "text": "기존 DB의 실패 동작을 먼저 확인하자.", "evidence_refs": []}],
+                    "draft": draft().model_dump(), "open_questions": ["기존 DB를 재사용할 수 있나요?"]})
+            self.reviews += 1
+            payload = review_payload()
+            if self.reviews == 1 or not repair_passes:
+                payload["message_checks"][0]["verdict"] = "UNSUPPORTED"
+            else:
+                assert "검토 후 정정" in data["messages"][0]["text"]
+            return ModelGeneration(payload=payload)
+
+    events = []
+
+    async def collect(event):
+        events.append(event)
+
+    provider = Provider()
+    with progress_scope(collect):
+        outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert provider.revisions == 1 and provider.reviews == 2
+    assert outcome.usage.model_calls == 4
+    assert [event.type for event in events].count("pet.message.corrected") == 1
+    assert outcome.result.pet_messages[0].text.startswith("검토 후 정정")
+    assert (outcome.partial_error_code is None) is repair_passes
 
 
 def test_retained_effort_requires_an_identical_previously_accepted_item() -> None:

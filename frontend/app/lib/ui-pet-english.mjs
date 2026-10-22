@@ -2,6 +2,7 @@
 export const petEnglish = {
   "필요한 근거를 확인하고 있어요…": "Checking the evidence we need…",
   "범위·공수·인용을 따로 검토하고 있어요…": "Independently reviewing scope, effort and citations…",
+  "검토 결과를 반영해 보완하고 있어요…": "Improving the proposal from the review…",
   "조사와 독립 검증": "Research and independent review",
   "요구사항·공수·근거 검토 완료": "Requirements, effort and evidence reviewed",
   "검증이 완료되어야 제안을 반영할 수 있습니다.": "Complete the independent review before applying this proposal.",

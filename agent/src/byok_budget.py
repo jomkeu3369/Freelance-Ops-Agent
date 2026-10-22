@@ -32,7 +32,9 @@ from contracts import (
 from personal_credentials import resolve_credential
 from platform_budget import PlatformBudgetError, current_ledger, require_platform_ledger, validate_reasoning
 
-_OPERATIONS = frozenset({"department_work_product", "bounded_react_step", "conversation_review"})
+_OPERATIONS = frozenset({
+    "department_work_product", "bounded_react_step", "conversation_review", "conversation_revision"
+})
 _PROTOCOL_ALLOWANCE = 8192
 _MAX_INPUT = 272000
 

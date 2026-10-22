@@ -41,6 +41,7 @@ TOTAL_CAP = Decimal("2.40")
 
 class RecordingProvider(OpenAIModelProvider):
     last_review: ConversationReview | None = None
+    reviews: list[ConversationReview] | None = None
 
     async def generate_conversation_quality(self, selection: ModelSelection, prompt: str, *, operation: QualityOperation, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration:  # noqa: E501
         result = await super().generate_conversation_quality(
@@ -48,6 +49,7 @@ class RecordingProvider(OpenAIModelProvider):
         )
         if operation == "conversation_review":
             self.last_review = ConversationReview.model_validate(result.payload)
+            self.reviews = [*(self.reviews or []), self.last_review]
         return result
 
 
@@ -106,7 +108,7 @@ def evaluation_request(inquiry: str, model: str) -> tuple[AgentRunRequest, Proje
         context=TrustedRunContext(run_id=run_id, thread_id=uuid4(), trace_id="pet-quality-live-eval",
                                   workspace_id=workspace, project_id=project_id, initiated_by=uuid4(),
                                   effective_permissions=["agent.run", "project.read", "document.read"]),
-        budget=RunBudget(max_duration_seconds=180, max_model_calls=5, max_tool_calls=5, max_input_tokens=150000,
+        budget=RunBudget(max_duration_seconds=180, max_model_calls=7, max_tool_calls=5, max_input_tokens=150000,
                          max_output_tokens=24000, max_departments=2, max_hierarchy_depth=1, max_search_credits=1),
         model_selection=ModelSelection(provider=Provider.OPENAI, model=model), safety_context=SafetyContextInput(),
         input=AgentInput(requirement_text=inquiry, pet_profiles=profiles,
@@ -152,6 +154,7 @@ async def calibration_controls(provider: RecordingProvider, model: str, spent: D
         request, project = evaluation_request(original, model)
         ledger = evaluation_ledger(request, spent)
         provider.last_review = None
+        provider.reviews = []
         evidence = {"attachment:0": PetEvidence(id="attachment:0", title="가상 API · 합성 평가 명세",
                     content="이 평가용 API는 같은 event_id를 여러 번 전송할 수 있다. 수신자는 중복 처리를 해야 한다.")}
         draft = QuotationDraft.model_validate({"items": [{"title": "구현", "description": description,
@@ -198,6 +201,7 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
             request.input.conversation.accepted_draft = case["acceptedDraft"]
         ledger = evaluation_ledger(request, spent)
         provider.last_review = None
+        provider.reviews = []
         try:
             async with asyncio.timeout(request.budget.max_duration_seconds):
                 with platform_budget_scope(ledger):
@@ -207,6 +211,7 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
             score = score_case(case, result, review)
             score["result"] = result
             score["review"] = review
+            score["reviewAttempts"] = [item.model_dump() for item in provider.reviews or []]
             score["usage"] = ledger.report(outcome.usage).model_dump(mode="json")
             score["costUpperBoundUsd"] = str(ledger.cost)
         except Exception as error:

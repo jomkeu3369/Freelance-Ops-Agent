@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Sequence
 from contextlib import suppress
 from uuid import uuid5
 
@@ -20,6 +21,7 @@ from contracts import (
     ProjectContext,
     QuotationDraft,
     RequestTier,
+    SourceReference,
 )
 from providers import ModelProvider, ProviderCallError
 from providers.contracts import DepartmentWorkProduct
@@ -35,6 +37,27 @@ NO_ADDITIONAL_POINT = "이미 나온 검토 외에 더할 쟁점은 없어."
 
 def excerpt(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + "\n[문맥 길이 제한으로 발췌됨]"
+
+
+def prepare_proposal(proposal: QuotationDraft, sources: Sequence[SourceReference], evidence: dict[str, PetEvidence], prior_evidence: set[tuple[str, str | None, str]]) -> None:  # noqa: E501
+    if proposal.scenario != "RECOMMENDED":
+        raise ValueError("Conversation must propose one working quotation")
+    for item in proposal.items:
+        if item.basis.type is DraftBasisType.EVIDENCE or item.basis.source_reference:
+            for web_index, document in enumerate(sources, start=1):
+                if item.basis.source_reference == document.url:
+                    item.basis.source_reference = f"web:{web_index}"
+            source = evidence.get(item.basis.source_reference or "")
+            if source is None:
+                if (item.title, item.basis.source_reference, item.basis.content) in prior_evidence:
+                    item.basis.type = DraftBasisType.ASSUMPTION
+                    item.basis.content = ("이전 초안의 인용으로 이번 조회에서 확인하지 못함: "
+                                          + item.basis.content)[:3000]
+                    item.basis.source_reference = None
+                    item.basis.source_title = None
+                    continue
+                raise ValueError("Unsupported quotation evidence")
+            item.basis.source_title = source.title
 
 
 async def execute_conversation(provider: ModelProvider, request: AgentRunRequest, project: ProjectContext, text: str, research_tool: ResearchTool | None = None) -> ExecutionOutcome:  # noqa: E501
@@ -256,22 +279,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
             ):
                 raise ValueError("Conversation must propose one working quotation")
             for proposal in result.quotation_drafts:
-                for item in proposal.items:
-                    if item.basis.type is DraftBasisType.EVIDENCE or item.basis.source_reference:
-                        for web_index, web_document in enumerate(quality.sources, start=1):
-                            if item.basis.source_reference == web_document.url:
-                                item.basis.source_reference = f"web:{web_index}"
-                        source = evidence.get(item.basis.source_reference or "")
-                        if source is None:
-                            if (item.title, item.basis.source_reference, item.basis.content) in prior_evidence:
-                                item.basis.type = DraftBasisType.ASSUMPTION
-                                item.basis.content = ("이전 초안의 인용으로 이번 조회에서 확인하지 못함: "
-                                                      + item.basis.content)[:3000]
-                                item.basis.source_reference = None
-                                item.basis.source_title = None
-                                continue
-                            raise ValueError("Unsupported quotation evidence")
-                        item.basis.source_title = source.title
+                prepare_proposal(proposal, quality.sources, evidence, prior_evidence)
             if (
                 model_calls + quality.model_calls > request.budget.max_model_calls
                 or output_tokens + quality.output_tokens > request.budget.max_output_tokens
@@ -308,6 +316,54 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
     await publish_progress(ExecutionEvent(
         "conversation.verification.completed", {"status": quality.verification.status}
     ))
+    if (quality.verification.error_code == "CONVERSATION_VERIFICATION_FAILED"
+            and model_calls + quality.model_calls + 2 <= request.budget.max_model_calls
+            and (time.monotonic_ns() - started) / 1_000_000_000 < request.budget.max_duration_seconds - 30):
+        await publish_progress(ExecutionEvent("conversation.revision.started", {}))
+        revision = await quality.revise(
+            project, text, evidence, messages, draft, questions, (model_calls, input_tokens, output_tokens)
+        )
+        if revision is not None:
+            try:
+                indexes = [change.message_index for change in revision.messages]
+                if len(set(indexes)) != len(indexes) or any(index >= len(messages) for index in indexes):
+                    raise ValueError("Invalid message revision")
+                revised_messages = list(messages)
+                if revision.draft:
+                    prepare_proposal(revision.draft, quality.sources, evidence, prior_evidence)
+                for change in revision.messages:
+                    if any(ref not in evidence for ref in change.evidence_refs):
+                        raise ValueError("Unsupported revision evidence")
+                    original_message = messages[change.message_index]
+                    previous_speaker = messages[change.message_index - 1].speaker if change.message_index else None
+                    recipient_name = previous_speaker.name if previous_speaker else None
+                    body = (conversation_reply_text(change.text, recipient_name, names) if original_message.speaker
+                            else conversation_text(change.text))
+                    if not body:
+                        raise ValueError("Empty corrected message")
+                    revised_messages[change.message_index] = original_message.model_copy(update={
+                        "text": "검토 후 정정: " + body, "evidence_refs": change.evidence_refs,
+                        "evidence": [evidence[ref] for ref in change.evidence_refs]
+                    })
+                messages, draft = revised_messages, revision.draft
+                questions = [safe for question in revision.open_questions if (safe := conversation_text(question))][:3]
+                for index in indexes:
+                    await publish_progress(ExecutionEvent(
+                        "pet.message.corrected", messages[index].model_dump(mode="json", by_alias=True)
+                    ))
+                await publish_progress(ExecutionEvent("conversation.verification.started", {}))
+                review_questions = await quality.verify(
+                    project, text, evidence, messages, draft, (model_calls, input_tokens, output_tokens), questions
+                )
+                quality.verification.summary = "한 차례 보완한 뒤 다시 검토했습니다.\n" + quality.verification.summary
+                await publish_progress(ExecutionEvent(
+                    "conversation.verification.completed", {"status": quality.verification.status}
+                ))
+            except ValueError:
+                pass  # 검증되지 않은 수정안은 원래의 실패 상태를 해제하지 않는다.
+        await publish_progress(ExecutionEvent(
+            "conversation.revision.completed", {"status": quality.verification.status}
+        ))
     questions = list(dict.fromkeys(safe for question in [*review_questions, *questions]
                                   if (safe := conversation_text(question))))[:3]
     if draft:
@@ -322,13 +378,18 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
 
 
 def append_message(result: AgentRunResult | None, event: ExecutionEvent) -> AgentRunResult | None:
-    if event.type != "pet.message.completed":
+    if event.type not in {"pet.message.completed", "pet.message.corrected"}:
         return result
     message = PetMessage.model_validate(event.data)
     current = result or AgentRunResult(project_summary="")
-    if any(item.message_id == message.message_id for item in current.pet_messages):
+    if event.type == "pet.message.corrected":
+        if not any(item.message_id == message.message_id for item in current.pet_messages):
+            raise ValueError("Cannot correct an unknown message")
+        messages = [message if item.message_id == message.message_id else item for item in current.pet_messages]
+    elif any(item.message_id == message.message_id for item in current.pet_messages):
         return current
-    messages = [*current.pet_messages, message]
+    else:
+        messages = [*current.pet_messages, message]
     if len(messages) > 3:
         raise ValueError("Conversation speaker limit exceeded")
     return current.model_copy(
