@@ -20,6 +20,7 @@ class RequirementCheck(QualityModel):
     requirement: str = Field(min_length=1, max_length=500)
     original_quote: str = Field(min_length=1, max_length=500)
     disposition: Literal["INCLUDED", "QUESTION", "EXCLUDED", "MISSING"]
+    user_exclusion_quote: str | None = Field(default=None, max_length=500)
     target: Literal["QUOTATION", "RESPONSE"] = "QUOTATION"
     item_indexes: list[int] = Field(max_length=50)
     rationale: str = Field(min_length=1, max_length=700)

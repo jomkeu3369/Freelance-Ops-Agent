@@ -34,7 +34,7 @@ from platform_budget import TARIFF_VERSION, PlatformSpendLedger, platform_budget
 from providers import ModelGeneration, OpenAIModelProvider
 from providers.conversation_quality import ConversationReview, QualityOperation
 from runtime.bootstrap import build_conversation_research_service
-from runtime.conversation_quality import ConversationQuality
+from runtime.conversation_quality import ConversationQuality, unauthorized_exclusion
 from runtime.pet_conversation import execute_conversation
 from runtime.run_contracts import AgentExecutionError
 
@@ -162,11 +162,12 @@ def evaluation_ledger(request: AgentRunRequest, spent: Decimal) -> PlatformSpend
     ), run_budget=request.budget)
 
 
-def defect_detected(review: ConversationReview | None, dimension: str) -> bool:
+def defect_detected(review: ConversationReview | None, dimension: str, original: str = "") -> bool:
     if review is None:
         return False
     if dimension == "COVERAGE":
-        return any(check.disposition == "MISSING" for check in review.requirements)
+        return (any(check.disposition == "MISSING" for check in review.requirements)
+                or bool(unauthorized_exclusion(review, original)))
     if dimension == "EFFORT":
         return any(check.verdict in {"UNJUSTIFIED", "IMPLAUSIBLE"} for check in review.effort_checks)
     return any(check.verdict == "UNSUPPORTED" for check in review.evidence_checks)
@@ -203,7 +204,7 @@ async def calibration_controls(provider: RecordingProvider, model: str, spent: D
                 with platform_budget_scope(ledger):
                     await quality.verify(project, original, evidence, [message], draft, (0, 0, 0))
             passed = (quality.verification.error_code == "CONVERSATION_VERIFICATION_FAILED"
-                      and defect_detected(provider.last_review, dimension))
+                      and defect_detected(provider.last_review, dimension, original))
             score: dict[str, Any] = {"dimension": dimension, "passed": passed,
                                      "review": provider.last_review.model_dump() if provider.last_review else None,
                                      "verification": quality.verification.model_dump(mode="json")}

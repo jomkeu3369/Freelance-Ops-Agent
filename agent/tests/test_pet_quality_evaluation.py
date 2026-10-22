@@ -3,7 +3,8 @@ import json
 
 import pytest
 
-from evaluation.pet_quality import DATASET, evaluation_failure, score_case
+from evaluation.pet_quality import DATASET, defect_detected, evaluation_failure, score_case
+from providers.conversation_quality import ConversationReview
 from runtime.run_contracts import AgentExecutionError
 
 CASES = json.loads(DATASET.read_text(encoding="utf-8"))["cases"]
@@ -17,6 +18,21 @@ def test_evaluation_failure_keeps_known_codes_without_dumping_arbitrary_exceptio
     details = evaluation_failure(error)
     assert details["errorCode"] == "MODEL_PROVIDER_FAILED"
     assert "private-provider-token" not in json.dumps(details)
+
+
+def test_coverage_control_requires_a_missing_scope_or_an_unapproved_exclusion():
+    review = ConversationReview.model_validate({
+        "summary": "초안이 취소를 임의로 제외했습니다.", "open_questions": [], "effort_checks": [],
+        "requirements": [{"requirement": "예약 취소", "original_quote": "취소까지 포함해",
+                          "disposition": "EXCLUDED", "item_indexes": [], "rationale": "초안에서 제외됨"}],
+        "evidence_checks": [],
+        "message_checks": [{"message_index": 0, "verdict": "ASSUMPTION", "rationale": "제안"}]
+    })
+    assert defect_detected(review, "COVERAGE", "취소까지 포함해")
+    review.requirements[0].user_exclusion_quote = "취소는 제외해"
+    assert defect_detected(review, "COVERAGE", "취소까지 포함해")
+    assert not defect_detected(review, "COVERAGE", "취소는 제외해")
+    assert not defect_detected(None, "COVERAGE", "취소까지 포함해")
 
 
 def baseline(case):

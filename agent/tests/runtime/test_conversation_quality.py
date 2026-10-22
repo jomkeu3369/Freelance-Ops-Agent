@@ -85,6 +85,30 @@ def test_drafting_before_the_requested_clarification_is_not_verified() -> None:
     assert review_failures(ConversationReview.model_validate(data), draft(), {}, "예약", [])
 
 
+@pytest.mark.parametrize("exclusion_quote", [None, " ", "사용자가 말하지 않은 제외"])
+def test_a_proposal_cannot_exclude_requested_work_without_an_original_user_exclusion(exclusion_quote):
+    data = review_payload()
+    data["requirements"][0].update({"disposition": "EXCLUDED", "user_exclusion_quote": exclusion_quote})
+    messages = [PetMessage(message_id=request().context.run_id, text="2일은 가정입니다.")]
+    failures = review_failures(ConversationReview.model_validate(data), draft(), {}, "예약 취소까지 포함해", messages)
+    assert any("사용자가 요청하지 않은 범위 제외" in failure for failure in failures)
+
+
+def test_an_explicit_user_exclusion_is_distinct_from_a_missing_required_feature():
+    data = review_payload()
+    data["requirements"][0].update({"disposition": "EXCLUDED", "user_exclusion_quote": "예약 결제는 제외해"})
+    messages = [PetMessage(message_id=request().context.run_id, text="2일은 가정입니다.")]
+    assert not review_failures(ConversationReview.model_validate(data), draft(), {}, "예약 결제는 제외해", messages)
+
+
+def test_an_ai_draft_exclusion_cannot_authorize_removing_a_user_requirement():
+    data = review_payload()
+    data["requirements"][0].update({"disposition": "EXCLUDED", "user_exclusion_quote": "취소는 제외"})
+    failures = review_failures(ConversationReview.model_validate(data), draft(), {},
+                               "예약 취소까지 포함해\n초안: 취소는 제외", [], user_original="예약 취소까지 포함해")
+    assert any("사용자가 요청하지 않은 범위 제외" in failure for failure in failures)
+
+
 def test_disjoint_source_quotes_are_checked_separately_and_no_word_can_be_invented() -> None:
     data = review_payload()
     data["evidence_checks"] = [{"source_id": "web:1", "claim": "중복·재시도 가능",
