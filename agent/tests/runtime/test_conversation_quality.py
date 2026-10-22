@@ -104,6 +104,49 @@ def test_citations_must_support_each_actual_message_and_item_not_just_the_same_s
     assert review_failures(ConversationReview.model_validate(data), draft(), evidence, "예약", messages)
 
 
+def test_assumption_items_cannot_bypass_verification_of_their_technical_citation() -> None:
+    proposal = draft()
+    proposal.items[0].basis.source_reference = "web:1"
+    evidence = {"web:1": PetEvidence(id="web:1", title="API 사양", content="Events may be duplicated.")}
+    messages = [PetMessage(message_id=request().context.run_id, text="2일은 초기 추정입니다.")]
+    assert review_failures(ConversationReview.model_validate(review_payload()), proposal, evidence, "예약", messages)
+
+
+@pytest.mark.parametrize("basis_type", ["ASSUMPTION", "EVIDENCE"])
+async def test_web_citations_are_verified_then_saved_as_real_urls_for_both_basis_types(basis_type: str) -> None:
+    run = request(debate=False)
+    run.context.effective_permissions.append("document.read")
+    run.budget.max_tool_calls = 5
+    run.budget.max_search_credits = 1
+    source = SourceReference(title="웹훅 사양", url="https://docs.example.test/api", provider="DIRECT",
+                             content_sha256="a" * 64, fetched_at=datetime.now(UTC),
+                             authority_level="OFFICIAL", excerpt="Events may be duplicated.")
+    research = AsyncMock()
+    research.collect.return_value = ResearchCollection([source], 0, 1, 1)
+
+    class Provider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            proposal = draft().model_dump()
+            proposal["items"][0]["basis"].update({"type": basis_type, "source_reference": source.url})
+            return ModelGeneration(payload={"summary": "중복 처리를 포함한 2일 가정이야.",
+                                            "quotation_drafts": [proposal]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            if data["operation"] == "conversation_research_plan":
+                return ModelGeneration(payload={"query": "webhook duplicate", "reason": "공식 사양 확인"})
+            assert data["draft"]["items"][0]["basis"]["source_reference"] == "web:1"
+            payload = review_payload()
+            payload["evidence_checks"] = [{"source_id": "web:1", "claim": "이벤트 중복 가능",
+                                          "supporting_quote": source.excerpt, "verdict": "SUPPORTED",
+                                          "message_indexes": [], "item_indexes": [0]}]
+            return ModelGeneration(payload=payload)
+
+    outcome = await execute_conversation(Provider(), run, project(run), run.input.requirement_text, research)
+    assert outcome.partial_error_code is None
+    assert outcome.result.quotation_draft.items[0].basis.source_reference == source.url
+
+
 def test_injected_sources_and_duplicate_content_are_removed() -> None:
     def source(content: str, digest: str) -> SourceReference:
         return SourceReference(title="공식 문서", url="https://docs.example.test/api", provider="DIRECT",

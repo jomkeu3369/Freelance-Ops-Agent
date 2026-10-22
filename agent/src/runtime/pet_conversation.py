@@ -101,7 +101,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
         with suppress(ValidationError):
             prior_evidence = {(item.title, item.basis.source_reference, item.basis.content)
                               for item in QuotationDraft.model_validate(context.accepted_draft).items
-                              if item.basis.type is DraftBasisType.EVIDENCE}
+                              if item.basis.source_reference}
     names = [pet.name for pet in request.input.pet_profiles]
     names.extend(message.speaker.name for turn in context.history for message in turn.messages if message.speaker)
     model_calls = input_tokens = output_tokens = 0
@@ -175,7 +175,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                     "When a scope change is useful, propose exactly one RECOMMENDED quotation_draft with explicit ASSUMPTION basis for unconfirmed effort. Otherwise return an empty quotation_drafts array. Do not create three scenarios unless the user asks.",  # noqa: E501
                     "사용자가 초안 작성·견적 산정·견적에 항목 포함·기존 견적 변경을 요청하면 첫 화자가 전체 초안을 제공한다. 먼저 질문하라는 요청이나 기능 범위 자체가 없는 경우는 질문을 우선한다. 버전·기존 환경·구현 세부가 미정이어도 기능 범위를 알면 구체적인 규모·기술 전제를 가정으로 밝힌 조건부 초안과 질문을 함께 제공한다. 뒤 화자의 새 쟁점이 없다는 말이 앞선 초안을 삭제하지 않는다.",  # noqa: E501
                     "새 공수는 항목마다 description 또는 basis.content에 작업 분해와 합산, 가정한 대상 규모, 포함·제외 범위를 구체적으로 쓴다. 예: '화면 1개·기존 인증 재사용 가정, 설계 2h+구현 4h+예외 검증 2h=8h'. 같은 일수를 모든 항목에 기계적으로 붙이지 않는다. 이는 초기 추정이며 가정이 바뀌면 재산정한다. 기존 유지 항목은 설명이나 수량을 임의로 다시 쓰지 않는다.",  # noqa: E501
-                    "자료 확인을 요청받았다면 발화에 조회 본문이 뒷받침하는 구체적인 기술 사실 하나와 해당 web:* ID를 남긴다. 향후 조사 작업을 견적에 넣는 것만으로 지금 조사 요청을 이행한 것은 아니다. 본문에 없는 버전·권고 수준은 선택 제안으로 명확히 구분하며 사용자 확정 조건으로 쓰지 않는다.",  # noqa: E501
+                    "자료 확인을 요청받았다면 발화에 조회 본문이 뒷받침하는 구체적인 기술 사실 하나를 설명하고 evidence_refs 필드에 해당 web:* ID를 넣는다. 본문에 내부 ID를 쓰지 않는다. 향후 조사 작업을 견적에 넣는 것만으로 지금 조사 요청을 이행한 것은 아니다. 본문에 없는 버전·권고 수준은 선택 제안으로 명확히 구분하며 사용자 확정 조건으로 쓰지 않는다.",  # noqa: E501
                     "quotation_draft는 기존 초안 전체를 교체하는 완전한 견적이다. 부분 수정 요청에서도 accepted_draft의 변경하지 않은 모든 항목·범위·공수·근거를 유지하고 요청된 변경만 반영한다. 사용자가 삭제나 대체를 요청하지 않은 항목을 빼거나 변경한 항목만 반환하지 않는다. 전체 초안을 유지할 정보가 부족하면 빈 배열과 필요한 질문을 반환한다.",  # noqa: E501
                     "Proposed changes are not accepted or saved. The user must explicitly review and apply them. Never claim a proposal is an agreed requirement.",  # noqa: E501
                     PET_PREFERENCE_RULES,
@@ -257,7 +257,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                 raise ValueError("Conversation must propose one working quotation")
             for proposal in result.quotation_drafts:
                 for item in proposal.items:
-                    if item.basis.type is DraftBasisType.EVIDENCE:
+                    if item.basis.type is DraftBasisType.EVIDENCE or item.basis.source_reference:
                         for web_index, web_document in enumerate(quality.sources, start=1):
                             if item.basis.source_reference == web_document.url:
                                 item.basis.source_reference = f"web:{web_index}"
@@ -313,7 +313,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
     if draft:
         for item in draft.items:
             ref = item.basis.source_reference or ""
-            if item.basis.type is DraftBasisType.EVIDENCE and ref.startswith("web:"):
+            if ref.startswith("web:"):
                 item.basis.source_reference = quality.sources[int(ref.split(":")[1]) - 1].url
     return ExecutionOutcome(
         result=working_result(), usage=usage(),

@@ -125,7 +125,7 @@ def review_failures(review: ConversationReview, draft: QuotationDraft | None, ev
             supported_items.update((index, evidence_check.source_id) for index in evidence_check.item_indexes)
     cited_messages = {(index, ref) for index, message in enumerate(messages) for ref in message.evidence_refs}
     cited_items = {(index, item.basis.source_reference or "") for index, item in enumerate(items)
-                   if item.basis.type == "EVIDENCE"}
+                   if item.basis.type == "EVIDENCE" or item.basis.source_reference}
     if cited_messages - supported_messages or cited_items - supported_items:
         failures.append("사용한 근거 중 독립 검증이 끝나지 않은 항목이 있습니다.")
     return list(dict.fromkeys(failures))
