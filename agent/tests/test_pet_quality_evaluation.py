@@ -35,6 +35,19 @@ def test_coverage_control_requires_a_missing_scope_or_an_unapproved_exclusion():
     assert not defect_detected(None, "COVERAGE", "취소까지 포함해")
 
 
+@pytest.mark.parametrize("case_id,questions", [
+    ("vague-app", ["사용자가 완료해야 하는 일은 무엇인가요?", "운영자가 수행해야 하는 일은 무엇인가요?"]),
+    ("impossible-deadline", ["내일 확인할 핵심 흐름은?", "전체 범위를 유지한다면 원하는 완료 시점은 언제인가요?"])
+])
+def test_equivalent_scope_and_schedule_questions_pass_but_unrelated_questions_fail(case_id, questions):
+    case = next(case for case in CASES if case["id"] == case_id)
+    result = baseline(case)
+    result["open_questions"] = questions
+    assert score_case(case, result)["passed"]
+    result["open_questions"] = ["선호하는 색상은 무엇인가요?"]
+    assert not score_case(case, result)["passed"]
+
+
 def baseline(case):
     # 평가기 자체의 양성 대조군이다. 실제 모델 성능으로 집계하지 않는다.
     items = [] if case["effortDays"] is None else [{

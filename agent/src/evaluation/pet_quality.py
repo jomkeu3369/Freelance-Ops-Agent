@@ -239,6 +239,8 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
         ledger = evaluation_ledger(request, spent)
         provider.last_review = None
         provider.reviews = []
+        provider.work_products = []
+        provider.evidence_ids = []
         try:
             async with asyncio.timeout(request.budget.max_duration_seconds):
                 with platform_budget_scope(ledger):
