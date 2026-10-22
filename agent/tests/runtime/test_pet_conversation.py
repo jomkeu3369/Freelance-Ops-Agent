@@ -299,7 +299,7 @@ async def test_turns_have_distinct_jobs_and_one_reply_target_for_body_and_events
     with progress_scope(persist):
         outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
     messages = outcome.result.pet_messages
-    assert [prompt["turn_task"]["kind"] for prompt in provider.prompts] == ["PROPOSE", "CHECK", "DECIDE"]
+    assert [prompt["turn_task"]["kind"] for prompt in provider.prompts] == ["PROPOSE", "CHECK", "EXTEND"]
     assert provider.prompts[0]["reply_target"] is None
     assert provider.prompts[0]["covered_points"] == []
     for index in [1, 2]:
