@@ -7,6 +7,7 @@ on:
       - "contracts/fixtures/workspace-credit-contract.json"
       - "contracts/fixtures/pixel-pet-profile.json"
       - "contracts/fixtures/pet-conversation-text.json"
+      - "contracts/fixtures/pet-conversation-replies.json"
       - ".github/workflows/frontend-ci.yml"
       - ".github/scripts/with-frontend-server.sh"
   push:
@@ -17,6 +18,7 @@ on:
       - "contracts/fixtures/workspace-credit-contract.json"
       - "contracts/fixtures/pixel-pet-profile.json"
       - "contracts/fixtures/pet-conversation-text.json"
+      - "contracts/fixtures/pet-conversation-replies.json"
       - ".github/workflows/frontend-ci.yml"
       - ".github/scripts/with-frontend-server.sh"
   workflow_dispatch:

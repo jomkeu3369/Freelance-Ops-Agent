@@ -9,16 +9,16 @@ const draft = {scenario:"RECOMMENDED",items:[{title:"예약 개발",description:
 const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message-${index}`,speakerPetId:speaker.petId,
   speaker,replyToMessageId:index?`message-${index-1}`:null,text:["결제까지 넣으면 검증할 시간이 더 필요해.","예약만 받고 돈은 누가 받냥? 범위를 같이 정하자!","예산과 작업 범위를 확인하고 결정해줘."][index],evidenceRefs:["project"],evidence:[{id:"project",title:"고객 문의",content:"사용자가 작성한 원문"}]}));
 
-async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false}={}) {
+async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
   const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
-  const completed = (status="COMPLETED", petMessages=messages) => ({runId:"run-one",status,activeDepartment:null,interruption:null,errorCode:null,
+  const completed = (status="COMPLETED", petMessages=savedMessages) => ({runId:"run-one",status,activeDepartment:null,interruption:null,errorCode:null,
     result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[],quotationDraft:draft,quotationDrafts:[draft],petMessages},
     metadata:{provider:"OPENAI",model:"gpt-6-luna",petProfiles:profiles.slice(0,3)},usage:null,updatedAt:"2026-10-21T10:00:00Z"});
   state.run = completed(active?"RUNNING":"COMPLETED");
   state.history = [{runId:"run-one",requirementText:"예약 웹사이트를 만들고 싶어",status:state.run.status,createdAt:"2026-10-21T10:00:00Z"}];
-  state.events = messages.map((message,index)=>({eventId:index+1,runId:"run-one",type:"pet.message.completed",occurredAt:"2026-10-21T10:00:00Z",data:message}));
+  state.events = eventMessages.map((message,index)=>({eventId:index+1,runId:"run-one",type:"pet.message.completed",occurredAt:"2026-10-21T10:00:00Z",data:message}));
   await page.addInitScript(({locale,theme}) => {localStorage.setItem("freelance-ops-ui-locale-v1",locale);localStorage.setItem("theme",theme);},{locale,theme});
   await page.route("**/agent-pets",route=>route.fulfill({json:{pets:profiles.map(profile=>({id:profile.petId,profile,archived:false,revision:1})),selectedPetId:"pet-0",maxActivePets:8,maxStoredPets:24,maxPromptLength:500,maxPreferenceRequests:6,generationMode:"MODEL_PIXEL",aiGenerationAvailable:false}}));
   await page.route("**/pet-conversation",route=>{
@@ -67,6 +67,54 @@ test("three persisted speakers and replies appear once; work details are replace
   await page.locator(".pet-conversation-evidence summary").first().click();
   await expect(page.getByText("사용자가 작성한 원문",{exact:true}).first()).toBeVisible();
   await page.screenshot({path:"outputs/pet-conversation-implementation/desktop.png",fullPage:true});
+});
+
+test("persisted and duplicate event replies use their actual recipients and preserve bodies after reload",async({page})=>{
+  const savedMessages=messages.map((message,index)=>({...message,text:[
+    "차근, 결제 실패 경로부터 검토하자.",
+    "**차근**아, 꼼꼼이의 검증 항목은 유지하자. 든든의 결제 검토도 필요해.",
+    "꼼꼼이님： 차근의 일정은 1.5일로 가정하자. 총액은 300만원이야. 든든의 확인 항목은 보존하자."
+  ][index]}));
+  savedMessages[1].evidence=[{id:"reply-source",title:"호칭 근거",content:"고객 원문: 예산 300만원과 꼼꼼이의 요청"}];
+  const eventMessages=savedMessages.map((message,index)=>index===1?{...message,text:"차근야! **꼼꼼이의 검증 항목**은 유지하자. 든든의 결제 검토도 필요해."}:message);
+  const {state}=await open(page,{active:true,savedMessages,eventMessages:[...eventMessages,eventMessages[1]]});
+  const replies=page.locator(".pet-conversation-message");
+  await expect.poll(()=>state.streamRequests).toBeGreaterThan(0);
+  await expect(replies).toHaveCount(3);
+  await expect(replies.nth(1).locator(".chat-markdown strong")).toHaveText("꼼꼼이의 검증 항목");
+  await expect(replies.nth(0).locator(".chat-markdown")).toHaveText("결제 실패 경로부터 검토하자.");
+  await expect(replies.nth(1).locator(".pet-conversation-reply")).toHaveText("꼼꼼이에게 답변");
+  await expect(replies.nth(1).locator(".chat-markdown")).toContainText("꼼꼼이, 꼼꼼이의 검증 항목은 유지하자.");
+  await expect(replies.nth(1).locator(".chat-markdown")).toContainText("든든의 결제 검토도 필요해.");
+  await expect(replies.nth(1).locator(".chat-markdown")).not.toContainText("차근야");
+  await expect(replies.nth(2).locator(".pet-conversation-reply")).toHaveText("든든에게 답변");
+  await expect(replies.nth(2).locator(".chat-markdown")).toContainText("든든, 차근의 일정은 1.5일로 가정하자.");
+  await expect(replies.nth(2).locator(".chat-markdown")).toContainText("든든의 확인 항목은 보존하자.");
+  await expect(replies.nth(2).locator(".chat-markdown")).not.toContainText("300만원");
+  const displayed=await replies.locator(".chat-markdown").allTextContents();
+  state.run={...state.run,status:"COMPLETED",result:{...state.run.result,petMessages:savedMessages}};
+  state.history[0].status="COMPLETED";state.events=[];
+  await page.reload();
+  await expect(replies).toHaveCount(3);
+  await expect(replies.nth(1).locator(".pet-conversation-reply")).toHaveText("꼼꼼이에게 답변");
+  await expect(replies.nth(2).locator(".pet-conversation-reply")).toHaveText("든든에게 답변");
+  expect(await replies.locator(".chat-markdown").allTextContents()).toEqual(displayed);
+  await replies.nth(1).locator(".pet-conversation-evidence summary").click();
+  await expect(replies.nth(1).locator(".pet-conversation-evidence")).toContainText("고객 원문: 예산 300만원과 꼼꼼이의 요청");
+});
+
+test("an empty pet reply keeps the localized fallback while ordinary AI text retains its original address",async({page})=>{
+  const savedMessages=[messages[0],{...messages[1],text:"차근아, 총액은 300만원이야."},{...messages[2],speakerPetId:null,speaker:null,text:"꼼꼼이, API는 1.5일로 가정하자. 총액은 300만원이야. 차근의 검증은 유지하자."}];
+  await open(page,{savedMessages,eventMessages:[]});
+  const replies=page.locator(".pet-conversation-message");
+  await expect(replies).toHaveCount(3);
+  await expect(replies.nth(1).locator(".pet-conversation-reply")).toHaveText("꼼꼼이에게 답변");
+  await expect(replies.nth(1).locator(".chat-markdown")).toHaveText("금액은 계산된 견적에서 확인해 주세요.");
+  const ai=page.locator('.pet-conversation-message[data-speaker-id="ai"]');
+  await expect(ai.locator(".pet-conversation-reply")).toHaveText("든든에게 답변");
+  await expect(ai.locator(".chat-markdown")).toContainText("꼼꼼이, API는 1.5일로 가정하자.");
+  await expect(ai.locator(".chat-markdown")).toContainText("차근의 검증은 유지하자.");
+  await expect(ai.locator(".chat-markdown")).not.toContainText("300만원");
 });
 
 test("team selection caps at three, persists a new team and survives reload",async({page})=>{
