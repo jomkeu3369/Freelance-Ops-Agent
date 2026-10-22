@@ -23,7 +23,10 @@ public class AgentEventRelay {
         "run.accepted", "run.started", "run.completed", "run.partial", "run.failed", "run.cancelled",
         "clarification.requested", "clarification.responded", "route.selected", "tool.completed", "knowledge.retrieved",
         "task.delegated", "task.completed", "task.failed", "department.saved",
-        "pet.message.started", "pet.message.completed"
+        "pet.message.started", "pet.message.completed", "pet.message.corrected",
+        "conversation.research.started", "conversation.research.completed",
+        "conversation.verification.started", "conversation.verification.completed",
+        "conversation.revision.started", "conversation.revision.completed"
     );
     private final ObjectMapper objectMapper;
 

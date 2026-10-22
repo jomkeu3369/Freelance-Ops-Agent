@@ -148,7 +148,10 @@ class AgentEventRelayTest {
         UUID runId = UUID.randomUUID();
         var body = new StringBuilder();
         int eventId = 0;
-        for (String type : new String[] {"pet.message.started", "pet.message.completed", "run.completed"}) {
+        for (String type : new String[] {"pet.message.started", "pet.message.completed", "pet.message.corrected",
+                "conversation.research.started", "conversation.research.completed",
+                "conversation.verification.started", "conversation.verification.completed",
+                "conversation.revision.started", "conversation.revision.completed", "run.completed"}) {
             eventId++;
             String data = objectMapper.writeValueAsString(Map.of("eventId", eventId, "runId", runId,
                     "type", type, "occurredAt", Instant.now(), "data", Map.of("speakerName", "동료", "text", "공개 답변")));
@@ -156,7 +159,7 @@ class AgentEventRelayTest {
         }
         var emitter = mock(SseEmitter.class);
         relay.relay(new AgentEventStream(new ByteArrayInputStream(body.toString().getBytes(StandardCharsets.UTF_8))), runId, 0, emitter);
-        verify(emitter, times(3)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(emitter, times(eventId)).send(any(SseEmitter.SseEventBuilder.class));
         verify(emitter).complete();
         verify(emitter, never()).completeWithError(any());
     }
