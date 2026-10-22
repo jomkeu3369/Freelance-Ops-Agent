@@ -48,3 +48,20 @@ async def test_previous_backend_budget_uses_official_documents_without_paid_sear
         await tool.collect("stripe webhook", "KR", 1, 4)
     paid.collect.assert_not_awaited()
     official.collect.assert_awaited_once_with("stripe webhook", "KR", 0, 4)
+
+
+async def test_nextjs_invalidation_loads_the_revalidation_guide_within_the_page_budget():
+    fetch = AsyncMock()
+    fetch.fetch.return_value = WebDocument(
+        source_url=web_url("https://nextjs.org/docs/app/getting-started/revalidating"),
+        final_url=web_url("https://nextjs.org/docs/app/getting-started/revalidating"), title="Revalidating",
+        content="Manually invalidate cached data after a mutation using revalidateTag, updateTag, or revalidatePath.",
+        content_type="text/markdown", content_sha256="a" * 64, fetched_at=datetime.now(UTC),
+        parser_version="plain-text-v1", provider=WebProvider.DIRECT_HTTP, authority_level=AuthorityLevel.OFFICIAL
+    )
+    result = await OfficialDocumentationResearch(fetch).collect("next.js cache invalidation", None, 0, 2)
+    assert result.tool_calls == 2 and result.search_credits == 0
+    assert [str(call.args[0].url) for call in fetch.fetch.await_args_list] == [
+        "https://nextjs.org/docs/app/getting-started/caching",
+        "https://nextjs.org/docs/app/getting-started/revalidating"
+    ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import re
 import socket
 from collections.abc import Awaitable, Callable, Sequence
 from urllib.parse import urlsplit
@@ -93,10 +94,22 @@ _INJECTION_PATTERNS = {
         "도구를 호출",
         "명령을 실행",
     ),
-    "SECRET_EXFILTRATION": ("api key", "access token", "environment variable", "api 키", "접근 토큰", "환경 변수"),
 }
+
+_SECRET_REQUEST = re.compile(
+    r"(?:reveal|print|exfiltrate|upload|send|call the tool with)\b[^.\n]{0,80}"
+    r"(?:api key|access token|environment variable|secret key)"
+    r"|(?:api 키|접근 토큰|환경 변수|비밀 키)[^.\n]{0,40}(?:전송하|출력하|노출하|보내라|알려줘)",
+    re.IGNORECASE
+)
 
 
 def detect_prompt_injection(content: str) -> list[str]:
     lowered = content.casefold()
-    return [code for code, patterns in _INJECTION_PATTERNS.items() if any(pattern in lowered for pattern in patterns)]
+    signals = [code for code, patterns in _INJECTION_PATTERNS.items()
+               if any(pattern in lowered for pattern in patterns)]
+    # 인증 문서의 비밀 이름 설명과 비밀을 출력·전송하라는 지시를 구분한다.
+    # 통과한 본문도 신뢰하지 않는 데이터이며 도구 실행 권한을 부여하지 않는다.
+    if _SECRET_REQUEST.search(content):
+        signals.append("SECRET_EXFILTRATION")
+    return signals

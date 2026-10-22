@@ -68,6 +68,28 @@ def test_false_pass_is_blocked(mutation: str) -> None:
     assert review_failures(ConversationReview.model_validate(data), draft(), {}, "예약 개발", messages)
 
 
+def test_process_requirements_do_not_need_a_fictional_quotation_item() -> None:
+    data = review_payload()
+    data["requirements"][0].update({"target": "RESPONSE", "item_indexes": []})
+    assert not review_failures(ConversationReview.model_validate(data), draft(), {}, "예약", [
+        PetMessage(message_id=request().context.run_id, text="2일은 가정입니다.")
+    ])
+    data["requirements"][0]["target"] = "QUOTATION"
+    assert review_failures(ConversationReview.model_validate(data), draft(), {}, "예약", [])
+
+
+def test_retained_effort_requires_an_identical_previously_accepted_item() -> None:
+    data = review_payload()
+    data["effort_checks"][0]["verdict"] = "RETAINED"
+    review = ConversationReview.model_validate(data)
+    proposal = draft()
+    messages = [PetMessage(message_id=request().context.run_id, text="기존 2일은 그대로 유지하자.")]
+    assert not review_failures(review, proposal, {}, "예약", messages, draft())
+    assert review_failures(review, proposal, {}, "예약", messages)
+    proposal.items[0].quantity = 0.01
+    assert review_failures(review, proposal, {}, "예약", messages, draft())
+
+
 def test_citations_must_support_each_actual_message_and_item_not_just_the_same_source() -> None:
     data = review_payload(2)
     data["evidence_checks"] = [{"source_id": "web:1", "claim": "중복 이벤트가 올 수 있다",

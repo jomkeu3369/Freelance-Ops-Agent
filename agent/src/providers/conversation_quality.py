@@ -18,13 +18,14 @@ class RequirementCheck(QualityModel):
     requirement: str = Field(min_length=1, max_length=500)
     original_quote: str = Field(min_length=1, max_length=500)
     disposition: Literal["INCLUDED", "QUESTION", "EXCLUDED", "MISSING"]
+    target: Literal["QUOTATION", "RESPONSE"] = "QUOTATION"
     item_indexes: list[int] = Field(max_length=50)
     rationale: str = Field(min_length=1, max_length=700)
 
 
 class EffortCheck(QualityModel):
     item_index: int = Field(ge=0, le=49)
-    verdict: Literal["PLAUSIBLE", "UNJUSTIFIED", "IMPLAUSIBLE"]
+    verdict: Literal["PLAUSIBLE", "RETAINED", "UNJUSTIFIED", "IMPLAUSIBLE"]
     rationale: str = Field(min_length=1, max_length=1000)
 
 
