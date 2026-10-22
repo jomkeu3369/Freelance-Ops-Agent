@@ -9,6 +9,7 @@ from contracts import (
     AgentWorkflowMode,
     ModelSelection,
     PetConversation,
+    PetConversationTurn,
     PetProfile,
     ProjectContext,
     Provider,
@@ -212,11 +213,14 @@ async def test_large_public_replies_do_not_break_the_summary_contract() -> None:
 
     class LongProvider(ProviderStub):
         async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
-            return ModelGeneration(payload={"summary": "답변 " * 3000}, input_tokens=10, output_tokens=20)
+            return ModelGeneration(payload={"summary": "답" * 9999}, input_tokens=10, output_tokens=20)
 
     result = await execute_conversation(LongProvider(), run, project(run), run.input.requirement_text)
     assert len(result.result.pet_messages) == 3
     assert len(result.result.project_summary) == 10000
+    assert [len(message.text) for message in result.result.pet_messages] == [9999, 10000, 10000]
+    assert result.result.pet_messages[1].text.startswith("꼼꼼이, ")
+    assert result.result.pet_messages[2].text.startswith("든든, ")
 
 
 async def test_accepted_scope_and_assumptions_remain_in_the_next_model_context() -> None:
@@ -270,3 +274,80 @@ async def test_resolved_questions_are_replaced_instead_of_accumulated() -> None:
     assert provider.prompts[1]["unresolved_questions"] == ["결제도 넣을까?"]
     assert provider.prompts[2]["unresolved_questions"] == []
     assert outcome.result.open_questions == []
+
+
+async def test_turns_have_distinct_jobs_and_one_reply_target_for_body_and_events() -> None:
+    run = request()
+
+    class DialogueProvider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            return ModelGeneration(payload={"summary": [
+                "든든, 입력값을 유지하면 재신청이 편해.",
+                "차근, 공용 기기에선 입력값이 남는 시간도 확인하자.",
+                "꼼꼼이, 즉시 삭제와 유지 중 어떤 안내가 필요한지 정하자."
+            ][len(self.prompts) - 1], "evidence_refs": ["project"]})
+
+    provider = DialogueProvider()
+    store = InMemoryAgentRunStore()
+    await store.create(run)
+    await store.mark_running(run.context.run_id)
+
+    async def persist(event: object) -> None:
+        await store.append_progress(run.context.run_id, event)
+
+    with progress_scope(persist):
+        outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    messages = outcome.result.pet_messages
+    assert [prompt["turn_task"]["kind"] for prompt in provider.prompts] == ["PROPOSE", "CHECK", "DECIDE"]
+    assert provider.prompts[0]["reply_target"] is None
+    assert provider.prompts[0]["covered_points"] == []
+    for index in [1, 2]:
+        target = provider.prompts[index]["reply_target"]
+        assert target["message_id"] == str(messages[index - 1].message_id)
+        assert target["speaker"] == messages[index - 1].speaker.name
+        assert target["text"] == messages[index - 1].text
+        assert messages[index].reply_to_message_id == messages[index - 1].message_id
+        assert provider.prompts[index]["covered_points"] == [message.text for message in messages[:index]]
+    assert [message.text for message in messages] == [
+        "입력값을 유지하면 재신청이 편해.",
+        "꼼꼼이, 공용 기기에선 입력값이 남는 시간도 확인하자.",
+        "든든, 즉시 삭제와 유지 중 어떤 안내가 필요한지 정하자."
+    ]
+    completed = [
+        event for event in await store.list_events(run.context.run_id) if event.type == "pet.message.completed"
+    ]
+    assert [event.data["text"] for event in completed] == [message.text for message in messages]
+    assert all(message.evidence_refs == ["project"] for message in messages)
+
+
+async def test_a_named_pet_starts_a_user_reply_instead_of_addressing_another_pet() -> None:
+    run = request()
+    run.input.conversation.recipient_pet_id = run.input.pet_profiles[2].pet_id
+
+    class NamedProvider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            return ModelGeneration(payload={"summary": "든든, 실패 안내에서 다시 입력하게 하면 불편해."})
+
+    provider = NamedProvider()
+    outcome = await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert len(outcome.result.pet_messages) == 1
+    assert outcome.result.pet_messages[0].reply_to_message_id is None
+    assert outcome.result.pet_messages[0].text == "실패 안내에서 다시 입력하게 하면 불편해."
+    assert provider.prompts[0]["reply_target"] is None
+
+
+async def test_money_like_pet_addresses_do_not_erase_the_next_turn_history() -> None:
+    run = request()
+    run.input.pet_profiles[0].name = "일원"
+    first = await execute_conversation(ProviderStub(), run, project(run), run.input.requirement_text)
+    assert first.result.pet_messages[1].text.startswith("일원, ")
+    run.input.conversation.history = [PetConversationTurn(
+        user_text=run.input.requirement_text, messages=first.result.pet_messages
+    )]
+    provider = ProviderStub()
+    await execute_conversation(provider, run, project(run), "그 검토를 이어가자")
+    assert [message["text"] for message in provider.prompts[0]["history"][0]["messages"]] == [
+        "실제 모델 응답을 대체하는 테스트 결과"
+    ] * 3
