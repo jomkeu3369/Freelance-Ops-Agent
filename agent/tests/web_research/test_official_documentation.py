@@ -72,3 +72,19 @@ async def test_nextjs_invalidation_loads_the_revalidation_guide_within_the_page_
         "https://nextjs.org/docs/app/getting-started/caching",
         "https://nextjs.org/docs/app/getting-started/revalidating"
     ]
+
+
+async def test_accessibility_research_fetches_specific_criteria_instead_of_a_filter_menu():
+    fetch = AsyncMock()
+    fetch.fetch.side_effect = lambda request: WebDocument(
+        source_url=request.url, final_url=request.url, title="WCAG criterion",
+        content="All functionality is operable through a keyboard interface.", content_type="text/html",
+        content_sha256="a" * 64, fetched_at=datetime.now(UTC), parser_version="stdlib-html-v1",
+        provider=WebProvider.DIRECT_HTTP, authority_level=AuthorityLevel.OFFICIAL
+    )
+    result = await OfficialDocumentationResearch(fetch).collect("wcag keyboard contrast", None, 0, 2)
+    assert result.tool_calls == 2 and result.search_credits == 0
+    assert [str(call.args[0].url) for call in fetch.fetch.await_args_list] == [
+        "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+        "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+    ]

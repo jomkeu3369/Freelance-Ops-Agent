@@ -28,7 +28,8 @@ async def test_revision_uses_its_own_strict_editor_schema_and_the_selected_model
     class Responses(FakeOpenAIResponses):
         async def create(self, **kwargs: object) -> object:
             self.calls.append(kwargs)
-            return SimpleNamespace(output_text=json.dumps({"messages": [], "draft": None, "open_questions": []}),
+            return SimpleNamespace(output_text=json.dumps({"messages": [], "draft_action": "KEEP", "draft": None,
+                                                           "open_questions": []}),
                                    usage=SimpleNamespace(input_tokens=11, output_tokens=7))
 
     responses = Responses()
@@ -37,12 +38,12 @@ async def test_revision_uses_its_own_strict_editor_schema_and_the_selected_model
         ModelSelection(provider=Provider.OPENAI, model="gpt-test"), "review feedback",
         operation="conversation_revision", max_output_tokens=512
     )
-    assert generation.payload["draft"] is None
+    assert generation.payload["draft"] is None and generation.payload["draft_action"] == "KEEP"
     call = responses.calls[0]
     assert call["model"] == "gpt-test" and call["tools"] == [] and call["store"] is False
     assert call["text"]["format"]["name"] == "conversation_revision"
     assert "editor correcting" in call["input"][0]["content"]
-    assert call["text"]["format"]["schema"]["required"] == ["messages", "draft", "open_questions"]
+    assert call["text"]["format"]["schema"]["required"] == ["messages", "draft_action", "draft", "open_questions"]
 
 
 @pytest.mark.asyncio

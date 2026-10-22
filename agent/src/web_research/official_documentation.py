@@ -21,7 +21,8 @@ DOCUMENTATION = [
     ({"slack"}, "https://docs.slack.dev/apis/web-api/rate-limits/"),
     ({"next.js", "nextjs"}, "https://nextjs.org/docs/app/getting-started/caching"),
     ({"next.js", "nextjs"}, "https://nextjs.org/docs/app/getting-started/revalidating"),
-    ({"wcag", "w3c", "accessibility"}, "https://www.w3.org/WAI/WCAG22/quickref/"),
+    ({"wcag", "w3c", "accessibility"}, "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html"),
+    ({"wcag", "w3c", "accessibility"}, "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"),
     ({"postgres", "postgresql"}, "https://www.postgresql.org/docs/current/backup.html"),
     ({"owasp", "rbac"}, "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html"),
 ]

@@ -141,6 +141,40 @@ async def test_reviewer_suggestions_cannot_displace_the_actual_unresolved_scope_
     ]
 
 
+async def test_message_only_correction_preserves_the_exact_previously_accepted_items() -> None:
+    run = request(debate=False)
+    run.budget.max_model_calls = 4
+    run.budget.max_duration_seconds = 180
+    run.input.conversation.accepted_draft = draft().model_dump(mode="json", by_alias=True)
+
+    class Provider(ProviderStub):
+        reviews = 0
+
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": "항상 실패한다고 확정됐어.",
+                                            "quotation_drafts": [draft().model_dump()]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            if data["operation"] == "conversation_revision":
+                return ModelGeneration(payload={"messages": [{"message_index": 0,
+                    "text": "실패 가능성은 기존 환경에서 확인해야 해.", "evidence_refs": []}],
+                    "draft_action": "KEEP", "draft": None, "open_questions": []})
+            self.reviews += 1
+            assert data["retained_item_indexes"] == [0]
+            payload = review_payload()
+            payload["effort_checks"][0]["verdict"] = "RETAINED"
+            if self.reviews == 1:
+                payload["message_checks"][0]["verdict"] = "UNSUPPORTED"
+            return ModelGeneration(payload=payload)
+
+    provider = Provider()
+    outcome = await execute_conversation(provider, run, project(run), "기존 예약 항목은 그대로 유지해")
+    assert provider.reviews == 2
+    assert outcome.partial_error_code is None
+    assert outcome.result.quotation_draft == draft()
+
+
 @pytest.mark.parametrize("repair_passes", [True, False])
 async def test_one_bounded_revision_is_reverified_and_published_as_a_correction(repair_passes: bool) -> None:
     run = request(debate=False)
@@ -285,6 +319,9 @@ async def test_three_pet_turn_collects_web_then_independently_checks_the_final_c
             assert data["draft"]["items"][0]["quantity"] == 2
             assert len(data["messages"]) == 3
             assert data["web_sources"][0]["url"] == source.url
+            assert next(item for item in data["evidence_catalog"] if item["id"] == "web:1")["passages"] == [
+                {"index": 0, "text": source.excerpt}
+            ]
             assert data["research_execution"]["query"] == "webhook idempotency official documentation"
             payload = review_payload(3)
             payload["requirements"][0]["original_quote"] = "예약"

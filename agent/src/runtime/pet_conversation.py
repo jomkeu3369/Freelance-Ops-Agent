@@ -330,8 +330,11 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                 if len(set(indexes)) != len(indexes) or any(index >= len(messages) for index in indexes):
                     raise ValueError("Invalid message revision")
                 revised_messages = list(messages)
-                if revision.draft:
-                    prepare_proposal(revision.draft, quality.sources, evidence, prior_evidence)
+                if revision.draft_action in {"KEEP", "DEFER"} and revision.draft is not None:
+                    raise ValueError("A kept or deferred draft cannot be replaced")
+                revised_draft = draft if revision.draft_action == "KEEP" else revision.draft
+                if revised_draft:
+                    prepare_proposal(revised_draft, quality.sources, evidence, prior_evidence)
                 for change in revision.messages:
                     if any(ref not in evidence for ref in change.evidence_refs):
                         raise ValueError("Unsupported revision evidence")
@@ -346,7 +349,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                         "text": "검토 후 정정: " + body, "evidence_refs": change.evidence_refs,
                         "evidence": [evidence[ref] for ref in change.evidence_refs]
                     })
-                messages, draft = revised_messages, revision.draft
+                messages, draft = revised_messages, revised_draft
                 questions = [safe for question in revision.open_questions if (safe := conversation_text(question))][:3]
                 for index in indexes:
                     await publish_progress(ExecutionEvent(

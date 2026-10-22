@@ -68,6 +68,7 @@ class MessageRevision(QualityModel):
 
 class ConversationRevision(QualityModel):
     messages: list[MessageRevision] = Field(max_length=3)
+    draft_action: Literal["KEEP", "REPLACE", "DEFER"] = "REPLACE"
     draft: QuotationDraft | None
     open_questions: list[str] = Field(max_length=3)
 
