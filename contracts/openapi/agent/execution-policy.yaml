@@ -296,6 +296,30 @@ schemas:
       usageKnown:
         type: boolean
         description: 사용량 누락·형식 오류·응답 유실·불확실한 실패·한도 이탈이면 false다. 사용량이 0이라는 뜻으로 해석하지 않는다.
+  ExternalToolCallUsage:
+    type: object
+    additionalProperties: false
+    required: [callId, provider, operation, tariffVersion, credits, reservedCostUsd, costUsd, usageKnown]
+    properties:
+      callId:
+        type: string
+        format: uuid
+      provider:
+        const: TAVILY
+      operation:
+        const: SEARCH_BASIC
+      tariffVersion:
+        const: tavily-basic-2026-10-22-v1
+      credits:
+        const: 1
+      reservedCostUsd:
+        type: [number, string]
+        description: 기본 검색 1회에 대해 공개 PAYG 상한 0.008 USD를 예약한다.
+      costUsd:
+        type: [number, string]
+      usageKnown:
+        type: boolean
+        description: 응답 유실·취소는 false로 예약 상한을 유지한다.
   AgentRunUsage:
     type: object
     additionalProperties: false
@@ -313,6 +337,12 @@ schemas:
       - providerCalls
       - platformCostUsd
     properties:
+      externalToolCalls:
+        type: array
+        default: []
+        maxItems: 100
+        items:
+          $ref: "#/schemas/ExternalToolCallUsage"
       providerCalls:
         type: array
         default: []

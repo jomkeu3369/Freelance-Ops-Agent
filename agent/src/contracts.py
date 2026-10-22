@@ -607,6 +607,17 @@ class ProviderCallUsage(StrictModel):
     usage_known: bool
 
 
+class ExternalToolCallUsage(StrictModel):
+    call_id: UUID
+    provider: Literal["TAVILY"] = "TAVILY"
+    operation: Literal["SEARCH_BASIC"] = "SEARCH_BASIC"
+    tariff_version: Literal["tavily-basic-2026-10-22-v1"] = "tavily-basic-2026-10-22-v1"
+    credits: Literal[1] = 1
+    reserved_cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+    usage_known: bool = False
+
+
 class AgentRunUsage(StrictModel):
     request_tier: RequestTier
     model_calls: int = Field(ge=0)
@@ -619,6 +630,7 @@ class AgentRunUsage(StrictModel):
     retry_count: int = Field(default=0, ge=0)
     duration_ms: int = Field(ge=0)
     provider_calls: list[ProviderCallUsage] = Field(default_factory=list)
+    external_tool_calls: list[ExternalToolCallUsage] = Field(default_factory=list, max_length=100)
     platform_cost_usd: Decimal = Field(default=Decimal("0"), ge=0, allow_inf_nan=False)
     platform_reservation_id: UUID | None = None
     byok_scope_id: UUID | None = None

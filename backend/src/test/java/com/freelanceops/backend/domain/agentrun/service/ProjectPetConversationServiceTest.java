@@ -143,11 +143,19 @@ class ProjectPetConversationServiceTest {
         when(run.workspaceId()).thenReturn(workspace);
         when(run.initiatedBy()).thenReturn(user);
         var message = new AgentRunView.PetMessage(UUID.randomUUID(), null, null, null, "공개 응답", List.of(), List.of());
-        var result = new AgentRunView.AgentRunResult("응답", List.of(), List.of(), draft, List.of(draft), List.of(), List.of(message));
+        var verified = new AgentRunView.DepartmentResult(
+                com.freelanceops.backend.domain.agentrun.model.DepartmentName.VERIFICATION,
+                "COMPLETED", "검증 완료", List.of(), List.of(), List.of(), null);
+        var result = new AgentRunView.AgentRunResult("응답", List.of(), List.of(verified), draft, List.of(draft), List.of(), List.of(message));
         var view = new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null, result, null, null, null, Instant.now());
         var next = service.accept(user, workspace, project, new ProjectPetConversationService.Accept(runId, 0), run, view);
         assertThat(next.settings().acceptedDraft()).isSameAs(draft);
         assertThat(next.settings().draftSourceRunId()).isEqualTo(runId);
+        var unchecked = new AgentRunView.AgentRunResult("응답", List.of(), List.of(), draft, List.of(draft), List.of(), List.of(message));
+        var uncheckedView = new AgentRunView(runId, AgentRunStatus.COMPLETED, null, null, unchecked, null, null, null, Instant.now());
+        assertThatThrownBy(() -> service.accept(user, workspace, project,
+                new ProjectPetConversationService.Accept(runId, 0), run, uncheckedView))
+                .hasMessageContaining("CONVERSATION_VERIFICATION_REQUIRED");
         when(run.initiatedBy()).thenReturn(UUID.randomUUID());
         assertThatThrownBy(() -> service.accept(user, workspace, project,
                 new ProjectPetConversationService.Accept(runId, 0), run, view)).hasMessageContaining("404");

@@ -87,6 +87,20 @@ class ProviderStub:
         self.fail_at = fail_at
         self.invalid_evidence = invalid_evidence
 
+    async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+        data = json.loads(prompt)
+        return ModelGeneration(payload={
+            "summary": "합성 검증 응답", "open_questions": [], "effort_checks": [],
+            "requirements": [{"requirement": "원문 검토", "original_quote": data["original"].splitlines()[0],
+                              "disposition": "INCLUDED", "item_indexes": [], "rationale": "상담 응답"}],
+            "message_checks": [{"message_index": index, "verdict": "GROUNDED", "rationale": "검사 대상"}
+                               for index, _ in enumerate(data["messages"])],
+            "evidence_checks": [{"source_id": ref, "claim": "문의에 응답", "supporting_quote": source["content"],
+                                 "verdict": "SUPPORTED", "message_indexes": [index], "item_indexes": []}
+                                for index, message in enumerate(data["messages"]) for ref in message["evidence_refs"]
+                                for source in data["evidence_catalog"] if source["id"] == ref]
+        })
+
     async def generate_structured(self, selection: object, prompt: str, *, max_output_tokens: int, max_attempts: int = 1 ) -> ModelGeneration:  # noqa: E501
         del selection, max_output_tokens
         assert max_attempts == 1

@@ -9,12 +9,15 @@ const draft = {scenario:"RECOMMENDED",items:[{title:"예약 개발",description:
 const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message-${index}`,speakerPetId:speaker.petId,
   speaker,replyToMessageId:index?`message-${index-1}`:null,text:["결제까지 넣으면 검증할 시간이 더 필요해.","예약만 받고 돈은 누가 받냥? 범위를 같이 정하자!","예산과 작업 범위를 확인하고 결정해줘."][index],evidenceRefs:["project"],evidence:[{id:"project",title:"고객 문의",content:"사용자가 작성한 원문"}]}));
 
-async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages}={}) {
+async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks"}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
   const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
   const completed = (status="COMPLETED", petMessages=savedMessages) => ({runId:"run-one",status,activeDepartment:null,interruption:null,errorCode:null,
-    result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[],quotationDraft:draft,quotationDrafts:[draft],petMessages},
+    result:{projectSummary:"공개 대화",openQuestions:["결제도 넣을까요?"],departmentResults:[
+      {department:"RESEARCH",status:"COMPLETED",summary:"공개 기술 자료 1개를 조회했습니다.",errorCode:null,sources:[{title:"웹훅 사양 · 합성 검사 자료",url:sourceUrl,contentSha256:"a".repeat(64),fetchedAt:"2026-10-22T09:00:00Z",excerpt:"화면 검증용 합성 본문입니다."}]},
+      {department:"VERIFICATION",status:verification,summary:verification==="COMPLETED"?"범위와 공수 가정을 검토했습니다.":"요구사항 누락: 취소 처리",errorCode:verification==="COMPLETED"?null:"CONVERSATION_VERIFICATION_FAILED",sources:[]}
+    ],quotationDraft:draft,quotationDrafts:[draft],petMessages},
     metadata:{provider:"OPENAI",model:"gpt-6-luna",petProfiles:profiles.slice(0,3)},usage:null,updatedAt:"2026-10-21T10:00:00Z"});
   state.run = completed(active?"RUNNING":"COMPLETED");
   state.history = [{runId:"run-one",requirementText:"예약 웹사이트를 만들고 싶어",status:state.run.status,createdAt:"2026-10-21T10:00:00Z"}];
@@ -57,6 +60,26 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
   await expect(page.locator(".pet-conversation-team button")).toBeVisible({timeout:30000});
   return {state,server};
 }
+
+test("independent verification blocks apply and shows the missing requirement",async({page})=>{
+  const {server}=await open(page,{verification:"PARTIAL"});
+  await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeDisabled();
+  const quality=page.getByRole("region",{name:"조사와 독립 검증"});
+  await expect(quality).toContainText("요구사항 누락: 취소 처리");
+  expect(server.accepts).toHaveLength(0);
+});
+
+test("verified sources show the original link and collection time without allowing script URLs",async({page})=>{
+  await open(page);
+  const quality=page.getByRole("region",{name:"조사와 독립 검증"});
+  await quality.locator("summary").filter({hasText:"웹훅 사양"}).click();
+  await expect(quality.getByRole("link",{name:"원문 보기"})).toHaveAttribute("href","https://docs.stripe.com/webhooks");
+  await expect(quality).toContainText("조회 시각");
+  await expect(page.getByRole("button",{name:"초안에 반영",exact:true})).toBeEnabled();
+  await open(page,{sourceUrl:"javascript:alert(1)"});
+  await page.locator(".pet-conversation-quality summary").filter({hasText:"웹훅 사양"}).click();
+  await expect(page.locator(".pet-conversation-quality a")).toHaveCount(0);
+});
 
 test("three persisted speakers and replies appear once; work details are replaced by folded history",async({page})=>{
   await open(page);

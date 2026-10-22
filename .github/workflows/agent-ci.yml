@@ -13,6 +13,11 @@ on:
       - ".github/actions/deploy-service/**"
       - ".github/workflows/agent-cd.yml"
   workflow_dispatch:
+    inputs:
+      live_pet_quality:
+        description: 운영 키로 합성 문의 품질 평가 실행 (고객 데이터 변경 없음, 최대 2.40 USD)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -103,3 +108,34 @@ jobs:
           tags: freelance-ops-agent:ci
           cache-from: type=gha,scope=agent-ci
           cache-to: type=gha,mode=max,scope=agent-ci
+
+  live-pet-quality:
+    name: 운영 키로 합성 문의 12종 평가
+    if: github.event_name == 'workflow_dispatch' && inputs.live_pet_quality
+    needs: [quality, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    concurrency:
+      group: v2-production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: 기존 운영 SSH 신뢰 설정
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VULTR_SSH_HOST_KEY }}
+        run: bash .github/actions/deploy-service/ssh-trust.sh
+      - name: 임시 평가 코드로 실행 후 정리
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+        run: bash .github/scripts/run_pet_quality_remote.sh
+      - name: 실제 모델 평가 결과 보존
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pet-quality-live-${{ github.sha }}
+          path: pet-quality-live.json
+          if-no-files-found: error
+          retention-days: 14

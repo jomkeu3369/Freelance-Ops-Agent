@@ -6,6 +6,7 @@ import { quotationDraftItems, quotationCalculationInput } from "../project/quota
 import { useQuotationPreview } from "../project/quotation/use-quotation-preview";
 import type { PetConversationState } from "./use-pet-conversation";
 import { conversationText } from "./pet-conversation-text.mjs";
+import { conversationVerified, PetConversationQuality } from "./pet-conversation-quality";
 
 export function PetConversationBrief({ session, project, state, run, canRead, canWrite, onReview }: {
   session: AuthSession; project: Project; state: PetConversationState; run: AgentRunView | null;
@@ -44,6 +45,7 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
       <details className="pet-conversation-evidence"><summary>{t("문의 원문 확인")}</summary><p>{project.requirementText}</p></details>
       {questions.length ? <div className="pet-conversation-question"><h3>{t("아직 맞춰볼 것")}</h3>{questions.map(question => <p key={question}>{question}</p>)}</div> : null}
       <hr/><h3>{t("범위와 공수")}</h3>
+      <PetConversationQuality run={run}/>
       {proposal && canRead && state.view?.settings.acceptedDraft && <details className="pet-conversation-evidence"><summary>{t("현재 초안과 비교")}</summary><p>{state.view.settings.acceptedDraft.items.map(item => `${item.title} · ${item.quantity} ${unit(item.unit)}`).join("\n")}</p></details>}
       {!draft && <p className="model-selection-note">{t("대화에서 범위를 정리하면 견적 변경안이 여기에 모입니다.")}</p>}
       {draft && <><ul>{draft.items.map((item,index) => <li key={index}><span>{item.title}</span><span>{item.quantity} {unit(item.unit)}</span><details><summary>{item.basis.type === "ASSUMPTION" ? t("확인 전 가정") : t("근거 확인")}</summary><p>{item.basis.content}</p><p>{item.basis.sourceTitle}</p><p>{item.basis.sourceReference}</p></details></li>)}</ul>
@@ -53,7 +55,7 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
       </>}
       {(loadError || calculation.error) && <p role="alert">{loadError || t(calculation.error ?? "")}<button type="button" className="quiet-button" onClick={() => { setRevision(value => value + 1); calculation.refresh(); }}>{t("다시 확인")}</button></p>}
       {state.error && <p role="alert">{t(state.error)}</p>}
-      {proposal && canRead && <div className="pet-conversation-proposal"><p>{t("이 제안은 아직 기존 초안에 반영되지 않았습니다.")}</p><button type="button" className="primary-button" disabled={!canWrite || state.saving} onClick={() => run && void state.accept(run.runId)}>{t("초안에 반영")}</button><button type="button" className="quiet-button" disabled={state.saving} onClick={() => setRejected(run?.runId ?? null)}>{t("유지할게")}</button></div>}
+      {proposal && canRead && <div className="pet-conversation-proposal"><p>{t("이 제안은 아직 기존 초안에 반영되지 않았습니다.")}</p><button type="button" className="primary-button" disabled={!canWrite || state.saving || !conversationVerified(run)} onClick={() => run && void state.accept(run.runId)}>{t("초안에 반영")}</button><button type="button" className="quiet-button" disabled={state.saving} onClick={() => setRejected(run?.runId ?? null)}>{t("유지할게")}</button></div>}
       <button type="button" className="primary-button" disabled={!canRead || !state.view?.settings.acceptedDraft} onClick={onReview}>{t("견적 검토하기")}</button><p className="model-selection-note">{t("직접 검토하고 확정한 뒤 전달합니다.")}</p>
     </div>
   </aside>;

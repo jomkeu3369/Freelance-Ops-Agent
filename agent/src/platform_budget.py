@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 
 from contracts import (
     AgentRunUsage,
+    ExternalToolCallUsage,
     ModelSelection,
     PlatformBudget,
     Provider,
@@ -82,6 +83,7 @@ class PlatformSpendLedger:
     def __init__(self, budget: PlatformBudget, previous: AgentRunUsage | None = None, run_budget: RunBudget | None = None) -> None:  # noqa: E501
         self.budget = budget
         self.calls: list[ProviderCallUsage] = []
+        self.external_calls: list[ExternalToolCallUsage] = []
         self.blocked = False
         self.closed = False
         self.unpriced_exposure = previous.unpriced_exposure if previous is not None else False
@@ -98,7 +100,22 @@ class PlatformSpendLedger:
 
     @property
     def cost(self) -> Decimal:
-        return sum((call.cost_usd for call in self.calls), Decimal("0"))
+        return (sum((call.cost_usd for call in self.calls), Decimal("0"))
+                + sum((tool.cost_usd for tool in self.external_calls), Decimal("0")))
+
+    def reserve_search(self) -> int:
+        """기본 검색 1크레딧의 공개 PAYG 상한을 네트워크 시도 전에 예약한다."""
+        self.validate()
+        prior = self.previous.search_credits if self.previous is not None else 0
+        if self.run_budget is None or prior + len(self.external_calls) >= self.run_budget.max_search_credits:
+            raise PlatformBudgetError("SEARCH_CREDIT_BUDGET_EXCEEDED")
+        reserved = Decimal("0.00800000")
+        if self.previous_cost + self.cost + reserved > self.budget.max_cost_usd:
+            raise PlatformBudgetError("PLATFORM_BUDGET_EXCEEDED")
+        self.external_calls.append(ExternalToolCallUsage(
+            call_id=uuid4(), cost_usd=reserved, reserved_cost_usd=reserved
+        ))
+        return len(self.external_calls) - 1
 
     def validate(self) -> None:
         if self.closed:
@@ -239,6 +256,8 @@ class PlatformSpendLedger:
         return usage.model_copy(
             update={
                 "provider_calls": list(self.calls),
+                "external_tool_calls": list(self.external_calls),
+                "search_credits": len(self.external_calls),
                 "platform_cost_usd": self.cost,
                 "platform_reservation_id": self.budget.reservation_id,
                 "tariff_version": self.budget.tariff_version,
@@ -303,6 +322,27 @@ def reject_unbounded_operation(operation: str) -> None:
         raise PlatformBudgetError(f"BYOK_{operation}_UNSUPPORTED")
     if require_platform_ledger() is not None:
         raise PlatformBudgetError(f"PLATFORM_{operation}_UNPRICED")
+
+
+async def budgeted_tavily_search(call: Callable[[], Awaitable[Any]]) -> Any:
+    from byok_budget import current_byok_ledger
+
+    if current_byok_ledger() is not None:
+        raise PlatformBudgetError("BYOK_WEB_RESEARCH_UNSUPPORTED")
+    ledger = require_platform_ledger()
+    if ledger is None:
+        return await call()  # 오프라인 테스트만 허용한다.
+    index = ledger.reserve_search()
+    if ledger.persist_usage is not None:
+        await ledger.persist_usage(ledger.report(None))
+    try:
+        result = await call()
+        ledger.external_calls[index] = ledger.external_calls[index].model_copy(update={"usage_known": True})
+        return result
+    finally:
+        # 취소/타임아웃/응답 유실에서도 호출 전 예약을 그대로 남긴다.
+        if ledger.persist_usage is not None:
+            await ledger.persist_usage(ledger.report(None))
 
 
 async def budgeted_openai_attempt(client: Any, selection: ModelSelection, operation: str, payload: dict[str, Any], *, client_credential_id: UUID | None = None) -> Any:  # noqa: E501

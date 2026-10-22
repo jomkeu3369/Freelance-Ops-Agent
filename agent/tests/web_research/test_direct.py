@@ -15,7 +15,7 @@ async def public_resolver(host: str, port: int) -> list[str]:
 
 async def test_direct_html_fetch_enforces_limits_and_marks_untrusted_instructions() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.headers["accept"] == "text/html,text/plain,application/pdf"
+        assert request.headers["accept"] == "text/markdown,text/html,text/plain,application/pdf"
         return httpx.Response(
             200,
             headers={"content-type": "text/html; charset=utf-8"},

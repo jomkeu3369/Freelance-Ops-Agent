@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from contracts import ModelSelection, QuotationDraft
 
+from .conversation_quality import QualityOperation
+
 
 class DepartmentWorkProduct(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -55,6 +57,8 @@ class ModelGeneration:
 
 
 class ModelProvider(Protocol):
+    async def generate_conversation_quality(self, selection: ModelSelection, prompt: str, *, operation: QualityOperation, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501
+
     async def generate_structured(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501
 
     async def generate_react_step(self, selection: ModelSelection, prompt: str, *, max_output_tokens: int, max_attempts: int | None = None) -> ModelGeneration: ...  # noqa: E501

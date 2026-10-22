@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ProviderCallUsage;
+import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.ExternalToolCallUsage;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
@@ -193,6 +194,7 @@ public class PlatformUsageService {
                             INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)
                             ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()
                             WHERE platform_provider_attempt.run_id=EXCLUDED.run_id
+                              AND platform_provider_attempt.payload->>'provider' <> 'TAVILY'
                             """,
                             call.callId(),
                             operationId,
@@ -211,6 +213,11 @@ public class PlatformUsageService {
             }
             if (call.usageKnown()) settled = settled.add(cost);
             else unknown = unknown.add(cost);
+        }
+        var tools = synchronizeTools(operationId, usage.externalToolCalls(), hold.closed());
+        for (var call : tools) {
+            if (call.usageKnown()) settled = settled.add(ExternalToolSpend.BASIC_SEARCH_USD);
+            else unknown = unknown.add(ExternalToolSpend.BASIC_SEARCH_USD);
         }
         boolean closed = hold.closed() || (usage.executionClosed() && terminal);
         // 기존 형식의 예약과 누락되거나 금액을 산정할 수 없는 보고는 예약 전액을 유지한다. 확인된 사용 금액은 별도로 표시한다.
@@ -258,10 +265,36 @@ public class PlatformUsageService {
 
     private List<ProviderCallUsage> attempts(UUID run) {
         return jdbc.query(
-                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? ORDER BY"
+                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? AND payload->>'provider' <> 'TAVILY' ORDER BY"
                         + " call_id",
                 (row, n) -> mapper.readValue(row.getString(1), ProviderCallUsage.class),
                 run);
+    }
+
+    private List<ExternalToolCallUsage> synchronizeTools(UUID run, List<ExternalToolCallUsage> incoming, boolean closed) {
+        Map<UUID, ExternalToolCallUsage> calls = new LinkedHashMap<>();
+        jdbc.query("SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? AND payload->>'provider'='TAVILY'",
+                (row, index) -> mapper.readValue(row.getString(1), ExternalToolCallUsage.class), run)
+                .forEach(call -> calls.put(call.callId(), call));
+        for (var call : incoming) {
+            ExternalToolSpend.validate(call);
+            var prior = calls.get(call.callId());
+            if (prior != null) {
+                if (!prior.provider().equals(call.provider()) || !prior.operation().equals(call.operation())
+                        || !prior.tariffVersion().equals(call.tariffVersion()) || prior.credits() != call.credits()
+                        || prior.reservedCostUsd().compareTo(call.reservedCostUsd()) != 0)
+                    throw new IllegalArgumentException("External attempt identity changed");
+                if (prior.usageKnown()) continue;
+            } else if (closed) throw new IllegalArgumentException("Closed execution reported a new external attempt");
+            int changed = jdbc.update("INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)"
+                    + " ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()"
+                    + " WHERE platform_provider_attempt.run_id=EXCLUDED.run_id"
+                    + " AND platform_provider_attempt.payload->>'provider'='TAVILY'",
+                    call.callId(), run, mapper.writeValueAsString(call));
+            if (changed != 1) throw new IllegalArgumentException("External attempt belongs to another execution");
+            calls.put(call.callId(), call);
+        }
+        return List.copyOf(calls.values());
     }
 
     @Transactional

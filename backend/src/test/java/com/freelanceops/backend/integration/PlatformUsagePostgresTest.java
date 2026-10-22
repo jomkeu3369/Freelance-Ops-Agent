@@ -162,6 +162,29 @@ class PlatformUsagePostgresTest {
     }
 
     @Test
+    void externalSearchAttemptSharesTheCapAndDoesNotInflateModelCallCount() {
+        var run = reserve(null);
+        UUID id = UUID.randomUUID();
+        Instant at = Instant.now();
+        for (int step = 0; step < 3; step++) {
+            boolean known = step > 0;
+            var call = new AgentRunView.ExternalToolCallUsage(id, "TAVILY", "SEARCH_BASIC",
+                    "tavily-basic-2026-10-22-v1", 1, new BigDecimal("0.008"), new BigDecimal("0.008"), known);
+            var report = new AgentRunView.AgentRunUsage(RequestTier.SINGLE_AGENT, 0, 1, 0, 0, 0, 1, 0, 0, 1,
+                    List.of(), new BigDecimal("0.008"), run.id(), PlatformSpendTariff.VERSION,
+                    known, false, null, List.of(call));
+            var view = new AgentRunView(run.id(), known ? AgentRunStatus.COMPLETED : AgentRunStatus.RUNNING,
+                    null, null, null, null, null, report, at.plusSeconds(step));
+            tx.executeWithoutResult(status -> usage.synchronize(run, view));
+            if (!known) assertThat(usage.snapshot(user).reservedUsd()).isEqualByComparingTo(".10");
+        }
+        assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".008");
+        assertThat(usage.snapshot(user).reservedUsd()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",
+                Integer.class, run.id())).isEqualTo(1);
+    }
+
+    @Test
     void perAttemptSettlementIsIdempotentAndUnusedCapWaitsForClosedWorker() {
         var run = reserve(null);
         var id = UUID.randomUUID();

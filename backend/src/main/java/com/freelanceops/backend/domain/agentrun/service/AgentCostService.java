@@ -84,6 +84,9 @@ public class AgentCostService {
         BigDecimal exposure =
                 PlatformSpendTariff.conservativeCost(
                         usage.providerCalls(), usage.modelCalls(), usage.tariffVersion());
+        var toolCost = ExternalToolSpend.cost(usage.externalToolCalls(), true);
+        cost = cost == null || toolCost == null ? null : cost.add(toolCost);
+        exposure = exposure == null ? null : exposure.add(ExternalToolSpend.cost(usage.externalToolCalls(), false));
         AgentRunUsageEntity entity =
                 usageRepository
                         .findByAgentRunIdAndWorkspaceId(run.id(), run.workspaceId())
