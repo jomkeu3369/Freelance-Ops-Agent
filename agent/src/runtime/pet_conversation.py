@@ -230,7 +230,7 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
             speaker_pet_id=speaker.pet_id if speaker else None,
             speaker=speaker,
             reply_to_message_id=reply.message_id if reply else None,
-            text=(conversation_reply_text(result.summary, recipient, names) or public_conversation_text("")) if speaker else public_conversation_text(result.summary),  # noqa: E501
+            text=((conversation_reply_text(result.summary, recipient, names) or public_conversation_text("")) if speaker else public_conversation_text(result.summary))[:10000],  # noqa: E501
             evidence_refs=result.evidence_refs,
             evidence=[evidence[ref] for ref in result.evidence_refs]
         )

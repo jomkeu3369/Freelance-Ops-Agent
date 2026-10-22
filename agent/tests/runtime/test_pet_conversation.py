@@ -213,11 +213,14 @@ async def test_large_public_replies_do_not_break_the_summary_contract() -> None:
 
     class LongProvider(ProviderStub):
         async def generate_structured(self, *args: object, **kwargs: object) -> ModelGeneration:
-            return ModelGeneration(payload={"summary": "답변 " * 3000}, input_tokens=10, output_tokens=20)
+            return ModelGeneration(payload={"summary": "답" * 9999}, input_tokens=10, output_tokens=20)
 
     result = await execute_conversation(LongProvider(), run, project(run), run.input.requirement_text)
     assert len(result.result.pet_messages) == 3
     assert len(result.result.project_summary) == 10000
+    assert [len(message.text) for message in result.result.pet_messages] == [9999, 10000, 10000]
+    assert result.result.pet_messages[1].text.startswith("꼼꼼이, ")
+    assert result.result.pet_messages[2].text.startswith("든든, ")
 
 
 async def test_accepted_scope_and_assumptions_remain_in_the_next_model_context() -> None:
