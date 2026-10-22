@@ -135,6 +135,7 @@ async def test_three_pet_turn_collects_web_then_independently_checks_the_final_c
             assert data["draft"]["items"][0]["quantity"] == 2
             assert len(data["messages"]) == 3
             assert data["web_sources"][0]["url"] == source.url
+            assert data["research_execution"]["query"] == "webhook idempotency official documentation"
             payload = review_payload(3)
             payload["requirements"][0]["original_quote"] = "예약"
             return ModelGeneration(payload=payload, input_tokens=12, output_tokens=30)
@@ -154,6 +155,27 @@ async def test_three_pet_turn_collects_web_then_independently_checks_the_final_c
     assert outcome.usage.tool_calls == 4
     assert outcome.usage.search_credits == 1
     research.collect.assert_awaited_once()
+
+
+async def test_actual_questions_survive_no_op_followups_and_reach_the_independent_reviewer() -> None:
+    class Provider(ProviderStub):
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            first = len(self.prompts) == 1
+            return ModelGeneration(payload={
+                "summary": "범위를 먼저 확인하자." if first else "이미 나온 검토 외에 더할 쟁점은 없어.",
+                "open_questions": ["기능 범위와 운영자는 누구인가요?"] if first else []
+            })
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            assert data["proposed_open_questions"] == ["기능 범위와 운영자는 누구인가요?"]
+            return await super().generate_conversation_quality(selection, prompt, **kwargs)
+
+    run = request()
+    run.budget.max_model_calls = 4
+    outcome = await execute_conversation(Provider(), run, project(run), "먼저 질문해")
+    assert "기능 범위와 운영자는 누구인가요?" in outcome.result.open_questions
 
 
 async def test_review_failure_preserves_conversation_but_never_marks_the_proposal_verified() -> None:

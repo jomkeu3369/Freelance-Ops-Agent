@@ -46,3 +46,16 @@ def test_no_web_source_cannot_pass_a_research_case(case):
     bad = baseline(case)
     bad["department_results"][1]["sources"] = []
     assert not score_case(case, bad)["passed"]
+
+
+def test_clarification_first_preserves_scope_without_pretending_to_have_an_estimate():
+    case = next(case for case in CASES if case["id"] == "migration")
+    result = baseline(case)
+    result["open_questions"] = ["데이터량과 허용 다운타임은 얼마인가요?"]
+    assert not score_case(case, result)["passed"]
+    review = {"requirements": [{"target": "QUOTATION", "disposition": "QUESTION",
+                               "requirement": " · ".join(words[0] for words in case["concepts"]),
+                               "original_quote": "백업 복구 리허설"}]}
+    assert score_case(case, result, review)["passed"]
+    review["requirements"][0]["original_quote"] = "원문에 없는 범위"
+    assert not score_case(case, result, review)["passed"]

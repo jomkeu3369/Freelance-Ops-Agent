@@ -37,6 +37,13 @@ def test_excerpt_selects_relevant_body_instead_of_a_long_navigation_menu():
     assert len(excerpt) <= 4000
 
 
+def test_rate_limit_excerpt_keeps_retry_instructions_over_repetitive_generic_terms():
+    content = ("Rate limits differ across rate limit tiers.\n" * 500
+               + "When HTTP 429 is returned, wait for Retry-After before retrying.\n" * 5
+               + "Rate limits differ across rate limit tiers.\n" * 500)
+    assert "wait for Retry-After" in research_excerpt(content, "slack API rate limits")
+
+
 async def test_previous_backend_budget_uses_official_documents_without_paid_search():
     paid, official = AsyncMock(), AsyncMock()
     ledger = PlatformSpendLedger(PlatformBudget(

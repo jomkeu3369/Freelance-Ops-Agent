@@ -1,5 +1,5 @@
 {
-  "version": "pet-inquiries-v1",
+  "version": "pet-inquiries-v1.1",
   "description": "합성 문의 12종. 공수 구간은 시장 정답이 아니라 회귀 평가용 검토 범위이며 최종 공수는 사람이 승인한다.",
   "cases": [
     {
@@ -160,6 +160,7 @@
     },
     {
       "id": "migration",
+      "clarificationFirst": true,
       "inquiry": "PostgreSQL 고객 DB를 이전하는 견적 초안을 만들어줘. 백업 복구 리허설, 전환 중 쓰기 일관성, 데이터 건수 대조, 롤백과 모니터링이 필요해. 데이터량과 다운타임 허용치는 아직 몰라. 몰래 무중단을 보장하지 말고 먼저 물어봐.",
       "concepts": [
         [
@@ -182,10 +183,7 @@
         ]
       ],
       "forbiddenScope": [],
-      "effortDays": [
-        2,
-        50
-      ],
+      "effortDays": null,
       "questionsRequired": true,
       "webRequired": false
     },

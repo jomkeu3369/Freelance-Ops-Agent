@@ -51,13 +51,21 @@ class RecordingProvider(OpenAIModelProvider):
         return result
 
 
-def score_case(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+def score_case(case: dict[str, Any], result: dict[str, Any], review: dict[str, Any] | None = None) -> dict[str, Any]:
     draft = result.get("quotation_draft")
     items = draft.get("items", []) if draft else []
     questions = result.get("open_questions", [])
     # 발화의 말만으로 견적 범위에 반영됐다고 인정하지 않는다.
     scope = json.dumps(items, ensure_ascii=False).casefold()
     scope_and_questions = scope + " ".join(questions).casefold()
+    trace_coverage = bool(case.get("clarificationFirst") and not items and questions and review)
+    if trace_coverage:
+        # 먼저 질문하라는 문의는 요구 범위를 보존한 검토표로 확인한다. 구현했다고 인정하는 점수가 아니다.
+        scope_and_questions += json.dumps([
+            check["requirement"] for check in (review or {}).get("requirements", [])
+            if check["target"] == "QUOTATION" and check["disposition"] == "QUESTION"
+            and check["original_quote"].strip() and check["original_quote"] in case["inquiry"]
+        ], ensure_ascii=False).casefold()
     concepts = case["concepts"]
     coverage = sum(any(term.casefold() in scope_and_questions for term in alternatives) for alternatives in concepts)
     missed = [alternatives for alternatives in concepts if not any(term.casefold() in scope_and_questions for term in alternatives)]  # noqa: E501
@@ -83,6 +91,7 @@ def score_case(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
     passed = (coverage == len(concepts) and effort_ok and verified and web_ok and not forbidden
               and (not case["questionsRequired"] or bool(questions)))
     return {"id": case["id"], "passed": passed, "coverage": coverage / len(concepts),
+            "coverageBasis": "DEFERRED_SCOPE_TRACE" if trace_coverage else "ITEMS_OR_QUESTIONS",
             "missingConcepts": missed, "effortDays": effort, "effortInReviewRange": effort_ok,
             "independentlyVerified": verified, "webEvidenceAvailable": web_ok, "forbiddenScope": forbidden,
             "questionsPresent": bool(questions)}
@@ -194,9 +203,10 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
                 with platform_budget_scope(ledger):
                     outcome = await execute_conversation(provider, request, project, case["inquiry"], research)
             result = outcome.result.model_dump(mode="json") if outcome.result else {}
-            score = score_case(case, result)
+            review = provider.last_review.model_dump() if provider.last_review else None
+            score = score_case(case, result, review)
             score["result"] = result
-            score["review"] = provider.last_review.model_dump() if provider.last_review else None
+            score["review"] = review
             score["usage"] = ledger.report(outcome.usage).model_dump(mode="json")
             score["costUpperBoundUsd"] = str(ledger.cost)
         except Exception as error:
