@@ -5,9 +5,10 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 from test_pet_conversation import ProviderStub, project, request
 
-from contracts import PetEvidence, PetMessage, QuotationDraft, SourceReference
+from contracts import PetConversationTurn, PetEvidence, PetMessage, QuotationDraft, SourceReference
 from providers import ModelGeneration, ProviderCallError
 from providers.conversation_quality import ConversationReview
 from runtime.conversation_quality import ConversationQuality, review_failures, safe_research_query, valid_sources
@@ -26,6 +27,14 @@ def draft() -> QuotationDraft:
         "title": "예약 API", "quantity": 2, "unit": "DAY", "description": "중복 예약과 취소 처리",
         "basis": {"type": "ASSUMPTION", "content": "기존 인증 재사용, API·예외·테스트 각 작업을 포함한 초기 추정"}
     }]})
+
+
+@pytest.mark.parametrize("quantity", [float("inf"), float("nan"), 0, -1])
+def test_non_finite_or_nonpositive_effort_is_rejected_before_publication(quantity: float) -> None:
+    data = draft().model_dump()
+    data["items"][0]["quantity"] = quantity
+    with pytest.raises(ValidationError):
+        QuotationDraft.model_validate(data)
 
 
 def review_payload(messages: int = 1) -> dict:
@@ -133,6 +142,60 @@ async def test_review_failure_preserves_conversation_but_never_marks_the_proposa
     assert outcome.result.pet_messages
     assert outcome.partial_error_code == "CONVERSATION_VERIFICATION_UNAVAILABLE"
     assert outcome.usage.model_calls == 2
+
+
+async def test_reviewer_prioritizes_the_current_request_and_can_inspect_older_accepted_scope() -> None:
+    run = request(debate=False)
+    run.input.requirement_text = "결제는 제외하고 테스트를 유지해"
+    run.input.conversation.history = [PetConversationTurn(user_text="결제를 포함해", messages=[])]
+    run.input.conversation.accepted_draft = draft().model_dump(mode="json", by_alias=True)
+
+    class Provider(ProviderStub):
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            assert data["current_request"] == run.input.requirement_text
+            assert data["original"].endswith(run.input.requirement_text)
+            assert "중복 예약과 취소 처리" in data["original"]
+            assert list(data)[-1] == "current_request"
+            return await super().generate_conversation_quality(selection, prompt, **kwargs)
+
+    provider = Provider()
+    await execute_conversation(provider, run, project(run), run.input.requirement_text)
+    assert any(item["id"] == "request" and item["content"] == run.input.requirement_text
+               for item in provider.prompts[0]["evidence_catalog"])
+
+
+async def test_uncertain_research_failure_preserves_the_admitted_tool_usage_upper_bound() -> None:
+    run = request()
+    run.context.effective_permissions.append("document.read")
+    run.budget.max_model_calls = 5
+    run.budget.max_tool_calls = 5
+    run.budget.max_search_credits = 1
+    provider = ProviderStub()
+    provider.generate_conversation_quality = AsyncMock(return_value=ModelGeneration(
+        payload={"query": "stripe webhook idempotency", "reason": "공식 사양 조회"}
+    ))
+    tool = AsyncMock()
+    tool.collect.side_effect = TimeoutError()
+    quality = ConversationQuality(provider, run, tool)
+    await quality.collect(project(run), run.input.requirement_text, 3)
+    assert quality.research.status == "PARTIAL" and not quality.sources
+    assert quality.tool_calls == 4 and quality.search_credits == 1
+
+
+async def test_reviewer_price_guesses_are_not_reintroduced_into_public_questions_or_review() -> None:
+    run = request(debate=False)
+
+    class Provider(ProviderStub):
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            result = await super().generate_conversation_quality(selection, prompt, **kwargs)
+            result.payload["summary"] = "합계는 300만원입니다. 범위를 확인했습니다."
+            result.payload["open_questions"] = ["300만원이면 될까요?", "취소 테스트도 포함할까요?"]
+            return result
+
+    outcome = await execute_conversation(Provider(), run, project(run), run.input.requirement_text)
+    assert outcome.result.open_questions == ["취소 테스트도 포함할까요?"]
+    assert "300만원" not in outcome.result.department_results[-1].summary
 
 
 @pytest.mark.parametrize("reason", ["key", "permission", "budget", "unconfigured"])

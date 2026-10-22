@@ -16,13 +16,14 @@ mapfile -t agents < <(docker ps -q --filter label=com.docker.compose.service=age
 [[ "${#agents[@]}" == 1 ]]
 container="${agents[0]}"
 cleanup() {
-  docker cp "$container:$stage/report.json" "$stage/report.json" 2>/dev/null || true
+  if docker exec "$container" test -s "$stage/report.json"; then
+    docker exec "$container" cat "$stage/report.json" > "$stage/report.json"
+  fi
   docker exec "$container" sh -c 'rm -rf -- "$1"' sh "$stage" || true
 }
 trap cleanup EXIT
 docker exec "$container" mkdir -p "$stage"
-docker cp "$stage/source.tgz" "$container:$stage/source.tgz"
-docker exec "$container" tar --no-same-owner -xzf "$stage/source.tgz" -C "$stage"
+docker exec -i "$container" tar --no-same-owner -xzf - -C "$stage" < "$stage/source.tgz"
 docker exec -e "PYTHONPATH=$stage/src" -e PYTHONDONTWRITEBYTECODE=1 \
   -e LANGSMITH_TRACING=false -e LANGSMITH_TRACING_V2=false \
   "$container" /app/.venv/bin/python -m evaluation.pet_quality \

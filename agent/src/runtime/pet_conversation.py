@@ -56,7 +56,9 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
     evidence = {
         "project": PetEvidence(
             id="project", title=project.title, content=excerpt(project.requirement_text, 6000) or "문의 내용 없음"
-        )
+        ),
+        "request": PetEvidence(id="request", title="이번 요청",
+                               content=excerpt(request.input.requirement_text, 6000) or "이번 요청 없음")
     }
     for rate in context.rate_cards:
         key = "rate:" + str(rate["id"])
@@ -288,7 +290,8 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
     review_questions = await quality.verify(
         project, text, evidence, messages, draft, (model_calls, input_tokens, output_tokens)
     )
-    questions = list(dict.fromkeys([*review_questions, *questions]))[:3]
+    questions = list(dict.fromkeys(safe for question in [*review_questions, *questions]
+                                  if (safe := conversation_text(question))))[:3]
     if draft:
         for item in draft.items:
             ref = item.basis.source_reference or ""

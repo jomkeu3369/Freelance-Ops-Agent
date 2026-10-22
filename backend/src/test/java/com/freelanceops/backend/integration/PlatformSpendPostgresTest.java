@@ -74,7 +74,7 @@ class PlatformSpendPostgresTest {
         tx = new TransactionTemplate(manager);
         // 위의 테스트 전용 컨테이너에서 테스트 데이터를 정리한다.
         jdbc.execute(
-                "TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
+                "TRUNCATE app.agent_run_usage, app.platform_external_tool_attempt, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
         jdbc.update(
                 "UPDATE app.platform_spend_settings SET luna_run_usd=.10,terra_run_usd=1,account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");
     }

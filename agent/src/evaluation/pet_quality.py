@@ -24,7 +24,7 @@ from contracts import (
     SafetyContextInput,
     TrustedRunContext,
 )
-from platform_budget import PlatformSpendLedger, platform_budget_scope
+from platform_budget import TARIFF_VERSION, PlatformSpendLedger, platform_budget_scope
 from providers import OpenAIModelProvider
 from runtime.bootstrap import build_conversation_research_service
 from runtime.pet_conversation import execute_conversation
@@ -103,7 +103,7 @@ async def run_live(dataset: dict[str, Any], model: str, output: Path, selected: 
             request.input.conversation.accepted_draft = case["acceptedDraft"]
         ledger = PlatformSpendLedger(PlatformBudget(
             reservation_id=request.context.run_id, max_cost_usd=Decimal("0.20"),
-            tariff_version="platform-ai-2026-10-05-v2", valid_until=datetime.now(UTC) + timedelta(minutes=3)
+            tariff_version=TARIFF_VERSION, valid_until=datetime.now(UTC) + timedelta(minutes=3)
         ), run_budget=request.budget)
         try:
             async with asyncio.timeout(request.budget.max_duration_seconds):

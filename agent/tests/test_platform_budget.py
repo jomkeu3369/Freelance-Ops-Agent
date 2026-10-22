@@ -38,6 +38,7 @@ from contracts import (
 from platform_budget import (
     LEGACY_TARIFF_VERSION,
     TARIFF_VERSION,
+    TEXT_TARIFF_VERSION,
     PlatformBudgetError,
     PlatformSpendLedger,
     budgeted_openai_attempt,
@@ -96,6 +97,14 @@ async def test_search_reserves_before_io_and_keeps_unknown_cost_after_cancellati
 async def test_search_without_money_reservation_never_reaches_provider():
     call = AsyncMock()
     with pytest.raises(PlatformBudgetError, match="PLATFORM_BUDGET_REQUIRED"):
+        await budgeted_tavily_search(call)
+    call.assert_not_awaited()
+
+
+async def test_old_text_tariff_cannot_admit_paid_search():
+    ledger = PlatformSpendLedger(budget(tariff_version=TEXT_TARIFF_VERSION))
+    call = AsyncMock()
+    with platform_budget_scope(ledger), pytest.raises(PlatformBudgetError, match="PLATFORM_TOOL_TARIFF_UNSUPPORTED"):
         await budgeted_tavily_search(call)
     call.assert_not_awaited()
 

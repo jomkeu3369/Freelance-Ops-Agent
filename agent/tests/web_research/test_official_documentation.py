@@ -1,8 +1,12 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
+from contracts import PlatformBudget
+from platform_budget import TEXT_TARIFF_VERSION, PlatformSpendLedger, platform_budget_scope
 from web_research.contracts import AuthorityLevel, WebDocument, WebProvider, web_url
-from web_research.official_documentation import OfficialDocumentationResearch
+from web_research.official_documentation import ConversationWebResearch, OfficialDocumentationResearch
 from web_research.service import research_excerpt
 
 
@@ -31,3 +35,16 @@ def test_excerpt_selects_relevant_body_instead_of_a_long_navigation_menu():
     excerpt = research_excerpt(content, "webhook duplicate idempotency")
     assert "Webhook duplicate events require idempotency." in excerpt
     assert len(excerpt) <= 4000
+
+
+async def test_previous_backend_budget_uses_official_documents_without_paid_search():
+    paid, official = AsyncMock(), AsyncMock()
+    ledger = PlatformSpendLedger(PlatformBudget(
+        reservation_id=uuid4(), max_cost_usd=Decimal("0.10"), tariff_version=TEXT_TARIFF_VERSION,
+        valid_until=datetime.now(UTC) + timedelta(minutes=1)
+    ))
+    tool = ConversationWebResearch(paid, official)
+    with platform_budget_scope(ledger):
+        await tool.collect("stripe webhook", "KR", 1, 4)
+    paid.collect.assert_not_awaited()
+    official.collect.assert_awaited_once_with("stripe webhook", "KR", 0, 4)

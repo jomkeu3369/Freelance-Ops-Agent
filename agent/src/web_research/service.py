@@ -105,6 +105,8 @@ def research_excerpt(content: str, query: str, limit: int = 4000) -> str:
     """문서 앞의 메뉴 대신 검색 주제와 가까운 연속 본문 구간을 발췌한다."""
     terms = set(re.findall(r"[a-z]{4,}", query.casefold())) - {"official", "documentation", "docs", "guide"}
     windows = [(index, content[index:index + 1250]) for index in range(0, len(content), 1100)]
-    ranked = sorted(windows, key=lambda item: sum(item[1].casefold().count(term) for term in terms), reverse=True)
+    weights = {term: 1 / max(1, content.casefold().count(term)) for term in terms}
+    ranked = sorted(windows, key=lambda item: sum(item[1].casefold().count(term) * weights[term] for term in terms),
+                    reverse=True)
     selected = sorted(ranked[:3], key=lambda item: item[0])
     return "\n[발췌 구간]\n".join(text for _, text in selected)[:limit]

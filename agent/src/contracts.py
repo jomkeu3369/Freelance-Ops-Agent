@@ -551,7 +551,7 @@ class QuotationDraftBasis(StrictModel):
 class QuotationDraftItem(StrictModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=5000)
-    quantity: float = Field(gt=0)
+    quantity: float = Field(gt=0, allow_inf_nan=False)
     unit: DraftWorkUnit
     rate_card_hint: str | None = Field(default=None, max_length=200)
     basis: QuotationDraftBasis

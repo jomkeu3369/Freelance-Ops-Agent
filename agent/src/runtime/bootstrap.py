@@ -32,7 +32,7 @@ from runtime import (
 from runtime.executor import ResearchTool
 from security import DelegationTokenVerifier
 from web_research import BoundedWebResearchService, DirectHttpProvider, TavilySearchProvider
-from web_research.official_documentation import OfficialDocumentationResearch
+from web_research.official_documentation import ConversationWebResearch, OfficialDocumentationResearch
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +168,8 @@ def build_run_runtime() -> RuntimeComponents:
 
 def build_conversation_research_service(settings: Settings) -> ResearchTool | None:
     paid = build_web_research_service(settings)
-    return paid or (OfficialDocumentationResearch() if settings.conversation_documentation_enabled else None)
+    official = OfficialDocumentationResearch() if settings.conversation_documentation_enabled else None
+    return ConversationWebResearch(paid, official) if paid and official else paid or official
 
 
 def build_web_research_service(settings: Settings) -> BoundedWebResearchService | None:

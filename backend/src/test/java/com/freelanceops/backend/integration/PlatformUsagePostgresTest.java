@@ -69,7 +69,7 @@ class PlatformUsagePostgresTest {
         workspace = UUID.randomUUID();
         project = UUID.randomUUID();
         jdbc.execute(
-                "TRUNCATE app.agent_run_usage, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
+                "TRUNCATE app.agent_run_usage, app.platform_external_tool_attempt, app.platform_provider_attempt, app.platform_spend_settlement, app.platform_spend_reservation, app.platform_spend_bucket");
         jdbc.update(
                 "UPDATE app.platform_spend_settings SET account_week_usd=1.25,global_day_usd=25,global_week_usd=100 WHERE id=1");
         jdbc.update(
@@ -180,8 +180,10 @@ class PlatformUsagePostgresTest {
         }
         assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".008");
         assertThat(usage.snapshot(user).reservedUsd()).isZero();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_external_tool_attempt WHERE run_id=?",
                 Integer.class, run.id())).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app.platform_provider_attempt WHERE run_id=?",
+                Integer.class, run.id())).isZero();
     }
 
     @Test

@@ -19,7 +19,8 @@ import java.util.Map;
  */
 public final class PlatformSpendTariff {
     public static final String LEGACY_VERSION = "platform-ai-2026-10-04-v1";
-    public static final String VERSION = "platform-ai-2026-10-05-v2";
+    public static final String TEXT_VERSION = "platform-ai-2026-10-05-v2";
+    public static final String VERSION = "platform-ai-2026-10-22-v3";
     public static final String MODEL_IDS =
             "gpt-6-luna,gpt-6-sol,gpt-6.1-sol,gpt-6-astra,gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol";
     public static final Instant PROMOTION_REVIEW_AT = Instant.parse("2026-11-22T00:00:00Z");
@@ -50,7 +51,7 @@ public final class PlatformSpendTariff {
                     "gpt-5.6-terra", LEGACY.get("gpt-5.6-terra"),
                     "gpt-5.6-sol", rate("4", ".40", "5", "20"));
     private static final Map<String, Map<String, Tariff>> VERSIONS =
-            Map.of(LEGACY_VERSION, LEGACY, VERSION, CURRENT);
+            Map.of(LEGACY_VERSION, LEGACY, TEXT_VERSION, CURRENT, VERSION, CURRENT);
 
     private PlatformSpendTariff() {}
 

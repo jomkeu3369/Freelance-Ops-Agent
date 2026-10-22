@@ -25,6 +25,8 @@ from providers.conversation_quality import ConversationResearchPlan, Conversatio
 from web_research import ResearchCollection
 from web_research.security import detect_prompt_injection
 
+from .conversation_text import conversation_text
+
 # 외부 검색 서비스에는 원문에서 추출한 임의 단어를 전송하지 않는다.
 # 알려진 공개 기술명과 기술 주제만 허용해 사람·프로젝트·연락처·키의 유출을 막는다.
 _SEARCH_TERMS = frozenset([
@@ -170,6 +172,7 @@ class ConversationQuality:
     async def collect(self, project: ProjectContext, text: str, speakers: int) -> None:
         request = self.request
         required_credits = getattr(type(self.research_tool), "search_credits_required", 1)
+        available_credits = min(1, request.budget.max_search_credits)
         reason = None
         if request.byok_budget is not None or request.model_selection.credential_id is not None:
             reason = "개인 API 키 실행에서는 웹 검색을 지원하지 않습니다."
@@ -184,6 +187,7 @@ class ConversationQuality:
         if reason:
             self.research.summary = reason
             return
+        research_attempted = False
         try:
             generated = await self.generate({
                 "operation": "conversation_research_plan",
@@ -204,17 +208,18 @@ class ConversationQuality:
             if not query:
                 raise ValueError("UNSAFE_RESEARCH_QUERY")
             assert self.research_tool is not None
+            research_attempted = True
             collection = await self.research_tool.collect(
-                query, request.input.jurisdiction_code, required_credits, min(4, request.budget.max_tool_calls - 1)
+                query, request.input.jurisdiction_code, available_credits, min(4, request.budget.max_tool_calls - 1)
             )
             self.tool_calls = collection.tool_calls
             self.search_credits = collection.search_credits
             self.fetched_pages = collection.fetched_pages
-            if (collection.search_credits > required_credits
+            if (collection.search_credits > available_credits
                     or collection.tool_calls > min(4, request.budget.max_tool_calls - 1)):
                 raise ValueError("WEB_RESEARCH_USAGE_EXCEEDED")
             self.sources = valid_sources(collection.sources)
-            method = "공식 기술 문서" if required_credits == 0 else "공개 기술 자료"
+            method = "공식 기술 문서" if collection.search_credits == 0 else "공개 기술 자료"
             self.research = DepartmentResult(
                 department=DepartmentName.RESEARCH, status="COMPLETED" if self.sources else "PARTIAL",
                 summary=(f"{method} {len(self.sources)}개를 조회했습니다. "
@@ -222,6 +227,10 @@ class ConversationQuality:
                 sources=self.sources, error_code=None if self.sources else "WEB_RESEARCH_NO_VALID_SOURCES"
             )
         except (ProviderCallError, ValidationError, RuntimeError, ValueError, TimeoutError):
+            if research_attempted:
+                # 응답을 받지 못한 조회는 실제 사용량을 0으로 단정하지 않는다.
+                self.tool_calls = min(4, request.budget.max_tool_calls - 1)
+                self.search_credits = available_credits
             self.research.status = "PARTIAL"
             self.research.summary = "웹 조사를 완료하지 못했습니다. 확인되지 않은 외부 사실을 근거로 사용하지 않습니다."
             self.research.error_code = "WEB_RESEARCH_UNAVAILABLE"
@@ -230,8 +239,10 @@ class ConversationQuality:
         context = self.request.input.conversation
         assert context is not None
         original = "\n".join([
-            project.requirement_text, text, *(turn.user_text for turn in context.history),
+            project.requirement_text, *(turn.user_text for turn in context.history),
+            json.dumps(context.accepted_draft, ensure_ascii=False) if context.accepted_draft else "",
             *(attachment.text for attachment in self.request.input.attachments),
+            text,
         ])
         try:
             generated = await self.generate({
@@ -254,6 +265,8 @@ class ConversationQuality:
                 "evidence_catalog": [source.model_dump(mode="json") for source in evidence.values()],
                 "web_sources": [source.model_dump(mode="json") for source in self.sources],
                 "research_status": self.research.model_dump(mode="json"),
+                "history_requests": [turn.user_text for turn in context.history],
+                "current_request": text,
             }, "conversation_review", consumed)
             review = ConversationReview.model_validate(generated.payload)
             failures = review_failures(review, draft, evidence, original, messages)
@@ -270,7 +283,7 @@ class ConversationQuality:
             details.extend(failures)
             self.verification = DepartmentResult(
                 department=DepartmentName.VERIFICATION, status="PARTIAL" if failures else "COMPLETED",
-                summary="\n".join(details)[:16000],
+                summary="\n".join(safe for line in details if (safe := conversation_text(line)))[:16000],
                 error_code="CONVERSATION_VERIFICATION_FAILED" if failures else None
             )
             return list(dict.fromkeys([*review.open_questions, *failures]))[:3]

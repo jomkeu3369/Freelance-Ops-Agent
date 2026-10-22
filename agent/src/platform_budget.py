@@ -29,7 +29,8 @@ from contracts import (
 )
 
 LEGACY_TARIFF_VERSION = "platform-ai-2026-10-04-v1"
-TARIFF_VERSION = "platform-ai-2026-10-05-v2"
+TEXT_TARIFF_VERSION = "platform-ai-2026-10-05-v2"
+TARIFF_VERSION = "platform-ai-2026-10-22-v3"
 _MILLION = Decimal("1000000")
 _USD_PRECISION = Decimal("0.00000001")
 _PROTOCOL_TOKEN_ALLOWANCE = 8192
@@ -65,7 +66,7 @@ TARIFFS = {
     (Provider.OPENAI, "gpt-6-astra"): Tariff(Decimal("10"), Decimal("1"), Decimal("12.50"), Decimal("50")),
     (Provider.OPENAI, "gpt-5.6-sol"): Tariff(Decimal("4"), Decimal(".40"), Decimal("5"), Decimal("20")),
 }
-TARIFF_VERSIONS = {LEGACY_TARIFF_VERSION: LEGACY_TARIFFS, TARIFF_VERSION: TARIFFS}
+TARIFF_VERSIONS = {LEGACY_TARIFF_VERSION: LEGACY_TARIFFS, TEXT_TARIFF_VERSION: TARIFFS, TARIFF_VERSION: TARIFFS}
 # 이 날짜 이후의 호출은 Sol 프로모션 요금을 다시 검토해야 한다.
 PROMOTION_REVIEW_AT = datetime(2026, 11, 22, tzinfo=UTC)
 
@@ -106,6 +107,8 @@ class PlatformSpendLedger:
     def reserve_search(self) -> int:
         """기본 검색 1크레딧의 공개 PAYG 상한을 네트워크 시도 전에 예약한다."""
         self.validate()
+        if self.budget.tariff_version != TARIFF_VERSION:
+            raise PlatformBudgetError("PLATFORM_TOOL_TARIFF_UNSUPPORTED")
         prior = self.previous.search_credits if self.previous is not None else 0
         if self.run_budget is None or prior + len(self.external_calls) >= self.run_budget.max_search_credits:
             raise PlatformBudgetError("SEARCH_CREDIT_BUDGET_EXCEEDED")

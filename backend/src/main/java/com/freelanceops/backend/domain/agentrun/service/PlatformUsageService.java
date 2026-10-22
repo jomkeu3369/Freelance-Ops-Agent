@@ -159,6 +159,8 @@ public class PlatformUsageService {
         Hold hold = rows.getFirst();
         if (!hold.user().equals(user) || !hold.version().equals(usage.tariffVersion()))
             throw new IllegalArgumentException("Usage tariff or account mismatch");
+        if (!usage.externalToolCalls().isEmpty() && !PlatformSpendTariff.VERSION.equals(hold.version()))
+            throw new IllegalArgumentException("Reservation does not authorize external tool spending");
         if (hold.observed() != null && observedAt.isBefore(hold.observed())) return;
         if (usage.providerCalls().size() != usage.modelCalls())
             return; // 사용량 정보가 불완전하면 예약 금액을 유지한다.
@@ -194,7 +196,6 @@ public class PlatformUsageService {
                             INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)
                             ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()
                             WHERE platform_provider_attempt.run_id=EXCLUDED.run_id
-                              AND platform_provider_attempt.payload->>'provider' <> 'TAVILY'
                             """,
                             call.callId(),
                             operationId,
@@ -265,7 +266,7 @@ public class PlatformUsageService {
 
     private List<ProviderCallUsage> attempts(UUID run) {
         return jdbc.query(
-                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? AND payload->>'provider' <> 'TAVILY' ORDER BY"
+                "SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? ORDER BY"
                         + " call_id",
                 (row, n) -> mapper.readValue(row.getString(1), ProviderCallUsage.class),
                 run);
@@ -273,7 +274,7 @@ public class PlatformUsageService {
 
     private List<ExternalToolCallUsage> synchronizeTools(UUID run, List<ExternalToolCallUsage> incoming, boolean closed) {
         Map<UUID, ExternalToolCallUsage> calls = new LinkedHashMap<>();
-        jdbc.query("SELECT payload::text FROM app.platform_provider_attempt WHERE run_id=? AND payload->>'provider'='TAVILY'",
+        jdbc.query("SELECT payload::text FROM app.platform_external_tool_attempt WHERE run_id=?",
                 (row, index) -> mapper.readValue(row.getString(1), ExternalToolCallUsage.class), run)
                 .forEach(call -> calls.put(call.callId(), call));
         for (var call : incoming) {
@@ -286,10 +287,9 @@ public class PlatformUsageService {
                     throw new IllegalArgumentException("External attempt identity changed");
                 if (prior.usageKnown()) continue;
             } else if (closed) throw new IllegalArgumentException("Closed execution reported a new external attempt");
-            int changed = jdbc.update("INSERT INTO app.platform_provider_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)"
+            int changed = jdbc.update("INSERT INTO app.platform_external_tool_attempt(call_id,run_id,payload) VALUES (?,?,?::jsonb)"
                     + " ON CONFLICT(call_id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=clock_timestamp()"
-                    + " WHERE platform_provider_attempt.run_id=EXCLUDED.run_id"
-                    + " AND platform_provider_attempt.payload->>'provider'='TAVILY'",
+                    + " WHERE platform_external_tool_attempt.run_id=EXCLUDED.run_id",
                     call.callId(), run, mapper.writeValueAsString(call));
             if (changed != 1) throw new IllegalArgumentException("External attempt belongs to another execution");
             calls.put(call.callId(), call);
