@@ -8,11 +8,22 @@ import pytest
 from pydantic import ValidationError
 from test_pet_conversation import ProviderStub, project, request
 
-from contracts import PetConversationTurn, PetEvidence, PetMessage, QuotationDraft, SourceReference
+from contracts import (
+    AttachmentText,
+    ClarificationAnswer,
+    PetConversationTurn,
+    PetEvidence,
+    PetMessage,
+    QuotationDraft,
+    SourceReference,
+)
 from providers import ModelGeneration, ProviderCallError
 from providers.conversation_quality import ConversationReview
+from retrieval.knowledge_context import KnowledgeContext
 from runtime.conversation_quality import ConversationQuality, review_failures, safe_research_query, valid_sources
+from runtime.executor import OperationalAgentExecutor
 from runtime.pet_conversation import execute_conversation
+from runtime.run_contracts import ExecutionAuthorization
 from runtime.run_progress import progress_scope
 from web_research import ResearchCollection
 
@@ -107,6 +118,117 @@ def test_an_ai_draft_exclusion_cannot_authorize_removing_a_user_requirement():
     failures = review_failures(ConversationReview.model_validate(data), draft(), {},
                                "예약 취소까지 포함해\n초안: 취소는 제외", [], user_original="예약 취소까지 포함해")
     assert any("사용자가 요청하지 않은 범위 제외" in failure for failure in failures)
+
+
+@pytest.mark.parametrize("source,authorized", [
+    ("attachment", False), ("memory", False), ("project", False), ("clarification_question", False),
+    ("current_request", True), ("history_user", True), ("clarification_answer", True)
+])
+async def test_only_authenticated_user_statements_authorize_exclusion_through_the_executor(source, authorized):
+    run = request(debate=False)
+    run.input.requirement_text = "예약 취소까지 포함해"
+    run.budget.max_tool_calls = 3
+    context = project(run)
+    quote = "취소는 제외"
+    loader = AsyncMock()
+    loader.load.return_value = KnowledgeContext()
+    if source == "attachment":
+        run.input.attachments = [AttachmentText(
+            name="reference.txt", media_type="text/plain", size=100, sha256="a" * 64,
+            status="COMPLETE", text=quote, notice="참고 자료", units=1
+        )]
+    elif source == "memory":
+        loader.load.return_value = KnowledgeContext(quote, 1)
+    elif source == "project":
+        context.requirement_text = quote
+    elif source == "clarification_question":
+        run.clarification_history = [ClarificationAnswer(question=quote + "할까요?", answer="취소는 필요해")]
+    elif source == "current_request":
+        run.input.requirement_text = "예약 생성만 검토해. " + quote
+    elif source == "history_user":
+        run.input.requirement_text = "이전 제외 조건을 유지하고 예약 API를 검토해"
+        run.input.conversation.history = [PetConversationTurn(user_text=quote)]
+    else:
+        run.clarification_history = [ClarificationAnswer(question="취소 처리도 필요한가요?", answer=quote)]
+
+    class Provider(ProviderStub):
+        review_prompt = None
+
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            self.prompts.append(json.loads(prompt))
+            proposal = draft()
+            proposal.items[0].description = "예약 생성만 포함"
+            return ModelGeneration(payload={"summary": "예약 생성은 2일 가정입니다.",
+                                            "quotation_drafts": [proposal.model_dump()]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            self.review_prompt = json.loads(prompt)
+            payload = review_payload()
+            payload["requirements"][0].update({
+                "disposition": "EXCLUDED", "user_exclusion_quote": quote, "item_indexes": []
+            })
+            return ModelGeneration(payload=payload)
+
+    class Gateway:
+        async def route(self, *args: object) -> None:
+            raise AssertionError("Conversation must not spend a router call")
+
+    tools = AsyncMock()
+    tools.get_project_context.return_value = context
+    provider = Provider()
+    outcome = await OperationalAgentExecutor(Gateway(), provider, tools, knowledge_loader=loader).execute(
+        run, authorization=ExecutionAuthorization("scoped-token")
+    )
+    assert provider.prompts[0]["user_request"] == run.input.requirement_text
+    assert provider.review_prompt["current_request"] == run.input.requirement_text
+    assert (quote in provider.review_prompt["user_requirements"]) is authorized
+    clarifications = [answer.model_dump() for answer in run.clarification_history]
+    assert provider.review_prompt["user_clarifications"] == clarifications
+    if source in {"attachment", "memory", "clarification_question"}:
+        assert quote in provider.prompts[0]["reference_context"]
+        assert quote in provider.review_prompt["original"]
+    if source == "project":
+        assert provider.prompts[0]["project"]["requirement_text"] == quote
+        assert quote in provider.review_prompt["original"]
+    verification = outcome.result.department_results[-1]
+    assert (verification.status == "COMPLETED") is authorized
+    assert (outcome.partial_error_code is None) is authorized
+    if not authorized:
+        assert "사용자가 요청하지 않은 범위 제외" in verification.summary
+
+
+@pytest.mark.parametrize("operation", ["conversation_research_plan", "conversation_revision"])
+async def test_research_and_revision_keep_the_current_request_separate_from_reference_context(operation):
+    run = request(debate=False)
+    run.input.requirement_text = "예약 취소까지 포함해"
+    run.context.effective_permissions.append("document.read")
+    run.budget.max_tool_calls = 3
+    run.budget.max_search_credits = 1
+    run.clarification_history = [ClarificationAnswer(question="문자도 포함할까요?", answer="문자는 제외해")]
+    text = run.input.requirement_text + "\n프로젝트 기억: 취소는 제외"
+
+    class Provider(ProviderStub):
+        quality_prompt = None
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            self.quality_prompt = json.loads(prompt)
+            return ModelGeneration(payload={"query": None, "reason": "조사 불필요"} if operation == "conversation_research_plan" else {  # noqa: E501
+                "messages": [], "draft_action": "KEEP", "draft": None, "open_questions": []
+            })
+
+    research = AsyncMock()
+    provider = Provider()
+    quality = ConversationQuality(provider, run, research)
+    if operation == "conversation_research_plan":
+        await quality.collect(project(run), text, 1)
+    else:
+        assert await quality.revise(project(run), text, {}, [], draft(), [], (0, 0, 0)) is not None
+        assert "취소는 제외" not in provider.quality_prompt["user_requirements"]
+        assert "문자는 제외해" in provider.quality_prompt["user_requirements"]
+    assert provider.quality_prompt["current_request"] == run.input.requirement_text
+    assert provider.quality_prompt["reference_context"] == text
+    clarifications = [answer.model_dump() for answer in run.clarification_history]
+    assert provider.quality_prompt["user_clarifications"] == clarifications
 
 
 def test_disjoint_source_quotes_are_checked_separately_and_no_word_can_be_invented() -> None:
