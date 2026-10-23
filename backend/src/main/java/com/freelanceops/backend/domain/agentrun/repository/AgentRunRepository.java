@@ -59,7 +59,8 @@ public interface AgentRunRepository extends JpaRepository<AgentRunEntity, UUID> 
         JOIN app.platform_spend_reservation p ON p.run_id=r.id
         JOIN app.platform_spend_settlement s ON s.run_id=r.id
         WHERE r.status IN ('COMPLETED','PARTIAL','FAILED','CANCELLED') AND NOT s.execution_closed
-            AND p.tariff_version='platform-ai-2026-10-05-v2' AND r.next_reconciliation_at <= :now
+              AND p.tariff_version IN ('platform-ai-2026-10-05-v2','platform-ai-2026-10-22-v3')
+              AND r.next_reconciliation_at <= :now
         ORDER BY r.next_reconciliation_at,r.created_at
         """,
             nativeQuery = true)
