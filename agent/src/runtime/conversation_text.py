@@ -31,7 +31,13 @@ def conversation_reply_text(text: str, recipient: str | None, names: list[str]) 
         bold = rf"\*\*\s*{name}{suffix}(?:\s*{separator}\s*\*\*|\s*\*\*\s*(?:아|야|님)?\s*{separator})"
         address = rf"^\s*(?:(?:{bold}|{plain})\s*)+"
         text = re.sub(address, "", text.strip(), count=1)
+    correction = r"^(?:\s*검토 후 정정:\s*)+"
+    corrected = bool(re.match(correction, text))
+    text = re.sub(correction, "", text, count=1)
+    if known:
+        text = re.sub(address, "", text, count=1)
     body = conversation_text(text)
     if known:
         body = re.sub(address, "", body, count=1)
-    return f"{recipient}, {body}" if recipient and body else body
+    reply = f"{recipient}, {body}" if recipient and body else body
+    return f"검토 후 정정: {reply}" if corrected and reply else reply

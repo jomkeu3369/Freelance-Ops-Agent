@@ -16,7 +16,12 @@ export function conversationReplyText(text, recipientName, names) {
   const punctuation = "[,，!！:：;；、.。?？]+";
   // 굵은 호칭의 닫는 기호만 소비해 본문에서 시작하는 강조는 유지한다.
   const opening = new RegExp(`^\\s*(?:(?:\\*\\*\\s*${address}\\s*${punctuation}\\s*\\*\\*|\\*\\*\\s*${address}\\s*\\*\\*\\s*(?:아|야|님)?\\s*${punctuation}|${address}\\s*${punctuation})\\s*)+`);
-  const filtered = conversationText(known.length ? text.replace(opening,"") : text);
+  const correction = /^(?:\s*검토 후 정정:\s*)+/;
+  const content = known.length ? text.replace(opening,"") : text;
+  const corrected = correction.test(content);
+  const original = content.replace(correction,"");
+  const filtered = conversationText(known.length ? original.replace(opening,"") : original);
   const body = known.length ? filtered.replace(opening,"") : filtered;
-  return body && recipientName ? `${recipientName}, ${body}` : body;
+  const reply = body && recipientName ? `${recipientName}, ${body}` : body;
+  return reply && corrected ? `검토 후 정정: ${reply}` : reply;
 }
