@@ -1,4 +1,10 @@
 export const quoteEnglish = {
+  "작업일": "Days",
+  "저장된 단가": "Saved rate",
+  "할인·출처 설정": "Discount and sources",
+  "출처 확인 필요": "Source required",
+  "할인 {rate}%": "{rate}% discount",
+  "{count}개 빈 항목에 같은 가정 적용": "Apply this assumption to {count} empty items",
   "이전 견적 더 보기": "Load older quotations",
   "이전 견적을 불러오는 중입니다.": "Loading older quotations…",
   "이전 견적을 불러오지 못했습니다.": "Could not load older quotations.",

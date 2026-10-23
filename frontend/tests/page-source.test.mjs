@@ -430,7 +430,7 @@ test("manual quotation, evidence, outcome, and public proposal flows use real Sp
   assert.match(workspace, /className="quote-field-label">수량/);
   assert.match(workspace, /className="quote-field-label">단위/);
   assert.match(workspace, /className="quote-field-label">단가/);
-  assert.match(workspace, /className="quote-amount"/);
+  assert.match(workspace, /formatMoney\(preview\.items\[index\]\.total, project\.currency\)/);
   assert.match(workspace, /latestByScenario/);
   assert.match(workspace, /loadQuotation\(quotation\)/);
   assert.match(workspace, /saveOutcome/);
@@ -929,8 +929,7 @@ test("quotation review preserves calculated amounts while standalone AI drafting
     read("../app/lib/api.ts"),
     read("../app/globals.css"),
   ]);
-  assert.match(workspace, /AI로\s*제안받기/);
-  assert.match(workspace, /AI로\s*다듬기/);
+  assert.doesNotMatch(workspace, /AI로\s*제안받기|AI로\s*다듬기/);
   assert.doesNotMatch(await read("../features/workspace/project/quotation/quote-item-basis.tsx"), /ai-assumption-note|providerLabels/);
   assert.match(workspace, /경로\s*판정/);
   assert.match(workspace, /자동\s*전환/);
