@@ -19,7 +19,10 @@ async function quoteFixture(page, { items = [item("", "")], readOnly = false } =
   const state = await fixture(page);
   Object.assign(state, { creates: [], previews: [], records: [], errors: [] });
   page.on("pageerror", error => state.errors.push(error.message));
-  const record = input => ({ ...input, ...quotationPreview(input, state.policy), id: "quote-one", workspaceId: "local-space", projectId: "project-one", seriesId: "series-one", previousVersionId: null, versionNumber: 1, status: "DRAFT", currency: "KRW", publishedAt: null, createdAt: "2026-10-01T00:00:00Z", version: 1 });
+  const record = input => {
+    const pricing = quotationPreview(input, state.policy);
+    return { ...input, ...pricing, items: input.items.map((item, index) => ({ ...item, ...pricing.items[index] })), id: "quote-one", workspaceId: "local-space", projectId: "project-one", seriesId: "series-one", previousVersionId: null, versionNumber: 1, status: "DRAFT", currency: "KRW", publishedAt: null, createdAt: "2026-10-01T00:00:00Z", version: 1 };
+  };
   if (readOnly) {
     state.permissions = state.permissions.filter(permission => permission !== "quotation.write");
     state.records = [record({ scenario: "RECOMMENDED", items, taxRate: .1, validUntil: null, applyDefaultRiskBuffer: true })];
@@ -73,7 +76,7 @@ test("rate selection fills blank names, preserves custom names and unlocks manua
   await expect(row.getByLabel("작업 항목", { exact: true })).toHaveValue("Customer-specific API");
   await expect(row.locator(".quote-applied-rate")).toContainText("₩80,000 / 작업일");
   await rate.selectOption("");
-  await expect(row.getByLabel("단위", { exact: true })).toHaveValue("DAY");
+  await expect(row.getByRole("combobox", { name: "단위", exact: true })).toHaveValue("DAY");
   await expect(row.getByRole("spinbutton", { name: "단가", exact: true })).toHaveValue("80000");
   await row.getByRole("spinbutton", { name: "수량", exact: true }).fill("3");
   await row.getByRole("spinbutton", { name: "단가", exact: true }).fill("120000");
