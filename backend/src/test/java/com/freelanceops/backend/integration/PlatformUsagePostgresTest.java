@@ -11,9 +11,12 @@ import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
 import com.freelanceops.backend.domain.agentrun.service.*;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -159,6 +162,30 @@ class PlatformUsagePostgresTest {
             AgentRunStatus status,
             Instant at) {
         tx.executeWithoutResult(s -> usage.synchronize(run, view(run, calls, closed, status, at)));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"platform-ai-2026-10-04-v1,false", "platform-ai-2026-10-05-v2,true", "platform-ai-2026-10-22-v3,true"})
+    void terminalReservationsAwaitingClosureRemainEligibleForReconciliation(String version, boolean eligible) {
+        var now = Instant.now();
+        var run = new AgentRunEntity(UUID.randomUUID(), workspace, project, UUID.randomUUID(), user,
+                Provider.OPENAI, LUNA.model(), AgentRunStatus.PARTIAL, now);
+        run.scheduleReconciliation(now.minusSeconds(1));
+        tx.executeWithoutResult(s -> {
+            runs.saveAndFlush(run);
+            jdbc.update("""
+                INSERT INTO app.platform_spend_reservation(run_id,user_id,provider,model,max_cost_usd,tariff_version,
+                    day_period,week_period,valid_until) VALUES (?,?,'OPENAI',?,.10,?,?,?,?)
+                """, run.id(), user, LUNA.model(), version,
+                java.sql.Date.valueOf(now.atZone(FreeUsageService.TIMEZONE).toLocalDate()),
+                java.sql.Date.valueOf(FreeUsageService.Period.at(now).start()),
+                java.sql.Timestamp.from(now.plusSeconds(60)));
+            jdbc.update("INSERT INTO app.platform_spend_settlement(run_id,reserved_usd) VALUES (?,.10)", run.id());
+        });
+        assertThat(runs.findMonetaryRunsAwaitingClosure(now, PageRequest.of(0, 100)).stream()
+                .anyMatch(value -> value.id().equals(run.id()))).isEqualTo(eligible);
+        jdbc.update("UPDATE app.platform_spend_settlement SET execution_closed=true WHERE run_id=?", run.id());
+        assertThat(runs.findMonetaryRunsAwaitingClosure(now, PageRequest.of(0, 100))).isEmpty();
     }
 
     @Test
