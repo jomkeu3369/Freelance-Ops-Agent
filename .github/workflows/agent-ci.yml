@@ -22,6 +22,10 @@ on:
         description: 선택 문의 ID (쉼표 구분, 비우면 12종 전체 및 부정 대조 3종)
         type: string
         default: ""
+      inspect_run_id:
+        description: 로그·본문 출력 없이 조회 계약을 검사할 기존 실행 UUID
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -144,3 +148,29 @@ jobs:
           path: pet-quality-live.json
           if-no-files-found: error
           retention-days: 14
+
+  inspect-run:
+    name: 기존 실행 조회 계약 읽기 전용 검사
+    if: github.event_name == 'workflow_dispatch' && inputs.inspect_run_id != ''
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    concurrency:
+      group: v2-production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: 기존 운영 SSH 신뢰 설정
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          SSH_HOST_KEY: ${{ secrets.VULTR_SSH_HOST_KEY }}
+        run: bash .github/actions/deploy-service/ssh-trust.sh
+      - name: 기존 실행의 상태·조회 계약 확인
+        env:
+          DEPLOY_HOST: ${{ secrets.VULTR_HOST }}
+          DEPLOY_USER: ${{ secrets.VULTR_USER }}
+          AGENT_RUN_ID: ${{ inputs.inspect_run_id }}
+        run: |
+          [[ "$AGENT_RUN_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$AGENT_RUN_ID" < .github/scripts/inspect_conversation_remote.sh
