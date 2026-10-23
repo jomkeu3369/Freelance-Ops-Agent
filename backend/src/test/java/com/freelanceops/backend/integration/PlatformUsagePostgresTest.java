@@ -58,6 +58,8 @@ class PlatformUsagePostgresTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformSpendService spend;
     @Autowired PlatformUsageService usage;
+    @Autowired AgentRunProjectionService projection;
+    @Autowired ProjectPetConversationService conversations;
     @Autowired AgentRunRepository runs;
     @Autowired PlatformTransactionManager manager;
     TransactionTemplate tx;
@@ -162,6 +164,30 @@ class PlatformUsagePostgresTest {
             AgentRunStatus status,
             Instant at) {
         tx.executeWithoutResult(s -> usage.synchronize(run, view(run, calls, closed, status, at)));
+    }
+
+    @Test
+    void partialConversationProjectionCommitsMessagesAndReleasesTheActiveRunGuard() {
+        var run = reserve(null);
+        conversations.recordStart(user, workspace, project, run.id(), "합성 예약 검토");
+        var message = new AgentRunView.PetMessage(UUID.randomUUID(), null, null, null,
+                "검토 후 정정: 중복 처리 확인이 필요합니다.", List.of(), List.of());
+        var result = new AgentRunView.AgentRunResult("부분 검토", List.of(), List.of(), null,
+                List.of(), List.of(), List.of(message));
+        var partial = new AgentRunView(run.id(), AgentRunStatus.PARTIAL, null, null, result,
+                "RUN_BUDGET_EXCEEDED", null,
+                view(run, List.of(call(UUID.randomUUID(), true, "PLATFORM")), true,
+                        AgentRunStatus.PARTIAL, Instant.now()).usage(), Instant.now());
+        for (int replay = 0; replay < 2; replay++) {
+            assertThat(projection.synchronize(run.id(), workspace, partial).status()).isEqualTo(AgentRunStatus.PARTIAL);
+            assertThat(runs.findById(run.id()).orElseThrow().status()).isEqualTo(AgentRunStatus.PARTIAL);
+            assertThat(runs.existsByWorkspaceIdAndProjectIdAndStatusIn(workspace, project,
+                    List.of(AgentRunStatus.QUEUED, AgentRunStatus.RUNNING, AgentRunStatus.WAITING_FOR_USER))).isFalse();
+            assertThat(jdbc.queryForObject("SELECT messages_json->0->>'text' FROM app.project_pet_turn WHERE run_id=?",
+                    String.class, run.id())).isEqualTo(message.text());
+            assertThat(usage.snapshot(user).settledUsd()).isEqualByComparingTo(".0008");
+            assertThat(usage.snapshot(user).reservedUsd()).isZero();
+        }
     }
 
     @ParameterizedTest
