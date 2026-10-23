@@ -34,7 +34,7 @@ class PetConversationPostgresTest {
     @Test
     void upgradePersistsScopedSettingsAndCompletedMessagesWithoutRegressingTheTurn() {
         var flyway = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
-                .locations("classpath:db/migration").schemas("app").defaultSchema("app").createSchemas(true).load();
+                .locations("classpath:db/migration").schemas("app").defaultSchema("app").createSchemas(true).target("53").load();
         flyway.migrate();
         flyway.validate();
         var jdbc = new JdbcTemplate(new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword()));
@@ -44,6 +44,13 @@ class PetConversationPostgresTest {
         jdbc.update("INSERT INTO app.workspace(id,name,slug,status,created_by) VALUES (?,'Conversation',?,'ACTIVE',?)", workspace, workspace.toString(), user);
         jdbc.update("INSERT INTO app.project(id,workspace_id,title,requirement_text,currency,created_by) VALUES (?,?,'Project','Original','KRW',?)", project, workspace, user);
         jdbc.update("INSERT INTO app.agent_run(id,workspace_id,project_id,thread_id,initiated_by,provider,model,status) VALUES (?,?,?,?,?,'OPENAI','synthetic','COMPLETED')", run, workspace, project, UUID.randomUUID(), user);
+        var latest = Flyway.configure().dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration").schemas("app").defaultSchema("app").load();
+        assertThat(latest.migrate().migrationsExecuted).isEqualTo(1);
+        latest.validate();
+        assertThat(jdbc.queryForObject("SELECT status FROM app.agent_run WHERE id=?", String.class, run)).isEqualTo("COMPLETED");
+        assertThat(jdbc.update("UPDATE app.agent_run SET status='PARTIAL' WHERE id=?", run)).isEqualTo(1);
+        assertThat(latest.migrate().migrationsExecuted).isZero();
         var pets = mock(CustomAgentPetService.class);
         when(pets.list(any(), eq(workspace))).thenReturn(new CustomAgentPetService.Collection(List.of(), null, 8, 24, 500, 6, "MODEL_PIXEL", false));
         var permissions = mock(WorkspacePermissionReader.class);
