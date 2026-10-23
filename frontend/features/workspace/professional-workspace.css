@@ -407,6 +407,10 @@
   width: 100%;
   max-width: 1560px;
   padding: 32px clamp(20px, 3vw, 44px) 64px;
+  scrollbar-width: none;
+}
+.figma-workspace .workspace-main::-webkit-scrollbar {
+  display: none;
 }
 .figma-workspace .project-heading,
 .figma-workspace .project-heading.chat-project-heading {
