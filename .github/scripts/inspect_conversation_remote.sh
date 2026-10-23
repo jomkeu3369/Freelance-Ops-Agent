@@ -4,6 +4,7 @@ set -euo pipefail
 mapfile -t agents < <(docker ps -q --filter label=com.docker.compose.service=agent)
 [[ "${#agents[@]}" == 1 ]]
 docker exec -i -e "DIAGNOSTIC_RUN_ID=$1" -e PYTHONDONTWRITEBYTECODE=1 \
+  -e PYTHONPATH=/app/src \
   -e LANGSMITH_TRACING=false -e LANGSMITH_TRACING_V2=false \
   "${agents[0]}" /app/.venv/bin/python - <<'PY'
 import asyncio
