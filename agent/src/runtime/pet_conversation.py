@@ -351,12 +351,12 @@ async def execute_conversation(provider: ModelProvider, request: AgentRunRequest
                     original_message = messages[change.message_index]
                     previous_speaker = messages[change.message_index - 1].speaker if change.message_index else None
                     recipient_name = previous_speaker.name if previous_speaker else None
-                    body = (conversation_reply_text(change.text, recipient_name, names) if original_message.speaker
-                            else conversation_text(change.text))
+                    body = conversation_reply_text("검토 후 정정: " + change.text, recipient_name,
+                                                   names if original_message.speaker else [])
                     if not body:
                         raise ValueError("Empty corrected message")
                     revised_messages[change.message_index] = original_message.model_copy(update={
-                        "text": "검토 후 정정: " + body, "evidence_refs": change.evidence_refs,
+                        "text": body, "evidence_refs": change.evidence_refs,
                         "evidence": [evidence[ref] for ref in change.evidence_refs]
                     })
                 messages, draft = revised_messages, revised_draft

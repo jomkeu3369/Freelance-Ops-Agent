@@ -93,6 +93,28 @@ test("a streamed correction updates the same speaker while the saved snapshot ca
   await expect(page.locator(".pet-conversation-message").first()).toContainText("검토 후 정정");
 });
 
+test("corrected replies keep one actual recipient through streaming persistence and reload",async({page})=>{
+  const corrected=messages.map((message,index)=>!index?message:{...message,
+    text:`검토 후 정정: ${messages[index-1].speaker.name}, **재전송 조건**을 다시 확인했어요.`});
+  const {state}=await open(page,{active:true,corrections:corrected.slice(1)});
+  const replies=page.locator(".pet-conversation-message");
+  for(const index of [1,2]) {
+    await expect(replies.nth(index).locator(".pet-conversation-reply")).toHaveText(`${messages[index-1].speaker.name}에게 답변`);
+    await expect(replies.nth(index).locator(".chat-markdown")).toHaveText(corrected[index].text.replaceAll("**",""));
+    await expect(replies.nth(index)).toHaveAttribute("data-speaker-id",messages[index].speakerPetId);
+  }
+  state.run={...state.run,status:"COMPLETED",result:{...state.run.result,petMessages:corrected}};
+  state.history[0].status="COMPLETED";
+  state.events=state.events.filter(event=>event.type!=="pet.message.corrected");
+  await page.reload();
+  await expect(replies).toHaveCount(3);
+  for(const index of [1,2]) {
+    await expect(replies.nth(index).locator(".chat-markdown")).toHaveText(corrected[index].text.replaceAll("**",""));
+    await expect(replies.nth(index).locator(".chat-markdown strong")).toHaveText("재전송 조건");
+    await expect(replies.nth(index).locator(".pet-conversation-reply")).toHaveText(`${messages[index-1].speaker.name}에게 답변`);
+  }
+});
+
 test("verified sources show the original link and collection time without allowing script URLs",async({page})=>{
   await open(page);
   const quality=page.getByRole("region",{name:"조사와 독립 검증"});

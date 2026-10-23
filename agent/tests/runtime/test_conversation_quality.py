@@ -365,6 +365,52 @@ async def test_one_bounded_revision_is_reverified_and_published_as_a_correction(
     assert (outcome.partial_error_code is None) is repair_passes
 
 
+@pytest.mark.parametrize("message_index", [0, 1, 2])
+async def test_corrected_messages_keep_one_marker_and_the_actual_reply_recipient(message_index: int) -> None:
+    run = request()
+    run.budget.max_model_calls = 6
+    run.budget.max_duration_seconds = 180
+    expected = ("검토 후 정정: " + (run.input.pet_profiles[message_index - 1].name + ", " if message_index else "")
+                + "실제 환경을 확인하자.")
+
+    class Provider(ProviderStub):
+        reviews = 0
+
+        async def generate_structured(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:
+            return ModelGeneration(payload={"summary": "환경 확인이 필요해.",
+                                            "quotation_drafts": [draft().model_dump()]})
+
+        async def generate_conversation_quality(self, selection: object, prompt: str, **kwargs: object) -> ModelGeneration:  # noqa: E501
+            data = json.loads(prompt)
+            if data["operation"] == "conversation_revision":
+                return ModelGeneration(payload={"messages": [{"message_index": message_index,
+                    "text": "검토 후 정정: 차근, 실제 환경을 확인하자.", "evidence_refs": []}],
+                    "draft_action": "KEEP", "draft": None, "open_questions": []})
+            self.reviews += 1
+            payload = review_payload(3)
+            if self.reviews == 1:
+                payload["message_checks"][message_index]["verdict"] = "UNSUPPORTED"
+            else:
+                assert data["messages"][message_index]["text"] == expected
+            return ModelGeneration(payload=payload)
+
+    events = []
+
+    async def collect(event):
+        events.append(event)
+
+    with progress_scope(collect):
+        outcome = await execute_conversation(Provider(), run, project(run), run.input.requirement_text)
+    message = outcome.result.pet_messages[message_index]
+    original = [event for event in events if event.type == "pet.message.completed"][message_index].data
+    corrected = next(event for event in events if event.type == "pet.message.corrected").data
+    assert message.text == corrected["text"] == expected
+    for key in ("message_id", "speaker_pet_id", "reply_to_message_id"):
+        assert getattr(message, key) == getattr(PetMessage.model_validate(original), key)
+        assert getattr(message, key) == getattr(PetMessage.model_validate(corrected), key)
+    assert outcome.partial_error_code is None
+
+
 def test_retained_effort_requires_an_identical_previously_accepted_item() -> None:
     data = review_payload()
     data["effort_checks"][0]["verdict"] = "RETAINED"
