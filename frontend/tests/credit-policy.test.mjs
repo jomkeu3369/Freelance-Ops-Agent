@@ -109,7 +109,7 @@ test("pixel pets use bounded generation while quotation assumptions remain manua
   assert.match(pet, /saveAgentPet\(session, preview.input\)/);
   assert.match(studio, /기본 제공 AI 사용량에 포함돼요/);
   assert.match(pet, /available=\{collection\?\.generationMode === "MODEL_PIXEL" && collection.aiGenerationAvailable\}/);
-  assert.match(basis, /className="ai-assumption-button"\s+disabled/);
+  assert.doesNotMatch(basis, /suggestQuotationAssumption|AI로 제안받기|AI로 다듬기/);
   assert.doesNotMatch(builder, /suggestQuotationAssumption/);
   assert.match(basis, /readOnly=\{!canWrite\}/);
 });

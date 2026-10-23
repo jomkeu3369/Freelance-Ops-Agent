@@ -1,6 +1,6 @@
 import { useT } from "../../../../app/lib/ui-language";
 import { QuotationItemInput } from "@/app/lib/api";
-import { Plus, Trash } from "@phosphor-icons/react";
+import { CaretDown, Plus, Trash } from "@phosphor-icons/react";
 import { formatMoney } from "../../shared/formatters";
 import { emptyQuoteItem } from "./quotation-helpers";
 import { QuoteItemBasis } from "./quote-item-basis";
@@ -9,13 +9,22 @@ import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
-  const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems, preview } = model;
+  const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems, preview, rateCards } = model;
+  const availableRates = rateCards.filter((card) => card.currency === project.currency);
+  const unitLabel = (unit: QuotationItemInput["unit"]) => unit === "HOUR" ? t("시간") : unit === "DAY" ? t("작업일") : t("고정");
   const amount = (index: number) => preview?.items?.[index]
     ? formatMoney(preview.items[index].total, project.currency) : t("계산 확인 중");
 
   const removeItem = (index: number) => {
     setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
     setSelectedBasisIndex((current) => Math.max(0, Math.min(current, items.length - 2)));
+  };
+
+  const selectRateCard = (index: number, rateCardId: string) => {
+    const card = availableRates.find((candidate) => candidate.id === rateCardId);
+    updateItem(index, (current) => card
+      ? { ...current, rateCardId: card.id, title: current.title.trim() ? current.title : card.name, unit: card.unit, unitRate: card.rate }
+      : { ...current, rateCardId: null });
   };
 
   return (
@@ -34,14 +43,36 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                   {t("항목")}
                   {String(index + 1).padStart(2, "0")}
                 </small>
-                <strong>{item.title || "새 작업 항목"}</strong>
+                <strong>{item.title || t("새 작업 항목")}</strong>
               </span>
               <span>
                 {amount(index)}
                 <small>{t("상세·근거")}</small>
               </span>
             </summary>
-            <div className="quote-row">
+            <div className={`quote-row quote-basic-fields${item.rateCardId ? " quote-linked-rate" : ""}`}>
+              <label className="quote-select-control quote-rate-selector">
+                <span>{t("단가 기준")}</span>
+                <div>
+                  <select
+                    aria-label={t("서비스 단가표")}
+                    value={item.rateCardId ?? ""}
+                    disabled={!canWrite}
+                    onChange={(event) => selectRateCard(index, event.target.value)}
+                  >
+                    <option value="">{t("직접 입력")}</option>
+                    {item.rateCardId && !availableRates.some((card) => card.id === item.rateCardId) && (
+                      <option value={item.rateCardId}>{t("저장된 단가")}</option>
+                    )}
+                    {availableRates.map((card) => (
+                      <option key={card.id} value={card.id}>
+                        {card.name} · {formatMoney(card.rate, card.currency)} / {unitLabel(card.unit)}
+                      </option>
+                    ))}
+                  </select>
+                  <CaretDown size={16} aria-hidden="true" />
+                </div>
+              </label>
               <label className="quote-title-field">
                 <span className="quote-field-label">{t("작업 항목")}</span>
                 <input
@@ -65,61 +96,45 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
                   }
                 />
               </label>
-              <label>
-                <span className="quote-field-label">{t("단위")}</span>
-                <select
-                  value={item.unit}
-                  disabled={!canWrite || Boolean(item.rateCardId)}
-                  onChange={(event) =>
-                    updateItem(index, (current) => ({
-                      ...current,
-                      unit: event.target.value as QuotationItemInput["unit"]
-                    }))
-                  }
-                >
-                  <option value="HOUR">{t("시간")}</option>
-                  <option value="DAY">{t("일")}</option>
-                  <option value="FIXED">{t("고정")}</option>
-                </select>
-              </label>
-              <label>
-                <span className="quote-field-label">{t("단가")}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1000"
-                  readOnly={!canWrite || Boolean(item.rateCardId)}
-                  value={item.unitRate}
-                  onChange={(event) =>
-                    updateItem(index, (current) => ({ ...current, unitRate: Number(event.target.value) }))
-                  }
-                />
-              </label>
-              <label>
-                <span className="quote-field-label">{t("할인율 (%)")}</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  readOnly={!canWrite}
-                  value={Math.round(item.discountRate * 100)}
-                  onChange={(event) =>
-                    updateItem(index, (current) => ({
-                      ...current,
-                      discountRate: Number(event.target.value) / 100
-                    }))
-                  }
-                />
-              </label>
-              <div className="quote-amount-field">
-                <span className="quote-field-label">{t("예상 금액")}</span>
-                <div className="quote-amount">
-                  <strong>
-                    {amount(index)}
-                  </strong>
+              {!item.rateCardId && (
+                <label>
+                  <span className="quote-field-label">{t("단위")}</span>
+                  <select
+                    value={item.unit}
+                    disabled={!canWrite}
+                    onChange={(event) =>
+                      updateItem(index, (current) => ({
+                        ...current,
+                        unit: event.target.value as QuotationItemInput["unit"]
+                      }))
+                    }
+                  >
+                    <option value="HOUR">{t("시간")}</option>
+                    <option value="DAY">{t("일")}</option>
+                    <option value="FIXED">{t("고정")}</option>
+                  </select>
+                </label>
+              )}
+              {item.rateCardId ? (
+                <div className="quote-applied-rate">
+                  <span className="quote-field-label">{t("단가")}</span>
+                  <strong>{formatMoney(item.unitRate, project.currency)} / {unitLabel(item.unit)}</strong>
                 </div>
-              </div>
+              ) : (
+                <label>
+                  <span className="quote-field-label">{t("단가")}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1000"
+                    readOnly={!canWrite}
+                    value={item.unitRate}
+                    onChange={(event) =>
+                      updateItem(index, (current) => ({ ...current, unitRate: Number(event.target.value) }))
+                    }
+                  />
+                </label>
+              )}
               <button
                 type="button"
                 className="remove-item"

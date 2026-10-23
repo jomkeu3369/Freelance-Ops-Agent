@@ -114,7 +114,8 @@ jobs:
               tests/browser/chat-markdown.spec.mjs \
               tests/browser/chat-history.spec.mjs \
               tests/browser/project-mutations.spec.mjs \
-              tests/browser/quotation-pagination.spec.mjs
+              tests/browser/quotation-pagination.spec.mjs \
+              tests/browser/quote-simplification.spec.mjs
           '
       - name: 합성 브라우저 검사 근거 보존
         if: always()
