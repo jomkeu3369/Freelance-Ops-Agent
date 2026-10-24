@@ -635,7 +635,7 @@ export function AgentChat({ session, projectId, run, runId, events, busy, canRun
                         <ArrowUpRight size={17} aria-hidden="true" />
                       </button>
                     </div>
-                  ) : petMessages.length && !["FAILED","CANCELLED","PARTIAL"].includes(status) ? null : status === "WAITING_FOR_USER" && item.runId === runId ? null : (
+                  ) : petMessages.length && !["FAILED","CANCELLED"].includes(status) ? null : status === "WAITING_FOR_USER" && item.runId === runId ? null : (
                     <p className="agent-chat-muted">
                       {resultLoading
                         ? t("작업 기록을 불러오는 중입니다.")
