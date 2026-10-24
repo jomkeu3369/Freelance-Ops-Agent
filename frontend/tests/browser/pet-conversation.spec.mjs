@@ -9,7 +9,7 @@ const draft = {scenario:"RECOMMENDED",items:[{title:"예약 개발",description:
 const messages = profiles.slice(0,3).map((speaker,index) => ({messageId:`message-${index}`,speakerPetId:speaker.petId,
   speaker,replyToMessageId:index?`message-${index-1}`:null,text:["결제까지 넣으면 검증할 시간이 더 필요해.","예약만 받고 돈은 누가 받냥? 범위를 같이 정하자!","예산과 작업 범위를 확인하고 결정해줘."][index],evidenceRefs:["project"],evidence:[{id:"project",title:"고객 문의",content:"사용자가 작성한 원문"}]}));
 
-async function open(page, {width=1440,locale="ko",theme="light",active=false,loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,corrections=[],verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks",phaseEvent=null}={}) {
+async function open(page, {width=1440,locale="ko",theme="light",active=false,runStatus=active?"RUNNING":"COMPLETED",loadStatus=200,missingRate=false,savedMessages=messages,eventMessages=savedMessages,corrections=[],verification="COMPLETED",sourceUrl="https://docs.stripe.com/webhooks",phaseEvent=null}={}) {
   await page.setViewportSize({width,height:1000});
   const state = await fixture(page);
   const server = {view:{version:4,settings:{petMode:true,debateEnabled:true,participantPetIds:profiles.slice(0,3).map(p=>p.petId),acceptedDraft:null,draftSourceRunId:null}},saves:[],accepts:[],starts:[],order:[],previews:[],previewStatus:200,cancelStatus:200,saveStatus:200,loadStatus};
@@ -19,7 +19,7 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
       {department:"VERIFICATION",status:verification,summary:verification==="COMPLETED"?"범위와 공수 가정을 검토했습니다.":"요구사항 누락: 취소 처리",errorCode:verification==="COMPLETED"?null:"CONVERSATION_VERIFICATION_FAILED",sources:[]}
     ],quotationDraft:draft,quotationDrafts:[draft],petMessages},
     metadata:{provider:"OPENAI",model:"gpt-6-luna",petProfiles:profiles.slice(0,3)},usage:null,updatedAt:"2026-10-21T10:00:00Z"});
-  state.run = completed(active?"RUNNING":"COMPLETED");
+  state.run = completed(runStatus);
   state.history = [{runId:"run-one",requirementText:"예약 웹사이트를 만들고 싶어",status:state.run.status,createdAt:"2026-10-21T10:00:00Z"}];
   state.events = eventMessages.map((message,index)=>({eventId:index+1,runId:"run-one",type:"pet.message.completed",occurredAt:"2026-10-21T10:00:00Z",data:message}));
   for(const message of corrections) state.events.push({eventId:state.events.length+1,runId:"run-one",type:"pet.message.corrected",occurredAt:"2026-10-21T10:00:01Z",data:message});
@@ -61,6 +61,59 @@ async function open(page, {width=1440,locale="ko",theme="light",active=false,loa
   await page.goto("/workspace/projects/project-one/agent");
   await expect(page.locator(".pet-conversation-team button")).toBeVisible({timeout:30000});
   return {state,server};
+}
+
+for(const locale of ["ko","en"]) {
+  test(`${locale}: partial pet replies survive reload and follow-up without a false missing-result notice`,async({page})=>{
+    const {state,server}=await open(page,{locale,runStatus:"PARTIAL",eventMessages:[],verification:"PARTIAL"});
+    server.view.settings.acceptedDraft=draft;
+    server.view.settings.draftSourceRunId="accepted-run";
+    const partial=structuredClone(state.run);
+    const oldHistory=structuredClone(state.history);
+    const turn=page.locator('[data-run-id="run-one"]');
+    const missing=locale==="ko"?"이 실행에 저장된 결과가 없습니다.":"No result was saved for this run.";
+    await expect(turn.locator(".pet-conversation-message")).toHaveCount(3);
+    await expect(turn.locator(".pet-conversation-status")).toHaveAttribute("data-state","attention");
+    await expect(turn).not.toContainText(missing);
+    const restored=await turn.locator(".pet-conversation-message").allTextContents();
+    await page.reload();
+    await expect(turn.locator(".pet-conversation-message")).toHaveCount(3);
+    expect(await turn.locator(".pet-conversation-message").allTextContents()).toEqual(restored);
+    await expect(turn).not.toContainText(missing);
+    const followMessages=messages.map((message,index)=>({...message,messageId:`follow-${index}`,
+      replyToMessageId:index?`follow-${index-1}`:null,text:["새 확인 질문을 검토했어요.","관리자 권한도 확인하자.","다시 시도할 경로가 필요해."][index]}));
+    await page.route("**/agent-runs",route=>{
+      if(route.request().method()!=="POST")return route.fallback();
+      const body=route.request().postDataJSON();server.starts.push(body);
+      state.pastRuns[partial.runId]=partial;
+      state.run={...partial,runId:"run-followup",status:"COMPLETED",result:{...partial.result,
+        quotationDraft:null,quotationDrafts:[],petMessages:followMessages}};
+      state.history=[...oldHistory,{runId:"run-followup",requirementText:body.requirementText,status:"COMPLETED",createdAt:"2026-10-21T10:01:00Z"}];
+      state.events=followMessages.map((message,index)=>({eventId:index+1,runId:"run-followup",type:"pet.message.completed",occurredAt:"2026-10-21T10:01:00Z",data:message}));
+      return route.fulfill({status:202,json:{runId:"run-followup",status:"COMPLETED",acceptedAt:"2026-10-21T10:01:00Z"}});
+    });
+    await page.locator("#agent-chat-input").fill("부분 완료 답변을 이어서 검토해 줘");
+    await page.getByRole("button",{name:locale==="ko"?"보내기":"Send",exact:true}).click();
+    const follow=page.locator('[data-run-id="run-followup"]');
+    await expect(follow.locator(".pet-conversation-message")).toHaveCount(3);
+    expect(server.starts).toHaveLength(1);
+    expect(server.starts[0].requirementText).toBe("부분 완료 답변을 이어서 검토해 줘");
+    await page.reload();
+    await expect(follow.locator(".pet-conversation-message")).toHaveCount(3);
+    await expect(turn.locator(".pet-conversation-message")).toHaveCount(3);
+    await expect(turn).not.toContainText(missing);
+    await expect(page.locator(".pet-conversation-brief")).toContainText("예약 개발");
+    expect(server.view.settings.acceptedDraft).toEqual(draft);
+  });
+
+  test(`${locale}: a partial run with no result still reports the missing result`,async({page})=>{
+    const {state}=await open(page,{locale,runStatus:"PARTIAL",savedMessages:[],eventMessages:[]});
+    state.run={...state.run,result:null};
+    await page.reload();
+    const turn=page.locator('[data-run-id="run-one"]');
+    await expect(turn.locator(".pet-conversation-message")).toHaveCount(0);
+    await expect(turn).toContainText(locale==="ko"?"이 실행에 저장된 결과가 없습니다.":"No result was saved for this run.");
+  });
 }
 
 test("independent verification blocks apply and shows the missing requirement",async({page})=>{
