@@ -399,8 +399,12 @@ test("a policy change before saving refreshes the displayed amount without creat
   await page.getByRole("button",{name:"초안에 반영",exact:true}).click();
   await page.getByRole("button",{name:"견적 검토하기",exact:true}).click();
   await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
+  const save = page.getByRole("button",{name:"검토용 초안 저장",exact:true});
+  await save.scrollIntoViewIfNeeded();
+  await expect(save).toBeEnabled();
+  await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
   state.policy.defaultRiskBufferRate=.2;
-  await page.getByRole("button",{name:"검토용 초안 저장",exact:true}).click();
+  await save.click();
   await expect(page.getByRole("alert").filter({hasText:"계산 기준이 바뀌었습니다."})).toBeVisible();
   expect(creates).toEqual([]);
   await expect(page.locator(".quote-total")).toContainText("₩1,188,000");

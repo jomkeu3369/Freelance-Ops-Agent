@@ -1,7 +1,7 @@
 import type { PendingRunRetry } from "../../../../app/lib/pending-run-store";
 import type { SkillSelection } from "../../skills/skill-selection";
 import { PawPrint, Receipt } from "@phosphor-icons/react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "../../../../app/lib/ui-language";
 import { AuthSession, AgentRunView, AgentRunUsage, WorkflowEvent } from "../../../../app/lib/api";
 import { snapshotFromEvents } from "../../../../app/components/live-workflow";
@@ -49,15 +49,41 @@ interface AnalysisStepProps {
 export function AnalysisStep({ session, projectId, run, runId, events, busy, canCancel, canRespond, canRun, canEditPolicy, modelAvailable, composerTools, composerInfo, canSendAI, canStartQuotation, canOpenPets, onStartQuotation, onOpenPets, quotationError, retryCandidates, streamState, onOpenAISettings, onSendMessage, costUsage, onCancel, onResume, onCompareQuotes, conversationTools, onInterrupt }: AnalysisStepProps) {
   const t = useT();
   const [reviewedRun, setReviewedRun] = useState<AgentRunView | null>(null);
+  const conversationPanel = useRef<HTMLElement>(null);
   const resultView = reviewedRun?.runId === run?.runId ? run : reviewedRun;
   const active = !!runId && (!run || ["QUEUED", "RUNNING", "WAITING_FOR_USER"].includes(run.status));
+
+  useLayoutEffect(() => {
+    const panel = conversationPanel.current;
+    const main = panel?.closest<HTMLElement>(".workspace-main");
+    if (!panel || !main) return;
+    // 제목과 번역 길이가 달라져도 실제 남은 높이로 대화 영역을 정한다.
+    const updateHeight = () => {
+      const top = panel.getBoundingClientRect().top + main.scrollTop;
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      panel.style.setProperty("--pet-chat-height", `${Math.max(300, Math.floor(height - top - 16))}px`);
+    };
+    const observer = new ResizeObserver(updateHeight);
+    const workbench = panel.closest(".project-workbench");
+    [main, workbench?.querySelector(".project-heading"), workbench?.querySelector(".workbench-steps"), workbench?.querySelector(".pet-conversation-shortcut")].forEach(element => {
+      if (element) observer.observe(element);
+    });
+    window.addEventListener("resize", updateHeight);
+    window.visualViewport?.addEventListener("resize", updateHeight);
+    updateHeight();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+      window.visualViewport?.removeEventListener("resize", updateHeight);
+    };
+  }, [projectId]);
 
   function openResult(view: AgentRunView) {
     setReviewedRun(view);
   }
 
   return (
-    <section className="pet-conversation-main">
+    <section className="pet-conversation-main" ref={conversationPanel}>
       <AgentChat
         key={`${session.userId}:${session.workspaceId}:${projectId}`}
         session={session}
@@ -80,11 +106,11 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, can
               <>
                 <button type="button" className="quiet-button chat-pet-trigger" aria-label={t("펫 만들기·관리")} disabled={!canOpenPets || active} onClick={onOpenPets}>
                   <PawPrint size={18} aria-hidden="true" />
-                  <span>{t("펫 만들기·관리")}</span>
+                  <span className="chat-action-long">{t("펫 만들기·관리")}</span><span className="chat-action-short" aria-hidden="true">{t("펫 관리")}</span>
                 </button>
                 <button type="button" className="secondary-button chat-quotation-start" aria-label={t("문의로 대화 시작")} disabled={busy || active || !canStartQuotation} onClick={onStartQuotation}>
                   <Receipt size={17} aria-hidden="true" />
-                  <span>{t("문의로 대화 시작")}</span>
+                  <span className="chat-action-long">{t("문의로 대화 시작")}</span><span className="chat-action-short" aria-hidden="true">{t("문의로 시작")}</span>
                 </button>
               </>
             )}
