@@ -70,6 +70,7 @@
 .figma-workspace .hallmark-workbench .pet-conversation-message strong { font-size: var(--wb-text-body); }
 .figma-workspace .hallmark-workbench .pet-conversation-message .chat-markdown { margin-top: var(--wb-space-sm); padding: 0; border-radius: 0; background: transparent; font-size: var(--wb-text-body); line-height: 1.65; }
 .figma-workspace .hallmark-workbench :is(.pet-conversation-reply, .pet-conversation-evidence, .pet-conversation-history) { margin-top: var(--wb-space-sm); font-size: var(--wb-text-sm); color: var(--muted); }
+.figma-workspace .hallmark-workbench .pet-conversation-history { flex: 0 0 auto; }
 .figma-workspace .hallmark-workbench .pet-conversation-evidence summary { min-height: 44px; }
 .figma-workspace .hallmark-workbench .pet-conversation-evidence p { border: 0; border-left: 2px solid var(--line); border-radius: 0; padding: var(--wb-space-sm) var(--wb-space-md); font-size: var(--wb-text-sm); }
 .figma-workspace .hallmark-workbench.is-chat .agent-chat-message { font-size: var(--wb-text-body); }

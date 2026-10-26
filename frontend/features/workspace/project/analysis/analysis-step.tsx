@@ -56,23 +56,43 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, can
   useLayoutEffect(() => {
     const panel = conversationPanel.current;
     const main = panel?.closest<HTMLElement>(".workspace-main");
-    if (!panel || !main) return;
+    const chat = panel?.querySelector<HTMLElement>(".agent-chat");
+    const log = chat?.querySelector<HTMLElement>(".agent-chat-turns");
+    if (!panel || !main || !chat || !log) return;
     // 제목과 번역 길이가 달라져도 실제 남은 높이로 대화 영역을 정한다.
+    const flowHeight = (element: Element) => {
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.position === "absolute" || style.position === "fixed") return 0;
+      return element.getBoundingClientRect().height + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+    };
     const updateHeight = () => {
       const top = panel.getBoundingClientRect().top + main.scrollTop;
       const height = window.visualViewport?.height ?? window.innerHeight;
-      panel.style.setProperty("--pet-chat-height", `${Math.max(300, Math.floor(height - top - 16))}px`);
+      const chrome = [...chat.children].filter(element => element !== log).reduce((sum, element) => sum + flowHeight(element), 0);
+      const auxiliary = [...panel.children].filter(element => element !== chat).reduce((sum, element) => sum + flowHeight(element), 0);
+      const minimum = Math.ceil(chrome + auxiliary + parseFloat(getComputedStyle(log).minHeight));
+      const value = `${Math.max(minimum, Math.floor(height - top - 16))}px`;
+      if (panel.style.getPropertyValue("--pet-chat-height") !== value) panel.style.setProperty("--pet-chat-height", value);
     };
     const observer = new ResizeObserver(updateHeight);
     const workbench = panel.closest(".project-workbench");
     [main, workbench?.querySelector(".project-heading"), workbench?.querySelector(".workbench-steps"), workbench?.querySelector(".pet-conversation-shortcut")].forEach(element => {
       if (element) observer.observe(element);
     });
+    const observeChrome = () => {
+      [...chat.children, ...panel.children].filter(element => element !== log && element !== chat).forEach(element => observer.observe(element));
+      updateHeight();
+    };
+    const mutation = new MutationObserver(observeChrome);
+    mutation.observe(chat, { childList: true });
+    mutation.observe(panel, { childList: true });
+    observeChrome();
     window.addEventListener("resize", updateHeight);
     window.visualViewport?.addEventListener("resize", updateHeight);
     updateHeight();
     return () => {
       observer.disconnect();
+      mutation.disconnect();
       window.removeEventListener("resize", updateHeight);
       window.visualViewport?.removeEventListener("resize", updateHeight);
     };
