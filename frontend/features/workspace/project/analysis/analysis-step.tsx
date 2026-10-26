@@ -78,11 +78,11 @@ export function AnalysisStep({ session, projectId, run, runId, events, busy, can
           <>
             {canRun && (
               <>
-                <button type="button" className="quiet-button chat-pet-trigger" disabled={!canOpenPets || active} onClick={onOpenPets}>
+                <button type="button" className="quiet-button chat-pet-trigger" aria-label={t("펫 만들기·관리")} disabled={!canOpenPets || active} onClick={onOpenPets}>
                   <PawPrint size={18} aria-hidden="true" />
                   <span>{t("펫 만들기·관리")}</span>
                 </button>
-                <button type="button" className="primary-button chat-quotation-start" disabled={busy || active || !canStartQuotation} onClick={onStartQuotation}>
+                <button type="button" className="secondary-button chat-quotation-start" aria-label={t("문의로 대화 시작")} disabled={busy || active || !canStartQuotation} onClick={onStartQuotation}>
                   <Receipt size={17} aria-hidden="true" />
                   <span>{t("문의로 대화 시작")}</span>
                 </button>

@@ -10,6 +10,7 @@ import "../../features/workspace/pets/pet-library.css";
 import "../../features/workspace/pets/pet-creation.css";
 import "../../features/workspace/auth/auth.css";
 import "../../features/workspace/shared/disclosure.css";
+import "../../features/workspace/hallmark-workbench.css";
 
 interface WorkspaceLayoutProps {
   children: ReactNode;

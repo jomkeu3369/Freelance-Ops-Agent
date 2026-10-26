@@ -1,0 +1,196 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full
+ * display: Pretendard · body: Pretendard · nav: existing shell
+ * signature: pet conversation and estimate ledger · posture: Restrained
+ * states: loading, empty, error, full, partial · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V3 · weakest: V, retain shared navigation and give conversation and quotation different compositions */
+/* Hallmark · answered F7 · workbench regions share flat divider styling; repeated zero-radius resets remove inherited cards rather than introduce repeated containers */
+.figma-workspace .project-workbench {
+  --wb-space-xs: 4px;
+  --wb-space-sm: 8px;
+  --wb-space-md: 12px;
+  --wb-space-lg: 16px;
+  --wb-space-xl: 24px;
+  --wb-space-2xl: 40px;
+  --wb-text-sm: .875rem;
+  --wb-text-body: 1rem;
+  --wb-text-title: 1.2rem;
+  --wb-text-heading: 1.44rem;
+  --wb-text-total: 1.728rem;
+  --wb-radius: 8px;
+  --wb-duration: 120ms;
+  --wb-ease: cubic-bezier(.16, 1, .3, 1);
+  color: var(--ink);
+  font-size: var(--wb-text-body);
+  line-height: 1.6;
+}
+.figma-workspace .hallmark-workbench :is(button, a, summary) { -webkit-tap-highlight-color: transparent; }
+.figma-workspace .hallmark-workbench :is(button, a, summary, input, textarea, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.figma-workspace .hallmark-workbench :is(button, a):active:not(:disabled) { transform: translateY(1px); }
+.figma-workspace .hallmark-workbench :is(button, input, textarea, select):disabled { opacity: .55; cursor: not-allowed; }
+.figma-workspace .hallmark-workbench :is(h1, h2, h3) { text-wrap: balance; overflow-wrap: break-word; min-width: 0; }
+.figma-workspace .hallmark-workbench :is(p, dd) { text-wrap: pretty; }
+.figma-workspace .project-workbench > .project-heading { gap: var(--wb-space-xl); margin-bottom: var(--wb-space-lg); }
+.figma-workspace .project-workbench > .project-heading > div { min-width: 0; }
+.figma-workspace .project-workbench > .project-heading h1 { max-width: 100%; font-size: var(--wb-text-heading); line-height: 1.3; }
+.figma-workspace .hallmark-workbench :is(.project-status, .project-client) { font-size: var(--wb-text-sm); }
+.figma-workspace .project-workbench > .workbench-steps { flex-wrap: nowrap; gap: var(--wb-space-sm); padding: 0; margin-bottom: var(--wb-space-xl); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.figma-workspace .project-workbench > .workbench-steps button { flex: 0 1 auto; min-height: 44px; padding: var(--wb-space-sm) var(--wb-space-lg); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); font-size: var(--wb-text-sm); white-space: nowrap; overflow-wrap: normal; }
+.figma-workspace .project-workbench > .workbench-steps button.active { border-bottom-color: var(--accent); color: var(--accent); background: transparent; box-shadow: none; }
+.figma-workspace .project-workbench > .workbench-steps button span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+.figma-workspace .hallmark-workbench .pet-conversation-workspace { grid-template-columns: minmax(0, 1fr) 328px; gap: var(--wb-space-2xl); padding: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .pet-conversation-main { height: calc(100dvh - 280px); min-height: 500px; position: sticky; top: var(--wb-space-lg); }
+.figma-workspace .hallmark-workbench.is-chat .pet-conversation-main .agent-chat { flex: 1 1 0; min-height: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-heading { min-height: 44px; padding: 0 0 var(--wb-space-lg); border-bottom: 0; gap: var(--wb-space-sm); flex-wrap: wrap; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-identity { position: static; width: auto; height: auto; padding: 0; margin: 0; clip-path: none; overflow: visible; white-space: normal; border: 0; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-identity h2 { font-size: var(--wb-text-title); margin: 0; }
+.figma-workspace .hallmark-workbench.is-chat :is(.agent-chat-avatar, .agent-chat-identity p) { display: none; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools { margin-left: auto; flex-wrap: wrap; gap: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools button { min-height: 44px; padding: var(--wb-space-sm); border: 0; border-radius: var(--wb-radius); background: transparent; color: var(--muted); font-size: var(--wb-text-sm); white-space: nowrap; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-state { min-height: 32px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-state i { display: none; }
+.figma-workspace .hallmark-workbench .pet-conversation-controls { flex: 0 0 auto; position: relative; padding: var(--wb-space-sm) 0; border-block: 1px solid var(--line); background: transparent; }
+.figma-workspace .hallmark-workbench .pet-conversation-team { flex-wrap: nowrap; min-height: 44px; gap: var(--wb-space-sm); padding-right: 52px; }
+.pet-conversation-members { display: flex; flex: 1 1 auto; gap: var(--wb-space-lg); align-items: center; min-width: 0; overflow: clip; }
+.pet-conversation-member { display: flex; min-width: 0; align-items: center; gap: var(--wb-space-xs); }
+.figma-workspace .hallmark-workbench .pet-conversation-member .pet-art { flex: 0 0 32px; width: 32px; height: 36px; margin: 0; }
+.figma-workspace .hallmark-workbench .pet-conversation-member strong { max-width: 5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-participants { flex-shrink: 0; min-height: 44px; padding: 0 var(--wb-space-sm); border: 0; background: transparent; font-size: var(--wb-text-sm); }
+.pet-conversation-participants > span:last-child { display: none; }
+.pet-conversation-settings > summary { position: absolute; top: var(--wb-space-sm); right: 0; display: flex; align-items: center; justify-content: center; width: 44px; min-height: 44px; list-style: none; border-radius: var(--wb-radius); color: var(--muted); cursor: pointer; }
+.pet-conversation-settings > summary::-webkit-details-marker { display: none; }
+.pet-conversation-settings > summary > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.figma-workspace .hallmark-workbench .pet-conversation-switches { justify-content: flex-start; gap: var(--wb-space-sm) var(--wb-space-xl); padding-top: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-switches label { min-height: 44px; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-switches select { min-height: 44px; max-width: 180px; border-color: var(--control-border); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-turns { flex: 1 1 0; min-height: 120px; padding: var(--wb-space-lg) var(--wb-space-sm) var(--wb-space-lg) 0; background: transparent; scrollbar-gutter: stable; overscroll-behavior-y: contain; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-content { max-width: none; gap: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench .pet-conversation-message { gap: var(--wb-space-md); margin: var(--wb-space-lg) 0; }
+.figma-workspace .hallmark-workbench .pet-conversation-message > .pet-art { flex-basis: 40px; width: 40px; height: 44px; padding: 0; border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .pet-conversation-message strong { font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .pet-conversation-message .chat-markdown { margin-top: var(--wb-space-sm); padding: 0; border-radius: 0; background: transparent; font-size: var(--wb-text-body); line-height: 1.65; }
+.figma-workspace .hallmark-workbench :is(.pet-conversation-reply, .pet-conversation-evidence, .pet-conversation-history) { margin-top: var(--wb-space-sm); font-size: var(--wb-text-sm); color: var(--muted); }
+.figma-workspace .hallmark-workbench .pet-conversation-evidence summary { min-height: 44px; }
+.figma-workspace .hallmark-workbench .pet-conversation-evidence p { border: 0; border-left: 2px solid var(--line); border-radius: 0; padding: var(--wb-space-sm) var(--wb-space-md); font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-message { font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-message.user { padding: var(--wb-space-md) var(--wb-space-lg); border-radius: var(--wb-radius); background: var(--surface-2); color: var(--ink); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-message-label { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-composer { width: 100%; align-self: stretch; flex: 0 0 auto; margin: 0; padding: var(--wb-space-sm) 0 0; border: 0; border-radius: 0; box-shadow: none; background: var(--bg); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-composer > label { display: block; position: static; width: auto; height: auto; padding: 0; margin: 0 0 var(--wb-space-sm); overflow: visible; clip-path: none; border: 0; white-space: normal; font-size: var(--wb-text-sm); color: var(--muted); }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-composer textarea { width: 100%; min-height: 80px; max-height: 160px; padding: var(--wb-space-md); border: 1px solid var(--control-border); border-radius: var(--wb-radius); background: var(--surface-solid); color: var(--ink); font-size: var(--wb-text-body); line-height: 1.6; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-actions { min-width: 0; gap: var(--wb-space-sm); padding-top: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench.is-chat :is(.agent-chat-credit-note, .agent-chat-credit-note .quiet-button, .model-selection-note, .agent-chat-composer .agent-chat-muted) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief { max-height: none; overflow: visible; padding-left: var(--wb-space-xl); border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; scroll-margin-top: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief > header { padding: 0 0 var(--wb-space-lg); border: 0; gap: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief h2 { font-size: var(--wb-text-title); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief h3 { font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief header span { color: var(--muted); font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief-body { padding: 0; }
+.pet-conversation-facts { border-bottom: 1px solid var(--line); padding-bottom: var(--wb-space-md); }
+.pet-conversation-facts > summary { display: list-item; min-height: 44px; padding-block: var(--wb-space-sm); cursor: pointer; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief :is(dl, li, li details) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief li { padding-block: var(--wb-space-sm); margin: 0; gap: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-brief dd { font-variant-numeric: tabular-nums; }
+.figma-workspace .hallmark-workbench :is(.pet-conversation-question, .pet-conversation-proposal, .pet-conversation-quality) { margin-block: var(--wb-space-lg); padding: var(--wb-space-lg) 0; border: 0; border-block: 1px solid var(--line); border-radius: 0; background: transparent; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-quality-report > summary { flex-wrap: wrap; }
+.figma-workspace .hallmark-workbench .pet-conversation-quality-report > summary strong { white-space: normal; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-total { align-items: flex-start; flex-direction: column; gap: var(--wb-space-sm); padding-top: var(--wb-space-lg); border-top: 1px solid var(--line); font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .pet-conversation-total strong { font-size: var(--wb-text-total); color: var(--ink); font-variant-numeric: tabular-nums; }
+.figma-workspace .hallmark-workbench .pet-conversation-brief-body > .secondary-button { width: 100%; margin-top: var(--wb-space-lg); min-height: 44px; border: 1px solid var(--control-border); background: transparent; color: var(--ink); }
+.pet-conversation-shortcut { display: none; }
+.figma-workspace .hallmark-workbench .quote-builder { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.figma-workspace .hallmark-workbench .quote-toolbar { gap: var(--wb-space-lg) var(--wb-space-xl); margin-bottom: var(--wb-space-lg); padding: 0; border: 0; }
+.figma-workspace .hallmark-workbench .quote-toolbar h2 { font-size: var(--wb-text-heading); line-height: 1.4; }
+.figma-workspace .hallmark-workbench .scenario-switch { gap: var(--wb-space-xs); padding: var(--wb-space-xs); border: 0; border-radius: var(--wb-radius); background: var(--surface); width: auto; }
+.figma-workspace .hallmark-workbench .scenario-switch button { min-height: 44px; min-width: 0; padding-inline: var(--wb-space-lg); border: 0; border-radius: var(--wb-radius); background: transparent; color: var(--muted); font-size: var(--wb-text-sm); white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+.figma-workspace .hallmark-workbench .scenario-switch button.active { color: var(--accent); background: var(--surface-solid); }
+.figma-workspace .hallmark-workbench .quote-layout { grid-template-columns: minmax(0, 1fr) 304px; gap: var(--wb-space-2xl); margin-top: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench .quote-sheet { gap: 0; }
+.quote-ledger-heading { display: flex; justify-content: space-between; padding: var(--wb-space-lg) 36px var(--wb-space-lg) 0; border-bottom: 1px solid var(--line); font-size: var(--wb-text-sm); color: var(--muted); }
+.figma-workspace .hallmark-workbench .quote-item-block { min-width: 0; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; transition: none; }
+.figma-workspace .hallmark-workbench .quote-item-disclosure { display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; gap: var(--wb-space-md); align-items: center; padding: var(--wb-space-lg) 0; margin: 0; border: 0; list-style: none; color: var(--ink); }
+.quote-item-disclosure::-webkit-details-marker { display: none; }
+.figma-workspace .hallmark-workbench .quote-item-disclosure > .quote-item-name { display: flex; align-items: center; gap: var(--wb-space-lg); width: auto; min-width: 0; padding: 0; }
+.quote-item-name > span { display: grid; min-width: 0; gap: var(--wb-space-xs); }
+.figma-workspace .hallmark-workbench .quote-item-disclosure .quote-item-index { min-width: 24px; font-size: var(--wb-text-sm); font-variant-numeric: tabular-nums; }
+.figma-workspace .hallmark-workbench .quote-item-disclosure strong { font-size: var(--wb-text-body); line-height: 1.5; }
+.figma-workspace .hallmark-workbench .quote-item-disclosure small { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .quote-item-disclosure > .quote-item-total { display: block; width: auto; padding: 0; margin: 0; text-align: right; font-size: var(--wb-text-body); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.quote-item-caret { color: var(--muted); transition: transform var(--wb-duration) var(--wb-ease); }
+.quote-item-block[open] .quote-item-caret { transform: rotate(180deg); }
+.figma-workspace .hallmark-workbench .quote-item-block > .quote-row,
+.figma-workspace .hallmark-workbench .quote-item-block > .basis-row { margin: 0; padding: var(--wb-space-lg); background: var(--surface); }
+.figma-workspace .hallmark-workbench :is(.quote-field-label, .quote-select-control > span, .basis-copy-heading, .quote-item-options > summary, .quote-applied-rate strong) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench :is(.quote-row input, .quote-row select, .basis-row textarea, .basis-row input, .basis-row select) { font-size: var(--wb-text-body); border-color: var(--control-border); }
+.figma-workspace .hallmark-workbench .quote-builder .workspace-disclosure { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .quote-builder .workspace-disclosure > summary { min-height: 44px; padding: var(--wb-space-md) 0; font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .quote-builder .workspace-disclosure > summary small { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .quote-item-options.workspace-disclosure { border-bottom: 0; }
+.figma-workspace .hallmark-workbench .quote-summary { top: var(--wb-space-xl); padding: var(--wb-space-xl) 0 0; border: 0; border-top: 2px solid var(--ink); border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .quote-summary > h3 { margin: 0 0 var(--wb-space-xl); font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .quote-summary dl { margin: var(--wb-space-lg) 0; }
+.figma-workspace .hallmark-workbench .quote-summary dl > div { padding-block: var(--wb-space-sm); border: 0; gap: var(--wb-space-sm); }
+.figma-workspace .hallmark-workbench .quote-summary :is(dt, dd, p, label small) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .quote-summary dd { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.figma-workspace .hallmark-workbench .quote-summary .quote-total { flex-direction: column; align-items: flex-start; padding-block: var(--wb-space-lg); margin-top: var(--wb-space-lg); border-top: 1px solid var(--line); }
+.figma-workspace .hallmark-workbench .quote-summary .quote-total dd { font-size: var(--wb-text-total); color: var(--ink); }
+.figma-workspace .hallmark-workbench .quote-summary .primary-button { min-height: 44px; margin-top: var(--wb-space-xl); font-size: var(--wb-text-sm); white-space: normal; }
+.figma-workspace .hallmark-workbench :is(.quote-draft-state, .quote-conflict, .saved-quote) { border-radius: 0; border: 0; border-left: 2px solid var(--accent); background: transparent; }
+.figma-workspace .hallmark-workbench :is(.quote-draft-state small, .saved-quote p, .validation-hint) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .add-row { margin-top: var(--wb-space-sm); border: 0; background: transparent; font-size: var(--wb-text-sm); min-height: 44px; }
+@media (max-width: 1200px) {
+  .figma-workspace .hallmark-workbench .pet-conversation-workspace { grid-template-columns: minmax(0, 1fr) 296px; gap: var(--wb-space-xl); }
+  .figma-workspace .hallmark-workbench .pet-conversation-members { gap: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .quote-layout { grid-template-columns: minmax(0, 1fr) 272px; gap: var(--wb-space-xl); }
+}
+@media (max-width: 1100px) {
+  .figma-workspace .hallmark-workbench .pet-conversation-workspace { grid-template-columns: minmax(0, 1fr); gap: var(--wb-space-xl); }
+  .figma-workspace .hallmark-workbench .pet-conversation-main { grid-row: 2; position: static; height: calc(100dvh - 330px); min-height: 480px; }
+  .figma-workspace .hallmark-workbench .pet-conversation-shortcut { grid-row: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--wb-space-sm); min-width: 0; padding-block: var(--wb-space-md); border-block: 1px solid var(--line); color: var(--accent); font-size: var(--wb-text-sm); }
+  .pet-conversation-shortcut > span { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--wb-space-sm); min-width: 0; }
+  .pet-conversation-shortcut > span:first-child { color: var(--muted); }
+  .pet-conversation-shortcut strong { font-size: var(--wb-text-body); color: var(--ink); font-variant-numeric: tabular-nums; }
+  .pet-conversation-shortcut > span:last-child { flex-shrink: 0; align-items: center; }
+  .figma-workspace .hallmark-workbench .pet-conversation-brief { padding: var(--wb-space-xl) 0 0; border: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 820px) {
+  .figma-workspace .hallmark-workbench .quote-layout { grid-template-columns: minmax(0, 1fr); }
+  .figma-workspace .hallmark-workbench .quote-summary { position: static; }
+  .figma-workspace .hallmark-workbench .quote-summary .quote-total { flex-direction: row; flex-wrap: wrap; align-items: baseline; }
+}
+@media (max-width: 600px) {
+  .figma-workspace .project-workbench > .workbench-steps { gap: 0; }
+  .figma-workspace .project-workbench > .workbench-steps button { flex: 1 1 0; padding-inline: var(--wb-space-xs); }
+  .figma-workspace .hallmark-workbench.is-chat .agent-chat-identity h2 { font-size: var(--wb-text-body); }
+  .figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools button { width: 44px; padding: 0; }
+  .figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools button span { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+  .figma-workspace .hallmark-workbench .pet-conversation-controls { padding-inline: 0; }
+  .figma-workspace .hallmark-workbench .pet-conversation-team { gap: var(--wb-space-xs); }
+  .figma-workspace .hallmark-workbench .pet-conversation-members { gap: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .pet-conversation-member .pet-art { width: 28px; flex-basis: 28px; height: 32px; }
+  .figma-workspace .hallmark-workbench .pet-conversation-participants { padding-inline: var(--wb-space-xs); }
+  .pet-conversation-participants > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .pet-conversation-participants > span:last-child { display: inline; }
+  .figma-workspace .hallmark-workbench.is-chat .agent-chat-state { font-size: var(--wb-text-sm); }
+  .figma-workspace .hallmark-workbench.is-chat .agent-chat-turns { padding-inline: 0 var(--wb-space-xs); }
+  .figma-workspace .hallmark-workbench .pet-conversation-message { gap: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .pet-conversation-message > .pet-art { flex-basis: 32px; width: 32px; height: 36px; }
+  .figma-workspace .hallmark-workbench .pet-conversation-switches { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--wb-space-xs); }
+  .figma-workspace .hallmark-workbench .pet-conversation-switches label { justify-content: space-between; }
+  .figma-workspace .hallmark-workbench .quote-toolbar .quote-toolbar-actions { gap: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .scenario-switch { width: 100%; flex-wrap: nowrap; }
+  .figma-workspace .hallmark-workbench .scenario-switch button { flex: 1 0 auto; padding-inline: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .quote-item-disclosure { gap: var(--wb-space-sm); grid-template-columns: minmax(0, 1fr) auto 16px; }
+  .figma-workspace .hallmark-workbench .quote-item-disclosure > .quote-item-name { gap: var(--wb-space-sm); }
+  .figma-workspace .hallmark-workbench .quote-item-index { display: none; }
+  .figma-workspace .hallmark-workbench .quote-item-disclosure > .quote-item-total { font-size: var(--wb-text-sm); }
+  .figma-workspace .hallmark-workbench .quote-summary .quote-total dd { font-size: var(--wb-text-heading); }
+  .figma-workspace .hallmark-workbench .quote-builder .quote-basic-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 359px) {
+  .figma-workspace .hallmark-workbench .pet-conversation-member strong { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .figma-workspace .hallmark-workbench .quote-item-disclosure { grid-template-columns: minmax(0, 1fr) auto; }
+  .quote-item-caret { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .figma-workspace .hallmark-workbench *, .figma-workspace .hallmark-workbench *::before, .figma-workspace .hallmark-workbench *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

@@ -20,7 +20,6 @@ export function QuoteToolbar({ model }: { model: QuoteBuilderModel }) {
     <>
       <div className="quote-toolbar">
         <div className="quote-toolbar-copy">
-          <span>{availableAIDrafts.length > 0 ? t("AI 초안 비교") : t("견적 직접 작성")}</span>
           <h2>
             {availableAIDrafts.length === 3
               ? t("견적 비교·검토")

@@ -59,6 +59,29 @@ const expectIsolated = state => {
   expect(state.errors).toEqual([]);
 };
 
+test("opening another ledger row preserves edited effort and evidence in the saved draft", async ({ page }) => {
+  const state = await quoteFixture(page, { items: [item("API"), item("Review")] });
+  await page.goto(path);
+  const rows = page.locator(".quote-item-block");
+  await rows.nth(0).locator("summary").first().click();
+  await rows.nth(0).getByRole("spinbutton", { name: "수량", exact: true }).fill("3");
+  await rows.nth(0).getByLabel("가정 내용", { exact: true }).fill("Approved three-hour scope");
+  await rows.nth(1).locator("summary").first().click();
+  await expect(rows.nth(0)).not.toHaveAttribute("open", "");
+  await expect(rows.nth(1)).toHaveAttribute("open", "");
+  await rows.nth(0).locator("summary").first().focus();
+  await page.keyboard.press("Enter");
+  await expect(rows.nth(1)).not.toHaveAttribute("open", "");
+  await expect(rows.nth(0).getByRole("spinbutton", { name: "수량", exact: true })).toHaveValue("3");
+  await expect(rows.nth(0).getByLabel("가정 내용", { exact: true })).toHaveValue("Approved three-hour scope");
+  await expect(page.getByRole("button", { name: "검토용 초안 저장", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "검토용 초안 저장", exact: true }).click();
+  await expect.poll(() => state.creates.length).toBe(1);
+  expect(state.creates[0].items[0]).toMatchObject({ quantity: 3, unitRate: 50000, basis: { content: "Approved three-hour scope" } });
+  expect(state.records[0].total).toBe(302500);
+  expectIsolated(state);
+});
+
 test("rate selection fills blank names, preserves custom names and unlocks manual rates without losing values", async ({ page }) => {
   const state = await quoteFixture(page);
   await page.goto(path);

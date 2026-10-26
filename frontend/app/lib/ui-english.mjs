@@ -245,5 +245,6 @@ export const englishUi = {
   "현재 목록에 선택할 단가가 없습니다.": "No rates to select in this list.",
   "이동할 서비스 단가 선택": "Select service rates to move",
   "단가를 옮기지 못했습니다.": "Could not move the rate.",
-  "요청이 많아 이동을 잠시 멈췄습니다. 잠시 후 남은 항목을 다시 이동해 주세요.": "Too many requests. Please wait before moving the remaining rates."
+  "요청이 많아 이동을 잠시 멈췄습니다. 잠시 후 남은 항목을 다시 이동해 주세요.": "Too many requests. Please wait before moving the remaining rates.",
+  "대화 설정": "Conversation settings"
 };

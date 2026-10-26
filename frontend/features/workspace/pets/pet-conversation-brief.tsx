@@ -7,6 +7,7 @@ import { useQuotationPreview } from "../project/quotation/use-quotation-preview"
 import type { PetConversationState } from "./use-pet-conversation";
 import { conversationText } from "./pet-conversation-text.mjs";
 import { conversationVerified, PetConversationQuality } from "./pet-conversation-quality";
+import { CaretDown } from "@phosphor-icons/react";
 
 export function PetConversationBrief({ session, project, state, run, canRead, canWrite, onReview }: {
   session: AuthSession; project: Project; state: PetConversationState; run: AgentRunView | null;
@@ -38,11 +39,14 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
   const questions = (run?.result?.openQuestions ?? []).map(conversationText).filter(Boolean);
   const money = (value:number) => new Intl.NumberFormat("ko-KR",{style:"currency",currency:project.currency,maximumFractionDigits:2}).format(value);
   const unit = (value:string) => ({HOUR:t("시간"),DAY:t("일"),FIXED:t("건")}[value] ?? value);
-  return <aside className="pet-conversation-brief" aria-label={t("함께 정리한 견적")}>
+  return <>
+    {canRead && <a className="pet-conversation-shortcut" href="#pet-conversation-brief"><span>{t("검토할 초안")}<strong>{preview ? money(preview.total) : t(calculation.loading ? "견적을 계산하고 있습니다." : "범위와 공수")}</strong></span><span>{t("견적 검토하기")}<CaretDown size={16} aria-hidden="true" /></span></a>}
+    <aside id="pet-conversation-brief" className="pet-conversation-brief" aria-label={t("함께 정리한 견적")}>
     <header><h2>{t("함께 정리한 견적")}</h2><span>{proposal ? t("미반영 제안") : t("검토할 초안")}</span></header>
-    <div className="pet-conversation-brief-body"><h3>{t("확인한 내용")}</h3>
+    <div className="pet-conversation-brief-body"><details className="pet-conversation-facts"><summary>{t("확인한 내용")}</summary>
       <dl><div><dt>{t("만들 것")}</dt><dd>{project.title}</dd></div><div><dt>{t("예산 상한")}</dt><dd>{project.budgetMax == null ? t("미정") : money(project.budgetMax)}</dd></div><div><dt>{t("희망 일정")}</dt><dd>{project.deadline ?? t("미정")}</dd></div></dl>
       <details className="pet-conversation-evidence"><summary>{t("문의 원문 확인")}</summary><p>{project.requirementText}</p></details>
+      </details>
       {questions.length ? <div className="pet-conversation-question"><h3>{t("아직 맞춰볼 것")}</h3>{questions.map(question => <p key={question}>{question}</p>)}</div> : null}
       <hr/><h3>{t("범위와 공수")}</h3>
       {proposal && canRead && state.view?.settings.acceptedDraft && <details className="pet-conversation-evidence"><summary>{t("현재 초안과 비교")}</summary><p>{state.view.settings.acceptedDraft.items.map(item => `${item.title} · ${item.quantity} ${unit(item.unit)}`).join("\n")}</p></details>}
@@ -56,7 +60,7 @@ export function PetConversationBrief({ session, project, state, run, canRead, ca
       {(loadError || calculation.error) && <p role="alert">{loadError || t(calculation.error ?? "")}<button type="button" className="quiet-button" onClick={() => { setRevision(value => value + 1); calculation.refresh(); }}>{t("다시 확인")}</button></p>}
       {state.error && <p role="alert">{t(state.error)}</p>}
       {proposal && canRead && <div className="pet-conversation-proposal"><p>{t("이 제안은 아직 기존 초안에 반영되지 않았습니다.")}</p><button type="button" className="primary-button" disabled={!canWrite || state.saving || !conversationVerified(run)} onClick={() => run && void state.accept(run.runId)}>{t("초안에 반영")}</button><button type="button" className="quiet-button" disabled={state.saving} onClick={() => setRejected(run?.runId ?? null)}>{t("유지할게")}</button></div>}
-      <button type="button" className="primary-button" disabled={!canRead || !state.view?.settings.acceptedDraft} onClick={onReview}>{t("견적 검토하기")}</button><p className="model-selection-note">{t("직접 검토하고 확정한 뒤 전달합니다.")}</p>
+      <button type="button" className="secondary-button" disabled={!canRead || !state.view?.settings.acceptedDraft} onClick={onReview}>{t("견적 검토하기")}</button><p className="model-selection-note">{t("직접 검토하고 확정한 뒤 전달합니다.")}</p>
     </div>
-  </aside>;
+  </aside></>;
 }
