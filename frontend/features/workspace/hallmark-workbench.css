@@ -31,7 +31,8 @@
 .figma-workspace .hallmark-workbench :is(p, dd) { text-wrap: pretty; }
 .figma-workspace .project-workbench > .project-heading { gap: var(--wb-space-xl); margin-bottom: var(--wb-space-lg); }
 .figma-workspace .project-workbench > .project-heading > div { min-width: 0; }
-.figma-workspace .project-workbench > .project-heading h1 { max-width: 100%; font-size: var(--wb-text-heading); line-height: 1.3; }
+.figma-workspace .project-workbench > .project-heading > div:first-child { width: 100%; max-width: 920px; }
+.figma-workspace .project-workbench > .project-heading h1 { max-width: 100%; overflow-wrap: anywhere; font-size: var(--wb-text-heading); line-height: 1.3; }
 .figma-workspace .hallmark-workbench :is(.project-status, .project-client) { font-size: var(--wb-text-sm); }
 .figma-workspace .project-workbench > .workbench-steps { flex-wrap: nowrap; gap: var(--wb-space-sm); padding: 0; margin-bottom: var(--wb-space-xl); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
 .figma-workspace .project-workbench > .workbench-steps button { position: relative; flex: 0 1 auto; min-height: 44px; padding: var(--wb-space-sm) var(--wb-space-lg); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--muted); font-size: var(--wb-text-sm); white-space: nowrap; overflow-wrap: normal; }
@@ -46,6 +47,7 @@
 .figma-workspace .hallmark-workbench.is-chat :is(.agent-chat-avatar, .agent-chat-identity p) { display: none; }
 .figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools { margin-left: auto; flex-wrap: wrap; gap: var(--wb-space-sm); }
 .figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools button { min-height: 44px; padding: var(--wb-space-sm); border: 0; border-radius: var(--wb-radius); background: transparent; color: var(--muted); font-size: var(--wb-text-sm); white-space: nowrap; }
+.figma-workspace .hallmark-workbench.is-chat .agent-chat-header-tools .chat-quotation-start { background: var(--bg); color: var(--ink-2); }
 .chat-action-short { display: none; }
 .figma-workspace .hallmark-workbench.is-chat .agent-chat-state { min-height: 32px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: var(--wb-text-sm); }
 .figma-workspace .hallmark-workbench.is-chat .agent-chat-state i { display: none; }
