@@ -4,6 +4,7 @@
  * states: loading, empty, error, full, partial · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S4 R4 V3 · weakest: V, retain shared navigation and give conversation and quotation different compositions */
 /* Hallmark · answered F7 · workbench regions share flat divider styling; repeated zero-radius resets remove inherited cards rather than introduce repeated containers */
+/* Hallmark · dropped onClick={() => { if (editing) · the user requested replacing the draft-resetting toggle with scoped draft preservation; close and reopen remain available */
 .figma-workspace .project-workbench {
   --wb-space-xs: 4px;
   --wb-space-sm: 8px;
@@ -201,4 +202,54 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .figma-workspace .hallmark-workbench *, .figma-workspace .hallmark-workbench *::before, .figma-workspace .hallmark-workbench *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+.figma-workspace .hallmark-workbench :is(.intake-review, .outcome-review) { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench :is(.intake-toolbar, .structured-requirements > header) { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--wb-space-lg); }
+.figma-workspace .hallmark-workbench .intake-toolbar > div:first-child { flex: 1 1 280px; min-width: 0; }
+.figma-workspace .hallmark-workbench :is(.intake-toolbar h2, .intake-review .guided-copy h2, .outcome-guided-copy h2, .outcome-load-error h2) { margin: 0; font-size: var(--wb-text-title); line-height: 1.5; }
+.figma-workspace .hallmark-workbench :is(.intake-toolbar p, .intake-review .guided-copy p, .outcome-guided-copy p) { margin: var(--wb-space-sm) 0 0; font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .intake-next { margin: 0; padding: 0; }
+.figma-workspace .hallmark-workbench .intake-document { order: 0; }
+.figma-workspace .hallmark-workbench :is(.intake-review .guided-copy, .outcome-guided-copy) h2 br { display: block; }
+.figma-workspace .hallmark-workbench :is(.intake-review, .outcome-review, .outcome-load-error) :is(button, summary) { min-height: 44px; font-size: var(--wb-text-sm); white-space: nowrap; }
+.figma-workspace .hallmark-workbench :is(.intake-document, .intake-review .guided-copy, .structured-requirements, .outcome-guided-copy, .outcome-snapshot, .outcome-form, .outcome-editor, .outcome-variance) { min-width: 0; grid-column: 1 / -1; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.figma-workspace .hallmark-workbench :is(.intake-document, .structured-requirements, .outcome-snapshot, .outcome-editor, .outcome-variance) { border-top: 1px solid var(--line); padding-top: var(--wb-space-lg); }
+.figma-workspace .hallmark-workbench .intake-document > p { min-height: 0; margin-block: var(--wb-space-lg); font-size: var(--wb-text-body); line-height: 1.6; }
+.figma-workspace .hallmark-workbench :is(.intake-document dt, .intake-document small, .document-upload-area p, .requirement-version-state span, .requirement-version-state small, .structured-requirements > header span, .requirement-draft-note, .editor-label span, .editor-label p) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .requirement-version-state { margin-top: var(--wb-space-lg); padding-top: var(--wb-space-md); }
+.figma-workspace .hallmark-workbench .requirement-draft-note { display: flex; align-items: center; flex-wrap: wrap; gap: var(--wb-space-md); margin-block: var(--wb-space-lg); color: var(--muted); }
+.figma-workspace .hallmark-workbench .requirement-draft-note p { flex: 1 1 240px; margin: 0; }
+.figma-workspace .hallmark-workbench .structured-requirements > header h3 { font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .requirement-editor { margin-top: var(--wb-space-lg); }
+.figma-workspace .hallmark-workbench .requirement-editor fieldset { min-width: 0; padding: var(--wb-space-lg) 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .requirement-editor :is(label, legend) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .requirement-editor :is(input, select, textarea) { min-height: 44px; font-size: var(--wb-text-body); border-radius: var(--wb-radius); }
+.figma-workspace .hallmark-workbench .outcome-review > .inline-error { grid-column: 1 / -1; }
+.figma-workspace .hallmark-workbench :is(.outcome-editor, .outcome-variance) > summary { padding: var(--wb-space-sm) 0; }
+.figma-workspace .hallmark-workbench :is(.outcome-editor, .outcome-variance) > :not(summary) { margin-inline: 0; }
+.figma-workspace .hallmark-workbench .outcome-form { gap: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench .outcome-fields { gap: var(--wb-space-xl); }
+.figma-workspace .hallmark-workbench :is(.outcome-basics, .actual-work-items, .outcome-change-card) { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench :is(.actual-work-items, .outcome-change-card) { padding-top: var(--wb-space-xl); border-top: 1px solid var(--line); }
+.figma-workspace .hallmark-workbench .outcome-basics > header { display: block; }
+.figma-workspace .hallmark-workbench :is(.outcome-basics, .outcome-change-card) h3 { font-size: var(--wb-text-title); }
+.figma-workspace .hallmark-workbench :is(.outcome-basics header p, .outcome-change-card header p, .outcome-control, .outcome-control > small, .outcome-form .outcome-input-shell > small, .actual-work-heading small, .actual-work-empty strong, .actual-work-empty span, .actual-work-items fieldset label, .outcome-change-card > label, .outcome-change-card > small, .outcome-change-prompts span, .outcome-snapshot dt, .outcome-snapshot > div span, .outcome-variance dt, .outcome-variance small, .outcome-variance > header span, .outcome-variance > header strong) { font-size: var(--wb-text-sm); }
+.figma-workspace .hallmark-workbench .outcome-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--wb-space-lg); }
+.figma-workspace .hallmark-workbench .outcome-quotation-control { grid-column: 1 / -1; }
+.figma-workspace .hallmark-workbench .outcome-form :is(input, select, textarea) { min-height: 44px; font-size: var(--wb-text-body); }
+.figma-workspace .hallmark-workbench .actual-work-empty { padding: var(--wb-space-lg) 0; border: 0; border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .actual-work-empty-icon { width: auto; height: auto; padding: 0; border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .actual-work-items fieldset { min-width: 0; padding: var(--wb-space-lg) 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .outcome-change-prompts { display: flex; flex-wrap: wrap; }
+.figma-workspace .hallmark-workbench .outcome-change-prompts span { padding: 0 var(--wb-space-md) 0 0; border: 0; border-radius: 0; background: transparent; }
+.figma-workspace .hallmark-workbench .outcome-load-error { display: grid; justify-items: start; gap: var(--wb-space-md); }
+.figma-workspace .hallmark-workbench .outcome-load-error > svg { color: var(--danger); }
+.figma-workspace .hallmark-workbench .outcome-load-error p { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .figma-workspace .hallmark-workbench .intake-toolbar > div:first-child { flex-basis: 100%; }
+  .figma-workspace .hallmark-workbench .outcome-metrics-grid { grid-template-columns: minmax(0, 1fr); }
+  .figma-workspace .hallmark-workbench .actual-work-heading { align-items: flex-start; flex-wrap: wrap; }
+  .figma-workspace .hallmark-workbench .actual-work-empty { grid-template-columns: auto minmax(0, 1fr); }
+  .figma-workspace .hallmark-workbench .actual-work-empty .secondary-button { grid-column: 1 / -1; justify-self: start; }
 }

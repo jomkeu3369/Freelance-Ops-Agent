@@ -107,6 +107,7 @@ jobs:
               tests/browser/fullscreen-chat.spec.mjs \
               tests/browser/short-height-chat.spec.mjs \
               tests/browser/project-step-shell.spec.mjs \
+              tests/browser/intake-outcome.spec.mjs \
               tests/browser/auth-error.spec.mjs \
               tests/browser/auth-session.spec.mjs \
               tests/browser/auth-cinematic.spec.mjs \

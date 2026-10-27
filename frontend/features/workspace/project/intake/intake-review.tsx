@@ -66,11 +66,16 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
     { title: "", description: "", priority: "MUST", acceptanceCriteria: "" }
   ]);
   const [editing, setEditing] = useState(false);
+  const [draftStarted, setDraftStarted] = useState(false);
+  const [assumptions, setAssumptions] = useState("");
+  const [questions, setQuestions] = useState("");
+  const [draftUnavailable, setDraftUnavailable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const diffRef = useRef<HTMLElement>(null);
+  const draftKey = `freelance-ops-requirement-draft-v1:${encodeURIComponent(session.userId)}:${encodeURIComponent(session.workspaceId)}:${encodeURIComponent(project.id)}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -88,12 +93,55 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         if (!cancelled) setError(cause instanceof Error ? cause.message : "요구사항을 불러오지 못했습니다.");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          if (canWriteProject) {
+            try {
+              const raw = window.sessionStorage.getItem(draftKey);
+              const draft = raw ? JSON.parse(raw) : null;
+              if (
+                draft &&
+                draft.version === 1 &&
+                typeof draft.updatedAt === "number" &&
+                draft.updatedAt <= Date.now() &&
+                Date.now() - draft.updatedAt < 7 * 24 * 60 * 60 * 1000 &&
+                Array.isArray(draft.features) &&
+                draft.features.length > 0 &&
+                draft.features.every((feature: RequirementFeature) =>
+                  feature && typeof feature.title === "string" && typeof feature.description === "string" &&
+                  ["MUST", "SHOULD", "COULD", "WONT"].includes(feature.priority) &&
+                  typeof feature.acceptanceCriteria === "string"
+                ) &&
+                typeof draft.assumptions === "string" &&
+                typeof draft.questions === "string"
+              ) {
+                setFeatures(draft.features);
+                setAssumptions(draft.assumptions);
+                setQuestions(draft.questions);
+                setDraftStarted(true);
+              }
+            } catch {
+              setDraftUnavailable(true);
+            }
+          }
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [canReadDocuments, project.id, session]);
+  }, [canReadDocuments, canWriteProject, draftKey, project.id, session]);
+
+  useEffect(() => {
+    if (!draftStarted || !canWriteProject) return;
+    let unavailable = false;
+    try {
+      window.sessionStorage.setItem(draftKey, JSON.stringify({ version: 1, revision: window.crypto.randomUUID(), updatedAt: Date.now(), features, assumptions, questions }));
+    } catch {
+      unavailable = true;
+    }
+    const timer = window.setTimeout(() => setDraftUnavailable(unavailable), 0);
+    return () => window.clearTimeout(timer);
+  }, [assumptions, canWriteProject, draftKey, draftStarted, features, questions]);
 
   const latest = versions[0] ?? null;
   const structuredOutdated = Boolean(latest && latest.sourceText.trim() !== project.requirementText.trim());
@@ -122,10 +170,16 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (!canWriteProject || busy || loading) return;
     setBusy(true);
     setError(null);
     const data = new FormData(event.currentTarget);
+    let submittedDraft: string | null = null;
+    try {
+      submittedDraft = window.sessionStorage.getItem(draftKey);
+    } catch {
+      setDraftUnavailable(true);
+    }
     try {
       const version = await createRequirementVersion(session, project.id, {
         sourceText: project.requirementText,
@@ -141,6 +195,13 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
       });
       setVersions((current) => [version, ...current]);
       setEditing(false);
+      setDraftStarted(false);
+      try {
+        if (submittedDraft !== null && window.sessionStorage.getItem(draftKey) === submittedDraft)
+          window.sessionStorage.removeItem(draftKey);
+      } catch {
+        setDraftUnavailable(true);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "요구사항 버전을 저장하지 못했습니다.");
     } finally {
@@ -150,6 +211,18 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
 
   return (
     <section className="intake-review requirement-review">
+      <div className="intake-toolbar">
+        <div>
+          <h2>{t("고객 문의 검토")}</h2>
+          <p>{t("원문을 확인한 뒤 AI 분석으로 이동하세요. 직접 정리는 필요한 경우에만 진행합니다.")}</p>
+        </div>
+        <div className="intake-next">
+          <button type="button" className="primary-button" onClick={onContinue}>
+            {t("AI 분석으로 이동")}
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      </div>
       <div className="intake-document">
         <div>
           <FileText size={20} />
@@ -230,7 +303,6 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         </div>
       </div>
       <div className="guided-copy">
-        <span>{t("사용자 입력 · 원문")}</span>
         <h2>
           {t("문의 내용을")}
           <br />
@@ -268,23 +340,57 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             <button
               type="button"
               className="secondary-button"
+              disabled={busy || loading}
               onClick={() => {
                 if (editing) {
                   setEditing(false);
                   return;
                 }
-                setFeatures(
-                  latest?.features.map((feature) => ({ ...feature })) ?? [
-                    { title: "", description: "", priority: "MUST", acceptanceCriteria: "" }
-                  ]
-                );
+                if (!draftStarted) {
+                  setFeatures(
+                    latest?.features.map((feature) => ({ ...feature })) ?? [
+                      { title: "", description: "", priority: "MUST", acceptanceCriteria: "" }
+                    ]
+                  );
+                  setAssumptions(latest?.assumptions.join("\n") ?? "");
+                  setQuestions(latest?.questions.map((item) => item.content).join("\n") ?? "");
+                  setDraftStarted(true);
+                }
                 setEditing(true);
               }}
             >
-              {editing ? t("편집 닫기") : latest ? t("새 버전 만들기") : t("직접 정리하기")}
+              {editing ? t("편집 닫기") : draftStarted ? t("이어서 정리하기") : latest ? t("새 버전 만들기") : t("직접 정리하기")}
             </button>
           )}
         </header>
+        {draftStarted && (
+          <div className="requirement-draft-note">
+            <p role="status">
+              {draftUnavailable
+                ? t("이 탭에서 초안을 보관하지 못했습니다. 페이지를 떠나기 전에 저장해 주세요.")
+                : t("미저장 초안입니다. 편집을 닫거나 다른 단계로 이동해도 이 탭에서 이어서 작성할 수 있습니다.")}
+            </p>
+            {canWriteProject && (
+              <button
+                type="button"
+                className="quiet-button"
+                disabled={busy}
+                onClick={() => {
+                  if (!window.confirm(t("미저장 초안을 버릴까요? 저장된 요구사항은 유지됩니다."))) return;
+                  try {
+                    window.sessionStorage.removeItem(draftKey);
+                    setDraftStarted(false);
+                    setEditing(false);
+                  } catch {
+                    setDraftUnavailable(true);
+                  }
+                }}
+              >
+                {t("초안 버리기")}
+              </button>
+            )}
+          </div>
+        )}
         {structuredOutdated && (
           <div className="inline-error requirement-stale" role="status">
             <Warning size={18} />
@@ -463,7 +569,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
               <p>{t("기능마다 설명과 우선순위를 확인하고 저장하세요.")}</p>
             </div>
             {features.map((feature, index) => (
-              <fieldset key={index}>
+              <fieldset key={index} disabled={busy || !canWriteProject}>
                 <legend>
                   {t("기능")}
                   {index + 1}
@@ -539,7 +645,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 <button
                   type="button"
                   className="remove-feature"
-                  disabled={features.length === 1}
+                  disabled={busy || !canWriteProject || features.length === 1}
                   onClick={() => setFeatures((current) => current.filter((_, itemIndex) => itemIndex !== index))}
                 >
                   <Trash size={16} /> {t("이 기능 제거")}
@@ -549,6 +655,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             <button
               type="button"
               className="add-row"
+              disabled={busy || !canWriteProject}
               onClick={() =>
                 setFeatures((current) => [
                   ...current,
@@ -563,22 +670,26 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
                 {t("확인된 가정")}
                 <textarea
                   name="assumptions"
+                  disabled={busy || !canWriteProject}
                   rows={5}
                   placeholder={t("한 줄에 하나씩 입력")}
-                  defaultValue={latest?.assumptions.join("\n") ?? ""}
+                  value={assumptions}
+                  onChange={(event) => setAssumptions(event.target.value)}
                 />
               </label>
               <label>
                 {t("열린 질문")}
                 <textarea
                   name="questions"
+                  disabled={busy || !canWriteProject}
                   rows={5}
                   placeholder={t("한 줄에 하나씩 입력")}
-                  defaultValue={latest?.questions.map((item) => item.content).join("\n") ?? ""}
+                  value={questions}
+                  onChange={(event) => setQuestions(event.target.value)}
                 />
               </label>
             </div>
-            <button type="submit" className="primary-button" disabled={busy}>
+            <button type="submit" className="primary-button" disabled={busy || !canWriteProject || loading}>
               {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("사용자 확정 revision 저장")}
             </button>
           </form>
@@ -587,12 +698,6 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
             <p>{t("원문에서 기능, 제약과 열린 질문을 분리하면 견적 항목과 근거를 더 정확하게 연결할 수 있습니다.")}</p>
           </div>
         )}
-        <div className="intake-next">
-          <button type="button" className="primary-button" onClick={onContinue}>
-            {t("AI 분석으로 이동")}
-            <ArrowRight size={18} />
-          </button>
-        </div>
       </div>
     </section>
   );

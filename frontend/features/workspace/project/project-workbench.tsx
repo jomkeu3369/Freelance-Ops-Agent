@@ -407,7 +407,7 @@ export function ProjectWorkbench({ session, project, clients, run, runId, events
     ) : null;
 
   return (
-    <section className={`project-workbench${activeStep === "agent" || activeStep === "quote" ? " hallmark-workbench" : ""}${activeStep === "agent" ? " is-chat" : ""}`}>
+    <section className={`project-workbench hallmark-workbench${activeStep === "agent" ? " is-chat" : ""}`}>
       <div className="project-heading">
         <div>
           <div className="project-context-line">
