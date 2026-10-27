@@ -135,7 +135,7 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
     if (!draftStarted || !canWriteProject) return;
     let unavailable = false;
     try {
-      window.sessionStorage.setItem(draftKey, JSON.stringify({ version: 1, updatedAt: Date.now(), features, assumptions, questions }));
+      window.sessionStorage.setItem(draftKey, JSON.stringify({ version: 1, revision: window.crypto.randomUUID(), updatedAt: Date.now(), features, assumptions, questions }));
     } catch {
       unavailable = true;
     }
@@ -174,6 +174,12 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
     setBusy(true);
     setError(null);
     const data = new FormData(event.currentTarget);
+    let submittedDraft: string | null = null;
+    try {
+      submittedDraft = window.sessionStorage.getItem(draftKey);
+    } catch {
+      setDraftUnavailable(true);
+    }
     try {
       const version = await createRequirementVersion(session, project.id, {
         sourceText: project.requirementText,
@@ -191,7 +197,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
       setEditing(false);
       setDraftStarted(false);
       try {
-        window.sessionStorage.removeItem(draftKey);
+        if (submittedDraft !== null && window.sessionStorage.getItem(draftKey) === submittedDraft)
+          window.sessionStorage.removeItem(draftKey);
       } catch {
         setDraftUnavailable(true);
       }

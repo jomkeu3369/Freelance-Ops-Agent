@@ -7,17 +7,19 @@ const recordedOutcome = { id: "outcome-one", workspaceId: "local-space", project
 async function reviewFixture(page, { locale = "ko", theme = "dark", write = true, saved = false } = {}) {
   const state = await fixture(page);
   state.permissions.push("outcome.read", ...(write ? ["project.write", "outcome.write"] : []));
-  Object.assign(state, { requirements: [], requirementWrites: [], failRequirements: false, outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, pageErrors: [] });
+  Object.assign(state, { requirements: [], requirementWrites: [], failRequirements: false, nextRequirementSave: null, outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, pageErrors: [] });
   page.on("pageerror", error => state.pageErrors.push(error.message));
   await page.addInitScript(({ locale, theme }) => {
     localStorage.setItem("freelance-ops-ui-locale-v1", locale);
     localStorage.setItem("theme", theme);
   }, { locale, theme });
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.route("**/api/v2/workspaces/local-space/projects/*/requirements", route => {
+  await page.route("**/api/v2/workspaces/local-space/projects/*/requirements", async route => {
     if (route.request().method() === "GET") return state.failRequirements ? route.fulfill({ status: 503, json: { message: "Synthetic requirements read failure" } }) : route.fulfill({ json: state.requirements });
     const input = route.request().postDataJSON();
     state.requirementWrites.push(input);
+    const pending = state.nextRequirementSave; state.nextRequirementSave = null;
+    if (pending) await pending.wait();
     const version = { ...input, id: "requirement-one", versionNumber: 1, createdAt: "2026-10-27T00:00:00Z", questions: input.questions.map(content => ({ content, status: "OPEN" })) };
     state.requirements = [version];
     return route.fulfill({ json: version });
@@ -142,6 +144,39 @@ test("a requirement read failure cannot replace a restored draft with blank inpu
   await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("Keep draft while offline");
   await expect(page.locator('textarea[name="assumptions"]')).toHaveValue("Keep offline assumption");
   expect(state.requirementWrites).toEqual([]);
+  expect(state.pageErrors).toEqual([]);
+});
+
+test("a delayed requirement save cannot delete a newer draft after leaving and reopening the editor", async ({ page }) => {
+  const state = await reviewFixture(page);
+  await page.goto("/workspace/projects/project-one/intake");
+  await page.getByRole("button", { name: "직접 정리하기", exact: true }).click();
+  await page.getByLabel("기능 이름", { exact: true }).fill("Submitted draft");
+  await page.getByRole("textbox", { name: "설명", exact: true }).fill("Submitted description");
+  const pending = requestBarrier(); state.nextRequirementSave = pending;
+  await page.getByRole("button", { name: "사용자 확정 revision 저장", exact: true }).click();
+  await pending.entered;
+  await page.locator(".workbench-steps button").nth(3).click();
+  await expect(page).toHaveURL(/\/outcome$/);
+  await page.locator(".workbench-steps button").nth(0).click();
+  await expect(page).toHaveURL(/\/intake$/);
+  await page.getByRole("button", { name: "이어서 정리하기", exact: true }).click();
+  await page.getByLabel("기능 이름", { exact: true }).fill("Newer unsaved draft");
+  await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.features[0]?.title, draftKey)).toBe("Newer unsaved draft");
+  const response = page.waitForResponse(response => response.request().method() === "POST" && response.url().endsWith("/requirements"));
+  pending.release();
+  await (await response).finished();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await expect(page).toHaveURL(/\/outcome$/);
+  await page.locator(".workbench-steps button").nth(0).click();
+  await expect(page).toHaveURL(/\/intake$/);
+  await page.getByRole("button", { name: "이어서 정리하기", exact: true }).click();
+  await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("Newer unsaved draft");
+  await page.reload();
+  await page.getByRole("button", { name: "이어서 정리하기", exact: true }).click();
+  await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("Newer unsaved draft");
+  expect(state.requirementWrites).toHaveLength(1);
+  expect(state.requirementWrites[0].features[0].title).toBe("Submitted draft");
   expect(state.pageErrors).toEqual([]);
 });
 
