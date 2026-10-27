@@ -248,5 +248,15 @@ export const englishUi = {
   "요청이 많아 이동을 잠시 멈췄습니다. 잠시 후 남은 항목을 다시 이동해 주세요.": "Too many requests. Please wait before moving the remaining rates.",
   "대화 설정": "Conversation settings",
   "펫 관리": "Manage pets",
-  "문의로 시작": "Start from inquiry"
+  "문의로 시작": "Start from inquiry",
+  "고객 문의 검토": "Review customer inquiry",
+  "원문을 확인한 뒤 AI 분석으로 이동하세요. 직접 정리는 필요한 경우에만 진행합니다.": "Review the original inquiry, then continue to AI analysis. Manual structuring is optional.",
+  "이어서 정리하기": "Continue editing",
+  "미저장 초안입니다. 편집을 닫거나 다른 단계로 이동해도 이 탭에서 이어서 작성할 수 있습니다.": "Unsaved draft. Continue in this tab after closing the editor or switching steps.",
+  "이 탭에서 초안을 보관하지 못했습니다. 페이지를 떠나기 전에 저장해 주세요.": "Could not keep the draft in this tab. Save before leaving the page.",
+  "결과를 불러오지 못했습니다.": "Could not load the outcome.",
+  "다시 불러오기": "Reload",
+  "기준 견적을 불러오지 못했습니다.": "Could not load the reference quotation.",
+  "초안 버리기": "Discard draft",
+  "미저장 초안을 버릴까요? 저장된 요구사항은 유지됩니다.": "Discard the unsaved draft? Saved requirements will be kept."
 };

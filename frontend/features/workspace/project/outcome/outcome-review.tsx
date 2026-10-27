@@ -45,6 +45,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     if (!canRead) return;
@@ -73,13 +75,19 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
           const selectedQuotation =
             canReadQuotations && result?.approvedQuotationId
               ? (nextQuotations.find((quotation) => quotation.id === result.approvedQuotationId) ??
-                (await getProjectQuotation(session, project.id, result.approvedQuotationId)))
+                (await getProjectQuotation(session, project.id, result.approvedQuotationId).catch((cause: unknown) => {
+                  if (!cancelled) setError(cause instanceof Error ? cause.message : "기준 견적을 불러오지 못했습니다.");
+                  return null;
+                })))
               : null;
           if (!cancelled && selectedQuotation) includeQuotation(selectedQuotation);
         }
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "결과를 불러오지 못했습니다.");
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : "결과를 불러오지 못했습니다.");
+          setLoadFailed(true);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -87,7 +95,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     return () => {
       cancelled = true;
     };
-  }, [canRead, canReadQuotations, includeQuotation, loadFirstPage, project.id, session]);
+  }, [canRead, canReadQuotations, includeQuotation, loadAttempt, loadFirstPage, project.id, session]);
 
   if (!canRead)
     return (
@@ -103,6 +111,22 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
         <CircleNotch className="spin" /> {t("결과 기록을 확인하고 있습니다.")}
       </div>
     );
+  if (loadFailed)
+    return (
+      <section className="outcome-load-error" role="alert">
+        <Warning size={24} />
+        <h2>{t("결과를 불러오지 못했습니다.")}</h2>
+        <p>{t(error ?? "결과를 불러오지 못했습니다.")}</p>
+        <button type="button" className="secondary-button" onClick={() => {
+          setLoading(true);
+          setLoadFailed(false);
+          setError(null);
+          setLoadAttempt((current) => current + 1);
+        }}>
+          {t("다시 불러오기")}
+        </button>
+      </section>
+    );
   const approvedQuotation = outcome?.approvedQuotationId
     ? (quotations.find((quotation) => quotation.id === outcome.approvedQuotationId) ?? null)
     : null;
@@ -113,7 +137,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canWrite || busy) return;
+    if (!canWrite || busy || loading || loadFailed) return;
     setBusy(true);
     setError(null);
     const data = new FormData(event.currentTarget);
@@ -138,7 +162,6 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
   return (
     <section className="outcome-review">
       <div className="guided-copy outcome-guided-copy">
-        <span>{t("프로젝트 회고")}</span>
         <h2>
           {t("끝난 프로젝트를 다음")}
           <br />
@@ -229,7 +252,6 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
           <fieldset className="outcome-fields" disabled={busy}>
             <section className="outcome-basics" aria-labelledby="outcome-basics-title">
               <header>
-                <span>{t("최종 결과")}</span>
                 <div>
                   <h3 id="outcome-basics-title">{t("계약과 실제 투입을 확정하세요.")}</h3>
                   <p>{t("발행한 견적을 연결하면 예상 대비 차이를 함께 확인할 수 있습니다.")}</p>
@@ -469,7 +491,6 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
             <section className="outcome-change-card" aria-labelledby="outcome-change-title">
               <header>
                 <div>
-                  <span>{t("견적 대비 기록")}</span>
                   <h3 id="outcome-change-title">{t("처음 예상과 달라진 점")}</h3>
                   <p>{t("다음 견적에서 같은 오차를 줄일 수 있도록 실제로 달라진 이유만 남겨주세요.")}</p>
                 </div>
