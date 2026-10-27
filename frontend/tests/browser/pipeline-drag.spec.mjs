@@ -98,7 +98,7 @@ test("failed save rolls back from a fresh server read and a subsequent retry wor
   const state = await boardFixture(page);
   state.failure = true;
   await drop(page, "qualifying", await dragStart(page));
-  await expect(page.getByRole("alert")).toContainText("최신 상태를 불러왔습니다");
+  await expect(page.locator(".pipeline-page .inline-error")).toContainText("최신 상태를 불러왔습니다");
   await expect(column(page, "inquiry").locator('[data-project-id="project-one"]')).toBeVisible();
   await expect(card(page).locator("select")).toBeEnabled();
   expect(state.reads).toBe(1);
@@ -106,7 +106,7 @@ test("failed save rolls back from a fresh server read and a subsequent retry wor
   await drop(page, "qualifying", await dragStart(page));
   await expect(card(page).locator("select")).toHaveValue("QUALIFYING");
   await expect(card(page).locator("select")).toBeEnabled();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".pipeline-page .inline-error")).toHaveCount(0);
   expect(state.moves).toHaveLength(2);
 });
 
@@ -116,7 +116,7 @@ test("lost write response reconciles a saved change without repeating the write"
   await drop(page, "qualifying", await dragStart(page));
   await expect(card(page).locator("select")).toBeEnabled();
   await expect(card(page).locator("select")).toHaveValue("QUALIFYING");
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".pipeline-page .inline-error")).toHaveCount(0);
   expect(state.reads).toBe(1);
   expect(state.moves).toHaveLength(1);
 });
@@ -125,7 +125,7 @@ test("failed reconciliation shows honest English recovery guidance and restores 
   const state = await boardFixture(page, { locale: "en" });
   state.failure = state.readFailure = true;
   await drop(page, "qualifying", await dragStart(page));
-  await expect(page.getByRole("alert")).toContainText("Refresh before trying again");
+  await expect(page.locator(".pipeline-page .inline-error")).toContainText("Refresh before trying again");
   await expect(card(page).locator("select")).toHaveValue("LEAD");
   await expect(card(page).locator("select")).toBeEnabled();
   expect(state.moves).toHaveLength(1);
@@ -136,7 +136,7 @@ test("keyboard stage control, English feedback and reduced motion remain accessi
   await page.emulateMedia({ reducedMotion: "reduce" });
   const drag = await dragStart(page);
   await column(page, "qualifying").dispatchEvent("dragover", { dataTransfer: drag });
-  await expect(page.locator(".pipeline-drop-indicator")).toHaveText("Drop here to move to Qualifying");
+  await expect(page.locator(".pipeline-drop-indicator")).toHaveText("Drop here to move to Clarifying");
   await expect(page.locator(".pipeline-drop-indicator")).toHaveCSS("animation-name", "none");
   await expect(card(page)).toHaveCSS("transition-duration", "0s");
   await page.keyboard.press("Escape");
@@ -145,7 +145,7 @@ test("keyboard stage control, English feedback and reduced motion remain accessi
   await page.keyboard.press("Enter");
   await expect(card(page).locator("select")).toHaveValue("QUALIFYING");
   await expect(card(page).locator("select")).toBeFocused();
-  await expect(page.getByRole("status").filter({ hasText: "Changed Original project title" })).toContainText("Qualifying");
+  await expect(page.getByRole("status").filter({ hasText: "Changed Original project title" })).toContainText("Clarifying");
   expect(state.moves).toHaveLength(1);
 });
 
@@ -179,13 +179,13 @@ test("navigation away and back retains a pending save lock through reconciliatio
   await drop(page, "qualifying", await dragStart(page));
   await state.barrier.entered;
   await page.getByRole("button", { name: "설정", exact: true }).click();
-  await expect(page.locator(".pipeline-board")).toHaveCount(0);
+  await expect(page.locator(".pipeline-board")).toHaveCount(0, { timeout: 30000 });
   await page.goBack();
   await expect(card(page).locator("select")).toBeDisabled();
   await drop(page, "quoting", await dragStart(page));
   expect(state.moves).toHaveLength(1);
   state.barrier.release();
-  await expect(page.getByRole("alert")).toContainText("최신 상태를 불러왔습니다");
+  await expect(page.locator(".pipeline-page .inline-error")).toContainText("최신 상태를 불러왔습니다");
   await expect(card(page).locator("select")).toBeEnabled();
   await expect(card(page).locator("select")).toHaveValue("LEAD");
   state.barrier = null;

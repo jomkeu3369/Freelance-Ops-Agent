@@ -695,13 +695,13 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /프로젝트를\s*만들고\s*있습니다/);
   assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
   assert.match(workspace, /<fieldset\s*className="dialog-fields"\s*disabled=\{busy\}>/);
-  assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\)\s*return/);
+  assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\s*\|\|\s*draftConflict\)\s*return/);
   assert.match(workspace, /const\s*pending\s*=\s*busy\s*\|\|\s*submitting/);
   assert.match(workspace, /if\s*\(pending\s*\|\|\s*submitLock\.current\s*\|\|\s*!canRespond/);
   const policyForm = await read("../features/workspace/settings/estimation-policy-form.tsx");
   assert.match(policyForm, /if\s*\(busy\s*\|\|\s*pending\.current\)\s*return;/);
   assert.match(policyForm, /<fieldset\s*className="settings-fields"\s*disabled=\{busy\}>/);
-  assert.match(workspace, /<fieldset\s*className="client-fields"\s*disabled=\{busy\}>/);
+  assert.match(workspace, /<fieldset\s*className="client-fields"\s*disabled=\{busy\s*\|\|\s*!draftsReady\}>/);
   assert.match(workspace, /<fieldset\s*className="outcome-fields"\s*disabled=\{busy\}>/);
   assert.match(workspace, /password\s*!==\s*String\(data\.get\("passwordConfirm"\)\)/);
   assert.match(workspace, /비밀번호\s*확인이\s*일치하지\s*않습니다/);
