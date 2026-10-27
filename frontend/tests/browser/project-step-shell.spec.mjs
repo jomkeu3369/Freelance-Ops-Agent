@@ -123,14 +123,9 @@ for (const { width, locale, theme } of [
         return { x, y, width, height };
       }));
       expect(boxes[1].y).toBeCloseTo(boxes[0].y, 1);
-      if (width < 480) {
-        expect(boxes[2].y).toBeGreaterThanOrEqual(boxes[0].y + boxes[0].height);
-        expect(boxes[3].y).toBeCloseTo(boxes[2].y, 1);
-        expect(boxes[2].x).toBeCloseTo(boxes[0].x, 1);
-      } else {
-        expect(boxes[2].y).toBeCloseTo(boxes[0].y, 1);
-        expect(boxes[3].y).toBeCloseTo(boxes[0].y, 1);
-      }
+      // 승인된 시안은 모바일에서도 같은 한 줄 탐색을 유지한다.
+      expect(boxes[2].y).toBeCloseTo(boxes[0].y, 1);
+      expect(boxes[3].y).toBeCloseTo(boxes[0].y, 1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       await page.screenshot({ path: `outputs/ui-ux/project-shell-${width}-${locale}-${theme}-${step}.png`, fullPage: false, animations: "disabled" });
     }

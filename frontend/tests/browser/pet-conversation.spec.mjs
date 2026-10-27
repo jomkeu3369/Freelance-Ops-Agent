@@ -256,6 +256,8 @@ test("team selection caps at three, persists a new team and survives reload",asy
 
 test("pet mode off starts ordinary AI with its saved settings version",async({page})=>{
   const {server}=await open(page);
+  await expect(page.locator(".pet-conversation-settings")).not.toHaveAttribute("open", "");
+  await page.locator(".pet-conversation-settings > summary").click();
   await page.getByRole("switch",{name:"펫과 대화",exact:true}).click();
   await expect(page.locator(".pet-conversation-team")).toContainText("기본 AI 대화");
   await page.locator("#agent-chat-input").fill("온라인 결제를 제외하자");
@@ -268,6 +270,8 @@ test("pet mode off starts ordinary AI with its saved settings version",async({pa
 
 test("named recipient and discussion preference are sent through the actual start contract",async({page})=>{
   const {server}=await open(page);
+  await page.locator(".pet-conversation-settings > summary").focus();
+  await page.keyboard.press("Enter");
   await page.getByRole("switch",{name:"펫끼리 토론",exact:true}).click();
   await expect.poll(()=>server.saves.length).toBe(1);
   await page.getByLabel("대화할 상대",{exact:true}).selectOption("pet-1");
@@ -395,8 +399,12 @@ test("a policy change before saving refreshes the displayed amount without creat
   await page.getByRole("button",{name:"초안에 반영",exact:true}).click();
   await page.getByRole("button",{name:"견적 검토하기",exact:true}).click();
   await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
+  const save = page.getByRole("button",{name:"검토용 초안 저장",exact:true});
+  await save.scrollIntoViewIfNeeded();
+  await expect(save).toBeEnabled();
+  await expect(page.locator(".quote-total")).toContainText("₩1,089,000");
   state.policy.defaultRiskBufferRate=.2;
-  await page.getByRole("button",{name:"검토용 초안 저장",exact:true}).click();
+  await save.click();
   await expect(page.getByRole("alert").filter({hasText:"계산 기준이 바뀌었습니다."})).toBeVisible();
   expect(creates).toEqual([]);
   await expect(page.locator(".quote-total")).toContainText("₩1,188,000");

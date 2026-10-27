@@ -1,5 +1,5 @@
 import { useT } from "../../../../app/lib/ui-language";
-import { CheckCircle, CircleNotch, Receipt } from "@phosphor-icons/react";
+import { CheckCircle, CircleNotch } from "@phosphor-icons/react";
 import { sourceTypeLabel } from "../../shared/documents";
 import { formatMoney } from "../../shared/formatters";
 
@@ -25,9 +25,7 @@ export function QuoteSummary({ model }: { model: QuoteBuilderModel }) {
   return (
     <>
       <aside className="quote-summary">
-        <span>
-          <Receipt size={18} /> {t("계산 미리보기")}
-        </span>
+        <h3>{t("계산 미리보기")}</h3>
         {preview ? <dl>
           <div>
             <dt>{t("항목 합계")}</dt>

@@ -4,11 +4,13 @@ import { CaretDown, Plus, Trash } from "@phosphor-icons/react";
 import { formatMoney } from "../../shared/formatters";
 import { emptyQuoteItem } from "./quotation-helpers";
 import { QuoteItemBasis } from "./quote-item-basis";
+import { useId } from "react";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
 
 export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
+  const disclosureGroup = useId();
   const { items, selectedBasisIndex, setSelectedBasisIndex, canWrite, updateItem, project, setItems, preview, rateCards } = model;
   const availableRates = rateCards.filter((card) => card.currency === project.currency);
   const unitLabel = (unit: QuotationItemInput["unit"]) => unit === "HOUR" ? t("시간") : unit === "DAY" ? t("작업일") : t("고정");
@@ -30,25 +32,24 @@ export function QuoteItemsEditor({ model }: { model: QuoteBuilderModel }) {
   return (
     <>
       <div className="quote-sheet" aria-label={t("견적 항목")}>
+        <div className="quote-ledger-heading" aria-hidden="true"><span>{t("작업 항목")}</span><span>{t("금액")}</span></div>
         {items.map((item, index) => (
           <details
             className={`quote-item-block${selectedBasisIndex === index ? " selected" : ""}`}
             key={index}
+            name={disclosureGroup}
             onFocusCapture={() => setSelectedBasisIndex(index)}
             aria-label={t("{v0}번 견적 항목", { v0: index + 1 })}
           >
             <summary className="quote-item-disclosure">
-              <span>
-                <small>
-                  {t("항목")}
-                  {String(index + 1).padStart(2, "0")}
-                </small>
-                <strong>{item.title || t("새 작업 항목")}</strong>
+              <span className="quote-item-name">
+                <small className="quote-item-index">{String(index + 1).padStart(2, "0")}</small>
+                <span><strong>{item.title || t("새 작업 항목")}</strong><small>{t("상세·근거")}</small></span>
               </span>
-              <span>
+              <span className="quote-item-total">
                 {amount(index)}
-                <small>{t("상세·근거")}</small>
               </span>
+              <CaretDown className="quote-item-caret" size={18} aria-hidden="true" />
             </summary>
             <div className={`quote-row quote-basic-fields${item.rateCardId ? " quote-linked-rate" : ""}`}>
               <label className="quote-select-control quote-rate-selector">
