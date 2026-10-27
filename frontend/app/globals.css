@@ -9032,6 +9032,43 @@ summary:focus-visible {
   font-size: 14px;
   line-height: 1.5;
 }
+.client-conflict {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.client-conflict p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.client-conflict-latest {
+  margin-top: 16px;
+}
+.client-conflict-latest h3 {
+  font-size: 1rem;
+}
+.client-conflict-latest dl {
+  display: grid;
+  gap: 12px;
+}
+.client-conflict-latest dt {
+  color: var(--muted);
+  font-size: 14px;
+}
+.client-conflict-latest dd {
+  margin: 4px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.client-conflict-latest dd small {
+  display: block;
+  color: var(--muted);
+}
 .client-discard-draft {
   margin-bottom: 16px;
 }

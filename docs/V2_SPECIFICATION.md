@@ -927,6 +927,10 @@ PATCH  /workspaces/{workspaceId}/projects/{projectId}
 POST   /workspaces/{workspaceId}/projects/{projectId}/documents
 ```
 
+- 고객 PATCH는 편집을 시작할 때 조회한 고객의 `version`을 음이 아닌 정수 `expectedVersion`으로 반드시 전송한다. 누락·`null`·음수는 `400`이며, 버전 불일치·보관된 고객 또는 저장 중의 낙관적 잠금 충돌은 `409`와 `CONCURRENT_MODIFICATION` 코드를 반환한다. 다른 고객 정보나 작업 공간의 데이터는 변경하지 않는다.
+- 충돌 시 입력 초안을 유지하고 최신 고객 정보를 조회해 비교한다. 사용자가 명시적으로 초안을 최신 버전 기준으로 다시 검토한 후에만 재저장할 수 있으며, 그 사이 다시 변경되면 서버가 다시 거부한다. 중복 이메일 등 다른 `409`는 동시 수정으로 분류하지 않는다.
+- 이전 클라이언트가 버전 없이 보낸 PATCH는 거부된다. 배포 전 열린 화면은 새로고침해 최신 클라이언트를 받아야 저장할 수 있다. 고객 생성과 조회 계약은 변경하지 않는다.
+
 ### 12.3 Agent Run / HITL
 
 ```text
