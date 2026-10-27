@@ -127,6 +127,64 @@ test("a delayed save does not erase a newer draft after leaving and returning", 
   expect(state.writes).toHaveLength(1);
 });
 
+test("a delayed save clears the same draft in the reopened editor", async ({ page }) => {
+  await setup(page);
+  const barrier = requestBarrier();
+  await page.route("**/api/v2/workspaces/local-space/clients/client-a", async route => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    const input = route.request().postDataJSON();
+    await barrier.wait();
+    return route.fulfill({ json: { ...clients[0], ...input, version: 2 } });
+  });
+  await page.goto("/workspace/clients");
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("관계 메모").fill("저장할 메모");
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await barrier.entered;
+  await page.locator(".workspace-nav").getByRole("button", { name: "프로젝트 현황", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/projects$/);
+  await page.goBack();
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await expect(page.getByText("저장하지 않은 입력을 이 탭에 보관 중입니다.")).toBeVisible();
+  const response = page.waitForResponse(result => result.url().endsWith("/clients/client-a") && result.request().method() === "PATCH");
+  barrier.release();
+  await response;
+  await expect(page.getByText("저장하지 않은 입력을 이 탭에 보관 중입니다.")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeEnabled();
+  await page.locator(".client-list").getByRole("button", { name: /고객 B/ }).click();
+  await page.getByLabel("관계 메모").fill("다른 고객의 초안");
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("freelance-ops-client-drafts-v1:local-user:local-space"))?.["client-a"])).toBeUndefined();
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("관계 메모").fill("저장 후 새 변경");
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeEnabled();
+  await expect(page.getByText("다른 곳에서 고객 정보가 변경되었습니다.", { exact: false })).toHaveCount(0);
+});
+
+test("a delayed creation opens the saved customer in the reopened editor", async ({ page }) => {
+  await setup(page);
+  const barrier = requestBarrier();
+  await page.route("**/api/v2/workspaces/local-space/clients", async route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: clients });
+    const input = route.request().postDataJSON();
+    await barrier.wait();
+    return route.fulfill({ json: { ...clients[0], ...input, id: "client-c", version: 1 } });
+  });
+  await page.goto("/workspace/clients");
+  await page.getByLabel("담당자 이름").fill("새로 등록할 고객");
+  await page.getByRole("button", { name: "고객 등록" }).click();
+  await barrier.entered;
+  await page.locator(".workspace-nav").getByRole("button", { name: "프로젝트 현황", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/projects$/);
+  await page.goBack();
+  await expect(page.getByLabel("담당자 이름")).toHaveValue("새로 등록할 고객");
+  const response = page.waitForResponse(result => result.url().endsWith("/clients") && result.request().method() === "POST");
+  barrier.release();
+  await response;
+  await expect(page.locator("#client-editor-title")).toHaveText("새로 등록할 고객");
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeVisible();
+  await expect(page.getByText("저장하지 않은 입력을 이 탭에 보관 중입니다.")).toHaveCount(0);
+});
+
 for (const width of [320, 390, 768, 1440]) {
   test(`${width}px English light mode keeps customer controls within the viewport`, async ({ page }) => {
     await setup(page);

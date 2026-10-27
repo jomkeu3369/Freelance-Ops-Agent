@@ -34,6 +34,7 @@ interface ClientsPanelProps {
 
 type ClientDraft = { name: string; companyName: string; email: string; phone: string; notes: string; baseVersion: number | null };
 const clientDraftCache = new Map<string, { drafts: Record<string, ClientDraft>; unavailable: boolean }>();
+const clientDraftListeners = new Map<string, Set<(drafts: Record<string, ClientDraft>, unavailable: boolean, updated?: Client, sourceKey?: string) => void>>();
 const warnClientDraftUnload = (event: BeforeUnloadEvent) => {
   event.preventDefault();
   event.returnValue = "";
@@ -70,6 +71,14 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
   );
 
   useEffect(() => {
+    const listeners = clientDraftListeners.get(draftKey) ?? new Set();
+    const syncDrafts = (next: Record<string, ClientDraft>, unavailable: boolean, updated?: Client, sourceKey?: string) => {
+      setDrafts(next);
+      setDraftUnavailable(unavailable);
+      if (updated && sourceKey && !next[sourceKey]) setSelected((current) => (sourceKey === "new" ? current === null : current?.id === sourceKey) ? updated : current);
+    };
+    listeners.add(syncDrafts);
+    clientDraftListeners.set(draftKey, listeners);
     const frame = requestAnimationFrame(() => {
       const cached = clientDraftCache.get(draftKey);
       if (cached) {
@@ -86,10 +95,14 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
       }
       setDraftsReady(true);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      listeners.delete(syncDrafts);
+      if (listeners.size === 0) clientDraftListeners.delete(draftKey);
+    };
   }, [draftKey]);
 
-  const updateDrafts = (next: Record<string, ClientDraft>) => {
+  const updateDrafts = (next: Record<string, ClientDraft>, updated?: Client, sourceKey?: string) => {
     setDrafts(next);
     let unavailable = false;
     try {
@@ -100,6 +113,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
     }
     setDraftUnavailable(unavailable);
     clientDraftCache.set(draftKey, { drafts: next, unavailable });
+    clientDraftListeners.get(draftKey)?.forEach((listener) => listener(next, unavailable, updated, sourceKey));
     if ([...clientDraftCache.values()].some((entry) => entry.unavailable && Object.keys(entry.drafts).length)) window.addEventListener("beforeunload", warnClientDraftUnload);
     else window.removeEventListener("beforeunload", warnClientDraftUnload);
   };
@@ -141,20 +155,23 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
     setError(null);
     setSaved(null);
     try {
+      let savedClient: Client;
       if (selected) {
         const updated = await updateClient(session, selected.id, input);
+        savedClient = updated;
         onUpdated(updated);
         setSelected(updated);
         setSaved("고객 정보가 저장되었습니다.");
       } else {
         const created = await createClient(session, input);
+        savedClient = created;
         onCreated(created);
         setSelected(created);
         setSaved("새 고객이 등록되었습니다. 이제 프로젝트에 연결할 수 있습니다.");
       }
       const next = { ...(clientDraftCache.get(draftKey)?.drafts ?? drafts) };
       if (JSON.stringify(next[selectedKey]) === JSON.stringify(drafts[selectedKey])) delete next[selectedKey];
-      updateDrafts(next);
+      updateDrafts(next, savedClient, selectedKey);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "고객 정보를 저장하지 못했습니다.");
     } finally {
@@ -282,7 +299,7 @@ export function ClientsPanel({ session, clients, projects, permissions, onCreate
               setFormRevision((value) => value + 1);
             }}>{t("초안 버리기")}</button>
           )}
-          <form key={`${selectedKey}:${draftsReady}:${formRevision}`} aria-busy={busy} onSubmit={submit} onInput={captureDraft}>
+          <form key={`${selectedKey}:${selected?.version ?? "new"}:${draftsReady}:${formRevision}`} aria-busy={busy} onSubmit={submit} onInput={captureDraft}>
             <fieldset className="client-fields" disabled={busy || !draftsReady}>
               <div className="form-row">
                 <label>
