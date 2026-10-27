@@ -87,6 +87,13 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
         if (!cancelled) {
           setVersions(result);
           setDocuments(nextDocuments);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "요구사항을 불러오지 못했습니다.");
+      })
+      .finally(() => {
+        if (!cancelled) {
           if (canWriteProject) {
             try {
               const raw = window.sessionStorage.getItem(draftKey);
@@ -116,13 +123,8 @@ export function IntakeReview({ session, project, permissions, onContinue }: Inta
               setDraftUnavailable(true);
             }
           }
+          setLoading(false);
         }
-      })
-      .catch((cause: unknown) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "요구사항을 불러오지 못했습니다.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;

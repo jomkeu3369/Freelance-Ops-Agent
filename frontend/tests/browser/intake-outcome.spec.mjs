@@ -7,7 +7,7 @@ const recordedOutcome = { id: "outcome-one", workspaceId: "local-space", project
 async function reviewFixture(page, { locale = "ko", theme = "dark", write = true, saved = false } = {}) {
   const state = await fixture(page);
   state.permissions.push("outcome.read", ...(write ? ["project.write", "outcome.write"] : []));
-  Object.assign(state, { requirements: [], requirementWrites: [], outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, pageErrors: [] });
+  Object.assign(state, { requirements: [], requirementWrites: [], failRequirements: false, outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, pageErrors: [] });
   page.on("pageerror", error => state.pageErrors.push(error.message));
   await page.addInitScript(({ locale, theme }) => {
     localStorage.setItem("freelance-ops-ui-locale-v1", locale);
@@ -15,7 +15,7 @@ async function reviewFixture(page, { locale = "ko", theme = "dark", write = true
   }, { locale, theme });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.route("**/api/v2/workspaces/local-space/projects/*/requirements", route => {
-    if (route.request().method() === "GET") return route.fulfill({ json: state.requirements });
+    if (route.request().method() === "GET") return state.failRequirements ? route.fulfill({ status: 503, json: { message: "Synthetic requirements read failure" } }) : route.fulfill({ json: state.requirements });
     const input = route.request().postDataJSON();
     state.requirementWrites.push(input);
     const version = { ...input, id: "requirement-one", versionNumber: 1, createdAt: "2026-10-27T00:00:00Z", questions: input.questions.map(content => ({ content, status: "OPEN" })) };
@@ -126,6 +126,22 @@ test("requirement drafts are isolated per project and malformed stored inputs do
   await page.goto("/workspace/projects/project-two/intake");
   await page.getByRole("button", { name: "직접 정리하기", exact: true }).click();
   await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("");
+  expect(state.pageErrors).toEqual([]);
+});
+
+test("a requirement read failure cannot replace a restored draft with blank inputs", async ({ page }) => {
+  const state = await reviewFixture(page);
+  await page.goto("/workspace/projects/project-one/intake");
+  await page.getByRole("button", { name: "직접 정리하기", exact: true }).click();
+  await page.getByLabel("기능 이름", { exact: true }).fill("Keep draft while offline");
+  await page.locator('textarea[name="assumptions"]').fill("Keep offline assumption");
+  state.failRequirements = true;
+  await page.reload();
+  await expect(page.locator(".intake-review").getByRole("alert")).toContainText("Synthetic requirements read failure");
+  await page.getByRole("button", { name: "이어서 정리하기", exact: true }).click();
+  await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("Keep draft while offline");
+  await expect(page.locator('textarea[name="assumptions"]')).toHaveValue("Keep offline assumption");
+  expect(state.requirementWrites).toEqual([]);
   expect(state.pageErrors).toEqual([]);
 });
 
