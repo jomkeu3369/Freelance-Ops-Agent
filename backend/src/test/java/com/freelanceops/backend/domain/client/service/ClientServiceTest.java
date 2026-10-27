@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.freelanceops.backend.domain.client.dto.request.CreateClientRequest;
+import com.freelanceops.backend.domain.client.dto.request.UpdateClientRequest;
 import com.freelanceops.backend.domain.client.entity.ClientEntity;
 import com.freelanceops.backend.domain.client.repository.ClientRepository;
 import com.freelanceops.backend.domain.workspace.policy.AuthorizationDecision;
@@ -20,9 +21,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
+import java.time.Instant;
 import java.util.UUID;
 
 @ExtendWith(MockitoExtension.class)
@@ -113,5 +116,85 @@ class ClientServiceTest {
                 .isInstanceOfSatisfying(
                         ResponseStatusException.class,
                         error -> assertThat(error.getStatusCode().value()).isEqualTo(409));
+    }
+
+    @Test
+    void staleVersionIsRejectedBeforeAnyChangeIsSaved() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        ClientEntity client = new ClientEntity(clientId, workspaceId, "Original", null, null, null, "Keep", userId, Instant.now());
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.findByIdAndWorkspaceId(clientId, workspaceId)).thenReturn(Optional.of(client));
+        ClientService service = new ClientService(clientRepository, authorizationService);
+
+        assertThatThrownBy(() -> service.update(userId, workspaceId, clientId, new UpdateClientRequest("Stale", null, null, null, "Overwrite", 1L)))
+                .isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(client.name()).isEqualTo("Original");
+        assertThat(client.notes()).isEqualTo("Keep");
+        verify(clientRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void missingVersionFailsClosedEvenOutsideHttpValidation() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        ClientEntity client = new ClientEntity(clientId, workspaceId, "Original", null, null, null, null, userId, Instant.now());
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.findByIdAndWorkspaceId(clientId, workspaceId)).thenReturn(Optional.of(client));
+        ClientService service = new ClientService(clientRepository, authorizationService);
+
+        assertThatThrownBy(() -> service.update(userId, workspaceId, clientId, new UpdateClientRequest("Changed", null, null, null, null, null)))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(400));
+        verify(clientRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void matchingVersionUpdatesAndFlushesTheClient() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        ClientEntity client = new ClientEntity(clientId, workspaceId, "Original", null, null, null, null, userId, Instant.now());
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.findByIdAndWorkspaceId(clientId, workspaceId)).thenReturn(Optional.of(client));
+        when(clientRepository.saveAndFlush(client)).thenReturn(client);
+
+        var response = new ClientService(clientRepository, authorizationService).update(userId, workspaceId, clientId,
+                new UpdateClientRequest(" Updated ", null, " USER@EXAMPLE.COM ", null, " Notes ", 0L));
+        assertThat(response.name()).isEqualTo("Updated");
+        assertThat(response.email()).isEqualTo("user@example.com");
+        assertThat(response.notes()).isEqualTo("Notes");
+        verify(clientRepository).saveAndFlush(client);
+    }
+
+    @Test
+    void optimisticLockFailureDuringFlushIsNotTreatedAsSuccess() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        ClientEntity client = new ClientEntity(clientId, workspaceId, "Original", null, null, null, null, userId, Instant.now());
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.findByIdAndWorkspaceId(clientId, workspaceId)).thenReturn(Optional.of(client));
+        when(clientRepository.saveAndFlush(client)).thenThrow(new OptimisticLockingFailureException("changed during update"));
+
+        assertThatThrownBy(() -> new ClientService(clientRepository, authorizationService).update(userId, workspaceId, clientId,
+                new UpdateClientRequest("Changed", null, null, null, null, 0L))).isInstanceOf(OptimisticLockingFailureException.class);
+    }
+
+    @Test
+    void archivedClientCannotBeEditedEvenWithMatchingVersion() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        ClientEntity client = new ClientEntity(clientId, workspaceId, "Original", null, null, null, null, userId, Instant.now());
+        client.archive(Instant.now());
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.ALLOWED);
+        when(clientRepository.findByIdAndWorkspaceId(clientId, workspaceId)).thenReturn(Optional.of(client));
+
+        assertThatThrownBy(() -> new ClientService(clientRepository, authorizationService).update(userId, workspaceId, clientId,
+                new UpdateClientRequest("Changed", null, null, null, null, 0L))).isInstanceOf(OptimisticLockingFailureException.class);
+        verify(clientRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateStillRequiresWorkspaceWritePermission() {
+        UUID userId = UUID.randomUUID(), workspaceId = UUID.randomUUID(), clientId = UUID.randomUUID();
+        when(authorizationService.authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE)).thenReturn(AuthorizationDecision.FORBIDDEN);
+
+        assertThatThrownBy(() -> new ClientService(clientRepository, authorizationService).update(userId, workspaceId, clientId,
+                new UpdateClientRequest("Changed", null, null, null, null, 0L)))
+                .isInstanceOfSatisfying(ResponseStatusException.class, error -> assertThat(error.getStatusCode().value()).isEqualTo(403));
+        verify(clientRepository, never()).findByIdAndWorkspaceId(any(), any());
     }
 }

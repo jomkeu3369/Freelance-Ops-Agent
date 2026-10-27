@@ -695,7 +695,7 @@ test("transactional forms prevent duplicate submission and keep validation error
   assert.match(workspace, /프로젝트를\s*만들고\s*있습니다/);
   assert.match(workspace, /최소\s*예산은\s*최대\s*예산보다\s*클\s*수\s*없습니다/);
   assert.match(workspace, /<fieldset\s*className="dialog-fields"\s*disabled=\{busy\}>/);
-  assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\s*\|\|\s*draftConflict\)\s*return/);
+  assert.match(workspace, /if\s*\(!canWrite\s*\|\|\s*busy\s*\|\|\s*hasConflict\)\s*return/);
   assert.match(workspace, /const\s*pending\s*=\s*busy\s*\|\|\s*submitting/);
   assert.match(workspace, /if\s*\(pending\s*\|\|\s*submitLock\.current\s*\|\|\s*!canRespond/);
   const policyForm = await read("../features/workspace/settings/estimation-policy-form.tsx");

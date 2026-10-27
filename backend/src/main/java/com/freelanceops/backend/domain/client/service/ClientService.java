@@ -11,6 +11,7 @@ import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -56,6 +57,12 @@ public class ClientService {
     public ClientResponse update(UUID userId, UUID workspaceId, UUID clientId, UpdateClientRequest request) {
         authorize(userId, workspaceId, PermissionCode.CLIENT_WRITE);
         ClientEntity client = find(workspaceId, clientId);
+        if (request.expectedVersion() == null || request.expectedVersion() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "expectedVersion is required");
+        }
+        if (client.version() != request.expectedVersion() || !ClientStatus.ACTIVE.name().equals(client.status())) {
+            throw new OptimisticLockingFailureException("client changed; reload and review the draft");
+        }
         client.update(request.name().trim(), trim(request.companyName()), normalizeEmail(request.email()), trim(request.phone()), trim(request.notes()), Instant.now());
         return response(persist(client));
     }

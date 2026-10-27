@@ -69,7 +69,7 @@ test("a restored draft is blocked when the loaded customer version is newer", as
   });
   await page.goto("/workspace/clients");
   await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "다른 곳에서 고객 정보가 변경되었습니다" })).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "다른 곳에서 고객 정보가 변경되어" })).toBeVisible();
   await expect(page.getByRole("button", { name: "변경 저장" })).toBeDisabled();
   await expect(page.getByLabel("관계 메모")).toHaveValue("이전 초안");
   page.once("dialog", dialog => dialog.accept());
@@ -98,6 +98,126 @@ test("saving one customer clears only that customer's draft", async ({ page }) =
   await expect(page.getByLabel("담당자 이름")).toHaveValue("새 고객 초안");
   expect(state.writes).toHaveLength(1);
   expect(state.writes[0].notes).toBe("저장할 메모");
+  expect(state.writes[0].expectedVersion).toBe(1);
+});
+
+test("two editors preserve the stale draft and require an explicit comparison before retry", async ({ page, context }) => {
+  const other = await context.newPage();
+  await setup(page);
+  await setup(other);
+  let current = { ...clients[0] };
+  const writes = [];
+  let failRead = false;
+  const attach = async (tab) => {
+    await tab.route("**/api/v2/workspaces/local-space/clients", route => route.fulfill({ json: [current, clients[1]] }));
+    await tab.route("**/api/v2/workspaces/local-space/clients/client-a", route => {
+      if (route.request().method() === "GET") return failRead ? route.fulfill({ status: 503, json: { message: "unavailable" } }) : route.fulfill({ json: current });
+      const input = route.request().postDataJSON();
+      writes.push(input);
+      if (input.expectedVersion !== current.version) return route.fulfill({ status: 409, json: { code: "CONCURRENT_MODIFICATION", detail: "stale" } });
+      current = { ...current, ...input, version: current.version + 1 };
+      return route.fulfill({ json: current });
+    });
+  };
+  await attach(page);
+  await attach(other);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/workspace/clients");
+  await other.goto("/workspace/clients");
+  for (const tab of [page, other]) await tab.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("관계 메모").fill("첫 번째 탭의 초안");
+  await other.getByLabel("관계 메모").fill("다른 PC에서 저장한 내용");
+  await other.getByRole("button", { name: "변경 저장" }).click();
+  await expect(other.getByText("고객 정보가 저장되었습니다.")).toBeVisible();
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "변경되어 저장하지 않았습니다" })).toBeVisible();
+  await expect(page.getByLabel("관계 메모")).toHaveValue("첫 번째 탭의 초안");
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeDisabled();
+  failRead = true;
+  await page.getByRole("button", { name: "최신 고객 정보 확인" }).click();
+  await expect(page.getByText("최신 고객 정보를 불러오지 못했습니다.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("관계 메모")).toHaveValue("첫 번째 탭의 초안");
+  failRead = false;
+  await page.getByRole("button", { name: "최신 고객 정보 확인" }).click();
+  await expect(page.locator(".client-conflict-latest")).toContainText("다른 PC에서 저장한 내용");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator(".client-conflict").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "outputs/ui-ux/projects-clients/client-conflict-mobile.png" });
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button", { name: "비교 후 초안 계속 편집" }).click();
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeDisabled();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "비교 후 초안 계속 편집" }).click();
+  await expect(page.getByLabel("관계 메모")).toHaveValue("첫 번째 탭의 초안");
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeEnabled();
+  current = { ...current, notes: "검토 중 다시 변경됨", version: current.version + 1 };
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "변경되어 저장하지 않았습니다" })).toBeVisible();
+  await expect(page.getByLabel("관계 메모")).toHaveValue("첫 번째 탭의 초안");
+  expect(current.notes).toBe("검토 중 다시 변경됨");
+  await page.getByRole("button", { name: "최신 고객 정보 확인" }).click();
+  await expect(page.locator(".client-conflict-latest")).toContainText("검토 중 다시 변경됨");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "비교 후 초안 계속 편집" }).click();
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await expect(page.getByText("고객 정보가 저장되었습니다.")).toBeVisible();
+  expect(writes.map(input => input.expectedVersion)).toEqual([1, 1, 2, 3]);
+  expect(current.notes).toBe("첫 번째 탭의 초안");
+  await other.close();
+});
+
+test("a delayed conflict is shown in the reopened customer editor", async ({ page }) => {
+  await setup(page);
+  const barrier = requestBarrier();
+  await page.route("**/api/v2/workspaces/local-space/clients/client-a", async route => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    await barrier.wait();
+    return route.fulfill({ status: 409, json: { code: "CONCURRENT_MODIFICATION", detail: "stale" } });
+  });
+  await page.goto("/workspace/clients");
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("관계 메모").fill("잃지 않을 초안");
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await barrier.entered;
+  await page.locator(".workspace-nav").getByRole("button", { name: "프로젝트 현황", exact: true }).click();
+  await expect(page).toHaveURL(/\/workspace\/projects$/);
+  await page.goBack();
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  const response = page.waitForResponse(result => result.url().endsWith("/clients/client-a") && result.request().method() === "PATCH");
+  barrier.release();
+  await response;
+  await expect(page.getByRole("alert").filter({ hasText: "변경되어 저장하지 않았습니다" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeDisabled();
+  await expect(page.getByLabel("관계 메모")).toHaveValue("잃지 않을 초안");
+});
+
+test("an archived client stays blocked after the unsaved draft is discarded", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/v2/workspaces/local-space/clients/client-a", route => route.request().method() === "GET"
+    ? route.fulfill({ json: { ...clients[0], status: "ARCHIVED", version: 2 } })
+    : route.fulfill({ status: 409, json: { code: "CONCURRENT_MODIFICATION" } }));
+  await page.goto("/workspace/clients");
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("관계 메모").fill("보관 전에 작성한 초안");
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await page.getByRole("button", { name: "최신 고객 정보 확인" }).click();
+  await expect(page.getByText("이 고객은 보관되어 더 이상 수정할 수 없습니다.")).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "초안 버리기" }).click();
+  await expect(page.getByRole("button", { name: "변경 저장" })).toBeDisabled();
+  await expect(page.getByText("이 고객은 보관되어 더 이상 수정할 수 없습니다.")).toBeVisible();
+});
+
+test("a duplicate-email conflict is not mistaken for a stale version", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/v2/workspaces/local-space/clients/client-a", route => route.fulfill({ status: 409, json: { detail: "an active client already uses this email" } }));
+  await page.goto("/workspace/clients");
+  await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
+  await page.getByLabel("이메일").fill("duplicate@example.invalid");
+  await page.getByRole("button", { name: "변경 저장" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "an active client already uses this email" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "최신 고객 정보 확인" })).toHaveCount(0);
+  await expect(page.getByLabel("이메일")).toHaveValue("duplicate@example.invalid");
 });
 
 test("a delayed save does not erase a newer draft after leaving and returning", async ({ page }) => {
@@ -157,7 +277,7 @@ test("a delayed save clears the same draft in the reopened editor", async ({ pag
   await page.locator(".client-list").getByRole("button", { name: /고객 A/ }).click();
   await page.getByLabel("관계 메모").fill("저장 후 새 변경");
   await expect(page.getByRole("button", { name: "변경 저장" })).toBeEnabled();
-  await expect(page.getByText("다른 곳에서 고객 정보가 변경되었습니다.", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("다른 곳에서 고객 정보가 변경되어", { exact: false })).toHaveCount(0);
 });
 
 test("a delayed creation opens the saved customer in the reopened editor", async ({ page }) => {
