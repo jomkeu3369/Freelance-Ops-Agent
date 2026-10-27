@@ -70,6 +70,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
   const movingId = pendingMove?.id ?? null;
   const moveNotice = stageMove.notice;
   const boardPage = useRef<HTMLElement>(null);
+  const board = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const { search, activeColumn, preferredView, sort } = preferences;
   const setSearch = (search: string) => onPreferencesChange((current) => ({ ...current, search }));
@@ -227,9 +228,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
         <div className="pipeline-heading">
           <div>
             <h1>
-              {t("안녕하세요.")}
-              {displayName}
-              {t("님,")}
+              {t("안녕하세요, {v0}님.", { v0: displayName })}
               <br />
               {t("지금 확인할 일을 모았습니다.")}
             </h1>
@@ -416,8 +415,18 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
           ))}
         </div>
       )}
+      {view === "board" && (
+        <nav className="pipeline-board-navigation" aria-label={t("보드 단계로 이동")}>
+          {pipelineColumns.map((column) => (
+            <button key={column.key} type="button" onClick={() => {
+              const target = board.current?.querySelector<HTMLElement>(`[data-stage="${column.key}"]`);
+              if (target && board.current) board.current.scrollTo({ left: board.current.scrollLeft + target.getBoundingClientRect().left - board.current.getBoundingClientRect().left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+            }}>{t(column.title)}</button>
+          ))}
+        </nav>
+      )}
       {view === "board" ? (
-        <div className="pipeline-board" aria-label={t("단계별 프로젝트 보드")}>
+        <div className="pipeline-board" aria-label={t("단계별 프로젝트 보드")} ref={board}>
           {pipelineColumns.map((column) => {
             const columnProjects = visibleProjects.filter((project) =>
               column.statuses.includes(project.status as ProjectStatus)
@@ -425,6 +434,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
             return (
               <section
                 key={column.key}
+                data-stage={column.key}
                 className={`pipeline-column stage-${column.key}${drag.targetKey === column.key ? " drop-target" : ""}`}
                 onDragOver={(event) => drag.over(event, column)}
                 onDragLeave={drag.leave}
@@ -539,6 +549,7 @@ export function PipelineBoard({ session, projects, clients, displayName, canWrit
                 type="button"
                 className="pipeline-list-open"
                 onClick={() => onSelect(project)}
+                aria-label={t("{v0} 프로젝트 열기, {v1}", { v0: project.title, v1: t(pipelineStatusLabels[project.status] ?? project.status) })}
                 disabled={movingId === project.id}
               >
                 <span className="pipeline-card-client">{projectClientLabel(project, clients, t)}</span>

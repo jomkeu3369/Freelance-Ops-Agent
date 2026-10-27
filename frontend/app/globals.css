@@ -9008,6 +9008,69 @@ summary:focus-visible {
   flex-wrap: wrap;
   gap: 18px 34px;
 }
+
+/* 고객 목록과 상세의 정보 밀도를 작업 화면과 맞춘다. */
+.clients-heading {
+  margin-bottom: 24px;
+  gap: 20px;
+}
+.clients-heading h1 {
+  margin: 0 0 8px;
+  font-size: 1.44rem;
+  line-height: 1.3;
+  letter-spacing: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.client-editor form > label,
+.client-editor .form-row label {
+  font-size: 14px;
+}
+.client-editor-notice {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.client-discard-draft {
+  margin-bottom: 16px;
+}
+.client-projects {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.client-projects h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+.client-projects ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.client-projects button {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ink);
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+.client-projects button span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.client-projects button small {
+  color: var(--muted);
+  flex-shrink: 0;
+}
 .pipeline-list-open dl div {
   display: flex;
   align-items: center;

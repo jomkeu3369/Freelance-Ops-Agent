@@ -855,6 +855,7 @@ export function WorkspaceShell({ children }: WorkspaceShellProps) {
       clients,
       projects,
       permissions: activePermissions,
+      onOpenProject: (project) => navigateWorkspace("project", project),
       onCreated: (client) => setClients((current) => [client, ...current]),
       onUpdated: (client) => setClients((current) => current.map((item) => (item.id === client.id ? client : item))),
       onArchived: (clientId) => setClients((current) => current.filter((item) => item.id !== clientId))

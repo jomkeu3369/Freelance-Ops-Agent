@@ -115,6 +115,8 @@ jobs:
               tests/browser/chat-markdown.spec.mjs \
               tests/browser/chat-history.spec.mjs \
               tests/browser/project-mutations.spec.mjs \
+              tests/browser/pipeline-drag.spec.mjs \
+              tests/browser/projects-clients.spec.mjs \
               tests/browser/quotation-pagination.spec.mjs \
               tests/browser/quote-simplification.spec.mjs
           '

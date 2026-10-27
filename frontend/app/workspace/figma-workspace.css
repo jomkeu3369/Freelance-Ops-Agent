@@ -1146,3 +1146,40 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+.figma-workspace .pipeline-board-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+}
+.figma-workspace .pipeline-board-navigation button {
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--muted);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.figma-workspace .pipeline-board-navigation button:hover {
+  color: var(--ink);
+}
+.figma-workspace .pipeline-list-open {
+  min-height: 0;
+  padding: 24px 28px;
+}
+.figma-workspace .pipeline-list-open h2 {
+  margin: 8px 0;
+}
+.figma-workspace .pipeline-list-open p {
+  margin-bottom: 14px;
+}
+.figma-workspace .pipeline-cards article > label,
+.figma-workspace .pipeline-cards article select {
+  min-height: 44px;
+}
+@media (max-width: 820px) {
+  .figma-workspace .pipeline-list-open {
+    padding: 20px 20px 70px;
+  }
+}
