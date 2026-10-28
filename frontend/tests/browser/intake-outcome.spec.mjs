@@ -2,12 +2,12 @@ import { test, expect } from "@playwright/test";
 import { fixture, requestBarrier } from "./helpers/chat-fixture.mjs";
 
 const draftKey = "freelance-ops-requirement-draft-v1:local-user:local-space:project-one";
-const recordedOutcome = { id: "outcome-one", workspaceId: "local-space", projectId: "project-one", approvedQuotationId: null, totalRevenue: 3000000, actualCost: 1000000, actualHours: 80, profitAmount: 2000000, profitMargin: .6667, completedOn: "2026-10-20", changeReason: "Recorded change", workItems: [{ title: "Recorded work", actualHours: 80, actualCost: 1000000, notes: "Keep notes" }] };
+const recordedOutcome = { id: "outcome-one", workspaceId: "local-space", projectId: "project-one", approvedQuotationId: null, totalRevenue: 3000000, actualCost: 1000000, actualHours: 80, profitAmount: 2000000, profitMargin: .6667, completedOn: "2026-10-20", changeReason: "Recorded change", workItems: [{ title: "Recorded work", actualHours: 80, actualCost: 1000000, notes: "Keep notes" }], version: 1 };
 
 async function reviewFixture(page, { locale = "ko", theme = "dark", write = true, saved = false } = {}) {
   const state = await fixture(page);
   state.permissions.push("outcome.read", ...(write ? ["project.write", "outcome.write"] : []));
-  Object.assign(state, { requirements: [], requirementWrites: [], failRequirements: false, nextRequirementSave: null, outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, pageErrors: [] });
+  Object.assign(state, { requirements: [], requirementWrites: [], failRequirements: false, nextRequirementSave: null, outcome: saved ? structuredClone(recordedOutcome) : null, outcomeWrites: [], failOutcome: false, nextOutcome: null, nextOutcomeSave: null, failOutcomeSave: false, pageErrors: [] });
   page.on("pageerror", error => state.pageErrors.push(error.message));
   await page.addInitScript(({ locale, theme }) => {
     localStorage.setItem("freelance-ops-ui-locale-v1", locale);
@@ -32,7 +32,10 @@ async function reviewFixture(page, { locale = "ko", theme = "dark", write = true
     }
     const input = route.request().postDataJSON();
     state.outcomeWrites.push(input);
-    state.outcome = { ...recordedOutcome, ...input };
+    const pending = state.nextOutcomeSave; state.nextOutcomeSave = null;
+    if (pending) await pending.wait();
+    if (state.failOutcomeSave) return route.fulfill({ status: 503, json: { message: "Synthetic outcome save failure" } });
+    state.outcome = { ...recordedOutcome, ...input, version: (state.outcome?.version ?? 0) + 1 };
     return route.fulfill({ json: state.outcome });
   });
   return state;
@@ -116,6 +119,149 @@ test("manual requirement inputs survive close, step navigation and reload, then 
   await page.getByRole("button", { name: "새 버전 만들기", exact: true }).click();
   await expect(page.getByLabel("기능 이름", { exact: true })).toHaveValue("Draft feature");
   expect(state.pageErrors).toEqual([]);
+});
+
+test("outcome draft survives step navigation, reload and save failure before an explicit successful save", async ({ page }) => {
+  const state = await reviewFixture(page);
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('input[name="totalRevenue"]').fill("3000000");
+  await page.locator('input[name="actualCost"]').fill("400000");
+  await page.locator('input[name="actualHours"]').fill("22.5");
+  await page.locator('input[name="completedOn"]').fill("2026-10-28");
+  await page.locator('textarea[name="changeReason"]').fill("Draft outcome reason");
+  await page.getByRole("button", { name: "첫 항목 추가" }).click();
+  await page.getByLabel("작업명", { exact: true }).fill("Draft task");
+  await page.getByLabel("작업 메모", { exact: true }).fill("Draft task notes");
+  await page.locator(".workbench-steps button").nth(2).click();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Draft outcome reason");
+  await page.reload();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('input[name="actualHours"]')).toHaveValue("22.5");
+  await expect(page.getByLabel("작업명", { exact: true })).toHaveValue("Draft task");
+  await expect(page.getByRole("textbox", { name: "작업 메모" })).toHaveValue("Draft task notes");
+  state.failOutcomeSave = true;
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("Synthetic outcome save failure");
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Draft outcome reason");
+  state.failOutcomeSave = false;
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await expect.poll(() => state.outcome?.changeReason).toBe("Draft outcome reason");
+  await page.reload();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Draft outcome reason");
+  await expect(page.getByText("미저장 초안입니다.", { exact: false })).toHaveCount(0);
+  expect(state.outcomeWrites).toHaveLength(2);
+  expect(state.pageErrors).toEqual([]);
+});
+
+test("a newer saved outcome blocks a restored older draft until explicit review", async ({ page }) => {
+  const state = await reviewFixture(page, { saved: true });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Keep my draft");
+  state.outcome = { ...state.outcome, version: 2, actualHours: 99 };
+  await page.reload();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("저장된 결과가 초안 작성 이후 변경됐습니다");
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Keep my draft");
+  await expect(page.getByRole("button", { name: "사용자 확정 결과 저장" })).toBeDisabled();
+  await page.getByRole("button", { name: "현재 초안으로 계속 편집" }).click();
+  await expect(page.getByRole("button", { name: "사용자 확정 결과 저장" })).toBeEnabled();
+  expect(state.outcomeWrites).toEqual([]);
+});
+
+test("an outcome changed after the editor opened is checked before saving", async ({ page }) => {
+  const state = await reviewFixture(page, { saved: true });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("My pending change");
+  state.outcome = { ...state.outcome, version: 2, changeReason: "Another edit" };
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("Another edit");
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("My pending change");
+  await expect(page.getByRole("button", { name: "사용자 확정 결과 저장" })).toBeDisabled();
+  expect(state.outcomeWrites).toEqual([]);
+});
+
+test("a delayed outcome save cannot erase an edited draft after navigation", async ({ page }) => {
+  const state = await reviewFixture(page, { saved: true });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Submitted outcome");
+  const pending = requestBarrier(); state.nextOutcomeSave = pending;
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await pending.entered;
+  await page.locator(".workbench-steps button").nth(2).click();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Newer outcome draft");
+  pending.release();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("저장된 결과가 초안 작성 이후 변경됐습니다");
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Newer outcome draft");
+  await page.reload();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Newer outcome draft");
+  expect(state.outcomeWrites).toHaveLength(1);
+});
+
+test("outcome drafts are isolated by project and survive storage failure during step navigation", async ({ page }) => {
+  const state = await reviewFixture(page);
+  state.projects.push({ ...state.projects[0], id: "project-two", title: "Second project" });
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key.startsWith("freelance-ops-outcome-draft-v1:")) throw new Error("storage unavailable");
+      return original.call(this, key, value);
+    };
+  });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Only project one");
+  await expect(page.getByRole("status").filter({ hasText: "새로고침하면 사라질 수 있습니다" })).toBeVisible();
+  await page.locator(".workbench-steps button").nth(2).click();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Only project one");
+  await expect(page.getByRole("status").filter({ hasText: "새로고침하면 사라질 수 있습니다" })).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.goto("/workspace/projects/project-two/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("");
+  expect(state.pageErrors).toEqual([]);
+});
+
+test("memory-only outcome drafts can be saved or discarded when storage access is blocked", async ({ page }) => {
+  const state = await reviewFixture(page, { saved: true });
+  await page.addInitScript(() => {
+    for (const method of ["getItem", "setItem", "removeItem"]) {
+      const original = Storage.prototype[method];
+      Storage.prototype[method] = function(key, ...rest) {
+        if (key.startsWith("freelance-ops-outcome-draft-v1:")) throw new Error("storage blocked");
+        return original.call(this, key, ...rest);
+      };
+    }
+  });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Discard this test draft");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "초안 버리기" }).click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Recorded change");
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await page.locator(".workbench-steps button").nth(2).click();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Recorded change");
+  await page.locator('textarea[name="changeReason"]').fill("Save this test draft");
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await expect.poll(() => state.outcome?.changeReason).toBe("Save this test draft");
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await expect(page.getByText("저장된 결과가 초안 작성 이후 변경됐습니다", { exact: false })).toHaveCount(0);
+  expect(state.outcomeWrites).toHaveLength(1);
 });
 
 test("requirement drafts are isolated per project and malformed stored inputs do not crash the editor", async ({ page }) => {

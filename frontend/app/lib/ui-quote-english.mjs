@@ -17,6 +17,7 @@ export const quoteEnglish = {
   "견적안 비교": "Compare estimates",
   "핵심·권장·확장": "Core · Recommended · Extended",
   "견적 이력": "Estimate history",
+  "생성 시각": "Created",
   "단가 기준": "Rate source",
   "서비스 단가표": "Service rate card",
   "직접 입력": "Manual entry",
