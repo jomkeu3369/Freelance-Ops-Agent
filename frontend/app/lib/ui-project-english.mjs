@@ -143,6 +143,7 @@ export const projectEnglish = {
   "최신 결과 확인": "Check latest outcome",
   "현재 초안으로 계속 편집": "Continue editing this draft",
   "미저장 결과 초안을 버릴까요? 저장된 결과는 유지됩니다.": "Discard the unsaved outcome draft? The saved outcome will be kept.",
+  "브라우저 저장소의 이전 초안을 정리하지 못했습니다. 저장소 접근이 복구된 뒤 다시 나타날 수 있습니다.": "Could not clear the previous draft from browser storage. It may reappear if storage access is restored.",
   "진행 중이거나 확인을 기다리는 AI 분석이 있습니다. AI 분석에서 실행을 중단한 뒤 다시 삭제해 주세요.":
     "An analysis is running or awaiting input. Stop it before deleting the project.",
   "프로젝트를 삭제하지 못했습니다.": "Could not delete the project.",

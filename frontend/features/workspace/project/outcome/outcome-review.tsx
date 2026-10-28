@@ -46,6 +46,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
   const instance = useRef({});
   const [draftStarted, setDraftStarted] = useState(false);
   const [draftUnavailable, setDraftUnavailable] = useState(false);
+  const [cleanupUnavailable, setCleanupUnavailable] = useState(false);
   const [draftConflict, setDraftConflict] = useState(false);
   const [latestChecked, setLatestChecked] = useState(false);
   const draftKey = `freelance-ops-outcome-draft-v1:${encodeURIComponent(session.userId)}:${encodeURIComponent(session.workspaceId)}:${encodeURIComponent(project.id)}`;
@@ -62,7 +63,9 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     draftRef.current = next;
     setDraft(next);
     setDraftStarted(true);
-    setDraftUnavailable(!writeOutcomeDraft(draftKey, next));
+    const available = writeOutcomeDraft(draftKey, next);
+    setDraftUnavailable(!available);
+    if (available) setCleanupUnavailable(false);
   }
 
   function setWorkItems(update: OutcomeDraft["workItems"] | ((current: OutcomeDraft["workItems"]) => OutcomeDraft["workItems"])) {
@@ -100,12 +103,13 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
       .then(async ([result, nextQuotations]) => {
         if (!cancelled) {
           setOutcome(result);
-          const restored = canWrite ? readOutcomeDraft(draftKey) : { draft: null, unavailable: false };
+          const restored = canWrite ? readOutcomeDraft(draftKey) : { draft: null, unavailable: false, cleanupPending: false };
           const nextDraft = restored.draft ?? outcomeDraftFromResult(result);
           draftRef.current = nextDraft;
           setDraft(nextDraft);
           setDraftStarted(Boolean(restored.draft));
           setDraftUnavailable(restored.unavailable);
+          setCleanupUnavailable(restored.cleanupPending);
           setDraftConflict(Boolean(restored.draft && (restored.draft.baseId !== (result?.id ?? null) || restored.draft.baseVersion !== (result?.version ?? null))));
           setLatestChecked(true);
           const selectedIds = [...new Set([result?.approvedQuotationId, nextDraft.approvedQuotationId].filter((id): id is string => Boolean(id)))];
@@ -196,7 +200,9 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
       });
       setOutcome(savedOutcome);
       window.dispatchEvent(new CustomEvent("freelance-ops-outcome-saved", { detail: { key: draftKey, source: instance.current } }));
-      if (!submitted.revision || clearOutcomeDraft(draftKey, submitted.revision)) {
+      const cleared = submitted.revision ? clearOutcomeDraft(draftKey, submitted.revision) : { cleared: true, unavailable: false };
+      setCleanupUnavailable(cleared.unavailable);
+      if (cleared.cleared) {
         const next = outcomeDraftFromResult(savedOutcome);
         draftRef.current = next;
         setDraft(next);
@@ -237,7 +243,9 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
             setBusy(true);
             try {
               const latest = await getOutcome(session, project.id);
-              if (!clearOutcomeDraft(draftKey, revision)) { setDraftUnavailable(true); return; }
+              const cleared = clearOutcomeDraft(draftKey, revision);
+              if (!cleared.cleared) { setDraftConflict(true); setLatestChecked(false); return; }
+              setCleanupUnavailable(cleared.unavailable);
               const next = outcomeDraftFromResult(latest);
               draftRef.current = next;
               setDraft(next);
@@ -248,6 +256,9 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
             finally { setBusy(false); }
           }}>{t("초안 버리기")}</button>
         </div>
+      )}
+      {cleanupUnavailable && (
+        <p className="inline-error" role="alert">{t("브라우저 저장소의 이전 초안을 정리하지 못했습니다. 저장소 접근이 복구된 뒤 다시 나타날 수 있습니다.")}</p>
       )}
       {canWrite && draftConflict && (
         <div className="inline-error" role="alert">

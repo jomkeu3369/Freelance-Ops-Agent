@@ -233,6 +233,37 @@ test("outcome drafts are isolated by project and survive storage failure during 
   expect(state.pageErrors).toEqual([]);
 });
 
+test("memory-only outcome drafts can be saved or discarded when storage access is blocked", async ({ page }) => {
+  const state = await reviewFixture(page, { saved: true });
+  await page.addInitScript(() => {
+    for (const method of ["getItem", "setItem", "removeItem"]) {
+      const original = Storage.prototype[method];
+      Storage.prototype[method] = function(key, ...rest) {
+        if (key.startsWith("freelance-ops-outcome-draft-v1:")) throw new Error("storage blocked");
+        return original.call(this, key, ...rest);
+      };
+    }
+  });
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.locator('textarea[name="changeReason"]').fill("Discard this test draft");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "초안 버리기" }).click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Recorded change");
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await page.locator(".workbench-steps button").nth(2).click();
+  await page.locator(".workbench-steps button").nth(3).click();
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('textarea[name="changeReason"]')).toHaveValue("Recorded change");
+  await page.locator('textarea[name="changeReason"]').fill("Save this test draft");
+  await page.getByRole("button", { name: "사용자 확정 결과 저장" }).click();
+  await expect.poll(() => state.outcome?.changeReason).toBe("Save this test draft");
+  await expect(page.locator(".outcome-review").getByRole("alert")).toContainText("이전 초안을 정리하지 못했습니다");
+  await expect(page.getByText("저장된 결과가 초안 작성 이후 변경됐습니다", { exact: false })).toHaveCount(0);
+  expect(state.outcomeWrites).toHaveLength(1);
+});
+
 test("requirement drafts are isolated per project and malformed stored inputs do not crash the editor", async ({ page }) => {
   const state = await reviewFixture(page);
   state.projects.push({ ...state.projects[0], id: "project-two", title: "Second project" });
