@@ -1,4 +1,4 @@
-import { useT } from "../../../../app/lib/ui-language";
+import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import type { FormEvent } from "react";
 import {
   AuthSession,
@@ -8,7 +8,7 @@ import {
   getProjectQuotation,
   saveOutcome
 } from "../../../../app/lib/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Graph,
   CircleNotch,
@@ -23,6 +23,8 @@ import {
 import { formatMoney } from "../../shared/formatters";
 import { quotationScenarioLabels } from "../../shared/constants";
 import { useQuotationHistory } from "../quotation/use-quotation-history";
+import { quotationIdentity } from "../quotation/quotation-identity";
+import { clearOutcomeDraft, outcomeDraftFromResult, readOutcomeDraft, writeOutcomeDraft, type OutcomeDraft } from "./outcome-draft";
 
 interface OutcomeReviewProps {
   session: AuthSession;
@@ -32,21 +34,56 @@ interface OutcomeReviewProps {
 
 export function OutcomeReview({ session, project, permissions }: OutcomeReviewProps) {
   const t = useT();
+  const locale = useUiLocale();
   const canRead = permissions.has("outcome.read");
   const canWrite = permissions.has("outcome.write");
   const canReadQuotations = permissions.has("quotation.read");
   const [outcome, setOutcome] = useState<ActualOutcome | null>(null);
   const { quotations, nextCursor, loadingMore, historyError, loadFirstPage, includeQuotation, loadMoreQuotations } =
     useQuotationHistory(session, project.id);
-  const [approvedQuotationId, setApprovedQuotationId] = useState("");
-  const [workItems, setWorkItems] = useState<
-    Array<{ title: string; actualHours: number; actualCost: number; notes: string }>
-  >([]);
+  const [draft, setDraft] = useState<OutcomeDraft>(() => outcomeDraftFromResult(null));
+  const draftRef = useRef(draft);
+  const instance = useRef({});
+  const [draftStarted, setDraftStarted] = useState(false);
+  const [draftUnavailable, setDraftUnavailable] = useState(false);
+  const [draftConflict, setDraftConflict] = useState(false);
+  const [latestChecked, setLatestChecked] = useState(false);
+  const draftKey = `freelance-ops-outcome-draft-v1:${encodeURIComponent(session.userId)}:${encodeURIComponent(session.workspaceId)}:${encodeURIComponent(project.id)}`;
+  const { approvedQuotationId, workItems } = draft;
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+
+  function changeDraft(update: (current: OutcomeDraft) => OutcomeDraft) {
+    if (!canWrite) return;
+    const next = { ...update(draftRef.current), revision: window.crypto.randomUUID() };
+    draftRef.current = next;
+    setDraft(next);
+    setDraftStarted(true);
+    setDraftUnavailable(!writeOutcomeDraft(draftKey, next));
+  }
+
+  function setWorkItems(update: OutcomeDraft["workItems"] | ((current: OutcomeDraft["workItems"]) => OutcomeDraft["workItems"])) {
+    changeDraft((current) => ({ ...current, workItems: typeof update === "function" ? update(current.workItems) : update }));
+  }
+
+  useEffect(() => {
+    const handleSaved = (event: Event) => {
+      const detail = (event as CustomEvent<{ key: string; source: object }>).detail;
+      if (detail.key === draftKey && detail.source !== instance.current) { setDraftConflict(true); setLatestChecked(false); }
+    };
+    window.addEventListener("freelance-ops-outcome-saved", handleSaved);
+    return () => window.removeEventListener("freelance-ops-outcome-saved", handleSaved);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftStarted || !draftUnavailable) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [draftStarted, draftUnavailable]);
 
   useEffect(() => {
     if (!canRead) return;
@@ -63,24 +100,23 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
       .then(async ([result, nextQuotations]) => {
         if (!cancelled) {
           setOutcome(result);
-          setApprovedQuotationId(result?.approvedQuotationId ?? "");
-          setWorkItems(
-            result?.workItems.map((item) => ({
-              title: item.title,
-              actualHours: item.actualHours,
-              actualCost: item.actualCost,
-              notes: item.notes ?? ""
-            })) ?? []
-          );
-          const selectedQuotation =
-            canReadQuotations && result?.approvedQuotationId
-              ? (nextQuotations.find((quotation) => quotation.id === result.approvedQuotationId) ??
-                (await getProjectQuotation(session, project.id, result.approvedQuotationId).catch((cause: unknown) => {
-                  if (!cancelled) setError(cause instanceof Error ? cause.message : "기준 견적을 불러오지 못했습니다.");
-                  return null;
-                })))
-              : null;
-          if (!cancelled && selectedQuotation) includeQuotation(selectedQuotation);
+          const restored = canWrite ? readOutcomeDraft(draftKey) : { draft: null, unavailable: false };
+          const nextDraft = restored.draft ?? outcomeDraftFromResult(result);
+          draftRef.current = nextDraft;
+          setDraft(nextDraft);
+          setDraftStarted(Boolean(restored.draft));
+          setDraftUnavailable(restored.unavailable);
+          setDraftConflict(Boolean(restored.draft && (restored.draft.baseId !== (result?.id ?? null) || restored.draft.baseVersion !== (result?.version ?? null))));
+          setLatestChecked(true);
+          const selectedIds = [...new Set([result?.approvedQuotationId, nextDraft.approvedQuotationId].filter((id): id is string => Boolean(id)))];
+          const selectedQuotations = canReadQuotations
+            ? await Promise.all(selectedIds.map((id) => nextQuotations.find((quotation) => quotation.id === id) ??
+              getProjectQuotation(session, project.id, id).catch((cause: unknown) => {
+                if (!cancelled) setError(cause instanceof Error ? cause.message : "기준 견적을 불러오지 못했습니다.");
+                return null;
+              })))
+            : [];
+          if (!cancelled) selectedQuotations.forEach((quotation) => { if (quotation) includeQuotation(quotation); });
         }
       })
       .catch((cause: unknown) => {
@@ -95,7 +131,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
     return () => {
       cancelled = true;
     };
-  }, [canRead, canReadQuotations, includeQuotation, loadAttempt, loadFirstPage, project.id, session]);
+  }, [canRead, canReadQuotations, canWrite, draftKey, includeQuotation, loadAttempt, loadFirstPage, project.id, session]);
 
   if (!canRead)
     return (
@@ -137,21 +173,38 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canWrite || busy || loading || loadFailed) return;
+    if (!canWrite || busy || loading || loadFailed || draftConflict) return;
     setBusy(true);
     setError(null);
-    const data = new FormData(event.currentTarget);
+    const submitted = draftRef.current;
     try {
+      const latest = await getOutcome(session, project.id);
+      if (submitted.baseId !== (latest?.id ?? null) || submitted.baseVersion !== (latest?.version ?? null)) {
+        setOutcome(latest);
+        setDraftConflict(true);
+        setLatestChecked(true);
+        return;
+      }
       const savedOutcome = await saveOutcome(session, project.id, {
-        approvedQuotationId: String(data.get("approvedQuotationId")) || null,
-        totalRevenue: Number(data.get("totalRevenue")),
-        actualCost: Number(data.get("actualCost")),
-        actualHours: Number(data.get("actualHours")),
-        completedOn: String(data.get("completedOn")) || null,
-        changeReason: String(data.get("changeReason")),
-        workItems: workItems.map((item) => ({ quotationItemId: null, ...item }))
+        approvedQuotationId: submitted.approvedQuotationId || null,
+        totalRevenue: Number(submitted.totalRevenue),
+        actualCost: Number(submitted.actualCost),
+        actualHours: Number(submitted.actualHours),
+        completedOn: submitted.completedOn || null,
+        changeReason: submitted.changeReason,
+        workItems: submitted.workItems.map((item) => ({ quotationItemId: null, ...item, actualHours: Number(item.actualHours), actualCost: Number(item.actualCost) }))
       });
       setOutcome(savedOutcome);
+      window.dispatchEvent(new CustomEvent("freelance-ops-outcome-saved", { detail: { key: draftKey, source: instance.current } }));
+      if (!submitted.revision || clearOutcomeDraft(draftKey, submitted.revision)) {
+        const next = outcomeDraftFromResult(savedOutcome);
+        draftRef.current = next;
+        setDraft(next);
+        setDraftStarted(false);
+      } else {
+        setDraftConflict(true);
+        setLatestChecked(false);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "결과를 저장하지 못했습니다.");
     } finally {
@@ -173,6 +226,56 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
         <div className="inline-error" role="alert">
           <Warning size={18} />
           {t(error)}
+        </div>
+      )}
+      {canWrite && draftStarted && (
+        <div className="requirement-draft-note" role="status">
+          <span>{t(draftUnavailable ? "이 탭에서는 초안을 유지하지만 새로고침하면 사라질 수 있습니다." : "미저장 초안입니다. 다른 단계로 이동하거나 새로고침해도 이 탭에서 이어서 작성할 수 있습니다.")}</span>
+          <button type="button" className="quiet-button" disabled={busy} onClick={async () => {
+            if (!window.confirm(t("미저장 결과 초안을 버릴까요? 저장된 결과는 유지됩니다."))) return;
+            const revision = draftRef.current.revision;
+            setBusy(true);
+            try {
+              const latest = await getOutcome(session, project.id);
+              if (!clearOutcomeDraft(draftKey, revision)) { setDraftUnavailable(true); return; }
+              const next = outcomeDraftFromResult(latest);
+              draftRef.current = next;
+              setDraft(next);
+              setOutcome(latest);
+              setDraftStarted(false);
+              setDraftConflict(false);
+            } catch (cause) { setError(cause instanceof Error ? cause.message : "결과를 불러오지 못했습니다."); }
+            finally { setBusy(false); }
+          }}>{t("초안 버리기")}</button>
+        </div>
+      )}
+      {canWrite && draftConflict && (
+        <div className="inline-error" role="alert">
+          <p>{t("저장된 결과가 초안 작성 이후 변경됐습니다. 최신 결과를 확인하기 전에는 저장할 수 없습니다.")}</p>
+          {latestChecked && outcome && (
+            <div>
+              <strong>{t("현재 저장된 결과")}</strong>
+              <p>{t("최종 계약 금액")}: {formatMoney(outcome.totalRevenue, project.currency)} · {t("실제 비용")}: {formatMoney(outcome.actualCost, project.currency)} · {t("실제 공수")}: {outcome.actualHours}{t("시간")}</p>
+              <p>{t("완료일")}: {outcome.completedOn || "—"} · {t("기준 견적")}: {outcome.approvedQuotationId || "—"}</p>
+              <p>{t("변경 내용")}: {outcome.changeReason || "—"}</p>
+              {outcome.workItems.map((item, index) => <p key={index}>{item.title} · {item.actualHours}{t("시간")} · {formatMoney(item.actualCost, project.currency)} · {item.notes || "—"}</p>)}
+            </div>
+          )}
+          {latestChecked && !outcome && <p>{t("현재 저장된 결과가 없습니다.")}</p>}
+          {!latestChecked ? (
+            <button type="button" className="secondary-button" onClick={async () => {
+              try { setOutcome(await getOutcome(session, project.id)); setLatestChecked(true); }
+              catch (cause) { setError(cause instanceof Error ? cause.message : "결과를 불러오지 못했습니다."); }
+            }}>{t("최신 결과 확인")}</button>
+          ) : (
+            <div>
+              <p>{t("계속 편집한 뒤 저장하면 위 결과를 현재 초안으로 바꿉니다.")}</p>
+              <button type="button" className="secondary-button" onClick={() => {
+                changeDraft((current) => ({ ...current, baseId: outcome?.id ?? null, baseVersion: outcome?.version ?? null }));
+                setDraftConflict(false);
+              }}>{t("현재 초안으로 계속 편집")}</button>
+            </div>
+          )}
         </div>
       )}
       {outcome && (
@@ -266,7 +369,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       name="approvedQuotationId"
                       disabled={!canWrite}
                       value={approvedQuotationId}
-                      onChange={(event) => setApprovedQuotationId(event.target.value)}
+                      onChange={(event) => changeDraft((current) => ({ ...current, approvedQuotationId: event.target.value }))}
                     >
                       <option value="">{t("견적을 연결하지 않음")}</option>
                       {approvedQuotationId && !quotations.some((quotation) => quotation.id === approvedQuotationId) && (
@@ -282,7 +385,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                         .map((quotation) => (
                           <option key={quotation.id} value={quotation.id}>
                             {t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber} ·{" "}
-                            {formatMoney(quotation.total, quotation.currency)}
+                            {formatMoney(quotation.total, quotation.currency)} · {quotationIdentity(quotation, locale)}
                           </option>
                         ))}
                     </select>
@@ -315,7 +418,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       step="0.01"
                       required
                       readOnly={!canWrite}
-                      defaultValue={outcome?.totalRevenue ?? ""}
+                      value={draft.totalRevenue}
+                      onChange={(event) => changeDraft((current) => ({ ...current, totalRevenue: event.target.value }))}
                     />
                     <small>{project.currency}</small>
                   </div>
@@ -330,7 +434,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       step="0.01"
                       required
                       readOnly={!canWrite}
-                      defaultValue={outcome?.actualCost ?? ""}
+                      value={draft.actualCost}
+                      onChange={(event) => changeDraft((current) => ({ ...current, actualCost: event.target.value }))}
                     />
                     <small>{project.currency}</small>
                   </div>
@@ -345,7 +450,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       step="0.5"
                       required
                       readOnly={!canWrite}
-                      defaultValue={outcome?.actualHours ?? ""}
+                      value={draft.actualHours}
+                      onChange={(event) => changeDraft((current) => ({ ...current, actualHours: event.target.value }))}
                     />
                     <small>{t("시간")}</small>
                   </div>
@@ -357,7 +463,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                       name="completedOn"
                       type="date"
                       readOnly={!canWrite}
-                      defaultValue={outcome?.completedOn ?? ""}
+                      value={draft.completedOn}
+                      onChange={(event) => changeDraft((current) => ({ ...current, completedOn: event.target.value }))}
                     />
                   </div>
                 </label>
@@ -374,7 +481,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     type="button"
                     className="secondary-button"
                     onClick={() =>
-                      setWorkItems((current) => [...current, { title: "", actualHours: 0, actualCost: 0, notes: "" }])
+                      setWorkItems((current) => [...current, { title: "", actualHours: "0", actualCost: "0", notes: "" }])
                     }
                   >
                     <Plus size={16} /> {t("항목 추가")}
@@ -394,7 +501,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                     <button
                       type="button"
                       className="secondary-button"
-                      onClick={() => setWorkItems([{ title: "", actualHours: 0, actualCost: 0, notes: "" }])}
+                      onClick={() => setWorkItems([{ title: "", actualHours: "0", actualCost: "0", notes: "" }])}
                     >
                       <Plus size={16} /> {t("첫 항목 추가")}
                     </button>
@@ -434,7 +541,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                             setWorkItems((current) =>
                               current.map((currentItem, itemIndex) =>
                                 itemIndex === index
-                                  ? { ...currentItem, actualHours: Number(event.target.value) }
+                                  ? { ...currentItem, actualHours: event.target.value }
                                   : currentItem
                               )
                             )
@@ -452,7 +559,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                             setWorkItems((current) =>
                               current.map((currentItem, itemIndex) =>
                                 itemIndex === index
-                                  ? { ...currentItem, actualCost: Number(event.target.value) }
+                                  ? { ...currentItem, actualCost: event.target.value }
                                   : currentItem
                               )
                             )
@@ -515,7 +622,8 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
                   rows={6}
                   maxLength={5000}
                   readOnly={!canWrite}
-                  defaultValue={outcome?.changeReason ?? ""}
+                  value={draft.changeReason}
+                  onChange={(event) => changeDraft((current) => ({ ...current, changeReason: event.target.value }))}
                   placeholder={t(
                     "예: 고객 확인이 늦어져 일정이 3일 늘었고, 관리자 통계 화면이 추가되어 개발 공수가 6시간 증가했습니다."
                   )}
@@ -524,7 +632,7 @@ export function OutcomeReview({ session, project, permissions }: OutcomeReviewPr
               <small>{t("확인된 사실을 중심으로 작성하세요. 비어 있어도 결과를 저장할 수 있습니다.")}</small>
             </section>
             {canWrite ? (
-              <button type="submit" className="primary-button" disabled={busy}>
+              <button type="submit" className="primary-button" disabled={busy || draftConflict}>
                 {busy ? <CircleNotch className="spin" /> : <CheckCircle size={18} />} {t("사용자 확정 결과 저장")}
               </button>
             ) : (

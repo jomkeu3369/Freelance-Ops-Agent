@@ -3383,6 +3383,15 @@ footer > span {
 .quote-history small {
   color: var(--muted);
 }
+.quote-history-identity {
+  min-width: 0;
+  padding: 10px 0;
+}
+.quote-history-identity small {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+}
 .quote-history button > span {
   text-align: right;
 }

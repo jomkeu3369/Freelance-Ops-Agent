@@ -6,11 +6,12 @@ const cursor = "fixture-older+/=";
 const quoteItem = title => ({ rateCardId: null, title, description: "", quantity: 2, unit: "HOUR", unitRate: 100, discountRate: 0, basis: { type: "ASSUMPTION", content: "Reviewed scope", sourceType: null, sourceReference: null, sourceTitle: null, retrievedAt: null } });
 const quote = number => ({ id: `quote-${number}`, workspaceId: "local-space", projectId: "project-one", seriesId: `series-${number}`, previousVersionId: null, versionNumber: number, scenario: "RECOMMENDED", status: "PUBLISHED", currency: "KRW", subtotal: 200, discountTotal: 0, riskBufferRate: 0, riskBufferAmount: 0, taxRate: .1, taxAmount: 20, total: 220, validUntil: null, items: [quoteItem(`Saved item ${number}`)], publishedAt: null, createdAt: new Date(Date.UTC(2026, 0, 1, 0, number)).toISOString(), version: 1 });
 
-async function quotations(page, { restored = false, failDetail = false } = {}) {
+async function quotations(page, { restored = false, failDetail = false, duplicateLabels = false } = {}) {
   const state = await fixture(page);
   state.permissions.push("outcome.read", "outcome.write");
   Object.assign(state, { pageReads: [], detailReads: [], latestQuotationReads: [], quotationRevisions: [], unexpectedQuotations: [], failPage: false, failDetail, nextPage: null });
   const records = Array.from({ length: 100 }, (_, index) => quote(100 - index));
+  if (duplicateLabels) records[1] = { ...records[1], versionNumber: records[0].versionNumber, createdAt: records[0].createdAt };
   const savedOutcome = { id: "outcome-one", workspaceId: "local-space", projectId: "project-one", approvedQuotationId: "quote-5", totalRevenue: 300, actualCost: 100, actualHours: 3, profitAmount: 200, profitMargin: .67, completedOn: null, changeReason: "Recorded", workItems: [{ title: "Recorded work", actualHours: 3, actualCost: 100, notes: "Keep work notes" }] };
   if (restored) {
     const key = quotationDraftKey("local-user", "local-space", "project-one");
@@ -29,9 +30,10 @@ async function quotations(page, { restored = false, failDetail = false } = {}) {
       if (pending) await pending.wait();
       return state.failPage ? json({ message: "Older quotations unavailable" }, 503) : json({ items: records.slice(50), nextCursor: null });
     }
-    if (path === "/api/v2/workspaces/local-space/quotations/quote-5" && request.method() === "GET") {
-      state.detailReads.push("quote-5");
-      return state.failDetail ? json({ message: "Selected quotation unavailable" }, 503) : json(quote(5));
+    if (/^\/api\/v2\/workspaces\/local-space\/quotations\/quote-(4|5)$/.test(path) && request.method() === "GET") {
+      const number = Number(path.split("-").at(-1));
+      state.detailReads.push(`quote-${number}`);
+      return state.failDetail ? json({ message: "Selected quotation unavailable" }, 503) : json(quote(number));
     }
     if (path === "/api/v2/workspaces/local-space/quotations/quote-5/latest" && request.method() === "GET") {
       state.latestQuotationReads.push("quote-5");
@@ -51,6 +53,20 @@ async function quotations(page, { restored = false, failDetail = false } = {}) {
   });
   return state;
 }
+
+test("quotation history and outcome selection distinguish equal versions, totals and timestamps", async ({ page }) => {
+  await quotations(page, { duplicateLabels: true });
+  await page.goto("/workspace/projects/project-one/quote");
+  await page.locator(".quote-history > summary").click();
+  const first = page.locator(".quote-history > button").nth(0);
+  const second = page.locator(".quote-history > button").nth(1);
+  await expect(first).toContainText("ID quote-100");
+  await expect(second).toContainText("ID quote-99");
+  await page.locator(".workbench-steps button").nth(3).click();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.locator('#outcome-approved-quotation option[value="quote-100"]')).toContainText("ID quote-100");
+  await expect(page.locator('#outcome-approved-quotation option[value="quote-99"]')).toContainText("ID quote-99");
+});
 
 test("older pages load only on request; a page failure and retry preserve the quote editor", async ({ page }) => {
   const state = await quotations(page);
@@ -123,6 +139,21 @@ test("outcome pagination retains its older approved quote and unsaved form input
   expect(state.blocked).toEqual([]);
 });
 
+test("restoring a different off-page outcome selection also retains the saved reference", async ({ page }) => {
+  const state = await quotations(page);
+  await page.goto("/workspace/projects/project-one/outcome");
+  await page.locator(".outcome-editor > summary").click();
+  await page.getByRole("button", { name: "이전 견적 더 보기" }).click();
+  await page.getByLabel("기준 견적", { exact: true }).selectOption("quote-4");
+  await page.reload();
+  await page.locator(".outcome-editor > summary").click();
+  await expect(page.getByLabel("기준 견적", { exact: true })).toHaveValue("quote-4");
+  await expect(page.locator('#outcome-approved-quotation option[value="quote-5"]')).toHaveCount(1);
+  await expect(page.locator(".outcome-variance")).toBeVisible();
+  expect(state.detailReads).toContain("quote-4");
+  expect(state.detailReads).toContain("quote-5");
+});
+
 for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, locale: "en" }]) {
   test(`${width}px ${locale}: private project navigation isolates delayed pages and retains both drafts`, async ({ page }) => {
     const state = await quotations(page, { restored: true });
@@ -171,7 +202,7 @@ for (const { width, locale } of [{ width: 390, locale: "ko" }, { width: 1440, lo
     await stalePageResponse;
     await page.locator(".quote-history > summary").click();
     // 첫 페이지와 페이지 밖에서 복원한 정확한 기준만 포함하고 이전 항목 조회는 제외한다.
-    await expect(page.locator(".quote-history > button > strong")).toHaveCount(51);
+    await expect(page.locator(".quote-history > button .quote-history-identity > strong")).toHaveCount(51);
     await expect(page.locator(".quote-item-disclosure").first()).toContainText(quoteDraft);
     await expect.poll(() => page.evaluate(key => JSON.parse(sessionStorage.getItem(key))?.baseQuotationId, draftKey)).toBe("quote-5");
     await page.goForward();

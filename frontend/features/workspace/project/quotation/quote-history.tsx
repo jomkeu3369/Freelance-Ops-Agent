@@ -1,11 +1,13 @@
-import { useT } from "../../../../app/lib/ui-language";
+import { useT, useUiLocale } from "../../../../app/lib/ui-language";
 import { quotationScenarioLabels, quotationStatusLabels } from "../../shared/constants";
 import { formatMoney } from "../../shared/formatters";
 
 import type { QuoteBuilderModel } from "./use-quote-builder";
+import { quotationIdentity } from "./quotation-identity";
 
 export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
   const t = useT();
+  const locale = useUiLocale();
   const { quotations, loadQuotation, nextCursor, loadingMore, historyError, loadMoreQuotations } = model;
 
   return (
@@ -22,9 +24,10 @@ export function QuoteHistory({ model }: { model: QuoteBuilderModel }) {
           </summary>
           {quotations.map((quotation) => (
             <button type="button" key={quotation.id} onClick={() => loadQuotation(quotation)}>
-              <strong>
-                {t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber}
-              </strong>
+              <div className="quote-history-identity">
+                <strong>{t(quotationScenarioLabels[quotation.scenario])} v{quotation.versionNumber}</strong>
+                <small>{t("생성 시각")}: {quotationIdentity(quotation, locale)}</small>
+              </div>
               <small>{t(quotationStatusLabels[quotation.status]) ?? t("상태 확인 필요")}</small>
               <span>{formatMoney(quotation.total, quotation.currency)}</span>
             </button>

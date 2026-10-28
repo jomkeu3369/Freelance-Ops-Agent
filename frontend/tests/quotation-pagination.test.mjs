@@ -52,6 +52,7 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
     useEffect(callback, deps) { const index = slotIndex++; if (!slots[index] || deps.some((value, i) => value !== slots[index].deps[i])) { slots[index]?.cleanup?.(); slots[index] = { deps }; effects.push(() => { slots[index].cleanup = callback(); }); } },
   };
   const window = {
+    crypto: { randomUUID: () => `draft-${++timerId}` },
     sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
     addEventListener() {}, removeEventListener() {}, dispatchEvent() {}, confirm: () => true,
     setTimeout(callback) { const id = ++timerId; timers.set(id, callback); return id; }, clearTimeout: id => timers.delete(id),
@@ -104,7 +105,7 @@ function harness(kind = "builder", { draft = null, canReadQuotations = true, sav
         if (name === "react") return react;
         if (name === "react/jsx-runtime") return { jsx, jsxs: jsx };
         if (name === "@phosphor-icons/react") return {};
-        if (name.endsWith("ui-language")) return { useT: () => value => value };
+        if (name.endsWith("ui-language")) return { useT: () => value => value, useUiLocale: () => "ko" };
         if (name.endsWith("formatters")) return { formatMoney: value => String(value) };
         let resolved = name.startsWith("@/") ? path.join(root, name.slice(2)) : path.resolve(path.dirname(file), name);
         if (!path.extname(resolved)) resolved += existsSync(`${resolved}.ts`) ? ".ts" : ".tsx";
@@ -237,7 +238,7 @@ test("outcome preserves an approved quotation outside the first page and keeps a
   assert.equal(select(tree).props.value, "quote-90");
   assert.equal(all(tree, node => node.type === "option" && node.props.value === "quote-5").length, 1);
   assert.equal(all(tree, node => node.type === "option").length, 101);
-  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.defaultValue, 300);
+  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.value, "300");
 });
 
 test("outcome pagination errors retain the saved reference and editable fields", async () => {
@@ -247,7 +248,7 @@ test("outcome pagination errors retain the saved reference and editable fields",
   assert.equal(select(tree).props.value, "quote-5");
   assert.match(JSON.stringify(tree), /Older page unavailable/);
   assert.ok(loadMore(tree));
-  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.defaultValue, 300);
+  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.value, "300");
 });
 
 test("outcome without quotation read permission keeps the previously saved reference without listing quotations", async () => {
@@ -285,7 +286,7 @@ test("failed optional outcome-detail lookup keeps the saved outcome, reference, 
   await tick();
   const tree = h.render();
   assert.equal(select(tree).props.value, "quote-5");
-  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.defaultValue, 300);
+  assert.equal(all(tree, node => node.type === "input" && node.props.name === "totalRevenue")[0].props.value, "300");
   assert.match(JSON.stringify(tree), /Recorded task/);
   assert.match(JSON.stringify(tree), /Keep notes/);
   assert.match(JSON.stringify(tree), /Selected quotation unavailable/);
