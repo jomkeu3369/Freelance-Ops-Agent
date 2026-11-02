@@ -102,6 +102,14 @@
 
 ![시스템 아키텍처와 배포 파이프라인](docs/assets/readme/system-architecture-pipeline.png)
 
+### Agent 실행 구조
+
+Spring은 인증·권한과 실행 예산을 관리하고, Agent는 안전 정책과 신뢰된 실행 계약을 확인한 뒤 경로별 작업을 수행합니다. 실행 상태와 체크포인트는 Agent 전용 PostgreSQL 스키마에 저장하며, 업무 데이터는 위임 토큰을 사용해 Spring 내부 API로 접근합니다.
+
+![Agent 실행 구조: 인증된 요청, 안전 관문과 라우팅, 부서 실행, 모델·도구·저장소 연결](docs/assets/readme/agent-architecture.png)
+
+그림은 코드 기준 구조입니다. Research Deep Agent는 개발용 비교 후보이며 운영 실행기에 연결하지 않았습니다. 로컬 라우터는 설정에 따라 shadow 비교에 사용할 수 있습니다. [Agent 구성과 실행 안내](agent/README.md)
+
 ### 전체 기술 스택
 
 애플리케이션 코드, 의존성·잠금 파일, 데이터베이스 마이그레이션, 배포·CI 설정을 기준으로 정리했습니다. 서비스 구현, 활성화 조건이 있는 통합, 개발·실험 도구를 구분합니다.
