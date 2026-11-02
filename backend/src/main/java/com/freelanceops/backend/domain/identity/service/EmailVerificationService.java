@@ -2,13 +2,14 @@ package com.freelanceops.backend.domain.identity.service;
 
 import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
 import com.freelanceops.backend.domain.identity.dto.response.AuthTokenResponse;
+import com.freelanceops.backend.domain.identity.repository.JdbcEmailVerificationRepository;
+import com.freelanceops.backend.domain.identity.repository.JdbcEmailVerificationRepository.PendingAccount;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceProvisioningService;
 import com.freelanceops.backend.global.mail.OperationalMailTransport;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +21,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -34,7 +34,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 @Service
 public class EmailVerificationService {
-    private final JdbcTemplate jdbc;
+    private final JdbcEmailVerificationRepository repository;
     private final PasswordEncoder passwords;
     private final WorkspaceProvisioningService workspaces;
     private final AuthTokenService tokens;
@@ -48,7 +48,7 @@ public class EmailVerificationService {
     private final SecureRandom random = new SecureRandom();
 
     public EmailVerificationService(
-            JdbcTemplate jdbc,
+            JdbcEmailVerificationRepository repository,
             PasswordEncoder passwords,
             WorkspaceProvisioningService workspaces,
             AuthTokenService tokens,
@@ -78,7 +78,7 @@ public class EmailVerificationService {
                                 && "localhost".equals(origin.getHost()))))
             throw new IllegalArgumentException(
                     "Email verification public origin must be an exact HTTPS origin (localhost HTTP is allowed)");
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.passwords = passwords;
         this.workspaces = workspaces;
         this.tokens = tokens;
@@ -107,18 +107,8 @@ public class EmailVerificationService {
         UUID id = UUID.randomUUID();
         Instant now = tokens.now();
         int inserted =
-                jdbc.update(
-                        """
-            INSERT INTO app.user_account (id, external_subject, email, display_name, password_hash, status,
-                created_at, updated_at, version, email_verification_required)
-            VALUES (?, ?, ?, ?, NULL, 'ACTIVE', ?, ?, 0, TRUE) ON CONFLICT DO NOTHING
-            """,
-                        id,
-                        "local:" + id,
-                        email,
-                        input.displayName().trim(),
-                        Timestamp.from(now),
-                        Timestamp.from(now));
+                repository.insertPendingAccount(
+                        id, "local:" + id, email, input.displayName().trim(), now);
         if (inserted == 1) {
             workspaces.create(
                     id,
@@ -136,47 +126,20 @@ public class EmailVerificationService {
         requireTransport();
         String email = normalize(address);
         Instant now = tokens.now();
-        Date day = Date.valueOf(now.atZone(ZoneOffset.UTC).toLocalDate());
-        List<PendingAccount> accounts =
-                jdbc.query(
-                        """
-            SELECT id, email, email_verification_requested_at, email_verification_day, email_verification_daily_count
-            FROM app.user_account WHERE LOWER(email) = ? AND status = 'ACTIVE' AND email_verified_at IS NULL FOR UPDATE
-            """,
-                        (row, n) ->
-                                new PendingAccount(
-                                        row.getObject(1, UUID.class),
-                                        row.getString(2),
-                                        row.getTimestamp(3),
-                                        row.getDate(4),
-                                        row.getInt(5)),
-                        email);
+        LocalDate day = now.atZone(ZoneOffset.UTC).toLocalDate();
+        List<PendingAccount> accounts = repository.findPendingAccount(email);
         if (accounts.isEmpty()) return;
         PendingAccount account = accounts.getFirst();
         int count = day.equals(account.day()) ? account.count() : 0;
         if ((account.lastRequest() != null
-                        && account.lastRequest()
-                                .toInstant()
-                                .plusSeconds(cooldownSeconds)
-                                .isAfter(now))
+                        && account.lastRequest().plusSeconds(cooldownSeconds).isAfter(now))
                 || count >= dailyLimit) return;
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         String tokenHash = digest(rawToken);
-        jdbc.update(
-                """
-            UPDATE app.user_account SET email_verification_token_hash = ?, email_verification_expires_at = ?,
-            email_verification_requested_at = ?, email_verification_day = ?, email_verification_daily_count = ?,
-            updated_at = ?, version = version + 1 WHERE id = ?
-            """,
-                tokenHash,
-                Timestamp.from(now.plusSeconds(ttlSeconds)),
-                Timestamp.from(now),
-                day,
-                count + 1,
-                Timestamp.from(now),
-                account.id());
+        repository.updateVerification(
+                tokenHash, now.plusSeconds(ttlSeconds), now, day, count + 1, account.id());
         // 인증 링크는 메일 전송에만 전달하고 저장하거나 응답으로 반환하지 않는다.
         Runnable deliver =
                 () -> {
@@ -226,20 +189,7 @@ public class EmailVerificationService {
             throw new IdentityException(HttpStatus.BAD_REQUEST, "INVALID_VERIFICATION_PASSWORD");
         String passwordHash = passwords.encode(password);
         Instant now = tokens.now();
-        int updated =
-                jdbc.update(
-                        """
-            UPDATE app.user_account SET email_verified_at = ?,
-                password_hash = CASE WHEN email_verification_required THEN ? ELSE password_hash END, email_verification_required = FALSE,
-                email_verification_token_hash = NULL, email_verification_expires_at = NULL, updated_at = ?, version = version + 1
-            WHERE email_verification_token_hash = ? AND email_verification_expires_at > ? AND status = 'ACTIVE'
-                AND email_verified_at IS NULL
-            """,
-                        Timestamp.from(now),
-                        passwordHash,
-                        Timestamp.from(now),
-                        digest(rawToken),
-                        Timestamp.from(now));
+        int updated = repository.confirmAccount(now, passwordHash, digest(rawToken));
         if (updated != 1) throw invalidToken();
     }
 
@@ -267,7 +217,4 @@ public class EmailVerificationService {
             throw new IllegalStateException("SHA-256 unavailable", error);
         }
     }
-
-    private record PendingAccount(
-            UUID id, String email, Timestamp lastRequest, Date day, int count) {}
 }

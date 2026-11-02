@@ -9,6 +9,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetRespo
 import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcProjectPetConversationRepository;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
@@ -16,7 +17,6 @@ import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionR
 import jakarta.validation.constraints.*;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -30,16 +30,23 @@ public class ProjectPetConversationService {
 
     public record Snapshot(List<PetProfile> profiles, PetConversation context) {}
 
-    private final JdbcTemplate jdbc;
+    private final JdbcProjectPetConversationRepository repository;
     private final ObjectMapper mapper;
     private final CustomAgentPetService pets;
     private final WorkspacePermissionReader permissions;
     private final ProjectRepository projects;
 
-    public ProjectPetConversationService(JdbcTemplate jdbc, ObjectMapper mapper,
-            CustomAgentPetService pets, WorkspacePermissionReader permissions, ProjectRepository projects) {
-        this.jdbc = jdbc; this.mapper = mapper; this.pets = pets;
-        this.permissions = permissions; this.projects = projects;
+    public ProjectPetConversationService(
+            JdbcProjectPetConversationRepository repository,
+            ObjectMapper mapper,
+            CustomAgentPetService pets,
+            WorkspacePermissionReader permissions,
+            ProjectRepository projects) {
+        this.repository = repository;
+        this.mapper = mapper;
+        this.pets = pets;
+        this.permissions = permissions;
+        this.projects = projects;
     }
 
     public ProjectPetConversationResponse get(UUID user, UUID workspace, UUID project) {
@@ -48,133 +55,218 @@ public class ProjectPetConversationService {
         return visible(user, workspace, current);
     }
 
-    private ProjectPetConversationResponse visible(UUID user, UUID workspace, ProjectPetConversationResponse current) {
-        var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
+    private ProjectPetConversationResponse visible(
+            UUID user, UUID workspace, ProjectPetConversationResponse current) {
+        var membership =
+                permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         if (membership.permissions().contains(PermissionCode.QUOTATION_READ)) return current;
         var settings = current.settings();
-        return new ProjectPetConversationResponse(new ProjectPetConversationSettingsResponse(settings.petMode(), settings.debateEnabled(),
-                settings.participantPetIds(), null, null), current.version());
+        return new ProjectPetConversationResponse(
+                new ProjectPetConversationSettingsResponse(
+                        settings.petMode(),
+                        settings.debateEnabled(),
+                        settings.participantPetIds(),
+                        null,
+                        null),
+                current.version());
     }
 
     private ProjectPetConversationResponse load(UUID user, UUID workspace, UUID project) {
-        var rows = jdbc.query("SELECT settings_json::text, version FROM app.project_pet_conversation"
-                + " WHERE workspace_id = ? AND project_id = ? AND user_id = ?",
-                (row, index) -> new ProjectPetConversationResponse(mapper.readValue(row.getString(1), ProjectPetConversationSettingsResponse.class), row.getLong(2)),
-                workspace, project, user);
+        var rows = repository.findConversation(workspace, project, user);
         if (!rows.isEmpty()) return rows.getFirst();
         var collection = pets.list(user, workspace);
-        var selected = collection.pets().stream().filter(p -> !p.archived()
-                && p.id().equals(collection.selectedPetId())).map(CustomAgentPetResponse::id).toList();
-        return new ProjectPetConversationResponse(new ProjectPetConversationSettingsResponse(!selected.isEmpty(), true, selected, null, null), 0);
+        var selected =
+                collection.pets().stream()
+                        .filter(p -> !p.archived() && p.id().equals(collection.selectedPetId()))
+                        .map(CustomAgentPetResponse::id)
+                        .toList();
+        return new ProjectPetConversationResponse(
+                new ProjectPetConversationSettingsResponse(
+                        !selected.isEmpty(), true, selected, null, null),
+                0);
     }
 
     @Transactional
-    public ProjectPetConversationResponse update(UUID user, UUID workspace, UUID project, UpdateProjectPetConversationRequest input) {
+    public ProjectPetConversationResponse update(
+            UUID user, UUID workspace, UUID project, UpdateProjectPetConversationRequest input) {
         authorize(user, workspace, project);
         lock(project, workspace);
         var current = load(user, workspace, project);
         checkVersion(current, input.expectedVersion());
-        if (input.participantPetIds() == null || input.participantPetIds().size() > 3
-                || new HashSet<>(input.participantPetIds()).size() != input.participantPetIds().size()
+        if (input.participantPetIds() == null
+                || input.participantPetIds().size() > 3
+                || new HashSet<>(input.participantPetIds()).size()
+                        != input.participantPetIds().size()
                 || input.petMode() && input.participantPetIds().isEmpty()) throw invalid();
         profiles(user, workspace, input.participantPetIds());
-        var settings = new ProjectPetConversationSettingsResponse(input.petMode(), input.debateEnabled(), List.copyOf(input.participantPetIds()),
-                current.settings().acceptedDraft(), current.settings().draftSourceRunId());
-        return visible(user, workspace, persist(user, workspace, project, settings, current.version()));
+        var settings =
+                new ProjectPetConversationSettingsResponse(
+                        input.petMode(),
+                        input.debateEnabled(),
+                        List.copyOf(input.participantPetIds()),
+                        current.settings().acceptedDraft(),
+                        current.settings().draftSourceRunId());
+        return visible(
+                user, workspace, persist(user, workspace, project, settings, current.version()));
     }
 
     @Transactional
-    public ProjectPetConversationResponse accept(UUID user, UUID workspace, UUID project, AcceptProjectPetDraftRequest input, AgentRunEntity run, AgentRunView result) {
+    public ProjectPetConversationResponse accept(
+            UUID user,
+            UUID workspace,
+            UUID project,
+            AcceptProjectPetDraftRequest input,
+            AgentRunEntity run,
+            AgentRunView result) {
         authorize(user, workspace, project);
-        var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
+        var membership =
+                permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         if (!membership.permissions().contains(PermissionCode.QUOTATION_WRITE)
-                || !membership.permissions().contains(PermissionCode.QUOTATION_READ)) throw forbidden();
-        if (!run.projectId().equals(project) || !run.workspaceId().equals(workspace)
-                || !run.initiatedBy().equals(user) || !run.id().equals(input.runId())
+                || !membership.permissions().contains(PermissionCode.QUOTATION_READ))
+            throw forbidden();
+        if (!run.projectId().equals(project)
+                || !run.workspaceId().equals(workspace)
+                || !run.initiatedBy().equals(user)
+                || !run.id().equals(input.runId())
                 || !result.runId().equals(input.runId())) throw notFound();
-        if (result.result() == null || result.result().petMessages().isEmpty()
-                || result.result().quotationDraft() == null || !Set.of("COMPLETED", "PARTIAL").contains(result.status().name()))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_DRAFT_UNAVAILABLE");
-        if (result.result().departmentResults().stream().noneMatch(department ->
-                department.department() == com.freelanceops.backend.domain.agentrun.model.DepartmentName.VERIFICATION
-                        && "COMPLETED".equals(department.status()) && department.errorCode() == null))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_VERIFICATION_REQUIRED");
+        if (result.result() == null
+                || result.result().petMessages().isEmpty()
+                || result.result().quotationDraft() == null
+                || !Set.of("COMPLETED", "PARTIAL").contains(result.status().name()))
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "CONVERSATION_DRAFT_UNAVAILABLE");
+        if (result.result().departmentResults().stream()
+                .noneMatch(
+                        department ->
+                                department.department()
+                                                == com.freelanceops.backend.domain.agentrun.model
+                                                        .DepartmentName.VERIFICATION
+                                        && "COMPLETED".equals(department.status())
+                                        && department.errorCode() == null))
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "CONVERSATION_VERIFICATION_REQUIRED");
         lock(project, workspace);
         var current = load(user, workspace, project);
         checkVersion(current, input.expectedVersion());
-        var settings = new ProjectPetConversationSettingsResponse(current.settings().petMode(), current.settings().debateEnabled(),
-                current.settings().participantPetIds(), result.result().quotationDraft(), input.runId());
+        var settings =
+                new ProjectPetConversationSettingsResponse(
+                        current.settings().petMode(),
+                        current.settings().debateEnabled(),
+                        current.settings().participantPetIds(),
+                        result.result().quotationDraft(),
+                        input.runId());
         return persist(user, workspace, project, settings, current.version());
     }
 
-    public Snapshot snapshot(UUID user, UUID workspace, UUID project, PetConversation.Command command) {
+    public Snapshot snapshot(
+            UUID user, UUID workspace, UUID project, PetConversation.Command command) {
         var current = get(user, workspace, project);
         checkVersion(current, command.settingsVersion());
         var settings = current.settings();
-        var profiles = settings.petMode() ? profiles(user, workspace, settings.participantPetIds()) : List.<PetProfile>of();
+        var profiles =
+                settings.petMode()
+                        ? profiles(user, workspace, settings.participantPetIds())
+                        : List.<PetProfile>of();
         if (settings.petMode() && profiles.isEmpty()) throw invalid();
-        if (command.recipientPetId() != null && (!settings.petMode()
-                || !settings.participantPetIds().contains(command.recipientPetId()))) throw invalid();
-        var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
+        if (command.recipientPetId() != null
+                && (!settings.petMode()
+                        || !settings.participantPetIds().contains(command.recipientPetId())))
+            throw invalid();
+        var membership =
+                permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         boolean canReadQuotes = membership.permissions().contains(PermissionCode.QUOTATION_READ);
-        var history = jdbc.query("SELECT user_text, messages_json::text FROM app.project_pet_turn"
-                + " WHERE workspace_id = ? AND project_id = ? AND user_id = ? ORDER BY created_at DESC, run_id DESC LIMIT 6",
-                (row, index) -> new PetConversation.Turn(row.getString(1),
-                        canReadQuotes ? List.of(mapper.readValue(row.getString(2), AgentRunView.PetMessage[].class)) : List.of()),
-                workspace, project, user);
+        var history = repository.listTurns(workspace, project, user, canReadQuotes);
         Collections.reverse(history);
-        var rates = canReadQuotes
-                ? jdbc.queryForList("SELECT id, name, unit, rate, currency FROM app.rate_card"
-                        + " WHERE workspace_id = ? AND active = true ORDER BY name, id LIMIT 100", workspace)
-                : List.<Map<String, Object>>of();
-        return new Snapshot(profiles, new PetConversation(settings.petMode(), settings.debateEnabled(),
-                command.recipientPetId(), history, settings.acceptedDraft(), rates));
+        var rates =
+                canReadQuotes
+                        ? repository.listRateCards(workspace)
+                        : List.<Map<String, Object>>of();
+        return new Snapshot(
+                profiles,
+                new PetConversation(
+                        settings.petMode(),
+                        settings.debateEnabled(),
+                        command.recipientPetId(),
+                        history,
+                        settings.acceptedDraft(),
+                        rates));
     }
 
     public void recordStart(UUID user, UUID workspace, UUID project, UUID run, String text) {
-        jdbc.update("INSERT INTO app.project_pet_turn(run_id, workspace_id, project_id, user_id, user_text)"
-                + " VALUES (?, ?, ?, ?, ?)", run, workspace, project, user, text);
+        repository.insertTurn(run, workspace, project, user, text);
     }
 
     public void recordResult(AgentRunEntity run, AgentRunView view) {
         if (view.result() == null || view.result().petMessages().isEmpty()) return;
-        jdbc.update("UPDATE app.project_pet_turn SET messages_json = ?::jsonb WHERE run_id = ?"
-                + " AND jsonb_array_length(messages_json) <= ?",
-                mapper.writeValueAsString(view.result().petMessages()), run.id(), view.result().petMessages().size());
+        repository.recordMessages(
+                mapper.writeValueAsString(view.result().petMessages()),
+                run.id(),
+                view.result().petMessages().size());
     }
 
     private List<PetProfile> profiles(UUID user, UUID workspace, List<UUID> ids) {
         var owned = pets.list(user, workspace).pets();
-        return ids.stream().map(id -> owned.stream().filter(p -> p.id().equals(id) && !p.archived()
-                        && p.profile() != null && id.equals(p.profile().petId()))
-                .findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_PET_UNAVAILABLE"))
-                .profile()).toList();
+        return ids.stream()
+                .map(
+                        id ->
+                                owned.stream()
+                                        .filter(
+                                                p ->
+                                                        p.id().equals(id)
+                                                                && !p.archived()
+                                                                && p.profile() != null
+                                                                && id.equals(p.profile().petId()))
+                                        .findFirst()
+                                        .orElseThrow(
+                                                () ->
+                                                        new ResponseStatusException(
+                                                                HttpStatus.CONFLICT,
+                                                                "CONVERSATION_PET_UNAVAILABLE"))
+                                        .profile())
+                .toList();
     }
 
-    private ProjectPetConversationResponse persist(UUID user, UUID workspace, UUID project, ProjectPetConversationSettingsResponse settings, long version) {
-        jdbc.update("INSERT INTO app.project_pet_conversation(workspace_id, project_id, user_id, settings_json, version)"
-                + " VALUES (?, ?, ?, ?::jsonb, ?) ON CONFLICT (workspace_id, project_id, user_id)"
-                + " DO UPDATE SET settings_json = EXCLUDED.settings_json, version = EXCLUDED.version",
+    private ProjectPetConversationResponse persist(
+            UUID user,
+            UUID workspace,
+            UUID project,
+            ProjectPetConversationSettingsResponse settings,
+            long version) {
+        repository.upsertConversation(
                 workspace, project, user, mapper.writeValueAsString(settings), version + 1);
         return new ProjectPetConversationResponse(settings, version + 1);
     }
 
     private void authorize(UUID user, UUID workspace, UUID project) {
-        var membership = permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
+        var membership =
+                permissions.findActiveMembership(user, workspace).orElseThrow(() -> notFound());
         if (!membership.permissions().contains(PermissionCode.PROJECT_READ)
                 || !membership.permissions().contains(PermissionCode.AGENT_RUN)) throw forbidden();
         if (projects.findByIdAndWorkspaceId(project, workspace).isEmpty()) throw notFound();
     }
+
     private void lock(UUID project, UUID workspace) {
-        if (projects.findByIdAndWorkspaceIdForUpdate(project, workspace).isEmpty()) throw notFound();
-        if (jdbc.queryForObject("SELECT count(*) FROM app.agent_run WHERE project_id = ? AND workspace_id = ?"
-                + " AND status IN ('QUEUED', 'RUNNING', 'WAITING_FOR_USER')", Integer.class, project, workspace) > 0)
+        if (projects.findByIdAndWorkspaceIdForUpdate(project, workspace).isEmpty())
+            throw notFound();
+        if (repository.countActiveRuns(project, workspace) > 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_RUN_ACTIVE");
     }
+
     private static void checkVersion(ProjectPetConversationResponse current, long expected) {
-        if (current.version() != expected) throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_SETTINGS_CHANGED");
+        if (current.version() != expected)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "CONVERSATION_SETTINGS_CHANGED");
     }
-    private static ResponseStatusException notFound() { return new ResponseStatusException(HttpStatus.NOT_FOUND); }
-    private static ResponseStatusException forbidden() { return new ResponseStatusException(HttpStatus.FORBIDDEN); }
-    private static ResponseStatusException invalid() { return new ResponseStatusException(HttpStatus.UNPROCESSABLE_CONTENT, "CONVERSATION_INVALID_TEAM"); }
+
+    private static ResponseStatusException notFound() {
+        return new ResponseStatusException(HttpStatus.NOT_FOUND);
+    }
+
+    private static ResponseStatusException forbidden() {
+        return new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    private static ResponseStatusException invalid() {
+        return new ResponseStatusException(
+                HttpStatus.UNPROCESSABLE_CONTENT, "CONVERSATION_INVALID_TEAM");
+    }
 }

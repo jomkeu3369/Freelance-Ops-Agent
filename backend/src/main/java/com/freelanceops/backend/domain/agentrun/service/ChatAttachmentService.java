@@ -4,13 +4,13 @@ import com.freelanceops.backend.domain.agentrun.client.AttachmentReaderClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
 import com.freelanceops.backend.domain.agentrun.dto.AttachmentText;
 import com.freelanceops.backend.domain.agentrun.dto.response.ChatAttachmentPreviewResponse;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcChatAttachmentRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +29,7 @@ public class ChatAttachmentService {
 
     private final WorkspacePermissionReader permissions;
     private final ProjectRepository projects;
-    private final JdbcTemplate jdbc;
+    private final JdbcChatAttachmentRepository repository;
     private final ObjectMapper mapper;
     private final AttachmentReaderClient reader;
     private final DelegationTokenIssuer tokens;
@@ -37,13 +37,13 @@ public class ChatAttachmentService {
     public ChatAttachmentService(
             WorkspacePermissionReader permissions,
             ProjectRepository projects,
-            JdbcTemplate jdbc,
+            JdbcChatAttachmentRepository repository,
             ObjectMapper mapper,
             AttachmentReaderClient reader,
             DelegationTokenIssuer tokens) {
         this.permissions = permissions;
         this.projects = projects;
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.mapper = mapper;
         this.reader = reader;
         this.tokens = tokens;
@@ -103,15 +103,9 @@ public class ChatAttachmentService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Invalid attachment reading options");
         // 프로젝트와 서버 인스턴스가 달라도 사용자별 임시 저장 한도를 함께 적용한다.
-        jdbc.queryForList("SELECT id FROM app.user_account WHERE id = ? FOR UPDATE", user);
-        jdbc.update(
-                "DELETE FROM app.chat_attachment WHERE owner_id = ? AND expires_at <= CURRENT_TIMESTAMP",
-                user);
-        Integer count =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.chat_attachment WHERE owner_id = ?",
-                        Integer.class,
-                        user);
+        repository.lockOwner(user);
+        repository.deleteExpiredForOwner(user);
+        Integer count = repository.countForOwner(user);
         if (count != null && count >= 12)
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS, "Remove unused attachments first");
@@ -150,26 +144,15 @@ public class ChatAttachmentService {
                 || !ocrLayout.equals(extraction.ocrLayout()))
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY);
         Instant expires = Instant.now().plusSeconds(1800);
-        jdbc.update(
-                "INSERT INTO app.chat_attachment(id, workspace_id, project_id, owner_id, payload, expires_at) VALUES (?, ?, ?, ?, ?::jsonb, ?)",
-                id,
-                workspace,
-                project,
-                user,
-                mapper.writeValueAsString(extraction),
-                java.sql.Timestamp.from(expires));
+        repository.insertAttachment(
+                id, workspace, project, user, mapper.writeValueAsString(extraction), expires);
         return new ChatAttachmentPreviewResponse(id, expires, extraction);
     }
 
     @Transactional
     public void delete(UUID user, UUID workspace, UUID project, UUID id) {
         authorize(user, workspace, project);
-        jdbc.update(
-                "DELETE FROM app.chat_attachment WHERE id = ? AND workspace_id = ? AND project_id = ? AND owner_id = ?",
-                id,
-                workspace,
-                project,
-                user);
+        repository.deleteAttachment(id, workspace, project, user);
     }
 
     /** 권한과 중복 시작 요청을 확인한 뒤 명령 저장과 같은 트랜잭션에서 호출한다. */
@@ -180,14 +163,7 @@ public class ChatAttachmentService {
                     HttpStatus.BAD_REQUEST, "At most six distinct attachments");
         List<AttachmentText> items = new ArrayList<>();
         for (UUID id : ids) {
-            var rows =
-                    jdbc.queryForList(
-                            "SELECT payload::text FROM app.chat_attachment WHERE id = ? AND workspace_id = ? AND project_id = ? AND owner_id = ? AND expires_at > CURRENT_TIMESTAMP",
-                            String.class,
-                            id,
-                            workspace,
-                            project,
-                            user);
+            var rows = repository.findPayload(id, workspace, project, user);
             if (rows.isEmpty())
                 throw new ResponseStatusException(
                         HttpStatus.GONE, "Attachment expired or unavailable; read the file again");
@@ -206,17 +182,11 @@ public class ChatAttachmentService {
 
     public void consume(UUID user, UUID workspace, UUID project, List<UUID> ids) {
         if (ids != null)
-            for (UUID id : ids)
-                jdbc.update(
-                        "DELETE FROM app.chat_attachment WHERE id = ? AND workspace_id = ? AND project_id = ? AND owner_id = ?",
-                        id,
-                        workspace,
-                        project,
-                        user);
+            for (UUID id : ids) repository.consumeAttachment(id, workspace, project, user);
     }
 
     @Scheduled(fixedDelay = 60000)
     public void expire() {
-        jdbc.update("DELETE FROM app.chat_attachment WHERE expires_at <= CURRENT_TIMESTAMP");
+        repository.deleteExpired();
     }
 }

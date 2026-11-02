@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendExhaustedException;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendService;
 
@@ -83,7 +84,7 @@ class PlatformSpendPostgresTest {
     @Test
     void concurrentIndependentInstancesCannotOverspendOneAccount() throws Exception {
         UUID user = UUID.randomUUID();
-        var secondInstance = new PlatformSpendService(jdbc, true);
+        var secondInstance = new PlatformSpendService(new JdbcPlatformSpendRepository(jdbc), true);
         var ready = new CountDownLatch(16);
         var start = new CountDownLatch(1);
         try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {

@@ -8,6 +8,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.Provid
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.*;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformUsageRepository;
 import com.freelanceops.backend.domain.agentrun.service.*;
 
 import org.junit.jupiter.api.*;
@@ -15,8 +16,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -489,7 +490,11 @@ class PlatformUsagePostgresTest {
     void catalogueDoesNotClaimProviderAccessOrEnableDisabledSpending() {
         assertThat(usage.snapshot(user).models()).hasSize(7);
         var disabled =
-                new PlatformUsageService(jdbc, new tools.jackson.databind.ObjectMapper(), false);
+                new PlatformUsageService(
+                        new JdbcPlatformUsageRepository(
+                                jdbc, new tools.jackson.databind.ObjectMapper()),
+                        new tools.jackson.databind.ObjectMapper(),
+                        false);
         assertThat(disabled.snapshot(user).models())
                 .allSatisfy(
                         model -> {

@@ -3,9 +3,10 @@ package com.freelanceops.backend.domain.agentrun.service;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcAgentStartIdempotencyRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcAgentStartIdempotencyRepository.StartRecord;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,8 +17,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -25,10 +24,8 @@ import java.util.UUID;
 
 @Service
 public class AgentStartIdempotencyService {
-    private final JdbcTemplate jdbc;
+    private final JdbcAgentStartIdempotencyRepository repository;
     private final ObjectMapper mapper;
-
-    private record StartRecord(String requestHash, UUID runId, Instant acceptedAt) {}
 
     /** creditQuote 도입 전에 저장한 요청 해시와 대기 중인 개인 키 시작 요청을 호환한다. */
     private record LegacyStartRequest(
@@ -39,8 +36,9 @@ public class AgentStartIdempotencyService {
             StartAgentRunRequest.RunBudget budget,
             StartAgentRunRequest.SafetyContext safetyContext) {}
 
-    public AgentStartIdempotencyService(JdbcTemplate jdbc, ObjectMapper mapper) {
-        this.jdbc = jdbc;
+    public AgentStartIdempotencyService(
+            JdbcAgentStartIdempotencyRepository repository, ObjectMapper mapper) {
+        this.repository = repository;
         this.mapper = mapper;
     }
 
@@ -53,24 +51,9 @@ public class AgentStartIdempotencyService {
             UUID projectId,
             StartAgentRunRequest request) {
         validateKey(idempotencyKey);
-        jdbc.query(
-                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-                (row, rowNumber) -> 0,
-                "analysis-start:" + userId);
+        repository.lockAccount("analysis-start:" + userId);
         if (idempotencyKey == null) return Optional.empty();
-        List<StartRecord> previous =
-                jdbc.query(
-                        """
-            SELECT request_hash, run_id, accepted_at FROM app.agent_start_idempotency
-            WHERE user_id = ? AND idempotency_key = ?
-            """,
-                        (row, rowNumber) ->
-                                new StartRecord(
-                                        row.getString(1),
-                                        row.getObject(2, UUID.class),
-                                        row.getTimestamp(3).toInstant()),
-                        userId,
-                        idempotencyKey);
+        List<StartRecord> previous = repository.findStart(userId, idempotencyKey);
         if (previous.isEmpty()) return Optional.empty();
         StartRecord record = previous.getFirst();
         if (!record.requestHash().equals(requestHash(workspaceId, projectId, request))) {
@@ -92,16 +75,12 @@ public class AgentStartIdempotencyService {
             StartAgentRunRequest request,
             StartAgentRunResponse response) {
         if (idempotencyKey == null) return;
-        jdbc.update(
-                """
-            INSERT INTO app.agent_start_idempotency (user_id, idempotency_key, request_hash, run_id, accepted_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+        repository.insertStart(
                 userId,
                 idempotencyKey,
                 requestHash(workspaceId, projectId, request),
                 response.runId(),
-                Timestamp.from(response.acceptedAt()));
+                response.acceptedAt());
     }
 
     private static void validateKey(String idempotencyKey) {

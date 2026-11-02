@@ -8,55 +8,31 @@ import com.freelanceops.backend.domain.identity.dto.response.AdminMemberLoginRes
 import com.freelanceops.backend.domain.identity.dto.response.AdminMemberResponse;
 import com.freelanceops.backend.domain.identity.dto.response.AdminMemberSummaryResponse;
 import com.freelanceops.backend.domain.identity.dto.response.Page;
+import com.freelanceops.backend.domain.identity.repository.JdbcAdminMemberRepository;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 /** 플랫폼 운영 메타데이터만 조회한다. 워크스페이스 내용 조회나 계정 변경은 담당하지 않는다. */
 @Service
 public class AdminMemberService {
-    private final JdbcTemplate jdbc;
+    private final JdbcAdminMemberRepository repository;
     private final PlatformUsageService usage;
 
-    public AdminMemberService(JdbcTemplate jdbc, PlatformUsageService usage) {
-        this.jdbc = jdbc;
+    public AdminMemberService(JdbcAdminMemberRepository repository, PlatformUsageService usage) {
+        this.repository = repository;
         this.usage = usage;
     }
 
-    private static final String MEMBER_COLUMNS =
-            """
-        a.id, a.email, a.display_name, a.status, a.email_verification_required, a.email_verified_at, a.created_at,
-        (SELECT max(e.occurred_at) FROM app.user_login_event e WHERE e.user_id=a.id) AS last_login_at
-        """;
-    private static final String AUDIT =
-            """
-        (SELECT id, 'WEEKLY_CREDITS' AS source, actor_user_id, action, target, previous_value, new_value,
-                previous_epoch, new_epoch, created_at FROM app.weekly_credit_admin_audit
-         UNION ALL
-         SELECT id, 'LEGACY_MONTHLY' AS source, actor_user_id, action,
-                CASE WHEN action='RESET_ALL' THEN 'epoch' ELSE 'monthly_limit' END AS target,
-                CASE WHEN action='RESET_ALL' THEN previous_epoch::text ELSE previous_limit::text END AS previous_value,
-                CASE WHEN action='RESET_ALL' THEN new_epoch::text ELSE new_limit::text END AS new_value,
-                previous_epoch, new_epoch, created_at FROM app.free_usage_admin_audit
-         UNION ALL
-         SELECT id, 'PLATFORM_SPEND' AS source, actor_user_id, action, target, previous_value, new_value,
-                previous_revision AS previous_epoch, new_revision AS new_epoch, created_at
-         FROM app.platform_spend_admin_audit) audit
-        """;
-
     @Transactional
-    public Page<AdminMemberResponse> members(UUID actor, String query, String status, int page, int size) {
+    public Page<AdminMemberResponse> members(
+            UUID actor, String query, String status, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
         String q = query == null ? "" : query.strip();
@@ -64,50 +40,15 @@ public class AdminMemberService {
         String filter = status == null ? "" : status;
         if (!Set.of("", "ACTIVE", "DISABLED", "PENDING_VERIFICATION").contains(filter))
             throw badRequest("Unsupported account status");
-        List<Object> params = new ArrayList<>();
-        StringBuilder where = new StringBuilder(" WHERE 1=1");
-        if (!q.isEmpty()) {
-            where.append(
-                    " AND (a.email ILIKE ? ESCAPE '!' OR a.display_name ILIKE ? ESCAPE '!' OR a.id::text = ?)");
-            String pattern = "%" + q.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
-            params.add(pattern);
-            params.add(pattern);
-            params.add(q);
-        }
-        if (filter.equals("PENDING_VERIFICATION"))
-            where.append(" AND a.email_verification_required=TRUE");
-        else if (!filter.isEmpty()) {
-            where.append(" AND a.status=?");
-            params.add(filter);
-        }
-        long total =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.user_account a" + where,
-                        Long.class,
-                        params.toArray());
-        params.add(size);
-        params.add((long) page * size);
-        var items =
-                jdbc.query(
-                        "SELECT "
-                                + MEMBER_COLUMNS
-                                + " FROM app.user_account a"
-                                + where
-                                + " ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?",
-                        (row, n) -> member(row),
-                        params.toArray());
+        long total = repository.countMembers(q, filter);
+        var items = repository.listMembers(q, filter, page, size);
         return new Page<>(items, total, page, size, recordingStartedAt());
     }
 
     @Transactional
     public AdminMemberResponse member(UUID actor, UUID userId) {
         requireAdmin(actor);
-        return jdbc
-                .query(
-                        "SELECT " + MEMBER_COLUMNS + " FROM app.user_account a WHERE a.id=?",
-                        (row, n) -> member(row),
-                        userId)
-                .stream()
+        return repository.findMember(userId).stream()
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
@@ -131,59 +72,22 @@ public class AdminMemberService {
 
     // 비활성·미인증 계정도 감사 대상으로 조회할 수 있다. 요청한 관리자는 활성·인증 상태여야 하며 대상 계정을 잠가 삭제와 원장 조회의 경합을 막는다.
     private void requireMember(UUID userId) {
-        if (jdbc.query(
-                        "SELECT id FROM app.user_account WHERE id=? FOR SHARE",
-                        (row, n) -> row.getObject(1, UUID.class),
-                        userId)
-                .isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if (repository.lockMember(userId).isEmpty())
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
     @Transactional
     public AdminMemberSummaryResponse summary(UUID actor) {
         requireAdmin(actor);
-        return jdbc.queryForObject(
-                """
-            SELECT count(*) AS total, count(*) FILTER (WHERE status='ACTIVE' AND NOT email_verification_required) AS active,
-                count(*) FILTER (WHERE email_verification_required) AS pending,
-                count(*) FILTER (WHERE created_at >= CURRENT_TIMESTAMP - INTERVAL '7 days') AS joined,
-                (SELECT count(DISTINCT user_id) FROM app.user_login_event
-                 WHERE occurred_at >= CURRENT_TIMESTAMP - INTERVAL '7 days') AS signed_in
-            FROM app.user_account
-            """,
-                (row, n) ->
-                        new AdminMemberSummaryResponse(
-                                row.getLong("total"),
-                                row.getLong("active"),
-                                row.getLong("pending"),
-                                row.getLong("joined"),
-                                row.getLong("signed_in"),
-                                recordingStartedAt()));
+        return repository.readSummary();
     }
 
     @Transactional
     public Page<AdminMemberLoginResponse> logins(UUID actor, UUID userId, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
-        String where = userId == null ? "" : " WHERE user_id=?";
-        Object[] args = userId == null ? new Object[0] : new Object[] {userId};
-        long total =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.user_login_event" + where, Long.class, args);
-        List<Object> pageArgs = new ArrayList<>(List.of(args));
-        pageArgs.add(size);
-        pageArgs.add((long) page * size);
-        var rows =
-                jdbc.query(
-                        "SELECT id,user_id,method,occurred_at FROM app.user_login_event"
-                                + where
-                                + " ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?",
-                        (row, n) ->
-                                new AdminMemberLoginResponse(
-                                        row.getObject("id", UUID.class),
-                                        row.getObject("user_id", UUID.class),
-                                        row.getString("method"),
-                                        instant(row, "occurred_at")),
-                        pageArgs.toArray());
+        long total = repository.countLogins(userId);
+        var rows = repository.listLogins(userId, page, size);
         return new Page<>(rows, total, page, size, recordingStartedAt());
     }
 
@@ -191,67 +95,21 @@ public class AdminMemberService {
     public Page<AdminMemberAuditResponse> audits(UUID actor, int page, int size) {
         requireAdmin(actor);
         validatePage(page, size);
-        long total = jdbc.queryForObject("SELECT count(*) FROM " + AUDIT, Long.class);
-        var rows =
-                jdbc.query(
-                        "SELECT * FROM "
-                                + AUDIT
-                                + " ORDER BY created_at DESC,source,id DESC LIMIT ? OFFSET ?",
-                        (row, n) ->
-                                new AdminMemberAuditResponse(
-                                        row.getObject("id", UUID.class),
-                                        row.getString("source"),
-                                        row.getObject("actor_user_id", UUID.class),
-                                        row.getString("action"),
-                                        row.getString("target"),
-                                        row.getString("previous_value"),
-                                        row.getString("new_value"),
-                                        row.getLong("previous_epoch"),
-                                        row.getLong("new_epoch"),
-                                        instant(row, "created_at")),
-                        size,
-                        (long) page * size);
+        long total = repository.countAudits();
+        var rows = repository.listAudits(size, (long) page * size);
         return new Page<>(rows, total, page, size, null);
     }
 
     // 호출마다 현재 권한과 계정 상태를 확인한다. 트랜잭션이 끝날 때까지 잠가 권한 철회와 조회가 경합하지 않도록 한다.
     private void requireAdmin(UUID actor) {
-        var granted =
-                jdbc.query(
-                        """
-            SELECT g.user_id FROM app.platform_admin_grant g
-            JOIN app.user_account a ON a.id=g.user_id AND a.status='ACTIVE' AND NOT a.email_verification_required
-            WHERE g.user_id=? AND g.capability='MEMBERS_READ' AND g.revoked_at IS NULL
-            FOR SHARE OF g,a
-            """,
-                        (row, n) -> row.getObject(1, UUID.class),
-                        actor);
+        var granted = repository.findAdminGrant(actor);
         if (granted.isEmpty())
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN, "Member administration capability required");
     }
 
     private Instant recordingStartedAt() {
-        return jdbc.queryForObject(
-                "SELECT recording_started_at FROM app.login_activity_metadata WHERE id=1",
-                (row, n) -> instant(row, "recording_started_at"));
-    }
-
-    private static AdminMemberResponse member(ResultSet row) throws SQLException {
-        return new AdminMemberResponse(
-                row.getObject("id", UUID.class),
-                row.getString("email"),
-                row.getString("display_name"),
-                row.getString("status"),
-                row.getBoolean("email_verification_required"),
-                instant(row, "email_verified_at"),
-                instant(row, "created_at"),
-                instant(row, "last_login_at"));
-    }
-
-    private static Instant instant(ResultSet row, String column) throws SQLException {
-        var value = row.getTimestamp(column);
-        return value == null ? null : value.toInstant();
+        return repository.recordingStartedAt();
     }
 
     private static void validatePage(int page, int size) {

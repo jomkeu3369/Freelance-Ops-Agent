@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.dto.response.PlatformModelCapResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendAdminRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,7 +22,9 @@ import java.util.UUID;
 
 class PlatformSpendAdminServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final PlatformSpendAdminService service = new PlatformSpendAdminService(jdbc, new ObjectMapper(), false);
+    private final PlatformSpendAdminService service =
+            new PlatformSpendAdminService(
+                    new JdbcPlatformSpendAdminRepository(jdbc), new ObjectMapper(), false);
     private final UUID actor = UUID.randomUUID();
     private static final BigDecimal ONE = BigDecimal.ONE;
     private static final PlatformModelCapResponse LUNA = new PlatformModelCapResponse(
@@ -92,8 +95,11 @@ class PlatformSpendAdminServiceTest {
 
     @Test void budgetEditAuditsActorPreviousAndNewValuesWithRevisionAndKeepsSwitchOff() {
         authorize();
-        when(jdbc.queryForObject(contains("FROM app.platform_spend_settings"), org.mockito.ArgumentMatchers.<RowMapper<PlatformSpendAdminService.Settings>>any()))
-            .thenReturn(settings(0, ONE), settings(1, BigDecimal.ZERO));
+        when(jdbc.queryForObject(
+                        contains("FROM app.platform_spend_settings"),
+                        org.mockito.ArgumentMatchers
+                                .<RowMapper<JdbcPlatformSpendAdminRepository.SettingsRow>>any()))
+                .thenReturn(settings(0, ONE), settings(1, BigDecimal.ZERO));
         models();
         var result = service.changeBudgets(actor, BigDecimal.ZERO, ONE, ONE, 0L);
         assertThat(result.spendingEnabled()).isFalse();
@@ -109,17 +115,22 @@ class PlatformSpendAdminServiceTest {
             .thenReturn(List.of(actor));
     }
     private void snapshot(long revision) {
-        when(jdbc.queryForObject(contains("FROM app.platform_spend_settings"), org.mockito.ArgumentMatchers.<RowMapper<PlatformSpendAdminService.Settings>>any()))
-            .thenReturn(settings(revision, ONE));
+        when(jdbc.queryForObject(
+                        contains("FROM app.platform_spend_settings"),
+                        org.mockito.ArgumentMatchers
+                                .<RowMapper<JdbcPlatformSpendAdminRepository.SettingsRow>>any()))
+                .thenReturn(settings(revision, ONE));
         models();
     }
     private void models() {
         when(jdbc.query(contains("FROM app.platform_spend_model_cap"), org.mockito.ArgumentMatchers.<RowMapper<PlatformModelCapResponse>>any()))
             .thenReturn(List.of(LUNA));
     }
-    private PlatformSpendAdminService.Settings settings(long revision, BigDecimal account) {
-        return new PlatformSpendAdminService.Settings("USD", account, ONE, ONE, revision, Instant.parse("2026-10-06T00:00:00Z"),
-            false, List.of(), PlatformSpendAdminService.MAX_BUDGET_USD, PlatformSpendAdminService.MAX_MODEL_RUN_USD);
+
+    private JdbcPlatformSpendAdminRepository.SettingsRow settings(
+            long revision, BigDecimal account) {
+        return new JdbcPlatformSpendAdminRepository.SettingsRow(
+                account, ONE, ONE, revision, Instant.parse("2026-10-06T00:00:00Z"));
     }
     private static void status(org.assertj.core.api.ThrowableAssert.ThrowingCallable call, int status) {
         assertThatThrownBy(call).isInstanceOfSatisfying(ResponseStatusException.class,

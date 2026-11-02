@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.client.AttachmentReaderClient;
 import com.freelanceops.backend.domain.agentrun.dto.AttachmentText;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcChatAttachmentRepository;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
@@ -34,7 +35,13 @@ class ChatAttachmentServiceTest {
     final DelegationTokenIssuer tokens = mock(DelegationTokenIssuer.class);
     final ObjectMapper mapper = new ObjectMapper();
     final ChatAttachmentService service =
-            new ChatAttachmentService(permissions, projects, jdbc, mapper, reader, tokens);
+            new ChatAttachmentService(
+                    permissions,
+                    projects,
+                    new JdbcChatAttachmentRepository(jdbc),
+                    mapper,
+                    reader,
+                    tokens);
     final MockMultipartFile file =
             new MockMultipartFile("file", "data.txt", "text/plain", "synthetic".getBytes());
 

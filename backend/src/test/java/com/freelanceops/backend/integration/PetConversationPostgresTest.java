@@ -9,6 +9,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.UpdateProjectPetConv
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
 import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetsResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcProjectPetConversationRepository;
 import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 import com.freelanceops.backend.domain.agentrun.service.ProjectPetConversationService;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
@@ -64,7 +65,13 @@ class PetConversationPostgresTest {
         var projects = mock(ProjectRepository.class);
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(mock(ProjectEntity.class)));
         when(projects.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(mock(ProjectEntity.class)));
-        var service = new ProjectPetConversationService(jdbc, new ObjectMapper(), pets, permissions, projects);
+        var service =
+                new ProjectPetConversationService(
+                        new JdbcProjectPetConversationRepository(jdbc, new ObjectMapper()),
+                        new ObjectMapper(),
+                        pets,
+                        permissions,
+                        projects);
         assertThat(service.update(user, workspace, project, new UpdateProjectPetConversationRequest(false, false, List.of(), 0)).version()).isEqualTo(1);
         assertThat(service.get(user, workspace, project).settings().debateEnabled()).isFalse();
         assertThat(service.get(other, workspace, project).version()).isZero();

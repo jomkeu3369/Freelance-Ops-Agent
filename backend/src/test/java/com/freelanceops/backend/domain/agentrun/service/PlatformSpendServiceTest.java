@@ -6,23 +6,24 @@ import static org.mockito.Mockito.*;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
-import java.util.List;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
-import org.springframework.jdbc.core.RowMapper;
+import java.util.List;
+import java.util.UUID;
 
 class PlatformSpendServiceTest {
     @Test
     void spendingIsDisabledBeforeAnyDatabaseOrProviderWork() {
         var jdbc = mock(JdbcTemplate.class);
-        var service = new PlatformSpendService(jdbc, false);
+        var service = new PlatformSpendService(new JdbcPlatformSpendRepository(jdbc), false);
         assertThatThrownBy(
                         () ->
                                 service.reserve(
@@ -41,7 +42,7 @@ class PlatformSpendServiceTest {
     @Test
     void unpricedPlatformRouteFailsBeforeCreatingMonetaryReservation() {
         var jdbc = mock(JdbcTemplate.class);
-        var service = new PlatformSpendService(jdbc, true);
+        var service = new PlatformSpendService(new JdbcPlatformSpendRepository(jdbc), true);
         assertThatThrownBy(
                         () ->
                                 service.reserve(
@@ -56,11 +57,18 @@ class PlatformSpendServiceTest {
     }
     @Test void zeroModelCapFailsClosedBeforeCreatingBucketsOrReservation() {
         var jdbc = mock(JdbcTemplate.class);
-        var service = new PlatformSpendService(jdbc, true);
-        when(jdbc.queryForObject(contains("FROM app.platform_spend_settings"),
-            org.mockito.ArgumentMatchers.<RowMapper<PlatformSpendService.Settings>>any()))
-            .thenReturn(new PlatformSpendService.Settings(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE,
-                BigDecimal.ONE, BigDecimal.ONE));
+        var service = new PlatformSpendService(new JdbcPlatformSpendRepository(jdbc), true);
+        when(jdbc.queryForObject(
+                        contains("FROM app.platform_spend_settings"),
+                        org.mockito.ArgumentMatchers
+                                .<RowMapper<JdbcPlatformSpendRepository.Settings>>any()))
+                .thenReturn(
+                        new JdbcPlatformSpendRepository.Settings(
+                                BigDecimal.ONE,
+                                BigDecimal.ONE,
+                                BigDecimal.ONE,
+                                BigDecimal.ONE,
+                                BigDecimal.ONE));
         when(jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class))
             .thenReturn(Timestamp.from(Instant.parse("2026-10-06T00:00:00Z")));
         when(jdbc.query(contains("FROM app.platform_spend_model_cap"),

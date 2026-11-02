@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcAgentStartIdempotencyRepository;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,7 +24,9 @@ class AgentStartIdempotencyServiceTest {
     @Test
     void absentNewQuoteKeepsExactLegacyRequestHash() throws Exception {
         var jdbc = mock(JdbcTemplate.class);
-        var service = new AgentStartIdempotencyService(jdbc, new ObjectMapper());
+        var service =
+                new AgentStartIdempotencyService(
+                        new JdbcAgentStartIdempotencyRepository(jdbc), new ObjectMapper());
         UUID user = UUID.randomUUID(),
                 workspace = UUID.randomUUID(),
                 project = UUID.randomUUID(),
@@ -59,7 +62,9 @@ class AgentStartIdempotencyServiceTest {
     void attachmentsParticipateInByokHashAndEmptyAttachmentsPreserveQuotedHash() throws Exception {
         var jdbc = mock(JdbcTemplate.class);
         var mapper = new ObjectMapper();
-        var service = new AgentStartIdempotencyService(jdbc, mapper);
+        var service =
+                new AgentStartIdempotencyService(
+                        new JdbcAgentStartIdempotencyRepository(jdbc), mapper);
         UUID user = UUID.randomUUID(),
                 workspace = UUID.randomUUID(),
                 project = UUID.randomUUID(),
@@ -120,7 +125,9 @@ class AgentStartIdempotencyServiceTest {
     void skillAndWorkflowChoicesAreIncludedInRetryHash() throws Exception {
         var jdbc = mock(JdbcTemplate.class);
         var mapper = new ObjectMapper();
-        var service = new AgentStartIdempotencyService(jdbc, mapper);
+        var service =
+                new AgentStartIdempotencyService(
+                        new JdbcAgentStartIdempotencyRepository(jdbc), mapper);
         UUID user = UUID.randomUUID(),
                 workspace = UUID.randomUUID(),
                 project = UUID.randomUUID(),
@@ -174,7 +181,9 @@ class AgentStartIdempotencyServiceTest {
     void costNoticeVersionIsHashedEvenWhenAllOtherOptionalFieldsAreAbsent() throws Exception {
         var jdbc = mock(JdbcTemplate.class);
         var mapper = new ObjectMapper();
-        var service = new AgentStartIdempotencyService(jdbc, mapper);
+        var service =
+                new AgentStartIdempotencyService(
+                        new JdbcAgentStartIdempotencyRepository(jdbc), mapper);
         UUID user = UUID.randomUUID(),
                 workspace = UUID.randomUUID(),
                 project = UUID.randomUUID(),
@@ -237,7 +246,9 @@ class AgentStartIdempotencyServiceTest {
     void fullLegacyAdHocRequestsWithAbsentOrNullNoticeKeepSameCanonicalHash() throws Exception {
         var jdbc = mock(JdbcTemplate.class);
         var mapper = new ObjectMapper();
-        var service = new AgentStartIdempotencyService(jdbc, mapper);
+        var service =
+                new AgentStartIdempotencyService(
+                        new JdbcAgentStartIdempotencyRepository(jdbc), mapper);
         UUID user = UUID.randomUUID(),
                 workspace = UUID.randomUUID(),
                 project = UUID.randomUUID(),

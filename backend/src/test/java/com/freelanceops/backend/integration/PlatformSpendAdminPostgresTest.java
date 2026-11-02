@@ -19,6 +19,9 @@ import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agentrun.model.RequestTier;
 import com.freelanceops.backend.domain.agentrun.repository.AgentRunRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendAdminRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformSpendRepository;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcPlatformUsageRepository;
 import com.freelanceops.backend.domain.agentrun.service.ByokCostNoticePolicy;
 import com.freelanceops.backend.domain.agentrun.service.ByokExecutionService;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendAdminService;
@@ -491,9 +494,13 @@ class PlatformSpendAdminPostgresTest {
     }
 
     @Test void budgetAndModelEditsCannotTurnOnTheEnvironmentSpendingSwitch() {
-        var disabledAdmin = new PlatformSpendAdminService(jdbc, mapper, false);
-        var disabledSpend = new PlatformSpendService(jdbc, false);
-        var disabledUsage = new PlatformUsageService(jdbc, mapper, false);
+        var disabledAdmin =
+                new PlatformSpendAdminService(
+                        new JdbcPlatformSpendAdminRepository(jdbc), mapper, false);
+        var disabledSpend = new PlatformSpendService(new JdbcPlatformSpendRepository(jdbc), false);
+        var disabledUsage =
+                new PlatformUsageService(
+                        new JdbcPlatformUsageRepository(jdbc, mapper), mapper, false);
         tx.executeWithoutResult(transaction -> {
             var budgets = disabledAdmin.changeBudgets(admin, new BigDecimal("2"), DAY, WEEK, 0L);
             assertThat(budgets.spendingEnabled()).isFalse();
@@ -569,7 +576,9 @@ class PlatformSpendAdminPostgresTest {
     }
 
     @Test void concurrentIndependentAdminInstancesAcceptExactlyOneWriterForTheSameRevision() throws Exception {
-        var otherInstance = new PlatformSpendAdminService(jdbc, mapper, true);
+        var otherInstance =
+                new PlatformSpendAdminService(
+                        new JdbcPlatformSpendAdminRepository(jdbc), mapper, true);
         var ready = new CountDownLatch(2);
         var start = new CountDownLatch(1);
         try (var pool = Executors.newVirtualThreadPerTaskExecutor()) {

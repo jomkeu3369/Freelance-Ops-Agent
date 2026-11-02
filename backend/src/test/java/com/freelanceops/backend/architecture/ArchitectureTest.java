@@ -33,6 +33,26 @@ class ArchitectureTest {
                     .resideInAPackage("..controller..");
 
     @ArchTest
+    static final ArchRule services_must_not_access_jdbc =
+            noClasses()
+                    .that()
+                    .resideInAPackage("..service..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage("org.springframework.jdbc..", "java.sql..", "javax.sql..");
+
+    @ArchTest
+    static final ArchRule jdbc_repositories_must_not_own_transactions =
+            noClasses()
+                    .that()
+                    .resideInAPackage("..repository..")
+                    .and()
+                    .haveSimpleNameStartingWith("Jdbc")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("org.springframework.transaction..");
+
+    @ArchTest
     static final ArchRule repositories_must_not_access_services_or_controllers =
             noClasses()
                     .that()

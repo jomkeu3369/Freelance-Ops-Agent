@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.freelanceops.backend.domain.agentrun.client.ProviderCredentialVerifier;
 import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcAIConnectionRepository;
 import com.freelanceops.backend.domain.agentrun.security.CredentialCipher;
 import com.freelanceops.backend.domain.workspace.policy.*;
 import com.freelanceops.backend.domain.workspace.service.WorkspaceAuthorizationService;
@@ -23,7 +24,7 @@ class AIConnectionServiceTest {
     private final ProviderCredentialVerifier verifier = mock(ProviderCredentialVerifier.class);
     private final AIConnectionService service =
             new AIConnectionService(
-                    jdbc,
+                    new JdbcAIConnectionRepository(jdbc),
                     new CredentialCipher(Base64.getEncoder().encodeToString(new byte[32])),
                     auth,
                     verifier,
@@ -161,7 +162,7 @@ class AIConnectionServiceTest {
                 .thenReturn(AuthorizationDecision.ALLOWED);
         var configured =
                 new AIConnectionService(
-                        jdbc,
+                        new JdbcAIConnectionRepository(jdbc),
                         new CredentialCipher(Base64.getEncoder().encodeToString(new byte[32])),
                         auth,
                         verifier,

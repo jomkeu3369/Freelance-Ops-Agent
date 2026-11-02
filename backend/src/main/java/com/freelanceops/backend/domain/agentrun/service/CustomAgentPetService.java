@@ -6,13 +6,13 @@ import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPet
 import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetsResponse;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcCustomAgentPetRepository;
 
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.*;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,7 +26,7 @@ import java.util.*;
 @Service
 public class CustomAgentPetService {
 
-    private final JdbcTemplate jdbc;
+    private final JdbcCustomAgentPetRepository repository;
     private final AIConnectionService authorization;
     private final ObjectMapper mapper;
     private final PetPromptComposer composer;
@@ -42,7 +42,7 @@ public class CustomAgentPetService {
     private String generationModel;
 
     public CustomAgentPetService(
-            JdbcTemplate jdbc,
+            JdbcCustomAgentPetRepository repository,
             AIConnectionService authorization,
             ObjectMapper mapper,
             PetPromptComposer composer,
@@ -57,7 +57,7 @@ public class CustomAgentPetService {
                 || maxPrompt < 1
                 || maxPrompt > 500)
             throw new IllegalArgumentException("Invalid personal pet limits");
-        this.jdbc = jdbc;
+        this.repository = repository;
         this.authorization = authorization;
         this.mapper = mapper;
         this.composer = composer;
@@ -69,25 +69,8 @@ public class CustomAgentPetService {
 
     public CustomAgentPetsResponse list(UUID user, UUID workspace) {
         authorization.authorize(user, workspace);
-        var pets =
-                jdbc.query(
-                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
-                                + " WHERE workspace_id = ? AND user_id = ? ORDER BY created_at, id",
-                        (row, n) ->
-                                new CustomAgentPetResponse(
-                                        row.getObject(1, UUID.class),
-                                        mapper.readValue(row.getString(2), PetProfile.class),
-                                        row.getBoolean(3),
-                                        row.getLong(4)),
-                        workspace,
-                        user);
-        var selected =
-                jdbc.query(
-                        "SELECT pet_id FROM app.custom_agent_pet_selection WHERE workspace_id = ?"
-                                + " AND user_id = ?",
-                        (row, n) -> Optional.ofNullable(row.getObject(1, UUID.class)),
-                        workspace,
-                        user);
+        var pets = repository.listPets(workspace, user);
+        var selected = repository.findSelection(workspace, user);
         return new CustomAgentPetsResponse(
                 pets,
                 selected.isEmpty() ? null : selected.getFirst().orElse(null),
@@ -98,12 +81,7 @@ public class CustomAgentPetService {
                 "MODEL_PIXEL",
                 generationEnabled
                         && Boolean.TRUE.equals(
-                                jdbc.queryForObject(
-                                        "SELECT EXISTS (SELECT 1 FROM app.platform_spend_model_cap"
-                                            + " WHERE provider='OPENAI' AND model=? AND enabled AND"
-                                            + " max_run_usd>0)",
-                                        Boolean.class,
-                                        generationModel)));
+                                repository.isGenerationModelEnabled(generationModel)));
     }
 
     public PetProfile preview(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
@@ -113,20 +91,13 @@ public class CustomAgentPetService {
     }
 
     @Transactional
-    public CustomAgentPetResponse save(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
+    public CustomAgentPetResponse save(
+            UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         authorization.authorize(user, workspace);
         validate(input);
         lock(user, workspace);
         String fingerprint = fingerprint(input);
-        var replay =
-                jdbc.query(
-                        "SELECT mutation_hash FROM app.custom_agent_pet WHERE workspace_id = ? AND"
-                                + " user_id = ? AND id = ? AND mutation_id = ?",
-                        (row, n) -> row.getString(1),
-                        workspace,
-                        user,
-                        input.id(),
-                        input.mutationId());
+        var replay = repository.findMutationHashes(workspace, user, input.id(), input.mutationId());
         if (!replay.isEmpty()) {
             if (!fingerprint.equals(replay.getFirst()))
                 throw failure(HttpStatus.CONFLICT, "PET_REQUEST_REUSED");
@@ -145,11 +116,7 @@ public class CustomAgentPetService {
             enforceCapacity(user, workspace, true);
             // 식별자를 알아도 다른 사용자나 워크스페이스의 동료를 수정할 수 없다.
             int inserted =
-                    jdbc.update(
-                            """
-                            INSERT INTO app.custom_agent_pet(id, workspace_id, user_id, profile_json, mutation_id, mutation_hash)
-                            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING
-                            """,
+                    repository.insertPet(
                             input.id(),
                             workspace,
                             user,
@@ -158,17 +125,8 @@ public class CustomAgentPetService {
                             fingerprint);
             if (inserted != 1) throw failure(HttpStatus.CONFLICT, "PET_ID_UNAVAILABLE");
         } else {
-            jdbc.update(
-                    """
-                    UPDATE app.custom_agent_pet SET profile_json = ?, revision = revision + 1, mutation_id = ?, mutation_hash = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE workspace_id = ? AND user_id = ? AND id = ?
-                    """,
-                    serialized,
-                    input.mutationId(),
-                    fingerprint,
-                    workspace,
-                    user,
-                    input.id());
+            repository.updatePet(
+                    serialized, input.mutationId(), fingerprint, workspace, user, input.id());
         }
         // 화면의 저장 후 선택 동작에 맞춰 선택된 개인 동료를 하나만 유지한다.
         select(user, workspace, input.id());
@@ -193,21 +151,8 @@ public class CustomAgentPetService {
                 boolean archive = input.action().equals("ARCHIVE");
                 if (pet.archived() == archive) return;
                 if (!archive) enforceCapacity(user, workspace, false);
-                if (archive)
-                    jdbc.update(
-                            "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE"
-                                    + " workspace_id = ? AND user_id = ? AND pet_id = ?",
-                            workspace,
-                            user,
-                            id);
-                jdbc.update(
-                        "UPDATE app.custom_agent_pet SET archived = ?, revision = revision + 1,"
-                            + " updated_at = CURRENT_TIMESTAMP WHERE workspace_id = ? AND user_id ="
-                            + " ? AND id = ?",
-                        archive,
-                        workspace,
-                        user,
-                        id);
+                if (archive) repository.clearSelectionForPet(workspace, user, id);
+                repository.setArchived(archive, workspace, user, id);
             }
             default -> throw failure(HttpStatus.UNPROCESSABLE_CONTENT, "PET_INVALID_CHANGE");
         }
@@ -221,38 +166,14 @@ public class CustomAgentPetService {
         if (pet.revision() != expectedRevision)
             throw failure(HttpStatus.CONFLICT, "PET_REVISION_CHANGED");
         if (!pet.archived()) throw failure(HttpStatus.CONFLICT, "PET_ARCHIVE_BEFORE_DELETE");
-        jdbc.update(
-                "UPDATE app.custom_agent_pet_selection SET pet_id = NULL WHERE workspace_id = ? AND"
-                        + " user_id = ? AND pet_id = ?",
-                workspace,
-                user,
-                id);
-        jdbc.update(
-                "DELETE FROM app.custom_agent_pet WHERE workspace_id = ? AND user_id = ? AND id ="
-                        + " ?",
-                workspace,
-                user,
-                id);
+        repository.clearSelectionForPetBeforeDelete(workspace, user, id);
+        repository.deletePet(workspace, user, id);
     }
 
     /** Optional이 비어 있으면 기존 계정이며, 빈 목록이 있으면 개인 동료를 선택하지 않은 상태다. */
     public Optional<List<PetProfile>> runtimeProfiles(UUID user, UUID workspace) {
         authorization.authorize(user, workspace);
-        var rows =
-                jdbc.query(
-                        """
-                        SELECT p.profile_json FROM app.custom_agent_pet_selection s
-                        LEFT JOIN app.custom_agent_pet p ON p.workspace_id = s.workspace_id AND p.user_id = s.user_id AND p.id = s.pet_id AND NOT p.archived
-                        WHERE s.workspace_id = ? AND s.user_id = ?
-                        """,
-                        (row, n) ->
-                                row.getString(1) == null
-                                        ? List.<PetProfile>of()
-                                        : List.of(
-                                                mapper.readValue(
-                                                        row.getString(1), PetProfile.class)),
-                        workspace,
-                        user);
+        var rows = repository.findRuntimeProfiles(workspace, user);
         return rows.stream().findFirst();
     }
 
@@ -297,7 +218,8 @@ public class CustomAgentPetService {
         if (input.expectedRevision() == 0) enforceCapacity(user, workspace, true);
     }
 
-    private PetProfile generatedProfile(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
+    private PetProfile generatedProfile(
+            UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         generationBase(user, workspace, input);
         String requestHash =
                 fingerprint(
@@ -307,37 +229,15 @@ public class CustomAgentPetService {
                                 input.expectedRevision(),
                                 input.description(),
                                 input.resetPreferences()));
-        return jdbc
-                .query(
-                        """
-                        SELECT profile_json FROM app.pet_generation
-                        WHERE id=? AND workspace_id=? AND user_id=? AND status='COMPLETED' AND request_hash=?
-                        """,
-                        (row, n) -> mapper.readValue(row.getString(1), PetProfile.class),
-                        input.generationId(),
-                        workspace,
-                        user,
-                        requestHash)
+        return repository
+                .findGeneratedProfiles(input.generationId(), workspace, user, requestHash)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> failure(HttpStatus.CONFLICT, "PET_GENERATION_NOT_READY"));
     }
 
     private CustomAgentPetResponse find(UUID user, UUID workspace, UUID id) {
-        return jdbc
-                .query(
-                        "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
-                                + " WHERE workspace_id = ? AND user_id = ? AND id = ?",
-                        (row, n) ->
-                                new CustomAgentPetResponse(
-                                        row.getObject(1, UUID.class),
-                                        mapper.readValue(row.getString(2), PetProfile.class),
-                                        row.getBoolean(3),
-                                        row.getLong(4)),
-                        workspace,
-                        user,
-                        id)
-                .stream()
+        return repository.findPet(workspace, user, id).stream()
                 .findFirst()
                 .orElseThrow(() -> failure(HttpStatus.NOT_FOUND, "PET_NOT_FOUND"));
     }
@@ -348,20 +248,8 @@ public class CustomAgentPetService {
     }
 
     private void enforceCapacity(UUID user, UUID workspace, boolean adding) {
-        Long active =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND"
-                                + " user_id = ? AND NOT archived",
-                        Long.class,
-                        workspace,
-                        user);
-        Long stored =
-                jdbc.queryForObject(
-                        "SELECT count(*) FROM app.custom_agent_pet WHERE workspace_id = ? AND"
-                                + " user_id = ?",
-                        Long.class,
-                        workspace,
-                        user);
+        Long active = repository.countActivePets(workspace, user);
+        Long stored = repository.countStoredPets(workspace, user);
         if (active != null && active >= maxActive)
             throw failure(HttpStatus.CONFLICT, "PET_ACTIVE_LIMIT");
         if (adding && stored != null && stored >= maxStored)
@@ -369,20 +257,11 @@ public class CustomAgentPetService {
     }
 
     private void select(UUID user, UUID workspace, UUID id) {
-        jdbc.update(
-                "INSERT INTO app.custom_agent_pet_selection(workspace_id, user_id, pet_id) VALUES"
-                        + " (?, ?, ?) ON CONFLICT (workspace_id, user_id) DO UPDATE SET pet_id ="
-                        + " EXCLUDED.pet_id",
-                workspace,
-                user,
-                id);
+        repository.upsertSelection(workspace, user, id);
     }
 
     private void lock(UUID user, UUID workspace) {
-        jdbc.query(
-                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
-                (row, n) -> 0,
-                workspace + ":custom-pets:" + user);
+        repository.lockCollection(workspace + ":custom-pets:" + user);
     }
 
     String fingerprint(ComposeCustomAgentPetRequest input) {

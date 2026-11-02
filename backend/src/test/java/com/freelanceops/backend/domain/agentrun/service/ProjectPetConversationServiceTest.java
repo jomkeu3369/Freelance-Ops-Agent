@@ -15,6 +15,7 @@ import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversat
 import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcProjectPetConversationRepository;
 import com.freelanceops.backend.domain.project.entity.ProjectEntity;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
@@ -38,7 +39,12 @@ class ProjectPetConversationServiceTest {
     private final ProjectRepository projects = mock(ProjectRepository.class);
     private final ObjectMapper mapper = new ObjectMapper();
     private final ProjectPetConversationService service =
-            new ProjectPetConversationService(jdbc, mapper, pets, permissions, projects);
+            new ProjectPetConversationService(
+                    new JdbcProjectPetConversationRepository(jdbc, mapper),
+                    mapper,
+                    pets,
+                    permissions,
+                    projects);
     private final UUID user = UUID.randomUUID(), workspace = UUID.randomUUID(), project = UUID.randomUUID();
     private final List<UUID> ids = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
     private final AgentRunView.QuotationDraft draft = new AgentRunView.QuotationDraft("RECOMMENDED", List.of());

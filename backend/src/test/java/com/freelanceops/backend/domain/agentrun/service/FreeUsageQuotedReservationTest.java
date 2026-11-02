@@ -8,6 +8,7 @@ import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest
 import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageModelRateResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+import com.freelanceops.backend.domain.agentrun.repository.JdbcFreeUsageRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,8 @@ import java.util.UUID;
 
 class FreeUsageQuotedReservationTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
-    private final FreeUsageService service = new FreeUsageService(jdbc);
+    private final FreeUsageService service =
+            new FreeUsageService(new JdbcFreeUsageRepository(jdbc));
     private final UUID user = UUID.randomUUID();
     private final Instant version = Instant.parse("2026-10-01T00:00:00.123456Z");
 
