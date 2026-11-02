@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.ChatAttachmentPreviewResponse;
 import com.freelanceops.backend.domain.agentrun.service.ChatAttachmentService;
 
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,7 @@ public class ChatAttachmentController {
 
     @PostMapping(consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
-    public ChatAttachmentService.Preview upload(
+    public ChatAttachmentPreviewResponse upload(
             @PathVariable UUID workspaceId,
             @PathVariable UUID projectId,
             @RequestPart("file") MultipartFile file,

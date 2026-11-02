@@ -2,6 +2,7 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.client.PetGenerationClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
 import com.freelanceops.backend.domain.project.repository.ProjectRepository;
@@ -47,7 +48,7 @@ public class PetGenerationService {
         this.transaction = new TransactionTemplate(transactions);
     }
 
-    public PetGenerationClient.Output generate(
+    public PetGenerationResponse generate(
             UUID user,
             UUID workspace,
             UUID project,

@@ -2,10 +2,10 @@ package com.freelanceops.backend.domain.agentrun.client;
 
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PixelPetGenerationResult;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
-import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunUsage;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
@@ -24,8 +24,6 @@ public class PixelPetGenerationClient {
             PlatformBudget platformBudget,
             RunBudget budget) {}
 
-    public record Output(PetProfile profile, AgentRunUsage usage) {}
-
     private final RestClient client;
 
     public PixelPetGenerationClient(
@@ -38,12 +36,12 @@ public class PixelPetGenerationClient {
         client = builder.clone().baseUrl(baseUrl).requestFactory(factory).build();
     }
 
-    public Output generate(Input input, String token) {
+    public PixelPetGenerationResult generate(Input input, String token) {
         return client.post()
                 .uri("/internal/v1/pets/generate-pixel")
                 .headers(headers -> headers.setBearerAuth(token))
                 .body(input)
                 .retrieve()
-                .body(Output.class);
+                .body(PixelPetGenerationResult.class);
     }
 }

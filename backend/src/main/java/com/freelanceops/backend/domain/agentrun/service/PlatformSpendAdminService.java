@@ -1,12 +1,15 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformModelCapResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -32,10 +35,9 @@ public class PlatformSpendAdminService {
         this.spendingEnabled = spendingEnabled;
     }
 
-    public record ModelCap(Provider provider, String model, BigDecimal maxRunUsd, boolean enabled) { }
     public record Settings(String currency, BigDecimal accountWeekUsd, BigDecimal globalDayUsd,
                            BigDecimal globalWeekUsd, long revision, Instant updatedAt, boolean spendingEnabled,
-                           List<ModelCap> models, BigDecimal maxBudgetUsd, BigDecimal maxModelRunUsd) { }
+                           List<PlatformModelCapResponse> models, BigDecimal maxBudgetUsd, BigDecimal maxModelRunUsd) { }
     private record Budgets(BigDecimal accountWeekUsd, BigDecimal globalDayUsd, BigDecimal globalWeekUsd) { }
 
     @Transactional
@@ -76,7 +78,7 @@ public class PlatformSpendAdminService {
             throw badRequest("A supported model and enabled flag are required");
         Settings before = snapshot(true);
         requireRevision(before, expectedRevision);
-        ModelCap old = before.models().stream().filter(cap -> cap.provider() == provider && cap.model().equals(model))
+        PlatformModelCapResponse old = before.models().stream().filter(cap -> cap.provider() == provider && cap.model().equals(model))
             .findFirst().orElseThrow(() -> badRequest("Unsupported platform model"));
         if (same(maxRunUsd, old.maxRunUsd()) && enabled == old.enabled()) return before;
         requireNextRevision(before);
@@ -88,7 +90,7 @@ public class PlatformSpendAdminService {
             """);
         Settings after = snapshot(false);
         audit(actor, "CHANGE_MODEL", provider.name() + ":" + model, old,
-            new ModelCap(provider, model, maxRunUsd, enabled), before.revision(), after.revision());
+            new PlatformModelCapResponse(provider, model, maxRunUsd, enabled), before.revision(), after.revision());
         return after;
     }
 
@@ -102,8 +104,8 @@ public class PlatformSpendAdminService {
             row.getBigDecimal(2), row.getBigDecimal(3), row.getLong(4), row.getTimestamp(5).toInstant(),
             spendingEnabled, List.of(), MAX_BUDGET_USD, MAX_MODEL_RUN_USD));
         if (base == null) throw new IllegalStateException("Platform spending settings unavailable");
-        List<ModelCap> models = jdbc.query("SELECT provider,model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER BY provider,model",
-            (row, n) -> new ModelCap(Provider.valueOf(row.getString(1)), row.getString(2), row.getBigDecimal(3), row.getBoolean(4)));
+        List<PlatformModelCapResponse> models = jdbc.query("SELECT provider,model,max_run_usd,enabled FROM app.platform_spend_model_cap ORDER BY provider,model",
+            (row, n) -> new PlatformModelCapResponse(Provider.valueOf(row.getString(1)), row.getString(2), row.getBigDecimal(3), row.getBoolean(4)));
         return new Settings(base.currency(), base.accountWeekUsd(), base.globalDayUsd(), base.globalWeekUsd(),
             base.revision(), base.updatedAt(), spendingEnabled, models, MAX_BUDGET_USD, MAX_MODEL_RUN_USD);
     }

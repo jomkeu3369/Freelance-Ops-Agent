@@ -1,7 +1,8 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
-import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunUsage;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunUsageSnapshot;
 import com.freelanceops.backend.domain.agentrun.model.CostStatus;
+import com.freelanceops.backend.domain.agentrun.model.ProviderCallUsageSnapshot;
 import com.freelanceops.backend.domain.agentrun.model.RequestTier;
 
 import jakarta.persistence.Column;
@@ -17,6 +18,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -82,10 +84,7 @@ public class AgentRunUsageEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "provider_calls", nullable = false, columnDefinition = "jsonb")
-    private java.util.List<
-                    com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView
-                            .ProviderCallUsage>
-            providerCalls = java.util.List.of();
+    private List<ProviderCallUsageSnapshot> providerCalls = List.of();
 
     @Column(name = "platform_cost_usd", precision = 19, scale = 8)
     private BigDecimal platformCostUsd;
@@ -109,7 +108,7 @@ public class AgentRunUsageEntity {
     }
 
     public void update(
-            AgentRunUsage usage,
+            AgentRunUsageSnapshot usage,
             ModelPricingEntity pricing,
             BigDecimal actualCost,
             boolean billableOutcome,
@@ -135,7 +134,7 @@ public class AgentRunUsageEntity {
     }
 
     public void updatePlatform(
-            AgentRunUsage usage,
+            AgentRunUsageSnapshot usage,
             BigDecimal actualCost,
             BigDecimal conservativeCost,
             boolean billableOutcome,
@@ -150,7 +149,8 @@ public class AgentRunUsageEntity {
         this.costStatus = actualCost == null ? CostStatus.UNPRICED : CostStatus.PRICED;
     }
 
-    public void updateByok(AgentRunUsage usage, boolean billableOutcome, Instant recordedAt) {
+    public void updateByok(
+            AgentRunUsageSnapshot usage, boolean billableOutcome, Instant recordedAt) {
         update(usage, null, null, billableOutcome, recordedAt);
         this.providerCalls = java.util.List.copyOf(usage.providerCalls());
         this.byokScopeId = usage.byokScopeId();
@@ -163,10 +163,7 @@ public class AgentRunUsageEntity {
         return byokScopeId;
     }
 
-    public java.util.List<
-                    com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView
-                            .ProviderCallUsage>
-            providerCalls() {
+    public List<ProviderCallUsageSnapshot> providerCalls() {
         return providerCalls;
     }
 

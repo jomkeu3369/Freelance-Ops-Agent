@@ -1,10 +1,16 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.AcceptProjectPetDraftRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.UpdateProjectPetConversationRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.ProjectPetConversationResponse;
 import com.freelanceops.backend.domain.agentrun.service.*;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.UUID;
 
 @RestController
@@ -16,17 +22,17 @@ public class ProjectPetConversationController {
         this.conversations = conversations; this.drafts = drafts;
     }
     @GetMapping
-    public ResponseEntity<ProjectPetConversationService.View> get(@PathVariable UUID workspaceId, @PathVariable UUID projectId, Authentication auth) {
+    public ResponseEntity<ProjectPetConversationResponse> get(@PathVariable UUID workspaceId, @PathVariable UUID projectId, Authentication auth) {
         return response(conversations.get(UUID.fromString(auth.getName()), workspaceId, projectId));
     }
     @PutMapping
-    public ResponseEntity<ProjectPetConversationService.View> update(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
-            Authentication auth, @Valid @RequestBody ProjectPetConversationService.Update input) {
+    public ResponseEntity<ProjectPetConversationResponse> update(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
+            Authentication auth, @Valid @RequestBody UpdateProjectPetConversationRequest input) {
         return response(conversations.update(UUID.fromString(auth.getName()), workspaceId, projectId, input));
     }
     @PostMapping("/draft")
-    public ResponseEntity<ProjectPetConversationService.View> accept(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
-            Authentication auth, @Valid @RequestBody ProjectPetConversationService.Accept input) {
+    public ResponseEntity<ProjectPetConversationResponse> accept(@PathVariable UUID workspaceId, @PathVariable UUID projectId,
+            Authentication auth, @Valid @RequestBody AcceptProjectPetDraftRequest input) {
         UUID user = UUID.fromString(auth.getName());
         return response(drafts.accept(user, workspaceId, projectId, input));
     }

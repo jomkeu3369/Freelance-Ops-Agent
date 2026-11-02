@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.agentrun.entity;
 
-import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
+import com.freelanceops.backend.domain.agentrun.model.AgentRunBudget;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
@@ -150,7 +150,7 @@ public class AgentRunEntity {
             Provider provider,
             String model,
             ReasoningEffort reasoningEffort,
-            RunBudget budget,
+            AgentRunBudget budget,
             AgentRunStatus status,
             Instant now) {
         this.id = id;
@@ -248,8 +248,8 @@ public class AgentRunEntity {
         return reasoningEffort;
     }
 
-    public RunBudget budget() {
-        return new RunBudget(
+    public AgentRunBudget budget() {
+        return new AgentRunBudget(
                 maxDurationSeconds,
                 maxModelCalls,
                 maxToolCalls,
@@ -274,7 +274,7 @@ public class AgentRunEntity {
         return updatedAt;
     }
 
-    private static RunBudget defaultBudget() {
-        return new RunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3);
+    private static AgentRunBudget defaultBudget() {
+        return new AgentRunBudget(180, 50, 12, 50000, 48000, 4, 2, 2, 2, 3);
     }
 }

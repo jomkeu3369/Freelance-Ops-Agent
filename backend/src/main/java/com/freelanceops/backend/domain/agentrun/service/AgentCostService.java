@@ -91,11 +91,12 @@ public class AgentCostService {
                 usageRepository
                         .findByAgentRunIdAndWorkspaceId(run.id(), run.workspaceId())
                         .orElseGet(() -> new AgentRunUsageEntity(run.id(), run.workspaceId()));
+        var snapshot = usage.toSnapshot();
         if (usage.byokScopeId() != null)
-            entity.updateByok(usage, view.status() == AgentRunStatus.COMPLETED, Instant.now());
+            entity.updateByok(snapshot, view.status() == AgentRunStatus.COMPLETED, Instant.now());
         else
             entity.updatePlatform(
-                    usage,
+                    snapshot,
                     cost,
                     exposure,
                     view.status() == AgentRunStatus.COMPLETED,
@@ -227,7 +228,9 @@ public class AgentCostService {
                 usage.costStatus(),
                 usage.billableOutcome(),
                 usage.recordedAt(),
-                usage.providerCalls(),
+                usage.providerCalls().stream()
+                        .map(AgentRunView.ProviderCallUsage::fromSnapshot)
+                        .toList(),
                 usage.platformCostUsd(),
                 usage.platformReservationId(),
                 usage.tariffVersion(),

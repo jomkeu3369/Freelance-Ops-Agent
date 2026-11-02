@@ -1,5 +1,6 @@
 package com.freelanceops.backend.domain.agentrun.dto.request;
 
+import com.freelanceops.backend.domain.agentrun.model.AgentRunBudget;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 
@@ -183,7 +184,35 @@ public record StartAgentRunRequest(
             @Min(1) @Max(2) int maxHierarchyDepth,
             @Min(0) @Max(100) int maxSearchCredits,
             @Min(0) @Max(5) int maxRetries,
-            @Min(0) @Max(10) int maxHandoffs) {}
+            @Min(0) @Max(10) int maxHandoffs) {
+        public AgentRunBudget toModel() {
+            return new AgentRunBudget(
+                    maxDurationSeconds,
+                    maxModelCalls,
+                    maxToolCalls,
+                    maxInputTokens,
+                    maxOutputTokens,
+                    maxDepartments,
+                    maxHierarchyDepth,
+                    maxSearchCredits,
+                    maxRetries,
+                    maxHandoffs);
+        }
+
+        public static RunBudget fromModel(AgentRunBudget budget) {
+            return new RunBudget(
+                    budget.maxDurationSeconds(),
+                    budget.maxModelCalls(),
+                    budget.maxToolCalls(),
+                    budget.maxInputTokens(),
+                    budget.maxOutputTokens(),
+                    budget.maxDepartments(),
+                    budget.maxHierarchyDepth(),
+                    budget.maxSearchCredits(),
+                    budget.maxRetries(),
+                    budget.maxHandoffs());
+        }
+    }
 
     public record SafetyContext(
             boolean externalSideEffect,

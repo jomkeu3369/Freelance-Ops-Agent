@@ -10,6 +10,8 @@ import com.freelanceops.backend.domain.identity.dto.request.RegisterRequest;
 import com.freelanceops.backend.domain.identity.service.AuthService;
 import com.freelanceops.backend.domain.identity.service.EmailVerificationService;
 import com.freelanceops.backend.domain.identity.service.IdentityException;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeCampaignResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeResponse;
 import com.freelanceops.backend.domain.notice.service.NoticeService;
 import com.freelanceops.backend.global.mail.OperationalMailTransport;
 
@@ -460,7 +462,7 @@ class VerifiedNoticesPostgresTest {
                 .andExpect(content().json("[]"));
         var current = published();
         assertThat(notices.published())
-                .extracting(NoticeService.Notice::id)
+                .extracting(NoticeResponse::id)
                 .containsExactly(current.id());
     }
 
@@ -772,7 +774,7 @@ class VerifiedNoticesPostgresTest {
         assertThat(notices.dispatchNext(admin, campaign.id()).status()).isEqualTo("COMPLETED");
     }
 
-    private NoticeService.Campaign confirm(NoticeService.Campaign c) {
+    private NoticeCampaignResponse confirm(NoticeCampaignResponse c) {
         return notices.confirm(
                 admin,
                 c.id(),
@@ -782,7 +784,7 @@ class VerifiedNoticesPostgresTest {
                 "QUEUE_OPERATIONAL_NOTICE");
     }
 
-    private NoticeService.Notice published() {
+    private NoticeResponse published() {
         var draft =
                 notices.create(
                         admin,

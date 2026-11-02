@@ -1,7 +1,12 @@
 package com.freelanceops.backend.domain.identity.controller;
 
-import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
-import com.freelanceops.backend.domain.identity.dto.response.AdminMemberResponse.*;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberAuditResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberLoginResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberResponse;
+import com.freelanceops.backend.domain.identity.dto.response.AdminMemberSummaryResponse;
+import com.freelanceops.backend.domain.identity.dto.response.Page;
 import com.freelanceops.backend.domain.identity.service.AdminMemberService;
 
 import org.springframework.http.HttpStatus;
@@ -21,7 +26,7 @@ public class AdminMemberController {
     }
 
     @GetMapping("/members")
-    public Page<Member> members(
+    public Page<AdminMemberResponse> members(
             Authentication auth,
             @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "") String status,
@@ -31,22 +36,22 @@ public class AdminMemberController {
     }
 
     @GetMapping("/members/summary")
-    public Summary summary(Authentication auth) {
+    public AdminMemberSummaryResponse summary(Authentication auth) {
         return service.summary(actor(auth));
     }
 
     @GetMapping("/members/{id}")
-    public Member member(Authentication auth, @PathVariable UUID id) {
+    public AdminMemberResponse member(Authentication auth, @PathVariable UUID id) {
         return service.member(actor(auth), id);
     }
 
     @GetMapping("/members/{id}/ai-usage")
-    public PlatformUsageService.Usage usage(Authentication auth, @PathVariable UUID id) {
+    public PlatformUsageResponse usage(Authentication auth, @PathVariable UUID id) {
         return service.usage(actor(auth), id);
     }
 
     @GetMapping("/members/{id}/ai-usage/history")
-    public PlatformUsageService.History usageHistory(
+    public PlatformUsageHistoryResponse usageHistory(
             Authentication auth,
             @PathVariable UUID id,
             @RequestParam(required = false) String cursor,
@@ -55,7 +60,7 @@ public class AdminMemberController {
     }
 
     @GetMapping("/login-events")
-    public Page<Login> logins(
+    public Page<AdminMemberLoginResponse> logins(
             Authentication auth,
             @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
@@ -64,7 +69,7 @@ public class AdminMemberController {
     }
 
     @GetMapping("/member-audit-events")
-    public Page<Audit> audits(
+    public Page<AdminMemberAuditResponse> audits(
             Authentication auth,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {

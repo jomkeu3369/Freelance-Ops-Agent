@@ -2,8 +2,8 @@ package com.freelanceops.backend.domain.agentrun.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageResponse;
 import com.freelanceops.backend.domain.agentrun.service.FreeUsageExhaustedException;
-import com.freelanceops.backend.domain.agentrun.service.FreeUsageService;
 
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +15,7 @@ class FreeUsageExceptionHandlerTest {
         var reset = Instant.parse("2026-10-31T15:00:00Z");
         var error =
                 new FreeUsageExhaustedException(
-                        new FreeUsageService.Usage(
+                        new FreeUsageResponse(
                                 5, 4, 1, 0, reset, "2026-10", "Asia/Seoul", 0, false));
         var response = new FreeUsageExceptionHandler().exhausted(error);
         assertThat(response.getStatusCode().value()).isEqualTo(429);

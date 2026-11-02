@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageHistoryResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformUsageResponse;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
 
 import org.junit.jupiter.api.Test;
@@ -91,8 +93,8 @@ class AdminMemberServiceTest {
                         eq(target)))
                 .thenReturn(List.of(target));
         clearInvocations(jdbc);
-        var snapshot = mock(PlatformUsageService.Usage.class);
-        var history = new PlatformUsageService.History(List.of(), "next-page");
+        var snapshot = mock(PlatformUsageResponse.class);
+        var history = new PlatformUsageHistoryResponse(List.of(), "next-page");
         when(usage.snapshot(target)).thenReturn(snapshot);
         when(usage.history(target, "opaque-cursor", 25)).thenReturn(history);
         assertThat(service.usage(actor, target)).isSameAs(snapshot);

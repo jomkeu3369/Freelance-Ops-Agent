@@ -1,5 +1,8 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.SaveAIConnectionRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.AIConnectionsResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.service.AIConnectionService;
 
@@ -21,17 +24,8 @@ public class AIConnectionController {
         this.service = service;
     }
 
-    public record SaveConnection(
-            @NotBlank @Size(max = 100) String model,
-            @NotBlank @Size(min = 16, max = 512) String apiKey) {
-        @Override
-        public String toString() {
-            return "SaveConnection[redacted]";
-        }
-    }
-
     @GetMapping
-    public ResponseEntity<AIConnectionService.Connections> list(
+    public ResponseEntity<AIConnectionsResponse> list(
             @PathVariable UUID workspaceId, Authentication authentication) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
@@ -39,10 +33,10 @@ public class AIConnectionController {
     }
 
     @PutMapping("/{provider}")
-    public ResponseEntity<AIConnectionService.Connection> save(
+    public ResponseEntity<AIConnectionResponse> save(
             @PathVariable UUID workspaceId,
             @PathVariable Provider provider,
-            @Valid @RequestBody SaveConnection request,
+            @Valid @RequestBody SaveAIConnectionRequest request,
             Authentication authentication) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())

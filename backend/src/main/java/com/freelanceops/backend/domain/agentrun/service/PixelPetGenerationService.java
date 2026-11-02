@@ -3,11 +3,15 @@ package com.freelanceops.backend.domain.agentrun.service;
 import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.TrustedRunContext;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PixelPetGenerationResult;
 import com.freelanceops.backend.domain.agentrun.dto.PetPreferences;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.GeneratePixelPetRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunUsage;
+import com.freelanceops.backend.domain.agentrun.dto.response.PixelPetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
 import com.freelanceops.backend.domain.agentrun.security.DelegationTokenIssuer;
@@ -15,9 +19,7 @@ import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
 
-import jakarta.validation.Valid;
 import jakarta.validation.Validator;
-import jakarta.validation.constraints.NotNull;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -40,8 +42,6 @@ import java.util.UUID;
 /** 생성 요청의 중복 방지, 모델 호출과 저장 전 결과 보관을 담당한다. */
 @Service
 public class PixelPetGenerationService {
-    public record Generate(
-            @NotNull UUID projectId, @NotNull @Valid CustomAgentPetService.Compose input) {}
 
     public record GenerationPrincipal(
             UUID runId,
@@ -50,17 +50,15 @@ public class PixelPetGenerationService {
             UUID initiatedBy,
             Set<String> permissions) {}
 
-    public record Generation(UUID id, String status, PetProfile profile, String errorCode) {}
-
     private record Prepared(PlatformBudget budget, PetProfile previous) {}
 
     private record Stored(
-            Generation value,
+            PixelPetGenerationResponse value,
             UUID project,
             String fingerprint,
             Instant updatedAt,
             String model,
-            CustomAgentPetService.Compose input,
+            ComposeCustomAgentPetRequest input,
             PetProfile previous) {}
 
     private final JdbcTemplate jdbc;
@@ -107,7 +105,7 @@ public class PixelPetGenerationService {
         PlatformSpendTariff.validateSelection(this.model);
     }
 
-    public Generation generate(UUID user, UUID workspace, Generate request) {
+    public PixelPetGenerationResponse generate(UUID user, UUID workspace, GeneratePixelPetRequest request) {
         authorization.authorize(user, workspace);
         var input = request.input();
         if (input.generationId() != null)
@@ -239,13 +237,13 @@ public class PixelPetGenerationService {
         return get(user, workspace, id);
     }
 
-    public Generation get(UUID user, UUID workspace, UUID id) {
+    public PixelPetGenerationResponse get(UUID user, UUID workspace, UUID id) {
         authorization.authorize(user, workspace);
         var stored = find(user, workspace, id);
         if (stored == null) throw failure(HttpStatus.NOT_FOUND, "PET_GENERATION_NOT_FOUND");
         if ("REQUESTED".equals(stored.value().status())
                 && stored.updatedAt().isBefore(Instant.now().minusSeconds(90)))
-            return new Generation(id, "UNKNOWN", null, "PET_GENERATION_UNKNOWN");
+            return new PixelPetGenerationResponse(id, "UNKNOWN", null, "PET_GENERATION_UNKNOWN");
         return stored.value();
     }
 
@@ -327,14 +325,14 @@ public class PixelPetGenerationService {
 
     @Transactional
     public void complete(
-            UUID id, PixelPetGenerationClient.Output output, GenerationPrincipal principal) {
+            UUID id, PixelPetGenerationResult output, GenerationPrincipal principal) {
         if (output == null) throw failure(HttpStatus.BAD_REQUEST, "PET_INVALID_GENERATION");
         recordUsage(id, output.usage(), principal);
         persistResult(principal.initiatedBy(), principal.workspaceId(), id, output);
     }
 
     private void persistResult(
-            UUID user, UUID workspace, UUID id, PixelPetGenerationClient.Output output) {
+            UUID user, UUID workspace, UUID id, PixelPetGenerationResult output) {
         var stored = find(user, workspace, id, true);
         if (stored == null
                 || output == null
@@ -405,7 +403,7 @@ public class PixelPetGenerationService {
                                 + (lock ? " FOR UPDATE" : ""),
                         (row, n) ->
                                 new Stored(
-                                        new Generation(
+                                        new PixelPetGenerationResponse(
                                                 id,
                                                 row.getString(3),
                                                 row.getString(4) == null
@@ -419,7 +417,7 @@ public class PixelPetGenerationService {
                                         row.getString(7),
                                         mapper.readValue(
                                                 row.getString(8),
-                                                CustomAgentPetService.Compose.class),
+                                                ComposeCustomAgentPetRequest.class),
                                         row.getString(9) == null
                                                 ? null
                                                 : mapper.readValue(

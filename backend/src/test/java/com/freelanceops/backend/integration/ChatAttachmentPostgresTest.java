@@ -14,6 +14,7 @@ import com.freelanceops.backend.domain.agentrun.client.AttachmentReaderClient;
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.AttachmentText;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.ChatAttachmentPreviewResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 import com.freelanceops.backend.domain.agentrun.model.ReasoningEffort;
@@ -696,7 +697,7 @@ class ChatAttachmentPostgresTest {
         assertThat(count(scope.user())).isOne();
     }
 
-    private ChatAttachmentService.Preview upload(Scope target) {
+    private ChatAttachmentPreviewResponse upload(Scope target) {
         return attachments.upload(
                 target.user(),
                 target.workspace(),

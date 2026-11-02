@@ -6,8 +6,12 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.ChangeFreeUsageModelRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ResetFreeUsageRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.ResumeAgentRunRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.service.*;
@@ -176,9 +180,9 @@ class WorkspaceCreditContractTest {
 
     @Test
     void usageAndAdminSettingsSerializeTheExactFrontendShape() throws Exception {
-        when(usage.current(USER)).thenReturn(fixture("usage", FreeUsageService.Usage.class));
+        when(usage.current(USER)).thenReturn(fixture("usage", FreeUsageResponse.class));
         when(usage.adminSettings(USER))
-                .thenReturn(fixture("settings", FreeUsageService.Settings.class));
+                .thenReturn(fixture("settings", FreeUsageSettingsResponse.class));
         mvc.perform(get("/api/v2/usage/free").principal(user()))
                 .andExpect(status().isOk())
                 .andExpect(
@@ -194,7 +198,7 @@ class WorkspaceCreditContractTest {
                                         fixture.get("settings").toString(),
                                         org.springframework.test.json.JsonCompareMode.STRICT));
         when(usage.current(USER))
-                .thenReturn(fixture("settledFailureUsage", FreeUsageService.Usage.class));
+                .thenReturn(fixture("settledFailureUsage", FreeUsageResponse.class));
         mvc.perform(get("/api/v2/usage/free").principal(user()))
                 .andExpect(status().isOk())
                 .andExpect(
@@ -206,9 +210,9 @@ class WorkspaceCreditContractTest {
 
     @Test
     void adminModelAndResetRequestsPreserveReviewedRevision() throws Exception {
-        var model = fixture("adminModelChange", FreeUsageController.ChangeModel.class);
-        var reset = fixture("adminReset", FreeUsageController.ResetAll.class);
-        var settings = fixture("settings", FreeUsageService.Settings.class);
+        var model = fixture("adminModelChange", ChangeFreeUsageModelRequest.class);
+        var reset = fixture("adminReset", ResetFreeUsageRequest.class);
+        var settings = fixture("settings", FreeUsageSettingsResponse.class);
         when(usage.changeModelRate(
                         USER,
                         model.provider(),
@@ -283,7 +287,7 @@ class WorkspaceCreditContractTest {
                         case "PLATFORM_SPEND_DISABLED" -> new PlatformSpendUnavailableException();
                         case "FREE_USAGE_EXHAUSTED" ->
                                 new FreeUsageExhaustedException(
-                                        fixture("usage", FreeUsageService.Usage.class), 100);
+                                        fixture("usage", FreeUsageResponse.class), 100);
                         default ->
                                 new CreditQuoteException(
                                         HttpStatus.valueOf(error.get("status").asInt()),

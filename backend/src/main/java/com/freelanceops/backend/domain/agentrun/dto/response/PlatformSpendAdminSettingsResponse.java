@@ -12,7 +12,7 @@ import java.util.List;
 public record PlatformSpendAdminSettingsResponse(
     String currency, String accountWeekUsd, String globalDayUsd, String globalWeekUsd,
     long revision, Instant updatedAt, boolean spendingEnabled,
-    List<PlatformSpendAdminService.ModelCap> models, BigDecimal maxBudgetUsd, BigDecimal maxModelRunUsd) {
+    List<PlatformModelCapResponse> models, BigDecimal maxBudgetUsd, BigDecimal maxModelRunUsd) {
 
     public static PlatformSpendAdminSettingsResponse from(PlatformSpendAdminService.Settings settings) {
         return new PlatformSpendAdminSettingsResponse(settings.currency(), settings.accountWeekUsd().toPlainString(),

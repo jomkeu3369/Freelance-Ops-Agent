@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 
@@ -38,8 +41,8 @@ class CustomAgentPetServiceTest {
         factory.close();
     }
 
-    private CustomAgentPetService.Compose input(String prompt) {
-        return new CustomAgentPetService.Compose(
+    private ComposeCustomAgentPetRequest input(String prompt) {
+        return new ComposeCustomAgentPetRequest(
                 UUID.randomUUID(), UUID.randomUUID(), 0, prompt, false);
     }
 
@@ -67,7 +70,7 @@ class CustomAgentPetServiceTest {
                                         user,
                                         workspace,
                                         input.id(),
-                                        new CustomAgentPetService.Change("SELECT", 1)))
+                                        new ChangeCustomAgentPetRequest("SELECT", 1)))
                 .hasMessageContaining("403");
         assertThatThrownBy(() -> service.delete(user, workspace, input.id(), 1))
                 .hasMessageContaining("403");

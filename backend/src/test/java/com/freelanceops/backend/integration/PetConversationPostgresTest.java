@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetConversation;
+import com.freelanceops.backend.domain.agentrun.dto.request.UpdateProjectPetConversationRequest;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetsResponse;
 import com.freelanceops.backend.domain.agentrun.entity.AgentRunEntity;
 import com.freelanceops.backend.domain.agentrun.service.CustomAgentPetService;
 import com.freelanceops.backend.domain.agentrun.service.ProjectPetConversationService;
@@ -14,7 +16,7 @@ import com.freelanceops.backend.domain.project.repository.ProjectRepository;
 import com.freelanceops.backend.domain.workspace.policy.MembershipPermissions;
 import com.freelanceops.backend.domain.workspace.policy.PermissionCode;
 import com.freelanceops.backend.domain.workspace.repository.WorkspacePermissionReader;
-import java.util.*;
+
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,7 +25,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+
 import tools.jackson.databind.ObjectMapper;
+
+import java.util.*;
 
 @Testcontainers
 class PetConversationPostgresTest {
@@ -52,7 +57,7 @@ class PetConversationPostgresTest {
         assertThat(jdbc.update("UPDATE app.agent_run SET status='PARTIAL' WHERE id=?", run)).isEqualTo(1);
         assertThat(latest.migrate().migrationsExecuted).isZero();
         var pets = mock(CustomAgentPetService.class);
-        when(pets.list(any(), eq(workspace))).thenReturn(new CustomAgentPetService.Collection(List.of(), null, 8, 24, 500, 6, "MODEL_PIXEL", false));
+        when(pets.list(any(), eq(workspace))).thenReturn(new CustomAgentPetsResponse(List.of(), null, 8, 24, 500, 6, "MODEL_PIXEL", false));
         var permissions = mock(WorkspacePermissionReader.class);
         when(permissions.findActiveMembership(any(), eq(workspace))).thenReturn(Optional.of(new MembershipPermissions(UUID.randomUUID(),
                 Set.of(PermissionCode.PROJECT_READ, PermissionCode.AGENT_RUN, PermissionCode.QUOTATION_READ))));
@@ -60,7 +65,7 @@ class PetConversationPostgresTest {
         when(projects.findByIdAndWorkspaceId(project, workspace)).thenReturn(Optional.of(mock(ProjectEntity.class)));
         when(projects.findByIdAndWorkspaceIdForUpdate(project, workspace)).thenReturn(Optional.of(mock(ProjectEntity.class)));
         var service = new ProjectPetConversationService(jdbc, new ObjectMapper(), pets, permissions, projects);
-        assertThat(service.update(user, workspace, project, new ProjectPetConversationService.Update(false, false, List.of(), 0)).version()).isEqualTo(1);
+        assertThat(service.update(user, workspace, project, new UpdateProjectPetConversationRequest(false, false, List.of(), 0)).version()).isEqualTo(1);
         assertThat(service.get(user, workspace, project).settings().debateEnabled()).isFalse();
         assertThat(service.get(other, workspace, project).version()).isZero();
         service.recordStart(user, workspace, project, run, "예약 범위를 정하자");

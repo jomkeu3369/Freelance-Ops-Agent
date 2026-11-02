@@ -2,6 +2,10 @@ package com.freelanceops.backend.domain.agentrun.service;
 
 import com.freelanceops.backend.domain.agentrun.dto.PetPreferences;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
+import com.freelanceops.backend.domain.agentrun.dto.request.ChangeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.request.ComposeCustomAgentPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.CustomAgentPetsResponse;
 
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.*;
@@ -21,38 +25,6 @@ import java.util.*;
 
 @Service
 public class CustomAgentPetService {
-    public record Compose(
-            @NotNull UUID id,
-            @NotNull UUID mutationId,
-            @Min(0) long expectedRevision,
-            @NotBlank @Size(max = 500) String description,
-            boolean resetPreferences,
-            UUID generationId) {
-        public Compose(
-                UUID id,
-                UUID mutationId,
-                long expectedRevision,
-                String description,
-                boolean resetPreferences) {
-            this(id, mutationId, expectedRevision, description, resetPreferences, null);
-        }
-    }
-
-    public record Pet(UUID id, PetProfile profile, boolean archived, long revision) {}
-
-    public record Collection(
-            List<Pet> pets,
-            UUID selectedPetId,
-            int maxActivePets,
-            int maxStoredPets,
-            int maxPromptLength,
-            int maxPreferenceRequests,
-            String generationMode,
-            boolean aiGenerationAvailable) {}
-
-    public record Change(
-            @NotNull @Pattern(regexp = "SELECT|ARCHIVE|RESTORE") String action,
-            @Min(1) long expectedRevision) {}
 
     private final JdbcTemplate jdbc;
     private final AIConnectionService authorization;
@@ -95,14 +67,14 @@ public class CustomAgentPetService {
         this.maxPrompt = maxPrompt;
     }
 
-    public Collection list(UUID user, UUID workspace) {
+    public CustomAgentPetsResponse list(UUID user, UUID workspace) {
         authorization.authorize(user, workspace);
         var pets =
                 jdbc.query(
                         "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
                                 + " WHERE workspace_id = ? AND user_id = ? ORDER BY created_at, id",
                         (row, n) ->
-                                new Pet(
+                                new CustomAgentPetResponse(
                                         row.getObject(1, UUID.class),
                                         mapper.readValue(row.getString(2), PetProfile.class),
                                         row.getBoolean(3),
@@ -116,7 +88,7 @@ public class CustomAgentPetService {
                         (row, n) -> Optional.ofNullable(row.getObject(1, UUID.class)),
                         workspace,
                         user);
-        return new Collection(
+        return new CustomAgentPetsResponse(
                 pets,
                 selected.isEmpty() ? null : selected.getFirst().orElse(null),
                 maxActive,
@@ -134,14 +106,14 @@ public class CustomAgentPetService {
                                         generationModel)));
     }
 
-    public PetProfile preview(UUID user, UUID workspace, Compose input) {
+    public PetProfile preview(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         authorization.authorize(user, workspace);
         validate(input);
         return compose(user, workspace, input);
     }
 
     @Transactional
-    public Pet save(UUID user, UUID workspace, Compose input) {
+    public CustomAgentPetResponse save(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         authorization.authorize(user, workspace);
         validate(input);
         lock(user, workspace);
@@ -204,12 +176,12 @@ public class CustomAgentPetService {
     }
 
     @Transactional
-    public void change(UUID user, UUID workspace, UUID id, Change input) {
+    public void change(UUID user, UUID workspace, UUID id, ChangeCustomAgentPetRequest input) {
         authorization.authorize(user, workspace);
         if (!validator.validate(input).isEmpty())
             throw failure(HttpStatus.UNPROCESSABLE_CONTENT, "PET_INVALID_CHANGE");
         lock(user, workspace);
-        Pet pet = find(user, workspace, id);
+        CustomAgentPetResponse pet = find(user, workspace, id);
         if (pet.revision() != input.expectedRevision())
             throw failure(HttpStatus.CONFLICT, "PET_REVISION_CHANGED");
         switch (input.action()) {
@@ -245,7 +217,7 @@ public class CustomAgentPetService {
     public void delete(UUID user, UUID workspace, UUID id, long expectedRevision) {
         authorization.authorize(user, workspace);
         lock(user, workspace);
-        Pet pet = find(user, workspace, id);
+        CustomAgentPetResponse pet = find(user, workspace, id);
         if (pet.revision() != expectedRevision)
             throw failure(HttpStatus.CONFLICT, "PET_REVISION_CHANGED");
         if (!pet.archived()) throw failure(HttpStatus.CONFLICT, "PET_ARCHIVE_BEFORE_DELETE");
@@ -284,13 +256,13 @@ public class CustomAgentPetService {
         return rows.stream().findFirst();
     }
 
-    private PetProfile compose(UUID user, UUID workspace, Compose input) {
+    private PetProfile compose(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         if (input.generationId() != null) return generatedProfile(user, workspace, input);
         return composer.compose(
                 input.id(), input.description(), generationBase(user, workspace, input));
     }
 
-    PetProfile generationBase(UUID user, UUID workspace, Compose input) {
+    PetProfile generationBase(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         validate(input);
         PetProfile base = null;
         if (input.expectedRevision() > 0) {
@@ -320,16 +292,16 @@ public class CustomAgentPetService {
         return base;
     }
 
-    void checkGenerationCapacity(UUID user, UUID workspace, Compose input) {
+    void checkGenerationCapacity(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         lock(user, workspace);
         if (input.expectedRevision() == 0) enforceCapacity(user, workspace, true);
     }
 
-    private PetProfile generatedProfile(UUID user, UUID workspace, Compose input) {
+    private PetProfile generatedProfile(UUID user, UUID workspace, ComposeCustomAgentPetRequest input) {
         generationBase(user, workspace, input);
         String requestHash =
                 fingerprint(
-                        new Compose(
+                        new ComposeCustomAgentPetRequest(
                                 input.id(),
                                 input.mutationId(),
                                 input.expectedRevision(),
@@ -351,13 +323,13 @@ public class CustomAgentPetService {
                 .orElseThrow(() -> failure(HttpStatus.CONFLICT, "PET_GENERATION_NOT_READY"));
     }
 
-    private Pet find(UUID user, UUID workspace, UUID id) {
+    private CustomAgentPetResponse find(UUID user, UUID workspace, UUID id) {
         return jdbc
                 .query(
                         "SELECT id, profile_json, archived, revision FROM app.custom_agent_pet"
                                 + " WHERE workspace_id = ? AND user_id = ? AND id = ?",
                         (row, n) ->
-                                new Pet(
+                                new CustomAgentPetResponse(
                                         row.getObject(1, UUID.class),
                                         mapper.readValue(row.getString(2), PetProfile.class),
                                         row.getBoolean(3),
@@ -370,7 +342,7 @@ public class CustomAgentPetService {
                 .orElseThrow(() -> failure(HttpStatus.NOT_FOUND, "PET_NOT_FOUND"));
     }
 
-    private void validate(Compose input) {
+    private void validate(ComposeCustomAgentPetRequest input) {
         if (!validator.validate(input).isEmpty() || input.description().length() > maxPrompt)
             throw failure(HttpStatus.UNPROCESSABLE_CONTENT, "PET_INVALID_PROMPT");
     }
@@ -413,7 +385,7 @@ public class CustomAgentPetService {
                 workspace + ":custom-pets:" + user);
     }
 
-    String fingerprint(Compose input) {
+    String fingerprint(ComposeCustomAgentPetRequest input) {
         try {
             // 기존 클라이언트의 저장 재전송 지문은 선택 필드가 생겨도 유지한다.
             var values = new LinkedHashMap<String, Object>();

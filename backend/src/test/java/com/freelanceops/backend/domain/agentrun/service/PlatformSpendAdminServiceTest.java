@@ -1,10 +1,17 @@
 package com.freelanceops.backend.domain.agentrun.service;
 
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import com.freelanceops.backend.domain.agentrun.dto.response.PlatformModelCapResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.web.server.ResponseStatusException;
+
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -12,16 +19,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
 class PlatformSpendAdminServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final PlatformSpendAdminService service = new PlatformSpendAdminService(jdbc, new ObjectMapper(), false);
     private final UUID actor = UUID.randomUUID();
     private static final BigDecimal ONE = BigDecimal.ONE;
-    private static final PlatformSpendAdminService.ModelCap LUNA = new PlatformSpendAdminService.ModelCap(
+    private static final PlatformModelCapResponse LUNA = new PlatformModelCapResponse(
         Provider.OPENAI, "gpt-5.6-luna", new BigDecimal("0.1"), true);
 
     @Test void everyEntryPointRequiresLockedActiveVerifiedLiveGrantBeforeReadingSettings() {
@@ -111,7 +114,7 @@ class PlatformSpendAdminServiceTest {
         models();
     }
     private void models() {
-        when(jdbc.query(contains("FROM app.platform_spend_model_cap"), org.mockito.ArgumentMatchers.<RowMapper<PlatformSpendAdminService.ModelCap>>any()))
+        when(jdbc.query(contains("FROM app.platform_spend_model_cap"), org.mockito.ArgumentMatchers.<RowMapper<PlatformModelCapResponse>>any()))
             .thenReturn(List.of(LUNA));
     }
     private PlatformSpendAdminService.Settings settings(long revision, BigDecimal account) {

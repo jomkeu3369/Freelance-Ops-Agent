@@ -1,5 +1,9 @@
 package com.freelanceops.backend.domain.notice.service;
 
+import com.freelanceops.backend.domain.notice.dto.response.NoticeCampaignResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeDashboardResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeDispatchResponse;
+import com.freelanceops.backend.domain.notice.dto.response.NoticeResponse;
 import com.freelanceops.backend.global.mail.OperationalMailTransport;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,44 +57,13 @@ public class NoticeService {
         this.dispatchEnabled = dispatchEnabled;
     }
 
-    public record Notice(
-            UUID id,
-            String kind,
-            String title,
-            String body,
-            String versionLabel,
-            Instant effectiveAt,
-            Instant publishAt,
-            String status,
-            String contentHash,
-            long revision) {}
-
-    public record Campaign(
-            UUID id,
-            UUID noticeId,
-            String snapshotTitle,
-            String snapshotBody,
-            String snapshotVersionLabel,
-            String status,
-            String contentHash,
-            String recipientHash,
-            int recipientCount,
-            String testStatus,
-            Instant createdAt,
-            Map<String, Integer> deliveries) {}
-
-    public record Dashboard(
-            List<Notice> notices, List<Campaign> campaigns, boolean transportReady) {}
-
-    public record Dispatch(String status, int processed) {}
-
     private record Recipient(UUID userId, String email) {}
 
     private record Delivery(UUID id, UUID userId, String email, int attempts) {}
 
-    private static final RowMapper<Notice> NOTICE =
+    private static final RowMapper<NoticeResponse> NOTICE =
             (row, n) ->
-                    new Notice(
+                    new NoticeResponse(
                             row.getObject("id", UUID.class),
                             row.getString("kind"),
                             row.getString("title"),
@@ -103,7 +76,7 @@ public class NoticeService {
                             row.getLong("revision"));
 
     @Transactional(readOnly = true)
-    public List<Notice> published() {
+    public List<NoticeResponse> published() {
         return jdbc.query(
                 "SELECT * FROM app.service_notice WHERE kind = 'OPERATIONAL' AND status = 'PUBLISHED' AND publish_at <= ? ORDER BY publish_at DESC LIMIT 100",
                 NOTICE,
@@ -111,9 +84,9 @@ public class NoticeService {
     }
 
     @Transactional
-    public Dashboard dashboard(UUID actor) {
+    public NoticeDashboardResponse dashboard(UUID actor) {
         requireAdmin(actor);
-        List<Notice> notices =
+        List<NoticeResponse> notices =
                 jdbc.query(
                         "SELECT * FROM app.service_notice ORDER BY created_at DESC LIMIT 100",
                         NOTICE);
@@ -121,11 +94,11 @@ public class NoticeService {
                 jdbc.query(
                         "SELECT id FROM app.notice_campaign ORDER BY created_at DESC LIMIT 100",
                         (row, n) -> row.getObject(1, UUID.class));
-        return new Dashboard(notices, ids.stream().map(this::campaign).toList(), mail.ready());
+        return new NoticeDashboardResponse(notices, ids.stream().map(this::campaign).toList(), mail.ready());
     }
 
     @Transactional
-    public Notice create(
+    public NoticeResponse create(
             UUID actor,
             String kind,
             String title,
@@ -171,9 +144,9 @@ public class NoticeService {
     }
 
     @Transactional
-    public Notice review(UUID actor, UUID id, long expectedRevision) {
+    public NoticeResponse review(UUID actor, UUID id, long expectedRevision) {
         requireAdmin(actor);
-        Notice notice = notice(id, true);
+        NoticeResponse notice = notice(id, true);
         if (notice.revision() != expectedRevision || !"DRAFT".equals(notice.status()))
             throw conflict("Reload this notice before review");
         jdbc.update(
@@ -184,10 +157,10 @@ public class NoticeService {
     }
 
     @Transactional
-    public Notice publish(
+    public NoticeResponse publish(
             UUID actor, UUID id, long expectedRevision, Instant publishAt, String confirmation) {
         requireAdmin(actor);
-        Notice notice = notice(id, true);
+        NoticeResponse notice = notice(id, true);
         if (!"OPERATIONAL".equals(notice.kind()))
             throw conflict("Legal publication requires a separately reviewed release");
         if (notice.revision() != expectedRevision || !"REVIEWED".equals(notice.status()))
@@ -205,13 +178,13 @@ public class NoticeService {
     }
 
     @Transactional
-    public Campaign prepare(UUID actor, UUID noticeId) {
+    public NoticeCampaignResponse prepare(UUID actor, UUID noticeId) {
         requireAdmin(actor);
         jdbc.query(
                 "SELECT pg_advisory_xact_lock(hashtextextended(?, 0))",
                 (row, n) -> 0,
                 "notice-prepare:" + actor);
-        Notice notice = notice(noticeId, true);
+        NoticeResponse notice = notice(noticeId, true);
         if (!"OPERATIONAL".equals(notice.kind())
                 || !"PUBLISHED".equals(notice.status())
                 || notice.publishAt().isAfter(clock.instant()))
@@ -266,9 +239,9 @@ public class NoticeService {
     }
 
     @Transactional
-    public Campaign test(UUID actor, UUID id) {
+    public NoticeCampaignResponse test(UUID actor, UUID id) {
         requireAdmin(actor);
-        Campaign campaign = lockCampaign(id);
+        NoticeCampaignResponse campaign = lockCampaign(id);
         if (!"DRAFT".equals(campaign.status()))
             throw conflict("Only draft campaigns can be tested");
         List<String> self =
@@ -306,7 +279,7 @@ public class NoticeService {
     }
 
     @Transactional
-    public Campaign confirm(
+    public NoticeCampaignResponse confirm(
             UUID actor,
             UUID id,
             String contentHash,
@@ -314,7 +287,7 @@ public class NoticeService {
             int recipientCount,
             String confirmation) {
         requireAdmin(actor);
-        Campaign campaign = lockCampaign(id);
+        NoticeCampaignResponse campaign = lockCampaign(id);
         if (!"QUEUE_OPERATIONAL_NOTICE".equals(confirmation)
                 || !campaign.contentHash().equals(contentHash)
                 || !campaign.recipientHash().equals(recipientHash)
@@ -353,9 +326,9 @@ public class NoticeService {
     }
 
     @Transactional
-    public Campaign cancel(UUID actor, UUID id) {
+    public NoticeCampaignResponse cancel(UUID actor, UUID id) {
         requireAdmin(actor);
-        Campaign campaign = lockCampaign(id);
+        NoticeCampaignResponse campaign = lockCampaign(id);
         if ("CANCELLED".equals(campaign.status())) return campaign;
         if ("COMPLETED".equals(campaign.status()))
             throw conflict("Completed mail cannot be recalled");
@@ -373,11 +346,11 @@ public class NoticeService {
 
     /** 명시적으로 요청할 때 수신자 한 명에게만 전송한다. 자동 일괄 발송은 지원하지 않는다. */
     @Transactional
-    public Dispatch dispatchNext(UUID actor, UUID id) {
+    public NoticeDispatchResponse dispatchNext(UUID actor, UUID id) {
         requireAdmin(actor);
-        Campaign campaign = lockCampaign(id);
-        if (!"QUEUED".equals(campaign.status())) return new Dispatch(campaign.status(), 0);
-        if (!dispatchEnabled || !mail.ready()) return new Dispatch("BLOCKED_TRANSPORT", 0);
+        NoticeCampaignResponse campaign = lockCampaign(id);
+        if (!"QUEUED".equals(campaign.status())) return new NoticeDispatchResponse(campaign.status(), 0);
+        if (!dispatchEnabled || !mail.ready()) return new NoticeDispatchResponse("BLOCKED_TRANSPORT", 0);
         List<Delivery> rows =
                 jdbc.query(
                         """
@@ -394,7 +367,7 @@ public class NoticeService {
                         Timestamp.from(clock.instant()));
         if (rows.isEmpty()) {
             finishIfTerminal(id);
-            return new Dispatch("IDLE", 0);
+            return new NoticeDispatchResponse("IDLE", 0);
         }
         Delivery delivery = rows.getFirst();
         List<UUID> eligible =
@@ -413,7 +386,7 @@ public class NoticeService {
                     delivery.id());
             audit(actor, campaign.noticeId(), id, "DELIVERY_SUPPRESSED", campaign.contentHash());
             finishIfTerminal(id);
-            return new Dispatch("SUPPRESSED", 1);
+            return new NoticeDispatchResponse("SUPPRESSED", 1);
         }
         OperationalMailTransport.Result result =
                 deliver(
@@ -443,7 +416,7 @@ public class NoticeService {
                 delivery.id());
         audit(actor, campaign.noticeId(), id, "DELIVERY_" + result.name(), campaign.contentHash());
         finishIfTerminal(id);
-        return new Dispatch(state, 1);
+        return new NoticeDispatchResponse(state, 1);
     }
 
     private OperationalMailTransport.Result deliver(
@@ -466,8 +439,8 @@ public class NoticeService {
                 id);
     }
 
-    private Notice notice(UUID id, boolean lock) {
-        List<Notice> rows =
+    private NoticeResponse notice(UUID id, boolean lock) {
+        List<NoticeResponse> rows =
                 jdbc.query(
                         "SELECT * FROM app.service_notice WHERE id=?" + (lock ? " FOR UPDATE" : ""),
                         NOTICE,
@@ -476,7 +449,7 @@ public class NoticeService {
         return rows.getFirst();
     }
 
-    private Campaign lockCampaign(UUID id) {
+    private NoticeCampaignResponse lockCampaign(UUID id) {
         List<UUID> rows =
                 jdbc.query(
                         "SELECT id FROM app.notice_campaign WHERE id=? FOR UPDATE",
@@ -486,7 +459,7 @@ public class NoticeService {
         return campaign(id);
     }
 
-    private Campaign campaign(UUID id) {
+    private NoticeCampaignResponse campaign(UUID id) {
         Map<String, Integer> counts = new LinkedHashMap<>();
         jdbc.query(
                 "SELECT status,COUNT(*) AS total FROM app.notice_delivery WHERE campaign_id=? GROUP BY status ORDER BY status",
@@ -496,7 +469,7 @@ public class NoticeService {
         return jdbc.queryForObject(
                 "SELECT * FROM app.notice_campaign WHERE id=?",
                 (row, n) ->
-                        new Campaign(
+                        new NoticeCampaignResponse(
                                 id,
                                 row.getObject("notice_id", UUID.class),
                                 row.getString("snapshot_title"),

@@ -1,6 +1,6 @@
 package com.freelanceops.backend.domain.internaltool.controller;
 
-import com.freelanceops.backend.domain.agentrun.client.PixelPetGenerationClient;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PixelPetGenerationResult;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView.AgentRunUsage;
 import com.freelanceops.backend.domain.agentrun.service.PixelPetGenerationService;
 import com.freelanceops.backend.domain.internaltool.security.DelegationPrincipal;
@@ -32,7 +32,7 @@ public class InternalPetUsageController {
     @PostMapping("/{id}/complete")
     public ResponseEntity<Void> complete(
             @PathVariable UUID id,
-            @RequestBody PixelPetGenerationClient.Output output,
+            @RequestBody PixelPetGenerationResult output,
             @RequestAttribute("internalToolDelegationPrincipal") DelegationPrincipal principal) {
         generation.complete(id, output, context(principal));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).build();

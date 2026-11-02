@@ -1,5 +1,7 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
+import com.freelanceops.backend.domain.agentrun.dto.request.GeneratePixelPetRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.PixelPetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.service.PixelPetGenerationService;
 
 import jakarta.validation.Valid;
@@ -21,17 +23,17 @@ public class PixelPetGenerationController {
     }
 
     @PostMapping
-    public ResponseEntity<PixelPetGenerationService.Generation> generate(
+    public ResponseEntity<PixelPetGenerationResponse> generate(
             @PathVariable UUID workspaceId,
             Authentication auth,
-            @Valid @RequestBody PixelPetGenerationService.Generate request) {
+            @Valid @RequestBody GeneratePixelPetRequest request) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(generation.generate(UUID.fromString(auth.getName()), workspaceId, request));
     }
 
     @GetMapping("/{generationId}")
-    public ResponseEntity<PixelPetGenerationService.Generation> get(
+    public ResponseEntity<PixelPetGenerationResponse> get(
             @PathVariable UUID workspaceId, @PathVariable UUID generationId, Authentication auth) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())

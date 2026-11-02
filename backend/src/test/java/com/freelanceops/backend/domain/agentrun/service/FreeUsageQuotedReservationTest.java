@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.CreditQuote;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageModelRateResponse;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -29,16 +31,16 @@ class FreeUsageQuotedReservationTest {
     void setup() {
         when(jdbc.queryForObject(
                         contains("weekly_credit_settings"),
-                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageService.Settings>>any()))
-                .thenReturn(new FreeUsageService.Settings(100, 100000, 4, version, null));
+                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageSettingsResponse>>any()))
+                .thenReturn(new FreeUsageSettingsResponse(100, 100000, 4, version, null));
         when(jdbc.query(
                         contains("weekly_credit_model_rate"),
-                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageService.ModelRate>>any()))
+                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageModelRateResponse>>any()))
                 .thenReturn(
                         List.of(
-                                new FreeUsageService.ModelRate(
+                                new FreeUsageModelRateResponse(
                                         Provider.OPENAI, "gpt-5.6-luna", 10, true),
-                                new FreeUsageService.ModelRate(
+                                new FreeUsageModelRateResponse(
                                         Provider.OPENAI, "gpt-5.6-terra", 100, true)));
         when(jdbc.queryForObject(anyString(), eq(Boolean.class), any())).thenReturn(true);
         when(jdbc.queryForObject("SELECT clock_timestamp()", Timestamp.class))
@@ -98,10 +100,10 @@ class FreeUsageQuotedReservationTest {
     void unavailableAndUnregisteredModelsHaveNoFallbackPrice() {
         when(jdbc.query(
                         contains("weekly_credit_model_rate"),
-                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageService.ModelRate>>any()))
+                        org.mockito.ArgumentMatchers.<RowMapper<FreeUsageModelRateResponse>>any()))
                 .thenReturn(
                         List.of(
-                                new FreeUsageService.ModelRate(
+                                new FreeUsageModelRateResponse(
                                         Provider.OPENAI, "gpt-5.6-luna", 10, false)));
         for (String model : List.of("gpt-5.6-luna", "gpt-5.6-terra", "gpt-unknown")) {
             assertThatThrownBy(

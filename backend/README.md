@@ -35,6 +35,30 @@ com.freelanceops.backend
 업무 규칙은 `policy`처럼 도메인 특화 패키지로 확장할 수 있다. 세부 결정은
 [`ADR-0017`](../docs/adr/0017-domain-first-spring-packaging.md)을 따른다.
 
+독립적인 HTTP 요청·응답은 `dto/request`, `dto/response`의 최상위 파일에 둔다.
+Controller나 Service 안에 API 계약을 선언하지 않는다. 오류 응답과 내부 Tool API도 같은
+기준을 따른다. 입출력에 함께 쓰이는 기존 공통 payload는 `dto`, 외부 Agent의 통신 계약은
+`client/dto`에 둘 수 있고, 단일 DTO의 종속 구성요소는 그 DTO 안에 유지한다.
+서비스 내부 계산 결과·인증 principal·비공개 저장용 레코드는 API DTO 이동 대상이 아니다.
+파일 이동 전의 OpenAPI 스키마 이름은 `@Schema`로 유지한다. 관리자 목록용 `Page<T>`는
+기존 `PageMember`·`PageLogin`·`PageAudit` 참조를 유지하기 위해 실제 타입 이름도 보존한다.
+기존 동명 스키마를 구분하는 API 문서 개선은 이 패키지 정리와 별도로 다룬다.
+
+`ArchitectureTest`는 공개 `Request`/`Response`의 패키지를 검사하고,
+`HttpDtoStructureTest`는 실제 `@RequestBody`, endpoint 및 예외 처리 응답에서 사용하는
+정적 타입을 검사한다. Controller·ControllerAdvice 어노테이션으로 대상을 수집하고,
+제네릭 컨테이너와 DTO 구성요소까지 추적한다. 기존 운영 정보 응답인 `ServiceMetadata`와
+JDK·프레임워크 타입, 도메인 enum은 허용한다. `Object`·동적 Map·SSE가 실제로 전송하는
+런타임 객체는 이 정적 검사의 범위에 포함하지 않는다.
+
+`entity`와 `model`은 API·외부 연동 `dto`에 의존하지 않는다. 실행 한도는 `AgentRunBudget`,
+사용량 갱신 입력은 `AgentRunUsageSnapshot`, `provider_calls` JSONB의 원소는
+`ProviderCallUsageSnapshot`으로 보존하고 DTO와의 변환은 엔티티 바깥에서 수행한다.
+기존 컬럼과 JSON 키·enum 값·금액 정밀도는 유지한다. 과거 실행 한도를 읽거나 복사할 때
+현재 HTTP 요청의 상한을 적용하지 않는다. JSONB 호환성은 과거 형식 fixture와 Hibernate의
+Jackson 2·3 매퍼로 양방향 검증하며, PostgreSQL 검사에서는 기존 DTO 형식 JSON을 직접
+저장한 뒤 새 엔티티 매핑으로 다시 읽는다.
+
 ## 서비스별 책임
 
 | 영역 | 서비스 | 책임 |

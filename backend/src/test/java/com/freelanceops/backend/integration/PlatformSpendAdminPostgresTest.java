@@ -1,6 +1,14 @@
 package com.freelanceops.backend.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+
 import com.freelanceops.backend.domain.agentrun.client.dto.request.InternalAgentRunRequest.PlatformBudget;
+import com.freelanceops.backend.domain.agentrun.dto.request.ByokExecutionAttemptRequest;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.RunBudget;
 import com.freelanceops.backend.domain.agentrun.dto.response.AgentRunView;
@@ -20,6 +28,7 @@ import com.freelanceops.backend.domain.agentrun.service.PlatformSpendTariff;
 import com.freelanceops.backend.domain.agentrun.service.PlatformSpendUnavailableException;
 import com.freelanceops.backend.domain.agentrun.service.PlatformUsageService;
 import com.freelanceops.backend.domain.identity.service.AdminMemberService;
+
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +52,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
@@ -58,13 +68,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 /** Real monetary admission and authorization in a disposable PostgreSQL container.
  * All accounts, workspaces and credentials are synthetic. No provider or agent HTTP calls. */
@@ -529,8 +532,19 @@ class PlatformSpendAdminPostgresTest {
         jdbc.update("INSERT INTO app.ai_connection(id,workspace_id,user_id,provider,model,ciphertext,masked_key) VALUES (?,?,?,'OPENAI',?,'synthetic-never-decrypted','test')",
             credential, workspace, user, MODEL);
         var budget = new RunBudget(180, 2, 12, 20000, 1000, 4, 2, 0, 1, 3);
-        var run = new AgentRunEntity(UUID.randomUUID(), workspace, project, UUID.randomUUID(), user, Provider.OPENAI,
-            MODEL, ReasoningEffort.LOW, budget, AgentRunStatus.RUNNING, Instant.now());
+        var run =
+                new AgentRunEntity(
+                        UUID.randomUUID(),
+                        workspace,
+                        project,
+                        UUID.randomUUID(),
+                        user,
+                        Provider.OPENAI,
+                        MODEL,
+                        ReasoningEffort.LOW,
+                        budget.toModel(),
+                        AgentRunStatus.RUNNING,
+                        Instant.now());
         run.useCredential(credential);
         var scope = tx.execute(transaction -> {
             var issued = byok.issue(run.id(), user, workspace, project,
@@ -539,7 +553,7 @@ class PlatformSpendAdminPostgresTest {
             return issued;
         });
         UUID call = UUID.randomUUID();
-        var admission = byok.admit(scope.scopeId(), new ByokExecutionService.Attempt(call, credential, Provider.OPENAI,
+        var admission = byok.admit(scope.scopeId(), new ByokExecutionAttemptRequest(call, credential, Provider.OPENAI,
             MODEL, ReasoningEffort.LOW, "BYOK", "default", "department_work_product", 10000, 500),
             new ByokExecutionService.ExecutionPrincipal(run.id(), workspace, project, user, Set.of("agent.run", "project.read")));
         assertThat(admission.admitted()).isTrue();

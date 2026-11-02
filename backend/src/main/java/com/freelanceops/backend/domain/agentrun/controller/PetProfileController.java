@@ -1,8 +1,8 @@
 package com.freelanceops.backend.domain.agentrun.controller;
 
-import com.freelanceops.backend.domain.agentrun.client.PetGenerationClient;
+import com.freelanceops.backend.domain.agentrun.client.dto.response.PetGenerationResponse;
 import com.freelanceops.backend.domain.agentrun.dto.PetProfile;
-import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest.ModelSelection;
+import com.freelanceops.backend.domain.agentrun.dto.request.GeneratePetRequest;
 import com.freelanceops.backend.domain.agentrun.service.PetGenerationService;
 import com.freelanceops.backend.domain.agentrun.service.PetProfileService;
 
@@ -26,11 +26,6 @@ public class PetProfileController {
         this.generation = generation;
     }
 
-    public record Generate(
-            @NotNull @Valid ModelSelection modelSelection,
-            @NotBlank @Size(max = 500) String description,
-            @NotNull @Pattern(regexp = "LEAN|RECOMMENDED|EXPANDED") String slot) {}
-
     @GetMapping("/pets")
     public ResponseEntity<List<PetProfile>> list(
             @PathVariable UUID workspaceId, Authentication auth) {
@@ -50,11 +45,11 @@ public class PetProfileController {
     }
 
     @PostMapping("/projects/{projectId}/pet-generations")
-    public ResponseEntity<PetGenerationClient.Output> generate(
+    public ResponseEntity<PetGenerationResponse> generate(
             @PathVariable UUID workspaceId,
             @PathVariable UUID projectId,
             Authentication auth,
-            @Valid @RequestBody Generate input) {
+            @Valid @RequestBody GeneratePetRequest input) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(

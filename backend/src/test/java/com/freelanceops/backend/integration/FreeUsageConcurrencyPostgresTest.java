@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.freelanceops.backend.domain.agentrun.dto.request.StartAgentRunRequest;
+import com.freelanceops.backend.domain.agentrun.dto.response.FreeUsageSettingsResponse;
 import com.freelanceops.backend.domain.agentrun.dto.response.StartAgentRunResponse;
 import com.freelanceops.backend.domain.agentrun.model.AgentRunStatus;
 import com.freelanceops.backend.domain.agentrun.model.Provider;
@@ -106,7 +107,7 @@ class FreeUsageConcurrencyPostgresTest {
                                                 reserved.countDown();
                                                 await(commitAdmission);
                                             }));
-            Future<FreeUsageService.Settings> mutation;
+            Future<FreeUsageSettingsResponse> mutation;
             try {
                 assertThat(reserved.await(10, TimeUnit.SECONDS)).isTrue();
                 mutation =

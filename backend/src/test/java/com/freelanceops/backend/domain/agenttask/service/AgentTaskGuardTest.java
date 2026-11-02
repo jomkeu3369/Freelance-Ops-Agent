@@ -169,7 +169,7 @@ class AgentTaskGuardTest {
                         Provider.OPENAI,
                         "gpt-test",
                         ReasoningEffort.LOW,
-                        smallerRunBudget,
+                        smallerRunBudget.toModel(),
                         AgentRunStatus.RUNNING,
                         fixture.now);
         when(runs.findByIdAndWorkspaceId(fixture.run.id(), fixture.run.workspaceId()))
